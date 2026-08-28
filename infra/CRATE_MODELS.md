@@ -49,7 +49,8 @@ Forme: PRIMAIRE / POSSEDÉ / DÉLÉGUÉ / INTERDIT.
         noyer dans protocol.
 
 --- cynic-host (host substrate + runtime authority) ---
-  PRIMAIRE: observation host (disk/mem/cpu/net per AGENTS.md §125),
+  PRIMAIRE: observation host (disk/mem/cpu/net via les types et ports
+            canoniques de cynic-protocol/cynic-host),
             bootstrap, lifecycle, forgejo, build runner, fleet health.
   POSSEDÉ: storage_* OBSERVATION (capabilities/census/identity),
            registry, update_lifecycle, runtime authority.
@@ -157,8 +158,9 @@ CRATE_OWNERSHIP.md §6 — les 3 audits sont DÉJÀ codés).
   règle est: pas de DEUXIÈME PRIMAIRE non reliée.
 - ecosystem_package(host) et network_*(node) sont des cas limites à
   trancher (voir CRATE_MAP.md §2/§4) — pas encore décidés ici.
-- Ce doc est cité par AGENTS.md "Crate ownership & extraction"; il est
-  donc autorité, pas prose périssable.
+- Ce document projette `contracts/framework.json` et
+  `contracts/foundation.json`; cette filiation, pas une citation depuis un
+  fichier d'instructions agent, fonde son statut canonique.
 
 ================================================================
 RÉFÉRENCES
@@ -168,5 +170,5 @@ RÉFÉRENCES
 - contracts/foundation.json §481 one_boundary_one_reason
 - infra/CRATE_OWNERSHIP.md  spec extraction + slice A (doublon organ)
 - infra/CRATE_MAP.md        cartographie LOC mesurée
-- AGENTS.md §125 canonical ownership per family
+- crates/cynic-protocol + crates/cynic-host  types, ports et adapters host
 - crates/cynic-cli/src/kernel_boundary_audit.rs  KERNEL_AREAS (coded)

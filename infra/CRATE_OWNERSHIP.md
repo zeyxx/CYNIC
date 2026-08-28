@@ -219,8 +219,8 @@ ne bloque pas sur la taille totale du crate. Voir §9 residual.
 7. PLAN D'EXTRACTION INCREMENTAL (bottom-up)
 ================================================================
 
-Pas de grand rewrite. Une responsabilite par slice, comme AGENTS.md
-l'exige (un commit par slice coherent, par crate cible).
+Pas de grand rewrite. Une responsabilite par slice, conformément à
+`contracts/framework.json` §481 (un commit cohérent par crate cible).
 
   Etape 1 (facile, haut ROI): organ/inference kernel -> cynic-inference.
            Deja le crate cible existe. Porte le code, garde tests.
@@ -264,9 +264,9 @@ Une fois surface-registry.json rempli, `cynic dev agent-exposure
   taille totale du crate — voir §6 action restante.)
 - Certains domaines (senses/hermes_x, wisdom) n'ont pas de crate cible
   evident — a creer ou a fusionner dans askesis.
-- Ce doc EST cite par AGENTS.md (section "Crate ownership & extraction")
-  depuis 2026-08-25 — il est donc autorite, pas doc perimee. Maintenir
-  la synchro avec KERNEL_AREAS (kernel_boundary_audit.rs) apres chaque
+- Ce document transpose `contracts/foundation.json` et
+  `contracts/framework.json`; cette filiation fonde son autorité. Maintenir
+  la synchro avec KERNEL_AREAS (kernel_boundary_audit.rs) après chaque
   extraction.
 
 ================================================================
@@ -283,4 +283,4 @@ REFERENCES (code live)
 - crates/cynic-cli/src/kernel_boundary_audit.rs   KERNEL_AREAS (coded spec)
 - crates/cynic-cli/src/ownership_audit.rs        11 ownership surfaces
 - crates/cynic-cli/src/crate_audit.rs             per-crate LOC gate
-- AGENTS.md "Crate ownership & extraction"  cite ce doc comme spec canonique
+- contracts/framework.json §481/§489               lois sources

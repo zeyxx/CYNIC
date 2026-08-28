@@ -1,0 +1,142 @@
+{
+  "schema": "cynic.inference.quality_dataset.v1",
+  "dataset_id": "cynic-universal-and-solana-quality-v1",
+  "description": "Dual-track benchmark dataset: universal industry baselines (HumanEval, MATH-500, BFCL) + CYNIC hexagonal & Solana on-chain analytics (TrenchScanner, CultScreener).",
+  "tasks": [
+    {
+      "id": "univ_code_01_lru_cache",
+      "track": "universal_baseline",
+      "category": "coding",
+      "name": "LRU Cache Implementation in Rust",
+      "prompt": "Implement a generic `LruCache<K: Hash + Eq + Clone, V: Clone>` in Rust with `new(capacity: usize)`, `get(&mut self, key: &K) -> Option<V>`, and `put(&mut self, key: K, value: V)`. Ensure O(1) average lookup using std::collections::HashMap and a doubly linked list or indices.",
+      "validation": {
+        "type": "rust_compile_and_test",
+        "expected_keywords": ["HashMap", "capacity", "put", "get"]
+      }
+    },
+    {
+      "id": "univ_code_02_topo_sort",
+      "track": "universal_baseline",
+      "category": "coding",
+      "name": "Topological Sort with Cycle Detection",
+      "prompt": "Write a Python function `topological_sort(num_nodes: int, edges: list[tuple[int, int]]) -> list[int]` that returns a valid topological ordering of a DAG. If a cycle is detected, return an empty list `[]`. Use Kahn's algorithm with in-degrees.",
+      "validation": {
+        "type": "python_unit_test",
+        "expected_keywords": ["in_degree", "deque", "append"]
+      }
+    },
+    {
+      "id": "univ_math_01_modular_arithmetic",
+      "track": "universal_baseline",
+      "category": "math_reasoning",
+      "name": "Modular Inverse and CRT",
+      "prompt": "Find the smallest positive integer $x$ such that $x \\equiv 2 \\pmod 3$, $x \\equiv 3 \\pmod 5$, and $x \\equiv 2 \\pmod 7$. Show the step-by-step Chinese Remainder Theorem calculation and state the final integer.",
+      "validation": {
+        "type": "exact_answer",
+        "expected_substring": "23"
+      }
+    },
+    {
+      "id": "univ_math_02_combinatorics",
+      "track": "universal_baseline",
+      "category": "math_reasoning",
+      "name": "Stars and Bars Problem",
+      "prompt": "In how many ways can 12 identical tokens be distributed among 4 distinct agents such that each agent receives at least 1 token? Explain the stars-and-bars reasoning and give the final number.",
+      "validation": {
+        "type": "exact_answer",
+        "expected_substring": "165"
+      }
+    },
+    {
+      "id": "univ_tool_01_weather_call",
+      "track": "universal_baseline",
+      "category": "tool_calling",
+      "name": "Single Tool Call Extraction (BFCL)",
+      "prompt": "You have access to the tool `get_token_price(symbol: str, currency: str = 'USD') -> float`. The user asks: 'What is the current price of SOL in EUR?'. Emit the JSON tool call.",
+      "validation": {
+        "type": "json_schema",
+        "expected_json": {
+          "name": "get_token_price",
+          "arguments": {"symbol": "SOL", "currency": "EUR"}
+        }
+      }
+    },
+    {
+      "id": "univ_tool_02_multi_tool",
+      "track": "universal_baseline",
+      "category": "tool_calling",
+      "name": "Parallel Multi-Tool Calling",
+      "prompt": "You have the tool `check_address_balance(address: str) -> dict`. Check the balance of both 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' and 'So11111111111111111111111111111111111111112'. Emit an array of tool calls in valid JSON.",
+      "validation": {
+        "type": "json_schema",
+        "expected_keywords": ["check_address_balance", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "So11111111111111111111111111111111111111112"]
+      }
+    },
+    {
+      "id": "domain_cynic_01_hexagonal_port",
+      "track": "cynic_solana_domain",
+      "category": "cynic_architecture",
+      "name": "CYNIC Pure Storage Port Definition",
+      "prompt": "In CYNIC hexagonal architecture, write the pure Rust trait `InferenceStoragePort` in `cynic-inference::ports`. It must provide async methods `save_benchmark_point(&self, point: &GeometricMatrixPoint) -> Result<String, StorageError>` and `load_recent_points(&self, limit: usize) -> Result<Vec<GeometricMatrixPoint>, StorageError>`. It must NOT import concrete databases (no SurrealDB/SQLite).",
+      "validation": {
+        "type": "rust_trait_check",
+        "expected_keywords": ["trait InferenceStoragePort", "save_benchmark_point", "load_recent_points", "Result"]
+      }
+    },
+    {
+      "id": "domain_cynic_02_memory_budget",
+      "track": "cynic_solana_domain",
+      "category": "cynic_architecture",
+      "name": "Memory Budget Invariant Verification",
+      "prompt": "Write a pure Rust function `fn can_admit_model(weights_bytes: u64, kv_cache_bytes: u64, available_ram: u64) -> bool` enforcing the CYNIC safety headroom rule (base allocations + 20% safety margin <= available_ram). Ensure no integer overflow using checked arithmetic.",
+      "validation": {
+        "type": "rust_logic_check",
+        "expected_keywords": ["checked_add", "0.20", "saturating_add"]
+      }
+    },
+    {
+      "id": "domain_trench_01_rug_risk_lp",
+      "track": "cynic_solana_domain",
+      "category": "trench_scanner_rug",
+      "name": "TrenchScanner: Liquidity Pool Burn & Lock Heuristic",
+      "prompt": "Given a Solana token analysis with: `mint_authority_revoked: true`, `freeze_authority_revoked: false`, `lp_burned_pct: 0.0`, `lp_locked_months: 0`, `top_10_holders_pct: 78.5%`. Analyze the rug risk using TrenchScanner heuristics. List all detected red flags and output a risk score between 0.0 (safe) and 1.0 (critical rug risk).",
+      "validation": {
+        "type": "security_audit",
+        "expected_keywords": ["freeze authority active", "unlocked LP", "high holder concentration", "risk score"]
+      }
+    },
+    {
+      "id": "domain_trench_02_herfindahl_concentration",
+      "track": "cynic_solana_domain",
+      "category": "trench_scanner_rug",
+      "name": "TrenchScanner: Herfindahl-Hirschman Index (HHI) Calculation",
+      "prompt": "Calculate the Herfindahl-Hirschman Index for a Solana token whose top 5 holders own [30%, 20%, 15%, 10%, 5%] of the supply, with the remaining 20% distributed equally among 100 small holders (0.2% each). Show the formula $HHI = \\sum s_i^2$ and state whether this indicates dangerous cabal concentration (> 0.15).",
+      "validation": {
+        "type": "exact_calculation",
+        "expected_keywords": ["HHI", "0.15", "concentration", "cabal"]
+      }
+    },
+    {
+      "id": "domain_cult_01_social_momentum",
+      "track": "cynic_solana_domain",
+      "category": "cult_screener_signals",
+      "name": "CultScreener: Community Cult Score & Velocity",
+      "prompt": "A token has: 24h volume = $2.4M, Liquidity = $350k (Ratio Vol/Liq = 6.85), Telegram message rate = 45 msg/min with unique sender ratio = 82%, Twitter mentions increasing +340% over 6h. Calculate the Cult Momentum Score and classify if this is a genuine community breakout vs a bot wash-trading loop.",
+      "validation": {
+        "type": "market_heuristics",
+        "expected_keywords": ["Vol/Liq ratio", "unique sender ratio", "breakout", "momentum"]
+      }
+    },
+    {
+      "id": "domain_solana_01_raydium_swap_parser",
+      "track": "cynic_solana_domain",
+      "category": "solana_transactions",
+      "name": "Solana Raydium Swap Transaction Log Parsing",
+      "prompt": "Write a Python or Rust parser for Raydium AMM swap instruction logs: extract `amount_in`, `min_amount_out`, and compute the effective execution price and slippage percentage given input `10.0 SOL` and output `1,450.0 USDC` with SOL pool price `$150.00`.",
+      "validation": {
+        "type": "transaction_parser",
+        "expected_keywords": ["slippage", "amount_in", "amount_out", "price_impact"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "adversarial_immune",
+  "layer": "governance",
+  "owner_crate": "cynic-askesis",
+  "desired_state": {
+    "schema": "cynic.adversarial_immune.desired_state.v1",
+    "responsibility": "Red-teaming continu et mutation adversariale des guardrails. Génération automatique de scénarios hostiles pour tester la robustesse du confinement. Auto-réparation après détection d'une faille.",
+    "anti_responsabilités": [
+      "considérer les guardrails comme statiques et définitifs",
+      "ignorer les nouveaux vecteurs d'attaque",
+      "masquer les échecs de confinement",
+      "red-teamer sans autorisation explicite"
+    ],
+    "canonical_entrypoints": [
+      "cynic immune red-team --scope <vertical>",
+      "cynic immune mutate --target <guardrail>",
+      "cynic immune status"
+    ]
+  },
+  "code_contract": {
+    "types": ["AdversarialScenario", "ImmuneResponse", "MutationReport"],
+    "required_fields": ["schema", "desired_state", "anti_responsabilités", "canonical_entrypoints"],
+    "modules": ["cynic-askesis/src/adversarial_immune/"]
+  },
+  "observe": {
+    "port": "ImmuneObservationPort",
+    "adapter": "cynic-askesis/src/adversarial_immune/",
+    "reports": ["RedTeamReport", "MutationEffectivenessReport"]
+  },
+  "reconcile": "pure decision from desired_state.robustness_thresholds vs observed red-team results; trigger guardrail mutation when threshold breached",
+  "bounded_action": {
+    "argv": "cynic immune mutate --target <guardrail>",
+    "mutates": true,
+    "authority": "immune:mutate",
+    "rollback_intent": ["revert to previous guardrail version"]
+  },
+  "read_back_proof": {
+    "scenario_executed": true,
+    "guardrail_breached": true,
+    "mutation_applied": true,
+    "observed_at_unix_ms": true
+  }
+}

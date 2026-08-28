@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "data_provenance",
+  "layer": "transversal",
+  "owner_crate": "cynic-protocol",
+  "desired_state": {
+    "schema": "cynic.data_provenance.desired_state.v1",
+    "responsibility": "Traçabilité cryptographique de toute donnée injectée dans les modèles (GGUF, RAG, contextes, datasets). Chaque donnée porte un manifeste de provenance signé (source, digest, licence, timestamp).",
+    "anti_responsabilités": [
+      "injecter des données sans manifeste de provenance",
+      "empoisonner silencieusement les embeddings ou contextes RAG",
+      "cacher l'origine d'un dataset",
+      "ignorer les licences d'usage"
+    ],
+    "canonical_entrypoints": [
+      "cynic provenance register <path>",
+      "cynic provenance verify <digest>",
+      "cynic provenance audit"
+    ]
+  },
+  "code_contract": {
+    "types": ["DataProvenanceManifest", "DatasetAttestation", "EmbeddingLineage"],
+    "required_fields": ["schema", "desired_state", "anti_responsabilités", "canonical_entrypoints"],
+    "modules": ["cynic-protocol/src/data_provenance.rs"]
+  },
+  "observe": {
+    "port": "DataProvenanceObservationPort",
+    "adapter": "cynic-host/src/data_provenance/",
+    "reports": ["ProvenanceAuditReport"]
+  },
+  "reconcile": "pure decision from desired_state.provenance vs observed ProvenanceAuditReport; reject any data without valid manifest or with broken lineage",
+  "bounded_action": {
+    "argv": "cynic provenance register <path>",
+    "mutates": true,
+    "authority": "data_provenance:register",
+    "rollback_intent": ["revoke manifest", "quarantine dataset"]
+  },
+  "read_back_proof": {
+    "manifest_sha256": "sha3-512 of the provenance manifest",
+    "dataset_sha256": "sha3-512 of the dataset",
+    "observed_at_unix_ms": true,
+    "license_verified": true
+  }
+}

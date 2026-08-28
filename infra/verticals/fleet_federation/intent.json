@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "fleet_federation",
+  "layer": "core",
+  "owner_crate": "cynic-node",
+  "desired_state": {
+    "schema": "cynic.fleet_federation.desired_state.v1",
+    "responsibility": "Fédération multi-cluster zero-trust. Quand CYNIC dépasse le stade d'une seule machine, la frontière inter-nœud est traitée comme hostile. Chaque nœud vérifie cryptographiquement les preuves de ses pairs.",
+    "anti_responsabilités": [
+      "faire confiance à un nœud distant sans preuve",
+      "transmettre des secrets entre clusters",
+      "ignorer la révocation d'un pair",
+      "permettre la corruption d'un nœud de coordination"
+    ],
+    "canonical_entrypoints": [
+      "cynic federate join --proof <path>",
+      "cynic federate verify --peer <id>",
+      "cynic federate revoke --peer <id>"
+    ]
+  },
+  "code_contract": {
+    "types": ["FederationProof", "PeerAttestation", "RevocationCertificate"],
+    "required_fields": ["schema", "desired_state", "anti_responsabilités", "canonical_entrypoints"],
+    "modules": ["cynic-node/src/fleet_federation/"]
+  },
+  "observe": {
+    "port": "FederationObservationPort",
+    "adapter": "cynic-node/src/fleet_federation/",
+    "reports": ["PeerHealthReport", "FederationTopologyReport"]
+  },
+  "reconcile": "pure decision from desired_state.trust_thresholds vs observed peer proofs; revoke peer when proof invalid or expired",
+  "bounded_action": {
+    "argv": "cynic federate revoke --peer <id>",
+    "mutates": true,
+    "authority": "federation:revoke",
+    "rollback_intent": ["re-admit peer with new proof"]
+  },
+  "read_back_proof": {
+    "peer_id": true,
+    "proof_valid": true,
+    "revocation_confirmed": true,
+    "observed_at_unix_ms": true
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "storage_metabolism",
+  "layer": "substrate",
+  "owner_crate": "cynic-host",
+  "desired_state": {
+    "schema": "cynic.storage_metabolism.desired_state.v1",
+    "responsibility": "Gestion déterministe du cycle de vie des ressources finies (RAM, NVMe, KV-cache). Élagage, éviction, et garbage-collection avant saturation. Anti-context-bloat.",
+    "anti_responsabilités": [
+      "saturer la mémoire vive par accumulation incontrôlée",
+      "ignorer les signaux de pression mémoire",
+      "laisser les KV-caches morts persister",
+      "empêcher l'éviction de ressources critiques"
+    ],
+    "canonical_entrypoints": [
+      "cynic storage pressure",
+      "cynic storage evict --target <resource>",
+      "cynic storage gc"
+    ]
+  },
+  "code_contract": {
+    "types": ["ResourcePressure", "EvictionPolicy", "GcStrategy"],
+    "required_fields": ["schema", "desired_state", "anti_responsabilités", "canonical_entrypoints"],
+    "modules": ["cynic-host/src/storage_metabolism/"]
+  },
+  "observe": {
+    "port": "StoragePressurePort",
+    "adapter": "cynic-host/src/storage_metabolism/",
+    "reports": ["MemoryPressureReport", "DiskPressureReport"]
+  },
+  "reconcile": "pure decision from desired_state.pressure_thresholds vs observed pressure; trigger eviction when pressure exceeds threshold",
+  "bounded_action": {
+    "argv": "cynic storage evict --target <resource>",
+    "mutates": true,
+    "authority": "storage:evict",
+    "rollback_intent": ["restore from checkpoint if critical"]
+  },
+  "read_back_proof": {
+    "pressure_before_bytes": true,
+    "pressure_after_bytes": true,
+    "evicted_bytes": true,
+    "observed_at_unix_ms": true
+  }
+}

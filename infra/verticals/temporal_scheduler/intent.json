@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.vertical_intent.v1",
+  "vertical": "temporal_scheduler",
+  "layer": "core",
+  "owner_crate": "cynic-kernel",
+  "desired_state": {
+    "schema": "cynic.temporal_scheduler.desired_state.v1",
+    "responsibility": "Ordonnancement préemptif des tranches de calcul (GPU/APU). Aucun agent ne peut monopoliser les ressources. Time-slicing strict avec priorités hiérarchiques (surveillance > settlement > inference > batch).",
+    "anti_responsabilités": [
+      "monopoliser le GPU/APU sans préemption",
+      "ignorer les priorités temporelles",
+      "bloquer les tâches de surveillance ou settlement",
+      "permettre le starvation des agents prioritaires"
+    ],
+    "canonical_entrypoints": [
+      "cynic schedule slot --agent <id> --duration-ms <n>",
+      "cynic schedule preempt --target <id>",
+      "cynic schedule status"
+    ]
+  },
+  "code_contract": {
+    "types": ["TimeSlot", "PreemptionPolicy", "SchedulingPriority"],
+    "required_fields": ["schema", "desired_state", "anti_responsabilités", "canonical_entrypoints"],
+    "modules": ["cynic-kernel/src/temporal_scheduler/"]
+  },
+  "observe": {
+    "port": "SchedulerObservationPort",
+    "adapter": "cynic-kernel/src/temporal_scheduler/",
+    "reports": ["SlotAllocationReport", "PreemptionEventLog"]
+  },
+  "reconcile": "pure decision from desired_state.priorities vs observed slot allocation; preempt lower priority when higher priority demands",
+  "bounded_action": {
+    "argv": "cynic schedule preempt --target <id>",
+    "mutates": true,
+    "authority": "scheduler:preempt",
+    "rollback_intent": ["resume preempted agent with checkpoint"]
+  },
+  "read_back_proof": {
+    "slot_granted": true,
+    "slot_revoked": true,
+    "priority_at_preemption": true,
+    "observed_at_unix_ms": true
+  }
+}

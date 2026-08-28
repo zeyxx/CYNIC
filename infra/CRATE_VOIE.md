@@ -102,7 +102,7 @@ SLICE 6 — CRATES ÉMERGENTES (matérialiser les frontières implicites)
     F2). Séparer permet réplication HA sans toucher kernel.
   - cynic-pkg: CRATE, RENOMMÉ PROPREMENT (pas le split cynic-ecosystem/
     cynic-tooling débile). Scope = integration écosystème + tooling
-    authority + install provenance (AGENTS.md §4). Le module
+    authority + install provenance (`infra/surface-registry.json`). Le module
     ecosystem_package (4573 LOC) est 3 responsabilités mélangées →
     une seule crate propre porte ces modules.
   - cynic-intel: ÉLARGISSEMENT (pas nouvelle crate). intel = INTELLIGENCE
@@ -130,7 +130,7 @@ GARDES-FOU (ne pas régression)
   - `cynic dev ownership-audit --json` (migration_targets résolus)
   - `cynic dev crate-audit --json` (hotspots跟踪)
   - tests unitaires de la zone touchée verts
-  - commit isolé par slice (AGENTS.md git isolation)
+  - commit isolé par slice (protocole Git de `AGENTS.md`)
 
 ENV BLOCKANT: rustc 1.96 SIGSEGV sur libc/syn sur cette VM. Toute
 exécution (cargo check/test) doit aller sur builder souverain
@@ -148,7 +148,8 @@ Les crates émergentes (§5) se matérialisent APRÈS, une fois le kernel
 désagrégé et le modèle rodé.
 
 Cette voie N'EST PAS un grand rewrite. C'est N slices de ~1 couplage,
-chacune read-back prouvée. Conforme AGENTS.md + foundation §481/§489.
+chacune read-back prouvée. Conforme à `contracts/framework.json`
+§481/§489.
 
 ================================================================
 RÉFÉRENCES
@@ -160,4 +161,4 @@ RÉFÉRENCES
 - infra/CRATE_OWNERSHIP.md  plan extraction + slice A
 - .hermes/plans/slice-a-organ-to-inference.md  plan slice 1 prêt
 - contracts/framework.json §462/§468/§481/§489
-- AGENTS.md "Crate ownership & extraction"
+- infra/surface-registry.json  ownership et provenance projetés

@@ -70,12 +70,13 @@ DONC le module est TROIS responsabilités mélangées:
 DÉCISION: une SEULE crate (pas le split cynic-ecosystem/cynic-tooling
 que j'avais proposé — débile). NOM PROPRE À CONFIRMER (operator):
   proposition: `cynic-pkg` (sa portée = integration + tooling
-  authority + install provenance, AGENTS.md §4 install authority).
+  authority + install provenance, projetés par
+  `infra/surface-registry.json` ecosystem deps/integrations).
   Le module interne `ecosystem_package` sera renommé pour matéher
   (ex: `integration`, ou le crate porte directement ces modules).
 
-POUR: AGENTS.md §4 exige une install authority explicite (canal,
-  provenance, mutateur, read-back). Aujourd'hui noyé dans host/domain
+POUR: les surfaces ecosystem deps/integrations exigent une install authority
+  explicite (canal, provenance, mutateur, read-back). Aujourd'hui noyé dans host/domain
   (4573 + 1024 voisins) sans frontière. Une crate force la modélisation.
 VERDICT: CRATE (renommé proprement, scope = integration + tooling
   authority + install provenance).
@@ -143,5 +144,5 @@ RÉFÉRENCES
 - infra/CRATE_MAP.md §2             host/domain (ecosystem_package 4573)
 - infra/CRATE_MODELS.md §1,§2       grille SoC + forme décision
 - contracts/framework.json          askesis_companion, protocol_is_pure
-- AGENTS.md §4                      install authority (pkg provenance)
+- infra/surface-registry.json       install authority (pkg provenance)
 - infra/storage-audit.json          F2 (SurrealDB SPOF)
