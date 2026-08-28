@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use cynic_protocol::digest::digest_json;
 use cynic_protocol::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryObservation, SourceWorktreeInventoryPathBasis,
@@ -56,6 +55,7 @@ pub fn observe_source_worktree_inventory(
 fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInventoryEntry> {
     let mut entries = Vec::new();
     let root_canonical = repository_root.display().to_string();
+    let mut workspace_store: Option<String> = None;
 
     let mut current_path: Option<String> = None;
     let mut current_head: Option<String> = None;
@@ -79,6 +79,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         prunable: &Option<bool>,
         prunable_reason: &Option<String>,
         root_canonical: &str,
+        workspace_store: &mut Option<String>,
     ) {
         let Some(path) = path else {
             return;
@@ -87,13 +88,25 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         let path_basis = if path == root_canonical {
             SourceWorktreeInventoryPathBasis::MainRepository
         } else {
+            if workspace_store.is_none() {
+                if let Some(parent) = std::path::Path::new(path).parent() {
+                    workspace_store.replace(parent.display().to_string());
+                }
+            }
             SourceWorktreeInventoryPathBasis::WorkspaceLayout
         };
 
         let relative_path = if path_basis == SourceWorktreeInventoryPathBasis::MainRepository {
             None
+        } else if let Some(store) = workspace_store {
+            std::path::Path::new(path)
+                .strip_prefix(store)
+                .ok()
+                .map(|p| p.display().to_string().trim_start_matches('/').to_string())
         } else {
-            Some(path.clone())
+            std::path::Path::new(path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
         };
 
         let mut unknowns: Vec<SourceWorktreeInventoryUnknown> = Vec::new();
@@ -115,18 +128,23 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         if prunable.is_none() {
             unknowns.push(SourceWorktreeInventoryUnknown::GitPrunable);
         }
+        // Principal, path_is_symlink, clean are not observable from
+        // `git worktree list --porcelain`; mark unknown.
+        unknowns.push(SourceWorktreeInventoryUnknown::Principal);
+        unknowns.push(SourceWorktreeInventoryUnknown::PathSymlink);
+        unknowns.push(SourceWorktreeInventoryUnknown::Cleanliness);
 
-        let evidence_digest = cynic_protocol::digest_json(&(
-            path,
-            head,
-            branch,
-            locked,
-            lock_reason,
-            bare,
-            detached,
-            prunable,
-            prunable_reason,
-        ))
+        let evidence_digest = cynic_protocol::digest::digest_json(&serde_json::json!({
+            "path": path,
+            "head": head,
+            "branch": branch,
+            "locked": locked,
+            "lock_reason": lock_reason,
+            "bare": bare,
+            "detached": detached,
+            "prunable": prunable,
+            "prunable_reason": prunable_reason,
+        }))
         .unwrap_or_default();
 
         entries.push(SourceWorktreeInventoryEntry {
@@ -152,6 +170,12 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         });
     }
 
+    fn sha3_512_of(value: &serde_json::Value) -> Vec<u8> {
+        use sha2::Digest;
+        let bytes = serde_json::to_vec(value).unwrap_or_default();
+        sha2::Sha256::digest(bytes).to_vec()
+    }
+
     for line in text.lines() {
         if line.starts_with("worktree ") {
             flush(
@@ -166,6 +190,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
                 &current_prunable,
                 &current_prunable_reason,
                 &root_canonical,
+                &mut workspace_store,
             );
             current_path = Some(line["worktree ".len()..].to_string());
             current_head = None;
@@ -209,6 +234,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         &current_prunable,
         &current_prunable_reason,
         &root_canonical,
+        &mut workspace_store,
     );
 
     entries
