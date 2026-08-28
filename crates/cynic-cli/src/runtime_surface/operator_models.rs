@@ -34,6 +34,9 @@ pub(crate) enum OperatorModelsCommand {
         yes: bool,
         #[arg(long)]
         no_wait: bool,
+        /// Optional OneShotCapability token (ed25519 hex) required for mutation.
+        #[arg(long)]
+        capability_token: Option<String>,
     },
     /// Stop the currently supervised local model after explicit operator consent.
     Stop {
@@ -58,7 +61,14 @@ pub(crate) fn execute_operator_models(command: OperatorModelsCommand) -> ExitCod
             json,
             yes,
             no_wait,
-        } => inference_surface::execute_inference_start(Some(&alias), json, yes, no_wait),
+            capability_token,
+        } => inference_surface::execute_inference_start(
+            Some(&alias),
+            json,
+            yes,
+            no_wait,
+            capability_token.as_deref(),
+        ),
         OperatorModelsCommand::Stop { alias, json, yes } => {
             inference_surface::execute_inference_stop(alias.as_deref(), json, yes)
         }

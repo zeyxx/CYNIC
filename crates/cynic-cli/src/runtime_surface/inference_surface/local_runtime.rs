@@ -128,12 +128,26 @@ pub(crate) fn execute_inference_start(
     json: bool,
     yes: bool,
     no_wait: bool,
+    capability_token: Option<&str>,
 ) -> ExitCode {
     if !yes {
         eprintln!(
             "refusing to start a local model without --yes; inspect first with `cynic models list --json`"
         );
         return ExitCode::FAILURE;
+    }
+    if let Some(token_hex) = capability_token {
+        if !starts_with(token_hex, "0x") && token_hex.len() != 128 {
+            eprintln!(
+                "capability token must be 128 hex characters (got {} chars)",
+                token_hex.len()
+            );
+            return ExitCode::FAILURE;
+        }
+        cynic_inference::progress::progress(
+            "capability",
+            "one-shot token presented — verification stub",
+        );
     }
     cynic_inference::progress::progress(
         "resolve",
@@ -497,6 +511,7 @@ pub(crate) fn execute_inference_forge(
                         json,
                         /* yes */ true,
                         /* no_wait */ false,
+                        /* capability_token */ None,
                     );
                 }
                 println!("  (pass --yes to apply and launch.)");

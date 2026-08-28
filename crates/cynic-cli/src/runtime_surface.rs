@@ -215,6 +215,9 @@ pub(crate) enum RuntimeCommand {
         no_wait: bool,
         #[arg(long)]
         yes: bool,
+        /// Optional OneShotCapability token (ed25519 hex) required for mutation.
+        #[arg(long)]
+        capability_token: Option<String>,
     },
     /// Stop the native local inference unit (optional alias; default = running).
     InferenceStop {

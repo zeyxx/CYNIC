@@ -16,11 +16,13 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
             json,
             yes,
             no_wait,
+            capability_token,
         } => Ok(inference_surface::execute_inference_start(
             Some(alias.as_str()),
             json,
             yes,
             no_wait,
+            capability_token.as_deref(),
         )),
         RuntimeCommand::InferenceStop { alias, json, yes } => Ok(
             inference_surface::execute_inference_stop(alias.as_deref(), json, yes),
