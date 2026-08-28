@@ -1,0 +1,14 @@
+[Unit]
+Description=CYNIC Builder SSH Session (tmux)
+After=network.target
+
+[Service]
+Type=simple
+User=cynic
+ExecStart=/usr/bin/tmux new-session -d -s cynic-builder ssh cynic-builder-build
+ExecStop=/usr/bin/tmux kill-session -s cynic-builder
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
