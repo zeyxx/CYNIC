@@ -129,6 +129,11 @@ enum Command {
     },
     /// Explain and list the advanced runtime surfaces.
     Advanced,
+    /// Builder drift detection and repair for CI/CD
+    Builder {
+        #[command(subcommand)]
+        command: crate::builder_command::BuilderCommand,
+    },
     /// Read-only Solana observation planning surfaces.
     #[command(hide = true)]
     Solana {
