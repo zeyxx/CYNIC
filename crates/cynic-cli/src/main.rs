@@ -62,6 +62,7 @@ mod schema_registry_audit;
 mod solana_surface;
 pub(crate) mod source_surface;
 mod task_surface;
+mod worktree_command;
 
 #[allow(dead_code)]
 mod autoresearch_surface;
@@ -86,6 +87,7 @@ use runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use serde::Serialize;
 use solana_surface::SolanaCommand;
 use transport_surface::TransportCommand;
+use worktree_command::WorktreeCommand;
 
 #[derive(Parser)]
 #[command(
@@ -141,6 +143,11 @@ enum Command {
     Forgejo {
         #[command(subcommand)]
         command: ForgejoCommand,
+    },
+    /// Proxmox cluster management (observe, destroy, templates)
+    Proxmox {
+        #[command(subcommand)]
+        command: crate::proxmox_command::ProxmoxCommand,
     },
     /// Read-only Solana observation planning surfaces.
     #[command(hide = true)]
@@ -277,6 +284,11 @@ enum Command {
     Build {
         #[command(subcommand)]
         command: build_surface::BuildCommand,
+    },
+    /// Worktree governance (inventory, preflight, lifecycle)
+    Worktree {
+        #[command(subcommand)]
+        command: WorktreeCommand,
     },
     /// Launch an agent harness through a cynic mask (forge profile → start).
     Mask {

@@ -13,6 +13,7 @@ mod cli_json;
 #[path = "agent_surface/mod.rs"]
 pub mod agent_surface;
 pub mod builder_command;
+pub mod proxmox_command;
 
 // Same treatment for `fleet_divergence`: without it, `cargo test --lib` cannot
 // see the module at all, so its nine scan tests never ran — which is why a real

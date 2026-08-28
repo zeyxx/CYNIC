@@ -95,9 +95,11 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
                 ExitCode::FAILURE
             }),
         Command::Builder { command } => crate::builder_command::execute_builder_command(command),
+        Command::Proxmox { command } => crate::proxmox_command::execute_proxmox(command),
         Command::Forgejo { command } => crate::forgejo_surface::execute_forgejo(command),
         Command::Source { command } => crate::source_surface::execute_source(command),
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
+        Command::Worktree { command } => crate::worktree_command::execute_worktree(command),
     }
 }
 
