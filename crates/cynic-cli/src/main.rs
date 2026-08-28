@@ -26,11 +26,12 @@ mod deps_surface_specs;
 mod deps_surface_upgrade;
 mod dev_surface;
 pub(crate) mod federation_surface;
-mod forgejo_surface;
 mod fleet_divergence;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
+mod forgejo_surface;
+mod builder_command;
 mod fs_json;
 mod host_exec_alias_surface;
 mod integrations_readonly_surface;
@@ -279,7 +280,7 @@ enum Command {
         #[command(subcommand)]
         command: build_surface::BuildCommand,
     },
-    /// Worktree governance (W1 observation, W2 admission/rétention)
+    /// Worktree governance (inventory, preflight, lifecycle)
     Worktree {
         #[command(subcommand)]
         command: WorktreeCommand,

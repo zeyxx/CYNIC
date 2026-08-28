@@ -16,12 +16,16 @@ pub enum WorktreeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Admit a workspace request (W2 preflight)
-    Admit {
-        #[arg(long)]
-        request: String,
-        #[arg(long, default_value = "3600000")]
-        max_ttl_ms: u64,
+    /// Preflight workspace creation (admission)
+    Preflight {
+        #[arg(long, default_value = "/var/lib/cynic/source/repositories/CYNIC")]
+        source_root: String,
+        #[arg(long, required = true)]
+        target_root: String,
+        #[arg(long, required = true)]
+        base_commit: String,
+        #[arg(long, default_value = "/var/lib/cynic/source/workspaces")]
+        workspace_store: String,
         #[arg(long)]
         json: bool,
     },
@@ -117,40 +121,29 @@ pub(crate) fn execute_worktree(cmd: WorktreeCommand) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        WorktreeCommand::Admit {
-            request,
-            max_ttl_ms,
+        WorktreeCommand::Preflight {
+            source_root,
+            target_root,
+            base_commit,
+            workspace_store,
             json,
         } => {
-            let req: serde_json::Value = match serde_json::from_str(&request) {
-                Ok(r) => r,
-                Err(e) => {
-                    return crate::fail(format!("invalid request JSON: {e}"));
-                }
-            };
-            let mut violations = Vec::new();
-            for field in ["workload_id", "repository_id", "workspace_id", "node_id", "agent_id", "base_commit"] {
-                if req.get(field).and_then(|v| v.as_str()).map_or(true, str::is_empty) {
-                    violations.push(format!("{field} must be non-empty"));
-                }
-            }
-            let admitted = violations.is_empty();
+            let report = cynic_host::workspace_preflight::workspace_preflight(
+                std::path::Path::new(&source_root),
+                std::path::Path::new(&target_root),
+                &base_commit,
+                std::path::Path::new(&workspace_store),
+            );
             if json {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "admitted": admitted,
-                        "violations": violations,
-                        "max_ttl_ms": if admitted { max_ttl_ms } else { 0 },
-                    }))
-                    .unwrap()
-                );
-            } else if admitted {
-                println!("ADMITTED (max_ttl_ms: {max_ttl_ms})");
+                println!("{}", serde_json::to_string_pretty(&report).unwrap());
             } else {
-                println!("DENIED:");
-                for v in &violations {
-                    println!("  - {v}");
+                if report.admitted {
+                    println!("ADMITTED");
+                } else {
+                    println!("DENIED:");
+                    for b in &report.blockers {
+                        println!("  - {b}");
+                    }
                 }
             }
             ExitCode::SUCCESS
