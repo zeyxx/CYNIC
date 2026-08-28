@@ -239,6 +239,25 @@ is assembled from content-addressed evidence, not raw chat or provider state.
   authorized that exact action. Forgejo is the sovereign candidate SSOT;
   GitHub is an optional public relay, not runtime authority.
 
+## PR workflow
+
+```text
+1. Éditer sur agent/<name>/<scope>
+2. Commit atomique avec preuve dans le message
+3. Push branche : git push -u origin agent/<name>/<scope>
+4. Ouvrir PR : python3 scripts/cynic-forgejo pr-create --base main --head <branch> --title <title>
+5. Le builder (SSH) valide le build — ne pas bloquer sur ICE local
+6. Revue humaine sur Forgejo
+7. Merge humain uniquement
+```
+
+Wrapper Python : `scripts/cynic-forgejo` (couche 1, fallback)
+Token : `/etc/cynic/secrets/forgejo-token`
+API : `http://forgejo.synapse.cynic:3000/api/v1`
+Repo : `jeanterre13/CYNIC`
+
+Couche 2 prévue : `cynic forgejo` natif (Rust, cynic-cli).
+
 If dependency code is red because another agent is mid-edit, do not repair it
 silently. Wait for stabilization or validate in an isolated scratch checkout.
 
