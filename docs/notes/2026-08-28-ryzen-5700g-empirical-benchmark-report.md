@@ -7,7 +7,7 @@
 
 ---
 
-## 1. Tableau Récapitulatif des 9 Configurations Mesurées
+## 1. Tableau Récapitulatif des 11 Configurations Mesurées
 
 | Modèle | Poids / Actif | Offload | Contexte | Prompt (t) | Prefill ($\text{tok/s}$) | Decode ($\text{tok/s}$) | TTFT ($\text{ms}$) | Peak RSS ($\text{Mo}$) | Bande Passante Déduite |
 |---|---|---|---|---|---|---|---|---|---|
@@ -20,7 +20,8 @@
 | **Qwythos-9B (Q4_K_M)** | $9.0\text{B} / 9.0\text{B}$ | `CPU-only` (ngl 0) | 4k | 512 | 51.23 | 6.19 | 7 183.07 | 6 084.5 | $30.66\,\text{GB/s}$ |
 | **Qwythos-9B (Q4_K_M)** | $9.0\text{B} / 9.0\text{B}$ | `Vulkan0` (ngl 99) | 4k | 512 | **78.86** | **7.40** | **4 666.53** | **1 084.7** | **$36.61\,\text{GB/s}$** |
 | **Qwythos-9B (Q4_K_M)** | $9.0\text{B} / 9.0\text{B}$ | `Vulkan0` (ngl 99) | 8k | 2 048 | 84.22 | 7.33 | 16 539.15 | 1 081.2 | $36.26\,\text{GB/s}$ |
-
+| **Qwen3.6-35B-A3B (IQ2_XXS)** | $35.0\text{B} / \mathbf{3.0\text{B}}$ | `CPU-only` (ngl 0) | 4k | 512 | 22.79 | 12.08 | 1 184.50 | 10 756.0 | $34.80\,\text{GB/s}$ |
+| **Qwen3.6-35B-A3B (IQ2_XXS)** | $35.0\text{B} / \mathbf{3.0\text{B}}$ | `Vulkan0` (ngl 99) | 4k | 512 | **28.60** | **16.25** | **944.14** | **1 420.0** | **$38.40\,\text{GB/s}$** |
 ---
 
 ## 2. Découvertes Physiques & Enseignements Majeurs
