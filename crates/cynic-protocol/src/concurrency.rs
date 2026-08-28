@@ -9,7 +9,7 @@ where
     let counter = Arc::new(Mutex::new(0u64));
     for item in items {
         let c = counter.clone();
-        let _guard = c.lock().unwrap();
+        let mut guard = c.lock().unwrap();
         let _ = work(item);
         *guard += 1;
     }
