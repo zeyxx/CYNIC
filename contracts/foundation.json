@@ -55,6 +55,10 @@
       {
         "name": "no_manual_blocker_bypass",
         "rule": "A blocker (Blocked-class error code) is resolved only by the typed reconciliation or authority-escalation path that owns it. Ad-hoc shell fixes, local fallbacks, or prose claims that omit the code are not convergence and must be rejected by read-back proof."
+      },
+      {
+        "name": "builder_ref_integrity",
+        "rule": "Le builder maintient ses refs sous propriete du principal cynic. Toute derive de propriete (root-owned refs, orphan locks) est detectee et reparations sont initiees avant le fetch. Detection: cynic builder drift-check. Reparation: cynic builder repair-refs."
       }
     ],
     "deleted_authorities": [

@@ -64,5 +64,14 @@
     "reconcile": "cynic-host::framework_bootstrap::build_runner::decision",
     "bounded_action": "cynic bootstrap build-runner --apply",
     "required_when": "bounded_action.mutates == true"
+  },
+  "builder_drift_detection": {
+    "observe": "cynic-host::builder_drift::detect",
+    "reconcile": "cynic-host::builder_drift::repair",
+    "canonical_entrypoints": [
+      "cynic builder drift-check",
+      "cynic builder repair-refs"
+    ],
+    "required_when": ".git/refs/remotes/forgejo/ owned by non-cynic principal"
   }
 }

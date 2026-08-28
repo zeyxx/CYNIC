@@ -157,7 +157,16 @@ prove the old owner no longer imports the extracted concrete type. Large files
 (about 400 lines) and crates (about 40k LOC) are audit signals, not permission
 to perform an unbounded rewrite. Extract one owned responsibility per slice.
 
-## Host observation and runtime harnesses
+## Builder isolation
+
+The builder (`cynic-builder-build`) operates under the `cynic` principal. Its Git refs must remain owned by `cynic` — never by `root` or another principal.
+
+| Command | Role |
+|---------|------|
+| `cynic builder drift-check` | Detects ownership drift in `.git/refs/remotes/forgejo/` |
+| `cynic builder repair-refs` | Repairs ownership to `cynic:cynic` when drift detected |
+
+Drift is detected when a fetch fails with `Permission denied` on ref creation, or when `stat` shows non-cynic ownership. Repair runs only after operator confirmation.
 
 All host substrate families use four layers:
 
