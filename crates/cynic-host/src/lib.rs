@@ -119,6 +119,7 @@ pub mod update_lifecycle;
 pub mod usecases;
 pub mod vertical_conformance;
 pub mod wireguard_readback;
+pub mod workspace_preflight;
 
 pub fn sha256_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
