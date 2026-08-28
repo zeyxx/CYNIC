@@ -8,7 +8,7 @@ use std::path::Path;
 
 pub const RAPL_SCHEMA: &str = "cynic.sandbox.rapl.v1";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RaplReading {
     pub schema: String,
     pub package_joules: u64,
@@ -30,7 +30,7 @@ pub trait RaplPort {
     fn delta(&self, before: &RaplReading, after: &RaplReading) -> Result<RaplDelta, String>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RaplDelta {
     pub schema: String,
     pub energy_joules: u64,
