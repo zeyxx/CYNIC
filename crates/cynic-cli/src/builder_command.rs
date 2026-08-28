@@ -50,28 +50,40 @@ pub(crate) fn execute_builder_command(cmd: BuilderCommand) -> std::process::Exit
                 }
                 return std::process::ExitCode::SUCCESS;
             }
-            let reports = match cynic_host::builder_drift::detect::detect_drift(path, &expected_owner) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("drift detection error: {e}");
-                    return std::process::ExitCode::FAILURE;
-                }
-            };
+            let reports =
+                match cynic_host::builder_drift::detect::detect_drift(path, &expected_owner) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("drift detection error: {e}");
+                        return std::process::ExitCode::FAILURE;
+                    }
+                };
             if json {
                 let count = reports.len();
                 let paths: Vec<String> = reports.iter().map(|r| r.ref_path.clone()).collect();
                 println!(
                     r#"{{"status":"{}","count":{},"drifted_paths":[{}]}}"#,
-                    if reports.is_empty() { "ok" } else { "drift_detected" },
+                    if reports.is_empty() {
+                        "ok"
+                    } else {
+                        "drift_detected"
+                    },
                     count,
-                    paths.iter().map(|p| format!("\"{p}\"")).collect::<Vec<_>>().join(",")
+                    paths
+                        .iter()
+                        .map(|p| format!("\"{p}\""))
+                        .collect::<Vec<_>>()
+                        .join(",")
                 );
             } else if reports.is_empty() {
                 println!("no drift detected — all refs owned by '{expected_owner}'");
             } else {
                 println!("drift detected in {} refs:", reports.len());
                 for r in &reports {
-                    println!("  {}: expected={}, actual={}", r.ref_path, r.expected_owner, r.actual_owner);
+                    println!(
+                        "  {}: expected={}, actual={}",
+                        r.ref_path, r.expected_owner, r.actual_owner
+                    );
                 }
             }
             std::process::ExitCode::SUCCESS
@@ -91,7 +103,8 @@ pub(crate) fn execute_builder_command(cmd: BuilderCommand) -> std::process::Exit
                 }
                 return std::process::ExitCode::SUCCESS;
             }
-            let reports = match cynic_host::builder_drift::detect::detect_drift(path, &target_owner) {
+            let reports = match cynic_host::builder_drift::detect::detect_drift(path, &target_owner)
+            {
                 Ok(r) => r,
                 Err(e) => {
                     eprintln!("drift detection error: {e}");
@@ -108,9 +121,15 @@ pub(crate) fn execute_builder_command(cmd: BuilderCommand) -> std::process::Exit
             }
             if dry_run {
                 if json {
-                    println!(r#"{{"status":"dry_run","drifted":{},"repaired":0}}"#, reports.len());
+                    println!(
+                        r#"{{"status":"dry_run","drifted":{},"repaired":0}}"#,
+                        reports.len()
+                    );
                 } else {
-                    println!("dry run: {} refs would be repaired (no changes made)", reports.len());
+                    println!(
+                        "dry run: {} refs would be repaired (no changes made)",
+                        reports.len()
+                    );
                 }
                 return std::process::ExitCode::SUCCESS;
             }
@@ -123,9 +142,17 @@ pub(crate) fn execute_builder_command(cmd: BuilderCommand) -> std::process::Exit
             };
             let repaired = repair_reports.iter().filter(|r| r.repaired).count();
             if json {
-                println!(r#"{{"status":"repaired","repaired":{repaired},"total":{}}}"#, repair_reports.len());
+                println!(
+                    r#"{{"status":"repaired","repaired":{repaired},"total":{}}}"#,
+                    repair_reports.len()
+                );
             } else {
-                println!("repaired {} of {} refs to '{}'", repaired, repair_reports.len(), target_owner);
+                println!(
+                    "repaired {} of {} refs to '{}'",
+                    repaired,
+                    repair_reports.len(),
+                    target_owner
+                );
                 for r in &repair_reports {
                     if let Some(err) = &r.error {
                         eprintln!("  FAILED {}: {}", r.ref_path, err);
