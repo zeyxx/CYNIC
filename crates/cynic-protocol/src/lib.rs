@@ -105,6 +105,7 @@ pub mod solana_ops;
 pub mod source_control;
 pub mod source_materialization;
 pub mod source_release;
+pub mod source_worktree_inventory;
 pub mod source_repository_bootstrap;
 pub mod storage_controller;
 pub mod storage_credential_sync;
