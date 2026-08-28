@@ -10,7 +10,6 @@ use crate::transport::{
     SshTargetInspectionPort, SshTargetInspectionReport, TmuxHarnessObservation,
     TmuxSessionObservation,
 };
-use crate::time::now_unix_ms;
 
 /// Local process adapter for read-only SSH/tmux operator evidence.
 #[derive(Debug, Default, Clone, Copy)]
