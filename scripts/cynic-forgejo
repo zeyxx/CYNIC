@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Forgejo API wrapper — couche 1 (fallback curl + token).
+
+Usage:
+  cynic-forgejo pr-create --base <sha> --head <branch> --title <title> [--body <body>]
+  cynic-forgejo pr-list [--state open|closed|all]
+  cynic-forgejo pr-get <number>
+  cynic-forgejo pr-comment <number> --body <body>
+  cynic-forgejo issue-list [--state open|closed|all]
+
+Configuration:
+  Token: /etc/cynic/secrets/forgejo-token (mode 0600)
+  API:   http://forgejo.synapse.cynic:3000/api/v1
+  Repo:  jeanterre13/CYNIC
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+
+TOKEN_PATH = "/etc/cynic/secrets/forgejo-token"
+API_BASE = "http://forgejo.synapse.cynic:3000/api/v1"
+REPO = "jeanterre13/CYNIC"
+
+
+def load_token():
+    try:
+        with open(TOKEN_PATH, "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        print(f"ERROR: token absent de {TOKEN_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+
+def api_request(method, path, data=None):
+    token = load_token()
+    url = f"{API_BASE}/repos/{REPO}/{path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if e.fp else ""
+        print(f"HTTP {e.code}: {error_body}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_pr_create(args):
+    data = {
+        "title": args.title,
+        "head": args.head,
+        "base": args.base,
+        "body": args.body or "",
+    }
+    result = api_request("POST", "pulls", data)
+    print(json.dumps({
+        "number": result.get("number"),
+        "url": result.get("html_url"),
+        "title": result.get("title"),
+        "state": result.get("state"),
+    }, indent=2))
+
+
+def cmd_pr_list(args):
+    state = args.state or "open"
+    result = api_request("GET", f"pulls?state={state}")
+    for pr in result:
+        print(f"#{pr['number']} [{pr['state']}] {pr['title']} ({pr['head']['ref']} -> {pr['base']['ref']})")
+
+
+def cmd_pr_get(args):
+    result = api_request("GET", f"pulls/{args.number}")
+    print(json.dumps({
+        "number": result.get("number"),
+        "title": result.get("title"),
+        "state": result.get("state"),
+        "head": result.get("head", {}).get("ref"),
+        "base": result.get("base", {}).get("ref"),
+        "body": result.get("body"),
+        "url": result.get("html_url"),
+    }, indent=2))
+
+
+def cmd_pr_comment(args):
+    data = {"body": args.body}
+    result = api_request("POST", f"issues/{args.number}/comments", data)
+    print(json.dumps({
+        "id": result.get("id"),
+        "url": result.get("html_url"),
+    }, indent=2))
+
+
+def cmd_issue_list(args):
+    state = args.state or "open"
+    result = api_request("GET", f"issues?state={state}")
+    for issue in result:
+        print(f"#{issue['number']} [{issue['state']}] {issue['title']}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Forgejo API wrapper")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("pr-create")
+    p.add_argument("--title", required=True)
+    p.add_argument("--head", required=True)
+    p.add_argument("--base", required=True)
+    p.add_argument("--body", default="")
+    p.set_defaults(func=cmd_pr_create)
+
+    p = sub.add_parser("pr-list")
+    p.add_argument("--state", choices=["open", "closed", "all"])
+    p.set_defaults(func=cmd_pr_list)
+
+    p = sub.add_parser("pr-get")
+    p.add_argument("number", type=int)
+    p.set_defaults(func=cmd_pr_get)
+
+    p = sub.add_parser("pr-comment")
+    p.add_argument("number", type=int)
+    p.add_argument("--body", required=True)
+    p.set_defaults(func=cmd_pr_comment)
+
+    p = sub.add_parser("issue-list")
+    p.add_argument("--state", choices=["open", "closed", "all"])
+    p.set_defaults(func=cmd_issue_list)
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
