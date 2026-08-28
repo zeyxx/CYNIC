@@ -26,11 +26,11 @@ mod deps_surface_specs;
 mod deps_surface_upgrade;
 mod dev_surface;
 pub(crate) mod federation_surface;
+mod forgejo_surface;
 mod fleet_divergence;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
-mod forgejo_surface;
 mod fs_json;
 mod host_exec_alias_surface;
 mod integrations_readonly_surface;
@@ -61,6 +61,7 @@ mod schema_registry_audit;
 mod solana_surface;
 pub(crate) mod source_surface;
 mod task_surface;
+mod worktree_command;
 
 #[allow(dead_code)]
 mod autoresearch_surface;
@@ -85,6 +86,7 @@ use runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use serde::Serialize;
 use solana_surface::SolanaCommand;
 use transport_surface::TransportCommand;
+use worktree_command::WorktreeCommand;
 
 #[derive(Parser)]
 #[command(
@@ -276,6 +278,11 @@ enum Command {
     Build {
         #[command(subcommand)]
         command: build_surface::BuildCommand,
+    },
+    /// Worktree governance (W1 observation, W2 admission/rétention)
+    Worktree {
+        #[command(subcommand)]
+        command: WorktreeCommand,
     },
     /// Launch an agent harness through a cynic mask (forge profile → start).
     Mask {
