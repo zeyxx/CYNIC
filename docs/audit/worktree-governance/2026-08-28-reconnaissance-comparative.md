@@ -218,3 +218,32 @@ Autres points OMP à intégrer dans les tranches futures :
 Cet avis est consultatif et n’est pas une autorité runtime. Il modifie toutefois
 les critères d’audit : l’inventaire doit être résilient aux anomalies locales et
 la collecte future doit être protégée par une preuve de reachability.
+
+## Mapping des GC CYNIC
+
+L’audit des surfaces GC ne montre pas un garbage collector transversal. Il
+montre plusieurs GC spécialisés, chacun avec un objet et un owner différents :
+
+| Surface | Objet | Observation | Action | Limite |
+|---|---|---|---|---|
+| `cynic-host/src/space_gc` | occupation/cache (`target`, Cargo, `node_modules`) | `WalkDir`, bytes, fichiers | aucune : observation | ne connaît ni ownership ni lifecycle worktree |
+| `cynic-node::GarbageCollector` | waste hyperviseur/mesh | SSoT vs instances/routes | termination hyperviseur actuellement commentée | modèle générique sans admission/read-back complet |
+| `local_agent_workspace_collection` | workspace agent admis | record, plan, clean, guard | `git worktree remove --force` | reachability detached et race encore insuffisantes |
+| `cynic-kernel::maintenance` | crystals SurrealDB | groupes de doublons, observations/confiance | consolidation + DELETE | autre domaine, pas un GC filesystem |
+| `cynic-kernel::local_spool` | segments de queue drainés | segment claimé/traité | suppression atomique du segment | cleanup de queue, pas ownership worktree |
+| `cynic-inference::model_retention` | artefacts modèles | profil/cache/corruption | aucune (`deletion_authorized=false`) | assessment pur |
+
+Conclusion : le problème n’est pas l’absence d’un nouveau GC global. Il manque
+une gouvernance de worktree capable de joindre faits Git, lifecycle node,
+claims kernel, reachability et read-back. Aucun GC spécialisé ne doit absorber
+les objets d’un autre owner.
+
+Invariants transversaux à vérifier avant toute action :
+
+1. objet, owner et zone explicitement identifiés ;
+2. observation fraîche et complète, avec `unknown` conservé ;
+3. record/claim/fence compatibles quand l’objet est déjà admis ;
+4. reachability Git du `HEAD`, notamment en detached ;
+5. aucune action par simple taille, inactivité, `clean=true` ou `prunable` ;
+6. action bornée et read-back indépendant ;
+7. crash/reprise et idempotence définis.
