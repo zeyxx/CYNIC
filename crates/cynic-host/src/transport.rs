@@ -90,6 +90,7 @@ pub fn inspect_ssh_target(
             mutation: false,
             next_action: "provide a DNS name or IP literal without shell syntax".to_string(),
             detail: Some("target contains unsupported characters".to_string()),
+            observed_at_unix_ms: 0,
         };
     };
     observer.inspect_ssh_target(&host)
@@ -452,6 +453,7 @@ mod tests {
                 mutation: false,
                 next_action: "compare host key fingerprints before trust acceptance".to_string(),
                 detail: None,
+                observed_at_unix_ms: 1_700_000_000_000,
             }
         }
     }
