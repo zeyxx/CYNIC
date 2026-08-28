@@ -30,6 +30,7 @@ mod fleet_divergence;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
+mod forgejo_surface;
 mod fs_json;
 mod host_exec_alias_surface;
 mod integrations_readonly_surface;
@@ -72,6 +73,7 @@ use audit_surface::AuditCommand;
 use bootstrap_surface::BootstrapCommand;
 use dev_surface::DevCommand;
 use fleet_surface::FleetCommand;
+use forgejo_surface::ForgejoCommand;
 use host_exec_alias_surface::maybe_run_host_exec_alias;
 use integrations_surface::IntegrationsCommand;
 use lab_surface::LabCommand;
@@ -133,6 +135,11 @@ enum Command {
     Builder {
         #[command(subcommand)]
         command: crate::builder_command::BuilderCommand,
+    },
+    /// Forgejo API (PRs, comments)
+    Forgejo {
+        #[command(subcommand)]
+        command: ForgejoCommand,
     },
     /// Read-only Solana observation planning surfaces.
     #[command(hide = true)]
