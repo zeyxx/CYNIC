@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 
 pub fn for_each_concurrent<T, F>(items: &[T], concurrency: usize, work: F)
 where
-    T: Sync,
-    F: Fn(&T) -> WorkOutcome + Sync,
+    T: Sync + Send,
+    F: Fn(&T) -> WorkOutcome + Sync + Send,
 {
     let queue = Mutex::new(items.iter().enumerate().collect::<Vec<_>>());
     let completed = Arc::new(AtomicCounter::new(0));
