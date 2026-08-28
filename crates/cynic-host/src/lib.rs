@@ -13,6 +13,7 @@ pub mod bridge;
 pub mod bucket_signatures;
 pub mod build;
 pub mod build_evidence;
+pub mod builder_drift;
 pub mod build_proof_compressor;
 pub mod build_runner_harness;
 pub mod build_workflow;
