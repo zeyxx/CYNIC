@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 pub const SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA: &str =
-    "cynic.source_worktree_inventory_observation.v1";
+    "cynic.source_worktree_inventory_observation.v2";
 const MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
 const MAX_STRING_BYTES: usize = 4096;
@@ -18,6 +18,19 @@ pub enum SourceWorktreeInventoryUnknown {
     PathSymlink,
     RelativePath,
     Principal,
+    Branch,
+    Bare,
+    Locked,
+    LockReason,
+    PrunableReason,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceWorktreeInventoryPathBasis {
+    MainRepository,
+    WorkspaceLayout,
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,11 +40,14 @@ pub struct SourceWorktreeInventoryEntry {
     pub candidate_id: String,
     /// Canonical digest of the adapter evidence, pending independent verification.
     pub evidence_digest: String,
-    /// Relative to the injected repository root; never an absolute machine path.
+    pub path_basis: SourceWorktreeInventoryPathBasis,
+    /// Relative to the declared `path_basis`; never an absolute machine path.
     #[serde(default)]
     pub relative_path: Option<String>,
     #[serde(default)]
     pub head: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
     #[serde(default)]
     pub observed_principal: Option<String>,
     #[serde(default)]
@@ -44,6 +60,14 @@ pub struct SourceWorktreeInventoryEntry {
     pub detached_head: Option<bool>,
     #[serde(default)]
     pub clean: Option<bool>,
+    #[serde(default)]
+    pub locked: Option<bool>,
+    #[serde(default)]
+    pub bare: Option<bool>,
+    #[serde(default)]
+    pub lock_reason: Option<String>,
+    #[serde(default)]
+    pub prunable_reason: Option<String>,
     #[serde(default)]
     pub unknowns: Vec<SourceWorktreeInventoryUnknown>,
 }
@@ -116,6 +140,18 @@ pub fn validate_source_worktree_inventory_observation(
                 .observed_principal
                 .as_ref()
                 .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+            || entry
+                .branch
+                .as_ref()
+                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+            || entry
+                .lock_reason
+                .as_ref()
+                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+            || entry
+                .prunable_reason
+                .as_ref()
+                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
         {
             violations.push("worktree_inventory_entry_size_exceeded".to_string());
         }
@@ -147,9 +183,19 @@ pub fn validate_source_worktree_inventory_observation(
                 violations.push("worktree_inventory_relative_path_invalid".to_string());
             }
         }
+        if entry.path_basis == SourceWorktreeInventoryPathBasis::Unknown {
+            violations.push("worktree_inventory_path_basis_unknown".to_string());
+        }
+        if entry.lock_reason.is_some() && entry.locked != Some(true) {
+            violations.push("worktree_inventory_lock_reason_conflict".to_string());
+        }
+        if entry.prunable_reason.is_some() && entry.git_prunable != Some(true) {
+            violations.push("worktree_inventory_prunable_reason_conflict".to_string());
+        }
         for (value, kind) in [
             (
-                entry.relative_path.is_some(),
+                entry.relative_path.is_some()
+                    || entry.path_basis == SourceWorktreeInventoryPathBasis::MainRepository,
                 SourceWorktreeInventoryUnknown::RelativePath,
             ),
             (
@@ -159,6 +205,10 @@ pub fn validate_source_worktree_inventory_observation(
             (
                 entry.observed_principal.is_some(),
                 SourceWorktreeInventoryUnknown::Principal,
+            ),
+            (
+                entry.branch.is_some(),
+                SourceWorktreeInventoryUnknown::Branch,
             ),
             (
                 entry.path_is_symlink.is_some(),
@@ -179,6 +229,19 @@ pub fn validate_source_worktree_inventory_observation(
             (
                 entry.clean.is_some(),
                 SourceWorktreeInventoryUnknown::Cleanliness,
+            ),
+            (
+                entry.locked.is_some(),
+                SourceWorktreeInventoryUnknown::Locked,
+            ),
+            (entry.bare.is_some(), SourceWorktreeInventoryUnknown::Bare),
+            (
+                entry.lock_reason.is_some() || entry.locked != Some(true),
+                SourceWorktreeInventoryUnknown::LockReason,
+            ),
+            (
+                entry.prunable_reason.is_some() || entry.git_prunable != Some(true),
+                SourceWorktreeInventoryUnknown::PrunableReason,
             ),
         ] {
             let marked = entry.unknowns.contains(&kind);
