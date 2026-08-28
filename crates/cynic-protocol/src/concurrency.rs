@@ -61,10 +61,12 @@ where
                 };
                 let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(item)));
                 match outcome {
-                    Ok(WorkOutcome::Done) => completed.inc(),
-                    Ok(WorkOutcome::Errored) => errored.inc(),
-                    // A panic in `work` is one bad subject, not a sweep failure.
-                    Err(_) => errored.inc(),
+                    Ok(WorkOutcome::Done) => {
+                        completed.inc();
+                    }
+                    Ok(WorkOutcome::Errored) | Err(_) => {
+                        errored.inc();
+                    }
                 }
                 let _ = idx; // index retained for callers that need stable ordering later
             }
