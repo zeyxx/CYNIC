@@ -4,9 +4,8 @@
 //! Live probing: each list-models call probes actual node state + emits observations.
 
 use axum::{extract::State, http::StatusCode, response::Json};
-use cynic_inference::application::fleet_routing::{
-    FleetNodeStat, InferenceRouteDecisionView, project_candidate_views, project_route_response,
-};
+use cynic_inference::{DefaultInferenceRouter, InferenceRoutingPort};
+use cynic_inference::application::fleet_routing::{FleetNodeStat, InferenceRouteDecisionView};
 use cynic_inference::application::model_catalog::{
     ListModelsResponse, ModelInfo, ModelProbeObservation, deterministic_model_info,
     project_model_info, should_probe_model,
@@ -64,7 +63,8 @@ pub async fn inference_route_handler(
             )
         })?;
 
-    let Some(route) = project_route_response(storage_fleet_stats_to_domain(nodes)) else {
+    let router = DefaultInferenceRouter;
+    let Some(route) = router.select_route(storage_fleet_stats_to_domain(nodes)) else {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             Json(ErrorResponse {
@@ -98,7 +98,8 @@ pub async fn inference_candidates_handler(
             )
         })?;
 
-    let candidates = project_candidate_views(storage_fleet_stats_to_domain(nodes), 5);
+    let router = DefaultInferenceRouter;
+    let candidates = router.candidate_views(storage_fleet_stats_to_domain(nodes), 5);
 
     Ok(Json(serde_json::json!({
         "candidates": candidates,

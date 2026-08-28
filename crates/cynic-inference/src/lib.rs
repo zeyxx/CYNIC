@@ -18,6 +18,41 @@ pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, Model
 
 pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::supervision::SupervisionPolicy;
+pub use domain::backend_health;
+pub use domain::backend_health::{
+    Backend, BackendHealth, BackendId, DeclaredCapabilities, MeasuredCapabilities,
+};
+pub use domain::audit_geometry::{
+    GEOMETRIC_AUDIT_MATRIX_SCHEMA, GeometricMatrixPoint, ModelCognitiveCapabilityAudit,
+    ModelEconomicEvaluation, ModelEmissionDynamics, ModelMatrixCoordinate,
+    ModelSubstrateObservation, OffloadStrategy,
+};
+pub use domain::runtime_admission::{
+    ADMISSION_REPORT_SCHEMA, AdmissionDecision, AdmissionStatus, admit_inference_workload,
+};
+pub use domain::generation_parameters::{
+    GenerationParameters, SamplingParameters, ThinkingMode,
+};
+pub use ports::model_audit_port::{
+    AuditPortError, CognitiveAuditPort, EconomicEvaluatorPort, EmissionProbePort,
+    ModelAuditConvergencePort, SubstrateProbePort,
+};
+pub use application::audit_convergence::AuditConvergenceService;
+pub use domain::hardware_profile::MemoryBudget;
+pub use domain::inference::{InferencePhase, LatencyBreakdown};
+pub use math::tensor_geometry::AttentionType;
+pub use math::pareto::{ParetoPointSummary, render_pareto_chart, render_pareto_table};
+pub use ports::inference_routing_port::{
+    DefaultInferenceRouter, InferenceProxyPort, InferenceRoutingPort,
+};
+pub use application::failure_gallery::{FailureCategory, FailureGallery, FailureGalleryEntry};
+pub use application::model_selection::{
+    AdaptiveModelSelector, EscalationAction, EscalationSignal, EscalationTier, ModelEmpiricalStats,
+    resolve_escalation_action, select_model,
+};
+pub use application::cot_middleware::{
+    AlphaAnomalyStatus, CotParserState, CotStreamEvent, CotStreamParser, SpeculativeAlphaMonitor,
+};
 
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;

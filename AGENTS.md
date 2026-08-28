@@ -214,6 +214,15 @@ successful-looking report.
   proof. The durable repair makes that contract explicit and adds a regression
   proof at the layer that owns it; suppressing the visible symptom alone is not
   a completed repair.
+- **La structure émerge du chaos.** When runtime anomalies surface (permission
+  drift, divergent read-back, stale state, orphan locks), treat them as emergent
+  signals revealing an unmodelled constraint — not as defects to suppress.
+  Classify the anomaly, document the emergent invariant, and add regression
+  proof at the layer that owns it.
+- **This is a feature, not a bug.** An anomaly is a feature of the system
+  exposing a boundary condition. Investigate the root cause before applying
+  a corrective patch; the patch must make the emergent invariant explicit
+  rather than masking the symptom.
 
 ### Agent decision rule
 

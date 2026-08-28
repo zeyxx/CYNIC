@@ -96,11 +96,15 @@ pub fn default_supported_arches_for_llama_b9444() -> &'static [&'static str] {
         "qwen2vl",
         "qwen3",
         "qwen35", // Bonsai-27B-Q1_0 etc.
+        "qwen35moe", // Qwen3.6-35B-A3B MoE, BTL-4
         "phi3",
         "phi2",
         "gemma",
         "gemma2",
         "gemma3",
+        "gemma4",
+        "nemotron",
+        "gpt-oss",
         "mistral",
         "mixtral",
         "command-r",

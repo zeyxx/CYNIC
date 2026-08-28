@@ -1,3 +1,4 @@
+pub mod audit_convergence;
 pub mod backend_verification;
 pub mod chat_endpoint;
 pub mod chat_service;
@@ -21,6 +22,7 @@ pub mod runtime_planner;
 
 pub mod agent_harness;
 pub mod bench_basket_launcher;
+pub mod cot_middleware;
 pub mod engine_selector;
 pub mod failure_gallery;
 pub mod hermes_runtime_service;

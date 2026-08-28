@@ -1,7 +1,10 @@
+pub mod audit_geometry;
 pub mod backend_config;
+pub mod backend_health;
 pub mod backend_identity;
 pub mod chat;
 pub mod chat_session;
+pub mod generation_parameters;
 pub mod embedding;
 pub mod gguf_meta;
 pub mod hardware_profile;
@@ -22,6 +25,7 @@ pub mod model_store;
 pub mod node_contribution;
 pub mod principal_paths;
 pub mod routing;
+pub mod runtime_admission;
 pub mod runtime_plan;
 pub mod slot_semaphore;
 pub mod slot_tracker;

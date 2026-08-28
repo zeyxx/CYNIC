@@ -16,6 +16,7 @@ mod data_centric_audit;
 mod inference_gateway;
 mod inference_matrix;
 mod inference_optimal;
+mod inference_pareto;
 mod manifest;
 mod organism_audit;
 mod surface_matrix;
@@ -154,6 +155,13 @@ pub(crate) enum DevCommand {
         ledger: Option<std::path::PathBuf>,
         #[arg(long)]
         export_toml: Option<std::path::PathBuf>,
+    },
+    /// Compute and render multi-objective Pareto frontiers from empirical benchmark telemetry.
+    InferencePareto {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        results: Option<std::path::PathBuf>,
     },
     /// Audit data-centric compliance (ledger presence, model coverage, OOM safety proofs).
     DataCentricAudit {
@@ -376,6 +384,9 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             ledger,
             export_toml,
         } => inference_optimal::run(json, model, context, goal, ledger, export_toml),
+        DevCommand::InferencePareto { json, results } => {
+            inference_pareto::run(json, results)
+        }
         DevCommand::DataCentricAudit {
             json,
             ledger,

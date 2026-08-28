@@ -56,6 +56,15 @@ impl ModelProcessPool {
         }
     }
 
+    pub fn with_components(runtime: ProcessLocalRuntime, inventory: FsLocalModelInventory) -> Self {
+        Self {
+            runtime,
+            inventory,
+            active_ports: Arc::new(Mutex::new(HashMap::new())),
+            base_port: 8080,
+        }
+    }
+
     /// Find an available TCP port starting from base_port.
     pub fn find_available_port(&self, start_port: u16) -> Result<u16, LocalRuntimeError> {
         for port in start_port..(start_port + 50) {
@@ -181,7 +190,16 @@ mod tests {
 
     #[test]
     fn test_model_process_pool_new_and_status() {
-        let pool = ModelProcessPool::new();
+        let temp = tempfile::tempdir().expect("tempdir should succeed");
+        let vault_dir = temp.path().join("vault");
+        let profiles_dir = temp.path().join("profiles");
+        std::fs::create_dir_all(&vault_dir).unwrap();
+        std::fs::create_dir_all(&profiles_dir).unwrap();
+
+        let inventory = FsLocalModelInventory::with_dirs(vault_dir, profiles_dir);
+        let runtime = ProcessLocalRuntime::from_env();
+        let pool = ModelProcessPool::with_components(runtime, inventory);
+
         assert_eq!(pool.base_port, 8080);
         let port = pool
             .find_available_port(8080)

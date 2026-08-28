@@ -225,6 +225,76 @@ pub fn select_utopian_optimal<'a, T>(
         .map(|(candidate, _)| candidate)
 }
 
+/// Concrete summary of a measured inference configuration for Pareto ranking.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ParetoPointSummary {
+    pub model_alias: String,
+    pub mode: String,
+    pub prompt_tokens: u32,
+    pub prefill_tps: f32,
+    pub decode_tps: f32,
+    pub ttft_ms: f32,
+    pub rss_peak_mb: f32,
+    pub effective_bw_gbps: f32,
+}
+
+impl ParetoPointSummary {
+    pub fn to_objective_vector(&self) -> ObjectiveVector {
+        ObjectiveVector {
+            throughput_tps: self.decode_tps,
+            ttft_ms: self.ttft_ms,
+            jitter_variance_ms: 0.0,
+            context_tokens: self.prompt_tokens,
+            quality_score: None,
+        }
+    }
+}
+
+/// Renders a formatted ASCII table of Pareto frontier configurations.
+pub fn render_pareto_table(points: &[ParetoPointSummary]) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("{:-<85}\n", ""));
+    out.push_str(&format!(
+        "{:<18} {:<12} {:<8} {:<16} {:<15} {:<10} {:<10}\n",
+        "Modèle", "Mode", "Prompt", "Prefill (tok/s)", "Decode (tok/s)", "TTFT", "RSS (Mo)"
+    ));
+    out.push_str(&format!("{:-<85}\n", ""));
+    for p in points {
+        out.push_str(&format!(
+            "{:<18} {:<12} {:<8} {:<16.2} {:<15.2} {:<8.0}ms {:<10.1}\n",
+            p.model_alias, p.mode, p.prompt_tokens, p.prefill_tps, p.decode_tps, p.ttft_ms, p.rss_peak_mb
+        ));
+    }
+    out.push_str(&format!("{:-<85}\n", ""));
+    out
+}
+
+/// Renders an ASCII chart of generation throughput (tok/s) across configurations.
+pub fn render_pareto_chart(points: &[ParetoPointSummary]) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("{}\n", "=".repeat(85)));
+    out.push_str(" 📈 CARTE DE PARETO : DÉBIT DE GÉNÉRATION (TG tok/s) vs TTFT (ms)\n");
+    out.push_str(&format!("{}\n", "=".repeat(85)));
+
+    let max_tps = points
+        .iter()
+        .map(|p| p.decode_tps)
+        .fold(0.0_f32, f32::max)
+        .max(1.0);
+
+    for p in points {
+        let bar_len = ((p.decode_tps / max_tps) * 35.0) as usize;
+        let bar = "█".repeat(bar_len);
+        let tag = format!("{:<15} | {:<10} | {:<5}t", p.model_alias, p.mode, p.prompt_tokens);
+        out.push_str(&format!(
+            "{} | {:<35} {:5.2} t/s (TTFT: {:6.0}ms, BW: {:4.1} GB/s)\n",
+            tag, bar, p.decode_tps, p.ttft_ms, p.effective_bw_gbps
+        ));
+    }
+    out.push_str(&format!("{}\n", "=".repeat(85)));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +347,39 @@ mod tests {
         assert_eq!(frontier.len(), 2);
         assert!(frontier.contains(&&points[0]));
         assert!(frontier.contains(&&points[1]));
+    }
+
+    #[test]
+    fn test_render_pareto_table_and_chart() {
+        let points = vec![
+            ParetoPointSummary {
+                model_alias: "minicpm-1b".to_string(),
+                mode: "Vulkan".to_string(),
+                prompt_tokens: 512,
+                prefill_tps: 744.0,
+                decode_tps: 41.7,
+                ttft_ms: 470.0,
+                rss_peak_mb: 340.0,
+                effective_bw_gbps: 41.7,
+            },
+            ParetoPointSummary {
+                model_alias: "qwythos-9b".to_string(),
+                mode: "Vulkan".to_string(),
+                prompt_tokens: 512,
+                prefill_tps: 78.8,
+                decode_tps: 7.4,
+                ttft_ms: 4666.0,
+                rss_peak_mb: 1084.0,
+                effective_bw_gbps: 36.6,
+            },
+        ];
+
+        let table = render_pareto_table(&points);
+        assert!(table.contains("minicpm-1b"));
+        assert!(table.contains("qwythos-9b"));
+
+        let chart = render_pareto_chart(&points);
+        assert!(chart.contains("CARTE DE PARETO"));
+        assert!(chart.contains("41.70 t/s"));
     }
 }

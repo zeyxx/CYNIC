@@ -19,7 +19,7 @@
       "id": "llama.cpp",
       "min_build": 9444,
       "desired_build": 9600,
-      "notes": "Scripted provider under principal cynic: git+cmake → /var/lib/cynic/.local/bin/llama-server. desired_build for newer GGUF arches (dspark)."
+      "notes": "Scripted provider under principal cynic: git+cmake with -DGGML_VULKAN=ON, -DGGML_AVX2=ON, -DGGML_FMA=ON, -DGGML_F16C=ON, -DCMAKE_CXX_STANDARD=20 → /var/lib/cynic/.local/bin/llama-server. Supports qwen35moe, gemma4, mxfp4."
     },
     {
       "id": "huggingface-cli",

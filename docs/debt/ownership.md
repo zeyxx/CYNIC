@@ -92,11 +92,9 @@
 - **Problème** : Node génère, Kernel vérifie — pas de contrat de passage de témoin
 - **Requis** : `BootstrapSeedContract` — generator + verifier + evidence
 
-### OWN-010: Inference Models — Cache vs Runtime
-- **Fichiers** : `cynic-inference/` + `cynic-kernel/src/api/rest/inference_router.rs`
-- **Problème** : Kernel route l'inférence MAIS inference crate gère models/cache — boundary floue
-- **Requis** : `InferenceRuntimePort` (kernel) ← `InferenceEngineAdapter` (inference crate)
-
+### OWN-010: Inference Models — Cache vs Runtime [RÉSOLU Slice 4]
+- **Fichiers** : `cynic-inference/src/ports/inference_routing_port.rs` + `cynic-kernel/src/api/rest/inference_router.rs`
+- **Statut** : RÉSOLU. `InferenceRoutingPort` et `InferenceProxyPort` définis dans `cynic-inference::ports`, consommés par le kernel REST via injection.
 ### OWN-011: Fleet Heartbeat — Protocol vs Host
 - **Fichiers** :
   - `cynic-protocol/src/fleet_heartbeat.rs` (19310 lignes) — schema + types
