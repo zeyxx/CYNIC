@@ -1,7 +1,8 @@
 use crate::{
     SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA, SourceWorktreeInventoryEntry,
-    SourceWorktreeInventoryObservation, SourceWorktreeInventoryPathBasis,
-    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
+    SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation,
+    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
+    validate_source_worktree_inventory_observation,
 };
 
 const DIGEST: &str = "sha3-512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -15,6 +16,8 @@ fn observation() -> SourceWorktreeInventoryObservation {
         entries: vec![SourceWorktreeInventoryEntry {
             candidate_id: DIGEST.to_string(),
             evidence_digest: DIGEST.to_string(),
+            state: SourceWorktreeInventoryEntryState::Observed,
+            unknown_attribute_count: 0,
             path_basis: SourceWorktreeInventoryPathBasis::WorkspaceLayout,
             relative_path: Some("source/workspaces/cynic/ws-a".to_string()),
             head: Some("a".repeat(40)),
@@ -71,6 +74,17 @@ fn known_fact_cannot_also_be_marked_unknown() {
         validate_source_worktree_inventory_observation(&observed)
             .contains(&"worktree_inventory_unknown_contradictory".to_string())
     );
+}
+
+#[test]
+fn unknown_git_attributes_are_explicitly_annotated() {
+    let mut observed = observation();
+    observed.entries[0].unknown_attribute_count = 1;
+    observed.entries[0]
+        .unknowns
+        .push(SourceWorktreeInventoryUnknown::GitAttribute);
+
+    assert!(validate_source_worktree_inventory_observation(&observed).is_empty());
 }
 
 #[test]

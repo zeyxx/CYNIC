@@ -23,6 +23,7 @@ pub enum SourceWorktreeInventoryUnknown {
     Locked,
     LockReason,
     PrunableReason,
+    GitAttribute,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +34,14 @@ pub enum SourceWorktreeInventoryPathBasis {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceWorktreeInventoryEntryState {
+    Observed,
+    OutsideDeclaredLayout,
+    Malformed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceWorktreeInventoryEntry {
@@ -40,6 +49,8 @@ pub struct SourceWorktreeInventoryEntry {
     pub candidate_id: String,
     /// Canonical digest of the adapter evidence, pending independent verification.
     pub evidence_digest: String,
+    pub state: SourceWorktreeInventoryEntryState,
+    pub unknown_attribute_count: u16,
     pub path_basis: SourceWorktreeInventoryPathBasis,
     /// Relative to the declared `path_basis`; never an absolute machine path.
     #[serde(default)]
@@ -183,8 +194,24 @@ pub fn validate_source_worktree_inventory_observation(
                 violations.push("worktree_inventory_relative_path_invalid".to_string());
             }
         }
-        if entry.path_basis == SourceWorktreeInventoryPathBasis::Unknown {
-            violations.push("worktree_inventory_path_basis_unknown".to_string());
+        if entry.path_basis == SourceWorktreeInventoryPathBasis::Unknown
+            && entry.relative_path.is_some()
+        {
+            violations.push("worktree_inventory_path_basis_conflict".to_string());
+        }
+        if entry.unknown_attribute_count > 0
+            && !entry
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::GitAttribute)
+        {
+            violations.push("worktree_inventory_unknown_attribute_unannotated".to_string());
+        }
+        if entry.unknown_attribute_count == 0
+            && entry
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::GitAttribute)
+        {
+            violations.push("worktree_inventory_unknown_attribute_contradictory".to_string());
         }
         if entry.lock_reason.is_some() && entry.locked != Some(true) {
             violations.push("worktree_inventory_lock_reason_conflict".to_string());
