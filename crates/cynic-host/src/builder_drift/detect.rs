@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 pub const DRIFT_SCHEMA: &str = "cynic.builder_drift_report.v1";
