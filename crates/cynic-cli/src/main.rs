@@ -144,6 +144,11 @@ enum Command {
         #[command(subcommand)]
         command: ForgejoCommand,
     },
+    /// Proxmox cluster management (observe, destroy, templates)
+    Proxmox {
+        #[command(subcommand)]
+        command: crate::proxmox_command::ProxmoxCommand,
+    },
     /// Read-only Solana observation planning surfaces.
     #[command(hide = true)]
     Solana {
