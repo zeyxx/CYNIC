@@ -27,6 +27,9 @@ pub use domain::audit_geometry::{
     ModelEconomicEvaluation, ModelEmissionDynamics, ModelMatrixCoordinate,
     ModelSubstrateObservation, OffloadStrategy,
 };
+pub use domain::runtime_admission::{
+    ADMISSION_REPORT_SCHEMA, AdmissionDecision, AdmissionStatus, admit_inference_workload,
+};
 pub use domain::generation_parameters::{
     GenerationParameters, SamplingParameters, ThinkingMode,
 };

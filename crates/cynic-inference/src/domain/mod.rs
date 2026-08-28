@@ -25,6 +25,7 @@ pub mod model_store;
 pub mod node_contribution;
 pub mod principal_paths;
 pub mod routing;
+pub mod runtime_admission;
 pub mod runtime_plan;
 pub mod slot_semaphore;
 pub mod slot_tracker;
