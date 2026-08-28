@@ -113,6 +113,7 @@ pub mod storage_capabilities;
 pub mod storage_credential_sync;
 pub(crate) mod storage_identity;
 pub mod storage_primary;
+pub mod time;
 pub mod toolchain;
 pub mod transport;
 pub mod tunnel_supervisor;

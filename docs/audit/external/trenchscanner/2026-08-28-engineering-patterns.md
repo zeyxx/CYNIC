@@ -92,3 +92,41 @@ CYNIC valide des *records* (`validate_*`) mais pas des *contraintes entre champs
 3. Écart B en option après A.
 
 **État** : audit d'étude seulement. Aucun fichier CYNIC modifié, aucun fork/remote touché. Tout le code TrenchScanner/CultScreener reste en local `/tmp`.
+
+---
+
+## 6. Mesure : « commentaires systématiques sur le POURQUOI »
+
+**Méthode** : comptage lignes commentées (`//`, `/*`, `* `) vs LOC, hors tests, sur les deux repos.
+
+| Métrique | TrenchScanner (TS) | CYNIC (Rust) |
+|---|---|---|
+| LOC source (hors tests) | 11 287 | 316 073 |
+| Lignes commentées | 2 839 | 15 055 |
+| Densité brute | **~25%** | **~4,8%** |
+| Fichiers >200 LOC avec <5% commentaires | — | **416 / 625 (~67%)** |
+
+**Interprétation (honnête, pas de généralisation hâtive)** :
+- Ce n'est **pas** que CYNIC « ne commente pas ». CYNIC externalise la sémantique dans `docs/`, les `intent.json`, les types forts et les `validate_* -> Vec<String>`. Le *pourquoi global* vit dans le contrat, pas dans le corps de fonction.
+- Mais sur 316k LOC, **67% du code substantiel** est sous 5% de commentaires → le *pourquoi local* (pourquoi ce seuil, ce fallback, cette race est possible) n'est **pas** dans le code.
+- Chez sollama58, chaque décision de conception non-évidente porte son commentaire « why » *dans le fichier même* (ex: « a failed authority lookup yields null rather than a fabricated profile — 'we couldn't check' must not read as 'nothing is active' »). C'est une discipline de **proximité** : la rationale voyage avec le code, pas dans un doc séparé.
+- CYNIC a des fichiers denses (ex: `pattern_gc/types.rs` 44%, `model_publisher_port.rs` 36%, `enrichment.rs` 34%) → la densité existe sur types/ports, mais n'est pas la norme sur les `reconcile_*`/match qui réimplémentent des décisions sans en expliquer le « pourquoi ».
+
+**Écart C (transposition à faible risque)** : adopter la discipline de *proximité* sur les décisions non-obvies uniquement — pas « plus de commentaires » (risque de bruit), mais un commentaire de **pourquoi** sur chaque bloc : fail-closed, idempotence, race de concurrence, sémantique de cache, fallback RPC. Ces endroits sont précisément ceux où CYNIC a du code sous-commenté.
+
+- **TrenchScanner (référence)** : `rugScreen.ts:48` (localScreenReasons), `solanaRpc.ts:38` (batchUnsupported latch), `access.ts:79` (insert-first idempotence), `env.ts:260` (.refine cross-valid), `concurrency.ts` (fan-out borné).
+- **CYNIC (où appliquer)** : les ~50 `fn reconcile_*` et les adapters RPC qui réimplémentent des fallbacks sans rationale.
+
+**Forme proposée (non bloquante)** :
+1. Section « Commentaires de rationale » dans `AGENTS.md` ou `docs/STYLE.md` : *« tout bloc de décision non-obvie porte un commentaire de pourquoi, pas de quoi »*.
+2. Outil de **revue** (pas lint bloquant — casserait 316k LOC) : signaler les `reconcile_*` / match sans commentaire de rationale, en PR review uniquement.
+
+**Risque** : faible (documentation + revue, pas de mutation de contrat).
+
+---
+
+## 7. État final
+
+- Audit d'étude seulement. Aucun fichier CYNIC modifié hormis ce document (non commité, branche `agent/hermes/agent-isolation-l0`).
+- Aucun fork/remote touché. Tout le code TrenchScanner/CultScreener reste en local `/tmp`.
+- 3 écarts identifiés (A: concurrence générique, B: cross-validation config, C: discipline commentaires de rationale) — tous à faible risque, tous localisables sans rupture de contrat.

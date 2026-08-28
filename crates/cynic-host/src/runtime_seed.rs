@@ -243,8 +243,4 @@ pub fn persist_runtime_seed_evidence(
     Ok(path)
 }
 
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis() as u64)
-}
+use crate::time::now_unix_ms;

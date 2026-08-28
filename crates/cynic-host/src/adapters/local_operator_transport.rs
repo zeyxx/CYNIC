@@ -4,11 +4,13 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::time::now_unix_ms;
 use crate::transport::{
     ExecutableObservation, OperatorTransportObservationPort, SshHostKeyObservation,
     SshTargetInspectionPort, SshTargetInspectionReport, TmuxHarnessObservation,
     TmuxSessionObservation,
 };
+use crate::time::now_unix_ms;
 
 /// Local process adapter for read-only SSH/tmux operator evidence.
 #[derive(Debug, Default, Clone, Copy)]

@@ -57,7 +57,7 @@ pub fn host_runtime_metrics_with_external_proof(
     host_runtime_metrics_with_now(
         report,
         external_proof,
-        now_unix_ms(),
+        runtime_now_unix_ms(),
         DEFAULT_PROOF_FRESHNESS_MAX_AGE_MS,
     )
 }
@@ -546,7 +546,7 @@ fn bootstrap_stage_index(stage: &str) -> Option<usize> {
     })
 }
 
-fn now_unix_ms() -> u128 {
+fn runtime_now_unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
@@ -683,7 +683,7 @@ mod tests {
         )
         .expect("conformance");
 
-        let metrics = host_runtime_metrics_with_now(&report, None, now_unix_ms(), 60_000);
+        let metrics = host_runtime_metrics_with_now(&report, None, runtime_now_unix_ms(), 60_000);
 
         assert_eq!(metrics.schema, HOST_RUNTIME_METRICS_SCHEMA);
         // Not 100: the package domain is Blocked by design because the profile
@@ -742,7 +742,7 @@ mod tests {
             }],
         };
 
-        let metrics = host_runtime_metrics_with_now(&report, Some(&proof), now_unix_ms(), 60_000);
+        let metrics = host_runtime_metrics_with_now(&report, Some(&proof), runtime_now_unix_ms(), 60_000);
 
         assert_eq!(
             metrics.external_proof_gates,

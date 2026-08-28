@@ -203,12 +203,7 @@ fn registry_file_digest(path: &Path) -> Option<String> {
         .map(|bytes| format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-        .unwrap_or_default()
-}
+use crate::time::now_unix_ms;
 
 pub fn write_bootstrap_admission_receipt(
     path: &Path,
