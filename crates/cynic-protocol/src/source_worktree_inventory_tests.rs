@@ -1,7 +1,7 @@
 use crate::{
     SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA, SourceWorktreeInventoryEntry,
-    SourceWorktreeInventoryObservation, SourceWorktreeInventoryUnknown,
-    validate_source_worktree_inventory_observation,
+    SourceWorktreeInventoryObservation, SourceWorktreeInventoryPathBasis,
+    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
 };
 
 const DIGEST: &str = "sha3-512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -15,12 +15,18 @@ fn observation() -> SourceWorktreeInventoryObservation {
         entries: vec![SourceWorktreeInventoryEntry {
             candidate_id: DIGEST.to_string(),
             evidence_digest: DIGEST.to_string(),
+            path_basis: SourceWorktreeInventoryPathBasis::WorkspaceLayout,
             relative_path: Some("source/workspaces/cynic/ws-a".to_string()),
             head: Some("a".repeat(40)),
+            branch: Some("refs/heads/agent/ws-a".to_string()),
             observed_principal: Some("cynic".to_string()),
             path_is_symlink: Some(false),
             git_registered: Some(true),
             git_prunable: Some(false),
+            locked: Some(false),
+            bare: Some(false),
+            lock_reason: None,
+            prunable_reason: None,
             detached_head: Some(false),
             clean: Some(true),
             unknowns: Vec::new(),
@@ -71,6 +77,18 @@ fn known_fact_cannot_also_be_marked_unknown() {
 fn prunable_fact_preserves_independent_cleanliness() {
     let mut observed = observation();
     observed.entries[0].git_prunable = Some(true);
+
+    assert!(validate_source_worktree_inventory_observation(&observed).is_empty());
+}
+
+#[test]
+fn main_locked_and_bare_facts_are_representable() {
+    let mut observed = observation();
+    observed.entries[0].path_basis = SourceWorktreeInventoryPathBasis::MainRepository;
+    observed.entries[0].relative_path = None;
+    observed.entries[0].locked = Some(true);
+    observed.entries[0].lock_reason = Some("recovery hold".to_string());
+    observed.entries[0].bare = Some(true);
 
     assert!(validate_source_worktree_inventory_observation(&observed).is_empty());
 }
