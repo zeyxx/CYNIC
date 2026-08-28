@@ -124,6 +124,15 @@ a parallel prose-owned policy.
 - **No hidden execution.** Apply paths use typed argv execution, stop on first
   failure, declare mutation and privilege, and require explicit `--yes` or
   `--apply`. Python and shell wrappers are not runtime authority.
+- **La structure émerge du chaos.** When runtime anomalies surface (permission
+  drift, divergent read-back, stale state, orphan locks), treat them as emergent
+  signals revealing an unmodelled constraint — not as defects to suppress.
+  Classify the anomaly, document the emergent invariant, and add regression
+  proof at the layer that owns it.
+- **This is a feature, not a bug.** An anomaly is a feature of the system
+  exposing a boundary condition. Investigate the root cause before applying
+  a corrective patch; the patch must make the emergent invariant explicit
+  rather than masking the symptom.
 
 Install and repair decisions must derive from observed provenance. Keep payload
 layout distinct from mutator authority: for example, a Python user-site payload
