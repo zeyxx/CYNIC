@@ -137,7 +137,7 @@ pub(crate) fn execute_inference_start(
         return ExitCode::FAILURE;
     }
     if let Some(token_hex) = capability_token {
-        if !starts_with(token_hex, "0x") && token_hex.len() != 128 {
+        if !token_hex.starts_with("0x") && token_hex.len() != 128 {
             eprintln!(
                 "capability token must be 128 hex characters (got {} chars)",
                 token_hex.len()

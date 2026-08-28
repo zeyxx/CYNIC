@@ -89,6 +89,7 @@ fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bo
     // Hand-off to harness start if consent was given.
     if yes {
         let _ = execute_runtime(RuntimeCommand::InferenceStart {
+        capability_token: None,
             alias: "auto".to_string(),
             json,
             no_wait: false,
@@ -141,6 +142,7 @@ fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
         );
     }
     execute_runtime(RuntimeCommand::InferenceStart {
+        capability_token: None,
         alias: alias.to_string(),
         json,
         no_wait: false,

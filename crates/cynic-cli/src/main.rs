@@ -31,6 +31,7 @@ mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
 mod forgejo_surface;
+mod builder_command;
 mod fs_json;
 mod host_exec_alias_surface;
 mod integrations_readonly_surface;
