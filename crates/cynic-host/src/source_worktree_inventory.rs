@@ -650,6 +650,52 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn adapter_stops_at_the_entry_limit() {
+        let head = sha3(&"a".repeat(128));
+        let mut stdout = String::new();
+        for index in 0..=4096 {
+            stdout.push_str(&format!(
+                "worktree /var/lib/cynic/source/workspaces/cynic/ws-{index}\0HEAD {head}\0branch refs/heads/agent/ws-{index}\0\0"
+            ));
+        }
+        assert!(stdout.len() < MAX_PORCELAIN_BYTES);
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout,
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &runner,
+        );
+
+        assert_eq!(observation.entries.len(), 4096);
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded]
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_handles_empty_repository_with_no_worktrees() {
         let runner = MapArgvRunner {
             responses: vec![(
