@@ -9,6 +9,7 @@
 pub mod engine;
 pub mod probe;
 pub mod rules;
+pub mod soc;
 pub mod types;
 
 #[cfg(test)]

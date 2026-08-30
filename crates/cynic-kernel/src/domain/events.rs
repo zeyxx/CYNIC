@@ -81,4 +81,21 @@ pub enum KernelEvent {
     AgentTaskCompleted {
         task_id: String,
     },
+    /// A crash was detected on the host (GPU hang, softlockup, etc.).
+    CrashDetected {
+        kind: String,
+        evidence_ref: String,
+        severity: String,
+    },
+    /// A post-mortem report is ready for a crashed boot.
+    PostMortemReady {
+        report_id: String,
+        boot_id: String,
+    },
+    /// A systemd unit entered a restart loop above threshold.
+    ServiceLoopEscalation {
+        unit: String,
+        count: u64,
+        window_secs: u64,
+    },
 }

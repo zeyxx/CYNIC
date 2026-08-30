@@ -87,5 +87,8 @@ fn event_type_name(event: &KernelEvent) -> &'static str {
         KernelEvent::AgentTaskCreated { .. } => "agent_task_created",
         KernelEvent::AgentTaskClaimed { .. } => "agent_task_claimed",
         KernelEvent::AgentTaskCompleted { .. } => "agent_task_completed",
+        KernelEvent::CrashDetected { .. } => "crash_detected",
+        KernelEvent::PostMortemReady { .. } => "post_mortem_ready",
+        KernelEvent::ServiceLoopEscalation { .. } => "service_loop_escalation",
     }
 }
