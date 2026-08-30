@@ -481,6 +481,49 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn detached_head_makes_branch_absence_known() {
+        let head = sha3(&"a".repeat(128));
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: format!(
+                        "worktree /var/lib/cynic/source/workspaces/cynic/ws-detached\0HEAD {head}\0detached\0\0"
+                    ),
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &runner,
+        );
+
+        assert_eq!(observation.entries[0].branch, None);
+        assert_eq!(observation.entries[0].detached_head, Some(true));
+        assert!(
+            !observation.entries[0]
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::Branch)
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_records_locked_fact() {
         let runner = MapArgvRunner {
             responses: vec![(
