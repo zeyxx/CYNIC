@@ -728,6 +728,38 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn every_singleton_porcelain_field_rejects_duplicates() {
+        let head = sha3(&"a".repeat(128));
+        for duplicate_fields in [
+            "branch refs/heads/one\0branch refs/heads/two",
+            "bare\0bare",
+            "locked\0locked reason",
+            "detached\0detached",
+            "prunable\0prunable reason",
+        ] {
+            let text = format!(
+                "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0{duplicate_fields}\0\0"
+            );
+            let (entries, entry_limit_exceeded) = parse_porcelain(
+                &text,
+                Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+                Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            );
+
+            assert!(!entry_limit_exceeded);
+            assert_eq!(
+                entries[0].state,
+                SourceWorktreeInventoryEntryState::Malformed,
+                "duplicate fields: {duplicate_fields}"
+            );
+            assert_eq!(
+                entries[0].unknown_attribute_count, 1,
+                "duplicate fields: {duplicate_fields}"
+            );
+        }
+    }
+
+    #[test]
     fn adapter_returns_empty_when_git_fails() {
         let runner = MapArgvRunner {
             responses: vec![(
