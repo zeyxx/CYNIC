@@ -166,7 +166,7 @@ pub fn validate_source_worktree_inventory_observation(
         {
             violations.push("worktree_inventory_entry_size_exceeded".to_string());
         }
-        if invalid_pathless_id(&entry.candidate_id)
+        if !valid_canonical_digest(&entry.candidate_id)
             || !valid_canonical_digest(&entry.evidence_digest)
         {
             violations.push("worktree_inventory_entry_evidence_invalid".to_string());
@@ -262,20 +262,29 @@ pub fn validate_source_worktree_inventory_observation(
                 SourceWorktreeInventoryUnknown::Locked,
             ),
             (entry.bare.is_some(), SourceWorktreeInventoryUnknown::Bare),
-            (
-                entry.lock_reason.is_some() || entry.locked != Some(true),
-                SourceWorktreeInventoryUnknown::LockReason,
-            ),
-            (
-                entry.prunable_reason.is_some() || entry.git_prunable != Some(true),
-                SourceWorktreeInventoryUnknown::PrunableReason,
-            ),
         ] {
             let marked = entry.unknowns.contains(&kind);
             if value && marked {
                 violations.push("worktree_inventory_unknown_contradictory".to_string());
             } else if !value && !marked {
                 violations.push("worktree_inventory_unknown_unannotated".to_string());
+            }
+        }
+        for (reason_is_known, parent_is_true, kind) in [
+            (
+                entry.lock_reason.is_some(),
+                entry.locked == Some(true),
+                SourceWorktreeInventoryUnknown::LockReason,
+            ),
+            (
+                entry.prunable_reason.is_some(),
+                entry.git_prunable == Some(true),
+                SourceWorktreeInventoryUnknown::PrunableReason,
+            ),
+        ] {
+            let marked = entry.unknowns.contains(&kind);
+            if marked && (reason_is_known || !parent_is_true) {
+                violations.push("worktree_inventory_unknown_contradictory".to_string());
             }
         }
         if entry
