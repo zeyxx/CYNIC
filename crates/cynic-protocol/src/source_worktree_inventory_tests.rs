@@ -275,3 +275,20 @@ fn validator_does_not_inspect_entries_beyond_the_declared_limit() {
     assert!(violations.contains(&"worktree_inventory_entries_limit_exceeded".to_string()));
     assert!(!violations.contains(&"worktree_inventory_absolute_path_forbidden".to_string()));
 }
+
+#[test]
+fn validator_does_not_inspect_evidence_beyond_the_declared_limit() {
+    let mut observed = observation();
+    observed.evidence_refs.clear();
+    observed.evidence_refs.push(DIGEST.to_string());
+    for index in 1..8192 {
+        observed
+            .evidence_refs
+            .push(format!("sha3-512:{index:0128x}"));
+    }
+    observed.evidence_refs.push("not-a-digest".to_string());
+
+    let violations = validate_source_worktree_inventory_observation(&observed);
+    assert!(violations.contains(&"worktree_inventory_evidence_limit_exceeded".to_string()));
+    assert!(!violations.contains(&"worktree_inventory_evidence_invalid".to_string()));
+}
