@@ -158,12 +158,16 @@ pub fn validate_source_worktree_inventory_observation(
     {
         violations.push("worktree_inventory_observation_unknown_contradictory".to_string());
     }
-    for evidence_ref in &observation.evidence_refs {
+    for evidence_ref in observation.evidence_refs.iter().take(MAX_EVIDENCE_REFS) {
         if !valid_canonical_digest(evidence_ref) {
             violations.push("worktree_inventory_evidence_invalid".to_string());
         }
     }
-    let evidence_refs = observation.evidence_refs.iter().collect::<HashSet<_>>();
+    let evidence_refs = observation
+        .evidence_refs
+        .iter()
+        .take(MAX_EVIDENCE_REFS)
+        .collect::<HashSet<_>>();
     let mut candidate_ids = HashSet::new();
     for entry in observation
         .entries
