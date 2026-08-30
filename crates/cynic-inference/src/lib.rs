@@ -10,11 +10,13 @@ pub mod math;
 pub mod ods_discovery;
 pub mod ports;
 pub mod progress;
+pub mod vector_memory;
 
 // Convenience re-exports for downstream crates (CLI, MCP).
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
+pub use vector_memory::*;
 
 pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::supervision::SupervisionPolicy;
