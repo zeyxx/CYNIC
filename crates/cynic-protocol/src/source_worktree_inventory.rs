@@ -42,6 +42,16 @@ pub enum SourceWorktreeInventoryEntryState {
     Malformed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceWorktreeInventoryObservationUnknown {
+    GitCommandFailed,
+    EmptyOutput,
+    OutputLimitExceeded,
+    EntryLimitExceeded,
+    LayoutUnavailable,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceWorktreeInventoryEntry {
@@ -94,6 +104,8 @@ pub struct SourceWorktreeInventoryObservation {
     pub entries: Vec<SourceWorktreeInventoryEntry>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub observation_unknowns: Vec<SourceWorktreeInventoryObservationUnknown>,
 }
 
 pub fn validate_source_worktree_inventory_observation(
@@ -123,8 +135,28 @@ pub fn validate_source_worktree_inventory_observation(
     {
         violations.push("worktree_inventory_identity_size_exceeded".to_string());
     }
-    if observation.evidence_refs.is_empty() {
+    if observation.entries.is_empty() && observation.observation_unknowns.is_empty() {
+        violations.push("worktree_inventory_coverage_unknown_unannotated".to_string());
+    }
+    if observation.evidence_refs.is_empty() && observation.observation_unknowns.is_empty() {
         violations.push("worktree_inventory_evidence_missing".to_string());
+    }
+    let mut observation_unknowns = HashSet::new();
+    for unknown in &observation.observation_unknowns {
+        if !observation_unknowns.insert(*unknown) {
+            violations.push("worktree_inventory_observation_unknown_duplicate".to_string());
+        }
+    }
+    if !observation.entries.is_empty()
+        && observation.observation_unknowns.iter().any(|unknown| {
+            matches!(
+                unknown,
+                SourceWorktreeInventoryObservationUnknown::GitCommandFailed
+                    | SourceWorktreeInventoryObservationUnknown::EmptyOutput
+            )
+        })
+    {
+        violations.push("worktree_inventory_observation_unknown_contradictory".to_string());
     }
     for evidence_ref in &observation.evidence_refs {
         if !valid_canonical_digest(evidence_ref) {

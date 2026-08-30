@@ -2,8 +2,9 @@ use std::path::{Component, Path, PathBuf};
 
 use cynic_protocol::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
-    SourceWorktreeInventoryObservation, SourceWorktreeInventoryPathBasis,
-    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
+    SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
+    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
+    validate_source_worktree_inventory_observation,
 };
 
 use crate::update_lifecycle::ArgvRunner;
@@ -31,6 +32,7 @@ pub fn observe_source_worktree_inventory(
             observed_at_ms,
             entries: Vec::new(),
             evidence_refs: Vec::new(),
+            observation_unknowns: vec![SourceWorktreeInventoryObservationUnknown::GitCommandFailed],
         };
     }
 
@@ -44,6 +46,11 @@ pub fn observe_source_worktree_inventory(
     let workspace_store = observed_absolute_path(workspace_store);
     let entries = parse_porcelain(&text, &repository_root, &workspace_store);
     let evidence_refs: Vec<String> = entries.iter().map(|e| e.evidence_digest.clone()).collect();
+    let observation_unknowns = entries
+        .is_empty()
+        .then_some(SourceWorktreeInventoryObservationUnknown::EmptyOutput)
+        .into_iter()
+        .collect();
 
     SourceWorktreeInventoryObservation {
         schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
@@ -52,6 +59,7 @@ pub fn observe_source_worktree_inventory(
         observed_at_ms,
         entries,
         evidence_refs,
+        observation_unknowns,
     }
 }
 
@@ -530,6 +538,7 @@ mod w1_b_tests {
             observed_at_ms: 1,
             entries,
             evidence_refs,
+            observation_unknowns: Vec::new(),
         };
 
         assert_eq!(observation.entries[1].unknown_attribute_count, 1);
@@ -571,6 +580,11 @@ mod w1_b_tests {
         );
         assert_eq!(observation.entries.len(), 0);
         assert!(observation.evidence_refs.is_empty());
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::GitCommandFailed]
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
     }
 
     #[test]
@@ -602,5 +616,10 @@ mod w1_b_tests {
             &runner,
         );
         assert_eq!(observation.entries.len(), 0);
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::EmptyOutput]
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
     }
 }
