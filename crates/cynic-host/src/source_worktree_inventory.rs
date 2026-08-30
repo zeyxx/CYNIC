@@ -837,6 +837,49 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn attribute_outside_a_record_is_global_malformed_evidence() {
+        let head = sha3(&"a".repeat(128));
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: format!(
+                        "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0\0HEAD orphaned\0"
+                    ),
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &runner,
+        );
+
+        assert_eq!(observation.entries.len(), 1);
+        assert_eq!(observation.entries[0].unknown_attribute_count, 0);
+        assert_eq!(observation.evidence_refs.len(), 2);
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::MalformedRecord]
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_returns_empty_when_git_fails() {
         let runner = MapArgvRunner {
             responses: vec![(
