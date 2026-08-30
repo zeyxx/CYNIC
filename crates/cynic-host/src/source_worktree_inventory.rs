@@ -382,6 +382,47 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn adapter_preserves_nul_delimited_porcelain_values() {
+        let head = sha3(&"a".repeat(128));
+        let stdout = format!(
+            "worktree /var/lib/cynic/source/repositories/CYNIC\0HEAD {head}\0branch refs/heads/main\0locked first line\nsecond line\0\0"
+        );
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout,
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            "cynic",
+            "builder-a",
+            &runner,
+        );
+
+        assert_eq!(observation.entries.len(), 1);
+        assert_eq!(
+            observation.entries[0].lock_reason,
+            Some("first line\nsecond line".to_string())
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
         let entries = parse_porcelain(&text, Path::new("/var/lib/cynic/source/repositories/CYNIC"));
