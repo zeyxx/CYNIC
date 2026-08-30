@@ -15,8 +15,8 @@ use std::process::Command;
 
 use crate::domain::forensics::port::{ForensicError, ForensicObservationPort};
 use crate::domain::forensics::types::{
-    CrashKind, EvidenceSource, ForensicEvidence, ForensicTimeline, PostMortemReport, ServiceLoop,
-    TimelineEntry, FORENSIC_TIMELINE_SCHEMA, POST_MORTEM_REPORT_SCHEMA,
+    CrashKind, EvidenceSource, FORENSIC_TIMELINE_SCHEMA, ForensicEvidence, ForensicTimeline,
+    PostMortemReport, ServiceLoop, TimelineEntry,
 };
 use crate::domain::forensics::{
     parse_boot_id, parse_boot_table_line, parse_crash_dump_header, parse_dmesg_gpu_fault,
@@ -32,7 +32,7 @@ impl LocalForensicAdapter {
     }
 
     /// Read the current boot_id from `/proc/sys/kernel/random/boot_id`.
-    fn read_current_boot_id() -> Option<String> {
+    pub fn read_current_boot_id() -> Option<String> {
         let content = fs::read_to_string(Path::new("/proc/sys/kernel/random/boot_id")).ok()?;
         parse_boot_id(&content)
     }
@@ -93,7 +93,7 @@ impl LocalForensicAdapter {
     }
 
     /// Run `journalctl --list-boots` and return raw output.
-    fn read_boot_table() -> Option<String> {
+    pub fn read_boot_table() -> Option<String> {
         let output = Command::new("journalctl")
             .arg("--list-boots")
             .output()
@@ -105,7 +105,7 @@ impl LocalForensicAdapter {
     }
 
     /// Get uptime in seconds from `/proc/uptime`.
-    fn read_uptime_secs() -> Option<u64> {
+    pub fn read_uptime_secs() -> Option<u64> {
         let content = fs::read_to_string(Path::new("/proc/uptime")).ok()?;
         let first_word = content.split_whitespace().next()?;
         let secs: f64 = first_word.parse().ok()?;
