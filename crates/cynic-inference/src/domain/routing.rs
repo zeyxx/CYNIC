@@ -1,4 +1,4 @@
-//! Routing domain values for backend and model selection.
+use cynic_protocol::DataClassification;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferenceClass {
@@ -12,11 +12,11 @@ pub enum InferenceClass {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoutingConstraint {
     SovereignOnly,
+    Classification(DataClassification),
     ToolUseRequired,
     JsonModeRequired,
     ModelName(String),
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoutingIntent {
     pub class: InferenceClass,

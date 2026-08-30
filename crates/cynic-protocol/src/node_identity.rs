@@ -153,6 +153,8 @@ pub struct NodeCsr {
     pub requested_role: String,
     pub public_key_hex: String,
     pub created_at_unix_s: u64,
+    #[serde(default)]
+    pub hardware_capabilities: Vec<String>,
     pub csr_signature_hex: String,
 }
 
@@ -163,6 +165,7 @@ struct NodeCsrSigningPayload<'a> {
     requested_role: &'a str,
     public_key_hex: &'a str,
     created_at_unix_s: u64,
+    hardware_capabilities: &'a [String],
 }
 
 impl NodeCsr {
@@ -179,8 +182,14 @@ impl NodeCsr {
             requested_role,
             public_key_hex,
             created_at_unix_s,
+            hardware_capabilities: Vec::new(),
             csr_signature_hex,
         }
+    }
+
+    pub fn with_hardware_capabilities(mut self, capabilities: Vec<String>) -> Self {
+        self.hardware_capabilities = capabilities;
+        self
     }
 
     /// Canonical signing payload bytes for the CSR.
@@ -191,8 +200,9 @@ impl NodeCsr {
             requested_role: &self.requested_role,
             public_key_hex: &self.public_key_hex,
             created_at_unix_s: self.created_at_unix_s,
+            hardware_capabilities: &self.hardware_capabilities,
         };
-        serde_json::to_vec(&payload).expect("serialize csr payload")
+        crate::canonical_json_bytes(&payload).expect("serialize csr payload")
     }
 
     /// Pure structural validation of the CSR.
@@ -223,6 +233,13 @@ impl NodeCsr {
             "node_csr_created_at_invalid",
             &mut blockers,
         );
+        if self
+            .hardware_capabilities
+            .iter()
+            .any(|c| c.trim().is_empty())
+        {
+            blockers.push("node_csr_hardware_capability_empty".to_string());
+        }
         check(
             self.csr_signature_hex.len() == 128
                 && self
@@ -246,6 +263,8 @@ pub struct NodeEnrollmentCertificate {
     pub node_id: String,
     pub role: String,
     pub subject_public_key_hex: String,
+    #[serde(default)]
+    pub attested_capabilities: Vec<String>,
     pub kernel_authority_id: String,
     pub issued_at_unix_s: u64,
     pub expires_at_unix_s: u64,
@@ -258,6 +277,7 @@ struct NodeEnrollmentCertificateSigningPayload<'a> {
     node_id: &'a str,
     role: &'a str,
     subject_public_key_hex: &'a str,
+    attested_capabilities: &'a [String],
     kernel_authority_id: &'a str,
     issued_at_unix_s: u64,
     expires_at_unix_s: u64,
@@ -271,11 +291,12 @@ impl NodeEnrollmentCertificate {
             node_id: &self.node_id,
             role: &self.role,
             subject_public_key_hex: &self.subject_public_key_hex,
+            attested_capabilities: &self.attested_capabilities,
             kernel_authority_id: &self.kernel_authority_id,
             issued_at_unix_s: self.issued_at_unix_s,
             expires_at_unix_s: self.expires_at_unix_s,
         };
-        serde_json::to_vec(&payload).expect("serialize cert payload")
+        crate::canonical_json_bytes(&payload).expect("serialize cert payload")
     }
 
     /// Check whether the certificate is active at a given unix timestamp.
@@ -306,6 +327,13 @@ impl NodeEnrollmentCertificate {
             "node_certificate_subject_public_key_invalid",
             &mut blockers,
         );
+        if self
+            .attested_capabilities
+            .iter()
+            .any(|c| c.trim().is_empty())
+        {
+            blockers.push("node_certificate_attested_capability_empty".to_string());
+        }
         check(
             !self.kernel_authority_id.trim().is_empty(),
             "node_certificate_kernel_authority_id_empty",
@@ -449,6 +477,7 @@ mod tests {
             node_id: "node-alpha".to_string(),
             role: "builder".to_string(),
             subject_public_key_hex: "c".repeat(64),
+            attested_capabilities: vec!["kvm".to_string(), "avx512".to_string()],
             kernel_authority_id: "kernel-root".to_string(),
             issued_at_unix_s: 1700000000,
             expires_at_unix_s: 1700086400,
@@ -470,5 +499,26 @@ mod tests {
         assert!(!cert.is_valid_at(1699999999));
         let early_blockers = cert.validate(1699999999);
         assert!(early_blockers.contains(&"node_certificate_expired_or_not_yet_valid".to_string()));
+    }
+
+    #[test]
+    fn attested_hardware_capabilities_signed_canonically() {
+        let cert = NodeEnrollmentCertificate {
+            schema: NODE_ENROLLMENT_CERTIFICATE_SCHEMA.to_string(),
+            certificate_id: "sha256:1234".to_string(),
+            node_id: "node-gpu".to_string(),
+            role: "inference_worker".to_string(),
+            subject_public_key_hex: "c".repeat(64),
+            attested_capabilities: vec!["vram_24gb".to_string(), "cuda".to_string()],
+            kernel_authority_id: "kernel-root".to_string(),
+            issued_at_unix_s: 1700000000,
+            expires_at_unix_s: 1700086400,
+            kernel_signature_hex: "d".repeat(128),
+        };
+        let signing_bytes = cert.signing_bytes();
+        let text = String::from_utf8(signing_bytes).expect("valid utf8");
+        // Canonical JSON key ordering check
+        assert!(text.contains("\"attested_capabilities\":[\"vram_24gb\",\"cuda\"]"));
+        assert!(text.starts_with("{\"attested_capabilities\":"));
     }
 }

@@ -159,6 +159,7 @@ impl NodeIdentityWorkflow {
             node_id: csr.node_id.clone(),
             role: csr.requested_role.clone(),
             subject_public_key_hex: csr.public_key_hex.clone(),
+            attested_capabilities: csr.hardware_capabilities.clone(),
             kernel_authority_id: kernel_authority_id.to_string(),
             issued_at_unix_s: now_unix_s,
             expires_at_unix_s,
@@ -346,6 +347,47 @@ mod tests {
         assert!(
             !workflow
                 .verify_certificate(&cert, &wrong_kernel_public, now + 10)
+                .expect("verify")
+        );
+    }
+
+    #[test]
+    fn certificate_attests_hardware_capabilities_from_csr() {
+        let workflow = NodeIdentityWorkflow::default();
+        let provider = Ed25519Provider;
+
+        let (node_secret, node_public) = provider.generate_keypair().expect("node keys");
+        let node_material = NodeIdentityMaterial {
+            private_key: node_secret,
+            public_key: node_public.clone(),
+            public_key_hex: hex::encode(&node_public),
+        };
+
+        let (kernel_secret, kernel_public) = provider.generate_keypair().expect("kernel keys");
+        let now = 1700000000;
+
+        let mut csr = workflow
+            .create_csr("node-gpu-1", "inference_worker", &node_material, now)
+            .expect("csr");
+        csr.hardware_capabilities = vec!["vram_24gb".to_string(), "avx512".to_string()];
+        // Resign CSR with capabilities
+        let signing_bytes = csr.signing_bytes();
+        let sig = provider
+            .sign(&signing_bytes, &node_material.private_key)
+            .expect("sign");
+        csr.csr_signature_hex = hex::encode(sig);
+
+        let cert = workflow
+            .issue_certificate(&csr, "kernel-auth", &kernel_secret, 3600, now)
+            .expect("issue cert");
+
+        assert_eq!(
+            cert.attested_capabilities,
+            vec!["vram_24gb".to_string(), "avx512".to_string()]
+        );
+        assert!(
+            workflow
+                .verify_certificate(&cert, &kernel_public, now + 10)
                 .expect("verify")
         );
     }

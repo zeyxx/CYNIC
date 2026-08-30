@@ -251,6 +251,7 @@ mod tests {
             node_id: node_id.to_string(),
             role: "worker".to_string(),
             subject_public_key_hex: hex::encode(public_key),
+            attested_capabilities: Vec::new(),
             kernel_authority_id: kernel_authority_id.to_string(),
             issued_at_unix_s: now_unix_s,
             expires_at_unix_s: now_unix_s + ttl_s,
