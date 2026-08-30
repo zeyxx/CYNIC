@@ -122,6 +122,7 @@ pub mod transport_readback;
 pub mod transport_security;
 pub mod window_journal;
 pub mod workload_identity;
+pub mod worktree_convergence_harness;
 
 pub use agent_citizenship::*;
 pub use agent_connection::*;
@@ -220,6 +221,7 @@ pub use temporal::*;
 pub use transport_readback::*;
 pub use transport_security::*;
 pub use workload_identity::*;
+pub use worktree_convergence_harness::*;
 
 #[cfg(test)]
 mod source_worktree_inventory_tests;
