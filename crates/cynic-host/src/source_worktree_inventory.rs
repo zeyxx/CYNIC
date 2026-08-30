@@ -36,11 +36,7 @@ pub fn observe_source_worktree_inventory(
         );
     }
 
-    let text = if output.stdout.is_empty() {
-        output.stderr
-    } else {
-        output.stdout
-    };
+    let text = output.stdout;
     if text.len() > MAX_PORCELAIN_BYTES {
         return unknown_observation(
             repository_id,
@@ -114,6 +110,23 @@ fn parse_porcelain(
             vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
         );
     }
+    let (complete_text, trailing_evidence) = if text.is_empty() || text.ends_with("\0\0") {
+        (text, Vec::new())
+    } else if let Some(boundary) = text.rfind("\0\0") {
+        let complete_end = boundary + 2;
+        (
+            &text[..complete_end],
+            vec![cynic_protocol::digest::digest_bytes(
+                text[complete_end..].as_bytes(),
+            )],
+        )
+    } else {
+        return (
+            Vec::new(),
+            false,
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
+        );
+    };
     let mut entries = Vec::new();
     let mut entry_limit_exceeded = false;
     let mut malformed_record_attributes: Vec<String> = Vec::new();
@@ -290,7 +303,7 @@ fn parse_porcelain(
         });
     }
 
-    let attributes = text.split('\0').collect::<Vec<_>>();
+    let attributes = complete_text.split('\0').collect::<Vec<_>>();
     for line in attributes {
         if line.is_empty() {
             flush(
@@ -529,11 +542,12 @@ fn parse_porcelain(
         &mut entry_limit_exceeded,
     );
 
-    let malformed_record_evidence = if malformed_record_attributes.is_empty() {
-        Vec::new()
-    } else {
-        vec![cynic_protocol::digest::digest_json(&malformed_record_attributes).unwrap_or_default()]
-    };
+    let mut malformed_record_evidence = trailing_evidence;
+    if !malformed_record_attributes.is_empty() {
+        malformed_record_evidence.push(
+            cynic_protocol::digest::digest_json(&malformed_record_attributes).unwrap_or_default(),
+        );
+    }
 
     (entries, entry_limit_exceeded, malformed_record_evidence)
 }
