@@ -304,3 +304,15 @@ fn entry_unknowns_are_rejected_beyond_the_typed_variant_limit() {
             .contains(&"worktree_inventory_unknown_limit_exceeded".to_string())
     );
 }
+
+#[test]
+fn observation_unknowns_are_rejected_beyond_the_typed_variant_limit() {
+    let mut observed = observation();
+    observed.observation_unknowns =
+        vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded; 6];
+
+    assert!(
+        validate_source_worktree_inventory_observation(&observed)
+            .contains(&"worktree_inventory_observation_unknown_limit_exceeded".to_string())
+    );
+}
