@@ -1,8 +1,9 @@
 use crate::{
-    SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA, SourceWorktreeInventoryEntry,
-    SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation,
-    SourceWorktreeInventoryObservationUnknown, SourceWorktreeInventoryPathBasis,
-    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
+    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA,
+    SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
+    SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
+    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
+    validate_source_worktree_inventory_observation,
 };
 
 const DIGEST: &str = "sha3-512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -251,4 +252,26 @@ fn empty_observation_requires_an_explicit_coverage_unknown() {
         .observation_unknowns
         .push(SourceWorktreeInventoryObservationUnknown::GitCommandFailed);
     assert!(validate_source_worktree_inventory_observation(&observed).is_empty());
+}
+
+#[test]
+fn validator_does_not_inspect_entries_beyond_the_declared_limit() {
+    let mut observed = observation();
+    let template = observed.entries.remove(0);
+    observed.evidence_refs.clear();
+
+    for index in 0..=SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES {
+        let digest = format!("sha3-512:{index:0128x}");
+        let mut entry = template.clone();
+        entry.candidate_id = digest.clone();
+        entry.evidence_digest = digest.clone();
+        observed.entries.push(entry);
+        observed.evidence_refs.push(digest);
+    }
+    observed.entries[SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES].relative_path =
+        Some("/outside/declared/limit".to_string());
+
+    let violations = validate_source_worktree_inventory_observation(&observed);
+    assert!(violations.contains(&"worktree_inventory_entries_limit_exceeded".to_string()));
+    assert!(!violations.contains(&"worktree_inventory_absolute_path_forbidden".to_string()));
 }
