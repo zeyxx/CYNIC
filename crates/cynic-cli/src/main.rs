@@ -30,6 +30,7 @@ mod fleet_divergence;
 mod fleet_observation;
 mod fleet_report;
 mod fleet_surface;
+mod forensics_surface;
 mod fs_json;
 mod host_exec_alias_surface;
 mod integrations_readonly_surface;
@@ -283,6 +284,12 @@ enum Command {
     Judgment {
         #[command(subcommand)]
         command: judgment_surface::JudgmentCommand,
+    },
+    /// Forensics — post-crash evidence, timeline, post-mortem.
+    #[command(hide = true)]
+    Forensics {
+        #[command(subcommand)]
+        command: forensics_surface::ForensicsCommand,
     },
 }
 

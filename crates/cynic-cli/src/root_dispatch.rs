@@ -10,6 +10,7 @@ use crate::command_manifest::commands_manifest;
 use crate::deps_surface;
 use crate::dev_surface::{DevCommand, execute_dev};
 use crate::fleet_surface::{FleetCommand, execute_fleet};
+use crate::forensics_surface::{ForensicsCommand, execute_forensics};
 use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
 use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_surface::{NetworkCommand, execute_network};
@@ -98,6 +99,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
         Command::Memory { command } => crate::memory_surface::execute_memory(command),
         Command::Judgment { command } => crate::judgment_surface::execute_judgment(command),
+        Command::Forensics { command } => execute_forensics(command),
     }
 }
 
