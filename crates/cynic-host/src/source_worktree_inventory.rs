@@ -196,11 +196,11 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
             current_path = Some(line["worktree ".len()..].to_string());
             current_head = None;
             current_branch = None;
-            current_locked = None;
+            current_locked = Some(false);
             current_lock_reason = None;
-            current_bare = None;
-            current_detached = None;
-            current_prunable = None;
+            current_bare = Some(false);
+            current_detached = Some(false);
+            current_prunable = Some(false);
             current_prunable_reason = None;
             current_unknown_attribute_count = 0;
         } else if line.starts_with("HEAD ") {
