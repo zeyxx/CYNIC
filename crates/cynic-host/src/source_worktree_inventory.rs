@@ -332,6 +332,23 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn adapter_treats_absent_porcelain_flags_as_false() {
+        let entries = parse_porcelain(
+            &porcelain_output(),
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+        );
+
+        assert_eq!(entries[0].locked, Some(false));
+        assert_eq!(entries[0].bare, Some(false));
+        assert_eq!(entries[0].detached_head, Some(false));
+        assert_eq!(entries[0].git_prunable, Some(false));
+        assert_eq!(entries[1].locked, Some(true));
+        assert_eq!(entries[1].bare, Some(false));
+        assert_eq!(entries[1].detached_head, Some(false));
+        assert_eq!(entries[1].git_prunable, Some(false));
+    }
+
+    #[test]
     fn adapter_records_locked_fact() {
         let runner = MapArgvRunner {
             responses: vec![(
