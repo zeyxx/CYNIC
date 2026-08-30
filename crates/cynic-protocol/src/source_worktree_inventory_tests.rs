@@ -292,3 +292,15 @@ fn validator_does_not_inspect_evidence_beyond_the_declared_limit() {
     assert!(violations.contains(&"worktree_inventory_evidence_limit_exceeded".to_string()));
     assert!(!violations.contains(&"worktree_inventory_evidence_invalid".to_string()));
 }
+
+#[test]
+fn entry_unknowns_are_rejected_beyond_the_typed_variant_limit() {
+    let mut observed = observation();
+    observed.entries[0].clean = None;
+    observed.entries[0].unknowns = vec![SourceWorktreeInventoryUnknown::Cleanliness; 15];
+
+    assert!(
+        validate_source_worktree_inventory_observation(&observed)
+            .contains(&"worktree_inventory_unknown_limit_exceeded".to_string())
+    );
+}
