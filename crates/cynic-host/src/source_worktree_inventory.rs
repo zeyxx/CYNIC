@@ -9,6 +9,8 @@ use cynic_protocol::{
 
 use crate::update_lifecycle::ArgvRunner;
 
+const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
+
 pub fn observe_source_worktree_inventory(
     repository_root: &Path,
     workspace_store: &Path,
@@ -25,15 +27,12 @@ pub fn observe_source_worktree_inventory(
         .unwrap_or(0);
 
     if output.exit_code != Some(0) || output.spawn_error.is_some() {
-        return SourceWorktreeInventoryObservation {
-            schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
-            repository_id: repository_id.to_string(),
-            node_id: node_id.to_string(),
+        return unknown_observation(
+            repository_id,
+            node_id,
             observed_at_ms,
-            entries: Vec::new(),
-            evidence_refs: Vec::new(),
-            observation_unknowns: vec![SourceWorktreeInventoryObservationUnknown::GitCommandFailed],
-        };
+            SourceWorktreeInventoryObservationUnknown::GitCommandFailed,
+        );
     }
 
     let text = if output.stdout.is_empty() {
@@ -41,6 +40,14 @@ pub fn observe_source_worktree_inventory(
     } else {
         output.stdout
     };
+    if text.len() > MAX_PORCELAIN_BYTES {
+        return unknown_observation(
+            repository_id,
+            node_id,
+            observed_at_ms,
+            SourceWorktreeInventoryObservationUnknown::OutputLimitExceeded,
+        );
+    }
 
     let repository_root = observed_absolute_path(repository_root);
     let workspace_store = observed_absolute_path(workspace_store);
@@ -60,6 +67,23 @@ pub fn observe_source_worktree_inventory(
         entries,
         evidence_refs,
         observation_unknowns,
+    }
+}
+
+fn unknown_observation(
+    repository_id: &str,
+    node_id: &str,
+    observed_at_ms: u64,
+    unknown: SourceWorktreeInventoryObservationUnknown,
+) -> SourceWorktreeInventoryObservation {
+    SourceWorktreeInventoryObservation {
+        schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+        repository_id: repository_id.to_string(),
+        node_id: node_id.to_string(),
+        observed_at_ms,
+        entries: Vec::new(),
+        evidence_refs: Vec::new(),
+        observation_unknowns: vec![unknown],
     }
 }
 
