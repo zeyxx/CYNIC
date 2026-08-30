@@ -1,7 +1,7 @@
 # Architecture Système Souveraine — SoC, Causalité & Convergence Agentique (CYNIC)
 
 STATUS: Spécification canonique d'architecture système et de séparation des responsabilités (SoC).
-AUTORITÉ: Transpose `contracts/foundation.json` (§71-75, §49, §481, §489) et `contracts/framework.json` en un modèle d'ingénierie complet et actionnable.
+AUTORITÉ: Transpose `contracts/foundation.json` (§71-75, §49, §481, §489) et `contracts/framework.json` en un modèle d'ingénierie complet et actionnable. Cartographie opérationnelle détaillée dans `infra/SYSTEM_AGENTIC_MAPPING.md`.
 
 ---
 
