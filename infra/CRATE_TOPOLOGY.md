@@ -42,6 +42,15 @@ import de crate. À nettoyer du Cargo.toml (dette).
 2. COUPLAGES CLASSÉS (port vs concret)
 ================================================================
 
+NOMBRE DE TRAITS (ports) PAR CRATE (grep ^pub trait, hors tests):
+  host       74 traits  ← LE plus riche en ports (pattern établi)
+  kernel     27 traits
+  inference  24 traits
+  protocol    7 traits
+
+NOTE: le kernel a 27 traits mais n'en CONSOME presque aucun — il
+importe du concret. Host = le modèle à suivre (74 traits, port-rich).
+
 PROTOCOLE (idéal, respecte framework §468 protocol_is_pure):
   kernel -> protocol : TYPES PUGS (BuildRecipe, LeaseVerification,
     PatternModel). ✓ Aucun use de logique runtime protocol.
@@ -154,7 +163,55 @@ comme surface autonome dans le modèle. Ces crates ne manquent pas par
 oubli — ce sont des frontières IMPLICITES pas encore matérialisées.
 
 ================================================================
-6. RÉSIDUEL (honnete)
+6. INFERENCE (24k) — cible slice 1 + slice 4
+================================================================
+
+INFERENCE = crate d'inférence runtime. 24 traits (ports) — pattern établi.
+
+PORTS EXISTANTS (24 traits, 13 dans ports/ + application):
+  inference_port.rs: BackendPort, InferPort
+  chat_port.rs: ChatPort (extends BackendPort)
+  embedding_port.rs: EmbeddingPort
+  model_registry_port.rs: ModelRegistryPort, BackendCatalogPort
+  model_store_port.rs: ModelStorePort
+  chat_session_port.rs: ChatSessionStore
+  model_publisher_port.rs: ModelPublisherPort
+  hf_hub_port.rs: HfHubPort
+  local_runtime_port.rs: LocalModelInventoryPort, LocalInferenceRuntimePort
+  hermes_runtime_port.rs: HermesGatewayRuntimePort
+  filesystem_capacity_port.rs: FilesystemCapacityPort
+  empirical_store_port.rs: EmpiricalStorePort
+  summarization_port.rs: SummarizationPort
+  task_admission_port.rs: TaskAdmissionPort
+  agent_harness/ports.rs: CoordinationPort, HarnessExecutor, HarnessObserver
+  agent_harness/runtime_adapter.rs: AgentRuntimePort
+  chat_service.rs: ChatCompletionClient, ToolInvoker
+  adapters/local/process_control.rs: ProcessControlPort
+
+CIBLE SLICE 1 (kernel organ backend-health → inference):
+  Surface existante VÉRIFIÉE: domain/backend_identity.rs (33 LOC)
+    BackendHealthSnapshot, BackendIdentity, BackendCapability, BackendStatus
+  → Le kernel Backend/BackendHealth/BackendId (organ/registry.rs) doit
+    soit fusionner dans backend_identity (BackendHealthSnapshot existe déjà),
+    soit l'étendre. JAMAIS créer un module backend_health parallèle.
+  Surface: domain/slot_semaphore.rs (SlotSemaphoreMap, SlotTracker ré-exportés
+    dans lib.rs:97) — le kernel les importe déjà en concret (types concrets,
+    pas un port). Slice 4 doit créer SlotManagementPort au-dessus.
+
+CIBLE SLICE 4 (kernel routing/proxy → inference PORTS):
+  Surfaces existantes VÉRIFIÉES:
+    application/proxy_routing.rs (260 LOC): ProxyTargets, ProxyTarget,
+      SelectedProxyTarget, OperationIntent, select_proxy_target()
+    application/fleet_routing/: fleet routing logic
+    application/routing_policy.rs: select_backend()
+    application/model_selection.rs: select_model()
+  → Créer InferenceProxyPort (au-dessus proxy_routing) +
+    InferenceRoutingPort (au-dessus fleet_routing/routing_policy) +
+    SlotManagementPort (au-dessus slot_semaphore). Le kernel consomme
+    ces 3 traits au lieu des types concrets.
+
+================================================================
+7. RÉSIDUEL (honnete)
 ================================================================
 
 - "port vs concret" classé par grep use; un trait d'inference importé
@@ -164,9 +221,9 @@ oubli — ce sont des frontières IMPLICITES pas encore matérialisées.
   à confirmer par lecture de node::fleet_observability signature.
 - Cargo.toml fantôme host<-kernel / node<-kernel: à vérifier que
   retirer ne casse RIEN (grep dit 0 usage). À faire sur builder non-ICE.
-- Aucune décision de voie ici. Les V1-V5 + crates émergentes §5
-  alimentent CRATE_OWNERSHIP.md §7 (plan d'extraction) une fois
-  validés.
+- Aucune décision de voie ici. Les V1-V5 + crates émergentes §5 +
+  inference §6 alimentent CRATE_OWNERSHIP.md §7 (plan d'extraction)
+  une fois validés.
 
 ================================================================
 RÉFÉRENCES (preuves grep)
