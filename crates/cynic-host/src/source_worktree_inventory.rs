@@ -861,6 +861,51 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn only_complete_stdout_records_are_observed() {
+        let warning_runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: String::new(),
+                    stderr: "warning without porcelain".to_string(),
+                    spawn_error: None,
+                },
+            )],
+        };
+        let warning_observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &warning_runner,
+        );
+        assert_eq!(
+            warning_observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::EmptyOutput]
+        );
+
+        let head = sha3(&"a".repeat(128));
+        let truncated =
+            format!("worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0");
+        let (entries, _, malformed_evidence) = parse_porcelain(
+            &truncated,
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+        );
+        assert!(entries.is_empty());
+        assert_eq!(malformed_evidence.len(), 1);
+    }
+
+    #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
         let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
