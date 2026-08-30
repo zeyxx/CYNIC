@@ -7,6 +7,7 @@ pub const SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
 const MAX_STRING_BYTES: usize = 4096;
 const MAX_ENTRY_UNKNOWNS: usize = 14;
+const MAX_OBSERVATION_UNKNOWNS: usize = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -142,20 +143,31 @@ pub fn validate_source_worktree_inventory_observation(
     if observation.evidence_refs.is_empty() && observation.observation_unknowns.is_empty() {
         violations.push("worktree_inventory_evidence_missing".to_string());
     }
+    if observation.observation_unknowns.len() > MAX_OBSERVATION_UNKNOWNS {
+        violations.push("worktree_inventory_observation_unknown_limit_exceeded".to_string());
+    }
     let mut observation_unknowns = HashSet::new();
-    for unknown in &observation.observation_unknowns {
+    for unknown in observation
+        .observation_unknowns
+        .iter()
+        .take(MAX_OBSERVATION_UNKNOWNS)
+    {
         if !observation_unknowns.insert(*unknown) {
             violations.push("worktree_inventory_observation_unknown_duplicate".to_string());
         }
     }
     if !observation.entries.is_empty()
-        && observation.observation_unknowns.iter().any(|unknown| {
-            matches!(
-                unknown,
-                SourceWorktreeInventoryObservationUnknown::GitCommandFailed
-                    | SourceWorktreeInventoryObservationUnknown::EmptyOutput
-            )
-        })
+        && observation
+            .observation_unknowns
+            .iter()
+            .take(MAX_OBSERVATION_UNKNOWNS)
+            .any(|unknown| {
+                matches!(
+                    unknown,
+                    SourceWorktreeInventoryObservationUnknown::GitCommandFailed
+                        | SourceWorktreeInventoryObservationUnknown::EmptyOutput
+                )
+            })
     {
         violations.push("worktree_inventory_observation_unknown_contradictory".to_string());
     }
