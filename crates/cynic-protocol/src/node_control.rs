@@ -72,7 +72,7 @@ impl SignedNodeControlPlan {
             issued_at_unix_s: self.issued_at_unix_s,
             expires_at_unix_s: self.expires_at_unix_s,
         };
-        serde_json::to_vec(&payload).expect("serialize signed control plan payload")
+        crate::canonical_json_bytes(&payload).expect("canonicalize signed control plan payload")
     }
 
     pub fn is_valid_at(&self, now_unix_s: u64) -> bool {
@@ -658,5 +658,22 @@ mod tests {
             expired,
             Err(ControlPlanVerificationStatus::StructuralErrors(_))
         ));
+    }
+
+    #[test]
+    fn signed_control_plan_signing_bytes_are_deterministic_and_canonical() {
+        let desired = desired();
+        let signed = SignedNodeControlPlan::new(
+            desired,
+            "kernel-alpha".to_string(),
+            1000,
+            2000,
+            "a".repeat(128),
+        );
+        let bytes = signed.signing_bytes();
+        let text = String::from_utf8(bytes.clone()).expect("valid utf-8 json");
+        // Ensure top-level structure has canonical key ordering and matches expected suffix
+        assert!(text.starts_with("{\"desired_state\":{"));
+        assert!(text.ends_with(",\"expires_at_unix_s\":2000,\"issued_at_unix_s\":1000,\"kernel_authority_id\":\"kernel-alpha\",\"schema\":\"cynic.signed_node_control_plan.v1\"}"));
     }
 }

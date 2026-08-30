@@ -72,7 +72,7 @@ impl SignedFleetHeartbeat {
             signer_node_id: &self.signer_node_id,
             certificate_id: &self.certificate_id,
         };
-        serde_json::to_vec(&payload).expect("serialize signed heartbeat payload")
+        crate::canonical_json_bytes(&payload).expect("canonicalize signed heartbeat payload")
     }
 
     /// Pure structural validation of the envelope.
@@ -445,6 +445,28 @@ mod tests {
         assert!(blockers.contains(&"signed_heartbeat_signer_mismatch".to_string()));
         assert!(blockers.contains(&"signed_heartbeat_certificate_id_invalid".to_string()));
         assert!(blockers.contains(&"signed_heartbeat_signature_invalid".to_string()));
+    }
+
+    #[test]
+    fn signed_heartbeat_signing_bytes_are_deterministic_and_canonical() {
+        let hb = node("node-alpha", FleetNodeStatus::Alive, 1000);
+        let signed = SignedFleetHeartbeat::new(
+            hb,
+            "node-alpha".to_string(),
+            format!("sha256:{}", "a".repeat(64)),
+            "b".repeat(128),
+        );
+        let bytes = signed.signing_bytes();
+        let text = String::from_utf8(bytes.clone()).expect("valid utf-8 json");
+        // Canonical JSON must have sorted keys at top level: certificate_id, heartbeat, schema, signer_node_id
+        let expected_key_order = text.find("\"certificate_id\":").unwrap()
+            < text.find("\"heartbeat\":").unwrap()
+            && text.find("\"heartbeat\":").unwrap() < text.find("\"schema\":").unwrap()
+            && text.find("\"schema\":").unwrap() < text.find("\"signer_node_id\":").unwrap();
+        assert!(
+            expected_key_order,
+            "keys must be sorted lexicographically: {text}"
+        );
     }
 
     #[test]

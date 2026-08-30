@@ -29,6 +29,11 @@ impl FleetHealthObserver {
         }
     }
 
+    pub fn with_heartbeats(mut self, heartbeats: Vec<FleetHeartbeat>) -> Self {
+        self.heartbeats = heartbeats;
+        self
+    }
+
     /// Load declared nodes from registry and create synthetic heartbeats
     /// from the one-shot discovery (for environments without a real
     /// heartbeat stream yet).
@@ -44,18 +49,31 @@ impl FleetHealthObserver {
         let declared_node_ids: Vec<String> =
             report.nodes.iter().map(|n| n.node_id.clone()).collect();
 
-        // Convert discovery results into synthetic heartbeats.
-        let heartbeats: Vec<FleetHeartbeat> = report
-            .nodes
-            .iter()
-            .map(|n| FleetHeartbeat {
-                node_id: n.node_id.clone(),
-                emitted_at_unix_s: n.last_seen_unix_s,
-                self_status: n.status,
-                uptime_s: 0,
-                unknowns: vec![],
-            })
-            .collect();
+        // Use genuine heartbeats if provided; otherwise derive probe heartbeats with explicit unknowns.
+        let heartbeats: Vec<FleetHeartbeat> = if !self.heartbeats.is_empty() {
+            self.heartbeats.clone()
+        } else {
+            report
+                .nodes
+                .iter()
+                .map(|n| {
+                    let mut unknowns = vec![
+                        "synthetic_heartbeat_from_discovery_probe".to_string(),
+                        "uptime_unobserved".to_string(),
+                    ];
+                    if n.status == cynic_protocol::fleet_discovery::FleetNodeStatus::Unreachable {
+                        unknowns.push("node_unreachable_from_probe".to_string());
+                    }
+                    FleetHeartbeat {
+                        node_id: n.node_id.clone(),
+                        emitted_at_unix_s: n.last_seen_unix_s,
+                        self_status: n.status,
+                        uptime_s: 0,
+                        unknowns,
+                    }
+                })
+                .collect()
+        };
 
         aggregate_fleet_health(
             &declared_node_ids,
@@ -120,6 +138,83 @@ mod tests {
         assert_eq!(
             agg.total_declared, 0,
             "an unreadable registry must not fabricate declared nodes"
+        );
+    }
+
+    #[test]
+    fn observer_retains_provided_genuine_heartbeats_without_synthesizing() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("cynic-fleet-health-real-{unique}.json"));
+        std::fs::write(
+            &path,
+            r#"{
+              "network_policy": {
+                "reservations": [
+                  {"name":"node-a","synapse":"10.10.10.10"}
+                ]
+              },
+              "nodes": [
+                {"id":"node-a","role":"kernel_primary"}
+              ]
+            }"#,
+        )
+        .expect("write fixture");
+        let now_s = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_secs();
+        let real_hb = FleetHeartbeat {
+            node_id: "node-a".to_string(),
+            emitted_at_unix_s: now_s,
+            self_status: cynic_protocol::fleet_discovery::FleetNodeStatus::Alive,
+            uptime_s: 3600,
+            unknowns: vec![],
+        };
+        let observer = FleetHealthObserver::new(path.to_str().unwrap(), 30)
+            .with_heartbeats(vec![real_hb.clone()]);
+        let agg = observer.observe();
+        assert_eq!(agg.total_declared, 1);
+        assert_eq!(agg.heartbeats, vec![real_hb]);
+    }
+
+    #[test]
+    fn observer_tags_synthetic_probes_with_explicit_unknowns() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("cynic-fleet-health-synth-{unique}.json"));
+        std::fs::write(
+            &path,
+            r#"{
+              "network_policy": {
+                "reservations": [
+                  {"name":"node-a","synapse":"10.10.10.10"}
+                ]
+              },
+              "nodes": [
+                {"id":"node-a","role":"kernel_primary"}
+              ]
+            }"#,
+        )
+        .expect("write fixture");
+
+        let observer = FleetHealthObserver::new(path.to_str().unwrap(), 30);
+        let agg = observer.observe();
+        assert_eq!(agg.total_declared, 1);
+        assert_eq!(agg.heartbeats.len(), 1);
+        assert!(
+            agg.heartbeats[0]
+                .unknowns
+                .contains(&"synthetic_heartbeat_from_discovery_probe".to_string())
+        );
+        assert!(
+            agg.heartbeats[0]
+                .unknowns
+                .contains(&"uptime_unobserved".to_string())
         );
     }
 }
