@@ -665,6 +665,48 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn duplicate_known_attribute_marks_the_record_malformed() {
+        let first_head = sha3(&"a".repeat(128));
+        let second_head = sha3(&"b".repeat(128));
+        let text = format!(
+            "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {first_head}\0HEAD {second_head}\0\0"
+        );
+
+        let (entries, entry_limit_exceeded) = parse_porcelain(
+            &text,
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+        );
+        let evidence_refs = entries
+            .iter()
+            .map(|entry| entry.evidence_digest.clone())
+            .collect();
+        let observation = SourceWorktreeInventoryObservation {
+            schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+            repository_id: "cynic".to_string(),
+            node_id: "builder-a".to_string(),
+            observed_at_ms: 1,
+            entries,
+            evidence_refs,
+            observation_unknowns: Vec::new(),
+        };
+
+        assert!(!entry_limit_exceeded);
+        assert_eq!(
+            observation.entries[0].state,
+            SourceWorktreeInventoryEntryState::Malformed
+        );
+        assert_eq!(observation.entries[0].head, None);
+        assert_eq!(observation.entries[0].unknown_attribute_count, 1);
+        assert!(
+            observation.entries[0]
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::GitHead)
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_returns_empty_when_git_fails() {
         let runner = MapArgvRunner {
             responses: vec![(
