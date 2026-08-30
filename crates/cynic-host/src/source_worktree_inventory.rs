@@ -107,6 +107,13 @@ fn parse_porcelain(
     repository_root: &Path,
     workspace_store: &Path,
 ) -> (Vec<SourceWorktreeInventoryEntry>, bool, Vec<String>) {
+    if !text.is_empty() && !text.contains('\0') {
+        return (
+            Vec::new(),
+            false,
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
+        );
+    }
     let mut entries = Vec::new();
     let mut entry_limit_exceeded = false;
     let mut malformed_record_attributes: Vec<String> = Vec::new();
@@ -283,11 +290,7 @@ fn parse_porcelain(
         });
     }
 
-    let attributes = if text.contains('\0') {
-        text.split('\0').collect::<Vec<_>>()
-    } else {
-        text.lines().collect::<Vec<_>>()
-    };
+    let attributes = text.split('\0').collect::<Vec<_>>();
     for line in attributes {
         if line.is_empty() {
             flush(
