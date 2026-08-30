@@ -296,7 +296,9 @@ pub fn validate_source_worktree_inventory_observation(
                 SourceWorktreeInventoryUnknown::Principal,
             ),
             (
-                entry.branch.is_some(),
+                entry.branch.is_some()
+                    || entry.detached_head == Some(true)
+                    || entry.bare == Some(true),
                 SourceWorktreeInventoryUnknown::Branch,
             ),
             (

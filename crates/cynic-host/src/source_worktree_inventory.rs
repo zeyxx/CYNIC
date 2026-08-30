@@ -176,7 +176,7 @@ fn parse_porcelain(
         if head.is_none() {
             unknowns.push(SourceWorktreeInventoryUnknown::GitHead);
         }
-        if branch.is_none() {
+        if branch.is_none() && *detached != Some(true) && *bare != Some(true) {
             unknowns.push(SourceWorktreeInventoryUnknown::Branch);
         }
         if locked.is_none() {
