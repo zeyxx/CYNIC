@@ -165,7 +165,11 @@ pub fn validate_source_worktree_inventory_observation(
     }
     let evidence_refs = observation.evidence_refs.iter().collect::<HashSet<_>>();
     let mut candidate_ids = HashSet::new();
-    for entry in &observation.entries {
+    for entry in observation
+        .entries
+        .iter()
+        .take(SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES)
+    {
         if !candidate_ids.insert(&entry.candidate_id) {
             violations.push("worktree_inventory_candidate_id_duplicate".to_string());
         }
