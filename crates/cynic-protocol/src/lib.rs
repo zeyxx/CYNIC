@@ -21,7 +21,6 @@ pub mod build_node;
 pub mod build_proof;
 pub mod build_workflow;
 pub mod capacity;
-pub mod concurrency;
 pub mod cpu;
 // The audit contract types (AuditReportV2, AuditSeverity, AuditViolation, ...)
 // that cynic-host's audit_engine consumes. The file depends only on serde and
