@@ -822,6 +822,31 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn unknown_attribute_counter_saturation_marks_record_malformed() {
+        let head = sha3(&"a".repeat(128));
+        let mut text =
+            format!("worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0");
+        for _ in 0..=u16::MAX {
+            text.push_str("x\0");
+        }
+        text.push('\0');
+
+        let (entries, entry_limit_exceeded, malformed_record_evidence) = parse_porcelain(
+            &text,
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+        );
+
+        assert!(!entry_limit_exceeded);
+        assert!(malformed_record_evidence.is_empty());
+        assert_eq!(entries[0].unknown_attribute_count, u16::MAX);
+        assert_eq!(
+            entries[0].state,
+            SourceWorktreeInventoryEntryState::Malformed
+        );
+    }
+
+    #[test]
     fn duplicate_known_attribute_marks_the_record_malformed() {
         let first_head = sha3(&"a".repeat(128));
         let second_head = sha3(&"b".repeat(128));
