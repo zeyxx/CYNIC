@@ -66,6 +66,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
     let mut current_detached: Option<bool> = None;
     let mut current_prunable: Option<bool> = None;
     let mut current_prunable_reason: Option<String> = None;
+    let mut current_unknown_attribute_count = 0_u16;
 
     fn flush(
         entries: &mut Vec<SourceWorktreeInventoryEntry>,
@@ -78,6 +79,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         detached: &Option<bool>,
         prunable: &Option<bool>,
         prunable_reason: &Option<String>,
+        unknown_attribute_count: u16,
         root_canonical: &str,
         workspace_store: &mut Option<String>,
     ) {
@@ -128,6 +130,9 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         if prunable.is_none() {
             unknowns.push(SourceWorktreeInventoryUnknown::GitPrunable);
         }
+        if unknown_attribute_count > 0 {
+            unknowns.push(SourceWorktreeInventoryUnknown::GitAttribute);
+        }
         // Principal, path_is_symlink, clean are not observable from
         // `git worktree list --porcelain`; mark unknown.
         unknowns.push(SourceWorktreeInventoryUnknown::Principal);
@@ -144,6 +149,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
             "detached": detached,
             "prunable": prunable,
             "prunable_reason": prunable_reason,
+            "unknown_attribute_count": unknown_attribute_count,
         }))
         .unwrap_or_default();
 
@@ -151,7 +157,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
             candidate_id: evidence_digest.clone(),
             evidence_digest,
             state: SourceWorktreeInventoryEntryState::Observed,
-            unknown_attribute_count: 0,
+            unknown_attribute_count,
             path_basis,
             relative_path,
             head: head.clone(),
@@ -170,12 +176,6 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         });
     }
 
-    fn sha3_512_of(value: &serde_json::Value) -> Vec<u8> {
-        use sha2::Digest;
-        let bytes = serde_json::to_vec(value).unwrap_or_default();
-        sha2::Sha256::digest(bytes).to_vec()
-    }
-
     for line in text.lines() {
         if line.starts_with("worktree ") {
             flush(
@@ -189,6 +189,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
                 &current_detached,
                 &current_prunable,
                 &current_prunable_reason,
+                current_unknown_attribute_count,
                 &root_canonical,
                 &mut workspace_store,
             );
@@ -201,6 +202,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
             current_detached = None;
             current_prunable = None;
             current_prunable_reason = None;
+            current_unknown_attribute_count = 0;
         } else if line.starts_with("HEAD ") {
             current_head = Some(line["HEAD ".len()..].to_string());
         } else if line.starts_with("branch ") {
@@ -219,6 +221,8 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         } else if line.starts_with("prunable ") {
             current_prunable = Some(true);
             current_prunable_reason = Some(line["prunable ".len()..].to_string());
+        } else if !line.is_empty() {
+            current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
         }
     }
 
@@ -233,6 +237,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         &current_detached,
         &current_prunable,
         &current_prunable_reason,
+        current_unknown_attribute_count,
         &root_canonical,
         &mut workspace_store,
     );
@@ -357,6 +362,32 @@ mod w1_b_tests {
             observation.entries[1].lock_reason,
             Some("agent running".to_string())
         );
+    }
+
+    #[test]
+    fn adapter_preserves_unknown_porcelain_attributes() {
+        let text = format!("{}future-attribute opaque-value\n", porcelain_output());
+        let entries = parse_porcelain(&text, Path::new("/var/lib/cynic/source/repositories/CYNIC"));
+        let evidence_refs = entries
+            .iter()
+            .map(|entry| entry.evidence_digest.clone())
+            .collect();
+        let observation = SourceWorktreeInventoryObservation {
+            schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+            repository_id: "cynic".to_string(),
+            node_id: "builder-a".to_string(),
+            observed_at_ms: 1,
+            entries,
+            evidence_refs,
+        };
+
+        assert_eq!(observation.entries[1].unknown_attribute_count, 1);
+        assert!(
+            observation.entries[1]
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::GitAttribute)
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
     }
 
     #[test]
