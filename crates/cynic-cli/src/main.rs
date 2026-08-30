@@ -35,6 +35,7 @@ mod host_exec_alias_surface;
 mod integrations_readonly_surface;
 mod integrations_surface;
 mod integrations_surface_render;
+pub(crate) mod judgment_surface;
 mod kernel_boundary_audit;
 mod lab_surface;
 mod lifecycle_surface;
@@ -42,6 +43,7 @@ mod lifecycle_surface_context;
 mod lifecycle_surface_execute;
 mod lifecycle_surface_render;
 mod mask_surface;
+pub(crate) mod memory_surface;
 mod network_surface;
 mod node_activation_surface;
 mod node_host_audit;
@@ -269,6 +271,18 @@ enum Command {
     Mask {
         #[command(subcommand)]
         command: mask_surface::MaskCommand,
+    },
+    /// Memory operations — audit PoH chain, compact logs, index archive vector memory.
+    #[command(hide = true)]
+    Memory {
+        #[command(subcommand)]
+        command: memory_surface::MemoryCommand,
+    },
+    /// Judgment projection and canonical content-addressed digest.
+    #[command(hide = true)]
+    Judgment {
+        #[command(subcommand)]
+        command: judgment_surface::JudgmentCommand,
     },
 }
 

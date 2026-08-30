@@ -210,9 +210,28 @@ impl CynicJudgment {
         }
     }
 
-    /// A judgment is actionable only when the producer has explicitly marked
-    /// it as such AND it is not in a Disordered Cynefin regime. The producer's
-    /// intent is primary; the domain is a guard against acting blind.
+    pub fn with_metadata(mut self, metadata: Value) -> Self {
+        self.metadata = metadata;
+        self
+    }
+
+    pub fn with_typed_metadata<T: Serialize>(
+        mut self,
+        metadata: &T,
+    ) -> Result<Self, serde_json::Error> {
+        self.metadata = serde_json::to_value(metadata)?;
+        Ok(self)
+    }
+
+    /// Computes deterministic canonical JSON bytes for this judgment.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        crate::canonical_json_bytes(self)
+    }
+
+    /// Computes the content-addressed digest for this judgment.
+    pub fn digest(&self) -> Result<String, serde_json::Error> {
+        crate::digest_json(self)
+    }
     pub fn is_actionable(&self) -> bool {
         self.actionable
             && !matches!(
@@ -566,5 +585,53 @@ mod tests {
         assert_eq!(j.version, JudgmentVersion::V1);
         assert_eq!(j.judgment_id, "j-new");
         assert!(!j.actionable);
+    }
+
+    #[test]
+    fn judgment_canonical_hashing_is_deterministic() {
+        let j = CynicJudgment::new(
+            "j-hash",
+            true,
+            DijkwLayer::Knowledge,
+            SagePhase::Act,
+            CynefinDomain::Complicated,
+            1_700_000_000,
+        );
+        let digest1 = j.digest().expect("digest 1");
+        let digest2 = j.digest().expect("digest 2");
+        assert_eq!(digest1, digest2);
+        assert!(digest1.starts_with("sha256:"));
+
+        let bytes = j.canonical_bytes().expect("canonical bytes");
+        let text = String::from_utf8(bytes).expect("valid utf-8");
+        assert!(text.starts_with("{\"actionable\":true"));
+    }
+
+    #[test]
+    fn judgment_with_typed_metadata_roundtrips() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct CustomMeta {
+            agent_id: String,
+            run_id: u64,
+        }
+        let meta = CustomMeta {
+            agent_id: "hermes-1".to_string(),
+            run_id: 42,
+        };
+        let j = CynicJudgment::new(
+            "j-meta",
+            false,
+            DijkwLayer::Information,
+            SagePhase::Sense,
+            CynefinDomain::Clear,
+            1_700_000_000,
+        )
+        .with_typed_metadata(&meta)
+        .expect("attach meta");
+
+        let serialized = serde_json::to_string(&j).expect("serialize");
+        let deserialized: CynicJudgment = serde_json::from_str(&serialized).expect("deserialize");
+        assert_eq!(deserialized.metadata["agent_id"], "hermes-1");
+        assert_eq!(deserialized.metadata["run_id"], 42);
     }
 }

@@ -17,9 +17,9 @@ cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-node = { path = "../cynic-node" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-askesis = { path = "../cynic-askesis" }
 cynic-observer = { path = "../cynic-observer" }
 tokio = { version = "1", features = ["full"] }
-# Interactive chat TUI (codex / hermes / grok-build class UX)
 ratatui = { version = "0.29", default-features = true }
 crossterm = "0.28"
 chrono = "0.4"

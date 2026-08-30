@@ -10,14 +10,17 @@ use cynic_protocol::CynicJudgment;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct JudgmentReport {
     pub schema: String,
+    pub digest: String,
     pub judgment: CynicJudgment,
     pub observed_at_unix_s: u64,
 }
 
 impl JudgmentReport {
     pub fn new(judgment: CynicJudgment, observed_at_unix_s: u64) -> Self {
+        let digest = judgment.digest().unwrap_or_default();
         Self {
             schema: "cynic.judgment_surface.report.v1".to_string(),
+            digest,
             judgment,
             observed_at_unix_s,
         }

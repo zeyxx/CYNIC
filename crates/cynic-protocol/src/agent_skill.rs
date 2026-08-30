@@ -15,9 +15,9 @@ mod metadata;
 pub use delivery::{compose_agent_skill_delivery_input, validate_agent_skill_delivery_input};
 pub use metadata::{
     AGENT_SKILL_LIFECYCLE_RECORD_SCHEMA, AGENT_SKILL_PROJECTION_SCHEMA, AgentSkillAvailability,
-    AgentSkillDataClassification, AgentSkillLifecycleRecord, AgentSkillLifecycleState,
-    AgentSkillMetadata, AgentSkillProjection, AgentSkillRetentionPolicy, project_agent_skill,
-    validate_agent_skill_lifecycle_record,
+    AgentSkillDataClassification, AgentSkillDataClassification as DataClassification,
+    AgentSkillLifecycleRecord, AgentSkillLifecycleState, AgentSkillMetadata, AgentSkillProjection,
+    AgentSkillRetentionPolicy, project_agent_skill, validate_agent_skill_lifecycle_record,
 };
 
 pub const AGENT_SKILL_BUNDLE_SCHEMA: &str = "cynic.agent_skill_bundle.v1";
