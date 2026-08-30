@@ -4,7 +4,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use crate::time::now_unix_ms;
 use crate::transport::{
     ExecutableObservation, OperatorTransportObservationPort, SshHostKeyObservation,
     SshTargetInspectionPort, SshTargetInspectionReport, TmuxHarnessObservation,
@@ -137,6 +136,13 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
             },
         }
     }
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default()
 }
 
 fn observe_executable(binary: &str) -> ExecutableObservation {

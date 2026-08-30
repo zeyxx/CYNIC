@@ -90,7 +90,6 @@ pub fn inspect_ssh_target(
             mutation: false,
             next_action: "provide a DNS name or IP literal without shell syntax".to_string(),
             detail: Some("target contains unsupported characters".to_string()),
-            observed_at_unix_ms: 0,
         };
     };
     observer.inspect_ssh_target(&host)
