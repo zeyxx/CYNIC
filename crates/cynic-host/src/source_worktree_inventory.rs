@@ -883,7 +883,7 @@ mod w1_b_tests {
             );
 
             let observation = SourceWorktreeInventoryObservation {
-                schema: SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+                schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
                 node_id: "builder-a".to_string(),
                 observed_at_ms: 1,
