@@ -920,6 +920,40 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn non_utf8_stdout_is_bound_as_malformed_raw_evidence() {
+        struct InvalidUtf8Runner;
+        impl SourceWorktreeInventoryRunner for InvalidUtf8Runner {
+            fn run(&self, _argv: &[&str]) -> SourceWorktreeInventoryCommandOutput {
+                SourceWorktreeInventoryCommandOutput {
+                    exit_code: Some(0),
+                    stdout: b"worktree /tmp/"
+                        .iter()
+                        .copied()
+                        .chain([0xff, 0, 0])
+                        .collect(),
+                    stderr: Vec::new(),
+                    spawn_error: None,
+                }
+            }
+        }
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &InvalidUtf8Runner,
+        );
+
+        assert!(observation.entries.is_empty());
+        assert_eq!(observation.evidence_refs.len(), 1);
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::MalformedRecord]
+        );
+    }
+
+    #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
         let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
