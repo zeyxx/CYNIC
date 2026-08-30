@@ -339,6 +339,59 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn parser_uses_injected_layout_and_marks_outside_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let repository = root.path().join("repositories/CYNIC");
+        let workspace_store = root.path().join("workspaces/cynic");
+        let workspace = workspace_store.join("ws-a");
+        let outside = root.path().join("foreign/ws-b");
+        std::fs::create_dir_all(&repository).unwrap();
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let head = sha3(&"a".repeat(128));
+        let stdout = format!(
+            "worktree {}\0HEAD {head}\0branch refs/heads/main\0\0worktree {}\0HEAD {head}\0branch refs/heads/agent/ws-a\0\0worktree {}\0HEAD {head}\0branch refs/heads/foreign\0\0",
+            repository.display(),
+            workspace.display(),
+            outside.display(),
+        );
+
+        let entries = parse_porcelain(&stdout, &repository, &workspace_store);
+
+        assert_eq!(
+            entries[0].path_basis,
+            SourceWorktreeInventoryPathBasis::MainRepository
+        );
+        assert_eq!(
+            entries[0].state,
+            SourceWorktreeInventoryEntryState::Observed
+        );
+        assert_eq!(
+            entries[1].path_basis,
+            SourceWorktreeInventoryPathBasis::WorkspaceLayout
+        );
+        assert_eq!(entries[1].relative_path.as_deref(), Some("ws-a"));
+        assert_eq!(
+            entries[1].state,
+            SourceWorktreeInventoryEntryState::Observed
+        );
+        assert_eq!(
+            entries[2].path_basis,
+            SourceWorktreeInventoryPathBasis::Unknown
+        );
+        assert_eq!(entries[2].relative_path, None);
+        assert_eq!(
+            entries[2].state,
+            SourceWorktreeInventoryEntryState::OutsideDeclaredLayout
+        );
+        assert!(
+            entries[2]
+                .unknowns
+                .contains(&SourceWorktreeInventoryUnknown::RelativePath)
+        );
+    }
+
+    #[test]
     fn adapter_treats_absent_porcelain_flags_as_false() {
         let entries = parse_porcelain(
             &porcelain_output(),
