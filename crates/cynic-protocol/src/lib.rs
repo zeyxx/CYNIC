@@ -106,6 +106,7 @@ pub mod source_control;
 pub mod source_materialization;
 pub mod source_release;
 pub mod source_repository_bootstrap;
+pub mod source_worktree_inventory;
 pub mod storage_controller;
 pub mod storage_credential_sync;
 pub mod storage_identity;
@@ -206,6 +207,7 @@ pub use source_control::*;
 pub use source_materialization::*;
 pub use source_release::*;
 pub use source_repository_bootstrap::*;
+pub use source_worktree_inventory::*;
 pub use storage_controller::*;
 pub use storage_identity::*;
 pub use storage_lifecycle::*;
@@ -216,3 +218,6 @@ pub use temporal::*;
 pub use transport_readback::*;
 pub use transport_security::*;
 pub use workload_identity::*;
+
+#[cfg(test)]
+mod source_worktree_inventory_tests;
