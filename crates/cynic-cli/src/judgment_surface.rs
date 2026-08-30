@@ -23,16 +23,42 @@ pub(crate) enum JudgmentCommand {
         #[arg(long)]
         subject: Option<String>,
     },
+    /// Output the content-addressed canonical digest of a judgment.
+    #[command(name = "digest")]
+    Digest {
+        #[arg(long)]
+        json: bool,
+        /// Optional subject id (defaults to local hostname).
+        #[arg(long)]
+        subject: Option<String>,
+    },
 }
 
 pub(crate) fn execute_judgment(command: JudgmentCommand) -> ExitCode {
     match command {
         JudgmentCommand::Judgment { json, subject } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
             let report = scan::observe_judgment(subject.as_deref());
-            crate::cli_json::emit_pretty_json(&report)
+            if json {
+                crate::cli_json::emit_pretty_json(&report)
+            } else {
+                println!("{}", render::render_judgment(&report.judgment));
+                println!("Canonical Digest: {}", report.digest);
+                ExitCode::SUCCESS
+            }
+        }
+        JudgmentCommand::Digest { json, subject } => {
+            let report = scan::observe_judgment(subject.as_deref());
+            if json {
+                let payload = serde_json::json!({
+                    "schema": "cynic.judgment_digest.v1",
+                    "judgment_id": report.judgment.judgment_id,
+                    "digest": report.digest,
+                });
+                crate::cli_json::emit_pretty_json(&payload)
+            } else {
+                println!("{}", report.digest);
+                ExitCode::SUCCESS
+            }
         }
     }
 }

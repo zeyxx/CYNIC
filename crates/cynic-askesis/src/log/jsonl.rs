@@ -118,38 +118,53 @@ impl JsonlLog {
 
     /// Verifies the cryptographic Proof-of-History hash chain integrity.
     pub fn verify_chain(&self) -> crate::Result<ChainVerificationResult> {
-        let entries = self.read_all()?;
+        let file = File::open(&self.path)?;
+        let reader = BufReader::new(file);
         let mut violations = Vec::new();
         let mut expected_prev_hash: Option<String> = None;
         let mut head_hash = None;
+        let mut valid_entries = 0;
 
-        for (i, entry) in entries.iter().enumerate() {
+        for (line_no, line) in reader.lines().enumerate() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: ObservationEvent = match serde_json::from_str(&line) {
+                Ok(e) => e,
+                Err(e) => {
+                    violations.push(format!("line_{}_malformed_json: {e}", line_no + 1));
+                    continue;
+                }
+            };
+
             let declared_prev = entry.prev_hash.as_deref().unwrap_or("");
             if let Some(expected) = &expected_prev_hash {
                 if declared_prev != expected {
                     violations.push(format!(
-                        "entry_{i}_prev_hash_mismatch: declared {declared_prev} vs expected {expected}"
+                        "entry_{valid_entries}_prev_hash_mismatch: declared {declared_prev} vs expected {expected}"
                     ));
                 }
             }
 
-            let expected_current = compute_event_hash(entry, declared_prev);
+            let expected_current = compute_event_hash(&entry, declared_prev);
             if let Some(declared_hash) = &entry.cryptographic_hash {
                 if declared_hash != &expected_current {
                     violations.push(format!(
-                        "entry_{i}_hash_mismatch: declared {declared_hash} vs computed {expected_current}"
+                        "entry_{valid_entries}_hash_mismatch: declared {declared_hash} vs computed {expected_current}"
                     ));
                 }
                 expected_prev_hash = Some(declared_hash.clone());
                 head_hash = Some(declared_hash.clone());
             } else {
-                violations.push(format!("entry_{i}_cryptographic_hash_missing"));
+                violations.push(format!("entry_{valid_entries}_cryptographic_hash_missing"));
                 expected_prev_hash = Some(expected_current);
             }
+            valid_entries += 1;
         }
 
         Ok(ChainVerificationResult {
-            valid_entries: entries.len().saturating_sub(violations.len()),
+            valid_entries,
             is_valid: violations.is_empty(),
             head_hash,
             violations,
