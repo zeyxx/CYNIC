@@ -58,7 +58,6 @@ pub struct SshTargetInspectionReport {
     pub mutation: bool,
     pub next_action: String,
     pub detail: Option<String>,
-    pub observed_at_unix_ms: u64,
 }
 
 /// Explicit read-only boundary for bootstrap SSH target trust evidence.
