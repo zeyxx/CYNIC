@@ -117,6 +117,22 @@ fn parse_porcelain(
     let mut current_unknown_attributes: Vec<String> = Vec::new();
     let mut current_malformed = false;
     let mut seen_head = false;
+    let mut seen_branch = false;
+    let mut seen_locked = false;
+    let mut seen_bare = false;
+    let mut seen_detached = false;
+    let mut seen_prunable = false;
+
+    fn mark_malformed_attribute(
+        line: &str,
+        unknown_attribute_count: &mut u16,
+        unknown_attributes: &mut Vec<String>,
+        malformed: &mut bool,
+    ) {
+        unknown_attributes.push(line.to_string());
+        *unknown_attribute_count = unknown_attribute_count.saturating_add(1);
+        *malformed = true;
+    }
 
     fn flush(
         entries: &mut Vec<SourceWorktreeInventoryEntry>,
@@ -290,32 +306,93 @@ fn parse_porcelain(
             current_unknown_attributes.clear();
             current_malformed = false;
             seen_head = false;
+            seen_branch = false;
+            seen_locked = false;
+            seen_bare = false;
+            seen_detached = false;
+            seen_prunable = false;
         } else if line.starts_with("HEAD ") {
             if seen_head {
                 current_head = None;
-                current_unknown_attributes.push(line.to_string());
-                current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
-                current_malformed = true;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
             } else {
                 current_head = Some(line["HEAD ".len()..].to_string());
                 seen_head = true;
             }
         } else if line.starts_with("branch ") {
-            current_branch = Some(line["branch ".len()..].to_string());
+            if seen_branch {
+                current_branch = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+            } else {
+                current_branch = Some(line["branch ".len()..].to_string());
+                seen_branch = true;
+            }
         } else if line == "bare" {
-            current_bare = Some(true);
-        } else if line == "locked" {
-            current_locked = Some(true);
-        } else if line.starts_with("locked ") {
-            current_locked = Some(true);
-            current_lock_reason = Some(line["locked ".len()..].to_string());
+            if seen_bare {
+                current_bare = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+            } else {
+                current_bare = Some(true);
+                seen_bare = true;
+            }
+        } else if line == "locked" || line.starts_with("locked ") {
+            if seen_locked {
+                current_locked = None;
+                current_lock_reason = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+            } else {
+                current_locked = Some(true);
+                current_lock_reason = line.strip_prefix("locked ").map(ToString::to_string);
+                seen_locked = true;
+            }
         } else if line == "detached" {
-            current_detached = Some(true);
-        } else if line == "prunable" {
-            current_prunable = Some(true);
-        } else if line.starts_with("prunable ") {
-            current_prunable = Some(true);
-            current_prunable_reason = Some(line["prunable ".len()..].to_string());
+            if seen_detached {
+                current_detached = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+            } else {
+                current_detached = Some(true);
+                seen_detached = true;
+            }
+        } else if line == "prunable" || line.starts_with("prunable ") {
+            if seen_prunable {
+                current_prunable = None;
+                current_prunable_reason = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+            } else {
+                current_prunable = Some(true);
+                current_prunable_reason = line.strip_prefix("prunable ").map(ToString::to_string);
+                seen_prunable = true;
+            }
         } else if !line.is_empty() {
             current_unknown_attributes.push(line.to_string());
             current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
