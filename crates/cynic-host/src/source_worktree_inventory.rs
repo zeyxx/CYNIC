@@ -633,6 +633,31 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn unknown_porcelain_content_changes_the_evidence_digest() {
+        let head = sha3(&"a".repeat(128));
+        let first = format!(
+            "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0future-alpha opaque-a\0\0"
+        );
+        let second = format!(
+            "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0future-beta opaque-b\0\0"
+        );
+        let repository = Path::new("/var/lib/cynic/source/repositories/CYNIC");
+        let workspace_store = Path::new("/var/lib/cynic/source/workspaces/cynic");
+
+        let (first_entries, first_limit) = parse_porcelain(&first, repository, workspace_store);
+        let (second_entries, second_limit) = parse_porcelain(&second, repository, workspace_store);
+
+        assert!(!first_limit);
+        assert!(!second_limit);
+        assert_eq!(first_entries[0].unknown_attribute_count, 1);
+        assert_eq!(second_entries[0].unknown_attribute_count, 1);
+        assert_ne!(
+            first_entries[0].evidence_digest,
+            second_entries[0].evidence_digest
+        );
+    }
+
+    #[test]
     fn adapter_returns_empty_when_git_fails() {
         let runner = MapArgvRunner {
             responses: vec![(
