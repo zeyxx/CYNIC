@@ -114,6 +114,7 @@ fn parse_porcelain(
     let mut current_prunable: Option<bool> = None;
     let mut current_prunable_reason: Option<String> = None;
     let mut current_unknown_attribute_count = 0_u16;
+    let mut current_unknown_attributes: Vec<String> = Vec::new();
 
     fn flush(
         entries: &mut Vec<SourceWorktreeInventoryEntry>,
@@ -127,6 +128,7 @@ fn parse_porcelain(
         prunable: &Option<bool>,
         prunable_reason: &Option<String>,
         unknown_attribute_count: u16,
+        unknown_attributes: &[String],
         repository_root: &Path,
         workspace_store: &Path,
         entry_limit_exceeded: &mut bool,
@@ -214,6 +216,7 @@ fn parse_porcelain(
             "prunable": prunable,
             "prunable_reason": prunable_reason,
             "unknown_attribute_count": unknown_attribute_count,
+            "unknown_attributes": unknown_attributes,
         }))
         .unwrap_or_default();
 
@@ -259,6 +262,7 @@ fn parse_porcelain(
                 &current_prunable,
                 &current_prunable_reason,
                 current_unknown_attribute_count,
+                &current_unknown_attributes,
                 repository_root,
                 workspace_store,
                 &mut entry_limit_exceeded,
@@ -273,6 +277,7 @@ fn parse_porcelain(
             current_prunable = Some(false);
             current_prunable_reason = None;
             current_unknown_attribute_count = 0;
+            current_unknown_attributes.clear();
         } else if line.starts_with("HEAD ") {
             current_head = Some(line["HEAD ".len()..].to_string());
         } else if line.starts_with("branch ") {
@@ -292,6 +297,7 @@ fn parse_porcelain(
             current_prunable = Some(true);
             current_prunable_reason = Some(line["prunable ".len()..].to_string());
         } else if !line.is_empty() {
+            current_unknown_attributes.push(line.to_string());
             current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
         }
     }
@@ -308,6 +314,7 @@ fn parse_porcelain(
         &current_prunable,
         &current_prunable_reason,
         current_unknown_attribute_count,
+        &current_unknown_attributes,
         repository_root,
         workspace_store,
         &mut entry_limit_exceeded,
