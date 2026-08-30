@@ -138,6 +138,7 @@ mod tests {
             actions: 5,
             children: 2,
             wall_time_ms: 10000,
+            cpu_ms: None,
         };
 
         let input = AgenticToolCallInput::new(
@@ -166,6 +167,7 @@ mod tests {
             actions: 5,
             children: 2,
             wall_time_ms: 10000,
+            cpu_ms: None,
         };
 
         let input = AgenticToolCallInput::new(
@@ -196,6 +198,7 @@ mod tests {
             actions: 5,
             children: 2,
             wall_time_ms: 10000,
+            cpu_ms: None,
         };
 
         let input = AgenticToolCallInput::new(

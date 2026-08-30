@@ -157,6 +157,7 @@ mod tests {
             actions: 5,
             children: 2,
             wall_time_ms: 10000,
+            cpu_ms: None,
         };
 
         let output = plugin.generate_solana_pay(pay_req, None, budget).await;
@@ -178,6 +179,7 @@ mod tests {
             actions: 5,
             children: 2,
             wall_time_ms: 10000,
+            cpu_ms: None,
         };
         let output = plugin.generate_solana_pay(pay_req, None, budget).await;
         assert_eq!(output.result.status, AgenticToolCallStatus::Rejected);

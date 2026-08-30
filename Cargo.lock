@@ -856,7 +856,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
- "tracing",
  "urlencoding",
  "yup-oauth2",
 ]
@@ -917,11 +916,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
- "blake3",
- "cynic-intel",
  "cynic-protocol",
  "futures-util",
- "process-wrap",
  "reqwest 0.13.4",
  "serde",
  "serde_json",
@@ -1075,7 +1071,6 @@ name = "cynic-zeroclaw-solana"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "clap",
  "cynic-intel",
  "cynic-protocol",

@@ -16,10 +16,10 @@ pub mod vector_memory;
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use adapters::hf::HfCliAdapter;
 pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
-pub use vector_memory::*;
-pub use domain::backend_health::*;
 pub use domain::backend_health;
+pub use domain::backend_health::*;
 pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
+pub use vector_memory::*;
 
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
