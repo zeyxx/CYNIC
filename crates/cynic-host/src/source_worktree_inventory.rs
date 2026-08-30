@@ -588,6 +588,44 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn adapter_rejects_oversized_porcelain_before_parsing() {
+        let runner = MapArgvRunner {
+            responses: vec![(
+                vec![
+                    "git".to_string(),
+                    "-C".to_string(),
+                    "/var/lib/cynic/source/repositories/CYNIC".to_string(),
+                    "worktree".to_string(),
+                    "list".to_string(),
+                    "--porcelain".to_string(),
+                    "-z".to_string(),
+                ],
+                ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: "x".repeat(4 * 1024 * 1024 + 1),
+                    stderr: String::new(),
+                    spawn_error: None,
+                },
+            )],
+        };
+
+        let observation = observe_source_worktree_inventory(
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            "cynic",
+            "builder-a",
+            &runner,
+        );
+
+        assert!(observation.entries.is_empty());
+        assert_eq!(
+            observation.observation_unknowns,
+            vec![SourceWorktreeInventoryObservationUnknown::OutputLimitExceeded]
+        );
+        assert!(validate_source_worktree_inventory_observation(&observation).is_empty());
+    }
+
+    #[test]
     fn adapter_handles_empty_repository_with_no_worktrees() {
         let runner = MapArgvRunner {
             responses: vec![(
