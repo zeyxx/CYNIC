@@ -8,16 +8,72 @@ use cynic_protocol::{
     validate_source_worktree_inventory_observation,
 };
 
-use crate::update_lifecycle::ArgvRunner;
-
 const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceWorktreeInventoryCommandOutput {
+    pub exit_code: Option<i32>,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub spawn_error: Option<String>,
+}
+
+pub trait SourceWorktreeInventoryRunner: Send + Sync {
+    fn run(&self, argv: &[&str]) -> SourceWorktreeInventoryCommandOutput;
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LocalSourceWorktreeInventoryRunner;
+
+impl SourceWorktreeInventoryRunner for LocalSourceWorktreeInventoryRunner {
+    fn run(&self, argv: &[&str]) -> SourceWorktreeInventoryCommandOutput {
+        if argv.is_empty() {
+            return SourceWorktreeInventoryCommandOutput {
+                exit_code: None,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                spawn_error: Some("empty argv".to_string()),
+            };
+        }
+        match std::process::Command::new(argv[0])
+            .args(&argv[1..])
+            .output()
+        {
+            Ok(output) => SourceWorktreeInventoryCommandOutput {
+                exit_code: output.status.code(),
+                stdout: output.stdout,
+                stderr: output.stderr,
+                spawn_error: None,
+            },
+            Err(error) => SourceWorktreeInventoryCommandOutput {
+                exit_code: None,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                spawn_error: Some(format!("spawn {}: {error}", argv[0])),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+impl SourceWorktreeInventoryRunner for crate::update_lifecycle::MapArgvRunner {
+    fn run(&self, argv: &[&str]) -> SourceWorktreeInventoryCommandOutput {
+        let output = crate::update_lifecycle::ArgvRunner::run(self, argv);
+        SourceWorktreeInventoryCommandOutput {
+            exit_code: output.exit_code,
+            stdout: output.stdout.into_bytes(),
+            stderr: output.stderr.into_bytes(),
+            spawn_error: output.spawn_error,
+        }
+    }
+}
 
 pub fn observe_source_worktree_inventory(
     repository_root: &Path,
     workspace_store: &Path,
     repository_id: &str,
     node_id: &str,
-    runner: &impl ArgvRunner,
+    runner: &impl SourceWorktreeInventoryRunner,
 ) -> SourceWorktreeInventoryObservation {
     let root = repository_root.to_string_lossy().to_string();
     let argv = ["git", "-C", &root, "worktree", "list", "--porcelain", "-z"];
@@ -36,8 +92,7 @@ pub fn observe_source_worktree_inventory(
         );
     }
 
-    let text = output.stdout;
-    if text.len() > MAX_PORCELAIN_BYTES {
+    if output.stdout.len() > MAX_PORCELAIN_BYTES {
         return unknown_observation(
             repository_id,
             node_id,
@@ -45,6 +100,18 @@ pub fn observe_source_worktree_inventory(
             SourceWorktreeInventoryObservationUnknown::OutputLimitExceeded,
         );
     }
+
+    let text = match String::from_utf8(output.stdout) {
+        Ok(text) => text,
+        Err(error) => {
+            return malformed_observation(
+                repository_id,
+                node_id,
+                observed_at_ms,
+                cynic_protocol::digest::digest_bytes(error.as_bytes()),
+            );
+        }
+    };
 
     let repository_root = observed_absolute_path(repository_root);
     let workspace_store = observed_absolute_path(workspace_store);
@@ -89,6 +156,23 @@ fn unknown_observation(
         entries: Vec::new(),
         evidence_refs: Vec::new(),
         observation_unknowns: vec![unknown],
+    }
+}
+
+fn malformed_observation(
+    repository_id: &str,
+    node_id: &str,
+    observed_at_ms: u64,
+    evidence_digest: String,
+) -> SourceWorktreeInventoryObservation {
+    SourceWorktreeInventoryObservation {
+        schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+        repository_id: repository_id.to_string(),
+        node_id: node_id.to_string(),
+        observed_at_ms,
+        entries: Vec::new(),
+        evidence_refs: vec![evidence_digest],
+        observation_unknowns: vec![SourceWorktreeInventoryObservationUnknown::MalformedRecord],
     }
 }
 
@@ -565,7 +649,7 @@ mod w1_b_tests {
         let main = sha3(&"a".repeat(128));
         let agent = sha3(&"b".repeat(128));
         format!(
-            "worktree /var/lib/cynic/source/repositories/CYNIC\nHEAD {main}\nbranch refs/heads/main\n\nworktree /var/lib/cynic/source/workspaces/cynic/ws-a\nHEAD {agent}\nbranch refs/heads/agent/ws-a\nlocked agent running\n"
+            "worktree /var/lib/cynic/source/repositories/CYNIC\0HEAD {main}\0branch refs/heads/main\0\0worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {agent}\0branch refs/heads/agent/ws-a\0locked agent running\0\0"
         )
     }
 
@@ -955,7 +1039,10 @@ mod w1_b_tests {
 
     #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
-        let text = format!("{}future-attribute opaque-value\n", porcelain_output());
+        let text = porcelain_output().replace(
+            "locked agent running\0\0",
+            "locked agent running\0future-attribute opaque-value\0\0",
+        );
         let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
             &text,
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
