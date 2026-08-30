@@ -1,10 +1,11 @@
 use std::path::{Component, Path, PathBuf};
 
 use cynic_protocol::{
-    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SourceWorktreeInventoryEntry,
-    SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation,
-    SourceWorktreeInventoryObservationUnknown, SourceWorktreeInventoryPathBasis,
-    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
+    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES,
+    SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
+    SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
+    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
+    validate_source_worktree_inventory_observation,
 };
 
 use crate::update_lifecycle::ArgvRunner;
@@ -167,7 +168,14 @@ fn parse_porcelain(
         }
 
         let observed_path = Path::new(path);
-        let (layout_state, path_basis, relative_path) = if observed_path == repository_root {
+        let path_oversized = path.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES;
+        let (layout_state, path_basis, relative_path) = if path_oversized {
+            (
+                SourceWorktreeInventoryEntryState::Malformed,
+                SourceWorktreeInventoryPathBasis::Unknown,
+                None,
+            )
+        } else if observed_path == repository_root {
             (
                 SourceWorktreeInventoryEntryState::Observed,
                 SourceWorktreeInventoryPathBasis::MainRepository,
@@ -198,7 +206,8 @@ fn parse_porcelain(
                 None,
             )
         };
-        let state = if malformed {
+        let effective_malformed = malformed || path_oversized;
+        let state = if effective_malformed {
             SourceWorktreeInventoryEntryState::Malformed
         } else {
             layout_state
@@ -247,7 +256,7 @@ fn parse_porcelain(
             "prunable_reason": prunable_reason,
             "unknown_attribute_count": unknown_attribute_count,
             "unknown_attributes": unknown_attributes,
-            "malformed": malformed,
+            "malformed": effective_malformed,
         }))
         .unwrap_or_default();
 
@@ -361,6 +370,7 @@ fn parse_porcelain(
             seen_detached = false;
             seen_prunable = false;
         } else if line.starts_with("HEAD ") {
+            let value = &line["HEAD ".len()..];
             if seen_head {
                 current_head = None;
                 mark_malformed_attribute(
@@ -369,11 +379,21 @@ fn parse_porcelain(
                     &mut current_unknown_attributes,
                     &mut current_malformed,
                 );
+            } else if value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES {
+                current_head = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+                seen_head = true;
             } else {
-                current_head = Some(line["HEAD ".len()..].to_string());
+                current_head = Some(value.to_string());
                 seen_head = true;
             }
         } else if line.starts_with("branch ") {
+            let value = &line["branch ".len()..];
             if seen_branch {
                 current_branch = None;
                 mark_malformed_attribute(
@@ -382,8 +402,17 @@ fn parse_porcelain(
                     &mut current_unknown_attributes,
                     &mut current_malformed,
                 );
+            } else if value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES {
+                current_branch = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+                seen_branch = true;
             } else {
-                current_branch = Some(line["branch ".len()..].to_string());
+                current_branch = Some(value.to_string());
                 seen_branch = true;
             }
         } else if line == "bare" {
@@ -400,6 +429,7 @@ fn parse_porcelain(
                 seen_bare = true;
             }
         } else if line == "locked" || line.starts_with("locked ") {
+            let reason = line.strip_prefix("locked ");
             if seen_locked {
                 current_locked = None;
                 current_lock_reason = None;
@@ -409,9 +439,21 @@ fn parse_porcelain(
                     &mut current_unknown_attributes,
                     &mut current_malformed,
                 );
+            } else if reason
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
+            {
+                current_locked = Some(true);
+                current_lock_reason = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+                seen_locked = true;
             } else {
                 current_locked = Some(true);
-                current_lock_reason = line.strip_prefix("locked ").map(ToString::to_string);
+                current_lock_reason = reason.map(ToString::to_string);
                 seen_locked = true;
             }
         } else if line == "detached" {
@@ -428,6 +470,7 @@ fn parse_porcelain(
                 seen_detached = true;
             }
         } else if line == "prunable" || line.starts_with("prunable ") {
+            let reason = line.strip_prefix("prunable ");
             if seen_prunable {
                 current_prunable = None;
                 current_prunable_reason = None;
@@ -437,9 +480,21 @@ fn parse_porcelain(
                     &mut current_unknown_attributes,
                     &mut current_malformed,
                 );
+            } else if reason
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
+            {
+                current_prunable = Some(true);
+                current_prunable_reason = None;
+                mark_malformed_attribute(
+                    line,
+                    &mut current_unknown_attribute_count,
+                    &mut current_unknown_attributes,
+                    &mut current_malformed,
+                );
+                seen_prunable = true;
             } else {
                 current_prunable = Some(true);
-                current_prunable_reason = line.strip_prefix("prunable ").map(ToString::to_string);
+                current_prunable_reason = reason.map(ToString::to_string);
                 seen_prunable = true;
             }
         } else {

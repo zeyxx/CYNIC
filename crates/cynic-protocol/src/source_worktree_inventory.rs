@@ -5,7 +5,7 @@ pub const SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA: &str =
     "cynic.source_worktree_inventory_observation.v2";
 pub const SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
-const MAX_STRING_BYTES: usize = 4096;
+pub const SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES: usize = 4096;
 const MAX_ENTRY_UNKNOWNS: usize = 14;
 const MAX_OBSERVATION_UNKNOWNS: usize = 6;
 
@@ -133,8 +133,8 @@ pub fn validate_source_worktree_inventory_observation(
     if observation.evidence_refs.len() > MAX_EVIDENCE_REFS {
         violations.push("worktree_inventory_evidence_limit_exceeded".to_string());
     }
-    if observation.repository_id.len() > MAX_STRING_BYTES
-        || observation.node_id.len() > MAX_STRING_BYTES
+    if observation.repository_id.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES
+        || observation.node_id.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES
     {
         violations.push("worktree_inventory_identity_size_exceeded".to_string());
     }
@@ -191,32 +191,32 @@ pub fn validate_source_worktree_inventory_observation(
         if !candidate_ids.insert(&entry.candidate_id) {
             violations.push("worktree_inventory_candidate_id_duplicate".to_string());
         }
-        if entry.candidate_id.len() > MAX_STRING_BYTES
-            || entry.evidence_digest.len() > MAX_STRING_BYTES
+        if entry.candidate_id.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES
+            || entry.evidence_digest.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES
             || entry
                 .relative_path
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
             || entry
                 .head
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
             || entry
                 .observed_principal
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
             || entry
                 .branch
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
             || entry
                 .lock_reason
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
             || entry
                 .prunable_reason
                 .as_ref()
-                .is_some_and(|value| value.len() > MAX_STRING_BYTES)
+                .is_some_and(|value| value.len() > SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES)
         {
             violations.push("worktree_inventory_entry_size_exceeded".to_string());
         }
