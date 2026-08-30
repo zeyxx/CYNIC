@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use cynic_protocol::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
@@ -10,6 +10,7 @@ use crate::update_lifecycle::ArgvRunner;
 
 pub fn observe_source_worktree_inventory(
     repository_root: &Path,
+    workspace_store: &Path,
     repository_id: &str,
     node_id: &str,
     runner: &impl ArgvRunner,
@@ -39,7 +40,9 @@ pub fn observe_source_worktree_inventory(
         output.stdout
     };
 
-    let entries = parse_porcelain(&text, repository_root);
+    let repository_root = observed_absolute_path(repository_root);
+    let workspace_store = observed_absolute_path(workspace_store);
+    let entries = parse_porcelain(&text, &repository_root, &workspace_store);
     let evidence_refs: Vec<String> = entries.iter().map(|e| e.evidence_digest.clone()).collect();
 
     SourceWorktreeInventoryObservation {
@@ -52,10 +55,18 @@ pub fn observe_source_worktree_inventory(
     }
 }
 
-fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInventoryEntry> {
+fn observed_absolute_path(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path)
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn parse_porcelain(
+    text: &str,
+    repository_root: &Path,
+    workspace_store: &Path,
+) -> Vec<SourceWorktreeInventoryEntry> {
     let mut entries = Vec::new();
-    let root_canonical = repository_root.display().to_string();
-    let mut workspace_store: Option<String> = None;
 
     let mut current_path: Option<String> = None;
     let mut current_head: Option<String> = None;
@@ -80,35 +91,44 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         prunable: &Option<bool>,
         prunable_reason: &Option<String>,
         unknown_attribute_count: u16,
-        root_canonical: &str,
-        workspace_store: &mut Option<String>,
+        repository_root: &Path,
+        workspace_store: &Path,
     ) {
         let Some(path) = path else {
             return;
         };
 
-        let path_basis = if path == root_canonical {
-            SourceWorktreeInventoryPathBasis::MainRepository
-        } else {
-            if workspace_store.is_none() {
-                if let Some(parent) = std::path::Path::new(path).parent() {
-                    workspace_store.replace(parent.display().to_string());
-                }
+        let observed_path = Path::new(path);
+        let (state, path_basis, relative_path) = if observed_path == repository_root {
+            (
+                SourceWorktreeInventoryEntryState::Observed,
+                SourceWorktreeInventoryPathBasis::MainRepository,
+                None,
+            )
+        } else if let Ok(relative) = observed_path.strip_prefix(workspace_store) {
+            if relative.as_os_str().is_empty()
+                || !relative
+                    .components()
+                    .all(|component| matches!(component, Component::Normal(_)))
+            {
+                (
+                    SourceWorktreeInventoryEntryState::OutsideDeclaredLayout,
+                    SourceWorktreeInventoryPathBasis::Unknown,
+                    None,
+                )
+            } else {
+                (
+                    SourceWorktreeInventoryEntryState::Observed,
+                    SourceWorktreeInventoryPathBasis::WorkspaceLayout,
+                    Some(relative.display().to_string()),
+                )
             }
-            SourceWorktreeInventoryPathBasis::WorkspaceLayout
-        };
-
-        let relative_path = if path_basis == SourceWorktreeInventoryPathBasis::MainRepository {
-            None
-        } else if let Some(store) = workspace_store {
-            std::path::Path::new(path)
-                .strip_prefix(store)
-                .ok()
-                .map(|p| p.display().to_string().trim_start_matches('/').to_string())
         } else {
-            std::path::Path::new(path)
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
+            (
+                SourceWorktreeInventoryEntryState::OutsideDeclaredLayout,
+                SourceWorktreeInventoryPathBasis::Unknown,
+                None,
+            )
         };
 
         let mut unknowns: Vec<SourceWorktreeInventoryUnknown> = Vec::new();
@@ -133,6 +153,9 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         if unknown_attribute_count > 0 {
             unknowns.push(SourceWorktreeInventoryUnknown::GitAttribute);
         }
+        if state == SourceWorktreeInventoryEntryState::OutsideDeclaredLayout {
+            unknowns.push(SourceWorktreeInventoryUnknown::RelativePath);
+        }
         // Principal, path_is_symlink, clean are not observable from
         // `git worktree list --porcelain`; mark unknown.
         unknowns.push(SourceWorktreeInventoryUnknown::Principal);
@@ -156,7 +179,7 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         entries.push(SourceWorktreeInventoryEntry {
             candidate_id: evidence_digest.clone(),
             evidence_digest,
-            state: SourceWorktreeInventoryEntryState::Observed,
+            state,
             unknown_attribute_count,
             path_basis,
             relative_path,
@@ -195,8 +218,8 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
                 &current_prunable,
                 &current_prunable_reason,
                 current_unknown_attribute_count,
-                &root_canonical,
-                &mut workspace_store,
+                repository_root,
+                workspace_store,
             );
             current_path = Some(line["worktree ".len()..].to_string());
             current_head = None;
@@ -243,8 +266,8 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         &current_prunable,
         &current_prunable_reason,
         current_unknown_attribute_count,
-        &root_canonical,
-        &mut workspace_store,
+        repository_root,
+        workspace_store,
     );
 
     entries
@@ -290,6 +313,7 @@ mod w1_b_tests {
         };
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
@@ -324,6 +348,7 @@ mod w1_b_tests {
         };
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
@@ -396,6 +421,7 @@ mod w1_b_tests {
         let entries = parse_porcelain(
             &porcelain_output(),
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
         );
 
         assert_eq!(entries[0].locked, Some(false));
@@ -431,6 +457,7 @@ mod w1_b_tests {
         };
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
@@ -470,6 +497,7 @@ mod w1_b_tests {
 
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
@@ -486,7 +514,11 @@ mod w1_b_tests {
     #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
-        let entries = parse_porcelain(&text, Path::new("/var/lib/cynic/source/repositories/CYNIC"));
+        let entries = parse_porcelain(
+            &text,
+            Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
+        );
         let evidence_refs = entries
             .iter()
             .map(|entry| entry.evidence_digest.clone())
@@ -532,6 +564,7 @@ mod w1_b_tests {
         };
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
@@ -563,6 +596,7 @@ mod w1_b_tests {
         };
         let observation = observe_source_worktree_inventory(
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+            Path::new("/var/lib/cynic/source/workspaces/cynic"),
             "cynic",
             "builder-a",
             &runner,
