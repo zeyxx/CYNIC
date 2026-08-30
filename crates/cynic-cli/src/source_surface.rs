@@ -33,6 +33,17 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Reconcile, rebase, and fast-forward agent source worktrees.
+    Worktree {
+        #[arg(long, default_value = ".")]
+        root: String,
+        #[arg(long, default_value = "/tmp/cynic-workspaces")]
+        workspace_store: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -93,6 +104,12 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                 }
             }
         }
+        SourceCommand::Worktree {
+            root,
+            workspace_store,
+            apply,
+            json,
+        } => execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json),
     }
 }
 
@@ -123,5 +140,72 @@ fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> Exi
     } else {
         println!("{}", exit.summary);
         ExitCode::SUCCESS
+    }
+}
+
+fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
+    let inventory = cynic_host::source_worktree_inventory::observe_source_worktree_inventory(
+        root,
+        workspace_store,
+        "cynic",
+        &cynic_host::source_worktree_inventory::LocalSourceWorktreeInventoryRunner,
+    );
+
+    let head_sha = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "HEAD".to_string());
+
+    let plan = cynic_host::source_worktree_reconcile::reconcile_source_worktrees(
+        root, &inventory, &head_sha, 0,
+    );
+
+    if apply {
+        let proof = cynic_host::source_worktree_reconcile::apply_worktree_convergence(
+            &plan,
+            &cynic_host::update_lifecycle::LocalArgvRunner,
+            false,
+        );
+        if json {
+            emit_pretty_json(&proof)
+        } else {
+            println!(
+                "Worktree convergence applied: {} actions, all_successful={}",
+                proof.executed_actions.len(),
+                proof.all_successful
+            );
+            if proof.all_successful {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+    } else {
+        if json {
+            emit_pretty_json(&plan)
+        } else {
+            println!(
+                "Worktree convergence plan: {} actions (pass --apply to execute)",
+                plan.actions.len()
+            );
+            println!(
+                "  Fast-forward ready: {}",
+                plan.summary.fast_forward_ready_count
+            );
+            println!(
+                "  Rebase required:    {}",
+                plan.summary.rebase_required_count
+            );
+            println!(
+                "  Pruned zombies:     {}",
+                plan.summary.pruned_zombies_count
+            );
+            println!("  Quarantined:        {}", plan.summary.quarantined_count);
+            ExitCode::SUCCESS
+        }
     }
 }
