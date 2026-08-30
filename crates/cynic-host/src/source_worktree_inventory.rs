@@ -1,10 +1,10 @@
 use std::path::{Component, Path, PathBuf};
 
 use cynic_protocol::{
-    SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
-    SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
-    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
-    validate_source_worktree_inventory_observation,
+    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SourceWorktreeInventoryEntry,
+    SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation,
+    SourceWorktreeInventoryObservationUnknown, SourceWorktreeInventoryPathBasis,
+    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
 };
 
 use crate::update_lifecycle::ArgvRunner;
@@ -51,13 +51,16 @@ pub fn observe_source_worktree_inventory(
 
     let repository_root = observed_absolute_path(repository_root);
     let workspace_store = observed_absolute_path(workspace_store);
-    let entries = parse_porcelain(&text, &repository_root, &workspace_store);
+    let (entries, entry_limit_exceeded) =
+        parse_porcelain(&text, &repository_root, &workspace_store);
     let evidence_refs: Vec<String> = entries.iter().map(|e| e.evidence_digest.clone()).collect();
-    let observation_unknowns = entries
-        .is_empty()
-        .then_some(SourceWorktreeInventoryObservationUnknown::EmptyOutput)
-        .into_iter()
-        .collect();
+    let observation_unknowns = if entry_limit_exceeded {
+        vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded]
+    } else if entries.is_empty() {
+        vec![SourceWorktreeInventoryObservationUnknown::EmptyOutput]
+    } else {
+        Vec::new()
+    };
 
     SourceWorktreeInventoryObservation {
         schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
@@ -97,8 +100,9 @@ fn parse_porcelain(
     text: &str,
     repository_root: &Path,
     workspace_store: &Path,
-) -> Vec<SourceWorktreeInventoryEntry> {
+) -> (Vec<SourceWorktreeInventoryEntry>, bool) {
     let mut entries = Vec::new();
+    let mut entry_limit_exceeded = false;
 
     let mut current_path: Option<String> = None;
     let mut current_head: Option<String> = None;
@@ -125,10 +129,15 @@ fn parse_porcelain(
         unknown_attribute_count: u16,
         repository_root: &Path,
         workspace_store: &Path,
+        entry_limit_exceeded: &mut bool,
     ) {
         let Some(path) = path else {
             return;
         };
+        if entries.len() >= SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES {
+            *entry_limit_exceeded = true;
+            return;
+        }
 
         let observed_path = Path::new(path);
         let (state, path_basis, relative_path) = if observed_path == repository_root {
@@ -252,6 +261,7 @@ fn parse_porcelain(
                 current_unknown_attribute_count,
                 repository_root,
                 workspace_store,
+                &mut entry_limit_exceeded,
             );
             current_path = Some(line["worktree ".len()..].to_string());
             current_head = None;
@@ -300,9 +310,10 @@ fn parse_porcelain(
         current_unknown_attribute_count,
         repository_root,
         workspace_store,
+        &mut entry_limit_exceeded,
     );
 
-    entries
+    (entries, entry_limit_exceeded)
 }
 
 #[cfg(test)]
@@ -413,8 +424,10 @@ mod w1_b_tests {
             outside.display(),
         );
 
-        let entries = parse_porcelain(&stdout, &repository, &workspace_store);
+        let (entries, entry_limit_exceeded) =
+            parse_porcelain(&stdout, &repository, &workspace_store);
 
+        assert!(!entry_limit_exceeded);
         assert_eq!(
             entries[0].path_basis,
             SourceWorktreeInventoryPathBasis::MainRepository
@@ -450,12 +463,13 @@ mod w1_b_tests {
 
     #[test]
     fn adapter_treats_absent_porcelain_flags_as_false() {
-        let entries = parse_porcelain(
+        let (entries, entry_limit_exceeded) = parse_porcelain(
             &porcelain_output(),
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
             Path::new("/var/lib/cynic/source/workspaces/cynic"),
         );
 
+        assert!(!entry_limit_exceeded);
         assert_eq!(entries[0].locked, Some(false));
         assert_eq!(entries[0].bare, Some(false));
         assert_eq!(entries[0].detached_head, Some(false));
@@ -546,11 +560,12 @@ mod w1_b_tests {
     #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
-        let entries = parse_porcelain(
+        let (entries, entry_limit_exceeded) = parse_porcelain(
             &text,
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
             Path::new("/var/lib/cynic/source/workspaces/cynic"),
         );
+        assert!(!entry_limit_exceeded);
         let evidence_refs = entries
             .iter()
             .map(|entry| entry.evidence_digest.clone())

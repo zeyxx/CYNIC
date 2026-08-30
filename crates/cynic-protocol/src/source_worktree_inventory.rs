@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 pub const SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA: &str =
     "cynic.source_worktree_inventory_observation.v2";
-const MAX_ENTRIES: usize = 4096;
+pub const SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
 const MAX_STRING_BYTES: usize = 4096;
 
@@ -124,7 +124,7 @@ pub fn validate_source_worktree_inventory_observation(
     if observation.observed_at_ms == 0 {
         violations.push("worktree_inventory_observed_at_missing".to_string());
     }
-    if observation.entries.len() > MAX_ENTRIES {
+    if observation.entries.len() > SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES {
         violations.push("worktree_inventory_entries_limit_exceeded".to_string());
     }
     if observation.evidence_refs.len() > MAX_EVIDENCE_REFS {
