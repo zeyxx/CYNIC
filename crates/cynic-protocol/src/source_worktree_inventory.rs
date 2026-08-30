@@ -6,8 +6,9 @@ pub const SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA: &str =
 pub const SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
 const MAX_STRING_BYTES: usize = 4096;
+const MAX_ENTRY_UNKNOWNS: usize = 14;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceWorktreeInventoryUnknown {
     Cleanliness,
@@ -214,6 +215,19 @@ pub fn validate_source_worktree_inventory_observation(
         if !evidence_refs.contains(&entry.evidence_digest) {
             violations.push("worktree_inventory_entry_evidence_unlinked".to_string());
         }
+        if entry.unknowns.len() > MAX_ENTRY_UNKNOWNS {
+            violations.push("worktree_inventory_unknown_limit_exceeded".to_string());
+        }
+        let inspected_unknown_count = entry.unknowns.len().min(MAX_ENTRY_UNKNOWNS);
+        let entry_unknowns = entry
+            .unknowns
+            .iter()
+            .take(MAX_ENTRY_UNKNOWNS)
+            .copied()
+            .collect::<HashSet<_>>();
+        if entry_unknowns.len() != inspected_unknown_count {
+            violations.push("worktree_inventory_unknown_duplicate".to_string());
+        }
         if let Some(path) = entry.relative_path.as_deref() {
             if path.starts_with('/') || path.starts_with('\\') || is_drive_qualified(path) {
                 violations.push("worktree_inventory_absolute_path_forbidden".to_string());
@@ -240,16 +254,12 @@ pub fn validate_source_worktree_inventory_observation(
             violations.push("worktree_inventory_path_basis_conflict".to_string());
         }
         if entry.unknown_attribute_count > 0
-            && !entry
-                .unknowns
-                .contains(&SourceWorktreeInventoryUnknown::GitAttribute)
+            && !entry_unknowns.contains(&SourceWorktreeInventoryUnknown::GitAttribute)
         {
             violations.push("worktree_inventory_unknown_attribute_unannotated".to_string());
         }
         if entry.unknown_attribute_count == 0
-            && entry
-                .unknowns
-                .contains(&SourceWorktreeInventoryUnknown::GitAttribute)
+            && entry_unknowns.contains(&SourceWorktreeInventoryUnknown::GitAttribute)
         {
             violations.push("worktree_inventory_unknown_attribute_contradictory".to_string());
         }
@@ -303,7 +313,7 @@ pub fn validate_source_worktree_inventory_observation(
             ),
             (entry.bare.is_some(), SourceWorktreeInventoryUnknown::Bare),
         ] {
-            let marked = entry.unknowns.contains(&kind);
+            let marked = entry_unknowns.contains(&kind);
             if value && marked {
                 violations.push("worktree_inventory_unknown_contradictory".to_string());
             } else if !value && !marked {
@@ -322,17 +332,10 @@ pub fn validate_source_worktree_inventory_observation(
                 SourceWorktreeInventoryUnknown::PrunableReason,
             ),
         ] {
-            let marked = entry.unknowns.contains(&kind);
+            let marked = entry_unknowns.contains(&kind);
             if marked && (reason_is_known || !parent_is_true) {
                 violations.push("worktree_inventory_unknown_contradictory".to_string());
             }
-        }
-        if entry
-            .unknowns
-            .iter()
-            .any(|kind| entry.unknowns.iter().filter(|other| *other == kind).count() > 1)
-        {
-            violations.push("worktree_inventory_unknown_duplicate".to_string());
         }
     }
     violations.sort();
