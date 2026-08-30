@@ -851,6 +851,54 @@ mod w1_b_tests {
     }
 
     #[test]
+    fn oversized_porcelain_fields_emit_valid_malformed_entries() {
+        let head = sha3(&"a".repeat(128));
+        let oversized = "x".repeat(4097);
+        let records = [
+            format!("worktree /var/lib/cynic/source/workspaces/cynic/{oversized}\0HEAD {head}\0\0"),
+            format!("worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {oversized}\0\0"),
+            format!(
+                "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0branch {oversized}\0\0"
+            ),
+            format!(
+                "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0locked {oversized}\0\0"
+            ),
+            format!(
+                "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0prunable {oversized}\0\0"
+            ),
+        ];
+
+        for text in records {
+            let (entries, entry_limit_exceeded, malformed_record_evidence) = parse_porcelain(
+                &text,
+                Path::new("/var/lib/cynic/source/repositories/CYNIC"),
+                Path::new("/var/lib/cynic/source/workspaces/cynic"),
+            );
+            assert!(!entry_limit_exceeded);
+            assert!(malformed_record_evidence.is_empty());
+            assert_eq!(entries.len(), 1);
+            assert_eq!(
+                entries[0].state,
+                SourceWorktreeInventoryEntryState::Malformed
+            );
+
+            let observation = SourceWorktreeInventoryObservation {
+                schema: SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                node_id: "builder-a".to_string(),
+                observed_at_ms: 1,
+                evidence_refs: vec![entries[0].evidence_digest.clone()],
+                entries,
+                observation_unknowns: Vec::new(),
+            };
+            assert!(
+                validate_source_worktree_inventory_observation(&observation).is_empty(),
+                "oversized record must degrade to a valid malformed entry"
+            );
+        }
+    }
+
+    #[test]
     fn duplicate_known_attribute_marks_the_record_malformed() {
         let first_head = sha3(&"a".repeat(128));
         let second_head = sha3(&"b".repeat(128));
