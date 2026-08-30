@@ -15,7 +15,7 @@ pub fn observe_source_worktree_inventory(
     runner: &impl ArgvRunner,
 ) -> SourceWorktreeInventoryObservation {
     let root = repository_root.to_string_lossy().to_string();
-    let argv = ["git", "-C", &root, "worktree", "list", "--porcelain"];
+    let argv = ["git", "-C", &root, "worktree", "list", "--porcelain", "-z"];
     let output = runner.run(&argv);
     let observed_at_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -176,7 +176,12 @@ fn parse_porcelain(text: &str, repository_root: &Path) -> Vec<SourceWorktreeInve
         });
     }
 
-    for line in text.lines() {
+    let attributes = if text.contains('\0') {
+        text.split('\0').collect::<Vec<_>>()
+    } else {
+        text.lines().collect::<Vec<_>>()
+    };
+    for line in attributes {
         if line.starts_with("worktree ") {
             flush(
                 &mut entries,
@@ -273,6 +278,7 @@ mod w1_b_tests {
                     "worktree".to_string(),
                     "list".to_string(),
                     "--porcelain".to_string(),
+                    "-z".to_string(),
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
@@ -306,6 +312,7 @@ mod w1_b_tests {
                     "worktree".to_string(),
                     "list".to_string(),
                     "--porcelain".to_string(),
+                    "-z".to_string(),
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
@@ -359,6 +366,7 @@ mod w1_b_tests {
                     "worktree".to_string(),
                     "list".to_string(),
                     "--porcelain".to_string(),
+                    "-z".to_string(),
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
@@ -459,6 +467,7 @@ mod w1_b_tests {
                     "worktree".to_string(),
                     "list".to_string(),
                     "--porcelain".to_string(),
+                    "-z".to_string(),
                 ],
                 ArgvOutput {
                     exit_code: Some(128),
@@ -489,6 +498,7 @@ mod w1_b_tests {
                     "worktree".to_string(),
                     "list".to_string(),
                     "--porcelain".to_string(),
+                    "-z".to_string(),
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
