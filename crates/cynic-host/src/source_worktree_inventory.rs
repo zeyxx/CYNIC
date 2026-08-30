@@ -444,7 +444,11 @@ fn parse_porcelain(
             }
         } else {
             current_unknown_attributes.push(line.to_string());
-            current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
+            if current_unknown_attribute_count == u16::MAX {
+                current_malformed = true;
+            } else {
+                current_unknown_attribute_count += 1;
+            }
         }
     }
 
