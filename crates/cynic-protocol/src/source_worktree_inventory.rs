@@ -7,7 +7,7 @@ pub const SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES: usize = 4096;
 const MAX_EVIDENCE_REFS: usize = 8192;
 const MAX_STRING_BYTES: usize = 4096;
 const MAX_ENTRY_UNKNOWNS: usize = 14;
-const MAX_OBSERVATION_UNKNOWNS: usize = 5;
+const MAX_OBSERVATION_UNKNOWNS: usize = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -52,6 +52,7 @@ pub enum SourceWorktreeInventoryObservationUnknown {
     OutputLimitExceeded,
     EntryLimitExceeded,
     LayoutUnavailable,
+    MalformedRecord,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

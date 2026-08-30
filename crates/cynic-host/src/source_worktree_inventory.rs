@@ -51,16 +51,21 @@ pub fn observe_source_worktree_inventory(
 
     let repository_root = observed_absolute_path(repository_root);
     let workspace_store = observed_absolute_path(workspace_store);
-    let (entries, entry_limit_exceeded) =
+    let (entries, entry_limit_exceeded, malformed_record_evidence) =
         parse_porcelain(&text, &repository_root, &workspace_store);
-    let evidence_refs: Vec<String> = entries.iter().map(|e| e.evidence_digest.clone()).collect();
-    let observation_unknowns = if entry_limit_exceeded {
-        vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded]
-    } else if entries.is_empty() {
-        vec![SourceWorktreeInventoryObservationUnknown::EmptyOutput]
-    } else {
-        Vec::new()
-    };
+    let mut evidence_refs: Vec<String> =
+        entries.iter().map(|e| e.evidence_digest.clone()).collect();
+    evidence_refs.extend(malformed_record_evidence.iter().cloned());
+    let mut observation_unknowns = Vec::new();
+    if entry_limit_exceeded {
+        observation_unknowns.push(SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded);
+    }
+    if !malformed_record_evidence.is_empty() {
+        observation_unknowns.push(SourceWorktreeInventoryObservationUnknown::MalformedRecord);
+    }
+    if entries.is_empty() && observation_unknowns.is_empty() {
+        observation_unknowns.push(SourceWorktreeInventoryObservationUnknown::EmptyOutput);
+    }
 
     SourceWorktreeInventoryObservation {
         schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
@@ -100,9 +105,10 @@ fn parse_porcelain(
     text: &str,
     repository_root: &Path,
     workspace_store: &Path,
-) -> (Vec<SourceWorktreeInventoryEntry>, bool) {
+) -> (Vec<SourceWorktreeInventoryEntry>, bool, Vec<String>) {
     let mut entries = Vec::new();
     let mut entry_limit_exceeded = false;
+    let mut malformed_record_attributes: Vec<String> = Vec::new();
 
     let mut current_path: Option<String> = None;
     let mut current_head: Option<String> = None;
@@ -274,6 +280,49 @@ fn parse_porcelain(
         text.lines().collect::<Vec<_>>()
     };
     for line in attributes {
+        if line.is_empty() {
+            flush(
+                &mut entries,
+                &current_path,
+                &current_head,
+                &current_branch,
+                &current_locked,
+                &current_lock_reason,
+                &current_bare,
+                &current_detached,
+                &current_prunable,
+                &current_prunable_reason,
+                current_unknown_attribute_count,
+                &current_unknown_attributes,
+                current_malformed,
+                repository_root,
+                workspace_store,
+                &mut entry_limit_exceeded,
+            );
+            current_path = None;
+            current_head = None;
+            current_branch = None;
+            current_locked = None;
+            current_lock_reason = None;
+            current_bare = None;
+            current_detached = None;
+            current_prunable = None;
+            current_prunable_reason = None;
+            current_unknown_attribute_count = 0;
+            current_unknown_attributes.clear();
+            current_malformed = false;
+            seen_head = false;
+            seen_branch = false;
+            seen_locked = false;
+            seen_bare = false;
+            seen_detached = false;
+            seen_prunable = false;
+            continue;
+        }
+        if current_path.is_none() && !line.starts_with("worktree ") {
+            malformed_record_attributes.push(line.to_string());
+            continue;
+        }
         if line.starts_with("worktree ") {
             flush(
                 &mut entries,
@@ -393,7 +442,7 @@ fn parse_porcelain(
                 current_prunable_reason = line.strip_prefix("prunable ").map(ToString::to_string);
                 seen_prunable = true;
             }
-        } else if !line.is_empty() {
+        } else {
             current_unknown_attributes.push(line.to_string());
             current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
         }
@@ -418,7 +467,13 @@ fn parse_porcelain(
         &mut entry_limit_exceeded,
     );
 
-    (entries, entry_limit_exceeded)
+    let malformed_record_evidence = if malformed_record_attributes.is_empty() {
+        Vec::new()
+    } else {
+        vec![cynic_protocol::digest::digest_json(&malformed_record_attributes).unwrap_or_default()]
+    };
+
+    (entries, entry_limit_exceeded, malformed_record_evidence)
 }
 
 #[cfg(test)]
@@ -529,7 +584,7 @@ mod w1_b_tests {
             outside.display(),
         );
 
-        let (entries, entry_limit_exceeded) =
+        let (entries, entry_limit_exceeded, _malformed_record_evidence) =
             parse_porcelain(&stdout, &repository, &workspace_store);
 
         assert!(!entry_limit_exceeded);
@@ -568,7 +623,7 @@ mod w1_b_tests {
 
     #[test]
     fn adapter_treats_absent_porcelain_flags_as_false() {
-        let (entries, entry_limit_exceeded) = parse_porcelain(
+        let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
             &porcelain_output(),
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
             Path::new("/var/lib/cynic/source/workspaces/cynic"),
@@ -708,7 +763,7 @@ mod w1_b_tests {
     #[test]
     fn adapter_preserves_unknown_porcelain_attributes() {
         let text = format!("{}future-attribute opaque-value\n", porcelain_output());
-        let (entries, entry_limit_exceeded) = parse_porcelain(
+        let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
             &text,
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
             Path::new("/var/lib/cynic/source/workspaces/cynic"),
@@ -749,11 +804,15 @@ mod w1_b_tests {
         let repository = Path::new("/var/lib/cynic/source/repositories/CYNIC");
         let workspace_store = Path::new("/var/lib/cynic/source/workspaces/cynic");
 
-        let (first_entries, first_limit) = parse_porcelain(&first, repository, workspace_store);
-        let (second_entries, second_limit) = parse_porcelain(&second, repository, workspace_store);
+        let (first_entries, first_limit, first_malformed_record_evidence) =
+            parse_porcelain(&first, repository, workspace_store);
+        let (second_entries, second_limit, second_malformed_record_evidence) =
+            parse_porcelain(&second, repository, workspace_store);
 
         assert!(!first_limit);
         assert!(!second_limit);
+        assert!(first_malformed_record_evidence.is_empty());
+        assert!(second_malformed_record_evidence.is_empty());
         assert_eq!(first_entries[0].unknown_attribute_count, 1);
         assert_eq!(second_entries[0].unknown_attribute_count, 1);
         assert_ne!(
@@ -770,7 +829,7 @@ mod w1_b_tests {
             "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {first_head}\0HEAD {second_head}\0\0"
         );
 
-        let (entries, entry_limit_exceeded) = parse_porcelain(
+        let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
             &text,
             Path::new("/var/lib/cynic/source/repositories/CYNIC"),
             Path::new("/var/lib/cynic/source/workspaces/cynic"),
@@ -817,7 +876,7 @@ mod w1_b_tests {
             let text = format!(
                 "worktree /var/lib/cynic/source/workspaces/cynic/ws-a\0HEAD {head}\0{duplicate_fields}\0\0"
             );
-            let (entries, entry_limit_exceeded) = parse_porcelain(
+            let (entries, entry_limit_exceeded, _malformed_record_evidence) = parse_porcelain(
                 &text,
                 Path::new("/var/lib/cynic/source/repositories/CYNIC"),
                 Path::new("/var/lib/cynic/source/workspaces/cynic"),
