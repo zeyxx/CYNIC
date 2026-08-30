@@ -309,7 +309,7 @@ fn entry_unknowns_are_rejected_beyond_the_typed_variant_limit() {
 fn observation_unknowns_are_rejected_beyond_the_typed_variant_limit() {
     let mut observed = observation();
     observed.observation_unknowns =
-        vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded; 6];
+        vec![SourceWorktreeInventoryObservationUnknown::EntryLimitExceeded; 7];
 
     assert!(
         validate_source_worktree_inventory_observation(&observed)
