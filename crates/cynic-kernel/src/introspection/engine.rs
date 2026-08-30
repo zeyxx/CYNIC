@@ -12,7 +12,11 @@ use crate::introspection::probe::{
 use crate::introspection::rules::{
     analyze_state_log_trends, check_sense_health, is_permanent_source,
 };
+use crate::introspection::soc::{check_all, ForensicsSnapshot, SocThresholds};
 use crate::introspection::types::{Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD};
+use cynic_host::domain::forensics::local::LocalForensicAdapter;
+use cynic_host::domain::forensics::port::ForensicObservationPort;
+use cynic_protocol::forensics::CrashKind;
 
 /// Run one introspection tick. Returns alerts (empty = healthy).
 /// Alerts are logged here and returned to caller. NO pipeline::run calls.
@@ -213,4 +217,116 @@ pub async fn analyze(
     }
 
     alerts
+}
+
+/// Run SOC/forensics detection on host crash evidence.
+///
+/// Reads forensic evidence from the current boot (GPU faults, kernel traps,
+/// service loops), compares against `SocThresholds`, and returns alerts for
+/// signals that exceed their thresholds. Emits `KernelEvent::CrashDetected`
+/// for confirmed crashes through `event_tx`.
+pub fn analyze_soc(
+    boot_id: &str,
+    event_tx: &tokio::sync::broadcast::Sender<crate::domain::events::KernelEvent>,
+) -> Vec<Alert> {
+    let adapter = LocalForensicAdapter::new();
+    let thresholds = SocThresholds::default();
+
+    // Collect evidence from host
+    let evidence = match adapter.collect_evidence(boot_id) {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::debug!(error = %e, "forensics: evidence collection failed");
+            return Vec::new();
+        }
+    };
+
+    // Build forensics snapshot
+    let gpu_fault_count = evidence
+        .iter()
+        .filter(|e| matches!(e.kind, CrashKind::GpuHang))
+        .count() as u32;
+    let kernel_trap_count = evidence
+        .iter()
+        .filter(|e| matches!(e.kind, CrashKind::SoftLockup))
+        .count() as u32;
+    let service_loops = adapter.service_loops().unwrap_or_default();
+    let service_restart_rate = service_loops
+        .iter()
+        .map(|l| l.rate_per_hour())
+        .fold(0.0, f64::max);
+
+    let snapshot = ForensicsSnapshot {
+        gpu_fault_count,
+        kernel_trap_count,
+        service_restart_rate,
+        ..Default::default()
+    };
+
+    let alerts = check_all(&thresholds, &snapshot);
+
+    // Emit events for confirmed crashes
+    for alert in &alerts {
+        if alert.severity == "critical" {
+            let _ = event_tx.send(crate::domain::events::KernelEvent::CrashDetected {
+                kind: alert.kind.to_string(),
+                evidence_ref: format!("soc_tick:{}", alert.kind),
+                severity: "critical".to_string(),
+            });
+        }
+    }
+
+    alerts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::introspection::soc::SocThresholds;
+
+    #[test]
+    fn test_analyze_soc_empty_evidence() {
+        let thresholds = SocThresholds::default();
+        let snap = ForensicsSnapshot::default();
+        let alerts = check_all(&thresholds, &snap);
+        assert!(alerts.is_empty());
+    }
+
+    #[test]
+    fn test_analyze_soc_gpu_fault() {
+        let thresholds = SocThresholds::default();
+        let snap = ForensicsSnapshot {
+            gpu_fault_count: 3,
+            ..Default::default()
+        };
+        let alerts = check_all(&thresholds, &snap);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].kind, "gpu_fault");
+    }
+
+    #[test]
+    fn test_analyze_soc_softlockup() {
+        let thresholds = SocThresholds::default();
+        let snap = ForensicsSnapshot {
+            kernel_trap_count: 2,
+            ..Default::default()
+        };
+        let alerts = check_all(&thresholds, &snap);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].kind, "softlockup");
+        assert_eq!(alerts[0].severity, "critical");
+    }
+
+    #[test]
+    fn test_analyze_soc_multiple() {
+        let thresholds = SocThresholds::default();
+        let snap = ForensicsSnapshot {
+            gpu_fault_count: 1,
+            kernel_trap_count: 3,
+            service_restart_rate: 600.0,
+            ..Default::default()
+        };
+        let alerts = check_all(&thresholds, &snap);
+        assert!(alerts.len() >= 2);
+    }
 }

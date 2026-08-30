@@ -445,6 +445,17 @@ pub fn spawn_introspection(
                                     severity: alert.severity.to_string(),
                                 });
                             }
+                            // SOC/forensics detection on host crash evidence
+                            if let Some(boot_id) = cynic_host::domain::forensics::local::LocalForensicAdapter::read_current_boot_id() {
+                                let soc_alerts = crate::introspection::analyze_soc(&boot_id, &event_tx);
+                                if !soc_alerts.is_empty() {
+                                    tracing::warn!(
+                                        organ = "introspection",
+                                        soc_alerts = soc_alerts.len(),
+                                        "SOC: forensics alerts detected"
+                                    );
+                                }
+                            }
                             match introspection_alerts.write() {
                                 Ok(mut stored) => *stored = alerts,
                                 Err(e) => tracing::warn!(

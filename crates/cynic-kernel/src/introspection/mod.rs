@@ -16,6 +16,7 @@ pub mod types;
 mod tests;
 
 pub use engine::analyze;
+pub use engine::analyze_soc;
 pub use rules::{
     analyze_state_log_trends, check_sense_health, classify_source_tier, is_permanent_source,
 };
