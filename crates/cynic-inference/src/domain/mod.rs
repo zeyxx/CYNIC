@@ -1,4 +1,5 @@
 pub mod backend_config;
+pub mod backend_health;
 pub mod backend_identity;
 pub mod chat;
 pub mod chat_session;
