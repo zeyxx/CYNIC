@@ -1,8 +1,8 @@
 use crate::{
     SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA, SourceWorktreeInventoryEntry,
     SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation,
-    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
-    validate_source_worktree_inventory_observation,
+    SourceWorktreeInventoryObservationUnknown, SourceWorktreeInventoryPathBasis,
+    SourceWorktreeInventoryUnknown, validate_source_worktree_inventory_observation,
 };
 
 const DIGEST: &str = "sha3-512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -35,6 +35,7 @@ fn observation() -> SourceWorktreeInventoryObservation {
             unknowns: Vec::new(),
         }],
         evidence_refs: vec![DIGEST.to_string()],
+        observation_unknowns: Vec::new(),
     }
 }
 
@@ -233,4 +234,21 @@ fn serialized_observation_contains_no_machine_absolute_path_by_contract() {
     let encoded = serde_json::to_string(&observation()).expect("observation serializes");
     assert!(!encoded.contains("/home/"));
     assert!(!encoded.contains("/state/"));
+}
+
+#[test]
+fn empty_observation_requires_an_explicit_coverage_unknown() {
+    let mut observed = observation();
+    observed.entries.clear();
+    observed.evidence_refs.clear();
+
+    assert!(
+        validate_source_worktree_inventory_observation(&observed)
+            .contains(&"worktree_inventory_coverage_unknown_unannotated".to_string())
+    );
+
+    observed
+        .observation_unknowns
+        .push(SourceWorktreeInventoryObservationUnknown::GitCommandFailed);
+    assert!(validate_source_worktree_inventory_observation(&observed).is_empty());
 }
