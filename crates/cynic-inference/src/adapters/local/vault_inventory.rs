@@ -124,7 +124,12 @@ impl LocalModelInventoryPort for FsLocalModelInventory {
                 .collect();
             entries.sort();
             for path in entries {
-                models.push(self.parse_profile_file(&path)?);
+                match self.parse_profile_file(&path) {
+                    Ok(profile) => models.push(profile),
+                    Err(e) => {
+                        tracing::warn!("skip unreadable model profile {}: {e}", path.display());
+                    }
+                }
             }
         }
 
