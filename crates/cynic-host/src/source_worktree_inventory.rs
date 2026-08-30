@@ -115,6 +115,8 @@ fn parse_porcelain(
     let mut current_prunable_reason: Option<String> = None;
     let mut current_unknown_attribute_count = 0_u16;
     let mut current_unknown_attributes: Vec<String> = Vec::new();
+    let mut current_malformed = false;
+    let mut seen_head = false;
 
     fn flush(
         entries: &mut Vec<SourceWorktreeInventoryEntry>,
@@ -129,6 +131,7 @@ fn parse_porcelain(
         prunable_reason: &Option<String>,
         unknown_attribute_count: u16,
         unknown_attributes: &[String],
+        malformed: bool,
         repository_root: &Path,
         workspace_store: &Path,
         entry_limit_exceeded: &mut bool,
@@ -142,7 +145,7 @@ fn parse_porcelain(
         }
 
         let observed_path = Path::new(path);
-        let (state, path_basis, relative_path) = if observed_path == repository_root {
+        let (layout_state, path_basis, relative_path) = if observed_path == repository_root {
             (
                 SourceWorktreeInventoryEntryState::Observed,
                 SourceWorktreeInventoryPathBasis::MainRepository,
@@ -173,6 +176,11 @@ fn parse_porcelain(
                 None,
             )
         };
+        let state = if malformed {
+            SourceWorktreeInventoryEntryState::Malformed
+        } else {
+            layout_state
+        };
 
         let mut unknowns: Vec<SourceWorktreeInventoryUnknown> = Vec::new();
         if head.is_none() {
@@ -196,7 +204,7 @@ fn parse_porcelain(
         if unknown_attribute_count > 0 {
             unknowns.push(SourceWorktreeInventoryUnknown::GitAttribute);
         }
-        if state == SourceWorktreeInventoryEntryState::OutsideDeclaredLayout {
+        if path_basis == SourceWorktreeInventoryPathBasis::Unknown {
             unknowns.push(SourceWorktreeInventoryUnknown::RelativePath);
         }
         // Principal, path_is_symlink, clean are not observable from
@@ -217,6 +225,7 @@ fn parse_porcelain(
             "prunable_reason": prunable_reason,
             "unknown_attribute_count": unknown_attribute_count,
             "unknown_attributes": unknown_attributes,
+            "malformed": malformed,
         }))
         .unwrap_or_default();
 
@@ -263,6 +272,7 @@ fn parse_porcelain(
                 &current_prunable_reason,
                 current_unknown_attribute_count,
                 &current_unknown_attributes,
+                current_malformed,
                 repository_root,
                 workspace_store,
                 &mut entry_limit_exceeded,
@@ -278,8 +288,18 @@ fn parse_porcelain(
             current_prunable_reason = None;
             current_unknown_attribute_count = 0;
             current_unknown_attributes.clear();
+            current_malformed = false;
+            seen_head = false;
         } else if line.starts_with("HEAD ") {
-            current_head = Some(line["HEAD ".len()..].to_string());
+            if seen_head {
+                current_head = None;
+                current_unknown_attributes.push(line.to_string());
+                current_unknown_attribute_count = current_unknown_attribute_count.saturating_add(1);
+                current_malformed = true;
+            } else {
+                current_head = Some(line["HEAD ".len()..].to_string());
+                seen_head = true;
+            }
         } else if line.starts_with("branch ") {
             current_branch = Some(line["branch ".len()..].to_string());
         } else if line == "bare" {
@@ -315,6 +335,7 @@ fn parse_porcelain(
         &current_prunable_reason,
         current_unknown_attribute_count,
         &current_unknown_attributes,
+        current_malformed,
         repository_root,
         workspace_store,
         &mut entry_limit_exceeded,
