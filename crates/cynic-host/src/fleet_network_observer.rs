@@ -69,6 +69,7 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
     }
 
     pub fn observe(&self) -> FleetNetworkReport {
+        let poll_start = std::time::Instant::now();
         let discovery = FleetDiscoveryAdapter::new(&self.registry_path).discover();
         let hostname = observed_hostname();
         let mut nodes = Vec::with_capacity(discovery.nodes.len());
@@ -137,6 +138,20 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
             nodes.push(node);
         }
 
+        let poll_cost_ms_val = poll_start.elapsed().as_millis() as u64;
+        let mut residual_unknowns_with_pressure = residual_unknowns.clone();
+        if poll_cost_ms_val > 5000 {
+            residual_unknowns_with_pressure.push("poll_cost_exceeded_budget".to_string());
+        }
+        let residual_unknowns = residual_unknowns_with_pressure;
+        let budget = Some(cynic_protocol::task_pipeline::EnergyBudget {
+            wall_time_ms: 5000,
+            inference_tokens: None,
+            cpu_ms: Some(5000),
+            ram_bytes_s: None,
+        });
+        let poll_cost_ms = Some(poll_cost_ms_val);
+
         FleetNetworkReport {
             schema: FLEET_NETWORK_SCHEMA,
             corpus_unix_s: self.now_unix_s(),
@@ -145,8 +160,8 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
             failed_nodes,
             nodes,
             residual_unknowns,
-            budget: None,
-            poll_cost_ms: None,
+            budget,
+            poll_cost_ms,
         }
     }
 }
