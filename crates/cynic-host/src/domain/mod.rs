@@ -12,3 +12,4 @@ pub mod principal;
 pub mod privilege;
 pub mod services;
 pub mod shared;
+pub mod storage;
