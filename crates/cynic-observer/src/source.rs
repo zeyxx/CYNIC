@@ -29,10 +29,17 @@ pub trait EventSourcePort: Send + Sync {
     async fn poll_events(&mut self) -> Result<Vec<UniversalObserverEvent>, String>;
 }
 
-/// System and metabolism source adapter (hardware, memory, load).
 pub struct SystemMetabolismSource {
     host_name: String,
     metabolism: OsMetabolism,
+}
+
+impl std::fmt::Debug for SystemMetabolismSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SystemMetabolismSource")
+            .field("host_name", &self.host_name)
+            .finish()
+    }
 }
 
 impl SystemMetabolismSource {
