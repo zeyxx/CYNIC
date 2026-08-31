@@ -188,7 +188,7 @@ pub enum CynicErrorCode {
     /// The kernel anomaly is real but no lower-layer code was consumed to
     /// confirm a specific root cause — observation is partial.
     OsHealthObservationUnknown,
-    // ── Storage domain (CYNIC-STO-*) ──
+    ServiceCrashLoop,
     StorageEndpointUnreachable,
     StorageTopologyReplicaMismatch,
     StorageNullDegradedWriteRefused,
@@ -255,6 +255,7 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::OsHealthOomDetected,
     CynicErrorCode::OsHealthUnknown,
     CynicErrorCode::OsHealthObservationUnknown,
+    CynicErrorCode::ServiceCrashLoop,
     CynicErrorCode::StorageEndpointUnreachable,
     CynicErrorCode::StorageTopologyReplicaMismatch,
     CynicErrorCode::StorageNullDegradedWriteRefused,
@@ -322,7 +323,8 @@ impl CynicErrorCode {
             | Self::OsHealthKernelHungTaskDetected
             | Self::OsHealthOomDetected
             | Self::OsHealthUnknown
-            | Self::OsHealthObservationUnknown => CynicErrorDomain::OsHealth,
+            | Self::OsHealthObservationUnknown
+            | Self::ServiceCrashLoop => CynicErrorDomain::OsHealth,
             Self::StorageEndpointUnreachable
             | Self::StorageTopologyReplicaMismatch
             | Self::StorageNullDegradedWriteRefused
@@ -348,8 +350,8 @@ impl CynicErrorCode {
             | Self::BuildSourceCommitUnobservable
             | Self::BuildNodeIdentityUnobservable
             | Self::LxcMutationAuthorityUnverified
+            | Self::BreakglassAdmissionMissing
             | Self::BreakglassAuthorityVerifierUnavailable
-            | Self::BreakglassSignatureInvalid
             | Self::BreakglassConsumptionPersistFailed
             | Self::BreakglassAdmissionInvalid
             | Self::BreakglassActionForbidden
@@ -369,8 +371,8 @@ impl CynicErrorCode {
             | Self::OpportunityValueFrameInvalid
             | Self::OpportunityDecisionDigestMismatch => CynicErrorClass::Blocked,
 
-            // Consent-required before any bounded action.
-            Self::BreakglassAdmissionMissing
+            Self::OsHealthOomDetected
+            | Self::ServiceCrashLoop
             | Self::ActivationConsentMissing
             | Self::PublicationConsentMissing => CynicErrorClass::Constitutional,
 
@@ -400,7 +402,6 @@ impl CynicErrorCode {
             | Self::OsHealthReclaimPressureAboveCeiling
             | Self::OsHealthKernelSoftlockupDetected
             | Self::OsHealthKernelHungTaskDetected
-            | Self::OsHealthOomDetected
             | Self::OsHealthUnknown
             | Self::OsHealthObservationUnknown
             | Self::StorageEndpointUnreachable
@@ -464,6 +465,7 @@ impl CynicErrorCode {
             (CynicErrorDomain::OsHealth, 8) => "CYNIC-OSH-008",
             (CynicErrorDomain::OsHealth, 9) => "CYNIC-OSH-009",
             (CynicErrorDomain::OsHealth, 10) => "CYNIC-OSH-010",
+            (CynicErrorDomain::OsHealth, 11) => "CYNIC-OSH-011",
             (CynicErrorDomain::Storage, 1) => "CYNIC-STO-001",
             (CynicErrorDomain::Storage, 2) => "CYNIC-STO-002",
             (CynicErrorDomain::Storage, 3) => "CYNIC-STO-003",
@@ -638,6 +640,9 @@ impl CynicErrorCode {
             Self::OsHealthObservationUnknown => {
                 "observation is partial: confirm which /proc or /sys probe is unreadable and report the residual unknown"
             }
+            Self::ServiceCrashLoop => {
+                "inspect service logs and backpressure before restarting unit"
+            }
             Self::StorageEndpointUnreachable => {
                 "restore network reachability to declared storage endpoint or promote a replica"
             }
@@ -697,6 +702,7 @@ impl CynicErrorCode {
                 | Self::AgentCoordinationStoreUnavailable
                 | Self::AgentMergeQueueRace
                 | Self::FleetObservationBlackout
+                | Self::ServiceCrashLoop
                 | Self::StorageEndpointUnreachable
                 | Self::StorageTopologyReplicaMismatch
                 | Self::StoragePoolExhausted

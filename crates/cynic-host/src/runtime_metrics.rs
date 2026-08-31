@@ -5,7 +5,10 @@ use serde::Serialize;
 use crate::conformance::HostConformanceReport;
 use crate::domain::shared::SurfaceStatus;
 use crate::forgejo_control::current_forgejo_plan;
-use cynic_protocol::{RUNTIME_PROOF_BUNDLE_SCHEMA, RuntimeProofBundle};
+use cynic_protocol::{
+    RUNTIME_PROOF_BUNDLE_SCHEMA, ResidualUnknownBudget, RuntimeProofBundle,
+    evaluate_residual_unknowns,
+};
 
 pub const HOST_RUNTIME_METRICS_SCHEMA: &str = "cynic.host.runtime_metrics.v1";
 const DEFAULT_PROOF_FRESHNESS_MAX_AGE_MS: u128 = 5 * 60 * 1000;
@@ -21,6 +24,8 @@ pub struct HostRuntimeMetricsReport {
     pub measured_percent: u8,
     pub known_coverage_percent: u8,
     pub residual_unknown_percent: u8,
+    pub residual_unknown_budget_acceptable: bool,
+    pub max_residual_unknown_percent: u8,
     pub measured_metric_count: usize,
     pub unknown_metric_count: usize,
     pub total_metric_count: usize,
@@ -92,8 +97,12 @@ fn host_runtime_metrics_with_now(
         .collect::<Vec<_>>();
     let measured_metric_count = measured.len();
     let unknown_metric_count = total_metric_count.saturating_sub(measured_metric_count);
-    let known_coverage_percent = percent(measured_metric_count, total_metric_count);
-    let residual_unknown_percent = 100u8.saturating_sub(known_coverage_percent);
+    let unknown_budget =
+        ResidualUnknownBudget::new(100u8.saturating_sub(MIN_KNOWN_COVERAGE_PERCENT), None);
+    let unknown_eval =
+        evaluate_residual_unknowns(unknown_metric_count, total_metric_count, &unknown_budget);
+    let known_coverage_percent = unknown_eval.known_coverage_percent;
+    let residual_unknown_percent = unknown_eval.residual_unknown_percent;
     let measured_percent = if measured.is_empty() {
         0
     } else {
@@ -124,6 +133,8 @@ fn host_runtime_metrics_with_now(
         measured_percent,
         known_coverage_percent,
         residual_unknown_percent,
+        residual_unknown_budget_acceptable: unknown_eval.acceptable,
+        max_residual_unknown_percent: unknown_budget.max_residual_unknown_percent,
         measured_metric_count,
         unknown_metric_count,
         total_metric_count,

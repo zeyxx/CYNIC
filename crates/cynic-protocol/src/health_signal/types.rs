@@ -100,6 +100,11 @@ pub enum HealthSignalPayload {
         failure_rate_percent: f64,
         consecutive_failures: u32,
     },
+    ServiceCrashLoop {
+        service: String,
+        consecutive_restarts: u32,
+        window_seconds: u64,
+    },
     OrganSilence {
         organ_id: String,
         silent_duration_seconds: u64,
@@ -193,6 +198,8 @@ impl HealthSignalPayload {
             Self::FleetObservationBlackout { .. } => {
                 vec![CynicErrorCode::FleetObservationBlackout]
             }
+            Self::InferenceCrashLoop { .. } => vec![CynicErrorCode::ServiceCrashLoop],
+            Self::ServiceCrashLoop { .. } => vec![CynicErrorCode::ServiceCrashLoop],
             _ => Vec::new(),
         }
     }
