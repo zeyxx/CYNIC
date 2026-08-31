@@ -6,6 +6,7 @@ use cynic_protocol::storage_topology::StorageTopologyObserved;
 
 use super::probe::StorageTopologyObservationPort;
 use crate::update_lifecycle::ArgvRunner;
+use std::time::Instant;
 
 pub struct RemoteStorageTopologyAdapter<R: ArgvRunner> {
     pub ssh_target: String,
@@ -32,7 +33,7 @@ impl<R: ArgvRunner> StorageTopologyObservationPort for RemoteStorageTopologyAdap
                 .unwrap_or(0),
             endpoints,
             leader: None,
-            poll_cost_ms: Some(out.stdout.len() as u64),
+            poll_cost_ms: Some(poll_start.elapsed().as_millis() as u64),
             residual_unknowns: if out.exit_code == Some(0) {
                 vec![]
             } else {

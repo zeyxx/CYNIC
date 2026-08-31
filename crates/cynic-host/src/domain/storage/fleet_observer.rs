@@ -15,14 +15,20 @@ use super::probe::{StorageTopologyObservationPort, storage_topology_report};
 use super::remote_adapter::RemoteStorageTopologyAdapter;
 
 pub struct FleetStorageTopologyObserver<R: ArgvRunner> {
+    pub registry_path: String,
     pub topology_path: String,
     pub client_policy_path: String,
     pub runner: Arc<R>,
 }
 
 impl FleetStorageTopologyObserver<LocalArgvRunner> {
-    pub fn new(topology_path: impl Into<String>, client_policy_path: impl Into<String>) -> Self {
+    pub fn new(
+        registry_path: impl Into<String>,
+        topology_path: impl Into<String>,
+        client_policy_path: impl Into<String>,
+    ) -> Self {
         Self {
+            registry_path: registry_path.into(),
             topology_path: topology_path.into(),
             client_policy_path: client_policy_path.into(),
             runner: Arc::new(LocalArgvRunner),
@@ -32,11 +38,13 @@ impl FleetStorageTopologyObserver<LocalArgvRunner> {
 
 impl<R: ArgvRunner> FleetStorageTopologyObserver<R> {
     pub fn with_runner(
+        registry_path: impl Into<String>,
         topology_path: impl Into<String>,
         client_policy_path: impl Into<String>,
         runner: R,
     ) -> Self {
         Self {
+            registry_path: registry_path.into(),
             topology_path: topology_path.into(),
             client_policy_path: client_policy_path.into(),
             runner: Arc::new(runner),
@@ -45,7 +53,7 @@ impl<R: ArgvRunner> FleetStorageTopologyObserver<R> {
 
     pub fn observe(&self) -> StorageTopologyReport {
         let poll_start = std::time::Instant::now();
-        let discovery = FleetDiscoveryAdapter::new(&self.topology_path).discover();
+        let discovery = FleetDiscoveryAdapter::new(&self.registry_path).discover();
         let hostname = observed_hostname();
         let mut observed = StorageTopologyObserved {
             schema: "cynic.storage_topology_observed.v1".to_string(),
