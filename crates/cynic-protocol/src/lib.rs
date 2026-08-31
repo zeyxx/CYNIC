@@ -88,6 +88,7 @@ pub mod node_enrollment;
 pub mod node_identity;
 pub mod observe;
 pub mod one_shot_capability;
+pub mod organic_opportunity;
 pub mod outcomes;
 pub mod pattern_gc;
 pub mod policy;
@@ -195,7 +196,9 @@ pub use node_enrollment::*;
 pub use node_identity::*;
 pub use observe::*;
 pub use one_shot_capability::*;
+pub use organic_opportunity::*;
 pub use outcomes::*;
+
 pub use policy::*;
 pub use pre_os::*;
 pub use provider::*;
