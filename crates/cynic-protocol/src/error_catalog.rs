@@ -32,6 +32,14 @@ pub enum CynicErrorDomain {
     Fleet,
     /// OS-substrate health anomalies (kernel, THP, memory reclaim, OOM).
     OsHealth,
+    /// Storage topology, endpoint reachability, degraded null storage mode.
+    Storage,
+    /// Toolchain install provenance, binary resolution, mutator authority.
+    Toolchain,
+    /// Publication consent, scope boundaries, unwhitelisted field disclosure.
+    Publication,
+    /// Organic opportunities observation, value frames, decision lineage.
+    Opportunity,
 }
 
 impl CynicErrorDomain {
@@ -46,6 +54,10 @@ impl CynicErrorDomain {
             Self::Agent => "AGT",
             Self::Fleet => "FLT",
             Self::OsHealth => "OSH",
+            Self::Storage => "STO",
+            Self::Toolchain => "TL",
+            Self::Publication => "PUB",
+            Self::Opportunity => "OPP",
         }
     }
 
@@ -60,6 +72,10 @@ impl CynicErrorDomain {
             Self::Agent => "agent",
             Self::Fleet => "fleet",
             Self::OsHealth => "os_health",
+            Self::Storage => "storage",
+            Self::Toolchain => "toolchain",
+            Self::Publication => "publication",
+            Self::Opportunity => "opportunity",
         }
     }
 }
@@ -172,6 +188,23 @@ pub enum CynicErrorCode {
     /// The kernel anomaly is real but no lower-layer code was consumed to
     /// confirm a specific root cause — observation is partial.
     OsHealthObservationUnknown,
+    // ── Storage domain (CYNIC-STO-*) ──
+    StorageEndpointUnreachable,
+    StorageTopologyReplicaMismatch,
+    StorageNullDegradedWriteRefused,
+    StoragePoolExhausted,
+    // ── Toolchain domain (CYNIC-TL-*) ──
+    ToolchainProvenanceUnverified,
+    ToolchainBinaryMissing,
+    ToolchainMutatorAuthorityMismatch,
+    // ── Publication domain (CYNIC-PUB-*) ──
+    PublicationConsentMissing,
+    PublicationConsentExpired,
+    PublicationFieldUnwhitelisted,
+    // ── Opportunity domain (CYNIC-OPP-*) ──
+    OpportunitySourceUnreadable,
+    OpportunityValueFrameInvalid,
+    OpportunityDecisionDigestMismatch,
 }
 
 pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
@@ -222,6 +255,19 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::OsHealthOomDetected,
     CynicErrorCode::OsHealthUnknown,
     CynicErrorCode::OsHealthObservationUnknown,
+    CynicErrorCode::StorageEndpointUnreachable,
+    CynicErrorCode::StorageTopologyReplicaMismatch,
+    CynicErrorCode::StorageNullDegradedWriteRefused,
+    CynicErrorCode::StoragePoolExhausted,
+    CynicErrorCode::ToolchainProvenanceUnverified,
+    CynicErrorCode::ToolchainBinaryMissing,
+    CynicErrorCode::ToolchainMutatorAuthorityMismatch,
+    CynicErrorCode::PublicationConsentMissing,
+    CynicErrorCode::PublicationConsentExpired,
+    CynicErrorCode::PublicationFieldUnwhitelisted,
+    CynicErrorCode::OpportunitySourceUnreadable,
+    CynicErrorCode::OpportunityValueFrameInvalid,
+    CynicErrorCode::OpportunityDecisionDigestMismatch,
 ];
 
 impl CynicErrorCode {
@@ -277,6 +323,19 @@ impl CynicErrorCode {
             | Self::OsHealthOomDetected
             | Self::OsHealthUnknown
             | Self::OsHealthObservationUnknown => CynicErrorDomain::OsHealth,
+            Self::StorageEndpointUnreachable
+            | Self::StorageTopologyReplicaMismatch
+            | Self::StorageNullDegradedWriteRefused
+            | Self::StoragePoolExhausted => CynicErrorDomain::Storage,
+            Self::ToolchainProvenanceUnverified
+            | Self::ToolchainBinaryMissing
+            | Self::ToolchainMutatorAuthorityMismatch => CynicErrorDomain::Toolchain,
+            Self::PublicationConsentMissing
+            | Self::PublicationConsentExpired
+            | Self::PublicationFieldUnwhitelisted => CynicErrorDomain::Publication,
+            Self::OpportunitySourceUnreadable
+            | Self::OpportunityValueFrameInvalid
+            | Self::OpportunityDecisionDigestMismatch => CynicErrorDomain::Opportunity,
         }
     }
 
@@ -302,12 +361,18 @@ impl CynicErrorCode {
             | Self::AgentBudgetExceeded
             | Self::FleetRegistrySubstrateDivergence
             | Self::FleetNameResolutionInconsistent
-            | Self::FleetNodeUndiscoverable => CynicErrorClass::Blocked,
+            | Self::FleetNodeUndiscoverable
+            | Self::StorageNullDegradedWriteRefused
+            | Self::ToolchainProvenanceUnverified
+            | Self::ToolchainMutatorAuthorityMismatch
+            | Self::PublicationFieldUnwhitelisted
+            | Self::OpportunityValueFrameInvalid
+            | Self::OpportunityDecisionDigestMismatch => CynicErrorClass::Blocked,
 
             // Consent-required before any bounded action.
-            Self::BreakglassAdmissionMissing | Self::ActivationConsentMissing => {
-                CynicErrorClass::Constitutional
-            }
+            Self::BreakglassAdmissionMissing
+            | Self::ActivationConsentMissing
+            | Self::PublicationConsentMissing => CynicErrorClass::Constitutional,
 
             // Multi-agent collision, not a retry.
             Self::AgentScopeConflict | Self::AgentSharedTypeDrift | Self::AgentMergeQueueRace => {
@@ -337,7 +402,13 @@ impl CynicErrorCode {
             | Self::OsHealthKernelHungTaskDetected
             | Self::OsHealthOomDetected
             | Self::OsHealthUnknown
-            | Self::OsHealthObservationUnknown => CynicErrorClass::Recoverable,
+            | Self::OsHealthObservationUnknown
+            | Self::StorageEndpointUnreachable
+            | Self::StorageTopologyReplicaMismatch
+            | Self::StoragePoolExhausted
+            | Self::ToolchainBinaryMissing
+            | Self::PublicationConsentExpired
+            | Self::OpportunitySourceUnreadable => CynicErrorClass::Recoverable,
         }
     }
 
@@ -393,6 +464,19 @@ impl CynicErrorCode {
             (CynicErrorDomain::OsHealth, 8) => "CYNIC-OSH-008",
             (CynicErrorDomain::OsHealth, 9) => "CYNIC-OSH-009",
             (CynicErrorDomain::OsHealth, 10) => "CYNIC-OSH-010",
+            (CynicErrorDomain::Storage, 1) => "CYNIC-STO-001",
+            (CynicErrorDomain::Storage, 2) => "CYNIC-STO-002",
+            (CynicErrorDomain::Storage, 3) => "CYNIC-STO-003",
+            (CynicErrorDomain::Storage, 4) => "CYNIC-STO-004",
+            (CynicErrorDomain::Toolchain, 1) => "CYNIC-TL-001",
+            (CynicErrorDomain::Toolchain, 2) => "CYNIC-TL-002",
+            (CynicErrorDomain::Toolchain, 3) => "CYNIC-TL-003",
+            (CynicErrorDomain::Publication, 1) => "CYNIC-PUB-001",
+            (CynicErrorDomain::Publication, 2) => "CYNIC-PUB-002",
+            (CynicErrorDomain::Publication, 3) => "CYNIC-PUB-003",
+            (CynicErrorDomain::Opportunity, 1) => "CYNIC-OPP-001",
+            (CynicErrorDomain::Opportunity, 2) => "CYNIC-OPP-002",
+            (CynicErrorDomain::Opportunity, 3) => "CYNIC-OPP-003",
             _ => "CYNIC-ERR-000",
         }
     }
@@ -554,6 +638,45 @@ impl CynicErrorCode {
             Self::OsHealthObservationUnknown => {
                 "observation is partial: confirm which /proc or /sys probe is unreadable and report the residual unknown"
             }
+            Self::StorageEndpointUnreachable => {
+                "restore network reachability to declared storage endpoint or promote a replica"
+            }
+            Self::StorageTopologyReplicaMismatch => {
+                "reconcile live storage endpoints with declared replica target; do not assume single node"
+            }
+            Self::StorageNullDegradedWriteRefused => {
+                "storage is in degraded null mode; mutations are rejected to prevent silent data loss"
+            }
+            Self::StoragePoolExhausted => {
+                "expand storage pool capacity or prune expired ephemeral artifacts"
+            }
+            Self::ToolchainProvenanceUnverified => {
+                "verify install provenance channel; do not assume universal self-update commands"
+            }
+            Self::ToolchainBinaryMissing => {
+                "install required toolchain binary via declared provenance channel"
+            }
+            Self::ToolchainMutatorAuthorityMismatch => {
+                "execute repair with the declared mutator authority (e.g. uv tool vs uv pip --system)"
+            }
+            Self::PublicationConsentMissing => {
+                "obtain explicit opt-in publication consent before projecting data to public audience"
+            }
+            Self::PublicationConsentExpired => {
+                "renew publication consent; policy version digest drift invalidates prior consent"
+            }
+            Self::PublicationFieldUnwhitelisted => {
+                "field is not in disclosure whitelist; private data cannot be projected"
+            }
+            Self::OpportunitySourceUnreadable => {
+                "source trace or worktree is unreadable; report as unavailable rather than empty"
+            }
+            Self::OpportunityValueFrameInvalid => {
+                "value frame tie-break dimensions are invalid; provide a valid ranking frame"
+            }
+            Self::OpportunityDecisionDigestMismatch => {
+                "decision digest does not match target opportunity; verify opportunity identity"
+            }
         }
     }
 
@@ -574,6 +697,12 @@ impl CynicErrorCode {
                 | Self::AgentCoordinationStoreUnavailable
                 | Self::AgentMergeQueueRace
                 | Self::FleetObservationBlackout
+                | Self::StorageEndpointUnreachable
+                | Self::StorageTopologyReplicaMismatch
+                | Self::StoragePoolExhausted
+                | Self::ToolchainBinaryMissing
+                | Self::PublicationConsentExpired
+                | Self::OpportunitySourceUnreadable
         )
     }
 }

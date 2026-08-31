@@ -8,12 +8,26 @@ pub trait StorageTopologyObservationPort {
     fn observe_topology(&self) -> StorageTopologyObserved;
 }
 
+pub trait StorageClientPolicyObservationPort {
+    fn observe_client_policy(&self) -> StorageClientPolicy;
+}
+
 pub struct InMemoryStorageTopologyAdapter {
     pub observed: StorageTopologyObserved,
 }
 
 impl StorageTopologyObservationPort for InMemoryStorageTopologyAdapter {
     fn observe_topology(&self) -> StorageTopologyObserved {
+        self.observed.clone()
+    }
+}
+
+pub struct InMemoryStorageClientPolicyAdapter {
+    pub observed: StorageClientPolicy,
+}
+
+impl StorageClientPolicyObservationPort for InMemoryStorageClientPolicyAdapter {
+    fn observe_client_policy(&self) -> StorageClientPolicy {
         self.observed.clone()
     }
 }

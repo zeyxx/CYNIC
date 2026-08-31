@@ -12,7 +12,8 @@ pub use apply::{
 pub use fleet_observer::FleetStorageTopologyObserver;
 pub use local_adapter::LocalStorageTopologyAdapter;
 pub use probe::{
-    InMemoryStorageTopologyAdapter, StorageTopologyObservationPort, storage_topology_report,
+    InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter,
+    StorageClientPolicyObservationPort, StorageTopologyObservationPort, storage_topology_report,
 };
 pub use reconcile::{StorageTopologyAction, StorageTopologyPlan, reconcile_storage_topology};
 pub use remote_adapter::RemoteStorageTopologyAdapter;
