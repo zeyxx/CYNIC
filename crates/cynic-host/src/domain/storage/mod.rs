@@ -1,9 +1,11 @@
+pub mod apply;
 pub mod fleet_observer;
 pub mod local_adapter;
 pub mod probe;
 pub mod reconcile;
 pub mod remote_adapter;
 
+pub use apply::{StorageTopologyApplyIntent, plan_storage_topology_apply};
 pub use fleet_observer::FleetStorageTopologyObserver;
 pub use local_adapter::LocalStorageTopologyAdapter;
 pub use probe::{
