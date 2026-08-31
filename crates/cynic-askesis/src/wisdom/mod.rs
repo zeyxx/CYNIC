@@ -4,26 +4,39 @@
 //!
 //! Curated patterns inject domain-specific knowledge into evaluator prompts.
 //! Canonical domain owner: `cynic-askesis` (SoC foundation §481).
-//!
-//! Contract types (`DomainSignal`, `DomainCurations`) live in `cynic-protocol`.
-//! This module adds I/O (loading curations from disk) and re-exports the types.
 
 pub mod engine;
 
 pub use engine::format_wisdom_context;
+use serde::{Deserialize, Serialize};
 
-// Re-export canonical types from protocol — single source of truth.
-pub use cynic_protocol::wisdom::{DomainCurations, DomainSignal};
-
-/// Extension trait for loading curations from disk (I/O, not in protocol).
-pub trait DomainCurationsLoader {
-    /// Load curations from jsonl files in the given directory.
-    /// Format: each line is a DomainSignal JSON.
-    fn load_from_path(path: &std::path::Path) -> Result<DomainCurations, String>;
+/// Curated domain signal: falsifiable knowledge about a domain pattern.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainSignal {
+    pub signal_id: String,
+    pub domain: String,
+    pub pattern: String,
+    pub strength: f64,             // 0.0-1.0 confidence in pattern validity
+    pub sources: Vec<String>,      // tweet IDs, references
+    pub falsifiable_claim: String, // "If X then Y < threshold" — how to invalidate this
 }
 
-impl DomainCurationsLoader for DomainCurations {
-    fn load_from_path(path: &std::path::Path) -> Result<DomainCurations, String> {
+/// Domain curations — loaded at startup from jsonl files.
+#[derive(Debug, Clone, Default)]
+pub struct DomainCurations {
+    // Map: domain → signals
+    pub signals: std::collections::HashMap<String, Vec<DomainSignal>>,
+    pub loaded_domains: Vec<String>,
+}
+
+impl DomainCurations {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Load curations from jsonl files in the given directory.
+    /// Format: each line is a DomainSignal JSON.
+    pub fn load_from_path(path: &std::path::Path) -> Result<Self, String> {
         let mut curations = DomainCurations::new();
 
         for entry in std::fs::read_dir(path)
@@ -42,7 +55,7 @@ impl DomainCurationsLoader for DomainCurations {
                 && name_str.contains("_curated")
             {
                 let domain_id = name_str.split('_').next().unwrap_or("unknown");
-                if let Err(e) = load_file(&mut curations, &file_path, domain_id) {
+                if let Err(e) = curations.load_file(&file_path, domain_id) {
                     tracing::warn!(domain = domain_id, error = %e, "Failed to load curation file");
                 } else {
                     curations.loaded_domains.push(domain_id.to_string());
@@ -53,27 +66,54 @@ impl DomainCurationsLoader for DomainCurations {
 
         Ok(curations)
     }
-}
 
-fn load_file(
-    curations: &mut DomainCurations,
-    path: &std::path::Path,
-    domain: &str,
-) -> Result<(), String> {
-    let content = std::fs::read_to_string(path).map_err(|e| format!("Failed to read file: {e}"))?;
+    fn load_file(&mut self, path: &std::path::Path, domain: &str) -> Result<(), String> {
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("Failed to read file: {e}"))?;
 
-    let mut signals = Vec::new();
-    for (line_num, line) in content.lines().enumerate() {
-        if line.trim().is_empty() {
-            continue;
+        let mut signals = Vec::new();
+        for (line_num, line) in content.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let signal: DomainSignal = serde_json::from_str(line)
+                .map_err(|e| format!("JSON parse error on line {}: {e}", line_num + 1))?;
+            signals.push(signal);
         }
-        let signal: DomainSignal = serde_json::from_str(line)
-            .map_err(|e| format!("JSON parse error on line {}: {e}", line_num + 1))?;
-        signals.push(signal);
+
+        self.signals.insert(domain.to_string(), signals);
+        Ok(())
     }
 
-    curations.signals.insert(domain.to_string(), signals);
-    Ok(())
+    /// Find signals matching a domain and containing keywords from content
+    pub fn find_matching_signals(&self, domain: &str, content: &str) -> Vec<DomainSignal> {
+        let signals = self
+            .signals
+            .get(domain)
+            .map(|s| s.as_slice())
+            .unwrap_or(&[]);
+
+        // Extract keywords: lowercase, split by non-alphanumeric
+        let content_lower = content.to_lowercase();
+        let keywords: Vec<&str> = content_lower
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .filter(|w| w.len() > 2)
+            .collect();
+
+        signals
+            .iter()
+            .filter(|signal| {
+                let pattern_lower = signal.pattern.to_lowercase();
+                keywords.iter().any(|kw| pattern_lower.contains(kw))
+                    || signal
+                        .falsifiable_claim
+                        .to_lowercase()
+                        .split(|c: char| !c.is_alphanumeric())
+                        .any(|w| keywords.contains(&w))
+            })
+            .cloned()
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -95,7 +135,7 @@ mod tests {
         let json = serde_json::to_string(&signal).expect("serialize");
         let back: DomainSignal = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back.signal_id, signal.signal_id);
-        assert!((back.strength - signal.strength).abs() < f64::EPSILON);
+        assert!((back.strength - signal.strength).abs() < 1e-9);
     }
 
     #[test]

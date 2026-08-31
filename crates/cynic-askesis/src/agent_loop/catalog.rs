@@ -1,50 +1,13 @@
+use super::types::{AgentLoopCapability, CapabilityStatus};
 use std::collections::BTreeSet;
 
-use serde::Serialize;
-use serde_json::Value;
-
-const TARGET_PERCENT: f64 = 80.0;
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CapabilityStatus {
-    Declared,
-    Missing,
-    Unknown,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct AgentLoopCapability {
-    pub id: &'static str,
-    pub phase: &'static str,
-    pub critical: bool,
-    pub status: CapabilityStatus,
-    pub evidence: Vec<String>,
-    pub expectation: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct AgentLoopAuditReport {
-    pub schema_version: &'static str,
-    pub scope: Vec<&'static str>,
-    pub status: &'static str,
-    pub authority: &'static str,
-    pub target_percent: f64,
-    pub declared_percent: f64,
-    pub observed_percent: Option<f64>,
-    pub hermes_component_pinned: bool,
-    pub capabilities: Vec<AgentLoopCapability>,
-    pub residual_risks: Vec<&'static str>,
-}
-
-pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditReport {
-    let mut tools = BTreeSet::new();
-    collect_tool_names(exposure, &mut tools);
-    let hermes_component_pinned = contains_string(ecosystem, "hermes-agent");
-
-    let mut capabilities = vec![
+pub(crate) fn default_capabilities(
+    tools: &BTreeSet<String>,
+    hermes_component_pinned: bool,
+) -> Vec<AgentLoopCapability> {
+    vec![
         matched(
-            &tools,
+            tools,
             "surface_discovery",
             "discover",
             true,
@@ -52,7 +15,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "The agent can discover MCP tools and their machine contracts before acting.",
         ),
         matched(
-            &tools,
+            tools,
             "runtime_identity",
             "enroll",
             true,
@@ -60,7 +23,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Every agent session is authenticated and bound to an attested runtime identity.",
         ),
         matched(
-            &tools,
+            tools,
             "inference_control",
             "infer",
             true,
@@ -68,7 +31,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Inference is routed through declared backends with observable runtime state.",
         ),
         matched(
-            &tools,
+            tools,
             "task_lifecycle",
             "claim",
             true,
@@ -80,7 +43,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Tasks can be dispatched, exclusively claimed, and completed with a result.",
         ),
         matched(
-            &tools,
+            tools,
             "coordination_lease",
             "claim",
             true,
@@ -92,7 +55,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Concurrent agents coordinate through explicit registration and bounded leases.",
         ),
         matched(
-            &tools,
+            tools,
             "observation",
             "observe",
             true,
@@ -100,7 +63,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Effects are observed after execution rather than inferred from tool success.",
         ),
         matched(
-            &tools,
+            tools,
             "judgment",
             "judge",
             true,
@@ -108,7 +71,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Observed evidence is judged against an explicit expected result.",
         ),
         matched(
-            &tools,
+            tools,
             "proof_publication",
             "prove",
             true,
@@ -119,7 +82,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Artifacts and decisions can be attached to the task as durable proof.",
         ),
         matched(
-            &tools,
+            tools,
             "canonical_validation",
             "prove",
             true,
@@ -127,7 +90,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "The loop can invoke the canonical validation gate and preserve its output.",
         ),
         matched(
-            &tools,
+            tools,
             "agent_evaluation",
             "evaluate",
             false,
@@ -135,7 +98,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Models and agent policies can be measured with repeated controlled trials.",
         ),
         matched(
-            &tools,
+            tools,
             "knowledge_retrieval",
             "learn",
             false,
@@ -143,7 +106,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Agents can retrieve accumulated observations and coherence patterns through CYNIC MCP.",
         ),
         matched(
-            &tools,
+            tools,
             "governed_trace_capture",
             "collect",
             true,
@@ -151,7 +114,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Agent prompts, outputs, tool calls, proofs, judgments, and outcomes are captured as governed training candidates rather than raw chat logs.",
         ),
         matched(
-            &tools,
+            tools,
             "data_provenance_and_rights",
             "govern",
             true,
@@ -163,7 +126,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Every retained sample records origin, ownership, license or consent, retention, sensitivity, and redaction proof.",
         ),
         matched(
-            &tools,
+            tools,
             "dataset_registry",
             "curate",
             true,
@@ -175,7 +138,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Immutable dataset versions expose lineage, deduplication, labels, train/eval splits, and content hashes.",
         ),
         matched(
-            &tools,
+            tools,
             "quality_labeling",
             "curate",
             true,
@@ -183,7 +146,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Deterministic checks, runtime proof, judges, and human review produce separable labels with uncertainty.",
         ),
         matched(
-            &tools,
+            tools,
             "code_dependency_corpus",
             "curate",
             false,
@@ -191,7 +154,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Owned code, build results, dependency graphs, incidents, and patches can become versioned task-specific corpora.",
         ),
         matched(
-            &tools,
+            tools,
             "training_and_distillation",
             "train",
             true,
@@ -199,7 +162,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Training and distillation are planned executions with pinned inputs, teacher identity, hyperparameters, checkpoints, and reproducible proof.",
         ),
         matched(
-            &tools,
+            tools,
             "model_artifact_lineage",
             "train",
             true,
@@ -207,7 +170,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "A model artifact links base model, quantization or adapter, datasets, code revision, environment, metrics, and checksums.",
         ),
         matched(
-            &tools,
+            tools,
             "model_promotion",
             "promote",
             true,
@@ -215,7 +178,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Only models passing capability, safety, latency, memory, and regression gates can move from candidate to canary or runtime authority.",
         ),
         matched(
-            &tools,
+            tools,
             "model_drift_monitoring",
             "observe",
             false,
@@ -223,7 +186,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Production outcomes detect capability, data, latency, and calibration drift without training directly on uncontrolled outputs.",
         ),
         matched(
-            &tools,
+            tools,
             "product_ml_contract",
             "productize",
             false,
@@ -234,7 +197,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Future product ML uses the same governed lineage and proof interfaces without inheriting agent-chat assumptions.",
         ),
         matched(
-            &tools,
+            tools,
             "harness_binding",
             "preflight",
             true,
@@ -242,7 +205,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Every run declares harness kind, authority, isolation, target scope, and network mutation.",
         ),
         matched(
-            &tools,
+            tools,
             "capability_policy",
             "preflight",
             true,
@@ -250,7 +213,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "The gateway grants least-privilege tool capabilities and explicit mutation approval.",
         ),
         matched(
-            &tools,
+            tools,
             "trace_correlation",
             "observe",
             true,
@@ -258,7 +221,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Inference, MCP calls, tasks, mutations, evidence, and final answers share one trace identity.",
         ),
         matched(
-            &tools,
+            tools,
             "cancellation",
             "recover",
             false,
@@ -266,7 +229,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "A running task and its owned execution can be cancelled without orphaning work.",
         ),
         matched(
-            &tools,
+            tools,
             "rollback",
             "recover",
             true,
@@ -274,7 +237,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
             "Mutable actions expose and can invoke a bounded rollback intent.",
         ),
         matched(
-            &tools,
+            tools,
             "context_memory",
             "resume",
             false,
@@ -298,41 +261,7 @@ pub fn audit_agent_loop(exposure: &Value, ecosystem: &Value) -> AgentLoopAuditRe
                 .collect(),
             expectation: "Hermes is replaceably configured to use CYNIC MCP as its capability gateway; a package pin is not an integration proof.",
         },
-    ];
-
-    capabilities.sort_by_key(|capability| (capability.phase, capability.id));
-    let declared = capabilities
-        .iter()
-        .filter(|capability| matches!(capability.status, CapabilityStatus::Declared))
-        .count();
-    let declared_percent = percent(declared, capabilities.len());
-    let has_critical_gap = capabilities.iter().any(|capability| {
-        capability.critical && !matches!(capability.status, CapabilityStatus::Declared)
-    });
-
-    AgentLoopAuditReport {
-        schema_version: "cynic.agent-learning-loop-audit.v2",
-        scope: vec!["agent_execution", "data_flywheel", "industrial_ml"],
-        status: if declared_percent >= TARGET_PERCENT && !has_critical_gap {
-            "ready"
-        } else {
-            "gap"
-        },
-        authority: "declared_projection_only",
-        target_percent: TARGET_PERCENT,
-        declared_percent,
-        observed_percent: None,
-        hermes_component_pinned,
-        capabilities,
-        residual_risks: vec![
-            "Declared tool exposure does not prove that an MCP client can discover or execute a tool.",
-            "No real mutable action is exercised by this static audit.",
-            "Prompt injection, tool poisoning, secret exfiltration, and output sanitization require conformance trials.",
-            "Existing observations, audit rows, verdicts, and knowledge records are not training-ready without lineage, rights, redaction, and immutable dataset versions.",
-            "Teacher outputs are candidate labels, not ground truth; distillation must preserve disagreement and uncertainty.",
-            "Hermes and ODS remain replaceable adapters; neither is runtime authority.",
-        ],
-    }
+    ]
 }
 
 fn matched(
@@ -381,42 +310,4 @@ fn unknown(
         evidence: Vec::new(),
         expectation,
     }
-}
-
-fn collect_tool_names(value: &Value, tools: &mut BTreeSet<String>) {
-    match value {
-        Value::String(candidate) => {
-            if candidate.contains('_')
-                && !candidate.chars().any(char::is_whitespace)
-                && candidate.chars().all(|character| {
-                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.')
-                })
-            {
-                tools.insert(candidate.to_ascii_lowercase());
-            }
-        }
-        Value::Array(values) => values
-            .iter()
-            .for_each(|value| collect_tool_names(value, tools)),
-        Value::Object(values) => values
-            .values()
-            .for_each(|value| collect_tool_names(value, tools)),
-        _ => {}
-    }
-}
-
-fn contains_string(value: &Value, needle: &str) -> bool {
-    match value {
-        Value::String(candidate) => candidate == needle,
-        Value::Array(values) => values.iter().any(|value| contains_string(value, needle)),
-        Value::Object(values) => values.values().any(|value| contains_string(value, needle)),
-        _ => false,
-    }
-}
-
-fn percent(numerator: usize, denominator: usize) -> f64 {
-    if denominator == 0 {
-        return 0.0;
-    }
-    ((numerator as f64 / denominator as f64) * 10_000.0).round() / 100.0
 }

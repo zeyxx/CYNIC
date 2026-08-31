@@ -848,7 +848,6 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap",
- "cynic-protocol",
  "dirs",
  "reqwest 0.13.4",
  "serde",
