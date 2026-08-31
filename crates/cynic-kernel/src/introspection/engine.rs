@@ -12,7 +12,7 @@ use crate::introspection::probe::{
 use crate::introspection::rules::{
     analyze_state_log_trends, check_sense_health, is_permanent_source,
 };
-use crate::introspection::soc::{check_all, ForensicsSnapshot, SocThresholds};
+use crate::introspection::soc::{ForensicsSnapshot, SocThresholds, check_all};
 use crate::introspection::types::{Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD};
 use cynic_host::domain::forensics::local::LocalForensicAdapter;
 use cynic_host::domain::forensics::port::ForensicObservationPort;

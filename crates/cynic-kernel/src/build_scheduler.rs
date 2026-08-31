@@ -43,11 +43,17 @@ impl std::fmt::Display for BuildSchedulerError {
 
 impl std::error::Error for BuildSchedulerError {}
 
-/// Build scheduler — receives requests, runs workflow, persists proof.
+#[derive(Clone)]
 pub struct BuildScheduler {
     storage: Arc<dyn StoragePort>,
     #[allow(dead_code)]
     node_control: Option<Arc<dyn NodeControlStorePort>>,
+}
+
+impl std::fmt::Debug for BuildScheduler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuildScheduler").finish()
+    }
 }
 
 /// Build request received by the scheduler.

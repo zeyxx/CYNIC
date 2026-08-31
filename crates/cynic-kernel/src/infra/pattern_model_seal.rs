@@ -29,7 +29,7 @@ pub struct SealReceipt {
     pub poh_id: String,
 }
 
-/// A sealed PatternModel bound to the kernel Provable law.
+#[derive(Debug, Clone)]
 pub struct SealableModel<'a> {
     model: &'a PatternModel,
 }
@@ -39,6 +39,7 @@ impl<'a> SealableModel<'a> {
         Self { model }
     }
 
+    #[allow(dead_code)]
     fn sealed(&self, segment: &'a str, sequence: u64) -> PatternModelSealed<'a> {
         PatternModelSealed {
             model_id: &self.model.model_id,
@@ -70,10 +71,18 @@ impl Provable for SealableModel<'_> {
     }
 }
 
-/// Static context shared by seal operations.
+#[derive(Clone)]
 pub struct SealService {
     journal: EvidenceJournalStore,
     poh_storage: Arc<dyn ProofOfHistoryStoragePort>,
+}
+
+impl std::fmt::Debug for SealService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SealService")
+            .field("journal", &self.journal)
+            .finish()
+    }
 }
 
 /// Narrow port so tests can inject without the whole StoragePort.

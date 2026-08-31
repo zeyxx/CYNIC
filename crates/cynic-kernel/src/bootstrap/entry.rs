@@ -91,8 +91,6 @@ pub async fn run_mcp_proxy_mode_if_requested(
 /// inside the kernel's own async main).
 pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
     use sha2::{Digest, Sha256};
-    use std::io::Write;
-    use std::process::Command;
 
     klog!("CYNIC V2 — BOOTSTRAP VERIFY");
 

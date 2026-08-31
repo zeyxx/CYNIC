@@ -22,7 +22,7 @@ use cynic_protocol::evidence_journal::{
     EVIDENCE_JOURNAL_SCHEMA, EvidenceJournalEntry, compute_entry_hash, validate_evidence_chain,
 };
 
-/// File adapter over an evidence root directory.
+#[derive(Debug, Clone)]
 pub struct EvidenceJournalStore {
     root: PathBuf,
     node_id: String,

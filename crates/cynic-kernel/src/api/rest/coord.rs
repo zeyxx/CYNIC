@@ -88,7 +88,7 @@ pub struct ScopeRequest {
 // ── Handlers ──────────────────────────────────────────────
 
 pub async fn coord_identify_handler(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Json(req): Json<AgentIdentityRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     validate_agent_id(&req.agent_id)?;

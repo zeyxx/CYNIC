@@ -173,7 +173,7 @@ impl DispatchStorage for ReconnectableStorage {
     async fn get_active_dispatches_for_agent(
         &self,
         agent_id: &str,
-    ) -> Result<Vec<crate::domain::storage::AgentDispatch>, StorageError> {
+    ) -> Result<std::vec::Vec<crate::domain::storage::AgentDispatch>, StorageError> {
         self.current()
             .get_active_dispatches_for_agent(agent_id)
             .await

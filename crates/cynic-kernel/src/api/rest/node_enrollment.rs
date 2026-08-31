@@ -261,6 +261,7 @@ pub async fn csr_enroll_handler(
         node_id: csr.node_id.clone(),
         role: csr.requested_role.clone(),
         subject_public_key_hex: csr.public_key_hex.clone(),
+        attested_capabilities: csr.hardware_capabilities.clone(),
         kernel_authority_id: runtime.signer.key_id(),
         issued_at_unix_s: now,
         expires_at_unix_s,

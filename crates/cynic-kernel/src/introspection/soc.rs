@@ -4,7 +4,7 @@
 //! Every function takes observed counts and returns an Alert when threshold exceeded.
 
 use crate::introspection::types::Alert;
-use cynic_protocol::forensics::SocThresholds;
+pub use cynic_protocol::forensics::SocThresholds;
 
 /// GPU page fault detection. ≥ 1 fault in 60s window → GpuHang suspicion.
 pub fn detect_gpu_fault(thresholds: &SocThresholds, fault_count: u32) -> Option<Alert> {
@@ -54,7 +54,10 @@ pub fn detect_service_cascade(thresholds: &SocThresholds, exec_delta: u64) -> Op
 }
 
 /// Cynic canary disconnect detection. ≥ 3 SSE disconnects in 300s → freeze.
-pub fn detect_canary_disconnect(thresholds: &SocThresholds, disconnect_count: u32) -> Option<Alert> {
+pub fn detect_canary_disconnect(
+    thresholds: &SocThresholds,
+    disconnect_count: u32,
+) -> Option<Alert> {
     if disconnect_count >= thresholds.canary_disconnect_count {
         Some(Alert {
             kind: "canary_disconnect",
@@ -85,7 +88,10 @@ pub fn detect_journald_watchdog(thresholds: &SocThresholds, failure_count: u32) 
 }
 
 /// Service restart rate detection. ≥ 500 restarts/hour → crash-loop.
-pub fn detect_service_restart_rate(thresholds: &SocThresholds, rate_per_hour: f64) -> Option<Alert> {
+pub fn detect_service_restart_rate(
+    thresholds: &SocThresholds,
+    rate_per_hour: f64,
+) -> Option<Alert> {
     if rate_per_hour >= thresholds.service_restart_rate_per_hour {
         Some(Alert {
             kind: "service_crash_loop",
@@ -105,9 +111,7 @@ pub fn detect_dbus_timeout(count: u32) -> Option<Alert> {
     if count >= 3 {
         Some(Alert {
             kind: "progressive_freeze",
-            message: format!(
-                "D-Bus timeouts: {count} — progressive freeze detected"
-            ),
+            message: format!("D-Bus timeouts: {count} — progressive freeze detected"),
             severity: "warning",
         })
     } else {
@@ -118,13 +122,27 @@ pub fn detect_dbus_timeout(count: u32) -> Option<Alert> {
 /// Combined check: all detection functions applied to one forensics snapshot.
 pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Vec<Alert> {
     let mut alerts = Vec::new();
-    if let Some(a) = detect_gpu_fault(thresholds, snapshot.gpu_fault_count) { alerts.push(a); }
-    if let Some(a) = detect_softlockup(thresholds, snapshot.kernel_trap_count) { alerts.push(a); }
-    if let Some(a) = detect_service_cascade(thresholds, snapshot.service_exec_delta) { alerts.push(a); }
-    if let Some(a) = detect_canary_disconnect(thresholds, snapshot.canary_disconnect_count) { alerts.push(a); }
-    if let Some(a) = detect_journald_watchdog(thresholds, snapshot.journald_watchdog_count) { alerts.push(a); }
-    if let Some(a) = detect_service_restart_rate(thresholds, snapshot.service_restart_rate) { alerts.push(a); }
-    if let Some(a) = detect_dbus_timeout(snapshot.dbus_timeout_count) { alerts.push(a); }
+    if let Some(a) = detect_gpu_fault(thresholds, snapshot.gpu_fault_count) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_softlockup(thresholds, snapshot.kernel_trap_count) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_service_cascade(thresholds, snapshot.service_exec_delta) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_canary_disconnect(thresholds, snapshot.canary_disconnect_count) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_journald_watchdog(thresholds, snapshot.journald_watchdog_count) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_service_restart_rate(thresholds, snapshot.service_restart_rate) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_dbus_timeout(snapshot.dbus_timeout_count) {
+        alerts.push(a);
+    }
     alerts
 }
 

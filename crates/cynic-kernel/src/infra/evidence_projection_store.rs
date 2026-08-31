@@ -38,6 +38,7 @@ pub fn projection_anchor(row: &EvidenceProjectionRow) -> ProofOfHistory {
 
 /// Upsert one projected row into SurrealDB. Idempotent by event_id:
 /// replaying the same row twice leaves identical state.
+#[allow(dead_code)]
 pub(super) async fn upsert_projection_row(
     storage: &crate::storage::SurrealHttpStorage,
     row: &EvidenceProjectionRow,
@@ -72,6 +73,7 @@ pub(super) async fn upsert_projection_row(
 }
 
 /// List existing event_ids in the projection (for `replay_plan` diffing).
+#[allow(dead_code)]
 pub(super) async fn list_projected_event_ids(
     storage: &crate::storage::SurrealHttpStorage,
 ) -> Result<Vec<String>, StorageError> {
