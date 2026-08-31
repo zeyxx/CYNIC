@@ -16,15 +16,21 @@ pub struct RemoteStorageTopologyAdapter<R: ArgvRunner> {
 
 impl<R: ArgvRunner> StorageTopologyObservationPort for RemoteStorageTopologyAdapter<R> {
     fn observe_topology(&self) -> StorageTopologyObserved {
+        let poll_start = Instant::now();
         let argv = ["ssh", &self.ssh_target, "cat", &self.topology_path];
         let out = self
             .runner
             .run(&argv.iter().map(|s| *s).collect::<Vec<_>>());
-        let endpoints = if out.stdout.contains("surreal") {
-            vec![format!("http://{}:8000", self.ssh_target)]
-        } else {
-            vec![]
-        };
+        let endpoints = serde_json::from_str::<serde_json::Value>(&out.stdout)
+            .ok()
+            .and_then(|v| {
+                v.get("engine")
+                    .and_then(|e| e.get("backend"))
+                    .and_then(|b| b.as_str())
+                    .filter(|b| *b == "surreal" || *b == "standalone_process")
+                    .map(|_| vec![format!("http://{}:8000", self.ssh_target)])
+            })
+            .unwrap_or_default();
         StorageTopologyObserved {
             schema: "cynic.storage_topology_observed.v1".to_string(),
             observed_at_ms: std::time::SystemTime::now()
