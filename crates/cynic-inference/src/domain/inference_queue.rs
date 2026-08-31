@@ -9,7 +9,10 @@
 
 use std::cmp::Ordering as CmpOrd;
 use std::collections::BinaryHeap;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU32, Ordering},
+};
 use std::time::{Duration, Instant};
 
 use tokio::sync::oneshot;
@@ -86,6 +89,8 @@ pub struct InferenceQueue {
     capacity: u32,
     /// True = slot is free. Protected by std::Mutex (sync — used in Drop).
     slot_free: Mutex<bool>,
+    /// D19: count of dropped/rejected requests (queue full, timeout, dead wake). Never silent — proof carries residual.
+    dropped: AtomicU32,
 }
 
 impl std::fmt::Debug for InferenceQueue {
@@ -105,6 +110,7 @@ impl InferenceQueue {
             waiters: Mutex::new(BinaryHeap::new()),
             capacity,
             slot_free: Mutex::new(true),
+            dropped: AtomicU32::new(0),
         }
     }
 
@@ -138,6 +144,7 @@ impl InferenceQueue {
                     depth = waiters.len(),
                     "inference queue full — rejecting request"
                 );
+                self.dropped.fetch_add(1, Ordering::Relaxed);
                 return None;
             }
             let (tx, rx) = oneshot::channel();
@@ -171,6 +178,7 @@ impl InferenceQueue {
                     priority = ?priority,
                     "inference queue: waiter timed out"
                 );
+                self.dropped.fetch_add(1, Ordering::Relaxed);
                 None
             }
         }
@@ -186,7 +194,8 @@ impl InferenceQueue {
                 // Woke a waiter — they now hold the slot. Don't set slot_free.
                 return;
             }
-            // Channel closed (waiter timed out) — skip, try next.
+            // Channel closed (waiter timed out) — skip, try next. Count as dropped amnesia.
+            self.dropped.fetch_add(1, Ordering::Relaxed);
         }
         // No waiters left — mark slot as free.
         let mut free = self.slot_free.lock().unwrap_or_else(|e| e.into_inner());
@@ -206,6 +215,16 @@ impl InferenceQueue {
     /// Whether the slot is currently free (no active inference).
     pub fn is_idle(&self) -> bool {
         *self.slot_free.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// D19: total dropped/rejected requests (queue full + timeout + dead wake). Proof carries residual, never silent.
+    pub fn dropped_count(&self) -> u32 {
+        self.dropped.load(Ordering::Relaxed)
+    }
+
+    /// Reset dropped counter (e.g. after proof emitted).
+    pub fn reset_dropped(&self) {
+        self.dropped.store(0, Ordering::Relaxed);
     }
 }
 
