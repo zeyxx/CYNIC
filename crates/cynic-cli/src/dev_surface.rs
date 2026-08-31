@@ -158,7 +158,9 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         } => crate::fleet_divergence::run(json, registry, names),
         DevCommand::OrganismAudit { json } => organism_audit::run(json),
         DevCommand::DebtAudit(a) => execute_debt_audit(a.json, a.output, a.persist),
-        DevCommand::Opportunities(a) => execute_opportunities(a.json, a.frame, a.output),
+        DevCommand::Opportunities(a) => {
+            execute_opportunities(a.json, a.frame, a.output, a.decide, a.action, a.reason)
+        }
         DevCommand::InferenceGateway {
             listen,
             backend_port,

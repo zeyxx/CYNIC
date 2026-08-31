@@ -31,6 +31,8 @@ pub const ORGANIC_OPPORTUNITY_SCHEMA: &str = "cynic.organic_opportunity.v1";
 pub const ORGANIC_VALUE_FRAME_SCHEMA: &str = "cynic.organic_value_frame.v1";
 /// Stable schema for the ranked organic-opportunity report.
 pub const ORGANIC_OPPORTUNITY_REPORT_SCHEMA: &str = "cynic.organic_opportunity_report.v1";
+/// Stable schema for explicit operator decision records (Phase 4 decision boundary).
+pub const OPPORTUNITY_DECISION_SCHEMA: &str = "cynic.opportunity_decision.v1";
 
 // ===========================================================================
 // SOURCES — content-addressed evidence references
@@ -52,6 +54,10 @@ pub enum OpportunitySourceKind {
     TaskReceipt,
     /// Manual operator note with a typed digest.
     OperatorNote,
+    /// Observed in generational pattern garbage collection (pattern_gc).
+    PatternGc,
+    /// Observed in autonomous skill research (autoresearch).
+    Autoresearch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,6 +164,42 @@ pub enum OperatorDisposition {
 impl Default for OperatorDisposition {
     fn default() -> Self {
         OperatorDisposition::Unreviewed
+    }
+}
+
+/// Content-addressed operator decision record.
+///
+/// Encapsulates Phase 4 operator decision boundary: an explicit, contestable
+/// record with decision lineage linking back to the exact opportunity digest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpportunityDecisionRecord {
+    pub schema: String,
+    /// Stable identifier for this decision.
+    pub decision_id: String,
+    /// Content-addressed digest of the opportunity this decision applies to.
+    pub opportunity_digest: String,
+    /// Identity of the operator recording the decision.
+    pub operator_id: String,
+    /// Wall-clock at decision time.
+    pub decided_at_unix_s: u64,
+    /// Chosen disposition.
+    pub disposition: OperatorDisposition,
+    /// Explanatory reason for the decision.
+    pub reason: String,
+    /// Optional future action intent.
+    #[serde(default)]
+    pub action_intent: Option<String>,
+}
+
+/// Pure helper applying a matching decision record to an opportunity.
+pub fn apply_decision_record(
+    opportunity: &mut OrganicOpportunity,
+    record: &OpportunityDecisionRecord,
+) {
+    if opportunity.opportunity_id == record.opportunity_digest
+        || opportunity.scope == record.opportunity_digest
+    {
+        opportunity.operator_disposition = record.disposition.clone();
     }
 }
 

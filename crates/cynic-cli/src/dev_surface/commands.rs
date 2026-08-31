@@ -75,4 +75,10 @@ pub(crate) struct OpportunitiesArgs {
     pub(crate) frame: Option<String>,
     #[arg(long)]
     pub(crate) output: Option<PathBuf>,
+    #[arg(long)]
+    pub(crate) decide: Option<String>,
+    #[arg(long)]
+    pub(crate) action: Option<String>,
+    #[arg(long)]
+    pub(crate) reason: Option<String>,
 }

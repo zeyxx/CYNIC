@@ -4,19 +4,24 @@
 //! and audit findings, composing them into a contestable, ranked operator compass report.
 
 pub mod audit_observer;
+pub mod autoresearch_observer;
+pub mod decision_store;
+pub mod pattern_gc_observer;
 pub mod port;
 pub mod session_observer;
 pub mod worktree_observer;
 
 pub use audit_observer::{AuditObserverConfig, AuditValidationObserver, DebtFindingEntry};
-pub use port::{OrganicOpportunityObserver, SourceObservationStatus};
-pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
-pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
-
+pub use autoresearch_observer::{AutoresearchObserver, AutoresearchObserverConfig};
 use cynic_protocol::organic_opportunity::{
     ORGANIC_OPPORTUNITY_REPORT_SCHEMA, OpportunitySourceKind, OrganicOpportunity,
     OrganicOpportunityReport, ValueFrame, rank_in_value_frame,
 };
+pub use decision_store::OpportunityDecisionStore;
+pub use pattern_gc_observer::{PatternGcObserver, PatternGcObserverConfig};
+pub use port::{OrganicOpportunityObserver, SourceObservationStatus};
+pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
+pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
 
 /// Aggregator coordinating multiple opportunity observers into a unified ranked report.
 pub struct OrganicCompassCollector {
@@ -105,11 +110,34 @@ pub fn collect_default_organic_opportunities(
         debt_file_path: workspace_root.join("infra").join("DEBT_TAXONOMY.md"),
     });
 
-    OrganicCompassCollector::new()
+    let pattern_obs = PatternGcObserver::new(PatternGcObserverConfig {
+        pattern_report_path: workspace_root.join("infra").join("pattern_gc_report.json"),
+        retention_policy: Default::default(),
+    });
+
+    let autoresearch_obs = AutoresearchObserver::new(AutoresearchObserverConfig {
+        report_path: workspace_root
+            .join("infra")
+            .join("autoresearch_report.json"),
+    });
+
+    let mut report = OrganicCompassCollector::new()
         .with_observer(Box::new(session_obs))
         .with_observer(Box::new(worktree_obs))
         .with_observer(Box::new(audit_obs))
-        .collect_report(&default_frame, now_unix_s)
+        .with_observer(Box::new(pattern_obs))
+        .with_observer(Box::new(autoresearch_obs))
+        .collect_report(&default_frame, now_unix_s);
+
+    // Phase 4: Apply persisted operator decisions to the report opportunities
+    let decision_store =
+        OpportunityDecisionStore::new(workspace_root.join(".hermes").join("decisions"));
+    decision_store.apply_to_opportunities(&mut report.opportunities);
+
+    // Re-rank after applying dispositions (e.g. to filter out Rejected)
+    report.opportunities = rank_in_value_frame(&default_frame, &report.opportunities);
+
+    report
 }
 
 #[cfg(test)]
