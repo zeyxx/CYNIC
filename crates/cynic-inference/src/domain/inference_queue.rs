@@ -121,8 +121,11 @@ impl InferenceQueue {
     /// - If busy + queue full → return None (backpressure).
     /// - If timeout expires → return None (waiter removed on next release cycle).
     pub async fn acquire(self: &Arc<Self>, priority: SlotPriority) -> Option<QueuePermit> {
-        // Fast path: slot is free.
-        {
+        // Atomic fast path + queue under single waiters lock to eliminate TOCTOU lost wakeup.
+        // Re-check slot_free while holding waiters lock — otherwise release() could mark slot free
+        // between our first check and enqueue, leaving waiter sleeping on a free slot.
+        let wake_rx = {
+            let mut waiters = self.waiters.lock().unwrap_or_else(|e| e.into_inner());
             let mut free = self.slot_free.lock().unwrap_or_else(|e| e.into_inner());
             if *free {
                 *free = false;
@@ -132,11 +135,6 @@ impl InferenceQueue {
                     priority,
                 });
             }
-        }
-
-        // Queue capacity check.
-        let wake_rx = {
-            let mut waiters = self.waiters.lock().unwrap_or_else(|e| e.into_inner());
             if waiters.len() as u32 >= self.capacity {
                 tracing::debug!(
                     dog_id = %self.dog_id,
@@ -194,8 +192,7 @@ impl InferenceQueue {
                 // Woke a waiter — they now hold the slot. Don't set slot_free.
                 return;
             }
-            // Channel closed (waiter timed out) — skip, try next. Count as dropped amnesia.
-            self.dropped.fetch_add(1, Ordering::Relaxed);
+            // Channel closed (waiter timed out) — already counted in acquire timeout, don't double-count.
         }
         // No waiters left — mark slot as free.
         let mut free = self.slot_free.lock().unwrap_or_else(|e| e.into_inner());
