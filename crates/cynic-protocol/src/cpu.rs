@@ -12,6 +12,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::task_pipeline::EnergyBudget;
+
 /// Physical CPU model + topology (level 1).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CpuPhysical {
@@ -120,6 +122,12 @@ pub struct FleetCpuReport {
     pub nodes: Vec<FleetCpuNode>,
     #[serde(default)]
     pub residual_unknowns: Vec<String>,
+    /// Budget allocated for this poll (wall_time_ms obligatory, tokens/cpu/ram optional).
+    #[serde(default)]
+    pub budget: Option<EnergyBudget>,
+    /// Wall-clock cost of the poll (ms), measured via Instant.
+    #[serde(default)]
+    pub poll_cost_ms: Option<u64>,
 }
 
 pub const FLEET_CPU_SCHEMA: &str = "cynic.fleet_cpu.v1";

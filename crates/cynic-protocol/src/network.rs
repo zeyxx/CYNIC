@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::task_pipeline::EnergyBudget;
+
 pub const NETWORK_MESH_PLAN_SCHEMA: &str = "cynic.network_mesh_plan.v1";
 pub const MESH_ROLE_MAP_SCHEMA: &str = "cynic.mesh_role_map.v1";
 
@@ -312,6 +314,10 @@ pub struct FleetNetworkReport {
     pub failed_nodes: usize,
     pub nodes: Vec<FleetNetworkNode>,
     pub residual_unknowns: Vec<String>,
+    #[serde(default)]
+    pub budget: Option<EnergyBudget>,
+    #[serde(default)]
+    pub poll_cost_ms: Option<u64>,
 }
 
 pub const FLEET_NETWORK_SCHEMA: &str = "cynic.fleet_network.v1";

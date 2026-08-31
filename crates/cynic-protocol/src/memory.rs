@@ -13,6 +13,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::task_pipeline::EnergyBudget;
+
 /// Memory pressure as reported by `/proc/pressure/memory`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryPressure {
@@ -103,4 +105,8 @@ pub struct FleetMemoryReport {
     pub nodes: Vec<FleetMemoryNode>,
     #[serde(default)]
     pub residual_unknowns: Vec<String>,
+    #[serde(default)]
+    pub budget: Option<EnergyBudget>,
+    #[serde(default)]
+    pub poll_cost_ms: Option<u64>,
 }

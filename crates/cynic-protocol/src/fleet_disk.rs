@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::disk::DiskReport;
+use crate::task_pipeline::EnergyBudget;
 
 pub const FLEET_DISK_SCHEMA: &str = "cynic.fleet_disk.v1";
 
@@ -46,6 +47,10 @@ pub struct FleetDiskReport {
     pub nodes: Vec<FleetDiskNode>,
     /// Residual risks / unknowns not captured per-node (e.g. parse failures).
     pub residual_unknowns: Vec<String>,
+    #[serde(default)]
+    pub budget: Option<EnergyBudget>,
+    #[serde(default)]
+    pub poll_cost_ms: Option<u64>,
 }
 
 #[cfg(test)]
