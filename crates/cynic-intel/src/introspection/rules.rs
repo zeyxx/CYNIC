@@ -2,8 +2,6 @@
 //!
 //! Canonical owner: `cynic-intel` (SoC foundation §481).
 
-use super::types::Alert;
-
 /// Whether a source name represents a permanent entity (organ/service) vs ephemeral session.
 /// Permanent sources generate alerts on silence. Ephemeral sessions don't.
 pub fn is_permanent_source(s: &str) -> bool {

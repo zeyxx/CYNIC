@@ -4,6 +4,7 @@
 //! Calibrated on real crash evidence from 2026-08-18 and 2026-08-30.
 //! Every function takes observed counts and returns an Alert when threshold exceeded.
 
+use super::types::Alert;
 /// Thresholds for SOC crash-pattern detection.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SocThresholds {
