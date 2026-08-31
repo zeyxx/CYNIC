@@ -266,7 +266,10 @@
         "management": "192.168.100.1",
         "synapse": "10.10.10.1"
       },
-      "services": []
+      "services": [],
+      "energy_profile": {
+        "class": "always_on"
+      }
     },
     {
       "id": "cynic-host-cortex",
@@ -294,7 +297,10 @@
           "default_route": false
         }
       ],
-      "services": []
+      "services": [],
+      "energy_profile": {
+        "class": "always_on"
+      }
     },
     {
       "id": "local-kernel",
@@ -340,7 +346,10 @@
             "process": "cynic-node"
           }
         }
-      ]
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
     },
     {
       "id": "cynic-lxc-surrealdb",
@@ -407,7 +416,10 @@
             "port": 8443
           }
         }
-      ]
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
     },
     {
       "id": "cynic-builder",
@@ -495,7 +507,10 @@
             "process": "cynic-node"
           }
         }
-      ]
+      ],
+      "energy_profile": {
+        "class": "burst"
+      }
     },
     {
       "id": "forgejo",
@@ -528,7 +543,10 @@
           "scheme": "https",
           "port": 443
         }
-      ]
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
     }
   ],
   "fleet_desired": {
