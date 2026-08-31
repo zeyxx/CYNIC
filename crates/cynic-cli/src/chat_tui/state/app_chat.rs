@@ -1,3 +1,43 @@
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::mpsc;
+
+use super::super::actions::{TuiAction, TuiEffect};
+use super::helpers::*;
+use super::types::{App, ChatLine, Focus, TuiTaskEvent, TuiWindow};
+use crate::chat_surface::{ChatRuntime, resolve_selector_to_alias};
+use cynic_inference::{
+    ChatEvent, ChatEventKind, ChatService, ChatSessionStore, LocalRuntimeStatus, PrincipalPaths,
+};
+
+impl App {
+    fn start_model_selector_alias(&mut self, alias: String) {
+        let tx = self.task_tx.clone();
+        let store = Arc::clone(&self.store);
+        let context_turns = self.runtime.context_turns;
+        let max_tokens = self.runtime.max_tokens;
+        let temperature = self.runtime.temperature;
+        let top_p = self.runtime.top_p;
+        let reasoning_profile = self.runtime.reasoning_profile.clone();
+
+        self.busy = true;
+        self.error = None;
+        self.status = format!("starting {alias}…");
+        self.push_agent_line(format!("agent: local start queued · {alias}"));
+
+        std::thread::spawn(move || {
+            if let Err(error) =
+                cynic_inference::pin_preferred_alias(&alias, "cynic chat tui /model")
+            {
+                let _ = tx.send(TuiTaskEvent::TaskError(format!(
+                    "pin preferred local alias failed for {alias}: {error}"
+                )));
+                return;
+            }
+
+            let service = cynic_inference::LocalRuntimeServiceAny::from_env();
+            let profile_size = service.list_inventory().ok().and_then(|inventory| {
+                inventory
                     .models
                     .iter()
                     .find(|p| p.alias == alias)
@@ -361,10 +401,4 @@
         self.scroll = 0;
         self.status = format_status(&self.runtime, &self.paths, &self.session_id, self.busy);
     }
-
-    pub(super) fn handle_slash(&mut self, cmd: &str, rt: &tokio::runtime::Runtime) -> bool {
-        let c = cmd.trim();
-        match c {
-            "/quit" | "/q" | "/exit" => {
-                self.should_quit = true;
-                true
+}

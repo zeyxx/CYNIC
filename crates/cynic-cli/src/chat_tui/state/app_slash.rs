@@ -1,3 +1,22 @@
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::mpsc;
+
+use super::super::actions::{TuiAction, TuiEffect};
+use super::helpers::*;
+use super::types::{App, ChatLine, Focus, TuiTaskEvent, TuiWindow};
+use crate::chat_surface::{ChatRuntime, resolve_selector_to_alias};
+use cynic_inference::{
+    ChatEvent, ChatEventKind, ChatService, ChatSessionStore, LocalRuntimeStatus, PrincipalPaths,
+};
+
+impl App {
+    pub(super) fn handle_slash(&mut self, cmd: &str, rt: &tokio::runtime::Runtime) -> bool {
+        let c = cmd.trim();
+        match c {
+            "/quit" | "/q" | "/exit" => {
+                self.should_quit = true;
+                true
             }
             "/new" | "/clear" => {
                 self.new_session();
@@ -358,4 +377,3 @@
         }
     }
 }
-

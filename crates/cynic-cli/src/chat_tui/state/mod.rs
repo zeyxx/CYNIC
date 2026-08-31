@@ -10,12 +10,11 @@ use cynic_inference::{
     ChatEvent, ChatEventKind, ChatService, ChatSessionStore, LocalRuntimeStatus, PrincipalPaths,
 };
 
+mod app_chat;
+mod app_core;
+mod app_slash;
 mod helpers;
 mod types;
 
 pub use helpers::*;
 pub use types::{App, ChatLine, Focus, TuiTaskEvent, TuiWindow};
-
-include!("app_core.rs");
-include!("app_chat.rs");
-include!("app_slash.rs");
