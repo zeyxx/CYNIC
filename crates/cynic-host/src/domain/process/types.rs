@@ -141,10 +141,10 @@ pub fn crashloop_to_health_signal(
 ) -> Option<cynic_protocol::health_signal::HealthSignalPayload> {
     match status.level {
         ProcessHealth::CrashLoopBackoff => Some(
-            cynic_protocol::health_signal::HealthSignalPayload::InferenceCrashLoop {
+            cynic_protocol::health_signal::HealthSignalPayload::ServiceCrashLoop {
                 service: status.service_name.clone(),
-                failure_rate_percent: 100.0, // CrashLoop == total failure rate within window
-                consecutive_failures: status.restarts_in_window,
+                consecutive_restarts: status.restarts_in_window,
+                window_seconds: status.params.window_seconds,
             },
         ),
         _ => None,

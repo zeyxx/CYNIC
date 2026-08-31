@@ -29,6 +29,26 @@ pub fn reconcile_health_signal(
                 rollback_intent: format!("leave service {service} inactive if restart fails"),
             })
         }
+        HealthSignalPayload::ServiceCrashLoop {
+            service,
+            consecutive_restarts,
+            window_seconds,
+        } => Some(AutonomicRemediationPlan {
+            schema: AUTONOMIC_REMEDIATION_PLAN_SCHEMA.to_string(),
+            plan_id: format!("remediation-{service}-crashloop-{now_unix_s}"),
+            signal_id: signal.signal_id.clone(),
+            generated_at_unix_s: now_unix_s,
+            severity: SignalSeverity::Critical,
+            is_actionable: true,
+            action: AutonomicActionKind::RestartService {
+                service: service.clone(),
+            },
+            reasoning: format!(
+                "Service '{service}' crashed {consecutive_restarts} times within {window_seconds}s — restarting unit"
+            ),
+            stop_condition: "stop on unit active or exit 0".to_string(),
+            rollback_intent: format!("leave service {service} inactive if restart fails"),
+        }),
         HealthSignalPayload::WireguardPeerDead {
             interface,
             peer_public_key_prefix,
