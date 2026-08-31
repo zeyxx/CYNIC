@@ -39,6 +39,7 @@ pub mod coordination_runtime;
 pub mod credential_lease;
 pub mod cycle_transition;
 pub mod deployment_epoch;
+pub mod detection;
 pub mod development;
 pub mod development_genesis;
 pub mod digest;
@@ -170,6 +171,7 @@ pub use cpu::*;
 pub use credential_lease::*;
 pub use cycle_transition::*;
 pub use deployment_epoch::*;
+pub use detection::*;
 pub use development::*;
 pub use development_genesis::{
     DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildPlan, DevelopmentGenesisBuildRequest,

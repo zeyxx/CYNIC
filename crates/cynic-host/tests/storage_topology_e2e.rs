@@ -1,7 +1,8 @@
 use cynic_host::domain::storage::{
-    InMemoryStorageTopologyAdapter, LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter,
-    StorageTopologyAction, StorageTopologyObservationPort, apply_and_prove_storage_topology,
-    plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
+    InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter,
+    LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter, StorageTopologyAction,
+    StorageTopologyObservationPort, apply_and_prove_storage_topology, plan_storage_topology_apply,
+    reconcile_storage_topology, storage_topology_report,
 };
 use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
 use cynic_protocol::storage_client_policy::{
@@ -165,6 +166,9 @@ fn apply_readback_unchanged_stays_blocked() {
         ]
     );
     let observer = InMemoryStorageTopologyAdapter { observed };
+    let policy_observer = InMemoryStorageClientPolicyAdapter {
+        observed: client_policy.clone(),
+    };
     let runner = MapArgvRunner {
         responses: vec![(
             vec!["cynic".to_string()],
@@ -181,6 +185,7 @@ fn apply_readback_unchanged_stays_blocked() {
         &desired,
         &client_policy,
         &observer,
+        &policy_observer,
         &runner,
         true,
     );

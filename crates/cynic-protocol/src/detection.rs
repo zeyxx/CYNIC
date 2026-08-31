@@ -71,11 +71,48 @@ pub enum InstallProvenance {
     UvTool,
     UvVenv,
     GenericVirtualenv,
+    VirtualEnv,
     Pipx,
     PipUserSite,
     DistroManagedPackage,
     ScriptedLocal,
+    NpmGlobal,
+    HomebrewCellar,
+    HomebrewCask,
+    RustupToolchain,
+    SystemPython,
     Unknown,
+}
+
+/// Mutator authority responsible for updating or repairing a component.
+///
+/// Invariant 4: Upgrade and repair policy must derive from observed provenance
+/// instead of assuming a universal self-update command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MutatorAuthority {
+    UvTool,
+    UvPipSystem,
+    UvVenv,
+    Pipx,
+    PipUser,
+    DistroPackageManager,
+    CargoInstall,
+    NpmGlobal,
+    Homebrew,
+    Scripted,
+    Unknown,
+}
+
+/// Typed install authority record enforcing Invariant 4.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentInstallAuthority {
+    pub component_name: String,
+    pub owning_principal: String,
+    pub observed_provenance: InstallProvenance,
+    pub expected_provenance: InstallProvenance,
+    pub mutator_authority: MutatorAuthority,
+    pub is_canonical: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,5 +169,21 @@ mod tests {
         assert_eq!(cap.method, ObservationMethod::AmbientFallback);
         assert_eq!(cap.confidence_percent, 0);
         assert!(cap.residual_risk.is_some());
+    }
+
+    #[test]
+    fn test_component_install_authority_invariants() {
+        let authority = ComponentInstallAuthority {
+            component_name: "hermes-agent".to_string(),
+            owning_principal: "cynic".to_string(),
+            observed_provenance: InstallProvenance::UvTool,
+            expected_provenance: InstallProvenance::UvTool,
+            mutator_authority: MutatorAuthority::UvTool,
+            is_canonical: true,
+        };
+
+        assert_eq!(authority.observed_provenance, authority.expected_provenance);
+        assert!(authority.is_canonical);
+        assert_eq!(authority.mutator_authority, MutatorAuthority::UvTool);
     }
 }

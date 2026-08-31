@@ -8,7 +8,9 @@ use cynic_protocol::storage_topology::{
 
 use crate::update_lifecycle::ArgvRunner;
 
-use super::probe::{StorageTopologyObservationPort, storage_topology_report};
+use super::probe::{
+    StorageClientPolicyObservationPort, StorageTopologyObservationPort, storage_topology_report,
+};
 use super::reconcile::{StorageTopologyAction, StorageTopologyPlan};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,16 +64,23 @@ pub fn plan_storage_topology_apply(
     }
 }
 
-pub fn apply_and_prove_storage_topology<R: ArgvRunner, O: StorageTopologyObservationPort>(
+pub fn apply_and_prove_storage_topology<
+    R: ArgvRunner,
+    O: StorageTopologyObservationPort,
+    P: StorageClientPolicyObservationPort,
+>(
     intent: &StorageTopologyApplyIntent,
     desired: &StorageTopologyDesired,
     client_policy: &StorageClientPolicy,
     observer: &O,
+    policy_observer: &P,
     runner: &R,
     apply: bool,
 ) -> StorageTopologyReport {
     let pre = observer.observe_topology();
-    let pre_digest = format!("observed:{}", pre.endpoints.len());
+    let pre_digest = format!("observed:{:?}", pre.endpoints);
+    let pre_policy = policy_observer.observe_client_policy();
+    let pre_policy_digest = format!("client_policy:{:?}", pre_policy.client_policy.endpoints);
     let mut residual = Vec::new();
     let mut applied = Vec::new();
     if intent.mutates && !apply {
@@ -88,14 +97,16 @@ pub fn apply_and_prove_storage_topology<R: ArgvRunner, O: StorageTopologyObserva
         }
     }
     let post = observer.observe_topology();
-    let post_digest = format!("observed:{}", post.endpoints.len());
-    let mut report = storage_topology_report(desired, &post, client_policy);
+    let post_digest = format!("observed:{:?}", post.endpoints);
+    let post_policy = policy_observer.observe_client_policy();
+    let post_policy_digest = format!("client_policy:{:?}", post_policy.client_policy.endpoints);
+    let mut report = storage_topology_report(desired, &post, &post_policy);
     report.schema = STORAGE_TOPOLOGY_REPORT_SCHEMA.to_string();
-    report.pre_observed_digest = Some(pre_digest.clone());
-    report.post_observed_digest = Some(post_digest.clone());
+    report.pre_observed_digest = Some(format!("{pre_digest}|{pre_policy_digest}"));
+    report.post_observed_digest = Some(format!("{post_digest}|{post_policy_digest}"));
     report.actions_applied = applied;
     report.residual_unknowns.extend(residual);
-    if pre_digest == post_digest && intent.mutates {
+    if pre_digest == post_digest && pre_policy_digest == post_policy_digest && intent.mutates {
         report
             .residual_unknowns
             .push("post_apply_readback_unchanged".to_string());
