@@ -5,6 +5,7 @@ use crate::backends;
 use crate::domain;
 use crate::infra;
 use cynic_inference::application::proxy_routing::ProxyTargets;
+use domain::wisdom::DomainCurationsLoader;
 
 pub struct RuntimeServices {
     pub domain_curations: Arc<domain::wisdom::DomainCurations>,

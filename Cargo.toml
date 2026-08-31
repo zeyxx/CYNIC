@@ -87,8 +87,9 @@ incremental = false
 codegen-units = 16
 debug = false
 [profile.test]
-# Disable debug info in test builds to prevent LLVM MCDwarfFrameEmitter SIGSEGV
-codegen-units = 1
+# codegen-units=1 triggers non-deterministic SIGSEGV on large crates (kernel, node).
+# codegen-units=16 is stable on both rustc 1.96 and 1.98.
+codegen-units = 16
 incremental = false
 debug = false
 

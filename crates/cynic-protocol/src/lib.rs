@@ -123,6 +123,7 @@ pub mod temporal;
 pub mod transport_readback;
 pub mod transport_security;
 pub mod window_journal;
+pub mod wisdom;
 pub mod workload_identity;
 pub mod worktree_convergence_harness;
 
