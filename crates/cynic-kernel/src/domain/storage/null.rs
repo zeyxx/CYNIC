@@ -158,7 +158,9 @@ impl CrystalStorage for NullStorage {
         _id: &str,
         _embedding: &[f32],
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: embedding not persisted (DEGRADED mode)".into(),
+        ))
     }
     async fn search_crystals_semantic(
         &self,
@@ -197,7 +199,9 @@ impl ActivityStorage for NullStorage {
         &self,
         _event: &crate::domain::storage::Event,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: event not persisted (DEGRADED mode)".into(),
+        ))
     }
     async fn fleet_stats(
         &self,
@@ -269,7 +273,9 @@ impl ActivityStorage for NullStorage {
         &self,
         _summary: &crate::domain::ccm::SessionSummary,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: session summary not persisted (DEGRADED mode)".into(),
+        ))
     }
     async fn list_session_summaries(
         &self,
@@ -294,7 +300,9 @@ impl ActivityStorage for NullStorage {
         &self,
         _compliance: &crate::domain::compliance::SessionCompliance,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: session compliance not persisted (DEGRADED mode)".into(),
+        ))
     }
     async fn list_session_compliance(
         &self,
@@ -415,14 +423,18 @@ impl DispatchStorage for NullStorage {
         _dispatch_id: &str,
         _new_status: &str,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: dispatch status not updated (DEGRADED mode)".into(),
+        ))
     }
     async fn update_dispatch_pr(
         &self,
         _dispatch_id: &str,
         _pr_number: u32,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: dispatch pr not updated (DEGRADED mode)".into(),
+        ))
     }
 }
 
@@ -432,7 +444,9 @@ impl StateLogStorage for NullStorage {
         &self,
         _block: &crate::domain::state_log::StateBlock,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: state block not persisted (DEGRADED mode)".into(),
+        ))
     }
     async fn last_state_block(
         &self,
@@ -470,7 +484,9 @@ impl SubmissionStorage for NullStorage {
         _dog_count: u32,
         _verdict_type: &str,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: verdict not enqueued (DEGRADED mode)".into(),
+        ))
     }
     async fn list_pending_verdicts(&self, _limit: u32) -> Result<Vec<QueuedVerdict>, StorageError> {
         Ok(vec![])
@@ -492,17 +508,23 @@ impl SubmissionStorage for NullStorage {
         _verdict_id: &str,
         _tx_signature: &str,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: verdict submitted not updated (DEGRADED mode)".into(),
+        ))
     }
     async fn update_verdict_confirmed(&self, _verdict_id: &str) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: verdict confirmed not updated (DEGRADED mode)".into(),
+        ))
     }
     async fn update_verdict_failed(
         &self,
         _verdict_id: &str,
         _error_reason: &str,
     ) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::ConnectionFailed(
+            "NullStorage: verdict failed not updated (DEGRADED mode)".into(),
+        ))
     }
     async fn queue_status_counts(&self) -> Result<(u32, u32, u32, u32), StorageError> {
         Ok((0, 0, 0, 0))
