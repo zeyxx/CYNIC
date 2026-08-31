@@ -1,6 +1,6 @@
 {
   "schema": "cynic.agent_claims.v2",
-  "revision": 4,
+  "revision": 5,
   "claims": [
     {
       "claim_id": "claim_hermes_v1_debt_001",
@@ -8,7 +8,7 @@
       "mode": "baseline",
       "scope": { "kind": "file", "path": "infra/DEBT_TAXONOMY.md" },
       "budget": { "actions": 50, "wall_seconds": 3600 },
-      "consumed": { "actions": 2, "wall_seconds": 600 },
+      "consumed": { "actions": 3, "wall_seconds": 900 },
       "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
       "priority": 10,
       "parent_claim_id": null,
@@ -20,7 +20,7 @@
       "mode": "baseline",
       "scope": { "kind": "file", "path": "crates/cynic-host/src/source_worktree_inventory.rs" },
       "budget": { "actions": 30, "wall_seconds": 3600 },
-      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "consumed": { "actions": 2, "wall_seconds": 300 },
       "temporal": { "started_at_unix_s": 1724001200, "ttl_seconds": 3600 },
       "priority": 10,
       "parent_claim_id": null,
