@@ -1,7 +1,3 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::sync::mpsc;
-
 use super::super::actions::{TuiAction, TuiEffect};
 use super::helpers::*;
 use super::types::{App, ChatLine, Focus, TuiTaskEvent, TuiWindow};
@@ -9,7 +5,9 @@ use crate::chat_surface::{ChatRuntime, resolve_selector_to_alias};
 use cynic_inference::{
     ChatEvent, ChatEventKind, ChatService, ChatSessionStore, LocalRuntimeStatus, PrincipalPaths,
 };
-
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::mpsc;
 impl App {
     fn start_model_selector_alias(&mut self, alias: String) {
         let tx = self.task_tx.clone();
@@ -19,12 +17,10 @@ impl App {
         let temperature = self.runtime.temperature;
         let top_p = self.runtime.top_p;
         let reasoning_profile = self.runtime.reasoning_profile.clone();
-
         self.busy = true;
         self.error = None;
         self.status = format!("starting {alias}…");
         self.push_agent_line(format!("agent: local start queued · {alias}"));
-
         std::thread::spawn(move || {
             if let Err(error) =
                 cynic_inference::pin_preferred_alias(&alias, "cynic chat tui /model")
@@ -34,7 +30,6 @@ impl App {
                 )));
                 return;
             }
-
             let service = cynic_inference::LocalRuntimeServiceAny::from_env();
             let profile_size = service.list_inventory().ok().and_then(|inventory| {
                 inventory
@@ -43,7 +38,6 @@ impl App {
                     .find(|p| p.alias == alias)
                     .and_then(|p| p.size_bytes)
             });
-
             let wait_for_ready =
                 !crate::chat_surface::runtime::should_defer_local_readiness_for_chat(profile_size);
             let report = match service.start_with_readiness(&alias, wait_for_ready) {
@@ -63,7 +57,6 @@ impl App {
                 .message
                 .as_deref()
                 .and_then(extract_log_path_from_message);
-
             if !report.ok {
                 let _ = tx.send(TuiTaskEvent::TaskError(
                     report
@@ -72,7 +65,6 @@ impl App {
                 ));
                 return;
             }
-
             let inventory = service.list_inventory().ok();
             let profile_endpoint = inventory
                 .as_ref()
@@ -83,14 +75,12 @@ impl App {
                 .or(profile_endpoint)
                 .or_else(|| service.status().ok().and_then(|status| status.endpoint))
                 .or_else(|| detect_local_runtime_endpoint(&alias));
-
             let Some(endpoint) = endpoint else {
                 let _ = tx.send(TuiTaskEvent::TaskError(format!(
                     "could not resolve endpoint for {alias}"
                 )));
                 return;
             };
-
             let rt = match tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -103,7 +93,6 @@ impl App {
                     return;
                 }
             };
-
             let bind = match rt.block_on(cynic_inference::bind_preferred_chat_model(
                 &alias,
                 Some(&endpoint),
@@ -117,7 +106,6 @@ impl App {
                     return;
                 }
             };
-
             let service = match crate::chat_surface::rebind_chat_service(
                 store,
                 &endpoint,
@@ -137,7 +125,6 @@ impl App {
                     return;
                 }
             };
-
             let mut detail = format!("local alias pinned {}", bind.alias);
             if readiness_deferred {
                 detail.push_str(" (readiness deferred)");
@@ -145,7 +132,6 @@ impl App {
             if let Some(path) = report_log_path.as_deref() {
                 detail.push_str(&format!(" log={path}"));
             }
-
             let _ = tx.send(TuiTaskEvent::ModelAliasDone {
                 alias: alias.clone(),
                 endpoint: endpoint.clone(),
@@ -156,7 +142,6 @@ impl App {
             });
         });
     }
-
     pub(super) fn start_chat_turn(&mut self, prompt: String, stream: bool) {
         let tx = self.task_tx.clone();
         let service = self.service.clone();
@@ -165,7 +150,6 @@ impl App {
         self.error = None;
         self.status = format_status(&self.runtime, &self.paths, &self.session_id, true);
         self.push_agent_line("agent: queued prompt turn".into());
-
         std::thread::spawn(move || {
             let runtime = match tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -183,7 +167,6 @@ impl App {
             let _ = tx.send(TuiTaskEvent::ChatDone(report));
         });
     }
-
     pub(super) fn poll_agent_events(&mut self) {
         while let Ok(event) = self.task_rx.try_recv() {
             match event {
@@ -287,14 +270,12 @@ impl App {
             }
         }
     }
-
     fn push_agent_line(&mut self, line: String) {
         self.agent_log.push_front(line);
         while self.agent_log.len() > 120 {
             self.agent_log.pop_back();
         }
     }
-
     fn push_runtime_file_tail_to_agent_log(&mut self, log_path: &str, tail: usize) {
         let lines = read_log_tail(log_path, tail);
         self.agent_log.clear();
@@ -309,7 +290,6 @@ impl App {
             self.push_agent_line(format!("  {}", line));
         }
     }
-
     fn push_runtime_status_tail_to_agent_log(&mut self, tail: usize) {
         self.agent_log.clear();
         if let Some(lines) = local_runtime_status_tail(&self.runtime, tail) {
@@ -323,7 +303,6 @@ impl App {
                 .push_front("runtime log tail unavailable".into());
         }
     }
-
     pub(super) fn reload_from_store(&mut self) {
         match self.store.load_events(&self.session_id) {
             Ok(events) => {
@@ -338,12 +317,10 @@ impl App {
             Err(e) => self.error = Some(e.to_string()),
         }
     }
-
     pub(super) fn insert_char(&mut self, c: char) {
         self.input.insert(self.cursor, c);
         self.cursor += c.len_utf8();
     }
-
     pub(super) fn backspace(&mut self) {
         if self.cursor == 0 {
             return;
@@ -357,7 +334,6 @@ impl App {
         self.input.replace_range(start..self.cursor, "");
         self.cursor = start;
     }
-
     pub(super) fn move_left(&mut self) {
         if self.cursor == 0 {
             return;
@@ -369,7 +345,6 @@ impl App {
             .unwrap_or(0);
         self.cursor -= prev;
     }
-
     pub(super) fn move_right(&mut self) {
         if self.cursor >= self.input.len() {
             return;
@@ -381,7 +356,6 @@ impl App {
             .unwrap_or(0);
         self.cursor += next;
     }
-
     pub(super) fn new_session(&mut self) {
         let id = format!("tui-{}", now_ms());
         if let Err(e) = self.store.create_session(
