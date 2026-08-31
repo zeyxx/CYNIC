@@ -6,8 +6,11 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const COORDINATION_SCALING_HARNESS_SCHEMA: &str = "cynic.coordination.scaling_harness.v1";
+use crate::coordination_authority::{
+    CoordinationAuthorityMode, QuorumObservation, decide_quorum_write,
+};
 
+pub const COORDINATION_SCALING_HARNESS_SCHEMA: &str = "cynic.coordination.scaling_harness.v1";
 pub const TAKEOVER_RACE_HARNESS_SCHEMA: &str = "cynic.coordination.takeover_race_harness.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -66,7 +69,7 @@ pub fn evaluate_takeover_race(
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CoordinationScalingScenario {
     pub scenario_id: String,
-    pub authority_mode: crate::CoordinationAuthorityMode,
+    pub authority_mode: CoordinationAuthorityMode,
     pub member_count: u32,
     pub healthy_member_count: u32,
     pub required_member_count: u32,
@@ -90,7 +93,7 @@ pub struct CoordinationScalingOutcome {
 pub fn evaluate_coordination_scaling(
     scenario: &CoordinationScalingScenario,
 ) -> CoordinationScalingOutcome {
-    let decision = crate::decide_quorum_write(crate::QuorumObservation {
+    let decision = decide_quorum_write(QuorumObservation {
         authority_mode: scenario.authority_mode,
         member_count: scenario.member_count,
         healthy_member_count: scenario.healthy_member_count,
@@ -133,7 +136,7 @@ pub fn canonical_coordination_scaling_scenarios() -> Vec<CoordinationScalingScen
     vec![
         CoordinationScalingScenario {
             scenario_id: "single-node-local-lab".to_string(),
-            authority_mode: crate::CoordinationAuthorityMode::SingleNode,
+            authority_mode: CoordinationAuthorityMode::SingleNode,
             member_count: 1,
             healthy_member_count: 1,
             required_member_count: 1,
@@ -143,7 +146,7 @@ pub fn canonical_coordination_scaling_scenarios() -> Vec<CoordinationScalingScen
         },
         CoordinationScalingScenario {
             scenario_id: "three-node-majority".to_string(),
-            authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            authority_mode: CoordinationAuthorityMode::Quorum,
             member_count: 3,
             healthy_member_count: 3,
             required_member_count: 2,
@@ -153,7 +156,7 @@ pub fn canonical_coordination_scaling_scenarios() -> Vec<CoordinationScalingScen
         },
         CoordinationScalingScenario {
             scenario_id: "five-node-one-failure".to_string(),
-            authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            authority_mode: CoordinationAuthorityMode::Quorum,
             member_count: 5,
             healthy_member_count: 4,
             required_member_count: 3,
@@ -163,7 +166,7 @@ pub fn canonical_coordination_scaling_scenarios() -> Vec<CoordinationScalingScen
         },
         CoordinationScalingScenario {
             scenario_id: "five-node-majority-loss".to_string(),
-            authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            authority_mode: CoordinationAuthorityMode::Quorum,
             member_count: 5,
             healthy_member_count: 2,
             required_member_count: 3,

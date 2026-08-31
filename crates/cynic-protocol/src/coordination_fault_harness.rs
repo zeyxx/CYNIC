@@ -6,12 +6,16 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::coordination_authority::{
+    CoordinationAuthorityMode, QuorumObservation, decide_quorum_write,
+};
+
 pub const COORDINATION_FAULT_HARNESS_SCHEMA: &str = "cynic.coordination.fault_harness.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CoordinationFaultScenario {
     pub scenario_id: String,
-    pub quorum: crate::QuorumObservation,
+    pub quorum: QuorumObservation,
     pub takeover: crate::RuntimeTakeoverObservation,
 }
 
@@ -29,7 +33,7 @@ pub struct CoordinationFaultOutcome {
 pub fn evaluate_coordination_fault(
     scenario: &CoordinationFaultScenario,
 ) -> CoordinationFaultOutcome {
-    let quorum = crate::decide_quorum_write(scenario.quorum.clone());
+    let quorum = decide_quorum_write(scenario.quorum.clone());
     let takeover = crate::decide_runtime_takeover(scenario.takeover.clone());
     let mut blockers: Vec<String> = quorum
         .blockers
@@ -59,8 +63,8 @@ pub fn canonical_coordination_fault_scenarios() -> Vec<CoordinationFaultScenario
     vec![
         CoordinationFaultScenario {
             scenario_id: "quorum-loss".to_string(),
-            quorum: crate::QuorumObservation {
-                authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            quorum: QuorumObservation {
+                authority_mode: CoordinationAuthorityMode::Quorum,
                 member_count: 3,
                 healthy_member_count: 1,
                 required_member_count: 2,
@@ -81,11 +85,10 @@ pub fn canonical_coordination_fault_scenarios() -> Vec<CoordinationFaultScenario
         },
         CoordinationFaultScenario {
             scenario_id: "primary-release".to_string(),
-            quorum: crate::QuorumObservation {
-                authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            quorum: QuorumObservation {
+                authority_mode: CoordinationAuthorityMode::Quorum,
                 member_count: 3,
                 healthy_member_count: 3,
-                required_member_count: 2,
                 term: 4,
                 proposed_fencing_token: 9,
                 last_committed_fencing_token: 8,
@@ -103,12 +106,10 @@ pub fn canonical_coordination_fault_scenarios() -> Vec<CoordinationFaultScenario
         },
         CoordinationFaultScenario {
             scenario_id: "stale-fence".to_string(),
-            quorum: crate::QuorumObservation {
-                authority_mode: crate::CoordinationAuthorityMode::Quorum,
+            quorum: QuorumObservation {
+                authority_mode: CoordinationAuthorityMode::Quorum,
                 member_count: 3,
                 healthy_member_count: 3,
-                required_member_count: 2,
-                term: 4,
                 proposed_fencing_token: 9,
                 last_committed_fencing_token: 8,
             },

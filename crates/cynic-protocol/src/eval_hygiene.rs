@@ -173,10 +173,7 @@ mod tests {
 
     #[test]
     fn scan_returns_overlaps() {
-        let train = vec![
-            "train_item_1".to_string(),
-            "train_item_2".to_string(),
-        ];
+        let train = vec!["train_item_1".to_string(), "train_item_2".to_string()];
         let eval = vec![
             "train_item_1".to_string(), // exact match
             "eval_unique".to_string(),
@@ -206,10 +203,7 @@ mod tests {
 
     #[test]
     fn jaccard_similarity_correct() {
-        let sim = compute_similarity(
-            "the cat sat on the mat",
-            "the cat sat on the hat",
-        );
+        let sim = compute_similarity("the cat sat on the mat", "the cat sat on the hat");
         assert!(sim > 0.8);
         assert!(sim < 1.0);
     }
