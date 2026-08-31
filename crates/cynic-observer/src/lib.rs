@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+pub mod buffer;
 pub mod consensus;
 pub mod dashboard;
 pub mod delegation;
@@ -11,6 +12,7 @@ pub mod source;
 pub mod wal;
 pub mod watcher;
 
+pub use buffer::*;
 pub use domain::*;
 use serde::{Deserialize, Serialize};
 pub use solana_archive::{plan_fanout_request, FanoutPlanRequest, HeliusPlan};

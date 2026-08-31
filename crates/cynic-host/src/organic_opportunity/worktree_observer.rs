@@ -3,7 +3,7 @@
 //! Observes repository worktrees to surface unfinished work slices, detached
 //! worktrees, and layout anomalies that block operator capacity.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,

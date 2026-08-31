@@ -133,6 +133,7 @@ impl EventSourcePort for FleetMeshSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::ObservationDomain;
 
     #[tokio::test]
     async fn system_metabolism_source_polls_events() {

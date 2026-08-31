@@ -3,7 +3,7 @@
 //! Provides local persistence and read-back for operator decision records,
 //! linking human decision lineage to opportunity digests.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cynic_protocol::organic_opportunity::{
     OpportunityDecisionRecord, OrganicOpportunity, apply_decision_record,

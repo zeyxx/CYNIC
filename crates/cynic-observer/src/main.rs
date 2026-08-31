@@ -64,6 +64,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         recovered_events.len()
     );
 
+    // 2b. Bounded ingestion buffer (Obs1): gates events before WAL write.
+    //     Capacity and overflow policy configurable via env; defaults are conservative.
+    let ingestion_capacity: usize = std::env::var("CYNIC_INGESTION_BUFFER_CAPACITY")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4096);
+    let ingestion_policy = if std::env::var("CYNIC_INGESTION_OVERFLOW_REJECT").is_ok() {
+        cynic_observer::OverflowPolicy::RejectNew
+    } else {
+        cynic_observer::OverflowPolicy::DropOldest
+    };
+    use cynic_observer::BoundedIngestionBuffer;
+    let ingestion_buffer: BoundedIngestionBuffer<cynic_observer::ObserverEvent> =
+        BoundedIngestionBuffer::new(ingestion_capacity, ingestion_policy);
+    info!(
+        "Ingestion buffer initialisé: capacity={} policy={:?}",
+        ingestion_capacity, ingestion_policy
+    );
+
     // 3. Initialisation et démarrage de la Fédération P2P (libp2p)
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
@@ -256,6 +275,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Boucle principale du Cortex : réception et parsing
     while let Some(raw_event) = rx.recv().await {
+        // Gate through bounded ingestion buffer (Obs1): enforce capacity & drop policy.
+        if let Err(e) = ingestion_buffer.push(raw_event.clone()) {
+            log::warn!("Ingestion buffer capacity exceeded, event dropped: {}", e);
+            let m = ingestion_buffer.metrics();
+            log::warn!(
+                "Buffer metrics: ingested={} dropped={} drop_rate={:.2}%",
+                m.ingested_total,
+                m.dropped_total,
+                m.drop_rate * 100.0
+            );
+            continue;
+        }
+
+        // Drain one item from the head of the buffer for processing.
+        // With DropOldest policy the buffer acts as a spool; this keeps
+        // WAL writes and downstream processing order-preserving.
+        let raw_event = match ingestion_buffer.drain(1).into_iter().next() {
+            Some(ev) => ev,
+            None => continue,
+        };
+
         // Sauvegarde WAL (Adaptative)
         let current_metabolism = metabolism.current_state();
         let record = WalRecord::EventReceived(raw_event.clone());
