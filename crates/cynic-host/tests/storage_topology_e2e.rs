@@ -1,7 +1,9 @@
 use cynic_host::domain::storage::{
-    InMemoryStorageTopologyAdapter, LocalStorageTopologyAdapter, StorageTopologyObservationPort,
+    InMemoryStorageTopologyAdapter, LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter,
+    StorageTopologyAction, StorageTopologyObservationPort, plan_storage_topology_apply,
     reconcile_storage_topology, storage_topology_report,
 };
+use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
 use cynic_protocol::storage_client_policy::{
     ClientPolicy, STORAGE_CLIENT_POLICY_SCHEMA, StorageClientPolicy,
 };
@@ -9,6 +11,7 @@ use cynic_protocol::storage_topology::{
     STORAGE_TOPOLOGY_REPORT_SCHEMA, STORAGE_TOPOLOGY_SCHEMA, StorageBudget, StorageEngine,
     StorageTopologyDesired, StorageTopologyObserved, TargetTopology,
 };
+use std::sync::Arc;
 
 fn desired_one() -> StorageTopologyDesired {
     StorageTopologyDesired {
@@ -52,14 +55,43 @@ fn in_memory_adapter_observe() {
 
 #[test]
 fn local_adapter_observe_missing_file() {
+    let tempdir = tempfile::tempdir().expect("create isolated topology fixture root");
+    let absent = tempdir.path().join("storage_topology.json");
     let adapter = LocalStorageTopologyAdapter {
-        topology_path: "/tmp/nonexistent_storage_topology.json".to_string(),
+        topology_path: absent.to_string_lossy().to_string(),
     };
     let observed = adapter.observe_topology();
     assert!(
         observed
             .residual_unknowns
             .contains(&"topology_file_missing".to_string())
+    );
+}
+
+#[test]
+fn remote_adapter_reports_ssh_failure_as_residual_unknown() {
+    let runner = Arc::new(MapArgvRunner {
+        responses: vec![(
+            vec!["ssh".to_string()],
+            ArgvOutput {
+                exit_code: Some(255),
+                stdout: String::new(),
+                stderr: "connection refused".to_string(),
+                spawn_error: None,
+            },
+        )],
+    });
+    let adapter = RemoteStorageTopologyAdapter {
+        ssh_target: "cynic@10.0.0.2".to_string(),
+        topology_path: "/etc/cynic/storage_topology.json".to_string(),
+        runner,
+    };
+    let observed = adapter.observe_topology();
+    assert!(observed.endpoints.is_empty());
+    assert!(
+        observed
+            .residual_unknowns
+            .contains(&"ssh_topology_failed".to_string())
     );
 }
 
@@ -133,18 +165,20 @@ fn reconcile_add_replica_and_backpressure() {
     };
     let client_policy = StorageClientPolicy::default();
     let plan = reconcile_storage_topology(&desired, &observed, &client_policy);
-    assert!(
-        plan.actions
-            .iter()
-            .any(|a| format!("{a:?}").contains("AddReplica"))
-    );
-    assert!(
-        plan.actions
-            .iter()
-            .any(|a| format!("{a:?}").contains("Backpressure"))
-    );
+    assert!(plan.actions.contains(&StorageTopologyAction::AddReplica {
+        desired: 2,
+        observed: 1,
+    }));
+    assert!(plan.actions.contains(&StorageTopologyAction::Backpressure {
+        poll_cost_ms: 6000,
+        budget_ms: 5000,
+    }));
     assert!(
         plan.residual_unknowns
             .contains(&"poll_cost_exceeded_budget".to_string())
     );
+    let apply = plan_storage_topology_apply(&desired, &observed, &plan, &client_policy);
+    assert!(apply.mutates);
+    assert_eq!(apply.rollback, "rollback to 1 replicas");
+    assert_eq!(apply.proof_ref, "storage_topology:1");
 }
