@@ -118,7 +118,7 @@ impl TrainingTrace {
     }
 }
 
-/// Trace storage and dataset export manager.
+#[derive(Debug, Default, Clone, Copy)]
 pub struct TraceEngine;
 
 impl TraceEngine {
