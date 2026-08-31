@@ -30,6 +30,7 @@ pub mod cpu;
 // was never declared, so the entire audit vocabulary was uncompiled.
 pub mod audit;
 pub mod capability_responsibility;
+pub mod constitutional_law;
 pub mod convergence;
 pub mod coord;
 pub mod coordination_authority;
@@ -157,6 +158,7 @@ pub use build::*;
 pub use build_proof::*;
 pub use build_workflow::*;
 pub use capability_responsibility::*;
+pub use constitutional_law::*;
 pub use convergence::*;
 pub use coord::{
     LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_finalize_path,
