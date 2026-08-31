@@ -9,6 +9,23 @@ use super::types::*;
 
 pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinError> {
     let hw = tokio::task::spawn_blocking(|| {
+        // 1. Try pure Linux /proc parsers via cynic-host (0 allocation /proc parsing)
+        let cpu_info = std::fs::read_to_string("/proc/cpuinfo").ok();
+        let mem_info = std::fs::read_to_string("/proc/meminfo").ok();
+
+        if let (Some(cpu_txt), Some(mem_txt)) = (cpu_info.as_deref(), mem_info.as_deref()) {
+            let (cpu_phys, _cpu_vol, _unknowns) =
+                cynic_host::domain::cpu::probe::parse_cpuinfo(cpu_txt);
+            if let Ok(mem_rep) = cynic_host::domain::memory::probe::parse_meminfo(mem_txt) {
+                return HardwareInfo {
+                    total_ram_gb: mem_rep.usage.total_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
+                    cpu_cores: cpu_phys.logical_cores,
+                    cpu_model: cpu_phys.model_name,
+                };
+            }
+        }
+
+        // 2. Fallback to sysinfo on non-Linux or when /proc is inaccessible
         let mut sys = System::new_all();
         sys.refresh_all();
 
