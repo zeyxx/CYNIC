@@ -183,6 +183,8 @@ impl InferenceQueue {
                     "inference queue: waiter timed out"
                 );
                 self.dropped.fetch_add(1, Ordering::Relaxed);
+                // Orphan slot: release() sent to this waiter but waiter timed out before permit creation → no permit ever drops, slot stays held. Reclaim.
+                self.release();
                 None
             }
         }
