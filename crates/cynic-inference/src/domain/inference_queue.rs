@@ -136,14 +136,20 @@ impl InferenceQueue {
                 });
             }
             if waiters.len() as u32 >= self.capacity {
-                tracing::debug!(
-                    dog_id = %self.dog_id,
-                    priority = ?priority,
-                    depth = waiters.len(),
-                    "inference queue full — rejecting request"
-                );
-                self.dropped.fetch_add(1, Ordering::Relaxed);
-                return None;
+                // Purge dead waiters (timed out, channel closed) before rejecting — avoids faux queue full.
+                let active: BinaryHeap<QueuedRequest> =
+                    waiters.drain().filter(|w| !w.wake_tx.is_closed()).collect();
+                *waiters = active;
+                if waiters.len() as u32 >= self.capacity {
+                    tracing::debug!(
+                        dog_id = %self.dog_id,
+                        priority = ?priority,
+                        depth = waiters.len(),
+                        "inference queue full — rejecting request"
+                    );
+                    self.dropped.fetch_add(1, Ordering::Relaxed);
+                    return None;
+                }
             }
             let (tx, rx) = oneshot::channel();
             waiters.push(QueuedRequest {
