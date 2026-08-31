@@ -1,6 +1,6 @@
 {
   "schema": "cynic.agent_claims.v2",
-  "revision": 18,
+  "revision": 19,
   "claims": [
     {
       "claim_id": "claim_hermes_v1_debt_001",
@@ -15,13 +15,13 @@
       "status": "active"
     },
     {
-      "claim_id": "claim_hermes_health_001",
+      "claim_id": "claim_hermes_spof_001",
       "agent_id": "hermes:main",
       "mode": "baseline",
-      "scope": { "kind": "crate", "path": "crates/cynic-kernel" },
-      "budget": { "actions": 10, "wall_seconds": 3600 },
+      "scope": { "kind": "file", "path": "infra/SPOF_IAC_DESIGN.md" },
+      "budget": { "actions": 20, "wall_seconds": 3600 },
       "consumed": { "actions": 0, "wall_seconds": 0 },
-      "temporal": { "started_at_unix_s": 1724009000, "ttl_seconds": 3600 },
+      "temporal": { "started_at_unix_s": 1724010000, "ttl_seconds": 3600 },
       "priority": 10,
       "parent_claim_id": null,
       "status": "active"
