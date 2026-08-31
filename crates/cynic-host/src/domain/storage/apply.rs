@@ -32,6 +32,7 @@ pub fn plan_storage_topology_apply(
     observed: &StorageTopologyObserved,
     plan: &StorageTopologyPlan,
     _client_policy: &StorageClientPolicy,
+    policy_path: &str,
 ) -> StorageTopologyApplyIntent {
     let actions = plan
         .actions
@@ -39,13 +40,21 @@ pub fn plan_storage_topology_apply(
         .map(|action| StorageTopologyArgvAction {
             // No replica/leader argv is emitted for standalone backend: unsupported topology remains blocked.
             argv: match action {
-                StorageTopologyAction::UpdateClientPolicy { endpoints } => vec![
-                    "cynic".to_string(),
-                    "storage".to_string(),
-                    "client-policy".to_string(),
-                    "set-endpoints".to_string(),
-                    endpoints.join(","),
-                ],
+                StorageTopologyAction::UpdateClientPolicy { endpoints } => {
+                    let mut argv = vec![
+                        "cynic".to_string(),
+                        "runtime".to_string(),
+                        "storage-client-policy-set".to_string(),
+                        "--policy-path".to_string(),
+                        policy_path.to_string(),
+                    ];
+                    for endpoint in endpoints {
+                        argv.push("--endpoint".to_string());
+                        argv.push(endpoint.clone());
+                    }
+                    argv.push("--apply".to_string());
+                    argv
+                }
                 _ => Vec::new(),
             },
             mutates: matches!(action, StorageTopologyAction::UpdateClientPolicy { .. }),

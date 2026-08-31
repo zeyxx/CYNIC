@@ -166,16 +166,25 @@ fn apply_readback_unchanged_stays_blocked() {
         },
     };
     let plan = reconcile_storage_topology(&desired, &observed, &client_policy);
-    let intent = plan_storage_topology_apply(&desired, &observed, &plan, &client_policy);
+    let intent = plan_storage_topology_apply(
+        &desired,
+        &observed,
+        &plan,
+        &client_policy,
+        "/tmp/storage_client_policy.json",
+    );
     assert!(intent.mutates);
     assert_eq!(
         intent.actions[0].argv,
         vec![
             "cynic".to_string(),
-            "storage".to_string(),
-            "client-policy".to_string(),
-            "set-endpoints".to_string(),
+            "runtime".to_string(),
+            "storage-client-policy-set".to_string(),
+            "--policy-path".to_string(),
+            "/tmp/storage_client_policy.json".to_string(),
+            "--endpoint".to_string(),
             "http://127.0.0.1:8000".to_string(),
+            "--apply".to_string(),
         ]
     );
     let observer = InMemoryStorageTopologyAdapter { observed };
@@ -249,7 +258,13 @@ fn reconcile_add_replica_and_backpressure() {
         plan.residual_unknowns
             .contains(&"poll_cost_exceeded_budget".to_string())
     );
-    let apply = plan_storage_topology_apply(&desired, &observed, &plan, &client_policy);
+    let apply = plan_storage_topology_apply(
+        &desired,
+        &observed,
+        &plan,
+        &client_policy,
+        "/tmp/storage_client_policy.json",
+    );
     assert!(!apply.mutates);
     assert!(apply.actions.iter().all(|action| !action.mutates));
     assert_eq!(apply.rollback, "rollback to 1 replicas");
