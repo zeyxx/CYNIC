@@ -9,48 +9,48 @@ use crate::ports::build_scheduler_port::{
     BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
 };
 
-pub(crate) const BOOTSTRAP_SEED_RECEIPT_SCHEMA: &str = "cynic.node.bootstrap_seed.receipt.v1";
+pub const BOOTSTRAP_SEED_RECEIPT_SCHEMA: &str = "cynic.node.bootstrap_seed.receipt.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum BootstrapSeedExecutionDecision {
+pub enum BootstrapSeedExecutionDecision {
     Ready { argv: Vec<Vec<String>> },
     Blocked { blockers: Vec<String> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BootstrapSeedStatus {
+pub enum BootstrapSeedStatus {
     Proved,
     Failed,
     Cancelled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BootstrapSeedStep {
-    argv: Vec<String>,
-    exit_code: Option<i32>,
-    stdout: String,
-    stderr: String,
+pub struct BootstrapSeedStep {
+    pub argv: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 /// Node-owned proof of one bounded seed run. It retains the full Development
 /// Genesis lineage plus the exact executed read-back; it never contains secret
 /// material because the execution environment was empty by construction.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BootstrapSeedReceipt {
-    pub(crate) schema: String,
-    pub(crate) status: BootstrapSeedStatus,
-    pub(crate) request_id: String,
-    pub(crate) source_commit: String,
-    pub(crate) source_tree: String,
-    pub(crate) source_authority_ref: String,
-    pub(crate) builder_image: String,
-    pub(crate) argv_requested: Vec<Vec<String>>,
-    pub(crate) steps: Vec<BootstrapSeedStep>,
-    pub(crate) evidence_refs: Vec<String>,
-    pub(crate) blockers: Vec<String>,
+pub struct BootstrapSeedReceipt {
+    pub schema: String,
+    pub status: BootstrapSeedStatus,
+    pub request_id: String,
+    pub source_commit: String,
+    pub source_tree: String,
+    pub source_authority_ref: String,
+    pub builder_image: String,
+    pub argv_requested: Vec<Vec<String>>,
+    pub steps: Vec<BootstrapSeedStep>,
+    pub evidence_refs: Vec<String>,
+    pub blockers: Vec<String>,
 }
 
-pub(crate) fn decide_bootstrap_seed_execution(
+pub fn decide_bootstrap_seed_execution(
     execution_mode: NodeExecutionMode,
     plan: DevelopmentGenesisBuildPlan,
 ) -> BootstrapSeedExecutionDecision {
@@ -74,7 +74,7 @@ pub(crate) fn decide_bootstrap_seed_execution(
     BootstrapSeedExecutionDecision::Blocked { blockers }
 }
 
-pub(crate) fn bootstrap_seed_execution_requests(
+pub fn bootstrap_seed_execution_requests(
     decision: &BootstrapSeedExecutionDecision,
     working_directory: &Path,
     timeout: Duration,
@@ -102,7 +102,7 @@ pub(crate) fn bootstrap_seed_execution_requests(
     }
 }
 
-pub(crate) fn bootstrap_seed_receipt(
+pub fn bootstrap_seed_receipt(
     plan: &DevelopmentGenesisBuildPlan,
     requests: &[BuildExecutionRequest],
     outcomes: &[Result<BuildExecutionReadBack, BuildExecutionError>],
@@ -168,19 +168,18 @@ pub(crate) fn bootstrap_seed_receipt(
 /// cancellation stops everything, and the receipt is built from what actually
 /// happened — never from intent. No network, service, publication, or runtime
 /// activation occurs here; the port owns process execution only.
-pub(crate) async fn execute_bootstrap_seed(
+pub async fn execute_bootstrap_seed(
     plan: &DevelopmentGenesisBuildPlan,
     working_directory: &Path,
     timeout: Duration,
     cancellation: &CancellationToken,
-    execution: &dyn BuildExecutionPort,
+    execution: &impl BuildExecutionPort,
 ) -> Result<BootstrapSeedReceipt, Vec<String>> {
     if cancellation.is_cancelled() {
         return Err(vec!["bootstrap_seed_cancelled_before_start".to_string()]);
     }
     let decision = decide_bootstrap_seed_execution(NodeExecutionMode::BootstrapSeed, plan.clone());
     let requests = bootstrap_seed_execution_requests(&decision, working_directory, timeout)?;
-
     let mut outcomes = Vec::with_capacity(requests.len());
     for request in &requests {
         if cancellation.is_cancelled() {
@@ -204,7 +203,6 @@ pub(crate) async fn execute_bootstrap_seed(
 
     Ok(bootstrap_seed_receipt(plan, &requests, &outcomes))
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

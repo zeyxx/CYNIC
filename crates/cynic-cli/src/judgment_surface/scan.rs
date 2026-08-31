@@ -13,7 +13,7 @@ use crate::judgment_surface::types::JudgmentReport;
 
 /// Observe the runtime and produce a judgment. Read-only — never fabricate
 /// state. If a signal is unreadable, preserve it as residual unknown.
-pub fn observe_judgment(subject: Option<&str>) -> JudgmentReport {
+pub(super) fn observe_judgment(subject: Option<&str>) -> JudgmentReport {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

@@ -37,8 +37,7 @@ pub fn parse_dmesg_gpu_fault(line: &str) -> Option<ForensicEvidence> {
 /// - `softlockup`
 pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
     let lower = line.to_lowercase();
-    let matched =
-        lower.contains("trap invalid opcode") || lower.contains("softlockup");
+    let matched = lower.contains("trap invalid opcode") || lower.contains("softlockup");
     if !matched {
         return None;
     }
@@ -98,13 +97,11 @@ pub fn parse_service_failed_line(line: &str) -> Option<ServiceLoop> {
         return None;
     }
     // Extract unit name: look for `<unit>.service:` pattern
-    let unit = trimmed
-        .split_whitespace()
-        .find_map(|tok| {
-            tok.strip_suffix(".service:")
-                .or_else(|| tok.strip_suffix(".service"))
-                .map(String::from)
-        })?;
+    let unit = trimmed.split_whitespace().find_map(|tok| {
+        tok.strip_suffix(".service:")
+            .or_else(|| tok.strip_suffix(".service"))
+            .map(String::from)
+    })?;
     // Determine exit status from the result string
     let exit_status = if trimmed.contains("exit-code") {
         203
@@ -149,7 +146,8 @@ mod tests {
 
     #[test]
     fn parse_dmesg_gpu_fault_page_fault() {
-        let line = "amdgpu 0000:30:00.0: [gfxhub0] no-retry page fault (src_id:0 ring:40 vmid:0 pasid:0)";
+        let line =
+            "amdgpu 0000:30:00.0: [gfxhub0] no-retry page fault (src_id:0 ring:40 vmid:0 pasid:0)";
         let evidence = parse_dmesg_gpu_fault(line).expect("should match GPU page fault");
         assert_eq!(evidence.kind, CrashKind::GpuHang);
         assert_eq!(evidence.severity, 80);
@@ -221,7 +219,8 @@ mod tests {
     #[test]
     fn parse_boot_table_line_valid() {
         let line = "-1 66515a0e-43dc-4a9b-860a-f1625e78b103 1724000000000000 1724100000000000";
-        let (boot_id, first, last) = parse_boot_table_line(line).expect("should parse boot table line");
+        let (boot_id, first, last) =
+            parse_boot_table_line(line).expect("should parse boot table line");
         assert_eq!(boot_id, "66515a0e-43dc-4a9b-860a-f1625e78b103");
         assert_eq!(first, 1724000000000000);
         assert_eq!(last, 1724100000000000);
@@ -253,7 +252,8 @@ mod tests {
 
     #[test]
     fn parse_crash_dump_header_valid() {
-        let content = "ExecutablePath: /usr/bin/bash\nDate: 2026-08-30T22:35:12Z\nProblemType: Crash\n";
+        let content =
+            "ExecutablePath: /usr/bin/bash\nDate: 2026-08-30T22:35:12Z\nProblemType: Crash\n";
         let (exec_path, date) = parse_crash_dump_header(content).expect("should parse header");
         assert_eq!(exec_path, "/usr/bin/bash");
         assert_eq!(date, "2026-08-30T22:35:12Z");

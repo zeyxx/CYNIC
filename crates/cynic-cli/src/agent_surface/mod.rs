@@ -107,7 +107,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
         AgentCommand::Identify {
             agent_id,
             agent_kind,
-            json,
+            json: _,
         } => match execute_identify(&agent_id, agent_kind.as_deref()) {
             Ok(report) => {
                 emit_pretty_json(&report);
@@ -121,7 +121,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
         AgentCommand::Register {
             agent_id,
             intent,
-            json,
+            json: _,
         } => match execute_register(&agent_id, &intent) {
             Ok(()) => {
                 let report = serde_json::json!({
@@ -144,7 +144,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             ttl_seconds,
             budget_actions,
             budget_wall_seconds,
-            json,
+            json: _,
         } => match execute_claim(
             &agent_id,
             &target,
@@ -168,7 +168,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             lease_id,
             fencing_token,
             proof_ref,
-            json,
+            json: _,
         } => match execute_release(&agent_id, &target, &lease_id, fencing_token, proof_ref) {
             Ok(report) => {
                 emit_pretty_json(&report);
@@ -179,7 +179,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::Status { agent_id, json } => match execute_status(&agent_id) {
+        AgentCommand::Status { agent_id, json: _ } => match execute_status(&agent_id) {
             Ok(report) => {
                 emit_pretty_json(&report);
                 ExitCode::SUCCESS

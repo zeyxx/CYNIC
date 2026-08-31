@@ -203,7 +203,6 @@ fn find_node_details(value: &serde_json::Value, name: &str) -> (String, Vec<Decl
 /// Probe a service via TCP connect.
 fn probe_service(ip: &str, port: u16, timeout_ms: u64) -> FleetServiceHealth {
     let addr = format!("{ip}:{port}");
-    let start = Instant::now();
     match TcpStream::connect_timeout(
         &addr
             .parse()

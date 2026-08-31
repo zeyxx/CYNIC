@@ -13,10 +13,8 @@
 use std::time::Instant;
 
 use cynic_inference::domain::task_admission_port::TaskAdmissionPort;
-use cynic_protocol::capacity::{CapacityAssessmentV1, MetabolicPolicy, assess_metabolic_state};
-use cynic_protocol::task_pipeline::{
-    CapacityObservation, DynamicHeadroom, EnergyBudget, FreshnessPolicy, ProfileFacts,
-};
+use cynic_protocol::capacity::{CapacityAssessmentV1, MetabolicPolicy};
+use cynic_protocol::task_pipeline::{EnergyBudget, FreshnessPolicy};
 
 use crate::adapters::fs_window_journal::FsWindowJournal;
 use crate::adapters::local_capacity::LocalCapacityAdapter;
@@ -24,10 +22,10 @@ use crate::adapters::local_capacity::LocalCapacityAdapter;
 pub struct LocalTaskAdmission {
     capacity: LocalCapacityAdapter,
     metabolic_policy: MetabolicPolicy,
-    freshness: FreshnessPolicy,
+    _freshness: FreshnessPolicy,
     /// Node-declared concurrent ceilings. None dim = unbounded.
     envelope: EnergyBudget,
-    monotone_start: Instant,
+    _monotone_start: Instant,
     /// Window ledger (layer 2): source of open_reservations. Optional in
     /// V1 — None keeps the envelope-only behaviour documented previously.
     journal: Option<FsWindowJournal>,
@@ -42,9 +40,9 @@ impl LocalTaskAdmission {
         Self {
             capacity: LocalCapacityAdapter::new(),
             metabolic_policy,
-            freshness,
+            _freshness: freshness,
             envelope,
-            monotone_start: Instant::now(),
+            _monotone_start: Instant::now(),
             journal: None,
         }
     }
@@ -130,15 +128,6 @@ pub fn local_task_admission_with_defaults(envelope: EnergyBudget) -> LocalTaskAd
         FreshnessPolicy::with_defaults(),
         envelope,
     )
-}
-
-#[allow(dead_code)]
-fn _assert_types() {
-    // Keep imports referenced even as fields evolve.
-    let _: Option<DynamicHeadroom> = None;
-    let _: Option<ProfileFacts> = None;
-    let _: Option<CapacityObservation> = None;
-    let _ = Instant::now();
 }
 
 #[cfg(test)]

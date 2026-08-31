@@ -1,7 +1,7 @@
 use std::path::Path;
 use walkdir::WalkDir;
 
-use super::types::{GcScope, GcSummary, SpaceGcObservation};
+use super::types::{GcScope, SpaceGcObservation};
 
 pub fn observe_space_usage(root: &Path, scope: GcScope) -> SpaceGcObservation {
     let mut total_bytes = 0u64;

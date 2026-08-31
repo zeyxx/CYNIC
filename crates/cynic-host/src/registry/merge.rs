@@ -2,11 +2,10 @@
 
 use crate::registry::types::{
     RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-    RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
-    RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
-    RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
+    RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPolicy, RegistryNode,
+    RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth, RegistryServiceSupervisor,
+    RegistrySshEnrollmentAuthority, RegistrySshTransport,
 };
-use std::collections::BTreeMap;
 
 /// Merge strategy for conflicting values
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -586,24 +585,10 @@ fn merge_fleet_target(
     })
 }
 
-fn merge_field_opt_inner<T: Clone>(
-    base: Option<T>,
-    overlay: Option<T>,
-    strategy: MergeStrategy,
-) -> Result<Option<T>, String> {
-    merge_field(base, overlay, strategy, "").map_err(|e| e)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::types::{
-        RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
-        RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
-        RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
-    };
-    use std::collections::BTreeMap;
+    use crate::registry::types::{RegistryDocument, RegistryNode};
 
     fn minimal_node(name: &str) -> RegistryNode {
         RegistryNode {

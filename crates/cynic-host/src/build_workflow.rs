@@ -137,7 +137,7 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
 mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use crate::update_lifecycle::MapArgvRunner;
     use cynic_protocol::BuildRunnerObservation;
     use cynic_protocol::build::BUILD_RECIPE_SCHEMA;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};

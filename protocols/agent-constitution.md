@@ -38,6 +38,39 @@ pub struct CitizenIdentity {
 }
 ```
 
+### Organic opportunity observer
+
+A `ScheduledTask` or `AgentSession` may operate as a bounded, local,
+read-only organic opportunity observer. This role observes the actual work
+surface; it does not own an operator backlog and it does not gain a mutation
+right merely by finding a valuable opportunity.
+
+```rust
+pub struct OrganicOpportunityProposal {
+    pub schema: &'static str,           // "cynic.organic_opportunity.v1"
+    pub opportunity_id: String,
+    pub sources: Vec<EvidenceRef>,      // session, source, audit, or validation evidence
+    pub expected_unlock: String,        // contextual value, never a universal score
+    pub estimated_energy: String,       // estimate with method and uncertainty
+    pub scope: AgentScope,
+    pub freshness: String,
+    pub confidence: f64,
+    pub residual_unknowns: Vec<String>,
+    pub actionable: bool,               // false for the observer's own output
+}
+```
+
+An observer may propose that the operator inspect, consolidate, plan, or repair
+the smallest relevant boundary. It may never create a task, alter an ordered
+backlog, grant itself a claim, write a skill, publish telemetry, or begin that
+repair. A distinct human-admitted action is required for each mutation.
+
+`Organic always wins` is a priority law, not a sovereignty exception: before an
+agent spends its bounded budget on a lower-unlock planned item, it must surface
+a fresher higher-unlock proposal and retain the operator's explicit choice to
+defer it. The law never overrides consent, claims, harness binding, admission,
+budgets, or proof obligations.
+
 ## 3. Scope Hierarchy
 
 Scopes form a total order by **containment**, not equality:
@@ -201,6 +234,14 @@ partial | complete | unknown | blocked
 `100% coverage` is not the target. Industrial-grade means reaching the target
 thresholds with an explicit residual unknown budget.
 
+### Organic opportunity uncertainty
+
+Estimated energy, unlock value, and ranking are hypotheses, not observed facts.
+Their method, evidence freshness, and missing inputs must remain visible in the
+proposal. In particular, human attention is never passively inferred from
+session traces. It may enter a decision only through separately consented,
+protected data authority.
+
 ## 10. Fractal Recursion
 
 Every CYNIC node is a **sovereign recursion root**. A citizen may delegate to
@@ -244,6 +285,11 @@ This constitution may be amended by:
 No amendment may violate the non-amplification invariant (§11) without a
 two-thirds quorum of runtime authorities — and even then, the invariant is
 preferred to be treated as immutable.
+
+MCP adapter availability is not a condition for a constitutional amendment or
+local read-only observation. A future MCP projection may expose this
+constitution only after its lower-layer contracts and independent local
+read-back are stable.
 
 ---
 

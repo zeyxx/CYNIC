@@ -97,7 +97,7 @@ pub mod runtime_resolver_plan;
 mod runtime_secret_install;
 pub mod runtime_seed;
 pub mod secret_lint;
-mod secret_material;
+pub mod secret_material;
 pub mod secret_presence;
 pub mod service_catalog;
 pub mod service_supervisor_observation;

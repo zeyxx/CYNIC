@@ -4,7 +4,9 @@
 //! adapter's job). Adapters (`LocalForensicAdapter`) implement this and are
 //! injected by the CLI/host surface.
 
-use crate::domain::forensics::types::{ForensicEvidence, ForensicTimeline, PostMortemReport, ServiceLoop};
+use crate::domain::forensics::types::{
+    ForensicEvidence, ForensicTimeline, PostMortemReport, ServiceLoop,
+};
 
 pub trait ForensicObservationPort {
     /// Collect all forensic evidence for a given boot.

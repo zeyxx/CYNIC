@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! MCP tool proof index: static audit that maps every implemented `#[tool]`
 //! back to its exposure declaration, producing a machine-readable read-back
 //! proof. This covers the gap where ICE 1.96 prevents cynic-mcp from compiling
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::agent_exposure_audit::checks::repo_root;
 use crate::agent_exposure_audit::source_scan::scan_mcp_tools;
 #[derive(Debug, Serialize, Deserialize)]
-pub struct McpToolProof {
+pub(crate) struct McpToolProof {
     pub name: String,
     pub description: String,
     pub source_file: String,
@@ -23,7 +24,7 @@ pub struct McpToolProof {
 }
 
 #[derive(Debug, Serialize)]
-pub struct McpCallProofIndex {
+pub(crate) struct McpCallProofIndex {
     pub schema: &'static str,
     pub status: &'static str,
     pub rule: &'static str,

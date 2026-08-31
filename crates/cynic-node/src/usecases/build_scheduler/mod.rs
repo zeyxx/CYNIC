@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus,
-    AgentScope, AgentWorkloadClaim, AgentWorkloadState, DurableAgentWorkloadRecord,
-    MutationAdmission, admit_workload_mutation, canonical_build_action_from_argv,
+    AgentScope, AgentWorkloadState, DurableAgentWorkloadRecord, MutationAdmission,
+    admit_workload_mutation, canonical_build_action_from_argv,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-pub(crate) async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
+pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
     let Some(scheduler) = control.build_scheduler.clone() else {
         return;
     };

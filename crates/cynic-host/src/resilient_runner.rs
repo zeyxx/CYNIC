@@ -12,8 +12,8 @@
 //! - Policy is portable; substrate (std::process) injected
 //! - Fail-closed: circuit open → no execution, explicit unknown/blocked state
 
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
@@ -228,8 +228,7 @@ impl<R: ArgvRunner> ArgvRunner for ResilientArgvRunner<R> {
 mod tests {
     use super::*;
     use crate::update_lifecycle::MapArgvRunner;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     /// Fake runner: fails N times then succeeds.
     #[derive(Debug, Clone)]

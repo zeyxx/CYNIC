@@ -11,16 +11,14 @@
 //! build failure still closes the window with status Failed — no dangling
 //! reservations.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use cynic_host::adapters::window_runner::{WindowRunError, WindowRunner};
 use cynic_protocol::task_pipeline::EnergyBudget;
 use cynic_protocol::temporal::Epoch;
 
-use crate::ports::build_scheduler_port::{
-    BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
-};
+use crate::ports::build_scheduler_port::{BuildExecutionPort, BuildExecutionRequest};
 
 /// One admitted build window: everything needed to open, execute, close.
 #[derive(Debug, Clone)]
@@ -109,7 +107,9 @@ fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::build_scheduler_port::BuildExecutionError;
+    use crate::ports::build_scheduler_port::{
+        BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
+    };
     use std::sync::atomic::{AtomicU32, Ordering};
 
     /// Stub execution port that records it was called and succeeds.

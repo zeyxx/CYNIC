@@ -5,15 +5,14 @@
 //! decide who assumes which role. Because the election is pure and the state
 //! is shared, every node converges to the same answer.
 
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::emergence::{
     EMERGENCE_STATE_SCHEMA, EmergenceDecision, EmergenceState, PeerState, elect_for_role,
-    health_score_from_os, should_assume_role,
+    health_score_from_os,
 };
-use cynic_protocol::local_autonomy::{AutonomyMode, RetainedCapabilities};
+use cynic_protocol::local_autonomy::AutonomyMode;
 use cynic_protocol::peer_resolver::PeerResolver;
 
 use crate::local_autonomy_runtime::LocalAutonomyRuntime;
@@ -26,8 +25,6 @@ pub struct EmergenceRuntime {
     registry_path: String,
     autonomy_runtime: LocalAutonomyRuntime,
     interval_secs: u64,
-    /// Last known state from each peer (gossiped).
-    peer_states: BTreeMap<String, PeerState>,
 }
 
 impl EmergenceRuntime {
@@ -40,7 +37,6 @@ impl EmergenceRuntime {
             registry_path: reg_path,
             autonomy_runtime: autonomy,
             interval_secs: 30,
-            peer_states: BTreeMap::new(),
         }
     }
 

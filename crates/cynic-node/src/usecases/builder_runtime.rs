@@ -19,7 +19,7 @@ pub struct BuilderRuntimeConfig {
     pub transport_uri: String,
 }
 
-pub fn builder_runtime_config_from(
+pub(crate) fn builder_runtime_config_from(
     node_config: &config::NodeControlConfig,
 ) -> BuilderRuntimeConfig {
     BuilderRuntimeConfig {

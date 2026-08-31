@@ -8,7 +8,7 @@ use cynic_protocol::CynicJudgment;
 /// The judgment surface report. Currently a single judgment with metadata
 /// about how it was produced.
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct JudgmentReport {
+pub(super) struct JudgmentReport {
     pub schema: String,
     pub digest: String,
     pub judgment: CynicJudgment,
@@ -16,7 +16,7 @@ pub struct JudgmentReport {
 }
 
 impl JudgmentReport {
-    pub fn new(judgment: CynicJudgment, observed_at_unix_s: u64) -> Self {
+    pub(super) fn new(judgment: CynicJudgment, observed_at_unix_s: u64) -> Self {
         let digest = judgment.digest().unwrap_or_default();
         Self {
             schema: "cynic.judgment_surface.report.v1".to_string(),

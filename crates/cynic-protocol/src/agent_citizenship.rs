@@ -87,7 +87,7 @@ pub struct AgentCitizenshipRecord {
 /// coordination contract. A store that cannot be read is *not* an implicit
 /// grant: the caller passes `store_available = false` and the mutation is
 /// refused with `AgentCoordinationStoreUnavailable`, never silently allowed.
-pub fn admit_mutation(
+pub fn admit_citizenship_mutation(
     record: &AgentCitizenshipRecord,
     held_claim: Option<&AgentScope>,
     requested: &AgentBudgets,
@@ -152,7 +152,7 @@ mod tests {
 
     #[test]
     fn claim_containing_target_is_admitted() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(50, 3600),
             Some(&AgentScope::Crate),
             &budgets(10, 600),
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn mutation_without_claim_is_refused() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(50, 3600),
             None,
             &budgets(1, 1),
@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn unavailable_store_refuses_even_with_valid_claim() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(50, 3600),
             Some(&AgentScope::Crate),
             &budgets(1, 1),
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn narrow_claim_cannot_mutate_broader_scope() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(50, 3600),
             Some(&AgentScope::File),
             &budgets(1, 1),
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn budget_amplification_is_refused() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(10, 60),
             Some(&AgentScope::Crate),
             &budgets(999, 999),
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn all_violated_contracts_are_reported_together() {
-        let admission = admit_mutation(
+        let admission = admit_citizenship_mutation(
             &record(1, 1),
             None,
             &budgets(999, 999),

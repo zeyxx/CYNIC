@@ -16,6 +16,6 @@ pub use probe::{
     parse_kernel_trap, parse_service_failed_line,
 };
 pub use types::{
-    CrashKind, EvidenceSource, ForensicEvidence, ForensicTimeline, PostMortemReport, ServiceLoop,
-    SocThresholds, TimelineEntry, FORENSIC_TIMELINE_SCHEMA, POST_MORTEM_REPORT_SCHEMA,
+    CrashKind, EvidenceSource, FORENSIC_TIMELINE_SCHEMA, ForensicEvidence, ForensicTimeline,
+    POST_MORTEM_REPORT_SCHEMA, PostMortemReport, ServiceLoop, SocThresholds, TimelineEntry,
 };

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, future::Future, path::PathBuf, time::Duration};
+use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
 use tokio_util::sync::CancellationToken;
 

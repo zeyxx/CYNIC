@@ -11,8 +11,6 @@
 
 use serde::Serialize;
 
-use std::path::Path;
-
 use crate::rust_source::{relative_path, rust_files_under, workspace_root};
 
 /// Crates searched after `cynic-protocol`, in priority order. Protocol hits are

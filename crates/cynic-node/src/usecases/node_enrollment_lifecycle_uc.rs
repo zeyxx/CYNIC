@@ -17,7 +17,7 @@ pub fn enrollment_renewal_due(expires_at_unix_s: u64, now_unix_s: u64, window_se
     expires_at_unix_s.saturating_sub(now_unix_s) <= window_secs
 }
 
-pub(crate) async fn run_enrollment_renewal_loop(
+pub async fn run_enrollment_renewal_loop(
     adapter: HttpNodeControlAdapter,
     reader: LocalNodeEnrollmentReader,
     config: NodeControlConfig,
@@ -48,16 +48,16 @@ pub(crate) async fn run_enrollment_renewal_loop(
                 let (Some(grant_id), Some(generation)) = (read_back.grant_id, read_back.generation) else {
                     continue;
                 };
-                match adapter.renew_enrollment(
-                    &config.node_id,
-                    &config.enrollment_role,
-                    &config.enrollment_seed_id,
-                    read_back.granted_capabilities,
-                    config.enrollment_request_ttl_secs,
-                    &grant_id,
-                    generation,
-                    &config.enrollment_grant_path,
-                ).await {
+                match adapter.renew_enrollment(crate::adapters::http_node_control::RenewEnrollmentParams {
+                    node_id: &config.node_id,
+                    role: &config.enrollment_role,
+                    seed_id: &config.enrollment_seed_id,
+                    requested_capabilities: read_back.granted_capabilities,
+                    request_ttl_secs: config.enrollment_request_ttl_secs,
+                    current_grant_id: &grant_id,
+                    expected_generation: generation,
+                    bundle_path: &config.enrollment_grant_path,
+                }).await {
                     Ok(()) => tracing::info!(node_id = %config.node_id, generation = generation + 1, "machine enrollment renewed and read back"),
                     Err(error) => tracing::warn!(node_id = %config.node_id, %error, "machine enrollment renewal failed"),
                 }

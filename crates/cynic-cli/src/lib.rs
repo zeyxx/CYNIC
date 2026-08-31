@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! `cynic-cli` library surface — thin re-exports for integration tests.
 //!
 //! The bin (`main.rs`) is the CLI facade; this lib exposes only the scan

@@ -1,12 +1,10 @@
 //! Registry persistence — I/O operations with atomic write and read-back proof
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::registry::scan::{ScanError, load_registry, resolve_registry_path};
-use crate::registry::types::{
-    RegistryDocument, ResolvedDirectManagementLink, ResolvedHostIdentity,
-};
+use crate::registry::types::RegistryDocument;
 use crate::registry::validate::{ValidationError, validate_registry_or_error};
 
 /// Persistence error
@@ -289,13 +287,7 @@ pub fn load_and_validate_registry(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::types::{
-        RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
-        RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
-        RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
-    };
-    use std::collections::BTreeMap;
+    use crate::registry::types::{RegistryDocument, RegistryNode};
     use tempfile::NamedTempFile;
 
     fn minimal_doc() -> RegistryDocument {

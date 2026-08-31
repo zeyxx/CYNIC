@@ -3,8 +3,8 @@ use crate::forgejo_token::{
     LocalForgejoTokenApiAdapter,
 };
 use cynic_protocol::{
-    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoDesiredState,
-    ForgejoObservedState, ForgejoPlan, NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
+    FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoDesiredState, ForgejoObservedState, ForgejoPlan,
+    NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
     SecurityEvidenceState as ForgejoEvidenceState, plan_forgejo_convergence,
 };
 
@@ -232,7 +232,9 @@ pub fn current_forgejo_token_status()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
+    use cynic_protocol::{
+        FORGEJO_TOKEN_OBSERVATION_SCHEMA, SecurityEvidenceState as ForgejoEvidenceState,
+    };
 
     #[derive(Debug)]
     struct FixedTokenPort(ForgejoTokenObservation);

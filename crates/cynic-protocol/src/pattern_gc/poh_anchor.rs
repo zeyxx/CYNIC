@@ -9,7 +9,6 @@
 //! Pure assembly here: the caller supplies a `ProofOfHistoryStorage` port.
 
 use crate::digest::{SHA3_PREFIX, digest_bytes};
-use crate::evidence_journal::EvidenceJournalEntry;
 
 /// Anchor payload for one sealed pattern model.
 #[derive(Debug, Clone)]

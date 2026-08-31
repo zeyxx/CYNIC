@@ -9,7 +9,7 @@ use crate::AgentBudgets;
 use crate::AgentCitizenshipRecord;
 use crate::AgentScope;
 use crate::MutationAdmission;
-use crate::agent_citizenship::admit_mutation;
+use crate::agent_citizenship::admit_citizenship_mutation;
 use crate::error_catalog::CynicErrorCode;
 
 /// Build admission gate.
@@ -28,7 +28,8 @@ pub fn admit_build_mutation(
     required_role: &str,
     requested_role: &str,
 ) -> MutationAdmission {
-    let admission = admit_mutation(record, held_claim, requested, target_scope, store_available);
+    let admission =
+        admit_citizenship_mutation(record, held_claim, requested, target_scope, store_available);
     if !admission.is_admitted() {
         return admission;
     }
@@ -61,7 +62,8 @@ pub fn admit_workload_mutation(
     workload_claim_expires_at_ms: Option<u64>,
     now_ms: u64,
 ) -> MutationAdmission {
-    let admission = admit_mutation(record, held_claim, requested, target_scope, store_available);
+    let admission =
+        admit_citizenship_mutation(record, held_claim, requested, target_scope, store_available);
     if !admission.is_admitted() {
         return admission;
     }

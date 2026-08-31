@@ -10,7 +10,6 @@ use crate::domain::network::{
     parse_route_from_json, parse_usage_from_dev,
 };
 use crate::update_lifecycle::ArgvRunner;
-use serde_json::Value;
 
 pub struct RemoteNetworkAdapter<R: ArgvRunner> {
     runner: R,

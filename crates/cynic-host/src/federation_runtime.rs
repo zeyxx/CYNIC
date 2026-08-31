@@ -14,7 +14,7 @@ use cynic_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_protocol::node_control::NodeControlPlan;
-use cynic_protocol::peer_resolver::{PeerEndpoint, PeerResolver};
+use cynic_protocol::peer_resolver::PeerResolver;
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 
 /// Port: observe kernel reachability and lease status.

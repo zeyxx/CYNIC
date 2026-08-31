@@ -1,7 +1,6 @@
 //! Registry validation — pure functions, no I/O
 
-use crate::domain::services::ServiceManagerKind;
-use crate::registry::types::{RegistryDocument, RegistryNetworkLink, RegistryNode};
+use crate::registry::types::{RegistryDocument, RegistryNetworkLink};
 
 /// Validation error with context
 #[derive(Debug, thiserror::Error)]
@@ -243,11 +242,8 @@ mod tests {
     use super::*;
     use crate::registry::types::{
         RegistryDocument, RegistryFleetDesired, RegistryFleetTarget, RegistryKernelRelease,
-        RegistryLifecycle, RegistryNetworkLink, RegistryNetworkPlane, RegistryNetworkPolicy,
-        RegistryNode, RegistryNodeService, RegistryNodeTransports, RegistryServiceHealth,
-        RegistryServiceSupervisor, RegistrySshEnrollmentAuthority, RegistrySshTransport,
+        RegistryLifecycle, RegistryNode,
     };
-    use std::collections::BTreeMap;
 
     fn minimal_node(name: &str) -> RegistryNode {
         RegistryNode {

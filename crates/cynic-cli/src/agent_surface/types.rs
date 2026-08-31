@@ -6,14 +6,14 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
-pub const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
-pub const AGENT_STATUS_REPORT_SCHEMA: &str = "cynic.cli.agent_status_report.v1";
-pub const AGENT_IDENTIFY_REPORT_SCHEMA: &str = "cynic.cli.agent_identify_report.v1";
+pub(crate) const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
+pub(crate) const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
+pub(crate) const AGENT_STATUS_REPORT_SCHEMA: &str = "cynic.cli.agent_status_report.v1";
+pub(crate) const AGENT_IDENTIFY_REPORT_SCHEMA: &str = "cynic.cli.agent_identify_report.v1";
 
 /// Report emitted after a successful claim.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentClaimReport {
+pub(crate) struct AgentClaimReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub agent_id: String,
@@ -30,7 +30,7 @@ pub struct AgentClaimReport {
 
 /// Report emitted after a successful release.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentReleaseReport {
+pub(crate) struct AgentReleaseReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub agent_id: String,
@@ -42,7 +42,7 @@ pub struct AgentReleaseReport {
 
 /// Report emitted by status query.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentStatusReport {
+pub(crate) struct AgentStatusReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub agent_id: String,
@@ -52,7 +52,7 @@ pub struct AgentStatusReport {
 
 /// Summary of a single active claim.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentClaimSummary {
+pub(crate) struct AgentClaimSummary {
     pub claim_id: String,
     pub target: String,
     pub claim_type: String,
@@ -63,7 +63,7 @@ pub struct AgentClaimSummary {
 
 /// Report emitted after identity declaration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentIdentifyReport {
+pub(crate) struct AgentIdentifyReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub agent_id: String,

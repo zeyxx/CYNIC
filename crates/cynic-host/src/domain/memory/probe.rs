@@ -49,7 +49,7 @@ pub fn parse_meminfo(text: &str) -> Result<MemoryReport, String> {
         free_bytes: free,
         available_bytes: available,
         used_bytes: mem_used,
-        reclaimable_bytes: 0,
+        reclaimable_bytes: reclaimable,
     };
     let volume = MemoryVolume {
         page_size_bytes: 4096,

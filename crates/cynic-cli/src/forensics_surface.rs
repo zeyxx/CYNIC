@@ -79,10 +79,13 @@ fn resolve_previous_boot_id() -> String {
     "unknown".to_string()
 }
 
-fn execute_evidence(adapter: &LocalForensicAdapter, json: bool, boot_id: Option<String>) -> ExitCode {
+fn execute_evidence(
+    adapter: &LocalForensicAdapter,
+    json: bool,
+    boot_id: Option<String>,
+) -> ExitCode {
     let boot_id = boot_id.unwrap_or_else(|| {
-        LocalForensicAdapter::read_current_boot_id()
-            .unwrap_or_else(|| "unknown".to_string())
+        LocalForensicAdapter::read_current_boot_id().unwrap_or_else(|| "unknown".to_string())
     });
     match adapter.collect_evidence(&boot_id) {
         Ok(evidence) => {
@@ -98,7 +101,12 @@ fn execute_evidence(adapter: &LocalForensicAdapter, json: bool, boot_id: Option<
                 println!("Forensic evidence for boot: {}", boot_id);
                 println!("Found {} evidence items:", evidence.len());
                 for (i, e) in evidence.iter().enumerate() {
-                    println!("  [{}] {} — severity={}", i + 1, e.kind.as_str(), e.severity);
+                    println!(
+                        "  [{}] {} — severity={}",
+                        i + 1,
+                        e.kind.as_str(),
+                        e.severity
+                    );
                     println!("      {}", e.snippet.trim());
                 }
                 ExitCode::SUCCESS
@@ -120,7 +128,11 @@ fn execute_timeline(adapter: &LocalForensicAdapter, boot_id: &str, json: bool) -
                 println!("Timeline for boot: {}", boot_id);
                 println!("{} entries:", timeline.entries.len());
                 for entry in &timeline.entries {
-                    println!("  [{:>6.1}s] {}", entry.offset_secs, entry.evidence.snippet.trim());
+                    println!(
+                        "  [{:>6.1}s] {}",
+                        entry.offset_secs,
+                        entry.evidence.snippet.trim()
+                    );
                 }
                 ExitCode::SUCCESS
             }
@@ -132,7 +144,11 @@ fn execute_timeline(adapter: &LocalForensicAdapter, boot_id: &str, json: bool) -
     }
 }
 
-fn execute_post_mortem(adapter: &LocalForensicAdapter, boot_id: Option<String>, json: bool) -> ExitCode {
+fn execute_post_mortem(
+    adapter: &LocalForensicAdapter,
+    boot_id: Option<String>,
+    json: bool,
+) -> ExitCode {
     let boot_id = boot_id.unwrap_or_else(resolve_previous_boot_id);
     match adapter.post_mortem(&boot_id) {
         Ok(report) => {
@@ -177,7 +193,12 @@ fn execute_status(adapter: &LocalForensicAdapter, json: bool) -> ExitCode {
             println!("  Current boot: {}", boot);
         }
         if let Some(secs) = uptime {
-            println!("  Uptime: {}h {}m {}s", secs / 3600, (secs % 3600) / 60, secs % 60);
+            println!(
+                "  Uptime: {}h {}m {}s",
+                secs / 3600,
+                (secs % 3600) / 60,
+                secs % 60
+            );
         }
         println!("  Failed services: {}", failed_services.len());
         ExitCode::SUCCESS
@@ -202,7 +223,11 @@ fn execute_services(adapter: &LocalForensicAdapter, json: bool, min_rate: f64) -
                 crate::cli_json::emit_pretty_json(&payload)
             } else {
                 println!("Service loops (min rate: {:.0}/h):", min_rate);
-                println!("{} of {} loops exceed threshold:", filtered.len(), loops.len());
+                println!(
+                    "{} of {} loops exceed threshold:",
+                    filtered.len(),
+                    loops.len()
+                );
                 for l in &filtered {
                     println!("  {} — {:.0} restarts/h", l.unit, l.rate_per_hour());
                 }

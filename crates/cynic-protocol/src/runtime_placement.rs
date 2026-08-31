@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn kernel_identity_checkpoint_binds_to_declared_placement() {
-        let (registry, placement) = sample_registry_and_placement();
+        let (_registry, placement) = sample_registry_and_placement();
         let checkpoint: serde_json::Value = serde_json::from_str(include_str!(
             "../../../infra/runtime-checkpoints/2026-08-04-kernel-vm-v2-identity.json"
         ))

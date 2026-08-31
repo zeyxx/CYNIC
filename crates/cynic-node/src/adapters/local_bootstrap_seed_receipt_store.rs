@@ -8,10 +8,8 @@
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
-
-use crate::usecases::bootstrap_seed_uc::BOOTSTRAP_SEED_RECEIPT_SCHEMA;
 
 #[derive(Debug)]
 pub struct LocalBootstrapSeedReceiptStore {
@@ -85,12 +83,6 @@ impl LocalBootstrapSeedReceiptStore {
             Err(error) => Err(format!("bootstrap_seed_receipt_read_failed:{error}")),
         }
     }
-}
-
-pub(crate) const RECEIPT_SCHEMA_MARKER: &str = BOOTSTRAP_SEED_RECEIPT_SCHEMA;
-
-fn _schema_marker_reference() -> &'static str {
-    RECEIPT_SCHEMA_MARKER
 }
 
 #[cfg(test)]

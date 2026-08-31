@@ -6,7 +6,7 @@ use cynic_protocol::CynicJudgment;
 use cynic_protocol::judgment::{CynefinDomain, DijkwLayer, SagePhase};
 
 /// Render a human-readable summary of the judgment.
-pub fn render_judgment(j: &CynicJudgment) -> String {
+pub(super) fn render_judgment(j: &CynicJudgment) -> String {
     let actionable = if j.is_actionable() { "YES" } else { "NO" };
 
     let unknowns = if j.residual_unknowns.is_empty() {

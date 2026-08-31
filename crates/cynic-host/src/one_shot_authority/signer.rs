@@ -138,7 +138,6 @@ impl CapabilitySigningPort for LocalCapabilitySigningKey {
 mod tests {
     use super::*;
     use crate::one_shot_authority::OneShotCapabilityAuthorityPort;
-    use ed25519_dalek::Signer;
 
     fn fixture_capability(signing_key: &SigningKey) -> OneShotCapability {
         let action_digest = cynic_protocol::build_runner_bootstrap_action_digest("make:build")

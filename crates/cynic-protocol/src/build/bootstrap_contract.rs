@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn contract_rejects_subject_mismatch() {
-        let mut enr = enrollment("cynic-builder");
+        let enr = enrollment("cynic-builder");
         let mut cap = capability(&enr);
         cap.subject = "node-key:sha256:WRONG".to_string();
         let contract = BuildRunnerBootstrapAdmissionContract {

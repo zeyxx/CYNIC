@@ -434,7 +434,7 @@ pub(crate) enum RuntimeCommand {
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
-pub enum ForgejoTokenMode {
+pub(crate) enum ForgejoTokenMode {
     Status,
     Create,
     Rotate,
@@ -578,12 +578,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
         | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
-        RuntimeCommand::ForgejoToken {
-            mode,
-            json,
-            yes,
-            token_path,
-        } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path),
         RuntimeCommand::Harness { json, kind } => {
             // This arm used to sit in the `unreachable!("pre-dispatched runtime
             // command")` group, but nothing ever pre-dispatched it: no early

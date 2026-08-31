@@ -75,10 +75,6 @@ pub(crate) fn execute_transport_run(
         blockers: Vec::new(),
     };
 
-    let positional: Vec<&String> = args_slice
-        .iter()
-        .filter(|arg| !arg.starts_with("--"))
-        .collect();
     // Shape: transport-run --capability <id> [--param name=value]... [--apply]
     //        [--policy <path>] [--registry <path>] [name=value ...]
     let Some(capability_id) = args::flag_value(args_slice, "--capability") else {

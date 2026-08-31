@@ -44,7 +44,7 @@ fn load_or_create_incarnation(control: &config::NodeControlConfig) -> Result<Str
         .ok_or_else(|| "node incarnation digest missing after read-back".to_string())
 }
 
-pub(crate) async fn start_tasks(
+pub async fn start_tasks(
     control: config::NodeControlConfig,
     shutdown: CancellationToken,
 ) -> Result<Vec<tokio::task::JoinHandle<()>>, String> {
@@ -67,14 +67,16 @@ pub(crate) async fn start_tasks(
     {
         match adapter
             .bootstrap_enrollment(
-                &control.node_id,
-                &control.enrollment_role,
-                &control.enrollment_seed_id,
-                control.enrollment_requested_capabilities.clone(),
-                control.enrollment_request_ttl_secs,
-                &control.enrollment_token_path,
-                &control.enrollment_request_path,
-                &control.enrollment_grant_path,
+                crate::adapters::http_node_control::BootstrapEnrollmentParams {
+                    node_id: &control.node_id,
+                    role: &control.enrollment_role,
+                    seed_id: &control.enrollment_seed_id,
+                    requested_capabilities: control.enrollment_requested_capabilities.clone(),
+                    request_ttl_secs: control.enrollment_request_ttl_secs,
+                    token_path: &control.enrollment_token_path,
+                    request_path: &control.enrollment_request_path,
+                    grant_path: &control.enrollment_grant_path,
+                },
             )
             .await
         {
@@ -198,7 +200,7 @@ pub(crate) async fn start_tasks(
     let scheduler_control = control.clone();
     let scheduler_shutdown = shutdown.clone();
     let renewal_task = tokio::spawn(
-        crate::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
+        crate::usecases::node_enrollment_lifecycle_uc::run_enrollment_renewal_loop(
             adapter,
             enrollment_reader,
             control.clone(),
@@ -256,7 +258,7 @@ pub(crate) async fn start_tasks(
     // The HTTP ingress and scheduler must consume the same activation decision:
     // a declared role alone is not authority to expose either surface.
     if builder_activation.starts_scheduler {
-        tasks.push(tokio::spawn(crate::build_scheduler::run_loop(
+        tasks.push(tokio::spawn(crate::usecases::build_scheduler::run_loop(
             scheduler_control.clone(),
             scheduler_shutdown,
         )));
@@ -297,7 +299,7 @@ pub(crate) async fn start_tasks(
     Ok(tasks)
 }
 
-pub(crate) async fn run(config_path: &str, check: bool) -> ExitCode {
+pub async fn run(config_path: &str, check: bool) -> ExitCode {
     let control = match config::load_node_control(config_path) {
         Ok(control) => control,
         Err(error) => {

@@ -35,7 +35,6 @@ const QUARANTINED: &[&str] = &[
     "fleet_inference/types.rs",
     "hardening.rs",
     "runtime/degradation.rs",
-    "runtime_placement.rs",
     "source_change_submission.rs",
 ];
 

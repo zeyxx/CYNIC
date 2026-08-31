@@ -10,7 +10,7 @@ use crate::domain::memory::port::MemoryObservationError;
 use crate::domain::memory::{
     MemoryObservationPort, parse_meminfo, parse_pressure_memory, types::MemoryReport,
 };
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use crate::update_lifecycle::ArgvRunner;
 
 pub struct RemoteMemoryAdapter<R: ArgvRunner> {
     runner: R,

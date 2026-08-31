@@ -131,7 +131,7 @@ pub fn evaluate_convergence_strategy(
     let mut compute_cost = 0;
     let mut decisions = Vec::new();
 
-    let mut current_main_sha = scenario.main_head_sha.clone();
+    let mut current_main_sha;
     let mut current_main_height = scenario.main_commit_height;
 
     // Track active semantic breaks on main

@@ -8,8 +8,7 @@ use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::local_autonomy::{
-    AutonomyDecision, AutonomyMode, AutonomyObservation, LOCAL_AUTONOMY_STATE_SCHEMA,
-    decide_autonomy,
+    AutonomyDecision, AutonomyObservation, LOCAL_AUTONOMY_STATE_SCHEMA, decide_autonomy,
 };
 use cynic_protocol::peer_resolver::PeerResolver;
 
@@ -126,6 +125,7 @@ impl LocalAutonomyRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::local_autonomy::AutonomyMode;
 
     #[test]
     fn tick_returns_decision() {

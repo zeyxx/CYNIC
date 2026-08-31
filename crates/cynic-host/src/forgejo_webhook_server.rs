@@ -6,7 +6,6 @@
 //! No external HTTP dependency — uses std::net::TcpListener for a minimal
 //! HTTP 1.0 server sufficient for Forgejo webhook delivery.
 
-use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread;

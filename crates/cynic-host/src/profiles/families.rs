@@ -1,4 +1,4 @@
-use crate::domain::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
+use crate::domain::package_provenance::PackagePromotionPolicy;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
@@ -81,7 +81,7 @@ impl HostFamilyProfile {
         }
     }
     pub fn windows_service() -> Self {
-        let layout = current_runtime_layout();
+        let _layout = current_runtime_layout();
         Self {
             kind: HostFamilyKind::WindowsService,
             config_dir: std::env::var("CYNIC_CONFIG_DIR")

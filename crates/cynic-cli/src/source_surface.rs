@@ -148,6 +148,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         root,
         workspace_store,
         "cynic",
+        "local",
         &cynic_host::source_worktree_inventory::LocalSourceWorktreeInventoryRunner,
     );
 

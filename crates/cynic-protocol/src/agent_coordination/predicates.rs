@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn budget_within_granted_tracks_consumed() {
-        let mut claim = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
+        let claim = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
         assert!(budget_within_granted(&claim));
         let claim = claim.record_consumption(&AgentBudgets {
             actions: 100,

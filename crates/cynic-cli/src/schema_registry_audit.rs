@@ -112,7 +112,7 @@ impl SchemaScan {
                     continue;
                 };
                 let rel = relative_path(&crate_src, &file);
-                let (production, tests) = split_production_and_tests(&content);
+                let (production, _tests) = split_production_and_tests(&content);
                 let rel_path = format!("{crate_name}/{rel}");
                 for schema_id in extract_schema_ids(production) {
                     let entry = scan.by_schema_prod.entry(schema_id.clone()).or_default();

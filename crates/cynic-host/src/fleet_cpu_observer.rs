@@ -12,8 +12,6 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-
 use crate::adapters::local_cpu::LocalCpuAdapter;
 use crate::adapters::remote_cpu::RemoteCpuAdapter;
 use crate::domain::cpu::port::CpuObservationPort;
@@ -54,11 +52,6 @@ impl<R: ArgvRunner> FleetCpuObserver<R> {
         self.ssh_target_template.replace("{ip}", ip)
     }
 
-    fn now_isoh() -> Option<String> {
-        let ts: DateTime<Utc> = DateTime::from(std::time::SystemTime::now());
-        Some(ts.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-    }
-
     fn local_node(declared_ip: &str) -> FleetCpuNode {
         let adapter = LocalCpuAdapter::new();
         match adapter.observe_cpu() {
@@ -90,7 +83,7 @@ impl<R: ArgvRunner> FleetCpuObserver<R> {
         let discovery = FleetDiscoveryAdapter::new(&self.registry_path).discover();
         let hostname = observed_hostname();
         let mut nodes: Vec<FleetCpuNode> = Vec::with_capacity(discovery.nodes.len());
-        let mut residual_unknowns: Vec<String> = discovery.residual_unknowns.clone();
+        let residual_unknowns: Vec<String> = discovery.residual_unknowns.clone();
         let mut observed_nodes = 0usize;
         let mut failed_nodes = 0usize;
 

@@ -20,86 +20,85 @@ pub(crate) struct Config {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct NodeControlConfig {
-    pub(crate) kernel_url: String,
-    pub(crate) node_id: String,
-    pub(crate) signing_key_path: PathBuf,
-    pub(crate) enrollment_request_path: PathBuf,
-    pub(crate) enrollment_grant_path: PathBuf,
-    pub(crate) enrollment_authority_public_key_path: PathBuf,
-    pub(crate) enrollment_token_path: PathBuf,
-    pub(crate) enrollment_seed_id: String,
-    pub(crate) enrollment_role: String,
+pub struct NodeControlConfig {
+    pub kernel_url: String,
+    pub node_id: String,
+    pub signing_key_path: PathBuf,
+    pub enrollment_request_path: PathBuf,
+    pub enrollment_grant_path: PathBuf,
+    pub enrollment_authority_public_key_path: PathBuf,
+    pub enrollment_token_path: PathBuf,
+    pub enrollment_seed_id: String,
+    pub enrollment_role: String,
     #[serde(default = "defaults::default_agent_workload_state_root")]
-    pub(crate) agent_workload_state_root: PathBuf,
+    pub agent_workload_state_root: PathBuf,
     #[serde(default = "defaults::default_runtime_artifact_inbox_root")]
-    pub(crate) runtime_artifact_inbox_root: PathBuf,
+    pub runtime_artifact_inbox_root: PathBuf,
     #[serde(default = "defaults::default_runtime_artifact_max_bytes")]
-    pub(crate) runtime_artifact_max_bytes: u64,
+    pub runtime_artifact_max_bytes: u64,
     #[serde(default = "defaults::default_runtime_artifact_timeout_secs")]
-    pub(crate) runtime_artifact_timeout_secs: u64,
+    pub runtime_artifact_timeout_secs: u64,
     #[serde(default)]
-    pub(crate) enrollment_requested_capabilities: Vec<String>,
+    pub enrollment_requested_capabilities: Vec<String>,
     #[serde(default = "defaults::default_enrollment_request_ttl_secs")]
-    pub(crate) enrollment_request_ttl_secs: u64,
+    pub enrollment_request_ttl_secs: u64,
     #[serde(default = "defaults::default_enrollment_renewal_window_secs")]
-    pub(crate) enrollment_renewal_window_secs: u64,
+    pub enrollment_renewal_window_secs: u64,
     #[serde(default = "defaults::default_node_control_interval_secs")]
-    pub(crate) interval_secs: u64,
+    pub interval_secs: u64,
     #[serde(default = "defaults::default_node_control_timeout_secs")]
-    pub(crate) timeout_secs: u64,
+    pub timeout_secs: u64,
     #[serde(default = "defaults::default_workload_delivery_lease_ttl_secs")]
-    pub(crate) workload_delivery_lease_ttl_secs: u64,
+    pub workload_delivery_lease_ttl_secs: u64,
     #[serde(default)]
-    pub(crate) observed_capabilities: Vec<String>,
+    pub observed_capabilities: Vec<String>,
     #[serde(default)]
-    pub(crate) observed_services: Vec<String>,
+    pub observed_services: Vec<String>,
     #[serde(default = "defaults::default_runtime_registry_path")]
-    pub(crate) registry_path: std::path::PathBuf,
+    pub registry_path: std::path::PathBuf,
     #[serde(default)]
-    pub(crate) build_scheduler: Option<BuildSchedulerConfig>,
+    pub build_scheduler: Option<BuildSchedulerConfig>,
     #[serde(default = "defaults::default_builder_listen_addr")]
-    pub(crate) builder_listen_addr: std::net::SocketAddr,
+    pub builder_listen_addr: std::net::SocketAddr,
     #[serde(default = "defaults::default_workspace_root")]
-    pub(crate) workspace_root: PathBuf,
+    pub workspace_root: PathBuf,
     /// Membership tick policy thresholds (L3, D4). Defaults align with
     /// protocols/machine-enrollment-federation.md D3.
     #[serde(default = "defaults::default_membership_interval_secs")]
-    pub(crate) membership_interval_secs: u64,
+    pub membership_interval_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct BuildSchedulerConfig {
+pub struct BuildSchedulerConfig {
     #[serde(default = "defaults::default_runtime_registry_path")]
-    pub(crate) registry_path: PathBuf,
+    pub registry_path: PathBuf,
     #[serde(default = "defaults::default_build_repository_id")]
-    pub(crate) repository_id: String,
+    pub repository_id: String,
     #[serde(default = "defaults::default_build_scheduler_interval_secs")]
-    pub(crate) interval_secs: u64,
+    pub interval_secs: u64,
     #[serde(default = "defaults::default_build_claim_ttl_secs")]
-    pub(crate) claim_ttl_secs: u64,
+    pub claim_ttl_secs: u64,
     #[serde(default = "defaults::default_build_command_timeout_secs")]
-    pub(crate) command_timeout_secs: u64,
+    pub command_timeout_secs: u64,
     #[serde(default)]
-    pub(crate) release_publication: Option<ReleasePublicationConfig>,
+    pub release_publication: Option<ReleasePublicationConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct ReleasePublicationConfig {
-    pub(crate) artifact_base_url: String,
-    pub(crate) authentication_kind: String,
-    pub(crate) work_root: PathBuf,
-    pub(crate) signing_key_path: PathBuf,
-    pub(crate) credential_path: PathBuf,
-    pub(crate) signer_identity: String,
+pub struct ReleasePublicationConfig {
+    pub artifact_base_url: String,
+    pub authentication_kind: String,
+    pub work_root: PathBuf,
+    pub signing_key_path: PathBuf,
+    pub credential_path: PathBuf,
+    pub signer_identity: String,
     #[serde(default = "defaults::default_release_signature_namespace")]
-    pub(crate) signature_namespace: String,
+    pub signature_namespace: String,
     #[serde(default = "defaults::default_release_publication_max_bytes")]
-    pub(crate) max_bytes: u64,
+    pub max_bytes: u64,
     #[serde(default = "defaults::default_release_publication_timeout_secs")]
-    pub(crate) timeout_secs: u64,
+    pub timeout_secs: u64,
 }
-
 #[derive(Debug, Deserialize)]
 pub(crate) struct NodeControlRuntimeConfig {
     pub(crate) node_control: NodeControlConfig,

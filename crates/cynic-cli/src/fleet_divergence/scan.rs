@@ -151,7 +151,7 @@ pub(crate) fn extract_seed_views(
     Ok(Some(views))
 }
 
-/// Names the registry publishes as DNS records, for consistency auditing.
+#[allow(dead_code)]
 pub(crate) fn extract_published_names(registry_path: &Path) -> Result<Vec<String>, String> {
     let raw = fs::read_to_string(registry_path)
         .map_err(|error| format!("cannot read registry: {error}"))?;

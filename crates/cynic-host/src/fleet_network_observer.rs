@@ -11,11 +11,8 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-
 use crate::adapters::local_network::LocalNetworkAdapter;
 use crate::adapters::remote_network::RemoteNetworkAdapter;
-use crate::domain::network::NetworkObservationPort;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
@@ -75,7 +72,7 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
         let discovery = FleetDiscoveryAdapter::new(&self.registry_path).discover();
         let hostname = observed_hostname();
         let mut nodes = Vec::with_capacity(discovery.nodes.len());
-        let mut residual_unknowns = discovery.residual_unknowns.clone();
+        let residual_unknowns = discovery.residual_unknowns.clone();
         let mut observed_nodes = 0usize;
         let mut failed_nodes = 0usize;
 
@@ -156,8 +153,6 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
 mod tests {
     use super::*;
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
-
-    const SAMPLE_DEV: &str = "Inter | Receive |  ...\n face |bytes ...\n  eth0: 1234 ...\n";
 
     fn registry_json(ip: &str) -> String {
         format!(

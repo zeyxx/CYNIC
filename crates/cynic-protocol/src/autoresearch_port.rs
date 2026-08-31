@@ -170,6 +170,7 @@ pub struct GatedLoopOutcome {
 
 /// Deterministic fake reflection adapter for tests. Holds fixed observations and
 /// hypotheses so the loop + policy can be proven without any LLM or corpus file.
+#[derive(Debug, Clone, Default)]
 pub struct FakeReflection {
     pub units: Vec<TraceUnit>,
     pub hypotheses: Vec<SkillHypothesis>,
@@ -229,7 +230,7 @@ mod tests {
                 is_block: true,
             },
         ];
-        let mut h_dup = SkillHypothesis::new("cynic-x", "toolchain_ice", "duplicate stub");
+        let h_dup = SkillHypothesis::new("cynic-x", "toolchain_ice", "duplicate stub");
         let mut h_new = SkillHypothesis::new("cynic-y", "novel_domain", "new actionable skill");
         h_new.actionability = true;
         FakeReflection::new(units, vec![h_dup, h_new])
@@ -298,7 +299,7 @@ mod tests {
 
     #[test]
     fn gated_loop_skips_fading_and_unknown_domains_before_evaluation() {
-        use crate::autoresearch::{EmergenceDirective, FadingPolicy, emergence_directive};
+        use crate::autoresearch::{FadingPolicy, emergence_directive};
         use crate::pattern_gc::PatternClass;
         use std::collections::BTreeMap;
 

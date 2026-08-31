@@ -19,9 +19,9 @@
 
 pub mod adapters;
 mod build_attestation;
-mod builder_activation;
+pub mod builder_activation;
 mod cli;
-mod config;
+pub mod config;
 mod dns_activation;
 mod dns_activation_status;
 mod dns_bundle;
@@ -50,10 +50,12 @@ mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
+pub mod node_control_runtime;
 mod observe;
 pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
+pub mod shutdown;
 pub(crate) mod source_change_transaction;
 pub mod usecases;
 pub mod verify;

@@ -8,7 +8,7 @@ use super::types::{
     ExecutedActionReceipt, SOURCE_WORKTREE_APPLY_PROOF_SCHEMA, WorktreeConvergenceAction,
     WorktreeConvergenceApplyProof, WorktreeConvergencePlan,
 };
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner, LocalArgvRunner};
+use crate::update_lifecycle::ArgvRunner;
 
 /// Executes a convergence plan and returns structured read-back proof.
 pub fn apply_worktree_convergence<R: ArgvRunner>(
@@ -45,12 +45,16 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
                 target_commit_sha,
                 ..
             } => {
-                let out = runner.run(
-                    &plan.repository_root,
+                let root_str = plan.repository_root.to_string_lossy();
+                let out = runner.run(&[
                     "git",
-                    &["merge", "--ff-only", target_commit_sha],
-                );
-                let success = out.status == 0;
+                    "-C",
+                    &root_str,
+                    "merge",
+                    "--ff-only",
+                    target_commit_sha,
+                ]);
+                let success = out.success();
                 if !success {
                     all_successful = false;
                 }
@@ -72,13 +76,12 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
                 branch,
                 ..
             } => {
+                let root_str = plan.repository_root.to_string_lossy();
                 let path_str = workspace_path.to_string_lossy();
-                let out = runner.run(
-                    &plan.repository_root,
-                    "git",
-                    &["worktree", "remove", "--force", &path_str],
-                );
-                let success = out.status == 0;
+                let out = runner.run(&[
+                    "git", "-C", &root_str, "worktree", "remove", "--force", &path_str,
+                ]);
+                let success = out.success();
                 receipts.push(ExecutedActionReceipt {
                     action_name: "PruneZombieWorkspace",
                     target_branch: branch.clone(),
@@ -94,8 +97,9 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
                 workspace_path,
                 ..
             } => {
-                let out = runner.run(workspace_path, "git", &["rebase", onto_main_sha]);
-                let success = out.status == 0;
+                let ws_str = workspace_path.to_string_lossy();
+                let out = runner.run(&["git", "-C", &ws_str, "rebase", onto_main_sha]);
+                let success = out.success();
                 if !success {
                     all_successful = false;
                 }
@@ -175,8 +179,9 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
 }
 
 fn read_git_rev_parse<R: ArgvRunner>(root: &Path, rev: &str, runner: &R) -> Option<String> {
-    let out = runner.run(root, "git", &["rev-parse", rev]);
-    if out.status == 0 {
+    let root_str = root.to_string_lossy();
+    let out = runner.run(&["git", "-C", &root_str, "rev-parse", rev]);
+    if out.success() {
         let sha = out.stdout.trim().to_string();
         if !sha.is_empty() {
             return Some(sha);

@@ -1,27 +1,25 @@
 use cynic_protocol::{NodeExecutionMode, NodeExecutionSurface, node_execution_mode_allows};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BuilderActivationInput {
-    pub(crate) build_scheduler_configured: bool,
-    pub(crate) role_is_build_runner: bool,
-    pub(crate) enrollment_proven: bool,
-    pub(crate) scheduler_capabilities_proven: bool,
-    pub(crate) signing_key_present: bool,
-    pub(crate) durable_grant_present: bool,
-    pub(crate) runtime_registry_present: bool,
-    pub(crate) execution_mode: NodeExecutionMode,
+pub struct BuilderActivationInput {
+    pub build_scheduler_configured: bool,
+    pub role_is_build_runner: bool,
+    pub enrollment_proven: bool,
+    pub scheduler_capabilities_proven: bool,
+    pub signing_key_present: bool,
+    pub durable_grant_present: bool,
+    pub runtime_registry_present: bool,
+    pub execution_mode: NodeExecutionMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BuilderActivationDecision {
-    pub(crate) starts_scheduler: bool,
-    pub(crate) starts_builder_http: bool,
-    pub(crate) blockers: Vec<&'static str>,
+pub struct BuilderActivationDecision {
+    pub starts_scheduler: bool,
+    pub starts_builder_http: bool,
+    pub blockers: Vec<&'static str>,
 }
 
-pub(crate) fn decide_builder_activation(
-    input: &BuilderActivationInput,
-) -> BuilderActivationDecision {
+pub fn decide_builder_activation(input: &BuilderActivationInput) -> BuilderActivationDecision {
     let mut blockers = Vec::new();
     if !input.build_scheduler_configured {
         blockers.push("build_scheduler_not_configured");

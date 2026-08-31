@@ -94,7 +94,6 @@ Keep work inside these surfaces unless the user explicitly expands scope:
 - `crates/cynic-kernel`
 - `crates/cynic-host`
 - `crates/cynic-node`
-- `crates/cynic-mcp`
 - `crates/cynic-cli`
 - `crates/cynic-protocol`
 - `crates/cynic-askesis`
@@ -135,6 +134,40 @@ Canonical ownership per family:
 
 A report is coherent only when every layer has a concrete owner; an absent
 lower layer is reported as a residual unknown, never back-filled by a guess.
+
+### Organic opportunities — `Organic always wins`
+
+An **organic opportunity** is an observed, bounded candidate for operator
+attention. It is not a task, a grant, a claim, or an authority to mutate. It
+arises when unfinished work, recurring session friction, emerging patterns,
+plumbing debt, or cross-surface dependency evidence indicates that a small next
+step could unlock disproportionate proof, coverage, or operator capacity.
+
+The operator's priority order must be continuously informed by fresh organic
+opportunities rather than a static backlog or the most recently proposed
+feature. A proposal carries its observed sources, expected unlock value,
+estimated energy, scope, freshness, confidence, and residual unknowns. Its
+ranking is contextual and contestable; it is never a universal score, urgency,
+or autonomous mandate.
+
+`Organic always wins` therefore means: when a fresh, higher-unlock opportunity
+is observed, an agent must surface it before spending a bounded budget on a
+lower-unlock planned item, unless the operator explicitly records a different
+choice. It never overrides human sovereignty, admission, claims, capability
+boundaries, consent, safety gates, or the requirement for independent
+read-back proof.
+
+The compass is local and read-only by default. Its minimal coherence loop is:
+
+```text
+desired operator capacity → observe sessions + source state → reconcile opportunities
+  → propose a smallest next observation/repair → report ranked evidence and unknowns
+```
+
+It may run periodically as a bounded local observer, but it must not create
+tasks, alter priorities, apply repairs, write skills, publish telemetry, or
+promote its own conclusions. Each of those is a separate, human-admitted
+action with its own proof obligation.
 
 ## CYNIC Coherence Pattern
 
@@ -546,6 +579,13 @@ commit, push, or merge mutation. Without that explicit human admission, report
 ownership remain in `infra/agent-exposure.json`; this section only instructs
 agent projection.
 
+MCP is a replaceable projection, never a bootstrap prerequisite or the source
+of coordination law. A removed, unavailable, or incompatible MCP artifact does
+not block local read-only observation or a human-admitted bounded local source
+slice. Rebuild MCP only after the contracts, CLI projection, and independent
+local read-back it exposes are stable; the rebuilt surface must project those
+owners without recreating policy, scheduler, or handler monoliths.
+
 - Before adding a new crate, command, document, or contract, prove an existing
   boundary cannot absorb the capability.
 - Keep CLI entrypoints thin; business logic belongs in crates with clear roles.
@@ -840,18 +880,16 @@ The framework is not industrial-grade until these properties are demonstrable:
 - distributed formation works for one node first, then N nodes without changing
   the core model
 
-## Validation
+## Validation & Compiler Alphas
 
-- Use **targeted** crate checks/tests, not `make check`:
-  - `RUST_MIN_STACK=268435456 RUSTUP_TOOLCHAIN=1.96.0 cargo check -p <crate> --lib`
-  - `RUST_MIN_STACK=268435456 RUSTUP_TOOLCHAIN=1.96.0 cargo test -p <crate> --lib <module>`
-  - For the CLI surface (`cynic-cli`), validate through `cynic-host`/`cynic-protocol`
-    unit tests (the CLI is thin clap glue); `make check` ICEs rustc 1.96 on
-    `tokio`/`yamux`/`libc` in sandbox VMs.
-  - If rustc SIGSEGVs on monomorphization, prepend `ulimit -s unlimited`.
-
-Default (minimal authority files + core crates), when the toolchain is stable:
-
+- Canonical spec for Rust compiler properties, memory limits, and visibility rules:
+  `infra/RUST_COMPILER_ALPHAS.md`.
+- Use **targeted** crate checks/tests with stripped debuginfo for fast, deterministic builds:
+  - `RUSTFLAGS="-C debuginfo=0" cargo check -p <crate> --lib`
+  - `ulimit -s unlimited && RUST_MIN_STACK=8589934592 RUSTFLAGS="-C debuginfo=0" cargo test -p <crate> --lib <module>`
+  - `cynic-kernel` tests require admission: `CYNIC_BUILD_ADMISSION_VERIFIED=1`.
+- **Library-First Invariant**: All domain types, ports, usecases, and run functions belong in `src/lib.rs`. `src/main.rs` is a thin facade.
+- Never mask unverified code with `#![allow(dead_code)]`: dead code is an epistemic sensor indicating orphaned capabilities, missing wiring, or ghost legacy.
 ## Rules
 
 - Do not recreate contract forests.

@@ -24,7 +24,7 @@ fn now_unix_ms() -> u64 {
 }
 
 /// Declare agent identity.
-pub fn execute_identify(
+pub(crate) fn execute_identify(
     agent_id: &str,
     agent_kind: Option<&str>,
 ) -> Result<AgentIdentifyReport, String> {
@@ -71,7 +71,7 @@ pub fn execute_identify(
 }
 
 /// Register agent with kernel.
-pub fn execute_register(agent_id: &str, intent: &str) -> Result<(), String> {
+pub(crate) fn execute_register(agent_id: &str, intent: &str) -> Result<(), String> {
     let client = reqwest::blocking::Client::new();
     let resp = client
         .post(format!("{}/coord/register", KERNEL_BASE))
@@ -96,7 +96,7 @@ pub fn execute_register(agent_id: &str, intent: &str) -> Result<(), String> {
 }
 
 /// Claim a scope.
-pub fn execute_claim(
+pub(crate) fn execute_claim(
     agent_id: &str,
     target: &str,
     claim_type: Option<&str>,
@@ -169,7 +169,7 @@ pub fn execute_claim(
 }
 
 /// Release a claim.
-pub fn execute_release(
+pub(crate) fn execute_release(
     agent_id: &str,
     target: &str,
     lease_id: &str,
@@ -211,7 +211,7 @@ pub fn execute_release(
 }
 
 /// Query active claims status.
-pub fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
+pub(crate) fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(format!("{}/coord/who?agent_id={}", KERNEL_BASE, agent_id))

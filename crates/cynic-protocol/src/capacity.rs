@@ -188,7 +188,7 @@ pub fn assess_metabolic_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cpu::{CpuPhysical, CpuPressure, CpuUsage, CpuVolume};
+    use crate::cpu::{CpuPhysical, CpuUsage, CpuVolume};
 
     fn cpu_report(util_pct: f64) -> CpuReport {
         CpuReport {

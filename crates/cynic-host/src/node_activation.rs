@@ -1,14 +1,8 @@
 //! Node activation runtime — observes deployment_epoch, bootstrap_federation,
 //! and takeover state to produce an activation verdict.
 
-use cynic_protocol::bootstrap_federation::FederatedBootstrapObservation;
 use cynic_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
-use cynic_protocol::node_activation::{
-    ActivationAction, ActivationAuthority, NodeActivationVerdict, decide_node_activation,
-};
-use cynic_protocol::runtime_takeover_activation::{
-    RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
-};
+use cynic_protocol::node_activation::{NodeActivationVerdict, decide_node_activation};
 use serde::Serialize;
 
 /// Port for observing node activation state.
@@ -131,7 +125,7 @@ impl NodeActivationAdapter {
         // 2. Plan the bounded action.
         let plan = match cynic_protocol::node_activation::plan_activation_action(&verdict) {
             Ok(p) => p,
-            Err(e) => {
+            Err(_e) => {
                 return ActivationReport {
                     node_id: node_id.into(),
                     status: "blocked".into(),

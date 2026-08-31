@@ -12,7 +12,6 @@
 //! Consent: HumanAdmin class — requires CYNIC_HUMAN_ADMIN_CONSENT=pve-helper-install
 //! in the same run, plus --yes.
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -52,8 +51,8 @@ struct PveHelperInstallReport {
 fn render_install_argv(policy: &PveHelperPolicy, staged_dir: &str) -> Vec<String> {
     let remote_sh = format!(
         "set -e; \
-         install -m 0755 -o root -g root /tmp/pct-bounded-exec {helper} && \
-         install -m 0440 -o root -g root /tmp/pve-pct.sudoers {sudoers} && \
+         install -m 0755 -o root -g root {staged_dir}/pct-bounded-exec {helper} && \
+         install -m 0440 -o root -g root {staged_dir}/pve-pct.sudoers {sudoers} && \
          visudo -cf {sudoers} && \
          ln -sf {pct} /usr/local/bin/pct && \
          echo BOOTSTRAP_DONE",

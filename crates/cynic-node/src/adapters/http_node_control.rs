@@ -140,17 +140,9 @@ impl HttpNodeControlAdapter {
             .map_err(|error| format!("node-control request failed: {error}"))
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn bootstrap_enrollment(
         &self,
-        node_id: &str,
-        role: &str,
-        seed_id: &str,
-        requested_capabilities: Vec<String>,
-        request_ttl_secs: u64,
-        token_path: &Path,
-        request_path: &Path,
-        grant_path: &Path,
+        params: BootstrapEnrollmentParams<'_>,
     ) -> Result<(), String> {
         let signing_key = self.identity.load()?;
         let machine_public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
@@ -163,25 +155,25 @@ impl HttpNodeControlAdapter {
             .map_err(|_| "system clock precedes unix epoch".to_string())?
             .as_secs();
         let expires_at_unix_s = now
-            .checked_add(request_ttl_secs)
+            .checked_add(params.request_ttl_secs)
             .ok_or_else(|| "enrollment request expiry overflow".to_string())?;
-        let nonce_material = format!("{node_id}:{now}:{machine_identity_digest}");
+        let nonce_material = format!("{}:{now}:{machine_identity_digest}", params.node_id);
         let nonce = hex::encode(Sha256::digest(nonce_material.as_bytes()));
         let request = NodeEnrollmentRequest {
             schema: NODE_ENROLLMENT_REQUEST_SCHEMA.to_string(),
             request_id: format!("enroll:{}", &nonce[..32]),
-            seed_id: seed_id.to_string(),
-            node_id: node_id.to_string(),
-            role: role.to_string(),
+            seed_id: params.seed_id.to_string(),
+            node_id: params.node_id.to_string(),
+            role: params.role.to_string(),
             machine_identity_digest,
             machine_public_key_hex,
             nonce,
             issued_at_unix_s: now,
             expires_at_unix_s,
-            requested_capabilities,
+            requested_capabilities: params.requested_capabilities,
         };
-        persist_json_atomic(request_path, &request)?;
-        let token = std::fs::read_to_string(token_path)
+        persist_json_atomic(params.request_path, &request)?;
+        let token = std::fs::read_to_string(params.token_path)
             .map_err(|error| format!("read machine enrollment token: {error}"))?;
         let body = serde_json::to_vec(&request)
             .map_err(|error| format!("encode enrollment request: {error}"))?;
@@ -200,13 +192,13 @@ impl HttpNodeControlAdapter {
             .map_err(|error| format!("decode enrollment response: {error}"))?;
         if envelope.schema != "cynic.node_enrollment_response.v1"
             || envelope.status != "issued_and_read_back"
-            || envelope.grant.grant.node_id != node_id
+            || envelope.grant.grant.node_id != params.node_id
             || envelope.grant.grant.request_id != request.request_id
         {
             return Err("enrollment response binding is invalid".to_string());
         }
         persist_json_atomic(
-            grant_path,
+            params.grant_path,
             &LocalEnrollmentBundle {
                 schema: "cynic.local_node_enrollment_bundle.v1".to_string(),
                 request,
@@ -215,18 +207,7 @@ impl HttpNodeControlAdapter {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn renew_enrollment(
-        &self,
-        node_id: &str,
-        role: &str,
-        seed_id: &str,
-        requested_capabilities: Vec<String>,
-        request_ttl_secs: u64,
-        current_grant_id: &str,
-        expected_generation: u64,
-        bundle_path: &Path,
-    ) -> Result<(), String> {
+    pub async fn renew_enrollment(&self, params: RenewEnrollmentParams<'_>) -> Result<(), String> {
         let signing_key = self.identity.load()?;
         let machine_public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
         let machine_identity_digest = format!(
@@ -238,29 +219,32 @@ impl HttpNodeControlAdapter {
             .map_err(|_| "system clock precedes unix epoch".to_string())?
             .as_secs();
         let expires_at_unix_s = now
-            .checked_add(request_ttl_secs)
+            .checked_add(params.request_ttl_secs)
             .ok_or_else(|| "renewal request expiry overflow".to_string())?;
         let nonce = hex::encode(Sha256::digest(
-            format!("renew:{node_id}:{expected_generation}:{now}:{machine_identity_digest}")
-                .as_bytes(),
+            format!(
+                "renew:{}:{}:{now}:{machine_identity_digest}",
+                params.node_id, params.expected_generation
+            )
+            .as_bytes(),
         ));
         let request = NodeEnrollmentRequest {
             schema: NODE_ENROLLMENT_REQUEST_SCHEMA.to_string(),
             request_id: format!("renew:{}", &nonce[..32]),
-            seed_id: seed_id.to_string(),
-            node_id: node_id.to_string(),
-            role: role.to_string(),
+            seed_id: params.seed_id.to_string(),
+            node_id: params.node_id.to_string(),
+            role: params.role.to_string(),
             machine_identity_digest,
             machine_public_key_hex,
             nonce,
             issued_at_unix_s: now,
             expires_at_unix_s,
-            requested_capabilities,
+            requested_capabilities: params.requested_capabilities,
         };
         let renewal = NodeEnrollmentRenewalRequest {
             schema: NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA.to_string(),
-            current_grant_id: current_grant_id.to_string(),
-            expected_generation,
+            current_grant_id: params.current_grant_id.to_string(),
+            expected_generation: params.expected_generation,
             request: request.clone(),
         };
         let body = serde_json::to_vec(&renewal)
@@ -280,13 +264,13 @@ impl HttpNodeControlAdapter {
             .map_err(|error| format!("decode renewal response: {error}"))?;
         if envelope.schema != "cynic.node_enrollment_response.v1"
             || envelope.status != "issued_and_read_back"
-            || envelope.grant.grant.generation != expected_generation.saturating_add(1)
+            || envelope.grant.grant.generation != params.expected_generation.saturating_add(1)
             || envelope.grant.grant.request_id != request.request_id
         {
             return Err("renewal response fencing or binding is invalid".to_string());
         }
         persist_json_atomic(
-            bundle_path,
+            params.bundle_path,
             &LocalEnrollmentBundle {
                 schema: "cynic.local_node_enrollment_bundle.v1".to_string(),
                 request,
@@ -294,6 +278,30 @@ impl HttpNodeControlAdapter {
             },
         )
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct BootstrapEnrollmentParams<'a> {
+    pub node_id: &'a str,
+    pub role: &'a str,
+    pub seed_id: &'a str,
+    pub requested_capabilities: Vec<String>,
+    pub request_ttl_secs: u64,
+    pub token_path: &'a Path,
+    pub request_path: &'a Path,
+    pub grant_path: &'a Path,
+}
+
+#[derive(Debug, Clone)]
+pub struct RenewEnrollmentParams<'a> {
+    pub node_id: &'a str,
+    pub role: &'a str,
+    pub seed_id: &'a str,
+    pub requested_capabilities: Vec<String>,
+    pub request_ttl_secs: u64,
+    pub current_grant_id: &'a str,
+    pub expected_generation: u64,
+    pub bundle_path: &'a Path,
 }
 
 fn persist_json_atomic(path: &Path, value: &impl Serialize) -> Result<(), String> {

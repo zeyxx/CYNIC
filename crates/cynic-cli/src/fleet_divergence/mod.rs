@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use cynic_host::registry_divergence_probe::{
-    ClaimToProbe, assemble_name_observation, probe_address_reachable, resolve_name_here,
+    assemble_name_observation, probe_address_reachable, resolve_name_here,
 };
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::registry_claim_audit::{
@@ -239,10 +239,3 @@ fn name_verdict_detail(verdict: &NameVerdict) -> String {
         NameVerdict::Undecidable { reason } => reason.clone(),
     }
 }
-
-/// Claim kinds this surface currently probes.
-///
-/// Address reachability only for now. Role-host and service-binding claims need
-/// a credential the read-back surface deliberately does not hold, so they are
-/// reported as uncovered rather than guessed.
-pub(crate) const PROBED_KINDS: &[ClaimKind] = &[ClaimKind::SynapseAddress];

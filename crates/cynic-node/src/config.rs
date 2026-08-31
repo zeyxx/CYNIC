@@ -5,7 +5,7 @@ mod types;
 
 #[allow(unused_imports)]
 pub(crate) use load::*;
-pub(crate) use types::*;
+pub use types::*;
 
 /// Canonical fallback repository id for build surfaces that lack an explicit
 /// build_scheduler config (webhook admission, tests).

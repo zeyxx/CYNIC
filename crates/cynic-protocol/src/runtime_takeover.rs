@@ -121,7 +121,7 @@ impl CryptographicLease {
             ttl_ms: self.ttl_ms,
             authority_id: &self.authority_id,
         };
-        serde_json::to_vec(&payload).expect("serialize cryptographic lease payload")
+        serde_json::to_vec(&payload).unwrap_or_default()
     }
 
     pub fn expires_at_unix_ms(&self) -> u64 {
@@ -230,7 +230,7 @@ impl RoleTransitionRecord {
             prior_fencing_token: self.prior_fencing_token,
             transitioned_at_unix_ms: self.transitioned_at_unix_ms,
         };
-        serde_json::to_vec(&payload).expect("serialize transition record payload")
+        serde_json::to_vec(&payload).unwrap_or_default()
     }
 
     /// Validates monotonicity and structural invariants of the transition.

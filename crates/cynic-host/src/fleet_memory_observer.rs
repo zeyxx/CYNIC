@@ -13,12 +13,9 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-
 use crate::adapters::local_memory::LocalMemoryAdapter;
 use crate::adapters::remote_memory::RemoteMemoryAdapter;
 use crate::domain::memory::port::MemoryObservationPort;
-use crate::domain::memory::types::MemoryReport;
 use crate::domain::memory::{FleetMemoryNode, FleetMemoryReport};
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
@@ -60,11 +57,6 @@ impl<R: ArgvRunner> FleetMemoryObserver<R> {
         self.ssh_target_template.replace("{ip}", ip)
     }
 
-    fn now_isoh() -> Option<String> {
-        let ts: DateTime<Utc> = DateTime::from(std::time::SystemTime::now());
-        Some(ts.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-    }
-
     /// Observe memory on the local node (no SSH), falling back to an
     /// unobserved node on failure rather than fabricating data.
     fn local_node(declared_ip: &str) -> FleetMemoryNode {
@@ -99,7 +91,7 @@ impl<R: ArgvRunner> FleetMemoryObserver<R> {
         let discovery = FleetDiscoveryAdapter::new(&self.registry_path).discover();
         let hostname = observed_hostname();
         let mut nodes: Vec<FleetMemoryNode> = Vec::with_capacity(discovery.nodes.len());
-        let mut residual_unknowns: Vec<String> = discovery.residual_unknowns.clone();
+        let residual_unknowns: Vec<String> = discovery.residual_unknowns.clone();
         let mut observed_nodes = 0usize;
         let mut failed_nodes = 0usize;
 
@@ -283,12 +275,5 @@ full avg10=0.00 avg60=0.00 avg300=0.00 total=234567
         let report = observer.observe();
         assert_eq!(report.total_nodes, 0);
         assert!(report.nodes.is_empty());
-    }
-
-    // Silence unused import when the above tests are stripped.
-    #[allow(dead_code)]
-    fn _unused_imports(mem: MemoryReport, _t: DateTime<Utc>) -> MemoryReport {
-        let _ = mem;
-        mem
     }
 }

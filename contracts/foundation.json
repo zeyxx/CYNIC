@@ -55,6 +55,14 @@
       {
         "name": "no_manual_blocker_bypass",
         "rule": "A blocker (Blocked-class error code) is resolved only by the typed reconciliation or authority-escalation path that owns it. Ad-hoc shell fixes, local fallbacks, or prose claims that omit the code are not convergence and must be rejected by read-back proof."
+      },
+      {
+        "name": "organic_opportunities_inform_priority",
+        "rule": "Operator priority is continuously informed by fresh, attributable organic opportunities: observed unfinished work, recurring friction, emerging patterns, plumbing debt, or cross-surface dependencies with estimated unlock value and energy. An opportunity is a contestable read-only proposal, never a task, claim, grant, urgency signal, or mutation authority. A higher-unlock opportunity must be surfaced before an agent spends a bounded budget on a lower-unlock planned item, unless the operator explicitly records another choice. This law never overrides human sovereignty, admission, capability boundaries, consent, safety gates, or independent read-back proof."
+      },
+      {
+        "name": "mcp_is_projection_not_bootstrap",
+        "rule": "MCP is a replaceable projection of stable contracts and local CLI/read-back surfaces. A missing, removed, unavailable, or incompatible MCP artifact must be retained as an explicit unknown but cannot be a bootstrap prerequisite for local read-only observation or a human-admitted bounded local source slice. MCP rebuild begins only after the projected contracts and local proof are stable; it must not own policy, scheduling, or coordination authority."
       }
     ],
     "deleted_authorities": [
@@ -89,6 +97,22 @@
       "docs_quarantine": "docs/README.md",
       "validate_gate": "MCP tool cynic_validate plans or durably submits canonical `make check`, `make build`, or `make build-release` workloads to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
+    },
+
+    "organic_opportunities": {
+      "schema": "cynic.organic_opportunity.policy.v1",
+      "policy": "The local read-only compass observes attributed session-derived friction and source-state evidence, then proposes contestable opportunities ranked within an explicit contextual value frame. Every proposal retains sources, freshness, estimated energy, expected unlock value, confidence, and residual unknowns. It never creates work, changes priority, writes skills, publishes telemetry, or mutates source/runtime without a separate human-admitted action and read-back proof.",
+      "sources": [
+        "local session evidence",
+        "local source and worktree state",
+        "targeted validation and audit evidence"
+      ],
+      "forbidden_substitutions": [
+        "a universal ROI score",
+        "passive inference of human attention",
+        "autonomous backlog mutation",
+        "MCP availability as a prerequisite for local observation"
+      ]
     },
 
 

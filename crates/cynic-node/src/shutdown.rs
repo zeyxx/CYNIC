@@ -1,7 +1,7 @@
 use tokio_util::sync::CancellationToken;
 
 /// Install OS signal handlers and cancel `shutdown` when a signal arrives.
-pub(crate) fn install_signal_handler(shutdown: CancellationToken) {
+pub fn install_signal_handler(shutdown: CancellationToken) {
     #[cfg(unix)]
     tokio::spawn(async move {
         use tokio::signal::unix::{SignalKind, signal};

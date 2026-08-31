@@ -1,10 +1,9 @@
 use std::process::ExitCode;
 
 use cynic_host::adapters::local_network::LocalNetworkAdapter;
-use cynic_host::domain::network::NetworkObservationPort;
 use cynic_host::domain::network::types::NetworkReport;
 
-pub fn execute_network(json: bool) -> ExitCode {
+pub(crate) fn execute_network(json: bool) -> ExitCode {
     // The port view is infallible: partial failures land in report.unknowns.
     let report: NetworkReport = LocalNetworkAdapter::new().observe_network();
     if json {

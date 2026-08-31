@@ -72,14 +72,9 @@ pub enum EvidenceSource {
         last_entry: i64,
     },
     /// cynic-kernel PatternAnalyzer SSE stream disconnection — the canary.
-    CynicCanary {
-        disconnected_at: i64,
-    },
+    CynicCanary { disconnected_at: i64 },
     /// systemd unit failure — `systemctl --failed` / journal.
-    SystemdFailed {
-        unit: String,
-        timestamp: i64,
-    },
+    SystemdFailed { unit: String, timestamp: i64 },
 }
 
 // ── Core evidence type ───────────────────────────────────────────────────────
@@ -171,7 +166,7 @@ pub struct PostMortemReport {
 
 /// Detection thresholds calibrated on real crash evidence.
 /// Each threshold maps to an observed signal from 2026-08-18 / 2026-08-30.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SocThresholds {
     /// amdgpu page faults in 60s window → GpuHang suspicion.
     pub gpu_fault_window_secs: u64,

@@ -73,7 +73,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
     fn local_node_report() -> DiskReport {
         match LocalDiskAdapter.observe_disk() {
             Ok(report) => report,
-            Err(err) => DiskReport {
+            Err(_err) => DiskReport {
                 schema: HOST_DISK_REPORT_SCHEMA.to_string(),
                 timestamp: Self::now_isoh().unwrap_or_default(),
                 filesystems: Vec::new(),
@@ -104,7 +104,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
             let node: FleetDiskNode = if is_local {
                 let report = Self::local_node_report();
                 observed_nodes += 1;
-                FleetDiskNode::observed {
+                FleetDiskNode::Observed {
                     node_id: declared.node_id.clone(),
                     role: declared.role.clone(),
                     ip: declared.ip.clone(),
@@ -116,7 +116,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
                     Ok(adapter) => match adapter.observe_disk() {
                         Ok(report) => {
                             observed_nodes += 1;
-                            FleetDiskNode::observed {
+                            FleetDiskNode::Observed {
                                 node_id: declared.node_id.clone(),
                                 role: declared.role.clone(),
                                 ip: declared.ip.clone(),
@@ -125,21 +125,21 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
                         }
                         Err(e) => {
                             failed_nodes += 1;
-                            FleetDiskNode::failed {
+                            FleetDiskNode::Failed {
                                 node_id: declared.node_id.clone(),
                                 role: declared.role.clone(),
                                 ip: declared.ip.clone(),
-                                error: e,
+                                error: format!("{e:?}"),
                             }
                         }
                     },
                     Err(e) => {
                         failed_nodes += 1;
-                        FleetDiskNode::failed {
+                        FleetDiskNode::Failed {
                             node_id: declared.node_id.clone(),
                             role: declared.role.clone(),
                             ip: declared.ip.clone(),
-                            error: e,
+                            error: e.to_string(),
                         }
                     }
                 }
@@ -213,7 +213,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
         assert_eq!(report.observed_nodes, 1);
         assert_eq!(report.failed_nodes, 0);
         match &report.nodes[0] {
-            FleetDiskNode::observed { report, .. } => {
+            FleetDiskNode::Observed { report, .. } => {
                 assert_eq!(report.filesystems.len(), 2);
                 assert_eq!(report.filesystems[0].source, "/dev/sda2");
             }
@@ -247,7 +247,7 @@ tmpfs          tmpfs  3.9G     0  3.9G   0% /dev
         assert_eq!(report.failed_nodes, 1);
         assert_eq!(report.observed_nodes, 0);
         assert!(
-            matches!(&report.nodes[0], FleetDiskNode::failed { error, .. } if error.contains("remote_df_failed"))
+            matches!(&report.nodes[0], FleetDiskNode::Failed { error, .. } if error.contains("remote_df_failed"))
         );
     }
 

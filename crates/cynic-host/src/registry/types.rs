@@ -1,6 +1,6 @@
 //! Registry types — pure data structures, no I/O, no policy
 
-use cynic_protocol::{NodeSubstrateDesiredState, NodeSubstratePower};
+use cynic_protocol::NodeSubstrateDesiredState;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

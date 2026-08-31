@@ -95,7 +95,6 @@ pub fn replay_plan(entries: &[EvidenceJournalEntry], existing_event_ids: &[Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::digest::digest_bytes;
     use crate::evidence_journal::{EVIDENCE_EVENT_MODEL_SEALED, compute_entry_hash};
 
     fn make_entry(node: &str, seq: u64, prev: &str, ts: i64) -> EvidenceJournalEntry {

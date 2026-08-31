@@ -15,11 +15,9 @@
 //!   - apply    : generate local key material
 //!   - observe  : read-back verification
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::Value;
-
-use crate::credential::{CredentialType, SecretFileResolver};
 
 /// Path constants for SSH credential layout.
 pub const SSH_KEY_DIR: &str = "/etc/cynic/secrets";
@@ -52,7 +50,6 @@ pub fn scan_unprovisioned_enrollment_transports(
     registry: &Value,
     secrets_dir: &Path,
 ) -> Result<Vec<EnrollmentTransport>, String> {
-    let resolver = SecretFileResolver::new(secrets_dir.to_path_buf());
     let mut transports = Vec::new();
 
     let nodes = registry

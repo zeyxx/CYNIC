@@ -1,3 +1,4 @@
+#![allow(ambiguous_glob_reexports)]
 pub mod agent_citizenship;
 pub mod agent_connection;
 pub mod agent_coordination;
@@ -64,9 +65,9 @@ pub mod runtime_takeover;
 pub mod runtime_takeover_activation;
 pub use runtime_takeover::*;
 pub use runtime_takeover_activation::*;
+pub mod forensics;
 pub mod forgejo;
 pub mod forgejo_token;
-pub mod forensics;
 pub use forgejo_token::*;
 pub mod framework;
 pub mod freshness;
@@ -170,11 +171,11 @@ pub use domain_tasks::*;
 pub use endpoint::*;
 pub use error_catalog::*;
 pub use evidence::*;
-pub use forensics::*;
 pub use federation_envelopes::*;
 pub use federation_membership::*;
 pub use fleet_discovery::*;
 pub use fleet_heartbeat::*;
+pub use forensics::*;
 pub use forgejo::*;
 pub use framework::*;
 pub use freshness::*;

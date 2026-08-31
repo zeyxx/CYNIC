@@ -4,7 +4,7 @@ use zeroize::Zeroize;
 const MAX_SECRET_BYTES: u64 = 64 * 1024;
 const RUNTIME_SECRET_RANDOM_BYTES: usize = 32;
 
-pub(crate) struct SecretMaterial(Vec<u8>);
+pub struct SecretMaterial(Vec<u8>);
 
 impl SecretMaterial {
     pub(crate) fn read_file(path: &std::path::Path) -> Result<Self, String> {
@@ -78,7 +78,7 @@ impl SecretMaterial {
     /// - `"/path/to/secret"` — read from file (implicit, when path starts with `/`)
     ///
     /// The secret is validated as UTF-8 and bounded to `MAX_SECRET_BYTES`.
-    pub(crate) fn resolve_credential(reference: &str) -> Result<Self, String> {
+    pub fn resolve_credential(reference: &str) -> Result<Self, String> {
         if reference.starts_with("ENV:") {
             let var_name = &reference[4..];
             let value = std::env::var(var_name).map_err(|_| {

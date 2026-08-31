@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use crate::update_lifecycle::ArgvRunner;
 
 /// Desired state — the tunnel configuration. Portable; no substrate details.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -60,7 +60,7 @@ pub struct TunnelProof {
 }
 
 /// Pure decision: should we reconnect the tunnel?
-pub fn should_reconnect(health: &TunnelHealth, now: Instant, max_reconnects: u32) -> bool {
+pub fn should_reconnect(health: &TunnelHealth, _now: Instant, max_reconnects: u32) -> bool {
     if health.reconnect_count >= max_reconnects {
         return false;
     }

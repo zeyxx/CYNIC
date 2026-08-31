@@ -5,7 +5,6 @@ use cynic_protocol::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
     SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
-    validate_source_worktree_inventory_observation,
 };
 
 const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
@@ -640,6 +639,7 @@ fn parse_porcelain(
 mod w1_b_tests {
     use super::*;
     use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_protocol::validate_source_worktree_inventory_observation;
 
     fn sha3(digest: &str) -> String {
         format!("sha3-512:{digest}")
