@@ -445,7 +445,16 @@ pub(crate) enum ForgejoTokenMode {
 /// deliberately fail-closed rather than pretending local-only is dynamic.
 pub(crate) fn forgejo_token_adapter_selector()
 -> Box<dyn cynic_host::forgejo_token::ForgejoTokenApiPort> {
-    Box::new(cynic_host::forgejo_token::UnavailableForgejoTokenApiAdapter)
+    let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
+        .or_else(|_| std::env::var("FORGEJO_API_URL"))
+        .or_else(|_| std::env::var("FORGEJO_URL"))
+        .unwrap_or_else(|_| "http://10.10.10.101:3000".to_string());
+
+    Box::new(cynic_host::forgejo_token::HttpForgejoTokenApiAdapter {
+        api_base: api_url,
+        principal: "jeanterre13".to_string(),
+        authorization_token: std::env::var("FORGEJO_TOKEN").ok(),
+    })
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
