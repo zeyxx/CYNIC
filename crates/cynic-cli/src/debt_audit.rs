@@ -317,8 +317,8 @@ pub(crate) fn audit_debt() -> DebtAuditReport {
     DebtAuditReport {
         schema: DEBT_AUDIT_SCHEMA,
         status,
-        iteration: 55,
-        iteration_status: "dynamique_autopoietique",
+        iteration: 54,
+        iteration_status: "figée",
         total_brutes: 121,
         total_effectives: 119,
         rule: "chaque dette = contrat exigé non incarné avec faux observé + preuve file:line + ROI tri Tier1",
@@ -355,8 +355,8 @@ mod tests {
     fn debt_audit_schema() {
         let r = audit_debt();
         assert_eq!(r.schema, "cynic.dev.debt_audit.v1");
-        assert_eq!(r.iteration, 55);
+        assert_eq!(r.iteration, 54);
         assert!(r.tier1_count >= 18);
-        assert_eq!(r.iteration_status, "dynamique_autopoietique");
+        assert_eq!(r.iteration_status, "figée");
     }
 }
