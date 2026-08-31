@@ -1,6 +1,6 @@
 {
   "schema": "cynic.agent_claims.v2",
-  "revision": 16,
+  "revision": 17,
   "claims": [
     {
       "claim_id": "claim_hermes_v1_debt_001",
@@ -8,20 +8,20 @@
       "mode": "baseline",
       "scope": { "kind": "file", "path": "infra/DEBT_TAXONOMY.md" },
       "budget": { "actions": 50, "wall_seconds": 3600 },
-      "consumed": { "actions": 7, "wall_seconds": 2100 },
+      "consumed": { "actions": 8, "wall_seconds": 2400 },
       "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
       "priority": 10,
       "parent_claim_id": null,
       "status": "active"
     },
     {
-      "claim_id": "claim_hermes_d19_001",
+      "claim_id": "claim_hermes_poll_001",
       "agent_id": "hermes:main",
       "mode": "baseline",
-      "scope": { "kind": "crate", "path": "crates/cynic-inference" },
+      "scope": { "kind": "crate", "path": "crates/cynic-host" },
       "budget": { "actions": 20, "wall_seconds": 3600 },
       "consumed": { "actions": 0, "wall_seconds": 0 },
-      "temporal": { "started_at_unix_s": 1724007000, "ttl_seconds": 3600 },
+      "temporal": { "started_at_unix_s": 1724008000, "ttl_seconds": 3600 },
       "priority": 10,
       "parent_claim_id": null,
       "status": "active"

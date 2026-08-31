@@ -24,6 +24,13 @@ use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 const FLEET_MEMORY_SCHEMA: &str = "cynic.fleet_memory.v1";
 
 /// Fleet memory observer. Generic over the argv runner so tests inject a fake.
+fn poll_budget_ms() -> u64 {
+    std::env::var("CYNIC_POLL_BUDGET_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5000)
+}
+
 pub struct FleetMemoryObserver<R: ArgvRunner> {
     registry_path: String,
     ssh_target_template: String,
@@ -142,7 +149,7 @@ impl<R: ArgvRunner> FleetMemoryObserver<R> {
 
         let poll_cost_ms_val = poll_start.elapsed().as_millis() as u64;
         let mut residual_unknowns_with_pressure = residual_unknowns.clone();
-        if poll_cost_ms_val > 5000 {
+        if poll_cost_ms_val > poll_budget_ms() {
             residual_unknowns_with_pressure.push("poll_cost_exceeded_budget".to_string());
         }
         let residual_unknowns = residual_unknowns_with_pressure;
