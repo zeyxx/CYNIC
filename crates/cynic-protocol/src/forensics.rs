@@ -138,6 +138,8 @@ pub struct ForensicTimeline {
 /// The final output: everything known about a crash, assembled from all sources.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PostMortemReport {
+    #[serde(default = "default_post_mortem_schema")]
+    pub schema: String,
     /// The boot that crashed.
     pub boot_id: String,
     /// Previous boot (for chaining).
@@ -162,6 +164,9 @@ pub struct PostMortemReport {
     pub generated_at: i64,
 }
 
+fn default_post_mortem_schema() -> String {
+    POST_MORTEM_REPORT_SCHEMA.to_string()
+}
 // ── SOC thresholds ───────────────────────────────────────────────────────────
 
 /// Detection thresholds calibrated on real crash evidence.
@@ -272,6 +277,7 @@ mod tests {
     #[test]
     fn post_mortem_report_serializes() {
         let report = PostMortemReport {
+            schema: POST_MORTEM_REPORT_SCHEMA.to_string(),
             boot_id: "66515a0e".into(),
             previous_boot_id: Some("1ff29dfc".into()),
             uptime_before_crash_secs: Some(43140),
@@ -291,7 +297,7 @@ mod tests {
         };
         let json = serde_json::to_string(&report).unwrap();
         assert!(json.contains("gpu_hang"));
-        assert!(json.contains("discord-pac-server"));
+        assert!(json.contains(POST_MORTEM_REPORT_SCHEMA));
     }
 
     #[test]

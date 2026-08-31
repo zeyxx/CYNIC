@@ -206,6 +206,8 @@ pub struct SolanaTakeoverAttestation {
     pub prior_fencing_token: u64,
     pub lease_signature_hex: String,
     pub commitment_memo: String,
+    #[serde(default)]
+    pub monotonic_budget_seconds: Option<u64>,
 }
 
 impl SolanaTakeoverAttestation {
@@ -232,6 +234,7 @@ impl SolanaTakeoverAttestation {
             prior_fencing_token: record.prior_fencing_token,
             lease_signature_hex: record.lease_signature_hex.clone(),
             commitment_memo: memo,
+            monotonic_budget_seconds: None,
         }
     }
 
@@ -248,6 +251,11 @@ impl SolanaTakeoverAttestation {
         }
         if !self.commitment_memo.starts_with("CYNIC:TAKEOVER:") {
             blockers.push("solana_takeover_memo_malformed".to_string());
+        }
+        if let Some(budget) = self.monotonic_budget_seconds {
+            if budget == 0 {
+                blockers.push("solana_takeover_budget_zero".to_string());
+            }
         }
         blockers
     }

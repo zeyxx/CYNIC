@@ -231,6 +231,11 @@ impl HealthSignal {
             payload,
         }
     }
+
+    /// True if the signal is older than max_age_s relative to now_unix_s.
+    pub fn is_stale(&self, now_unix_s: u64, max_age_s: u64) -> bool {
+        now_unix_s.saturating_sub(self.observed_at_unix_s) > max_age_s
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

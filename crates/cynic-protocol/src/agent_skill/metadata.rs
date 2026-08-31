@@ -33,6 +33,8 @@ pub struct AgentSkillMetadata {
     pub issued_at_ms: u64,
     pub data_classification: AgentSkillDataClassification,
     pub retention: AgentSkillRetentionPolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consent_policy_digest: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
