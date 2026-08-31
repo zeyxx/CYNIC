@@ -10,6 +10,7 @@ pub mod package_provenance;
 pub mod packages;
 pub mod principal;
 pub mod privilege;
+pub mod process;
 pub mod services;
 pub mod shared;
 pub mod storage;

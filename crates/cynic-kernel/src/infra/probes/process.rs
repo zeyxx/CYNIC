@@ -14,27 +14,16 @@ use crate::domain::probe::Probe;
 pub struct ProcessProbe;
 
 impl ProcessProbe {
-    /// Read VmRSS from /proc/self/status (in kB → MB).
+    /// Read VmRSS from /proc/self/status (in kB → MB) via cynic-host probe parser.
     fn read_rss_mb() -> Option<f64> {
         let content = std::fs::read_to_string("/proc/self/status").ok()?;
-        for line in content.lines() {
-            if let Some(rest) = line.strip_prefix("VmRSS:") {
-                let kb: f64 = rest.split_whitespace().next()?.parse().ok()?;
-                return Some(kb / 1024.0);
-            }
-        }
-        None
+        cynic_host::domain::process::probe::parse_proc_status_rss(&content)
     }
 
-    /// Read thread count from /proc/self/status.
+    /// Read thread count from /proc/self/status via cynic-host probe parser.
     fn read_thread_count() -> Option<u64> {
         let content = std::fs::read_to_string("/proc/self/status").ok()?;
-        for line in content.lines() {
-            if let Some(rest) = line.strip_prefix("Threads:") {
-                return rest.trim().parse().ok();
-            }
-        }
-        None
+        cynic_host::domain::process::probe::parse_proc_status_threads(&content)
     }
 
     /// Count entries in /proc/self/fd.
@@ -43,35 +32,17 @@ impl ProcessProbe {
         Some(entries.count() as u64)
     }
 
-    /// Read soft RLIMIT_NOFILE from /proc/self/limits.
+    /// Read soft RLIMIT_NOFILE from /proc/self/limits via cynic-host probe parser.
     fn read_fd_limit() -> Option<u64> {
         let content = std::fs::read_to_string("/proc/self/limits").ok()?;
-        for line in content.lines() {
-            if line.starts_with("Max open files") {
-                // Format: "Max open files            1048576              1048576              files"
-                let fields: Vec<&str> = line.split_whitespace().collect();
-                // Soft limit is field after "files" label (index 3)
-                return fields.get(3)?.parse().ok();
-            }
-        }
-        None
+        cynic_host::domain::process::probe::parse_proc_limits_nofile(&content)
     }
 
-    /// Read utime and stime from /proc/self/stat (fields 14 and 15, 1-indexed).
+    /// Read utime and stime from /proc/self/stat via cynic-host probe parser.
     /// Returns (user_seconds, system_seconds).
     fn read_cpu_times() -> Option<(f64, f64)> {
         let content = std::fs::read_to_string("/proc/self/stat").ok()?;
-        // Field layout: pid (comm) state ppid ... utime(14) stime(15)
-        // comm can contain spaces/parens, so find the closing ')' first.
-        let after_comm = content.split(')').nth(1)?;
-        let fields: Vec<&str> = after_comm.split_whitespace().collect();
-        // After ')': state(0) ppid(1) pgrp(2) session(3) tty_nr(4) tpgid(5)
-        //            flags(6) minflt(7) cminflt(8) majflt(9) cmajflt(10)
-        //            utime(11) stime(12)
-        let clk_tck = 100.0_f64; // standard Linux USER_HZ
-        let utime: f64 = fields.get(11)?.parse().ok()?;
-        let stime: f64 = fields.get(12)?.parse().ok()?;
-        Some((utime / clk_tck, stime / clk_tck))
+        cynic_host::domain::process::probe::parse_proc_stat_cpu_times(&content)
     }
 }
 

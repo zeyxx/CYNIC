@@ -352,6 +352,7 @@ impl CynicErrorCode {
             | Self::LxcMutationAuthorityUnverified
             | Self::BreakglassAdmissionMissing
             | Self::BreakglassAuthorityVerifierUnavailable
+            | Self::BreakglassSignatureInvalid
             | Self::BreakglassConsumptionPersistFailed
             | Self::BreakglassAdmissionInvalid
             | Self::BreakglassActionForbidden
