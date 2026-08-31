@@ -13,7 +13,7 @@ pub mod watcher;
 
 pub use domain::*;
 use serde::{Deserialize, Serialize};
-pub use solana_archive::{plan_fanout_request, FanoutPlanRequest};
+pub use solana_archive::{plan_fanout_request, FanoutPlanRequest, HeliusPlan};
 pub use source::*;
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).

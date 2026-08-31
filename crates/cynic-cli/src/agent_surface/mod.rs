@@ -17,8 +17,10 @@ use self::coordination::{
     execute_claim, execute_identify, execute_register, execute_release, execute_status,
 };
 
-pub(crate) mod coordination;
-mod types;
+pub mod coordination;
+pub mod render;
+pub mod scan;
+pub mod types;
 
 #[derive(Subcommand)]
 pub(crate) enum AgentCommand {

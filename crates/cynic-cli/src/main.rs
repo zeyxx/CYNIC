@@ -14,6 +14,7 @@ mod cli_exit;
 mod cli_json;
 mod command_manifest;
 mod crate_audit;
+mod debt_audit;
 mod deps_surface;
 mod deps_surface_audit;
 mod deps_surface_model;

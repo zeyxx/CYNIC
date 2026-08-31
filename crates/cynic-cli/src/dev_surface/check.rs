@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn linker_crash_runs_architecture_boundary_fallback() {
         let step = DevCheckStepReport {
-            id: "make_check",
+            id: "make_check".to_string(),
             status: "blocked",
             command: vec!["make".to_string(), "check".to_string()],
             env: vec![],

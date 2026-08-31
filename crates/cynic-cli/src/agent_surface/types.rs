@@ -5,6 +5,7 @@
 //! logic — only serialization boundaries for CLI/MCP reports.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub(crate) const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
 pub(crate) const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
@@ -70,4 +71,45 @@ pub(crate) struct AgentIdentifyReport {
     pub agent_kind: String,
     pub credential_kind: String,
     pub attested_at_unix_ms: u64,
+}
+
+// ── Agent SoC Audit Types ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSocReport {
+    pub schema: String,
+    pub human_admin_role: HumanAdminStatus,
+    pub roles: BTreeMap<String, AgentSocEntry>,
+    pub domains: BTreeMap<String, DomainStatus>,
+    pub residual_unknowns: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HumanAdminStatus {
+    pub zero_touch_runtime: bool,
+    pub never_touches_runtime: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSocEntry {
+    pub role: String,
+    pub authority_class: String,
+    pub secret_source_class: String,
+    pub required_human_secret: bool,
+    pub granted: bool,
+    pub granted_via: String,
+    pub can_mutate: Vec<String>,
+    pub can_observe: Vec<String>,
+    pub zero_touch_runtime: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DomainStatus {
+    pub human_admin_role: String,
+    pub human_admin_action: String,
+    pub agent_role: String,
+    pub agent_action: String,
+    pub human_approval_required: bool,
+    pub mutation_policy: String,
+    pub observed: bool,
 }

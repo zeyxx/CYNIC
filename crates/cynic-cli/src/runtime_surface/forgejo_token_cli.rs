@@ -51,7 +51,7 @@ pub(crate) fn execute_forgejo_token(
     };
     let spec = ForgejoTokenRuntimeSpec {
         token_spec,
-        // Adapter selection is unavailable/unproven by default; mutation must
+        // Selection uses UnavailableForgejoTokenApiAdapter by default to
         // remain fail-closed until transport and credential binding are proven.
         adapter: super::forgejo_token_adapter_selector(),
     };

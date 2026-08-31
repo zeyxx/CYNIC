@@ -144,7 +144,6 @@ mod tests {
                 execution: None,
                 evidence_refs: vec![],
                 unknowns: vec![],
-                epoch: None,
             },
             autonomy: autonomy_decision(AutonomyMode::Coordinated),
         };
@@ -168,7 +167,6 @@ mod tests {
                     execution: None,
                     evidence_refs: vec![],
                     unknowns: vec![],
-                    epoch: None,
                 },
                 autonomy: autonomy_decision(AutonomyMode::Coordinated),
             },

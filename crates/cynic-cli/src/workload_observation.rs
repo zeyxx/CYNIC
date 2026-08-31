@@ -47,49 +47,30 @@ pub(crate) fn execute_list_workloads(
     list_workloads_federated(state_root, registry_path, user, json)
 }
 
-// ── Local store ────────────────────────────────────────────────────────────────
-
 fn observe_workload_local(workload_id: &str, state_root: &str, json: bool) -> Result<(), String> {
-    let store =
-        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
-    match store.read(workload_id) {
-        Ok(record) => {
-            let report = serde_json::json!({
-                "schema": "cynic.cli.build_observe_workload.v1",
-                "status": if record.is_some() { "observed" } else { "unknown" },
-                "mutates_runtime": false,
-                "workload_id": workload_id,
-                "durable_record": record,
-                "source": "local",
-            });
-            emit(report, json);
+    let store = LocalAgentWorkloadStore::new(PathBuf::from(state_root));
+    let record = store
+        .read(workload_id)
+        .map_err(|e| format!("local store read error: {e:?}"))?;
+
+    match record {
+        Some(durable) => {
+            emit_single_record(&durable, json);
             Ok(())
         }
-        Err(failure) => Err(failure.code),
+        None => Err(format!("workload not found in local store: {workload_id}")),
     }
 }
 
 fn list_workloads_local(state_root: &str, json: bool) -> Result<(), String> {
-    let store =
-        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
-    match store.durable_records() {
-        Ok(records) => {
-            let report = serde_json::json!({
-                "schema": "cynic.cli.build_list_workloads.v1",
-                "status": "observed",
-                "mutates_runtime": false,
-                "count": records.len(),
-                "workloads": records,
-                "source": "local",
-            });
-            emit(report, json);
-            Ok(())
-        }
-        Err(failure) => Err(failure.code),
-    }
-}
+    let store = LocalAgentWorkloadStore::new(PathBuf::from(state_root));
+    let records = store
+        .durable_records()
+        .map_err(|e| format!("local store list error: {e:?}"))?;
 
-// ── Federation via SSH ─────────────────────────────────────────────────────────
+    emit_record_list(&records, json);
+    Ok(())
+}
 
 fn observe_workload_federated(
     workload_id: &str,
@@ -98,35 +79,50 @@ fn observe_workload_federated(
     user: &str,
     json: bool,
 ) -> Result<(), String> {
-    // Start with local record
-    let mut merged = HashMap::new();
-    let local_store =
-        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
-    if let Ok(Some(record)) = local_store.read(workload_id) {
-        merged.insert(record.record_digest.clone(), record);
+    let nodes = resolve_target_nodes(registry_path)?;
+    let runner = LocalArgvRunner;
+    let mut candidate_records: Vec<DurableAgentWorkloadRecord> = Vec::new();
+
+    // 1. Local read first (zero-network fast path)
+    let local_store = LocalAgentWorkloadStore::new(PathBuf::from(state_root));
+    if let Ok(Some(local_rec)) = local_store.read(workload_id) {
+        candidate_records.push(local_rec);
     }
 
-    // Pull from each node in the registry
-    let nodes = discover_nodes(registry_path, user)?;
-    let runner = LocalArgvRunner;
-    for node in nodes {
-        if let Ok(record) = pull_workload(&runner, &node, workload_id, state_root) {
-            merged.insert(record.record_digest.clone(), record);
+    // 2. Remote reads via SSH in parallel / sequential loop
+    for node in &nodes {
+        let cmd = format!(
+            "cynic node agent-workload observe --workload-id {} --local --json",
+            workload_id
+        );
+        let ssh_args = [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=3",
+            &format!("{}@{}", user, node),
+            &cmd,
+        ];
+        let out = runner.run(&ssh_args);
+        if out.exit_code == Some(0) {
+            if let Some(record) = parse_workload_status(&out.stdout) {
+                candidate_records.push(record);
+            }
         }
     }
 
-    // Merge: pick the one with the highest committed_at_ms
-    let result = merge_workloads(merged.into_values().collect());
-    let report = serde_json::json!({
-        "schema": "cynic.cli.build_observe_workload.v1",
-        "status": if result.is_some() { "observed" } else { "unknown" },
-        "mutates_runtime": false,
-        "workload_id": workload_id,
-        "durable_record": result,
-        "source": "federated",
-    });
-    emit(report, json);
-    Ok(())
+    // 3. Reconcile LWW
+    let winning = merge_workloads(candidate_records);
+    match winning {
+        Some(record) => {
+            emit_single_record(&record, json);
+            Ok(())
+        }
+        None => Err(format!(
+            "workload not found across federation: {workload_id}"
+        )),
+    }
 }
 
 fn list_workloads_federated(
@@ -135,208 +131,164 @@ fn list_workloads_federated(
     user: &str,
     json: bool,
 ) -> Result<(), String> {
-    let mut merged = HashMap::new();
+    let nodes = resolve_target_nodes(registry_path)?;
+    let runner = LocalArgvRunner;
+    let mut by_workload_id: HashMap<String, Vec<DurableAgentWorkloadRecord>> = HashMap::new();
 
-    // Local records
-    let local_store =
-        LocalAgentWorkloadStore::new(PathBuf::from(state_root).join("agent-scheduler/workloads"));
-    if let Ok(records) = local_store.durable_records() {
-        for record in records {
-            merged.insert(record.record_digest.clone(), record);
+    // 1. Local list
+    let local_store = LocalAgentWorkloadStore::new(PathBuf::from(state_root));
+    if let Ok(local_records) = local_store.durable_records() {
+        for rec in local_records {
+            by_workload_id
+                .entry(rec.record.envelope.workload_id.clone())
+                .or_default()
+                .push(rec);
         }
     }
 
-    // Pull from each node in the registry
-    let nodes = discover_nodes(registry_path, user)?;
-    let runner = LocalArgvRunner;
-    for node in nodes {
-        if let Ok(records) = pull_workloads(&runner, &node, state_root) {
-            for record in records {
-                merged.insert(record.record_digest.clone(), record);
+    // 2. Remote lists
+    for node in &nodes {
+        let cmd = "cynic node agent-workload list --local --json";
+        let ssh_args = [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=3",
+            &format!("{}@{}", user, node),
+            cmd,
+        ];
+        let out = runner.run(&ssh_args);
+        if out.exit_code == Some(0) {
+            if let Ok(records) = parse_workload_list(&out.stdout) {
+                for rec in records {
+                    by_workload_id
+                        .entry(rec.record.envelope.workload_id.clone())
+                        .or_default()
+                        .push(rec);
+                }
             }
         }
     }
 
-    let all: Vec<DurableAgentWorkloadRecord> = merged.into_values().collect();
-    let report = serde_json::json!({
-        "schema": "cynic.cli.build_list_workloads.v1",
-        "status": "observed",
-        "mutates_runtime": false,
-        "count": all.len(),
-        "workloads": all,
-        "source": "federated",
-    });
-    emit(report, json);
+    // 3. Merge each workload by LWW
+    let mut merged: Vec<DurableAgentWorkloadRecord> = by_workload_id
+        .into_values()
+        .filter_map(merge_workloads)
+        .collect();
+
+    // Sort deterministically by committed_at_ms descending
+    merged.sort_by(|a, b| b.committed_at_ms.cmp(&a.committed_at_ms));
+
+    emit_record_list(&merged, json);
     Ok(())
 }
 
-// ── Node discovery ─────────────────────────────────────────────────────────────
+fn resolve_target_nodes(registry_path: &str) -> Result<Vec<String>, String> {
+    let reg = read_registry(registry_path).map_err(|e| format!("failed to read registry: {e}"))?;
 
-#[derive(Debug, Clone)]
-struct FederatedNode {
-    node_id: String,
-    ssh_target: String,
-}
-
-fn discover_nodes(registry_path: &str, user: &str) -> Result<Vec<FederatedNode>, String> {
-    let registry = read_registry(registry_path)?;
-    let mut nodes = Vec::new();
-
-    let registry_nodes = registry
+    let nodes = reg
         .get("nodes")
-        .and_then(|n| n.as_array())
-        .ok_or_else(|| "registry: no nodes array".to_string())?;
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "registry_nodes_must_be_array".to_string())?;
 
-    for node in registry_nodes {
-        let node_id = node
-            .get("id")
-            .and_then(|s| s.as_str())
-            .unwrap_or_default()
-            .to_string();
-        if node_id.is_empty() {
-            continue;
-        }
-
-        // Extract SSH target from transports.ssh.target or network.synapse
-        let ssh_target = node
-            .get("transports")
-            .and_then(|t| t.get("ssh"))
-            .and_then(|s| s.get("target"))
-            .and_then(|t| t.as_str())
-            .map(|s| format!("{}@{}", user, s))
-            .or_else(|| {
-                node.get("network")
-                    .and_then(|n| n.get("synapse"))
-                    .and_then(|s| s.as_str())
-                    .map(|ip| format!("{}@{}", user, ip))
-            });
-
-        nodes.push(FederatedNode {
-            node_id,
-            ssh_target: ssh_target.unwrap_or_default(),
-        });
-    }
-
-    Ok(nodes)
-}
-
-// ── Pull via SSH ──────────────────────────────────────────────────────────────
-
-fn pull_workload(
-    runner: &dyn ArgvRunner,
-    node: &FederatedNode,
-    workload_id: &str,
-    state_root: &str,
-) -> Result<DurableAgentWorkloadRecord, String> {
-    let argv = vec![
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        "ConnectTimeout=10",
-        &node.ssh_target,
-        "cynic-node",
-        "agent-workload-status",
-        "--workload-id",
-        workload_id,
-        "--state-root",
-        state_root,
-        "--json",
-    ];
-    let refs: Vec<&str> = argv.iter().map(|s| *s).collect();
-    let output = runner.run(&refs);
-    if !output.success() {
-        return Err(format!(
-            "ssh to {} failed: {}",
-            node.node_id,
-            output
-                .spawn_error
-                .unwrap_or_else(|| "non-zero exit".to_string())
-        ));
-    }
-    parse_workload_status(&output.stdout)
-        .ok_or_else(|| format!("{}: no workload in response", node.node_id))
-}
-
-fn pull_workloads(
-    runner: &dyn ArgvRunner,
-    node: &FederatedNode,
-    state_root: &str,
-) -> Result<Vec<DurableAgentWorkloadRecord>, String> {
-    let argv = vec![
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        "ConnectTimeout=10",
-        &node.ssh_target,
-        "cynic-node",
-        "agent-workload-list",
-        "--state-root",
-        state_root,
-        "--json",
-    ];
-    let refs: Vec<&str> = argv.iter().map(|s| *s).collect();
-    let output = runner.run(&refs);
-    if !output.success() {
-        return Err(format!(
-            "ssh to {} failed: {}",
-            node.node_id,
-            output
-                .spawn_error
-                .unwrap_or_else(|| "non-zero exit".to_string())
-        ));
-    }
-    parse_workload_list(&output.stdout)
-}
-
-fn parse_workload_status(raw: &str) -> Option<DurableAgentWorkloadRecord> {
-    let value: serde_json::Value = serde_json::from_str(raw.trim()).ok()?;
-    let record = value.get("durable_record")?;
-    if record.is_null() {
-        return None;
-    }
-    serde_json::from_value(record.clone()).ok()
-}
-
-fn parse_workload_list(raw: &str) -> Result<Vec<DurableAgentWorkloadRecord>, String> {
-    let value: serde_json::Value =
-        serde_json::from_str(raw.trim()).map_err(|e| format!("invalid JSON: {e}"))?;
-    let workloads = value
-        .get("workloads")
-        .and_then(|w| w.as_array())
-        .ok_or_else(|| "no workloads array".to_string())?;
-    workloads
+    let result: Vec<String> = nodes
         .iter()
-        .map(|w| serde_json::from_value(w.clone()).map_err(|e| format!("parse workload: {e}")))
-        .collect()
+        .filter_map(|n| {
+            let status = n.get("status").and_then(serde_json::Value::as_str);
+            if status == Some("active") || status == Some("online") {
+                n.get("hostname")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| n.get("id").and_then(serde_json::Value::as_str))
+                    .map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(result)
 }
 
-// ── Merge strategy: LWW with deterministic tie-breaker ────────────────────────
+fn merge_workloads(
+    candidates: Vec<DurableAgentWorkloadRecord>,
+) -> Option<DurableAgentWorkloadRecord> {
+    candidates.into_iter().max_by(|a, b| {
+        a.committed_at_ms
+            .cmp(&b.committed_at_ms)
+            .then_with(|| a.record_digest.cmp(&b.record_digest))
+    })
+}
 
-fn merge_workloads(records: Vec<DurableAgentWorkloadRecord>) -> Option<DurableAgentWorkloadRecord> {
-    if records.is_empty() {
-        return None;
+fn parse_workload_status(stdout: &str) -> Option<DurableAgentWorkloadRecord> {
+    #[derive(serde::Deserialize)]
+    struct StatusOutput {
+        durable_record: Option<DurableAgentWorkloadRecord>,
     }
-    let mut best = &records[0];
-    for candidate in &records[1..] {
-        if candidate.committed_at_ms > best.committed_at_ms {
-            best = candidate;
-        } else if candidate.committed_at_ms == best.committed_at_ms {
-            // Deterministic tie-breaker: higher record_digest wins
-            if candidate.record_digest > best.record_digest {
-                best = candidate;
-            }
+    serde_json::from_str::<StatusOutput>(stdout)
+        .ok()
+        .and_then(|s| s.durable_record)
+}
+
+fn parse_workload_list(stdout: &str) -> Result<Vec<DurableAgentWorkloadRecord>, String> {
+    #[derive(serde::Deserialize)]
+    struct ListOutput {
+        workloads: Vec<DurableAgentWorkloadRecord>,
+    }
+    serde_json::from_str::<ListOutput>(stdout)
+        .map(|l| l.workloads)
+        .map_err(|e| format!("failed to parse remote list JSON: {e}"))
+}
+
+fn emit_single_record(record: &DurableAgentWorkloadRecord, json: bool) {
+    if json {
+        let v = serde_json::to_value(record).unwrap_or_default();
+        emit(v, true);
+    } else {
+        println!("Workload:     {}", record.record.envelope.workload_id);
+        println!("State:        {:?}", record.record.state);
+        println!("Revision:     {}", record.revision);
+        println!("Committed at: {} ms", record.committed_at_ms);
+        println!("Digest:       {}", record.record_digest);
+        println!(
+            "Objective:    {}",
+            record.record.envelope.delegation.objective
+        );
+        if let Some(claim) = &record.record.claim {
+            println!("Claim Agent:  {}", claim.guard.agent_id);
+            println!("Claim Scope:  {}", claim.guard.lease_id);
+            println!("Expires at:   {} ms", claim.expires_at_ms);
+        }
+        if let Some(comp) = &record.record.completion {
+            println!("Completion:   {:?}", comp.status);
+            println!("Delegation:   {}", comp.delegation_id);
         }
     }
-    Some(best.clone())
 }
 
-// ── Output ─────────────────────────────────────────────────────────────────────
+fn emit_record_list(records: &[DurableAgentWorkloadRecord], json: bool) {
+    if json {
+        let v = serde_json::to_value(records).unwrap_or_default();
+        emit(v, true);
+    } else {
+        println!(
+            "{:<16} {:<12} {:<6} {:<16} {:<32}",
+            "WORKLOAD ID", "STATE", "REV", "COMMITTED AT", "OBJECTIVE"
+        );
+        println!("{}", "-".repeat(84));
+        for r in records {
+            let obj = if r.record.envelope.delegation.objective.len() > 30 {
+                format!("{}...", &r.record.envelope.delegation.objective[..27])
+            } else {
+                r.record.envelope.delegation.objective.clone()
+            };
+            println!(
+                "{:<16} {:<12?} {:<6} {:<16} {:<32}",
+                r.record.envelope.workload_id, r.record.state, r.revision, r.committed_at_ms, obj
+            );
+        }
+    }
+}
 
 fn emit(value: serde_json::Value, json: bool) {
     if json {
@@ -345,17 +297,7 @@ fn emit(value: serde_json::Value, json: bool) {
             serde_json::to_string_pretty(&value).unwrap_or_default()
         );
     } else {
-        let status = value
-            .get("status")
-            .and_then(|s| s.as_str())
-            .unwrap_or("unknown");
-        if let Some(id) = value.get("workload_id").and_then(|s| s.as_str()) {
-            println!("workload {id} -> {status}");
-        } else if let Some(count) = value.get("count").and_then(|c| c.as_u64()) {
-            println!("{count} workloads -> {status}");
-        } else {
-            println!("{status}");
-        }
+        println!("{value}");
     }
 }
 
@@ -364,112 +306,119 @@ fn emit(value: serde_json::Value, json: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::{
+        AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+        AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction, AgentBudget, AgentCapabilityGrant,
+        AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord,
+        AgentWorkloadState, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
+        MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
+        PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+    };
 
-    struct FakeArgvRunner {
-        response: String,
-    }
-
-    impl ArgvRunner for FakeArgvRunner {
-        fn run(&self, _argv: &[&str]) -> ArgvOutput {
-            ArgvOutput {
-                exit_code: Some(0),
-                stdout: self.response.clone(),
-                stderr: String::new(),
-                spawn_error: None,
-            }
+    fn dummy_envelope() -> AgentWorkloadEnvelope {
+        let action = AgentBoundedAction {
+            argv: vec!["make".to_string(), "check".to_string()],
+            working_directory: Some("checkout".to_string()),
+            input_digest: Some(format!("sha256:{}", "b".repeat(64))),
+            mutates: true,
+            requires_privilege: false,
+            stop_condition: "stop on first non-zero exit".to_string(),
+            rollback_intent: "discard isolated build checkout".to_string(),
+        };
+        let mutation = MutationContract {
+            kind: "repository_validation".to_string(),
+            scope: PolicyScope {
+                domain: "build".to_string(),
+                target: "commit-a".to_string(),
+            },
+            mutates: true,
+            requires_privilege: false,
+            requires_explicit_apply: true,
+            required_authority: PolicyAuthority::RuntimePrincipal,
+            preconditions: vec!["source_commit_observed".to_string()],
+            rollback_intent: "discard isolated build checkout".to_string(),
+            expected_proofs: vec![RequiredProof {
+                gate: "canonical_gate_report".to_string(),
+                subject: "commit-a".to_string(),
+            }],
+        };
+        AgentWorkloadEnvelope {
+            schema: AGENT_WORKLOAD_ENVELOPE_SCHEMA.to_string(),
+            workload_id: "w1".to_string(),
+            idempotency_key: "k1".to_string(),
+            plan_digest: format!("sha256:{}", "a".repeat(64)),
+            input: None,
+            action,
+            delegation: AgentDelegationEnvelope {
+                schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
+                delegation_id: "d1".to_string(),
+                node_id: "n1".to_string(),
+                agent_id: "a1".to_string(),
+                parent_agent_id: None,
+                depth: 0,
+                objective: "build".to_string(),
+                authority_snapshot: AgentEvidenceRef {
+                    kind: "test".to_string(),
+                    subject: "s1".to_string(),
+                    digest: "dig1".to_string(),
+                    lineage: None,
+                },
+                context_refs: vec![],
+                capabilities: vec![AgentCapabilityGrant {
+                    id: "repository_validation".to_string(),
+                    mutates: true,
+                }],
+                budget: AgentBudget {
+                    context_tokens: 0,
+                    actions: 0,
+                    children: 0,
+                    wall_time_ms: 0,
+                    cpu_ms: None,
+                },
+                expected_proofs: vec!["canonical_gate_report".to_string()],
+            },
+            parent_delegation: None,
+            policy_admission: PolicyAdmissionReport {
+                schema: POLICY_ADMISSION_REPORT_SCHEMA.to_string(),
+                policy_set: PolicySetRef {
+                    id: "build.validation".to_string(),
+                    version: "v1".to_string(),
+                    digest: format!("sha256:{}", "c".repeat(64)),
+                },
+                intent: PolicyIntentRef {
+                    id: "validate-commit-a".to_string(),
+                    kind: "repository_validation".to_string(),
+                    actor: "build-agent-1".to_string(),
+                    subject: "commit-a".to_string(),
+                    digest: format!("sha256:{}", "d".repeat(64)),
+                    plan_digest: format!("sha256:{}", "a".repeat(64)),
+                },
+                mutation: mutation.clone(),
+                decision: PolicyDecision::Allow {
+                    required_authority: PolicyAuthority::RuntimePrincipal,
+                    required_proofs: mutation.expected_proofs.clone(),
+                },
+            },
+            execution_authorization: ExecutionAuthorization {
+                schema: EXECUTION_AUTHORIZATION_SCHEMA.to_string(),
+                actor: "build-agent-1".to_string(),
+                authority: PolicyAuthority::RuntimePrincipal,
+                explicit_apply: true,
+                satisfied_preconditions: vec!["source_commit_observed".to_string()],
+            },
         }
     }
 
-    #[test]
-    fn merge_lww_picks_most_recent() {
-        let older = DurableAgentWorkloadRecord {
+    fn dummy_record() -> DurableAgentWorkloadRecord {
+        DurableAgentWorkloadRecord {
             schema: "test".to_string(),
             revision: 1,
             previous_record_digest: None,
-            record_digest: "aaa".to_string(),
-            record: cynic_protocol::AgentWorkloadRecord {
-                schema: "test".to_string(),
-                envelope: cynic_protocol::AgentWorkloadEnvelope {
-                    schema: "test".to_string(),
-                    workload_id: "w1".to_string(),
-                    idempotency_key: "k1".to_string(),
-                    delegation: cynic_protocol::AgentDelegationEnvelope {
-                        schema: "test".to_string(),
-                        delegation_id: "d1".to_string(),
-                        node_id: "n1".to_string(),
-                        agent_id: "a1".to_string(),
-                        parent_agent_id: None,
-                        depth: 0,
-                        objective: "build".to_string(),
-                        authority_snapshot: cynic_protocol::AgentEvidenceRef {
-                            schema: "test".to_string(),
-                            subject: "s1".to_string(),
-                            digest: "dig1".to_string(),
-                            lineage: None,
-                        },
-                        context_refs: vec![],
-                        capabilities: vec![],
-                        budget: cynic_protocol::AgentBudget {
-                            context_tokens: 0,
-                            actions: 0,
-                            children: 0,
-                            wall_time_ms: 0,
-                        },
-                        expected_proofs: vec![],
-                    },
-                    policy_admission: cynic_protocol::PolicyAdmissionReport {
-                        schema: "test".to_string(),
-                        intent: cynic_protocol::PolicyIntentRef {
-                            schema: "test".to_string(),
-                            subject: "s1".to_string(),
-                            digest: "dig1".to_string(),
-                            action: "check".to_string(),
-                            role: "build_runner".to_string(),
-                            mutation_authorized: true,
-                        },
-                        decision: cynic_protocol::PolicyDecision::Allow,
-                        evidence: serde_json::json!({}),
-                        evidence_refs: vec![],
-                        status: "allowed".to_string(),
-                        mutates_host_network: false,
-                        capability_surface: vec![],
-                        residual_unknowns: vec![],
-                        node_capabilities: vec![],
-                        admission_read_back: None,
-                        admission_read_back_verified: false,
-                        admission_read_back_violations: vec![],
-                    },
-                    action: cynic_protocol::ExecutionAuthorization {
-                        schema: "test".to_string(),
-                        input_digest: None,
-                        input_schema: "test".to_string(),
-                        input_kind: "test".to_string(),
-                        payload: serde_json::json!({}),
-                    },
-                    input: None,
-                    expected_proofs: vec![],
-                    mutation_contract: cynic_protocol::MutationContract {
-                        schema: "test".to_string(),
-                        mutates_host_network: false,
-                        requires_privilege: false,
-                        capability_surface: vec![],
-                    },
-                    scope: cynic_protocol::PolicyScope {
-                        schema: "test".to_string(),
-                        node_id: "n1".to_string(),
-                        resource: "build".to_string(),
-                        action: "check".to_string(),
-                        role: "build_runner".to_string(),
-                    },
-                    policy_set: cynic_protocol::PolicySetRef {
-                        schema: "test".to_string(),
-                        subject: "s1".to_string(),
-                        digest: "dig1".to_string(),
-                    },
-                    residual_unknowns: vec![],
-                    build_grant: None,
-                },
-                state: cynic_protocol::AgentWorkloadState::Dispatched,
+            record_digest: "dummy".to_string(),
+            record: AgentWorkloadRecord {
+                schema: AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+                envelope: dummy_envelope(),
+                state: AgentWorkloadState::Dispatched,
                 claim: None,
                 last_fencing_token: 0,
                 cancellation_generation: 0,
@@ -477,7 +426,12 @@ mod tests {
                 completion: None,
             },
             committed_at_ms: 1000,
-        };
+        }
+    }
+
+    #[test]
+    fn merge_lww_picks_most_recent() {
+        let older = dummy_record();
         let newer = DurableAgentWorkloadRecord {
             committed_at_ms: 2000,
             record_digest: "bbb".to_string(),
@@ -511,105 +465,6 @@ mod tests {
     #[test]
     fn merge_empty_returns_none() {
         assert!(merge_workloads(vec![]).is_none());
-    }
-
-    fn dummy_record() -> DurableAgentWorkloadRecord {
-        DurableAgentWorkloadRecord {
-            schema: "test".to_string(),
-            revision: 1,
-            previous_record_digest: None,
-            record_digest: "dummy".to_string(),
-            record: cynic_protocol::AgentWorkloadRecord {
-                schema: "test".to_string(),
-                envelope: cynic_protocol::AgentWorkloadEnvelope {
-                    schema: "test".to_string(),
-                    workload_id: "w1".to_string(),
-                    idempotency_key: "k1".to_string(),
-                    delegation: cynic_protocol::AgentDelegationEnvelope {
-                        schema: "test".to_string(),
-                        delegation_id: "d1".to_string(),
-                        node_id: "n1".to_string(),
-                        agent_id: "a1".to_string(),
-                        parent_agent_id: None,
-                        depth: 0,
-                        objective: "build".to_string(),
-                        authority_snapshot: cynic_protocol::AgentEvidenceRef {
-                            schema: "test".to_string(),
-                            subject: "s1".to_string(),
-                            digest: "dig1".to_string(),
-                            lineage: None,
-                        },
-                        context_refs: vec![],
-                        capabilities: vec![],
-                        budget: cynic_protocol::AgentBudget {
-                            context_tokens: 0,
-                            actions: 0,
-                            children: 0,
-                            wall_time_ms: 0,
-                        },
-                        expected_proofs: vec![],
-                    },
-                    policy_admission: cynic_protocol::PolicyAdmissionReport {
-                        schema: "test".to_string(),
-                        intent: cynic_protocol::PolicyIntentRef {
-                            schema: "test".to_string(),
-                            subject: "s1".to_string(),
-                            digest: "dig1".to_string(),
-                            action: "check".to_string(),
-                            role: "build_runner".to_string(),
-                            mutation_authorized: true,
-                        },
-                        decision: cynic_protocol::PolicyDecision::Allow,
-                        evidence: serde_json::json!({}),
-                        evidence_refs: vec![],
-                        status: "allowed".to_string(),
-                        mutates_host_network: false,
-                        capability_surface: vec![],
-                        residual_unknowns: vec![],
-                        node_capabilities: vec![],
-                        admission_read_back: None,
-                        admission_read_back_verified: false,
-                        admission_read_back_violations: vec![],
-                    },
-                    action: cynic_protocol::ExecutionAuthorization {
-                        schema: "test".to_string(),
-                        input_digest: None,
-                        input_schema: "test".to_string(),
-                        input_kind: "test".to_string(),
-                        payload: serde_json::json!({}),
-                    },
-                    input: None,
-                    expected_proofs: vec![],
-                    mutation_contract: cynic_protocol::MutationContract {
-                        schema: "test".to_string(),
-                        mutates_host_network: false,
-                        requires_privilege: false,
-                        capability_surface: vec![],
-                    },
-                    scope: cynic_protocol::PolicyScope {
-                        schema: "test".to_string(),
-                        node_id: "n1".to_string(),
-                        resource: "build".to_string(),
-                        action: "check".to_string(),
-                        role: "build_runner".to_string(),
-                    },
-                    policy_set: cynic_protocol::PolicySetRef {
-                        schema: "test".to_string(),
-                        subject: "s1".to_string(),
-                        digest: "dig1".to_string(),
-                    },
-                    residual_unknowns: vec![],
-                    build_grant: None,
-                },
-                state: cynic_protocol::AgentWorkloadState::Dispatched,
-                claim: None,
-                last_fencing_token: 0,
-                cancellation_generation: 0,
-                consumed_actions: 0,
-                completion: None,
-            },
-            committed_at_ms: 1000,
-        }
     }
 
     #[test]

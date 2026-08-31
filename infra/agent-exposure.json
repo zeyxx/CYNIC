@@ -40,7 +40,7 @@
   "projection_targets": {},
   "session_handshake": {
     "schema": "cynic.agent_session_handshake.v1",
-    "contract_id": "cynic.agent_runtime",
+    "contract_id": "cynic.agent_mcp",
     "contract_revision": 8,
     "session_identity": {
       "schema": "cynic.agent_session_identity.v1",
@@ -285,30 +285,448 @@
       "kernel_completion_evidence_retention_and_read_back"
     ],
     "missing_runtime_capabilities": [
-      "scheduler_cancellation_delivery",
-      "deployed_scheduler_and_completion_federation_read_back",
-      "node_workspace_observer_wiring_and_proof",
-      "workspace_claim_store_wiring_and_conformance_proof",
-      "bounded_source_change_apply_adapter",
-      "post_apply_source_read_back"
+      "installed_agent_enrollment_authority_apply_read_back_proof",
+      "installed_artifact_conformance_proof",
+      "federation_issuer_and_audience_keys"
     ],
     "legacy_agent_task": {
-      "runtime_authority": false,
-      "classification": "coordination_message_queue_only",
-      "observed_gaps": [
-        "stringly_typed_state",
-        "no_idempotency_key",
-        "no_delegation_or_policy_binding",
-        "no_budget_accounting",
-        "no_claim_expiry_or_fencing",
-        "no_cancellation",
-        "completion_evidence_not_persisted_with_task",
-        "rest_completion_claims_as_constant_principal"
-      ]
+      "runtime_authority": false
     },
     "activation_gate": "all missing_runtime_capabilities must have node-owned durable read-back proof before status may become active"
   },
-  "mcp_servers": [],
+  "mcp_servers": [
+    {
+      "name": "cynic",
+      "tools": [
+        {
+          "name": "coordination_artifact_share",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "coordination_contract_manifest",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "coordination_decision_record",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "coordination_status_publish",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "coordination_status_read",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "coordination_thread_reply",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_agent_connection_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_agent_eval",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_agent_identify",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_agent_loop_audit",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_agent_runtime_observe",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_api_contracts",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_askesis_log",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_attention",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_audit_query",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_bench_basket_launch",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_build_list_workloads",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_build_observe_workload",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_build_run",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_build_trigger",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_claim_agent_task",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_compliance",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_claim",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_claim_batch",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_finalize",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_register",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_release",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_renew",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_coord_who",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_crystals",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_dispatch_agent_task",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_emergence_elect",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_federation_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_fleet_discover",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_fleet_health",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_fleet_inventory",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_fleet_reconcile_apply",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_fleet_reconcile_plan",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_forgejo_plan",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_forgejo_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_git",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_harness_progression",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_health",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_infer",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_backends",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_discover",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_start",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_stop",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_switch",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_inference_vault",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_judge",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_judgment",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_library_query",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_lifecycle_dispatch",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_lifecycle_payloads",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_lifecycle_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_list_completed_agent_tasks",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_list_pending_agent_tasks",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_local_autonomy",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_metabolism",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_node_activation",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_node_activation_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_observe",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_operational_benchmark",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_operator_transport_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_runtime_release_declare",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_runtime_surface",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_solana_pay_generate",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_solana_plan",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_source_change_submit",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_source_control",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_ssh_target_inspect",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_storage_credential_sync",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_toolchain_reconcile",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_transport_security_audit",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_update_agent_task_result",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_validate",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_verdicts",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_watch_pending_agent_tasks",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "docker_container_inspect",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "docker_container_list",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "docker_container_logs",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "fleet_node_exec",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "fleet_node_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "identity_attest",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "identity_smoke_check",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "identity_trust_chain_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "infra_provision",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "infra_registry_read",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "infra_registry_validate",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "lxc_exec_bridge_bundle",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "lxc_exec_bridge_plan",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "lxc_exec_bridge_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_ipam_check",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_dns_activation_apply",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_dns_activation_bundle",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_dns_activation_plan",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_dns_activation_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_dns_render",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_provider_fallback_hosts",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_provider_fallback_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "network_mesh_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "provider_control_status",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "service_health",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "service_status",
+          "tier": "baseline_runtime"
+        }
+      ],
+      "command": "cynic-mcp",
+      "args": []
+    }
+  ],
   "mcp_tool_domains": {
     "organism_status": {
       "description": "Read-only organism health, contracts, and surface discovery.",
@@ -555,11 +973,7 @@
       "tools": [
         "cynic_storage_credential_sync",
         "service_health",
-        "service_status",
-        "storage_primary_bundle",
-        "storage_primary_plan",
-        "storage_primary_readiness",
-        "storage_primary_status"
+        "service_status"
       ],
       "operator_tools": [
         "cynic runtime storage-capabilities --json",
@@ -697,7 +1111,7 @@
   "citizenship": {
     "schema": "cynic.agent_citizenship.v1",
     "owner": "crates/cynic-protocol::agent_citizenship",
-    "trait": "Citoyenneté",
+    "trait": "Citoyennet\u00e9",
     "invariant": "monotonic_budgets; child never amplifies parent authority",
     "surface": "cynic mask",
     "required_capabilities": [
@@ -709,7 +1123,7 @@
     "status": "implemented_unproven",
     "projection_targets": {
       "cli": "cynic mask -- Forge|Start (delegates to cynic runtime inference-forge/inference-start)",
-      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyenneté, budgets_within, AgentScope, AgentBudgets}"
+      "protocol": "cynic_protocol::agent_citizenship::{AgentCitizenshipRecord, Citoyennet\u00e9, budgets_within, AgentScope, AgentBudgets}"
     }
   },
   "deleted_exposures": [

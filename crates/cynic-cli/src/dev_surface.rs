@@ -1,17 +1,12 @@
 use clap::Subcommand;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
-use crate::agent_exposure_audit::audit_agent_exposure;
-use crate::crate_audit::audit_core_crates;
-use crate::emit_json;
-use crate::kernel_boundary_audit::audit_kernel_surfaces;
-use crate::ownership_audit::audit_ownership_surfaces;
-use crate::policy_formality_audit::audit_policy_formality;
-use crate::schema_registry_audit::audit_schema_registry;
-use crate::surface_audit::audit_canonical_surfaces;
-
 mod audit_persist;
+mod audits;
+mod build_admission;
 mod check;
+mod commands;
 mod data_centric_audit;
 mod inference_gateway;
 mod inference_matrix;
@@ -20,7 +15,14 @@ mod manifest;
 mod organism_audit;
 mod surface_matrix;
 
-use audit_persist::{maybe_persist_dev_audit_report, maybe_persist_kernel_audit_report};
+use audits::{
+    execute_agent_exposure, execute_crate_audit, execute_debt_audit, execute_kernel_audit,
+    execute_ownership_audit, execute_policy_formality_audit, execute_schema_registry_audit,
+    execute_surface_audit, execute_surface_matrix,
+};
+use commands::{
+    AuditArgs, BuildAdmissionArgs, CheckArgs, InferenceMatrixArgs, InferenceOptimalArgs,
+};
 use manifest::{execute_framework, execute_kpi_score, execute_outcomes, execute_surfaces};
 
 #[derive(Subcommand)]
@@ -43,147 +45,39 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         markdown: bool,
     },
-    CrateAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    KernelAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    OwnershipAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    SurfaceAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    /// Audit whether each declarative CYNIC policy is typed law or prose-only.
-    PolicyFormalityAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    /// Inventory every versioned cynic.*.vN schema literal and its fragmentation facts.
-    SchemaRegistryAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    SurfaceMatrix {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    AgentExposure {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-        #[arg(long)]
-        persist: bool,
-    },
-    Check {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        architecture_only: bool,
-        #[arg(long)]
-        layers: bool,
-        #[arg(long)]
-        source_root: Option<std::path::PathBuf>,
-        #[arg(long)]
-        target_root: Option<std::path::PathBuf>,
-    },
-    /// Exhaustive parametric sweep: context tiers, KV-quant, threads, topologies, harnesses.
-    InferenceMatrix {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        model: std::path::PathBuf,
-        #[arg(long)]
-        params_billions: f32,
-        #[arg(long)]
-        context_filter: Option<String>,
-        #[arg(long)]
-        execute: bool,
-        #[arg(long)]
-        sample: Option<usize>,
-        #[arg(long)]
-        ledger: Option<std::path::PathBuf>,
-        #[arg(long)]
-        output: Option<std::path::PathBuf>,
-    },
-    /// Queries the empirical ledger and solves for the optimal verified execution vector.
-    InferenceOptimal {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        model: String,
-        #[arg(long)]
-        context: Option<String>,
-        #[arg(long, default_value = "balanced")]
-        goal: String,
-        #[arg(long)]
-        ledger: Option<std::path::PathBuf>,
-        #[arg(long)]
-        export_toml: Option<std::path::PathBuf>,
-    },
-    /// Audit data-centric compliance (ledger presence, model coverage, OOM safety proofs).
+    CrateAudit(AuditArgs),
+    KernelAudit(AuditArgs),
+    OwnershipAudit(AuditArgs),
+    SurfaceAudit(AuditArgs),
+    PolicyFormalityAudit(AuditArgs),
+    SchemaRegistryAudit(AuditArgs),
+    SurfaceMatrix(AuditArgs),
+    AgentExposure(AuditArgs),
+    Check(CheckArgs),
+    BuildAdmission(BuildAdmissionArgs),
+    InferenceMatrix(InferenceMatrixArgs),
+    InferenceOptimal(InferenceOptimalArgs),
     DataCentricAudit {
         #[arg(long)]
         json: bool,
         #[arg(long)]
-        ledger: Option<std::path::PathBuf>,
+        ledger: Option<PathBuf>,
         #[arg(long)]
-        vault_dir: Option<std::path::PathBuf>,
+        vault_dir: Option<PathBuf>,
     },
-    /// Audit registry claims against the observed substrate (read-only).
-    ///
-    /// Refuted claims exit non-zero; unobservable ones do not — unknown is not
-    /// a fault.
     FleetDivergence {
         #[arg(long)]
         json: bool,
-        /// Registry to audit. Defaults to the repo-relative infra/registry.json.
         #[arg(long)]
-        registry: Option<std::path::PathBuf>,
-        /// Names to check for resolution consistency. Repeatable.
+        registry: Option<PathBuf>,
         #[arg(long = "name")]
         names: Vec<String>,
     },
-    /// Audit organism liveness, metabolic loops, storage health, and domain task queue.
     OrganismAudit {
         #[arg(long)]
         json: bool,
     },
-    /// Start and supervise the sovereign HTTP inference gateway.
+    DebtAudit(AuditArgs),
     InferenceGateway {
         #[arg(long)]
         listen: Option<String>,
@@ -192,9 +86,9 @@ pub(crate) enum DevCommand {
         #[arg(long)]
         default_model: Option<String>,
         #[arg(long)]
-        vault_dir: Option<std::path::PathBuf>,
+        vault_dir: Option<PathBuf>,
         #[arg(long)]
-        ledger: Option<std::path::PathBuf>,
+        ledger: Option<PathBuf>,
     },
 }
 
@@ -204,178 +98,50 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         DevCommand::Outcomes { json } => execute_outcomes(json),
         DevCommand::KpiScore { json } => execute_kpi_score(json),
         DevCommand::Framework { json, markdown } => execute_framework(json, markdown),
-        DevCommand::CrateAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_core_crates();
-            if let Err(error) =
-                maybe_persist_dev_audit_report(&report, output, persist, "crate-audit.json")
-            {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
+        DevCommand::CrateAudit(a) => execute_crate_audit(a.json, a.output, a.persist),
+        DevCommand::KernelAudit(a) => execute_kernel_audit(a.json, a.output, a.persist),
+        DevCommand::OwnershipAudit(a) => execute_ownership_audit(a.json, a.output, a.persist),
+        DevCommand::SurfaceAudit(a) => execute_surface_audit(a.json, a.output, a.persist),
+        DevCommand::PolicyFormalityAudit(a) => {
+            execute_policy_formality_audit(a.json, a.output, a.persist)
         }
-        DevCommand::KernelAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_kernel_surfaces();
-            if let Err(error) = maybe_persist_kernel_audit_report(&report, output, persist) {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
+        DevCommand::SchemaRegistryAudit(a) => {
+            execute_schema_registry_audit(a.json, a.output, a.persist)
         }
-        DevCommand::OwnershipAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
+        DevCommand::SurfaceMatrix(a) => execute_surface_matrix(a.json, a.output, a.persist),
+        DevCommand::AgentExposure(a) => execute_agent_exposure(a.json, a.output, a.persist),
+        DevCommand::Check(a) => {
+            if !a.json {
                 return ExitCode::FAILURE;
             }
-            let report = audit_ownership_surfaces();
-            if let Err(error) =
-                maybe_persist_dev_audit_report(&report, output, persist, "ownership-audit.json")
-            {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
-        }
-        DevCommand::SurfaceAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_canonical_surfaces();
-            if let Err(error) =
-                maybe_persist_dev_audit_report(&report, output, persist, "surface-audit.json")
-            {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
-        }
-        DevCommand::PolicyFormalityAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_policy_formality();
-            if let Err(error) = maybe_persist_dev_audit_report(
-                &report,
-                output,
-                persist,
-                "policy-formality-audit.json",
-            ) {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
-        }
-        DevCommand::SchemaRegistryAudit {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_schema_registry();
-            if let Err(error) = maybe_persist_dev_audit_report(
-                &report,
-                output,
-                persist,
-                "schema-registry-audit.json",
-            ) {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
-        }
-        DevCommand::SurfaceMatrix {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            surface_matrix::execute_surface_matrix(json, output, persist)
-        }
-        DevCommand::AgentExposure {
-            json,
-            output,
-            persist,
-        } => {
-            if !json {
-                return ExitCode::FAILURE;
-            }
-            let report = audit_agent_exposure();
-            if let Err(error) = maybe_persist_dev_audit_report(
-                &report,
-                output,
-                persist,
-                "agent-exposure-audit.json",
-            ) {
-                return crate::fail(error);
-            }
-            emit_json(&report, report.status != "ok")
-        }
-        DevCommand::Check {
-            json: _,
-            architecture_only,
-            layers,
-            source_root,
-            target_root,
-        } => {
-            if architecture_only && layers {
-                eprintln!("error: --architecture-only and --layers are mutually exclusive");
-                return ExitCode::FAILURE;
-            }
-            match check::run_dev_check(source_root, target_root, architecture_only, layers) {
-                Ok(report) => emit_json(&report, report.status != "ok"),
+            match check::run_dev_check(None, a.target_root, a.architecture_only, a.layered) {
+                Ok(report) => {
+                    let failed = report.status != "ok";
+                    crate::emit_json(&report, failed)
+                }
                 Err(error) => crate::fail(error),
             }
         }
-        DevCommand::InferenceMatrix {
-            json,
-            model,
-            params_billions,
-            context_filter,
-            execute,
-            sample,
-            ledger,
-            output,
-        } => inference_matrix::run(
-            json,
-            model,
-            params_billions,
-            context_filter,
-            execute,
-            sample,
-            ledger,
-            output,
+        DevCommand::BuildAdmission(a) => {
+            if !a.json {
+                return ExitCode::FAILURE;
+            }
+            let report = build_admission::observe();
+            crate::emit_json(&report, report.status != "ready")
+        }
+        DevCommand::InferenceMatrix(a) => inference_matrix::run(
+            a.json,
+            a.model,
+            a.params_billions,
+            a.context_filter,
+            a.execute,
+            a.sample,
+            a.ledger,
+            a.output,
         ),
-        DevCommand::InferenceOptimal {
-            json,
-            model,
-            context,
-            goal,
-            ledger,
-            export_toml,
-        } => inference_optimal::run(json, model, context, goal, ledger, export_toml),
+        DevCommand::InferenceOptimal(a) => {
+            inference_optimal::run(a.json, a.model, a.context, a.goal, a.ledger, a.export_toml)
+        }
         DevCommand::DataCentricAudit {
             json,
             ledger,
@@ -387,6 +153,7 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             names,
         } => crate::fleet_divergence::run(json, registry, names),
         DevCommand::OrganismAudit { json } => organism_audit::run(json),
+        DevCommand::DebtAudit(a) => execute_debt_audit(a.json, a.output, a.persist),
         DevCommand::InferenceGateway {
             listen,
             backend_port,

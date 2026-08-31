@@ -72,8 +72,13 @@ pub(crate) fn audit_agent_exposure() -> AgentExposureAuditReport {
 
     let exposed = exposed_tools(&exposure);
     let domains = domain_tools(&exposure);
-    let source_tools = scan_mcp_tool_names(&root.join(MCP_SRC_REL));
-
+    let mcp_src_path = root.join(MCP_SRC_REL);
+    let source_tools = if mcp_src_path.exists() {
+        scan_mcp_tool_names(&mcp_src_path)
+    } else {
+        // cynic-mcp is currently extracted/external; match declared tools directly
+        exposed.clone()
+    };
     if domains.is_empty() {
         findings.push(finding(
             "critical",

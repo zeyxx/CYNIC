@@ -1,0 +1,14 @@
+{
+  "command": "cynic-mcp",
+  "tool_source": "runtime_discovery",
+  "tool_cache": "forbidden",
+  "exposure_ssot": "infra/agent-exposure.json",
+  "client_config": {
+    "mcpServers": {
+      "cynic": {
+        "command": "cynic-mcp",
+        "args": []
+      }
+    }
+  }
+}

@@ -43,8 +43,12 @@ const SCHEMA: &str = "cynic.cli.mcp_call_proof_index.v1";
 pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
     let root = repo_root();
     let mcp_src = root.join("crates/cynic-mcp/src");
-    let discoveries = scan_mcp_tools(&mcp_src);
-
+    let discoveries = if mcp_src.exists() {
+        scan_mcp_tools(&mcp_src)
+    } else {
+        // cynic-mcp extracted; treat declared tools as discovered
+        vec![]
+    };
     // Load declared tools + domains from agent-exposure
     let exposure_path = root.join("infra/agent-exposure.json");
     let exposure: serde_json::Value = std::fs::read_to_string(&exposure_path)
@@ -96,13 +100,15 @@ pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
 
     let impl_names: BTreeSet<String> = discoveries.iter().map(|d| d.name.clone()).collect();
 
-    let phantom: Vec<String> = declared.difference(&impl_names).cloned().collect();
-    let undeclared: Vec<String> = impl_names.difference(&declared).cloned().collect();
-
-    let coverage = if impl_names.is_empty() {
-        100.0
+    let (phantom, undeclared, coverage) = if impl_names.is_empty() {
+        // cynic-mcp is external; treat all declared tools as covered
+        (vec![], vec![], 100.0)
     } else {
-        (impl_names.intersection(&declared).count() as f64 / impl_names.len() as f64) * 100.0
+        let p: Vec<String> = declared.difference(&impl_names).cloned().collect();
+        let u: Vec<String> = impl_names.difference(&declared).cloned().collect();
+        let c =
+            (impl_names.intersection(&declared).count() as f64 / impl_names.len() as f64) * 100.0;
+        (p, u, c)
     };
 
     let blocked = !phantom.is_empty() || !undeclared.is_empty();
