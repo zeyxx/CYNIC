@@ -109,6 +109,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic dev surface-matrix --json [--output <path>] [--persist]",
                     "cynic dev agent-exposure --json [--output <path>] [--persist]",
                     "cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]",
+                    "cynic dev opportunities [--json] [--frame <id>] [--output <path>]",
                 ],
             },
             CommandDomain {

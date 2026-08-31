@@ -12,6 +12,7 @@ mod inference_gateway;
 mod inference_matrix;
 mod inference_optimal;
 mod manifest;
+mod opportunities;
 mod organism_audit;
 mod surface_matrix;
 
@@ -22,8 +23,10 @@ use audits::{
 };
 use commands::{
     AuditArgs, BuildAdmissionArgs, CheckArgs, InferenceMatrixArgs, InferenceOptimalArgs,
+    OpportunitiesArgs,
 };
 use manifest::{execute_framework, execute_kpi_score, execute_outcomes, execute_surfaces};
+use opportunities::execute_opportunities;
 
 #[derive(Subcommand)]
 pub(crate) enum DevCommand {
@@ -78,6 +81,7 @@ pub(crate) enum DevCommand {
         json: bool,
     },
     DebtAudit(AuditArgs),
+    Opportunities(OpportunitiesArgs),
     InferenceGateway {
         #[arg(long)]
         listen: Option<String>,
@@ -154,6 +158,7 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         } => crate::fleet_divergence::run(json, registry, names),
         DevCommand::OrganismAudit { json } => organism_audit::run(json),
         DevCommand::DebtAudit(a) => execute_debt_audit(a.json, a.output, a.persist),
+        DevCommand::Opportunities(a) => execute_opportunities(a.json, a.frame, a.output),
         DevCommand::InferenceGateway {
             listen,
             backend_port,

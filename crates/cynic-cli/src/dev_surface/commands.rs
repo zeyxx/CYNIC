@@ -66,3 +66,13 @@ pub(crate) struct AuditArgs {
     #[arg(long)]
     pub(crate) persist: bool,
 }
+
+#[derive(Args)]
+pub(crate) struct OpportunitiesArgs {
+    #[arg(long)]
+    pub(crate) json: bool,
+    #[arg(long)]
+    pub(crate) frame: Option<String>,
+    #[arg(long)]
+    pub(crate) output: Option<PathBuf>,
+}

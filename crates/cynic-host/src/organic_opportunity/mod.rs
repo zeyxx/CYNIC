@@ -72,6 +72,46 @@ impl OrganicCompassCollector {
     }
 }
 
+/// Convenience use case for observing organic opportunities using workspace defaults.
+pub fn collect_default_organic_opportunities(
+    workspace_root: &std::path::Path,
+    frame: Option<ValueFrame>,
+    now_unix_s: u64,
+) -> OrganicOpportunityReport {
+    let default_frame = frame.unwrap_or_else(|| ValueFrame {
+        schema: cynic_protocol::organic_opportunity::ORGANIC_VALUE_FRAME_SCHEMA.to_string(),
+        frame_id: "default_organic_frame".to_string(),
+        description: "Standard organic opportunity ranking prioritizing safety, unlock fan-out, and fresh evidence".to_string(),
+        tie_break: vec![
+            cynic_protocol::organic_opportunity::ValueDimension::SafetyBlock,
+            cynic_protocol::organic_opportunity::ValueDimension::UnlockFanOut,
+            cynic_protocol::organic_opportunity::ValueDimension::Freshness,
+            cynic_protocol::organic_opportunity::ValueDimension::ConfidenceHigh,
+            cynic_protocol::organic_opportunity::ValueDimension::EnergyLow,
+        ],
+    });
+
+    let session_obs = SessionPatternObserver::new(SessionObserverConfig {
+        traces_dir: workspace_root.join(".hermes").join("sessions"),
+        min_recurring_sessions: 2,
+    });
+
+    let worktree_obs = SourceWorktreeObserver::new(WorktreeObserverConfig {
+        repository_root: workspace_root.to_path_buf(),
+        workspace_store: workspace_root.join(".workspace"),
+    });
+
+    let audit_obs = AuditValidationObserver::new(AuditObserverConfig {
+        debt_file_path: workspace_root.join("infra").join("DEBT_TAXONOMY.md"),
+    });
+
+    OrganicCompassCollector::new()
+        .with_observer(Box::new(session_obs))
+        .with_observer(Box::new(worktree_obs))
+        .with_observer(Box::new(audit_obs))
+        .collect_report(&default_frame, now_unix_s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
