@@ -11,47 +11,20 @@ use crate::domain::probe::Probe;
 /// Probe that reads /proc/pressure/{cpu,memory,io} for system pressure signals.
 #[derive(Debug, Default)]
 pub struct PressureProbe;
-
 impl PressureProbe {
-    /// Parse a PSI file, returning (some_avg10, some_avg60, full_avg10).
-    /// PSI format: "some avg10=X.XX avg60=X.XX avg300=X.XX total=N"
-    ///             "full avg10=X.XX avg60=X.XX avg300=X.XX total=N"  (not for cpu)
+    /// Parse a PSI file using canonical cynic-host parsers, returning (some_avg10, some_avg60, full_avg10).
     fn parse_psi(content: &str) -> (Option<f64>, Option<f64>, Option<f64>) {
-        let mut some_avg10 = None;
-        let mut some_avg60 = None;
-        let mut full_avg10 = None;
-
-        for line in content.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.is_empty() {
-                continue;
-            }
-            let is_some = parts[0] == "some";
-            let is_full = parts[0] == "full";
-            if !is_some && !is_full {
-                continue;
-            }
-            for part in &parts[1..] {
-                if let Some(val_str) = part.strip_prefix("avg10=") {
-                    if let Ok(v) = val_str.parse::<f64>() {
-                        if is_some {
-                            some_avg10 = Some(v);
-                        } else {
-                            full_avg10 = Some(v);
-                        }
-                    }
-                } else if let Some(val_str) = part.strip_prefix("avg60=")
-                    && let Ok(v) = val_str.parse::<f64>()
-                    && is_some
-                {
-                    some_avg60 = Some(v);
-                }
-            }
+        if let Ok(mem) = cynic_host::domain::memory::probe::parse_pressure_memory(content) {
+            (
+                Some(mem.some_avg10),
+                Some(mem.some_avg60),
+                Some(mem.full_avg10),
+            )
+        } else {
+            (None, None, None)
         }
-        (some_avg10, some_avg60, full_avg10)
     }
 }
-
 #[async_trait]
 impl crate::domain::probe::Probe for PressureProbe {
     fn name(&self) -> &str {

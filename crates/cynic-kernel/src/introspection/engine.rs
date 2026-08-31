@@ -257,8 +257,9 @@ pub fn analyze_soc(
         .fold(0.0, f64::max);
 
     let snapshot = ForensicsSnapshot {
-        gpu_fault_count,
-        kernel_trap_count,
+        boot_id: boot_id.to_string(),
+        gpu_faults: gpu_fault_count,
+        kernel_traps: kernel_trap_count,
         service_restart_rate,
         ..Default::default()
     };

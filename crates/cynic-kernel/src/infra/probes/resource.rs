@@ -34,26 +34,12 @@ impl Default for ResourceProbe {
 }
 
 impl ResourceProbe {
-    /// Try to read aggregate CPU line from /proc/stat.
-    /// Returns (total_ticks, idle_ticks) or None if unavailable.
+    /// Try to read aggregate CPU line from /proc/stat using canonical cynic-host parser.
     fn read_proc_stat() -> Option<CpuSnapshot> {
         let content = std::fs::read_to_string("/proc/stat").ok()?;
-        // First line: "cpu  user nice system idle iowait irq softirq steal ..."
-        let line = content.lines().next()?;
-        if !line.starts_with("cpu ") {
-            return None;
-        }
-        let fields: Vec<u64> = line
-            .split_whitespace()
-            .skip(1) // skip "cpu"
-            .filter_map(|f| f.parse().ok())
-            .collect();
-        if fields.len() < 4 {
-            return None;
-        }
-        let total: u64 = fields.iter().sum();
-        // idle = fields[3], iowait = fields[4] (if present)
-        let idle = fields[3] + fields.get(4).copied().unwrap_or(0);
+        let u = cynic_host::domain::cpu::parse_stat(&content)?;
+        let total = u.user + u.system + u.idle + u.iowait + u.softirq + u.steal;
+        let idle = u.idle + u.iowait;
         Some(CpuSnapshot { total, idle })
     }
 }

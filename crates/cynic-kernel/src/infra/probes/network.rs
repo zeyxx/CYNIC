@@ -38,35 +38,19 @@ struct TcpStats {
 }
 
 impl NetworkProbe {
-    /// Parse /proc/net/dev for a specific interface.
+    /// Parse /proc/net/dev for a specific interface using canonical cynic-host parser.
     fn read_iface_stats(iface: &str) -> Option<IfaceStats> {
         let content = std::fs::read_to_string("/proc/net/dev").ok()?;
-        for line in content.lines().skip(2) {
-            // Lines: "  iface: rx_bytes rx_packets rx_errs rx_drop ... tx_bytes tx_packets tx_errs tx_drop ..."
-            let trimmed = line.trim();
-            let (name, rest) = trimmed.split_once(':')?;
-            if name.trim() != iface {
-                continue;
-            }
-            let fields: Vec<u64> = rest
-                .split_whitespace()
-                .filter_map(|f| f.parse().ok())
-                .collect();
-            if fields.len() < 12 {
-                return None;
-            }
-            // rx: bytes(0) packets(1) errs(2) drop(3) ...
-            // tx: bytes(8) packets(9) errs(10) drop(11) ...
-            return Some(IfaceStats {
-                rx_bytes: fields[0],
-                tx_bytes: fields[8],
-                rx_errors: fields[2],
-                rx_drops: fields[3],
-                tx_errors: fields[10],
-                tx_drops: fields[11],
-            });
-        }
-        None
+        let usages = cynic_host::domain::network::parse_usage_from_dev(&content);
+        let u = usages.into_iter().find(|u| u.iface == iface)?;
+        Some(IfaceStats {
+            rx_bytes: u.rx_bytes,
+            tx_bytes: u.tx_bytes,
+            rx_errors: u.rx_errs,
+            rx_drops: u.rx_drop,
+            tx_errors: u.tx_errs,
+            tx_drops: u.tx_drop,
+        })
     }
 
     /// Parse /proc/net/sockstat for TCP line.
