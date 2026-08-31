@@ -48,7 +48,7 @@ pub async fn connect_storage_runtime(storage_config: &StorageConfig) -> StorageR
             )
         }
         Err(error) => {
-            tracing::warn!(error = %error, "storage DEGRADED — will auto-reconnect when SurrealDB is available");
+            tracing::warn!(error = %error, "storage DEGRADED — will auto-reconnect when SurrealDB is available — proof bundle will carry explicit blocked (single_endpoint_no_replication + storage_degraded), audit loop continues without panic");
             (
                 Arc::new(crate::domain::storage::NullStorage) as _,
                 Arc::new(crate::domain::coord::UnavailableCoord::new(

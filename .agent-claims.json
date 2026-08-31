@@ -1,6 +1,6 @@
 {
   "schema": "cynic.agent_claims.v2",
-  "revision": 13,
+  "revision": 14,
   "claims": [
     {
       "claim_id": "claim_hermes_v1_debt_001",
@@ -15,13 +15,13 @@
       "status": "active"
     },
     {
-      "claim_id": "claim_hermes_layer4_001",
+      "claim_id": "claim_hermes_infra_001",
       "agent_id": "hermes:main",
       "mode": "baseline",
-      "scope": { "kind": "crate", "path": "crates/cynic-host" },
-      "budget": { "actions": 30, "wall_seconds": 3600 },
+      "scope": { "kind": "crate", "path": "crates/cynic-kernel" },
+      "budget": { "actions": 20, "wall_seconds": 3600 },
       "consumed": { "actions": 0, "wall_seconds": 0 },
-      "temporal": { "started_at_unix_s": 1724005000, "ttl_seconds": 3600 },
+      "temporal": { "started_at_unix_s": 1724006000, "ttl_seconds": 3600 },
       "priority": 10,
       "parent_claim_id": null,
       "status": "active"

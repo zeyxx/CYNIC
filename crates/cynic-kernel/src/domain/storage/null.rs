@@ -2,6 +2,7 @@
 //! When the real DB is unavailable, the kernel substitutes this so verdicts
 //! still pass through the pipeline (but are not persisted). K14: degraded
 //! mode returns explicit errors rather than silently succeeding.
+//! Invariant: writes return Err(ConnectionFailed) → proof bundle carries explicit blocked/unknown (storage_degraded + single_endpoint_no_replication), audit loop continues without panic or silent success.
 
 use super::{
     ActivityStorage, CrystalStorage, DispatchStorage, MeshNode, MeshRoute, MeshStorage,
