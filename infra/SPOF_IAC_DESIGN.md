@@ -27,27 +27,38 @@ Tous: 1 process, 1 DB, 1 endpoint — dette-taxonomie Infra1/Coord1/GC1
 9. **Organic always wins** — le compass propose, n'impose pas
 10. **Design gate 6Q** avant code — desired, observe port, reconcile pur, bounded argv, proof, owner
 
-## 3. Desired state déclaratif (IaaS)
+## 3. Desired state déclaratif (IaaS) — DÉCOUPLÉ client vs cible (3.7-flash)
 
-Fichier unique SSOT: `infra/storage_topology.json` (schéma `cynic.storage_topology.v1`), versionné, cité par `contracts/foundation.json`:
+Fichiers SSOT scellés dans `contracts/foundation.json` (comme `cynic.dev.debt_audit.v1`):
 
+`infra/storage_topology.json` (cible IaaS, `cynic.storage_topology.v1`):
 ```json
 {
   "schema": "cynic.storage_topology.v1",
-  "replicas": 3,
-  "endpoints": ["http://surreal-0:8000", "http://surreal-1:8000", "http://surreal-2:8000"],
-  "leader_election": "raft",
-  "read_consistency": "eventual",
-  "write_quorum": 2,
+  "engine": { "backend": "standalone_process", "cluster_mode": "none" },
+  "target_topology": { "replicas": 1, "residual_risk": "single_endpoint_no_replication" },
   "budget": { "wall_time_ms": 5000, "cpu_ms": 5000 }
 }
 ```
+`infra/storage_client_policy.json` (politique client, `cynic.storage_client_policy.v1`, consommée par `cynic-kernel`):
+```json
+{
+  "schema": "cynic.storage_client_policy.v1",
+  "client_policy": {
+    "endpoints": ["http://127.0.0.1:8000"],
+    "failover_mode": "ordered_fallback",
+    "write_quorum": 1,
+    "timeout_ms": 5000
+  }
+}
+```
+Cible IaaS (`replicas`, `engine.cluster_mode`) ≠ politique client (`endpoints` ordonnés + `failover_mode` + `write_quorum`). `cynic-kernel` reste consommateur passif d'une liste ordonnée avec fallback, pas propriétaire de topologie. Valeurs injectées via `CYNIC_STORAGE_TOPOLOGY_PATH` / `CYNIC_STORAGE_CLIENT_POLICY_PATH` (comme `CYNIC_REGISTRY`), pas hardcodées. Pour `raft` multi-nœuds, `engine.backend` doit être `tikv` (Surreal fichier/mémoire ne réplique pas par `surreal sql` seul) — évite AddReplica irréalisable.
 
-Même forme pour `coord_topology.json`, `fleet_topology.json` — un désiré par service, pas N configs divergentes. Valeurs injectées via `CYNIC_STORAGE_TOPOLOGY_PATH` (comme `CYNIC_REGISTRY`), pas hardcodées.
+Même découplage pour `coord_topology.json` / `coord_client_policy.json`, `fleet_topology.json` — un désiré par service, pas N configs divergentes.
 
 ## 4. Observe port (pur, injecté)
 
-Types dans `cynic_protocol::storage_topology::{StorageTopologyDesired, StorageTopologyObserved, StorageTopologyReport}` (jamais dans CLI).
+Types dans `cynic_protocol::storage_topology::{StorageTopologyDesired, StorageTopologyObserved, StorageTopologyReport}` et `cynic_protocol::storage_client_policy::{StorageClientPolicy}` (jamais dans CLI). `cynic_protocol` scinde `StorageTopologyDesired` (cible IaaS) et `StorageClientPolicy` (liste ordonnée endpoints + failover) — `cynic-kernel` ne dépend que de `StorageClientPolicy`, pas de topologie IaaS.
 
 Parsers purs dans `cynic_host::domain::storage::probe` (pas d'I/O). Ports:
 
