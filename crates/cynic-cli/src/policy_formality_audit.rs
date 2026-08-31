@@ -131,6 +131,22 @@ const POLICY_SURFACES: &[PolicyFormalitySpec] = &[
         expected_owner_crate: "cynic-protocol",
         scan_tokens: &["EvolutivePolicy", "default_gate"],
     },
+    PolicyFormalitySpec {
+        policy: "organic_opportunities_compass",
+        authority_prose_source: "AGENTS.md §Organic opportunities — Organic always wins",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &[
+            "OrganicOpportunity",
+            "rank_in_value_frame",
+            "OpportunityDecisionRecord",
+        ],
+    },
+    PolicyFormalitySpec {
+        policy: "one_shot_capability_bounded_budget",
+        authority_prose_source: "AGENTS.md §Agent Coordination Claims & Sec1",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &["OneShotCapability", "satisfies_monotonic_budget"],
+    },
 ];
 
 #[derive(Serialize)]

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const POLICY_ADMISSION_REPORT_SCHEMA: &str = "cynic.policy_admission_report.v1";
+pub const EVOLUTIVE_POLICY_SCHEMA: &str = "cynic.evolutive_policy.v1";
 pub const EXECUTION_AUTHORIZATION_SCHEMA: &str = "cynic.execution_authorization.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,6 +142,97 @@ impl PolicyAdmissionReport {
     }
 }
 
+/// Domains governed by evolutive policies in foundation contracts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvolutivePolicyDomain {
+    Build,
+    Release,
+    Storage,
+    Network,
+    AgentExecution,
+    Settlement,
+}
+
+/// Typed evolutive policy turning `contracts/foundation.json evolutive_policies`
+/// prose strings into machine-readable verifiable law.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvolutivePolicy {
+    pub schema: String,
+    pub domain: EvolutivePolicyDomain,
+    pub default_gate: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_gate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_gate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admission_gate: Option<String>,
+    #[serde(default)]
+    pub residual_unknowns: Vec<String>,
+}
+
+impl EvolutivePolicy {
+    /// Hydrates the canonical evolutive policy for a domain from foundation law.
+    pub fn foundation(domain: EvolutivePolicyDomain) -> Self {
+        match domain {
+            EvolutivePolicyDomain::Build => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "make check on build runner with signed machine grant".to_string(),
+                build_gate: Some("blocked until real registry-selected runner verifies signature and returns argv + artifact digest evidence".to_string()),
+                release_gate: None,
+                admission_gate: None,
+                residual_unknowns: vec![],
+            },
+            EvolutivePolicyDomain::Release => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "retained terminal release-build proof and publication read-back".to_string(),
+                build_gate: None,
+                release_gate: Some("blocked until publication proof is verified on independent relay or sovereign remote".to_string()),
+                admission_gate: None,
+                residual_unknowns: vec![],
+            },
+            EvolutivePolicyDomain::Storage => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "fail-closed in degraded mode; no silent write success on null storage".to_string(),
+                build_gate: None,
+                release_gate: None,
+                admission_gate: Some("storage topology observation proves active endpoints before admission".to_string()),
+                residual_unknowns: vec![],
+            },
+            EvolutivePolicyDomain::Network => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "deterministic Synapse/WireGuard mesh with failover".to_string(),
+                build_gate: None,
+                release_gate: None,
+                admission_gate: Some("mesh reachability proved via peer resolver".to_string()),
+                residual_unknowns: vec![],
+            },
+            EvolutivePolicyDomain::AgentExecution => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "fractal agent recursion with monotonic budget decrease and lease fencing".to_string(),
+                build_gate: None,
+                release_gate: None,
+                admission_gate: Some("agent workload envelope verified before mutation".to_string()),
+                residual_unknowns: vec![],
+            },
+            EvolutivePolicyDomain::Settlement => Self {
+                schema: EVOLUTIVE_POLICY_SCHEMA.to_string(),
+                domain,
+                default_gate: "public commitment and settlement via Solana/Futard with explicit opt-in disclosure".to_string(),
+                build_gate: None,
+                release_gate: None,
+                admission_gate: Some("publication consent verified before disclosure".to_string()),
+                residual_unknowns: vec![],
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,5 +340,18 @@ mod tests {
             value.get("authority").and_then(|value| value.as_str()),
             Some("human_admin")
         );
+    }
+
+    #[test]
+    fn evolutive_policy_hydrates_from_foundation_law() {
+        let build_policy = EvolutivePolicy::foundation(EvolutivePolicyDomain::Build);
+        assert_eq!(build_policy.schema, EVOLUTIVE_POLICY_SCHEMA);
+        assert_eq!(build_policy.domain, EvolutivePolicyDomain::Build);
+        assert!(build_policy.default_gate.contains("make check"));
+        assert!(build_policy.build_gate.is_some());
+
+        let storage_policy = EvolutivePolicy::foundation(EvolutivePolicyDomain::Storage);
+        assert_eq!(storage_policy.domain, EvolutivePolicyDomain::Storage);
+        assert!(storage_policy.default_gate.contains("fail-closed"));
     }
 }
