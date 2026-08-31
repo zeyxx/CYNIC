@@ -1,8 +1,8 @@
 use cynic_host::domain::storage::{
     InMemoryStorageClientPolicyAdapter, InMemoryStorageTopologyAdapter,
     LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter, StorageTopologyAction,
-    StorageTopologyObservationPort, apply_and_prove_storage_topology, plan_storage_topology_apply,
-    reconcile_storage_topology, storage_topology_report,
+    StorageTopologyObservationPort, apply_and_prove_storage_topology, apply_client_policy_file,
+    plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
 };
 use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
 use cynic_protocol::storage_client_policy::{
@@ -67,6 +67,19 @@ fn local_adapter_observe_missing_file() {
             .residual_unknowns
             .contains(&"topology_file_missing".to_string())
     );
+}
+
+#[test]
+fn client_policy_apply_requires_admission_and_readback() {
+    let tempdir = tempfile::tempdir().expect("create isolated policy fixture root");
+    let path = tempdir.path().join("storage_client_policy.json");
+    let policy = StorageClientPolicy::default();
+    assert_eq!(
+        apply_client_policy_file(&path, &policy, false),
+        Err("apply_not_admitted".to_string())
+    );
+    apply_client_policy_file(&path, &policy, true)
+        .expect("explicit apply must read back exact policy");
 }
 
 #[test]

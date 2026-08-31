@@ -64,6 +64,29 @@ pub fn plan_storage_topology_apply(
     }
 }
 
+pub fn apply_client_policy_file(
+    path: &std::path::Path,
+    policy: &StorageClientPolicy,
+    apply: bool,
+) -> Result<(), String> {
+    if !apply {
+        return Err("apply_not_admitted".to_string());
+    }
+    let payload = serde_json::to_vec_pretty(policy)
+        .map_err(|error| format!("client_policy_encode_failed:{error}"))?;
+    std::fs::write(path, payload)
+        .map_err(|error| format!("client_policy_write_failed:{}:{error}", path.display()))?;
+    let read_back = std::fs::read_to_string(path)
+        .map_err(|error| format!("client_policy_readback_failed:{}:{error}", path.display()))?;
+    let observed: StorageClientPolicy = serde_json::from_str(&read_back)
+        .map_err(|error| format!("client_policy_readback_invalid:{error}"))?;
+    if &observed == policy {
+        Ok(())
+    } else {
+        Err("client_policy_readback_mismatch".to_string())
+    }
+}
+
 pub fn apply_and_prove_storage_topology<
     R: ArgvRunner,
     O: StorageTopologyObservationPort,
