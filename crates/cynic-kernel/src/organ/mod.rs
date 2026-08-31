@@ -5,6 +5,11 @@
 //
 // Layer boundary (I1): organ imports from domain/ only. Never imports from dogs/ or infra/.
 // main.rs (composition root) assembles InferenceDog from organ registry data.
+//
+// V4 industrialisation: types already canonical via cynic-inference::domain::backend_health (registry.rs 5 lignes pub use, §481).
+// Logic InferenceOrgan 1044 (BackendHandle, ParseFailureGate, DogStats, budgets) reste ici pour V3,
+// extraite en V4 via OrganPort vers cynic-inference — évite drift si nouveaux adapters s'enregistrent direct chez inference.
+// Proof: reserve 3 GO avec réserves levée en doc, pas de duplication silencieuse.
 
 pub mod health;
 pub mod registry;
