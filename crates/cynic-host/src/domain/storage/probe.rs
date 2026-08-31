@@ -39,6 +39,14 @@ pub fn storage_topology_report(
         schema: cynic_protocol::storage_topology::STORAGE_TOPOLOGY_REPORT_SCHEMA.to_string(),
         desired_digest,
         observed_digest,
+        pre_observed_digest: None,
+        post_observed_digest: None,
+        actions_applied: Vec::new(),
+        status: if residual.is_empty() {
+            "observed".to_string()
+        } else {
+            "blocked".to_string()
+        },
         residual_unknowns: residual,
         proof_ref: None,
     }

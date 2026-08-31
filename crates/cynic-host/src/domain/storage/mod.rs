@@ -5,7 +5,10 @@ pub mod probe;
 pub mod reconcile;
 pub mod remote_adapter;
 
-pub use apply::{StorageTopologyApplyIntent, plan_storage_topology_apply};
+pub use apply::{
+    StorageTopologyApplyIntent, StorageTopologyArgvAction, apply_and_prove_storage_topology,
+    plan_storage_topology_apply,
+};
 pub use fleet_observer::FleetStorageTopologyObserver;
 pub use local_adapter::LocalStorageTopologyAdapter;
 pub use probe::{

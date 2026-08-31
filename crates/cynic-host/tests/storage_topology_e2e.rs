@@ -1,7 +1,7 @@
 use cynic_host::domain::storage::{
     InMemoryStorageTopologyAdapter, LocalStorageTopologyAdapter, RemoteStorageTopologyAdapter,
-    StorageTopologyAction, StorageTopologyObservationPort, plan_storage_topology_apply,
-    reconcile_storage_topology, storage_topology_report,
+    StorageTopologyAction, StorageTopologyObservationPort, apply_and_prove_storage_topology,
+    plan_storage_topology_apply, reconcile_storage_topology, storage_topology_report,
 };
 use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
 use cynic_protocol::storage_client_policy::{
@@ -139,6 +139,61 @@ fn report_residual_single_endpoint() {
 }
 
 #[test]
+fn apply_readback_unchanged_stays_blocked() {
+    let desired = desired_one();
+    let observed = observed_one("http://127.0.0.1:8000");
+    let client_policy = StorageClientPolicy {
+        schema: STORAGE_CLIENT_POLICY_SCHEMA.to_string(),
+        client_policy: ClientPolicy {
+            endpoints: vec![],
+            failover_mode: "ordered_fallback".to_string(),
+            write_quorum: 1,
+            timeout_ms: 5000,
+        },
+    };
+    let plan = reconcile_storage_topology(&desired, &observed, &client_policy);
+    let intent = plan_storage_topology_apply(&desired, &observed, &plan, &client_policy);
+    assert!(intent.mutates);
+    assert_eq!(
+        intent.actions[0].argv,
+        vec![
+            "cynic".to_string(),
+            "storage".to_string(),
+            "client-policy".to_string(),
+            "set-endpoints".to_string(),
+            "http://127.0.0.1:8000".to_string(),
+        ]
+    );
+    let observer = InMemoryStorageTopologyAdapter { observed };
+    let runner = MapArgvRunner {
+        responses: vec![(
+            vec!["cynic".to_string()],
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            },
+        )],
+    };
+    let proof = apply_and_prove_storage_topology(
+        &intent,
+        &desired,
+        &client_policy,
+        &observer,
+        &runner,
+        true,
+    );
+    assert_eq!(proof.status, "blocked");
+    assert_eq!(proof.actions_applied, vec![intent.actions[0].argv.clone()]);
+    assert!(
+        proof
+            .residual_unknowns
+            .contains(&"post_apply_readback_unchanged".to_string())
+    );
+}
+
+#[test]
 fn reconcile_add_replica_and_backpressure() {
     let desired = StorageTopologyDesired {
         schema: STORAGE_TOPOLOGY_SCHEMA.to_string(),
@@ -178,7 +233,8 @@ fn reconcile_add_replica_and_backpressure() {
             .contains(&"poll_cost_exceeded_budget".to_string())
     );
     let apply = plan_storage_topology_apply(&desired, &observed, &plan, &client_policy);
-    assert!(apply.mutates);
+    assert!(!apply.mutates);
+    assert!(apply.actions.iter().all(|action| !action.mutates));
     assert_eq!(apply.rollback, "rollback to 1 replicas");
     assert_eq!(apply.proof_ref, "storage_topology:1");
 }
