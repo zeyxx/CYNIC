@@ -6,6 +6,9 @@ use crate::domain::organ::{
 };
 use async_trait::async_trait;
 use chrono::Utc;
+use cynic_protocol::{
+    SenseError, SenseHealth, SensoryPayload, SensoryPort, SensorySnapshot, TokenMetabolismPayload,
+};
 use rusqlite::{Connection, OpenFlags};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -200,6 +203,104 @@ impl OrganPort for RtkReader {
         })
         .await
         .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+    }
+}
+
+#[async_trait]
+impl SensoryPort for RtkReader {
+    fn sense_id(&self) -> &'static str {
+        "rtk"
+    }
+
+    async fn health(&self) -> SenseHealth {
+        let path = self.db_path.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            if !path.exists() {
+                return SenseHealth::Dead {
+                    reason: "history.db not found".to_string(),
+                };
+            }
+            match Self::open_db(&path) {
+                Ok(_) => SenseHealth::Alive,
+                Err(e) => SenseHealth::Degraded {
+                    reason: e.to_string(),
+                },
+            }
+        })
+        .await;
+
+        match result {
+            Ok(h) => h,
+            Err(_) => SenseHealth::Degraded {
+                reason: "spawn_blocking panicked".to_string(),
+            },
+        }
+    }
+
+    async fn freshness(&self) -> Result<Duration, SenseError> {
+        let path = self.db_path.clone();
+        tokio::task::spawn_blocking(move || {
+            let conn = Self::open_db(&path).map_err(|e| SenseError::ReadFailed(e.to_string()))?;
+            let ts: i64 = conn
+                .query_row("SELECT MAX(timestamp) FROM commands", [], |row| row.get(0))
+                .map_err(|e| SenseError::ReadFailed(format!("freshness query: {e}")))?;
+
+            let parsed = chrono::DateTime::from_timestamp_millis(ts)
+                .ok_or_else(|| SenseError::ReadFailed("bad timestamp".to_string()))?;
+
+            let age = Utc::now()
+                .signed_duration_since(parsed)
+                .to_std()
+                .unwrap_or(Duration::ZERO);
+
+            Ok(age)
+        })
+        .await
+        .map_err(|e| SenseError::ReadFailed(format!("spawn_blocking: {e}")))?
+    }
+
+    async fn capture_snapshot(&self) -> Result<SensorySnapshot, SenseError> {
+        let path = self.db_path.clone();
+        let command_project_scope = self.command_project_scope.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = Self::open_db(&path).map_err(|e| SenseError::ReadFailed(e.to_string()))?;
+
+            let (total_commands, total_input, _total_output, total_saved, avg_savings, _total_exec_time): (
+                u64,
+                u64,
+                u64,
+                u64,
+                f64,
+                u64,
+            ) = if let Some(scope) = command_project_scope.as_ref() {
+                conn.query_row(
+                    "SELECT COUNT(*), COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0), COALESCE(SUM(saved_tokens), 0), COALESCE(AVG(savings_pct), 0.0), COALESCE(SUM(exec_time_ms), 0) FROM commands WHERE project_path LIKE ?1",
+                    [format!("%{scope}%")],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                )
+            } else {
+                conn.query_row(
+                    "SELECT COUNT(*), COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0), COALESCE(SUM(saved_tokens), 0), COALESCE(AVG(savings_pct), 0.0), COALESCE(SUM(exec_time_ms), 0) FROM commands",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+                )
+            }
+            .map_err(|e| SenseError::ReadFailed(format!("metrics query: {e}")))?;
+
+            let now = Utc::now().timestamp() as u64;
+            let payload = SensoryPayload::TokenMetabolism(TokenMetabolismPayload {
+                total_commands,
+                total_input_tokens: total_input,
+                total_saved_tokens: total_saved,
+                savings_percent: avg_savings,
+                active_scope: command_project_scope,
+            });
+
+            Ok(SensorySnapshot::new("rtk", now, 0, payload))
+        })
+        .await
+        .map_err(|e| SenseError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 }
 
