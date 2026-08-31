@@ -67,6 +67,7 @@ pub mod node_activation;
 pub mod node_identity_workflow;
 pub mod node_substrate;
 pub mod one_shot_authority;
+pub mod organic_opportunity;
 pub mod os_health;
 pub mod peer_resolver_mesh;
 pub mod peer_validator;
