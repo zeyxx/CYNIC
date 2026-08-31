@@ -147,6 +147,8 @@ impl<R: ArgvRunner> FleetMemoryObserver<R> {
             failed_nodes,
             nodes,
             residual_unknowns,
+            budget: None,
+            poll_cost_ms: None,
         }
     }
 }

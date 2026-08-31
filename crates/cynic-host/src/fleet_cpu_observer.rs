@@ -150,6 +150,8 @@ impl<R: ArgvRunner> FleetCpuObserver<R> {
             failed_nodes,
             nodes,
             residual_unknowns,
+            budget: None,
+            poll_cost_ms: None,
         }
     }
 }

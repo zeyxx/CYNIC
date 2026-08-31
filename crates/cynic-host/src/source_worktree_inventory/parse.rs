@@ -1,9 +1,6 @@
 use std::path::Path;
 
-use cynic_protocol::{
-    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES,
-    SourceWorktreeInventoryEntry,
-};
+use cynic_protocol::{SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES, SourceWorktreeInventoryEntry};
 
 use super::entry::flush;
 
@@ -23,6 +20,53 @@ pub(crate) fn parse_porcelain(
     repository_root: &Path,
     workspace_store: &Path,
 ) -> (Vec<SourceWorktreeInventoryEntry>, bool, Vec<String>) {
+    if !text.is_empty() && !text.contains('\0') {
+        return (
+            Vec::new(),
+            false,
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
+        );
+    }
+    let (complete_text, trailing_evidence) = if text.is_empty() || text.ends_with("\0\0") {
+        (text, Vec::new())
+    } else if let Some(boundary) = text.rfind("\0\0") {
+        let complete_end = boundary + 2;
+        (
+            &text[..complete_end],
+            vec![cynic_protocol::digest::digest_bytes(
+                text[complete_end..].as_bytes(),
+            )],
+        )
+    } else {
+        return (
+            Vec::new(),
+            false,
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
+        );
+    };
+    let mut entries = Vec::new();
+    let mut entry_limit_exceeded = false;
+    let mut malformed_record_attributes: Vec<String> = Vec::new();
+
+    let mut current_path: Option<String> = None;
+    let mut current_head: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+    let mut current_locked: Option<bool> = None;
+    let mut current_lock_reason: Option<String> = None;
+    let mut current_bare: Option<bool> = None;
+    let mut current_detached: Option<bool> = None;
+    let mut current_prunable: Option<bool> = None;
+    let mut current_prunable_reason: Option<String> = None;
+    let mut current_unknown_attribute_count = 0_u16;
+    let mut current_unknown_attributes: Vec<String> = Vec::new();
+    let mut current_malformed = false;
+    let mut seen_head = false;
+    let mut seen_branch = false;
+    let mut seen_locked = false;
+    let mut seen_bare = false;
+    let mut seen_detached = false;
+    let mut seen_prunable = false;
+
     let attributes = complete_text.split('\0').collect::<Vec<_>>();
     for line in attributes {
         if line.is_empty() {

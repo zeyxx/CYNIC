@@ -1,10 +1,7 @@
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use cynic_protocol::{
-    SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES,
-    SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
-    SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,
 };
 
 const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
@@ -181,5 +178,6 @@ fn observed_absolute_path(path: &Path) -> PathBuf {
         .unwrap_or_else(|_| path.to_path_buf())
 }
 
+mod entry;
 mod parse;
-pub use parse::parse_porcelain;
+pub(crate) use parse::parse_porcelain;
