@@ -183,7 +183,6 @@ fn apply_readback_unchanged_stays_blocked() {
     let proof = apply_and_prove_storage_topology(
         &intent,
         &desired,
-        &client_policy,
         &observer,
         &policy_observer,
         &runner,

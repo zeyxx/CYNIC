@@ -71,7 +71,6 @@ pub fn apply_and_prove_storage_topology<
 >(
     intent: &StorageTopologyApplyIntent,
     desired: &StorageTopologyDesired,
-    client_policy: &StorageClientPolicy,
     observer: &O,
     policy_observer: &P,
     runner: &R,
