@@ -160,6 +160,7 @@ mod tests {
             ),
             signature_hex: String::new(),
             evidence_refs: vec!["enrollment:proof".to_string()],
+            budget: None,
         };
         // sign via port
         let port = LocalCapabilitySigningKey {

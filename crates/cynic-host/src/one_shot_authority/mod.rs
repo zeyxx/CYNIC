@@ -247,6 +247,7 @@ mod tests {
             ),
             signature_hex: String::new(),
             evidence_refs: vec!["bootstrap_binding:fixture".to_string()],
+            budget: None,
         };
         capability.signature_hex = hex::encode(
             signing_key

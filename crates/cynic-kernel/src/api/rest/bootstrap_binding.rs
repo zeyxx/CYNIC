@@ -241,6 +241,7 @@ pub async fn issue_bootstrap_binding_handler(
             ),
             format!("source_commit:{}:{}", node_id, request.source_commit),
         ],
+        budget: None,
     };
 
     let input_digest =
@@ -489,6 +490,7 @@ pub async fn issue_runtime_publisher_binding_handler(
             "node-enrollment-grant:{}:{}",
             node_id, request.grant.grant.grant_id
         )],
+        budget: None,
     };
     let input_digest =
         match runtime_publisher_bootstrap_input_digest(&RuntimePublisherCapabilityBinding {

@@ -4,6 +4,7 @@
 //! similarly exceptional boundary. The protocol deliberately owns no key,
 //! filesystem, clock, or consumption store.
 
+use crate::task_pipeline::EnergyBudget;
 use serde::{Deserialize, Serialize};
 
 pub const ONE_SHOT_CAPABILITY_SCHEMA: &str = "cynic.one_shot_capability.v1";
@@ -27,6 +28,9 @@ pub struct OneShotCapability {
     pub signature_hex: String,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
+    /// Bounded energy and execution budget (Sec1 / Monotonic Budget rule).
+    #[serde(default)]
+    pub budget: Option<EnergyBudget>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +81,8 @@ struct OneShotCapabilitySigningPayload<'a> {
     allowed_action_digests: &'a [String],
     authority_key_id: &'a str,
     evidence_refs: &'a [String],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    budget: Option<&'a EnergyBudget>,
 }
 
 impl OneShotCapability {
@@ -97,6 +103,7 @@ impl OneShotCapability {
             allowed_action_digests: &self.allowed_action_digests,
             authority_key_id: &self.authority_key_id,
             evidence_refs: &self.evidence_refs,
+            budget: self.budget.as_ref(),
         })
     }
 
@@ -143,6 +150,16 @@ impl OneShotCapability {
         blockers.dedup();
         blockers
     }
+
+    /// Pure check enforcing the Monotonic Budget rule (Sec1 / AGENTS.md):
+    /// A child or delegated capability must not amplify its parent capability's budget.
+    pub fn satisfies_monotonic_budget(&self, parent_budget: &EnergyBudget) -> bool {
+        match &self.budget {
+            Some(child_budget) => child_budget.fits_within(parent_budget),
+            // A capability with unbounded budget (None) cannot satisfy a bounded parent budget.
+            None => false,
+        }
+    }
 }
 
 fn valid_identifier(value: &str) -> bool {
@@ -188,6 +205,7 @@ mod tests {
             authority_key_id: format!("sha256:{}", "d".repeat(64)),
             signature_hex: "e".repeat(128),
             evidence_refs: vec!["machine-enrollment:proof".to_string()],
+            budget: None,
         }
     }
 
@@ -224,5 +242,40 @@ mod tests {
                 )
                 .contains(&"one_shot_capability_expired_or_invalid".to_string())
         );
+    }
+
+    #[test]
+    fn monotonic_budget_validation() {
+        let parent_budget = EnergyBudget {
+            wall_time_ms: 10_000,
+            inference_tokens: Some(1000),
+            cpu_ms: Some(5000),
+            ram_bytes_s: Some(1_000_000),
+        };
+
+        let mut child_cap = capability();
+        child_cap.budget = Some(EnergyBudget {
+            wall_time_ms: 5_000,
+            inference_tokens: Some(500),
+            cpu_ms: Some(2000),
+            ram_bytes_s: Some(500_000),
+        });
+
+        // Child budget <= parent budget => passes
+        assert!(child_cap.satisfies_monotonic_budget(&parent_budget));
+
+        // Amplification (child requests more than parent) => fails
+        let mut amplified_cap = capability();
+        amplified_cap.budget = Some(EnergyBudget {
+            wall_time_ms: 20_000,
+            inference_tokens: Some(1000),
+            cpu_ms: Some(5000),
+            ram_bytes_s: Some(1_000_000),
+        });
+        assert!(!amplified_cap.satisfies_monotonic_budget(&parent_budget));
+
+        // Unbounded child (None) cannot satisfy bounded parent => fails
+        let unbounded_cap = capability();
+        assert!(!unbounded_cap.satisfies_monotonic_budget(&parent_budget));
     }
 }

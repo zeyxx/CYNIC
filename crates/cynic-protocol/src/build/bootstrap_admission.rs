@@ -279,6 +279,7 @@ mod tests {
                 authority_key_id: format!("sha256:{}", "e".repeat(64)),
                 signature_hex: "f".repeat(128),
                 evidence_refs: vec!["enrollment:proof".to_string()],
+                budget: None,
             },
         };
         binding.capability.input_digest =

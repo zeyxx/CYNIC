@@ -37,6 +37,7 @@ fn signed_capability(signing_key: &SigningKey, action_digest: String) -> OneShot
         ),
         signature_hex: String::new(),
         evidence_refs: vec!["bootstrap_binding:p0-fixture".to_string()],
+        budget: None,
     };
     capability.signature_hex = hex::encode(
         signing_key

@@ -81,6 +81,7 @@ pub(crate) fn execute(args: &[String]) -> Result<std::process::ExitCode, String>
         authority_key_id: authority_key_id.clone(),
         signature_hex: String::new(), // signed below
         evidence_refs: vec![format!("machine_enrollment:{}", enrollment.node_id)],
+        budget: None,
     };
 
     // Build the partial binding (capability.input_digest empty) to derive the

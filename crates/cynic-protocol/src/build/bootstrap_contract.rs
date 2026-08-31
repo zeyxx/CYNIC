@@ -115,6 +115,7 @@ mod tests {
             authority_key_id: enr.authority_key_id(),
             signature_hex: "0".repeat(128),
             evidence_refs: vec!["enrollment:proof".to_string()],
+            budget: None,
         }
     }
 
