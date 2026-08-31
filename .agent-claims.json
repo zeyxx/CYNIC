@@ -1,6 +1,19 @@
 {
   "schema": "cynic.agent_claims.v2",
-  "revision": 2,
-  "claims": [],
+  "revision": 3,
+  "claims": [
+    {
+      "claim_id": "claim_hermes_v1_debt_001",
+      "agent_id": "hermes:main",
+      "mode": "baseline",
+      "scope": { "kind": "file", "path": "infra/DEBT_TAXONOMY.md" },
+      "budget": { "actions": 50, "wall_seconds": 3600 },
+      "consumed": { "actions": 0, "wall_seconds": 0 },
+      "temporal": { "started_at_unix_s": 1724000000, "ttl_seconds": 1800 },
+      "priority": 10,
+      "parent_claim_id": null,
+      "status": "active"
+    }
+  ],
   "merge_queue": []
 }
