@@ -1,8 +1,8 @@
 //! InferenceOrgan — owns the registry of Dog backends and tracks their health.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 use crate::domain::dog_health::{DogStats, ScoreOutcome};
