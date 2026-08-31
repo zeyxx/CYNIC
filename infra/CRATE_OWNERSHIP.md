@@ -123,7 +123,7 @@ CARTE D'EXTRACTION PROPOSEE:
     EXTRAIRE vers crate cible:
       ccm                -> cynic-protocol (scoring) ou crate dedie
       dogs/health        -> cynic-askesis (ML evals)
-      wallet_judgment    -> cynic-intel (ou askesis)
+      wallet_judgment / market_data -> cynic-intel [RESOLU: rug_risk, wallet, kscore, MarketDataPort dans cynic-intel]
       organ/inference    -> cynic-inference (DEJA existe ! doublon)
       backends/solana    -> cynic-zeroclaw-solana (adapter) ou crate adapters
       probe/hardware     -> cynic-host::domain (host substrate)
