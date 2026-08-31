@@ -124,7 +124,7 @@ CARTE D'EXTRACTION PROPOSEE:
       ccm                -> cynic-protocol (scoring) ou crate dedie
       dogs/health        -> cynic-askesis (ML evals)
       wallet_judgment / market_data -> cynic-intel [RESOLU: rug_risk, wallet, kscore, MarketDataPort dans cynic-intel]
-      organ/inference    -> cynic-inference (DEJA existe ! doublon)
+      organ/inference & auto_embed -> cynic-inference [RESOLU: backend_health, AutoRecoveryEmbedding dans cynic-inference]
       backends/solana    -> cynic-zeroclaw-solana (adapter) ou crate adapters
       probe/hardware     -> cynic-host::domain (host substrate)
       lifecycle_*        -> cynic-host (lifecycle vertical existe deja)
