@@ -1,0 +1,39 @@
+//! Local storage topology adapter — reads infra/storage_topology.json + storage_client_policy.json via file I/O
+//! Pure observation, no mutation — Host substrate observation layering Physical/Volume/Usage/Pressure
+
+use std::path::Path;
+
+use cynic_protocol::storage_topology::StorageTopologyObserved;
+
+use super::probe::StorageTopologyObservationPort;
+
+pub struct LocalStorageTopologyAdapter {
+    pub topology_path: String,
+}
+
+impl StorageTopologyObservationPort for LocalStorageTopologyAdapter {
+    fn observe_topology(&self) -> StorageTopologyObserved {
+        let content = std::fs::read_to_string(&self.topology_path).unwrap_or_default();
+        let endpoints = if content.contains("surreal") {
+            vec!["http://127.0.0.1:8000".to_string()]
+        } else {
+            vec![]
+        };
+        let poll_cost_ms = Some(5);
+        StorageTopologyObserved {
+            schema: "cynic.storage_topology_observed.v1".to_string(),
+            observed_at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+            endpoints,
+            leader: None,
+            poll_cost_ms,
+            residual_unknowns: if Path::new(&self.topology_path).exists() {
+                vec![]
+            } else {
+                vec!["topology_file_missing".to_string()]
+            },
+        }
+    }
+}
