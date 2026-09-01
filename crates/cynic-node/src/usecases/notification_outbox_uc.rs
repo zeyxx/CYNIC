@@ -131,6 +131,123 @@ pub fn process_notification_outbox(
         receipts,
     })
 }
+/// Helper to escape raw HTML text for Telegram HTML parse mode.
+fn html_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Canonical Telegram notification transport adapter posting to Telegram Bot API.
+///
+/// Implements `NotificationTransportPort`.
+pub struct HttpTelegramNotificationTransport {
+    bot_token: String,
+    chat_id: String,
+    client: reqwest::blocking::Client,
+}
+
+impl std::fmt::Debug for HttpTelegramNotificationTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpTelegramNotificationTransport")
+            .field("bot_token", &"***REDACTED***")
+            .field("chat_id", &self.chat_id)
+            .finish_non_exhaustive()
+    }
+}
+
+impl HttpTelegramNotificationTransport {
+    pub fn new(
+        bot_token: impl Into<String>,
+        chat_id: impl Into<String>,
+        timeout: std::time::Duration,
+    ) -> Result<Self, String> {
+        let bot_token = bot_token.into();
+        let chat_id = chat_id.into();
+        if bot_token.trim().is_empty() {
+            return Err("telegram_bot_token_empty".to_string());
+        }
+        if chat_id.trim().is_empty() {
+            return Err("telegram_chat_id_empty".to_string());
+        }
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+
+        Ok(Self {
+            bot_token,
+            chat_id,
+            client,
+        })
+    }
+
+    pub fn from_env() -> Result<Self, String> {
+        let bot_token = std::env::var("CYNIC_TELEGRAM_BOT_TOKEN")
+            .map_err(|_| "CYNIC_TELEGRAM_BOT_TOKEN_not_set".to_string())?;
+        let chat_id = std::env::var("CYNIC_TELEGRAM_CHAT_ID")
+            .map_err(|_| "CYNIC_TELEGRAM_CHAT_ID_not_set".to_string())?;
+        Self::new(bot_token, chat_id, std::time::Duration::from_secs(5))
+    }
+}
+
+impl NotificationTransportPort for HttpTelegramNotificationTransport {
+    fn dispatch(&self, entry: &NotificationOutboxEntry) -> Result<String, String> {
+        let text = format!(
+            "<b>[CYNIC Watchdog Alert]</b>\n\
+             <b>Summary:</b> {}\n\
+             <b>ID:</b> <code>{}</code>\n\
+             <b>Event:</b> {:?}\n\
+             <b>Idempotency:</b> <code>{}</code>",
+            html_escape(&entry.summary),
+            entry.notification_id,
+            entry.referenced_event.kind,
+            entry.idempotency_key,
+        );
+
+        let url = format!("https://api.telegram.org/bot{}/sendMessage", self.bot_token);
+        let payload = serde_json::json!({
+            "chat_id": self.chat_id,
+            "text": text,
+            "parse_mode": "HTML"
+        });
+
+        let res = self
+            .client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("telegram_api_request_failed:{e}"))?;
+
+        if !res.status().is_success() {
+            return Err(format!("telegram_api_http_error:{}", res.status()));
+        }
+
+        let body: serde_json::Value = res
+            .json()
+            .map_err(|e| format!("telegram_api_invalid_json:{e}"))?;
+
+        if body.get("ok").and_then(serde_json::Value::as_bool) != Some(true) {
+            let desc = body
+                .get("description")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown_error");
+            return Err(format!("telegram_api_rejected:{desc}"));
+        }
+
+        let message_id = body
+            .get("result")
+            .and_then(|r| r.get("message_id"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+
+        Ok(format!(
+            "telegram:msg_id:{message_id}:{}",
+            entry.notification_id
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -206,5 +323,25 @@ mod tests {
 
         assert_eq!(report.delivered_count, 0);
         assert_eq!(report.failed_count, 1);
+    }
+    #[test]
+    fn html_escape_escapes_special_characters() {
+        assert_eq!(
+            html_escape("<alert> & 'warning'"),
+            "&lt;alert&gt; &amp; 'warning'"
+        );
+    }
+
+    #[test]
+    fn telegram_transport_rejects_empty_token_or_chat_id() {
+        let res =
+            HttpTelegramNotificationTransport::new("", "12345", std::time::Duration::from_secs(1));
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "telegram_bot_token_empty");
+
+        let res2 =
+            HttpTelegramNotificationTransport::new("token", "", std::time::Duration::from_secs(1));
+        assert!(res2.is_err());
+        assert_eq!(res2.unwrap_err(), "telegram_chat_id_empty");
     }
 }
