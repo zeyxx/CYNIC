@@ -15,9 +15,12 @@ use tokio_util::sync::CancellationToken;
 use crate::config::WatchdogConfig;
 use crate::{config, shutdown::install_signal_handler};
 
+use crate::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
+use crate::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
+use crate::watchdog::peer_handshake::LocalPeerHandshakeObserver;
+use cynic_host::domain::network::freebox::HttpFreeboxProbeAdapter;
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;
-
 pub(crate) async fn execute(config_path: &str) -> ExitCode {
     let cfg = match config::load_watchdog(config_path) {
         Ok(config) => config,
@@ -53,10 +56,31 @@ pub(crate) async fn run_watchdog(
         interval_secs = cfg.watchdog.interval_secs,
         "L0 watchdog starting"
     );
-
     let mut sampler = LocalSampler::new();
     let mut interval = tokio::time::interval(Duration::from_secs(cfg.watchdog.interval_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+    let wg_observer = LocalPeerHandshakeObserver;
+    let freebox_probe = HttpFreeboxProbeAdapter::default();
+    let outbox_store = InMemoryNotificationOutboxStore::default();
+
+    let services = vec![
+        ServiceProbeSpec {
+            service: "forgejo".to_string(),
+            node: "forgejo".to_string(),
+            endpoint: "10.10.10.101:3000".to_string(),
+        },
+        ServiceProbeSpec {
+            service: "surrealdb".to_string(),
+            node: "cynic-lxc-surrealdb".to_string(),
+            endpoint: "10.10.10.103:8000".to_string(),
+        },
+        ServiceProbeSpec {
+            service: "kernel".to_string(),
+            node: "local-kernel".to_string(),
+            endpoint: "192.168.100.2:3030".to_string(),
+        },
+    ];
 
     loop {
         tokio::select! {
@@ -64,6 +88,30 @@ pub(crate) async fn run_watchdog(
                 let observation = sampler.collect(&cfg).await;
                 if let Err(e) = post_observation(client, &cfg, observation).await {
                     tracing::warn!(error = %e, "L0 watchdog observation failed");
+                }
+
+                let now_unix_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+
+                if let Ok(net_report) = execute_network_watchdog(
+                    "wg0",
+                    &wg_observer,
+                    &services,
+                    Some("http://192.168.0.254"),
+                    Some(&freebox_probe),
+                    vec![],
+                    &outbox_store,
+                    now_unix_ms,
+                ) {
+                    if net_report.alerts_enqueued_count > 0 {
+                        tracing::warn!(
+                            status = %net_report.status,
+                            alerts = net_report.alerts_enqueued_count,
+                            "L0 network watchdog alert condition detected"
+                        );
+                    }
                 }
             }
             _ = shutdown.cancelled() => {

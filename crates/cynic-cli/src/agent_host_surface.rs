@@ -1,6 +1,14 @@
 //! Agent host VM placement and conformance CLI surface.
+//!
+//! Thin projection only: parse CLI args → resolve observer via canonical adapter
+//! → call domain use-case → emit JSON or human text.
+//!
+//! No secret reading, no endpoint defaulting, no Proxmox policy in this file.
+//! All credential and endpoint resolution is delegated to
+//! `cynic_node::adapters::proxmox_control` (the canonical authority).
 
 use std::process::ExitCode;
+use std::time::Duration;
 
 use clap::Subcommand;
 use cynic_host::agent_host::{
@@ -8,34 +16,46 @@ use cynic_host::agent_host::{
     plan_agent_host_vm,
 };
 use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_node::adapters::proxmox_control::ProxmoxControlAdapter;
 use cynic_protocol::AgentHostDesired;
 
 use crate::cli_json::emit_pretty_json;
 
+/// Resolve the hypervisor observer from the canonical Proxmox control adapter.
+///
+/// Priority:
+/// 1. REST via `ProxmoxControlAdapter::from_env` (endpoint + token + CA from
+///    registry/env/file — no secret or IP ever appears here).
+/// 2. SSH breakglass via `ProxmoxSshAgentHostObserver` (uses the supplied
+///    `ssh_target` from the CLI arg, not a hardcoded hostname).
+///
+/// Returns `blocked_*` error strings when neither path is configured.
 fn resolve_agent_host_observer(
-    hypervisor: &str,
+    ssh_target: &str,
 ) -> Result<Box<dyn AgentHostObservationPort>, String> {
-    // 1. Prioritize direct HTTPS REST API (Port 8006) when token is present
-    let token = std::env::var("CYNIC_PROXMOX_TOKEN_SECRET")
-        .ok()
-        .or_else(|| {
-            let home = std::env::var("HOME").ok()?;
-            std::fs::read_to_string(format!("{home}/.config/cynic/secrets/proxmox-token")).ok()
-        })
-        .or_else(|| std::fs::read_to_string("/etc/cynic/secrets/proxmox-token").ok());
-
-    if let Some(tok) = token {
-        let trimmed = tok.trim();
-        if !trimmed.is_empty() {
-            let endpoint = std::env::var("CYNIC_PROXMOX_ENDPOINT")
-                .unwrap_or_else(|_| "https://192.168.100.1:8006".to_string());
-            let obs = ProxmoxRestAgentHostObserver::new(endpoint, "cynic@pve!runtime", trimmed)?;
+    // 1. Try canonical REST path — all config comes from the adapter
+    match ProxmoxControlAdapter::from_env(Duration::from_secs(5)) {
+        Ok(adapter) => {
+            let ca_pem: Option<Vec<u8>> = adapter
+                .ca_file
+                .as_deref()
+                .and_then(|p| std::fs::read(p).ok());
+            let (endpoint, token_id, token_secret) = adapter.connection_parts();
+            let obs = ProxmoxRestAgentHostObserver::new(
+                endpoint,
+                token_id,
+                token_secret,
+                ca_pem.as_deref(),
+            )?;
             return Ok(Box::new(obs));
+        }
+        Err(e) => {
+            eprintln!("REST observer unavailable (reason: {e}), falling back to SSH breakglass");
         }
     }
 
-    // 2. Fallback to SSH breakglass observer
-    let obs = ProxmoxSshAgentHostObserver::new(&LocalArgvRunner, hypervisor)?;
+    // 2. SSH breakglass — ssh_target is the only CLI-supplied parameter
+    let obs = ProxmoxSshAgentHostObserver::new(&LocalArgvRunner, ssh_target)?;
     Ok(Box::new(obs))
 }
 
@@ -43,7 +63,7 @@ fn resolve_agent_host_observer(
 pub(crate) enum AgentHostCommand {
     /// Plan agent host VM placement and conformance on Proxmox
     Plan {
-        /// Proxmox SSH target
+        /// Proxmox SSH target (used only when REST is unavailable)
         #[arg(long, default_value = "proxmox-forge")]
         hypervisor: String,
         /// VMID to allocate
@@ -58,19 +78,22 @@ pub(crate) enum AgentHostCommand {
         /// Disk size in GiB
         #[arg(long, default_value = "32")]
         disk_gib: u64,
-        /// Storage pool on Proxmox
+        /// Declared storage pool on Proxmox (must match registry desired state)
         #[arg(long, default_value = "local-lvm")]
         storage_pool: String,
         /// Network bridge
         #[arg(long, default_value = "vmbr0")]
         bridge: String,
+        /// Declared template volid (exact match, e.g. local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst)
+        #[arg(long)]
+        template_spec: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
     },
     /// Observe Proxmox hypervisor preflight conditions
     Observe {
-        /// Proxmox SSH target
+        /// Proxmox SSH target (used only when REST is unavailable)
         #[arg(long, default_value = "proxmox-forge")]
         hypervisor: String,
         /// Print JSON output
@@ -89,6 +112,7 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
             disk_gib,
             storage_pool,
             bridge,
+            template_spec,
             json,
         } => {
             let desired = AgentHostDesired {
@@ -105,13 +129,14 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
                 storage_pool,
                 network_plane: "synapse".to_string(),
                 network_bridge: bridge,
-                network_ip: Some("10.10.10.102/24".to_string()),
+                network_ip: None,
                 allowed_sandbox_strategies: vec![
                     cynic_protocol::SandboxStrategy::BwrapEphemeral,
                     cynic_protocol::SandboxStrategy::LxcUnprivileged,
                 ],
                 default_egress_policy: "default_deny".to_string(),
                 cortex_autonomous: true,
+                template_spec,
             };
 
             let observer = match resolve_agent_host_observer(&hypervisor) {
@@ -188,13 +213,20 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
                 emit_pretty_json(&preflight);
             } else {
                 println!(
-                    "Hypervisor Preflight: reachable={}, version={:?}, mem_avail={} GiB, disk_avail={} GiB, vmid_102_avail={}",
+                    "Hypervisor Preflight: reachable={}, version={:?}, mem_avail={} GiB, disk_avail={} GiB, vmid_{}_avail={}",
                     preflight.hypervisor_reachable,
                     preflight.hypervisor_version,
                     preflight.available_memory_bytes / (1024 * 1024 * 1024),
                     preflight.available_disk_bytes / (1024 * 1024 * 1024),
+                    desired.vmid,
                     preflight.vmid_available
                 );
+                if !preflight.blockers.is_empty() {
+                    println!("Blockers:");
+                    for b in &preflight.blockers {
+                        println!("  - {b}");
+                    }
+                }
             }
 
             if preflight.hypervisor_reachable {

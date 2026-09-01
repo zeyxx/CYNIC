@@ -1,0 +1,19 @@
+# cynic-node watchdog config — cynic-agent-host (LXC CT 102, 10.10.10.102)
+# Deployed to /etc/cynic/node.toml on cynic-agent-host
+
+[node]
+name = "cynic-agent-host"
+role = "agent_host"
+constellation = "forge"
+services = ["cynic-node"]
+
+[kernel]
+url = "http://192.168.100.2:3030"
+api_key_env = "CYNIC_API_KEY"
+api_key = ""
+heartbeat_interval_secs = 30
+
+[watchdog]
+interval_secs = 15
+http_timeout_secs = 5
+registry_path = "/etc/cynic/registry.json"

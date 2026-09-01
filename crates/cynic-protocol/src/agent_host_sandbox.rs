@@ -43,6 +43,10 @@ pub struct AgentHostDesired {
     pub allowed_sandbox_strategies: Vec<SandboxStrategy>,
     pub default_egress_policy: String,
     pub cortex_autonomous: bool,
+    /// Declared template/image specification (volid exact match, e.g.
+    /// "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst").
+    /// None means template presence is unknown/blocked.
+    pub template_spec: Option<String>,
 }
 
 impl Default for AgentHostDesired {
@@ -68,6 +72,9 @@ impl Default for AgentHostDesired {
             ],
             default_egress_policy: "default_deny".to_string(),
             cortex_autonomous: true,
+            template_spec: Some(
+                "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst".to_string(),
+            ),
         }
     }
 }

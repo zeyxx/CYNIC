@@ -62,6 +62,10 @@ pub struct ProxmoxControlAdapter {
     client_id: String,
     credential: String,
     client: reqwest::Client,
+    /// Path to CA PEM file used to build the TLS client, retained so callers
+    /// (e.g. the blocking REST observer in cynic-cli) can build a compatible
+    /// client without re-resolving the configuration.
+    pub ca_file: Option<String>,
 }
 
 impl std::fmt::Debug for ProxmoxControlAdapter {
@@ -171,9 +175,10 @@ impl ProxmoxControlAdapter {
             ));
         }
         let credential = resolve_credential(&resolved.token_secret_file)?;
+        let ca_file = resolved.ca_file;
         let mut client = reqwest::Client::builder().timeout(timeout.max(Duration::from_secs(5)));
-        if let Some(ca_path) = resolved.ca_file {
-            let pem = std::fs::read(&ca_path)
+        if let Some(ca_path) = &ca_file {
+            let pem = std::fs::read(ca_path)
                 .map_err(|error| format!("cannot read Proxmox CA file {ca_path}: {error}"))?;
             let certificate = reqwest::Certificate::from_pem(&pem)
                 .map_err(|error| format!("invalid Proxmox CA file {ca_path}: {error}"))?;
@@ -187,7 +192,16 @@ impl ProxmoxControlAdapter {
             client_id,
             credential,
             client,
+            ca_file,
         })
+    }
+
+    /// Return the resolved connection triple (endpoint, token_id, token_secret)
+    /// for callers that need to build a blocking REST client from the same
+    /// resolved configuration. The credential is already in memory; this does
+    /// not re-read secrets.
+    pub fn connection_parts(&self) -> (&str, &str, &str) {
+        (&self.base_url, &self.client_id, &self.credential)
     }
 
     /// Observe the provider credential as a lease without returning its
