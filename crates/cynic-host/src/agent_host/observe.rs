@@ -14,6 +14,159 @@ pub trait AgentHostObservationPort {
         desired: &AgentHostDesired,
     ) -> Result<AgentHostPreflightReport, String>;
 }
+/// Canonical Proxmox hypervisor observer via direct HTTPS REST API (Port 8006).
+pub struct ProxmoxRestAgentHostObserver {
+    base_url: String,
+    token_id: String,
+    token_secret: String,
+    client: reqwest::blocking::Client,
+}
+
+impl ProxmoxRestAgentHostObserver {
+    pub fn new(
+        base_url: impl Into<String>,
+        token_id: impl Into<String>,
+        token_secret: impl Into<String>,
+    ) -> Result<Self, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .danger_accept_invalid_certs(true)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+
+        Ok(Self {
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            token_id: token_id.into(),
+            token_secret: token_secret.into(),
+            client,
+        })
+    }
+
+    fn auth_header(&self) -> String {
+        format!("PVEAPIToken={}={}", self.token_id, self.token_secret)
+    }
+
+    fn get_json(&self, path: &str) -> Result<Value, String> {
+        let url = format!("{}{}", self.base_url, path);
+        let res = self
+            .client
+            .get(&url)
+            .header("Authorization", self.auth_header())
+            .send()
+            .map_err(|e| format!("pve_api_request_failed:{e}"))?;
+
+        if !res.status().is_success() {
+            return Err(format!("pve_api_http_error:{}", res.status()));
+        }
+
+        let json: Value = res.json().map_err(|e| format!("invalid_pve_json:{e}"))?;
+        Ok(json.get("data").cloned().unwrap_or(json))
+    }
+}
+
+impl AgentHostObservationPort for ProxmoxRestAgentHostObserver {
+    fn observe_agent_host_preflight(
+        &self,
+        desired: &AgentHostDesired,
+    ) -> Result<AgentHostPreflightReport, String> {
+        let mut blockers = Vec::new();
+
+        // 1. Check status
+        let status_val = self.get_json("/api2/json/nodes/pve/status");
+        let (
+            hypervisor_reachable,
+            hypervisor_version,
+            available_memory_bytes,
+            available_disk_bytes,
+        ) = match status_val {
+            Ok(parsed) => {
+                let version = parsed["pveversion"].as_str().map(ToString::to_string);
+                let mem_total = parsed["memory"]["total"].as_u64().unwrap_or(0);
+                let mem_used = parsed["memory"]["used"].as_u64().unwrap_or(0);
+                let mem_avail = mem_total.saturating_sub(mem_used);
+                let disk_avail = parsed["rootfs"]["avail"].as_u64().unwrap_or(0);
+                (true, version, mem_avail, disk_avail)
+            }
+            Err(e) => {
+                blockers.push(format!("hypervisor_api_unreachable:{e}"));
+                (false, None, 0, 0)
+            }
+        };
+
+        // 2. Check cluster resources
+        let mut vmid_available = true;
+        let mut vmid_existing_status = None;
+        let mut storage_pool_available = false;
+
+        if let Ok(resources) = self.get_json("/api2/json/cluster/resources") {
+            if let Some(arr) = resources.as_array() {
+                for item in arr {
+                    if let Some(vmid) = item.get("vmid").and_then(Value::as_u64) {
+                        if vmid == desired.vmid as u64 {
+                            vmid_available = false;
+                            vmid_existing_status = item
+                                .get("status")
+                                .and_then(Value::as_str)
+                                .map(ToString::to_string);
+                        }
+                    }
+                    if item.get("type").and_then(Value::as_str) == Some("storage")
+                        && item.get("storage").and_then(Value::as_str)
+                            == Some(&desired.storage_pool)
+                    {
+                        storage_pool_available = true;
+                    }
+                }
+            }
+        }
+
+        // 3. Check storage/local/content
+        let mut template_present = false;
+        let mut template_volid = None;
+
+        if let Ok(contents) = self.get_json("/api2/json/nodes/pve/storage/local/content") {
+            if let Some(arr) = contents.as_array() {
+                for item in arr {
+                    if let Some(volid) = item.get("volid").and_then(Value::as_str) {
+                        if volid.contains("cloudimg") || volid.contains("noble") {
+                            template_present = true;
+                            template_volid = Some(volid.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Check network
+        let mut network_bridge_present = false;
+        if let Ok(ifaces) = self.get_json("/api2/json/nodes/pve/network") {
+            if let Some(arr) = ifaces.as_array() {
+                for item in arr {
+                    if item.get("iface").and_then(Value::as_str) == Some(&desired.network_bridge) {
+                        network_bridge_present = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(AgentHostPreflightReport {
+            schema: AGENT_HOST_PREFLIGHT_REPORT_SCHEMA.to_string(),
+            hypervisor_reachable,
+            hypervisor_version,
+            available_memory_bytes,
+            available_disk_bytes,
+            vmid_available,
+            vmid_existing_status,
+            template_present,
+            template_volid,
+            storage_pool_available,
+            network_bridge_present,
+            blockers,
+        })
+    }
+}
 
 /// Proxmox hypervisor observer via SSH runner executing pvesh.
 pub struct ProxmoxSshAgentHostObserver<'a, R: ArgvRunner> {

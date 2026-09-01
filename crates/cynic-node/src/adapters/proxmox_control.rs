@@ -673,6 +673,12 @@ fn resolve_control_configuration() -> ResolvedProxmoxControl {
             .map(PathBuf::from)
             .or_else(|| file.token_secret_file.map(PathBuf::from))
             .or_else(|| {
+                std::env::var("HOME").ok().and_then(|home| {
+                    let p = PathBuf::from(home).join(".config/cynic/secrets/proxmox-token");
+                    p.exists().then_some(p)
+                })
+            })
+            .or_else(|| {
                 registry
                     .as_ref()
                     .and_then(|value| value.credential_ref.clone())

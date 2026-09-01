@@ -4,12 +4,40 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::agent_host::{
-    AgentHostObservationPort, ProxmoxSshAgentHostObserver, plan_agent_host_vm,
+    AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
+    plan_agent_host_vm,
 };
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::AgentHostDesired;
 
 use crate::cli_json::emit_pretty_json;
+
+fn resolve_agent_host_observer(
+    hypervisor: &str,
+) -> Result<Box<dyn AgentHostObservationPort>, String> {
+    // 1. Prioritize direct HTTPS REST API (Port 8006) when token is present
+    let token = std::env::var("CYNIC_PROXMOX_TOKEN_SECRET")
+        .ok()
+        .or_else(|| {
+            let home = std::env::var("HOME").ok()?;
+            std::fs::read_to_string(format!("{home}/.config/cynic/secrets/proxmox-token")).ok()
+        })
+        .or_else(|| std::fs::read_to_string("/etc/cynic/secrets/proxmox-token").ok());
+
+    if let Some(tok) = token {
+        let trimmed = tok.trim();
+        if !trimmed.is_empty() {
+            let endpoint = std::env::var("CYNIC_PROXMOX_ENDPOINT")
+                .unwrap_or_else(|_| "https://192.168.100.1:8006".to_string());
+            let obs = ProxmoxRestAgentHostObserver::new(endpoint, "cynic@pve!runtime", trimmed)?;
+            return Ok(Box::new(obs));
+        }
+    }
+
+    // 2. Fallback to SSH breakglass observer
+    let obs = ProxmoxSshAgentHostObserver::new(&LocalArgvRunner, hypervisor)?;
+    Ok(Box::new(obs))
+}
 
 #[derive(Subcommand)]
 pub(crate) enum AgentHostCommand {
@@ -86,8 +114,7 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
                 cortex_autonomous: true,
             };
 
-            let runner = LocalArgvRunner;
-            let observer = match ProxmoxSshAgentHostObserver::new(&runner, hypervisor) {
+            let observer = match resolve_agent_host_observer(&hypervisor) {
                 Ok(obs) => obs,
                 Err(error) => {
                     eprintln!("failed to initialize hypervisor observer: {error}");
@@ -141,8 +168,7 @@ pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
                 ..Default::default()
             };
 
-            let runner = LocalArgvRunner;
-            let observer = match ProxmoxSshAgentHostObserver::new(&runner, hypervisor) {
+            let observer = match resolve_agent_host_observer(&hypervisor) {
                 Ok(obs) => obs,
                 Err(error) => {
                     eprintln!("failed to initialize hypervisor observer: {error}");
