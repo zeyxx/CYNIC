@@ -33,6 +33,13 @@ pub(crate) enum FleetCommand {
         #[arg(long)]
         registry: Option<String>,
     },
+    /// Observe provider resources and correlate them with declared fleet nodes.
+    Inventory {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+    },
     /// Aggregate fleet health from heartbeats.
     Health {
         #[arg(long, default_value = "30")]
@@ -144,6 +151,46 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             );
             let report = adapter.discover();
             crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Inventory { json, registry } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    return crate::emit_json(
+                        &serde_json::json!({
+                            "schema": "cynic.fleet_inventory.v1",
+                            "status": "blocked",
+                            "mutates": false,
+                            "blockers": ["local_async_runtime_unavailable"],
+                            "error": error.to_string(),
+                        }),
+                        true,
+                    );
+                }
+            };
+            match runtime.block_on(cynic_node::fleet_inventory::build_fleet_inventory_details(
+                &registry_path,
+            )) {
+                Ok(report) => crate::cli_json::emit_pretty_json(&report),
+                Err(error) => crate::emit_json(
+                    &serde_json::json!({
+                        "schema": "cynic.fleet_inventory.v1",
+                        "status": "blocked",
+                        "mutates": false,
+                        "blockers": ["fleet_inventory_observation_failed"],
+                        "error": error,
+                    }),
+                    true,
+                ),
+            }
         }
         FleetCommand::Health {
             json,

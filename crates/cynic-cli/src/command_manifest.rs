@@ -40,6 +40,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "fleet",
                 commands: vec![
                     "cynic fleet report --json [--registry <path>] [--proxmox-json <path>] [--proxmox-list-text <path|->] [--watchdog-json <path>]",
+                    "cynic fleet discover --json [--registry <path>]",
+                    "cynic fleet inventory --json [--registry <path>]",
                 ],
             },
             CommandDomain {
