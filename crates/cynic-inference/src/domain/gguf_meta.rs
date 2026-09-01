@@ -132,6 +132,69 @@ pub fn default_supported_arches_for_llama_b9444() -> &'static [&'static str] {
 }
 
 /// Return Ok(meta) if arch is supported, Err with reason otherwise.
+///
+/// When `store` is provided, uses observed capabilities (a posteriori learning).
+/// Falls back to static list when no store is available.
+pub fn preflight_gguf_with_store(
+    path: &Path,
+    store: Option<&crate::adapters::local::engine_capability_store::EngineCapabilities>,
+) -> Result<GgufMeta, LocalRuntimeCompatError> {
+    let meta = read_gguf_meta(path).map_err(|e| LocalRuntimeCompatError::Meta(e.to_string()))?;
+    let Some(arch) = meta.architecture.as_deref() else {
+        return Err(LocalRuntimeCompatError::UnknownArch {
+            path: meta.path,
+            detail: "GGUF missing general.architecture".into(),
+        });
+    };
+
+    // Path 1: observed capabilities (highest confidence)
+    if let Some(store) = store {
+        match store.preflight_decision(arch) {
+            crate::adapters::local::engine_capability_store::PreflightDecision::Allow => {
+                return Ok(meta);
+            }
+            crate::adapters::local::engine_capability_store::PreflightDecision::Reject { reason } => {
+                return Err(LocalRuntimeCompatError::UnsupportedArch {
+                    path: meta.path,
+                    architecture: arch.to_string(),
+                    hint: reason,
+                });
+            }
+            crate::adapters::local::engine_capability_store::PreflightDecision::Warn { .. } => {
+                // Fall through to static fallback check
+            }
+        }
+    }
+
+    // Path 2: static fallback (filet de sécurité)
+    if crate::adapters::local::engine_capability_store::static_fallback_arches().contains(&arch) {
+        return Ok(meta);
+    }
+
+    // Path 3: unknown — reject
+    Err({
+        let meta_path = meta.path;
+        LocalRuntimeCompatError::UnsupportedArch {
+            path: meta_path,
+            architecture: arch.to_string(),
+            hint: format!(
+                "arch '{arch}' not in observed capabilities or static fallback. \
+                 Launch once to register, or add to fallback list. Supported examples: {}",
+                crate::adapters::local::engine_capability_store::static_fallback_arches()
+                    .iter()
+                    .take(12)
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    })
+}
+
+/// Return Ok(meta) if arch is supported, Err with reason otherwise.
+///
+/// Legacy API — uses static fallback only. Prefer `preflight_gguf_with_store`
+/// when an `EngineCapabilityStore` is available.
 pub fn preflight_gguf_for_engine(
     path: &Path,
     supported: &[&str],

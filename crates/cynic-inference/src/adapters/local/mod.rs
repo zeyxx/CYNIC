@@ -6,6 +6,7 @@
 //! ODS integration (observe running stack) lives in `adapters::ods`.
 
 pub mod docker_supervisor;
+pub mod engine_capability_store;
 pub mod engine_probe;
 pub mod model_store;
 pub mod process_supervisor;
@@ -14,6 +15,7 @@ pub mod systemd_user;
 pub mod vault_inventory;
 
 pub use docker_supervisor::DockerLocalRuntime;
+pub use engine_capability_store::{EngineCapabilities, EngineCapabilityStore, Observation, PreflightDecision};
 pub use model_store::FsModelStore;
 pub use process_supervisor::{InferenceSupervisorKind, ProcessLocalRuntime};
 pub use session_store::FsChatSessionStore;

@@ -15,9 +15,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::adapters::local::FsModelStore;
-use crate::domain::gguf_meta::{
-    default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
-};
+use crate::domain::gguf_meta::preflight_gguf_with_store;
 use crate::domain::local_runtime::LocalModelProfile;
 use crate::domain::model_layout::ModelLayout;
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
@@ -371,7 +369,8 @@ pub fn is_startable_weight_path(path: &str, id_hint: &str) -> bool {
         return false;
     }
     // Must parse as GGUF with architecture known to our engine generation.
-    match preflight_gguf_for_engine(p, default_supported_arches_for_llama_b9444()) {
+    let store = crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
+    match preflight_gguf_with_store(p, store.as_ref()) {
         Ok(_) => true,
         Err(_) => {
             // Missing architecture (common on secondary shards) or unsupported arch.

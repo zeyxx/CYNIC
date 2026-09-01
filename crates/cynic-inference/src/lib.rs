@@ -80,7 +80,8 @@ pub use domain::chat_session::{
     ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
 };
 pub use domain::gguf_meta::{
-    GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine, read_gguf_meta,
+    GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
+    preflight_gguf_with_store, read_gguf_meta,
 };
 pub use domain::hardware_profile::HardwareProfile;
 
