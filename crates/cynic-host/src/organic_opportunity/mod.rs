@@ -160,7 +160,7 @@ mod tests {
         }
 
         fn source_kind(&self) -> OpportunitySourceKind {
-            self.kind
+            self.kind.clone()
         }
 
         fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {

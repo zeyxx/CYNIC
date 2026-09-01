@@ -50,7 +50,7 @@ impl SessionPatternObserver {
     pub fn analyze_session_buckets(
         session_hits: &[(String, String)], // (session_id, bucket_name)
         min_recurring_sessions: usize,
-        now_unix_s: u64,
+        _now_unix_s: u64,
     ) -> Vec<OrganicOpportunity> {
         let mut bucket_sessions: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
         for (session_id, bucket) in session_hits {

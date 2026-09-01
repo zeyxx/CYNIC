@@ -47,10 +47,10 @@ impl PatternGcObserver {
         policy: &RetentionPolicy,
         _now_unix_s: u64,
     ) -> Vec<OrganicOpportunity> {
-        let assessments = classify_all(observations, policy);
         let mut opportunities = Vec::new();
 
-        for assessment in assessments {
+        for observation in observations {
+            let assessment = cynic_protocol::pattern_gc::classify(observation, policy);
             let (class, step, unlock_prefix) = match assessment.class {
                 PatternClass::Emerging => (
                     OpportunityClass::Emerging,
@@ -71,12 +71,12 @@ impl PatternGcObserver {
             };
 
             let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
-                "pattern_key": assessment.pattern_key,
+                "pattern_key": observation.key,
                 "class": assessment.class,
-                "historical": assessment.windows.historical,
-                "recent": assessment.windows.recent,
+                "historical": observation.windows.historical,
+                "recent": observation.windows.recent,
             }))
-            .unwrap_or_else(|_| format!("sha256:{}", assessment.pattern_key));
+            .unwrap_or_else(|_| format!("sha256:{}", observation.key));
 
             let confidence = match assessment.class {
                 PatternClass::Recurring => 0.90,
@@ -88,22 +88,24 @@ impl PatternGcObserver {
             let opp = OrganicOpportunity {
                 schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
                 opportunity_id: format!("opp:pattern_gc:{}", &digest[..16.min(digest.len())]),
-                scope: format!("pattern/{}", assessment.pattern_key),
+                scope: format!("pattern/{}", observation.key),
                 sources: vec![OpportunitySource {
                     kind: OpportunitySourceKind::PatternGc,
-                    ref_id: format!("pattern_key:{}", assessment.pattern_key),
+                    ref_id: format!("pattern_key:{}", observation.key),
                     label: Some(format!(
                         "class: {:?}, hist: {}, rec: {}",
-                        assessment.class, assessment.windows.historical, assessment.windows.recent
+                        assessment.class,
+                        observation.windows.historical,
+                        observation.windows.recent
                     )),
                 }],
                 class,
                 expected_unlock: format!(
                     "{} '{}' (hist: {}, rec: {})",
                     unlock_prefix,
-                    assessment.pattern_key,
-                    assessment.windows.historical,
-                    assessment.windows.recent
+                    observation.key,
+                    observation.windows.historical,
+                    observation.windows.recent
                 ),
                 estimated_energy: EnergyEstimate::Range {
                     method: "pattern distillation / repair".to_string(),
@@ -183,14 +185,14 @@ mod tests {
     #[test]
     fn emerging_pattern_generates_emerging_opportunity() {
         let policy = RetentionPolicy {
-            min_observations: 10,
             recurring_threshold_abs: 100,
-            epsilon_emergence: 0.1,
-            collapse_ratio: 0.2,
+            emergence_floor_abs: 10,
+            emergence_ratio_epsilon: 0.1,
+            fading_ratio_ceiling: 0.2,
         };
 
         let obs = PatternObservation {
-            pattern_key: "toolchain_ice_new_variant".to_string(),
+            key: "toolchain_ice_new_variant".to_string(),
             windows: PatternWindows {
                 historical: 2,
                 recent: 20,
@@ -210,14 +212,14 @@ mod tests {
     #[test]
     fn recurring_pattern_generates_repair_opportunity() {
         let policy = RetentionPolicy {
-            min_observations: 10,
             recurring_threshold_abs: 50,
-            epsilon_emergence: 0.1,
-            collapse_ratio: 0.2,
+            emergence_floor_abs: 10,
+            emergence_ratio_epsilon: 0.1,
+            fading_ratio_ceiling: 0.2,
         };
 
         let obs = PatternObservation {
-            pattern_key: "docker_socket_stale".to_string(),
+            key: "docker_socket_stale".to_string(),
             windows: PatternWindows::comparable(80, 75),
         };
 

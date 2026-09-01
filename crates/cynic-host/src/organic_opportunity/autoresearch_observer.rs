@@ -54,20 +54,20 @@ impl AutoresearchObserver {
                         "opp:skill_candidate:{}",
                         &digest[..16.min(digest.len())]
                     ),
-                    scope: format!("skill/{}", candidate.hypothesis.skill_id),
+                    scope: format!("skill/{}", candidate.skill_id),
                     sources: vec![OpportunitySource {
                         kind: OpportunitySourceKind::Autoresearch,
                         ref_id: digest,
                         label: Some(format!(
                             "domain: {}, gain_coverage: {:.2}",
-                            candidate.hypothesis.domain, candidate.gain.coverage
+                            candidate.domain, candidate.gain.coverage
                         )),
                     }],
                     class: OpportunityClass::Emerging,
                     expected_unlock: format!(
                         "Crystallize emerged skill candidate '{}' for domain '{}' (coverage gain: {:.1}%)",
-                        candidate.hypothesis.skill_id,
-                        candidate.hypothesis.domain,
+                        candidate.skill_id,
+                        candidate.domain,
                         candidate.gain.coverage * 100.0
                     ),
                     estimated_energy: EnergyEstimate::Range {
@@ -80,7 +80,7 @@ impl AutoresearchObserver {
                     smallest_next_step: SmallestNextStep::ProposeRepair,
                     residual_unknowns: vec![
                         format!("evidence_refs_count: {}", candidate.evidence_refs.len()),
-                        format!("actionability: {}", candidate.hypothesis.actionability),
+                        format!("actionability: {}", candidate.actionability),
                     ],
                     operator_disposition: Default::default(),
                 };

@@ -100,6 +100,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Memory { command } => crate::memory_surface::execute_memory(command),
         Command::Judgment { command } => crate::judgment_surface::execute_judgment(command),
         Command::Forensics { command } => execute_forensics(command),
+        Command::AgentHost { command } => crate::agent_host_surface::execute_agent_host(command),
     }
 }
 

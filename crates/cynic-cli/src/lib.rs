@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::process::ExitCode;
 
 pub mod agent_exposure_audit;
+pub mod agent_host_surface;
 pub mod agent_surface;
 pub mod audit_surface;
 pub mod autoresearch_surface;
@@ -294,6 +295,12 @@ pub(crate) enum Command {
     Forensics {
         #[command(subcommand)]
         command: forensics_surface::ForensicsCommand,
+    },
+    /// Agent host VM placement and conformance planning.
+    #[command(name = "agent-host")]
+    AgentHost {
+        #[command(subcommand)]
+        command: agent_host_surface::AgentHostCommand,
     },
 }
 

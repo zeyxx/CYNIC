@@ -1,4 +1,5 @@
 pub mod admitted_build_window;
+pub mod agent_host_placement_uc;
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
 pub mod agent_workload_delivery_uc;
@@ -31,6 +32,7 @@ pub mod node_control_plane_uc;
 pub mod node_enrollment_lifecycle_uc;
 pub mod node_identity_uc;
 pub mod node_network_recovery_uc;
+pub mod notification_outbox_uc;
 pub mod observe_node_uc;
 pub mod release_webhook;
 pub mod runtime_artifact_deployment_uc;

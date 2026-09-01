@@ -1,0 +1,146 @@
+{
+  "schema": "cynic.agent_host.placement_audit.v1",
+  "slice": "C0.1",
+  "observed_at_unix_ms": 1788267750000,
+  "verdict": "ready",
+  "target_candidate": {
+    "role": "agent_host",
+    "name": "cynic-agent-host",
+    "kind": "qemu_vm",
+    "hypervisor_node": "pve",
+    "hypervisor_ip": "192.168.100.1"
+  },
+  "read_back_authority": "proxmox:pvesh:proxmox-forge",
+  "evidence_refs": [
+    "pvesh:/nodes/pve/status",
+    "pvesh:/cluster/resources",
+    "pvesh:/nodes/pve/network",
+    "pvesh:/nodes/pve/storage/local/content",
+    "pvesh:/nodes/pve/storage/local-lvm/content",
+    "pvesh:/cluster/nextid",
+    "pvesh:/nodes/pve/version"
+  ],
+  "observations": {
+    "hypervisor": {
+      "version": "pve-manager/8.4.0/ec58e45e1bcdf2ac",
+      "kernel": "Linux 6.8.12-9-pve (x86_64)",
+      "cpu_model": "Intel(R) Core(TM) i5-6500T CPU @ 2.50GHz",
+      "cores_physical": 4,
+      "hvm_hardware_virtualization": true,
+      "secure_boot": true,
+      "uptime_seconds": 604197
+    },
+    "capacity": {
+      "cpu_load_avg": [
+        "0.27",
+        "0.12",
+        "0.09"
+      ],
+      "cpu_used_ratio": 0.013,
+      "memory_total_bytes": 16648388608,
+      "memory_used_bytes": 2660388864,
+      "memory_available_bytes": 13987999744,
+      "swap_total_bytes": 8589930496,
+      "swap_used_bytes": 3956736,
+      "capacity_status": "ready"
+    },
+    "storage": {
+      "pools": [
+        {
+          "name": "local-lvm",
+          "type": "lvmthin",
+          "content_types": [
+            "images",
+            "rootdir"
+          ],
+          "total_bytes": 852878163968,
+          "used_bytes": 52622582716,
+          "available_bytes": 800255581252,
+          "role_fit": "vm_primary_disk"
+        },
+        {
+          "name": "local",
+          "type": "dir",
+          "content_types": [
+            "iso",
+            "backup",
+            "vztmpl"
+          ],
+          "total_bytes": 100861726720,
+          "used_bytes": 18328932352,
+          "available_bytes": 77362057216,
+          "role_fit": "iso_and_cloudinit_templates"
+        }
+      ],
+      "storage_status": "ready"
+    },
+    "network": {
+      "bridge_canonical": "vmbr0",
+      "bridge_cidr": "10.10.10.1/24",
+      "bridge_plane": "synapse",
+      "nat_masquerade_uplink": "wlp1s0 (192.168.0.37)",
+      "management_plane": "eno1 (192.168.100.1/24)",
+      "network_status": "ready"
+    },
+    "vmid_and_templates": {
+      "vmid_allocated": [
+        100,
+        101,
+        103,
+        105
+      ],
+      "vmid_next_available": 102,
+      "vmid_conflicts": [],
+      "backup_archives_present": [
+        "local:backup/vzdump-qemu-102-2026_06_16-16_55_57.vma.gz"
+      ],
+      "cloudinit_image_observed": "local:iso/noble-server-cloudimg-amd64.img",
+      "lxc_templates_observed": [
+        "local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+        "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+      ],
+      "template_status": "ready"
+    },
+    "quotas": {
+      "agent_host_vm_envelope": {
+        "vcpus": 2,
+        "ram_bytes": 4294967296,
+        "disk_bytes": 34359738368,
+        "fit_against_headroom": "2 vCPU sur 4 (load 0.27), 4 GiB sur 13 GiB dispo, 32 GiB sur 745 GiB dispo"
+      },
+      "internal_sandbox_envelope_per_agent": {
+        "isolation": "bwrap_ephemeral",
+        "vcpus_max": 1,
+        "ram_max_bytes": 1610612736,
+        "disk_tmpfs_max_bytes": 5368709120,
+        "network": "zero_egress_agent_phase"
+      },
+      "quota_status": "ready"
+    },
+    "principal_and_control": {
+      "principal": "cynic",
+      "privilege_boundary": "sudo -n /usr/bin/pvesh (NOPASSWD)",
+      "helper_boundary": "/usr/local/sbin/pct-bounded-exec",
+      "transport_ssh": "proxmox-forge (192.168.0.37 / 192.168.100.1)",
+      "host_key_fingerprint_ed25519": "SHA256:zgQA5/UtomtknHeI+NOn30fOzB9ftFcoioqYr30KV9w",
+      "control_status": "ready"
+    },
+    "cortex_independence": {
+      "hypervisor_hardware": "standalone bare-metal (Intel i5-6500T)",
+      "services_hosted_on_pve": [
+        "CT 101: Forgejo Git (10.10.10.101:3000 / SSH :22)",
+        "CT 103: SurrealDB / Artifact Storage (10.10.10.103:8000 / 8443)",
+        "CT 105: cynic-builder Build Runner (10.10.10.119)",
+        "CT 100: Headscale (10.10.10.100)"
+      ],
+      "cortex_power_off_impact": "aucun impact sur Forgejo, SurrealDB, Builder ou la future VM agent-host",
+      "independence_status": "ready"
+    }
+  },
+  "blockers": [],
+  "residual_unknowns": [
+    "cloudinit_guest_seed_profile: le profile exact de cloud-init (clés SSH cynic, packages bwrap/git) sera formalisé lors de la slice C0.3",
+    "dns_reservation_agent_host: l'enregistrement agent-host.synapse.cynic sera intégré dans infra/registry.json lors de C0.2/C0.3"
+  ],
+  "next_slice": "C0.2 — contrats purs sandbox-first (cynic-protocol, types et prédicats purs sans I/O)"
+}

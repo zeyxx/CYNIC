@@ -96,6 +96,12 @@ impl RetentionPolicy {
     }
 }
 
+impl Default for RetentionPolicy {
+    fn default() -> Self {
+        Self::observed_default()
+    }
+}
+
 /// Classification outcome for a single pattern key.
 ///
 /// Mirrors `ModelRetentionAssessment`: the assessment never authorizes the
