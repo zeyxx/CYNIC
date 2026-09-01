@@ -109,8 +109,14 @@ pub(crate) async fn run_watchdog(
                         tracing::warn!(
                             status = %net_report.status,
                             alerts = net_report.alerts_enqueued_count,
+                            stale_peers = net_report.assessment.wireguard_mesh.stale_peers,
                             "L0 network watchdog alert condition detected"
                         );
+
+                        // Self-healing: if any peer is stale, trigger keepalive pings
+                        if net_report.assessment.wireguard_mesh.stale_peers > 0 {
+                            trigger_self_healing_keepalives();
+                        }
                     }
                 }
             }
@@ -119,6 +125,24 @@ pub(crate) async fn run_watchdog(
                 return ExitCode::SUCCESS;
             }
         }
+    }
+}
+
+/// Send async keepalive ping packets across the overlay to unstick stale handshakes.
+fn trigger_self_healing_keepalives() {
+    let peers = [
+        "10.20.0.1",
+        "10.20.0.2",
+        "10.20.0.4",
+        "10.20.0.5",
+        "10.20.0.6",
+    ];
+    for ip in peers {
+        let _ = std::process::Command::new("ping")
+            .args(["-c", "1", "-W", "1", ip])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
     }
 }
 
