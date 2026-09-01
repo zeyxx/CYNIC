@@ -238,6 +238,18 @@
             "target": "root@10.10.10.119"
           },
           "watchdog": true
+        },
+        {
+          "node_id": "cynic-agent-host",
+          "overlay_ip": "10.20.0.6",
+          "public_key": "rD1D+8TffCS8g7Mjf7oJ+gImGnK2vnKJqG7GpT5sdg4=",
+          "endpoint": "10.10.10.102:44196",
+          "endpoint_plane": "synapse",
+          "ssh_access": {
+            "method": "direct",
+            "target": "root@10.10.10.102"
+          },
+          "watchdog": true
         }
       ]
     }
