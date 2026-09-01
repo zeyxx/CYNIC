@@ -90,7 +90,7 @@ pub mod judgment;
 pub mod kyon;
 pub mod llm_port;
 pub mod cleanup;
-pub mod vm_disk;
+pub mod hypervisor;
 pub mod machine_enrollment;
 pub mod machine_identity;
 pub mod network;
