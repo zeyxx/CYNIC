@@ -995,6 +995,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-market"
+version = "0.1.0"
+dependencies = [
+ "cynic-intel",
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tracing",
+]
+
+[[package]]
 name = "cynic-node"
 version = "0.1.0"
 dependencies = [
