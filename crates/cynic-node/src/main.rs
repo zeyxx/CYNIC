@@ -1,5 +1,5 @@
 // Binary crate test exemption — same pattern as cynic-kernel lib.rs
-#![cfg_attr(test, allow(dead_code, clippy::expect_used))]
+#![allow(dead_code)]
 #![allow(
     clippy::needless_borrows_for_generic_args,
     clippy::uninlined_format_args,
