@@ -1,4 +1,5 @@
 #![allow(ambiguous_glob_reexports)]
+pub mod capability_lease;
 pub mod agent_citizenship;
 pub mod agent_connection;
 pub mod agent_coordination;

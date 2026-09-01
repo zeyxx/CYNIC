@@ -18,7 +18,7 @@ pub const ENERGY_CONSUMPTION_SCHEMA: &str = "cynic.energy_consumption.v1";
 pub const ENERGY_PROOF_SCHEMA: &str = "cynic.energy_proof.v1";
 
 /// Dimensions of energy consumption.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyDimensions {
     /// Wall time in milliseconds.
     pub wall_time_ms: u64,
@@ -45,7 +45,7 @@ impl Default for EnergyDimensions {
 }
 
 /// A budget allocation for an agent action.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyAllocation {
     pub schema: String,
     /// Unique allocation ID.
@@ -63,7 +63,7 @@ pub struct EnergyAllocation {
 }
 
 /// Actual energy consumed during execution.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyConsumption {
     pub schema: String,
     /// Reference to the allocation.
@@ -75,7 +75,7 @@ pub struct EnergyConsumption {
 }
 
 /// Proof of energy consumption for audit.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyProof {
     pub schema: String,
     pub allocation: EnergyAllocation,
