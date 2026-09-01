@@ -13,14 +13,15 @@ use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::WatchdogConfig;
-use crate::{config, shutdown::install_signal_handler};
-
 use crate::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
 use crate::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use crate::watchdog::peer_handshake::LocalPeerHandshakeObserver;
+use crate::{config, shutdown::install_signal_handler};
 use cynic_host::domain::network::freebox::HttpFreeboxProbeAdapter;
+
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;
+
 pub(crate) async fn execute(config_path: &str) -> ExitCode {
     let cfg = match config::load_watchdog(config_path) {
         Ok(config) => config,
@@ -56,6 +57,7 @@ pub(crate) async fn run_watchdog(
         interval_secs = cfg.watchdog.interval_secs,
         "L0 watchdog starting"
     );
+
     let mut sampler = LocalSampler::new();
     let mut interval = tokio::time::interval(Duration::from_secs(cfg.watchdog.interval_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -64,24 +66,6 @@ pub(crate) async fn run_watchdog(
     let freebox_probe = HttpFreeboxProbeAdapter::default();
     let outbox_store = InMemoryNotificationOutboxStore::default();
 
-    let services = vec![
-        ServiceProbeSpec {
-            service: "forgejo".to_string(),
-            node: "forgejo".to_string(),
-            endpoint: "10.10.10.101:3000".to_string(),
-        },
-        ServiceProbeSpec {
-            service: "surrealdb".to_string(),
-            node: "cynic-lxc-surrealdb".to_string(),
-            endpoint: "10.10.10.103:8000".to_string(),
-        },
-        ServiceProbeSpec {
-            service: "kernel".to_string(),
-            node: "local-kernel".to_string(),
-            endpoint: "192.168.100.2:3030".to_string(),
-        },
-    ];
-
     loop {
         tokio::select! {
             _ = interval.tick() => {
@@ -89,6 +73,10 @@ pub(crate) async fn run_watchdog(
                 if let Err(e) = post_observation(client, &cfg, observation).await {
                     tracing::warn!(error = %e, "L0 watchdog observation failed");
                 }
+
+                // Dynamically resolve services and overlay peers from registry SSOT
+                let services = resolve_watchdog_services(&cfg.watchdog.registry_path);
+                let overlay_peers = resolve_overlay_peer_ips(&cfg.watchdog.registry_path, &cfg.node.name);
 
                 let now_unix_ms = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -99,7 +87,7 @@ pub(crate) async fn run_watchdog(
                     "wg0",
                     &wg_observer,
                     &services,
-                    Some("http://192.168.0.254"),
+                    None, // Freebox probe endpoint is optional / dynamically discovered
                     Some(&freebox_probe),
                     vec![],
                     &outbox_store,
@@ -113,9 +101,9 @@ pub(crate) async fn run_watchdog(
                             "L0 network watchdog alert condition detected"
                         );
 
-                        // Self-healing: if any peer is stale, trigger keepalive pings
+                        // Self-healing: if any peer is stale, trigger keepalive pings on dynamic peer IPs
                         if net_report.assessment.wireguard_mesh.stale_peers > 0 {
-                            trigger_self_healing_keepalives();
+                            trigger_self_healing_keepalives(&overlay_peers);
                         }
                     }
                 }
@@ -128,16 +116,102 @@ pub(crate) async fn run_watchdog(
     }
 }
 
-/// Send async keepalive ping packets across the overlay to unstick stale handshakes.
-fn trigger_self_healing_keepalives() {
-    let peers = [
-        "10.20.0.1",
-        "10.20.0.2",
-        "10.20.0.4",
-        "10.20.0.5",
-        "10.20.0.6",
-    ];
-    for ip in peers {
+/// Dynamically resolve probeable services from `infra/registry.json`.
+///
+/// Iterates over declared nodes and their services, finding the target IP
+/// (preferring synapse plane, falling back to management plane) and port.
+pub fn resolve_watchdog_services(registry_path: &str) -> Vec<ServiceProbeSpec> {
+    let Ok(content) = std::fs::read_to_string(registry_path) else {
+        return Vec::new();
+    };
+    let Ok(registry) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return Vec::new();
+    };
+
+    let Some(nodes) = registry.get("nodes").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+
+    let mut specs = Vec::new();
+    for node in nodes {
+        let node_id = node
+            .get("id")
+            .or_else(|| node.get("name"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        let net = node.get("network");
+        let ip = net
+            .and_then(|n| n.get("synapse").or_else(|| n.get("management")))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+
+        if ip.is_empty() {
+            continue;
+        }
+
+        if let Some(services) = node.get("services").and_then(serde_json::Value::as_array) {
+            for svc in services {
+                let name = svc
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("");
+                let port = svc
+                    .get("port")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                if !name.is_empty() && port > 0 {
+                    specs.push(ServiceProbeSpec {
+                        service: name.to_string(),
+                        node: node_id.to_string(),
+                        endpoint: format!("{ip}:{port}"),
+                    });
+                }
+            }
+        }
+    }
+
+    specs
+}
+
+/// Dynamically resolve declared WireGuard overlay peer IPs from `infra/registry.json`.
+pub fn resolve_overlay_peer_ips(registry_path: &str, local_node_id: &str) -> Vec<String> {
+    let Ok(content) = std::fs::read_to_string(registry_path) else {
+        return Vec::new();
+    };
+    let Ok(registry) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return Vec::new();
+    };
+
+    let Some(nodes) = registry
+        .pointer("/network_policy/wireguard/nodes")
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Vec::new();
+    };
+
+    nodes
+        .iter()
+        .filter_map(|n| {
+            let node_id = n
+                .get("node_id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            let overlay_ip = n
+                .get("overlay_ip")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            if !overlay_ip.is_empty() && node_id != local_node_id {
+                Some(overlay_ip.to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Send async keepalive ping packets across dynamically resolved peer IPs.
+fn trigger_self_healing_keepalives(peer_ips: &[String]) {
+    for ip in peer_ips {
         let _ = std::process::Command::new("ping")
             .args(["-c", "1", "-W", "1", ip])
             .stdout(std::process::Stdio::null())

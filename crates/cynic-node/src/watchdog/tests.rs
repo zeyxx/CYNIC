@@ -146,3 +146,50 @@ async fn sampler_collect_with_ports_is_substitutable() {
     assert_eq!(observation["node"]["hostname"], "fake-node");
     assert_eq!(observation["kernel"]["reachable"], true);
 }
+#[test]
+fn resolve_watchdog_services_and_peers_from_registry_is_dynamic() {
+    let dir = tempfile::tempdir().unwrap();
+    let registry_path = dir.path().join("registry.json");
+    let json_data = json!({
+        "network_policy": {
+            "wireguard": {
+                "nodes": [
+                    { "node_id": "cortex", "overlay_ip": "10.20.0.3" },
+                    { "node_id": "agent-host", "overlay_ip": "10.20.0.6" }
+                ]
+            }
+        },
+        "nodes": [
+            {
+                "id": "forgejo",
+                "network": { "synapse": "10.10.10.101" },
+                "services": [
+                    { "name": "forgejo", "port": 3000 }
+                ]
+            },
+            {
+                "id": "surrealdb",
+                "network": { "synapse": "10.10.10.103" },
+                "services": [
+                    { "name": "surrealdb", "port": 8000 }
+                ]
+            }
+        ]
+    });
+    std::fs::write(
+        &registry_path,
+        serde_json::to_string_pretty(&json_data).unwrap(),
+    )
+    .unwrap();
+
+    let svcs = super::resolve_watchdog_services(registry_path.to_str().unwrap());
+    assert_eq!(svcs.len(), 2);
+    assert_eq!(svcs[0].service, "forgejo");
+    assert_eq!(svcs[0].endpoint, "10.10.10.101:3000");
+    assert_eq!(svcs[1].service, "surrealdb");
+    assert_eq!(svcs[1].endpoint, "10.10.10.103:8000");
+
+    let peers = super::resolve_overlay_peer_ips(registry_path.to_str().unwrap(), "cortex");
+    assert_eq!(peers.len(), 1);
+    assert_eq!(peers[0], "10.20.0.6");
+}
