@@ -53,6 +53,7 @@ pub mod domain_tasks;
 pub mod emergence;
 pub mod emergence_gallery;
 pub mod endpoint;
+pub mod energy_ledger;
 pub mod error_catalog;
 pub mod eval_hygiene;
 pub mod evidence;
