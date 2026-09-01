@@ -322,6 +322,215 @@ pub struct FleetNetworkReport {
 
 pub const FLEET_NETWORK_SCHEMA: &str = "cynic.fleet_network.v1";
 
+pub const FREEBOX_LAN_OBSERVATION_SCHEMA: &str = "cynic.network.freebox_lan_observation.v1";
+pub const NETWORK_WATCHDOG_ASSESSMENT_SCHEMA: &str = "cynic.network.watchdog_assessment.v1";
+
+/// Host detected on the local LAN by the Freebox router.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FreeboxHostEntry {
+    pub id: String,
+    pub primary_name: String,
+    pub ip: Option<String>,
+    pub mac: Option<String>,
+    pub host_type: Option<String>,
+    pub active: bool,
+    pub reachable: bool,
+    pub interface: Option<String>,
+}
+
+/// Observation of the local Freebox OS router (unauthenticated discovery or session).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FreeboxLanObservation {
+    pub schema: String,
+    pub endpoint: String,
+    pub reachable: bool,
+    pub auth_state: String,
+    pub box_model_name: Option<String>,
+    pub device_name: Option<String>,
+    pub api_version: Option<String>,
+    pub api_domain: Option<String>,
+    pub https_port: Option<u16>,
+    pub https_available: bool,
+    pub uid: Option<String>,
+    pub hosts: Vec<FreeboxHostEntry>,
+    pub observed_at_unix_ms: u64,
+    pub unknowns: Vec<String>,
+}
+
+/// Alert level emitted by the network watchdog.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkAlertLevel {
+    Ok,
+    Warning,
+    Critical,
+}
+
+/// Discrete alert emitted when a network condition breaches threshold.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkAlert {
+    pub level: NetworkAlertLevel,
+    pub component: String,
+    pub message: String,
+    pub recovery_hint: String,
+}
+
+/// Assessment of WireGuard mesh peer status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireguardMeshAssessment {
+    pub total_peers: usize,
+    pub ok_peers: usize,
+    pub stale_peers: usize,
+    pub dead_peers: usize,
+    pub never_seen_peers: usize,
+}
+
+/// Assessment of Synapse DNS resolution.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DnsSynapseAssessment {
+    pub zone: String,
+    pub total_records: usize,
+    pub resolved_records: usize,
+    pub failed_records: usize,
+    pub failures: Vec<String>,
+}
+
+/// Assessment of one critical service TCP port.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServicePortAssessment {
+    pub service: String,
+    pub node: String,
+    pub endpoint: String,
+    pub reachable: bool,
+    pub latency_ms: Option<u64>,
+}
+
+/// Complete network watchdog assessment across all 4 layers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NetworkWatchdogAssessment {
+    pub schema: String,
+    pub status: String,
+    pub level: NetworkAlertLevel,
+    pub wireguard_mesh: WireguardMeshAssessment,
+    pub dns_synapse: DnsSynapseAssessment,
+    pub service_ports: Vec<ServicePortAssessment>,
+    pub pressure: Vec<InterfacePressure>,
+    pub freebox_lan: Option<FreeboxLanObservation>,
+    pub alerts: Vec<NetworkAlert>,
+    pub observed_at_unix_ms: u64,
+}
+
+/// Pure evaluation function compiling raw observations into a watchdog assessment with alerts.
+pub fn evaluate_network_watchdog(
+    wireguard: WireguardMeshAssessment,
+    dns: DnsSynapseAssessment,
+    services: Vec<ServicePortAssessment>,
+    pressure: Vec<InterfacePressure>,
+    freebox: Option<FreeboxLanObservation>,
+    now_unix_ms: u64,
+) -> NetworkWatchdogAssessment {
+    let mut alerts = Vec::new();
+    let mut max_level = NetworkAlertLevel::Ok;
+
+    // 1. Check WireGuard mesh peers
+    if wireguard.dead_peers > 0 {
+        alerts.push(NetworkAlert {
+            level: NetworkAlertLevel::Critical,
+            component: "wireguard_mesh".to_string(),
+            message: format!(
+                "{} WireGuard peer(s) are dead (handshake > 200s)",
+                wireguard.dead_peers
+            ),
+            recovery_hint:
+                "Check remote WireGuard service status and endpoints via management plane"
+                    .to_string(),
+        });
+        max_level = NetworkAlertLevel::Critical;
+    } else if wireguard.stale_peers > 0 {
+        alerts.push(NetworkAlert {
+            level: NetworkAlertLevel::Warning,
+            component: "wireguard_mesh".to_string(),
+            message: format!(
+                "{} WireGuard peer(s) are stale (handshake > 150s)",
+                wireguard.stale_peers
+            ),
+            recovery_hint: "Verify route keepalive packets on synapse plane".to_string(),
+        });
+        if max_level == NetworkAlertLevel::Ok {
+            max_level = NetworkAlertLevel::Warning;
+        }
+    }
+
+    // 2. Check Synapse DNS
+    if dns.failed_records > 0 {
+        alerts.push(NetworkAlert {
+            level: NetworkAlertLevel::Critical,
+            component: "dns_synapse".to_string(),
+            message: format!(
+                "DNS resolution failed for {} record(s) in zone '{}'",
+                dns.failed_records, dns.zone
+            ),
+            recovery_hint: "Inspect CoreDNS/dnsmasq on pve (10.10.10.1) or fallback hosts file"
+                .to_string(),
+        });
+        max_level = NetworkAlertLevel::Critical;
+    }
+
+    // 3. Check critical services
+    for svc in &services {
+        if !svc.reachable {
+            alerts.push(NetworkAlert {
+                level: NetworkAlertLevel::Critical,
+                component: format!("service:{}", svc.service),
+                message: format!(
+                    "Service '{}' on node '{}' ({}) is unreachable",
+                    svc.service, svc.node, svc.endpoint
+                ),
+                recovery_hint: format!("Restart unit or inspect container for node '{}'", svc.node),
+            });
+            max_level = NetworkAlertLevel::Critical;
+        }
+    }
+
+    // 4. Check interface pressure / drops
+    for p in &pressure {
+        if p.saturated || p.rx_drop > 1000 || p.tx_drop > 1000 {
+            alerts.push(NetworkAlert {
+                level: NetworkAlertLevel::Warning,
+                component: format!("interface:{}", p.iface),
+                message: format!(
+                    "Interface '{}' reports backpressure or packet drops (rx_drop={}, tx_drop={})",
+                    p.iface, p.rx_drop, p.tx_drop
+                ),
+                recovery_hint: "Inspect ring buffer size and socket queues with 'ss -s'"
+                    .to_string(),
+            });
+            if max_level == NetworkAlertLevel::Ok {
+                max_level = NetworkAlertLevel::Warning;
+            }
+        }
+    }
+
+    let status = match max_level {
+        NetworkAlertLevel::Ok => "ok",
+        NetworkAlertLevel::Warning => "warning",
+        NetworkAlertLevel::Critical => "critical",
+    }
+    .to_string();
+
+    NetworkWatchdogAssessment {
+        schema: NETWORK_WATCHDOG_ASSESSMENT_SCHEMA.to_string(),
+        status,
+        level: max_level,
+        wireguard_mesh: wireguard,
+        dns_synapse: dns,
+        service_ports: services,
+        pressure,
+        freebox_lan: freebox,
+        alerts,
+        observed_at_unix_ms: now_unix_ms,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,5 +619,100 @@ mod tests {
     fn an_unknown_provider_is_named_not_silently_dropped() {
         let err = admit_mesh_provider("zerotier").expect_err("unknown");
         assert!(err.contains("zerotier"), "{err}");
+    }
+    #[test]
+    fn watchdog_all_healthy_emits_ok_status() {
+        let assessment = evaluate_network_watchdog(
+            WireguardMeshAssessment {
+                total_peers: 4,
+                ok_peers: 4,
+                stale_peers: 0,
+                dead_peers: 0,
+                never_seen_peers: 0,
+            },
+            DnsSynapseAssessment {
+                zone: "synapse.cynic".to_string(),
+                total_records: 6,
+                resolved_records: 6,
+                failed_records: 0,
+                failures: vec![],
+            },
+            vec![ServicePortAssessment {
+                service: "forgejo".to_string(),
+                node: "forgejo".to_string(),
+                endpoint: "10.10.10.101:3000".to_string(),
+                reachable: true,
+                latency_ms: Some(2),
+            }],
+            vec![],
+            None,
+            1788267750000,
+        );
+
+        assert_eq!(assessment.status, "ok");
+        assert_eq!(assessment.level, NetworkAlertLevel::Ok);
+        assert!(assessment.alerts.is_empty());
+    }
+
+    #[test]
+    fn watchdog_dead_peer_emits_critical_alert() {
+        let assessment = evaluate_network_watchdog(
+            WireguardMeshAssessment {
+                total_peers: 4,
+                ok_peers: 3,
+                stale_peers: 0,
+                dead_peers: 1,
+                never_seen_peers: 0,
+            },
+            DnsSynapseAssessment {
+                zone: "synapse.cynic".to_string(),
+                total_records: 6,
+                resolved_records: 6,
+                failed_records: 0,
+                failures: vec![],
+            },
+            vec![],
+            vec![],
+            None,
+            1788267750000,
+        );
+
+        assert_eq!(assessment.status, "critical");
+        assert_eq!(assessment.level, NetworkAlertLevel::Critical);
+        assert_eq!(assessment.alerts.len(), 1);
+        assert_eq!(assessment.alerts[0].component, "wireguard_mesh");
+    }
+
+    #[test]
+    fn watchdog_service_unreachable_emits_critical_alert() {
+        let assessment = evaluate_network_watchdog(
+            WireguardMeshAssessment {
+                total_peers: 4,
+                ok_peers: 4,
+                stale_peers: 0,
+                dead_peers: 0,
+                never_seen_peers: 0,
+            },
+            DnsSynapseAssessment {
+                zone: "synapse.cynic".to_string(),
+                total_records: 6,
+                resolved_records: 6,
+                failed_records: 0,
+                failures: vec![],
+            },
+            vec![ServicePortAssessment {
+                service: "surrealdb".to_string(),
+                node: "cynic-lxc-surrealdb".to_string(),
+                endpoint: "10.10.10.103:8000".to_string(),
+                reachable: false,
+                latency_ms: None,
+            }],
+            vec![],
+            None,
+            1788267750000,
+        );
+
+        assert_eq!(assessment.status, "critical");
+        assert_eq!(assessment.alerts[0].component, "service:surrealdb");
     }
 }

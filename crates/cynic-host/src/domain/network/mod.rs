@@ -3,13 +3,17 @@
 //! Pure parsers live in `probe`; the observe port is in `port`; canonical
 //! types are re-exported from `cynic_protocol::network` so host-domain code
 //! has a stable path (`crate::domain::network::*`) without duplicating policy.
+pub mod freebox;
 mod port;
 mod probe;
 pub mod types;
+pub mod watchdog_alerter;
 
+pub use freebox::{FreeboxProbePort, HttpFreeboxProbeAdapter};
 pub use port::NetworkObservationPort;
 pub use probe::{
     parse_addr_from_json, parse_ifname_from_dev, parse_pressure_from_dev, parse_route_from_json,
     parse_usage_from_dev,
 };
 pub use types::*;
+pub use watchdog_alerter::reconcile_network_watchdog_outbox;

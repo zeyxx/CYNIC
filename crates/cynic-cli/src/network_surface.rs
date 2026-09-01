@@ -57,6 +57,22 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkActuatorCommand,
     },
+    /// Full 4-layer network observation (L1 physical, L2 addresses/routes, L3 usage, L4 pressure, Freebox router)
+    Observe {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value = "http://192.168.0.254")]
+        freebox: Option<String>,
+    },
+    /// Network watchdog assessment with active alerts
+    Watchdog {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value = "wg0")]
+        interface: String,
+        #[arg(long, default_value = "http://192.168.0.254")]
+        freebox: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]

@@ -18,6 +18,7 @@ pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
+pub mod network_watchdog_uc;
 // The federated mesh cluster declares together or not at all: probe_uc owns
 // DeclaredSynapseNode/CANONICAL_SYNAPSE_NODES, resolver calls back into
 // probe_uc, and spof_observe/task_dispatch both consume probe_uc. Declaring one

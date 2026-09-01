@@ -59,6 +59,7 @@ pub mod shutdown;
 pub(crate) mod source_change_transaction;
 pub mod usecases;
 pub mod verify;
+pub mod watchdog;
 pub mod websocket;
 
 pub use cli::NetworkCommands;
