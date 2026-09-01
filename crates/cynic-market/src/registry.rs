@@ -119,10 +119,11 @@ impl MarketRegistry {
     }
 
     /// Get predictions for a proposal.
-    pub fn predictions_for_proposal(&self, proposal_id: &str) -> Vec<&Prediction> {
+    pub fn predictions_for_proposal(&self, proposal_id: &str) -> Vec<String> {
         self.predictions
             .values()
             .filter(|p| p.proposal_id == proposal_id)
+            .map(|p| p.prediction_id.clone())
             .collect()
     }
 
