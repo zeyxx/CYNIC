@@ -11,6 +11,14 @@ pub const ONE_SHOT_CAPABILITY_SCHEMA: &str = "cynic.one_shot_capability.v1";
 pub const ONE_SHOT_CAPABILITY_CONSUMPTION_SCHEMA: &str = "cynic.one_shot_capability_consumption.v1";
 pub const ONE_SHOT_CAPABILITY_OUTCOME_SCHEMA: &str = "cynic.one_shot_capability_outcome.v1";
 
+/// Authority classes for OneShotCapability.
+pub mod authority_class {
+    /// Bootstrap: initial node enrollment.
+    pub const MACHINE_ENROLLMENT: &str = "MachineEnrollment";
+    /// Cleanup: remove orphaned builder resources.
+    pub const CLEANUP_BUILDER: &str = "CleanupBuilder";
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OneShotCapability {
     pub schema: String,
