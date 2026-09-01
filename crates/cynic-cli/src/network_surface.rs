@@ -73,6 +73,19 @@ pub(crate) enum NetworkCommand {
         #[arg(long, default_value = "http://192.168.0.254")]
         freebox: Option<String>,
     },
+    /// Reconcile and synchronize WireGuard peers and Synapse DNS from registry desired state
+    Sync {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        registry: String,
+        #[arg(long, default_value = "cynic-host-cortex")]
+        node_id: String,
+        #[arg(long, default_value = "wg0")]
+        interface: String,
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 #[derive(Subcommand)]

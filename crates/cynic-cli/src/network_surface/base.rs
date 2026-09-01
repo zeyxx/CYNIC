@@ -207,6 +207,48 @@ pub(crate) fn try_execute_base(
                 Ok(ExitCode::SUCCESS)
             }
         }
+        NetworkCommand::Sync {
+            json,
+            registry,
+            node_id,
+            interface,
+            apply,
+        } => {
+            let report = match cynic_node::usecases::network_sync_uc::execute_network_sync(
+                &registry, &node_id, &interface, apply,
+            ) {
+                Ok(r) => r,
+                Err(error) => {
+                    eprintln!("network sync failed: {error}");
+                    return Ok(ExitCode::FAILURE);
+                }
+            };
+
+            if json {
+                emit_pretty_json(&report);
+            } else {
+                println!(
+                    "Network Sync: status={}, apply={}, local_node={}, peers_synced={}, dns_records_synced={}",
+                    report.status,
+                    report.apply,
+                    report.local_node_id,
+                    report.peers_synced,
+                    report.dns_records_synced
+                );
+                if !report.blockers.is_empty() {
+                    println!("Blockers:");
+                    for b in &report.blockers {
+                        println!("  - {b}");
+                    }
+                }
+            }
+
+            if report.status == "degraded" {
+                Ok(ExitCode::FAILURE)
+            } else {
+                Ok(ExitCode::SUCCESS)
+            }
+        }
         other => Err(other),
     }
 }
