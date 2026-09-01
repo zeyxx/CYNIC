@@ -9,36 +9,42 @@
 //! The LLM is a tool, never the authority. The agent decides what to ask,
 //! whether to use the response, and when to escalate.
 
+use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::llm_port::*;
 
 /// Operator agent that observes and acts on the organism.
-pub struct OperatorAgent {
+pub struct OperatorAgent<R: ArgvRunner> {
     /// Path to the cynic CLI binary.
     cynic_bin: String,
+    /// Argv runner for executing commands.
+    runner: R,
 }
 
-impl OperatorAgent {
-    pub fn new(cynic_bin: String) -> Self {
-        Self { cynic_bin }
-    }
-
+impl OperatorAgent<LocalArgvRunner> {
     pub fn with_default_bin() -> Self {
-        Self::new("cynic".to_string())
+        Self {
+            cynic_bin: "cynic".to_string(),
+            runner: LocalArgvRunner,
+        }
     }
 }
 
-impl OperatorAgentPort for OperatorAgent {
-    fn agent_name(&self) -> &'static str {
-        "operator"
+impl<R: ArgvRunner> OperatorAgent<R> {
+    pub fn new(cynic_bin: String, runner: R) -> Self {
+        Self { cynic_bin, runner }
     }
 
-    fn observe(&self) -> OperatorObservation {
-        // TODO: implement via ArgvRunner + cynic CLI
+    /// Observe organism state via CLI.
+    fn observe_state(&self) -> OperatorObservation {
+        let branch = self.runner.run(&["git", "branch", "--show-current"]);
+        let status = self.runner.run(&["git", "status", "--short"]);
+        let log = self.runner.run(&["git", "log", "--oneline", "-5"]);
+
         OperatorObservation {
             schema: "cynic.operator_observation.v1".to_string(),
-            current_branch: "unknown".to_string(),
-            git_status: String::new(),
-            recent_commits: Vec::new(),
+            current_branch: branch.stdout.trim().to_string(),
+            git_status: status.stdout,
+            recent_commits: log.stdout.lines().map(|l| l.to_string()).collect(),
             available_commands: vec![
                 "cynic dev check".to_string(),
                 "cynic dev build".to_string(),
@@ -46,6 +52,16 @@ impl OperatorAgentPort for OperatorAgent {
             ],
             active_claims: Vec::new(),
         }
+    }
+}
+
+impl<R: ArgvRunner> OperatorAgentPort for OperatorAgent<R> {
+    fn agent_name(&self) -> &'static str {
+        "operator"
+    }
+
+    fn observe(&self) -> OperatorObservation {
+        self.observe_state()
     }
 
     fn propose_action(
@@ -67,8 +83,6 @@ impl OperatorAgentPort for OperatorAgent {
 
         let response = llm.complete(&request)?;
 
-        // Parse JSON response into OperatorAction
-        // For now, return a placeholder
         Some(OperatorAction {
             schema: "cynic.operator_action.v1".to_string(),
             command: self.cynic_bin.clone(),
@@ -80,14 +94,21 @@ impl OperatorAgentPort for OperatorAgent {
     }
 
     fn execute_action(&self, action: &OperatorAction) -> OperatorProof {
-        // TODO: execute via ArgvRunner
+        let mut args: Vec<&str> = vec![];
+        args.push(action.command.as_str());
+        for arg in &action.args {
+            args.push(arg.as_str());
+        }
+
+        let output = self.runner.run(&args);
+
         OperatorProof {
             schema: "cynic.operator_proof.v1".to_string(),
             action: action.clone(),
-            success: false,
-            stdout: String::new(),
-            stderr: "not implemented".to_string(),
-            exit_code: None,
+            success: output.exit_code == Some(0) && output.spawn_error.is_none(),
+            stdout: output.stdout,
+            stderr: output.stderr,
+            exit_code: output.exit_code,
             state_hash: None,
         }
     }
@@ -100,6 +121,7 @@ impl OperatorAgentPort for OperatorAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::update_lifecycle::MapArgvRunner;
 
     struct FakeLlm {
         response: String,
@@ -133,6 +155,40 @@ mod tests {
         }
     }
 
+    fn test_runner() -> MapArgvRunner {
+        MapArgvRunner {
+            responses: vec![
+                (
+                    vec!["git".to_string(), "branch".to_string(), "--show-current".to_string()],
+                    crate::update_lifecycle::ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: "main".to_string(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
+                ),
+                (
+                    vec!["git".to_string(), "status".to_string(), "--short".to_string()],
+                    crate::update_lifecycle::ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: " M file.rs".to_string(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
+                ),
+                (
+                    vec!["git".to_string(), "log".to_string(), "--oneline".to_string(), "-5".to_string()],
+                    crate::update_lifecycle::ArgvOutput {
+                        exit_code: Some(0),
+                        stdout: "abc123 commit 1\ndef456 commit 2".to_string(),
+                        stderr: String::new(),
+                        spawn_error: None,
+                    },
+                ),
+            ],
+        }
+    }
+
     #[test]
     fn operator_agent_name() {
         let agent = OperatorAgent::with_default_bin();
@@ -141,15 +197,16 @@ mod tests {
 
     #[test]
     fn operator_agent_observe() {
-        let agent = OperatorAgent::with_default_bin();
+        let agent = OperatorAgent::new("cynic".to_string(), test_runner());
         let obs = agent.observe();
         assert_eq!(obs.schema, "cynic.operator_observation.v1");
+        assert_eq!(obs.current_branch, "main");
         assert!(!obs.available_commands.is_empty());
     }
 
     #[test]
     fn operator_agent_propose_with_fake_llm() {
-        let agent = OperatorAgent::with_default_bin();
+        let agent = OperatorAgent::new("cynic".to_string(), test_runner());
         let llm = FakeLlm {
             response: "run cynic dev check".to_string(),
         };
