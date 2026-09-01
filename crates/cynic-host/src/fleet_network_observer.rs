@@ -18,6 +18,10 @@ use crate::runtime_layout::observed_hostname;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
 
+use cynic_protocol::network::{
+    DnsSynapseAssessment, FLEET_WATCHDOG_REPORT_SCHEMA, FleetWatchdogReport, FreeboxLanObservation,
+    NetworkAlert, NetworkAlertLevel, ServicePortAssessment, WireguardMeshAssessment,
+};
 fn poll_budget_ms() -> u64 {
     std::env::var("CYNIC_POLL_BUDGET_MS")
         .ok()
@@ -160,7 +164,7 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
         let poll_cost_ms = Some(poll_cost_ms_val);
 
         FleetNetworkReport {
-            schema: FLEET_NETWORK_SCHEMA,
+            schema: FLEET_NETWORK_SCHEMA.to_string(),
             corpus_unix_s: self.now_unix_s(),
             total_nodes: discovery.nodes.len(),
             observed_nodes,
@@ -169,6 +173,128 @@ impl<R: ArgvRunner + Clone> FleetNetworkObserver<R> {
             residual_unknowns,
             budget,
             poll_cost_ms,
+        }
+    }
+}
+/// Fleet-wide network watchdog observer aggregating multi-node probes, WireGuard mesh, and DNS.
+pub struct FleetWatchdogObserver<R: ArgvRunner> {
+    network_observer: FleetNetworkObserver<R>,
+}
+
+impl FleetWatchdogObserver<LocalArgvRunner> {
+    pub fn new(registry_path: impl Into<String>) -> Self {
+        Self::with_runner(registry_path, LocalArgvRunner)
+    }
+}
+
+impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
+    pub fn with_runner(registry_path: impl Into<String>, runner: R) -> Self {
+        Self {
+            network_observer: FleetNetworkObserver::with_runner(registry_path, runner),
+        }
+    }
+
+    pub fn observe(
+        &self,
+        wireguard: WireguardMeshAssessment,
+        dns: DnsSynapseAssessment,
+        services: Vec<ServicePortAssessment>,
+        freebox: Option<FreeboxLanObservation>,
+    ) -> FleetWatchdogReport {
+        let fleet_network = self.network_observer.observe();
+        let total_nodes = fleet_network.total_nodes;
+        let healthy_nodes = fleet_network.observed_nodes;
+        let failed_nodes = fleet_network.failed_nodes;
+        let degraded_nodes = total_nodes.saturating_sub(healthy_nodes + failed_nodes);
+
+        let mut alerts = Vec::new();
+        let mut max_level = NetworkAlertLevel::Ok;
+
+        // 1. Check fleet node outcomes
+        for node in &fleet_network.nodes {
+            if node.outcome == "failed" {
+                alerts.push(NetworkAlert {
+                    level: NetworkAlertLevel::Critical,
+                    component: format!("node:{}", node.node_id),
+                    message: format!(
+                        "Network observation unreachable for node '{}' ({})",
+                        node.node_id, node.ip
+                    ),
+                    recovery_hint: "Verify node power state and management/synapse route"
+                        .to_string(),
+                });
+                max_level = NetworkAlertLevel::Critical;
+            }
+        }
+
+        // 2. Check WireGuard mesh
+        if wireguard.dead_peers > 0 {
+            alerts.push(NetworkAlert {
+                level: NetworkAlertLevel::Critical,
+                component: "wireguard_mesh".to_string(),
+                message: format!(
+                    "{} WireGuard peer(s) are dead across fleet",
+                    wireguard.dead_peers
+                ),
+                recovery_hint: "Check remote wireguard services and overlay route".to_string(),
+            });
+            max_level = NetworkAlertLevel::Critical;
+        }
+
+        // 3. Check DNS
+        if dns.failed_records > 0 {
+            alerts.push(NetworkAlert {
+                level: NetworkAlertLevel::Critical,
+                component: "dns_synapse".to_string(),
+                message: format!("Synapse DNS failed for {} record(s)", dns.failed_records),
+                recovery_hint: "Inspect CoreDNS/dnsmasq on cynic-host-proxmox (10.10.10.1)"
+                    .to_string(),
+            });
+            max_level = NetworkAlertLevel::Critical;
+        }
+
+        // 4. Check services
+        for svc in &services {
+            if !svc.reachable {
+                alerts.push(NetworkAlert {
+                    level: NetworkAlertLevel::Critical,
+                    component: format!("service:{}", svc.service),
+                    message: format!(
+                        "Service '{}' ({}) is unreachable",
+                        svc.service, svc.endpoint
+                    ),
+                    recovery_hint: format!("Inspect service unit on node '{}'", svc.node),
+                });
+                max_level = NetworkAlertLevel::Critical;
+            }
+        }
+
+        let status = match max_level {
+            NetworkAlertLevel::Ok => "ok",
+            NetworkAlertLevel::Warning => "warning",
+            NetworkAlertLevel::Critical => "critical",
+        }
+        .to_string();
+
+        let now_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        FleetWatchdogReport {
+            schema: FLEET_WATCHDOG_REPORT_SCHEMA.to_string(),
+            status,
+            total_nodes,
+            healthy_nodes,
+            degraded_nodes,
+            failed_nodes,
+            fleet_network,
+            wireguard_mesh: wireguard,
+            dns_synapse: dns,
+            service_ports: services,
+            freebox_lan: freebox,
+            alerts,
+            observed_at_unix_ms: now_unix_ms,
         }
     }
 }

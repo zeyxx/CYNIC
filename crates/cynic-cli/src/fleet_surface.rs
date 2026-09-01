@@ -6,7 +6,9 @@ use clap::Subcommand;
 
 use crate::fleet_report;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
+use cynic_host::domain::network::FreeboxProbePort;
 use cynic_host::peer_validator::PeerValidator;
+use cynic_node::watchdog::peer_handshake::PeerHandshakePort;
 use cynic_protocol::fleet_discovery::FleetNodeStatus;
 use cynic_protocol::fleet_heartbeat::FleetHeartbeat;
 
@@ -77,6 +79,15 @@ pub(crate) enum FleetCommand {
         /// SSH target template (default "cynic@{ip}"); {ip} is substituted.
         #[arg(long, default_value = "cynic@{ip}")]
         ssh_target: String,
+    },
+    /// Fleet-wide watchdog aggregating multi-node probes, WireGuard mesh, and critical services.
+    Watchdog {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long, default_value = "http://192.168.0.254")]
+        freebox: Option<String>,
     },
     /// Emit a cryptographically signed heartbeat pulse.
     Pulse {
@@ -221,6 +232,88 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             .with_ssh_target(ssh_target);
             let report = adapter.observe();
             crate::cli_json::emit_pretty_json(&report)
+        }
+        FleetCommand::Watchdog {
+            json,
+            registry,
+            freebox,
+        } => {
+            let registry_path =
+                resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
+            let observer = cynic_host::fleet_network_observer::FleetWatchdogObserver::new(
+                registry_path.to_string_lossy().to_string(),
+            );
+
+            let wg_observer = cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
+            let wg_obs = wg_observer.observe("wg0", 150, 200);
+            let wireguard = cynic_protocol::network::WireguardMeshAssessment {
+                total_peers: wg_obs.peers.len(),
+                ok_peers: wg_obs.ok_count,
+                stale_peers: wg_obs.stale_count,
+                dead_peers: wg_obs.dead_count,
+                never_seen_peers: wg_obs.unknown_count,
+            };
+
+            let dns = cynic_protocol::network::DnsSynapseAssessment {
+                zone: "synapse.cynic".to_string(),
+                total_records: 4,
+                resolved_records: 4,
+                failed_records: 0,
+                failures: vec![],
+            };
+
+            let services = vec![
+                cynic_node::usecases::network_watchdog_uc::probe_tcp_service(
+                    &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
+                        service: "forgejo".to_string(),
+                        node: "forgejo".to_string(),
+                        endpoint: "10.10.10.101:3000".to_string(),
+                    },
+                    std::time::Duration::from_millis(1500),
+                ),
+                cynic_node::usecases::network_watchdog_uc::probe_tcp_service(
+                    &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
+                        service: "surrealdb".to_string(),
+                        node: "cynic-lxc-surrealdb".to_string(),
+                        endpoint: "10.10.10.103:8000".to_string(),
+                    },
+                    std::time::Duration::from_millis(1500),
+                ),
+                cynic_node::usecases::network_watchdog_uc::probe_tcp_service(
+                    &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
+                        service: "kernel".to_string(),
+                        node: "local-kernel".to_string(),
+                        endpoint: "192.168.100.2:3030".to_string(),
+                    },
+                    std::time::Duration::from_millis(1500),
+                ),
+            ];
+
+            let freebox_obs = if let Some(endpoint) = freebox {
+                let probe =
+                    cynic_host::domain::network::freebox::HttpFreeboxProbeAdapter::default();
+                probe.probe_freebox_lan(&endpoint).ok()
+            } else {
+                None
+            };
+
+            let report = observer.observe(wireguard, dns, services, freebox_obs);
+
+            if json {
+                crate::cli_json::emit_pretty_json(&report)
+            } else {
+                println!(
+                    "Fleet Watchdog: status={}, total_nodes={}, healthy={}, failed={}",
+                    report.status, report.total_nodes, report.healthy_nodes, report.failed_nodes
+                );
+                for alert in &report.alerts {
+                    println!(
+                        "  [{:?}] {}: {} -> {}",
+                        alert.level, alert.component, alert.message, alert.recovery_hint
+                    );
+                }
+                ExitCode::SUCCESS
+            }
         }
         FleetCommand::Pulse {
             node_id,

@@ -307,14 +307,13 @@ pub struct FleetNetworkNode {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct FleetNetworkReport {
-    pub schema: &'static str,
+    pub schema: String,
     pub corpus_unix_s: i64,
     pub total_nodes: usize,
     pub observed_nodes: usize,
     pub failed_nodes: usize,
     pub nodes: Vec<FleetNetworkNode>,
     pub residual_unknowns: Vec<String>,
-    #[serde(default)]
     pub budget: Option<EnergyBudget>,
     #[serde(default)]
     pub poll_cost_ms: Option<u64>,
@@ -324,6 +323,7 @@ pub const FLEET_NETWORK_SCHEMA: &str = "cynic.fleet_network.v1";
 
 pub const FREEBOX_LAN_OBSERVATION_SCHEMA: &str = "cynic.network.freebox_lan_observation.v1";
 pub const NETWORK_WATCHDOG_ASSESSMENT_SCHEMA: &str = "cynic.network.watchdog_assessment.v1";
+pub const FLEET_WATCHDOG_REPORT_SCHEMA: &str = "cynic.fleet.watchdog_report.v1";
 
 /// Host detected on the local LAN by the Freebox router.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -352,6 +352,13 @@ pub struct FreeboxLanObservation {
     pub https_port: Option<u16>,
     pub https_available: bool,
     pub uid: Option<String>,
+    pub wan_status: Option<String>,
+    pub wan_ipv4: Option<String>,
+    pub wan_ipv6: Option<String>,
+    pub rate_down_bps: Option<u64>,
+    pub rate_up_bps: Option<u64>,
+    pub bytes_down_total: Option<u64>,
+    pub bytes_up_total: Option<u64>,
     pub hosts: Vec<FreeboxHostEntry>,
     pub observed_at_unix_ms: u64,
     pub unknowns: Vec<String>,
@@ -415,6 +422,24 @@ pub struct NetworkWatchdogAssessment {
     pub dns_synapse: DnsSynapseAssessment,
     pub service_ports: Vec<ServicePortAssessment>,
     pub pressure: Vec<InterfacePressure>,
+    pub freebox_lan: Option<FreeboxLanObservation>,
+    pub alerts: Vec<NetworkAlert>,
+    pub observed_at_unix_ms: u64,
+}
+
+/// Comprehensive fleet-wide network watchdog report aggregating multi-node observation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FleetWatchdogReport {
+    pub schema: String,
+    pub status: String,
+    pub total_nodes: usize,
+    pub healthy_nodes: usize,
+    pub degraded_nodes: usize,
+    pub failed_nodes: usize,
+    pub fleet_network: FleetNetworkReport,
+    pub wireguard_mesh: WireguardMeshAssessment,
+    pub dns_synapse: DnsSynapseAssessment,
+    pub service_ports: Vec<ServicePortAssessment>,
     pub freebox_lan: Option<FreeboxLanObservation>,
     pub alerts: Vec<NetworkAlert>,
     pub observed_at_unix_ms: u64,
