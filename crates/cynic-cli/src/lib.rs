@@ -45,6 +45,7 @@ pub mod host_exec_alias_surface;
 pub mod integrations_readonly_surface;
 pub mod integrations_surface;
 pub mod integrations_surface_render;
+pub mod judge_surface;
 pub mod judgment_surface;
 pub mod kernel_boundary_audit;
 pub mod lab_surface;
@@ -84,6 +85,7 @@ use crate::bootstrap_surface::BootstrapCommand;
 use crate::dev_surface::DevCommand;
 use crate::fleet_surface::FleetCommand;
 use crate::git_surface::GitCommand;
+use crate::judge_surface::JudgeCommand;
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::integrations_surface::IntegrationsCommand;
 use crate::lab_surface::LabCommand;
@@ -195,6 +197,11 @@ pub(crate) enum Command {
     Git {
         #[command(subcommand)]
         command: GitCommand,
+    },
+    /// Judge extracted patches (diff vs origin/main) — data-centric gate before adding.
+    Judge {
+        #[command(subcommand)]
+        command: JudgeCommand,
     },
     /// Ecosystem tech-watch and human-validated upgrades (canonical).
     #[command(hide = true)]

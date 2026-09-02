@@ -231,7 +231,14 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
 
         match e.state {
             GitBranchState::Dead => {
-                actions.push(GitAction::Archive { branch: e.branch.clone(), reason: format!("dead: {behind} behind main") });
+                // Data-centric: dead only if nothing to save (ahead==0). If ahead>0, treat as split/rebase — preserve value.
+                if ahead > 0 && ahead >= 5 {
+                    actions.push(GitAction::Split { branch: e.branch.clone(), ahead });
+                } else if ahead > 0 {
+                    actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
+                } else {
+                    actions.push(GitAction::Archive { branch: e.branch.clone(), reason: format!("dead: {behind} behind main") });
+                }
             }
             GitBranchState::Divergent => {
                 actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
@@ -346,6 +353,7 @@ mod tests {
     #[test]
     fn reconcile_dead_archives() {
         let mut e = valid_entry("agent/hermes/dead");
+        e.ahead = Some(0);
         e.behind = Some(150);
         e.state = GitBranchState::Dead;
         let obs = GitTopologyObservation {
@@ -359,5 +367,24 @@ mod tests {
         let d = reconcile_git_topology(&obs);
         assert!(d.needs_review);
         assert!(d.actions.iter().any(|a| matches!(a, GitAction::Archive { .. })));
+    }
+
+    #[test]
+    fn reconcile_dead_with_ahead_becomes_split() {
+        let mut e = valid_entry("agent/hermes/dead-ahead");
+        e.ahead = Some(42);
+        e.behind = Some(134);
+        e.state = GitBranchState::Dead;
+        let obs = GitTopologyObservation {
+            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
+            observed_at_unix_s: 1,
+            node_id: "n".to_string(),
+            current_branch: None,
+            entries: vec![e],
+            observation_unknowns: vec![],
+        };
+        let d = reconcile_git_topology(&obs);
+        assert!(d.actions.iter().any(|a| matches!(a, GitAction::Split { branch, .. } if branch == "agent/hermes/dead-ahead")));
+        assert!(!d.actions.iter().any(|a| matches!(a, GitAction::Archive { .. })));
     }
 }

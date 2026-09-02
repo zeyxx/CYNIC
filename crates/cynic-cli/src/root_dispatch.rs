@@ -97,6 +97,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             }),
         Command::Source { command } => crate::source_surface::execute_source(command),
         Command::Git { command } => crate::git_surface::execute_git(command),
+        Command::Judge { command } => crate::judge_surface::execute_judge(command),
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
         Command::Memory { command } => crate::memory_surface::execute_memory(command),
         Command::Judgment { command } => crate::judgment_surface::execute_judgment(command),
