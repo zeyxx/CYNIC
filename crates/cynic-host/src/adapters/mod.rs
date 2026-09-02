@@ -1,6 +1,7 @@
 pub mod agent_access;
 pub mod cpu_usage_meter;
 pub mod fs_window_journal;
+pub mod local_build_artefact;
 pub mod local_build_cache;
 pub mod local_capacity;
 pub mod local_causal_epoch_index;
@@ -23,6 +24,7 @@ pub mod privilege_projection;
 pub mod proxmox_clone;
 pub mod proxmox_disk_extension;
 pub mod proxmox_substrate;
+pub mod remote_build_artefact;
 pub mod remote_cpu;
 pub mod remote_disk;
 pub mod remote_execution;

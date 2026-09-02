@@ -1,9 +1,9 @@
 pub mod adapters;
+pub mod agent;
 pub mod agent_access;
 pub mod agent_host;
 pub mod agent_matrix;
 pub mod agent_runtime;
-pub mod agent;
 pub mod sandbox;
 // run_workspace_audit lives here and multi_agent_e2e_simulation imports it, but
 // no declaration reached the directory, so the workspace audit never compiled.
@@ -38,6 +38,7 @@ pub mod filesystem_observation;
 pub mod fleet_cpu_observer;
 pub mod fleet_discovery;
 pub mod fleet_disk_observer;
+pub mod fleet_build_artefact_observer;
 pub mod fleet_health_observer;
 pub mod fleet_heartbeat;
 pub mod fleet_memory_observer;

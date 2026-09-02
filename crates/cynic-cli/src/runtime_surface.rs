@@ -22,6 +22,7 @@ mod network;
 mod operator_models;
 
 pub(crate) use operator_models::{OperatorModelsCommand, execute_operator_models};
+mod build_artefact;
 mod network_preflight;
 mod paths;
 mod persistence;
@@ -447,6 +448,13 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         token_path: Option<String>,
     },
+    /// 4-layer build artefact observation + GC (checkouts pressure). Pure probe + local adapter.
+    BuildArtefact {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -596,6 +604,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             yes,
             token_path,
         } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path.clone()),
+        RuntimeCommand::BuildArtefact { json, apply } => {
+            build_artefact::execute_build_artefact(json, apply)
+        }
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }
