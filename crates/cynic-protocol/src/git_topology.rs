@@ -168,6 +168,105 @@ pub fn validate_git_topology_observation(obs: &GitTopologyObservation) -> Vec<St
     v
 }
 
+// ---------------------------------------------------------------------------
+// Reconcile — pure decision from observed topology
+// ---------------------------------------------------------------------------
+
+pub const GIT_RECONCILE_SCHEMA: &str = "cynic.git_reconcile.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum GitAction {
+    /// Branch is ready for PR (stable, ahead >0, behind small)
+    ReadyForPr { branch: String },
+    /// Needs rebase onto origin/main before PR
+    NeedsRebase { branch: String, behind: u32 },
+    /// Archive or delete — dead branch
+    Archive { branch: String, reason: String },
+    /// Split branch too large (many commits)
+    Split { branch: String, ahead: u32 },
+    /// Clean worktree or remove orphan worktree
+    GcWorktree { branch: String },
+    /// No action needed (on main, active, or already converged)
+    NoOp { branch: String, reason: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitReconcileDecision {
+    pub schema: String,
+    pub observed_at_unix_s: u64,
+    pub actions: Vec<GitAction>,
+    pub needs_review: bool,
+    pub unknowns: Vec<String>,
+}
+
+/// Pure reconcile: topology -> actions. No I/O, no git calls.
+pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecision {
+    let mut actions = Vec::new();
+    let mut unknowns = Vec::new();
+
+    if !obs.observation_unknowns.is_empty() {
+        unknowns.push(format!("observation_unknowns: {:?}", obs.observation_unknowns));
+    }
+
+    for e in &obs.entries {
+        // Skip main itself
+        if e.branch == "main" {
+            actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "main".to_string() });
+            continue;
+        }
+        // Unknown-heavy entries need review, not action
+        if !e.unknowns.is_empty() {
+            unknowns.push(format!("{}: unknowns {:?}", e.branch, e.unknowns));
+            continue;
+        }
+        let behind = e.behind.unwrap_or(0);
+        let ahead = e.ahead.unwrap_or(0);
+
+        match e.state {
+            GitBranchState::Dead => {
+                actions.push(GitAction::Archive { branch: e.branch.clone(), reason: format!("dead: {behind} behind main") });
+            }
+            GitBranchState::Divergent => {
+                actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
+            }
+            GitBranchState::Active | GitBranchState::Stable => {
+                if ahead >= 20 {
+                    actions.push(GitAction::Split { branch: e.branch.clone(), ahead });
+                } else if ahead > 0 && behind <= 5 {
+                    actions.push(GitAction::ReadyForPr { branch: e.branch.clone() });
+                } else if behind > 5 {
+                    actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
+                } else {
+                    actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "active, nothing to do".to_string() });
+                }
+            }
+            GitBranchState::Orphan => {
+                // Local-only branch, no remote — needs push or archive
+                if ahead == 0 && behind == 0 {
+                    unknowns.push(format!("orphan without remote: {}", e.branch));
+                } else {
+                    actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "orphan".to_string() });
+                }
+            }
+        }
+        // Worktree GC hint: divergent/dead with worktree
+        if e.has_worktree == Some(true) && matches!(e.state, GitBranchState::Dead | GitBranchState::Divergent) {
+            actions.push(GitAction::GcWorktree { branch: e.branch.clone() });
+        }
+    }
+
+    let needs_review = !unknowns.is_empty() || actions.iter().any(|a| matches!(a, GitAction::Archive { .. } | GitAction::Split { .. }));
+
+    GitReconcileDecision {
+        schema: GIT_RECONCILE_SCHEMA.to_string(),
+        observed_at_unix_s: obs.observed_at_unix_s,
+        actions,
+        needs_review,
+        unknowns,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,5 +315,43 @@ mod tests {
         };
         let v = validate_git_topology_observation(&obs);
         assert!(v.contains(&"git_topology_entry_unknown_unannotated".to_string()));
+    }
+
+    #[test]
+    fn reconcile_divergent_needs_rebase() {
+        let mut e = valid_entry("agent/hermes/div");
+        e.behind = Some(60);
+        e.state = GitBranchState::Divergent;
+        let obs = GitTopologyObservation {
+            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
+            observed_at_unix_s: 1,
+            node_id: "n".to_string(),
+            current_branch: Some("main".to_string()),
+            entries: vec![
+                GitBranchEntry { branch: "main".to_string(), ahead: Some(0), behind: Some(0), last_commit_unix_s: Some(1), state: GitBranchState::Stable, has_worktree: Some(false), dirty_count: Some(0), has_remote: Some(true), unknowns: vec![] },
+                e
+            ],
+            observation_unknowns: vec![],
+        };
+        let d = reconcile_git_topology(&obs);
+        assert!(d.actions.iter().any(|a| matches!(a, GitAction::NeedsRebase { branch, .. } if branch == "agent/hermes/div")));
+    }
+
+    #[test]
+    fn reconcile_dead_archives() {
+        let mut e = valid_entry("agent/hermes/dead");
+        e.behind = Some(150);
+        e.state = GitBranchState::Dead;
+        let obs = GitTopologyObservation {
+            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
+            observed_at_unix_s: 1,
+            node_id: "n".to_string(),
+            current_branch: None,
+            entries: vec![e],
+            observation_unknowns: vec![],
+        };
+        let d = reconcile_git_topology(&obs);
+        assert!(d.needs_review);
+        assert!(d.actions.iter().any(|a| matches!(a, GitAction::Archive { .. })));
     }
 }
