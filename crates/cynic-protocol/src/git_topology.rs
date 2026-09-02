@@ -215,9 +215,15 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
             actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "main".to_string() });
             continue;
         }
-        // Unknown-heavy entries need review, not action
-        if !e.unknowns.is_empty() {
-            unknowns.push(format!("{}: unknowns {:?}", e.branch, e.unknowns));
+        // Unknown-heavy entries need review, not action.
+        // Dirty unknown for non-current is expected (we only observe dirty for current) — don't block.
+        let is_current = obs.current_branch.as_deref() == Some(e.branch.as_str());
+        let filtered_unknowns: Vec<_> = e.unknowns.iter().filter(|u| {
+            // Ignore Dirty for non-current branches
+            !(!is_current && **u == GitTopologyUnknown::Dirty)
+        }).copied().collect();
+        if !filtered_unknowns.is_empty() {
+            unknowns.push(format!("{}: unknowns {:?}", e.branch, filtered_unknowns));
             continue;
         }
         let behind = e.behind.unwrap_or(0);

@@ -215,3 +215,58 @@ mod tests {
         assert!(obs.entries.iter().any(|e| e.branch == "main"), "entries: {:?}", obs.entries.iter().map(|e| &e.branch).collect::<Vec<_>>());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Hygiene — staged vs claim coherence
+// ---------------------------------------------------------------------------
+
+pub fn observe_git_hygiene(root: &Path) -> cynic_protocol::git_hygiene::GitHygieneObservation {
+    use cynic_protocol::git_hygiene::GIT_HYGIENE_SCHEMA;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let current = current_branch(root);
+
+    let staged = run_git(root, &["diff", "--cached", "--name-only"])
+        .map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let dirty = run_git(root, &["status", "--porcelain"])
+        .map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    // Read claim scope from .agent-claims.json (best-effort)
+    let (claim_branch, claim_scope) = read_claim_scope(root);
+
+    cynic_protocol::git_hygiene::GitHygieneObservation {
+        schema: GIT_HYGIENE_SCHEMA.to_string(),
+        observed_at_unix_s: now,
+        current_branch: current,
+        staged_files: staged,
+        dirty_files: dirty,
+        claim_branch,
+        claim_scope,
+        unknowns: vec![],
+    }
+}
+
+fn read_claim_scope(root: &Path) -> (Option<String>, Option<String>) {
+    let path = root.join(".agent-claims.json");
+    let content = std::fs::read_to_string(&path).ok();
+    let Some(content) = content else { return (None, None); };
+    let json: serde_json::Value = match serde_json::from_str(&content) { Ok(v) => v, Err(_) => return (None, None) };
+    let claims = json.get("claims").and_then(|v| v.as_array());
+    let Some(claims) = claims else { return (None, None); };
+    for claim in claims {
+        if claim.get("status").and_then(|v| v.as_str()) != Some("active") { continue; }
+        let scope = claim.get("scope");
+        let kind = scope.and_then(|s| s.get("kind")).and_then(|v| v.as_str());
+        let path = scope.and_then(|s| s.get("path")).and_then(|v| v.as_str());
+        if let Some(p) = path {
+            // Map claim scope path to a prefix for hygiene (crate/file)
+            return (Some(p.to_string()), Some(p.to_string()));
+        }
+        if kind.is_some() {
+            return (Some(kind.unwrap_or("").to_string()), None);
+        }
+    }
+    (None, None)
+}

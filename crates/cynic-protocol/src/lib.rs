@@ -140,6 +140,7 @@ pub mod storage_identity;
 pub mod storage_lifecycle;
 pub mod storage_topology;
 pub mod git_topology;
+pub mod git_hygiene;
 pub mod supervision;
 pub mod surface_registry;
 pub mod task_admission;
