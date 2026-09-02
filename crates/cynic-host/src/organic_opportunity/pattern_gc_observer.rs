@@ -9,7 +9,7 @@ use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::pattern_gc::{PatternClass, PatternObservation, RetentionPolicy, classify_all};
+use cynic_protocol::pattern_gc::{PatternClass, PatternObservation, RetentionPolicy};
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 

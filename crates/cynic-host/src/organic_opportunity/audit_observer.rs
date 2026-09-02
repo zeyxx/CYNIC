@@ -3,7 +3,7 @@
 //! Observes debt taxonomy, crate audit, and gate findings to surface
 //! high-ROI plumbing debt and structural anomalies.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,

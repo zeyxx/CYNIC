@@ -3,7 +3,7 @@
 //! Interconnects autonomous skill research (`cynic_protocol::autoresearch`)
 //! with the organic opportunities compass.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cynic_protocol::autoresearch::{AutoresearchReport, KeepDiscard, SkillCandidate};
 use cynic_protocol::organic_opportunity::{
