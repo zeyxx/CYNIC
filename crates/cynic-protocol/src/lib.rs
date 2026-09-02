@@ -1,4 +1,5 @@
 #![allow(ambiguous_glob_reexports)]
+pub mod capability_lease;
 pub mod agent_citizenship;
 pub mod agent_connection;
 pub mod agent_coordination;
@@ -53,6 +54,7 @@ pub mod domain_tasks;
 pub mod emergence;
 pub mod emergence_gallery;
 pub mod endpoint;
+pub mod energy_ledger;
 pub mod error_catalog;
 pub mod eval_hygiene;
 pub mod evidence;

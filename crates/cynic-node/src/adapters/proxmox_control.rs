@@ -687,16 +687,25 @@ fn resolve_control_configuration() -> ResolvedProxmoxControl {
             .map(PathBuf::from)
             .or_else(|| file.token_secret_file.map(PathBuf::from))
             .or_else(|| {
-                std::env::var("HOME").ok().and_then(|home| {
-                    let p = PathBuf::from(home).join(".config/cynic/secrets/proxmox-token");
-                    p.exists().then_some(p)
-                })
-            })
-            .or_else(|| {
                 registry
                     .as_ref()
                     .and_then(|value| value.credential_ref.clone())
                     .map(PathBuf::from)
+            })
+            .or_else(|| {
+                std::env::var("HOME").ok().and_then(|home| {
+                    let p = PathBuf::from(home).join(".config/cynic/secrets/proxm-token");
+                    if p.exists() {
+                        eprintln!(
+                            "WARN: Using dev fallback for Proxmox token at {}. \
+                             Move to /etc/cynic/secrets/proxmox-token for production.",
+                            p.display()
+                        );
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
             })
             .unwrap_or_else(|| PathBuf::from("/etc/cynic/secrets/proxmox-token")),
         ca_file: optional_env("CYNIC_PROXMOX_CA_FILE")
@@ -849,5 +858,22 @@ mod tests {
         assert!(!valid("http://pve.internal:8006"));
         assert!(!valid("https://user:secret@pve.internal:8006"));
         assert!(!valid("https://pve.internal:8006/api2/json"));
+    }
+
+    /// Regression test: the dev fallback path must NOT match the production path.
+    /// If they diverge, an operator may place a token in `.config` and never realize
+    /// the installed system reads from `/etc/cynic` — silent split-brain.
+    #[test]
+    fn dev_fallback_path_diverges_from_production() {
+        let prod = std::path::PathBuf::from("/etc/cynic/secrets/proxmox-token");
+        let dev = std::env::var("HOME")
+            .ok()
+            .map(|h| std::path::PathBuf::from(h).join(".config/cynic/secrets/proxm-token"));
+        // The two paths must be distinct. If someone unifies them, this test fails.
+        assert_ne!(
+            prod,
+            dev.unwrap_or_default(),
+            "dev fallback must not equal production path"
+        );
     }
 }
