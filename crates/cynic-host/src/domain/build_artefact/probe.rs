@@ -35,7 +35,14 @@ pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEnt
         };
         let is_orphan = match remote_flag {
             Some(exists) => !exists,
-            None => !remote_shas.contains(&sha),
+            None => {
+                // No remote fetch available (unknown) -> conservative, not orphan
+                if remote_shas.is_empty() {
+                    false
+                } else {
+                    !remote_shas.contains(&sha)
+                }
+            }
         };
         let branch = path.rsplit('/').next().unwrap_or(&path).to_string();
         out.push(CheckoutEntry {

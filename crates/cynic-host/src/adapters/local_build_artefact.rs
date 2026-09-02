@@ -247,19 +247,39 @@ fn walk_size(path: &Path) -> u64 {
 }
 
 fn fetch_remote_shas() -> Vec<String> {
-    // Try to get remote shas from origin in the checkouts base or current repo
-    let out = capture_command("git", &["ls-remote", "origin"]).ok();
-    let stdout = match out {
-        Some(c) if c.success => c.stdout,
-        _ => {
-            // fallback: try git in CHECKOUTS_BASE sibling (the host repo)
-            return Vec::new();
+    // Try a known checkout with origin first, then bare ls-remote
+    for base in [CHECKOUTS_BASE, "."] {
+        let out = if base == "." {
+            capture_command("git", &["ls-remote", "origin"]).ok()
+        } else {
+            // find first checkout that is a git repo
+            let mut found = None;
+            if let Ok(entries) = fs::read_dir(base) {
+                for e in entries.flatten() {
+                    let p = e.path().join(".git");
+                    if p.exists() {
+                        found = Some(e.path().display().to_string());
+                        break;
+                    }
+                }
+            }
+            if let Some(path) = found {
+                capture_command("git", &["-C", &path, "ls-remote", "origin"]).ok()
+            } else {
+                capture_command("git", &["ls-remote", "origin"]).ok()
+            }
+        };
+        if let Some(c) = out {
+            if c.success && !c.stdout.trim().is_empty() {
+                return c
+                    .stdout
+                    .lines()
+                    .filter_map(|l| l.split_whitespace().next().map(|s| s.to_string()))
+                    .collect();
+            }
         }
-    };
-    stdout
-        .lines()
-        .filter_map(|l| l.split_whitespace().next().map(|s| s.to_string()))
-        .collect()
+    }
+    Vec::new()
 }
 
 fn execute_gc_item(
