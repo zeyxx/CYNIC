@@ -18,9 +18,11 @@ pub mod artifact_release;
 pub mod autoresearch;
 pub mod autoresearch_port;
 pub mod bootstrap_federation;
+pub mod branch_graph;
 pub mod breakglass;
 pub mod build;
 pub mod build_artefact;
+pub mod build_discovery;
 pub mod build_node;
 pub mod build_proof;
 pub mod build_slice;
@@ -28,6 +30,7 @@ pub mod build_workflow;
 pub mod capability_lease;
 pub mod capacity;
 pub mod cpu;
+pub mod queue;
 // The audit contract types (AuditReportV2, AuditSeverity, AuditViolation, ...)
 // that cynic-host's audit_engine consumes. The file depends only on serde and
 // was never declared, so the entire audit vocabulary was uncompiled.
