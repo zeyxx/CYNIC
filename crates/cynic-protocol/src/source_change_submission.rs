@@ -3,8 +3,8 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentWorkloadEnvelope, AgentWorkspaceChange, AgentWorkspaceRetentionRoot, AgentWorkspaceZone,
-    RuntimeArtifactSource, admit_agent_workload, digest_json,
+    admit_agent_workload, digest_json, AgentWorkloadEnvelope, AgentWorkspaceChange,
+    AgentWorkspaceRetentionRoot, AgentWorkspaceZone, RuntimeArtifactSource,
 };
 
 pub const SOURCE_CHANGE_SUBMISSION_SCHEMA: &str = "cynic.source_change_submission.v1";
@@ -193,10 +193,10 @@ fn valid_sha256_digest(value: &str) -> bool {
 mod tests {
     use crate::{
         AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
-        AgentEvidenceRef, AgentWorkloadEnvelope, EXECUTION_AUTHORIZATION_SCHEMA,
-        ExecutionAuthorization, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA,
+        AgentEvidenceRef, AgentWorkloadEnvelope, ExecutionAuthorization, MutationContract,
         PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
-        PolicySetRef, RequiredProof, RuntimeArtifactTransportKind,
+        PolicySetRef, RequiredProof, RuntimeArtifactTransportKind, EXECUTION_AUTHORIZATION_SCHEMA,
+        POLICY_ADMISSION_REPORT_SCHEMA,
     };
 
     use super::*;
@@ -298,6 +298,7 @@ mod tests {
                     actions: 1,
                     children: 0,
                     wall_time_ms: 1_000,
+                    cpu_ms: None,
                 },
                 expected_proofs: vec!["source_change_read_back".to_string()],
             },
@@ -348,11 +349,9 @@ mod tests {
         let mut candidate = submission();
         candidate.blobs.clear();
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(
-            admission
-                .blockers
-                .contains(&"source_change_submission_blob_set_mismatch".to_string())
-        );
+        assert!(admission
+            .blockers
+            .contains(&"source_change_submission_blob_set_mismatch".to_string()));
     }
 
     #[test]
@@ -364,11 +363,9 @@ mod tests {
             result_digest: None,
         });
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(
-            admission
-                .blockers
-                .contains(&"source_change_submission_v1_requires_one_change".to_string())
-        );
+        assert!(admission
+            .blockers
+            .contains(&"source_change_submission_v1_requires_one_change".to_string()));
     }
 
     #[test]

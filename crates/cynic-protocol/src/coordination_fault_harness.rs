@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::coordination_authority::{
-    CoordinationAuthorityMode, QuorumObservation, decide_quorum_write,
+    decide_quorum_write, CoordinationAuthorityMode, QuorumObservation,
 };
 
 pub const COORDINATION_FAULT_HARNESS_SCHEMA: &str = "cynic.coordination.fault_harness.v1";
@@ -134,9 +134,9 @@ pub fn canonical_coordination_fault_scenarios() -> Vec<CoordinationFaultScenario
 mod tests {
     use super::*;
 
-    fn quorum(healthy: u32, proposed: u64, committed: u64) -> crate::QuorumObservation {
-        crate::QuorumObservation {
-            authority_mode: crate::CoordinationAuthorityMode::Quorum,
+    fn quorum(healthy: u32, proposed: u64, committed: u64) -> QuorumObservation {
+        QuorumObservation {
+            authority_mode: CoordinationAuthorityMode::Quorum,
             member_count: 3,
             healthy_member_count: healthy,
             required_member_count: 2,
@@ -186,11 +186,9 @@ mod tests {
         });
         assert!(!outcome.mutation_allowed);
         assert!(!outcome.promotion_allowed);
-        assert!(
-            outcome
-                .blockers
-                .contains(&"coordination_quorum_unobserved".into())
-        );
+        assert!(outcome
+            .blockers
+            .contains(&"healthy_quorum_below_required".into()));
     }
 
     #[test]
@@ -212,11 +210,9 @@ mod tests {
             takeover: takeover_with_prior(false, true, 8, 9),
         });
         assert!(!outcome.promotion_allowed);
-        assert!(
-            outcome
-                .blockers
-                .contains(&"fencing_token_not_monotonic".into())
-        );
+        assert!(outcome
+            .blockers
+            .contains(&"fencing_token_not_monotonic".into()));
     }
 
     #[test]
