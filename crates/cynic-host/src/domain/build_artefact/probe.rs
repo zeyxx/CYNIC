@@ -90,7 +90,8 @@ pub fn parse_df_pressure(df_output: &str, root_owned_count: usize) -> DiskPressu
     }
 }
 
-/// Pure GC plan from report. Orphan + old + root-owned are reclaimable.
+/// Pure GC plan: orphan or old are reclaimable; root-owned is extra signal, not sole reason.
+/// Protects live recent checkouts (is_orphan=false and age<48h) even if root-owned.
 pub fn build_gc_plan(report: &BuildArtefactReport) -> BuildArtefactGcPlan {
     let mut items = Vec::new();
     let mut total = 0u64;
@@ -99,16 +100,17 @@ pub fn build_gc_plan(report: &BuildArtefactReport) -> BuildArtefactGcPlan {
         if co.is_orphan {
             reasons.push("orphan(no remote)".to_string());
         }
-        if co.is_root_owned {
-            reasons.push("root-owned".to_string());
+        let is_old = co.age_secs.map(|a| a > 48 * 3600).unwrap_or(false);
+        if is_old {
+            reasons.push(format!("age {}h", co.age_secs.unwrap() / 3600));
         }
-        if let Some(age) = co.age_secs {
-            if age > 48 * 3600 {
-                reasons.push(format!("age {}h", age / 3600));
-            }
-        }
+        // Reclaimable iff orphan or old; root-owned alone is not reclaimable (protects live recent)
         if reasons.is_empty() {
             continue;
+        }
+        // Append root-owned as extra qualifier when reclaimable
+        if co.is_root_owned {
+            reasons.push("root-owned".to_string());
         }
         let reason = reasons.join("+");
         let id = format!("checkout:{}", co.sha.chars().take(8).collect::<String>());
