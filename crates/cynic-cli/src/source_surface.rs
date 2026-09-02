@@ -81,17 +81,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             let decision = cynic_host::source_sync::reconcile(&observation);
             let plan = cynic_host::source_sync::plan(&decision);
             if apply {
-                let proof = cynic_host::source_sync::execute_plan(path, &plan);
-                if json {
-                    emit_pretty_json(&proof)
-                } else {
-                    println!("Sync executed: success={}", proof.success);
-                    if proof.success {
-                        ExitCode::SUCCESS
-                    } else {
-                        ExitCode::FAILURE
-                    }
-                }
+                emit_blocked_source_mutation(json)
             } else {
                 if json {
                     emit_pretty_json(&plan)
@@ -110,6 +100,23 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             apply,
             json,
         } => execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json),
+    }
+}
+
+fn emit_blocked_source_mutation(json: bool) -> ExitCode {
+    let exit = blocked_source_mutation();
+    if json {
+        emit_pretty_json(&exit)
+    } else {
+        println!("{}", exit.summary);
+        ExitCode::FAILURE
+    }
+}
+
+fn blocked_source_mutation() -> SourceExit {
+    SourceExit {
+        status: "blocked",
+        summary: "blocked_unsupported_mutation: source sync and worktree apply require an admitted source-control transaction".to_string(),
     }
 }
 
@@ -144,6 +151,10 @@ fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> Exi
 }
 
 fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
+    if apply {
+        return emit_blocked_source_mutation(json);
+    }
+
     let inventory = cynic_host::source_worktree_inventory::observe_source_worktree_inventory(
         root,
         workspace_store,
@@ -165,48 +176,37 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         root, &inventory, &head_sha, 0,
     );
 
-    if apply {
-        let proof = cynic_host::source_worktree_reconcile::apply_worktree_convergence(
-            &plan,
-            &cynic_host::update_lifecycle::LocalArgvRunner,
-            false,
-        );
-        if json {
-            emit_pretty_json(&proof)
-        } else {
-            println!(
-                "Worktree convergence applied: {} actions, all_successful={}",
-                proof.executed_actions.len(),
-                proof.all_successful
-            );
-            if proof.all_successful {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
-        }
+    if json {
+        emit_pretty_json(&plan)
     } else {
-        if json {
-            emit_pretty_json(&plan)
-        } else {
-            println!(
-                "Worktree convergence plan: {} actions (pass --apply to execute)",
-                plan.actions.len()
-            );
-            println!(
-                "  Fast-forward ready: {}",
-                plan.summary.fast_forward_ready_count
-            );
-            println!(
-                "  Rebase required:    {}",
-                plan.summary.rebase_required_count
-            );
-            println!(
-                "  Pruned zombies:     {}",
-                plan.summary.pruned_zombies_count
-            );
-            println!("  Quarantined:        {}", plan.summary.quarantined_count);
-            ExitCode::SUCCESS
-        }
+        println!(
+            "Worktree convergence plan: {} actions (pass --apply to execute)",
+            plan.actions.len()
+        );
+        println!(
+            "  Fast-forward ready: {}",
+            plan.summary.fast_forward_ready_count
+        );
+        println!(
+            "  Rebase required:    {}",
+            plan.summary.rebase_required_count
+        );
+        println!(
+            "  Pruned zombies:     {}",
+            plan.summary.pruned_zombies_count
+        );
+        println!("  Quarantined:        {}", plan.summary.quarantined_count);
+        ExitCode::SUCCESS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn source_mutations_are_blocked_until_source_control_is_admitted() {
+        let exit = super::blocked_source_mutation();
+
+        assert_eq!(exit.status, "blocked");
+        assert!(exit.summary.contains("blocked_unsupported_mutation"));
     }
 }
