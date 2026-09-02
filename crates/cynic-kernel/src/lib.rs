@@ -33,6 +33,7 @@ pub mod api;
 pub mod backends;
 pub mod bootstrap;
 pub mod build_scheduler;
+pub mod capability_issuer;
 pub mod domain;
 pub mod infra;
 pub mod introspection;

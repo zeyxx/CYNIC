@@ -140,6 +140,84 @@ pub fn reconcile_coordination_authority(
     }
 }
 
+pub const QUORUM_OBSERVATION_SCHEMA: &str = "cynic.coordination.quorum_observation.v1";
+pub const QUORUM_WRITE_DECISION_SCHEMA: &str = "cynic.coordination.quorum_write_decision.v1";
+
+/// Runtime topology class for an authority (single-node lab vs. quorum cluster).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CoordinationAuthorityMode {
+    SingleNode,
+    Quorum,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QuorumObservation {
+    pub authority_mode: CoordinationAuthorityMode,
+    pub member_count: u32,
+    pub healthy_member_count: u32,
+    pub required_member_count: u32,
+    pub term: u64,
+    pub proposed_fencing_token: u64,
+    pub last_committed_fencing_token: u64,
+}
+
+impl QuorumObservation {
+    pub fn unknown() -> Self {
+        Self {
+            authority_mode: CoordinationAuthorityMode::SingleNode,
+            member_count: 0,
+            healthy_member_count: 0,
+            required_member_count: 1,
+            term: 0,
+            proposed_fencing_token: 0,
+            last_committed_fencing_token: 0,
+        }
+    }
+}
+
+/// Decision returned by `decide_quorum_write`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QuorumWriteDecision {
+    pub schema: String,
+    pub status: String,
+    pub writable: bool,
+    /// Human-readable blockers; empty when `writable == true`.
+    pub blockers: Vec<String>,
+}
+
+/// Pure quorum write gate — no I/O, no clocks.
+///
+/// Returns `writable = true` iff the observed quorum health satisfies the
+/// minimum required member count and the fencing token is strictly ahead.
+pub fn decide_quorum_write(observation: QuorumObservation) -> QuorumWriteDecision {
+    let mut blockers: Vec<String> = Vec::new();
+
+    if observation.healthy_member_count < observation.required_member_count {
+        blockers.push("healthy_quorum_below_required".to_string());
+    }
+    if observation.proposed_fencing_token == 0 {
+        blockers.push("proposed_fencing_token_zero".to_string());
+    }
+    if observation.proposed_fencing_token <= observation.last_committed_fencing_token {
+        blockers.push("proposed_fencing_not_ahead_of_committed".to_string());
+    }
+
+    let writable = blockers.is_empty();
+    let status = if writable {
+        "quorate_writable".to_string()
+    } else {
+        "quorum_blocked".to_string()
+    };
+
+    QuorumWriteDecision {
+        schema: QUORUM_WRITE_DECISION_SCHEMA.to_string(),
+        status,
+        writable,
+        blockers,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -8,20 +8,7 @@ use std::time::Duration;
 
 const DEXSCREENER_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Market data from DexScreener for a single token (best pair).
-#[derive(Debug, Clone, Default)]
-pub struct DexMarketData {
-    /// Price in USD from the highest-liquidity pair
-    pub price_usd: Option<f64>,
-    /// 24h trading volume in USD
-    pub volume_24h_usd: Option<f64>,
-    /// Total liquidity in USD for the best pair
-    pub liquidity_usd: Option<f64>,
-    /// Fully diluted valuation
-    pub fdv_usd: Option<f64>,
-    /// Market capitalization
-    pub market_cap_usd: Option<f64>,
-}
+pub use cynic_intel::ports::market_data_port::{DexMarketData, MarketDataPort};
 
 #[derive(Debug)]
 pub struct DexScreenerClient {
@@ -104,8 +91,13 @@ impl DexScreenerClient {
             liquidity = ?data.liquidity_usd,
             "DexScreener market data fetched"
         );
+    }
+}
 
-        Some(data)
+#[async_trait::async_trait]
+impl MarketDataPort for DexScreenerClient {
+    async fn fetch_token_market_data(&self, mint: &str) -> Option<DexMarketData> {
+        self.get_market_data(mint).await
     }
 }
 

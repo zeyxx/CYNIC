@@ -360,6 +360,7 @@ mod tests {
                 issued_at_ms: 1,
                 data_classification: AgentSkillDataClassification::Private,
                 retention: AgentSkillRetentionPolicy::RetainUntilRevoked,
+                consent_policy_digest: None,
             },
             approval_evidence: evidence(),
         }

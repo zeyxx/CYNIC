@@ -100,6 +100,11 @@ pub enum HealthSignalPayload {
         failure_rate_percent: f64,
         consecutive_failures: u32,
     },
+    ServiceCrashLoop {
+        service: String,
+        consecutive_restarts: u32,
+        window_seconds: u64,
+    },
     OrganSilence {
         organ_id: String,
         silent_duration_seconds: u64,
@@ -193,6 +198,8 @@ impl HealthSignalPayload {
             Self::FleetObservationBlackout { .. } => {
                 vec![CynicErrorCode::FleetObservationBlackout]
             }
+            Self::InferenceCrashLoop { .. } => vec![CynicErrorCode::ServiceCrashLoop],
+            Self::ServiceCrashLoop { .. } => vec![CynicErrorCode::ServiceCrashLoop],
             _ => Vec::new(),
         }
     }
@@ -230,6 +237,11 @@ impl HealthSignal {
             severity,
             payload,
         }
+    }
+
+    /// True if the signal is older than max_age_s relative to now_unix_s.
+    pub fn is_stale(&self, now_unix_s: u64, max_age_s: u64) -> bool {
+        now_unix_s.saturating_sub(self.observed_at_unix_s) > max_age_s
     }
 }
 

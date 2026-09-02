@@ -272,6 +272,7 @@ impl ForensicObservationPort for LocalForensicAdapter {
         let uptime_before_crash_secs = Self::read_uptime_secs();
 
         Ok(PostMortemReport {
+            schema: cynic_protocol::POST_MORTEM_REPORT_SCHEMA.to_string(),
             boot_id: boot_id.to_string(),
             previous_boot_id,
             uptime_before_crash_secs,

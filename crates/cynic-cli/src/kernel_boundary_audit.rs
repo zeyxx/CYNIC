@@ -225,7 +225,6 @@ const KERNEL_AREAS: &[KernelAreaSpec] = &[
             "domain/ccm/",
             "domain/helius_credit.rs",
             "probe/llm.rs",
-            "senses/hermes_x.rs",
         ],
     },
     KernelAreaSpec {

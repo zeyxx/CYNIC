@@ -52,21 +52,10 @@ pub enum ToolingAuthorityFamily {
     Rustup,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolingInstallProvenance {
-    UvTool,
-    UvVenv,
-    VirtualEnv,
-    Pipx,
-    PipUserSite,
-    SystemPython,
-    NpmGlobal,
-    HomebrewCellar,
-    HomebrewCask,
-    RustupToolchain,
-    Unknown,
-}
+pub use cynic_protocol::detection::{
+    ComponentInstallAuthority, InstallProvenance as ToolingInstallProvenance, InstallProvenance,
+    MutatorAuthority,
+};
 
 /// Observed authority match for a Python CLI install.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

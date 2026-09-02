@@ -28,6 +28,7 @@ mod persistence;
 mod registry_observation;
 mod report;
 mod resolver_plan;
+mod storage_topology;
 mod suite;
 mod validation;
 
@@ -128,6 +129,21 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long, default_value = "http://10.10.10.103:8000")]
         endpoint: String,
+    },
+    /// Bounded storage client-policy mutation with exact read-back proof; requires --apply.
+    StorageClientPolicySet {
+        #[arg(long)]
+        policy_path: String,
+        #[arg(long = "endpoint", required = true)]
+        endpoints: Vec<String>,
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+        #[arg(long, default_value_t = 1)]
+        write_quorum: u32,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
     },
     ExecutionContext {
         #[arg(long)]
@@ -527,6 +543,21 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 Err(e) => fail(e),
             }
         }
+        RuntimeCommand::StorageClientPolicySet {
+            policy_path,
+            endpoints,
+            timeout_ms,
+            write_quorum,
+            apply,
+            json,
+        } => storage_topology::execute_client_policy_set(
+            &policy_path,
+            &endpoints,
+            timeout_ms,
+            write_quorum,
+            apply,
+            json,
+        ),
         RuntimeCommand::ExecutionContext { json, hosts } => {
             execution_context::execute_execution_context(json, &hosts)
         }

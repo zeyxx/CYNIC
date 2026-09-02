@@ -83,6 +83,11 @@ pub struct RetentionPolicy {
     /// below this fraction of its historical rate.
     pub fading_ratio_ceiling: f64,
 }
+impl Default for RetentionPolicy {
+    fn default() -> Self {
+        Self::observed_default()
+    }
+}
 
 impl RetentionPolicy {
     /// Policy calibrated on the observed trace corpus (see module docs).
@@ -96,13 +101,6 @@ impl RetentionPolicy {
     }
 }
 
-impl Default for RetentionPolicy {
-    fn default() -> Self {
-        Self::observed_default()
-    }
-}
-
-/// Classification outcome for a single pattern key.
 ///
 /// Mirrors `ModelRetentionAssessment`: the assessment never authorizes the
 /// mutation it describes. Raw-trace eviction is a bounded, consented action

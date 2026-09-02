@@ -51,7 +51,20 @@ pub fn compress_build_proof(
 
 fn sanitize_public_text(text: &str) -> String {
     let mut clean = text.to_string();
-    for prefix in &["/home/user", "/var/lib/cynic", "/root", "/etc/cynic"] {
+    // Dynamic user home directory redaction
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() && home != "/" {
+            clean = clean.replace(&home, "[REDACTED_PATH]");
+        }
+    }
+    // Standard sensitive system path redactions
+    for prefix in &[
+        "/home/user",
+        "/home/cynic",
+        "/var/lib/cynic",
+        "/root",
+        "/etc/cynic",
+    ] {
         clean = clean.replace(prefix, "[REDACTED_PATH]");
     }
     clean

@@ -131,6 +131,54 @@ const POLICY_SURFACES: &[PolicyFormalitySpec] = &[
         expected_owner_crate: "cynic-protocol",
         scan_tokens: &["EvolutivePolicy", "default_gate"],
     },
+    PolicyFormalitySpec {
+        policy: "organic_opportunities_compass",
+        authority_prose_source: "AGENTS.md §Organic opportunities — Organic always wins",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &[
+            "OrganicOpportunity",
+            "rank_in_value_frame",
+            "OpportunityDecisionRecord",
+        ],
+    },
+    PolicyFormalitySpec {
+        policy: "one_shot_capability_bounded_budget",
+        authority_prose_source: "AGENTS.md §Agent Coordination Claims & Sec1",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &["OneShotCapability", "satisfies_monotonic_budget"],
+    },
+    PolicyFormalitySpec {
+        policy: "constitutional_authority_hierarchy",
+        authority_prose_source: "contracts/foundation.json §authority_order & AGENTS.md §Authority",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &[
+            "AuthorityLevel",
+            "resolve_precedence",
+            "ObservedRuntimeState",
+        ],
+    },
+    PolicyFormalitySpec {
+        policy: "cynic_coherence_pattern",
+        authority_prose_source: "AGENTS.md §CYNIC Coherence Pattern (5 terms x 5 scales)",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &["CoherencePattern", "CoherenceScale", "is_coherent"],
+    },
+    PolicyFormalitySpec {
+        policy: "bottom_up_design_gate",
+        authority_prose_source: "AGENTS.md §Design gate (6 mandatory questions)",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &[
+            "DesignGateAnswers",
+            "observation_port",
+            "pure_reconciliation_rule",
+        ],
+    },
+    PolicyFormalitySpec {
+        policy: "hard_constitutional_boundaries",
+        authority_prose_source: "contracts/foundation.json §hard_boundaries (11 invariants)",
+        expected_owner_crate: "cynic-protocol",
+        scan_tokens: &["ConstitutionalBoundary", "rule_text", "LowLayerFirst"],
+    },
 ];
 
 #[derive(Serialize)]

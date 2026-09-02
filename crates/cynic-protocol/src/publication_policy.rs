@@ -17,6 +17,7 @@
 //!
 //! Schema: `cynic.publication_policy.v1`
 
+use crate::error_catalog::CynicErrorCode;
 use serde::{Deserialize, Serialize};
 
 pub const PUBLICATION_POLICY_SCHEMA: &str = "cynic.publication_policy.v1";
@@ -120,6 +121,18 @@ impl PublicationBlocker {
                 format!("publication_field_not_disclosable:{field_name}")
             }
             Self::EmptyProjection => "publication_projection_empty".to_string(),
+        }
+    }
+
+    pub fn to_cynic_error_code(&self) -> CynicErrorCode {
+        match self {
+            Self::DecisionHold | Self::ConsentMissing => CynicErrorCode::PublicationConsentMissing,
+            Self::ConsentScopeMismatch { .. } | Self::ConsentPolicyStale { .. } => {
+                CynicErrorCode::PublicationConsentExpired
+            }
+            Self::FieldNotDisclosable { .. } | Self::EmptyProjection => {
+                CynicErrorCode::PublicationFieldUnwhitelisted
+            }
         }
     }
 }

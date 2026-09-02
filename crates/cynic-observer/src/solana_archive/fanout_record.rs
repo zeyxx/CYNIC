@@ -1,7 +1,7 @@
 use super::{
     apply_fanout_failure, apply_signature_page, apply_transaction, FanoutCheckpoint, FanoutFailure,
-    FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, FanoutStore, RawTransactionObservation,
-    SignaturePage, StorageError, StoredPageReceipt,
+    FanoutFailureKind, FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, FanoutStore,
+    RawTransactionObservation, SignaturePage, StorageError, StoredPageReceipt,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

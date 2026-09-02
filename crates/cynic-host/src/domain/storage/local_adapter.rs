@@ -3,13 +3,27 @@
 
 use std::path::Path;
 
+use cynic_protocol::storage_client_policy::StorageClientPolicy;
 use cynic_protocol::storage_topology::StorageTopologyObserved;
 
-use super::probe::StorageTopologyObservationPort;
+use super::probe::{StorageClientPolicyObservationPort, StorageTopologyObservationPort};
 use std::time::Instant;
 
 pub struct LocalStorageTopologyAdapter {
     pub topology_path: String,
+}
+
+pub struct LocalStorageClientPolicyAdapter {
+    pub client_policy_path: String,
+}
+
+impl StorageClientPolicyObservationPort for LocalStorageClientPolicyAdapter {
+    fn observe_client_policy(&self) -> StorageClientPolicy {
+        std::fs::read_to_string(&self.client_policy_path)
+            .ok()
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .unwrap_or_default()
+    }
 }
 
 impl StorageTopologyObservationPort for LocalStorageTopologyAdapter {

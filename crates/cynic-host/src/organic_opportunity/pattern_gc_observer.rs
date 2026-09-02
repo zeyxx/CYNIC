@@ -3,15 +3,13 @@
 //! Interconnects generational pattern garbage collection (`cynic_protocol::pattern_gc`)
 //! with the organic opportunities compass.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::pattern_gc::{
-    PatternClass, PatternObservation, PatternWindows, RetentionPolicy, classify_all,
-};
+use cynic_protocol::pattern_gc::{PatternClass, PatternObservation, RetentionPolicy};
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 
@@ -71,12 +69,11 @@ impl PatternGcObserver {
             };
 
             let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
-                "pattern_key": observation.key,
+                "key": assessment.key,
                 "class": assessment.class,
-                "historical": observation.windows.historical,
-                "recent": observation.windows.recent,
+                "reasons": assessment.reasons,
             }))
-            .unwrap_or_else(|_| format!("sha256:{}", observation.key));
+            .unwrap_or_else(|_| format!("sha3-512:{}", assessment.key));
 
             let confidence = match assessment.class {
                 PatternClass::Recurring => 0.90,
@@ -88,25 +85,14 @@ impl PatternGcObserver {
             let opp = OrganicOpportunity {
                 schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
                 opportunity_id: format!("opp:pattern_gc:{}", &digest[..16.min(digest.len())]),
-                scope: format!("pattern/{}", observation.key),
+                scope: format!("pattern/{}", assessment.key),
                 sources: vec![OpportunitySource {
                     kind: OpportunitySourceKind::PatternGc,
-                    ref_id: format!("pattern_key:{}", observation.key),
-                    label: Some(format!(
-                        "class: {:?}, hist: {}, rec: {}",
-                        assessment.class,
-                        observation.windows.historical,
-                        observation.windows.recent
-                    )),
+                    ref_id: format!("pattern_key:{}", assessment.key),
+                    label: Some(format!("class: {:?}", assessment.class)),
                 }],
                 class,
-                expected_unlock: format!(
-                    "{} '{}' (hist: {}, rec: {})",
-                    unlock_prefix,
-                    observation.key,
-                    observation.windows.historical,
-                    observation.windows.recent
-                ),
+                expected_unlock: format!("{} '{}'", unlock_prefix, assessment.key),
                 estimated_energy: EnergyEstimate::Range {
                     method: "pattern distillation / repair".to_string(),
                     low_joules: 30.0,

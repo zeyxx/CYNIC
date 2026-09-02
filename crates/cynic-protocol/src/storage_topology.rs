@@ -67,6 +67,14 @@ pub struct StorageTopologyReport {
     pub schema: String,
     pub desired_digest: String,
     pub observed_digest: String,
+    #[serde(default)]
+    pub pre_observed_digest: Option<String>,
+    #[serde(default)]
+    pub post_observed_digest: Option<String>,
+    #[serde(default)]
+    pub actions_applied: Vec<Vec<String>>,
+    #[serde(default)]
+    pub status: String,
     pub residual_unknowns: Vec<String>,
     pub proof_ref: Option<String>,
 }
