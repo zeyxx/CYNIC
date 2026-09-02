@@ -1,7 +1,4 @@
-use cynic_protocol::build_artefact::{
-    BUILD_ARTEFACT_REPORT_SCHEMA, BuildArtefactReport, CheckoutEntry, DiskPressure,
-};
-use cynic_protocol::disk::{DiskFilesystem, PhysicalDisk};
+use cynic_protocol::build_artefact::BuildArtefactReport;
 
 pub trait BuildArtefactObservationPort {
     fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String>;
