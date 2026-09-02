@@ -23,6 +23,7 @@ pub mod breakglass;
 pub mod build;
 pub mod build_node;
 pub mod build_proof;
+pub mod build_slice;
 pub mod build_workflow;
 pub mod capacity;
 pub mod cpu;
