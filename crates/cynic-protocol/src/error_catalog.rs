@@ -45,11 +45,11 @@ impl CynicErrorDomain {
             Self::Agent => "AGT",
             Self::Fleet => "FLT",
             Self::OsHealth => "OSH",
-Self::Storage => "STO",
+            Self::Storage => "STO",
             Self::Toolchain => "TL",
             Self::Publication => "PUB",
             Self::Opportunity => "OPP",
-Self::Runtime => "RT",
+            Self::Runtime => "RT",
         }
     }
 
@@ -63,11 +63,11 @@ Self::Runtime => "RT",
             Self::Agent => "agent",
             Self::Fleet => "fleet",
             Self::OsHealth => "os_health",
-Self::Storage => "storage",
+            Self::Storage => "storage",
             Self::Toolchain => "toolchain",
             Self::Publication => "publication",
             Self::Opportunity => "opportunity",
-Self::Runtime => "runtime",
+            Self::Runtime => "runtime",
         }
     }
 }
@@ -180,7 +180,7 @@ pub enum CynicErrorCode {
     /// The kernel anomaly is real but no lower-layer code was consumed to
     /// confirm a specific root cause — observation is partial.
     OsHealthObservationUnknown,
-ServiceCrashLoop,
+    ServiceCrashLoop,
     StorageEndpointUnreachable,
     StorageTopologyReplicaMismatch,
     StorageNullDegradedWriteRefused,
@@ -197,7 +197,7 @@ ServiceCrashLoop,
     OpportunitySourceUnreadable,
     OpportunityValueFrameInvalid,
     OpportunityDecisionDigestMismatch,
-RuntimeDiskFull,
+    RuntimeDiskFull,
     RuntimeCapacityPressure,
     RuntimeOrphanedCheckout,
     RuntimeStorageExtensionRequired,
@@ -251,7 +251,7 @@ pub const CYNIC_ERROR_CODES: &[CynicErrorCode] = &[
     CynicErrorCode::OsHealthOomDetected,
     CynicErrorCode::OsHealthUnknown,
     CynicErrorCode::OsHealthObservationUnknown,
-CynicErrorCode::ServiceCrashLoop,
+    CynicErrorCode::ServiceCrashLoop,
     CynicErrorCode::StorageEndpointUnreachable,
     CynicErrorCode::StorageTopologyReplicaMismatch,
     CynicErrorCode::StorageNullDegradedWriteRefused,
@@ -265,7 +265,7 @@ CynicErrorCode::ServiceCrashLoop,
     CynicErrorCode::OpportunitySourceUnreadable,
     CynicErrorCode::OpportunityValueFrameInvalid,
     CynicErrorCode::OpportunityDecisionDigestMismatch,
-CynicErrorCode::RuntimeDiskFull,
+    CynicErrorCode::RuntimeDiskFull,
     CynicErrorCode::RuntimeCapacityPressure,
     CynicErrorCode::RuntimeOrphanedCheckout,
     CynicErrorCode::RuntimeStorageExtensionRequired,
@@ -323,7 +323,7 @@ impl CynicErrorCode {
             | Self::OsHealthKernelHungTaskDetected
             | Self::OsHealthOomDetected
             | Self::OsHealthUnknown
-| Self::OsHealthObservationUnknown
+            | Self::OsHealthObservationUnknown
             | Self::ServiceCrashLoop => CynicErrorDomain::OsHealth,
             Self::StorageEndpointUnreachable
             | Self::StorageTopologyReplicaMismatch
@@ -338,7 +338,6 @@ impl CynicErrorCode {
             Self::OpportunitySourceUnreadable
             | Self::OpportunityValueFrameInvalid
             | Self::OpportunityDecisionDigestMismatch => CynicErrorDomain::Opportunity,
-| Self::OsHealthObservationUnknown => CynicErrorDomain::OsHealth,
             Self::RuntimeDiskFull
             | Self::RuntimeCapacityPressure
             | Self::RuntimeOrphanedCheckout
@@ -410,13 +409,13 @@ impl CynicErrorCode {
             | Self::OsHealthKernelHungTaskDetected
             | Self::OsHealthUnknown
             | Self::OsHealthObservationUnknown
-| Self::StorageEndpointUnreachable
+            | Self::StorageEndpointUnreachable
             | Self::StorageTopologyReplicaMismatch
             | Self::StoragePoolExhausted
             | Self::ToolchainBinaryMissing
             | Self::PublicationConsentExpired
             | Self::OpportunitySourceUnreadable => CynicErrorClass::Recoverable,
-| Self::RuntimeDiskFull
+            Self::RuntimeDiskFull
             | Self::RuntimeCapacityPressure
             | Self::RuntimeOrphanedCheckout
             | Self::RuntimeStorageExtensionRequired => CynicErrorClass::Recoverable,
@@ -475,7 +474,7 @@ impl CynicErrorCode {
             (CynicErrorDomain::OsHealth, 8) => "CYNIC-OSH-008",
             (CynicErrorDomain::OsHealth, 9) => "CYNIC-OSH-009",
             (CynicErrorDomain::OsHealth, 10) => "CYNIC-OSH-010",
-(CynicErrorDomain::OsHealth, 11) => "CYNIC-OSH-011",
+            (CynicErrorDomain::OsHealth, 11) => "CYNIC-OSH-011",
             (CynicErrorDomain::Storage, 1) => "CYNIC-STO-001",
             (CynicErrorDomain::Storage, 2) => "CYNIC-STO-002",
             (CynicErrorDomain::Storage, 3) => "CYNIC-STO-003",
@@ -489,7 +488,7 @@ impl CynicErrorCode {
             (CynicErrorDomain::Opportunity, 1) => "CYNIC-OPP-001",
             (CynicErrorDomain::Opportunity, 2) => "CYNIC-OPP-002",
             (CynicErrorDomain::Opportunity, 3) => "CYNIC-OPP-003",
-(CynicErrorDomain::Runtime, 1) => "CYNIC-RT-001",
+            (CynicErrorDomain::Runtime, 1) => "CYNIC-RT-001",
             (CynicErrorDomain::Runtime, 2) => "CYNIC-RT-002",
             (CynicErrorDomain::Runtime, 3) => "CYNIC-RT-003",
             (CynicErrorDomain::Runtime, 4) => "CYNIC-RT-004",
@@ -654,41 +653,57 @@ impl CynicErrorCode {
             Self::OsHealthObservationUnknown => {
                 "observation is partial: confirm which /proc or /sys probe is unreadable and report the residual unknown"
             }
-Self::ServiceCrashLoop => {
+            Self::ServiceCrashLoop => {
                 "inspect service logs and backpressure before restarting unit"
             }
             Self::StorageEndpointUnreachable => {
                 "restore network reachability to declared storage endpoint or promote a replica"
+            }
             Self::StorageTopologyReplicaMismatch => {
                 "reconcile live storage endpoints with declared replica target; do not assume single node"
+            }
             Self::StorageNullDegradedWriteRefused => {
                 "storage is in degraded null mode; mutations are rejected to prevent silent data loss"
+            }
             Self::StoragePoolExhausted => {
                 "expand storage pool capacity or prune expired ephemeral artifacts"
+            }
             Self::ToolchainProvenanceUnverified => {
                 "verify install provenance channel; do not assume universal self-update commands"
+            }
             Self::ToolchainBinaryMissing => {
                 "install required toolchain binary via declared provenance channel"
+            }
             Self::ToolchainMutatorAuthorityMismatch => {
                 "execute repair with the declared mutator authority (e.g. uv tool vs uv pip --system)"
+            }
             Self::PublicationConsentMissing => {
                 "obtain explicit opt-in publication consent before projecting data to public audience"
+            }
             Self::PublicationConsentExpired => {
                 "renew publication consent; policy version digest drift invalidates prior consent"
+            }
             Self::PublicationFieldUnwhitelisted => {
                 "field is not in disclosure whitelist; private data cannot be projected"
+            }
             Self::OpportunitySourceUnreadable => {
                 "source trace or worktree is unreadable; report as unavailable rather than empty"
+            }
             Self::OpportunityValueFrameInvalid => {
                 "value frame tie-break dimensions are invalid; provide a valid ranking frame"
+            }
             Self::OpportunityDecisionDigestMismatch => {
                 "decision digest does not match target opportunity; verify opportunity identity"
-Self::RuntimeDiskFull => {
+            }
+            Self::RuntimeDiskFull => {
                 "extend the VM disk via hypervisor API or free orphaned resources"
+            }
             Self::RuntimeCapacityPressure => {
                 "review resource usage and extend capacity or migrate workloads"
+            }
             Self::RuntimeOrphanedCheckout => {
                 "remove orphaned builder checkouts via OneShotCapability"
+            }
             Self::RuntimeStorageExtensionRequired => {
                 "request a disk extension via the hypervisor supervision port"
             }
