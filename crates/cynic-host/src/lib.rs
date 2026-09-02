@@ -111,6 +111,7 @@ pub mod source_sync;
 pub mod source_worktree;
 pub mod source_worktree_inventory;
 pub mod source_worktree_reconcile;
+pub mod git_topology_observer;
 pub mod space_gc;
 pub mod ssh_trust;
 pub mod storage_capabilities;

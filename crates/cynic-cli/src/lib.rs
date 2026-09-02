@@ -40,6 +40,7 @@ pub mod fleet_report;
 pub mod fleet_surface;
 pub mod forensics_surface;
 pub mod fs_json;
+pub mod git_surface;
 pub mod host_exec_alias_surface;
 pub mod integrations_readonly_surface;
 pub mod integrations_surface;
@@ -82,6 +83,7 @@ use crate::audit_surface::AuditCommand;
 use crate::bootstrap_surface::BootstrapCommand;
 use crate::dev_surface::DevCommand;
 use crate::fleet_surface::FleetCommand;
+use crate::git_surface::GitCommand;
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::integrations_surface::IntegrationsCommand;
 use crate::lab_surface::LabCommand;
@@ -188,6 +190,11 @@ pub(crate) enum Command {
     Source {
         #[command(subcommand)]
         command: source_surface::SourceCommand,
+    },
+    /// Git branch topology — observe/reconcile native supervision.
+    Git {
+        #[command(subcommand)]
+        command: GitCommand,
     },
     /// Ecosystem tech-watch and human-validated upgrades (canonical).
     #[command(hide = true)]
