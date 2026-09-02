@@ -23,6 +23,7 @@ pub mod breakglass;
 pub mod build;
 pub mod build_artefact;
 pub mod build_discovery;
+pub mod build_discovery_recipe;
 pub mod build_node;
 pub mod build_proof;
 pub mod build_slice;

@@ -1,17 +1,22 @@
 use serde::{Deserialize, Serialize};
 
 pub const BUILD_DISCOVERY_REPORT_SCHEMA: &str = "cynic.build_discovery_report.v1";
-pub const BUILD_DISCOVERY_RECIPE_SCHEMA: &str = "cynic.build_discovery_recipe.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostTriple(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Toolchain(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BuildDiscoveryReport {
     pub schema: String,
-    pub toolchain: String,
-    pub host_triple: String,
+    pub toolchain: Toolchain,
+    pub host_triple: HostTriple,
     pub targets: Vec<String>,
     pub crates: Vec<DiscoveredCrate>,
-    pub total_targets: usize,
-    pub total_tests: usize,
+    pub observed_at_unix_s: u64,
+    pub residual_unknowns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,17 +29,11 @@ pub struct DiscoveredCrate {
     pub custom_build: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BuildDiscoveryRecipe {
-    pub schema: String,
-    pub id: String,
-    pub action: String,
-    pub crate_name: String,
-    pub target_kind: String,
-    pub target_name: String,
-    pub argv: Vec<String>,
-}
-
 pub fn discovery_report_schema() -> &'static str {
     BUILD_DISCOVERY_REPORT_SCHEMA
+}
+
+/// Pure port for discovery (observe without mutation).
+pub trait BuildDiscoveryPort {
+    fn discover(&self) -> Result<BuildDiscoveryReport, String>;
 }
