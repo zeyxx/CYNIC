@@ -94,7 +94,7 @@ pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) ->
     Router::new()
         .route("/health", get(health))
         .route("/webhook/forgejo", post(webhook_forgejo))
-        .route("/proofs/:id", get(get_proof))
+        .route("/proofs/{id}", get(get_proof))
         .with_state(state)
 }
 
