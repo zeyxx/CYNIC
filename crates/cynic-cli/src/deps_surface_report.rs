@@ -215,5 +215,6 @@ fn tooling_provenance_name(provenance: ToolingInstallProvenance) -> &'static str
         ToolingInstallProvenance::HomebrewCask => "brew_cask",
         ToolingInstallProvenance::RustupToolchain => "rustup_toolchain",
         ToolingInstallProvenance::Unknown => "unknown",
+        _ => "unknown",
     }
 }
