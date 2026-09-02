@@ -1,5 +1,8 @@
+pub mod branch_graph;
 pub mod bootstrap;
 pub mod build_artefact;
+pub mod build_discovery;
+pub mod queue;
 pub mod cpu;
 pub mod disk;
 pub mod ecosystem_package;
