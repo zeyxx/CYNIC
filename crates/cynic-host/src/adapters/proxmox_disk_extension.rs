@@ -102,11 +102,12 @@ impl<'a, R: ArgvRunner> ProxmoxSshDiskExtensionAdapter<'a, R> {
     }
 
     /// Get disk usage for a VM.
+    #[allow(dead_code)]
     pub fn observe_disk(&self, vmid: u32) -> Result<(u64, u64, u8), String> {
-        let node = self.resolve_node(vmid)?;
-        let output = self.pvesh(&[
+        let _node = self.resolve_node(vmid)?;
+        let _output = self.pvesh(&[
             "get".to_string(),
-            format!("/nodes/pve/storage/local-lvm/content"),
+            "/nodes/pve/storage/local-lvm/content".to_string(),
             "--output-format".to_string(),
             "json".to_string(),
         ])?;
