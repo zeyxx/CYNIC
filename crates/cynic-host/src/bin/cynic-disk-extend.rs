@@ -124,12 +124,15 @@ fn main() {
     };
 
     // Detect VM type
-    let _ = rest_api(&endpoint, &token_id, &token_secret, "GET", &format!("/api2/json/nodes/{node}/lxc/{vmid}/status/current"), None);
-    let vm_type = if _is_ok(&_) {
-        "lxc"
-    } else {
-        "qemu"
-    };
+    let lxc_probe = rest_api(
+        &endpoint,
+        &token_id,
+        &token_secret,
+        "GET",
+        &format!("/api2/json/nodes/{node}/lxc/{vmid}/status/current"),
+        None,
+    );
+    let vm_type = if _is_ok(&lxc_probe) { "lxc" } else { "qemu" };
     println!("  Type: {vm_type}");
 
     let disk_id = if vm_type == "lxc" { "rootfs" } else { "virtio0" };
