@@ -5,6 +5,31 @@ pub fn reconcile(observation: &SyncObservation) -> SyncDecision {
     let mut needs_review = false;
     let mut unknowns = Vec::new();
 
+    for layer in [&observation.forgejo, &observation.github] {
+        if !layer.reachable || layer.remote_url.is_none() {
+            needs_review = true;
+            unknowns.extend(
+                layer
+                    .blockers
+                    .iter()
+                    .map(|blocker| format!("{}: {blocker}", layer.layer)),
+            );
+            if layer.blockers.is_empty() {
+                unknowns.push(format!("{} remote identity is unresolved", layer.layer));
+            }
+        }
+    }
+
+    if !unknowns.is_empty() {
+        return SyncDecision {
+            schema: "cynic.host.source_sync_decision.v1",
+            observation: observation.clone(),
+            actions,
+            needs_review,
+            unknowns,
+        };
+    }
+
     for layer in [
         &observation.cortex,
         &observation.forgejo,
@@ -220,12 +245,10 @@ mod tests {
         let mut obs = mock_observation();
         obs.cortex.commits_ahead = Some(5);
         let decision = reconcile(&obs);
-        assert!(
-            decision
-                .actions
-                .iter()
-                .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 }))
-        );
+        assert!(decision
+            .actions
+            .iter()
+            .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 })));
     }
 
     #[test]
@@ -233,12 +256,10 @@ mod tests {
         let mut obs = mock_observation();
         obs.forgejo.commits_ahead = Some(10);
         let decision = reconcile(&obs);
-        assert!(
-            decision
-                .actions
-                .iter()
-                .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 }))
-        );
+        assert!(decision
+            .actions
+            .iter()
+            .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 })));
     }
 
     #[test]
@@ -257,5 +278,24 @@ mod tests {
         let decision = reconcile(&obs);
         assert!(decision.needs_review);
         assert!(decision.actions.is_empty());
+    }
+
+    #[test]
+    fn unreachable_remote_cannot_report_convergence() {
+        let mut obs = mock_observation();
+        obs.forgejo.reachable = false;
+        obs.forgejo.remote_url = None;
+        obs.forgejo
+            .blockers
+            .push("forgejo remote is not reachable".to_string());
+
+        let decision = reconcile(&obs);
+
+        assert!(decision.needs_review);
+        assert!(decision.actions.is_empty());
+        assert!(decision
+            .unknowns
+            .iter()
+            .any(|unknown| unknown.contains("forgejo remote is not reachable")));
     }
 }
