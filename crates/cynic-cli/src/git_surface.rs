@@ -5,6 +5,12 @@ use std::process::ExitCode;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum GitCommand {
+    /// Branch graph (parent inference) — thin via LocalBranchGraphAdapter.
+    #[command(name = "branch-graph", aliases = ["branch_graph", "graph"])]
+    BranchGraph {
+        #[arg(long)]
+        json: bool,
+    },
     /// Observe branch topology (ahead/behind/state per branch).
     BranchStatus {
         #[arg(long, default_value = ".")]
@@ -30,6 +36,7 @@ pub(crate) enum GitCommand {
 
 pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
     match command {
+        GitCommand::BranchGraph { json } => crate::branch_graph_surface::execute_branch_graph(json),
         GitCommand::BranchStatus { root, json } => {
             let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
             if json {

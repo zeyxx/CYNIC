@@ -208,6 +208,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "build",
+                commands: vec!["cynic build discover --json [--kind local|remote] [--target <ssh-target>]"],
+            },
+            CommandDomain {
                 name: "chat",
                 commands: vec![
                     "cynic chat  # interactive TUI (default)",

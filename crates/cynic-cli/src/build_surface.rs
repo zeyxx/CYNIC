@@ -120,6 +120,18 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Discover workspace crates/toolchain/targets (thin: Local/Remote adapter -> JSON).
+    Discover {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Discovery kind: local (default) or remote (requires --target).
+        #[arg(long, default_value = "local", value_parser = ["local","remote"])]
+        kind: String,
+        /// SSH target for remote kind (e.g. cynic@10.0.0.1).
+        #[arg(long)]
+        target: Option<String>,
+    },
 }
 
 /// Execute the build CLI command.
@@ -173,6 +185,13 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             apply,
             json,
         } => provision_credentials(&registry, &secrets_dir, apply, json),
+        BuildCommand::Discover { json, kind, target } => {
+            let code = crate::build_discovery_surface::execute_build_discover(json, &kind, target.as_deref());
+            return match code {
+                c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                _ => Err("build discover failed".to_string()),
+            };
+        }
     }
 }
 

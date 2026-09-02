@@ -106,7 +106,7 @@ fn command_timeout() -> Duration {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .map(Duration::from_millis)
-        .unwrap_or_else(|| Duration::from_secs(3))
+        .unwrap_or_else(|| Duration::from_secs(30))
 }
 
 fn timeout_stderr_suffix(stderr: &[u8]) -> String {

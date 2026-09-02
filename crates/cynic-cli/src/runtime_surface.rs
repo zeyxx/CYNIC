@@ -26,6 +26,7 @@ mod build_artefact;
 mod network_preflight;
 mod paths;
 mod persistence;
+mod queue;
 mod registry_observation;
 mod report;
 mod resolver_plan;
@@ -455,6 +456,11 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
+    Queue {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -607,6 +613,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::BuildArtefact { json, apply } => {
             build_artefact::execute_build_artefact(json, apply)
         }
+        RuntimeCommand::Queue { json } => queue::execute_queue(json),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }

@@ -14,6 +14,8 @@ pub mod agent_surface;
 pub mod audit_surface;
 pub mod autoresearch_surface;
 pub mod bootstrap_surface;
+pub mod branch_graph_surface;
+pub mod build_discovery_surface;
 pub mod build_surface;
 pub mod chat_surface;
 pub mod chat_tui;
@@ -65,6 +67,7 @@ pub mod operator_help;
 pub mod operator_status;
 pub mod ownership_audit;
 pub mod policy_formality_audit;
+pub mod queue_surface;
 pub mod root_dispatch;
 pub mod runtime_paths;
 pub mod runtime_suite;
@@ -315,6 +318,25 @@ pub(crate) enum Command {
     AgentHost {
         #[command(subcommand)]
         command: agent_host_surface::AgentHostCommand,
+    },
+    /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
+    Queue {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Branch graph — thin projection via LocalBranchGraphAdapter.
+    Branch {
+        #[command(subcommand)]
+        command: BranchCommand,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum BranchCommand {
+    /// Branch graph parent inference (BranchGraph {parent Option}).
+    Graph {
+        #[arg(long)]
+        json: bool,
     },
 }
 
