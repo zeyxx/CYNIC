@@ -29,6 +29,9 @@ pub struct BuildWorkflowConfig<'a> {
     pub recipe: BuildRecipe,
     pub argv: Vec<String>,
     pub artifact_path: String,
+    /// Optional install target for the built artifact, plumbed into
+    /// `BuildRequest`. None means digest read-back only.
+    pub install_path: Option<String>,
     pub apply: bool,
     pub now_unix_ms: u64,
 }
@@ -138,6 +141,7 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                     .unwrap_or_default(),
                 argv: config.argv.clone(),
                 artifact_path: config.artifact_path.clone(),
+                install_path: config.install_path.clone(),
                 apply: false,
             };
             let proof = run_build(&request, config.argv_runner);
@@ -159,6 +163,7 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                     .unwrap_or_default(),
                 argv: config.argv.clone(),
                 artifact_path: config.artifact_path.clone(),
+                install_path: config.install_path.clone(),
                 apply: true,
             };
             let proof = run_build(&request, config.argv_runner);
@@ -287,6 +292,7 @@ mod tests {
             recipe: valid_recipe(),
             argv: vec!["make".to_string(), "check".to_string()],
             artifact_path: "target/release/cynic".to_string(),
+            install_path: None,
             apply: false,
             now_unix_ms: 2,
         };
@@ -346,6 +352,7 @@ mod tests {
             recipe: valid_recipe(),
             argv: vec!["make".to_string(), "check".to_string()],
             artifact_path: "target/release/cynic".to_string(),
+            install_path: None,
             apply: false,
             now_unix_ms: 2,
         };

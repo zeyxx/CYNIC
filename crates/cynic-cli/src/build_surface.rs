@@ -45,6 +45,11 @@ pub(crate) enum BuildCommand {
         /// Artifact path for read-back proof
         #[arg(long, default_value = "target/release/cynic")]
         artifact_path: String,
+        /// Optional install target for the built artifact. When set with
+        /// --apply, the artifact installs atomically with hash read-back
+        /// and rollback. Unset means digest read-back only.
+        #[arg(long)]
+        install_path: Option<String>,
         /// Observed source snapshot JSON proof. Without it, source trust remains unknown and execution blocks.
         #[arg(long)]
         source_snapshot: Option<String>,
@@ -176,6 +181,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             apply,
             lease_guard,
             artifact_path,
+            install_path,
             source_snapshot,
             source_commit,
         } => run_build(
@@ -187,6 +193,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             apply,
             lease_guard,
             artifact_path,
+            install_path,
             source_snapshot,
             source_commit,
         ),
@@ -317,6 +324,7 @@ fn run_build(
     apply: bool,
     lease_guard_path: Option<String>,
     artifact_path: String,
+    install_path: Option<String>,
     source_snapshot_path: Option<String>,
     source_commit: Option<String>,
 ) -> Result<(), String> {
@@ -400,11 +408,9 @@ fn run_build(
         recipe,
         argv,
         artifact_path,
+        install_path,
         apply,
-        now_unix_ms: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64,
+        now_unix_ms: cynic_host::clock::now_unix_ms(),
     };
 
     let result = run_build_workflow(&config)?;

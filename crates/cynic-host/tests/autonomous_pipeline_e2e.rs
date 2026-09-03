@@ -182,6 +182,7 @@ fn e2e_step2_build_workflow_executes_with_proof() {
         recipe: cynic_protocol::build_recipe("make:check").expect("valid recipe"),
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
+        install_path: None,
         apply: true,
         now_unix_ms: 1_700_000_001_000,
     };
@@ -219,6 +220,7 @@ fn e2e_step2_build_workflow_blocks_on_dirty_source() {
         recipe: cynic_protocol::build_recipe("make:check").expect("valid recipe"),
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
+        install_path: None,
         apply: true,
         now_unix_ms: 1_700_000_001_000,
     };

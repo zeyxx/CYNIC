@@ -124,6 +124,7 @@ fn base_config<'a>(
         recipe: valid_recipe(),
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
+        install_path: None,
         apply: false,
         now_unix_ms: 1_700_000_000_000,
     }

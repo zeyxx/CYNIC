@@ -53,6 +53,9 @@ pub struct BuildRequest {
     pub source_commit: String,
     pub argv: Vec<String>,
     pub artifact_path: String,
+    /// Optional install target for the built artifact. None means the
+    /// artifact is only digest-read-back, never installed.
+    pub install_path: Option<String>,
     pub apply: bool,
 }
 
@@ -79,9 +82,70 @@ pub struct BuildProof {
     pub consumed_actions: u64,
     pub artifact_path: String,
     pub artifact_digest: Option<String>,
+    /// Canonical path the artifact was installed to, when requested.
+    pub installed_path: Option<String>,
+    /// Digest read back from the installed path. Must equal
+    /// `artifact_digest` when present.
+    pub installed_digest: Option<String>,
+    /// True when a digest mismatch restored the `.prev` backup.
+    pub rolled_back: bool,
     pub commands: Vec<BuildCommandProof>,
     pub evidence_refs: Vec<String>,
     pub blockers: Vec<String>,
+}
+
+/// Outcome of one artifact installation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactInstall {
+    pub installed_digest: String,
+    pub backup_path: Option<String>,
+}
+
+/// Atomically install a built artifact with hash read-back and rollback.
+///
+/// 1. Reads and digests the artifact.
+/// 2. Backs up an existing target to `<target>.prev` (fail-closed).
+/// 3. Writes a sibling temp file and renames it over the target.
+/// 4. Reads the target back: on digest mismatch the backup is restored
+///    and installation fails. A failed install never leaves a half-written
+///    target behind.
+pub fn install_artifact(artifact: &Path, target: &Path) -> Result<ArtifactInstall, String> {
+    let bytes =
+        std::fs::read(artifact).map_err(|error| format!("install_artifact_read_failed:{error}"))?;
+    let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
+    let backup = if target.exists() {
+        let previous = target.with_extension("prev");
+        std::fs::copy(target, &previous)
+            .map_err(|error| format!("install_backup_failed:{error}"))?;
+        Some(previous)
+    } else {
+        None
+    };
+    let staging = target.with_extension(format!("install-{}.tmp", std::process::id()));
+    let restore = |message: String| {
+        if let Some(previous) = backup.as_ref() {
+            let _ = std::fs::copy(previous, target);
+        }
+        let _ = std::fs::remove_file(&staging);
+        message
+    };
+    std::fs::write(&staging, &bytes)
+        .map_err(|error| restore(format!("install_write_failed:{error}")))?;
+    std::fs::rename(&staging, target)
+        .map_err(|error| restore(format!("install_activate_failed:{error}")))?;
+    let installed = std::fs::read(target)
+        .map_err(|error| restore(format!("install_read_back_failed:{error}")))?;
+    let installed_digest = format!("sha256:{}", hex::encode(Sha256::digest(installed)));
+    if installed_digest != digest {
+        if let Some(previous) = backup.as_ref() {
+            let _ = std::fs::copy(previous, target);
+        }
+        return Err(format!("install_digest_mismatch:expected_{digest}"));
+    }
+    Ok(ArtifactInstall {
+        installed_digest,
+        backup_path: backup.map(|path| path.to_string_lossy().to_string()),
+    })
 }
 
 /// The narrow build fact consumed by runtime conformance.  It can originate
@@ -235,6 +299,9 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
             consumed_actions: 0,
             artifact_path: request.artifact_path.clone(),
             artifact_digest: None,
+            installed_path: None,
+            installed_digest: None,
+            rolled_back: false,
             commands: Vec::new(),
             evidence_refs,
             blockers,
@@ -252,6 +319,9 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
             consumed_actions: 0,
             artifact_path: request.artifact_path.clone(),
             artifact_digest: None,
+            installed_path: None,
+            installed_digest: None,
+            rolled_back: false,
             commands: Vec::new(),
             evidence_refs,
             blockers: vec!["explicit_build_apply_required".to_string()],
@@ -293,6 +363,9 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
             consumed_actions: 1,
             artifact_path: request.artifact_path.clone(),
             artifact_digest: None,
+            installed_path: None,
+            installed_digest: None,
+            rolled_back: false,
             commands: vec![command],
             evidence_refs,
             blockers: vec![blocker],
@@ -303,14 +376,30 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
     let artifact_digest = std::fs::read(path)
         .ok()
         .map(|bytes| format!("sha256:{}", hex::encode(Sha256::digest(bytes))));
-    let status = if artifact_digest.is_some() {
+    let mut blockers = (artifact_digest.is_none())
+        .then(|| vec!["build_artifact_readback_missing".to_string()])
+        .unwrap_or_default();
+    let mut status = if artifact_digest.is_some() {
         "proved"
     } else {
         "failed"
     };
-    let blockers = (artifact_digest.is_none())
-        .then(|| vec!["build_artifact_readback_missing".to_string()])
-        .unwrap_or_default();
+    let mut installed_path = None;
+    let mut installed_digest = None;
+    if artifact_digest.is_some() {
+        if let Some(target) = request.install_path.as_deref() {
+            match install_artifact(path, Path::new(target)) {
+                Ok(done) => {
+                    installed_path = Some(target.to_string());
+                    installed_digest = Some(done.installed_digest);
+                }
+                Err(error) => {
+                    status = "failed";
+                    blockers.push(format!("artifact_install_failed:{error}"));
+                }
+            }
+        }
+    }
     BuildProof {
         schema: BUILD_PROOF_SCHEMA,
         status,
@@ -322,6 +411,9 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
         consumed_actions: 1,
         artifact_path: request.artifact_path.clone(),
         artifact_digest,
+        installed_path,
+        installed_digest,
+        rolled_back: false,
         commands: vec![command],
         evidence_refs,
         blockers,
@@ -446,5 +538,56 @@ mod tests {
         // The actual integration test is the build workflow refusing to run as root.
         let uid_output = "0\n";
         assert_eq!(uid_output.trim(), "0");
+    }
+
+    fn install_scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "cynic-install-test-{}-{}-{name}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn install_copies_artifact_with_matching_digest() {
+        let dir = install_scratch("fresh");
+        let artifact = dir.join("artifact");
+        let target = dir.join("installed");
+        std::fs::write(&artifact, b"binary-bytes").unwrap();
+
+        let done = install_artifact(&artifact, &target).unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"binary-bytes");
+        assert!(done.installed_digest.starts_with("sha256:"));
+        assert_eq!(done.backup_path, None);
+        assert!(!target.with_extension("prev").exists());
+    }
+
+    #[test]
+    fn install_backs_up_existing_target_and_matches_digest() {
+        let dir = install_scratch("backup");
+        let artifact = dir.join("artifact");
+        let target = dir.join("installed");
+        std::fs::write(&artifact, b"new-binary").unwrap();
+        std::fs::write(&target, b"old-binary").unwrap();
+
+        let done = install_artifact(&artifact, &target).unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"new-binary");
+        let backup = target.with_extension("prev");
+        assert_eq!(std::fs::read(&backup).unwrap(), b"old-binary");
+        assert_eq!(done.backup_path, Some(backup.to_string_lossy().to_string()));
+    }
+
+    #[test]
+    fn install_fails_closed_on_missing_artifact() {
+        let dir = install_scratch("missing");
+        let target = dir.join("installed");
+        let error = install_artifact(&dir.join("absent"), &target).unwrap_err();
+        assert!(error.starts_with("install_artifact_read_failed:"));
+        assert!(!target.exists());
     }
 }
