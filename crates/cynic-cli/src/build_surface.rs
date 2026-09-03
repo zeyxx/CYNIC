@@ -134,8 +134,8 @@ pub(crate) enum BuildCommand {
         /// Kernel coordination endpoint for lease verification.
         #[arg(long)]
         kernel_endpoint: Option<String>,
-        /// SSH target for the build runner (e.g. cynic@10.10.10.119).
-        #[arg(long, default_value = "cynic@10.10.10.119")]
+        /// SSH target for the build runner (alias resolved via operator SSH config).
+        #[arg(long, default_value = "cynic-builder-ssh")]
         runner: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
