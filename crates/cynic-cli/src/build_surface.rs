@@ -55,9 +55,13 @@ pub(crate) enum BuildCommand {
         /// Build phase: check, build, or activate.
         #[arg(long, default_value = "check")]
         phase: String,
-        /// Runner host resolved from the fleet registry.
-        #[arg(long, default_value = "10.10.10.119")]
-        host: String,
+        /// Explicit runner host override (breakglass only). When absent, the
+        /// runner SSH target is resolved from the fleet registry.
+        #[arg(long)]
+        host: Option<String>,
+        /// Path to the fleet registry JSON used for runner resolution.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
         /// Runner SSH user.
         #[arg(long, default_value = "cynic")]
         user: String,
@@ -192,6 +196,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             commit,
             phase,
             host,
+            registry,
             user,
             network_mode,
             checkout_base,
@@ -201,7 +206,8 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         } => trigger_build(
             &commit,
             &phase,
-            &host,
+            host.as_deref(),
+            &registry,
             &user,
             &network_mode,
             &checkout_base,
@@ -251,7 +257,8 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
 fn trigger_build(
     commit: &str,
     phase: &str,
-    host: &str,
+    host: Option<&str>,
+    registry: &str,
     user: &str,
     network_mode: &str,
     checkout_base: &str,
@@ -259,6 +266,16 @@ fn trigger_build(
     package: Option<String>,
     json: bool,
 ) -> Result<(), String> {
+    let host = match host.filter(|value| !value.trim().is_empty()) {
+        Some(explicit) => explicit.to_string(),
+        None => {
+            cynic_host::registry::resolve::resolve_build_runner_transport(Some(registry))
+                .map_err(|error| {
+                    format!("build runner unresolvable in registry {registry}: {error}")
+                })?
+                .ssh_target
+        }
+    };
     let phase = match phase {
         "check" => BuildPhase::Check,
         "build" => BuildPhase::Build,
