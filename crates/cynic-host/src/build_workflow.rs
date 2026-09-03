@@ -49,6 +49,24 @@ pub enum BuildWorkflowResult {
     Executed { proof: BuildProof },
 }
 
+fn validate_build_lease_guard(guard: &LeaseGuard, node_id: &str) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if guard.agent_id.trim().is_empty() {
+        blockers.push("build_lease_guard_agent_missing".to_string());
+    }
+    if guard.lease_id.trim().is_empty() {
+        blockers.push("build_lease_guard_id_missing".to_string());
+    }
+    if guard.fencing_token == 0 {
+        blockers.push("build_lease_guard_fence_missing".to_string());
+    }
+    let expected_target = format!("build-runner:{node_id}");
+    if guard.target != expected_target {
+        blockers.push("build_lease_guard_target_mismatch".to_string());
+    }
+    blockers
+}
+
 /// Run the full build workflow: observe → verify → decide → (optionally) execute.
 pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowResult, String> {
     // Step 1: Observe the build runner
@@ -67,6 +85,15 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
             grant_blockers: vec!["build_lease_guard_missing".to_string()],
         });
     };
+    let guard_blockers = validate_build_lease_guard(guard, &observation.node_id);
+    if !guard_blockers.is_empty() {
+        return Ok(BuildWorkflowResult::Blocked {
+            input_blockers: Vec::new(),
+            runner_blockers: guard_blockers,
+            recipe_blockers: Vec::new(),
+            grant_blockers: Vec::new(),
+        });
+    }
     let lease_verification = config.lease_adapter.verify(guard);
 
     // Step 3: Run pure workflow decision
@@ -271,6 +298,20 @@ mod tests {
             }
             other => panic!("expected Blocked, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lease_guard_target_must_match_observed_runner() {
+        let guard = LeaseGuard {
+            agent_id: "agent-a".to_string(),
+            target: "build-runner:builder-2".to_string(),
+            lease_id: "lease-1".to_string(),
+            fencing_token: 1,
+        };
+        assert_eq!(
+            validate_build_lease_guard(&guard, "builder-1"),
+            vec!["build_lease_guard_target_mismatch".to_string()]
+        );
     }
 
     #[test]
