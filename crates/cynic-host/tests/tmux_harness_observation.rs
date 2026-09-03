@@ -41,7 +41,8 @@ impl FakeTmux {
         if let Some(ref path) = previous_path {
             paths.push(path.clone());
         }
-        env::set_var("PATH", env::join_paths(paths).expect("join fake tmux PATH"));
+        // PATH mutation is process-local to this integration-test binary.
+        unsafe { env::set_var("PATH", env::join_paths(paths).expect("join fake tmux PATH")) };
         Self { dir, previous_path }
     }
 }
@@ -49,8 +50,9 @@ impl FakeTmux {
 impl Drop for FakeTmux {
     fn drop(&mut self) {
         match self.previous_path.take() {
-            Some(path) => env::set_var("PATH", path),
-            None => env::remove_var("PATH"),
+            // PATH restore is process-local to this integration-test binary.
+            Some(path) => unsafe { env::set_var("PATH", path) },
+            None => unsafe { env::remove_var("PATH") },
         }
         let _ = fs::remove_dir_all(&self.dir);
     }
