@@ -150,7 +150,10 @@ pub fn admit_build_check(
             },
             decision: PolicyDecision::Allow {
                 required_authority: PolicyAuthority::RuntimePrincipal,
-                required_proofs: Vec::new(),
+                required_proofs: vec![RequiredProof {
+                    gate: "canonical_gate_report".to_string(),
+                    subject: source_commit.to_string(),
+                }],
             },
         },
         execution_authorization: ExecutionAuthorization {
