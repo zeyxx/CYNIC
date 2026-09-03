@@ -157,13 +157,10 @@ fn handle_webhook_request(
         Err(error) => return error_result(&error),
     };
 
+    let presented_signature = request.headers.get("x-forgejo-signature").cloned();
     let signature_verified = match config.webhook_secret.as_deref() {
         Some(secret) => {
-            let presented = request
-                .headers
-                .get("x-forgejo-signature")
-                .map(String::as_str)
-                .unwrap_or("");
+            let presented = presented_signature.as_deref().unwrap_or("");
             if !verify_signature(secret, &request.body, presented) {
                 return WebhookTriggerResult {
                     status: "rejected".to_string(),
@@ -227,7 +224,13 @@ fn handle_webhook_request(
                 };
             }
 
-            forward_to_node(config, &request.body, &source_commit, signature_verified)
+            forward_to_node(
+                config,
+                &request.body,
+                &source_commit,
+                presented_signature.as_deref(),
+                signature_verified,
+            )
         }
         crate::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => WebhookTriggerResult {
             status: "skipped".to_string(),
@@ -248,6 +251,7 @@ fn forward_to_node(
     config: &WebhookServerConfig,
     raw_body: &[u8],
     source_commit: &str,
+    presented_signature: Option<&str>,
     signature_verified: bool,
 ) -> WebhookTriggerResult {
     let client = reqwest::blocking::Client::builder()
@@ -259,11 +263,14 @@ fn forward_to_node(
             return error_result(&format!("webhook forward client failed: {error}"));
         }
     };
-    let response = client
+    let mut forward = client
         .post(config.node_webhook_url.as_str())
         .header("Content-Type", "application/json")
-        .body(raw_body.to_vec())
-        .send();
+        .body(raw_body.to_vec());
+    if let Some(signature) = presented_signature {
+        forward = forward.header("X-Forgejo-Signature", signature.to_string());
+    }
+    let response = forward.send();
     let response = match response {
         Ok(response) => response,
         Err(error) => {
