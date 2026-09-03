@@ -22,6 +22,9 @@ pub(super) fn persist_success_proofs(
     let mut refs = Vec::new();
     for proof in expected_proofs {
         let payload = match proof.as_str() {
+            // Owned by release_publication::publish (signed basket plus
+            // store read-back). Skipped here to avoid a double persist;
+            // the ref joins through the publication path, not this loop.
             "signed_release_basket_read_back" => continue,
             "build_grant_read_back" => serde_json::json!({
                 "schema": "cynic.build.grant_read_back.v1",
