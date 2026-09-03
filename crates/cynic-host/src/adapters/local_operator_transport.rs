@@ -40,12 +40,21 @@ impl OperatorTransportObservationPort for LocalOperatorTransportObserver {
             ])
             .output()
         {
-            Ok(output) if output.status.success() => TmuxHarnessObservation {
-                executable,
-                status: "active".to_string(),
-                sessions: parse_tmux_sessions(&output.stdout),
-                detail: None,
-            },
+            Ok(output) if output.status.success() => {
+                let sessions = parse_tmux_sessions(&output.stdout);
+                let detail = sessions.is_empty().then(|| {
+                    format!(
+                        "tmux list-sessions succeeded with zero parseable sessions (stdout_bytes={}); a session visible to `tmux list-sessions` in another shell points to a different server socket, not an empty harness",
+                        output.stdout.len()
+                    )
+                });
+                TmuxHarnessObservation {
+                    executable,
+                    status: "active".to_string(),
+                    sessions,
+                    detail,
+                }
+            }
             Ok(output) => {
                 let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
                 TmuxHarnessObservation {
