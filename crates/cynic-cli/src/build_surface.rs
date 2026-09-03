@@ -10,6 +10,8 @@ use clap::Subcommand;
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
+use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
 use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
@@ -49,6 +51,27 @@ pub(crate) enum BuildCommand {
         /// Source commit hash (must match the observed snapshot when both are supplied)
         #[arg(long)]
         source_commit: Option<String>,
+    },
+    /// Trigger a distributed build on the observed network runner.
+    Trigger {
+        /// Exact 40-character source commit.
+        #[arg(long)]
+        commit: String,
+        /// Build phase: check, build, or activate.
+        #[arg(long, default_value = "check")]
+        phase: String,
+        /// Runner host resolved from the fleet registry.
+        #[arg(long, default_value = "10.10.10.119")]
+        host: String,
+        /// Runner SSH user.
+        #[arg(long, default_value = "cynic")]
+        user: String,
+        /// Network mode: offline or online.
+        #[arg(long, default_value = "offline")]
+        network_mode: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Observe one workload by id across the federation (local store + SSH).
     ObserveWorkload {
@@ -168,6 +191,14 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             source_snapshot,
             source_commit,
         ),
+        BuildCommand::Trigger {
+            commit,
+            phase,
+            host,
+            user,
+            network_mode,
+            json,
+        } => trigger_build(&commit, &phase, &host, &user, &network_mode, json),
         BuildCommand::ObserveWorkload {
             workload_id,
             state_root,
@@ -218,6 +249,49 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             };
         }
     }
+}
+
+fn trigger_build(
+    commit: &str,
+    phase: &str,
+    host: &str,
+    user: &str,
+    network_mode: &str,
+    json: bool,
+) -> Result<(), String> {
+    let phase = match phase {
+        "check" => BuildPhase::Check,
+        "build" => BuildPhase::Build,
+        "activate" => BuildPhase::Activate,
+        other => return Err(format!("invalid build phase: {other}")),
+    };
+    let network_mode = match network_mode {
+        "offline" => NetworkMode::Offline,
+        "online" => NetworkMode::Online,
+        other => return Err(format!("invalid network mode: {other}")),
+    };
+    let runner = SshBuildRunner {
+        host: host.to_string(),
+        user: user.to_string(),
+        runner: Box::new(LocalCommandRunner),
+    };
+    let health = runner.observe_runner();
+    if !health.reachable {
+        return Err(format!("build runner unreachable: {}", health.node_id));
+    }
+    let proof = runner
+        .trigger(&BuildTrigger {
+            source_commit: commit.to_string(),
+            phase,
+            network_mode,
+        })
+        .map_err(|error| error.to_string())?;
+    if json {
+        println!("{}", proof.to_json());
+    } else {
+        println!("build runner {}: {:?}", proof.node, proof.status);
+    }
+    Ok(())
 }
 
 fn run_build(
