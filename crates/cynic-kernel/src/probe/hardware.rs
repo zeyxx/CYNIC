@@ -18,8 +18,8 @@ pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinEr
                 cynic_host::domain::cpu::probe::parse_cpuinfo(cpu_txt);
             if let Ok(mem_rep) = cynic_host::domain::memory::probe::parse_meminfo(mem_txt) {
                 return HardwareInfo {
-                    total_ram_gb: mem_rep.usage.total_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
-                    cpu_cores: cpu_phys.logical_cores,
+                    total_ram_gb: mem_rep.physical.total_bytes as f64 / 1024.0 / 1024.0 / 1024.0,
+                    cpu_cores: cpu_phys.logical_cpus,
                     cpu_model: cpu_phys.model_name,
                 };
             }

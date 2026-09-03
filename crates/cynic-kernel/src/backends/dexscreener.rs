@@ -91,6 +91,8 @@ impl DexScreenerClient {
             liquidity = ?data.liquidity_usd,
             "DexScreener market data fetched"
         );
+
+        Some(data)
     }
 }
 
