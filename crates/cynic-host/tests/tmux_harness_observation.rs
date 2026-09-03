@@ -37,12 +37,13 @@ impl FakeTmux {
         fs::set_permissions(&script, fs::Permissions::from_mode(0o755))
             .expect("make fake tmux executable");
         let previous_path = env::var_os("PATH");
-        let mut paths = vec![dir.clone().into_os_string()];
+        let mut new_path = dir.clone().into_os_string();
         if let Some(ref path) = previous_path {
-            paths.push(path.clone());
+            new_path.push(":");
+            new_path.push(path);
         }
         // PATH mutation is process-local to this integration-test binary.
-        unsafe { env::set_var("PATH", env::join_paths(paths).expect("join fake tmux PATH")) };
+        unsafe { env::set_var("PATH", &new_path) };
         Self { dir, previous_path }
     }
 }
