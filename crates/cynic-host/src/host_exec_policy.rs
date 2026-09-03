@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
 
+use crate::execution::digest_json;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostExecRequest {
     pub node: String,
@@ -268,10 +270,6 @@ fn unknown_mutation_contract(request: &HostExecRequest) -> MutationContract {
         rollback_intent: "unknown mutation; execution is prohibited".to_string(),
         expected_proofs: Vec::new(),
     }
-}
-
-fn digest_json<T: Serialize>(value: &T) -> String {
-    cynic_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
 }
 
 pub fn service_from_argv(argv: &[String]) -> Option<String> {

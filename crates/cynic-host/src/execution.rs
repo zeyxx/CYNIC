@@ -13,7 +13,7 @@ pub use admission::{
     AdmittedHostOperation, AdmittedHostOperationPlan, HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan,
 };
 pub(crate) use admission::{
-    admit_host_operation_plan, build_service_operation_plan,
+    admit_host_operation_plan, build_service_operation_plan, digest_json,
     runtime_service_operation_policy_admission, service_operation_policy_admission,
 };
 pub use bridge_admission::privilege_bridge_preconditions;
