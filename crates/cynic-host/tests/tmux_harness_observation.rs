@@ -10,9 +10,17 @@ use std::ffi::OsString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use cynic_host::adapters::local_operator_transport::LocalOperatorTransportObserver;
 use cynic_host::transport::OperatorTransportObservationPort;
+
+/// Monotonic id so parallel tests never share one fake `tmux` directory.
+static FAKE_TMUX_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Serializes the two tests: `PATH` is process-global, so installing a fake
+/// `tmux` in one test must not leak into the other test's spawn.
+static PATH_SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// A fake `tmux` executable earlier on `PATH`, removed and uninstalled on drop.
 struct FakeTmux {
@@ -22,7 +30,8 @@ struct FakeTmux {
 
 impl FakeTmux {
     fn install(payload: &str) -> Self {
-        let dir = env::temp_dir().join(format!("cynic-fake-tmux-{}", std::process::id()));
+        let id = FAKE_TMUX_SEQ.fetch_add(1, Ordering::SeqCst);
+        let dir = env::temp_dir().join(format!("cynic-fake-tmux-{}-{id}", std::process::id()));
         if dir.exists() {
             fs::remove_dir_all(&dir).expect("clear stale fake tmux dir");
         }
@@ -61,6 +70,7 @@ impl Drop for FakeTmux {
 
 #[test]
 fn spawn_path_surfaces_live_session() {
+    let _serial = PATH_SERIAL.lock().expect("serialize fake tmux PATH");
     let _fake = FakeTmux::install("mcp-design\t1\t1\n");
     let observation = LocalOperatorTransportObserver.observe_tmux();
 
@@ -74,6 +84,7 @@ fn spawn_path_surfaces_live_session() {
 
 #[test]
 fn successful_empty_answer_stays_explicit_unknown() {
+    let _serial = PATH_SERIAL.lock().expect("serialize fake tmux PATH");
     let _fake = FakeTmux::install("");
     let observation = LocalOperatorTransportObserver.observe_tmux();
 
