@@ -41,28 +41,32 @@ pub fn plan_agent_host_vm(
     if !preflight.template_present {
         blockers.push("cloudinit_base_image_missing".to_string());
     }
-    if !preflight.vmid_available {
-        if let Some(status) = &preflight.vmid_existing_status {
-            if status == "running" {
-                // If the exact VM is already running with desired specs, this could be converged
-                return AgentHostVmPlan {
-                    schema: AGENT_HOST_VM_PLAN_SCHEMA.to_string(),
-                    status: "converged".to_string(),
-                    desired: desired.clone(),
-                    preflight: preflight.clone(),
-                    actions: vec![],
-                    rollback_intent: "none_vm_already_running_and_converged".to_string(),
-                    mutates: false,
-                    blockers: vec![],
-                };
-            }
-        }
+    let existing_vm_running =
+        !preflight.vmid_available && preflight.vmid_existing_status.as_deref() == Some("running");
+    if !preflight.vmid_available && !existing_vm_running {
         blockers.push(format!("vmid_already_in_use:{}", desired.vmid));
     }
 
     blockers.extend(preflight.blockers.iter().cloned());
     blockers.sort();
     blockers.dedup();
+
+    if existing_vm_running {
+        return AgentHostVmPlan {
+            schema: AGENT_HOST_VM_PLAN_SCHEMA.to_string(),
+            status: if blockers.is_empty() {
+                "converged".to_string()
+            } else {
+                "blocked".to_string()
+            },
+            desired: desired.clone(),
+            preflight: preflight.clone(),
+            actions: vec![],
+            rollback_intent: "none_existing_vm_not_modified".to_string(),
+            mutates: false,
+            blockers,
+        };
+    }
 
     let vmid = desired.vmid;
     let template_volid = preflight
@@ -190,6 +194,7 @@ pub fn plan_agent_host_vm(
 
     let rollback_intent =
         format!("qm stop {vmid} ; qm destroy {vmid} --purge 1 --destroy-unreferenced-disks 1");
+    let mutates = !actions.is_empty();
 
     AgentHostVmPlan {
         schema: AGENT_HOST_VM_PLAN_SCHEMA.to_string(),
@@ -198,7 +203,7 @@ pub fn plan_agent_host_vm(
         preflight: preflight.clone(),
         actions,
         rollback_intent,
-        mutates: !blockers.is_empty(),
+        mutates,
         blockers,
     }
 }
@@ -231,6 +236,7 @@ mod tests {
         let plan = plan_agent_host_vm(&desired, &preflight);
 
         assert_eq!(plan.status, "planned");
+        assert!(plan.mutates);
         assert!(plan.blockers.is_empty());
         assert_eq!(plan.actions.len(), 6);
         assert_eq!(plan.actions[0].argv[0], "qm");
@@ -266,6 +272,43 @@ mod tests {
             plan.blockers
                 .contains(&"cloudinit_base_image_missing".to_string())
         );
+    }
+
+    #[test]
+    fn running_vm_with_unobserved_preflight_is_blocked_without_mutation() {
+        let desired = AgentHostDesired::default();
+        let mut preflight = clear_preflight();
+        preflight.hypervisor_reachable = false;
+        preflight.vmid_available = false;
+        preflight.vmid_existing_status = Some("running".to_string());
+        preflight.blockers = vec!["unobserved_preflight".to_string()];
+
+        let plan = plan_agent_host_vm(&desired, &preflight);
+
+        assert_eq!(plan.status, "blocked");
+        assert!(!plan.mutates);
+        assert!(plan.actions.is_empty());
+        assert_eq!(plan.rollback_intent, "none_existing_vm_not_modified");
+        assert!(
+            plan.blockers
+                .contains(&"hypervisor_unreachable".to_string())
+        );
+        assert!(plan.blockers.contains(&"unobserved_preflight".to_string()));
+    }
+
+    #[test]
+    fn observed_running_vm_is_converged_without_mutation() {
+        let desired = AgentHostDesired::default();
+        let mut preflight = clear_preflight();
+        preflight.vmid_available = false;
+        preflight.vmid_existing_status = Some("running".to_string());
+
+        let plan = plan_agent_host_vm(&desired, &preflight);
+
+        assert_eq!(plan.status, "converged");
+        assert!(!plan.mutates);
+        assert!(plan.actions.is_empty());
+        assert!(plan.blockers.is_empty());
     }
 
     #[test]
