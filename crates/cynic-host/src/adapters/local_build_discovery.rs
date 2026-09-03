@@ -38,7 +38,7 @@ impl BuildDiscoveryObservationPort for LocalBuildDiscoveryAdapter {
 
         let root = workspace_root().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
-        let meta = run(&root, "cargo", &["metadata", "--format-version", "1", "--no-deps"])?;
+        let meta = run(&root, "cargo", &["metadata", "--format-version", "1", "--no-deps", "--offline"])?;
         if !meta.success {
             return Err(format!(
                 "cargo_metadata_failed: exit={:?} stderr={}",
