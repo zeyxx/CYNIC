@@ -380,6 +380,42 @@ mod tests {
     }
 
     #[test]
+    fn workload_id_and_idempotency_key_share_one_digest_root() {
+        // Base admission at submit time is sufficient only because both
+        // identifiers derive from the same request digest: resubmits
+        // collapse on workload_id in kernel storage, so the dispatch-time
+        // active-key check has nothing extra to catch. If this ever splits
+        // into two independent roots, submission must use
+        // admit_agent_workload_dispatch instead.
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "validate-abc".to_string(),
+            requested_by: "codex-session-1".to_string(),
+            source_commit: "a".repeat(40),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
+            evidence_refs: vec!["forgejo:refs/heads/change@aaaaaaaa".to_string()],
+        };
+        let first = compose_build_agent_workload(&request, "cynic-builder", "/tmp/ws").unwrap();
+        let second = compose_build_agent_workload(&request, "cynic-builder", "/tmp/ws").unwrap();
+        assert_eq!(first.workload_id, second.workload_id);
+        assert_eq!(first.idempotency_key, second.idempotency_key);
+        let short = first.workload_id.strip_prefix("build-").unwrap();
+        assert_eq!(first.idempotency_key, format!("build-request-{short}"));
+    }
+
+    #[test]
     fn snapshot_reference_round_trips_through_workload_context() {
         let snapshot = crate::BuildSourceSnapshotReference {
             schema: crate::BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
