@@ -15,6 +15,7 @@ pub use admission::{
 pub(crate) use admission::{
     admit_host_operation_plan, build_service_operation_plan, digest_json,
     runtime_service_operation_policy_admission, service_operation_policy_admission,
+    stderr_with_spawn_error,
 };
 pub use bridge_admission::privilege_bridge_preconditions;
 pub(crate) use bridge_admission::{

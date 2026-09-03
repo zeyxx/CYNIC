@@ -12,6 +12,7 @@ use cynic_protocol::{
 };
 use serde::Serialize;
 
+use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;
 use crate::source_lease::SourceLeaseVerifier;
 use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
@@ -246,19 +247,12 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
 
     fn command_proof(argv: Vec<String>, output: ArgvOutput) -> SourceCommandProof {
         let success = output.success();
-        let stderr = output.stderr;
         SourceCommandProof {
             argv,
             success,
             exit_code: output.exit_code,
             stdout: output.stdout,
-            stderr: output.spawn_error.map_or(stderr.clone(), |error| {
-                if stderr.is_empty() {
-                    error
-                } else {
-                    format!("{error}: {stderr}")
-                }
-            }),
+            stderr: stderr_with_spawn_error(output.stderr, output.spawn_error),
         }
     }
 

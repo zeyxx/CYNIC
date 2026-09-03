@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, RequiredProof};
 
-use crate::execution::HostCommandExecution;
+use crate::execution::{HostCommandExecution, stderr_with_spawn_error};
 use crate::host_exec_cli::args::flag_value;
 use crate::host_exec_cli::io::emit_json;
 use crate::network_actuation::{
@@ -233,17 +233,6 @@ fn observe_root_firewall(runner: &impl ArgvRunner) -> serde_json::Value {
         "stdout": output.stdout,
         "stderr": stderr_with_spawn_error(output.stderr, output.spawn_error),
     })
-}
-
-fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<String>) -> String {
-    if let Some(error) = spawn_error {
-        if stderr.is_empty() {
-            stderr = error;
-        } else {
-            stderr = format!("{error}: {stderr}");
-        }
-    }
-    stderr
 }
 
 struct RootInvoker<'a> {
