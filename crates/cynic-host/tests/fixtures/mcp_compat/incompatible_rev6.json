@@ -1,0 +1,13 @@
+{
+  "schema": "cynic.runtime_compatibility.plan.v2",
+  "status": "incompatible",
+  "contract_id": "cynic.agent_mcp",
+  "required_revision": 8,
+  "observed_revision": 6,
+  "artifact_version": "0.0.6",
+  "required_contract_digest": "sha256:desired",
+  "observed_contract_digest": "sha256:installed-rev6",
+  "missing_capabilities": ["cynic_source_change_submit"],
+  "evidence_refs": ["artifact-digest:sha256:rev6"],
+  "unknowns": []
+}

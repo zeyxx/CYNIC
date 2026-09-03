@@ -1,0 +1,13 @@
+{
+  "schema": "cynic.runtime_compatibility.plan.v2",
+  "status": "compatible",
+  "contract_id": "cynic.agent_mcp",
+  "required_revision": 8,
+  "observed_revision": 8,
+  "artifact_version": "0.1.0",
+  "required_contract_digest": "sha256:desired",
+  "observed_contract_digest": "sha256:desired",
+  "missing_capabilities": [],
+  "evidence_refs": ["artifact-digest:sha256:abc"],
+  "unknowns": []
+}
