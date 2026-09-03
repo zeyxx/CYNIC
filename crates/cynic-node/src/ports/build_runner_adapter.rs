@@ -104,7 +104,23 @@ impl BuildRunnerPort for SshBuildRunner {
         if !out.success() {
             return Err(BuildError::AdmissionBlocked(out.stderr.trim().to_string()));
         }
-        parse_proof(&out.stdout)
+        let proof = parse_proof(&out.stdout)?;
+        if proof.schema != "cynic.pipeline_build_proof.v1" {
+            return Err(BuildError::ProofUnparseable(
+                "unexpected build proof schema".to_string(),
+            ));
+        }
+        if proof.node.trim().is_empty() {
+            return Err(BuildError::ProofUnparseable(
+                "build proof node missing".to_string(),
+            ));
+        }
+        if proof.source_commit != trigger.source_commit {
+            return Err(BuildError::ProofUnparseable(
+                "build proof source commit mismatch".to_string(),
+            ));
+        }
+        Ok(proof)
     }
 
     fn observe_runner(&self) -> RunnerHealth {
@@ -189,6 +205,8 @@ fn parse_proof(json: &str) -> Result<BuildProofBundle, BuildError> {
 mod tests {
     use super::*;
 
+    use crate::ports::build_runner::{BuildPhase, NetworkMode};
+
     struct FakeCommandRunner {
         proof: String,
         reachable: bool,
@@ -239,6 +257,30 @@ mod tests {
         assert_eq!(proof.status, PipelineStatus::Converged);
         assert_eq!(proof.layers.len(), 2);
         assert_eq!(proof.layers[0].layer, "cynic-protocol");
+    }
+
+    #[test]
+    fn trigger_rejects_proof_for_another_commit() {
+        let requested = "a".repeat(40);
+        let returned = "b".repeat(40);
+        let runner = SshBuildRunner {
+            host: "runner-1".into(),
+            user: "cynic".into(),
+            runner: Box::new(FakeCommandRunner {
+                proof: converged_proof(&returned),
+                reachable: true,
+            }),
+        };
+        let trigger = BuildTrigger {
+            source_commit: requested,
+            phase: BuildPhase::Check,
+            network_mode: NetworkMode::Offline,
+        };
+        assert!(matches!(
+            runner.trigger(&trigger),
+            Err(BuildError::ProofUnparseable(message))
+                if message == "build proof source commit mismatch"
+        ));
     }
 
     #[test]
