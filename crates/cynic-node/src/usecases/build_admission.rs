@@ -7,16 +7,21 @@
 //! record instead of writing a second one. Only `cargo check` is eligible:
 //! later phases mutate and need their own admission slice. Nothing spawns.
 
+use cynic_protocol::build_slice::{
+    BUILD_SLICE_ACTION_SCHEMA, BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase,
+    BuildSliceScope, BuildSliceTarget,
+};
 use cynic_protocol::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction,
-    AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
-    AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState, BUILD_SLICE_ACTION_SCHEMA,
-    BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase, BuildSliceScope, BuildSliceTarget,
+    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
+    AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
     DurableAgentWorkloadRecord, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
     MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
     PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
-    admit_agent_workload, build_slice_cargo_argv, digest_json,
+    admit_agent_workload, digest_json,
 };
+
+use crate::ports::build_slice_runner::build_slice_cargo_argv;
 
 use crate::ports::agent_workload_store_port::{AgentWorkloadStoreError, AgentWorkloadStorePort};
 
@@ -183,20 +188,11 @@ pub fn admit_build_check(
         .map_err(|error| store_error(&error))
 }
 
-/// Schema marker linking admission output to the pull contract.
-pub fn admission_pull_schema() -> &'static str {
-    BUILD_PULL_PLAN_SCHEMA
-}
-
-pub fn admission_schema() -> &'static str {
-    BUILD_ADMISSION_SCHEMA
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
-    use cynic_protocol::{AGENT_WORKLOAD_RECORD_SCHEMA, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA};
+    use cynic_protocol::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static ADMISSION_SEQ: AtomicU64 = AtomicU64::new(0);
