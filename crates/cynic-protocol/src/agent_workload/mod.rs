@@ -22,11 +22,11 @@ pub use delivery::{
     AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS,
     AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
-    AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, accept_agent_workload_delivery,
-    agent_workload_delivery_available, complete_agent_workload_delivery,
-    parse_agent_workload_observation_read_back, validate_agent_workload_completion_publication,
-    validate_agent_workload_delivery, validate_agent_workload_delivery_lease,
-    validate_agent_workload_submission_read_back,
+    AgentWorkloadDeliveryLease, AgentWorkloadDeliveryStatus, KernelDeliveryEnvelope,
+    accept_agent_workload_delivery, agent_workload_delivery_available,
+    complete_agent_workload_delivery, parse_agent_workload_observation_read_back,
+    validate_agent_workload_completion_publication, validate_agent_workload_delivery,
+    validate_agent_workload_delivery_lease, validate_agent_workload_submission_read_back,
 };
 pub use durability::{
     AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA, AgentWorkloadTransition,

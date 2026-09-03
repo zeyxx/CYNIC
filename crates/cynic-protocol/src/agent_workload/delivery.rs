@@ -688,32 +688,98 @@ mod tests {
         .unwrap_err();
         assert!(conflict.contains(&"agent_workload_delivery_lease_active".to_string()));
     }
+
+    #[test]
+    fn submission_read_back_unwraps_kernel_persisted_envelope() {
+        let sent = delivery();
+        let body = serde_json::to_string(&KernelDeliveryEnvelope {
+            schema: "cynic.agent_workload_delivery_response.v1".to_string(),
+            status: "persisted".to_string(),
+            value: sent.clone(),
+        })
+        .unwrap();
+        assert!(validate_agent_workload_submission_read_back(&sent, &body).is_empty());
+    }
+
+    #[test]
+    fn submission_read_back_rejects_wrong_envelope_status() {
+        let sent = delivery();
+        let body = serde_json::to_string(&KernelDeliveryEnvelope {
+            schema: "cynic.agent_workload_delivery_response.v1".to_string(),
+            status: "observed".to_string(),
+            value: sent.clone(),
+        })
+        .unwrap();
+        assert_eq!(
+            validate_agent_workload_submission_read_back(&sent, &body),
+            vec!["agent_workload_submission_read_back_unexpected_status:observed".to_string()]
+        );
+    }
+
+    #[test]
+    fn observation_read_back_unwraps_kernel_observed_envelope() {
+        let sent = delivery();
+        let body = serde_json::to_value(&KernelDeliveryEnvelope {
+            schema: "cynic.agent_workload_delivery_response.v1".to_string(),
+            status: "observed".to_string(),
+            value: sent.clone(),
+        })
+        .unwrap();
+        assert_eq!(
+            parse_agent_workload_observation_read_back(&body).unwrap(),
+            sent
+        );
+    }
+}
+
+/// Kernel REST envelope wrapping a persisted delivery.
+///
+/// Every kernel `/agent-workloads` handler returns this shape
+/// (`schema`/`status`/`value`), never a bare delivery. Read-back parsers
+/// must unwrap the envelope; parsing the body as a raw delivery always
+/// fails and masks persisted successes as blocked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KernelDeliveryEnvelope {
+    pub schema: String,
+    pub status: String,
+    pub value: AgentWorkloadDelivery,
 }
 
 pub fn parse_agent_workload_observation_read_back(
     body: &serde_json::Value,
 ) -> Result<AgentWorkloadDelivery, Vec<String>> {
-    serde_json::from_value::<AgentWorkloadDelivery>(body.clone())
-        .map_err(|e| vec![format!("invalid_agent_workload_observation_read_back:{e}")])
+    let envelope: KernelDeliveryEnvelope = serde_json::from_value(body.clone())
+        .map_err(|e| vec![format!("invalid_agent_workload_observation_read_back:{e}")])?;
+    if envelope.status != "observed" {
+        return Err(vec![format!(
+            "agent_workload_observation_read_back_unexpected_status:{}",
+            envelope.status
+        )]);
+    }
+    Ok(envelope.value)
 }
 
 pub fn validate_agent_workload_submission_read_back(
     delivery: &AgentWorkloadDelivery,
     body: &str,
 ) -> Vec<String> {
-    match serde_json::from_str::<AgentWorkloadDelivery>(body) {
-        Ok(observed) => {
-            let mut violations = validate_agent_workload_delivery(&observed);
-            if observed.envelope != delivery.envelope {
-                violations
-                    .push("agent_workload_submission_read_back_envelope_mismatch".to_string());
-            }
-            if observed.target_node_id != delivery.target_node_id {
-                violations
-                    .push("agent_workload_submission_read_back_target_node_mismatch".to_string());
-            }
-            violations
-        }
-        Err(e) => vec![format!("invalid_agent_workload_submission_read_back:{e}")],
+    let envelope: KernelDeliveryEnvelope = match serde_json::from_str(body) {
+        Ok(envelope) => envelope,
+        Err(e) => return vec![format!("invalid_agent_workload_submission_read_back:{e}")],
+    };
+    if envelope.status != "persisted" {
+        return vec![format!(
+            "agent_workload_submission_read_back_unexpected_status:{}",
+            envelope.status
+        )];
     }
+    let observed = envelope.value;
+    let mut violations = validate_agent_workload_delivery(&observed);
+    if observed.envelope != delivery.envelope {
+        violations.push("agent_workload_submission_read_back_envelope_mismatch".to_string());
+    }
+    if observed.target_node_id != delivery.target_node_id {
+        violations.push("agent_workload_submission_read_back_target_node_mismatch".to_string());
+    }
+    violations
 }

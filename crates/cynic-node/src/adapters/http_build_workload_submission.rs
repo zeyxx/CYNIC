@@ -5,7 +5,6 @@
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::Serialize;
 
 use crate::ports::build_workload_submission_port::{
     BuildWorkloadSubmissionPort, BuildWorkloadSubmissionReadBack,
@@ -16,12 +15,6 @@ use cynic_protocol::AgentWorkloadDelivery;
 pub struct HttpBuildWorkloadSubmission {
     client: Client,
     kernel_url: String,
-}
-
-#[derive(Debug, Serialize)]
-struct SubmitWorkloadRequest<'a> {
-    schema: &'static str,
-    delivery: &'a AgentWorkloadDelivery,
 }
 
 impl HttpBuildWorkloadSubmission {
@@ -40,15 +33,11 @@ impl BuildWorkloadSubmissionPort for HttpBuildWorkloadSubmission {
         delivery: &AgentWorkloadDelivery,
     ) -> Result<BuildWorkloadSubmissionReadBack, String> {
         let url = format!("{}/agent-workloads", self.kernel_url);
-        let request = SubmitWorkloadRequest {
-            schema: "cynic.agent_workload_submission.v1",
-            delivery,
-        };
 
         let response = self
             .client
             .post(&url)
-            .json(&request)
+            .json(delivery)
             .send()
             .await
             .map_err(|e| format!("submit workload request failed: {e}"))?;
