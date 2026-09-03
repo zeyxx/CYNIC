@@ -362,10 +362,8 @@ fn e2e_step5_webhook_server_listens() {
 
     let config = WebhookServerConfig {
         bind: format!("127.0.0.1:{port}"),
-        phase: "check".to_string(),
-        runner_target: "cynic@10.10.10.119".to_string(),
-        apply: true,
-        registry_path: "infra/registry.json".to_string(),
+        node_webhook_url: String::new(),
+        webhook_secret: None,
     };
 
     let _handle = spawn_webhook_server(config).expect("should spawn server");

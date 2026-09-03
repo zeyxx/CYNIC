@@ -126,21 +126,11 @@ pub(crate) enum BuildCommand {
         /// Address to bind (e.g. 127.0.0.1:9147).
         #[arg(long, default_value = "127.0.0.1:9147")]
         bind: String,
-        /// Build phase to trigger on push (check|build|activate).
-        #[arg(long, default_value = "check")]
-        phase: String,
-        /// Path to the registry JSON for node discovery.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
-        /// Kernel coordination endpoint for lease verification.
-        #[arg(long)]
-        kernel_endpoint: Option<String>,
-        /// SSH target for the build runner (e.g. cynic@10.10.10.119).
-        #[arg(long, default_value = "cynic@10.10.10.119")]
-        runner: String,
-        /// Apply builds after webhook admission. Without this flag, only a plan is produced.
-        #[arg(long)]
-        apply: bool,
+        /// Node builder webhook URL receiving the verified payload
+        /// (e.g. http://127.0.0.1:3030/webhook/forgejo). Empty means
+        /// forwarding is unconfigured: pushes validate but never forward.
+        #[arg(long, default_value = "")]
+        node_webhook_url: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -238,21 +228,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         } => execute_list_workloads(&state_root, local, &registry, &user, json),
         BuildCommand::ServeWebhook {
             bind,
-            phase,
-            registry,
-            kernel_endpoint,
-            runner,
-            apply,
+            node_webhook_url,
             json,
-        } => serve_webhook(
-            &bind,
-            &phase,
-            &registry,
-            kernel_endpoint,
-            &runner,
-            apply,
-            json,
-        ),
+        } => serve_webhook(&bind, &node_webhook_url, json),
         BuildCommand::ProvisionCredentials {
             registry,
             secrets_dir,
@@ -469,23 +447,17 @@ fn run_build(
     Ok(())
 }
 
-fn serve_webhook(
-    bind: &str,
-    _phase: &str,
-    _registry: &str,
-    _kernel_endpoint: Option<String>,
-    runner: &str,
-    apply: bool,
-    json: bool,
-) -> Result<(), String> {
+fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
     use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
 
+    // Shared secret never travels via CLI flags (visible in ps/history).
+    let webhook_secret = std::env::var("CYNIC_WEBHOOK_SECRET")
+        .ok()
+        .filter(|s| !s.is_empty());
     let config = WebhookServerConfig {
         bind: bind.to_string(),
-        phase: _phase.to_string(),
-        runner_target: runner.to_string(),
-        apply,
-        registry_path: _registry.to_string(),
+        node_webhook_url: node_webhook_url.to_string(),
+        webhook_secret,
     };
 
     let handle = spawn_webhook_server(config)
@@ -495,18 +467,18 @@ fn serve_webhook(
     let startup = serde_json::json!({
         "status": "listening",
         "bind": bind,
-        "runner_target": runner,
-        "phase": _phase,
-        "apply": apply,
+        "node_webhook_url": node_webhook_url,
+        "signature_enforced": std::env::var("CYNIC_WEBHOOK_SECRET")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .is_some(),
     });
 
     if json {
         println!("{}", serde_json::to_string_pretty(&startup).unwrap());
     } else {
         println!("Forgejo webhook server listening on {bind}");
-        println!("  Runner: {runner}");
-        println!("  Phase: {_phase}");
-        println!("  Autonomous apply: enabled");
+        println!("  Node webhook: {node_webhook_url}");
     }
 
     // Block on server thread (it handles all incoming requests in-process)
