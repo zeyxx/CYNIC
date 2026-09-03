@@ -63,11 +63,11 @@
         "wall_seconds": 3600
       },
       "consumed": {
-        "actions": 0,
-        "wall_seconds": 0
+        "actions": 40,
+        "wall_seconds": 12000
       },
       "temporal": {
-        "started_at_unix_s": 1788444869,
+        "started_at_unix_s": 1788456951,
         "ttl_seconds": 1800
       },
       "priority": 10,
