@@ -17,7 +17,7 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
-sha2 = "0.11.0"
+sha2 = "0.10.8"
 hmac = "0.12"
 sha1 = "0.10"
 tokio = { version = "1.50.0", features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros"] }
