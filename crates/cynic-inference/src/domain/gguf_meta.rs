@@ -4,6 +4,7 @@
 //! unsupported arches (e.g. `dspark` on older llama.cpp) instead of a false
 //! systemd "active" then crash loop.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::Path;
@@ -16,6 +17,26 @@ pub struct GgufMeta {
     pub gguf_version: u32,
     pub architecture: Option<String>,
     pub name: Option<String>,
+    pub kv_geometry: Option<GgufKvGeometry>,
+}
+
+/// Architecture-specific dimensions required for exact K/V cache sizing.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GgufKvGeometry {
+    pub architecture: String,
+    pub native_context_tokens: u64,
+    pub block_count: u64,
+    pub kv_head_count: u64,
+    pub key_length: u64,
+    pub value_length: u64,
+}
+
+impl GgufMeta {
+    pub fn kv_geometry(&self) -> Result<GgufKvGeometry, &'static str> {
+        self.kv_geometry
+            .clone()
+            .ok_or("GGUF lacks complete architecture-specific K/V geometry")
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +77,7 @@ pub fn read_gguf_meta(path: &Path) -> Result<GgufMeta, GgufMetaError> {
 
     let mut architecture = None;
     let mut name = None;
+    let mut numeric = BTreeMap::new();
 
     for _ in 0..n_kv.min(512) {
         let key = read_string(&mut f, &path_s)?;
@@ -74,16 +96,62 @@ pub fn read_gguf_meta(path: &Path) -> Result<GgufMeta, GgufMetaError> {
             }
             _ => {}
         }
-        if architecture.is_some() && name.is_some() {
-            break;
+        if let Some(value) = val.as_u64() {
+            numeric.insert(key, value);
         }
     }
+
+    let kv_geometry = architecture
+        .as_deref()
+        .and_then(|arch| geometry_from_values(arch, &numeric));
 
     Ok(GgufMeta {
         path: path_s,
         gguf_version: ver,
         architecture,
         name,
+        kv_geometry,
+    })
+}
+
+pub(crate) fn geometry_from_values(
+    architecture: &str,
+    values: &BTreeMap<String, u64>,
+) -> Option<GgufKvGeometry> {
+    let prefix = format!("{architecture}.");
+    let get = |suffix: &str| values.get(&format!("{prefix}{suffix}")).copied();
+
+    let native_context_tokens = get("context_length")?;
+    let block_count = get("block_count")?;
+    let kv_head_count = get("attention.head_count_kv").or_else(|| get("attention.head_count"))?;
+
+    let key_length = get("attention.key_length").or_else(|| {
+        let embedding = get("embedding_length")?;
+        let heads = get("attention.head_count")?;
+        if heads > 0 {
+            Some(embedding / heads)
+        } else {
+            None
+        }
+    })?;
+
+    let value_length = get("attention.value_length").or_else(|| {
+        let embedding = get("embedding_length")?;
+        let heads = get("attention.head_count")?;
+        if heads > 0 {
+            Some(embedding / heads)
+        } else {
+            None
+        }
+    })?;
+
+    Some(GgufKvGeometry {
+        architecture: architecture.to_string(),
+        native_context_tokens,
+        block_count,
+        kv_head_count,
+        key_length,
+        value_length,
     })
 }
 
@@ -153,7 +221,9 @@ pub fn preflight_gguf_with_store(
             crate::adapters::local::engine_capability_store::PreflightDecision::Allow => {
                 return Ok(meta);
             }
-            crate::adapters::local::engine_capability_store::PreflightDecision::Reject { reason } => {
+            crate::adapters::local::engine_capability_store::PreflightDecision::Reject {
+                reason,
+            } => {
                 return Err(LocalRuntimeCompatError::UnsupportedArch {
                     path: meta.path,
                     architecture: arch.to_string(),
@@ -276,9 +346,9 @@ fn read_string(f: &mut File, path: &str) -> Result<String, GgufMetaError> {
     Ok(String::from_utf8_lossy(&buf).into_owned())
 }
 
-#[derive(Debug)]
 enum Val {
     Str(String),
+    Unsigned(u64),
     Other,
 }
 
@@ -289,13 +359,28 @@ impl Val {
             _ => None,
         }
     }
+
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::Unsigned(value) => Some(*value),
+            _ => None,
+        }
+    }
 }
 
 fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError> {
     // GGUF value types: 0=UINT8 1=INT8 2=UINT16 3=INT16 4=UINT32 5=INT32
     // 6=FLOAT32 7=BOOL 8=STRING 9=ARRAY 10=UINT64 11=INT64 12=FLOAT64
     match vtype {
-        0 | 1 | 7 => {
+        0 => {
+            let mut b = [0u8; 1];
+            f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
+                path: path.to_string(),
+                source,
+            })?;
+            Ok(Val::Unsigned(u64::from(b[0])))
+        }
+        1 | 7 => {
             let mut b = [0u8; 1];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -303,7 +388,15 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
             })?;
             Ok(Val::Other)
         }
-        2 | 3 => {
+        2 => {
+            let mut b = [0u8; 2];
+            f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
+                path: path.to_string(),
+                source,
+            })?;
+            Ok(Val::Unsigned(u64::from(u16::from_le_bytes(b))))
+        }
+        3 => {
             let mut b = [0u8; 2];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -311,7 +404,15 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
             })?;
             Ok(Val::Other)
         }
-        4..=6 => {
+        4 => {
+            let mut b = [0u8; 4];
+            f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
+                path: path.to_string(),
+                source,
+            })?;
+            Ok(Val::Unsigned(u64::from(u32::from_le_bytes(b))))
+        }
+        5 | 6 => {
             let mut b = [0u8; 4];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -328,7 +429,15 @@ fn read_value(f: &mut File, vtype: u32, path: &str) -> Result<Val, GgufMetaError
             }
             Ok(Val::Other)
         }
-        10..=12 => {
+        10 => {
+            let mut b = [0u8; 8];
+            f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
+                path: path.to_string(),
+                source,
+            })?;
+            Ok(Val::Unsigned(u64::from_le_bytes(b)))
+        }
+        11 | 12 => {
             let mut b = [0u8; 8];
             f.read_exact(&mut b).map_err(|source| GgufMetaError::Io {
                 path: path.to_string(),
@@ -355,5 +464,23 @@ mod tests {
         let s = default_supported_arches_for_llama_b9444();
         assert!(s.contains(&"qwen35"));
         assert!(!s.contains(&"dspark"));
+    }
+
+    #[test]
+    fn geometry_from_values_extracts_explicit_and_fallback() {
+        let mut values = BTreeMap::new();
+        values.insert("llama.context_length".to_string(), 8192);
+        values.insert("llama.block_count".to_string(), 32);
+        values.insert("llama.attention.head_count".to_string(), 32);
+        values.insert("llama.attention.head_count_kv".to_string(), 8);
+        values.insert("llama.embedding_length".to_string(), 4096);
+
+        let geom = geometry_from_values("llama", &values).expect("valid geometry");
+        assert_eq!(geom.architecture, "llama");
+        assert_eq!(geom.native_context_tokens, 8192);
+        assert_eq!(geom.block_count, 32);
+        assert_eq!(geom.kv_head_count, 8);
+        assert_eq!(geom.key_length, 128); // 4096 / 32
+        assert_eq!(geom.value_length, 128);
     }
 }

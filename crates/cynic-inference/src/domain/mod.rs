@@ -6,6 +6,7 @@ pub mod chat_session;
 pub mod embedding;
 pub mod gguf_meta;
 pub mod hardware_profile;
+pub mod inference_capacity;
 
 pub mod hf_catalog;
 pub mod inference;
