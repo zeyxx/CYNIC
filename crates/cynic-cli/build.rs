@@ -140,6 +140,21 @@ fn write_index(manifest: &Value) {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    let git_sha = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    let git_sha = if git_sha.is_empty() {
+        "unknown".to_string()
+    } else {
+        git_sha
+    };
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "dev".to_string());
+    println!("cargo:rustc-env=CYNIC_GIT_SHA={git_sha}");
+    println!("cargo:rustc-env=CYNIC_BUILD_PROFILE={profile}");
+
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
         fail("CARGO_MANIFEST_DIR is not set");
     });

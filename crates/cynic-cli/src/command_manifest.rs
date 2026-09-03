@@ -27,6 +27,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic status [--json]",
                     "cynic doctor [--json]",
+                    "cynic version [--json]",
                     "cynic errors [--json]",
                     "cynic advanced",
                     "cynic models list [--json]",

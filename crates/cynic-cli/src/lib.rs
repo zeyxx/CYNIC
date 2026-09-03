@@ -80,6 +80,7 @@ pub mod surface_audit;
 pub mod surface_registry;
 pub mod task_surface;
 pub mod transport_surface;
+pub mod version_surface;
 pub mod workload_observation;
 
 use crate::agent_surface::AgentCommand;
@@ -328,6 +329,11 @@ pub(crate) enum Command {
     Branch {
         #[command(subcommand)]
         command: BranchCommand,
+    },
+    /// Binary source identity: exact git SHA baked at compile time.
+    Version {
+        #[arg(long)]
+        json: bool,
     },
 }
 

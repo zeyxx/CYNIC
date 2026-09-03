@@ -109,6 +109,10 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
             }
         },
         Command::Queue { json } => crate::queue_surface::execute_queue(json),
+        Command::Version { json } => {
+            crate::version_surface::execute_version(json);
+            ExitCode::SUCCESS
+        }
     }
 }
 
