@@ -10,6 +10,8 @@ use crate::transport::{
     TmuxSessionObservation,
 };
 
+use crate::clock::now_unix_ms;
+
 /// Local process adapter for read-only SSH/tmux operator evidence.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalOperatorTransportObserver;
@@ -232,13 +234,6 @@ fn fingerprints(host_keys: &[u8]) -> Vec<SshHostKeyObservation> {
 fn stderr_detail(stderr: &[u8]) -> Option<String> {
     let value = String::from_utf8_lossy(stderr).trim().to_string();
     (!value.is_empty()).then_some(value)
-}
-
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

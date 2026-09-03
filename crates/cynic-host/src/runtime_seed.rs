@@ -1,5 +1,6 @@
 use std::{fs, path::Path};
 
+use crate::clock::now_unix_ms;
 use crate::update_lifecycle::ArgvRunner;
 use cynic_protocol::{
     RUNTIME_SEED_OBSERVATION_SCHEMA, RuntimeSeedObservation, RuntimeSeedRequest,
@@ -241,10 +242,4 @@ pub fn persist_runtime_seed_evidence(
         .and_then(|directory| directory.sync_all())
         .map_err(|error| format!("runtime_seed_evidence_sync_failed:{error}"))?;
     Ok(path)
-}
-
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis() as u64)
 }

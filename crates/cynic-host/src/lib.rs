@@ -19,6 +19,7 @@ pub mod build_evidence;
 pub mod build_proof_compressor;
 pub mod build_runner_harness;
 pub mod build_workflow;
+pub mod clock;
 pub mod command_surface;
 pub mod conformance;
 pub mod pattern_gc_scan;
