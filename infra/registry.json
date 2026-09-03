@@ -612,11 +612,6 @@
           "name": "forgejo-backend",
           "scheme": "http",
           "port": 3000
-        },
-        {
-          "name": "forgejo-api-tls",
-          "scheme": "https",
-          "port": 443
         }
       ],
       "energy_profile": {

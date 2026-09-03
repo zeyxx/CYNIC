@@ -116,3 +116,96 @@ fn fetches_provider_fallback_service_checks() {
             && item.host == "cynic-kernel-primary.synapse.cynic"
     }));
 }
+
+#[test]
+fn resolves_node_with_synapse_or_management_when_local_absent() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("registry.json");
+    fs::write(
+        &path,
+        r#"{
+          "network_policy": {
+            "canonical_service_plane": "synapse",
+            "planes": {
+              "synapse": { "cidr": "10.20.0.0/24", "dns_zone": "synapse.cynic", "canonical": true }
+            }
+          },
+          "nodes": [
+            {
+              "name": "storage",
+              "role": "storage_primary",
+              "status": "active",
+              "network": { "synapse": "10.20.0.103" },
+              "services": [
+                { "name": "surrealdb", "port": 8000 }
+              ]
+            },
+            {
+              "name": "cortex",
+              "role": "cortex_host",
+              "status": "active",
+              "network": { "management": "192.168.100.2" },
+              "services": [
+                { "name": "cynic-kernel", "port": 3030 }
+              ]
+            }
+          ]
+        }"#,
+    )
+    .expect("write registry");
+
+    let adapter = LocalRegistryAdapter::new(path);
+    let checks = adapter
+        .fetch_provider_fallback_service_checks()
+        .expect("checks");
+
+    assert!(checks.iter().any(|item| item.node == "storage"
+        && item.service == "surrealdb"
+        && item.ip == "10.20.0.103"));
+    assert!(checks.iter().any(|item| item.node == "cortex"
+        && item.service == "cynic-kernel"
+        && item.ip == "192.168.100.2"));
+}
+
+#[test]
+fn filters_planned_and_optional_services_from_checks() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("registry.json");
+    fs::write(
+        &path,
+        r#"{
+          "network_policy": {
+            "canonical_service_plane": "synapse",
+            "planes": {
+              "synapse": { "cidr": "10.20.0.0/24", "dns_zone": "synapse.cynic", "canonical": true }
+            }
+          },
+          "nodes": [
+            {
+              "name": "forgejo",
+              "role": "forge_primary",
+              "status": "active",
+              "network": { "synapse": "10.10.10.101" },
+              "services": [
+                { "name": "ssh", "port": 22 },
+                { "name": "forgejo-backend", "port": 3000 },
+                { "name": "forgejo-api-tls", "port": 443, "status": "planned" },
+                { "name": "optional-metrics", "port": 9090, "optional": true }
+              ]
+            }
+          ]
+        }"#,
+    )
+    .expect("write registry");
+
+    let adapter = LocalRegistryAdapter::new(path);
+    let checks = adapter
+        .fetch_provider_fallback_service_checks()
+        .expect("checks");
+
+    assert_eq!(checks.len(), 2);
+    assert!(checks.iter().any(|item| item.service == "ssh"));
+    assert!(checks.iter().any(|item| item.service == "forgejo-backend"));
+    assert!(!checks.iter().any(|item| item.service == "forgejo-api-tls"));
+    assert!(!checks.iter().any(|item| item.service == "optional-metrics"));
+}
