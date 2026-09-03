@@ -69,6 +69,15 @@ pub(crate) enum BuildCommand {
         /// Network mode: offline or online.
         #[arg(long, default_value = "offline")]
         network_mode: String,
+        /// Checkout base dir on the runner for per-SHA checkouts.
+        #[arg(long, default_value = "")]
+        checkout_base: String,
+        /// Source of truth cloned when the runner has no checkout.
+        #[arg(long, default_value = "")]
+        ssot_url: String,
+        /// Optional single package scope. None = workspace.
+        #[arg(long)]
+        package: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -197,8 +206,21 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             host,
             user,
             network_mode,
+            checkout_base,
+            ssot_url,
+            package,
             json,
-        } => trigger_build(&commit, &phase, &host, &user, &network_mode, json),
+        } => trigger_build(
+            &commit,
+            &phase,
+            &host,
+            &user,
+            &network_mode,
+            &checkout_base,
+            &ssot_url,
+            package,
+            json,
+        ),
         BuildCommand::ObserveWorkload {
             workload_id,
             state_root,
@@ -257,6 +279,9 @@ fn trigger_build(
     host: &str,
     user: &str,
     network_mode: &str,
+    checkout_base: &str,
+    ssot_url: &str,
+    package: Option<String>,
     json: bool,
 ) -> Result<(), String> {
     let phase = match phase {
@@ -273,6 +298,17 @@ fn trigger_build(
     let runner = SshBuildRunner {
         host: host.to_string(),
         user: user.to_string(),
+        checkout_base: if checkout_base.is_empty() {
+            cynic_node::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE.to_string()
+        } else {
+            checkout_base.to_string()
+        },
+        ssot_url: if ssot_url.is_empty() {
+            cynic_node::ports::build_runner_adapter::DEFAULT_SSOT_URL.to_string()
+        } else {
+            ssot_url.to_string()
+        },
+        package,
         runner: Box::new(LocalCommandRunner),
     };
     let health = runner.observe_runner();

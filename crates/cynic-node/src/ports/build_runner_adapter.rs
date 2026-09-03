@@ -1,14 +1,15 @@
 //! Adapter: `BuildRunnerPort` over the network build runner via SSH.
 //!
-//! The adapter shells out to the runner's `build-runner-bootstrap` script on
-//! 10.10.10.119 (exactly as the distributed pipeline expects), passing the
-//! exact source commit + target phase. It is disposable; the port contract in
+//! No script runs on the runner. Every remote step is an explicit argv:
+//! `git` pins a per-SHA checkout, then `cargo` (translated from the
+//! canonical protocol action) builds it. Disposable; the port contract in
 //! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
 
 use crate::ports::build_runner::{
-    BuildError, BuildProofBundle, BuildRunnerPort, BuildTrigger, LayerProof, LayerStatus,
-    PipelineStatus, RunnerHealth,
+    BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, LayerProof,
+    LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
 };
+use cynic_protocol::build::canonical_argv_from_build_action;
 
 /// Minimal argv command runner (no shell composition).
 ///
@@ -65,254 +66,407 @@ impl CommandRunner for LocalCommandRunner {
 
 /// `BuildRunnerPort` implemented over SSH to the network runner.
 ///
-/// The SSH host runs `build-runner-bootstrap` (already present on the runner
-/// node) which materializes a clean detached workspace from the exact commit
-/// and emits a `cynic.pipeline_build_proof.v1` JSON on stdout.
+/// No script runs on the runner. Every remote step is an explicit argv:
+/// `git` pins a per-SHA checkout, then `cargo` (translated from the
+/// canonical protocol action) builds it. Proof is constructed from the
+/// remote exit status plus a verified `rev-parse HEAD == source_commit`
+/// read-back — never from a script's stdout.
 pub struct SshBuildRunner {
     pub host: String,
     pub user: String,
+    /// Base dir for per-SHA checkouts, e.g. `/var/lib/cynic/checkouts`.
+    pub checkout_base: String,
+    /// Source of truth cloned when no checkout exists for the SHA.
+    pub ssot_url: String,
+    /// Optional single package scope (`cargo --package`). None = workspace.
+    pub package: Option<String>,
     pub runner: Box<dyn CommandRunner>,
 }
 
+/// Default checkout base on runner nodes.
+pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
+/// Default source of truth for fresh checkouts.
+pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git";
+
 impl SshBuildRunner {
-    /// Build the argv passed to the remote runner.
-    fn build_argv(&self, trigger: &BuildTrigger) -> Vec<String> {
-        vec![
-            "ssh".to_string(),
-            format!("{}@{}", self.user, self.host),
-            "build-runner-bootstrap".to_string(),
-            "--source-commit".to_string(),
-            trigger.source_commit.clone(),
-            "--target-phase".to_string(),
-            trigger.phase.to_string(),
-            "--network-mode".to_string(),
-            trigger.network_mode.as_arg().to_string(),
-            "--yes".to_string(),
-        ]
+    fn ssh_target(&self) -> String {
+        format!("{}@{}", self.user, self.host)
+    }
+
+    fn checkout_dir(&self, sha: &str) -> String {
+        format!("{}/cynic-{}", self.checkout_base, &sha[..12.min(sha.len())])
+    }
+
+    fn action_for_phase(phase: BuildPhase) -> Result<&'static str, BuildError> {
+        match phase {
+            BuildPhase::Check => Ok("cargo:check"),
+            BuildPhase::Build => Ok("cargo:build"),
+            BuildPhase::Activate => Err(BuildError::AdmissionBlocked(
+                "remote activate not supported by trigger phase 1".to_string(),
+            )),
+        }
     }
 }
 
 impl BuildRunnerPort for SshBuildRunner {
     fn trigger(&self, trigger: &BuildTrigger) -> Result<BuildProofBundle, BuildError> {
         trigger.validate()?;
-        let argv_strings = self.build_argv(trigger);
-        let argv: Vec<&str> = argv_strings.iter().map(|s| s.as_str()).collect();
-        let out = self.runner.run(&argv);
+        let action = Self::action_for_phase(trigger.phase)?;
+        let sha = trigger.source_commit.clone();
+        let dir = self.checkout_dir(&sha);
+        let target = self.ssh_target();
+
+        // Step 1: ensure a checkout exists for the SHA.
+        let probe = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "test",
+            "-d",
+            format!("{dir}/.git").as_str(),
+        ]);
+        if let Some(e) = &probe.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        if !probe.success() {
+            let clone = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "clone",
+                self.ssot_url.as_str(),
+                dir.as_str(),
+            ]);
+            if let Some(e) = &clone.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            if !clone.success() {
+                return Err(BuildError::AdmissionBlocked(format!(
+                    "checkout clone failed: {}",
+                    tail(&clone.stderr)
+                )));
+            }
+        }
+
+        // Step 2: pin the checkout to the exact SHA and read it back.
+        let checkout = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "git",
+            "-C",
+            dir.as_str(),
+            "checkout",
+            sha.as_str(),
+        ]);
+        if let Some(e) = &checkout.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        if !checkout.success() {
+            return Err(BuildError::AdmissionBlocked(format!(
+                "checkout pin failed: {}",
+                tail(&checkout.stderr)
+            )));
+        }
+        let head = self.runner.run(&[
+            "ssh",
+            target.as_str(),
+            "git",
+            "-C",
+            dir.as_str(),
+            "rev-parse",
+            "HEAD",
+        ]);
+        if let Some(e) = &head.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        if head.stdout.trim() != sha {
+            return Err(BuildError::ProofUnparseable(
+                "checkout HEAD does not match source commit".to_string(),
+            ));
+        }
+
+        // Step 3: build with the canonical argv for the action.
+        let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
+            BuildError::AdmissionBlocked(format!("no canonical argv for action: {action}"))
+        })?;
+        cargo.push("--manifest-path".to_string());
+        cargo.push(format!("{dir}/Cargo.toml"));
+        if let Some(package) = self.package.as_deref() {
+            cargo.push("--package".to_string());
+            cargo.push(package.to_string());
+            cargo.push("--lib".to_string());
+        }
+        cargo.push("--locked".to_string());
+        if trigger.network_mode == NetworkMode::Offline {
+            cargo.push("--offline".to_string());
+        }
+        let mut argv: Vec<String> = vec![
+            "ssh".to_string(),
+            target,
+            "env".to_string(),
+            "RUST_MIN_STACK=8589934592".to_string(),
+            "CARGO_BUILD_JOBS=1".to_string(),
+            "CARGO_INCREMENTAL=0".to_string(),
+        ];
+        argv.extend(cargo);
+        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let out = self.runner.run(&refs);
         if let Some(e) = &out.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
+        let scope = self
+            .package
+            .clone()
+            .unwrap_or_else(|| "workspace".to_string());
         if !out.success() {
-            return Err(BuildError::AdmissionBlocked(out.stderr.trim().to_string()));
+            return Err(BuildError::AdmissionBlocked(format!(
+                "remote build failed: {}",
+                tail(&out.stderr)
+            )));
         }
-        let proof = parse_proof(&out.stdout)?;
-        if proof.schema != "cynic.pipeline_build_proof.v1" {
-            return Err(BuildError::ProofUnparseable(
-                "unexpected build proof schema".to_string(),
-            ));
-        }
-        if proof.node.trim().is_empty() {
-            return Err(BuildError::ProofUnparseable(
-                "build proof node missing".to_string(),
-            ));
-        }
-        if proof.source_commit != trigger.source_commit {
-            return Err(BuildError::ProofUnparseable(
-                "build proof source commit mismatch".to_string(),
-            ));
-        }
-        Ok(proof)
+        Ok(BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: self.host.clone(),
+            source_commit: sha,
+            action: action.to_string(),
+            status: PipelineStatus::Converged,
+            broken_layer: None,
+            layers: vec![LayerProof {
+                layer: scope,
+                status: LayerStatus::Converged,
+                blocked_by: None,
+            }],
+        })
     }
 
     fn observe_runner(&self) -> RunnerHealth {
-        let ssh_target = format!("{}@{}", self.user, self.host);
-        let argv = vec!["ssh", &ssh_target, "echo", "cynic-build-runner"];
-        let out = self.runner.run(&argv);
-        let reachable = out.success();
+        let target = self.ssh_target();
+        let cargo = self
+            .runner
+            .run(&["ssh", target.as_str(), "cargo", "--version"]);
+        let rustc = self
+            .runner
+            .run(&["ssh", target.as_str(), "rustc", "--version"]);
+        let reachable = cargo.success() && rustc.success();
+        let toolchain = if reachable {
+            rustc.stdout.trim().to_string()
+        } else {
+            "unknown".to_string()
+        };
+        let warm = self
+            .runner
+            .run(&[
+                "ssh",
+                target.as_str(),
+                "test",
+                "-d",
+                self.checkout_base.as_str(),
+            ])
+            .success();
         RunnerHealth {
             node_id: self.host.clone(),
             reachable,
-            cache_warm: reachable, // conservative: assume warm if reachable
-            toolchain: "rustup (per-crate dispatch)".to_string(),
+            cache_warm: reachable && warm,
+            toolchain,
         }
     }
 }
 
-/// Parse a `cynic.pipeline_build_proof.v1` JSON into a [`BuildProofBundle`].
-///
-/// Hand-rolled minimal parse (no serde rename juggling); the proof is small
-/// and stable. We extract the fields we need and leave the rest to the raw
-/// JSON which callers may retain.
-fn parse_proof(json: &str) -> Result<BuildProofBundle, BuildError> {
-    let get = |key: &str| {
-        // crude "key":"value" scanner good enough for the proof shape
-        let pat = format!("\"{key}\":");
-        json.find(&pat).and_then(|i| {
-            let rest = &json[i + pat.len()..];
-            let s = rest.trim_start().strip_prefix('"')?;
-            let end = s.find('"')?;
-            Some(s[..end].to_string())
-        })
-    };
-    let schema = get("schema").unwrap_or_else(|| "unknown".to_string());
-    let node = get("node").unwrap_or_default();
-    let source_commit = get("source_commit").unwrap_or_default();
-    let action = get("action").unwrap_or_default();
-    let status_raw = get("status").unwrap_or_else(|| "blocked".to_string());
-    let status = if status_raw == "converged" {
-        PipelineStatus::Converged
-    } else {
-        PipelineStatus::Blocked
-    };
-    let broken_layer = get("broken_layer").filter(|s| !s.is_empty());
-    // layers: count by scanning "layer":"<crate>" occurrences
-    let mut layers: Vec<LayerProof> = Vec::new();
-    let mut start = 0;
-    while let Some(i) = json[start..].find("\"layer\":") {
-        let abs = start + i;
-        let rest = &json[abs + "\"layer\":".len()..];
-        if let Some(s) = rest.trim_start().strip_prefix('"') {
-            if let Some(end) = s.find('"') {
-                let layer = s[..end].to_string();
-                // status for this layer
-                let status = if rest.contains("\"status\":\"converged\"") {
-                    LayerStatus::Converged
-                } else if rest.contains("\"status\":\"failed\"") {
-                    LayerStatus::Failed
-                } else {
-                    LayerStatus::BlockedUpstream
-                };
-                layers.push(LayerProof {
-                    layer,
-                    status,
-                    blocked_by: None,
-                });
-            }
-        }
-        start = abs + 1;
+/// Last 2 KiB of stderr for error reports — full logs stay on the runner.
+fn tail(stderr: &str) -> String {
+    const LIMIT: usize = 2048;
+    if stderr.len() <= LIMIT {
+        return stderr.trim().to_string();
     }
-    Ok(BuildProofBundle {
-        schema,
-        node,
-        source_commit,
-        action,
-        status,
-        broken_layer,
-        layers,
-    })
+    stderr[stderr.len() - LIMIT..].trim().to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::ports::build_runner::{BuildPhase, NetworkMode};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
 
-    struct FakeCommandRunner {
-        proof: String,
-        reachable: bool,
+    #[derive(Default)]
+    struct Script {
+        responses: VecDeque<CommandOutput>,
+        log: Vec<Vec<String>>,
     }
 
-    impl CommandRunner for FakeCommandRunner {
-        fn run(&self, argv: &[&str]) -> CommandOutput {
-            // observe_runner uses `echo cynic-build-runner`
-            if argv.len() >= 2 && argv[1].ends_with("echo") {
-                return CommandOutput {
-                    exit_code: if self.reachable { Some(0) } else { Some(1) },
-                    stdout: "cynic-build-runner\n".into(),
-                    ..Default::default()
-                };
+    #[derive(Clone, Default)]
+    struct FakeRunner {
+        script: Rc<RefCell<Script>>,
+    }
+
+    impl FakeRunner {
+        fn with(responses: Vec<CommandOutput>) -> Self {
+            Self {
+                script: Rc::new(RefCell::new(Script {
+                    responses: responses.into(),
+                    log: Vec::new(),
+                })),
             }
-            CommandOutput {
-                exit_code: Some(0),
-                stdout: self.proof.clone(),
-                ..Default::default()
-            }
+        }
+
+        fn argv_log(&self) -> Vec<Vec<String>> {
+            self.script.borrow().log.clone()
         }
     }
 
-    fn converged_proof(commit: &str) -> String {
-        format!(
-            "{{\"schema\":\"cynic.pipeline_build_proof.v1\",\"node\":\"runner-1\",\"source_commit\":\"{commit}\",\"action\":\"check\",\"status\":\"converged\",\"broken_layer\":null,\"layers\":[{{\"layer\":\"cynic-protocol\",\"status\":\"converged\"}},{{\"layer\":\"cynic-node\",\"status\":\"converged\"}}]}}"
-        )
+    impl CommandRunner for FakeRunner {
+        fn run(&self, argv: &[&str]) -> CommandOutput {
+            let mut script = self.script.borrow_mut();
+            script
+                .log
+                .push(argv.iter().map(|arg| (*arg).to_string()).collect());
+            script.responses.pop_front().unwrap_or_default()
+        }
     }
 
-    #[test]
-    fn trigger_returns_converged_proof() {
-        let commit = "a".repeat(40);
-        let runner = SshBuildRunner {
-            host: "10.10.10.119".into(),
-            user: "cynic".into(),
-            runner: Box::new(FakeCommandRunner {
-                proof: converged_proof(&commit),
-                reachable: true,
-            }),
-        };
-        let trigger = BuildTrigger {
-            source_commit: commit.clone(),
-            phase: crate::ports::build_runner::BuildPhase::Check,
-            network_mode: crate::ports::build_runner::NetworkMode::Offline,
-        };
-        let proof = runner.trigger(&trigger).expect("trigger should succeed");
-        assert_eq!(proof.source_commit, commit);
-        assert_eq!(proof.status, PipelineStatus::Converged);
-        assert_eq!(proof.layers.len(), 2);
-        assert_eq!(proof.layers[0].layer, "cynic-protocol");
+    fn ok(stdout: &str) -> CommandOutput {
+        CommandOutput {
+            exit_code: Some(0),
+            stdout: stdout.to_string(),
+            ..Default::default()
+        }
     }
 
-    #[test]
-    fn trigger_rejects_proof_for_another_commit() {
-        let requested = "a".repeat(40);
-        let returned = "b".repeat(40);
+    fn fail(stderr: &str) -> CommandOutput {
+        CommandOutput {
+            exit_code: Some(1),
+            stderr: stderr.to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn test_runner(fake: FakeRunner) -> (SshBuildRunner, FakeRunner) {
+        let handle = fake.clone();
         let runner = SshBuildRunner {
             host: "runner-1".into(),
             user: "cynic".into(),
-            runner: Box::new(FakeCommandRunner {
-                proof: converged_proof(&returned),
-                reachable: true,
-            }),
+            checkout_base: "/var/lib/cynic/checkouts".into(),
+            ssot_url: "ssh://example/CYNIC.git".into(),
+            package: Some("cynic-host".into()),
+            runner: Box::new(fake),
         };
-        let trigger = BuildTrigger {
-            source_commit: requested,
+        (runner, handle)
+    }
+
+    fn check_trigger(commit: &str) -> BuildTrigger {
+        BuildTrigger {
+            source_commit: commit.into(),
             phase: BuildPhase::Check,
             network_mode: NetworkMode::Offline,
-        };
+        }
+    }
+
+    #[test]
+    fn trigger_converges_with_existing_checkout() {
+        let commit = "a".repeat(40);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&commit), ok("Checking cynic-host")]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        assert_eq!(proof.source_commit, commit);
+        assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(proof.layers.len(), 1);
+        assert_eq!(proof.layers[0].layer, "cynic-host");
+        let log = handle.argv_log();
+        assert_eq!(log.len(), 4);
+        assert!(log.iter().all(|argv| argv[0] == "ssh"));
+        assert!(
+            log.iter()
+                .all(|argv| !argv.iter().any(|arg| arg.contains("bootstrap")))
+        );
+        let cargo = log.last().unwrap().join(" ");
+        assert!(cargo.contains("cargo check"));
+        assert!(cargo.contains("--manifest-path"));
+        assert!(cargo.contains("--package cynic-host"));
+        assert!(cargo.contains("--offline"));
+    }
+
+    #[test]
+    fn trigger_clones_when_checkout_absent() {
+        let commit = "b".repeat(40);
+        let fake = FakeRunner::with(vec![
+            fail(""),
+            ok("Cloning"),
+            ok(""),
+            ok(&commit),
+            ok("Checking cynic-host"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        assert_eq!(proof.status, PipelineStatus::Converged);
+        let log = handle.argv_log();
+        assert_eq!(log.len(), 5);
+        assert!(log[1].contains(&"git".to_string()));
+        assert!(log[1].contains(&"clone".to_string()));
+        assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
+    }
+
+    #[test]
+    fn trigger_blocks_on_head_mismatch() {
+        let commit = "c".repeat(40);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&"d".repeat(40))]);
+        let (runner, _) = test_runner(fake);
         assert!(matches!(
-            runner.trigger(&trigger),
+            runner.trigger(&check_trigger(&commit)),
             Err(BuildError::ProofUnparseable(message))
-                if message == "build proof source commit mismatch"
+                if message == "checkout HEAD does not match source commit"
+        ));
+    }
+
+    #[test]
+    fn trigger_blocks_on_build_failure() {
+        let commit = "e".repeat(40);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&commit), fail("error[E0432]")]);
+        let (runner, _) = test_runner(fake);
+        assert!(matches!(
+            runner.trigger(&check_trigger(&commit)),
+            Err(BuildError::AdmissionBlocked(message))
+                if message.contains("remote build failed")
         ));
     }
 
     #[test]
     fn trigger_rejects_bad_commit() {
-        let runner = SshBuildRunner {
-            host: "10.10.10.119".into(),
-            user: "cynic".into(),
-            runner: Box::new(FakeCommandRunner {
-                proof: String::new(),
-                reachable: true,
-            }),
-        };
+        let (runner, _) = test_runner(FakeRunner::with(vec![]));
         let trigger = BuildTrigger {
             source_commit: "short".into(),
-            phase: crate::ports::build_runner::BuildPhase::Check,
-            network_mode: crate::ports::build_runner::NetworkMode::Offline,
+            phase: BuildPhase::Check,
+            network_mode: NetworkMode::Offline,
         };
         assert!(runner.trigger(&trigger).is_err());
     }
 
     #[test]
-    fn observe_runner_reports_health() {
-        let runner = SshBuildRunner {
-            host: "10.10.10.119".into(),
-            user: "cynic".into(),
-            runner: Box::new(FakeCommandRunner {
-                proof: String::new(),
-                reachable: true,
-            }),
+    fn trigger_blocks_activate_phase() {
+        let (runner, handle) = test_runner(FakeRunner::with(vec![]));
+        let trigger = BuildTrigger {
+            source_commit: "f".repeat(40),
+            phase: BuildPhase::Activate,
+            network_mode: NetworkMode::Offline,
         };
-        let h = runner.observe_runner();
-        assert!(h.reachable);
-        assert_eq!(h.node_id, "10.10.10.119");
+        assert!(matches!(
+            runner.trigger(&trigger),
+            Err(BuildError::AdmissionBlocked(_))
+        ));
+        assert!(handle.argv_log().is_empty());
+    }
+
+    #[test]
+    fn observe_runner_reports_health() {
+        let fake = FakeRunner::with(vec![ok("cargo 1.95.0"), ok("rustc 1.95.0"), ok("")]);
+        let (runner, _) = test_runner(fake);
+        let health = runner.observe_runner();
+        assert!(health.reachable);
+        assert!(health.cache_warm);
+        assert_eq!(health.toolchain, "rustc 1.95.0");
+        assert_eq!(health.node_id, "runner-1");
     }
 }
