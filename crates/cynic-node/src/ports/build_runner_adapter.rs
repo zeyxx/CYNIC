@@ -262,32 +262,12 @@ impl BuildRunnerPort for SshBuildRunner {
                 self.checkout_base.as_str(),
             ])
             .success();
-        let version = self
-            .runner
-            .run(&["ssh", target.as_str(), "cynic", "version", "--json"]);
-        let binary_sha = if version.success() {
-            parse_binary_sha(&version.stdout)
-        } else {
-            None
-        };
         RunnerHealth {
             node_id: self.host.clone(),
             reachable,
             cache_warm: reachable && warm,
             toolchain,
-            binary_sha,
         }
-    }
-}
-
-/// Source SHA a runner binary reports, if it knows the version surface.
-fn parse_binary_sha(stdout: &str) -> Option<String> {
-    let report: serde_json::Value = serde_json::from_str(stdout).ok()?;
-    let sha = report.get("git_sha")?.as_str()?;
-    if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
-        Some(sha.to_string())
-    } else {
-        None
     }
 }
 
@@ -304,8 +284,9 @@ fn tail(stderr: &str) -> String {
 mod tests {
     use super::*;
 
+    use std::cell::RefCell;
     use std::collections::VecDeque;
-    use std::sync::{Arc, Mutex};
+    use std::rc::Rc;
 
     #[derive(Default)]
     struct Script {
@@ -315,13 +296,13 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct FakeRunner {
-        script: Arc<Mutex<Script>>,
+        script: Rc<RefCell<Script>>,
     }
 
     impl FakeRunner {
         fn with(responses: Vec<CommandOutput>) -> Self {
             Self {
-                script: Arc::new(Mutex::new(Script {
+                script: Rc::new(RefCell::new(Script {
                     responses: responses.into(),
                     log: Vec::new(),
                 })),
@@ -329,13 +310,13 @@ mod tests {
         }
 
         fn argv_log(&self) -> Vec<Vec<String>> {
-            self.script.lock().unwrap().log.clone()
+            self.script.borrow().log.clone()
         }
     }
 
     impl CommandRunner for FakeRunner {
         fn run(&self, argv: &[&str]) -> CommandOutput {
-            let mut script = self.script.lock().unwrap();
+            let mut script = self.script.borrow_mut();
             script
                 .log
                 .push(argv.iter().map(|arg| (*arg).to_string()).collect());
@@ -480,43 +461,12 @@ mod tests {
 
     #[test]
     fn observe_runner_reports_health() {
-        let sha = "a".repeat(40);
-        let version = format!("{{\"schema\":\"cynic.cli.version.v1\",\"git_sha\":\"{sha}\"}}");
-        let fake = FakeRunner::with(vec![
-            ok("cargo 1.95.0"),
-            ok("rustc 1.95.0"),
-            ok(""),
-            ok(&version),
-        ]);
-        let (runner, handle) = test_runner(fake);
+        let fake = FakeRunner::with(vec![ok("cargo 1.95.0"), ok("rustc 1.95.0"), ok("")]);
+        let (runner, _) = test_runner(fake);
         let health = runner.observe_runner();
         assert!(health.reachable);
         assert!(health.cache_warm);
         assert_eq!(health.toolchain, "rustc 1.95.0");
         assert_eq!(health.node_id, "runner-1");
-        assert_eq!(health.binary_sha.as_deref(), Some(sha.as_str()));
-        assert_eq!(handle.argv_log().len(), 4);
-    }
-
-    #[test]
-    fn observe_runner_reports_unknown_sha_for_stale_binary() {
-        let fake = FakeRunner::with(vec![
-            ok("cargo 1.95.0"),
-            ok("rustc 1.95.0"),
-            ok(""),
-            fail("error: unexpected argument '--json' found"),
-        ]);
-        let (runner, _) = test_runner(fake);
-        let health = runner.observe_runner();
-        assert!(health.reachable);
-        assert_eq!(health.binary_sha, None);
-    }
-
-    #[test]
-    fn parse_binary_sha_rejects_malformed_reports() {
-        assert_eq!(parse_binary_sha("not json"), None);
-        assert_eq!(parse_binary_sha("{}"), None);
-        assert_eq!(parse_binary_sha(r#"{"git_sha":"short"}"#), None);
-        assert_eq!(parse_binary_sha(r#"{"git_sha":"unknown"}"#), None);
     }
 }
