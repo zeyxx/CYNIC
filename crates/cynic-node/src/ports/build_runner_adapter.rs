@@ -284,9 +284,8 @@ fn tail(stderr: &str) -> String {
 mod tests {
     use super::*;
 
-    use std::cell::RefCell;
     use std::collections::VecDeque;
-    use std::rc::Rc;
+    use std::sync::{Arc, Mutex};
 
     #[derive(Default)]
     struct Script {
@@ -296,13 +295,13 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct FakeRunner {
-        script: Rc<RefCell<Script>>,
+        script: Arc<Mutex<Script>>,
     }
 
     impl FakeRunner {
         fn with(responses: Vec<CommandOutput>) -> Self {
             Self {
-                script: Rc::new(RefCell::new(Script {
+                script: Arc::new(Mutex::new(Script {
                     responses: responses.into(),
                     log: Vec::new(),
                 })),
@@ -310,13 +309,13 @@ mod tests {
         }
 
         fn argv_log(&self) -> Vec<Vec<String>> {
-            self.script.borrow().log.clone()
+            self.script.lock().expect("read argv log").log.clone()
         }
     }
 
     impl CommandRunner for FakeRunner {
         fn run(&self, argv: &[&str]) -> CommandOutput {
-            let mut script = self.script.borrow_mut();
+            let mut script = self.script.lock().expect("pop scripted response");
             script
                 .log
                 .push(argv.iter().map(|arg| (*arg).to_string()).collect());
