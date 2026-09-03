@@ -95,6 +95,27 @@ where
         if evidence_missing {
             continue;
         }
+        match store.read(&workload_id) {
+            Ok(Some(read_back)) if read_back == durable => {}
+            Ok(Some(read_back)) => {
+                blockers.push(format!(
+                    "terminal_workload_read_back_mismatch:{workload_id}:{}",
+                    read_back.record_digest
+                ));
+                continue;
+            }
+            Ok(None) => {
+                blockers.push(format!("terminal_workload_read_back_missing:{workload_id}"));
+                continue;
+            }
+            Err(error) => {
+                blockers.push(format!(
+                    "terminal_workload_read_back_invalid:{workload_id}:{}",
+                    error.code
+                ));
+                continue;
+            }
+        }
         let publication = AgentWorkloadCompletionPublication {
             schema: AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: node_id.to_string(),
