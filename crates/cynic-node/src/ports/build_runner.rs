@@ -176,6 +176,10 @@ pub struct RunnerHealth {
     /// Whether the runner has a warm incremental cache for the requested commit.
     pub cache_warm: bool,
     pub toolchain: String,
+    /// Source SHA the runner binary reports via `cynic version --json`.
+    /// None when the runner binary predates the version surface or the
+    /// query fails: staleness unknown, never assumed fresh.
+    pub binary_sha: Option<String>,
 }
 
 /// Errors from the build runner port.
