@@ -51,71 +51,67 @@ mandat → workload → claim → lease → workspace → action → artifact �
 ### Vertical 2 — Git Event Pipeline
 
 **Owner** : A1 build_runner
-**Status** : Prêt pour review, non commité
+**Status** : Fermé 2026-09-03 (branche agent/hermes/host-proto-clean)
 
 | Capacité | Fichier | Statut |
 |----------|---------|--------|
-| Git pin au SHA | `build_runner_adapter.rs` | ✅ Read-back SHA |
-| Cargo via traducteur | `build_surface.rs` | ✅ `make:check`/`make:build` |
-| Preuve sortie | `build_runner_adapter.rs` | ✅ Code de sortie + logs |
-| Tests scriptés | `build_runner_adapter.rs` (tests) | ✅ 7 cas |
-| **MANQUANT** : Webhook HMAC | `forgejo_webhook_server.rs` | ❌ Pas de vérif signature |
-| **MANQUANT** | `forgejo_webhook.rs` | ❌ Pas de secret partagé |
+| Git pin au SHA | `build_runner_adapter.rs` | ✅ Read-back SHA (`fa898703`) |
+| Cargo via traducteur | `build_runner_adapter.rs` | ✅ `cargo:check`/`cargo:build` + preuve sortie |
+| Tests scriptés | `build_runner_adapter.rs` (tests) | ✅ 9 cas (`e64ded5d`, `35ca17a7`) |
+| Webhook HMAC | `forgejo_webhook_server.rs` | ✅ Vérif si secret + passthrough (`10cb24b1`) |
+| Secret partagé | `forgejo_webhook.rs` + CLI | ✅ Env `CYNIC_WEBHOOK_SECRET`, jamais en flag |
 
-**Preuve** : node lib vert local, fmt propre. CLI à prouver sur builder.
+**Preuve** : trigger live vert sur builder au SHA apparié, preuve JSON au commit exact.
 
 ---
 
 ### Vertical 3 — BuildRunner
 
 **Owner** : A1 build_runner
-**Status** : Partiel (trigger SSH fonctionnel, admission incomplète)
+**Status** : Trigger fermé 2026-09-03 ; admission restante
 
 | Capacité | Fichier | Statut |
 |----------|---------|--------|
-| Trigger SSH | `build_runner_adapter.rs` | ✅ argv typé |
-| HMAC sign/verify | `build_runner_adapter.rs` | ✅ `HmacKey` |
-| Runner preflight | `build_runner_adapter.rs` | ✅ `RunnerPreflight` |
+| Trigger SSH | `build_runner_adapter.rs` | ✅ argv typé, sans script (`fa898703`) |
+| SHA distant observé | `build_runner.rs` | ✅ `binary_sha` + parse strict (`35ca17a7`) |
 | **MANQUANT** : Lease guard | `build_workflow.rs` | ❌ `run_build` exige `kernel_endpoint` + `snapshot` |
-| **MANQUANT** | `build_surface.rs` | ❌ `run_build` bloque sans guard |
 | **MANQUANT** : Source snapshot | `build_surface.rs` | ❌ Aucun snapshot observé |
 
-**Preuve** : trigger SSH émis mais bloqué en admission.
+**Preuve** : trigger live vert. Admission (bail + enregistrement) = prochaine slice.
 
 ---
 
 ### Vertical 4 — Artifact Lifecycle
 
-**Owner** : À assigner
-**Status** : Manquant
+**Owner** : A1 build_runner (fermé 2026-09-03)
+**Status** : Fermé sauf registre
 
 | Capacité | Fichier | Statut |
 |----------|---------|--------|
 | Digest lu | `build.rs:303` | ✅ `fs::read` digest |
-| **MANQUANT** : Install vers chemin canonique | `build.rs` | ❌ Pas de copy/install |
-| **MANQUANT** | `build_surface.rs:46` | ❌ Défaut `target/` |
-| **MANQUANT** | `build_surface.rs` | ❌ `Activate` = `build-release` sans install |
-| **MANQUANT** : Rollback | — | ❌ Aucun chemin de rollback |
-| **MANQUANT** : Registry | `build_surface.rs:438` | ❌ `serve_webhook` ignore `_registry` |
+| Install vers chemin canonique | `build.rs` | ✅ `install_artifact` + flag `--install-path` (`b8ebdd53`) |
+| Rollback | `build.rs` | ✅ Backup `.prev` + restauration sur écart |
+| Registry | `build_surface.rs:438` | ⚠️ `serve_webhook` ne prend plus `_registry` : forward vers node qui admet |
 
-**Preuve** : artifact abandonné dans `target/`, jamais installé.
+**Preuve** : 9 tests build verts dont 3 install, au SHA apparié.
 
 ---
 
 ### Vertical 5 — Runtime Deployment
 
-**Owner** : À assigner
-**Status** : Manquant
+**Owner** : A1 build_runner (partiel 2026-09-03)
+**Status** : Lecture fermée, imposition restante
 
 | Capacité | Fichier | Statut |
 |----------|---------|--------|
 | SHA embarqué (kernel) | `cynic-kernel/build.rs:33` | ✅ `CYNIC_GIT_SHA` |
-| **MANQUANT** : SHA embarqué (cli/host) | `cynic-cli/src/main.rs` | ❌ Aucune surface version |
-| **MANQUANT** | `cynic-host/src/build.rs` | ❌ Pas de const SHA |
-| **MANQUANT** : Gate de fraîcheur | — | ❌ Aucune comparaison SHA local vs distant |
-| **MANQUANT** : Rollback runtime | — | ❌ Aucun chemin de rollback |
+| SHA embarqué (cli) | `cynic-cli/build.rs` + `version_surface.rs` | ✅ `cynic version --json` (`489f1138`) |
+| SHA distant observé | `build_runner_adapter.rs` | ✅ `binary_sha` (`35ca17a7`) |
+| Binaire canonique | `/var/lib/cynic/bin/cynic` | ✅ Principal cynic, symlink, rollback `.prev` (deploy manuel prouvé) |
+| **MANQUANT** : Gate de fraîcheur | — | ❌ Écart SHA jamais imposé |
+| **MANQUANT** : Rollback runtime auto | — | ❌ `.prev` manuel seul |
 
-**Preuve** : `cynic version` inexistant. Seul kernel expose SHA via REST.
+**Preuve** : binaire builder rapporte le SHA tip exact, digest apparié.
 
 ---
 
@@ -135,26 +131,29 @@ Règle : aucun dashboard, script, ou journal parallèle ne devient autorité.
 
 ## Merge order (éviter les conflits)
 
-1. **I1 industrialisation** (base) — déjà push sur main via `ac7e304b`
-2. **A1 build_runner** — PR depuis `agent/hermes/buildrunner-closure`
-3. **Webhook/Artifact audit** — PR avec 6 manquants comme blockers
+1. **Cette branche** (`agent/hermes/host-proto-clean`, 29 ahead / 0 behind
+   main au 2026-09-03) porte I1 + A1 + webhook + version + install.
+   0 behind : pas de rebase requis.
+2. **Résiduel bloquant** : `make check` rouge sur 3 erreurs kernel
+   étrangères (`dexscreener.rs:37` E0308 du commit intel `ebf231af`,
+   `probe/hardware.rs:21-22` E0609 du commit kernel `b8784c0a`).
+   Scope protocol/host/node/cli prouvé vert par slice au SHA apparié.
+3. **Tranche étrangère à bord** (`buildrunner-closure`, 5 commits) :
+   compile vert sur builder, comportement non relu. Merger avec
+   acceptation écrite ou re-review.
 
-Fichiers de conflit potentiels :
-- `crates/cynic-cli/src/lib.rs` (tous les 3 modifient)
-- `crates/cynic-host/src/build_surface.rs` (A1 + Webhook)
-- `crates/cynic-host/src/forgejo_webhook_server.rs` (Webhook audit)
-
-Résolution : rebase contre main courant, re-claim si scope modifié.
+Fichiers de conflit potentiels : aucun (0 behind). Risque restant :
+dette kernel en vol au moment du merge.
 
 ---
 
 ## Prochaines étapes
 
-1. **I1** : Merger `agent/hermes/host-proto-clean` sur main (PR)
-2. **A1** : Commit + push `agent/hermes/buildrunner-closure`, ouvrir PR
-3. **Webhook audit** : Ouvrir PR avec les 6 manquants comme blockers explicites
-4. **Factory** : Activer lease fencing sur builder (claim avant build, release après proof)
-5. **V1 complète** : Workspace/target lifecycle → rétention → GC corrélé workload
+1. **Gate** : kernel vert par ses owners, ou résiduel explicite accepté.
+2. **Re-review** : tranche `buildrunner-closure` comportementale.
+3. **Merge explicite** de cette branche vers main (décision opérateur).
+4. **V1 complète** : admission sur trigger (bail + enregistrement),
+   gate de fraîcheur imposée, GC corrélé workload, webhook live.
 
 ---
 
