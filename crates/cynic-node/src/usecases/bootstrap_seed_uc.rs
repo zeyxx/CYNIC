@@ -327,6 +327,7 @@ mod tests {
                 exit_code: Some(0),
                 stdout: "ok".to_string(),
                 stderr: String::new(),
+                peak_memory_bytes: None,
             },
         )];
 
@@ -375,11 +376,13 @@ mod tests {
                 exit_code: Some(0),
                 stdout: String::new(),
                 stderr: String::new(),
+                peak_memory_bytes: None,
             }),
             Ok(crate::ports::build_scheduler_port::BuildExecutionReadBack {
                 exit_code: Some(1),
                 stdout: String::new(),
                 stderr: "boom".to_string(),
+                peak_memory_bytes: None,
             }),
         ];
 
@@ -510,6 +513,7 @@ mod tests {
             exit_code,
             stdout: String::new(),
             stderr: String::new(),
+            peak_memory_bytes: None,
         }
     }
 

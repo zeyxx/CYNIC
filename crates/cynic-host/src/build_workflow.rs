@@ -8,6 +8,7 @@
 //!
 //! The runtime itself is testable by injecting fake adapters.
 
+use cynic_protocol::LeaseGuard;
 use cynic_protocol::build::BuildRecipe;
 use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::source_control::SourceSnapshot;
@@ -20,6 +21,9 @@ use crate::update_lifecycle::ArgvRunner;
 pub struct BuildWorkflowConfig<'a> {
     pub observation_adapter: &'a dyn BuildRunnerObservationPort,
     pub lease_adapter: &'a dyn BuildLeaseVerificationPort,
+    /// Guard issued by the canonical workload claim/lease path.
+    /// None is an explicit blocked state, never a request to synthesize one.
+    pub lease_guard: Option<LeaseGuard>,
     pub argv_runner: &'a dyn ArgvRunner,
     pub source_snapshot: SourceSnapshot,
     pub recipe: BuildRecipe,
@@ -53,14 +57,17 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
         .observe()
         .map_err(|e| format!("observation failed: {e}"))?;
 
-    // Step 2: Verify lease
-    let guard = cynic_protocol::LeaseGuard {
-        agent_id: "local".to_string(),
-        target: format!("build-runner:{}", observation.node_id),
-        lease_id: format!("lease-{}", config.now_unix_ms),
-        fencing_token: 1,
+    // Step 2: Verify the caller-provided lease guard. Missing authority blocks
+    // before the pure workflow can produce an executable decision.
+    let Some(guard) = config.lease_guard.as_ref() else {
+        return Ok(BuildWorkflowResult::Blocked {
+            input_blockers: Vec::new(),
+            runner_blockers: Vec::new(),
+            recipe_blockers: Vec::new(),
+            grant_blockers: vec!["build_lease_guard_missing".to_string()],
+        });
     };
-    let lease_verification = config.lease_adapter.verify(&guard);
+    let lease_verification = config.lease_adapter.verify(guard);
 
     // Step 3: Run pure workflow decision
     let workflow = BuildWorkflow::new(
@@ -242,6 +249,12 @@ mod tests {
         let config = BuildWorkflowConfig {
             observation_adapter: &observation_adapter,
             lease_adapter: &lease_adapter,
+            lease_guard: Some(LeaseGuard {
+                agent_id: "local".to_string(),
+                target: "build-runner:builder-1".to_string(),
+                lease_id: "lease-1".to_string(),
+                fencing_token: 1,
+            }),
             argv_runner: &argv_runner,
             source_snapshot: dirty_snapshot,
             recipe: valid_recipe(),
@@ -281,6 +294,12 @@ mod tests {
         let config = BuildWorkflowConfig {
             observation_adapter: &observation_adapter,
             lease_adapter: &lease_adapter,
+            lease_guard: Some(LeaseGuard {
+                agent_id: "local".to_string(),
+                target: "build-runner:builder-1".to_string(),
+                lease_id: "lease-1".to_string(),
+                fencing_token: 1,
+            }),
             argv_runner: &argv_runner,
             source_snapshot: valid_source_snapshot(),
             recipe: valid_recipe(),

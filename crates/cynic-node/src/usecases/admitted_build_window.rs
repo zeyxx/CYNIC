@@ -137,6 +137,7 @@ mod tests {
                     exit_code: Some(0),
                     stdout: "build ok".into(),
                     stderr: String::new(),
+                    peak_memory_bytes: None,
                 })
             })
         }

@@ -8,9 +8,8 @@ use std::time::{Duration, Instant};
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
-    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus,
-    AgentScope, AgentWorkloadState, DurableAgentWorkloadRecord, MutationAdmission,
-    admit_workload_mutation, canonical_build_action_from_argv,
+    AgentCompletionStatus, AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload,
+    canonical_build_action_from_argv,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -111,36 +110,21 @@ async fn execute_claimed(
         .map(|claim| claim.guard.clone())
         .ok_or_else(|| "build_scheduler_claim_missing".to_string())?;
 
-    // Canonical admission gate — verify the citizen has authority to execute
-    let citizen = AgentCitizenshipRecord {
-        schema: AGENT_CITIZENSHIP_SCHEMA,
-        agent_id: claimed.record.envelope.delegation.agent_id.clone(),
-        scope: AgentScope::Crate,
-        budgets: AgentBudgets {
-            actions: 1000,
-            wall_seconds: 3600,
-        },
-        residual_risk: None,
-        evidence: None,
-    };
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let admission = admit_workload_mutation(
-        &citizen,
-        Some(&AgentScope::Crate),
-        &AgentBudgets {
-            actions: 1,
-            wall_seconds: 600,
-        },
-        &AgentScope::Crate,
-        true,
-        claimed.record.claim.as_ref().map(|c| c.expires_at_ms),
-        now_ms,
-    );
-    if let MutationAdmission::Refused { codes } = &admission {
-        return Err(format!("admission_gate_refused:{:?}", codes));
+    let admission = admit_agent_workload(&claimed.record.envelope);
+    if !admission.admitted() {
+        return Err(format!("admission_gate_refused:{:?}", admission));
+    }
+    if claimed
+        .record
+        .claim
+        .as_ref()
+        .is_none_or(|claim| claim.expires_at_ms <= now_ms)
+    {
+        return Err("admission_gate_refused:claim_expired".to_string());
     }
 
     let started = Instant::now();
@@ -199,7 +183,11 @@ async fn execute_claimed(
     }
     let evidence_store =
         LocalContentAddressedEvidenceStore::new(control.agent_workload_state_root.join("evidence"));
-    let (status, evidence_refs, unknowns) = match execution {
+    let memory_observation_unknown = matches!(
+        &execution,
+        Ok(read_back) if read_back.peak_memory_bytes.is_none()
+    );
+    let (status, evidence_refs, mut unknowns) = match execution {
         Ok(read_back) if read_back.exit_code == Some(0) => {
             let evidence = evidence::persist_success_proofs(
                 &control.node_id,
@@ -313,6 +301,9 @@ async fn execute_claimed(
             (AgentCompletionStatus::Blocked, Vec::new(), vec![unknown])
         }
     };
+    if memory_observation_unknown {
+        unknowns.push("build_peak_memory_unobserved".to_string());
+    }
     execution_cancel.cancel();
     let renewal_count = monitor.await.unwrap_or(0);
     // Close the cpu measurement scope: sample after the build, delta into

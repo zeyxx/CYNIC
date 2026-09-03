@@ -3,6 +3,8 @@
 //! Domain must not hard-wire `Command::new("cynic")`. CLI injects
 //! [`LocalArgvRunner`]; tests inject fakes.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +82,23 @@ impl ArgvRunner for LocalArgvRunner {
 #[derive(Debug, Default, Clone)]
 pub struct MapArgvRunner {
     pub responses: Vec<(Vec<String>, ArgvOutput)>,
+}
+
+impl MapArgvRunner {
+    /// Build a test runner from shell-like command keys.
+    pub fn new(responses: HashMap<String, ArgvOutput>) -> Self {
+        Self {
+            responses: responses
+                .into_iter()
+                .map(|(command, output)| {
+                    (
+                        command.split_whitespace().map(str::to_string).collect(),
+                        output,
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 impl ArgvRunner for MapArgvRunner {

@@ -10,7 +10,6 @@ use clap::Subcommand;
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::LocalArgvRunner;
-use cynic_protocol::SourceSnapshot;
 use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
@@ -38,10 +37,16 @@ pub(crate) enum BuildCommand {
         /// Apply the build (execute if admitted)
         #[arg(long)]
         apply: bool,
+        /// Explicit lease guard JSON produced by the claim/lease path.
+        #[arg(long)]
+        lease_guard: Option<String>,
         /// Artifact path for read-back proof
         #[arg(long, default_value = "target/release/cynic")]
         artifact_path: String,
-        /// Source commit hash
+        /// Observed source snapshot JSON proof. Without it, source trust remains unknown and execution blocks.
+        #[arg(long)]
+        source_snapshot: Option<String>,
+        /// Source commit hash (must match the observed snapshot when both are supplied)
         #[arg(long)]
         source_commit: Option<String>,
     },
@@ -101,6 +106,9 @@ pub(crate) enum BuildCommand {
         /// SSH target for the build runner (e.g. cynic@10.10.10.119).
         #[arg(long, default_value = "cynic@10.10.10.119")]
         runner: String,
+        /// Apply builds after webhook admission. Without this flag, only a plan is produced.
+        #[arg(long)]
+        apply: bool,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -144,7 +152,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             action,
             crates,
             apply,
+            lease_guard,
             artifact_path,
+            source_snapshot,
             source_commit,
         } => run_build(
             json,
@@ -153,7 +163,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             action,
             crates,
             apply,
+            lease_guard,
             artifact_path,
+            source_snapshot,
             source_commit,
         ),
         BuildCommand::ObserveWorkload {
@@ -177,8 +189,17 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             registry,
             kernel_endpoint,
             runner,
+            apply,
             json,
-        } => serve_webhook(&bind, &phase, &registry, kernel_endpoint, &runner, json),
+        } => serve_webhook(
+            &bind,
+            &phase,
+            &registry,
+            kernel_endpoint,
+            &runner,
+            apply,
+            json,
+        ),
         BuildCommand::ProvisionCredentials {
             registry,
             secrets_dir,
@@ -186,7 +207,11 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             json,
         } => provision_credentials(&registry, &secrets_dir, apply, json),
         BuildCommand::Discover { json, kind, target } => {
-            let code = crate::build_discovery_surface::execute_build_discover(json, &kind, target.as_deref());
+            let code = crate::build_discovery_surface::execute_build_discover(
+                json,
+                &kind,
+                target.as_deref(),
+            );
             return match code {
                 c if c == std::process::ExitCode::SUCCESS => Ok(()),
                 _ => Err("build discover failed".to_string()),
@@ -202,7 +227,9 @@ fn run_build(
     action: String,
     crates: Option<String>,
     apply: bool,
+    lease_guard_path: Option<String>,
     artifact_path: String,
+    source_snapshot_path: Option<String>,
     source_commit: Option<String>,
 ) -> Result<(), String> {
     let observation_adapter = JsonBuildRunnerObservationAdapter::new(&observation_path);
@@ -240,32 +267,46 @@ fn run_build(
         evidence_refs: vec![],
     };
 
-    // Step 4: Build source snapshot
-    let source_commit = source_commit.unwrap_or_default();
-    let source_snapshot = SourceSnapshot {
-        branch: Some("main".into()),
-        head_commit: Some(source_commit.clone()),
-        upstream: Some("forgejo/main".into()),
-        staged_paths: vec![],
-        unstaged_paths: vec![],
-        untracked_paths: vec![],
-        unmerged_paths: vec![],
-        validation: cynic_protocol::SecurityEvidenceState::Proven,
-        sovereign_transport_identity: cynic_protocol::SecurityEvidenceState::Proven,
-        sovereign_authentication: cynic_protocol::SecurityEvidenceState::Proven,
-        remote_commit_matches: cynic_protocol::SecurityEvidenceState::Proven,
-        build_input_digest: None,
-        evidence_refs: vec!["cli-input".into()],
+    // Source trust must come from an observed, serialized snapshot. A locally
+    // fabricated `Proven` snapshot would turn missing provenance into authority.
+    let source_snapshot = match source_snapshot_path {
+        Some(path) => std::fs::read_to_string(&path)
+            .map_err(|error| format!("read source snapshot {path}: {error}"))
+            .and_then(|raw| {
+                serde_json::from_str::<cynic_protocol::SourceSnapshot>(&raw)
+                    .map_err(|error| format!("decode source snapshot {path}: {error}"))
+            })?,
+        None => {
+            return Err("observed source snapshot required (--source-snapshot)".to_string());
+        }
     };
+    if let Some(expected_commit) = source_commit.as_deref()
+        && source_snapshot.head_commit.as_deref() != Some(expected_commit)
+    {
+        return Err("source commit does not match observed source snapshot".to_string());
+    }
 
     // Step 5: Run workflow — translate --action to argv via the canonical translator.
     // No silent fallback: an unknown action is a operator error, not a default.
     let argv = canonical_argv_from_build_action(&action)
         .ok_or_else(|| format!("unknown build action: {action}"))?;
 
+    let lease_guard = match lease_guard_path {
+        Some(path) => Some(
+            std::fs::read_to_string(&path)
+                .map_err(|error| format!("read lease guard {path}: {error}"))
+                .and_then(|raw| {
+                    serde_json::from_str::<cynic_protocol::LeaseGuard>(&raw)
+                        .map_err(|error| format!("decode lease guard {path}: {error}"))
+                })?,
+        ),
+        None => None,
+    };
+
     let config = BuildWorkflowConfig {
         observation_adapter: &observation_adapter,
         lease_adapter: &lease_adapter,
+        lease_guard,
         argv_runner: &runner,
         source_snapshot,
         recipe,
@@ -324,6 +365,7 @@ fn serve_webhook(
     _registry: &str,
     _kernel_endpoint: Option<String>,
     runner: &str,
+    apply: bool,
     json: bool,
 ) -> Result<(), String> {
     use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
@@ -332,7 +374,7 @@ fn serve_webhook(
         bind: bind.to_string(),
         phase: _phase.to_string(),
         runner_target: runner.to_string(),
-        apply: true, // Autonomous: auto-apply builds triggered by webhook
+        apply,
         registry_path: _registry.to_string(),
     };
 
@@ -345,7 +387,7 @@ fn serve_webhook(
         "bind": bind,
         "runner_target": runner,
         "phase": _phase,
-        "autonomous_apply": true,
+        "apply": apply,
     });
 
     if json {

@@ -18,11 +18,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use cynic_protocol::{
-    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
     AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
     BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_build_mutation,
-    compose_build_agent_workload,
+    BuildSourceReference, admit_agent_workload, compose_build_agent_workload,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -35,6 +33,8 @@ pub struct BuilderHttpConfig {
     pub state_root: String,
     pub workspace_root: String,
     pub node_id: String,
+    /// Enrollment-owned subject that receives builder workloads.
+    pub agent_id: String,
     pub webhook_secret: Option<String>,
     /// Registry-declared repository the webhook builds (no hardcoded repo).
     pub repository_id: String,
@@ -190,57 +190,13 @@ async fn webhook_forgejo(
         ));
     }
 
-    // Canonical admission gate — build mutation requires:
-    // - A valid citizenship record
-    // - A held claim containing the target scope
-    // - Sufficient budget
-    // - Matching build role
-    let desired_role = "build_runner";
-    let citizen = AgentCitizenshipRecord {
-        schema: AGENT_CITIZENSHIP_SCHEMA,
-        agent_id: payload
-            .pusher
-            .as_ref()
-            .map(|p| p.name.clone())
-            .unwrap_or_else(|| "forgejo".into()),
-        scope: AgentScope::Crate,
-        budgets: AgentBudgets {
-            actions: 100,
-            wall_seconds: 3600,
-        },
-        residual_risk: None,
-        evidence: Some(SecurityEvidenceState::Proven),
-    };
-    let admission = admit_build_mutation(
-        &citizen,
-        Some(&AgentScope::Crate),
-        &AgentBudgets {
-            actions: 1,
-            wall_seconds: 60,
-        },
-        &AgentScope::Crate,
-        true,
-        desired_role,
-        desired_role,
-    );
-    if let MutationAdmission::Refused { codes } = &admission {
-        return Err((
-            StatusCode::FORBIDDEN,
-            format!("admission refused: {:?}", codes),
-        ));
-    }
-
     let workload_id = format!("forgejo-{}", Uuid::new_v4());
     let accepted_at_ms = Utc::now().timestamp_millis();
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: workload_id.clone(),
-        requested_by: payload
-            .pusher
-            .as_ref()
-            .map(|p| p.name.clone())
-            .unwrap_or_else(|| "forgejo".into()),
+        requested_by: state.config.agent_id.clone(),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
@@ -273,6 +229,13 @@ async fn webhook_forgejo(
             format!("composition failed: {:?}", blockers),
         )
     })?;
+    let admission = admit_agent_workload(&envelope);
+    if !admission.admitted() {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("workload admission refused: {:?}", admission),
+        ));
+    }
 
     let record = AgentWorkloadRecord {
         schema: "cynic.agent_workload_record.v1".into(),

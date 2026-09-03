@@ -23,6 +23,12 @@ pub(super) fn persist_success_proofs(
     for proof in expected_proofs {
         let payload = match proof.as_str() {
             "signed_release_basket_read_back" => continue,
+            "build_grant_read_back" => serde_json::json!({
+                "schema": "cynic.build.grant_read_back.v1",
+                "workload_id": workload_id,
+                "source_commit": workspace.source_commit,
+                "grant_provenance": provenance,
+            }),
             "canonical_gate_report" => serde_json::json!({
                 "schema": "cynic.build.canonical_gate_read_back.v1",
                 "source_commit": workspace.source_commit,
@@ -170,4 +176,56 @@ fn release_artifacts(workspace: &Path) -> Result<BTreeMap<String, String>, Strin
         );
     }
     Ok(artifacts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Default)]
+    struct MemoryEvidenceStore(std::sync::Mutex<Vec<serde_json::Value>>);
+
+    impl ContentAddressedEvidenceStorePort for MemoryEvidenceStore {
+        fn persist(&self, envelope: &cynic_protocol::EvidenceEnvelope) -> Result<String, String> {
+            self.0.lock().unwrap().push(envelope.payload.clone());
+            Ok("memory:evidence".to_string())
+        }
+    }
+
+    #[test]
+    fn grant_read_back_is_a_supported_completion_proof() {
+        let workspace = BuildWorkspaceReadBack {
+            workspace_root: std::path::PathBuf::from("/workspace"),
+            source_commit: "a".repeat(40),
+            created: true,
+        };
+        let execution = BuildExecutionReadBack {
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+            peak_memory_bytes: None,
+        };
+        let store = MemoryEvidenceStore::default();
+        let refs = persist_success_proofs(
+            "node-1",
+            "workload-1",
+            &[cynic_protocol::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            &workspace,
+            &execution,
+            &["make".to_string(), "check".to_string()],
+            1,
+            &["grant:file".to_string()],
+            &store,
+        )
+        .expect("grant read-back proof must be supported");
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].kind, cynic_protocol::BUILD_GRANT_READ_BACK_PROOF);
+        assert_eq!(refs[0].subject, "workload-1");
+        assert!(!refs[0].digest.is_empty());
+        assert_eq!(store.0.lock().unwrap().len(), 1);
+        assert_eq!(
+            store.0.lock().unwrap()[0]["grant_provenance"][0],
+            "grant:file"
+        );
+    }
 }

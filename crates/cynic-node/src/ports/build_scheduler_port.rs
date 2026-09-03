@@ -32,6 +32,10 @@ pub struct BuildExecutionReadBack {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    /// Peak resident memory observed for the child process, in bytes.
+    /// None means the process memory could not be observed.
+    #[serde(default)]
+    pub peak_memory_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

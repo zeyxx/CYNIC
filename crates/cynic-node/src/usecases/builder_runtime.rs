@@ -12,6 +12,7 @@ pub struct BuilderRuntimeConfig {
     pub state_root: String,
     pub workspace_root: String,
     pub node_id: String,
+    pub agent_id: String,
     pub webhook_secret: Option<String>,
     /// Registry-declared repository the webhook builds.
     pub repository_id: String,
@@ -30,6 +31,7 @@ pub(crate) fn builder_runtime_config_from(
             .to_string(),
         workspace_root: node_config.workspace_root.to_string_lossy().to_string(),
         node_id: node_config.node_id.clone(),
+        agent_id: node_config.enrollment_seed_id.clone(),
         webhook_secret: std::env::var("CYNIC_FORGEJO_WEBHOOK_SECRET").ok(),
         // Repository identity comes from the declared build-scheduler config;
         // the transport URI is derived from the registry-declared repository
@@ -60,6 +62,7 @@ pub async fn run_builder_runtime(
         state_root: config.state_root,
         workspace_root: config.workspace_root,
         node_id: config.node_id,
+        agent_id: config.agent_id,
         webhook_secret: config.webhook_secret,
         repository_id: config.repository_id,
         transport_uri: config.transport_uri,

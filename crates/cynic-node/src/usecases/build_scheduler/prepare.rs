@@ -149,6 +149,7 @@ pub(super) async fn prepare(
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
+        grant.evidence_ref.clone(),
         source_layout.evidence_digest,
     ]);
     Ok(PreparedBuild {
