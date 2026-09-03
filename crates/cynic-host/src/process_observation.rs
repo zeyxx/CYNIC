@@ -56,6 +56,8 @@ pub fn capture_command_in_dir(
     args: &[&str],
     current_dir: Option<&Path>,
 ) -> Result<CommandCapture, String> {
+    use std::io::Read;
+
     let mut process = Command::new(command);
     process.args(args);
     process.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -65,35 +67,53 @@ pub fn capture_command_in_dir(
 
     let mut child = process.spawn().map_err(|error| error.to_string())?;
     let deadline = Instant::now() + command_timeout();
+
+    let stdout = child.stdout.take().ok_or("stdout pipe missing")?;
+    let stderr = child.stderr.take().ok_or("stderr pipe missing")?;
+
+    let stdout_reader = std::thread::spawn(move || {
+        let mut r = stdout;
+        let mut buf = Vec::new();
+        let _ = r.read_to_end(&mut buf);
+        buf
+    });
+    let stderr_reader = std::thread::spawn(move || {
+        let mut r = stderr;
+        let mut buf = Vec::new();
+        let _ = r.read_to_end(&mut buf);
+        buf
+    });
+
     loop {
         if child
             .try_wait()
             .map_err(|error| error.to_string())?
             .is_some()
         {
-            let output = child
-                .wait_with_output()
-                .map_err(|error| error.to_string())?;
+            let stdout_bytes = stdout_reader.join().unwrap_or_default();
+            let stderr_bytes = stderr_reader.join().unwrap_or_default();
+            let output = child.wait_with_output().ok();
+            let exit_code = output.as_ref().and_then(|o| o.status.code());
             return Ok(CommandCapture {
-                success: output.status.success(),
-                exit_code: output.status.code(),
-                stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
-                stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+                success: output.as_ref().map(|o| o.status.success()).unwrap_or(false),
+                exit_code,
+                stdout: String::from_utf8_lossy(&stdout_bytes).trim().to_string(),
+                stderr: String::from_utf8_lossy(&stderr_bytes).trim().to_string(),
             });
         }
         if Instant::now() >= deadline {
             let _ = child.kill();
-            let output = child
-                .wait_with_output()
-                .map_err(|error| error.to_string())?;
+            let stdout_bytes = stdout_reader.join().unwrap_or_default();
+            let stderr_bytes = stderr_reader.join().unwrap_or_default();
+            let _ = child.wait();
             return Ok(CommandCapture {
                 success: false,
-                exit_code: output.status.code(),
-                stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                exit_code: None,
+                stdout: String::from_utf8_lossy(&stdout_bytes).trim().to_string(),
                 stderr: format!(
-                    "command timed out after {}ms{}",
+                    "command timed out after {}ms: {}",
                     command_timeout().as_millis(),
-                    timeout_stderr_suffix(&output.stderr)
+                    String::from_utf8_lossy(&stderr_bytes).trim()
                 ),
             });
         }
