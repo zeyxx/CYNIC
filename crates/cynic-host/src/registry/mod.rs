@@ -3,10 +3,8 @@
 //! - `types`: Pure data structures (no I/O, no policy)
 //! - `scan`: Discovery and loading (read-only)
 //! - `validate`: Pure validation functions
-//! - `merge`: Pure merge/conflict resolution
 //! - `persist`: I/O operations with atomic write + read-back proof
 
-pub mod merge;
 pub mod persist;
 pub mod scan;
 pub mod types;
@@ -14,7 +12,6 @@ pub mod validate;
 
 // Re-export main public API
 pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
-pub use merge::{MergeStrategy, merge_registry};
 pub use persist::{
     PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
 };
