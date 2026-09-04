@@ -8,8 +8,10 @@ use std::time::{Duration, Instant};
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
-    AgentCompletionStatus, AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload,
-    canonical_build_action_from_argv,
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus,
+    AgentScope, AgentWorkloadState, DurableAgentWorkloadRecord, MutationAdmission, QueuedCandidate,
+    admit_agent_workload, admit_workload_mutation, canonical_build_action_from_argv,
+    plan_build_queue,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -46,25 +48,36 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
     }
 }
 
+/// Order this node's build records FIFO per the queue policy. Pure mapping
+/// over durable records; the loop below only follows the returned order.
+pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) -> Vec<String> {
+    let candidates = records
+        .iter()
+        .filter(|durable| durable.record.envelope.delegation.node_id == node_id)
+        .map(|durable| QueuedCandidate {
+            workload_id: durable.record.envelope.workload_id.clone(),
+            idempotency_key: durable.record.envelope.idempotency_key.clone(),
+            committed_at_ms: durable.committed_at_ms,
+            terminal: durable.record.state.terminal(),
+            is_build: canonical_build_action_from_argv(&durable.record.envelope.action.argv)
+                .is_some(),
+        })
+        .collect();
+    plan_build_queue(candidates).ordered
+}
+
 async fn run_iteration(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
     shutdown: &CancellationToken,
 ) -> Result<(), String> {
-    for record in store.active_records().map_err(|error| error.code)? {
+    let durables = store.durable_records().map_err(|error| error.code)?;
+    for workload_id in queue_ordered_ids(&durables, &control.node_id) {
         if shutdown.is_cancelled() {
             return Ok(());
         }
-        if record.envelope.delegation.node_id != control.node_id
-            || canonical_build_action_from_argv(&record.envelope.action.argv).is_none()
-        {
-            continue;
-        }
-        let Some(current) = store
-            .read(&record.envelope.workload_id)
-            .map_err(|error| error.code)?
-        else {
+        let Some(current) = store.read(&workload_id).map_err(|error| error.code)? else {
             continue;
         };
         if current.record.state == AgentWorkloadState::CancelRequested {
@@ -402,5 +415,97 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
         &[evidence_ref],
     ) {
         tracing::warn!(%error, workload_id, "scheduler recovery proof read-back unavailable");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
+    use crate::usecases::build_admission::admit_build_check;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    const QA: &str = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
+    const QB: &str = "b1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
+
+    fn queue_store() -> LocalAgentWorkloadStore {
+        let id = QUEUE_SEQ.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("cynic-queue-{}-{id}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create queue store dir");
+        LocalAgentWorkloadStore::new(&dir)
+    }
+
+    #[test]
+    fn queue_follows_commit_time_not_insertion_order() {
+        let store = queue_store();
+        admit_build_check(
+            QB,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            200,
+            &store,
+        )
+        .expect("admit newer first");
+        admit_build_check(
+            QA,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit older second");
+
+        let durables = store.durable_records().expect("list records");
+        let ordered = queue_ordered_ids(&durables, "node-1");
+
+        assert_eq!(ordered.len(), 2);
+        assert!(ordered[0].contains(&QA[..12]));
+        assert!(ordered[1].contains(&QB[..12]));
+    }
+
+    #[test]
+    fn queue_skips_terminal_and_foreign_records() {
+        let store = queue_store();
+        let done = admit_build_check(
+            QA,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit");
+        admit_build_check(
+            QB,
+            "cynic-host",
+            "cynic-builder",
+            "node-9",
+            "agent-1",
+            50,
+            &store,
+        )
+        .expect("admit foreign");
+        let mut finished = done.record.clone();
+        finished.state = AgentWorkloadState::Completed;
+        store
+            .compare_and_swap(
+                &done.record.envelope.workload_id,
+                Some(done.revision),
+                &finished,
+                150,
+            )
+            .expect("complete first");
+
+        let durables = store.durable_records().expect("list records");
+        let ordered = queue_ordered_ids(&durables, "node-1");
+
+        assert!(ordered.is_empty());
     }
 }
