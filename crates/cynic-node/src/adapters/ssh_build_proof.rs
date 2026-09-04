@@ -45,7 +45,7 @@ impl SshBuildProof {
         )
     }
 
-    fn run_remote(&self, argv: &[&str]) -> Result<(bool, String, String), String> {
+    fn run_remote(&self, argv: &[String]) -> Result<(bool, String, String), String> {
         let mut cmd = Command::new("ssh");
         cmd.arg(self.ssh_target());
         for arg in argv {
@@ -70,54 +70,51 @@ impl BuildProofPort for SshBuildProof {
 
         let (check_args, test_args) = match &request.phase {
             cynic_protocol::build_proof::BuildProofPhase::Check => {
-                let manifest_path = format!("{dir}/Cargo.toml");
-                let mut a = vec![
-                    "env",
-                    "RUST_MIN_STACK=8589934592",
-                    "CARGO_BUILD_JOBS=1",
-                    "CARGO_INCREMENTAL=0",
-                    "cargo",
-                    "check",
-                    "--locked",
-                    "--offline",
-                    "--manifest-path",
-                    &manifest_path,
+                let mut a: Vec<String> = vec![
+                    "env".to_string(),
+                    "RUST_MIN_STACK=8589934592".to_string(),
+                    "CARGO_BUILD_JOBS=1".to_string(),
+                    "CARGO_INCREMENTAL=0".to_string(),
+                    "cargo".to_string(),
+                    "check".to_string(),
+                    "--locked".to_string(),
+                    "--offline".to_string(),
+                    "--manifest-path".to_string(),
+                    format!("{dir}/Cargo.toml"),
                 ];
                 if let Some(pkg) = package {
-                    a.push("--package");
-                    a.push(pkg);
+                    a.push("--package".to_string());
+                    a.push(pkg.to_string());
                 }
-                a.push("--lib");
+                a.push("--lib".to_string());
                 (a, None)
             }
             cynic_protocol::build_proof::BuildProofPhase::Test { filter } => {
-                let manifest_path = format!("{dir}/Cargo.toml");
-                let mut a = vec![
-                    "env",
-                    "RUST_MIN_STACK=8589934592",
-                    "CARGO_BUILD_JOBS=1",
-                    "CARGO_INCREMENTAL=0",
-                    "cargo",
-                    "test",
-                    "--locked",
-                    "--offline",
-                    "--manifest-path",
-                    &manifest_path,
+                let mut a: Vec<String> = vec![
+                    "env".to_string(),
+                    "RUST_MIN_STACK=8589934592".to_string(),
+                    "CARGO_BUILD_JOBS=1".to_string(),
+                    "CARGO_INCREMENTAL=0".to_string(),
+                    "cargo".to_string(),
+                    "test".to_string(),
+                    "--locked".to_string(),
+                    "--offline".to_string(),
+                    "--manifest-path".to_string(),
+                    format!("{dir}/Cargo.toml"),
                 ];
                 if let Some(pkg) = package {
-                    a.push("--package");
-                    a.push(pkg);
+                    a.push("--package".to_string());
+                    a.push(pkg.to_string());
                 }
-                a.push("--lib");
+                a.push("--lib".to_string());
                 if let Some(f) = filter {
-                    a.push(f.as_str());
+                    a.push(f.to_string());
                 }
                 (a.clone(), Some(a))
             }
         };
 
-        let check_argv: Vec<&str> = check_args.iter().map(|s| *s).collect();
-        let (ok, stdout, stderr) = self.run_remote(&check_argv)?;
+        let (ok, stdout, stderr) = self.run_remote(&check_args)?;
 
         if !ok {
             return Ok(BuildProofReport {
@@ -134,9 +131,8 @@ impl BuildProofPort for SshBuildProof {
             });
         }
 
-        if let Some(test_argv_raw) = test_args {
-            let test_argv: Vec<&str> = test_argv_raw.iter().map(|s| *s).collect();
-            let (ok, stdout, stderr) = self.run_remote(&test_argv)?;
+        if let Some(test_args) = test_args {
+            let (ok, stdout, stderr) = self.run_remote(&test_args)?;
             if !ok {
                 return Ok(BuildProofReport {
                     schema: cynic_protocol::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
@@ -146,7 +142,7 @@ impl BuildProofPort for SshBuildProof {
                     status: cynic_protocol::build_proof::BuildProofStatus::Failed {
                         detail: format!("stdout: {stdout}\nstderr: {stderr}"),
                     },
-                    argv: test_argv_raw.iter().map(|s| (*s).to_string()).collect(),
+                    argv: test_args.iter().map(|s| (*s).to_string()).collect(),
                     node_id: self.node_id.clone(),
                     elapsed_secs: start.elapsed().as_secs(),
                 });
