@@ -186,6 +186,7 @@ fn reserve_action(
             Err(error) => return Err(error.code),
         }
     }
+    Err("build_scheduler_action_reservation_contended".into())
 }
 
 /// Resolve the execution working directory: an absent envelope directory
