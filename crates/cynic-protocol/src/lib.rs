@@ -14,6 +14,7 @@ pub mod agent_skill;
 pub mod agent_workload;
 pub mod agentic_tool_call;
 pub mod anchor_client;
+pub mod argv_allow;
 pub mod artifact_release;
 pub mod autoresearch;
 pub mod autoresearch_port;

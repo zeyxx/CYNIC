@@ -50,6 +50,7 @@ pub struct LocalArgvRunner;
 
 impl ArgvRunner for LocalArgvRunner {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
+        observe_argv(argv);
         if argv.is_empty() {
             return ArgvOutput {
                 exit_code: None,
@@ -76,6 +77,45 @@ impl ArgvRunner for LocalArgvRunner {
             },
         }
     }
+}
+
+/// Observe mode (tranche 2): compute the pure verdict and append one JSONL
+/// line. Best-effort by contract: a logging failure warns on stderr and
+/// never blocks or alters execution. Enforcement (deny-by-default) is a
+/// later slice; this one only makes every argv visible.
+fn observe_argv(argv: &[&str]) {
+    use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
+    use std::io::Write as _;
+
+    let verdict = observe_argv_verdict(argv, &[]);
+    let obs = ArgvObservation::new(argv, &verdict);
+    let line = match serde_json::to_string(&obs) {
+        Ok(line) => line,
+        Err(_) => return,
+    };
+    let path = match observe_log_path() {
+        Some(path) => path,
+        None => return,
+    };
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            let _ = writeln!(file, "{line}");
+        }
+        Err(e) => eprintln!("argv-observe: log append failed ({path}): {e}"),
+    }
+}
+
+fn observe_log_path() -> Option<String> {
+    std::env::var("HOME")
+        .ok()
+        .map(|home| format!("{home}/.local/share/cynic/argv-observe.jsonl"))
 }
 
 /// Test double: returns fixed JSON for known commands.
