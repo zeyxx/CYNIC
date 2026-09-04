@@ -4,6 +4,7 @@ pub mod fleet_reconcile;
 pub mod fleet_truth;
 pub mod homeostasis;
 pub mod mesh;
+pub mod mesh_coordination;
 pub(crate) mod network_execution;
 pub(crate) mod network_mesh_apply;
 pub mod network_projection;
