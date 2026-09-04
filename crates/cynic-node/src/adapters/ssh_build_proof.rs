@@ -70,6 +70,7 @@ impl BuildProofPort for SshBuildProof {
 
         let (check_args, test_args) = match &request.phase {
             cynic_protocol::build_proof::BuildProofPhase::Check => {
+                let manifest_path = format!("{dir}/Cargo.toml");
                 let mut a = vec![
                     "env",
                     "RUST_MIN_STACK=8589934592",
@@ -80,7 +81,7 @@ impl BuildProofPort for SshBuildProof {
                     "--locked",
                     "--offline",
                     "--manifest-path",
-                    &format!("{dir}/Cargo.toml"),
+                    &manifest_path,
                 ];
                 if let Some(pkg) = package {
                     a.push("--package");
@@ -90,6 +91,7 @@ impl BuildProofPort for SshBuildProof {
                 (a, None)
             }
             cynic_protocol::build_proof::BuildProofPhase::Test { filter } => {
+                let manifest_path = format!("{dir}/Cargo.toml");
                 let mut a = vec![
                     "env",
                     "RUST_MIN_STACK=8589934592",
@@ -100,7 +102,7 @@ impl BuildProofPort for SshBuildProof {
                     "--locked",
                     "--offline",
                     "--manifest-path",
-                    &format!("{dir}/Cargo.toml"),
+                    &manifest_path,
                 ];
                 if let Some(pkg) = package {
                     a.push("--package");
