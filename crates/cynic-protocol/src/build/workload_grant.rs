@@ -283,7 +283,7 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
         [program, target] if program == "make" && target == "build-release" => {
             Some("make:build-release")
         }
-        [program, target] if program == "cargo" && target == "check" => Some("cargo:check"),
+        [program, target, ..] if program == "cargo" && target == "check" => Some("cargo:check"),
         [program, target, release]
             if program == "cargo" && target == "build" && release == "--release" =>
         {
@@ -347,6 +347,23 @@ mod action_tests {
         assert_eq!(
             canonical_build_action_from_argv(&["make".to_string(), "build-release".to_string()]),
             Some("make:build-release")
+        );
+    }
+
+    /// Slice-scoped argv (`cargo check --package …`) is the same canonical
+    /// action as the bare form: the scheduler must recognize what the slice
+    /// translator emits, or admitted workloads never run.
+    #[test]
+    fn package_scoped_check_argv_resolves_to_cargo_check() {
+        assert_eq!(
+            canonical_build_action_from_argv(&[
+                "cargo".to_string(),
+                "check".to_string(),
+                "--package".to_string(),
+                "cynic-host".to_string(),
+                "--lib".to_string(),
+            ]),
+            Some("cargo:check")
         );
     }
 
