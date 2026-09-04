@@ -150,9 +150,21 @@ fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> Exi
     }
 }
 fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
+    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let ws_store_canonical = if workspace_store.exists() {
+        workspace_store.to_path_buf()
+    } else {
+        let home_ws = dirs::home_dir().map(|h| h.join(".workspace")).unwrap_or_default();
+        if home_ws.exists() {
+            home_ws
+        } else {
+            workspace_store.to_path_buf()
+        }
+    };
+
     let inventory = cynic_host::source_worktree_inventory::observe_source_worktree_inventory(
-        root,
-        workspace_store,
+        &root_canonical,
+        &ws_store_canonical,
         "cynic",
         "local",
         &cynic_host::source_worktree_inventory::LocalSourceWorktreeInventoryRunner,
@@ -160,27 +172,17 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 
     let head_sha = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
-        .current_dir(root)
+        .current_dir(&root_canonical)
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "HEAD".to_string());
 
-    let default_branch = std::process::Command::new("git")
-        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
-        .current_dir(root)
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| {
-            let trimmed = s.trim();
-            trimmed.rsplit('/').next().unwrap_or("main").to_string()
-        })
-        .unwrap_or_else(|| "main".to_string());
+    let default_branch = "main".to_string();
 
     let plan = cynic_host::source_worktree_reconcile::reconcile_source_worktrees(
-        root, &inventory, &head_sha, 0,
+        &root_canonical, &inventory, &head_sha, 0,
     );
 
     if apply {

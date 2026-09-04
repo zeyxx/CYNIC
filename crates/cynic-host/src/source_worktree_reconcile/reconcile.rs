@@ -20,9 +20,15 @@ pub fn reconcile_source_worktrees(
     let mut snapshots = Vec::new();
 
     for entry in &inventory.entries {
-        let is_active_root = entry.relative_path.as_deref() == Some(".")
-            || entry.relative_path.as_deref() == Some("");
 
+        let is_active_root = entry.relative_path.as_deref() == Some(".")
+            || entry.relative_path.as_deref() == Some("")
+            || entry.candidate_id == "cynic";
+
+        let branch = entry
+            .branch
+            .as_deref()
+            .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
         let path = entry
             .relative_path
             .as_deref()
@@ -45,7 +51,7 @@ pub fn reconcile_source_worktrees(
 
         snapshots.push(ObservedWorktreeSnapshot {
             path,
-            branch: entry.branch.clone(),
+            branch,
             head_sha: entry.head.clone().unwrap_or_default(),
             is_active_root,
             dirty_file_count: 0,
