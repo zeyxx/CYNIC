@@ -17,6 +17,7 @@ use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 
 use cynic_protocol::{
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
     AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
     BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
     BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_agent_workload,

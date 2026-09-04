@@ -8,10 +8,8 @@ use std::time::{Duration, Instant};
 
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::{
-    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentCompletionStatus,
-    AgentScope, AgentWorkloadState, DurableAgentWorkloadRecord, MutationAdmission, QueuedCandidate,
-    admit_agent_workload, admit_workload_mutation, canonical_build_action_from_argv,
-    plan_build_queue,
+    AgentCompletionStatus, AgentWorkloadState, DurableAgentWorkloadRecord, QueuedCandidate,
+    admit_agent_workload, canonical_build_action_from_argv, plan_build_queue,
 };
 use tokio_util::sync::CancellationToken;
 

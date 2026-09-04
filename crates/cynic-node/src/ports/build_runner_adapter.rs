@@ -312,12 +312,32 @@ impl BuildRunnerPort for SshBuildRunner {
                 self.checkout_base.as_str(),
             ])
             .success();
+        let version = self
+            .runner
+            .run(&["ssh", target.as_str(), "cynic", "version", "--json"]);
+        let binary_sha = if version.success() {
+            parse_binary_sha(&version.stdout)
+        } else {
+            None
+        };
         RunnerHealth {
             node_id: self.host.clone(),
             reachable,
             cache_warm: reachable && warm,
             toolchain,
+            binary_sha,
         }
+    }
+}
+
+/// Source SHA a runner binary reports, if it knows the version surface.
+fn parse_binary_sha(stdout: &str) -> Option<String> {
+    let report: serde_json::Value = serde_json::from_str(stdout).ok()?;
+    let sha = report.get("git_sha")?.as_str()?;
+    if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(sha.to_string())
+    } else {
+        None
     }
 }
 
