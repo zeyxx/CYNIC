@@ -1,125 +1,78 @@
 //! Pure reconciliation engine for source worktree convergence.
 //!
 //! Transforms read-only inventory observations into deterministic, bounded convergence plans.
-//! Strictly zero I/O and zero LLM dependency.
+//! Strictly zero I/O and zero LLM dependency; delegates to `cynic_protocol::source_worktree`.
 
 use std::path::{Path, PathBuf};
 
+use cynic_protocol::source_worktree::{
+    ObservedWorktreeSnapshot, WorktreeConvergencePlan, reconcile_worktree_convergence_pure,
+};
 use cynic_protocol::{SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation};
 
-use super::types::{
-    QuarantineReason, SOURCE_WORKTREE_RECONCILE_SCHEMA, WorktreeConvergenceAction,
-    WorktreeConvergencePlan, WorktreeConvergenceSummary,
-};
-
-/// Pure function reconciling observed worktrees against desired main head.
+/// Reconciles observed worktrees against desired main head.
 pub fn reconcile_source_worktrees(
     repository_root: &Path,
     inventory: &SourceWorktreeInventoryObservation,
     main_head_sha: &str,
     active_claims_count: usize,
 ) -> WorktreeConvergencePlan {
-    let mut actions = Vec::new();
-    let mut summary = WorktreeConvergenceSummary::default();
+    let mut snapshots = Vec::new();
 
     for entry in &inventory.entries {
-        if entry.state == SourceWorktreeInventoryEntryState::Malformed {
-            actions.push(WorktreeConvergenceAction::EscalateToHuman {
-                branch: entry.branch.clone().unwrap_or_default(),
-                conflicting_paths: vec![entry.candidate_id.clone()],
-                intent_summary: "Malformed worktree porcelain record detected".to_string(),
-            });
-            summary.human_escalations_count += 1;
-            continue;
-        }
+        let is_active_root = entry.relative_path.as_deref() == Some(".")
+            || entry.relative_path.as_deref() == Some("");
 
-        if entry.git_prunable == Some(true) {
-            let workspace_path = entry
-                .relative_path
-                .as_deref()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(&entry.candidate_id));
-            actions.push(WorktreeConvergenceAction::PruneZombieWorkspace {
-                workspace_path,
-                branch: entry.branch.clone(),
-                lease_id: None,
-                reason: entry
-                    .prunable_reason
-                    .clone()
-                    .unwrap_or_else(|| "Worktree marked prunable by git inventory".to_string()),
-            });
-            summary.pruned_zombies_count += 1;
-            continue;
-        }
-
-        if entry.locked == Some(true) {
-            if let Some(reason) = &entry.lock_reason {
-                if reason.contains("quarantine") || reason.contains("semantic_break") {
-                    actions.push(WorktreeConvergenceAction::QuarantineBranch {
-                        branch: entry.branch.clone().unwrap_or_default(),
-                        reason: QuarantineReason::CausalBreach {
-                            details: reason.clone(),
-                        },
-                        quarantine_ref: format!("refs/quarantine/{}", entry.candidate_id),
-                    });
-                    summary.quarantined_count += 1;
-                    continue;
+        let path = entry
+            .relative_path
+            .as_deref()
+            .map(|r| {
+                if r == "." || r == "" {
+                    repository_root.to_path_buf()
+                } else {
+                    repository_root.join(r)
                 }
-            }
-        }
+            })
+            .unwrap_or_else(|| PathBuf::from(&entry.candidate_id));
 
-        if let Some(branch) = &entry.branch {
-            // Skip main branch itself
-            if branch == "main" || branch == "master" || branch.ends_with("/main") {
-                continue;
-            }
+        let is_malformed = entry.state == SourceWorktreeInventoryEntryState::Malformed;
+        let prunable = entry.git_prunable == Some(true) || is_malformed;
+        let reason = if is_malformed {
+            Some("Malformed worktree record".to_string())
+        } else {
+            entry.prunable_reason.clone()
+        };
 
-            let workspace_path = entry
-                .relative_path
-                .as_deref()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from(&entry.candidate_id));
-
-            let branch_head = entry.head.as_deref().unwrap_or("");
-
-            if branch_head == main_head_sha {
-                // Already at main HEAD -> FastForwardMerge
-                actions.push(WorktreeConvergenceAction::FastForwardMerge {
-                    branch: branch.clone(),
-                    target_commit_sha: branch_head.to_string(),
-                    lease_id: None,
-                });
-                summary.fast_forward_ready_count += 1;
-            } else if !branch_head.is_empty() {
-                // Diverged -> Rebase in Scratch Validator
-                actions.push(WorktreeConvergenceAction::RebaseInScratchValidator {
-                    branch: branch.clone(),
-                    original_sha: branch_head.to_string(),
-                    onto_main_sha: main_head_sha.to_string(),
-                    workspace_path,
-                });
-                summary.rebase_required_count += 1;
-            }
-        }
+        snapshots.push(ObservedWorktreeSnapshot {
+            path,
+            branch: entry.branch.clone(),
+            head_sha: entry.head.clone().unwrap_or_default(),
+            is_active_root,
+            dirty_file_count: 0,
+            git_prunable: prunable,
+            prunable_reason: reason,
+        });
     }
 
-    WorktreeConvergencePlan {
-        schema: SOURCE_WORKTREE_RECONCILE_SCHEMA,
-        repository_root: repository_root.to_path_buf(),
-        main_head_sha: main_head_sha.to_string(),
-        observed_worktrees_count: inventory.entries.len(),
-        active_claims_count,
-        actions,
-        summary,
-    }
+    // Default branch is resolved or defaults to main
+    let default_branch = "main";
+    let empty_leases: [String; 0] = [];
+
+    reconcile_worktree_convergence_pure(
+        repository_root.to_path_buf(),
+        default_branch,
+        main_head_sha,
+        &snapshots,
+        &empty_leases,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::source_worktree::WorktreeConvergenceAction;
     use cynic_protocol::{
-        SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
-        SourceWorktreeInventoryPathBasis,
+        SourceWorktreeInventoryEntry, SourceWorktreeInventoryPathBasis,
     };
 
     #[test]
@@ -138,16 +91,13 @@ mod tests {
                 path_basis: SourceWorktreeInventoryPathBasis::WorkspaceLayout,
                 relative_path: Some("agent-zombie-1".to_string()),
                 head: Some("head-111".to_string()),
-                branch: Some("agent/hermes/dead-branch".to_string()),
-                observed_principal: Some("cynic".to_string()),
-                path_is_symlink: Some(false),
-                git_registered: Some(true),
-                git_prunable: Some(true),
-                detached_head: Some(false),
-                clean: Some(true),
-                locked: Some(false),
+                branch: None,
                 bare: Some(false),
+                detached: Some(true),
+                locked: Some(false),
                 lock_reason: None,
+                prunable: Some(true),
+                git_prunable: Some(true),
                 prunable_reason: Some("git directory missing".to_string()),
                 unknowns: vec![],
             }],
@@ -156,7 +106,7 @@ mod tests {
         };
 
         let plan = reconcile_source_worktrees(repo_root, &inventory, "main-sha-000", 1);
-        assert_eq!(plan.summary.pruned_zombies_count, 1);
+        assert_eq!(plan.summary.safe_prune_ready_count, 1);
         assert_eq!(plan.actions.len(), 1);
         match &plan.actions[0] {
             WorktreeConvergenceAction::PruneZombieWorkspace { reason, .. } => {

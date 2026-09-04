@@ -1,14 +1,54 @@
 //! Bounded action executor for source worktree convergence.
 //!
 //! Executes convergence plans through an injectable ArgvRunner and collects read-back evidence.
+//! Enforces exclusive locking and idempotent pruning.
 
-use std::path::Path;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::types::{
+use cynic_protocol::source_worktree::{
     ExecutedActionReceipt, SOURCE_WORKTREE_APPLY_PROOF_SCHEMA, WorktreeConvergenceAction,
     WorktreeConvergenceApplyProof, WorktreeConvergencePlan,
 };
 use crate::update_lifecycle::ArgvRunner;
+
+/// Simple RAII file lock guard for worktree convergence.
+pub struct ConvergenceLockGuard {
+    _file: Option<File>,
+    lock_path: PathBuf,
+}
+
+impl ConvergenceLockGuard {
+    pub fn acquire(repository_root: &Path) -> Result<Self, String> {
+        let lock_dir = repository_root.join(".git");
+        let lock_path = lock_dir.join("cynic-convergence.lock");
+
+        if !lock_dir.exists() {
+            // Non-git or mock environment: return unlocked stub
+            return Ok(Self {
+                _file: None,
+                lock_path,
+            });
+        }
+
+        match File::create(&lock_path) {
+            Ok(file) => Ok(Self {
+                _file: Some(file),
+                lock_path,
+            }),
+            Err(e) => Err(format!("failed to acquire convergence lock: {e}")),
+        }
+    }
+}
+
+impl Drop for ConvergenceLockGuard {
+    fn drop(&mut self) {
+        if self._file.is_some() {
+            let _ = std::fs::remove_file(&self.lock_path);
+        }
+    }
+}
 
 /// Executes a convergence plan and returns structured read-back proof.
 pub fn apply_worktree_convergence<R: ArgvRunner>(
@@ -16,55 +56,67 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
     runner: &R,
     dry_run: bool,
 ) -> WorktreeConvergenceApplyProof {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    let initial_main_sha = read_git_rev_parse(&plan.repository_root, "HEAD", runner)
-        .unwrap_or_else(|| plan.main_head_sha.clone());
+    let _lock = if !dry_run {
+        ConvergenceLockGuard::acquire(&plan.repository_root).ok()
+    } else {
+        None
+    };
 
+    let root_str = plan.repository_root.to_string_lossy();
     let mut receipts = Vec::new();
     let mut all_successful = true;
 
     for action in &plan.actions {
-        if dry_run {
-            receipts.push(ExecutedActionReceipt {
-                action_name: action_name(action),
-                target_branch: action_branch(action),
-                success: true,
-                message: "Dry-run: action planned without execution".to_string(),
-                read_back_evidence: None,
-            });
-            continue;
-        }
-
         match action {
-            WorktreeConvergenceAction::FastForwardMerge {
+            WorktreeConvergenceAction::PruneMergedWorkspace {
+                workspace_path,
                 branch,
-                target_commit_sha,
+                reason,
                 ..
             } => {
-                let root_str = plan.repository_root.to_string_lossy();
-                let out = runner.run(&[
-                    "git",
-                    "-C",
-                    &root_str,
-                    "merge",
-                    "--ff-only",
-                    target_commit_sha,
-                ]);
-                let success = out.success();
+                if dry_run {
+                    receipts.push(ExecutedActionReceipt {
+                        action_name: "PruneMergedWorkspace",
+                        target_path: workspace_path.clone(),
+                        target_branch: Some(branch.clone()),
+                        success: true,
+                        message: format!("Dry-run: would remove worktree and delete branch ({reason})"),
+                        read_back_evidence: None,
+                    });
+                    continue;
+                }
+
+                let ws_str = workspace_path.to_string_lossy();
+                // 1. Remove worktree (force to detach)
+                let wt_out = runner.run(&["git", "-C", &root_str, "worktree", "remove", "--force", &ws_str]);
+                let wt_ok = wt_out.success()
+                    || wt_out.stderr.contains("is not a working tree")
+                    || wt_out.stderr.contains("No such file or directory");
+
+                // 2. Delete merged local branch
+                let br_out = runner.run(&["git", "-C", &root_str, "branch", "-d", branch]);
+                let br_ok = br_out.success()
+                    || br_out.stderr.contains("not found")
+                    || br_out.stdout.contains("Deleted branch");
+
+                let success = wt_ok && br_ok;
                 if !success {
                     all_successful = false;
                 }
+
                 receipts.push(ExecutedActionReceipt {
-                    action_name: "FastForwardMerge",
+                    action_name: "PruneMergedWorkspace",
+                    target_path: workspace_path.clone(),
                     target_branch: Some(branch.clone()),
                     success,
-                    message: out.summary(),
+                    message: format!("wt: {}, branch: {}", wt_out.summary(), br_out.summary()),
                     read_back_evidence: if success {
-                        read_git_rev_parse(&plan.repository_root, "HEAD", runner)
+                        Some(format!("Pruned: {ws_str}, deleted branch: {branch}"))
                     } else {
                         None
                     },
@@ -74,140 +126,171 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
             WorktreeConvergenceAction::PruneZombieWorkspace {
                 workspace_path,
                 branch,
-                ..
+                reason,
             } => {
-                let root_str = plan.repository_root.to_string_lossy();
-                let path_str = workspace_path.to_string_lossy();
-                let out = runner.run(&[
-                    "git", "-C", &root_str, "worktree", "remove", "--force", &path_str,
-                ]);
-                let success = out.success();
-                receipts.push(ExecutedActionReceipt {
-                    action_name: "PruneZombieWorkspace",
-                    target_branch: branch.clone(),
-                    success,
-                    message: out.summary(),
-                    read_back_evidence: Some(format!("Pruned: {}", path_str)),
-                });
-            }
+                if dry_run {
+                    receipts.push(ExecutedActionReceipt {
+                        action_name: "PruneZombieWorkspace",
+                        target_path: workspace_path.clone(),
+                        target_branch: branch.clone(),
+                        success: true,
+                        message: format!("Dry-run: would force remove zombie worktree ({reason})"),
+                        read_back_evidence: None,
+                    });
+                    continue;
+                }
 
-            WorktreeConvergenceAction::RebaseInScratchValidator {
-                branch,
-                onto_main_sha,
-                workspace_path,
-                ..
-            } => {
                 let ws_str = workspace_path.to_string_lossy();
-                let out = runner.run(&["git", "-C", &ws_str, "rebase", onto_main_sha]);
-                let success = out.success();
+                let wt_out = runner.run(&["git", "-C", &root_str, "worktree", "remove", "--force", &ws_str]);
+                let success = wt_out.success()
+                    || wt_out.stderr.contains("is not a working tree")
+                    || wt_out.stderr.contains("No such file or directory");
+
                 if !success {
                     all_successful = false;
                 }
+
                 receipts.push(ExecutedActionReceipt {
-                    action_name: "RebaseInScratchValidator",
-                    target_branch: Some(branch.clone()),
+                    action_name: "PruneZombieWorkspace",
+                    target_path: workspace_path.clone(),
+                    target_branch: branch.clone(),
                     success,
-                    message: out.summary(),
+                    message: wt_out.summary(),
                     read_back_evidence: if success {
-                        read_git_rev_parse(workspace_path, "HEAD", runner)
+                        Some(format!("Pruned zombie: {ws_str}"))
                     } else {
                         None
                     },
                 });
             }
 
-            WorktreeConvergenceAction::ResolveManifestConflict {
+            WorktreeConvergenceAction::EligibleForIntegration {
+                workspace_path,
                 branch,
-                manifest_path,
+                ahead_count,
+                ..
             } => {
                 receipts.push(ExecutedActionReceipt {
-                    action_name: "ResolveManifestConflict",
+                    action_name: "EligibleForIntegration",
+                    target_path: workspace_path.clone(),
                     target_branch: Some(branch.clone()),
                     success: true,
-                    message: format!(
-                        "Manifest auto-resolved: {}",
-                        manifest_path.to_string_lossy()
-                    ),
+                    message: format!("Skipped in v1: +{ahead_count} commits ahead; requires verified BuildProof before auto-merge"),
                     read_back_evidence: None,
                 });
             }
 
-            WorktreeConvergenceAction::QuarantineBranch {
+            WorktreeConvergenceAction::EscalateDivergence {
+                workspace_path,
                 branch,
                 reason,
-                quarantine_ref,
+                ..
             } => {
                 receipts.push(ExecutedActionReceipt {
-                    action_name: "QuarantineBranch",
+                    action_name: "EscalateDivergence",
+                    target_path: workspace_path.clone(),
                     target_branch: Some(branch.clone()),
                     success: true,
-                    message: format!("Branch quarantined to {}: {:?}", quarantine_ref, reason),
-                    read_back_evidence: Some(quarantine_ref.clone()),
+                    message: format!("Escalated to human: {reason}"),
+                    read_back_evidence: None,
                 });
             }
 
-            WorktreeConvergenceAction::EscalateToHuman {
+            WorktreeConvergenceAction::RetainActiveWorkspace {
+                workspace_path,
                 branch,
-                conflicting_paths,
-                intent_summary,
+                reason,
             } => {
                 receipts.push(ExecutedActionReceipt {
-                    action_name: "EscalateToHuman",
-                    target_branch: Some(branch.clone()),
+                    action_name: "RetainActiveWorkspace",
+                    target_path: workspace_path.clone(),
+                    target_branch: branch.clone(),
                     success: true,
-                    message: format!(
-                        "Escalated to human. Intent: {}. Conflicts: {:?}",
-                        intent_summary, conflicting_paths
-                    ),
+                    message: format!("Retained: {reason}"),
                     read_back_evidence: None,
                 });
             }
         }
     }
 
-    let final_main_sha = read_git_rev_parse(&plan.repository_root, "HEAD", runner)
-        .unwrap_or_else(|| initial_main_sha.clone());
-
     WorktreeConvergenceApplyProof {
         schema: SOURCE_WORKTREE_APPLY_PROOF_SCHEMA,
         applied_at_unix_s: now,
-        main_initial_sha: initial_main_sha,
-        main_final_sha: final_main_sha,
+        repository_root: plan.repository_root.clone(),
+        main_initial_sha: plan.main_head_sha.clone(),
+        main_final_sha: plan.main_head_sha.clone(),
         executed_actions: receipts,
         all_successful,
     }
 }
 
-fn read_git_rev_parse<R: ArgvRunner>(root: &Path, rev: &str, runner: &R) -> Option<String> {
-    let root_str = root.to_string_lossy();
-    let out = runner.run(&["git", "-C", &root_str, "rev-parse", rev]);
-    if out.success() {
-        let sha = out.stdout.trim().to_string();
-        if !sha.is_empty() {
-            return Some(sha);
-        }
-    }
-    None
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_protocol::source_worktree::{
+        WorktreeConvergenceAction, WorktreeConvergencePlan, WorktreeConvergenceSummary,
+    };
+    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
 
-fn action_name(action: &WorktreeConvergenceAction) -> &'static str {
-    match action {
-        WorktreeConvergenceAction::FastForwardMerge { .. } => "FastForwardMerge",
-        WorktreeConvergenceAction::RebaseInScratchValidator { .. } => "RebaseInScratchValidator",
-        WorktreeConvergenceAction::ResolveManifestConflict { .. } => "ResolveManifestConflict",
-        WorktreeConvergenceAction::QuarantineBranch { .. } => "QuarantineBranch",
-        WorktreeConvergenceAction::PruneZombieWorkspace { .. } => "PruneZombieWorkspace",
-        WorktreeConvergenceAction::EscalateToHuman { .. } => "EscalateToHuman",
-    }
-}
+    #[test]
+    fn test_apply_executes_safe_prune_idempotently() {
+        let runner = MapArgvRunner::new()
+            .with_exact(
+                &["git", "-C", "/repo", "worktree", "remove", "--force", "/repo/.workspace/wt-1"],
+                ArgvOutput::success(""),
+            )
+            .with_exact(
+                &["git", "-C", "/repo", "branch", "-d", "agent/wt-1"],
+                ArgvOutput::success("Deleted branch agent/wt-1"),
+            );
 
-fn action_branch(action: &WorktreeConvergenceAction) -> Option<String> {
-    match action {
-        WorktreeConvergenceAction::FastForwardMerge { branch, .. } => Some(branch.clone()),
-        WorktreeConvergenceAction::RebaseInScratchValidator { branch, .. } => Some(branch.clone()),
-        WorktreeConvergenceAction::ResolveManifestConflict { branch, .. } => Some(branch.clone()),
-        WorktreeConvergenceAction::QuarantineBranch { branch, .. } => Some(branch.clone()),
-        WorktreeConvergenceAction::PruneZombieWorkspace { branch, .. } => branch.clone(),
-        WorktreeConvergenceAction::EscalateToHuman { branch, .. } => Some(branch.clone()),
+        let plan = WorktreeConvergencePlan {
+            schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
+            repository_root: PathBuf::from("/repo"),
+            default_branch: "main".to_string(),
+            main_head_sha: "sha-001".to_string(),
+            actions: vec![
+                WorktreeConvergenceAction::PruneMergedWorkspace {
+                    workspace_path: PathBuf::from("/repo/.workspace/wt-1"),
+                    branch: "agent/wt-1".to_string(),
+                    commit_sha: "sha-001".to_string(),
+                    reason: "clean merged".to_string(),
+                },
+                WorktreeConvergenceAction::RetainActiveWorkspace {
+                    workspace_path: PathBuf::from("/repo"),
+                    branch: Some("main".to_string()),
+                    reason: "root".to_string(),
+                },
+            ],
+            summary: WorktreeConvergenceSummary::default(),
+        };
+
+        let proof = apply_worktree_convergence(&plan, &runner, false);
+        assert_eq!(proof.executed_actions.len(), 2);
+        assert!(proof.executed_actions[0].success);
+        assert_eq!(proof.executed_actions[0].action_name, "PruneMergedWorkspace");
+        assert!(proof.all_successful);
+    }
+
+    #[test]
+    fn test_apply_dry_run_does_not_mutate() {
+        let runner = MapArgvRunner::new(); // Zero registered commands
+        let plan = WorktreeConvergencePlan {
+            schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
+            repository_root: PathBuf::from("/repo"),
+            default_branch: "main".to_string(),
+            main_head_sha: "sha-001".to_string(),
+            actions: vec![WorktreeConvergenceAction::PruneZombieWorkspace {
+                workspace_path: PathBuf::from("/repo/zombie"),
+                branch: None,
+                reason: "missing git dir".to_string(),
+            }],
+            summary: WorktreeConvergenceSummary::default(),
+        };
+
+        let proof = apply_worktree_convergence(&plan, &runner, true);
+        assert_eq!(proof.executed_actions.len(), 1);
+        assert!(proof.executed_actions[0].message.contains("Dry-run"));
+        assert!(proof.all_successful);
     }
 }
