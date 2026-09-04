@@ -20,6 +20,7 @@ pub mod autoresearch_port;
 pub mod bootstrap_federation;
 pub mod branch_graph;
 pub mod breakglass;
+pub mod builder_rbac;
 pub mod build;
 pub mod build_artefact;
 pub mod build_discovery;
