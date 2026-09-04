@@ -198,6 +198,21 @@ pub(crate) enum NetworkMeshCommand {
         #[arg(long)]
         observe_runtime: bool,
     },
+    /// Observe and reconcile mesh coordination members and health.
+    Coordination {
+        /// Registry path used to derive declared mesh peers.
+        #[arg(long)]
+        registry: Option<String>,
+        /// Optional explicit coordination endpoint URL.
+        #[arg(long)]
+        endpoint: Option<String>,
+        /// Optional API bearer token for coordination control plane.
+        #[arg(long)]
+        api_key: Option<String>,
+        /// Probe coordination health only.
+        #[arg(long)]
+        check_health: bool,
+    },
 }
 
 #[derive(Subcommand)]

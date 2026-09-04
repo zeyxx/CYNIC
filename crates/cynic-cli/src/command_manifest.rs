@@ -177,6 +177,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic network mesh apply-target --bundle-dir <dir> --profile <name> --target-attestation <json> --apply [--harness-kind <kind>]",
                     "cynic network mesh apply-profile --bundle-dir <dir> --profile <name> --apply [--closed-environment]",
                     "cynic network mesh status [--registry <path>] [--resolve-dns] [--include-records] [--observe-runtime]",
+                    "cynic network mesh coordination [--registry <path>] [--endpoint <url>] [--api-key <token>] [--check-health]",
                     "cynic network provider-fallback <status|hosts> [--registry <path>] [--hosts-path <path>] [--check-connectivity] [--output-dir <dir>]",
                     "cynic network actuator <status|bundle|plan|apply> [--registry <path>] [--output-dir <dir> | --bundle-dir <dir>] [--profile <name>] [--apply]",
                 ],
@@ -210,7 +211,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "build",
-                commands: vec!["cynic build discover --json [--kind local|remote] [--target <ssh-target>]"],
+                commands: vec![
+                    "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
+                ],
             },
             CommandDomain {
                 name: "chat",
