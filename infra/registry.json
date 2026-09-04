@@ -2,6 +2,69 @@
   "version": 1,
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+  "peer_genesis": {
+    "schema": "cynic.peer_genesis.desired_state.v1",
+    "founder": {
+      "citizen_id": "cit_admin",
+      "name": "Sovereign Operator",
+      "public_key_ed25519": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "offices": [
+      {
+        "office_id": "builder",
+        "title": "Build Runner",
+        "allowed_capabilities": [
+          "cargo_check",
+          "cargo_build",
+          "artifact_install"
+        ],
+        "forbidden_actions": [
+          "unbounded_mutation"
+        ]
+      },
+      {
+        "office_id": "auditor",
+        "title": "Architecture and Security Auditor",
+        "allowed_capabilities": [
+          "read_only_audit",
+          "metrics_evaluation",
+          "proof_verification"
+        ],
+        "forbidden_actions": [
+          "unbounded_mutation"
+        ]
+      },
+      {
+        "office_id": "scheduler",
+        "title": "Workload and Task Scheduler",
+        "allowed_capabilities": [
+          "workload_dispatch",
+          "lease_coordination"
+        ],
+        "forbidden_actions": [
+          "unbounded_mutation"
+        ]
+      },
+      {
+        "office_id": "coordinator",
+        "title": "Mesh and Network Coordinator",
+        "allowed_capabilities": [
+          "preauthkey_generation",
+          "node_revocation"
+        ],
+        "forbidden_actions": [
+          "unbounded_mutation"
+        ]
+      }
+    ],
+    "initial_treasuries": [
+      {
+        "account_id": "treasury_community",
+        "denom": "CYN",
+        "initial_balance": 0
+      }
+    ]
+  },
   "provider_control": {
     "schema": "cynic.provider_control.desired_state.v1",
     "provider": "proxmox",
