@@ -375,7 +375,7 @@ mod tests {
             Some(BuildRunnerRoutePath::RuntimeDelivery),
         );
         let signer = FakeSigner {
-            key_id: "test-key".to_string(),
+            key_id: format!("sha256:{}", "a".repeat(64)),
         };
         let submitter = FakeSubmitter {
             should_fail: false,
