@@ -75,6 +75,7 @@ pub mod root_dispatch;
 pub mod runtime_paths;
 pub mod runtime_suite;
 pub mod runtime_surface;
+pub mod rust_source;
 pub mod schema_registry_audit;
 pub mod session_surface;
 pub mod solana_surface;
