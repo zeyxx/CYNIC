@@ -143,18 +143,10 @@ pub(crate) enum BuildCommand {
         /// Address to bind (e.g. 127.0.0.1:9147).
         #[arg(long, default_value = "127.0.0.1:9147")]
         bind: String,
-        /// Build phase to trigger on push (check|build|activate).
-        #[arg(long, default_value = "check")]
-        phase: String,
-        /// Path to the registry JSON for node discovery.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
-        /// Kernel coordination endpoint for lease verification.
+        /// Node builder webhook URL. Required: an empty endpoint is a blocked
+        /// forwarding configuration, never a guessed runner or registry path.
         #[arg(long)]
-        kernel_endpoint: Option<String>,
-        /// SSH target for the build runner (alias resolved via operator SSH config).
-        #[arg(long, default_value = "cynic-builder-ssh")]
-        runner: String,
+        node_webhook_url: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -258,12 +250,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         } => execute_list_workloads(&state_root, local, &registry, &user, json),
         BuildCommand::ServeWebhook {
             bind,
-            phase,
-            registry,
-            kernel_endpoint,
-            runner,
+            node_webhook_url,
             json,
-        } => serve_webhook(&bind, &phase, &registry, kernel_endpoint, &runner, json),
+        } => serve_webhook(&bind, &node_webhook_url, json),
         BuildCommand::ProvisionCredentials {
             registry,
             secrets_dir,
@@ -271,7 +260,11 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             json,
         } => provision_credentials(&registry, &secrets_dir, apply, json),
         BuildCommand::Discover { json, kind, target } => {
-            let code = crate::build_discovery_surface::execute_build_discover(json, &kind, target.as_deref());
+            let code = crate::build_discovery_surface::execute_build_discover(
+                json,
+                &kind,
+                target.as_deref(),
+            );
             return match code {
                 c if c == std::process::ExitCode::SUCCESS => Ok(()),
                 _ => Err("build discover failed".to_string()),
@@ -456,11 +449,16 @@ fn run_build(
     let config = BuildWorkflowConfig {
         observation_adapter: &observation_adapter,
         lease_adapter: &lease_adapter,
+        // CLI has no admitted lease input yet: explicit None blocks apply;
+        // it never synthesizes authority from local arguments.
+        lease_guard: None,
         argv_runner: &runner,
         source_snapshot,
         recipe,
         argv,
         artifact_path,
+        // CLI install is not admitted by this surface; digest read-back only.
+        install_path: None,
         apply,
         now_unix_ms: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -508,22 +506,16 @@ fn run_build(
     Ok(())
 }
 
-fn serve_webhook(
-    bind: &str,
-    _phase: &str,
-    _registry: &str,
-    _kernel_endpoint: Option<String>,
-    runner: &str,
-    json: bool,
-) -> Result<(), String> {
+fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
     use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
 
+    if node_webhook_url.trim().is_empty() {
+        return Err("node webhook URL is required; no forwarding target is guessed".to_string());
+    }
     let config = WebhookServerConfig {
         bind: bind.to_string(),
-        phase: _phase.to_string(),
-        runner_target: runner.to_string(),
-        apply: true, // Autonomous: auto-apply builds triggered by webhook
-        registry_path: _registry.to_string(),
+        node_webhook_url: node_webhook_url.to_string(),
+        webhook_secret: std::env::var("CYNIC_WEBHOOK_SECRET").ok(),
     };
 
     let handle = spawn_webhook_server(config)
