@@ -21,7 +21,8 @@ pub fn reconcile_source_worktrees(
 
     for entry in &inventory.entries {
 
-        let is_active_root = entry.relative_path.as_deref() == Some(".")
+        let is_active_root = entry.path_basis == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
+            || entry.relative_path.as_deref() == Some(".")
             || entry.relative_path.as_deref() == Some("")
             || entry.candidate_id == "cynic";
 
@@ -29,17 +30,22 @@ pub fn reconcile_source_worktrees(
             .branch
             .as_deref()
             .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
-        let path = entry
-            .relative_path
-            .as_deref()
-            .map(|r| {
-                if r == "." || r == "" {
-                    repository_root.to_path_buf()
-                } else {
-                    repository_root.join(r)
-                }
-            })
-            .unwrap_or_else(|| PathBuf::from(&entry.candidate_id));
+
+        let path = if is_active_root {
+            repository_root.to_path_buf()
+        } else {
+            entry
+                .relative_path
+                .as_deref()
+                .map(|r| {
+                    let ws_dir = std::env::var_os("HOME")
+                        .map(|h| PathBuf::from(h).join(".workspace"))
+                        .filter(|p| p.exists())
+                        .unwrap_or_else(|| PathBuf::from("/tmp/cynic-workspaces"));
+                    ws_dir.join(r)
+                })
+                .unwrap_or_else(|| PathBuf::from(&entry.candidate_id))
+        };
 
         let is_malformed = entry.state == SourceWorktreeInventoryEntryState::Malformed;
         let prunable = entry.git_prunable == Some(true) || is_malformed;
