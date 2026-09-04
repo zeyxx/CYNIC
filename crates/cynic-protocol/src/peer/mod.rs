@@ -5,12 +5,14 @@
 
 pub mod accounts;
 pub mod engine;
+pub mod genesis;
 pub mod state;
 pub mod transactions;
 pub mod wal;
 
 pub use accounts::*;
 pub use engine::*;
+pub use genesis::*;
 pub use state::*;
 pub use transactions::*;
 pub use wal::*;
