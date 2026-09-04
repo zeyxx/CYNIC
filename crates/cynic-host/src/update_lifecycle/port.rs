@@ -113,6 +113,15 @@ fn observe_argv(argv: &[&str]) {
 }
 
 fn observe_log_path() -> Option<String> {
+    // Explicit path wins: the operator or principal decides, we never guess.
+    // Follow-up: converge on the canonical principal-paths authority
+    // (today in cynic-inference, unreachable from low layers) instead of
+    // the degraded process-HOME fallback below.
+    if let Ok(explicit) = std::env::var("CYNIC_ARGV_OBSERVE_LOG") {
+        if !explicit.trim().is_empty() {
+            return Some(explicit);
+        }
+    }
     std::env::var("HOME")
         .ok()
         .map(|home| format!("{home}/.local/share/cynic/argv-observe.jsonl"))

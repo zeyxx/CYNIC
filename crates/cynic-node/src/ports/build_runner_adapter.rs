@@ -40,6 +40,7 @@ pub struct LocalCommandRunner;
 
 impl CommandRunner for LocalCommandRunner {
     fn run(&self, argv: &[&str]) -> CommandOutput {
+        observe_argv(argv);
         if argv.is_empty() {
             return CommandOutput {
                 spawn_error: Some("empty argv".into()),
@@ -62,6 +63,55 @@ impl CommandRunner for LocalCommandRunner {
             },
         }
     }
+}
+
+/// Observe mode (tranche 2): same contract as
+/// `cynic-host::update_lifecycle::port::observe_argv` — pure verdict from
+/// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
+/// execution. Duplicated here (not shared) because `cynic-node` must not
+/// depend on `cynic-host`; the verdict function is the single source.
+fn observe_argv(argv: &[&str]) {
+    use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
+    use std::io::Write as _;
+
+    let verdict = observe_argv_verdict(argv, &[]);
+    let obs = ArgvObservation::new(argv, &verdict);
+    let line = match serde_json::to_string(&obs) {
+        Ok(line) => line,
+        Err(_) => return,
+    };
+    let path = match observe_log_path() {
+        Some(path) => path,
+        None => return,
+    };
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            let _ = writeln!(file, "{line}");
+        }
+        Err(e) => eprintln!("argv-observe: log append failed ({path}): {e}"),
+    }
+}
+
+fn observe_log_path() -> Option<String> {
+    // Explicit path wins: the operator or principal decides, we never guess.
+    // Follow-up: converge on the canonical principal-paths authority
+    // (today in cynic-inference, unreachable from low layers) instead of
+    // the degraded process-HOME fallback below.
+    if let Ok(explicit) = std::env::var("CYNIC_ARGV_OBSERVE_LOG") {
+        if !explicit.trim().is_empty() {
+            return Some(explicit);
+        }
+    }
+    std::env::var("HOME")
+        .ok()
+        .map(|home| format!("{home}/.local/share/cynic/argv-observe.jsonl"))
 }
 
 /// `BuildRunnerPort` implemented over SSH to the network runner.
