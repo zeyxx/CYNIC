@@ -11,6 +11,7 @@ pub mod build_slice_runner;
 pub mod build_workload_grant_port;
 pub mod build_workload_grant_store_port;
 pub mod build_workload_observation_port;
+pub mod build_workload_submission_port;
 pub mod build_proof_port;
 pub mod credential_broker_port;
 pub mod credential_lease_verifier_port;

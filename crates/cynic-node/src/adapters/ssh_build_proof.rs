@@ -9,9 +9,7 @@ use async_trait::async_trait;
 use std::process::Command;
 use std::time::Instant;
 
-use cynic_protocol::build_proof::{
-    BuildProofNetworkMode, BuildProofPort, BuildProofReport, BuildProofRequest, BuildProofStatus,
-};
+use cynic_protocol::build_proof::{BuildProofPort, BuildProofReport, BuildProofRequest};
 
 use crate::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE;
 
@@ -22,7 +20,11 @@ pub struct SshBuildProof {
 }
 
 impl SshBuildProof {
-    pub fn new(host: impl Into<String>, user: impl Into<String>, node_id: impl Into<String>) -> Self {
+    pub fn new(
+        host: impl Into<String>,
+        user: impl Into<String>,
+        node_id: impl Into<String>,
+    ) -> Self {
         Self {
             host: host.into(),
             user: user.into(),
@@ -35,7 +37,11 @@ impl SshBuildProof {
     }
 
     fn checkout_dir(&self, sha: &str) -> String {
-        format!("{}/cynic-{}", DEFAULT_CHECKOUT_BASE, &sha[..12.min(sha.len())])
+        format!(
+            "{}/cynic-{}",
+            DEFAULT_CHECKOUT_BASE,
+            &sha[..12.min(sha.len())]
+        )
     }
 
     fn run_remote(&self, argv: &[&str]) -> Result<(bool, String, String), String> {
@@ -116,7 +122,7 @@ impl BuildProofPort for SshBuildProof {
                 source_commit: sha.clone(),
                 package: request.package.clone(),
                 phase: "check".to_string(),
-                status: BuildProofStatus::Failed {
+                status: cynic_protocol::build_proof::BuildProofStatus::Failed {
                     detail: format!("stdout: {stdout}\nstderr: {stderr}"),
                 },
                 argv: check_args.iter().map(|s| (*s).to_string()).collect(),
@@ -134,7 +140,7 @@ impl BuildProofPort for SshBuildProof {
                     source_commit: sha.clone(),
                     package: request.package.clone(),
                     phase: "test".to_string(),
-                    status: BuildProofStatus::Failed {
+                    status: cynic_protocol::build_proof::BuildProofStatus::Failed {
                         detail: format!("stdout: {stdout}\nstderr: {stderr}"),
                     },
                     argv: test_argv_raw.iter().map(|s| (*s).to_string()).collect(),
@@ -152,7 +158,7 @@ impl BuildProofPort for SshBuildProof {
                 cynic_protocol::build_proof::BuildProofPhase::Check => "check".to_string(),
                 cynic_protocol::build_proof::BuildProofPhase::Test { .. } => "test".to_string(),
             },
-            status: BuildProofStatus::Converged,
+            status: cynic_protocol::build_proof::BuildProofStatus::Converged,
             argv: check_args.iter().map(|s| (*s).to_string()).collect(),
             node_id: self.node_id.clone(),
             elapsed_secs: start.elapsed().as_secs(),
