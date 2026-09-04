@@ -277,6 +277,7 @@ pub use transport_readback::*;
 pub use transport_security::*;
 pub use workload_identity::*;
 pub use worktree_convergence_harness::*;
+pub mod source_worktree;
 
 #[cfg(test)]
 mod source_worktree_inventory_tests;
