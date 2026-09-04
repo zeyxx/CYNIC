@@ -272,6 +272,7 @@ mod tests {
             workload_id: "source-transaction-1".to_string(),
             idempotency_key: "source-transaction-1".to_string(),
             plan_digest: plan_digest.clone(),
+            mandate_binding: None,
             input: Some(crate::AgentWorkloadInput {
                 schema: crate::AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
                 kind: "source_change_submission".to_string(),

@@ -347,6 +347,7 @@ mod tests {
             workload_id: "w1".to_string(),
             idempotency_key: "k1".to_string(),
             plan_digest: format!("sha256:{}", "a".repeat(64)),
+            mandate_binding: None,
             input: None,
             action,
             delegation: AgentDelegationEnvelope {
