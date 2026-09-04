@@ -329,6 +329,56 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let should_fail = report.status != "completed";
             emit_json("network mesh apply target", &report, should_fail)
         }
+        NetworkCommands::MeshCoordination {
+            json: _,
+            registry,
+            endpoint,
+            api_key,
+            check_health,
+        } => {
+            let ep = endpoint
+                .clone()
+                .unwrap_or_else(|| "http://10.10.10.40:8080".to_string());
+            let mut adapter = crate::adapters::headscale::HeadscaleAdapter::new(&ep);
+            if let Some(key) = api_key {
+                adapter = crate::adapters::headscale::HeadscaleAdapter::with_api_key(&ep, key);
+            }
+
+            if *check_health {
+                match adapter.check_health() {
+                    Ok(health) => emit_json("mesh coordination health", &health, !health.healthy),
+                    Err(error) => {
+                        tracing::error!("mesh coordination health probe failed: {error}");
+                        ExitCode::FAILURE
+                    }
+                }
+            } else {
+                use crate::ports::mesh_coordination_port::MeshCoordinationPort;
+                let health = adapter.check_health().ok();
+                let members = adapter.list_members().unwrap_or_default();
+                let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
+                let desired_node_names: Vec<String> = plan
+                    .map(|p| p.desired_peers.into_iter().map(|peer| peer.id).collect())
+                    .unwrap_or_default();
+                let report = crate::domain::mesh_coordination::reconcile_mesh_members(
+                    "headscale",
+                    &desired_node_names,
+                    &members,
+                );
+                let payload = serde_json::json!({
+                    "schema": report.schema,
+                    "provider": report.provider,
+                    "endpoint": ep,
+                    "health": health,
+                    "desired_peers": report.desired_peers,
+                    "observed_members": report.observed_members,
+                    "active_members": report.active_members,
+                    "missing_members": report.missing_members,
+                    "unmanaged_members": report.unmanaged_members,
+                });
+                emit_json("mesh coordination report", &payload, false)
+            }
+        }
         NetworkCommands::ActuateTarget {
             json: _,
             request,

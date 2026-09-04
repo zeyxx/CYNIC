@@ -516,6 +516,24 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = 20)]
         qga_max_status_polls: usize,
     },
+    /// Observe or reconcile mesh coordination (membership and health).
+    MeshCoordination {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Registry path used to derive declared mesh peers.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Optional explicit coordination control plane endpoint (e.g. http://10.10.10.40:8080).
+        #[arg(long)]
+        endpoint: Option<String>,
+        /// Optional API bearer token for coordination control plane.
+        #[arg(long)]
+        api_key: Option<String>,
+        /// Probe health only.
+        #[arg(long)]
+        check_health: bool,
+    },
     /// Execute a host-owned network-actuation request inside an attested QEMU guest.
     ActuateTarget {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.

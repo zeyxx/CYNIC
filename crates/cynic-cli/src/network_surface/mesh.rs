@@ -109,6 +109,18 @@ pub(crate) fn try_execute_mesh(
                 observe_runtime,
             )
         }
+        NetworkMeshCommand::Coordination {
+            registry,
+            endpoint,
+            api_key,
+            check_health,
+        } => cynic_node::execute_network_command(&NetworkCommands::MeshCoordination {
+            json: true,
+            registry: registry_path(registry),
+            endpoint,
+            api_key,
+            check_health,
+        }),
     };
 
     Ok(exit)
