@@ -273,6 +273,85 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
     admission(envelope.workload_id.clone(), violations, missing_evidence)
 }
 
+pub fn admit_workload_mandate_binding(
+    envelope: &AgentWorkloadEnvelope,
+    mandate: &crate::peer::MandateAccount,
+    now_unix_s: u64,
+) -> AgentWorkloadAdmission {
+    let Some(binding) = envelope.mandate_binding.as_ref() else {
+        return admission(
+            envelope.workload_id.clone(),
+            vec![violation(
+                "mandate_binding_missing",
+                "node mutation admission requires an immutable mandate binding",
+            )],
+            Vec::new(),
+        );
+    };
+    let mut violations = Vec::new();
+    let expected_scope = format!(
+        "{}:{}",
+        envelope.policy_admission.mutation.scope.domain,
+        envelope.policy_admission.mutation.scope.target
+    );
+    if binding.mandate_id != mandate.mandate_id {
+        violations.push(violation(
+            "mandate_id_mismatch",
+            "workload binding must name the observed mandate",
+        ));
+    }
+    if binding.fencing_token != mandate.fencing_token {
+        violations.push(violation(
+            "mandate_fencing_token_mismatch",
+            "workload binding fencing token must equal the observed mandate",
+        ));
+    }
+    if crate::digest_json(mandate).ok().as_deref() != Some(binding.snapshot_digest.as_str()) {
+        violations.push(violation(
+            "mandate_snapshot_digest_mismatch",
+            "workload binding must bind the exact observed mandate snapshot",
+        ));
+    }
+    if envelope.delegation.agent_id != mandate.agent_id {
+        violations.push(violation(
+            "mandate_agent_mismatch",
+            "workload delegated agent must equal the mandate agent",
+        ));
+    }
+    if mandate.scope != expected_scope {
+        violations.push(violation(
+            "mandate_scope_mismatch",
+            "mandate scope must equal the canonical workload policy scope",
+        ));
+    }
+    if !mandate.is_valid_at(now_unix_s) {
+        violations.push(violation(
+            "mandate_inactive_or_exhausted",
+            "mandate must be active, current, and have remaining budget",
+        ));
+    }
+    if binding.requested_actions == 0
+        || binding.requested_actions > mandate.max_actions.saturating_sub(mandate.consumed_actions)
+    {
+        violations.push(violation(
+            "mandate_action_budget_exceeded",
+            "workload requested actions exceed the observed mandate remainder",
+        ));
+    }
+    if binding.requested_wall_seconds == 0
+        || binding.requested_wall_seconds
+            > mandate
+                .max_wall_seconds
+                .saturating_sub(mandate.consumed_wall_seconds)
+    {
+        violations.push(violation(
+            "mandate_wall_time_budget_exceeded",
+            "workload requested wall time exceeds the observed mandate remainder",
+        ));
+    }
+    admission(envelope.workload_id.clone(), violations, Vec::new())
+}
+
 pub fn admit_agent_workload_dispatch(
     envelope: &AgentWorkloadEnvelope,
     active_idempotency_keys: &[String],

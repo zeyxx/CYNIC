@@ -66,6 +66,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
         workload_id: "workload-1".to_string(),
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: None,
         action,
         delegation: AgentDelegationEnvelope {
