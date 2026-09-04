@@ -124,6 +124,7 @@ pub(crate) mod storage_identity;
 pub mod storage_primary;
 pub mod toolchain;
 pub mod transport;
+pub mod tmux_session_supervision;
 pub mod tunnel_supervisor;
 pub mod update_lifecycle;
 pub mod usecases;

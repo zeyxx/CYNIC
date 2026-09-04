@@ -75,8 +75,8 @@ pub mod root_dispatch;
 pub mod runtime_paths;
 pub mod runtime_suite;
 pub mod runtime_surface;
-pub mod rust_source;
 pub mod schema_registry_audit;
+pub mod session_surface;
 pub mod solana_surface;
 pub mod source_surface;
 pub mod surface_audit;
@@ -179,6 +179,11 @@ pub(crate) enum Command {
     NetworkAudit {
         #[command(subcommand)]
         command: NetworkAuditCommand,
+    },
+    /// Read-only tmux session supervision with per-pane metrics and activity.
+    Session {
+        #[command(subcommand)]
+        command: session_surface::SessionCommand,
     },
     #[command(hide = true)]
     Network {
