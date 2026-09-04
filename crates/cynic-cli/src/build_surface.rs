@@ -11,6 +11,7 @@ use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObse
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_node::adapters::ssh_build_proof::SshBuildProof;
+use cynic_node::ports::build_proof_port::BuildProofPort;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
 use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
@@ -291,7 +292,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             host,
             user,
             json,
-        } => prove_build(&commit, package, &phase, filter, &host, user, json),
+        } => prove_build(&commit, package, &phase, filter, &host, &user, json),
     }
 }
 

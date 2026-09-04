@@ -172,21 +172,23 @@ pub async fn orchestrate_build_submission(
     };
 
     // Step 3: Issue signed grant
+    let grant_record = cynic_protocol::AgentWorkloadRecord {
+        schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+        envelope: envelope.clone(),
+        state: consumed.state,
+        claim: consumed.claim,
+        last_fencing_token: consumed.last_fencing_token,
+        cancellation_generation: consumed.cancellation_generation,
+        consumed_actions: consumed.consumed_actions,
+        completion: None,
+    };
     let durable_record = cynic_protocol::DurableAgentWorkloadRecord {
         schema: cynic_protocol::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         revision: 1,
         previous_record_digest: None,
-        record_digest: format!("sha256:{}", &request.request_id),
-        record: cynic_protocol::AgentWorkloadRecord {
-            schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
-            envelope: envelope.clone(),
-            state: consumed.state,
-            claim: consumed.claim,
-            last_fencing_token: consumed.last_fencing_token,
-            cancellation_generation: consumed.cancellation_generation,
-            consumed_actions: consumed.consumed_actions,
-            completion: None,
-        },
+        record_digest: cynic_protocol::digest_json(&grant_record)
+            .map_err(|_| "grant_record_digest_failed".to_string())?,
+        record: grant_record,
         committed_at_ms: now_ms,
     };
 
