@@ -67,6 +67,7 @@ pub mod operator_errors;
 pub mod operator_help;
 pub mod operator_status;
 pub mod ownership_audit;
+pub mod peer_surface;
 pub mod policy_formality_audit;
 pub mod queue_surface;
 pub mod root_dispatch;
@@ -90,9 +91,9 @@ use crate::bootstrap_surface::BootstrapCommand;
 use crate::dev_surface::DevCommand;
 use crate::fleet_surface::FleetCommand;
 use crate::git_surface::GitCommand;
-use crate::judge_surface::JudgeCommand;
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::integrations_surface::IntegrationsCommand;
+use crate::judge_surface::JudgeCommand;
 use crate::lab_surface::LabCommand;
 use crate::network_audit::NetworkAuditCommand;
 use crate::network_surface::NetworkCommand;
@@ -182,6 +183,11 @@ pub(crate) enum Command {
     Network {
         #[command(subcommand)]
         command: NetworkCommand,
+    },
+    /// CynicPeer sovereign state engine, local storage and ingress commands.
+    Peer {
+        #[command(subcommand)]
+        command: cynic_node::cli::PeerCommands,
     },
     /// Observe and manage node activation (deployment_epoch + bootstrap + takeover).
     NodeActivation {

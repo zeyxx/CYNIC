@@ -182,6 +182,14 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "peer",
+                commands: vec![
+                    "cynic peer status [--dir <path>] [--registry <path>] [--json]",
+                    "cynic peer inspect --kind <citizen|node|mandate> --id <id> [--dir <path>] [--json]",
+                    "cynic peer submit-tx --file <path> [--dir <path>] [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "audit",
                 commands: vec!["cynic audit node-host --json [--max-commits <n>]"],
             },
@@ -210,7 +218,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "build",
-                commands: vec!["cynic build discover --json [--kind local|remote] [--target <ssh-target>]"],
+                commands: vec![
+                    "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
+                ],
             },
             CommandDomain {
                 name: "chat",

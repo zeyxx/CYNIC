@@ -6,10 +6,16 @@
 //! 3. Current account state is projected into `cynic-peer.db` (SQLite).
 //! 4. Complete crash-recovery: `rebuild_projection_from_wal` restores exact state.
 
+pub mod genesis;
+pub mod ingress;
 pub mod manager;
 pub mod projection;
 pub mod wal_file;
 
+pub use genesis::bootstrap_genesis_from_registry;
+pub use ingress::{
+    PEER_STATUS_SCHEMA, PeerStatusReport, peer_inspect_account, peer_status, peer_submit_tx,
+};
 pub use manager::{PeerStorageError, PeerStorageManager};
 pub use projection::PeerSqliteProjection;
 pub use wal_file::PeerWalFile;

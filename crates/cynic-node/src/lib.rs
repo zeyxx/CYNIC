@@ -20,7 +20,7 @@
 pub mod adapters;
 mod build_attestation;
 pub mod builder_activation;
-mod cli;
+pub mod cli;
 pub mod config;
 mod dns_activation;
 mod dns_activation_status;
@@ -238,4 +238,9 @@ pub fn observe_libvirt_harness_target_attestation(
             expected_network_boundary: expected_network_boundary.to_string(),
         },
     )
+}
+
+/// Execute a CynicPeer CLI command and emit result.
+pub fn execute_peer_command(command: &cli::PeerCommands) -> std::process::ExitCode {
+    adapters::peer_storage::ingress::execute_peer_command(command)
 }

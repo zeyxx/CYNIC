@@ -72,6 +72,11 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         command: NetworkCommands,
     },
+    /// CynicPeer sovereign state engine, local storage and ingress commands.
+    Peer {
+        #[command(subcommand)]
+        command: PeerCommands,
+    },
     /// Reconcile versioned runtime artifacts on this machine.
     Release {
         #[command(subcommand)]
@@ -690,6 +695,49 @@ pub enum NetworkCommands {
         /// Resolved drop-in path to validate.
         #[arg(long, default_value_t = current_runtime_layout().dns_resolved_dropin_path())]
         resolved_dropin_path: String,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum PeerCommands {
+    /// Show peer SMR status, accounts summary and state root digest.
+    Status {
+        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
+        #[arg(long, default_value = "/var/lib/cynic/peer")]
+        dir: String,
+        /// Optional registry path used for auto-genesis bootstrap on fresh storage.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: Option<String>,
+        /// Emit JSON output.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect an account (citizen, node, or mandate) from local SQLite projection.
+    Inspect {
+        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
+        #[arg(long, default_value = "/var/lib/cynic/peer")]
+        dir: String,
+        /// Account kind: citizen, node, or mandate.
+        #[arg(long)]
+        kind: String,
+        /// Unique account identifier.
+        #[arg(long)]
+        id: String,
+        /// Emit JSON output.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Submit a signed ledger transaction JSON file to the peer SMR.
+    SubmitTx {
+        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
+        #[arg(long, default_value = "/var/lib/cynic/peer")]
+        dir: String,
+        /// Path to JSON file containing a LedgerTransaction.
+        #[arg(long)]
+        file: String,
+        /// Emit JSON output.
+        #[arg(long)]
+        json: bool,
     },
 }
 
