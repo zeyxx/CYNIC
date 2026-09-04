@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn mandate_account_is_valid_at_enforces_temporal_and_budget_bounds() {
         let mandate = MandateAccount {
-            schema: MANDATE_ACCOUNT_SCHEMA,
+            schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
             mandate_id: "mnd_001".to_string(),
             agent_id: "agt_001".to_string(),
             office_id: "builder".to_string(),
@@ -78,7 +78,7 @@ mod tests {
         let now = 1724000000;
         let admin = CitizenAccount::new_admin("cit_001", "Operator", "hex", now);
         let node = NodeAccount {
-            schema: NODE_ACCOUNT_SCHEMA,
+            schema: NODE_ACCOUNT_SCHEMA.to_string(),
             node_id: "cynic-builder".to_string(),
             owner_citizen_id: "cit_001".to_string(),
             hostname: "builder".to_string(),
@@ -88,7 +88,7 @@ mod tests {
             last_liveness_proof_unix_s: Some(now),
         };
         let resource = ResourceAccount {
-            schema: RESOURCE_ACCOUNT_SCHEMA,
+            schema: RESOURCE_ACCOUNT_SCHEMA.to_string(),
             resource_id: "res_001".to_string(),
             node_id: "cynic-builder".to_string(),
             cpu_cores_available: 16,
@@ -99,14 +99,14 @@ mod tests {
             observation_proof_digest: Some("sha256:abcd".to_string()),
         };
         let office = OfficeAccount {
-            schema: OFFICE_ACCOUNT_SCHEMA,
+            schema: OFFICE_ACCOUNT_SCHEMA.to_string(),
             office_id: "builder".to_string(),
             title: "Software Build Runner".to_string(),
             allowed_capabilities: vec!["cargo_check".to_string(), "cargo_build".to_string()],
             forbidden_actions: vec!["git_push_main".to_string()],
         };
         let mandate = MandateAccount {
-            schema: MANDATE_ACCOUNT_SCHEMA,
+            schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
             mandate_id: "mnd_001".to_string(),
             agent_id: "agt_hermes".to_string(),
             office_id: "builder".to_string(),
@@ -238,7 +238,7 @@ mod tests {
 
         // Tx 2: Bind Node
         let node = NodeAccount {
-            schema: NODE_ACCOUNT_SCHEMA,
+            schema: NODE_ACCOUNT_SCHEMA.to_string(),
             node_id: "node_alpha".to_string(),
             owner_citizen_id: "cit_admin".to_string(),
             hostname: "alpha".to_string(),
@@ -261,7 +261,7 @@ mod tests {
 
         // Tx 3: Observe Resources
         let resource = ResourceAccount {
-            schema: RESOURCE_ACCOUNT_SCHEMA,
+            schema: RESOURCE_ACCOUNT_SCHEMA.to_string(),
             resource_id: "res_alpha".to_string(),
             node_id: "node_alpha".to_string(),
             cpu_cores_available: 16,
@@ -284,7 +284,7 @@ mod tests {
 
         // Tx 4: Define Office
         let office = OfficeAccount {
-            schema: OFFICE_ACCOUNT_SCHEMA,
+            schema: OFFICE_ACCOUNT_SCHEMA.to_string(),
             office_id: "builder".to_string(),
             title: "Build Runner".to_string(),
             allowed_capabilities: vec!["cargo_check".to_string()],
@@ -303,7 +303,7 @@ mod tests {
 
         // Tx 5: Grant Mandate with fencing token 1
         let mandate = MandateAccount {
-            schema: MANDATE_ACCOUNT_SCHEMA,
+            schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
             mandate_id: "mnd_01".to_string(),
             agent_id: "agt_hermes".to_string(),
             office_id: "builder".to_string(),
@@ -454,7 +454,7 @@ mod tests {
         state.offices.insert(
             "builder".to_string(),
             OfficeAccount {
-                schema: OFFICE_ACCOUNT_SCHEMA,
+                schema: OFFICE_ACCOUNT_SCHEMA.to_string(),
                 office_id: "builder".to_string(),
                 title: "Builder".to_string(),
                 allowed_capabilities: vec![],
@@ -464,7 +464,7 @@ mod tests {
         state.mandates.insert(
             "mnd_01".to_string(),
             MandateAccount {
-                schema: MANDATE_ACCOUNT_SCHEMA,
+                schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
                 mandate_id: "mnd_01".to_string(),
                 agent_id: "agt_hermes".to_string(),
                 office_id: "builder".to_string(),
@@ -482,7 +482,7 @@ mod tests {
 
         // New mandate with regressed fencing token 3 (must be > 5)
         let regressed_mandate = MandateAccount {
-            schema: MANDATE_ACCOUNT_SCHEMA,
+            schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
             mandate_id: "mnd_02".to_string(),
             agent_id: "agt_hermes".to_string(),
             office_id: "builder".to_string(),
@@ -523,7 +523,7 @@ mod tests {
         state.nodes.insert(
             "node_01".to_string(),
             NodeAccount {
-                schema: NODE_ACCOUNT_SCHEMA,
+                schema: NODE_ACCOUNT_SCHEMA.to_string(),
                 node_id: "node_01".to_string(),
                 owner_citizen_id: "cit_01".to_string(),
                 hostname: "n1".to_string(),
@@ -536,7 +536,7 @@ mod tests {
         state.mandates.insert(
             "mnd_01".to_string(),
             MandateAccount {
-                schema: MANDATE_ACCOUNT_SCHEMA,
+                schema: MANDATE_ACCOUNT_SCHEMA.to_string(),
                 mandate_id: "mnd_01".to_string(),
                 agent_id: "agt_01".to_string(),
                 office_id: "builder".to_string(),
@@ -579,7 +579,7 @@ mod tests {
         state.resources.insert(
             "res_01".to_string(),
             ResourceAccount {
-                schema: RESOURCE_ACCOUNT_SCHEMA,
+                schema: RESOURCE_ACCOUNT_SCHEMA.to_string(),
                 resource_id: "res_01".to_string(),
                 node_id: "node_01".to_string(),
                 cpu_cores_available: 4,

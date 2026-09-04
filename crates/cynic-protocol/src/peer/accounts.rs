@@ -52,7 +52,7 @@ pub enum NodeMembershipStatus {
 /// 1. CitizenAccount: Constituent authority and decisions reserved for human operator.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CitizenAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub citizen_id: String,
     pub display_name: String,
     pub public_key_hex: String,
@@ -69,7 +69,7 @@ impl CitizenAccount {
         now: u64,
     ) -> Self {
         Self {
-            schema: CITIZEN_ACCOUNT_SCHEMA,
+            schema: CITIZEN_ACCOUNT_SCHEMA.to_string(),
             citizen_id: citizen_id.into(),
             display_name: display_name.into(),
             public_key_hex: public_key_hex.into(),
@@ -83,7 +83,7 @@ impl CitizenAccount {
 /// 2. NodeAccount: Machine or compute environment hosting capabilities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub node_id: String,
     pub owner_citizen_id: String,
     pub hostname: String,
@@ -96,7 +96,7 @@ pub struct NodeAccount {
 /// 3. AgentAccount: Computational incarnation executing workloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub agent_id: String,
     pub parent_citizen_id: String,
     pub office_id: String,
@@ -110,7 +110,7 @@ pub struct AgentAccount {
 /// 4. OfficeAccount: Institutional stable profession and its capability constraints.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OfficeAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub office_id: String,
     pub title: String,
     pub allowed_capabilities: Vec<String>,
@@ -120,7 +120,7 @@ pub struct OfficeAccount {
 /// 5. MandateAccount: Temporary, time-bounded, scoped authorization with budget.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MandateAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub mandate_id: String,
     pub agent_id: String,
     pub office_id: String,
@@ -148,7 +148,7 @@ impl MandateAccount {
 /// 6. ResourceAccount: Physically observed compute capacity (never minted by policy).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResourceAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub resource_id: String,
     pub node_id: String,
     pub cpu_cores_available: u32,
@@ -162,7 +162,7 @@ pub struct ResourceAccount {
 /// 7. TreasuryAccount: Accounting balances of internal CYD calibration credits.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TreasuryAccount {
-    pub schema: &'static str,
+    pub schema: String,
     pub treasury_id: String,
     pub cyd_calibration_credits: u64,
     pub escrow_credits: u64,

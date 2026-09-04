@@ -6,15 +6,14 @@
 use serde::{Deserialize, Serialize};
 
 use super::accounts::{
-    AccountStatus, AgentControlMode, CitizenAccount, MandateAccount, NodeAccount, OfficeAccount,
-    ResourceAccount,
+    CitizenAccount, MandateAccount, NodeAccount, OfficeAccount, ResourceAccount,
 };
 
 pub const LEDGER_TRANSACTION_SCHEMA: &str = "cynic.peer.ledger_transaction.v1";
 
 /// The 18 canonical constitutional transitions of the CynicPeer SMR.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum LedgerTransactionPayload {
     /// 1. Register a new human citizen or sovereign authority.
     CitizenRegistered { citizen: CitizenAccount },
@@ -113,7 +112,7 @@ pub enum LedgerTransactionPayload {
 /// A signed, versioned, append-only transaction envelope submitted to the Peer SMR.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LedgerTransaction {
-    pub schema: &'static str,
+    pub schema: String,
     pub tx_id: String,
     pub sequence: u64,
     pub timestamp_unix_s: u64,
@@ -136,7 +135,7 @@ impl LedgerTransaction {
         payload: LedgerTransactionPayload,
     ) -> Self {
         Self {
-            schema: LEDGER_TRANSACTION_SCHEMA,
+            schema: LEDGER_TRANSACTION_SCHEMA.to_string(),
             tx_id: tx_id.into(),
             sequence,
             timestamp_unix_s,

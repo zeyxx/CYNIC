@@ -42,7 +42,7 @@ pub struct AdmittedWorkload {
 /// In-memory materialized state of a CynicPeer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeerState {
-    pub schema: &'static str,
+    pub schema: String,
     pub epoch: u64,
     pub last_sequence: u64,
     pub last_tx_hash: String,
@@ -65,7 +65,7 @@ impl Default for PeerState {
 impl PeerState {
     pub fn new() -> Self {
         Self {
-            schema: PEER_STATE_SCHEMA,
+            schema: PEER_STATE_SCHEMA.to_string(),
             epoch: 0,
             last_sequence: 0,
             last_tx_hash: "0000000000000000000000000000000000000000000000000000000000000000"
