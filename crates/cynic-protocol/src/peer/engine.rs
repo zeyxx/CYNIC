@@ -391,7 +391,7 @@ pub fn apply_transaction(
         } => {
             let treasury = next.treasury.entry(treasury_id.clone()).or_insert_with(|| {
                 super::accounts::TreasuryAccount {
-                    schema: super::accounts::TREASURY_ACCOUNT_SCHEMA,
+                    schema: super::accounts::TREASURY_ACCOUNT_SCHEMA.to_string(),
                     treasury_id: treasury_id.clone(),
                     cyd_calibration_credits: 0,
                     escrow_credits: 0,
