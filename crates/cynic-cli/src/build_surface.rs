@@ -77,6 +77,24 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
+        /// Proof log path. Defaults to the operator log under $HOME.
+        #[arg(long)]
+        proof_log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// List retained trigger proofs from the operator proof log.
+    ListProofs {
+        /// Keep only proofs for this exact source commit.
+        #[arg(long)]
+        commit: Option<String>,
+        /// Keep at most N newest proofs (0 = no limit).
+        #[arg(long, default_value = "20")]
+        limit: usize,
+        /// Proof log path. Defaults to the operator log under $HOME.
+        #[arg(long)]
+        proof_log: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -202,6 +220,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             checkout_base,
             ssot_url,
             package,
+            proof_log,
             json,
         } => trigger_build(
             &commit,
@@ -213,8 +232,15 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &checkout_base,
             &ssot_url,
             package,
+            proof_log.as_deref(),
             json,
         ),
+        BuildCommand::ListProofs {
+            commit,
+            limit,
+            proof_log,
+            json,
+        } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
         BuildCommand::ObserveWorkload {
             workload_id,
             state_root,
@@ -264,6 +290,7 @@ fn trigger_build(
     checkout_base: &str,
     ssot_url: &str,
     package: Option<String>,
+    proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
     let host = match host.filter(|value| !value.trim().is_empty()) {
@@ -314,10 +341,46 @@ fn trigger_build(
             network_mode,
         })
         .map_err(|error| error.to_string())?;
+    let rendered = proof.to_json();
     if json {
-        println!("{}", proof.to_json());
+        println!("{rendered}");
     } else {
         println!("build runner {}: {:?}", proof.node, proof.status);
+    }
+    let log_path = match proof_log {
+        Some(explicit) => explicit.to_string(),
+        None => crate::build_proof_log::default_proof_log_path()?,
+    };
+    if let Err(error) = crate::build_proof_log::append_proof(&log_path, &rendered) {
+        eprintln!("warning: proof retained in stdout only: {error}");
+    }
+    Ok(())
+}
+
+fn list_proofs(
+    commit: Option<&str>,
+    limit: usize,
+    proof_log: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let log_path = match proof_log {
+        Some(explicit) => explicit.to_string(),
+        None => crate::build_proof_log::default_proof_log_path()?,
+    };
+    let (proofs, skipped) = crate::build_proof_log::read_proofs(&log_path, commit, limit)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({ "proof_log": log_path, "proofs": proofs, "skipped_lines": skipped })
+        );
+    } else {
+        println!("proof log {log_path}: {} retained", proofs.len());
+        for proof in &proofs {
+            println!("  {}", proof);
+        }
+        for skipped in &skipped {
+            println!("  skipped: {skipped}");
+        }
     }
     Ok(())
 }

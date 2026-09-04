@@ -220,6 +220,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "build",
                 commands: vec![
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
+                    "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build list-proofs [--commit <sha>] [--limit N] [--json]",
                 ],
             },
             CommandDomain {
