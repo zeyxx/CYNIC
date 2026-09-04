@@ -154,7 +154,9 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     let ws_store_canonical = if workspace_store.exists() {
         workspace_store.to_path_buf()
     } else {
-        let home_ws = dirs::home_dir().map(|h| h.join(".workspace")).unwrap_or_default();
+        let home_ws = std::env::var_os("HOME")
+            .map(|h| std::path::PathBuf::from(h).join(".workspace"))
+            .unwrap_or_default();
         if home_ws.exists() {
             home_ws
         } else {
