@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use std::process::Command;
 use std::time::Instant;
 
-use cynic_node::ports::build_proof_port::BuildProofPort;
+use crate::ports::build_proof_port::BuildProofPort;
 use cynic_protocol::build_proof::{BuildProofReport, BuildProofRequest};
 
 use crate::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE;
