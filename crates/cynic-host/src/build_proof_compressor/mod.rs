@@ -34,7 +34,7 @@ pub fn compress_build_proof(
     );
 
     BuildProofCard {
-        schema: BUILD_PROOF_CARD_SCHEMA_V1,
+        schema: BUILD_PROOF_CARD_SCHEMA_V1.to_string(),
         card_id,
         epoch,
         timestamp,
@@ -87,7 +87,7 @@ mod tests {
             "Build executed at /home/user/Bureau/CYNIC",
         );
 
-        assert_eq!(card.schema, BUILD_PROOF_CARD_SCHEMA_V1);
+        assert_eq!(card.schema, BUILD_PROOF_CARD_SCHEMA_V1.to_string());
         assert!(card.card_id.starts_with("bpc-4e314810-"));
         assert!(!card.public_summary.contains("/home/user"));
         assert!(card.public_summary.contains("[REDACTED_PATH]"));
