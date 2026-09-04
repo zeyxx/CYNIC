@@ -247,9 +247,10 @@ mod tests {
                         "/repo/.workspace/wt-1".to_string(),
                     ],
                     ArgvOutput {
-                        exit_code: 0,
+                        exit_code: Some(0),
                         stdout: "".to_string(),
                         stderr: "".to_string(),
+                        spawn_error: None,
                     },
                 ),
                 (
@@ -262,9 +263,10 @@ mod tests {
                         "agent/wt-1".to_string(),
                     ],
                     ArgvOutput {
-                        exit_code: 0,
+                        exit_code: Some(0),
                         stdout: "Deleted branch agent/wt-1".to_string(),
                         stderr: "".to_string(),
+                        spawn_error: None,
                     },
                 ),
             ],
