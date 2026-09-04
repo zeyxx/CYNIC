@@ -58,6 +58,7 @@ pub mod lifecycle_surface_render;
 pub mod mask_surface;
 pub mod mcp_call_proof_index;
 pub mod memory_surface;
+pub mod network_audit;
 pub mod network_surface;
 pub mod node_activation_surface;
 pub mod node_host_audit;
@@ -93,6 +94,7 @@ use crate::judge_surface::JudgeCommand;
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::integrations_surface::IntegrationsCommand;
 use crate::lab_surface::LabCommand;
+use crate::network_audit::NetworkAuditCommand;
 use crate::network_surface::NetworkCommand;
 use crate::node_activation_surface::NodeActivationCommand;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
@@ -170,6 +172,11 @@ pub(crate) enum Command {
     Transport {
         #[command(subcommand)]
         command: TransportCommand,
+    },
+    /// Read-only network audit: declared (registry) vs observed (DNS, WireGuard, services).
+    NetworkAudit {
+        #[command(subcommand)]
+        command: NetworkAuditCommand,
     },
     #[command(hide = true)]
     Network {

@@ -13,6 +13,7 @@ use crate::fleet_surface::{FleetCommand, execute_fleet};
 use crate::forensics_surface::execute_forensics;
 use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
 use crate::lab_surface::{LabCommand, execute_lab};
+use crate::network_audit::{NetworkAuditCommand, execute_network_audit};
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::execute_node_activation;
 use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
@@ -40,7 +41,8 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Bootstrap { command } => execute_bootstrap_command(command),
         Command::Lab { command } => execute_lab_command(command),
         Command::Transport { command } => execute_transport_command(command),
-        Command::Network { command } => execute_network_command(command),
+        Command::Network { command } => execute_network(command),
+        Command::NetworkAudit { command } => execute_network_audit(command),
         Command::NodeActivation { command } => execute_node_activation(command),
         Command::Audit { command } => execute_audit_command(command),
         Command::Advanced => {
