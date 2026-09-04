@@ -171,7 +171,6 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         "local",
         &cynic_host::source_worktree_inventory::LocalSourceWorktreeInventoryRunner,
     );
-
     let head_sha = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(&root_canonical)
@@ -182,9 +181,57 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         .unwrap_or_else(|| "HEAD".to_string());
 
     let default_branch = "main".to_string();
+    let mut snapshots = Vec::new();
+    for entry in &inventory.entries {
+        let is_active_root = entry.path_basis == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
+            || entry.relative_path.as_deref() == Some(".")
+            || entry.relative_path.as_deref() == Some("")
+            || entry.candidate_id == "cynic";
 
-    let plan = cynic_host::source_worktree_reconcile::reconcile_source_worktrees(
-        &root_canonical, &inventory, &head_sha, 0,
+        let path = if is_active_root {
+            root_canonical.clone()
+        } else {
+            entry
+                .relative_path
+                .as_deref()
+                .map(|r| ws_store_canonical.join(r))
+                .unwrap_or_else(|| std::path::PathBuf::from(&entry.candidate_id))
+        };
+
+        let branch = entry
+            .branch
+            .as_deref()
+            .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
+
+        let dirty_file_count = if path.exists() {
+            std::process::Command::new("git")
+                .args(["-C", &path.to_string_lossy(), "status", "--short"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
+        snapshots.push(cynic_protocol::source_worktree::ObservedWorktreeSnapshot {
+            path,
+            branch,
+            head_sha: entry.head.clone().unwrap_or_default(),
+            is_active_root,
+            dirty_file_count,
+            git_prunable: entry.git_prunable == Some(true) || entry.state == cynic_protocol::SourceWorktreeInventoryEntryState::Malformed,
+            prunable_reason: entry.prunable_reason.clone(),
+        });
+    }
+
+    let plan = cynic_protocol::source_worktree::reconcile_worktree_convergence_pure(
+        root_canonical.clone(),
+        &default_branch,
+        &head_sha,
+        &snapshots,
+        &[],
     );
 
     if apply {
