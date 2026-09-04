@@ -248,6 +248,46 @@ successful-looking report.
   proof at the layer that owns it; suppressing the visible symptom alone is not
   a completed repair.
 
+### Causal dependency chain (Inviolable governance order)
+
+Every valid computation, mutation, and state transition in CYNIC must strictly
+follow the downward causal dependency chain, while truth and liveness rise
+exclusively via bottom-up read-back:
+
+```text
+Constituent (HumanAdmin / Sovereign Operator)
+  └── Identity (CitizenAccount, NodeAccount, AgentAccount)
+       └── Capability & Bounds (OfficeAccount, MandateAccount)
+            └── Resource Quota & Metabolism (ResourceAccount, TreasuryAccount)
+                 └── Workload Admission (AgentWorkloadEnvelope)
+                      └── Bounded Action (ArgvRunner, Sandboxed Execution)
+                           └── Read-back Observation (Ports & Probes)
+                                └── Outcome & Proof (RuntimeProof, EvidenceJournal)
+                                     └── State Transition (Deterministic SMR Engine)
+                                          └── Materialized View (Embedded SQLite & REST Ingress)
+```
+
+Inviolable invariants of the causal chain:
+
+1. **No action without mandate**: An agent cannot act without an admitted,
+   time-bounded, unrevoked `MandateAccount`. An intention, role name, or model
+   weight is never execution authority.
+2. **No mandate without observed resource**: A mandate cannot allocate
+   compute, memory, or energy that is not physically observed in a
+   `ResourceAccount`. Governance allocates consumption rights; it does not
+   manufacture physical substrate.
+3. **No state transition without causal proof**: A state transition cannot be
+   committed to the ledger without fresh read-back proof of the bounded action.
+4. **View derives from log, never the inverse**: The materialized state
+   (embedded SQLite, REST responses, UI projections) is a disposable,
+   reconstructible cache derived from the immutable hash-chained WAL. The
+   database never owns the state machine.
+5. **Orthogonality of emergent and legacy layers**: New constitutional
+   primitives live in pure protocol contracts (`cynic-protocol::peer`) and
+   must not take dependencies on legacy monolithic crates (`cynic-host`,
+   `cynic-kernel`). They establish the types that emergent domain crates
+   consume, allowing progressive cutover without regression risk.
+
 ### Agent decision rule
 
 Agents are bounded workloads, not a source of runtime truth. For each task,
