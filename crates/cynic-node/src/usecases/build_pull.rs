@@ -10,6 +10,7 @@ use cynic_protocol::{AgentWorkloadState, DurableAgentWorkloadRecord};
 
 use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
+use crate::ports::build_runner_adapter::{CommandOutput, CommandRunner};
 
 pub const BUILD_PULL_PLAN_SCHEMA: &str = "cynic.node.build_pull_plan.v1";
 
@@ -106,6 +107,110 @@ pub fn plan_pull_run(
         )
     })?;
     Ok(select_build_pull(node_id, now_ms, &records, leases))
+}
+
+const STDOUT_TAIL_BYTES: usize = 2048;
+
+fn tail(output: &str) -> String {
+    if output.len() <= STDOUT_TAIL_BYTES {
+        return output.to_string();
+    }
+    output[output.len() - STDOUT_TAIL_BYTES..].to_string()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildRunItem {
+    pub workload_id: String,
+    pub success: bool,
+    pub exit_code: Option<i32>,
+    pub state: AgentWorkloadState,
+    pub stdout_tail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildRunReport {
+    pub schema: String,
+    pub node_id: String,
+    pub ran: Vec<BuildRunItem>,
+    pub blockers: Vec<String>,
+}
+
+/// Execute up to `max_items` runnable check workloads locally and record
+/// their terminal state. Spawn goes only through the injected runner, argv
+/// only from the admitted plan. A revision conflict stops the run loudly:
+/// someone else moved the workload. Receipt emission stays with delivery.
+pub fn execute_pull_run(
+    node_id: &str,
+    now_ms: u64,
+    committed_at_ms: u64,
+    max_items: usize,
+    store: &dyn AgentWorkloadStorePort,
+    leases: &dyn AgentWorkloadDeliveryLeasePort,
+    runner: &dyn CommandRunner,
+) -> BuildRunReport {
+    let mut report = BuildRunReport {
+        schema: BUILD_PULL_PLAN_SCHEMA.to_string(),
+        node_id: node_id.to_string(),
+        ran: Vec::new(),
+        blockers: Vec::new(),
+    };
+    let plan = match plan_pull_run(node_id, now_ms, store, leases) {
+        Ok(plan) => plan,
+        Err(error) => {
+            report.blockers.push(error);
+            return report;
+        }
+    };
+    report.blockers.extend(plan.blockers);
+    for item in plan.runnable.into_iter().take(max_items.max(1)) {
+        let durable = match store.read(&item.workload_id) {
+            Ok(Some(durable)) => durable,
+            Ok(None) => {
+                report
+                    .blockers
+                    .push(format!("build_run_record_vanished:{}", item.workload_id));
+                break;
+            }
+            Err(error) => {
+                report.blockers.push(format!(
+                    "build_run_record_read_failed:{}:{}:{}",
+                    item.workload_id, error.code, error.detail
+                ));
+                break;
+            }
+        };
+        let refs: Vec<&str> = item.argv.iter().map(String::as_str).collect();
+        let out: CommandOutput = runner.run(&refs);
+        let mut next = durable.record.clone();
+        next.state = if out.success() {
+            AgentWorkloadState::Completed
+        } else {
+            AgentWorkloadState::Failed
+        };
+        next.consumed_actions += 1;
+        match store.compare_and_swap(
+            &item.workload_id,
+            Some(durable.revision),
+            &next,
+            committed_at_ms,
+        ) {
+            Ok(_) => report.ran.push(BuildRunItem {
+                workload_id: item.workload_id,
+                success: out.success(),
+                exit_code: out.exit_code,
+                state: next.state,
+                stdout_tail: tail(&out.stdout),
+            }),
+            Err(error) => {
+                report.blockers.push(format!(
+                    "build_run_revision_conflict:{}:{}:{}",
+                    item.workload_id, error.code, error.detail
+                ));
+                break;
+            }
+        }
+    }
+    report
 }
 
 #[cfg(test)]
@@ -400,5 +505,160 @@ mod tests {
 
         assert!(plan.blockers.is_empty());
         assert!(plan.runnable.is_empty());
+    }
+
+    struct FakeCommandRunner {
+        outputs: std::sync::Mutex<Vec<CommandOutput>>,
+        seen: std::sync::Mutex<Vec<Vec<String>>>,
+    }
+
+    impl FakeCommandRunner {
+        fn with(outputs: Vec<CommandOutput>) -> Self {
+            Self {
+                outputs: std::sync::Mutex::new(outputs.into_iter().rev().collect()),
+                seen: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+
+        fn seen_argv(&self) -> Vec<Vec<String>> {
+            self.seen.lock().expect("read seen argv").clone()
+        }
+    }
+
+    impl crate::ports::build_runner_adapter::CommandRunner for FakeCommandRunner {
+        fn run(&self, argv: &[&str]) -> CommandOutput {
+            self.seen
+                .lock()
+                .expect("record argv")
+                .push(argv.iter().map(|arg| (*arg).to_string()).collect());
+            self.outputs
+                .lock()
+                .expect("pop output")
+                .pop()
+                .unwrap_or_default()
+        }
+    }
+
+    fn ok_output(stdout: &str) -> CommandOutput {
+        CommandOutput {
+            exit_code: Some(0),
+            stdout: stdout.to_string(),
+            stderr: String::new(),
+            spawn_error: None,
+        }
+    }
+
+    fn fail_output() -> CommandOutput {
+        CommandOutput {
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: "error[E0432]".to_string(),
+            spawn_error: None,
+        }
+    }
+
+    fn leased_holder(store_id: &str) -> MapLeases {
+        let mut entries = HashMap::new();
+        entries.insert(store_id.to_string(), lease("node-1", 999));
+        MapLeases {
+            entries,
+            fail: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn executes_held_workload_to_completed() {
+        let store = dry_store();
+        admit_build_check(
+            DRY_COMMIT,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit");
+        let runner = FakeCommandRunner::with(vec![ok_output("Checking cynic-host")]);
+
+        let report = execute_pull_run(
+            "node-1",
+            100,
+            200,
+            1,
+            &store,
+            &leased_holder(&dry_workload_id()),
+            &runner,
+        );
+
+        assert!(report.blockers.is_empty());
+        assert_eq!(report.ran.len(), 1);
+        assert!(report.ran[0].success);
+        assert_eq!(report.ran[0].state, AgentWorkloadState::Completed);
+        assert_eq!(report.ran[0].stdout_tail, "Checking cynic-host");
+        let seen = runner.seen_argv();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0][0], "cargo");
+        let stored = store
+            .read(&dry_workload_id())
+            .expect("read back")
+            .expect("record present");
+        assert_eq!(stored.record.state, AgentWorkloadState::Completed);
+    }
+
+    #[test]
+    fn failing_exit_records_failed_state() {
+        let store = dry_store();
+        admit_build_check(
+            DRY_COMMIT,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit");
+        let runner = FakeCommandRunner::with(vec![fail_output()]);
+
+        let report = execute_pull_run(
+            "node-1",
+            100,
+            200,
+            1,
+            &store,
+            &leased_holder(&dry_workload_id()),
+            &runner,
+        );
+
+        assert!(report.blockers.is_empty());
+        assert_eq!(report.ran.len(), 1);
+        assert!(!report.ran[0].success);
+        assert_eq!(report.ran[0].state, AgentWorkloadState::Failed);
+    }
+
+    #[test]
+    fn second_run_skips_terminal_without_respawning() {
+        let store = dry_store();
+        admit_build_check(
+            DRY_COMMIT,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit");
+        let leases = leased_holder(&dry_workload_id());
+        let first_runner = FakeCommandRunner::with(vec![ok_output("ok")]);
+        let first = execute_pull_run("node-1", 100, 200, 1, &store, &leases, &first_runner);
+        assert_eq!(first.ran.len(), 1);
+
+        let second_runner = FakeCommandRunner::with(vec![ok_output("ok")]);
+        let second = execute_pull_run("node-1", 100, 300, 1, &store, &leases, &second_runner);
+
+        assert!(second.ran.is_empty());
+        assert!(second_runner.seen_argv().is_empty());
     }
 }
