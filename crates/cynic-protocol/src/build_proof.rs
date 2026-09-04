@@ -12,6 +12,24 @@ use serde::{Deserialize, Serialize};
 
 pub const BUILD_PROOF_REQUEST_SCHEMA: &str = "cynic.build_proof_request.v1";
 pub const BUILD_PROOF_REPORT_SCHEMA: &str = "cynic.build_proof_report.v1";
+pub const BUILD_PROOF_CARD_SCHEMA_V1: &str = "cynic.build_proof_card.v1";
+
+/// Compact public-proof card (futarchic audience projection).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildProofCard {
+    pub schema: String,
+    pub card_id: String,
+    pub epoch: u64,
+    pub timestamp: String,
+    pub commit_hash: String,
+    pub crates_affected: Vec<String>,
+    pub lines_inserted: usize,
+    pub lines_deleted: usize,
+    pub audit_v2_status: String,
+    pub q_score_bps: Option<u32>,
+    pub proof_digest: String,
+    pub public_summary: String,
+}
 
 /// What the caller asks the runner to verify.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
