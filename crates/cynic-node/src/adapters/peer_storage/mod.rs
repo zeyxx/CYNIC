@@ -18,9 +18,9 @@ pub use wal_file::PeerWalFile;
 mod tests {
     use super::*;
     use cynic_protocol::peer::{
-        CITIZEN_ACCOUNT_SCHEMA, CitizenAccount, LedgerTransaction, LedgerTransactionPayload,
-        MANDATE_ACCOUNT_SCHEMA, MandateAccount, MandateStatus, NODE_ACCOUNT_SCHEMA, NodeAccount,
-        NodeMembershipStatus, OFFICE_ACCOUNT_SCHEMA, OfficeAccount,
+        CitizenAccount, LedgerTransaction, LedgerTransactionPayload, MANDATE_ACCOUNT_SCHEMA,
+        MandateAccount, MandateStatus, NODE_ACCOUNT_SCHEMA, NodeAccount, NodeMembershipStatus,
+        OFFICE_ACCOUNT_SCHEMA, OfficeAccount,
     };
 
     #[test]
