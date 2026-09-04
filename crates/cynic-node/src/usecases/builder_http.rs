@@ -358,7 +358,7 @@ mod tests {
             format!("forgejo-{}", "a".repeat(12))
         );
         assert_eq!(forgejo_workload_id(&sha), forgejo_workload_id(&sha));
-        let other = format!("{}b", &"a".repeat(39));
+        let other = format!("b{}", "a".repeat(39));
         assert_ne!(forgejo_workload_id(&sha), forgejo_workload_id(&other));
     }
 
