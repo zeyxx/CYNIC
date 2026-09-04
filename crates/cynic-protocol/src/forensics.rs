@@ -312,6 +312,16 @@ mod tests {
     }
 
     #[test]
+    fn journal_federation_redacts_bearer_token_before_evidence_leaves_node() {
+        let raw = "cynic-node: Authorization: Bearer super-secret-token failed";
+        let redacted = redact_journal_message(raw);
+
+        assert!(!redacted.contains("super-secret-token"));
+        assert!(redacted.contains("[REDACTED]"));
+        assert!(redacted.contains("cynic-node"));
+    }
+
+    #[test]
     fn schema_is_stable() {
         assert_eq!(FORENSIC_TIMELINE_SCHEMA, "cynic.forensic_timeline.v1");
         assert_eq!(POST_MORTEM_REPORT_SCHEMA, "cynic.post_mortem_report.v1");
