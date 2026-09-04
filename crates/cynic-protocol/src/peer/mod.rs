@@ -7,11 +7,13 @@ pub mod accounts;
 pub mod engine;
 pub mod state;
 pub mod transactions;
+pub mod wal;
 
 pub use accounts::*;
 pub use engine::*;
 pub use state::*;
 pub use transactions::*;
+pub use wal::*;
 
 #[cfg(test)]
 mod tests {

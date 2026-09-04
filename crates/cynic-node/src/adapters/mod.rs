@@ -51,6 +51,7 @@ pub mod local_storage_lease;
 pub mod local_storage_lifecycle;
 pub mod local_system_probe;
 pub mod local_workload_identity;
+pub mod peer_storage;
 pub mod provider_fallback_probe;
 pub mod proxmox;
 pub mod proxmox_control;
