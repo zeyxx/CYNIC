@@ -210,12 +210,12 @@ impl BuildRunnerPort for SshBuildRunner {
         if let Some(e) = &checkout.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        if !checkout.success() {
-            return Err(BuildError::AdmissionBlocked(format!(
-                "checkout pin failed: {}",
-                tail(&checkout.stderr)
-            )));
-        }
+        // Git may return a non-zero transport status while still switching the
+        // checkout (for example, an SSH wrapper propagates advisory detached-HEAD
+        // output). The authoritative result is the independent read-back below:
+        // accept only `rev-parse HEAD == requested SHA`, never stderr text.
+        let checkout_failed = !checkout.success();
+        let checkout_stderr = tail(&checkout.stderr);
         let head = self.runner.run(&[
             "ssh",
             target.as_str(),
@@ -228,10 +228,15 @@ impl BuildRunnerPort for SshBuildRunner {
         if let Some(e) = &head.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        if head.stdout.trim() != sha {
-            return Err(BuildError::ProofUnparseable(
-                "checkout HEAD does not match source commit".to_string(),
-            ));
+        if !head.success() || head.stdout.trim() != sha {
+            let detail = if checkout_failed {
+                format!("checkout exit non-zero ({checkout_stderr}); ")
+            } else {
+                String::new()
+            };
+            return Err(BuildError::ProofUnparseable(format!(
+                "{detail}checkout HEAD does not match source commit"
+            )));
         }
 
         // Step 3: build with the canonical argv for the action.
@@ -476,6 +481,23 @@ mod tests {
         assert!(log[1].contains(&"git".to_string()));
         assert!(log[1].contains(&"clone".to_string()));
         assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
+    }
+
+    #[test]
+    fn trigger_accepts_nonzero_checkout_when_readback_matches() {
+        let commit = "f".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            fail("advisory detached HEAD message"),
+            ok(&commit),
+            ok("Checking cynic-host"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("matching read-back is authoritative");
+        assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(handle.argv_log().len(), 4);
     }
 
     #[test]
