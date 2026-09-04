@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -279,7 +278,7 @@ fn probe_tcp(host: &str, port: u16) -> (bool, Option<u64>, Option<String>) {
 }
 
 fn audit_dns(
-    node_fqdn_map: &HashMap<String, String>,
+    _node_fqdn_map: &HashMap<String, String>,
     node_ip_map: &HashMap<String, String>,
 ) -> DnsAudit {
     let mut records = Vec::new();

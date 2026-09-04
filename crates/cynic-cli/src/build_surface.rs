@@ -521,22 +521,27 @@ fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), S
     let handle = spawn_webhook_server(config)
         .map_err(|e| format!("failed to bind webhook server on {bind}: {e}"))?;
 
-    // Print startup message
     let startup = serde_json::json!({
         "status": "listening",
         "bind": bind,
-        "runner_target": runner,
-        "phase": _phase,
-        "autonomous_apply": true,
+        "node_webhook_url": node_webhook_url,
+        "forwarding": "configured",
+        "webhook_secret_present": std::env::var("CYNIC_WEBHOOK_SECRET").is_ok(),
     });
 
     if json {
         println!("{}", serde_json::to_string_pretty(&startup).unwrap());
     } else {
         println!("Forgejo webhook server listening on {bind}");
-        println!("  Runner: {runner}");
-        println!("  Phase: {_phase}");
-        println!("  Autonomous apply: enabled");
+        println!("  Node webhook: {node_webhook_url}");
+        println!(
+            "  Webhook secret: {}",
+            if std::env::var("CYNIC_WEBHOOK_SECRET").is_ok() {
+                "configured"
+            } else {
+                "absent (unsigned pushes are reported as such)"
+            }
+        );
     }
 
     // Block on server thread (it handles all incoming requests in-process)
