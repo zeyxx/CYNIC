@@ -318,6 +318,38 @@ mod tests {
     }
 
     #[test]
+    fn orchestrate_completes_admission_grant_submission_with_fakes() {
+        let request = valid_request();
+        let route = route(
+            BuildRunnerRouteState::RuntimeFenced,
+            Some(BuildRunnerRoutePath::RuntimeDelivery),
+        );
+        let signer = FakeSigner {
+            key_id: "test-key".to_string(),
+        };
+        let submitter = FakeSubmitter {
+            should_fail: false,
+        };
+        let runtime = tokio::runtime::Runtime::new().expect("async runtime");
+        let plan = runtime
+            .block_on(orchestrate_build_submission(
+                &request,
+                &route,
+                "cynic-builder",
+                "/workspace",
+                &signer,
+                &submitter,
+                1724000000,
+            ))
+            .expect("orchestration succeeds");
+        assert_eq!(plan.status, "submitted");
+        assert!(plan.delivery.is_some());
+        assert!(plan.grant.is_some());
+        assert!(plan.submission.is_some());
+        assert!(plan.blockers.is_empty());
+    }
+
+    #[test]
     fn only_runtime_fenced_delivery_resolves_a_build_runner() {
         let fenced = route(
             BuildRunnerRouteState::RuntimeFenced,
