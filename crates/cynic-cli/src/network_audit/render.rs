@@ -29,7 +29,7 @@ pub(crate) fn render_text(report: &NetworkAuditReport) -> ExitCode {
         report.wireguard.ok_peers, report.wireguard.stale_peers, report.wireguard.dead_peers
     );
     for peer in &report.wireguard.peers {
-        let icon = match peer.status {
+        let icon = match peer.status.as_str() {
             "ok" => "✓",
             "stale" => "~",
             _ => "✗",

@@ -320,6 +320,9 @@ async fn main() -> ExitCode {
             )
             .await;
         }
+        Some(Commands::Peer { command }) => {
+            return adapters::peer_storage::ingress::execute_peer_command(&command);
+        }
         None => {}
     }
 

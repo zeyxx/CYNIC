@@ -1028,6 +1028,7 @@ dependencies = [
  "notify",
  "process-wrap",
  "reqwest 0.13.4",
+ "rusqlite",
  "rustix 1.1.4",
  "serde",
  "serde_json",

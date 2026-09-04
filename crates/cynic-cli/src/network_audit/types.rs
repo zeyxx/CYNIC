@@ -6,8 +6,8 @@ pub const NETWORK_AUDIT_SCHEMA: &str = "cynic.cli.network_audit.v1";
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub struct NetworkAuditReport {
-    pub schema: &'static str,
-    pub status: &'static str,
+    pub schema: String,
+    pub status: String,
     pub mutates: bool,
     pub total_nodes: usize,
     pub healthy_nodes: usize,
@@ -30,7 +30,7 @@ pub struct NodeAudit {
     pub role: String,
     pub declared_ip: Option<String>,
     pub observed_ip: Option<String>,
-    pub outcome: &'static str,
+    pub outcome: String,
     pub services: Vec<ServiceAudit>,
     pub error: Option<String>,
 }
@@ -69,7 +69,7 @@ pub struct WireguardPeerAudit {
     pub declared_endpoint: String,
     pub observed_endpoint: Option<String>,
     pub latest_handshake_s: Option<u64>,
-    pub status: &'static str,
+    pub status: String,
 }
 
 /// DNS audit: declared records vs observed resolution.
@@ -90,7 +90,7 @@ pub struct DnsRecordAudit {
     pub name: String,
     pub declared_address: String,
     pub observed_address: Option<String>,
-    pub status: &'static str,
+    pub status: String,
 }
 
 /// Alert emitted when declared vs observed diverges.

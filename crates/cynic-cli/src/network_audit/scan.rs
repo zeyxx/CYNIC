@@ -7,8 +7,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Deserialize;
 
 use super::types::{
-    DnsAudit, DnsRecordAudit, NetworkAudit, NetworkAuditAlert, NetworkAuditAlertLevel,
-    NetworkAuditReport, ServiceAudit, WireguardAudit, WireguardPeerAudit,
+    DnsAudit, DnsRecordAudit, NetworkAuditAlert, NetworkAuditAlertLevel, NetworkAuditReport,
+    NodeAudit, ServiceAudit, WireguardAudit, WireguardPeerAudit,
 };
 
 /// Raw registry structure (minimal — only what we audit).
@@ -62,12 +62,12 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
 
-    let (registry, read_error) = match read_registry(registry_path) {
-        Ok(r) => (r, None),
+    let registry = match read_registry(registry_path) {
+        Ok(r) => r,
         Err(e) => {
             return NetworkAuditReport {
-                schema: super::types::NETWORK_AUDIT_SCHEMA,
-                status: "blocked",
+                schema: super::types::NETWORK_AUDIT_SCHEMA.to_string(),
+                status: "blocked".to_string(),
                 mutates: false,
                 total_nodes: 0,
                 healthy_nodes: 0,
@@ -167,7 +167,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
                             service: svc.name.clone(),
                             node: entry.id.clone(),
                             declared_endpoint: declared_endpoint.clone(),
-                            observed_endpoint: declared_endpoint,
+                            observed_endpoint: declared_endpoint.clone(),
                             reachable,
                             latency_ms: latency,
                             error,
@@ -211,7 +211,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
             role: entry.role.clone().unwrap_or_default(),
             declared_ip: declared_ip.clone(),
             observed_ip: declared_ip,
-            outcome,
+            outcome: outcome.to_string(),
             services: service_audits,
             error: None,
         });
@@ -246,8 +246,8 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
     };
 
     NetworkAuditReport {
-        schema: super::types::NETWORK_AUDIT_SCHEMA,
-        status,
+        schema: super::types::NETWORK_AUDIT_SCHEMA.to_string(),
+        status: status.to_string(),
         mutates: false,
         total_nodes: nodes.len(),
         healthy_nodes,
@@ -306,7 +306,7 @@ fn audit_dns(
                         name: name.clone(),
                         declared_address: declared_ip.clone(),
                         observed_address: Some(declared_ip.clone()),
-                        status: "ok",
+                        status: "ok".to_string(),
                     });
                 } else {
                     failed += 1;
@@ -314,7 +314,7 @@ fn audit_dns(
                         name: name.clone(),
                         declared_address: declared_ip.clone(),
                         observed_address: Some(stdout.lines().next().unwrap_or("").to_string()),
-                        status: "mismatch",
+                        status: "mismatch".to_string(),
                     });
                 }
             }
@@ -324,7 +324,7 @@ fn audit_dns(
                     name: name.clone(),
                     declared_address: declared_ip.clone(),
                     observed_address: None,
-                    status: "unresolved",
+                    status: "unresolved".to_string(),
                 });
             }
         }
@@ -371,7 +371,7 @@ fn parse_wg_show(output: &str) -> WireguardAudit {
         if let Some(rest) = line.strip_prefix("peer: ") {
             // Save previous peer
             if let Some(p) = current_peer.take() {
-                match p.status {
+                match p.status.as_str() {
                     "ok" => ok += 1,
                     "stale" => stale += 1,
                     "dead" => dead += 1,
@@ -384,7 +384,7 @@ fn parse_wg_show(output: &str) -> WireguardAudit {
                 declared_endpoint: String::new(),
                 observed_endpoint: None,
                 latest_handshake_s: None,
-                status: "unknown",
+                status: "unknown".to_string(),
             });
         } else if let Some(ref mut p) = current_peer {
             if let Some(rest) = line.strip_prefix("endpoint: ") {
@@ -411,14 +411,15 @@ fn parse_wg_show(output: &str) -> WireguardAudit {
                     "stale"
                 } else {
                     "dead"
-                };
+                }
+                .to_string();
             }
         }
     }
 
     // Don't forget the last peer
     if let Some(p) = current_peer {
-        match p.status {
+        match p.status.as_str() {
             "ok" => ok += 1,
             "stale" => stale += 1,
             "dead" => dead += 1,
