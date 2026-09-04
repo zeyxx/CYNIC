@@ -357,19 +357,46 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 let health = adapter.check_health().ok();
                 let members = adapter.list_members().unwrap_or_default();
                 let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
-                let desired_node_names: Vec<String> = plan
-                    .map(|p| p.desired_peers.into_iter().map(|peer| peer.id).collect())
+                let desired_peers: Vec<crate::domain::mesh_coordination::DesiredMeshPeer> = plan
+                    .map(|p| {
+                        p.desired_peers
+                            .into_iter()
+                            .map(|peer| {
+                                let mut aliases = peer.dns_names;
+                                if let Some(short) = peer.id.strip_prefix("cynic-") {
+                                    aliases.push(short.to_string());
+                                }
+                                if let Some(short) = peer.id.strip_prefix("cynic-lxc-") {
+                                    aliases.push(short.to_string());
+                                }
+                                crate::domain::mesh_coordination::DesiredMeshPeer {
+                                    id: peer.id.clone(),
+                                    name: Some(peer.id),
+                                    aliases,
+                                }
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
-                let report = crate::domain::mesh_coordination::reconcile_mesh_members(
+
+                let self_node_id =
+                    cynic_host::process_observation::capture_command("hostname", &[])
+                        .ok()
+                        .filter(|o| o.success)
+                        .map(|o| o.stdout.trim().to_string());
+
+                let report = crate::domain::mesh_coordination::reconcile_mesh_coordination(
                     "headscale",
-                    &desired_node_names,
+                    &desired_peers,
                     &members,
+                    self_node_id.as_deref(),
                 );
                 let payload = serde_json::json!({
                     "schema": report.schema,
                     "provider": report.provider,
                     "endpoint": ep,
                     "health": health,
+                    "self_node": report.self_node,
                     "desired_peers": report.desired_peers,
                     "observed_members": report.observed_members,
                     "active_members": report.active_members,

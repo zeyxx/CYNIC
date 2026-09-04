@@ -342,7 +342,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                     &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
                         service: "forgejo".to_string(),
                         node: "forgejo".to_string(),
-                        endpoint: "10.10.10.101:3000".to_string(),
+                        endpoint: "forgejo.synapse.cynic:3000".to_string(),
                     },
                     std::time::Duration::from_millis(1500),
                 ),
@@ -350,7 +350,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                     &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
                         service: "surrealdb".to_string(),
                         node: "cynic-lxc-surrealdb".to_string(),
-                        endpoint: "10.10.10.103:8000".to_string(),
+                        endpoint: "surrealdb.synapse.cynic:8000".to_string(),
                     },
                     std::time::Duration::from_millis(1500),
                 ),
@@ -358,7 +358,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                     &cynic_node::usecases::network_watchdog_uc::ServiceProbeSpec {
                         service: "kernel".to_string(),
                         node: "local-kernel".to_string(),
-                        endpoint: "192.168.100.2:3030".to_string(),
+                        endpoint: "kernel.synapse.cynic:3030".to_string(),
                     },
                     std::time::Duration::from_millis(1500),
                 ),
