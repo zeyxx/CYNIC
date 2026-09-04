@@ -135,6 +135,11 @@ pub struct SshBuildRunner {
 
 /// Default checkout base on runner nodes.
 pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
+/// Shared compilation cache across per-SHA checkouts. Third-party
+/// dependencies (same lockfile, same toolchain) compile once; only the
+/// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
+/// isolated; concurrent builds serialize on the target-dir lock.
+pub const DEFAULT_SHARED_TARGET_DIR: &str = "/var/lib/cynic/shared-target";
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git";
 
@@ -261,6 +266,7 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
+            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
         ];
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -456,6 +462,7 @@ mod tests {
         );
         let cargo = log.last().unwrap().join(" ");
         assert!(cargo.contains("cargo check"));
+        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
