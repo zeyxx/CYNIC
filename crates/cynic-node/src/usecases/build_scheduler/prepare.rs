@@ -64,16 +64,10 @@ pub(super) async fn prepare(
             &control.node_id,
         )
         .map_err(|error| error.code)?;
-    let desired_working_directory = claimed
-        .record
-        .envelope
-        .action
-        .working_directory
-        .as_deref()
-        .ok_or_else(|| "build_scheduler_working_directory_missing".to_string())?;
-    if PathBuf::from(desired_working_directory) != layout.workspace_root {
-        return Err("build_scheduler_working_directory_layout_mismatch".into());
-    }
+    let _desired_working_directory = resolve_working_directory(
+        claimed.record.envelope.action.working_directory.as_deref(),
+        &layout.workspace_root,
+    )?;
 
     let runner = LocalArgvRunner;
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
@@ -192,5 +186,49 @@ fn reserve_action(
             Err(error) => return Err(error.code),
         }
     }
-    Err("build_scheduler_action_reservation_contended".into())
+}
+
+/// Resolve the execution working directory: an absent envelope directory
+/// means the node assigns its registry-resolved layout root; an explicit
+/// directory must equal it, otherwise the workload targets a layout this
+/// node did not prepare.
+pub(super) fn resolve_working_directory(
+    desired: Option<&str>,
+    layout_root: &PathBuf,
+) -> Result<PathBuf, String> {
+    match desired.filter(|value| !value.trim().is_empty()) {
+        None => Ok(layout_root.clone()),
+        Some(explicit) if PathBuf::from(explicit) == *layout_root => Ok(layout_root.clone()),
+        Some(_) => Err("build_scheduler_working_directory_layout_mismatch".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn absent_directory_assigns_layout_root() {
+        let root = PathBuf::from("/var/lib/cynic/workspaces/w1");
+        assert_eq!(resolve_working_directory(None, &root), Ok(root.clone()));
+        assert_eq!(resolve_working_directory(Some("  "), &root), Ok(root));
+    }
+
+    #[test]
+    fn explicit_matching_directory_passes_through() {
+        let root = PathBuf::from("/var/lib/cynic/workspaces/w1");
+        assert_eq!(
+            resolve_working_directory(Some("/var/lib/cynic/workspaces/w1"), &root),
+            Ok(root)
+        );
+    }
+
+    #[test]
+    fn foreign_directory_fails_closed() {
+        let root = PathBuf::from("/var/lib/cynic/workspaces/w1");
+        assert_eq!(
+            resolve_working_directory(Some("/tmp/elsewhere"), &root),
+            Err("build_scheduler_working_directory_layout_mismatch".to_string())
+        );
+    }
 }

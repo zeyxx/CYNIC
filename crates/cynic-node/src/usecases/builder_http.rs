@@ -19,7 +19,8 @@ use tokio_util::sync::CancellationToken;
 use cynic_protocol::{
     AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
     BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildSourceReference, admit_agent_workload, compose_build_agent_workload,
+    BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_agent_workload,
+    admit_build_mutation, compose_build_agent_workload, digest_json,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -268,7 +269,7 @@ async fn webhook_forgejo(
         evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
     };
 
-    let envelope = compose_build_agent_workload(
+    let mut envelope = compose_build_agent_workload(
         &request,
         &state.config.node_id,
         &state.config.workspace_root,
@@ -276,7 +277,17 @@ async fn webhook_forgejo(
     .map_err(|blockers| {
         (
             StatusCode::BAD_REQUEST,
-            format!("composition failed: {:?}", blockers),
+            format!("composition failed: {blockers:?}"),
+        )
+    })?;
+    // The node assigns the registry-resolved layout at prepare time; the
+    // gateway must not invent node paths here. The plan digest is recomputed
+    // so it keeps binding the exact action stored.
+    envelope.action.working_directory = None;
+    envelope.plan_digest = digest_json(&envelope.action).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "plan digest recomputation failed".to_string(),
         )
     })?;
     let admission = admit_agent_workload(&envelope);
