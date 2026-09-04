@@ -9,6 +9,7 @@
 use cynic_protocol::{AgentWorkloadState, DurableAgentWorkloadRecord};
 
 use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
+use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
 
 pub const BUILD_PULL_PLAN_SCHEMA: &str = "cynic.node.build_pull_plan.v1";
 
@@ -87,6 +88,24 @@ pub fn select_build_pull(
         }
     }
     plan
+}
+
+/// Dry-run execution plan: read admitted workloads from the store and select
+/// what this node would run now. No spawn, no mutation — the argv returned
+/// is exactly what the runner would execute.
+pub fn plan_pull_run(
+    node_id: &str,
+    now_ms: u64,
+    store: &dyn AgentWorkloadStorePort,
+    leases: &dyn AgentWorkloadDeliveryLeasePort,
+) -> Result<BuildPullPlan, String> {
+    let records = store.durable_records().map_err(|error| {
+        format!(
+            "build_pull_store_read_failed:{}:{}",
+            error.code, error.detail
+        )
+    })?;
+    Ok(select_build_pull(node_id, now_ms, &records, leases))
 }
 
 #[cfg(test)]
@@ -316,5 +335,70 @@ mod tests {
 
         assert!(plan.runnable.is_empty());
         assert_eq!(plan.blockers.len(), 1);
+    }
+
+    use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
+    use crate::usecases::build_admission::admit_build_check;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static PULL_DRY_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    const DRY_COMMIT: &str = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4";
+
+    fn dry_store() -> LocalAgentWorkloadStore {
+        let id = PULL_DRY_SEQ.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!("cynic-pull-dry-{}-{id}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create pull dry-run store dir");
+        LocalAgentWorkloadStore::new(&dir)
+    }
+
+    fn dry_workload_id() -> String {
+        format!("build-{}-cynic-host", &DRY_COMMIT[..12])
+    }
+
+    #[test]
+    fn dry_run_plans_admitted_store_content_without_spawning() {
+        let store = dry_store();
+        admit_build_check(
+            DRY_COMMIT,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
+        )
+        .expect("admit dry-run build");
+        let mut entries = HashMap::new();
+        entries.insert(dry_workload_id(), lease("node-1", 999));
+        let leases = MapLeases {
+            entries,
+            fail: Vec::new(),
+        };
+
+        let plan = plan_pull_run("node-1", 100, &store, &leases).expect("dry-run plan");
+
+        assert!(plan.blockers.is_empty());
+        assert_eq!(plan.runnable.len(), 1);
+        assert_eq!(plan.runnable[0].workload_id, dry_workload_id());
+        assert_eq!(plan.runnable[0].argv[0], "cargo");
+        assert_eq!(plan.runnable[0].argv[1], "check");
+        let records = store.durable_records().expect("list records");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].record.state, AgentWorkloadState::Dispatched);
+    }
+
+    #[test]
+    fn dry_run_empty_store_plans_nothing() {
+        let store = dry_store();
+        let leases = MapLeases {
+            entries: HashMap::new(),
+            fail: Vec::new(),
+        };
+
+        let plan = plan_pull_run("node-1", 100, &store, &leases).expect("dry-run plan");
+
+        assert!(plan.blockers.is_empty());
+        assert!(plan.runnable.is_empty());
     }
 }
