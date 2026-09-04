@@ -10,9 +10,10 @@
 //! grant signing, or submission policy.
 
 use cynic_protocol::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, AgentWorkloadState, BuildAgentRequest,
     BuildAgentRequestAdmission, BuildRunnerRouteDecision, BuildRunnerRoutePath,
-    BuildRunnerRouteState, admit_build_agent_request, compose_build_agent_workload,
+    BuildRunnerRouteState, LeaseGuard, admit_build_agent_request, claim_agent_workload,
+    compose_build_agent_workload, consume_agent_workload_action,
 };
 use serde::Serialize;
 
@@ -105,11 +106,58 @@ pub async fn orchestrate_build_submission(
         }
     };
 
+    // Step 2b: Claim the workload so the grant can be issued
+    let base_record = cynic_protocol::AgentWorkloadRecord {
+        schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+        envelope: envelope.clone(),
+        state: AgentWorkloadState::Dispatched,
+        claim: None,
+        last_fencing_token: 0,
+        cancellation_generation: 0,
+        consumed_actions: 0,
+        completion: None,
+    };
+    let lease_guard = LeaseGuard {
+        agent_id: request.requested_by.clone(),
+        target: envelope.workload_id.clone(),
+        lease_id: format!("claim-{}", envelope.workload_id),
+        fencing_token: 1,
+    };
+    let now_ms = now_unix_s * 1000;
+    let claimed = match claim_agent_workload(&base_record, lease_guard.clone(), now_ms + 300_000, now_ms, 3_600_000) {
+        Ok(r) => r,
+        Err(violation) => {
+            return Ok(BuildSubmissionPlan {
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
+                status: "blocked",
+                admission,
+                delivery: None,
+                grant: None,
+                submission: None,
+                blockers: vec![format!("claim_refused:{}:{}", violation.code, violation.message)],
+            });
+        }
+    };
+    let consumed = match consume_agent_workload_action(&claimed, &lease_guard, now_ms + 1) {
+        Ok(r) => r,
+        Err(violation) => {
+            return Ok(BuildSubmissionPlan {
+                schema: "cynic.node.build_submission_plan.v1".to_string(),
+                status: "blocked",
+                admission,
+                delivery: None,
+                grant: None,
+                submission: None,
+                blockers: vec![format!("consume_refused:{}:{}", violation.code, violation.message)],
+            });
+        }
+    };
+
     let delivery = AgentWorkloadDelivery {
         schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
         target_node_id: transport,
         submitted_by: request.requested_by.clone(),
-        submitted_at_ms: now_unix_s * 1000,
+        submitted_at_ms: now_ms,
         status: AgentWorkloadDeliveryStatus::Pending,
         accepted_at_ms: None,
         accepted_record_digest: None,
@@ -132,14 +180,14 @@ pub async fn orchestrate_build_submission(
         record: cynic_protocol::AgentWorkloadRecord {
             schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
             envelope: envelope.clone(),
-            state: cynic_protocol::AgentWorkloadState::Dispatched,
-            claim: None,
-            last_fencing_token: 0,
-            cancellation_generation: 0,
-            consumed_actions: 0,
+            state: consumed.state,
+            claim: consumed.claim,
+            last_fencing_token: consumed.last_fencing_token,
+            cancellation_generation: consumed.cancellation_generation,
+            consumed_actions: consumed.consumed_actions,
             completion: None,
         },
-        committed_at_ms: now_unix_s * 1000,
+        committed_at_ms: now_ms,
     };
 
     let grant = match issue_signed_build_workload_grant(
