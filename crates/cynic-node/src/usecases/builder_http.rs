@@ -133,6 +133,13 @@ fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool
     signature == expected
 }
 
+/// Deterministic workload id: the same push delivered twice must address
+/// the same record so the second delivery replays instead of duplicating.
+/// `commit_sha` is 40-hex validated by the caller; slicing is safe.
+fn forgejo_workload_id(commit_sha: &str) -> String {
+    format!("forgejo-{}", &commit_sha[..12])
+}
+
 /// Best-effort ref name for push provenance evidence (`reref.id`, else the
 /// branch-ish part of `ref`, else "unknown-ref"). Evidence names what was
 /// pushed; it never fabricates a digest.
@@ -190,8 +197,58 @@ async fn webhook_forgejo(
         ));
     }
 
-    let workload_id = format!("forgejo-{}", Uuid::new_v4());
+    // Canonical admission gate — build mutation requires:
+    // - A valid citizenship record
+    // - A held claim containing the target scope
+    // - Sufficient budget
+    // - Matching build role
+    let desired_role = "build_runner";
+    let citizen = AgentCitizenshipRecord {
+        schema: AGENT_CITIZENSHIP_SCHEMA,
+        agent_id: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
+        scope: AgentScope::Crate,
+        budgets: AgentBudgets {
+            actions: 100,
+            wall_seconds: 3600,
+        },
+        residual_risk: None,
+        evidence: Some(SecurityEvidenceState::Proven),
+    };
+    let admission = admit_build_mutation(
+        &citizen,
+        Some(&AgentScope::Crate),
+        &AgentBudgets {
+            actions: 1,
+            wall_seconds: 60,
+        },
+        &AgentScope::Crate,
+        true,
+        desired_role,
+        desired_role,
+    );
+    if let MutationAdmission::Refused { codes } = &admission {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("admission refused: {:?}", codes),
+        ));
+    }
+
+    let workload_id = forgejo_workload_id(&commit_sha);
     let accepted_at_ms = Utc::now().timestamp_millis();
+
+    if let Ok(Some(_)) = state.store.read(&workload_id) {
+        return Ok(Json(AcceptanceProof {
+            schema: "cynic.builder.acceptance_proof.v1",
+            workload_id,
+            commit_sha,
+            accepted_at_ms,
+            status: "duplicate",
+        }));
+    }
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
@@ -291,6 +348,18 @@ mod tests {
     fn workload_id_has_forgejo_prefix() {
         let id = format!("forgejo-{}", Uuid::new_v4());
         assert!(id.starts_with("forgejo-"));
+    }
+
+    #[test]
+    fn workload_id_is_deterministic_per_commit() {
+        let sha = "a".repeat(40);
+        assert_eq!(
+            forgejo_workload_id(&sha),
+            format!("forgejo-{}", "a".repeat(12))
+        );
+        assert_eq!(forgejo_workload_id(&sha), forgejo_workload_id(&sha));
+        let other = format!("{}b", &"a".repeat(39));
+        assert_ne!(forgejo_workload_id(&sha), forgejo_workload_id(&other));
     }
 
     #[test]
