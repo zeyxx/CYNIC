@@ -111,7 +111,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
                 crate::branch_graph_surface::execute_branch_graph(json)
             }
         },
-        Command::Queue { json } => crate::queue_surface::execute_queue(json),
+        Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS

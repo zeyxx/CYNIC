@@ -337,6 +337,8 @@ pub(crate) enum Command {
     Queue {
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        apply: bool,
     },
     /// Branch graph — thin projection via LocalBranchGraphAdapter.
     Branch {

@@ -460,6 +460,8 @@ pub(crate) enum RuntimeCommand {
     Queue {
         #[arg(long)]
         json: bool,
+        #[arg(long)]
+        apply: bool,
     },
 }
 
@@ -613,7 +615,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::BuildArtefact { json, apply } => {
             build_artefact::execute_build_artefact(json, apply)
         }
-        RuntimeCommand::Queue { json } => queue::execute_queue(json),
+        RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }

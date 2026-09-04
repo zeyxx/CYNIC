@@ -4,6 +4,6 @@
 
 use std::process::ExitCode;
 
-pub(crate) fn execute_queue(json: bool) -> ExitCode {
-    crate::queue_surface::execute_queue(json)
+pub(crate) fn execute_queue(json: bool, apply: bool) -> ExitCode {
+    crate::queue_surface::execute_queue(json, apply)
 }
