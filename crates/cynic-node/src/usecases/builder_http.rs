@@ -236,23 +236,17 @@ async fn webhook_forgejo(
         ));
     }
 
-    let workload_id = forgejo_workload_id(&commit_sha);
+    let request_id = forgejo_workload_id(&commit_sha);
     let accepted_at_ms = Utc::now().timestamp_millis();
-
-    if let Ok(Some(_)) = state.store.read(&workload_id) {
-        return Ok(Json(AcceptanceProof {
-            schema: "cynic.builder.acceptance_proof.v1",
-            workload_id,
-            commit_sha,
-            accepted_at_ms,
-            status: "duplicate",
-        }));
-    }
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
-        request_id: workload_id.clone(),
-        requested_by: state.config.agent_id.clone(),
+        request_id: request_id.clone(),
+        requested_by: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
@@ -293,6 +287,20 @@ async fn webhook_forgejo(
         ));
     }
 
+    // The store key is the composed envelope id: `compose` derives it from
+    // the request digest, so identical pushes address the same record and a
+    // second delivery replays instead of duplicating.
+    let workload_id = envelope.workload_id.clone();
+    if state.store.read(&workload_id).ok().flatten().is_some() {
+        return Ok(Json(AcceptanceProof {
+            schema: "cynic.builder.acceptance_proof.v1",
+            workload_id,
+            commit_sha,
+            accepted_at_ms,
+            status: "duplicate",
+        }));
+    }
+
     let record = AgentWorkloadRecord {
         schema: "cynic.agent_workload_record.v1".into(),
         envelope,
@@ -304,15 +312,29 @@ async fn webhook_forgejo(
         completion: None,
     };
 
-    state
-        .store
-        .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("persist failed: {}", e.code),
-            )
-        })?;
+    if let Err(error) =
+        state
+            .store
+            .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
+    {
+        // Lost the creation race with an identical concurrent push: the
+        // record now exists, so replay its acceptance instead of failing.
+        if error.code == "workload_store_revision_conflict"
+            && state.store.read(&workload_id).ok().flatten().is_some()
+        {
+            return Ok(Json(AcceptanceProof {
+                schema: "cynic.builder.acceptance_proof.v1",
+                workload_id,
+                commit_sha,
+                accepted_at_ms,
+                status: "duplicate",
+            }));
+        }
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("persist failed: {}", error.code),
+        ));
+    }
 
     Ok(Json(AcceptanceProof {
         schema: "cynic.builder.acceptance_proof.v1",
@@ -360,6 +382,39 @@ mod tests {
         assert_eq!(forgejo_workload_id(&sha), forgejo_workload_id(&sha));
         let other = format!("b{}", "a".repeat(39));
         assert_ne!(forgejo_workload_id(&sha), forgejo_workload_id(&other));
+    }
+
+    fn push_request(commit_sha: &str) -> BuildAgentRequest {
+        BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: forgejo_workload_id(commit_sha),
+            requested_by: "forgejo".to_string(),
+            source_commit: commit_sha.to_string(),
+            source: BuildSourceReference {
+                schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://example/CYNIC.git".to_string(),
+                revision: commit_sha.to_string(),
+                authority_ref: "forgejo".to_string(),
+                snapshot: None,
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            release_publication: None,
+            evidence_refs: vec![format!("forgejo:push@{commit_sha}")],
+        }
+    }
+
+    #[test]
+    fn identical_pushes_compose_identical_workload_ids() {
+        let sha = "c".repeat(40);
+        let first =
+            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+        let second =
+            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+        assert_eq!(first.workload_id, second.workload_id);
     }
 
     #[test]
