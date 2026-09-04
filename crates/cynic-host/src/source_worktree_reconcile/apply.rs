@@ -234,16 +234,41 @@ mod tests {
 
     #[test]
     fn test_apply_executes_safe_prune_idempotently() {
-        let runner = MapArgvRunner::new()
-            .with_exact(
-                &["git", "-C", "/repo", "worktree", "remove", "--force", "/repo/.workspace/wt-1"],
-                ArgvOutput::success(""),
-            )
-            .with_exact(
-                &["git", "-C", "/repo", "branch", "-d", "agent/wt-1"],
-                ArgvOutput::success("Deleted branch agent/wt-1"),
-            );
-
+        let runner = MapArgvRunner {
+            responses: vec![
+                (
+                    vec![
+                        "git".to_string(),
+                        "-C".to_string(),
+                        "/repo".to_string(),
+                        "worktree".to_string(),
+                        "remove".to_string(),
+                        "--force".to_string(),
+                        "/repo/.workspace/wt-1".to_string(),
+                    ],
+                    ArgvOutput {
+                        exit_code: 0,
+                        stdout: "".to_string(),
+                        stderr: "".to_string(),
+                    },
+                ),
+                (
+                    vec![
+                        "git".to_string(),
+                        "-C".to_string(),
+                        "/repo".to_string(),
+                        "branch".to_string(),
+                        "-d".to_string(),
+                        "agent/wt-1".to_string(),
+                    ],
+                    ArgvOutput {
+                        exit_code: 0,
+                        stdout: "Deleted branch agent/wt-1".to_string(),
+                        stderr: "".to_string(),
+                    },
+                ),
+            ],
+        };
         let plan = WorktreeConvergencePlan {
             schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
             repository_root: PathBuf::from("/repo"),
@@ -274,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_apply_dry_run_does_not_mutate() {
-        let runner = MapArgvRunner::new(); // Zero registered commands
+        let runner = MapArgvRunner { responses: vec![] };
         let plan = WorktreeConvergencePlan {
             schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
             repository_root: PathBuf::from("/repo"),
