@@ -15,7 +15,6 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use cynic_protocol::{
     AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
@@ -343,6 +342,7 @@ pub async fn run_http_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn workload_id_has_forgejo_prefix() {
