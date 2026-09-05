@@ -15,12 +15,13 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use cynic_protocol::{
+    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
     AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
     BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildSourceReference, admit_agent_workload, compose_build_agent_workload,
+    BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_agent_workload,
+    admit_build_mutation, compose_build_agent_workload, digest_json,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -133,6 +134,13 @@ fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool
     signature == expected
 }
 
+/// Deterministic workload id: the same push delivered twice must address
+/// the same record so the second delivery replays instead of duplicating.
+/// `commit_sha` is 40-hex validated by the caller; slicing is safe.
+fn forgejo_workload_id(commit_sha: &str) -> String {
+    format!("forgejo-{}", &commit_sha[..12])
+}
+
 /// Best-effort ref name for push provenance evidence (`reref.id`, else the
 /// branch-ish part of `ref`, else "unknown-ref"). Evidence names what was
 /// pushed; it never fabricates a digest.
@@ -190,13 +198,57 @@ async fn webhook_forgejo(
         ));
     }
 
-    let workload_id = format!("forgejo-{}", Uuid::new_v4());
+    // Canonical admission gate — build mutation requires:
+    // - A valid citizenship record
+    // - A held claim containing the target scope
+    // - Sufficient budget
+    // - Matching build role
+    let desired_role = "build_runner";
+    let citizen = AgentCitizenshipRecord {
+        schema: AGENT_CITIZENSHIP_SCHEMA,
+        agent_id: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
+        scope: AgentScope::Crate,
+        budgets: AgentBudgets {
+            actions: 100,
+            wall_seconds: 3600,
+        },
+        residual_risk: None,
+        evidence: Some(SecurityEvidenceState::Proven),
+    };
+    let admission = admit_build_mutation(
+        &citizen,
+        Some(&AgentScope::Crate),
+        &AgentBudgets {
+            actions: 1,
+            wall_seconds: 60,
+        },
+        &AgentScope::Crate,
+        true,
+        desired_role,
+        desired_role,
+    );
+    if let MutationAdmission::Refused { codes } = &admission {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("admission refused: {:?}", codes),
+        ));
+    }
+
+    let request_id = forgejo_workload_id(&commit_sha);
     let accepted_at_ms = Utc::now().timestamp_millis();
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
-        request_id: workload_id.clone(),
-        requested_by: state.config.agent_id.clone(),
+        request_id: request_id.clone(),
+        requested_by: payload
+            .pusher
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
@@ -218,7 +270,7 @@ async fn webhook_forgejo(
         evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
     };
 
-    let envelope = compose_build_agent_workload(
+    let mut envelope = compose_build_agent_workload(
         &request,
         &state.config.node_id,
         &state.config.workspace_root,
@@ -226,7 +278,17 @@ async fn webhook_forgejo(
     .map_err(|blockers| {
         (
             StatusCode::BAD_REQUEST,
-            format!("composition failed: {:?}", blockers),
+            format!("composition failed: {blockers:?}"),
+        )
+    })?;
+    // The node assigns the registry-resolved layout at prepare time; the
+    // gateway must not invent node paths here. The plan digest is recomputed
+    // so it keeps binding the exact action stored.
+    envelope.action.working_directory = None;
+    envelope.plan_digest = digest_json(&envelope.action).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "plan digest recomputation failed".to_string(),
         )
     })?;
     let admission = admit_agent_workload(&envelope);
@@ -235,6 +297,20 @@ async fn webhook_forgejo(
             StatusCode::FORBIDDEN,
             format!("workload admission refused: {:?}", admission),
         ));
+    }
+
+    // The store key is the composed envelope id: `compose` derives it from
+    // the request digest, so identical pushes address the same record and a
+    // second delivery replays instead of duplicating.
+    let workload_id = envelope.workload_id.clone();
+    if state.store.read(&workload_id).ok().flatten().is_some() {
+        return Ok(Json(AcceptanceProof {
+            schema: "cynic.builder.acceptance_proof.v1",
+            workload_id,
+            commit_sha,
+            accepted_at_ms,
+            status: "duplicate",
+        }));
     }
 
     let record = AgentWorkloadRecord {
@@ -248,15 +324,29 @@ async fn webhook_forgejo(
         completion: None,
     };
 
-    state
-        .store
-        .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("persist failed: {}", e.code),
-            )
-        })?;
+    if let Err(error) =
+        state
+            .store
+            .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
+    {
+        // Lost the creation race with an identical concurrent push: the
+        // record now exists, so replay its acceptance instead of failing.
+        if error.code == "workload_store_revision_conflict"
+            && state.store.read(&workload_id).ok().flatten().is_some()
+        {
+            return Ok(Json(AcceptanceProof {
+                schema: "cynic.builder.acceptance_proof.v1",
+                workload_id,
+                commit_sha,
+                accepted_at_ms,
+                status: "duplicate",
+            }));
+        }
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("persist failed: {}", error.code),
+        ));
+    }
 
     Ok(Json(AcceptanceProof {
         schema: "cynic.builder.acceptance_proof.v1",
@@ -286,11 +376,57 @@ pub async fn run_http_server(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn workload_id_has_forgejo_prefix() {
         let id = format!("forgejo-{}", Uuid::new_v4());
         assert!(id.starts_with("forgejo-"));
+    }
+
+    #[test]
+    fn workload_id_is_deterministic_per_commit() {
+        let sha = "a".repeat(40);
+        assert_eq!(
+            forgejo_workload_id(&sha),
+            format!("forgejo-{}", "a".repeat(12))
+        );
+        assert_eq!(forgejo_workload_id(&sha), forgejo_workload_id(&sha));
+        let other = format!("b{}", "a".repeat(39));
+        assert_ne!(forgejo_workload_id(&sha), forgejo_workload_id(&other));
+    }
+
+    fn push_request(commit_sha: &str) -> BuildAgentRequest {
+        BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: forgejo_workload_id(commit_sha),
+            requested_by: "forgejo".to_string(),
+            source_commit: commit_sha.to_string(),
+            source: BuildSourceReference {
+                schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://example/CYNIC.git".to_string(),
+                revision: commit_sha.to_string(),
+                authority_ref: "forgejo".to_string(),
+                snapshot: None,
+            },
+            action: "make:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            release_publication: None,
+            evidence_refs: vec![format!("forgejo:push@{commit_sha}")],
+        }
+    }
+
+    #[test]
+    fn identical_pushes_compose_identical_workload_ids() {
+        let sha = "c".repeat(40);
+        let first =
+            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+        let second =
+            compose_build_agent_workload(&push_request(&sha), "node-1", "/tmp").expect("compose");
+        assert_eq!(first.workload_id, second.workload_id);
     }
 
     #[test]
