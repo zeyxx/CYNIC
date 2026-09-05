@@ -134,6 +134,14 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
     if proposal.validation != SecurityEvidenceState::Proven {
         blockers.push("validation_unproven".to_string());
     }
+    // Source-governance: commit intent must follow the agent-source protocol.
+    // `intent` is the commit subject; an agent that cannot express its change
+    // as a Conventional Commit has not met the contract.
+    let commit_blockers = crate::source_policy::commit_conforms(
+        &proposal.intent,
+        &crate::source_policy::CommitPolicy::default(),
+    );
+    blockers.extend(commit_blockers);
     match proposal.matter {
         SourceMatterClass::Secret => blockers.push("secret_matter_never_versioned".to_string()),
         SourceMatterClass::GeneratedArtifact => {
@@ -245,6 +253,22 @@ pub fn admit_source_stage(
             }
             if snapshot.remote_commit_matches != SecurityEvidenceState::Proven {
                 blockers.push("remote_commit_match_unproven".to_string());
+            }
+            // Source-governance: an agent may only promote to a branch it owns
+            // (`agent/<id>/<scope>`), never to a protected trunk directly.
+            if let Some(branch) = snapshot.branch.as_deref() {
+                let policy = crate::source_policy::BranchPolicy::default();
+                let branch_blockers =
+                    crate::source_policy::branch_conforms(branch, &policy);
+                blockers.extend(branch_blockers);
+                if crate::source_policy::ref_is_protected(
+                    branch,
+                    &policy.protected_refs,
+                ) {
+                    blockers.push("sovereign_promotion_to_protected_ref".to_string());
+                }
+            } else {
+                blockers.push("branch_identity_missing".to_string());
             }
         }
         SourcePromotionStage::ReleaseSource => {
@@ -390,7 +414,7 @@ mod tests {
             base_commit: "abc123".to_string(),
             actor: "agent-a".to_string(),
             node_id: "node-a".to_string(),
-            intent: "add network observation proof".to_string(),
+            intent: "feat(network): add observation proof".to_string(),
             matter: SourceMatterClass::Adapter,
             paths: vec!["crates/cynic-node/src/observe.rs".to_string()],
             validation: SecurityEvidenceState::Proven,

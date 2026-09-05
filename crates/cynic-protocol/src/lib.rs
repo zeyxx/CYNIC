@@ -139,6 +139,7 @@ pub mod solana_ops;
 pub mod source_change_submission;
 pub mod source_control;
 pub mod source_materialization;
+pub mod source_policy;
 pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod source_worktree_inventory;
