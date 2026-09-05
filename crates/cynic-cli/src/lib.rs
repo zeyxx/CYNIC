@@ -16,6 +16,7 @@ pub mod autoresearch_surface;
 pub mod bootstrap_surface;
 pub mod branch_graph_surface;
 pub mod build_discovery_surface;
+pub mod build_proof_log;
 pub mod build_surface;
 pub mod chat_surface;
 pub mod chat_tui;
