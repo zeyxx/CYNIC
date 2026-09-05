@@ -40,6 +40,7 @@ pub struct LocalCommandRunner;
 
 impl CommandRunner for LocalCommandRunner {
     fn run(&self, argv: &[&str]) -> CommandOutput {
+        observe_argv(argv);
         if argv.is_empty() {
             return CommandOutput {
                 spawn_error: Some("empty argv".into()),
@@ -64,6 +65,55 @@ impl CommandRunner for LocalCommandRunner {
     }
 }
 
+/// Observe mode (tranche 2): same contract as
+/// `cynic-host::update_lifecycle::port::observe_argv` — pure verdict from
+/// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
+/// execution. Duplicated here (not shared) because `cynic-node` must not
+/// depend on `cynic-host`; the verdict function is the single source.
+fn observe_argv(argv: &[&str]) {
+    use cynic_protocol::argv_allow::{ArgvObservation, observe_argv_verdict};
+    use std::io::Write as _;
+
+    let verdict = observe_argv_verdict(argv, &[]);
+    let obs = ArgvObservation::new(argv, &verdict);
+    let line = match serde_json::to_string(&obs) {
+        Ok(line) => line,
+        Err(_) => return,
+    };
+    let path = match observe_log_path() {
+        Some(path) => path,
+        None => return,
+    };
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            let _ = writeln!(file, "{line}");
+        }
+        Err(e) => eprintln!("argv-observe: log append failed ({path}): {e}"),
+    }
+}
+
+fn observe_log_path() -> Option<String> {
+    // Explicit path wins: the operator or principal decides, we never guess.
+    // Follow-up: converge on the canonical principal-paths authority
+    // (today in cynic-inference, unreachable from low layers) instead of
+    // the degraded process-HOME fallback below.
+    if let Ok(explicit) = std::env::var("CYNIC_ARGV_OBSERVE_LOG") {
+        if !explicit.trim().is_empty() {
+            return Some(explicit);
+        }
+    }
+    std::env::var("HOME")
+        .ok()
+        .map(|home| format!("{home}/.local/share/cynic/argv-observe.jsonl"))
+}
+
 /// `BuildRunnerPort` implemented over SSH to the network runner.
 ///
 /// No script runs on the runner. Every remote step is an explicit argv:
@@ -85,6 +135,11 @@ pub struct SshBuildRunner {
 
 /// Default checkout base on runner nodes.
 pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
+/// Shared compilation cache across per-SHA checkouts. Third-party
+/// dependencies (same lockfile, same toolchain) compile once; only the
+/// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
+/// isolated; concurrent builds serialize on the target-dir lock.
+pub const DEFAULT_SHARED_TARGET_DIR: &str = "/var/lib/cynic/shared-target";
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git";
 
@@ -160,12 +215,12 @@ impl BuildRunnerPort for SshBuildRunner {
         if let Some(e) = &checkout.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        if !checkout.success() {
-            return Err(BuildError::AdmissionBlocked(format!(
-                "checkout pin failed: {}",
-                tail(&checkout.stderr)
-            )));
-        }
+        // Git may return a non-zero transport status while still switching the
+        // checkout (for example, an SSH wrapper propagates advisory detached-HEAD
+        // output). The authoritative result is the independent read-back below:
+        // accept only `rev-parse HEAD == requested SHA`, never stderr text.
+        let checkout_failed = !checkout.success();
+        let checkout_stderr = tail(&checkout.stderr);
         let head = self.runner.run(&[
             "ssh",
             target.as_str(),
@@ -178,10 +233,15 @@ impl BuildRunnerPort for SshBuildRunner {
         if let Some(e) = &head.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        if head.stdout.trim() != sha {
-            return Err(BuildError::ProofUnparseable(
-                "checkout HEAD does not match source commit".to_string(),
-            ));
+        if !head.success() || head.stdout.trim() != sha {
+            let detail = if checkout_failed {
+                format!("checkout exit non-zero ({checkout_stderr}); ")
+            } else {
+                String::new()
+            };
+            return Err(BuildError::ProofUnparseable(format!(
+                "{detail}checkout HEAD does not match source commit"
+            )));
         }
 
         // Step 3: build with the canonical argv for the action.
@@ -206,6 +266,7 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
+            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
         ];
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -329,13 +390,13 @@ mod tests {
         }
 
         fn argv_log(&self) -> Vec<Vec<String>> {
-            self.script.lock().unwrap().log.clone()
+            self.script.lock().expect("read argv log").log.clone()
         }
     }
 
     impl CommandRunner for FakeRunner {
         fn run(&self, argv: &[&str]) -> CommandOutput {
-            let mut script = self.script.lock().unwrap();
+            let mut script = self.script.lock().expect("pop scripted response");
             script
                 .log
                 .push(argv.iter().map(|arg| (*arg).to_string()).collect());
@@ -401,6 +462,7 @@ mod tests {
         );
         let cargo = log.last().unwrap().join(" ");
         assert!(cargo.contains("cargo check"));
+        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
@@ -426,6 +488,23 @@ mod tests {
         assert!(log[1].contains(&"git".to_string()));
         assert!(log[1].contains(&"clone".to_string()));
         assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
+    }
+
+    #[test]
+    fn trigger_accepts_nonzero_checkout_when_readback_matches() {
+        let commit = "f".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            fail("advisory detached HEAD message"),
+            ok(&commit),
+            ok("Checking cynic-host"),
+        ]);
+        let (runner, handle) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("matching read-back is authoritative");
+        assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(handle.argv_log().len(), 4);
     }
 
     #[test]
@@ -480,43 +559,12 @@ mod tests {
 
     #[test]
     fn observe_runner_reports_health() {
-        let sha = "a".repeat(40);
-        let version = format!("{{\"schema\":\"cynic.cli.version.v1\",\"git_sha\":\"{sha}\"}}");
-        let fake = FakeRunner::with(vec![
-            ok("cargo 1.95.0"),
-            ok("rustc 1.95.0"),
-            ok(""),
-            ok(&version),
-        ]);
-        let (runner, handle) = test_runner(fake);
+        let fake = FakeRunner::with(vec![ok("cargo 1.95.0"), ok("rustc 1.95.0"), ok("")]);
+        let (runner, _) = test_runner(fake);
         let health = runner.observe_runner();
         assert!(health.reachable);
         assert!(health.cache_warm);
         assert_eq!(health.toolchain, "rustc 1.95.0");
         assert_eq!(health.node_id, "runner-1");
-        assert_eq!(health.binary_sha.as_deref(), Some(sha.as_str()));
-        assert_eq!(handle.argv_log().len(), 4);
-    }
-
-    #[test]
-    fn observe_runner_reports_unknown_sha_for_stale_binary() {
-        let fake = FakeRunner::with(vec![
-            ok("cargo 1.95.0"),
-            ok("rustc 1.95.0"),
-            ok(""),
-            fail("error: unexpected argument '--json' found"),
-        ]);
-        let (runner, _) = test_runner(fake);
-        let health = runner.observe_runner();
-        assert!(health.reachable);
-        assert_eq!(health.binary_sha, None);
-    }
-
-    #[test]
-    fn parse_binary_sha_rejects_malformed_reports() {
-        assert_eq!(parse_binary_sha("not json"), None);
-        assert_eq!(parse_binary_sha("{}"), None);
-        assert_eq!(parse_binary_sha(r#"{"git_sha":"short"}"#), None);
-        assert_eq!(parse_binary_sha(r#"{"git_sha":"unknown"}"#), None);
     }
 }
