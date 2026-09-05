@@ -206,6 +206,72 @@ impl Default for SocThresholds {
     }
 }
 
+// ── Journal federation redaction ─────────────────────────────────────────────
+
+/// Redact bearer tokens and `key=value` secrets from a journal line before the
+/// evidence leaves the node. Pure std-only scan (`cynic-protocol` carries no
+/// regex dependency): `Bearer <token>` becomes `Bearer [REDACTED]`, and the
+/// value of a `password/passwd/secret/api_key/apikey/token` assignment becomes
+/// `[REDACTED]`. Non-secret words (node names, units, states) pass through
+/// untouched. Whitespace between words is normalized to single spaces.
+pub fn redact_journal_message(message: &str) -> String {
+    const SECRET_KEYS: &[&str] = &["password", "passwd", "secret", "api_key", "apikey", "token"];
+    let mut out: Vec<String> = Vec::new();
+    let mut skip_next = false;
+    for word in message.split_whitespace() {
+        if skip_next {
+            skip_next = false;
+            out.push("[REDACTED]".to_string());
+            continue;
+        }
+        let core = word.trim_matches(&['"', '\'', ',', ';', '.', '!', '?'][..]);
+        if core.eq_ignore_ascii_case("bearer") {
+            out.push(word.to_string());
+            skip_next = true;
+            continue;
+        }
+        if let Some(redacted) = redact_assignment(word, SECRET_KEYS) {
+            out.push(redacted);
+            continue;
+        }
+        out.push(word.to_string());
+    }
+    out.join(" ")
+}
+
+/// If `word` is a `key=value` (or `key:value`) assignment whose key names a
+/// secret, return the word with its value replaced by `[REDACTED]`.
+fn redact_assignment(word: &str, secret_keys: &[&str]) -> Option<String> {
+    let sep = word.find('=').or_else(|| word.find(':'))?;
+    let (raw_key, rest) = word.split_at(sep);
+    let key = raw_key.trim_matches(&['"', '\''][..]);
+    if !secret_keys
+        .iter()
+        .any(|known| key.eq_ignore_ascii_case(known))
+    {
+        return None;
+    }
+    let separator = &rest[..1];
+    let mut value = &rest[1..];
+    if value.is_empty() {
+        return None;
+    }
+    // Preserve trailing punctuation/quote that fences the value, not the value.
+    let mut trailing = String::new();
+    while let Some(last) = value.chars().next_back() {
+        if matches!(last, '"' | '\'' | ',' | ';' | '.' | '!' | '?') {
+            trailing.insert(0, last);
+            value = &value[..value.len() - last.len_utf8()];
+        } else {
+            break;
+        }
+    }
+    if value.is_empty() {
+        return None;
+    }
+    Some(format!("{key}{separator}[REDACTED]{trailing}"))
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
