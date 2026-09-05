@@ -18,7 +18,7 @@ WorkingDirectory=/var/lib/cynic
 
 # Environment — adapter-injected, no hardcoding
 Environment="CYNIC_REGISTRY=/etc/cynic/registry.json"
-Environment="CYNIC_BUILD_RUNNER=cynic@10.10.10.119"
+Environment="CYNIC_BUILD_RUNNER=cynic-builder-ssh"
 Environment="CYNIC_WEBHOOK_BIND=10.10.10.103:9147"
 Environment="CYNIC_WEBHOOK_PHASE=check"
 Environment="RUST_MIN_STACK=16777216"

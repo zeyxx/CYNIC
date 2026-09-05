@@ -506,7 +506,7 @@
       "proxmox_id": "lxc/105",
       "transports": {
         "ssh": {
-          "target": "cynic-builder",
+          "target": "cynic-builder-ssh",
           "trust": "ssh_trust_anchor",
           "enrollment_authority": {
             "class": "machine_enrollment",
