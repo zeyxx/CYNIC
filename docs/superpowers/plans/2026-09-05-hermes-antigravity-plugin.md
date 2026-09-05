@@ -320,7 +320,7 @@ REDIRECT_URI = "http://localhost:51121/oauth-callback"
 
 # Google Antigravity Desktop Client Credentials (proven in pi-antigravity)
 DEFAULT_CLIENT_ID = (
-    "1071006060591-tmhssin2h21lcre235vtolojh4g403ec.apps.googleusercontent.com"
+    "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 )
 DEFAULT_CLIENT_SECRET = "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"
 

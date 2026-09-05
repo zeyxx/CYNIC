@@ -81,7 +81,7 @@ Gère la résolution et le cycle de vie des jetons Google.
    - `AUTH_URL` : `https://accounts.google.com/o/oauth2/v2/auth`
    - `TOKEN_URL` : `https://oauth2.googleapis.com/token`
    - `REDIRECT_URI` : `http://localhost:51121/oauth-callback`
-   - `CLIENT_ID` : `1071006060591-tmhssin2h21lcre235vtolojh4g403ec.apps.googleusercontent.com`
+   - `CLIENT_ID` : `1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com`
    - `CLIENT_SECRET` : `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`
    - `SCOPES` :
      - `https://www.googleapis.com/auth/aicode`
