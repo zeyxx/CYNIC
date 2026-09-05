@@ -67,6 +67,7 @@ pub mod lease_manager;
 pub mod lifecycle;
 pub mod lxc_exec_bridge;
 pub mod mcp_runtime;
+pub mod mcp_tool;
 pub mod network_actuation;
 pub mod node_activation;
 pub mod node_identity_workflow;
