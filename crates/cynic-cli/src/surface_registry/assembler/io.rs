@@ -132,7 +132,7 @@ pub(crate) fn write(manifest: &Path, output: &Path) -> Result<(), String> {
         .ok_or_else(|| format!("output has no file name: {}", output.display()))?;
     let parent = open_verified_parent(parent_path)?;
     let initial_target = inspect_target(&parent, target_name, output)?;
-    let temporary = create_temporary_output(&parent, target_name, output)?;
+    let mut temporary = create_temporary_output(&parent, target_name, output)?;
 
     let mut renamed = false;
     let result = (|| {

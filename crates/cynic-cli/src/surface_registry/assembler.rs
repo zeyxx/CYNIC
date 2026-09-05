@@ -57,13 +57,14 @@ pub(crate) fn assemble(manifest_path: &Path) -> Result<Value, String> {
     if entries.is_empty() {
         return Err("manifest.surfaces is empty".to_string());
     }
-    let retired = manifest
+    let retired: &[Value] = manifest
         .get("retired")
         .map(|v| {
             v.as_array()
                 .ok_or_else(|| "manifest.retired must be an array".to_string())
         })
         .transpose()?
+        .map(Vec::as_slice)
         .unwrap_or(&[]);
     let fragments_root = registry_root.join("fragments");
     verify_directory(&fragments_root, "fragments directory")?;
@@ -351,9 +352,9 @@ fn scan_fragments(
 ) -> Result<(), String> {
     let proc_path = PathBuf::from(format!("/proc/self/fd/{}", dir.as_raw_fd()));
     let mut entries: Vec<_> = fs::read_dir(&proc_path)
-        .map_err(|e| format!("cannot scan fragments directory {relative}: {e}"))?
+        .map_err(|e| format!("cannot scan fragments directory {}: {e}", relative.display()))?
         .collect::<Result<_, _>>()
-        .map_err(|e| format!("cannot scan fragments directory {relative}: {e}"))?;
+        .map_err(|e| format!("cannot scan fragments directory {}: {e}", relative.display()))?;
     entries.sort_by_key(|entry| entry.file_name());
     for entry in entries {
         let name = entry.file_name();
@@ -361,7 +362,7 @@ fn scan_fragments(
             .to_str()
             .ok_or_else(|| format!("non-UTF-8 entry under fragments: {}", relative.display()))?;
         if name == "." || name == ".." || name.contains('/') {
-            return Err(format!("unsafe entry under fragments: {relative}/{name}"));
+            return Err(format!("unsafe entry under fragments: {}/{}", relative.display(), name));
         }
         let entry_relative = relative.join(name);
         let entry_path = proc_path.join(name);
