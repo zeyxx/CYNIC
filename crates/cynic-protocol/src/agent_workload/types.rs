@@ -32,11 +32,26 @@ pub struct AgentWorkloadInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkloadMandateBinding {
+    /// Ledger identity; the full mandate remains node-owned peer state.
+    pub mandate_id: String,
+    pub fencing_token: u64,
+    /// Digest of the exact snapshot reviewed by node admission.
+    pub snapshot_digest: String,
+    pub requested_actions: u64,
+    pub requested_wall_seconds: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentWorkloadEnvelope {
     pub schema: String,
     pub workload_id: String,
     pub idempotency_key: String,
     pub plan_digest: String,
+    /// Legacy envelopes may omit this until node delivery is migrated; node
+    /// mutation admission will fail closed when the binding is absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mandate_binding: Option<WorkloadMandateBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input: Option<AgentWorkloadInput>,
     pub action: AgentBoundedAction,
