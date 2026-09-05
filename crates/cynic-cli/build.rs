@@ -90,7 +90,7 @@ fn open_regular_at(parent: &File, name: &OsStr, path: &Path) -> File {
 
 fn same_identity(a: &fs::Metadata, b: &fs::Metadata) -> bool {
     use std::os::unix::fs::MetadataExt;
-    a.dev() == b.dev() && a.ino() == b.ino() && a.mode() & S_IFMT == b.mode() & S_IFMT
+    a.dev() == b.dev() && a.ino() == b.ino() && a.file_type() == b.file_type()
 }
 
 fn read_regular(path: &Path) -> String {
