@@ -5,26 +5,19 @@ use std::{
     fs::{self, File},
     io::{Read, Write},
     os::{
-        fd::{AsRawFd, FromRawFd},
+        fd::AsFd,
         unix::ffi::OsStrExt,
     },
     path::{Path, PathBuf},
     process::exit,
 };
 
+use rustix::fs::{self as rfs, AtFlags, FileType, Mode, OFlags};
 use serde_json::Value;
 
 const SURFACE_REGISTRY_RELATIVE_MANIFEST: &str = "../../infra/surface-registry/manifest.json";
 const GENERATED_FILE: &str = "surface_registry_fragment_index.rs";
 const CYNIC_SURFACE_REGISTRY_SCHEMA: &str = "cynic.surface_registry.v1";
-const O_NOFOLLOW: i32 = 0o400000;
-const O_NONBLOCK: i32 = 0o4000;
-const O_DIRECTORY: i32 = 0o200000;
-const O_CLOEXEC: i32 = 0o2000000;
-const O_EXCL: i32 = 0o200;
-const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
-const S_IFMT: libc::mode_t = 0o170000;
-const S_IFREG: libc::mode_t = 0o100000;
 
 fn fail(message: &str) -> ! {
     eprintln!("surface registry fragment index generation failed: {message}");
@@ -51,23 +44,20 @@ fn open_directory(path: &Path) -> File {
             continue;
         };
         let name = c_name(name, path);
-        // SAFETY: name is NUL-free; resolution is relative to an FD and refuses symlinks.
-        let fd = unsafe {
-            libc::openat(
-                current.as_raw_fd(),
-                name.as_ptr(),
-                libc::O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
-            )
-        };
-        if fd < 0 {
+        // Name is NUL-free; resolution is relative to an FD and refuses symlinks.
+        let owned = rfs::openat(
+            current.as_fd(),
+            &name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .unwrap_or_else(|error| {
             fail(&format!(
-                "cannot open directory {}: {}",
-                path.display(),
-                std::io::Error::last_os_error()
-            ));
-        }
-        // SAFETY: fd is uniquely owned after openat succeeds.
-        current = unsafe { File::from_raw_fd(fd) };
+                "cannot open directory {}: {error}",
+                path.display()
+            ))
+        });
+        current = File::from(owned);
     }
     let metadata = current
         .metadata()
@@ -80,23 +70,15 @@ fn open_directory(path: &Path) -> File {
 
 fn open_regular_at(parent: &File, name: &OsStr, path: &Path) -> File {
     let name = c_name(name, path);
-    // SAFETY: name is NUL-free and parent is an anchored directory descriptor.
-    let fd = unsafe {
-        libc::openat(
-            parent.as_raw_fd(),
-            name.as_ptr(),
-            libc::O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC,
-        )
-    };
-    if fd < 0 {
-        fail(&format!(
-            "cannot read {}: {}",
-            path.display(),
-            std::io::Error::last_os_error()
-        ));
-    }
-    // SAFETY: fd is uniquely owned after openat succeeds.
-    let file = unsafe { File::from_raw_fd(fd) };
+    // Name is NUL-free and parent is an anchored directory descriptor.
+    let owned = rfs::openat(
+        parent.as_fd(),
+        &name,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .unwrap_or_else(|error| fail(&format!("cannot read {}: {error}", path.display())));
+    let file = File::from(owned);
     let metadata = file
         .metadata()
         .unwrap_or_else(|e| fail(&format!("cannot stat {}: {e}", path.display())));
@@ -263,33 +245,36 @@ fn atomic_write(path: &Path, payload: &[u8]) {
     let target_c = c_name(target, path);
     let mut temp_name = None;
     let mut temp = None;
-    for attempt in 0..100u32 {
+    for _attempt in 0..100u32 {
         let candidate = CString::new(format!(
-            ".{}.cynic-tmp-{}-{attempt}",
+            ".{}.cynic-tmp-{}-{_attempt}",
             target.to_string_lossy(),
             std::process::id()
         ))
         .unwrap();
-        // SAFETY: candidate is NUL-free and parent is anchored; O_EXCL prevents races.
-        let fd = unsafe {
-            libc::openat(
-                parent.as_raw_fd(),
-                candidate.as_ptr(),
-                libc::O_WRONLY | libc::O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-                0o600,
-            )
-        };
-        if fd >= 0 {
-            temp_name = Some(candidate);
-            temp = Some(unsafe { File::from_raw_fd(fd) });
-            break;
-        }
-        if std::io::Error::last_os_error().kind() != std::io::ErrorKind::AlreadyExists {
-            fail(&format!(
-                "cannot create generated output beside {}: {}",
-                path.display(),
-                std::io::Error::last_os_error()
-            ));
+        // Candidate is NUL-free and parent is anchored; O_EXCL prevents races.
+        match rfs::openat(
+            parent.as_fd(),
+            &candidate,
+            OFlags::WRONLY
+                | OFlags::CREATE
+                | OFlags::EXCL
+                | OFlags::NOFOLLOW
+                | OFlags::CLOEXEC,
+            Mode::from_bits_truncate(0o600),
+        ) {
+            Ok(owned) => {
+                temp_name = Some(candidate);
+                temp = Some(File::from(owned));
+                break;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                fail(&format!(
+                    "cannot create generated output beside {}: {error}",
+                    path.display()
+                ));
+            }
         }
     }
     let name = temp_name.unwrap_or_else(|| fail("cannot allocate temporary generated output"));
@@ -299,42 +284,28 @@ fn atomic_write(path: &Path, payload: &[u8]) {
         file.write_all(payload).map_err(|e| e.to_string())?;
         file.sync_all().map_err(|e| e.to_string())?;
         // Refuse replacing symlinks, directories, devices, or other special files.
-        let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
-        // SAFETY: pointers are valid and AT_SYMLINK_NOFOLLOW observes the directory entry itself.
-        let rc = unsafe {
-            libc::fstatat(
-                parent.as_raw_fd(),
-                target_c.as_ptr(),
-                stat.as_mut_ptr(),
-                AT_SYMLINK_NOFOLLOW,
-            )
-        };
-        if rc == 0 {
-            let stat = unsafe { stat.assume_init() };
-            if stat.st_mode & S_IFMT != S_IFREG {
-                return Err("generated output target is not a regular file".to_string());
+        // statat with SYMLINK_NOFOLLOW observes the directory entry itself.
+        match rfs::statat(parent.as_fd(), &target_c, AtFlags::SYMLINK_NOFOLLOW) {
+            Ok(stat) => {
+                if !matches!(
+                    FileType::from_raw_mode(stat.st_mode),
+                    FileType::RegularFile
+                ) {
+                    return Err("generated output target is not a regular file".to_string());
+                }
             }
-        } else if std::io::Error::last_os_error().kind() != std::io::ErrorKind::NotFound {
-            return Err(std::io::Error::last_os_error().to_string());
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
         }
-        // SAFETY: both names are NUL-free and anchored to parent.
-        if unsafe {
-            libc::renameat(
-                parent.as_raw_fd(),
-                name.as_ptr(),
-                parent.as_raw_fd(),
-                target_c.as_ptr(),
-            )
-        } != 0
-        {
-            return Err(std::io::Error::last_os_error().to_string());
-        }
+        // Both names are NUL-free and anchored to parent.
+        rfs::renameat(parent.as_fd(), &name, parent.as_fd(), &target_c)
+            .map_err(|error| error.to_string())?;
         renamed = true;
         parent.sync_all().map_err(|e| e.to_string())
     })();
     if let Err(error) = result {
         if cleanup_temporary(true, renamed) {
-            let _ = unsafe { libc::unlinkat(parent.as_raw_fd(), name.as_ptr(), 0) };
+            let _ = rfs::unlinkat(parent.as_fd(), &name, AtFlags::empty());
         }
         fail(&format!("unable to write {}: {error}", path.display()));
     }
@@ -357,23 +328,20 @@ fn read_regular_relative(parent: &File, relative: &Path, path: &Path) -> String 
             return read_regular_at(&current, name, path);
         }
         let name = c_name(name, path);
-        // SAFETY: directory component is resolved relative to an anchored FD.
-        let fd = unsafe {
-            libc::openat(
-                current.as_raw_fd(),
-                name.as_ptr(),
-                libc::O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
-            )
-        };
-        if fd < 0 {
+        // Directory component is resolved relative to an anchored FD.
+        let owned = rfs::openat(
+            current.as_fd(),
+            &name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .unwrap_or_else(|error| {
             fail(&format!(
-                "cannot open input directory {}: {}",
-                path.display(),
-                std::io::Error::last_os_error()
-            ));
-        }
-        // SAFETY: fd is uniquely owned after successful openat.
-        current = unsafe { File::from_raw_fd(fd) };
+                "cannot open input directory {}: {error}",
+                path.display()
+            ))
+        });
+        current = File::from(owned);
     }
     fail(&format!("input path has no file name: {}", path.display()))
 }
