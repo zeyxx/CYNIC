@@ -312,6 +312,8 @@ mod tests {
         assert!(merged_action.is_some());
         assert_eq!(plan.summary.safe_prune_ready_count, 3); // merged-wt + zombie-wt + unleased wt
     }
+
+    #[test]
     fn test_reconcile_protects_dirty_worktree() {
         let items = make_test_inventory();
         let plan = reconcile_worktree_convergence_pure(

@@ -229,6 +229,19 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
         let behind = e.behind.unwrap_or(0);
         let ahead = e.ahead.unwrap_or(0);
 
+        if is_current && e.dirty_count.unwrap_or(0) > 0 {
+            let dirty_count = e.dirty_count.unwrap_or(0);
+            actions.push(GitAction::NoOp {
+                branch: e.branch.clone(),
+                reason: format!("current worktree has {dirty_count} uncommitted paths"),
+            });
+            unknowns.push(format!(
+                "{}: current worktree has {dirty_count} uncommitted paths",
+                e.branch
+            ));
+            continue;
+        }
+
         match e.state {
             GitBranchState::Dead => {
                 // Data-centric: dead only if nothing to save (ahead==0). If ahead>0, treat as split/rebase — preserve value.
@@ -328,6 +341,32 @@ mod tests {
         };
         let v = validate_git_topology_observation(&obs);
         assert!(v.contains(&"git_topology_entry_unknown_unannotated".to_string()));
+    }
+
+    #[test]
+    fn dirty_current_branch_requires_review_not_pr() {
+        let mut entry = valid_entry("agent/hermes/dirty");
+        entry.dirty_count = Some(2);
+        let observation = GitTopologyObservation {
+            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
+            observed_at_unix_s: 1,
+            node_id: "n".to_string(),
+            current_branch: Some(entry.branch.clone()),
+            entries: vec![entry],
+            observation_unknowns: vec![],
+        };
+
+        let decision = reconcile_git_topology(&observation);
+
+        assert!(decision.needs_review);
+        assert!(decision.actions.iter().any(|action| {
+            matches!(action, GitAction::NoOp { branch, reason }
+                if branch == "agent/hermes/dirty" && reason.contains("2 uncommitted paths"))
+        }));
+        assert!(!decision
+            .actions
+            .iter()
+            .any(|action| matches!(action, GitAction::ReadyForPr { .. })));
     }
 
     #[test]

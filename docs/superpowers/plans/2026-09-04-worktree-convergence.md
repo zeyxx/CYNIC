@@ -4,7 +4,7 @@
 
 **Goal:** Build a robust, transparent worktree convergence engine that eliminates CLI "black-box" lies, provides safe idempotent worktree pruning, and separates pure protocol decision from bounded host actuation.
 
-**Architecture:** 
+**Architecture:**
 - `cynic-protocol` owns pure data types (`WorktreeConvergenceAction`, `WorktreeConvergencePlan`, `WorktreeConvergenceApplyProof`) and the zero-I/O reconciliation decision.
 - `cynic-host` owns bounded Git actuation via injectable `ArgvRunner` with exclusive file-locking (`.git/cynic-convergence.lock`) and idempotent pruning.
 - `cynic-cli` projects transparent, granular human tables and structured JSON envelopes, unlocking `cynic source worktree --apply`.
