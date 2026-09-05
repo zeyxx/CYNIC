@@ -10,9 +10,12 @@ use clap::Subcommand;
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_node::adapters::ssh_build_proof::SshBuildProof;
+use cynic_node::ports::build_proof_port::BuildProofPort;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
 use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
+use cynic_protocol::build_proof::{BuildProofPhase, BuildProofRequest};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 
@@ -83,6 +86,32 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Prove a commit builds — native CYNIC proof capability.
+    ///
+    /// Replaces ad-hoc SSH+shell sequences with a typed, versioned proof.
+    Proof {
+        /// Exact 40-character source commit.
+        #[arg(long)]
+        commit: String,
+        /// Optional single package scope. None = workspace.
+        #[arg(long)]
+        package: Option<String>,
+        /// Proof phase: check (default) or test.
+        #[arg(long, default_value = "check", value_parser = ["check", "test"])]
+        phase: String,
+        /// Focused test filter (only with --phase test).
+        #[arg(long)]
+        filter: Option<String>,
+        /// Runner host resolved from the fleet registry.
+        #[arg(long, default_value = "cynic-builder-ssh")]
+        host: String,
+        /// Runner SSH user.
+        #[arg(long, default_value = "cynic")]
+        user: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -255,6 +284,15 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 _ => Err("build discover failed".to_string()),
             };
         }
+        BuildCommand::Proof {
+            commit,
+            package,
+            phase,
+            filter,
+            host,
+            user,
+            json,
+        } => prove_build(&commit, package, &phase, filter, &host, &user, json),
     }
 }
 
@@ -311,6 +349,44 @@ fn trigger_build(
         println!("{}", proof.to_json());
     } else {
         println!("build runner {}: {:?}", proof.node, proof.status);
+    }
+    Ok(())
+}
+
+fn prove_build(
+    commit: &str,
+    package: Option<String>,
+    phase: &str,
+    filter: Option<String>,
+    host: &str,
+    user: &str,
+    json: bool,
+) -> Result<(), String> {
+    let proof_phase = match phase {
+        "check" => BuildProofPhase::Check,
+        "test" => BuildProofPhase::Test { filter },
+        other => return Err(format!("invalid proof phase: {other}")),
+    };
+    let request = BuildProofRequest::new(commit, package, proof_phase);
+    let violations = cynic_protocol::build_proof::validate_build_proof_request(&request);
+    if !violations.is_empty() {
+        return Err(format!("proof request invalid: {}", violations.join(", ")));
+    }
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| format!("async runtime unavailable: {e}"))?;
+    let adapter = SshBuildProof::new(host, user, "builder");
+    let report = runtime.block_on(adapter.prove(&request))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report)
+                .map_err(|e| format!("serialize proof: {e}"))?
+        );
+    } else {
+        println!(
+            "build proof {}: {:?}",
+            report.source_commit, report.status
+        );
     }
     Ok(())
 }

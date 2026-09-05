@@ -42,6 +42,7 @@ fn record(workload_id: &str, idempotency_key: &str) -> AgentWorkloadRecord {
         workload_id: workload_id.into(),
         idempotency_key: idempotency_key.into(),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: None,
         action,
         delegation: AgentDelegationEnvelope {
