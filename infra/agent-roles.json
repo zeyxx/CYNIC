@@ -103,6 +103,57 @@
       "zero_human_admin": true,
       "read_back_required": true,
       "runtime_zero_touch": true
+    },
+    "schema_warden": {
+      "authority_class": "ContractHygieneAuthority",
+      "secret_source_class": "None",
+      "required_human_secret": false,
+      "description": "Magistrature des Sceaux : prévient le drift de types, vérifie la complétude des modules (pas d'orphelins mod.rs), garantit l'alignement serde/schema inter-crates avant tout commit.",
+      "can_mutate": ["type_alignment_patch", "module_declaration"],
+      "can_observe": ["ast_contract", "schema_manifest", "compiler_diagnostics"],
+      "can_pause": ["unadmitted_type_drift"],
+      "cannot": [
+        "never creates concurrent stores or duplicate state models",
+        "never bypasses LocalAgentWorkloadStore CAS",
+        "never permits un-exported modules in public usecases"
+      ],
+      "granted_via": "node-owned lint and schema inspection gate",
+      "envelope_required": "cynic.schema_verification_receipt.v1",
+      "runtime_zero_touch": true
+    },
+    "surface_inspector": {
+      "authority_class": "SurfaceVeracityAuthority",
+      "secret_source_class": "None",
+      "required_human_secret": false,
+      "description": "Prévôt des Surfaces : vérifie le principe des 4 portes (Declaration -> Dispatch -> Execution -> Proof). Empêche les commandes stubs retournant Ok(()) vide ou trompant les LLMs.",
+      "can_mutate": ["cli_manifest_prune", "cli_dispatch_alignment"],
+      "can_observe": ["cli_help", "command_manifest", "root_dispatch", "json_output_veracity"],
+      "can_pause": ["phantom_cli_surfaces"],
+      "cannot": [
+        "never allows an advertised CLI command without execution proof",
+        "never allows a root command without --json guarantee",
+        "never fabricates mock outputs in production surfaces"
+      ],
+      "granted_via": "cli self-model observation gate",
+      "envelope_required": "cynic.surface_veracity_report.v1",
+      "runtime_zero_touch": true
+    },
+    "metabolic_auditor": {
+      "authority_class": "MetabolicAccountingAuthority",
+      "secret_source_class": "None",
+      "required_human_secret": false,
+      "description": "Trésorier du Substrat : mesure le coût réel de chaque action agentique (wall-time ms, tokens prompt/gen, CPU jiffies, VRAM, RAM, octets réseau). Produit la facture métabolique.",
+      "can_mutate": ["journal_metabolic_invoice"],
+      "can_observe": ["proc_pressure", "token_usage", "builder_wall_time", "network_io"],
+      "can_pause": ["budget_exhausted_workload"],
+      "cannot": [
+        "never alters allocated quota without HumanAdmin consent",
+        "never transforms unknown resource consumption into available balance",
+        "never permits unbounded loops or un-metered agent runs"
+      ],
+      "granted_via": "host substrate observation port",
+      "envelope_required": "cynic.workload.metabolic_invoice.v1",
+      "runtime_zero_touch": true
     }
   },
   "domains": {

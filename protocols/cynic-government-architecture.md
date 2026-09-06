@@ -113,6 +113,25 @@ Le registre civil :
 
 `infra/agent-roles.json` couvre une partie de cette fonction, mais reste déclaratif et ne constitue pas encore un cycle de vie complet des offices.
 
+### 3.7 Les 3 Magistratures d'Hygiène et de Métrologie (Anti-Dette)
+
+L'analyse empirique des 300 derniers commits (où 35% de l'énergie de l'organisme a été dissipée en réparations réactives) impose l'érection de 3 offices spécialisés pour empêcher la dette avant qu'elle ne contamine le tronc :
+
+1. **Garde des Sceaux (`schema_warden`)** :
+   - *Mission* : Prévient le drift de types entre crates (`cynic-protocol`, `cynic-node`, `cynic-cli`).
+   - *Pouvoir* : Bloque tout commit introduisant des modules orphelins (oubli de déclaration `pub mod` dans `mod.rs`) ou rompant la compatibilité ascendante de `LocalAgentWorkloadStore`.
+   - *Preuve requise* : `cynic.schema_verification_receipt.v1`.
+
+2. **Prévôt des Surfaces (`surface_inspector`)** :
+   - *Mission* : Garantit le principe des 4 portes du CLI (`Declaration -> Dispatch -> Execution -> Proof`).
+   - *Pouvoir* : Détecte et élimine les commandes "fantômes" qui renvoient un succès vide (`ExitCode::SUCCESS`) sans backend réel, et impose un canal `--json` contractuel.
+   - *Preuve requise* : `cynic.surface_veracity_report.v1`.
+
+3. **Trésorier du Substrat (`metabolic_auditor`)** :
+   - *Mission* : Mesure la thermodynamique de chaque workload.
+   - *Pouvoir* : Enregistre le wall-clock time du builder, les tokens d'inférence consommés, la mémoire vive pic et les jiffies CPU consommés.
+   - *Preuve requise* : `cynic.workload.metabolic_invoice.v1`.
+
 ## 4. Métier, rôle, mandat et incarnation
 
 Ces concepts doivent rester distincts.
