@@ -85,6 +85,7 @@ pub fn admit_build_check(
         workload_id: workload_id.clone(),
         idempotency_key: idempotency_key.clone(),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: None,
         action: bounded,
         delegation: AgentDelegationEnvelope {
