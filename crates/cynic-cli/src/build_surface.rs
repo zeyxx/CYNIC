@@ -77,6 +77,10 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
+        /// Shared sccache dir on the runner (content-keyed compiler cache).
+        /// Empty = no wrapper (current behavior).
+        #[arg(long, default_value = "")]
+        sccache_dir: String,
         /// Proof log path. Defaults to the operator log under $HOME.
         #[arg(long)]
         proof_log: Option<String>,
@@ -212,6 +216,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             checkout_base,
             ssot_url,
             package,
+            sccache_dir,
             proof_log,
             json,
         } => trigger_build(
@@ -224,6 +229,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &checkout_base,
             &ssot_url,
             package,
+            &sccache_dir,
             proof_log.as_deref(),
             json,
         ),
@@ -283,6 +289,7 @@ fn trigger_build(
     checkout_base: &str,
     ssot_url: &str,
     package: Option<String>,
+    sccache_dir: &str,
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
@@ -321,6 +328,11 @@ fn trigger_build(
             ssot_url.to_string()
         },
         package,
+        sccache_dir: if sccache_dir.trim().is_empty() {
+            None
+        } else {
+            Some(sccache_dir.to_string())
+        },
         runner: Box::new(LocalCommandRunner),
     };
     let health = runner.observe_runner();

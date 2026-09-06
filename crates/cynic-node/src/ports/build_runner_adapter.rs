@@ -130,6 +130,12 @@ pub struct SshBuildRunner {
     pub ssot_url: String,
     /// Optional single package scope (`cargo --package`). None = workspace.
     pub package: Option<String>,
+    /// Shared sccache dir on the runner (content-keyed compiler cache).
+    /// None = no wrapper (current behavior). Some(dir) passes
+    /// `RUSTC_WRAPPER=sccache` + `SCCACHE_DIR=dir` to the remote cargo argv.
+    /// sccache keys on content hash (profile/flags/rustc in key), so hits
+    /// are byte-identical across SHAs — proof value unchanged.
+    pub sccache_dir: Option<String>,
     pub runner: Box<dyn CommandRunner>,
 }
 
@@ -140,6 +146,11 @@ pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
 /// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
 /// isolated; concurrent builds serialize on the target-dir lock.
 pub const DEFAULT_SHARED_TARGET_DIR: &str = "/var/lib/cynic/shared-target";
+/// Default shared sccache dir on runner nodes (created on first use).
+pub const DEFAULT_SCCACHE_DIR: &str = "/var/lib/cynic/sccache";
+/// Absolute sccache binary on runners (non-interactive SSH has no cargo/bin
+/// on PATH, so the wrapper must never rely on PATH resolution).
+pub const DEFAULT_SCCACHE_BIN: &str = "/var/lib/cynic/bin/sccache";
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git";
 
@@ -196,6 +207,10 @@ impl SshBuildRunner {
             "CARGO_INCREMENTAL=0".to_string(),
             format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
         ];
+        if let Some(dir) = self.sccache_dir.as_deref() {
+            argv.push(format!("RUSTC_WRAPPER={DEFAULT_SCCACHE_BIN}"));
+            argv.push(format!("SCCACHE_DIR={dir}"));
+        }
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let out = self.runner.run(&refs);
@@ -494,6 +509,7 @@ mod tests {
             checkout_base: "/var/lib/cynic/checkouts".into(),
             ssot_url: "ssh://example/CYNIC.git".into(),
             package: Some("cynic-host".into()),
+            sccache_dir: None,
             runner: Box::new(fake),
         };
         (runner, handle)
@@ -505,6 +521,20 @@ mod tests {
             phase: BuildPhase::Check,
             network_mode: NetworkMode::Offline,
         }
+    }
+
+    #[test]
+    fn trigger_passes_sccache_env_when_configured() {
+        let commit = "a".repeat(40);
+        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&commit), ok("Checking cynic-host")]);
+        let (mut runner, handle) = test_runner(fake);
+        runner.sccache_dir = Some("/var/lib/cynic/sccache".to_string());
+        runner
+            .trigger(&check_trigger(&commit))
+            .expect("trigger succeeds");
+        let cargo = handle.argv_log().last().unwrap().join(" ");
+        assert!(cargo.contains("RUSTC_WRAPPER=/var/lib/cynic/bin/sccache"));
+        assert!(cargo.contains("SCCACHE_DIR=/var/lib/cynic/sccache"));
     }
 
     #[test]
