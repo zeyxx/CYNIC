@@ -24,7 +24,6 @@ const QUARANTINED: &[&str] = &[
     "adapters/local_workload_signer.rs",
     "adapters/registry_mesh_state_provider.rs",
     "adapters/runtime_proof_http_fetcher.rs",
-    "build_executor.rs",
     "fleet_inventory/kubernetes.rs",
     "fleet_inventory/power.rs",
     "fleet_inventory/providers.rs",
