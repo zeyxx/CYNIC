@@ -219,6 +219,7 @@ pub fn compose_build_agent_workload(
         workload_id: workload_id.clone(),
         idempotency_key: format!("build-request-{short}"),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: Some(AgentWorkloadInput {
             schema: AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
             kind: BUILD_AGENT_REQUEST_SCHEMA.to_string(),

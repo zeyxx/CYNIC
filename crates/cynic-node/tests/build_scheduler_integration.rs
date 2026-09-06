@@ -64,6 +64,7 @@ fn signed_build_grant_derivation_and_verification() {
         workload_id: workload_id.into(),
         idempotency_key: "idem-check-001".into(),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: None,
         action,
         delegation: AgentDelegationEnvelope {

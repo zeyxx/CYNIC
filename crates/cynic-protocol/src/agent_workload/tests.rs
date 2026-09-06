@@ -4,19 +4,21 @@ use crate::{
     AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord,
     AgentWorkloadState, BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE,
     DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
-    EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard, MutationContract,
-    POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
-    PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
-    SignedBuildWorkloadGrant, build_workload_grant_signing_bytes, derive_build_workload_grant,
-    digest_json, validate_build_workload_grant, validate_signed_build_workload_grant,
+    EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard, MandateAccount,
+    MandateStatus, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport,
+    PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
+    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA, SignedBuildWorkloadGrant, WorkloadMandateBinding,
+    build_workload_grant_signing_bytes, derive_build_workload_grant, digest_json,
+    validate_build_workload_grant, validate_signed_build_workload_grant,
 };
 
 use super::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
     acknowledge_agent_workload_cancellation, admit_agent_workload, admit_agent_workload_dispatch,
-    admit_workload_action, claim_agent_workload, complete_agent_workload,
-    consume_agent_workload_action, finalize_unclaimed_agent_workload_cancellation,
-    renew_agent_workload_claim, request_agent_workload_cancellation,
+    admit_workload_action, admit_workload_mandate_binding, claim_agent_workload,
+    complete_agent_workload, consume_agent_workload_action,
+    finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
+    request_agent_workload_cancellation,
 };
 
 fn evidence(kind: &str) -> AgentEvidenceRef {
@@ -64,6 +66,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
         workload_id: "workload-1".to_string(),
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
+        mandate_binding: None,
         input: None,
         action,
         delegation: AgentDelegationEnvelope {
@@ -146,6 +149,35 @@ fn guard(token: u64) -> LeaseGuard {
 #[test]
 fn admits_a_fully_bounded_workload() {
     assert!(admit_agent_workload(&test_envelope()).admitted());
+}
+
+#[test]
+fn mandate_binding_admits_exact_active_mandate_snapshot() {
+    let mut workload = test_envelope();
+    let mandate = MandateAccount {
+        schema: "cynic.mandate_account.v1".to_string(),
+        mandate_id: "mandate-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        office_id: "builder".to_string(),
+        scope: "build:commit-a".to_string(),
+        fencing_token: 7,
+        started_at_unix_s: 100,
+        expires_at_unix_s: 200,
+        max_actions: 2,
+        consumed_actions: 0,
+        max_wall_seconds: 900,
+        consumed_wall_seconds: 0,
+        status: MandateStatus::Active,
+    };
+    workload.mandate_binding = Some(WorkloadMandateBinding {
+        mandate_id: mandate.mandate_id.clone(),
+        fencing_token: 7,
+        snapshot_digest: digest_json(&mandate).expect("mandate snapshot digest"),
+        requested_actions: 1,
+        requested_wall_seconds: 60,
+    });
+
+    assert!(admit_workload_mandate_binding(&workload, &mandate, 150).admitted());
 }
 
 #[test]

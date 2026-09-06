@@ -71,6 +71,7 @@ mod tests {
             workload_id: "fed-1".to_string(),
             idempotency_key: "fed-1".to_string(),
             plan_digest: "sha256:plan".to_string(),
+            mandate_binding: None,
             input: None,
             action: AgentBoundedAction {
                 argv: vec!["cynic".to_string()],

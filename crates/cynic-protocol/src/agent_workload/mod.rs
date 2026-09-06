@@ -11,7 +11,9 @@ mod workspace_claim;
 mod workspace_lifecycle;
 mod workspace_types;
 
-pub use admission::{admit_agent_workload, admit_agent_workload_dispatch};
+pub use admission::{
+    admit_agent_workload, admit_agent_workload_dispatch, admit_workload_mandate_binding,
+};
 pub use capability_status::{
     AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentConstitutionRuntimeStatus,
@@ -44,7 +46,7 @@ pub use types::{
     AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
     AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction, AgentWorkloadAdmission, AgentWorkloadClaim,
     AgentWorkloadDecision, AgentWorkloadEnvelope, AgentWorkloadInput, AgentWorkloadRecord,
-    AgentWorkloadState, AgentWorkloadViolation,
+    AgentWorkloadState, AgentWorkloadViolation, WorkloadMandateBinding,
 };
 pub use workspace::reconcile_agent_workspace;
 pub use workspace_checks::{agent_workspace_target, zones_overlap};
