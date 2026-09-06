@@ -161,6 +161,71 @@ impl SshBuildRunner {
             )),
         }
     }
+
+    /// Step 3 shared by the fresh-checkout and fetch-retry paths: run the
+    /// canonical cargo argv in the pinned checkout and build the proof
+    /// from exit status only.
+    fn run_build(
+        &self,
+        trigger: &BuildTrigger,
+        action: &str,
+        sha: &str,
+        dir: &str,
+        target: String,
+    ) -> Result<BuildProofBundle, BuildError> {
+        let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
+            BuildError::AdmissionBlocked(format!("no canonical argv for action: {action}"))
+        })?;
+        cargo.push("--manifest-path".to_string());
+        cargo.push(format!("{dir}/Cargo.toml"));
+        if let Some(package) = self.package.as_deref() {
+            cargo.push("--package".to_string());
+            cargo.push(package.to_string());
+            cargo.push("--lib".to_string());
+        }
+        cargo.push("--locked".to_string());
+        if trigger.network_mode == NetworkMode::Offline {
+            cargo.push("--offline".to_string());
+        }
+        let mut argv: Vec<String> = vec![
+            "ssh".to_string(),
+            target,
+            "env".to_string(),
+            "RUST_MIN_STACK=8589934592".to_string(),
+            "CARGO_BUILD_JOBS=1".to_string(),
+            "CARGO_INCREMENTAL=0".to_string(),
+            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
+        ];
+        argv.extend(cargo);
+        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let out = self.runner.run(&refs);
+        if let Some(e) = &out.spawn_error {
+            return Err(BuildError::RunnerUnreachable(e.clone()));
+        }
+        let scope = self
+            .package
+            .clone()
+            .unwrap_or_else(|| "workspace".to_string());
+        if !out.success() {
+            return Err(BuildError::AdmissionBlocked(format!(
+                "remote build failed: {}",
+                tail(&out.stderr)
+            )));
+        }
+        Ok(BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: self.host.clone(),
+            source_commit: sha.to_string(),
+            action: action.to_string(),
+            status: PipelineStatus::Converged,
+            broken_layer: None,
+            layers: vec![LayerProof {
+                layer: scope,
+                status: LayerStatus::Converged,
+                blocked_by: None,
+            }],
+        })
+    }
 }
 
 impl BuildRunnerPort for SshBuildRunner {
@@ -234,6 +299,58 @@ impl BuildRunnerPort for SshBuildRunner {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
         if !head.success() || head.stdout.trim() != sha {
+            // The checkout may predate the requested SHA (clone-once, never
+            // fetch): one bounded fetch of exactly this SHA, then a single
+            // retry. No branch fetch, no prune, no second retry.
+            let fetch = self.runner.run(&[
+                "ssh",
+                target.as_str(),
+                "git",
+                "-C",
+                dir.as_str(),
+                "fetch",
+                self.ssot_url.as_str(),
+                sha.as_str(),
+            ]);
+            if fetch.spawn_error.is_some() {
+                return Err(BuildError::RunnerUnreachable(
+                    fetch.spawn_error.unwrap_or_default(),
+                ));
+            }
+            if fetch.success() {
+                let retry = self.runner.run(&[
+                    "ssh",
+                    target.as_str(),
+                    "git",
+                    "-C",
+                    dir.as_str(),
+                    "checkout",
+                    sha.as_str(),
+                ]);
+                let retry_failed = !retry.success();
+                let retry_stderr = tail(&retry.stderr);
+                let rehead = self.runner.run(&[
+                    "ssh",
+                    target.as_str(),
+                    "git",
+                    "-C",
+                    dir.as_str(),
+                    "rev-parse",
+                    "HEAD",
+                ]);
+                if rehead.success() && rehead.stdout.trim() == sha {
+                    // Fall through to build below with the pinned checkout.
+                    return self.run_build(trigger, action, &sha, &dir, target);
+                }
+                let detail = if retry_failed {
+                    format!("checkout exit non-zero ({retry_stderr}); ")
+                } else {
+                    String::new()
+                };
+                return Err(BuildError::ProofUnparseable(format!(
+                    "{detail}checkout HEAD does not match source commit"
+                )));
+            }
             let detail = if checkout_failed {
                 format!("checkout exit non-zero ({checkout_stderr}); ")
             } else {
@@ -245,58 +362,7 @@ impl BuildRunnerPort for SshBuildRunner {
         }
 
         // Step 3: build with the canonical argv for the action.
-        let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
-            BuildError::AdmissionBlocked(format!("no canonical argv for action: {action}"))
-        })?;
-        cargo.push("--manifest-path".to_string());
-        cargo.push(format!("{dir}/Cargo.toml"));
-        if let Some(package) = self.package.as_deref() {
-            cargo.push("--package".to_string());
-            cargo.push(package.to_string());
-            cargo.push("--lib".to_string());
-        }
-        cargo.push("--locked".to_string());
-        if trigger.network_mode == NetworkMode::Offline {
-            cargo.push("--offline".to_string());
-        }
-        let mut argv: Vec<String> = vec![
-            "ssh".to_string(),
-            target,
-            "env".to_string(),
-            "RUST_MIN_STACK=8589934592".to_string(),
-            "CARGO_BUILD_JOBS=1".to_string(),
-            "CARGO_INCREMENTAL=0".to_string(),
-            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
-        ];
-        argv.extend(cargo);
-        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
-        let out = self.runner.run(&refs);
-        if let Some(e) = &out.spawn_error {
-            return Err(BuildError::RunnerUnreachable(e.clone()));
-        }
-        let scope = self
-            .package
-            .clone()
-            .unwrap_or_else(|| "workspace".to_string());
-        if !out.success() {
-            return Err(BuildError::AdmissionBlocked(format!(
-                "remote build failed: {}",
-                tail(&out.stderr)
-            )));
-        }
-        Ok(BuildProofBundle {
-            schema: "cynic.pipeline_build_proof.v1".to_string(),
-            node: self.host.clone(),
-            source_commit: sha,
-            action: action.to_string(),
-            status: PipelineStatus::Converged,
-            broken_layer: None,
-            layers: vec![LayerProof {
-                layer: scope,
-                status: LayerStatus::Converged,
-                blocked_by: None,
-            }],
-        })
+        self.run_build(trigger, action, &sha, &dir, target)
     }
 
     fn observe_runner(&self) -> RunnerHealth {
@@ -510,13 +576,47 @@ mod tests {
     #[test]
     fn trigger_blocks_on_head_mismatch() {
         let commit = "c".repeat(40);
-        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&"d".repeat(40))]);
-        let (runner, _) = test_runner(fake);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&"d".repeat(40)),
+            ok(""),                // fetch succeeds
+            fail("not found"),     // retry checkout fails
+            ok(&"d".repeat(40)),   // rehead still wrong
+        ]);
+        let (runner, handle) = test_runner(fake);
         assert!(matches!(
             runner.trigger(&check_trigger(&commit)),
-            Err(BuildError::ProofUnparseable(message))
-                if message == "checkout HEAD does not match source commit"
+            Err(BuildError::ProofUnparseable(_))
         ));
+        // Exactly one bounded fetch of the requested SHA, no branch fetch.
+        let log = handle.argv_log();
+        let fetches: Vec<_> = log
+            .iter()
+            .filter(|argv| argv.iter().any(|a| a == "fetch"))
+            .collect();
+        assert_eq!(fetches.len(), 1);
+        assert!(fetches[0].contains(&commit));
+    }
+
+    #[test]
+    fn trigger_fetches_stale_checkout_then_converges() {
+        let commit = "c".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&"d".repeat(40)), // stale HEAD
+            ok(""),              // fetch succeeds
+            ok(""),              // retry checkout ok
+            ok(&commit),         // rehead matches
+            ok("Checking cynic-host"),
+        ]);
+        let (runner, _) = test_runner(fake);
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("fetch + retry converges");
+        assert_eq!(proof.status, PipelineStatus::Converged);
+        assert_eq!(proof.source_commit, commit);
     }
 
     #[test]
