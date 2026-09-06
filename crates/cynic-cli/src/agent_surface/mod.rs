@@ -103,7 +103,11 @@ pub(crate) enum AgentCommand {
         json: bool,
     },
     /// Return lightweight non-blocking session context evidence for agent boots
-    SessionContext,
+    SessionContext {
+        /// Print JSON output (default true)
+        #[arg(long, default_value = "true")]
+        json: bool,
+    },
 }
 
 pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
@@ -193,7 +197,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::SessionContext => {
+        AgentCommand::SessionContext { json: _ } => {
             let report = serde_json::json!({
                 "schema": "cynic.agent.session_context.v1",
                 "status": "observed",
