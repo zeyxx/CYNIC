@@ -30,20 +30,95 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone)]
 pub struct HeadscaleAdapter {
     pub endpoint: String,
+    pub api_key: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeadscaleHealth {
+    pub healthy: bool,
+    pub endpoint: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HeadscaleNode {
+    #[serde(deserialize_with = "deserialize_id")]
     pub id: u64,
     pub name: String,
+    #[serde(alias = "ipAddresses", default)]
     pub ip_addresses: Vec<String>,
+    #[serde(default)]
     pub online: bool,
+}
+
+fn deserialize_id<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Id {
+        Num(u64),
+        Str(String),
+    }
+    match Id::deserialize(deserializer)? {
+        Id::Num(n) => Ok(n),
+        Id::Str(s) => s.parse::<u64>().map_err(serde::de::Error::custom),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum HeadscaleNodeListResponse {
+    Wrapped { nodes: Vec<HeadscaleNode> },
+    Array(Vec<HeadscaleNode>),
+}
+
+pub fn parse_nodes_json(raw: &str) -> Result<Vec<HeadscaleNode>, String> {
+    let parsed: HeadscaleNodeListResponse =
+        serde_json::from_str(raw).map_err(|e| format!("Failed to parse nodes JSON: {e}"))?;
+    match parsed {
+        HeadscaleNodeListResponse::Wrapped { nodes } => Ok(nodes),
+        HeadscaleNodeListResponse::Array(nodes) => Ok(nodes),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct PreAuthKeyResponse {
+    #[serde(alias = "preAuthKey")]
+    pre_auth_key: Option<PreAuthKeyInner>,
+    key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PreAuthKeyInner {
+    key: String,
+}
+
+pub fn parse_preauthkey_response(raw: &str) -> String {
+    if let Ok(parsed) = serde_json::from_str::<PreAuthKeyResponse>(raw) {
+        if let Some(inner) = parsed.pre_auth_key {
+            return inner.key;
+        }
+        if let Some(k) = parsed.key {
+            return k;
+        }
+    }
+    raw.trim().to_string()
 }
 
 impl HeadscaleAdapter {
     pub fn new(endpoint: &str) -> Self {
         Self {
             endpoint: endpoint.to_string(),
+            api_key: None,
+        }
+    }
+
+    pub fn with_api_key(endpoint: &str, api_key: impl Into<String>) -> Self {
+        Self {
+            endpoint: endpoint.to_string(),
+            api_key: Some(api_key.into()),
         }
     }
 
@@ -51,55 +126,161 @@ impl HeadscaleAdapter {
         current_runtime_layout().headscale_bin()
     }
 
-    /// Correspond à `list_nodes` du mesh_contract.py
+    fn is_http_endpoint(&self) -> bool {
+        self.endpoint.starts_with("http://") || self.endpoint.starts_with("https://")
+    }
+
+    /// Probe Headscale `/health` endpoint (public, unauthenticated).
+    pub fn check_health(&self) -> Result<HeadscaleHealth, MeshCoordinationError> {
+        if self.is_http_endpoint() {
+            let url = format!("{}/health", self.endpoint.trim_end_matches('/'));
+            let output = capture_command("curl", &["-s", "-m", "3", &url])
+                .map_err(|e| MeshCoordinationError::Unobservable(e.to_string()))?;
+            if !output.success {
+                return Err(MeshCoordinationError::Unobservable(format!(
+                    "health check failed with exit code {:?}: {}",
+                    output.exit_code, output.stderr
+                )));
+            }
+            let healthy =
+                output.stdout.contains("\"status\":\"pass\"") || output.stdout.contains("\"pass\"");
+            Ok(HeadscaleHealth {
+                healthy,
+                endpoint: self.endpoint.clone(),
+                status: if healthy {
+                    "pass".to_string()
+                } else {
+                    "fail".to_string()
+                },
+            })
+        } else {
+            let output = capture_command(&self.headscale_bin(), &["version"])
+                .map_err(|e| MeshCoordinationError::Unobservable(e.to_string()))?;
+            Ok(HeadscaleHealth {
+                healthy: output.success,
+                endpoint: self.endpoint.clone(),
+                status: if output.success {
+                    "pass".to_string()
+                } else {
+                    "fail".to_string()
+                },
+            })
+        }
+    }
+
+    /// List nodes either via REST `/api/v1/node` or local CLI.
     pub fn list_nodes(&self) -> Result<String, String> {
-        let output = capture_command(&self.headscale_bin(), &["nodes", "list", "-o", "json"])
-            .map_err(|e| format!("Failed to list headscale nodes: {}", e))?;
-
-        if !output.success {
-            return Err(output.stderr);
+        if self.is_http_endpoint() {
+            let url = format!("{}/api/v1/node", self.endpoint.trim_end_matches('/'));
+            let mut args = vec!["-s", "-m", "5"];
+            let auth_header;
+            if let Some(key) = &self.api_key {
+                auth_header = format!("Authorization: Bearer {key}");
+                args.push("-H");
+                args.push(&auth_header);
+            }
+            args.push(&url);
+            let output = capture_command("curl", &args)
+                .map_err(|e| format!("Failed to curl headscale nodes: {e}"))?;
+            if !output.success {
+                return Err(format!("curl error: {}", output.stderr));
+            }
+            Ok(output.stdout)
+        } else {
+            let output = capture_command(&self.headscale_bin(), &["nodes", "list", "-o", "json"])
+                .map_err(|e| format!("Failed to list headscale nodes: {}", e))?;
+            if !output.success {
+                return Err(output.stderr);
+            }
+            Ok(output.stdout)
         }
-
-        Ok(output.stdout)
     }
 
-    /// Correspond à `generate_preauthkey` du mesh_contract.py
+    /// Generate preauthkey either via REST `/api/v1/preauthkey` or local CLI.
     pub fn generate_preauthkey(&self, user: &str) -> Result<String, String> {
-        let output = capture_command(
-            &self.headscale_bin(),
-            &["preauthkeys", "create", "-e", "24h", "-u", user],
-        )
-        .map_err(|e| format!("Failed to generate preauthkey: {}", e))?;
-
-        if !output.success {
-            return Err(output.stderr);
+        if self.is_http_endpoint() {
+            let url = format!("{}/api/v1/preauthkey", self.endpoint.trim_end_matches('/'));
+            let body = format!(
+                r#"{{"user":"{}","reusable":false,"ephemeral":false,"expiration":"24h"}}"#,
+                user
+            );
+            let mut args = vec![
+                "-s",
+                "-m",
+                "5",
+                "-X",
+                "POST",
+                "-H",
+                "Content-Type: application/json",
+            ];
+            let auth_header;
+            if let Some(key) = &self.api_key {
+                auth_header = format!("Authorization: Bearer {key}");
+                args.push("-H");
+                args.push(&auth_header);
+            }
+            args.push("-d");
+            args.push(&body);
+            args.push(&url);
+            let output = capture_command("curl", &args)
+                .map_err(|e| format!("Failed to curl preauthkey: {e}"))?;
+            if !output.success {
+                return Err(format!("curl error: {}", output.stderr));
+            }
+            Ok(parse_preauthkey_response(&output.stdout))
+        } else {
+            let output = capture_command(
+                &self.headscale_bin(),
+                &["preauthkeys", "create", "-e", "24h", "-u", user],
+            )
+            .map_err(|e| format!("Failed to generate preauthkey: {}", e))?;
+            if !output.success {
+                return Err(output.stderr);
+            }
+            Ok(output.stdout.trim().to_string())
         }
-
-        Ok(output.stdout.trim().to_string())
     }
 
-    /// Correspond à `revoke_node` du mesh_contract.py
+    /// Revoke node either via REST `/api/v1/node/{id}` or local CLI.
     pub fn revoke_node(&self, node_id: u64) -> Result<(), String> {
         let node_id_str = node_id.to_string();
-        let output = capture_command(
-            &self.headscale_bin(),
-            &["nodes", "delete", "-i", &node_id_str, "--force"],
-        )
-        .map_err(|e| format!("Failed to revoke node: {}", e))?;
-
-        if !output.success {
-            return Err(output.stderr);
+        if self.is_http_endpoint() {
+            let url = format!(
+                "{}/api/v1/node/{}",
+                self.endpoint.trim_end_matches('/'),
+                node_id_str
+            );
+            let mut args = vec!["-s", "-m", "5", "-X", "DELETE"];
+            let auth_header;
+            if let Some(key) = &self.api_key {
+                auth_header = format!("Authorization: Bearer {key}");
+                args.push("-H");
+                args.push(&auth_header);
+            }
+            args.push(&url);
+            let output = capture_command("curl", &args)
+                .map_err(|e| format!("Failed to delete headscale node: {e}"))?;
+            if !output.success {
+                return Err(format!("curl error: {}", output.stderr));
+            }
+            Ok(())
+        } else {
+            let output = capture_command(
+                &self.headscale_bin(),
+                &["nodes", "delete", "-i", &node_id_str, "--force"],
+            )
+            .map_err(|e| format!("Failed to revoke node: {}", e))?;
+            if !output.success {
+                return Err(output.stderr);
+            }
+            Ok(())
         }
-
-        Ok(())
     }
 
-    /// Correspond à `observe_node_liveness` du mesh_contract.py
+    /// Observe node liveness by querying member list.
     pub fn observe_node_liveness(&self, node_name: &str) -> Result<bool, String> {
-        // En json brut, on filtre
         let json_data = self.list_nodes()?;
-        let nodes: Vec<HeadscaleNode> = serde_json::from_str(&json_data)
-            .map_err(|e| format!("Failed to parse nodes: {}", e))?;
+        let nodes = parse_nodes_json(&json_data)?;
 
         for node in nodes {
             if node.name == node_name {
@@ -129,7 +310,7 @@ impl MeshCoordinationPort for HeadscaleAdapter {
             .list_nodes()
             .map_err(MeshCoordinationError::Unobservable)?;
 
-        let nodes: Vec<HeadscaleNode> = serde_json::from_str(&raw)
+        let nodes = parse_nodes_json(&raw)
             .map_err(|e| MeshCoordinationError::Malformed(format!("nodes list: {e}")))?;
 
         Ok(nodes
@@ -207,5 +388,64 @@ mod tests {
             Err(MeshCoordinationError::Malformed(m)) => assert!(m.contains("numeric"), "{m}"),
             other => panic!("expected Malformed, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn parses_rest_api_wrapped_nodes_json() {
+        let raw = r#"{
+            "nodes": [
+                {
+                    "id": "1",
+                    "name": "builder",
+                    "ipAddresses": ["100.64.0.1"],
+                    "online": true
+                },
+                {
+                    "id": 2,
+                    "name": "cortex",
+                    "ipAddresses": ["100.64.0.2"],
+                    "online": false
+                }
+            ]
+        }"#;
+        let nodes = parse_nodes_json(raw).expect("parse rest nodes");
+        assert_eq!(nodes.len(), 2);
+        assert_eq!(nodes[0].id, 1);
+        assert_eq!(nodes[0].name, "builder");
+        assert_eq!(nodes[0].ip_addresses, vec!["100.64.0.1"]);
+        assert!(nodes[0].online);
+        assert_eq!(nodes[1].id, 2);
+        assert!(!nodes[1].online);
+    }
+
+    #[test]
+    fn parses_cli_array_nodes_json() {
+        let raw = r#"[
+            {
+                "id": 1,
+                "name": "builder",
+                "ip_addresses": ["100.64.0.1"],
+                "online": true
+            }
+        ]"#;
+        let nodes = parse_nodes_json(raw).expect("parse cli nodes");
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].name, "builder");
+        assert_eq!(nodes[0].ip_addresses, vec!["100.64.0.1"]);
+    }
+
+    #[test]
+    fn parses_preauthkey_from_wrapped_or_raw() {
+        let rest_json = r#"{"preAuthKey": {"key": "test-key-123"}}"#;
+        assert_eq!(parse_preauthkey_response(rest_json), "test-key-123");
+
+        let raw = "test-raw-key-456\n";
+        assert_eq!(parse_preauthkey_response(raw), "test-raw-key-456");
+    }
+
+    #[test]
+    fn parses_health_check_response() {
+        let healthy_json = r#"{"status":"pass"}"#;
+        assert!(healthy_json.contains("\"status\":\"pass\""));
     }
 }

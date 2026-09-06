@@ -216,8 +216,8 @@ impl LocalRegistryAdapter {
     fn local_ip(&self, node: &model::RegistryNode) -> Option<String> {
         node.network
             .as_ref()
-            .and_then(|network| network.local.clone())
-            .filter(|value| !value.is_empty())
+            .and_then(|network| network.best_ip())
+            .map(|value| value.to_string())
     }
 }
 
@@ -425,8 +425,8 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(local_ip) = node
                 .network
                 .as_ref()
-                .and_then(|network| network.local.clone())
-                .filter(|value| value != "dhcp")
+                .and_then(|network| network.best_ip())
+                .map(|value| value.to_string())
             else {
                 continue;
             };
@@ -465,7 +465,8 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 .iter()
                 .find(|node| node.role.as_deref() == Some("hypervisor"))
                 .and_then(|node| node.network.as_ref())
-                .and_then(|network| network.local.clone())
+                .and_then(|network| network.best_ip())
+                .map(|value| value.to_string())
         });
         let cidr = provider_fallback_cidr(&registry);
         Ok(ProviderFallbackRoute {
@@ -492,7 +493,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(network) = node.network.as_ref() else {
                 continue;
             };
-            let Some(local_ip) = network.local.clone().filter(|value| value != "dhcp") else {
+            let Some(local_ip) = network.best_ip().map(|value| value.to_string()) else {
                 continue;
             };
             let fallback_host = fallback_records
@@ -508,6 +509,17 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 .unwrap_or_else(|| preferred_node_host(&dns_zone, &node, None, &local_ip));
             let mut node_checks = Vec::new();
             for service in node.services.clone().unwrap_or_default() {
+                if matches!(
+                    service.status.as_deref(),
+                    Some("planned")
+                        | Some("archived")
+                        | Some("retired")
+                        | Some("disabled")
+                        | Some("optional")
+                ) || service.optional.unwrap_or(false)
+                {
+                    continue;
+                }
                 let Some(port) = service.port else {
                     continue;
                 };

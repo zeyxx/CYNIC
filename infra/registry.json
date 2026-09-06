@@ -230,6 +230,15 @@
           "cynic-kernel-primary.synapse.cynic",
           "organ-kernel.synapse.cynic"
         ]
+      },
+      {
+        "name": "cynic-lxc-headscale",
+        "synapse": "10.10.10.40",
+        "dns": [
+          "headscale.synapse.cynic",
+          "organ-headscale.synapse.cynic",
+          "cynic-lxc-headscale.synapse.cynic"
+        ]
       }
     ],
     "wireguard": {
@@ -612,11 +621,39 @@
           "name": "forgejo-backend",
           "scheme": "http",
           "port": 3000
-        },
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
+    },
+    {
+      "id": "cynic-lxc-headscale",
+      "name": "cynic-lxc-headscale",
+      "aliases": [
+        "headscale",
+        "organ-headscale"
+      ],
+      "role": "mesh_coordinator",
+      "host_family": "linux.debian.systemd",
+      "status": "candidate",
+      "deploy_target": true,
+      "proxmox_id": "lxc/100",
+      "transports": {
+        "ssh": {
+          "target": "headscale.synapse.cynic",
+          "trust": "ssh_trust_anchor"
+        }
+      },
+      "network": {
+        "synapse": "10.10.10.40"
+      },
+      "services": [
         {
-          "name": "forgejo-api-tls",
-          "scheme": "https",
-          "port": 443
+          "name": "headscale",
+          "scheme": "http",
+          "port": 8080,
+          "status": "planned"
         }
       ],
       "energy_profile": {
