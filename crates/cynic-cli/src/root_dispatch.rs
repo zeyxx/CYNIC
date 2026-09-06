@@ -16,8 +16,11 @@ use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_audit::execute_network_audit;
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::execute_node_activation;
+use crate::operator_doctor::execute_operator_doctor;
+use crate::operator_errors::execute_operator_errors;
+use crate::operator_help::execute_advanced_help;
 use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
-use crate::session_surface::{SessionCommand, execute_session};
+use crate::session_surface::execute_session;
 use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::transport_surface::{TransportCommand, execute_transport};
 use crate::{Command, DepsCommand};
@@ -48,10 +51,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Peer { command } => crate::peer_surface::execute_peer(command),
         Command::NodeActivation { command } => execute_node_activation(command),
         Command::Audit { command } => execute_audit_command(command),
-        Command::Advanced => {
-            // Reserved surface: not yet wired to a dispatch arm in this revision.
-            ExitCode::SUCCESS
-        }
+        Command::Advanced => execute_advanced_help(),
         Command::Integrations { command } => execute_integrations_command(command),
         Command::Deps { command, json } => execute_deps_command(command, json),
         Command::Update { target, json } => {
@@ -87,11 +87,8 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         }),
         Command::Agent { command } => execute_agent(command),
         Command::Models { command } => execute_operator_models(command),
-        Command::Doctor { .. } | Command::Errors { .. } => {
-            // Upstream scaffold: doctor/errors surfaces are declared at the
-            // command layer but not yet wired to a dispatch arm in this revision.
-            ExitCode::SUCCESS
-        }
+        Command::Doctor { json } => execute_operator_doctor(json),
+        Command::Errors { json } => execute_operator_errors(json),
         Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
         Command::Build { command } => execute_build(command)
@@ -122,10 +119,21 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
 }
 
 fn execute_commands_manifest(json: bool) -> ExitCode {
-    if !json {
-        return ExitCode::FAILURE;
+    let manifest = commands_manifest();
+    if json {
+        return emit_pretty_json(&manifest);
     }
-    emit_pretty_json(&commands_manifest())
+    println!("CYNIC command manifest ({})", manifest.schema);
+    for domain in &manifest.domains {
+        println!();
+        println!("[{}]", domain.name);
+        for command in &domain.commands {
+            println!("  {command}");
+        }
+    }
+    println!();
+    println!("Machine-readable: cynic commands --json");
+    ExitCode::SUCCESS
 }
 
 fn execute_fleet_command(command: FleetCommand) -> ExitCode {

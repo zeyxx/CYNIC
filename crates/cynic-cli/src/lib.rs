@@ -36,6 +36,7 @@ pub mod deps_surface_report;
 pub mod deps_surface_specs;
 pub mod deps_surface_upgrade;
 pub mod dev_surface;
+pub mod doctor;
 pub mod federation_surface;
 pub mod fleet_divergence;
 pub mod fleet_observation;

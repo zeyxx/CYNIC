@@ -1,6 +1,5 @@
 //! Operator projection of stable CYNIC contract failures.
 
-#![allow(dead_code)]
 use std::process::ExitCode;
 
 use cynic_protocol::{CYNIC_ERROR_CODES, CynicError};

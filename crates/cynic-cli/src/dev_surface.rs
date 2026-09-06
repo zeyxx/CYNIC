@@ -81,6 +81,10 @@ pub(crate) enum DevCommand {
         json: bool,
     },
     DebtAudit(AuditArgs),
+    Doctor {
+        #[arg(long)]
+        json: bool,
+    },
     Opportunities(OpportunitiesArgs),
     InferenceGateway {
         #[arg(long)]
@@ -158,6 +162,19 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
         } => crate::fleet_divergence::run(json, registry, names),
         DevCommand::OrganismAudit { json } => organism_audit::run(json),
         DevCommand::DebtAudit(a) => execute_debt_audit(a.json, a.output, a.persist),
+        DevCommand::Doctor { json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let repo_root = std::env::current_dir().unwrap_or_default();
+            match crate::doctor::run_doctor(&repo_root) {
+                Ok(report) => {
+                    let failed = report.score < 1.0;
+                    crate::emit_json(&report, failed)
+                }
+                Err(error) => crate::fail(error),
+            }
+        }
         DevCommand::Opportunities(a) => {
             execute_opportunities(a.json, a.frame, a.output, a.decide, a.action, a.reason)
         }
