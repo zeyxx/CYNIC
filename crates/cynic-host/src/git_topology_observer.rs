@@ -46,13 +46,13 @@ fn node_id() -> String {
         .unwrap_or_else(|| "cortex".to_string())
 }
 
-/// Parse `git for-each-ref` output into (branch, last_commit_unix_s)
-fn read_branch_refs(root: &Path) -> Vec<(String, Option<u64>)> {
+/// Parse `git for-each-ref` output into (branch, tip_sha, last_commit_unix_s)
+fn read_branch_refs(root: &Path) -> Vec<(String, String, Option<u64>)> {
     let Some(out) = run_git(
         root,
         &[
             "for-each-ref",
-            "--format=%(refname:short)|%(committerdate:unix)",
+            "--format=%(refname:short)|%(objectname)|%(committerdate:unix)",
             "refs/heads/",
         ],
     ) else {
@@ -61,13 +61,30 @@ fn read_branch_refs(root: &Path) -> Vec<(String, Option<u64>)> {
     let mut v = Vec::new();
     for line in out.lines().take(MAX_BRANCHES) {
         if line.trim().is_empty() { continue; }
-        let mut parts = line.splitn(2, '|');
+        let mut parts = line.splitn(3, '|');
         let name = parts.next().unwrap_or("").trim().to_string();
         if name.is_empty() { continue; }
+        let sha = parts.next().unwrap_or("").trim().to_string();
         let ts = parts.next().and_then(|s| s.trim().parse::<u64>().ok());
-        v.push((name, ts));
+        v.push((name, sha, ts));
     }
     v
+}
+
+/// First-parent map over the commit DAG (bounded). commit -> first parent.
+fn read_first_parents(root: &Path) -> std::collections::HashMap<String, String> {
+    const MAX_COMMITS: usize = 20_000;
+    let mut map = std::collections::HashMap::new();
+    let Some(out) = run_git(root, &["log", "--all", "--pretty=format:%H %P"]) else {
+        return map;
+    };
+    for line in out.lines().take(MAX_COMMITS) {
+        let mut parts = line.split_whitespace();
+        let (Some(commit), Some(parent)) = (parts.next(), parts.next()) else { continue; };
+        if commit.len() < 7 || parent.len() < 7 { continue; }
+        map.entry(commit.to_string()).or_insert_with(|| parent.to_string());
+    }
+    map
 }
 
 fn has_remote_branch(root: &Path, branch: &str) -> bool {
@@ -148,7 +165,22 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
     let mut entries = Vec::new();
     let mut truncated = false;
 
-    for (branch, ts) in refs.into_iter().take(MAX_BRANCHES) {
+    // Stack forest: one bounded DAG walk for all branch tips.
+    let tips: std::collections::HashMap<String, String> = refs
+        .iter()
+        .filter(|(_, sha, _)| !sha.is_empty())
+        .map(|(b, sha, _)| (b.clone(), sha.clone()))
+        .collect();
+    let main_tip = run_git(root, &["rev-parse", "main"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    let stack_parents = crate::domain::git::stack::infer_stack_parents(
+        &tips,
+        &read_first_parents(root),
+        &main_tip,
+    );
+
+    for (branch, _sha, ts) in refs.into_iter().take(MAX_BRANCHES) {
         if entries.len() >= MAX_BRANCHES {
             truncated = true;
             break;
@@ -165,6 +197,8 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
         if ts.is_none() { unknowns.push(GitTopologyUnknown::LastCommit); }
         if has_wt.is_none() { unknowns.push(GitTopologyUnknown::Worktree); }
         if dirty_unknown { unknowns.push(GitTopologyUnknown::Dirty); }
+        let parent = stack_parents.get(&branch).cloned();
+        if parent.is_none() { unknowns.push(GitTopologyUnknown::Parent); }
 
         entries.push(GitBranchEntry {
             branch: branch.clone(),
@@ -175,6 +209,7 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
             has_worktree: has_wt,
             dirty_count: dirty,
             has_remote: Some(has_remote),
+            parent,
             unknowns,
         });
     }
