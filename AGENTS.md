@@ -275,3 +275,84 @@ Framework is industrial-grade when:
 - Prefer Rust types, tests, and runtime proof over prose.
 - Keep infra minimal and executable.
 - Anything outside the runtime authority map must prove current runtime use before it is kept.
+
+## 7 Design Rules (Anti-Hemorrhage)
+
+These rules are **mandatory**. Every PR that adds a feature MUST respect these. Violations are blocked at review.
+
+### R1: One File = One Module = One Responsibility (max 400 lines)
+
+- Soft limit: 200-250 lines for facade surfaces.
+- Hard limit: 400 lines for any single file.
+- > 400 lines → split or extract.
+- > 800 lines → emergency extraction.
+
+**Verdicts:** `SPLIT` (find natural seams), `EXTRACT` (whole file becomes a crate), `BURN` (dead code).
+
+### R2: CLI Knows Only Ports
+
+- Zero direct imports from `cynic_host::`, `cynic_node::`, `cynic_inference::*` in CLI.
+- All interactions go through traits in `cynic_protocol::ports`.
+- Exception: pure types (structs/enum without methods).
+
+**Pattern:**
+```rust
+// BEFORE (violation):
+use cynic_host::build_workflow::run_build_workflow;
+
+// AFTER (conforme):
+use cynic_protocol::ports::host_port::HostPort;
+```
+
+### R3: Fail-Closed by Default
+
+- No silent `Ok(())` when the operation may have partially failed.
+- Every write has a `RollbackIntent` before execution.
+- If storage is down → `Err(Degraded)`, not silent success.
+- If build fails → automatic rollback.
+
+### R4: Bounded Everything
+
+- Every loop has `max_iterations: u64`.
+- Every collection has `max_capacity: usize`.
+- Every buffer has `max_size: usize`.
+- Every context has `token_budget: u64`.
+- Every computation has `max_wall_seconds: u64`.
+
+### R5: Proof Before Publicity
+
+- No `println!("success")` without a `ReadBackProof` that confirms the result.
+- No mutation without a post-action observation.
+- No status report without a freshness timestamp.
+
+### R6: SoC = Physical Separation (crate boundary)
+
+- If a module is imported by 2+ crates → it belongs in `cynic-protocol`.
+- If it's a complete business logic → it belongs in its own crate.
+- If it's an adapter → it belongs in `cynic-host` or `cynic-node`.
+- If it's a CLI projection → it belongs in `cynic-cli`.
+
+### R7: Via Negativa — Subtract Before Adding
+
+- Every "feat" PR MUST include a "refactor" that reduces complexity elsewhere.
+- Every new feature MUST delete at least as much dead code as it adds.
+- If you add a module, you MUST burn an old one.
+- Net LOC growth per PR: ≤ 0 (unless it's a new vertical).
+
+---
+
+## 7 Hermetic Laws (Structural Constraints)
+
+CYNIC is a **hermetic organism** governed by 7 laws (Kybalion, 1908). These are NOT metaphors — they are constraints that every design decision must satisfy.
+
+| # | Law | Constraint | Test |
+|---|-----|------------|------|
+| I | **Mentalism** | Human intention is the source | `CitizenAccount` > `AgentAccount` in authority |
+| II | **Correspondence** | Every scale reflects the others | L0→L5 have the same patterns |
+| III | **Vibration** | Attention and energy are measurable | Token budget + EnergyProof |
+| IV | **Polarity** | Dualities are continuums | Futarchy transmutes PvP↔PvE |
+| V | **Rhythm** | Cycles are inevitable | Heartbeat TTL, decay, observation window |
+| VI | **Cause/Effect** | Causal chain is inviolable | Every transition has a precondition |
+| VII | **Gender** | Creation requires both principles | Hétéropoïèse + Autopoïèse |
+
+**The confluence test:** Every design must satisfy all 7 laws AND their 21 pairwise combinations. A violation of any law is an existential risk.
