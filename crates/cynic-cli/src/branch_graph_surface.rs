@@ -24,17 +24,28 @@ pub(crate) fn execute_branch_graph(json: bool) -> ExitCode {
     println!(
         "Branch graph: root={} commit={} nodes={} schema={}",
         graph.root,
-        if graph.root_commit.is_empty() { "-" } else { &graph.root_commit },
+        if graph.root_commit.is_empty() {
+            "-"
+        } else {
+            &graph.root_commit
+        },
         graph.nodes.len(),
         graph.schema
     );
     if graph.nodes.is_empty() {
         println!("(no branches)");
     } else {
-        println!("{:<45} {:<12} {:<15} UPSTREAM", "BRANCH", "COMMIT", "PARENT");
+        println!(
+            "{:<45} {:<12} {:<15} UPSTREAM",
+            "BRANCH", "COMMIT", "PARENT"
+        );
         println!("{}", "-".repeat(90));
         for n in &graph.nodes {
-            let short = if n.commit.len() > 12 { &n.commit[..12] } else { &n.commit };
+            let short = if n.commit.len() > 12 {
+                &n.commit[..12]
+            } else {
+                &n.commit
+            };
             let parent = n.parent.as_deref().unwrap_or("-");
             println!(
                 "{:<45} {:<12} {:<15} {}",

@@ -105,7 +105,10 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                     observation: &'a cynic_protocol::git_hygiene::GitHygieneObservation,
                     decision: &'a cynic_protocol::git_hygiene::GitHygieneDecision,
                 }
-                emit_pretty_json(&Out { observation: &obs, decision: &decision })
+                emit_pretty_json(&Out {
+                    observation: &obs,
+                    decision: &decision,
+                })
             } else {
                 println!(
                     "Hygiene: needs_review={} violations={:?}",
