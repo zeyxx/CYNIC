@@ -102,6 +102,8 @@ pub(crate) enum AgentCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Return lightweight non-blocking session context evidence for agent boots
+    SessionContext,
 }
 
 pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
@@ -190,6 +192,20 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 eprintln!("agent status failed: {}", error);
                 ExitCode::FAILURE
             }
+        },
+        AgentCommand::SessionContext => {
+            let report = serde_json::json!({
+                "schema": "cynic.agent.session_context.v1",
+                "status": "observed",
+                "git_sha": env!("CYNIC_GIT_SHA"),
+                "version": env!("CARGO_PKG_VERSION"),
+                "canonical_service_plane": "synapse",
+                "builder": "10.10.10.119",
+                "git_remote": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+                "active_claims_file": ".agent-claims.json",
+            });
+            emit_pretty_json(&report);
+            ExitCode::SUCCESS
         },
     }
 }
