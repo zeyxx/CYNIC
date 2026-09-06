@@ -378,10 +378,17 @@ fn scan_fragments(
                     .read(true)
                     .custom_flags(O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
                 let file = file_options.open(&entry_path).map_err(|e| {
-                    format!(
-                        "unsafe entry under fragments {}: {e}",
-                        entry_relative.display()
-                    )
+                    if e.raw_os_error() == Some(40) {
+                        format!(
+                            "symlink components/files are not allowed under fragments: {}",
+                            entry_relative.display()
+                        )
+                    } else {
+                        format!(
+                            "unsafe entry under fragments {}: {e}",
+                            entry_relative.display()
+                        )
+                    }
                 })?;
                 let metadata = file.metadata().map_err(|e| e.to_string())?;
                 if !metadata.is_file() {
