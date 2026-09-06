@@ -183,7 +183,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     let default_branch = "main".to_string();
     let mut snapshots = Vec::new();
     for entry in &inventory.entries {
-        let is_active_root = entry.path_basis == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
+        let is_active_root = entry.path_basis
+            == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
             || entry.relative_path.as_deref() == Some(".")
             || entry.relative_path.as_deref() == Some("")
             || entry.candidate_id == "cynic";
@@ -221,7 +222,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
             head_sha: entry.head.clone().unwrap_or_default(),
             is_active_root,
             dirty_file_count,
-            git_prunable: entry.git_prunable == Some(true) || entry.state == cynic_protocol::SourceWorktreeInventoryEntryState::Malformed,
+            git_prunable: entry.git_prunable == Some(true)
+                || entry.state == cynic_protocol::SourceWorktreeInventoryEntryState::Malformed,
             prunable_reason: entry.prunable_reason.clone(),
         });
     }
@@ -237,9 +239,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     if apply {
         let runner = cynic_host::update_lifecycle::LocalArgvRunner;
         let proof = cynic_host::source_worktree_reconcile::apply_worktree_convergence(
-            &plan,
-            &runner,
-            false,
+            &plan, &runner, false,
         );
 
         if json {
@@ -251,10 +251,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
             println!("Actions Executed ({}):", proof.executed_actions.len());
             for (idx, action) in proof.executed_actions.iter().enumerate() {
                 let status_sym = if action.success { "✓" } else { "✗" };
-                let branch_str = action
-                    .target_branch
-                    .as_deref()
-                    .unwrap_or("<detached>");
+                let branch_str = action.target_branch.as_deref().unwrap_or("<detached>");
                 println!(
                     "  [{}] {} {} ({})",
                     idx + 1,
@@ -362,7 +359,9 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                 plan.summary.escalation_required_count,
             );
             if plan.summary.safe_prune_ready_count > 0 {
-                println!("To apply safe pruning actions, rerun with: cynic source worktree --apply");
+                println!(
+                    "To apply safe pruning actions, rerun with: cynic source worktree --apply"
+                );
             } else {
                 println!("No safe pruning actions pending.");
             }
