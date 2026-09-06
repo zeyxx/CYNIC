@@ -6,6 +6,9 @@ pub mod agent_workload_store_uc;
 pub mod agent_workspace_lifecycle_uc;
 pub mod bootstrap_seed_uc;
 pub mod build_admission;
+/// WHY: Executes isolated pull and remote compilation on runner nodes.
+/// HOW: Invoked by build_scheduler to dequeue and run admitted workloads.
+pub mod build_pull;
 pub mod build_submission_orchestrator_uc;
 pub mod build_workload_grant_uc;
 pub mod build_workload_observation_uc;

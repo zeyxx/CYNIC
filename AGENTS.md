@@ -938,3 +938,14 @@ The framework is not industrial-grade until these properties are demonstrable:
 - Keep infra minimal and executable.
 - Anything outside the runtime authority map must prove current runtime use
   before it is kept.
+
+## Language Invariant (Zero Franglais)
+
+- **Technical Substrate (100% English)**:
+  - All code (Rust, scripts), tests, error codes, commit messages, and docstrings (`/// WHY:`, `/// HOW:`) MUST be strictly written in English.
+  - No French words, French comments, or mixed language inside codebases and JSON schemas.
+- **Operator Discourse (100% French)**:
+  - Dialogue, strategy discussions, status reviews, and decisions with the sovereign operator are conducted strictly in French.
+- **Documents (`docs/`, `protocols/`)**:
+  - Each individual document is either 100% English or 100% French. Never mix languages within the same file.
+
