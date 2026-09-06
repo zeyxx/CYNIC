@@ -212,11 +212,18 @@ pub(crate) fn execute_release(
 
 /// Query active claims status.
 pub(crate) fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build()
+        .unwrap_or_default();
     let resp = client
         .get(format!("{}/coord/who?agent_id={}", KERNEL_BASE, agent_id))
-        .send()
-        .map_err(|e| format!("kernel unreachable: {}", e))?;
+        .send();
+
+    if resp.is_err() {
+        return execute_status_from_claims_file(agent_id);
+    }
+    let resp = resp.map_err(|e| format!("kernel unreachable: {}", e))?;
 
     let status = resp.status();
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
@@ -276,6 +283,94 @@ pub(crate) fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String
 
     let total = active_claims.len();
 
+    Ok(AgentStatusReport {
+        schema: AGENT_STATUS_REPORT_SCHEMA,
+        status: if total > 0 { "active" } else { "idle" },
+        agent_id: agent_id.to_string(),
+        active_claims,
+        total_claims: total,
+    })
+}
+
+fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, String> {
+    let path = std::path::Path::new(".agent-claims.json");
+    if !path.exists() {
+        return Ok(AgentStatusReport {
+            schema: AGENT_STATUS_REPORT_SCHEMA,
+            status: "idle",
+            agent_id: agent_id.to_string(),
+            active_claims: Vec::new(),
+            total_claims: 0,
+        });
+    }
+
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("failed to read .agent-claims.json: {e}"))?;
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("failed to parse .agent-claims.json: {e}"))?;
+
+    let claims = json
+        .get("claims")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let now_ms = now_unix_ms();
+    let active_claims: Vec<AgentClaimSummary> = claims
+        .iter()
+        .filter_map(|c| {
+            let cid = c.get("claim_id")?.as_str()?.to_string();
+            let aid = c.get("agent_id")?.as_str()?;
+            let status = c.get("status").and_then(|v| v.as_str()).unwrap_or("active");
+            if status != "active" {
+                return None;
+            }
+            if !agent_id.is_empty() && aid != agent_id && agent_id != "*" {
+                return None;
+            }
+
+            let scope = c.get("scope");
+            let target = scope
+                .and_then(|s| s.get("path"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let claim_type = scope
+                .and_then(|s| s.get("kind"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("file")
+                .to_string();
+
+            let temporal = c.get("temporal");
+            let started_s = temporal
+                .and_then(|t| t.get("started_at_unix_s"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let ttl_s = temporal
+                .and_then(|t| t.get("ttl_seconds"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(1800);
+
+            let granted_ms = started_s * 1000;
+            let expires_ms = (started_s + ttl_s) * 1000;
+            let remaining = if expires_ms > now_ms {
+                ((expires_ms - now_ms) / 1000) as i64
+            } else {
+                0
+            };
+
+            Some(AgentClaimSummary {
+                claim_id: cid,
+                target,
+                claim_type,
+                granted_at_unix_ms: granted_ms,
+                expires_at_unix_ms: expires_ms,
+                remaining_seconds: remaining,
+            })
+        })
+        .collect();
+
+    let total = active_claims.len();
     Ok(AgentStatusReport {
         schema: AGENT_STATUS_REPORT_SCHEMA,
         status: if total > 0 { "active" } else { "idle" },

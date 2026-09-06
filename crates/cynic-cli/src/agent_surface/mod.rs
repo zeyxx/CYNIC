@@ -95,8 +95,8 @@ pub(crate) enum AgentCommand {
     },
     /// Query active claims status
     Status {
-        /// Agent ID
-        #[arg(long, env = "CYNIC_AGENT_ID")]
+        /// Agent ID (defaults to all active claims when omitted)
+        #[arg(long, env = "CYNIC_AGENT_ID", default_value = "*")]
         agent_id: String,
         /// Print JSON output
         #[arg(long)]
