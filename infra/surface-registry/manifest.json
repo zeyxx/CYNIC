@@ -22,6 +22,10 @@
       "path": "fragments/framework_bootstrap.json"
     },
     {
+      "id": "build_runner_bootstrap",
+      "path": "fragments/build_runner_bootstrap.json"
+    },
+    {
       "id": "framework_epoch",
       "path": "fragments/framework_epoch.json"
     },
@@ -156,6 +160,13 @@
     {
       "id": "runtime_forgejo_token",
       "path": "fragments/runtime_forgejo_token.json"
+    }
+  ],
+  "retired": [
+    {
+      "id": "ecosystem_dependencies",
+      "reason": "superseded by the split ecosystem_deps, ecosystem_deps_upgrade, and ecosystem_integrations surfaces",
+      "path": "fragments/ecosystem_dependencies.json"
     }
   ]
 }
