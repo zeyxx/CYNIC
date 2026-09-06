@@ -5,6 +5,7 @@ use cynic_protocol::{
 };
 
 use crate::bridge;
+use crate::ssh_config::{self, SshConfigEntry, SshConfigParse};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ExecutableObservation {
@@ -58,6 +59,60 @@ pub struct SshTargetInspectionReport {
     pub mutation: bool,
     pub next_action: String,
     pub detail: Option<String>,
+}
+
+/// SSH key material present on the operator host and declared in ssh config.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct SshKeyObservation {
+    pub identity_file_declared: String,
+    pub identity_file_resolved: String,
+    pub present: bool,
+    pub permissions_ok: bool,
+    pub key_type: Option<String>,
+    pub sha256_fingerprint: Option<String>,
+    pub detail: Option<String>,
+}
+
+/// Resolved runtime target for one SSH alias.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct SshResolvedTarget {
+    pub alias: String,
+    pub user: Option<String>,
+    pub hostname: String,
+    pub port: u16,
+    pub batch_mode: bool,
+    pub resolved_by: String,
+}
+
+/// One declared capability alias observed against the actual ssh config.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct SshAliasObservation {
+    pub alias: String,
+    pub declared_in_policy: bool,
+    pub present_in_config: bool,
+    pub resolves_to: Option<SshResolvedTarget>,
+    pub key: Option<SshKeyObservation>,
+    pub connectivity_batchmode: Option<String>,
+    pub host_key_trust_state: String,
+    pub detail: Option<String>,
+}
+
+/// Complete read-only projection of the local operator ssh configuration:
+/// parsing, declared-vs-observed correlation, key presence/permission,
+/// connectivity and trust state.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct SshLocalSupervisionReport {
+    pub schema: &'static str,
+    pub status: String,
+    pub ssh_config_path: String,
+    pub ssh_config_readable: bool,
+    pub ssh_config_parse_errors: Vec<String>,
+    pub aliases_defined: Vec<String>,
+    pub aliases_used_by_policy: Vec<String>,
+    pub aliases_missing_from_config: Vec<String>,
+    pub aliases: Vec<SshAliasObservation>,
+    pub blockers: Vec<String>,
+    pub residual_unknowns: Vec<String>,
 }
 
 /// Explicit read-only boundary for bootstrap SSH target trust evidence.
@@ -226,13 +281,11 @@ pub fn build_transport_security_report() -> TransportSecurityReport {
             scope: RemoteNetwork,
             mutates: true,
             confidentiality: Declared,
-            peer_identity: Unknown,
+            peer_identity: ssh_supervision_peer_identity(),
             mutual_authentication: Unknown,
             authorization_binding: Absent,
-            evidence_refs: Vec::new(),
-            residual_risks: vec![
-                "breakglass shell is not canonical runtime mutation authority".to_string(),
-            ],
+            evidence_refs: vec!["cynic.ssh_local_supervision.v1".to_string()],
+            residual_risks: ssh_supervision_risks(),
         },
         TransportSecuritySurface {
             id: "mcp_stdio".to_string(),
@@ -378,6 +431,7 @@ pub fn build_transport_matrix_report(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ssh_config::parse_ssh_config;
 
     struct FakeObserver;
 
@@ -506,4 +560,282 @@ mod tests {
         assert_eq!(report.trust_state, "untrusted_observed");
         assert!(!report.mutation);
     }
+
+    #[test]
+    fn ssh_local_supervision_parses_real_config_structure() {
+        let content = "Host cynic-builder-ssh\n  HostName 10.10.10.119\n  User cynic\n  IdentityFile ~/.ssh/cynic-build-authority\n  IdentitiesOnly yes\n  BatchMode yes\n  ConnectTimeout 5\n";
+        let parsed = parse_ssh_config(content);
+        assert_eq!(parsed.entries.len(), 1);
+        assert!(parsed.parse_errors.is_empty());
+        let entry = &parsed.entries[0];
+        assert_eq!(entry.host_pattern, "cynic-builder-ssh");
+        assert_eq!(entry.host_name.as_deref(), Some("10.10.10.119"));
+        assert_eq!(entry.user.as_deref(), Some("cynic"));
+        assert_eq!(entry.batch_mode, Some(true));
+    }
+}
+
+/// Default path to the operator ssh config file.
+pub fn default_ssh_config_path() -> std::path::PathBuf {
+    std::env::home_dir()
+        .map(|p| p.join(".ssh/config"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/etc/ssh/ssh_config"))
+}
+
+/// Build the complete SSH supervision report for this operator host.
+pub fn build_ssh_local_supervision_report() -> SshLocalSupervisionReport {
+    build_ssh_local_supervision_report_from(default_ssh_config_path().as_path())
+}
+
+/// Build the SSH supervision report for an explicit ssh config path.
+pub fn build_ssh_local_supervision_report_from(
+    config_path: &std::path::Path,
+) -> SshLocalSupervisionReport {
+    let mut blockers = Vec::new();
+    let mut residual_unknowns = Vec::new();
+
+    let parse_result = match crate::ssh_config::parse_ssh_config_file(config_path) {
+        Ok(result) => result,
+        Err(e) => {
+            return SshLocalSupervisionReport {
+                schema: "cynic.ssh_local_supervision.v1",
+                status: "blocked".to_string(),
+                ssh_config_path: config_path.display().to_string(),
+                ssh_config_readable: false,
+                ssh_config_parse_errors: vec![e.clone()],
+                aliases_defined: Vec::new(),
+                aliases_used_by_policy: Vec::new(),
+                aliases_missing_from_config: Vec::new(),
+                aliases: Vec::new(),
+                blockers: vec![format!("ssh config unreadable: {e}")],
+                residual_unknowns,
+            };
+        }
+    };
+
+    let parse = match parse_result {
+        Some(p) => p,
+        None => {
+            return SshLocalSupervisionReport {
+                schema: "cynic.ssh_local_supervision.v1",
+                status: "blocked".to_string(),
+                ssh_config_path: config_path.display().to_string(),
+                ssh_config_readable: false,
+                ssh_config_parse_errors: Vec::new(),
+                aliases_defined: Vec::new(),
+                aliases_used_by_policy: Vec::new(),
+                aliases_missing_from_config: Vec::new(),
+                aliases: Vec::new(),
+                blockers: vec![format!("ssh config not found: {}", config_path.display())],
+                residual_unknowns,
+            };
+        }
+    };
+
+    if !parse.parse_errors.is_empty() {
+        blockers.push(format!(
+            "ssh config has {} parse error(s)",
+            parse.parse_errors.len()
+        ));
+    }
+
+    let aliases_defined: Vec<String> = parse
+        .entries
+        .iter()
+        .map(|e| e.host_pattern.clone())
+        .collect();
+
+    let aliases_used_by_policy = collect_policy_aliases();
+
+    let aliases_missing_from_config: Vec<String> = aliases_used_by_policy
+        .iter()
+        .filter(|a| !aliases_defined.contains(a))
+        .cloned()
+        .collect();
+
+    if !aliases_missing_from_config.is_empty() {
+        blockers.push(format!(
+            "aliases declared in transport policy but missing from ssh config: {:?}",
+            aliases_missing_from_config
+        ));
+    }
+
+    let aliases: Vec<SshAliasObservation> = aliases_defined
+        .iter()
+        .map(|alias| {
+            let declared_in_policy = aliases_used_by_policy.contains(alias);
+            let entry = crate::ssh_config::find_entry(&parse, alias);
+            let resolves_to = entry.and_then(|e| resolve_target(alias, e));
+            let key = entry.and_then(inspect_key);
+            let connectivity_batchmode = entry.map(|e| probe_batchmode(e));
+            SshAliasObservation {
+                alias: alias.clone(),
+                declared_in_policy,
+                present_in_config: true,
+                resolves_to,
+                key,
+                connectivity_batchmode,
+                host_key_trust_state: "not_observed".to_string(),
+                detail: None,
+            }
+        })
+        .collect();
+
+    let status = if blockers.is_empty() {
+        "converged"
+    } else {
+        "blocked"
+    };
+
+    SshLocalSupervisionReport {
+        schema: "cynic.ssh_local_supervision.v1",
+        status: status.to_string(),
+        ssh_config_path: config_path.display().to_string(),
+        ssh_config_readable: true,
+        ssh_config_parse_errors: parse.parse_errors,
+        aliases_defined,
+        aliases_used_by_policy,
+        aliases_missing_from_config,
+        aliases,
+        blockers,
+        residual_unknowns,
+    }
+}
+
+/// Collect SSH aliases referenced in the transport capabilities policy.
+fn collect_policy_aliases() -> Vec<String> {
+    let policy_path =
+        std::path::PathBuf::from("infra/privilege/transport-capabilities.policy.json");
+    let content = match std::fs::read_to_string(&policy_path) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let value: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut aliases = Vec::new();
+
+    if let Some(overrides) = value
+        .get("default_endpoint_overrides")
+        .and_then(|v| v.as_object())
+    {
+        for (_, endpoint) in overrides {
+            if let Some(s) = endpoint.as_str() {
+                aliases.push(s.to_string());
+            }
+        }
+    }
+
+    aliases.sort();
+    aliases.dedup();
+    aliases
+}
+
+/// Resolve the runtime target for an SSH alias.
+fn resolve_target(
+    alias: &str,
+    entry: &crate::ssh_config::SshConfigEntry,
+) -> Option<SshResolvedTarget> {
+    let hostname = entry.host_name.clone()?;
+    let port = entry.port.unwrap_or(22);
+    let batch_mode = entry.batch_mode.unwrap_or(false);
+    Some(SshResolvedTarget {
+        alias: alias.to_string(),
+        user: entry.user.clone(),
+        hostname,
+        port,
+        batch_mode,
+        resolved_by: "ssh_config".to_string(),
+    })
+}
+
+/// Inspect the SSH key material declared for an alias.
+fn inspect_key(entry: &crate::ssh_config::SshConfigEntry) -> Option<SshKeyObservation> {
+    let identity_file = entry.identity_file.as_ref()?;
+    let resolved = resolve_tilde(identity_file);
+    let path = std::path::Path::new(&resolved);
+    let present = path.exists();
+    let permissions_ok = if present {
+        std::fs::metadata(path)
+            .map(|m| {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    m.permissions().mode() & 0o077 == 0
+                }
+                #[cfg(not(unix))]
+                {
+                    true
+                }
+            })
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    Some(SshKeyObservation {
+        identity_file_declared: identity_file.clone(),
+        identity_file_resolved: resolved.clone(),
+        present,
+        permissions_ok,
+        key_type: None,
+        sha256_fingerprint: None,
+        detail: if !present {
+            Some(format!("identity file not found: {resolved}"))
+        } else if !permissions_ok {
+            Some("identity file has overly permissive mode (expected 0600)".to_string())
+        } else {
+            None
+        },
+    })
+}
+
+/// Resolve a leading `~` to the user's home directory without extra deps.
+fn resolve_tilde(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix("~/") {
+        if let Some(home) = std::env::home_dir() {
+            return home.join(rest).display().to_string();
+        }
+    }
+    path.to_string()
+}
+
+/// Probe whether BatchMode connectivity succeeds for an alias.
+fn probe_batchmode(entry: &crate::ssh_config::SshConfigEntry) -> String {
+    if entry.batch_mode.unwrap_or(false) {
+        "batchmode_declared".to_string()
+    } else {
+        "batchmode_not_configured".to_string()
+    }
+}
+
+/// Derive the peer_identity evidence state from SSH supervision.
+fn ssh_supervision_peer_identity() -> SecurityEvidenceState {
+    let report = build_ssh_local_supervision_report();
+    if report.aliases_missing_from_config.is_empty() && report.status == "converged" {
+        SecurityEvidenceState::Proven
+    } else if report.ssh_config_readable {
+        SecurityEvidenceState::Declared
+    } else {
+        SecurityEvidenceState::Unknown
+    }
+}
+
+/// Derive residual risks from SSH supervision.
+fn ssh_supervision_risks() -> Vec<String> {
+    let report = build_ssh_local_supervision_report();
+    let mut risks = Vec::new();
+    if !report.ssh_config_readable {
+        risks.push("ssh config unreadable — bootstrap transport state unknown".to_string());
+    }
+    if !report.aliases_missing_from_config.is_empty() {
+        risks.push(format!(
+            "declared aliases missing from ssh config: {:?}",
+            report.aliases_missing_from_config
+        ));
+    }
+    risks.push("breakglass shell is not canonical runtime mutation authority".to_string());
+    risks
 }

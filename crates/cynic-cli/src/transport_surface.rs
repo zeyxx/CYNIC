@@ -14,6 +14,14 @@ pub(crate) enum TransportCommand {
         #[arg(long)]
         host: String,
     },
+    /// Full SSH configuration supervision: parse ~/.ssh/config, correlate
+    /// with declared policy aliases, check key presence/permissions,
+    /// and report connectivity state.
+    SshSupervision {
+        /// Explicit ssh config path (default: ~/.ssh/config)
+        #[arg(long)]
+        config: Option<String>,
+    },
 }
 
 pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
@@ -28,6 +36,17 @@ pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
         TransportCommand::SshInspect { host } => {
             let observer = LocalOperatorTransportObserver;
             emit_json(&transport::inspect_ssh_target(&observer, host), false)
+        }
+        TransportCommand::SshSupervision { config } => {
+            let report = match config {
+                Some(path) => {
+                    transport::build_ssh_local_supervision_report_from(std::path::Path::new(path))
+                }
+                None => transport::build_ssh_local_supervision_report(),
+            };
+            let code = if report.status == "converged" { 0 } else { 1 };
+            crate::cli_json::emit_pretty_json(&report);
+            ExitCode::from(code as u8)
         }
     }
 }
