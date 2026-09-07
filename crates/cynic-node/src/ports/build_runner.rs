@@ -97,6 +97,7 @@ pub struct LayerProof {
 
 /// Status of a single layer in the pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum LayerStatus {
     /// Layer check/test passed.
     Converged,
@@ -123,6 +124,7 @@ pub struct BuildProofBundle {
 
 /// Whole-pipeline convergence status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PipelineStatus {
     Converged,
     Blocked,
@@ -220,6 +222,61 @@ pub trait BuildRunnerPort {
     fn observe_runner(&self) -> RunnerHealth;
 }
 
+/// Aggregate pipeline proofs for one commit into a metabolic invoice.
+///
+/// Pure and data-centric: totals sum observed `duration_ms`; per-layer
+/// attribution happens only for single-layer proofs, anything else is
+/// recorded in `residual_unknowns` instead of being guessed.
+pub fn invoice_from_proofs(
+    source_commit: &str,
+    proofs: &[BuildProofBundle],
+) -> cynic_protocol::metabolic_invoice::MetabolicInvoice {
+    use cynic_protocol::energy_ledger::EnergyDimensions;
+    use cynic_protocol::metabolic_invoice::{METABOLIC_INVOICE_SCHEMA, MetabolicInvoiceLine};
+
+    let mut lines = Vec::new();
+    let mut unknowns = Vec::new();
+    let mut total_ms: u64 = 0;
+
+    for proof in proofs {
+        total_ms = total_ms.saturating_add(proof.duration_ms);
+        if proof.layers.len() == 1 {
+            let layer = &proof.layers[0];
+            lines.push(MetabolicInvoiceLine {
+                layer: layer.layer.clone(),
+                action: proof.action.clone(),
+                status: match layer.status {
+                    LayerStatus::Converged => "converged".to_string(),
+                    LayerStatus::Failed => "failed".to_string(),
+                    LayerStatus::BlockedUpstream => "blocked_upstream".to_string(),
+                },
+                wall_time_ms: proof.duration_ms,
+                wall_time_observed: true,
+            });
+        } else {
+            unknowns.push(format!(
+                "multi-layer proof for {} carries unattributable duration_ms {}",
+                proof.action, proof.duration_ms
+            ));
+        }
+    }
+    // Empty input yields an empty invoice; the caller (which owns the log
+    // line count) reports the no-observation case.
+
+    cynic_protocol::metabolic_invoice::MetabolicInvoice {
+        schema: METABOLIC_INVOICE_SCHEMA.to_string(),
+        source_commit: source_commit.to_string(),
+        proofs_observed: proofs.len(),
+        proofs_invoiced: lines.len(),
+        total: EnergyDimensions {
+            wall_time_ms: total_ms,
+            ..EnergyDimensions::default()
+        },
+        lines,
+        residual_unknowns: unknowns,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,5 +302,52 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("proof is JSON");
         assert_eq!(parsed["schema"], "cynic.pipeline_build_proof.v1");
         assert_eq!(parsed["duration_ms"], 1234);
+    }
+
+    fn single_layer_proof(action: &str, ms: u64) -> BuildProofBundle {
+        BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: "runner-1".to_string(),
+            source_commit: "a".repeat(40),
+            action: action.to_string(),
+            status: PipelineStatus::Converged,
+            broken_layer: None,
+            layers: vec![LayerProof {
+                layer: "cynic-host".to_string(),
+                status: LayerStatus::Converged,
+                blocked_by: None,
+            }],
+            duration_ms: ms,
+        }
+    }
+
+    #[test]
+    fn invoice_sums_observed_wall_time() {
+        let proofs = vec![
+            single_layer_proof("cargo:check", 1000),
+            single_layer_proof("cargo:build", 2500),
+        ];
+        let invoice = invoice_from_proofs(&"a".repeat(40), &proofs);
+        assert!(invoice.validate().is_ok());
+        assert_eq!(invoice.proofs_observed, 2);
+        assert_eq!(invoice.proofs_invoiced, 2);
+        assert_eq!(invoice.total.wall_time_ms, 3500);
+        assert!(invoice.residual_unknowns.is_empty());
+    }
+
+    #[test]
+    fn invoice_without_proofs_is_empty_and_honest() {
+        let invoice = invoice_from_proofs(&"a".repeat(40), &[]);
+        assert_eq!(invoice.total.wall_time_ms, 0);
+        assert!(invoice.lines.is_empty());
+        assert!(invoice.residual_unknowns.is_empty());
+    }
+
+    #[test]
+    fn proof_json_round_trips_through_serde() {
+        let proof = single_layer_proof("cargo:check", 27735);
+        let json = proof.to_json();
+        let back: BuildProofBundle = serde_json::from_str(&json).expect("emitted proof must parse");
+        assert_eq!(back, proof);
     }
 }

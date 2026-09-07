@@ -102,6 +102,18 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Aggregate pipeline proofs for one commit into a metabolic invoice.
+    Invoice {
+        /// Exact 40-character source commit.
+        #[arg(long)]
+        commit: String,
+        /// Proof log path. Defaults to the operator log under $HOME.
+        #[arg(long)]
+        proof_log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Prove a commit builds — native CYNIC proof capability.
     ///
     /// Replaces ad-hoc SSH+shell sequences with a typed, versioned proof.
@@ -262,6 +274,11 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             proof_log,
             json,
         } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        BuildCommand::Invoice {
+            commit,
+            proof_log,
+            json,
+        } => invoice_for_commit(&commit, proof_log.as_deref(), json),
         BuildCommand::ObserveWorkload {
             workload_id,
             state_root,
@@ -411,6 +428,59 @@ fn list_proofs(
         }
         for skipped in &skipped {
             println!("  skipped: {skipped}");
+        }
+    }
+    Ok(())
+}
+
+fn invoice_for_commit(commit: &str, proof_log: Option<&str>, json: bool) -> Result<(), String> {
+    use cynic_node::ports::build_runner::{BuildProofBundle, invoice_from_proofs};
+
+    let log_path = match proof_log {
+        Some(explicit) => explicit.to_string(),
+        None => crate::build_proof_log::default_proof_log_path()?,
+    };
+    let (proofs, skipped) = crate::build_proof_log::read_proofs(&log_path, Some(commit), 0)?;
+    let mut bundles = Vec::new();
+    let mut legacy = 0usize;
+    for proof in &proofs {
+        match serde_json::from_value::<BuildProofBundle>(proof.clone()) {
+            Ok(bundle) => bundles.push(bundle),
+            Err(_) => legacy += 1,
+        }
+    }
+    let mut invoice = invoice_from_proofs(commit, &bundles);
+    // Observed proofs are the log lines; only parsed ones are invoiced.
+    invoice.proofs_observed = proofs.len();
+    if proofs.is_empty() {
+        invoice
+            .residual_unknowns
+            .push("no proofs observed for commit".to_string());
+    }
+    for line in &skipped {
+        invoice.residual_unknowns.push(line.clone());
+    }
+    if legacy > 0 {
+        invoice.residual_unknowns.push(format!(
+            "{legacy} proof(s) predate duration_ms and carry no observed wall time"
+        ));
+    }
+    invoice
+        .validate()
+        .map_err(|blockers| format!("invoice invalid: {}", blockers.join(", ")))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&invoice)
+                .map_err(|e| format!("serialize invoice: {e}"))?
+        );
+    } else {
+        println!(
+            "metabolic invoice {commit}: {} proofs invoiced, {} ms wall",
+            invoice.proofs_invoiced, invoice.total.wall_time_ms
+        );
+        for unknown in &invoice.residual_unknowns {
+            println!("  unknown: {unknown}");
         }
     }
     Ok(())

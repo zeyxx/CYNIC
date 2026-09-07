@@ -107,6 +107,7 @@ pub mod llm_port;
 pub mod machine_enrollment;
 pub mod machine_identity;
 pub mod mcp_projection;
+pub mod metabolic_invoice;
 pub mod network;
 pub mod node_activation;
 pub use node_execution_mode::*;
