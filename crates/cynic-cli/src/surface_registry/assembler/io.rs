@@ -1,21 +1,13 @@
 use super::assemble;
+use rustix::fs::{AtFlags, FileType, Mode, OFlags};
 use serde_json::Value;
 use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::fd::AsFd;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path};
-
-const O_NOFOLLOW: i32 = 0o400000;
-const O_DIRECTORY: i32 = 0o200000;
-const O_CLOEXEC: i32 = 0o2000000;
-const O_EXCL: i32 = 0o200;
-const AT_SYMLINK_NOFOLLOW: i32 = 0x100;
-const S_IFMT: libc::mode_t = 0o170000;
-const S_IFREG: libc::mode_t = 0o100000;
-const S_IFLNK: libc::mode_t = 0o120000;
 
 pub(crate) fn read_json_file(file: &File, path: &Path) -> Result<Value, String> {
     let mut text = String::new();
@@ -35,24 +27,16 @@ fn read_json_anchored(
     expected: TargetIdentity,
 ) -> Result<Value, String> {
     let c_name = c_name(name, path)?;
-    // SAFETY: c_name is NUL-free and resolution is relative to the verified
+    // c_name is NUL-free and resolution is relative to the verified
     // parent descriptor; these flags reject links and special blocking files.
-    let fd = unsafe {
-        libc::openat(
-            parent.as_raw_fd(),
-            c_name.as_ptr(),
-            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
-        )
-    };
-    if fd < 0 {
-        return Err(format!(
-            "cannot read {}: {}",
-            path.display(),
-            std::io::Error::last_os_error()
-        ));
-    }
-    // SAFETY: fd is uniquely owned after successful openat.
-    let file = unsafe { File::from_raw_fd(fd) };
+    let owned = rustix::fs::openat(
+        parent.as_fd(),
+        &c_name,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let file = File::from(owned);
     let metadata = file
         .metadata()
         .map_err(|e| format!("cannot stat {}: {e}", path.display()))?;
@@ -176,8 +160,8 @@ fn cleanup_temporary(operation_failed: bool, renamed: bool) -> bool {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct TargetIdentity {
-    dev: libc::dev_t,
-    ino: libc::ino_t,
+    dev: u64,
+    ino: u64,
 }
 
 fn inspect_target(
@@ -186,29 +170,20 @@ fn inspect_target(
     path: &Path,
 ) -> Result<Option<TargetIdentity>, String> {
     let name = c_name(name, path)?;
-    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
-    // SAFETY: name is NUL-free and stat points to writable storage.
-    let result = unsafe {
-        libc::fstatat(
-            parent.as_raw_fd(),
-            name.as_ptr(),
-            stat.as_mut_ptr(),
-            AT_SYMLINK_NOFOLLOW,
-        )
-    };
-    if result != 0 {
-        let error = std::io::Error::last_os_error();
-        if error.kind() == std::io::ErrorKind::NotFound {
-            return Ok(None);
+    // statat with SYMLINK_NOFOLLOW observes the directory entry itself.
+    let stat = match rustix::fs::statat(parent.as_fd(), &name, AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(stat) => stat,
+        Err(error) => {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                return Ok(None);
+            }
+            return Err(format!("cannot inspect output {}: {error}", path.display()));
         }
-        return Err(format!("cannot inspect output {}: {error}", path.display()));
-    }
-    // SAFETY: fstatat initialized stat on success.
-    let stat = unsafe { stat.assume_init() };
-    if stat.st_mode & S_IFMT == S_IFLNK {
+    };
+    if matches!(FileType::from_raw_mode(stat.st_mode), FileType::Symlink) {
         return Err(format!("output target is a symlink: {}", path.display()));
     }
-    if stat.st_mode & S_IFMT != S_IFREG {
+    if !matches!(FileType::from_raw_mode(stat.st_mode), FileType::RegularFile) {
         return Err(format!(
             "output target is not a regular file: {}",
             path.display()
@@ -256,24 +231,16 @@ fn open_verified_parent(path: &Path) -> Result<File, String> {
 
 fn open_directory(base: &File, child: &std::ffi::OsStr, full: &Path) -> Result<File, String> {
     let c = c_name(child, full)?;
-    // SAFETY: child is NUL-free; every component is opened relative to the
-    // previous descriptor with O_NOFOLLOW|O_DIRECTORY.
-    let fd = unsafe {
-        libc::openat(
-            base.as_raw_fd(),
-            c.as_ptr(),
-            libc::O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
-        )
-    };
-    if fd < 0 {
-        return Err(format!(
-            "cannot open safe output parent {}: {}",
-            full.display(),
-            std::io::Error::last_os_error()
-        ));
-    }
-    // SAFETY: fd is uniquely owned after successful open.
-    Ok(unsafe { File::from_raw_fd(fd) })
+    // Child is NUL-free; every component is opened relative to the
+    // previous descriptor with NOFOLLOW|DIRECTORY.
+    let owned = rustix::fs::openat(
+        base.as_fd(),
+        &c,
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|e| format!("cannot open safe output parent {}: {e}", full.display()))?;
+    Ok(File::from(owned))
 }
 
 fn c_name(name: &std::ffi::OsStr, path: &Path) -> Result<CString, String> {
@@ -294,30 +261,28 @@ fn create_temporary_output(
     let pid = std::process::id();
     for attempt in 0..100u32 {
         let candidate = CString::new(format!(".{name}.cynic-tmp-{pid}-{attempt}")).unwrap();
-        // SAFETY: candidate is NUL-free; parent is an anchored directory FD.
-        let fd = unsafe {
-            libc::openat(
-                parent.as_raw_fd(),
-                candidate.as_ptr(),
-                libc::O_WRONLY | libc::O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-                0o600,
-            )
-        };
-        if fd >= 0 {
-            // SAFETY: fd is uniquely owned after successful openat.
-            return Ok(TemporaryOutput {
-                name: candidate,
-                file: unsafe { File::from_raw_fd(fd) },
-            });
+        // Candidate is NUL-free; parent is an anchored directory FD; O_EXCL
+        // prevents races.
+        match rustix::fs::openat(
+            parent.as_fd(),
+            &candidate,
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::from_bits_truncate(0o600),
+        ) {
+            Ok(owned) => {
+                return Ok(TemporaryOutput {
+                    name: candidate,
+                    file: File::from(owned),
+                });
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "cannot create temporary output beside {}: {error}",
+                    output.display()
+                ));
+            }
         }
-        let error = std::io::Error::last_os_error();
-        if error.kind() == std::io::ErrorKind::AlreadyExists {
-            continue;
-        }
-        return Err(format!(
-            "cannot create temporary output beside {}: {error}",
-            output.display()
-        ));
     }
     Err(format!(
         "cannot allocate a unique temporary output beside {}",
@@ -332,33 +297,13 @@ fn rename_at(
     output: &Path,
 ) -> Result<(), String> {
     let target = c_name(target, output)?;
-    // SAFETY: both names are NUL-free and are resolved only in the anchored FD.
-    let result = unsafe {
-        libc::renameat(
-            parent.as_raw_fd(),
-            temporary.as_ptr(),
-            parent.as_raw_fd(),
-            target.as_ptr(),
-        )
-    };
-    if result != 0 {
-        return Err(format!(
-            "cannot atomically replace {}: {}",
-            output.display(),
-            std::io::Error::last_os_error()
-        ));
-    }
-    Ok(())
+    // Both names are NUL-free and are resolved only in the anchored FD.
+    rustix::fs::renameat(parent.as_fd(), temporary, parent.as_fd(), &target)
+        .map_err(|e| format!("cannot atomically replace {}: {e}", output.display()))
 }
 
 fn unlink_at(parent: &File, name: &CString) -> Result<(), std::io::Error> {
-    // SAFETY: name is NUL-free and resolved only in the anchored FD.
-    let result = unsafe { libc::unlinkat(parent.as_raw_fd(), name.as_ptr(), 0) };
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(std::io::Error::last_os_error())
-    }
+    rustix::fs::unlinkat(parent.as_fd(), name, AtFlags::empty()).map_err(std::io::Error::from)
 }
 
 #[cfg(test)]
