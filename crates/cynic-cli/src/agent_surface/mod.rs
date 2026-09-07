@@ -83,8 +83,9 @@ pub(crate) enum AgentCommand {
         /// Lease ID from claim response
         #[arg(long)]
         lease_id: String,
-        /// Fencing token from claim response
-        #[arg(long)]
+        /// Fencing token from claim response (kernel authority; ignored by
+        /// the local claims fallback, defaults to 0)
+        #[arg(long, default_value = "0")]
         fencing_token: u64,
         /// Proof references (evidence of completed work)
         #[arg(long)]
