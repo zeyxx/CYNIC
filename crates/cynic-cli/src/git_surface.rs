@@ -69,13 +69,13 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
         }
         GitCommand::Reconcile { root, json } => {
             let obs = cynic_host::git_topology_observer::observe_git_topology(Path::new(&root));
-            let decision = cynic_protocol::git_topology::reconcile_git_topology(&obs);
+            let decision = cynic_host::domain::git::decision::reconcile_git_topology(&obs);
             if json {
                 // Emit combined observation + decision for completeness
                 #[derive(serde::Serialize)]
                 struct Out<'a> {
                     observation: &'a cynic_protocol::git_topology::GitTopologyObservation,
-                    decision: &'a cynic_protocol::git_topology::GitReconcileDecision,
+                    decision: &'a cynic_host::domain::git::decision::GitReconcileDecision,
                 }
                 emit_pretty_json(&Out {
                     observation: &obs,
@@ -89,6 +89,12 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                 );
                 for a in &decision.actions {
                     println!("  {:?}", a);
+                }
+                for v in &decision.verdicts {
+                    println!(
+                        "  verdict {}: {:?} (stack_depth={:?})",
+                        v.branch, v.verdict, v.stack_depth
+                    );
                 }
                 if !decision.unknowns.is_empty() {
                     println!("Unknowns: {:?}", decision.unknowns);

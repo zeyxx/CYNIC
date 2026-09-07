@@ -41,6 +41,8 @@ pub enum GitTopologyUnknown {
     LastCommit,
     Worktree,
     Dirty,
+    /// Inferred stack parent branch (None = inference failed or main itself)
+    Parent,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -81,6 +83,11 @@ pub struct GitBranchEntry {
     /// Remote tracking exists
     #[serde(default)]
     pub has_remote: Option<bool>,
+    /// Inferred parent branch in the review stack (first-parent walk).
+    /// None on main itself or when inference failed (then Parent unknown is set).
+    /// Projection, not substrate truth — the DAG stays authoritative.
+    #[serde(default)]
+    pub parent: Option<String>,
     #[serde(default)]
     pub unknowns: Vec<GitTopologyUnknown>,
 }
@@ -149,6 +156,7 @@ pub fn validate_git_topology_observation(obs: &GitTopologyObservation) -> Vec<St
             (e.last_commit_unix_s.is_some(), GitTopologyUnknown::LastCommit),
             (e.has_worktree.is_some(), GitTopologyUnknown::Worktree),
             (e.dirty_count.is_some(), GitTopologyUnknown::Dirty),
+            (e.parent.is_some(), GitTopologyUnknown::Parent),
         ];
         for (is_some, kind) in checks {
             let marked = e.unknowns.contains(kind);
@@ -172,126 +180,9 @@ pub fn validate_git_topology_observation(obs: &GitTopologyObservation) -> Vec<St
 // Reconcile — pure decision from observed topology
 // ---------------------------------------------------------------------------
 
-pub const GIT_RECONCILE_SCHEMA: &str = "cynic.git_reconcile.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum GitAction {
-    /// Branch is ready for PR (stable, ahead >0, behind small)
-    ReadyForPr { branch: String },
-    /// Needs rebase onto origin/main before PR
-    NeedsRebase { branch: String, behind: u32 },
-    /// Archive or delete — dead branch
-    Archive { branch: String, reason: String },
-    /// Split branch too large (many commits)
-    Split { branch: String, ahead: u32 },
-    /// Clean worktree or remove orphan worktree
-    GcWorktree { branch: String },
-    /// No action needed (on main, active, or already converged)
-    NoOp { branch: String, reason: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GitReconcileDecision {
-    pub schema: String,
-    pub observed_at_unix_s: u64,
-    pub actions: Vec<GitAction>,
-    pub needs_review: bool,
-    pub unknowns: Vec<String>,
-}
-
-/// Pure reconcile: topology -> actions. No I/O, no git calls.
-pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecision {
-    let mut actions = Vec::new();
-    let mut unknowns = Vec::new();
-
-    if !obs.observation_unknowns.is_empty() {
-        unknowns.push(format!("observation_unknowns: {:?}", obs.observation_unknowns));
-    }
-
-    for e in &obs.entries {
-        // Skip main itself
-        if e.branch == "main" {
-            actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "main".to_string() });
-            continue;
-        }
-        // Unknown-heavy entries need review, not action.
-        // Dirty unknown for non-current is expected (we only observe dirty for current) — don't block.
-        let is_current = obs.current_branch.as_deref() == Some(e.branch.as_str());
-        let filtered_unknowns: Vec<_> = e.unknowns.iter().filter(|u| {
-            // Ignore Dirty for non-current branches
-            !(!is_current && **u == GitTopologyUnknown::Dirty)
-        }).copied().collect();
-        if !filtered_unknowns.is_empty() {
-            unknowns.push(format!("{}: unknowns {:?}", e.branch, filtered_unknowns));
-            continue;
-        }
-        let behind = e.behind.unwrap_or(0);
-        let ahead = e.ahead.unwrap_or(0);
-
-        if is_current && e.dirty_count.unwrap_or(0) > 0 {
-            let dirty_count = e.dirty_count.unwrap_or(0);
-            actions.push(GitAction::NoOp {
-                branch: e.branch.clone(),
-                reason: format!("current worktree has {dirty_count} uncommitted paths"),
-            });
-            unknowns.push(format!(
-                "{}: current worktree has {dirty_count} uncommitted paths",
-                e.branch
-            ));
-            continue;
-        }
-
-        match e.state {
-            GitBranchState::Dead => {
-                // Data-centric: dead only if nothing to save (ahead==0). If ahead>0, treat as split/rebase — preserve value.
-                if ahead > 0 && ahead >= 5 {
-                    actions.push(GitAction::Split { branch: e.branch.clone(), ahead });
-                } else if ahead > 0 {
-                    actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
-                } else {
-                    actions.push(GitAction::Archive { branch: e.branch.clone(), reason: format!("dead: {behind} behind main") });
-                }
-            }
-            GitBranchState::Divergent => {
-                actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
-            }
-            GitBranchState::Active | GitBranchState::Stable => {
-                if ahead >= 20 {
-                    actions.push(GitAction::Split { branch: e.branch.clone(), ahead });
-                } else if ahead > 0 && behind <= 5 {
-                    actions.push(GitAction::ReadyForPr { branch: e.branch.clone() });
-                } else if behind > 5 {
-                    actions.push(GitAction::NeedsRebase { branch: e.branch.clone(), behind });
-                } else {
-                    actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "active, nothing to do".to_string() });
-                }
-            }
-            GitBranchState::Orphan => {
-                // Local-only branch, no remote — needs push or archive
-                if ahead == 0 && behind == 0 {
-                    unknowns.push(format!("orphan without remote: {}", e.branch));
-                } else {
-                    actions.push(GitAction::NoOp { branch: e.branch.clone(), reason: "orphan".to_string() });
-                }
-            }
-        }
-        // Worktree GC hint: divergent/dead with worktree
-        if e.has_worktree == Some(true) && matches!(e.state, GitBranchState::Dead | GitBranchState::Divergent) {
-            actions.push(GitAction::GcWorktree { branch: e.branch.clone() });
-        }
-    }
-
-    let needs_review = !unknowns.is_empty() || actions.iter().any(|a| matches!(a, GitAction::Archive { .. } | GitAction::Split { .. }));
-
-    GitReconcileDecision {
-        schema: GIT_RECONCILE_SCHEMA.to_string(),
-        observed_at_unix_s: obs.observed_at_unix_s,
-        actions,
-        needs_review,
-        unknowns,
-    }
-}
+// Decision types (GitAction, GitReconcileDecision) and
+// reconcile_git_topology live in cynic_host::domain::git::decision:
+// policy is portable, protocol holds types and ports only.
 
 #[cfg(test)]
 mod tests {
@@ -307,6 +198,7 @@ mod tests {
             has_worktree: Some(false),
             dirty_count: Some(0),
             has_remote: Some(true),
+            parent: Some("main".to_string()),
             unknowns: vec![],
         }
     }
@@ -344,57 +236,10 @@ mod tests {
     }
 
     #[test]
-    fn dirty_current_branch_requires_review_not_pr() {
-        let mut entry = valid_entry("agent/hermes/dirty");
-        entry.dirty_count = Some(2);
-        let observation = GitTopologyObservation {
-            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
-            observed_at_unix_s: 1,
-            node_id: "n".to_string(),
-            current_branch: Some(entry.branch.clone()),
-            entries: vec![entry],
-            observation_unknowns: vec![],
-        };
-
-        let decision = reconcile_git_topology(&observation);
-
-        assert!(decision.needs_review);
-        assert!(decision.actions.iter().any(|action| {
-            matches!(action, GitAction::NoOp { branch, reason }
-                if branch == "agent/hermes/dirty" && reason.contains("2 uncommitted paths"))
-        }));
-        assert!(!decision
-            .actions
-            .iter()
-            .any(|action| matches!(action, GitAction::ReadyForPr { .. })));
-    }
-
-    #[test]
-    fn reconcile_divergent_needs_rebase() {
-        let mut e = valid_entry("agent/hermes/div");
-        e.behind = Some(60);
-        e.state = GitBranchState::Divergent;
-        let obs = GitTopologyObservation {
-            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
-            observed_at_unix_s: 1,
-            node_id: "n".to_string(),
-            current_branch: Some("main".to_string()),
-            entries: vec![
-                GitBranchEntry { branch: "main".to_string(), ahead: Some(0), behind: Some(0), last_commit_unix_s: Some(1), state: GitBranchState::Stable, has_worktree: Some(false), dirty_count: Some(0), has_remote: Some(true), unknowns: vec![] },
-                e
-            ],
-            observation_unknowns: vec![],
-        };
-        let d = reconcile_git_topology(&obs);
-        assert!(d.actions.iter().any(|a| matches!(a, GitAction::NeedsRebase { branch, .. } if branch == "agent/hermes/div")));
-    }
-
-    #[test]
-    fn reconcile_dead_archives() {
-        let mut e = valid_entry("agent/hermes/dead");
-        e.ahead = Some(0);
-        e.behind = Some(150);
-        e.state = GitBranchState::Dead;
+    fn parent_none_requires_parent_unknown() {
+        let mut e = valid_entry("agent/hermes/x");
+        e.parent = None;
+        e.unknowns.retain(|u| *u != GitTopologyUnknown::Parent);
         let obs = GitTopologyObservation {
             schema: GIT_TOPOLOGY_SCHEMA.to_string(),
             observed_at_unix_s: 1,
@@ -403,27 +248,7 @@ mod tests {
             entries: vec![e],
             observation_unknowns: vec![],
         };
-        let d = reconcile_git_topology(&obs);
-        assert!(d.needs_review);
-        assert!(d.actions.iter().any(|a| matches!(a, GitAction::Archive { .. })));
-    }
-
-    #[test]
-    fn reconcile_dead_with_ahead_becomes_split() {
-        let mut e = valid_entry("agent/hermes/dead-ahead");
-        e.ahead = Some(42);
-        e.behind = Some(134);
-        e.state = GitBranchState::Dead;
-        let obs = GitTopologyObservation {
-            schema: GIT_TOPOLOGY_SCHEMA.to_string(),
-            observed_at_unix_s: 1,
-            node_id: "n".to_string(),
-            current_branch: None,
-            entries: vec![e],
-            observation_unknowns: vec![],
-        };
-        let d = reconcile_git_topology(&obs);
-        assert!(d.actions.iter().any(|a| matches!(a, GitAction::Split { branch, .. } if branch == "agent/hermes/dead-ahead")));
-        assert!(!d.actions.iter().any(|a| matches!(a, GitAction::Archive { .. })));
+        let v = validate_git_topology_observation(&obs);
+        assert!(v.contains(&"git_topology_entry_unknown_unannotated".to_string()));
     }
 }

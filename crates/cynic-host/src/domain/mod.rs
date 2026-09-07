@@ -8,6 +8,7 @@ pub mod disk;
 pub mod ecosystem_package;
 pub mod filesystem;
 pub mod forensics;
+pub mod git;
 pub mod memory;
 pub mod network;
 pub mod package_provenance;
