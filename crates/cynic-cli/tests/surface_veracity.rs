@@ -87,6 +87,7 @@ fn build_invoice_bills_canned_proof_wall_time() {
     ));
     std::fs::create_dir_all(&dir).expect("create invoice fixture dir");
     let log = dir.join("proofs.jsonl");
+    let journal = dir.join("invoices.jsonl");
     let proof = serde_json::json!({
         "schema": "cynic.pipeline_build_proof.v1",
         "node": "runner-1",
@@ -108,6 +109,8 @@ fn build_invoice_bills_canned_proof_wall_time() {
             &commit,
             "--proof-log",
             log.to_str().expect("temp log path"),
+            "--invoice-log",
+            journal.to_str().expect("temp journal path"),
             "--json",
         ])
         .output()
@@ -125,6 +128,13 @@ fn build_invoice_bills_canned_proof_wall_time() {
     assert_eq!(payload["total"]["wall_time_ms"], 27735);
     assert_eq!(payload["total"]["cpu_ms"], 900);
     assert!(payload["residual_unknowns"].as_array().unwrap().is_empty());
+
+    // Retention: the invoice must be journaled for the treasurer role.
+    let retained = std::fs::read_to_string(&journal).expect("read invoice journal");
+    let kept: serde_json::Value =
+        serde_json::from_str(retained.trim()).expect("journal line is JSON");
+    assert_eq!(kept["schema"], "cynic.workload.metabolic_invoice.v1");
+    assert_eq!(kept["total"]["wall_time_ms"], 27735);
 
     std::fs::remove_dir_all(&dir).ok();
 }

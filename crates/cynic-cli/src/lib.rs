@@ -48,6 +48,7 @@ pub mod host_exec_alias_surface;
 pub mod integrations_readonly_surface;
 pub mod integrations_surface;
 pub mod integrations_surface_render;
+pub mod invoice_log;
 pub mod judge_surface;
 pub mod judgment_surface;
 pub mod kernel_boundary_audit;

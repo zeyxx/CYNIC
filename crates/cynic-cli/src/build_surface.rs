@@ -110,6 +110,9 @@ pub(crate) enum BuildCommand {
         /// Proof log path. Defaults to the operator log under $HOME.
         #[arg(long)]
         proof_log: Option<String>,
+        /// Invoice log path. Defaults to the operator log under $HOME.
+        #[arg(long)]
+        invoice_log: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -277,8 +280,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         BuildCommand::Invoice {
             commit,
             proof_log,
+            invoice_log,
             json,
-        } => invoice_for_commit(&commit, proof_log.as_deref(), json),
+        } => invoice_for_commit(&commit, proof_log.as_deref(), invoice_log.as_deref(), json),
         BuildCommand::ObserveWorkload {
             workload_id,
             state_root,
@@ -433,7 +437,12 @@ fn list_proofs(
     Ok(())
 }
 
-fn invoice_for_commit(commit: &str, proof_log: Option<&str>, json: bool) -> Result<(), String> {
+fn invoice_for_commit(
+    commit: &str,
+    proof_log: Option<&str>,
+    invoice_log: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     use cynic_node::ports::build_runner::{BuildProofBundle, invoice_from_proofs};
 
     let log_path = match proof_log {
@@ -468,12 +477,10 @@ fn invoice_for_commit(commit: &str, proof_log: Option<&str>, json: bool) -> Resu
     invoice
         .validate()
         .map_err(|blockers| format!("invoice invalid: {}", blockers.join(", ")))?;
+    let rendered = serde_json::to_string_pretty(&invoice)
+        .map_err(|e| format!("serialize invoice: {e}"))?;
     if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&invoice)
-                .map_err(|e| format!("serialize invoice: {e}"))?
-        );
+        println!("{rendered}");
     } else {
         println!(
             "metabolic invoice {commit}: {} proofs invoiced, {} ms wall",
@@ -482,6 +489,13 @@ fn invoice_for_commit(commit: &str, proof_log: Option<&str>, json: bool) -> Resu
         for unknown in &invoice.residual_unknowns {
             println!("  unknown: {unknown}");
         }
+    }
+    let journal_path = match invoice_log {
+        Some(explicit) => explicit.to_string(),
+        None => crate::invoice_log::default_invoice_log_path()?,
+    };
+    if let Err(error) = crate::invoice_log::append_invoice(&journal_path, &rendered) {
+        eprintln!("warning: invoice retained in stdout only: {error}");
     }
     Ok(())
 }
