@@ -95,6 +95,7 @@ fn build_invoice_bills_canned_proof_wall_time() {
         "status": "converged",
         "broken_layer": null,
         "duration_ms": 27735,
+        "cpu_ms": 900,
         "layers": [{"layer": "cynic-protocol", "status": "converged", "blocked_by": null}],
     });
     std::fs::write(&log, format!("{proof}\n")).expect("write canned proof");
@@ -122,6 +123,7 @@ fn build_invoice_bills_canned_proof_wall_time() {
     assert_eq!(payload["proofs_observed"], 1);
     assert_eq!(payload["proofs_invoiced"], 1);
     assert_eq!(payload["total"]["wall_time_ms"], 27735);
+    assert_eq!(payload["total"]["cpu_ms"], 900);
     assert!(payload["residual_unknowns"].as_array().unwrap().is_empty());
 
     std::fs::remove_dir_all(&dir).ok();

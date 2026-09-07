@@ -120,6 +120,13 @@ pub struct BuildProofBundle {
     /// Wall time of the remote build command in milliseconds, measured
     /// around the runner round-trip with `Instant::now()`.
     pub duration_ms: u64,
+    /// Builder CPU time consumed by the remote build in milliseconds
+    /// (busy jiffies delta converted by the observed `CLK_TCK`).
+    /// None when the builder CPU could not be sampled: unknown, never zero-filled.
+    /// Defaults to None so proofs carrying wall time but no CPU sample
+    /// invoice with CPU unknown instead of failing to parse.
+    #[serde(default)]
+    pub cpu_ms: Option<u64>,
 }
 
 /// Whole-pipeline convergence status.
@@ -155,7 +162,7 @@ impl BuildProofBundle {
             })
             .collect();
         format!(
-            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"duration_ms\":{},\"layers\":[{}]}}",
+            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"duration_ms\":{},\"cpu_ms\":{},\"layers\":[{}]}}",
             self.schema,
             self.node,
             self.source_commit,
@@ -169,6 +176,10 @@ impl BuildProofBundle {
                 None => "null".to_string(),
             },
             self.duration_ms,
+            match self.cpu_ms {
+                Some(ms) => ms.to_string(),
+                None => "null".to_string(),
+            },
             layers.join(",")
         )
     }
@@ -237,9 +248,15 @@ pub fn invoice_from_proofs(
     let mut lines = Vec::new();
     let mut unknowns = Vec::new();
     let mut total_ms: u64 = 0;
+    let mut total_cpu_ms: u64 = 0;
+    let mut cpu_complete = true;
 
     for proof in proofs {
         total_ms = total_ms.saturating_add(proof.duration_ms);
+        match proof.cpu_ms {
+            Some(ms) => total_cpu_ms = total_cpu_ms.saturating_add(ms),
+            None => cpu_complete = false,
+        }
         if proof.layers.len() == 1 {
             let layer = &proof.layers[0];
             lines.push(MetabolicInvoiceLine {
@@ -262,6 +279,9 @@ pub fn invoice_from_proofs(
     }
     // Empty input yields an empty invoice; the caller (which owns the log
     // line count) reports the no-observation case.
+    if !proofs.is_empty() && !cpu_complete {
+        unknowns.push("some proofs carry no observed CPU time".to_string());
+    }
 
     cynic_protocol::metabolic_invoice::MetabolicInvoice {
         schema: METABOLIC_INVOICE_SCHEMA.to_string(),
@@ -270,6 +290,11 @@ pub fn invoice_from_proofs(
         proofs_invoiced: lines.len(),
         total: EnergyDimensions {
             wall_time_ms: total_ms,
+            cpu_ms: if cpu_complete && !proofs.is_empty() {
+                Some(total_cpu_ms)
+            } else {
+                None
+            },
             ..EnergyDimensions::default()
         },
         lines,
@@ -296,15 +321,22 @@ mod tests {
                 blocked_by: None,
             }],
             duration_ms: 1234,
+            cpu_ms: Some(900),
         };
         let json = proof.to_json();
         assert!(json.contains("\"duration_ms\":1234"), "{json}");
+        assert!(json.contains("\"cpu_ms\":900"), "{json}");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("proof is JSON");
         assert_eq!(parsed["schema"], "cynic.pipeline_build_proof.v1");
         assert_eq!(parsed["duration_ms"], 1234);
+        assert_eq!(parsed["cpu_ms"], 900);
     }
 
     fn single_layer_proof(action: &str, ms: u64) -> BuildProofBundle {
+        single_layer_proof_with_cpu(action, ms, None)
+    }
+
+    fn single_layer_proof_with_cpu(action: &str, ms: u64, cpu_ms: Option<u64>) -> BuildProofBundle {
         BuildProofBundle {
             schema: "cynic.pipeline_build_proof.v1".to_string(),
             node: "runner-1".to_string(),
@@ -318,6 +350,7 @@ mod tests {
                 blocked_by: None,
             }],
             duration_ms: ms,
+            cpu_ms,
         }
     }
 
@@ -332,7 +365,32 @@ mod tests {
         assert_eq!(invoice.proofs_observed, 2);
         assert_eq!(invoice.proofs_invoiced, 2);
         assert_eq!(invoice.total.wall_time_ms, 3500);
+        assert_eq!(invoice.total.cpu_ms, None);
+        // No proof carries CPU time: recorded, not zero-filled.
+        assert_eq!(invoice.residual_unknowns.len(), 1);
+    }
+
+    #[test]
+    fn invoice_sums_cpu_when_fully_observed() {
+        let proofs = vec![
+            single_layer_proof_with_cpu("cargo:check", 1000, Some(800)),
+            single_layer_proof_with_cpu("cargo:build", 2500, Some(2200)),
+        ];
+        let invoice = invoice_from_proofs(&"a".repeat(40), &proofs);
+        assert_eq!(invoice.total.cpu_ms, Some(3000));
         assert!(invoice.residual_unknowns.is_empty());
+    }
+
+    #[test]
+    fn invoice_cpu_is_unknown_when_partially_observed() {
+        let proofs = vec![
+            single_layer_proof_with_cpu("cargo:check", 1000, Some(800)),
+            single_layer_proof("cargo:build", 2500),
+        ];
+        let invoice = invoice_from_proofs(&"a".repeat(40), &proofs);
+        assert_eq!(invoice.total.cpu_ms, None);
+        assert_eq!(invoice.total.wall_time_ms, 3500);
+        assert_eq!(invoice.residual_unknowns.len(), 1);
     }
 
     #[test]

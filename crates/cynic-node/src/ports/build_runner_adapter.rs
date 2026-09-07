@@ -270,6 +270,7 @@ impl BuildRunnerPort for SshBuildRunner {
         ];
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let cpu_before = sample_builder_cpu(&self.runner, refs[1]);
         let started = std::time::Instant::now();
         let out = self.runner.run(&refs);
         let duration_ms = started.elapsed().as_millis() as u64;
@@ -299,6 +300,10 @@ impl BuildRunnerPort for SshBuildRunner {
                 blocked_by: None,
             }],
             duration_ms,
+            cpu_ms: match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
+                (Some(before), Some(after)) => cpu_ms_between(before, after),
+                _ => None,
+            },
         })
     }
 
@@ -342,6 +347,54 @@ impl BuildRunnerPort for SshBuildRunner {
             binary_sha,
         }
     }
+}
+
+/// Busy jiffies (user + nice + system) from the aggregate `cpu ` line of
+/// `/proc/stat`. Kept local (5 lines) because `cynic-node` must not depend
+/// on `cynic-host`'s probe; the verdict-free parse is the shared shape.
+fn parse_stat_busy_jiffies(text: &str) -> Option<u64> {
+    let line = text.lines().find_map(|l| l.strip_prefix("cpu "))?;
+    let mut fields = line.split_whitespace();
+    let user: u64 = fields.next()?.parse().ok()?;
+    let nice: u64 = fields.next()?.parse().ok()?;
+    let system: u64 = fields.next()?.parse().ok()?;
+    Some(user.saturating_add(nice).saturating_add(system))
+}
+
+fn parse_clk_tck(text: &str) -> Option<u64> {
+    text.trim().parse().ok().filter(|hz| *hz > 0)
+}
+
+struct BuilderCpuSample {
+    busy_jiffies: u64,
+    clk_tck: u64,
+}
+
+/// Sample builder CPU over explicit ssh argv (no shell composition).
+/// Any failure yields None: unknown sampling, never a fabricated zero.
+fn sample_builder_cpu(runner: &Box<dyn CommandRunner>, target: &str) -> Option<BuilderCpuSample> {
+    let stat = runner.run(&["ssh", target, "cat", "/proc/stat"]);
+    if !stat.success() {
+        return None;
+    }
+    let tick = runner.run(&["ssh", target, "getconf", "CLK_TCK"]);
+    if !tick.success() {
+        return None;
+    }
+    Some(BuilderCpuSample {
+        busy_jiffies: parse_stat_busy_jiffies(&stat.stdout)?,
+        clk_tck: parse_clk_tck(&tick.stdout)?,
+    })
+}
+
+/// Exact jiffies-to-ms conversion with the observed tick rate. A changed
+/// tick rate between samples (replaced host) invalidates the delta.
+fn cpu_ms_between(before: BuilderCpuSample, after: BuilderCpuSample) -> Option<u64> {
+    if before.clk_tck != after.clk_tck {
+        return None;
+    }
+    let delta = after.busy_jiffies.saturating_sub(before.busy_jiffies);
+    Some(delta.saturating_mul(1000).checked_div(before.clk_tck)?)
 }
 
 /// Source SHA a runner binary reports, if it knows the version surface.
@@ -447,7 +500,18 @@ mod tests {
     #[test]
     fn trigger_converges_with_existing_checkout() {
         let commit = "a".repeat(40);
-        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&commit), ok("Checking cynic-host")]);
+        let stat_before = "cpu  100 0 50 1000 0 0 0 0 0 0\n";
+        let stat_after = "cpu  200 0 50 1100 0 0 0 0 0 0\n";
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok(stat_before),
+            ok("100"),
+            ok("Checking cynic-host"),
+            ok(stat_after),
+            ok("100"),
+        ]);
         let (runner, handle) = test_runner(fake);
         let proof = runner
             .trigger(&check_trigger(&commit))
@@ -457,14 +521,20 @@ mod tests {
         assert_eq!(proof.layers.len(), 1);
         assert_eq!(proof.layers[0].layer, "cynic-host");
         assert!(proof.to_json().contains("\"duration_ms\":"));
+        // Busy jiffies 250-150 = 100 at 100 Hz = 1000 ms of builder CPU.
+        assert_eq!(proof.cpu_ms, Some(1000));
         let log = handle.argv_log();
-        assert_eq!(log.len(), 4);
+        assert_eq!(log.len(), 8);
         assert!(log.iter().all(|argv| argv[0] == "ssh"));
         assert!(
             log.iter()
                 .all(|argv| !argv.iter().any(|arg| arg.contains("bootstrap")))
         );
-        let cargo = log.last().unwrap().join(" ");
+        let cargo = log
+            .iter()
+            .find(|argv| argv.iter().any(|arg| arg == "cargo"))
+            .expect("cargo argv logged")
+            .join(" ");
         assert!(cargo.contains("cargo check"));
         assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
         assert!(cargo.contains("--manifest-path"));
@@ -480,7 +550,11 @@ mod tests {
             ok("Cloning"),
             ok(""),
             ok(&commit),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
             ok("Checking cynic-host"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
         ]);
         let (runner, handle) = test_runner(fake);
         let proof = runner
@@ -488,7 +562,7 @@ mod tests {
             .expect("trigger succeeds");
         assert_eq!(proof.status, PipelineStatus::Converged);
         let log = handle.argv_log();
-        assert_eq!(log.len(), 5);
+        assert_eq!(log.len(), 9);
         assert!(log[1].contains(&"git".to_string()));
         assert!(log[1].contains(&"clone".to_string()));
         assert!(log[1].contains(&"ssh://example/CYNIC.git".to_string()));
@@ -501,14 +575,18 @@ mod tests {
             ok(""),
             fail("advisory detached HEAD message"),
             ok(&commit),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
             ok("Checking cynic-host"),
+            ok("cpu  20 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
         ]);
         let (runner, handle) = test_runner(fake);
         let proof = runner
             .trigger(&check_trigger(&commit))
             .expect("matching read-back is authoritative");
         assert_eq!(proof.status, PipelineStatus::Converged);
-        assert_eq!(handle.argv_log().len(), 4);
+        assert_eq!(handle.argv_log().len(), 8);
     }
 
     #[test]
@@ -526,7 +604,14 @@ mod tests {
     #[test]
     fn trigger_blocks_on_build_failure() {
         let commit = "e".repeat(40);
-        let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&commit), fail("error[E0432]")]);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            fail("error[E0432]"),
+        ]);
         let (runner, _) = test_runner(fake);
         assert!(matches!(
             runner.trigger(&check_trigger(&commit)),
@@ -570,5 +655,35 @@ mod tests {
         assert!(health.cache_warm);
         assert_eq!(health.toolchain, "rustc 1.95.0");
         assert_eq!(health.node_id, "runner-1");
+    }
+
+    #[test]
+    fn stat_parse_reads_busy_jiffies() {
+        let text = "cpu  100 20 50 1000 5 0 5 0 0 0\ncpu0 50 10 25 500 2 0 2 0 0 0\n";
+        assert_eq!(parse_stat_busy_jiffies(text), Some(170));
+        assert_eq!(parse_stat_busy_jiffies("garbage\n"), None);
+        assert_eq!(parse_stat_busy_jiffies("cpu  1 2\n"), None);
+    }
+
+    #[test]
+    fn cpu_delta_converts_with_observed_tick_rate() {
+        let before = BuilderCpuSample {
+            busy_jiffies: 150,
+            clk_tck: 100,
+        };
+        let after = BuilderCpuSample {
+            busy_jiffies: 250,
+            clk_tck: 100,
+        };
+        assert_eq!(cpu_ms_between(before, after), Some(1000));
+        let changed = BuilderCpuSample {
+            busy_jiffies: 250,
+            clk_tck: 250,
+        };
+        let before = BuilderCpuSample {
+            busy_jiffies: 150,
+            clk_tck: 100,
+        };
+        assert_eq!(cpu_ms_between(before, changed), None);
     }
 }
