@@ -20,6 +20,7 @@ use crate::operator_doctor::execute_operator_doctor;
 use crate::operator_errors::execute_operator_errors;
 use crate::operator_help::execute_advanced_help;
 use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
+use crate::session_surface::execute_session;
 use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::transport_surface::{TransportCommand, execute_transport};
 use crate::{Command, DepsCommand};
@@ -44,6 +45,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Bootstrap { command } => execute_bootstrap_command(command),
         Command::Lab { command } => execute_lab_command(command),
         Command::Transport { command } => execute_transport_command(command),
+        Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
         Command::NetworkAudit { command } => execute_network_audit(command),
         Command::Peer { command } => crate::peer_surface::execute_peer(command),
