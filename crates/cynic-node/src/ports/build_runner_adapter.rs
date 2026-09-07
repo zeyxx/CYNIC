@@ -270,7 +270,9 @@ impl BuildRunnerPort for SshBuildRunner {
         ];
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let started = std::time::Instant::now();
         let out = self.runner.run(&refs);
+        let duration_ms = started.elapsed().as_millis() as u64;
         if let Some(e) = &out.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
@@ -296,6 +298,7 @@ impl BuildRunnerPort for SshBuildRunner {
                 status: LayerStatus::Converged,
                 blocked_by: None,
             }],
+            duration_ms,
         })
     }
 
@@ -453,6 +456,7 @@ mod tests {
         assert_eq!(proof.status, PipelineStatus::Converged);
         assert_eq!(proof.layers.len(), 1);
         assert_eq!(proof.layers[0].layer, "cynic-host");
+        assert!(proof.to_json().contains("\"duration_ms\":"));
         let log = handle.argv_log();
         assert_eq!(log.len(), 4);
         assert!(log.iter().all(|argv| argv[0] == "ssh"));

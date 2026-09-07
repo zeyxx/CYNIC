@@ -116,6 +116,9 @@ pub struct BuildProofBundle {
     pub status: PipelineStatus,
     pub broken_layer: Option<String>,
     pub layers: Vec<LayerProof>,
+    /// Wall time of the remote build command in milliseconds, measured
+    /// around the runner round-trip with `Instant::now()`.
+    pub duration_ms: u64,
 }
 
 /// Whole-pipeline convergence status.
@@ -150,7 +153,7 @@ impl BuildProofBundle {
             })
             .collect();
         format!(
-            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"layers\":[{}]}}",
+            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"duration_ms\":{},\"layers\":[{}]}}",
             self.schema,
             self.node,
             self.source_commit,
@@ -163,6 +166,7 @@ impl BuildProofBundle {
                 Some(b) => format!("\"{}\"", b),
                 None => "null".to_string(),
             },
+            self.duration_ms,
             layers.join(",")
         )
     }
@@ -214,4 +218,32 @@ pub trait BuildRunnerPort {
     fn trigger(&self, trigger: &BuildTrigger) -> Result<BuildProofBundle, BuildError>;
     /// Observe runner health before triggering (liveness, cache, toolchain).
     fn observe_runner(&self) -> RunnerHealth;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proof_json_carries_duration_ms() {
+        let proof = BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: "runner-1".to_string(),
+            source_commit: "a".repeat(40),
+            action: "cargo:check".to_string(),
+            status: PipelineStatus::Converged,
+            broken_layer: None,
+            layers: vec![LayerProof {
+                layer: "cynic-host".to_string(),
+                status: LayerStatus::Converged,
+                blocked_by: None,
+            }],
+            duration_ms: 1234,
+        };
+        let json = proof.to_json();
+        assert!(json.contains("\"duration_ms\":1234"), "{json}");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("proof is JSON");
+        assert_eq!(parsed["schema"], "cynic.pipeline_build_proof.v1");
+        assert_eq!(parsed["duration_ms"], 1234);
+    }
 }
