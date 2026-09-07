@@ -21,6 +21,9 @@ pub(crate) enum TransportCommand {
         /// Explicit ssh config path (default: ~/.ssh/config)
         #[arg(long)]
         config: Option<String>,
+        /// Accepted for CLI uniformity; output is always JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -37,7 +40,7 @@ pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
             let observer = LocalOperatorTransportObserver;
             emit_json(&transport::inspect_ssh_target(&observer, host), false)
         }
-        TransportCommand::SshSupervision { config } => {
+        TransportCommand::SshSupervision { config, json: _ } => {
             let report = match config {
                 Some(path) => {
                     transport::build_ssh_local_supervision_report_from(std::path::Path::new(path))

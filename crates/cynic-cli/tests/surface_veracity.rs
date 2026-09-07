@@ -34,8 +34,7 @@ const PROBES: &[Probe] = &[
         allowed_exits: &[0],
     },
     Probe {
-        // No --json flag: this surface always emits pretty JSON.
-        argv: &["transport", "ssh-supervision"],
+        argv: &["transport", "ssh-supervision", "--json"],
         allowed_exits: &[0, 1],
     },
 ];
