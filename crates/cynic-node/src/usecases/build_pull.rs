@@ -277,6 +277,7 @@ mod tests {
             workload_id: workload_id.into(),
             idempotency_key: format!("key-{workload_id}"),
             plan_digest: plan_digest.clone(),
+            mandate_binding: None,
             input: None,
             action,
             delegation: AgentDelegationEnvelope {
