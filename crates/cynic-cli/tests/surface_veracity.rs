@@ -73,3 +73,56 @@ fn key_surfaces_emit_schema_json() {
         );
     }
 }
+
+#[test]
+fn build_invoice_bills_canned_proof_wall_time() {
+    let commit = "a".repeat(40);
+    let dir = std::env::temp_dir().join(format!(
+        "cynic-invoice-veracity-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).expect("create invoice fixture dir");
+    let log = dir.join("proofs.jsonl");
+    let proof = serde_json::json!({
+        "schema": "cynic.pipeline_build_proof.v1",
+        "node": "runner-1",
+        "source_commit": commit,
+        "action": "cargo:check",
+        "status": "converged",
+        "broken_layer": null,
+        "duration_ms": 27735,
+        "layers": [{"layer": "cynic-protocol", "status": "converged", "blocked_by": null}],
+    });
+    std::fs::write(&log, format!("{proof}\n")).expect("write canned proof");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_cynic"))
+        .args([
+            "build",
+            "invoice",
+            "--commit",
+            &commit,
+            "--proof-log",
+            log.to_str().expect("temp log path"),
+            "--json",
+        ])
+        .output()
+        .expect("run cynic build invoice");
+    assert!(
+        output.status.success(),
+        "cynic build invoice failed: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+    let payload: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&output.stdout))
+        .expect("invoice stdout is JSON");
+    assert_eq!(payload["schema"], "cynic.workload.metabolic_invoice.v1");
+    assert_eq!(payload["proofs_observed"], 1);
+    assert_eq!(payload["proofs_invoiced"], 1);
+    assert_eq!(payload["total"]["wall_time_ms"], 27735);
+    assert!(payload["residual_unknowns"].as_array().unwrap().is_empty());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
