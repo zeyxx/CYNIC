@@ -148,6 +148,7 @@ pub mod source_materialization;
 pub mod source_policy;
 pub mod source_release;
 pub mod source_repository_bootstrap;
+pub mod source_worktree;
 pub mod source_worktree_inventory;
 pub mod storage_client_policy;
 pub mod storage_controller;
