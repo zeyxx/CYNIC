@@ -14,6 +14,8 @@ use crate::agent_surface::types::{
     AgentReleaseReport, AgentStatusReport,
 };
 
+use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
+
 const KERNEL_BASE: &str = "http://localhost:8080";
 
 fn now_unix_ms() -> u64 {
@@ -104,8 +106,8 @@ pub(crate) fn execute_claim(
     budget_actions: Option<u64>,
     budget_wall_seconds: Option<u64>,
 ) -> Result<AgentClaimReport, String> {
-    let client = reqwest::blocking::Client::new();
-    let resp = client
+    let client = kernel_client();
+    let resp = match client
         .post(format!("{}/coord/claim", KERNEL_BASE))
         .json(&serde_json::json!({
             "agent_id": agent_id,
@@ -116,7 +118,19 @@ pub(crate) fn execute_claim(
             "budget_wall_seconds": budget_wall_seconds,
         }))
         .send()
-        .map_err(|e| format!("kernel unreachable: {}", e))?;
+    {
+        Ok(resp) => resp,
+        Err(_) => {
+            return execute_claim_local(
+                agent_id,
+                target,
+                claim_type,
+                ttl_seconds,
+                budget_actions,
+                budget_wall_seconds,
+            );
+        }
+    };
 
     let status = resp.status();
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
@@ -176,8 +190,8 @@ pub(crate) fn execute_release(
     fencing_token: u64,
     proof_refs: Vec<String>,
 ) -> Result<AgentReleaseReport, String> {
-    let client = reqwest::blocking::Client::new();
-    let resp = client
+    let client = kernel_client();
+    let resp = match client
         .post(format!("{}/coord/release", KERNEL_BASE))
         .json(&serde_json::json!({
             "agent_id": agent_id,
@@ -187,7 +201,12 @@ pub(crate) fn execute_release(
             "proof_refs": proof_refs,
         }))
         .send()
-        .map_err(|e| format!("kernel unreachable: {}", e))?;
+    {
+        Ok(resp) => resp,
+        // Local file carries no fencing token; the kernel stays the fencing
+        // authority whenever it is reachable.
+        Err(_) => return execute_release_local(agent_id, target, lease_id, proof_refs),
+    };
 
     let status = resp.status();
     if !status.is_success() {
@@ -207,6 +226,288 @@ pub(crate) fn execute_release(
         lease_id: lease_id.to_string(),
         proof_refs,
         released_at_unix_ms: now_unix_ms(),
+    })
+}
+
+/// WHY: the kernel REST plane (port 8080) is often down in local/dev sessions;
+/// claim/release/status must keep working against the local projection
+/// (.agent-claims.json) instead of failing with `kernel unreachable`.
+/// HOW: short-timeout kernel attempt first; transport failure falls back to a
+/// monotone local CAS on the claims file (revision + 1, tmp + rename).
+fn kernel_client() -> reqwest::blocking::Client {
+    reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build()
+        .unwrap_or_default()
+}
+
+fn now_unix_s() -> u64 {
+    now_unix_ms() / 1000
+}
+
+fn claims_file_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(".agent-claims.json")
+}
+
+fn load_claims_doc() -> Result<serde_json::Value, String> {
+    let path = claims_file_path();
+    if !path.exists() {
+        return Ok(serde_json::json!({
+            "schema": "cynic.agent_claims.v2",
+            "revision": 0,
+            "claims": [],
+            "merge_queue": [],
+        }));
+    }
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read .agent-claims.json: {e}"))?;
+    serde_json::from_str(&content).map_err(|e| format!("failed to parse .agent-claims.json: {e}"))
+}
+
+/// Atomic monotone write: revision + 1, tmp file + rename.
+fn store_claims_doc(doc: &mut serde_json::Value) -> Result<u64, String> {
+    let revision = doc.get("revision").and_then(|v| v.as_u64()).unwrap_or(0) + 1;
+    doc["revision"] = serde_json::json!(revision);
+    let content = serde_json::to_string_pretty(doc)
+        .map_err(|e| format!("failed to serialize .agent-claims.json: {e}"))?;
+    let path = claims_file_path();
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, content).map_err(|e| format!("failed to write claims tmp file: {e}"))?;
+    std::fs::rename(&tmp, &path).map_err(|e| format!("failed to commit claims file: {e}"))?;
+    Ok(revision)
+}
+
+/// Map a CLI (kind, path) pair onto the canonical protocol scope so overlap is
+/// decided by `cynic_protocol` predicates, never by a local copy of the rule.
+fn local_scope_of(kind: &str, target: &str) -> ClaimScope {
+    match kind {
+        "crate" => ClaimScope::Crate {
+            crate_name: target.strip_prefix("crates/").unwrap_or(target).to_string(),
+        },
+        _ => ClaimScope::File {
+            path: target.to_string(),
+        },
+    }
+}
+
+fn local_claim_active(claim: &serde_json::Value, now_s: u64) -> bool {
+    if claim.get("status").and_then(|v| v.as_str()).unwrap_or("") != "active" {
+        return false;
+    }
+    let started = claim
+        .get("temporal")
+        .and_then(|t| t.get("started_at_unix_s"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let ttl = claim
+        .get("temporal")
+        .and_then(|t| t.get("ttl_seconds"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1800);
+    now_s < started.saturating_add(ttl)
+}
+
+/// Local CAS claim: first-wins on overlapping active scopes, idempotent
+/// re-claim by the same agent on the same scope.
+fn execute_claim_local(
+    agent_id: &str,
+    target: &str,
+    claim_type: Option<&str>,
+    ttl_seconds: Option<u64>,
+    budget_actions: Option<u64>,
+    budget_wall_seconds: Option<u64>,
+) -> Result<AgentClaimReport, String> {
+    if agent_id.trim().is_empty() {
+        return Err("claim failed: agent_id is required for local claim".to_string());
+    }
+    if target.trim().is_empty() {
+        return Err("claim failed: target is required for local claim".to_string());
+    }
+    let kind = claim_type.unwrap_or("file");
+    let ttl = ttl_seconds.unwrap_or(1800);
+    let actions = budget_actions.unwrap_or(50);
+    let wall = budget_wall_seconds.unwrap_or(3600);
+    let now_s = now_unix_s();
+    let now_ms = now_s * 1000;
+    let incoming = local_scope_of(kind, target);
+
+    let mut doc = load_claims_doc()?;
+    let claims = doc
+        .get("claims")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    for existing_claim in &claims {
+        if !local_claim_active(existing_claim, now_s) {
+            continue;
+        }
+        let holder = existing_claim
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let holder_id = existing_claim
+            .get("claim_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let scope = existing_claim.get("scope");
+        let existing_kind = scope
+            .and_then(|s| s.get("kind"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("file");
+        let existing_path = scope
+            .and_then(|s| s.get("path"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if holder == agent_id && existing_kind == kind && existing_path == target {
+            let granted_s = existing_claim
+                .get("temporal")
+                .and_then(|t| t.get("started_at_unix_s"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(now_s);
+            let granted_ttl = existing_claim
+                .get("temporal")
+                .and_then(|t| t.get("ttl_seconds"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(ttl);
+            return Ok(AgentClaimReport {
+                schema: AGENT_CLAIM_REPORT_SCHEMA,
+                status: "claimed",
+                agent_id: agent_id.to_string(),
+                target: target.to_string(),
+                claim_type: kind.to_string(),
+                lease_id: holder_id.to_string(),
+                fencing_token: doc.get("revision").and_then(|v| v.as_u64()).unwrap_or(0),
+                ttl_seconds: granted_ttl,
+                budget_actions: existing_claim
+                    .get("budget")
+                    .and_then(|b| b.get("actions"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(actions),
+                budget_wall_seconds: existing_claim
+                    .get("budget")
+                    .and_then(|b| b.get("wall_seconds"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(wall),
+                granted_at_unix_ms: granted_s * 1000,
+                expires_at_unix_ms: granted_s * 1000 + granted_ttl * 1000,
+            });
+        }
+        if coord_predicates::scopes_overlap(
+            &local_scope_of(existing_kind, existing_path),
+            &incoming,
+        ) {
+            return Err(format!(
+                "claim failed: scope_conflict with {holder_id} held by {holder}"
+            ));
+        }
+    }
+
+    let slug: String = agent_id
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .take(24)
+        .collect();
+    let claim_id = format!("claim_{slug}_{now_s}");
+    let entry = serde_json::json!({
+        "claim_id": claim_id,
+        "agent_id": agent_id,
+        "mode": "baseline",
+        "scope": {"kind": kind, "path": target},
+        "budget": {"actions": actions, "wall_seconds": wall},
+        "consumed": {"actions": 0, "wall_seconds": 0},
+        "temporal": {"started_at_unix_s": now_s, "ttl_seconds": ttl},
+        "priority": 10,
+        "parent_claim_id": null,
+        "status": "active",
+    });
+    match doc.get_mut("claims").and_then(|v| v.as_array_mut()) {
+        Some(list) => list.push(entry),
+        None => doc["claims"] = serde_json::json!([entry]),
+    }
+    let revision = store_claims_doc(&mut doc)?;
+
+    Ok(AgentClaimReport {
+        schema: AGENT_CLAIM_REPORT_SCHEMA,
+        status: "claimed",
+        agent_id: agent_id.to_string(),
+        target: target.to_string(),
+        claim_type: kind.to_string(),
+        lease_id: claim_id.clone(),
+        fencing_token: revision,
+        ttl_seconds: ttl,
+        budget_actions: actions,
+        budget_wall_seconds: wall,
+        granted_at_unix_ms: now_ms,
+        expires_at_unix_ms: now_ms + ttl * 1000,
+    })
+}
+
+/// Local CAS release: marks the matching active claim released, revision + 1.
+fn execute_release_local(
+    agent_id: &str,
+    target: &str,
+    lease_id: &str,
+    proof_refs: Vec<String>,
+) -> Result<AgentReleaseReport, String> {
+    let mut doc = load_claims_doc()?;
+    let now_ms = now_unix_ms();
+    let mut matched_lease = String::new();
+    let mut already_released = false;
+    if let Some(list) = doc.get_mut("claims").and_then(|v| v.as_array_mut()) {
+        for claim in list.iter_mut() {
+            let cid = claim
+                .get("claim_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let holder = claim
+                .get("agent_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let path = claim
+                .get("scope")
+                .and_then(|s| s.get("path"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let by_lease = !lease_id.is_empty() && cid == lease_id;
+            let by_target = path == target && (holder == agent_id || agent_id == "*");
+            if by_lease || by_target {
+                if holder != agent_id && agent_id != "*" {
+                    return Err(format!("release failed: claim {cid} is held by {holder}"));
+                }
+                matched_lease = cid;
+                if claim.get("status").and_then(|v| v.as_str()) == Some("released") {
+                    already_released = true;
+                } else {
+                    claim["status"] = serde_json::json!("released");
+                }
+                break;
+            }
+        }
+    }
+    if matched_lease.is_empty() {
+        return Err(format!(
+            "release failed: no local claim for target {target}"
+        ));
+    }
+    if !already_released {
+        store_claims_doc(&mut doc)?;
+    }
+    Ok(AgentReleaseReport {
+        schema: AGENT_RELEASE_REPORT_SCHEMA,
+        status: "released",
+        agent_id: agent_id.to_string(),
+        target: target.to_string(),
+        lease_id: if lease_id.is_empty() {
+            matched_lease
+        } else {
+            lease_id.to_string()
+        },
+        proof_refs,
+        released_at_unix_ms: now_ms,
     })
 }
 
