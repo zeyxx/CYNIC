@@ -119,10 +119,21 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
 }
 
 fn execute_commands_manifest(json: bool) -> ExitCode {
-    if !json {
-        return ExitCode::FAILURE;
+    let manifest = commands_manifest();
+    if json {
+        return emit_pretty_json(&manifest);
     }
-    emit_pretty_json(&commands_manifest())
+    println!("CYNIC command manifest ({})", manifest.schema);
+    for domain in &manifest.domains {
+        println!();
+        println!("[{}]", domain.name);
+        for command in &domain.commands {
+            println!("  {command}");
+        }
+    }
+    println!();
+    println!("Machine-readable: cynic commands --json");
+    ExitCode::SUCCESS
 }
 
 fn execute_fleet_command(command: FleetCommand) -> ExitCode {
