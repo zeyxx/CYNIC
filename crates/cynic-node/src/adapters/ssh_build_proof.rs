@@ -128,9 +128,13 @@ impl BuildProofPort for SshBuildProof {
                 argv: check_args.iter().map(|s| (*s).to_string()).collect(),
                 node_id: self.node_id.clone(),
                 elapsed_secs: start.elapsed().as_secs(),
+                tests_passed: None,
+                tests_failed: None,
             });
         }
 
+        let mut tests_passed: Option<u64> = None;
+        let mut tests_failed: Option<u64> = None;
         if let Some(test_args) = test_args {
             let (ok, stdout, stderr) = self.run_remote(&test_args)?;
             if !ok {
@@ -145,8 +149,13 @@ impl BuildProofPort for SshBuildProof {
                     argv: test_args.iter().map(|s| (*s).to_string()).collect(),
                     node_id: self.node_id.clone(),
                     elapsed_secs: start.elapsed().as_secs(),
+                    tests_passed: None,
+                    tests_failed: None,
                 });
             }
+            let (passed, failed) = cynic_protocol::build_proof::parse_cargo_test_counts(&stdout);
+            tests_passed = passed;
+            tests_failed = failed;
         }
 
         Ok(BuildProofReport {
@@ -161,6 +170,8 @@ impl BuildProofPort for SshBuildProof {
             argv: check_args.iter().map(|s| (*s).to_string()).collect(),
             node_id: self.node_id.clone(),
             elapsed_secs: start.elapsed().as_secs(),
+            tests_passed,
+            tests_failed,
         })
     }
 
