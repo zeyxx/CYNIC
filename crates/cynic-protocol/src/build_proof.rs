@@ -143,7 +143,7 @@ pub fn parse_cargo_test_counts(stdout: &str) -> (Option<u64>, Option<u64>) {
     let mut failed: u64 = 0;
     let mut lines = 0;
     for line in stdout.lines() {
-        let Some(rest) = line.split_once("test result:") else {
+        let Some((_, rest)) = line.split_once("test result:") else {
             continue;
         };
         let Some(p) = count_before_word(rest, "passed") else {
