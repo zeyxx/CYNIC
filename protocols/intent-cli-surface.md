@@ -36,7 +36,11 @@ top-level family for two leaf commands. This home is CONDITIONAL, see
 - Nesting law complied: nested arm, zero new top-level hyphens
   (see cynic-cli-thin-surface §Nesting over hyphens).
 - Calls into cynic-protocol intent.rs only. No new types, no policy copy.
-- TEMP python deleted in the landing commit (same slice, explicit paths).
+- TEMP python deleted when a cynic binary carrying this arm is deployed to
+  field teams (same slice if the binary ships with it, otherwise a follow-up
+  deletion commit with explicit path). Until then TEMP stays the field tool:
+  deleting it at code landing would leave M2 with no sealer. The CLI arm is
+  our-side emergence first, field tool second.
 
 ## Move-out condition (maintainability gate)
 
