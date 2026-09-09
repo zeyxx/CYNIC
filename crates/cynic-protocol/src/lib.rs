@@ -101,6 +101,7 @@ pub mod health_signal;
 pub mod hypervisor;
 pub mod inference_matrix;
 pub mod integrity;
+pub mod intent;
 pub mod judgment;
 pub mod kyon;
 pub mod llm_port;

@@ -63,6 +63,10 @@
       {
         "name": "mcp_is_projection_not_bootstrap",
         "rule": "MCP is a replaceable projection of stable contracts and local CLI/read-back surfaces. A missing, removed, unavailable, or incompatible MCP artifact must be retained as an explicit unknown but cannot be a bootstrap prerequisite for local read-only observation or a human-admitted bounded local source slice. MCP rebuild begins only after the projected contracts and local proof are stable; it must not own policy, scheduling, or coordination authority."
+      },
+      {
+        "name": "explicit_over_implicit",
+        "rule": "The implicit is debt. Every intent, decision, gap, budget, recipient, schema version, and migration step must be explicit, typed, and machine-readable, or recorded as an owned explicit unknown with due scale. Nothing is back-filled by guess: a missing observer, adapter, proof, budget, or address is reported as unknown or blocked, never fabricated into a successful-looking report. Guessing where a type, test, contract, or proof could answer is a constitutional violation."
       }
     ],
     "deleted_authorities": [

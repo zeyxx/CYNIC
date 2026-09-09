@@ -106,6 +106,14 @@ pub struct BuildProofReport {
     pub node_id: String,
     /// Wall-time seconds for the bounded action.
     pub elapsed_secs: u64,
+    /// Test counts parsed from cargo test stdout on success. None when no
+    /// test phase ran or when the output carried no countable line —
+    /// unknown, never zero-filled (a zero would fake a vacuous pass).
+    #[serde(default)]
+    pub tests_passed: Option<u64>,
+    /// See `tests_passed`.
+    #[serde(default)]
+    pub tests_failed: Option<u64>,
 }
 
 impl BuildProofReport {
@@ -119,8 +127,52 @@ impl BuildProofReport {
             argv: Vec::new(),
             node_id: String::new(),
             elapsed_secs: 0,
+            tests_passed: None,
+            tests_failed: None,
         }
     }
+}
+
+/// Parse cargo test counts from runner stdout.
+///
+/// Sums every `test result: ok. N passed; M failed; ...` line (one per test
+/// binary). Returns (None, None) when no countable line exists — the caller
+/// reports unknown, never a zero that would bless a vacuous filter match.
+pub fn parse_cargo_test_counts(stdout: &str) -> (Option<u64>, Option<u64>) {
+    let mut passed: u64 = 0;
+    let mut failed: u64 = 0;
+    let mut lines = 0;
+    for line in stdout.lines() {
+        let Some((_, rest)) = line.split_once("test result:") else {
+            continue;
+        };
+        let Some(p) = count_before_word(rest, "passed") else {
+            continue;
+        };
+        let Some(f) = count_before_word(rest, "failed") else {
+            continue;
+        };
+        passed = passed.saturating_add(p);
+        failed = failed.saturating_add(f);
+        lines += 1;
+    }
+    if lines == 0 {
+        (None, None)
+    } else {
+        (Some(passed), Some(failed))
+    }
+}
+
+/// Largest u64 immediately preceding `word` in `text` (e.g. `7` in
+/// `"ok. 7 passed"`). None when absent.
+fn count_before_word(text: &str, word: &str) -> Option<u64> {
+    let idx = text.find(word)?;
+    text[..idx]
+        .split(|c: char| !c.is_ascii_digit())
+        .filter(|s| !s.is_empty())
+        .last()?
+        .parse()
+        .ok()
 }
 
 /// Pure structural validation of a proof request.
@@ -135,4 +187,34 @@ pub fn validate_build_proof_request(request: &BuildProofRequest) -> Vec<String> 
         blockers.push("build_proof_request_source_commit_invalid".to_string());
     }
     blockers
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_sum_across_binaries() {
+        let stdout = "running 7 tests\ntest result: ok. 7 passed; 0 failed; 0 ignored\n\
+                      running 3 tests\ntest result: ok. 3 passed; 0 failed; 0 ignored\n";
+        assert_eq!(parse_cargo_test_counts(stdout), (Some(10), Some(0)));
+    }
+
+    #[test]
+    fn no_countable_line_is_unknown_not_zero() {
+        assert_eq!(
+            parse_cargo_test_counts(" Compiling foo\n Finished\n"),
+            (None, None)
+        );
+        assert_eq!(
+            parse_cargo_test_counts("test result: ok. 0 passed; 0 failed; 10 filtered out\n"),
+            (Some(0), Some(0))
+        );
+    }
+
+    #[test]
+    fn failures_are_counted() {
+        let stdout = "test result: FAILED. 2 passed; 1 failed; 0 ignored\n";
+        assert_eq!(parse_cargo_test_counts(stdout), (Some(2), Some(1)));
+    }
 }

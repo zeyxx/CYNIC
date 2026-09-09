@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynic.local/schemas/intent-transmission-v1.json",
+  "title": "IntentTransmission",
+  "description": "PROJECTION of crates/cynic-protocol/src/intent.rs validate(). The Rust type wins on any disagreement — this file is a bug then, not a second authority. Consumed by field teams (e.g. bootcamp) to generate conformant records.",
+  "type": "object",
+  "required": ["id", "schema", "created_at", "emitter", "recipient", "deliverable_ref", "content", "provenance_class", "provenance_source", "digest"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "Unique record id (uuid v4 by convention). Cross-refs target this, never digest." },
+    "schema": { "const": "cynic.intent_transmission.v1" },
+    "created_at": { "type": "string", "description": "RFC 3339 UTC, e.g. 2026-09-09T14:30:00Z. Shape-checked only." },
+    "emitter": { "type": "string", "pattern": "^(pole|human|agent|node|role):.+", "description": "Namespaced sender, e.g. pole:cyber." },
+    "recipient": { "type": "string", "pattern": "^(pole|human|agent|node|role):.+", "description": "Namespaced recipient, e.g. role:pole_infra." },
+    "deliverable_ref": { "type": "string", "minLength": 1, "description": "Free-form mission tag, e.g. M2-carto." },
+    "content": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Payload. Quality is human-judged; this bound is shape only." },
+    "provenance_class": { "enum": ["official_source", "provided_kit", "observed_fact", "unverified_proposal"] },
+    "provenance_source": { "type": "string", "minLength": 1, "description": "Who/what produced the claim. observed_fact covers field measurements (scans, readings) — never force them into unverified_proposal." },
+    "digest": { "type": "string", "pattern": "^sha3-512:[0-9a-f]{128}$", "description": "SHA3-512 over canonical JSON of all other fields. Produced by tooling, never hand-written." }
+  }
+}

@@ -6,6 +6,7 @@
 //!   - cynic agent claim      — claim a scope for exclusive editing
 //!   - cynic agent release    — release an active claim
 //!   - cynic agent status     — query active claims
+//!   - cynic agent intent seal|verify — seal or verify transmission records
 
 use std::process::ExitCode;
 
@@ -16,8 +17,10 @@ use crate::cli_json::emit_pretty_json;
 use self::coordination::{
     execute_claim, execute_identify, execute_register, execute_release, execute_status,
 };
+use self::intent::{IntentCommand, execute_intent};
 
 pub mod coordination;
+pub mod intent;
 pub mod render;
 pub mod scan;
 pub mod types;
@@ -108,6 +111,11 @@ pub(crate) enum AgentCommand {
         /// Print JSON output (default true)
         #[arg(long, default_value = "true")]
         json: bool,
+    },
+    /// Seal or verify intent transmission records (nested arm, no new top level)
+    Intent {
+        #[command(subcommand)]
+        command: IntentCommand,
     },
 }
 
@@ -211,6 +219,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             });
             emit_pretty_json(&report);
             ExitCode::SUCCESS
-        },
+        }
+        AgentCommand::Intent { command } => execute_intent(command),
     }
 }

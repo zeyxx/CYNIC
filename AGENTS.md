@@ -716,7 +716,9 @@ reachable. This workflow is not optional.
 - Untracked files have no git safety net; after a green slice, commit them
   promptly or back them up outside the repo.
 - Work on a dedicated branch `agent/<name>/<scope>`; never push directly to
-  main. Push the branch and open a PR when the remote is available.
+  main. Branch from `origin/main` only after `origin/main..main` is empty
+  (no stacking on unpushed main — see `cynic-branch-lifecycle` Protocol 0).
+  Push the branch and open a PR when the remote is available.
 
 ## Sovereignty vs relay (chicken and egg)
 
