@@ -1,0 +1,21 @@
+{
+  "schema": "cynic.infra.runner_retention.v1",
+  "scope": "per-SHA build checkouts on network runners (SshBuildRunner.checkout_base)",
+  "why": "Unbounded per-SHA dirs filled the builder disk (23G, ENOSPC fail-blind, 2026-09-08). No eviction and no pre-trigger disk read-back existed anywhere.",
+  "keep": {
+    "last_n_checkouts": 3,
+    "pinned_shas": ["<proven-SHA-reported-by-build-proof-with-counts>"],
+    "pinned_note": "A SHA is pinned only by a converged proof WITH test counts. A count-less converged report pins nothing."
+  },
+  "evict": {
+    "ttl_days": 14,
+    "rule": "Evict checkouts older than ttl_days except kept and pinned. Eviction is a bounded explicit action (lists paths, removes, reports freed bytes) — never silent, never a bare rm -rf without read-back."
+  },
+  "preflight": {
+    "min_free_bytes": 10737418240,
+    "rule": "Before materializing a checkout, read back runner disk space. Below min_free_bytes the trigger reports blocked_disk_full (explicit unknown) instead of failing mid-fetch with ENOSPC."
+  },
+  "residual_unknowns": [
+    "Enforcement owner undecided: runner-side cron vs pre-trigger gate in SshBuildRunner vs CLI surface. This file is policy; the enforcer gets its own slice with proof."
+  ]
+}
