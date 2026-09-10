@@ -7,11 +7,11 @@
 //!
 //! Contract types (`DomainSignal`, `DomainCurations`) live in `cynic-protocol`.
 //! This module adds I/O (loading curations from disk) and re-exports the types.
+//! Prompt formatting law lives in `cynic-askesis::wisdom::format_wisdom_context`
+//! (canonical owner); this module keeps no formatting duplicate.
 //!
 //! Residual product material, not low-layer runtime law. Track via
 //! `cynic dev kernel-audit` area `product_domain_residual`.
-
-pub mod engine;
 
 // Re-export canonical types from protocol — single source of truth.
 pub use cynic_protocol::wisdom::{DomainCurations, DomainSignal};
