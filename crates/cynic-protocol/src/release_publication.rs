@@ -66,6 +66,11 @@ pub struct RuntimeReleasePublicationManifest {
     pub detached_signature_source: RuntimeArtifactSource,
     pub signer_identity: String,
     pub signature_namespace: String,
+    /// Explicit unknowns carried inside the digest-covered manifest.
+    /// Unknown is data: a missing SBOM, capability inventory, or policy
+    /// digest is reported here, never back-filled by a guess.
+    #[serde(default)]
+    pub residual_unknowns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +84,9 @@ pub struct SignedReleaseBasketReadBack {
     pub basket_size_bytes: u64,
     pub detached_signature_size_bytes: u64,
     pub observed_at_ms: u64,
+    /// Explicit unknowns observed at publication read-back time.
+    #[serde(default)]
+    pub residual_unknowns: Vec<String>,
 }
 
 pub fn plan_signed_release_basket(request: &SignedReleaseBasketRequest) -> SignedReleaseBasketPlan {
@@ -325,6 +333,7 @@ mod tests {
             },
             signer_identity: "cynic-release".to_string(),
             signature_namespace: RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
+            residual_unknowns: vec![],
         };
         let mut read_back = SignedReleaseBasketReadBack {
             schema: SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA.to_string(),
@@ -339,6 +348,7 @@ mod tests {
             basket_size_bytes: 1024,
             detached_signature_size_bytes: 256,
             observed_at_ms: 1,
+            residual_unknowns: vec![],
         };
         assert!(validate_signed_release_basket_read_back(&read_back).is_empty());
 
@@ -347,5 +357,58 @@ mod tests {
             validate_signed_release_basket_read_back(&read_back)
                 .contains(&"signed_release_manifest_digest_mismatch".to_string())
         );
+    }
+
+    #[test]
+    fn residual_unknowns_round_trip_inside_manifest_digest() {
+        let mut manifest = RuntimeReleasePublicationManifest {
+            schema: RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA.to_string(),
+            release_id: "release-a".to_string(),
+            release_epoch: 1,
+            source_commit: "a".repeat(40),
+            build_proof_digest: format!("sha256:{}", "b".repeat(64)),
+            registry_digest: format!("sha256:{}", "e".repeat(64)),
+            basket_digest: format!("sha256:{}", "c".repeat(64)),
+            basket_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: "https://artifacts.cynic/release-a/release-a.tar".to_string(),
+            },
+            detached_signature_digest: format!("sha256:{}", "d".repeat(64)),
+            detached_signature_source: RuntimeArtifactSource {
+                transport: RuntimeArtifactTransportKind::Https,
+                locator: "https://artifacts.cynic/release-a/release-a.tar.sig".to_string(),
+            },
+            signer_identity: "cynic-release".to_string(),
+            signature_namespace: RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
+            residual_unknowns: vec!["release_sbom_unobserved".to_string()],
+        };
+        // Old readers without the field still parse (serde default).
+        let legacy = serde_json::json!({
+            "schema": RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
+            "release_id": "release-a",
+            "release_epoch": 1,
+            "source_commit": "a".repeat(40),
+            "build_proof_digest": format!("sha256:{}", "b".repeat(64)),
+            "registry_digest": format!("sha256:{}", "e".repeat(64)),
+            "basket_digest": format!("sha256:{}", "c".repeat(64)),
+            "basket_source": {
+                "transport": "https",
+                "locator": "https://artifacts.cynic/release-a/release-a.tar"
+            },
+            "detached_signature_digest": format!("sha256:{}", "d".repeat(64)),
+            "detached_signature_source": {
+                "transport": "https",
+                "locator": "https://artifacts.cynic/release-a/release-a.tar.sig"
+            },
+            "signer_identity": "cynic-release",
+            "signature_namespace": RUNTIME_RELEASE_SIGNATURE_NAMESPACE,
+        });
+        let parsed: RuntimeReleasePublicationManifest =
+            serde_json::from_value(legacy).expect("legacy manifest parses");
+        assert!(parsed.residual_unknowns.is_empty());
+        // Unknowns are digest-covered: mutating them breaks the manifest digest.
+        let before = crate::digest_json(&manifest).unwrap();
+        manifest.residual_unknowns.push("release_extra".to_string());
+        assert_ne!(crate::digest_json(&manifest).unwrap(), before);
     }
 }

@@ -380,6 +380,7 @@ mod tests {
             },
             signer_identity: "cynic-release".to_string(),
             signature_namespace: crate::RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
+            residual_unknowns: vec![],
         };
         let manifest_digest = digest_json(&publication_manifest).unwrap();
         let signed_release = build_evidence_envelope(
@@ -400,6 +401,7 @@ mod tests {
                 basket_size_bytes: 1024,
                 detached_signature_size_bytes: 256,
                 observed_at_ms: 3,
+                residual_unknowns: vec![],
             },
         )
         .unwrap();

@@ -157,6 +157,12 @@ where
         detached_signature_source: targets.detached_signature.clone(),
         signer_identity: signature.signer_identity.clone(),
         signature_namespace: signature.namespace.clone(),
+        // The pipeline has no SBOM or capability-inventory stage: report the
+        // absence as digest-covered unknowns instead of implying coverage.
+        residual_unknowns: vec![
+            "release_sbom_unobserved".to_string(),
+            "release_capability_inventory_unobserved".to_string(),
+        ],
     };
     let read_back = artifact_store
         .publish(

@@ -262,6 +262,7 @@ impl ReleaseArtifactPublicationPort for HttpReleaseArtifactPublication {
                 basket_size_bytes: basket.size_bytes,
                 detached_signature_size_bytes: signature.size_bytes,
                 observed_at_ms,
+                residual_unknowns: vec![],
             };
             let blockers = validate_signed_release_basket_read_back(&read_back);
             if blockers.is_empty() {
