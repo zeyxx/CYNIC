@@ -99,6 +99,80 @@ impl ProxyTargets {
         self.select(None, None, requires_tools)
     }
 
+    /// Select a proxy target taking live slot utilization into account.
+    /// Prefers targets with free slots, picking the one with lowest utilization.
+    pub fn select_with_slot_tracker(
+        &self,
+        slot_tracker: &crate::domain::slot_tracker::SlotTracker,
+        requested_backend: Option<&str>,
+        requested_model: Option<&str>,
+        requires_tools: bool,
+    ) -> Result<SelectedProxyTarget, ProxyTargetSelectionError> {
+        if requested_backend.is_some() || requested_model.is_some() {
+            return self.select(requested_backend, requested_model, requires_tools);
+        }
+
+        let candidates = {
+            let all = self.entries();
+            if requires_tools {
+                let tools: Vec<(String, ProxyTarget)> = all
+                    .into_iter()
+                    .filter(|(_, target)| target.supports_tool_use)
+                    .collect();
+                if tools.is_empty() {
+                    self.entries()
+                } else {
+                    tools
+                }
+            } else {
+                all
+            }
+        };
+
+        if candidates.is_empty() {
+            return Err(ProxyTargetSelectionError::NoSovereignBackends);
+        }
+
+        let slot_snapshot = slot_tracker.snapshot();
+
+        let mut preferred: Vec<(String, ProxyTarget, f64)> = Vec::new();
+        let mut fallback: Vec<(String, ProxyTarget, f64)> = Vec::new();
+
+        for (backend_id, target) in candidates {
+            let (has_free_slot, utilization) = match slot_snapshot.get(&backend_id) {
+                Some(slots) if slots.total > 0 => (slots.busy < slots.total, slots.utilization()),
+                Some(_slots) => (true, 1.0),
+                None => (true, 0.5),
+            };
+
+            if has_free_slot {
+                preferred.push((backend_id, target, utilization));
+            } else {
+                fallback.push((backend_id, target, utilization));
+            }
+        }
+
+        let selected = if !preferred.is_empty() {
+            preferred
+        } else {
+            fallback
+        };
+
+        let mut picked = None;
+        for (backend_id, target, utilization) in selected {
+            if picked
+                .as_ref()
+                .is_none_or(|(_, _, current)| utilization < *current)
+            {
+                picked = Some((backend_id, target, utilization));
+            }
+        }
+
+        picked
+            .map(|(backend_id, target, _)| SelectedProxyTarget { backend_id, target })
+            .ok_or(ProxyTargetSelectionError::NoSovereignBackends)
+    }
+
     pub fn select(
         &self,
         requested_backend: Option<&str>,

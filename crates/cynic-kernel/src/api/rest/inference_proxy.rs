@@ -38,81 +38,12 @@ fn select_proxy_target(
     requested_model: Option<&str>,
     requires_tools: bool,
 ) -> Result<SelectedProxyTarget, ProxyTargetSelectionError> {
-    // Explicit target/model selection keeps exact user intent.
-    if requested_backend.is_some() || requested_model.is_some() {
-        return proxy.select(requested_backend, requested_model, requires_tools);
-    }
-
-    let candidates = {
-        let all = proxy.entries();
-        if requires_tools {
-            let tools: Vec<(
-                String,
-                cynic_inference::application::proxy_routing::ProxyTarget,
-            )> = all
-                .into_iter()
-                .filter(|(_, target)| target.supports_tool_use)
-                .collect();
-            if tools.is_empty() {
-                proxy.entries()
-            } else {
-                tools
-            }
-        } else {
-            all
-        }
-    };
-
-    if candidates.is_empty() {
-        return Err(ProxyTargetSelectionError::NoSovereignBackends);
-    }
-
-    let slot_snapshot = slot_tracker.snapshot();
-
-    let mut preferred: Vec<(
-        String,
-        cynic_inference::application::proxy_routing::ProxyTarget,
-        f64,
-    )> = Vec::new();
-    let mut fallback: Vec<(
-        String,
-        cynic_inference::application::proxy_routing::ProxyTarget,
-        f64,
-    )> = Vec::new();
-
-    for (backend_id, target) in candidates {
-        let (has_free_slot, utilization) = match slot_snapshot.get(&backend_id) {
-            Some(slots) if slots.total > 0 => (slots.busy < slots.total, slots.utilization()),
-            Some(_slots) => (true, 1.0), // total=0: route, but gate by all_slots_busy will allow due unknown cap
-            None => (true, 0.5),         // unknown load: keep it eligible
-        };
-
-        if has_free_slot {
-            preferred.push((backend_id, target, utilization));
-        } else {
-            fallback.push((backend_id, target, utilization));
-        }
-    }
-
-    let mut selected = preferred;
-    if selected.is_empty() {
-        selected = fallback;
-    }
-
-    // pick lowest utilization while keeping deterministic tie-break order.
-    let mut picked = None;
-    for (backend_id, target, utilization) in selected {
-        if picked
-            .as_ref()
-            .is_none_or(|(_, _, current)| utilization < *current)
-        {
-            picked = Some((backend_id, target, utilization));
-        }
-    }
-
-    picked
-        .map(|(backend_id, target, _)| SelectedProxyTarget { backend_id, target })
-        .ok_or(ProxyTargetSelectionError::NoSovereignBackends)
+    proxy.select_with_slot_tracker(
+        slot_tracker,
+        requested_backend,
+        requested_model,
+        requires_tools,
+    )
 }
 
 /// POST /v1/chat/completions — OpenAI-compatible proxy with Soma L4 gating.
