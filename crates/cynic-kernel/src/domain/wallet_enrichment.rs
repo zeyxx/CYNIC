@@ -26,7 +26,7 @@ pub struct WalletBehavioralProfile {
     pub long_hold_count: u32,
     pub total_volume_sol: f64,
     pub fungible_token_count: u32,
-    pub chess_profile: Option<super::wallet_judgment::WalletProfile>,
+    pub chess_profile: Option<cynic_intel::wallet_judgment::WalletProfile>,
 }
 
 pub use cynic_intel::wallet_enrichment::{MIN_SWAPS_FOR_ANALYSIS, MIN_VERDICT_COVERAGE};

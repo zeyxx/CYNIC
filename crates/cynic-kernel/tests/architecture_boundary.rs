@@ -725,27 +725,15 @@ fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
 }
 
 #[test]
-fn kernel_rug_risk_delegates_token_intelligence_to_cynic_intel() {
-    let rug_risk = read_repo_file("crates/cynic-kernel/src/domain/rug_risk.rs");
+fn kernel_rug_risk_facade_stays_extracted_to_cynic_intel() {
+    // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
+    // This guard fails if anyone reintroduces a kernel-owned copy.
     assert!(
-        rug_risk.contains("cynic_intel::rug_risk")
-            && rug_risk.contains("impl RugRiskTokenView for TokenData"),
-        "kernel rug_risk must be a compatibility adapter over cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/rug_risk.rs")
+            .exists(),
+        "kernel rug_risk facade must stay deleted; law lives in cynic-intel::rug_risk"
     );
-
-    for forbidden in [
-        "very_young",
-        "young_low_holders",
-        "mint_authority_active\"",
-        "freeze_authority_active\"",
-        "extreme_concentration",
-        "thin_liquidity",
-    ] {
-        assert!(
-            !rug_risk.contains(forbidden),
-            "kernel rug_risk must not own token intelligence rule: {forbidden}"
-        );
-    }
 
     let intel_rug_risk = read_repo_file("crates/cynic-intel/src/rug_risk.rs");
     for expected in [
@@ -845,28 +833,15 @@ fn kernel_kscore_delegates_heuristics_to_cynic_intel() {
 }
 
 #[test]
-fn kernel_rug_prefilter_delegates_gate_to_cynic_intel() {
-    let rug_prefilter = read_repo_file("crates/cynic-kernel/src/domain/rug_prefilter.rs");
+fn kernel_rug_prefilter_facade_stays_extracted_to_cynic_intel() {
+    // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
+    // This guard fails if anyone reintroduces a kernel-owned copy.
     assert!(
-        rug_prefilter.contains("cynic_intel::rug_prefilter")
-            && rug_prefilter
-                .contains("impl cynic_intel::rug_prefilter::RugPrefilterTokenView for TokenData")
-            && rug_prefilter.contains("pub fn rug_prefilter(token: &TokenData)"),
-        "kernel rug_prefilter must be a compatibility adapter over cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/rug_prefilter.rs")
+            .exists(),
+        "kernel rug_prefilter facade must stay deleted; law lives in cynic-intel::rug_prefilter"
     );
-
-    for forbidden in [
-        "holder_count == 0",
-        "liquidity_usd < 100.0",
-        "trajectory_class == Some(\"DEAD\")",
-        "score >= 3",
-        "lp_status != \"burned\"",
-    ] {
-        assert!(
-            !rug_prefilter.contains(forbidden),
-            "kernel rug_prefilter should not own pre-filter logic: {forbidden}"
-        );
-    }
 
     let intel = read_repo_file("crates/cynic-intel/src/rug_prefilter.rs");
     for expected in [
@@ -883,27 +858,15 @@ fn kernel_rug_prefilter_delegates_gate_to_cynic_intel() {
 }
 
 #[test]
-fn kernel_wallet_judgment_delegates_deterministic_logic_to_cynic_intel() {
-    let wallet_judgment = read_repo_file("crates/cynic-kernel/src/domain/wallet_judgment/mod.rs");
+fn kernel_wallet_judgment_facade_stays_extracted_to_cynic_intel() {
+    // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
+    // This guard fails if anyone reintroduces a kernel-owned copy.
     assert!(
-        wallet_judgment.contains("cynic_intel::wallet_judgment")
-            && wallet_judgment.contains("pub use cynic_intel::wallet_judgment::WalletProfile")
-            && wallet_judgment.contains("pub fn deterministic_dog(profile: &WalletProfile)"),
-        "kernel wallet_judgment must be a compatibility adapter over cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/wallet_judgment/mod.rs")
+            .exists(),
+        "kernel wallet_judgment facade must stay deleted; law lives in cynic-intel::wallet_judgment"
     );
-
-    for forbidden in [
-        "profile.games_completed < 5",
-        "engine_penalty",
-        "wallet_age_days < 3",
-        "let mut q_score",
-        "suspicious_cluster || profile.replay_risk",
-    ] {
-        assert!(
-            !wallet_judgment.contains(forbidden),
-            "kernel wallet_judgment should not own deterministic logic: {forbidden}"
-        );
-    }
 
     let intel = read_repo_file("crates/cynic-intel/src/wallet_judgment.rs");
     for expected in [
