@@ -1,7 +1,6 @@
 //! CallShield REST endpoints — phone-number domain read API.
 //!
-//! GET /phone-numbers/blocklist   — top-N numbers by lowest sovereignty (worst spam first).
-//! GET /phone-numbers/reporter-stats — device reporter agreement rate + tier (MVP placeholder).
+//! GET /phone-numbers/blocklist — top-N numbers by lowest sovereignty (worst spam first).
 
 use axum::{
     extract::{Query, State},
@@ -12,9 +11,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use super::response::storage_error;
-use super::types::{
-    AppState, BlocklistEntry, BlocklistResponse, ErrorResponse, ReporterStatsResponse,
-};
+use super::types::{AppState, BlocklistEntry, BlocklistResponse, ErrorResponse};
 
 // ── QUERY PARAMS ───────────────────────────────────────────
 
@@ -82,20 +79,4 @@ pub async fn blocklist_handler(
         count,
         generated_at: generated_at.to_string(),
     }))
-}
-
-/// GET /phone-numbers/reporter-stats
-///
-/// Returns agreement rate and tier for the calling device.
-/// MVP: returns placeholder stats — real per-device tracking is Plan 3.
-pub async fn reporter_stats_handler(
-    State(_state): State<Arc<AppState>>,
-) -> Json<ReporterStatsResponse> {
-    // MVP placeholder — per-device tracking requires a device identity header
-    // and a reporter_stats table (Plan 3). Tier is "anonymous" until that lands.
-    Json(ReporterStatsResponse {
-        agreement_rate: None,
-        reports_total: 0,
-        tier: "anonymous".to_string(),
-    })
 }

@@ -315,10 +315,6 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/phone-numbers/blocklist",
             get(phone_numbers::blocklist_handler),
         )
-        .route(
-            "/phone-numbers/reporter-stats",
-            get(phone_numbers::reporter_stats_handler),
-        )
         .route("/soma/request", post(soma_request_handler))
         .route(
             "/webhook/github/release",

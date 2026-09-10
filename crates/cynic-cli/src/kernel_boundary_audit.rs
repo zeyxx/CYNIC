@@ -167,7 +167,6 @@ const KERNEL_AREAS: &[KernelAreaSpec] = &[
             "domain/dog.rs",
             "domain/dog_health.rs",
             "domain/mail.rs",
-            "domain/phone_number.rs",
             "domains/",
             "escore/",
         ],

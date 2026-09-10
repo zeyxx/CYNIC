@@ -846,17 +846,6 @@ pub struct BlocklistResponse {
     pub generated_at: String,
 }
 
-/// GET /phone-numbers/reporter-stats response (MVP placeholder).
-#[derive(Debug, Serialize)]
-pub struct ReporterStatsResponse {
-    /// Agreement rate with kernel verdicts — None until per-device tracking is wired.
-    pub agreement_rate: Option<f64>,
-    /// Total reports submitted by this device. Always 0 in MVP (no per-device tracking yet).
-    pub reports_total: u64,
-    /// Device tier: "anonymous" | "trusted" | "verified".
-    pub tier: String,
-}
-
 /// POST /dogs/register — register a new Dog at runtime.
 #[derive(Debug, Deserialize)]
 pub struct RegisterDogRequest {
