@@ -1008,7 +1008,6 @@ fn kernel_runtime_project_root_resolution_stays_host_owned() {
         "crates/cynic-kernel/src/bootstrap/services.rs",
         "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/infra/config/mod.rs",
-        "crates/cynic-kernel/src/infra/domain_prompts.rs",
     ] {
         let content = read_repo_file(path);
         assert!(

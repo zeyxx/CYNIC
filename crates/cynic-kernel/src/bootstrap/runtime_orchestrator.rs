@@ -48,8 +48,6 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
         });
     }
 
-    let _ = infra::config::load_domain_prompts();
-
     let slot_tracker = Arc::new(SlotTracker::new());
     let slot_semaphores = Arc::new(SlotSemaphoreMap::new());
 

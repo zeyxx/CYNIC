@@ -3,13 +3,11 @@
 //! This module intentionally groups configuration by role:
 //! - `model`: domain value objects and enums.
 //! - `loading`: TOML/env-backed loaders and project fallback rules.
-//! - `prompts`: runtime prompt corpus loading.
 //!
 //! Keep command surfaces here thin: no parsing policy is implemented in callers.
 
 pub mod loading;
 pub mod model;
-pub mod prompts;
 
 pub use loading::{
     derive_slots_url, load_backends, load_backends_from_env, load_dog_thresholds,
@@ -21,4 +19,3 @@ pub use model::{
     MonitoringConfig, OrganRemediation, PromptTier, StorageConfig, StorageIdentityConfig,
     VerdictSettings,
 };
-pub use prompts::load_domain_prompts;
