@@ -41,17 +41,21 @@ pub async fn handle_release_webhook(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Result<Json<ReleaseProof>, (StatusCode, String)> {
-    // 1. Verify HMAC if secret is configured
-    if let Some(secret) = &config.webhook_secret {
-        let signature = headers
-            .get("x-forgejo-signature")
-            .or_else(|| headers.get("x-hub-signature-256"))
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
+    // 1. Verify HMAC if secret is configured (fail-closed if missing)
+    let Some(secret) = &config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "webhook authentication unavailable: webhook_secret is not configured".into(),
+        ));
+    };
+    let signature = headers
+        .get("x-forgejo-signature")
+        .or_else(|| headers.get("x-hub-signature-256"))
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
 
-        if !verify_signature(secret, &body, signature) {
-            return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
-        }
+    if !verify_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
     }
 
     // 2. Parse payload
@@ -129,12 +133,18 @@ pub async fn handle_release_webhook(
 }
 
 fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+    let sig = signature.trim();
+    let sig = sig.strip_prefix("sha256=").unwrap_or(sig);
+    let presented = match hex::decode(sig) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+        Ok(mac) => mac,
+        Err(_) => return false,
+    };
     mac.update(body);
-    let result = mac.finalize();
-    let expected = hex::encode(result.into_bytes());
-    signature == expected
+    mac.verify_slice(&presented).is_ok()
 }
 
 #[cfg(test)]
@@ -156,5 +166,22 @@ mod tests {
         let secret = "test-secret";
         let body = b"{\"commit_sha\":\"abc123\"}";
         assert!(!verify_signature(secret, body, "invalid"));
+    }
+
+    #[test]
+    fn verify_signature_with_sha256_prefix() {
+        let secret = "test-secret";
+        let body = b"{\"commit_sha\":\"abc123\"}";
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body);
+        let expected = format!("sha256={}", hex::encode(mac.finalize().into_bytes()));
+        assert!(verify_signature(secret, body, &expected));
+    }
+
+    #[test]
+    fn verify_signature_rejects_non_hex() {
+        let secret = "test-secret";
+        let body = b"{\"commit_sha\":\"abc123\"}";
+        assert!(!verify_signature(secret, body, "not-hex"));
     }
 }

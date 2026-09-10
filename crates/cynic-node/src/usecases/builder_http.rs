@@ -125,13 +125,18 @@ async fn get_proof(
 }
 
 fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+    let sig = signature.trim();
+    let sig = sig.strip_prefix("sha256=").unwrap_or(sig);
+    let presented = match hex::decode(sig) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+    let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
+        Ok(mac) => mac,
+        Err(_) => return false,
+    };
     mac.update(body);
-    let result = mac.finalize();
-    let expected = hex::encode(result.into_bytes());
-    // Forgejo sends hex-encoded HMAC-SHA256 in X-Forgejo-Signature
-    signature == expected
+    mac.verify_slice(&presented).is_ok()
 }
 
 /// Deterministic workload id: the same push delivered twice must address
@@ -160,17 +165,22 @@ async fn webhook_forgejo(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
-    // HMAC verification if a secret is configured
-    if let Some(secret) = &state.config.webhook_secret {
-        let signature = headers
-            .get("x-forgejo-signature")
-            .or_else(|| headers.get("x-hub-signature-256"))
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
+    // HMAC verification: fail-closed if webhook_secret is missing or signature fails
+    let Some(secret) = &state.config.webhook_secret else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "webhook authentication unavailable: webhook_secret is not configured".into(),
+        ));
+    };
 
-        if !verify_webhook_signature(secret, &body, signature) {
-            return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
-        }
+    let signature = headers
+        .get("x-forgejo-signature")
+        .or_else(|| headers.get("x-hub-signature-256"))
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    if !verify_webhook_signature(secret, &body, signature) {
+        return Err((StatusCode::UNAUTHORIZED, "invalid webhook signature".into()));
     }
 
     let payload: ForgejoPayload = serde_json::from_slice(&body)
@@ -452,6 +462,31 @@ mod tests {
             secret,
             &Bytes::from_static(body),
             "deadbeef"
+        ));
+    }
+
+    #[test]
+    fn hmac_verification_with_sha256_prefix() {
+        let secret = "test-secret";
+        let body = b"{\"after\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body);
+        let expected = format!("sha256={}", hex::encode(mac.finalize().into_bytes()));
+        assert!(verify_webhook_signature(
+            secret,
+            &Bytes::from_static(body),
+            &expected
+        ));
+    }
+
+    #[test]
+    fn hmac_verification_rejects_non_hex() {
+        let secret = "test-secret";
+        let body = b"{\"after\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}";
+        assert!(!verify_webhook_signature(
+            secret,
+            &Bytes::from_static(body),
+            "not-a-valid-hex-digest"
         ));
     }
 

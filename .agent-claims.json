@@ -1,79 +1,127 @@
 {
-  "schema": "cynic.agent_claims.v2",
-  "revision": 25,
   "claims": [
     {
-      "claim_id": "claim_hermes_v1_debt_001",
       "agent_id": "hermes:main",
-      "mode": "baseline",
-      "scope": {
-        "kind": "file",
-        "path": "infra/DEBT_TAXONOMY.md"
-      },
       "budget": {
         "actions": 50,
         "wall_seconds": 3600
       },
+      "claim_id": "claim_hermes_v1_debt_001",
       "consumed": {
         "actions": 12,
         "wall_seconds": 3200
       },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/DEBT_TAXONOMY.md"
+      },
+      "status": "active",
       "temporal": {
         "started_at_unix_s": 1724000000,
         "ttl_seconds": 1800
-      },
-      "priority": 10,
-      "parent_claim_id": null,
-      "status": "active"
+      }
     },
     {
-      "claim_id": "claim_hermes_v4d_001",
       "agent_id": "hermes:main",
-      "mode": "baseline",
-      "scope": {
-        "kind": "crate",
-        "path": "crates/cynic-host"
-      },
       "budget": {
         "actions": 20,
         "wall_seconds": 3600
       },
+      "claim_id": "claim_hermes_v4d_001",
       "consumed": {
         "actions": 0,
         "wall_seconds": 0
       },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-host"
+      },
+      "status": "active",
       "temporal": {
         "started_at_unix_s": 1724014000,
         "ttl_seconds": 3600
-      },
-      "priority": 10,
-      "parent_claim_id": null,
-      "status": "active"
+      }
     },
     {
-      "claim_id": "claim_hermes_hostproto_001",
       "agent_id": "hermes:host-proto-clean",
-      "mode": "baseline",
-      "scope": {
-        "kind": "crate",
-        "path": "crates/cynic-protocol"
-      },
       "budget": {
         "actions": 50,
         "wall_seconds": 3600
       },
+      "claim_id": "claim_hermes_hostproto_001",
       "consumed": {
         "actions": 40,
         "wall_seconds": 12000
       },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-protocol"
+      },
+      "status": "active",
       "temporal": {
         "started_at_unix_s": 1788456951,
         "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "hermes:main",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
       },
-      "priority": 10,
+      "claim_id": "claim_hermes_supply_chain_001",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
       "parent_claim_id": null,
-      "status": "active"
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-node"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1789032787,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "hermes:main",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_hermesmain_1788964593",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-kernel/src/domain/health_gate.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1788964593,
+        "ttl_seconds": 1800
+      }
     }
   ],
-  "merge_queue": []
+  "merge_queue": [],
+  "revision": 27,
+  "schema": "cynic.agent_claims.v2"
 }
