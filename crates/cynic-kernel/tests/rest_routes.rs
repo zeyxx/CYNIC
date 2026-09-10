@@ -123,7 +123,6 @@ fn test_state_with_role_keys(
         backend_configs: vec![],
         enricher: None,
         senses: vec![],
-        domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
         domain_router: std::sync::Arc::new(
             cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
         ),
@@ -920,7 +919,6 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
         backend_configs: vec![],
         enricher: None,
         senses: vec![],
-        domain_curations: std::sync::Arc::new(cynic_kernel::domain::wisdom::DomainCurations::new()),
         domain_router: std::sync::Arc::new(
             cynic_kernel::infra::domain_router::DomainRouter::from_backends(&[]),
         ),

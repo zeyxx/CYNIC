@@ -18,7 +18,6 @@ use crate::domain::organ::OrganPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
-use crate::domain::wisdom::DomainCurations;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use cynic_inference::embedding::EmbeddingPort;
@@ -573,9 +572,6 @@ pub struct AppState {
     /// Sensory organ readers — organism perceiving external data stores.
     /// K15 deferred-consumer: deadline 2026-05-26. If no consumer by then, remove.
     pub senses: Vec<Arc<dyn OrganPort>>,
-    /// Curated domain signals (D1-D6) loaded at boot for wisdom enrichment.
-    /// K15 consumer: dogs fetch matching patterns from curations to enrich stimulus.
-    pub domain_curations: Arc<DomainCurations>,
     /// Domain-aware Dog router — selects suitable Dogs based on domain hint.
     /// Initialized from backend_configs at boot. Enables data-centric Dog selection.
     pub domain_router: Arc<crate::infra::domain_router::DomainRouter>,

@@ -5,10 +5,8 @@ use crate::backends;
 use crate::domain;
 use crate::infra;
 use cynic_inference::application::proxy_routing::ProxyTargets;
-use domain::wisdom::DomainCurationsLoader;
 
 pub struct RuntimeServices {
-    pub domain_curations: Arc<domain::wisdom::DomainCurations>,
     pub enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>>,
     pub domain_router: Arc<infra::domain_router::DomainRouter>,
     pub dog_perf_collector: Arc<infra::dog_performance::DogPerformanceCollector>,
@@ -21,7 +19,6 @@ pub struct RuntimeServices {
 impl fmt::Debug for RuntimeServices {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RuntimeServices")
-            .field("domain_curations", &self.domain_curations)
             .field("has_enricher", &self.enricher.is_some())
             .field("domain_router", &self.domain_router)
             .field("dog_perf_collector", &self.dog_perf_collector)
@@ -37,25 +34,6 @@ pub fn build_runtime_services(
     backend_configs: &[infra::config::BackendConfig],
     dog_thresholds: &Arc<infra::config::DogThresholds>,
 ) -> RuntimeServices {
-    let curation_dir = selected_curation_dir();
-    let domain_curations = match domain::wisdom::DomainCurations::load_from_path(&curation_dir) {
-        Ok(curations) => {
-            crate::klog!(
-                "[Boot] Domain curations loaded from {:?} ({} domains)",
-                curation_dir,
-                curations.loaded_domains.len()
-            );
-            Arc::new(curations)
-        }
-        Err(error) => {
-            crate::klog!(
-                "[Boot] Domain curations failed to load: {} — wisdom enrichment will be empty",
-                error
-            );
-            Arc::new(domain::wisdom::DomainCurations::new())
-        }
-    };
-
     let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
         match backends::helius::HeliusEnricher::from_env() {
             Some(helius) => {
@@ -144,7 +122,6 @@ pub fn build_runtime_services(
     };
 
     RuntimeServices {
-        domain_curations,
         enricher,
         domain_router,
         dog_perf_collector,
@@ -153,12 +130,6 @@ pub fn build_runtime_services(
         mail,
         zones,
     }
-}
-
-fn selected_curation_dir() -> std::path::PathBuf {
-    std::env::var("CYNIC_CURATION_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("/etc/cynic/curation"))
 }
 
 fn selected_zones_path() -> Option<std::path::PathBuf> {

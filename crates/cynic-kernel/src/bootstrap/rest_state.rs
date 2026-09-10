@@ -111,7 +111,6 @@ pub fn build_rest_state(
         backend_configs: inputs.backend_configs,
         enricher: runtime_services.enricher,
         senses: inputs.senses,
-        domain_curations: runtime_services.domain_curations,
         domain_router: runtime_services.domain_router,
         routing_calc: inputs.routing_calc,
         dog_perf_collector: runtime_services.dog_perf_collector,
