@@ -18,7 +18,6 @@ pub mod health_gate;
 pub mod helius_credit;
 pub mod kscore;
 pub mod lease_proof;
-pub mod mail;
 pub mod metabolism;
 pub mod metrics;
 pub mod organ;

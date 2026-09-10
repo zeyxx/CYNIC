@@ -140,7 +140,6 @@ fn test_state_with_role_keys(
                 &std::collections::HashMap::new(),
             ),
         ),
-        mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
@@ -936,7 +935,6 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
                 &std::collections::HashMap::new(),
             ),
         ),
-        mail: None,
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(

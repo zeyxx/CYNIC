@@ -19,7 +19,6 @@ pub mod inference_observation;
 pub mod inference_proxy;
 pub mod inference_router;
 pub mod local_peer;
-pub mod mail;
 pub mod mesh;
 pub mod middleware;
 pub mod mint_permit;
@@ -79,9 +78,6 @@ use self::inference_router::{
     dogs_handler, inference_candidates_handler, inference_remediate_handler,
     inference_route_handler, inference_slots_handler, inference_start_handler, list_models_handler,
     remediate_handler,
-};
-use self::mail::{
-    fetch_message, health as mail_health, inbox, mark_read, search, send, sync, unread,
 };
 use self::mesh::{list_mesh_nodes_handler, list_mesh_routes_handler, mesh_publish_handler};
 use self::middleware::{audit_middleware, auth_middleware, rate_limit_middleware};
@@ -323,14 +319,6 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/mesh/publish", post(mesh_publish_handler))
         .route("/mesh/nodes", get(list_mesh_nodes_handler))
         .route("/mesh/routes", get(list_mesh_routes_handler))
-        .route("/mail/health", get(mail_health))
-        .route("/mail/inbox", get(inbox))
-        .route("/mail/messages/{id}", get(fetch_message))
-        .route("/mail/send", post(send))
-        .route("/mail/sync", post(sync))
-        .route("/mail/mark-read/{id}", post(mark_read))
-        .route("/mail/search", post(search))
-        .route("/mail/unread", get(unread))
         // ── OS Service Process Table ──────────────────────────────────
         // Services register/heartbeat/unregister from their own code (no scripts).
         // GET  /services              → observed process table (all registered services)

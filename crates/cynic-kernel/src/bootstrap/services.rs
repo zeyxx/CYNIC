@@ -12,7 +12,6 @@ pub struct RuntimeServices {
     pub dog_perf_collector: Arc<infra::dog_performance::DogPerformanceCollector>,
     pub proxy_targets: Arc<ProxyTargets>,
     pub event_tx: tokio::sync::broadcast::Sender<domain::events::KernelEvent>,
-    pub mail: Option<Arc<dyn domain::mail::MailPort>>,
     pub zones: Arc<domain::zones::ZoneConfig>,
 }
 
@@ -24,7 +23,6 @@ impl fmt::Debug for RuntimeServices {
             .field("dog_perf_collector", &self.dog_perf_collector)
             .field("proxy_targets", &self.proxy_targets)
             .field("event_tx", &"broadcast::Sender<KernelEvent>")
-            .field("has_mail", &self.mail.is_some())
             .field("zones", &self.zones)
             .finish()
     }
@@ -83,20 +81,6 @@ pub fn build_runtime_services(
 
     let (event_tx, _) = tokio::sync::broadcast::channel::<domain::events::KernelEvent>(256);
 
-    let mail = match backends::mail::AgentmailConfig::from_env("MAIL_USERNAME") {
-        Some(config) => {
-            let backend = backends::mail::AgentmailBackend::new(config);
-            crate::klog!("[Ring 2] Mail service: agentmail.to configured");
-            Some(Arc::new(backend) as Arc<dyn domain::mail::MailPort>)
-        }
-        None => {
-            crate::klog!(
-                "[Ring 2] Mail service: AGENTMAIL_API_KEY or MAIL_USERNAME not configured — disabled"
-            );
-            None
-        }
-    };
-
     let zones = {
         match selected_zones_path() {
             Some(path) => {
@@ -127,7 +111,6 @@ pub fn build_runtime_services(
         dog_perf_collector,
         proxy_targets,
         event_tx,
-        mail,
         zones,
     }
 }

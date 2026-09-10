@@ -166,8 +166,6 @@ pub fn spawn_runtime_background_tasks(inputs: RuntimeBackgroundTaskInputs) {
         );
         klog!("[Ring 2] Auto-remediation task started (every 5min)");
 
-        // DORMANT: Mail consumer — will activate when backends::mail exists.
-
         // ─── Pattern analyzer (K15: in-process autonomic self-healing on Anomaly events) ────
         infra::tasks::spawn_pattern_analyzer(
             event_tx.clone(),

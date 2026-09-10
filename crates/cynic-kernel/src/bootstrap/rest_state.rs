@@ -117,7 +117,6 @@ pub fn build_rest_state(
         slot_semaphores: inputs.slot_semaphores,
         slot_tracker: inputs.slot_tracker,
         proxy_targets: runtime_services.proxy_targets,
-        mail: runtime_services.mail,
         node_registry: Arc::new(api::websocket::NodeRegistry::new(120)),
         zones: runtime_services.zones,
         producer_heartbeats: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
