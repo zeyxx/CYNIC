@@ -25,7 +25,6 @@ const KERNEL_AREAS: &[KernelAreaSpec] = &[
             "api/rest/inference_proxy.rs",
             "api/rest/inference_router.rs",
             "api/rest/soma.rs",
-            "backends/auto_embed.rs",
             "backends/cli.rs",
             "backends/embedding.rs",
             "backends/model_discovery.rs",

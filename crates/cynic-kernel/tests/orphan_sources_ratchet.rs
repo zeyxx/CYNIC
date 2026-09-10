@@ -19,10 +19,7 @@ mod orphan_sources;
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
 const QUARANTINED: &[&str] = &[
-    "api/inference_client.rs",
-    "api/mcp/tests.rs",
     "api/rest/temporal.rs",
-    "backends/auto_embed.rs",
     "domain/resource_guard.rs",
     "infra/coordination_authority.rs",
     "infra/coordination_journal.rs",
@@ -38,9 +35,6 @@ const QUARANTINED: &[&str] = &[
     "infra/tasks/runtime_loops/perf.rs",
     "infra/tasks/runtime_loops/probes.rs",
     "infra/tasks/takeover.rs",
-    "organ/backend_handle.rs",
-    "organ/inference_organ.rs",
-    "organ/tests.rs",
     "temporal_clock.rs",
 ];
 
