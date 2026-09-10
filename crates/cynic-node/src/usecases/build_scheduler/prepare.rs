@@ -153,10 +153,31 @@ pub(super) async fn prepare(
             working_directory: workspace.workspace_root.clone(),
             environment,
             timeout: Duration::from_secs(scheduler.command_timeout_secs),
+            sandbox: sandbox_mode_for(scheduler, &workspace.workspace_root)?,
         },
         workspace,
         provenance: source_provenance,
     })
+}
+
+/// Decide the execution isolation mode from scheduler config.
+///
+/// Returns `Bwrap` with a host-resolved spec when `sandbox_bwrap` is set,
+/// `Off` otherwise. When sandboxing is demanded but the spec cannot be
+/// resolved (no `PATH`, relative workspace), preparation fails closed with
+/// `build_sandbox_spec_unresolvable` — never silently downgraded to `Off`.
+fn sandbox_mode_for(
+    scheduler: &BuildSchedulerConfig,
+    workspace_root: &std::path::Path,
+) -> Result<crate::ports::build_scheduler_port::BuildSandboxMode, String> {
+    use crate::ports::build_scheduler_port::BuildSandboxMode;
+    use cynic_host::sandbox::cargo::CargoSandboxSpec;
+    if !scheduler.sandbox_bwrap {
+        return Ok(BuildSandboxMode::Off);
+    }
+    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), None)
+        .map(BuildSandboxMode::Bwrap)
+        .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())
 }
 
 fn current_unix_ms() -> u64 {

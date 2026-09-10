@@ -5,7 +5,9 @@ use tokio::process::Command;
 
 use crate::ports::build_scheduler_port::{
     BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
+    BuildSandboxMode,
 };
+use cynic_host::sandbox::cargo::build_cargo_sandbox_argv;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioBuildExecution;
@@ -34,15 +36,48 @@ impl BuildExecutionPort for TokioBuildExecution {
                     "build_execution_working_directory_not_absolute".into(),
                 ));
             }
-            let mut command = Command::new(program);
+            // Resolve the launch plan. Sandboxed builds wrap the admitted
+            // argv with bwrap and pass the bounded environment exclusively
+            // via --setenv; the host environment never leaks inside.
+            // Bare-metal (Off) preserves the historical direct spawn.
+            let (program, arguments, inherit_host_env, observe_memory) = match &request.sandbox {
+                BuildSandboxMode::Off => (program.clone(), arguments.to_vec(), true, true),
+                BuildSandboxMode::Bwrap(spec) => {
+                    if let Err(error) = tokio::fs::create_dir_all(&spec.target_directory).await {
+                        return Err(BuildExecutionError::Invalid(format!(
+                            "build_sandbox_target_dir_unwritable:{error}"
+                        )));
+                    }
+                    let passthrough = request
+                        .environment
+                        .iter()
+                        .map(|(key, value)| (key.clone(), value.clone()))
+                        .collect::<Vec<_>>();
+                    let sandbox_argv = build_cargo_sandbox_argv(spec, &request.argv, &passthrough)
+                        .map_err(BuildExecutionError::Invalid)?;
+                    let (sandbox_program, sandbox_arguments) =
+                        sandbox_argv.split_first().ok_or_else(|| {
+                            BuildExecutionError::Invalid("build_sandbox_argv_missing".into())
+                        })?;
+                    (
+                        sandbox_program.clone(),
+                        sandbox_arguments.to_vec(),
+                        false,
+                        false,
+                    )
+                }
+            };
+            let mut command = Command::new(&program);
             command
-                .args(arguments)
+                .args(&arguments)
                 .current_dir(&request.working_directory)
-                .envs(&request.environment)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if inherit_host_env {
+                command.envs(&request.environment);
+            }
             let child = command
                 .spawn()
                 .map_err(|error| BuildExecutionError::Spawn(error.to_string()))?;
@@ -66,8 +101,13 @@ impl BuildExecutionPort for TokioBuildExecution {
                     }
                     () = cancellation.cancelled() => return Err(BuildExecutionError::Cancelled),
                     () = tokio::time::sleep_until(tokio::time::Instant::from_std(next_sample)) => {
-                        if let Some(pid) = child_pid {
-                            peak_memory_bytes = max_memory_sample(peak_memory_bytes, read_peak_rss_bytes(pid));
+                        // Sandboxed builds report no peak: the supervisor PID
+                        // is bwrap itself, not the confined compiler. The
+                        // scheduler records an explicit unknown instead.
+                        if observe_memory {
+                            if let Some(pid) = child_pid {
+                                peak_memory_bytes = max_memory_sample(peak_memory_bytes, read_peak_rss_bytes(pid));
+                            }
                         }
                         if Instant::now() >= deadline {
                             return Err(BuildExecutionError::Timeout);
@@ -111,6 +151,7 @@ mod tests {
             working_directory: std::path::PathBuf::from("/"),
             environment: Default::default(),
             timeout: Duration::from_secs(2),
+            sandbox: BuildSandboxMode::Off,
         };
         let cancellation = tokio_util::sync::CancellationToken::new();
         let read_back = TokioBuildExecution
@@ -132,5 +173,84 @@ mod tests {
     #[test]
     fn missing_process_memory_is_explicitly_unknown() {
         assert_eq!(read_peak_rss_bytes(u32::MAX), None);
+    }
+
+    #[tokio::test]
+    async fn sandboxed_execution_fails_closed_when_helper_is_missing() {
+        use cynic_host::sandbox::cargo::CargoSandboxSpec;
+        let request = BuildExecutionRequest {
+            argv: vec!["cargo".into(), "--version".into()],
+            working_directory: std::path::PathBuf::from("/tmp"),
+            environment: Default::default(),
+            timeout: Duration::from_secs(10),
+            sandbox: BuildSandboxMode::Bwrap(CargoSandboxSpec {
+                bwrap_bin: "/nonexistent/bwrap".to_string(),
+                working_directory: std::path::PathBuf::from("/tmp"),
+                target_directory: std::path::PathBuf::from("/tmp/sandbox-target-missing"),
+                cargo_home: std::path::PathBuf::from("/tmp"),
+                rustup_home: std::path::PathBuf::from("/tmp"),
+                extra_ro_binds: vec![],
+            }),
+        };
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let error = TokioBuildExecution
+            .execute(&request, &cancellation)
+            .await
+            .expect_err("missing bwrap helper must fail closed");
+        assert!(
+            matches!(error, BuildExecutionError::Spawn(_)),
+            "expected spawn failure, got {error:?}"
+        );
+    }
+
+    /// Live sandbox proof. Runs only when `CYNIC_BWRAP_BIN` points at a real
+    /// bwrap binary; otherwise reports the skip explicitly. On the builder:
+    /// `CYNIC_BWRAP_BIN=/tmp/bwrap-pkg/root/usr/bin/bwrap cargo test ...`.
+    #[tokio::test]
+    async fn sandboxed_cargo_check_converges_without_network() {
+        use cynic_host::sandbox::cargo::CargoSandboxSpec;
+        let bwrap_bin = std::env::var("CYNIC_BWRAP_BIN").unwrap_or_default();
+        if bwrap_bin.trim().is_empty() || !std::path::Path::new(&bwrap_bin).is_file() {
+            eprintln!("SKIPPED sandboxed_cargo_check: CYNIC_BWRAP_BIN is not a file");
+            return;
+        }
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let workspace_root = manifest_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("workspace root above crates/<pkg>")
+            .to_path_buf();
+        let target_directory = std::env::temp_dir().join("cynic-sandbox-target-live");
+        let mut spec =
+            CargoSandboxSpec::resolve_from_host_env(workspace_root.clone(), Some(target_directory))
+                .expect("live sandbox proof needs PATH plus absolute workspace");
+        spec.bwrap_bin = bwrap_bin;
+        let request = BuildExecutionRequest {
+            argv: vec![
+                "cargo".into(),
+                "check".into(),
+                "-p".into(),
+                "cynic-protocol".into(),
+                "--lib".into(),
+                "--frozen".into(),
+            ],
+            working_directory: workspace_root,
+            environment: [
+                ("CARGO_INCREMENTAL".to_string(), "0".to_string()),
+                ("CARGO_BUILD_JOBS".to_string(), "1".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            timeout: Duration::from_secs(420),
+            sandbox: BuildSandboxMode::Bwrap(spec),
+        };
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let read_back = TokioBuildExecution
+            .execute(&request, &cancellation)
+            .await
+            .expect("sandboxed cargo check must converge");
+        assert_eq!(read_back.exit_code, Some(0));
+        // Supervisor-RSS is not build-RSS: honestly unobserved.
+        assert_eq!(read_back.peak_memory_bytes, None);
     }
 }

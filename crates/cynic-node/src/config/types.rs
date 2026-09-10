@@ -80,6 +80,11 @@ pub struct BuildSchedulerConfig {
     pub claim_ttl_secs: u64,
     #[serde(default = "defaults::default_build_command_timeout_secs")]
     pub command_timeout_secs: u64,
+    /// Confine admitted builds with Bubblewrap. Off preserves the bare-metal
+    /// subprocess; on requires a bwrap binary and fails the build closed
+    /// when it is unavailable. Fleet rollout requires bwrap on every runner.
+    #[serde(default)]
+    pub sandbox_bwrap: bool,
     #[serde(default)]
     pub release_publication: Option<ReleasePublicationConfig>,
 }
