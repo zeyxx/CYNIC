@@ -116,12 +116,12 @@
       },
       "status": "active",
       "temporal": {
-        "started_at_unix_s": 1789044315,
+        "started_at_unix_s": 1789044901,
         "ttl_seconds": 3600
       }
     }
   ],
   "merge_queue": [],
-  "revision": 31,
+  "revision": 32,
   "schema": "cynic.agent_claims.v2"
 }
