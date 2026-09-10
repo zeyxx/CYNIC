@@ -140,6 +140,7 @@ pub mod runtime_placement;
 pub mod runtime_planes;
 pub mod runtime_release;
 pub mod runtime_seed;
+pub mod sbom;
 pub mod secret_reference;
 pub mod sensory;
 pub mod solana_ops;
