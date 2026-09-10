@@ -4,7 +4,7 @@
 //! protocol. They are pure (no I/O, no side effects) and must be used by
 //! all surfaces: MCP, CLI, kernel, tests.
 
-use super::{Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode};
+use super::{AgentPhase, Claim, ClaimScope, ClaimStatus, ClaimType, CoordinationCode};
 
 /// Whether two claims have overlapping scopes.
 pub fn scopes_overlap(a: &ClaimScope, b: &ClaimScope) -> bool {
@@ -55,6 +55,97 @@ pub fn budget_within_granted(claim: &Claim) -> bool {
 /// Whether a claim can be renewed at the given timestamp.
 pub fn can_renew(claim: &Claim, now_unix_ms: u64) -> bool {
     claim.status == ClaimStatus::Active && !claim.is_expired_at(now_unix_ms)
+}
+
+// ── RFC-001: Magnetic Coordination Predicates ─────────────────────────────
+
+/// Whether a claim still exerts a repulsive force (is magnetized).
+///
+/// A claim is magnetized only when it is both logically Active AND has not
+/// exceeded its TTL at the given wall time. An expired claim — regardless of
+/// its recorded `status` — is inert and exerts zero topological repulsion.
+/// This is the passive demagnetization rule from RFC-001 INV-03.
+pub fn is_magnetized(claim: &Claim, now_unix_ms: u64) -> bool {
+    claim.status == ClaimStatus::Active && !claim.is_expired_at(now_unix_ms)
+}
+
+/// Topological distance between two claim scopes in the project tree.
+///
+/// Distance levels (RFC-001 §3.1):
+///   0 — same file (or lines within same file): infinite repulsion
+///   1 — same module directory, different files: strong repulsion
+///   2 — same crate, different modules: moderate repulsion
+///   3 — different crates in same workspace: weak / negligible
+///   u8::MAX — fully disjoint (fleet vs node, different domains): zero
+pub fn topological_distance(a: &ClaimScope, b: &ClaimScope) -> u8 {
+    match (a, b) {
+        // Exact same file.
+        (ClaimScope::File { path: pa }, ClaimScope::File { path: pb }) if pa == pb => 0,
+        // Same module, different files.
+        (
+            ClaimScope::Module { crate_name: ca, module_path: ma },
+            ClaimScope::File { path: pb },
+        )
+        | (
+            ClaimScope::File { path: pb },
+            ClaimScope::Module { crate_name: ca, module_path: ma },
+        ) if pb.contains(&format!("{}/src/{}/", ca, ma))
+            || pb.contains(&format!("{}/{}/", ca, ma)) =>
+        {
+            1
+        }
+        (
+            ClaimScope::Module { crate_name: ca, module_path: ma },
+            ClaimScope::Module { crate_name: cb, module_path: mb },
+        ) if ca == cb && ma == mb => 0,
+        // Same module in same crate, different sub-path.
+        (
+            ClaimScope::Module { crate_name: ca, .. },
+            ClaimScope::Module { crate_name: cb, .. },
+        ) if ca == cb => 1,
+        // Different modules in same crate.
+        (ClaimScope::Crate { crate_name: ca }, ClaimScope::Crate { crate_name: cb })
+            if ca == cb =>
+        {
+            0
+        }
+        (
+            ClaimScope::Crate { crate_name: ca },
+            ClaimScope::Module { crate_name: cb, .. },
+        )
+        | (
+            ClaimScope::Module { crate_name: cb, .. },
+            ClaimScope::Crate { crate_name: ca },
+        ) if ca == cb => 2,
+        (ClaimScope::Crate { crate_name: ca }, ClaimScope::File { path: pb })
+        | (ClaimScope::File { path: pb }, ClaimScope::Crate { crate_name: ca })
+            if pb.contains(ca.as_str()) =>
+        {
+            2
+        }
+        // Different crates — same workspace.
+        (ClaimScope::Crate { .. }, ClaimScope::Crate { .. })
+        | (ClaimScope::Crate { .. }, ClaimScope::Module { .. })
+        | (ClaimScope::Module { .. }, ClaimScope::Crate { .. })
+        | (ClaimScope::Crate { .. }, ClaimScope::File { .. })
+        | (ClaimScope::File { .. }, ClaimScope::Crate { .. })
+        | (ClaimScope::Module { .. }, ClaimScope::File { .. })
+        | (ClaimScope::File { .. }, ClaimScope::Module { .. }) => 3,
+        // Fleet or Node scopes — fully disjoint for workspace purposes.
+        _ => u8::MAX,
+    }
+}
+
+/// Whether two magnetized claims physically collide (hard exclusion).
+///
+/// Collision = both claims are magnetized AND in Crystallization phase AND
+/// topological distance is 0 (same file / same module). RFC-001 INV-02.
+pub fn claims_collide(a: &Claim, b: &Claim, now_unix_ms: u64) -> bool {
+    is_magnetized(a, now_unix_ms)
+        && is_magnetized(b, now_unix_ms)
+        && matches!(a.phase, AgentPhase::Crystallization)
+        && matches!(b.phase, AgentPhase::Crystallization)
+        && topological_distance(&a.request.scope, &b.request.scope) == 0
 }
 
 #[cfg(test)]
