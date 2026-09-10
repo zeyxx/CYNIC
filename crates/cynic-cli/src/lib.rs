@@ -60,7 +60,7 @@ pub mod lifecycle_surface_execute;
 pub mod lifecycle_surface_render;
 pub mod mask_surface;
 pub mod mcp_call_proof_index;
-pub mod memory_surface;
+
 pub mod network_audit;
 pub mod network_surface;
 pub mod node_activation_surface;
@@ -317,12 +317,6 @@ pub(crate) enum Command {
     Mask {
         #[command(subcommand)]
         command: mask_surface::MaskCommand,
-    },
-    /// Memory operations — audit PoH chain, compact logs, index archive vector memory.
-    #[command(hide = true)]
-    Memory {
-        #[command(subcommand)]
-        command: memory_surface::MemoryCommand,
     },
     /// Judgment projection and canonical content-addressed digest.
     #[command(hide = true)]
