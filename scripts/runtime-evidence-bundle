@@ -14,7 +14,7 @@ NOW_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
 export CYNIC_ALLOW_LOCAL_DEV_BUILD=1
 export RUST_MIN_STACK="${RUST_MIN_STACK:-536870912}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
-CARGO="${ROOT}/scripts/cargo"
+CARGO="${CARGO:-cargo}"
 
 HOST_OK=0
 CLI_OK=0

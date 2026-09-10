@@ -86,22 +86,8 @@ set `CYNIC_STANDALONE_CLI_SOURCE` (or `CYNIC_CLI_ARTIFACT`) to the built binary 
 CYNIC_STANDALONE_CLI_SOURCE=target/debug/cynic sudo cynic bootstrap framework install-cli --json --apply
 ```
 
-Cargo execution is repo-scoped. The workspace uses `scripts/cargo`, a repo-local
-`CARGO_HOME`, and explicit source/network modes instead of relying directly on
-the host user's `~/.cargo`.
-
-Default mode:
-
-```bash
-make check
-```
-
-Vendored mode after a one-time online bootstrap:
-
-```bash
-./scripts/cargo-vendor-bootstrap
-CARGO_SOURCE_MODE=vendor make check
-```
+Cargo execution uses the standard `cargo` toolchain configured declaratively
+via `.cargo/config.toml` (deterministic jobs, offline/locked, isolated memory stack).
 
 When network access is genuinely available and a registry refresh is intended:
 

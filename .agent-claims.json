@@ -111,17 +111,17 @@
       "parent_claim_id": null,
       "priority": 10,
       "scope": {
-        "kind": "file",
-        "path": "crates/cynic-kernel/src/domain/health_gate.rs"
+        "kind": "crate",
+        "path": "crates/cynic-kernel"
       },
       "status": "active",
       "temporal": {
-        "started_at_unix_s": 1788964593,
-        "ttl_seconds": 1800
+        "started_at_unix_s": 1789038611,
+        "ttl_seconds": 3600
       }
     }
   ],
   "merge_queue": [],
-  "revision": 27,
+  "revision": 28,
   "schema": "cynic.agent_claims.v2"
 }

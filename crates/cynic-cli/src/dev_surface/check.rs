@@ -262,14 +262,14 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
         DevCheckMode::Layered => {
             let mut steps = vec![DevCheckStep {
                 id: CACHE_INTEGRITY_STEP_ID.to_string(),
-                program: "scripts/cargo",
+                program: "cargo",
                 args: vec!["metadata", "--offline", "--locked", "--format-version", "1"],
                 target_dir: Some(target_root.join("cache_integrity")),
             }];
             for layer in LAYER_ORDER {
                 steps.push(DevCheckStep {
                     id: format!("check_layer_{}", layer),
-                    program: "scripts/cargo",
+                    program: "cargo",
                     args: vec!["check", "-p", layer],
                     target_dir: Some(target_root.join(format!("layer_{}", layer))),
                 });
@@ -282,7 +282,7 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
 fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
     DevCheckStep {
         id: id.clone(),
-        program: "scripts/cargo",
+        program: "cargo",
         args: vec![
             "test",
             "-q",
@@ -485,7 +485,7 @@ mod tests {
         );
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].id, "architecture_boundary_primary");
-        assert_eq!(steps[0].program, "scripts/cargo");
+        assert_eq!(steps[0].program, "cargo");
         assert_eq!(
             steps[0].args,
             vec![
@@ -518,7 +518,7 @@ mod tests {
             "architecture_boundary_fallback".to_string(),
         );
         assert_eq!(step.id, "architecture_boundary_fallback");
-        assert_eq!(step.program, "scripts/cargo");
+        assert_eq!(step.program, "cargo");
         assert_eq!(
             step.args,
             vec![

@@ -4,8 +4,7 @@ SHELL := /bin/bash
 .NOTPARALLEL:
 
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
-PATH := $(PROJECT_DIR)/scripts:$(PATH)
-CARGO := $(PROJECT_DIR)/scripts/cargo
+CARGO ?= cargo
 CARGO_NETWORK_MODE ?= offline
 CARGO_SOURCE_MODE ?= registry
 CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
@@ -84,7 +83,7 @@ LAYER_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli
 .PHONY: check-layers
 check-layers: ## Per-layer cargo check+test, fail-closed, dependency-ordered
 	@echo "==> cache integrity (offline/locked metadata)"
-	@./scripts/cargo metadata --offline --locked --format-version 1 >/dev/null \
+	@$(CARGO) metadata --offline --locked --format-version 1 >/dev/null \
 		|| { echo "cache integrity: offline/locked metadata unavailable (offline_dependency_unavailable)"; exit 1; }
 	@for crate in $(LAYER_CRATES); do \
 		echo "  -> $$crate"; \

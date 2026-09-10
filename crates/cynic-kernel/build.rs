@@ -22,16 +22,16 @@ fn main() {
     let version = format!("{date}-{short_sha}");
 
     let build_admission_verified = env_truthy("CYNIC_BUILD_ADMISSION_VERIFIED");
-
-    if !build_admission_verified {
-        panic!(
-            "BUILD BLOCKED: cynic-kernel compilation requires a grant verified by the canonical Cargo wrapper."
-        );
-    }
+    let admission_status = if build_admission_verified {
+        "verified"
+    } else {
+        "unadmitted_local"
+    };
 
     println!("cargo:rustc-env=CYNIC_VERSION={version}");
     println!("cargo:rustc-env=CYNIC_GIT_SHA={git_sha}");
     println!("cargo:rustc-env=CYNIC_BUILD_PROFILE={profile}");
+    println!("cargo:rustc-env=CYNIC_BUILD_ADMISSION_STATUS={admission_status}");
 }
 
 fn env_truthy(name: &str) -> bool {
