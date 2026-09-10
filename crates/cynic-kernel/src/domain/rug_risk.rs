@@ -1,7 +1,9 @@
-//! Compatibility facade for rug-risk token intelligence.
+//! Compatibility facade for rug-risk token intelligence — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! Heuristic ownership lives in `cynic-intel`; the kernel only adapts its
 //! current `TokenData` record until pure data ownership moves to `cynic-data`.
+//! Canonical owner: `cynic-intel::rug_risk` (law). Track via `cynic dev kernel-audit`
+//! area `product_domain_residual`. Not low-layer runtime law.
 
 use crate::domain::enrichment::TokenData;
 use cynic_intel::rug_risk::RugRiskTokenView;

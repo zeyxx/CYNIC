@@ -1,8 +1,12 @@
-//! Phone number domain types for CallShield.
+//! Phone number domain types for CallShield — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! A phone number is judged by community reports (human Dog verdicts),
 //! call metadata, and temporal patterns. The score represents spam
 //! likelihood: 0.0 = safe, 1.0 = confirmed scam.
+//!
+//! Residual product material, not low-layer runtime law. No `cynic-intel`
+//! equivalent exists yet; extraction requires a bounded owner first.
+//! Track via `cynic dev kernel-audit` area `product_domain_residual`.
 
 use serde::{Deserialize, Serialize};
 

@@ -1,6 +1,9 @@
-//! Compatibility adapter for pre-filter gate.
+//! Compatibility adapter for pre-filter gate — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! Token pre-filter heuristics now live in `cynic-intel`.
+//! Canonical owner: `cynic-intel::rug_prefilter` (law); this module keeps only
+//! the kernel-local `TokenData` adaptation. Track via `cynic dev kernel-audit`
+//! area `product_domain_residual`. Not low-layer runtime law.
 
 use crate::domain::enrichment::TokenData;
 

@@ -1,7 +1,9 @@
-//! Compatibility adapter for deterministic wallet judgment.
+//! Compatibility adapter for deterministic wallet judgment — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! Cynic-kernel keeps the invocation surface and target projection. The
 //! deterministic scoring law lives in `cynic-intel`.
+//! Canonical owner: `cynic-intel::wallet_judgment` (law). Track via
+//! `cynic dev kernel-audit` area `product_domain_residual`. Not low-layer runtime law.
 
 use crate::domain::dog::{AxiomScores, VerdictKind};
 

@@ -1,5 +1,8 @@
-//! Embedded domain prompts — compiled into the binary.
+//! Embedded domain prompts — compiled into the binary — PRODUCT-DOMAIN QUARANTINE.
 //! Domain prompts are bundled in the artifact to avoid runtime path-drift.
+//!
+//! Residual product material, not low-layer runtime law. Track via
+//! `cynic dev kernel-audit` area `product_domain_residual`.
 
 use std::collections::HashMap;
 

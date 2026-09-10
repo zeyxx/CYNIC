@@ -1,4 +1,4 @@
-//! Wisdom Enrichment — Domain Intelligence Integration (K15 Consumer)
+//! Wisdom Enrichment — Domain Intelligence Integration (K15 Consumer) — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! Closed-loop feedback: judge → crystal → curate → enrich Dogs → better judges
 //!
@@ -7,6 +7,9 @@
 //!
 //! Contract types (`DomainSignal`, `DomainCurations`) live in `cynic-protocol`.
 //! This module adds I/O (loading curations from disk) and re-exports the types.
+//!
+//! Residual product material, not low-layer runtime law. Track via
+//! `cynic dev kernel-audit` area `product_domain_residual`.
 
 pub mod engine;
 

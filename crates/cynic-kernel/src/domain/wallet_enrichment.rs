@@ -1,7 +1,9 @@
-//! Compatibility adapter for wallet behavioral intelligence.
+//! Compatibility adapter for wallet behavioral intelligence — PRODUCT-DOMAIN QUARANTINE.
 //!
 //! Temporal wallet scoring lives in `cynic-intel`; this module keeps the current
 //! kernel profile shape and maps scores into kernel dog verdict types.
+//! Canonical owner: `cynic-intel::wallet_enrichment` (law). Track via
+//! `cynic dev kernel-audit` area `product_domain_residual`. Not low-layer runtime law.
 
 use serde::{Deserialize, Serialize};
 

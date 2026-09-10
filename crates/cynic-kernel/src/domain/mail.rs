@@ -1,6 +1,10 @@
-//! MailPort — domain contract for organism email identity.
+//! MailPort — domain contract for organism email identity — PRODUCT-DOMAIN QUARANTINE.
 //! Hexagonal architecture: domain abstraction for mail operations across providers
 //! (agentmail.to REST API, Gmail IMAP/SMTP, Outlook, etc.)
+//!
+//! Residual product material, not low-layer runtime law. No `cynic-intel`
+//! equivalent exists yet; extraction requires a bounded owner first.
+//! Track via `cynic dev kernel-audit` area `product_domain_residual`.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
