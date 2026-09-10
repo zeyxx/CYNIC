@@ -4,7 +4,7 @@
 
 use super::{HELIUS_BEHAVIORAL_TIMEOUT, HeliusEnricher};
 use crate::domain::enrichment::EnrichmentError;
-use crate::domain::wallet_enrichment::WalletBehavioralProfile;
+use cynic_intel::wallet_enrichment::WalletBehavioralProfile;
 use std::collections::HashMap;
 
 /// Parsed swap from transaction history.

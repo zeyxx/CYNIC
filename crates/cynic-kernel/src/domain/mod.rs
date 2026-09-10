@@ -36,6 +36,5 @@ pub mod token_postprocessor;
 pub mod usage;
 pub mod verdict_cache;
 pub mod verdict_queue;
-pub mod wallet_enrichment;
 pub mod wisdom;
 pub mod zones;

@@ -9,16 +9,16 @@ use std::sync::Arc;
 
 use super::types::*;
 use crate::domain::poih::{MINT_PERMIT_THRESHOLD, MintPermit, PERMIT_APPROVED_KINDS};
-use crate::domain::wallet_enrichment::behavioral_dog;
+use cynic_intel::wallet_enrichment::{BehavioralVerdictKind, behavioral_dog};
 
-/// Convert a VerdictKind to its lowercase string label.
-fn kind_label(kind: &crate::domain::dog::VerdictKind) -> &'static str {
+/// Convert a behavioral verdict kind to its lowercase string label.
+fn kind_label(kind: &BehavioralVerdictKind) -> &'static str {
     match kind {
-        crate::domain::dog::VerdictKind::Howl => "howl",
-        crate::domain::dog::VerdictKind::Wag => "wag",
-        crate::domain::dog::VerdictKind::Growl => "growl",
-        crate::domain::dog::VerdictKind::Bark => "bark",
-        crate::domain::dog::VerdictKind::Epoche => "epoche",
+        BehavioralVerdictKind::Howl => "howl",
+        BehavioralVerdictKind::Wag => "wag",
+        BehavioralVerdictKind::Growl => "growl",
+        BehavioralVerdictKind::Bark => "bark",
+        BehavioralVerdictKind::Epoche => "epoche",
     }
 }
 

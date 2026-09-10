@@ -139,6 +139,60 @@ pub fn behavioral_dog(
     )
 }
 
+/// Behavioral profile assembled from on-chain history (Helius enrichment).
+/// Canonical owner: `cynic-intel` (SoC foundation §481). Consumers import it
+/// from here, never from a kernel-local copy.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WalletBehavioralProfile {
+    pub wallet_address: String,
+    pub wallet_age_days: u32,
+    pub sol_balance: f64,
+    pub total_swaps: u32,
+    pub swaps_per_day: f64,
+    pub distinct_tokens_traded: u32,
+    pub pump_fun_ratio: f64,
+    pub median_hold_hours: f64,
+    pub flip_count: u32,
+    pub long_hold_count: u32,
+    pub total_volume_sol: f64,
+    pub fungible_token_count: u32,
+    pub chess_profile: Option<crate::wallet_judgment::WalletProfile>,
+}
+
+impl WalletBehaviorView for WalletBehavioralProfile {
+    fn wallet_age_days(&self) -> u32 {
+        self.wallet_age_days
+    }
+
+    fn total_swaps(&self) -> u32 {
+        self.total_swaps
+    }
+
+    fn swaps_per_day(&self) -> f64 {
+        self.swaps_per_day
+    }
+
+    fn distinct_tokens_traded(&self) -> u32 {
+        self.distinct_tokens_traded
+    }
+
+    fn pump_fun_ratio(&self) -> f64 {
+        self.pump_fun_ratio
+    }
+
+    fn median_hold_hours(&self) -> f64 {
+        self.median_hold_hours
+    }
+
+    fn flip_count(&self) -> u32 {
+        self.flip_count
+    }
+
+    fn total_volume_sol(&self) -> f64 {
+        self.total_volume_sol
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

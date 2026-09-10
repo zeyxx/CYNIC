@@ -884,32 +884,22 @@ fn kernel_wallet_judgment_facade_stays_extracted_to_cynic_intel() {
 }
 
 #[test]
-fn kernel_wallet_enrichment_delegates_behavioral_scoring_to_cynic_intel() {
-    let wallet_enrichment = read_repo_file("crates/cynic-kernel/src/domain/wallet_enrichment.rs");
+fn kernel_wallet_enrichment_facade_stays_extracted_to_cynic_intel() {
+    // Extraction proof: profile shape, view impl, and scoring law all live in
+    // cynic-intel; the kernel facade is gone. This guard fails if anyone
+    // reintroduces a kernel-owned copy.
     assert!(
-        wallet_enrichment.contains("cynic_intel::wallet_enrichment")
-            && wallet_enrichment.contains("impl WalletBehaviorView for WalletBehavioralProfile")
-            && wallet_enrichment.contains("score_wallet_behavior(profile)"),
-        "kernel wallet enrichment must delegate behavioral scoring to cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/wallet_enrichment.rs")
+            .exists(),
+        "kernel wallet_enrichment facade must stay deleted; law lives in cynic-intel::wallet_enrichment"
     );
-
-    for forbidden in [
-        "if profile.flip_count",
-        "profile.swaps_per_day > 20.0",
-        "profile.pump_fun_ratio > 0.9",
-        "q_capped",
-        "PHI_INV",
-    ] {
-        assert!(
-            !wallet_enrichment.contains(forbidden),
-            "kernel wallet enrichment must not own behavioral scoring rule: {forbidden}"
-        );
-    }
 
     let intel_wallet = read_repo_file("crates/cynic-intel/src/wallet_enrichment.rs");
     for expected in [
         "pub trait WalletBehaviorView",
         "pub enum BehavioralVerdictKind",
+        "pub struct WalletBehavioralProfile",
         "pub fn behavioral_dog",
         "profile.swaps_per_day() > 20.0",
         "profile.pump_fun_ratio() > 0.9",
