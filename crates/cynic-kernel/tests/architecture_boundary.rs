@@ -210,29 +210,39 @@ fn kernel_fleet_inventory_probe_stays_a_thin_node_adapter() {
 
 #[test]
 fn kernel_lifecycle_surface_stays_host_owned() {
-    for (path, expected) in [
+    // Extraction is complete (4613b710): the kernel facades are gone and the
+    // law lives in cynic-host. This guard fails if anyone reintroduces a
+    // kernel-owned lifecycle copy, or if the host law disappears.
+    for kernel_path in [
+        "crates/cynic-kernel/src/domain/lifecycle_activation_evidence.rs",
+        "crates/cynic-kernel/src/domain/lifecycle_activation_requests.rs",
+        "crates/cynic-kernel/src/domain/lifecycle_diagnostics.rs",
+        "crates/cynic-kernel/src/domain/lifecycle_workflow_state.rs",
+    ] {
+        assert!(
+            !repo_root().join(kernel_path).exists(),
+            "{kernel_path} must stay deleted; lifecycle law lives in cynic-host"
+        );
+    }
+    for (host_path, expected) in [
         (
-            "crates/cynic-kernel/src/domain/lifecycle_activation_evidence.rs",
-            "pub use cynic_host::lifecycle::activation_evidence::*;",
+            "crates/cynic-host/src/lifecycle/activation_evidence.rs",
+            "activation",
         ),
         (
-            "crates/cynic-kernel/src/domain/lifecycle_activation_requests.rs",
-            "pub use cynic_host::lifecycle::activation_requests::*;",
+            "crates/cynic-host/src/lifecycle/activation_requests.rs",
+            "activation",
         ),
+        ("crates/cynic-host/src/lifecycle/diagnostics.rs", "gap"),
         (
-            "crates/cynic-kernel/src/domain/lifecycle_diagnostics.rs",
-            "pub use cynic_host::lifecycle::diagnostics::*;",
-        ),
-        (
-            "crates/cynic-kernel/src/domain/lifecycle_workflow_state.rs",
-            "pub use cynic_host::lifecycle::workflow_state::*;",
+            "crates/cynic-host/src/lifecycle/workflow_state.rs",
+            "workflow",
         ),
     ] {
-        let content = read_repo_file(path);
-        assert_eq!(
-            content.trim(),
-            expected,
-            "{path} must stay a compatibility facade over cynic-host"
+        let content = read_repo_file(host_path);
+        assert!(
+            content.to_lowercase().contains(expected),
+            "{host_path} must carry the lifecycle law"
         );
     }
 }
