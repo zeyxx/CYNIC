@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+cynic-host = { path = "../cynic-host" }
 cynic-protocol = { path = "../cynic-protocol" }
 rmcp = { version = "3.1.0", features = ["server", "transport-io", "macros"] }
 serde = { version = "1", features = ["derive"] }
