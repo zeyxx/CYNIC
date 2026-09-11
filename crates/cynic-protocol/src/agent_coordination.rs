@@ -247,10 +247,11 @@ pub enum ClaimStatus {
 /// An agent in `Exploration` phase may read broadly but must not mutate the
 /// worktree. Transitioning to `Crystallization` locks the agent's spin along
 /// its orientation field and activates hard topological exclusion (INV-05).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentPhase {
     /// High-T: broad read-only observation, repulsion deactivated.
+    #[default]
     Exploration,
     /// Zero-T: spin locked on intent vector, hard exclusion enforced.
     Crystallization,
@@ -732,6 +733,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            phase: AgentPhase::Exploration,
             consumed: AgentBudgets::default(),
         };
         assert!(claim.is_active());
@@ -757,6 +759,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            phase: AgentPhase::Exploration,
             consumed: AgentBudgets::default(),
         };
         let heartbeat = HeartbeatRequest {
@@ -786,6 +789,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            phase: AgentPhase::Exploration,
             consumed: AgentBudgets::default(),
         };
         let heartbeat = HeartbeatRequest {
@@ -830,6 +834,7 @@ mod tests {
             max_lease_window_ms: 10000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            phase: AgentPhase::Exploration,
             consumed: AgentBudgets::default(),
         };
         let request = MutationRequest {
@@ -1034,6 +1039,24 @@ impl AgentFieldEnvelope {
         }
         if self.deadline_unix_ms == 0 {
             codes.push("deadline_missing".to_string());
+        }
+        if codes.is_empty() { Ok(()) } else { Err(codes) }
+    }
+
+    /// Verifies the envelope against the parent claim authorizing this delegation.
+    /// Enforces RFC-001 INV-01: child budget <= parent remaining budget,
+    /// and parent_claim_id matches.
+    pub fn validate_against_parent(&self, parent_claim: &Claim) -> Result<(), Vec<String>> {
+        let mut codes = self.validate().err().unwrap_or_default();
+        if parent_claim.claim_id != self.parent_claim_id {
+            codes.push("field_envelope_parent_claim_mismatch".to_string());
+        }
+        let remaining = parent_claim.remaining_budget();
+        if self.budget.actions > remaining.actions {
+            codes.push("child_budget_actions_exceeds_parent".to_string());
+        }
+        if self.budget.wall_seconds > remaining.wall_seconds {
+            codes.push("child_budget_wall_seconds_exceeds_parent".to_string());
         }
         if codes.is_empty() { Ok(()) } else { Err(codes) }
     }

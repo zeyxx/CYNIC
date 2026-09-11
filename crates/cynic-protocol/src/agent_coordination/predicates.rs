@@ -69,6 +69,77 @@ pub fn is_magnetized(claim: &Claim, now_unix_ms: u64) -> bool {
     claim.status == ClaimStatus::Active && !claim.is_expired_at(now_unix_ms)
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct ScopeLocation<'a> {
+    crate_name: Option<&'a str>,
+    module_path: Option<&'a str>,
+    file_name: Option<&'a str>,
+}
+
+fn locate_scope(scope: &ClaimScope) -> ScopeLocation<'_> {
+    match scope {
+        ClaimScope::Crate { crate_name } => ScopeLocation {
+            crate_name: Some(crate_name.as_str()),
+            module_path: None,
+            file_name: None,
+        },
+        ClaimScope::Module {
+            crate_name,
+            module_path,
+        } => ScopeLocation {
+            crate_name: Some(crate_name.as_str()),
+            module_path: Some(module_path.as_str()),
+            file_name: None,
+        },
+        ClaimScope::File { path } => {
+            let p = path.strip_prefix("./").unwrap_or(path);
+            if let Some(rest) = p.strip_prefix("crates/") {
+                if let Some((crate_name, after_crate)) = rest.split_once('/') {
+                    if let Some(after_src) = after_crate.strip_prefix("src/") {
+                        if let Some((mod_dir, file_name)) = after_src.rsplit_once('/') {
+                            ScopeLocation {
+                                crate_name: Some(crate_name),
+                                module_path: Some(mod_dir),
+                                file_name: Some(file_name),
+                            }
+                        } else {
+                            let stem = after_src.strip_suffix(".rs").unwrap_or(after_src);
+                            ScopeLocation {
+                                crate_name: Some(crate_name),
+                                module_path: Some(stem),
+                                file_name: Some(after_src),
+                            }
+                        }
+                    } else {
+                        ScopeLocation {
+                            crate_name: Some(crate_name),
+                            module_path: None,
+                            file_name: Some(after_crate),
+                        }
+                    }
+                } else {
+                    ScopeLocation {
+                        crate_name: Some(rest),
+                        module_path: None,
+                        file_name: None,
+                    }
+                }
+            } else {
+                ScopeLocation {
+                    crate_name: None,
+                    module_path: None,
+                    file_name: Some(p),
+                }
+            }
+        }
+        _ => ScopeLocation {
+            crate_name: None,
+            module_path: None,
+            file_name: None,
+        },
+    }
+}
+
 /// Topological distance between two claim scopes in the project tree.
 ///
 /// Distance levels (RFC-001 §3.1):
@@ -78,74 +149,38 @@ pub fn is_magnetized(claim: &Claim, now_unix_ms: u64) -> bool {
 ///   3 — different crates in same workspace: weak / negligible
 ///   u8::MAX — fully disjoint (fleet vs node, different domains): zero
 pub fn topological_distance(a: &ClaimScope, b: &ClaimScope) -> u8 {
-    match (a, b) {
-        // Exact same file.
-        (ClaimScope::File { path: pa }, ClaimScope::File { path: pb }) if pa == pb => 0,
-        // Same module, different files.
-        (
-            ClaimScope::Module { crate_name: ca, module_path: ma },
-            ClaimScope::File { path: pb },
-        )
-        | (
-            ClaimScope::File { path: pb },
-            ClaimScope::Module { crate_name: ca, module_path: ma },
-        ) if pb.contains(&format!("{}/src/{}/", ca, ma))
-            || pb.contains(&format!("{}/{}/", ca, ma)) =>
-        {
-            1
-        }
-        (
-            ClaimScope::Module { crate_name: ca, module_path: ma },
-            ClaimScope::Module { crate_name: cb, module_path: mb },
-        ) if ca == cb && ma == mb => 0,
-        // Same module in same crate, different sub-path.
-        (
-            ClaimScope::Module { crate_name: ca, .. },
-            ClaimScope::Module { crate_name: cb, .. },
-        ) if ca == cb => 1,
-        // Different modules in same crate.
-        (ClaimScope::Crate { crate_name: ca }, ClaimScope::Crate { crate_name: cb })
-            if ca == cb =>
-        {
-            0
-        }
-        (
-            ClaimScope::Crate { crate_name: ca },
-            ClaimScope::Module { crate_name: cb, .. },
-        )
-        | (
-            ClaimScope::Module { crate_name: cb, .. },
-            ClaimScope::Crate { crate_name: ca },
-        ) if ca == cb => 2,
-        (ClaimScope::Crate { crate_name: ca }, ClaimScope::File { path: pb })
-        | (ClaimScope::File { path: pb }, ClaimScope::Crate { crate_name: ca })
-            if pb.contains(ca.as_str()) =>
-        {
-            2
-        }
-        // Different crates — same workspace.
-        (ClaimScope::Crate { .. }, ClaimScope::Crate { .. })
-        | (ClaimScope::Crate { .. }, ClaimScope::Module { .. })
-        | (ClaimScope::Module { .. }, ClaimScope::Crate { .. })
-        | (ClaimScope::Crate { .. }, ClaimScope::File { .. })
-        | (ClaimScope::File { .. }, ClaimScope::Crate { .. })
-        | (ClaimScope::Module { .. }, ClaimScope::File { .. })
-        | (ClaimScope::File { .. }, ClaimScope::Module { .. }) => 3,
-        // Fleet or Node scopes — fully disjoint for workspace purposes.
-        _ => u8::MAX,
+    if a == b {
+        return 0;
+    }
+
+    let loc_a = locate_scope(a);
+    let loc_b = locate_scope(b);
+
+    match (loc_a.crate_name, loc_b.crate_name) {
+        (Some(ca), Some(cb)) if ca == cb => match (loc_a.module_path, loc_b.module_path) {
+            (Some(ma), Some(mb)) if ma == mb => 1,
+            (Some(_), Some(_)) => 2,
+            _ => 1,
+        },
+        (Some(_), Some(_)) => 3,
+        _ => match (a, b) {
+            (ClaimScope::Fleet, ClaimScope::Fleet) => 0,
+            (ClaimScope::Node { node_id: na }, ClaimScope::Node { node_id: nb }) if na == nb => 0,
+            _ => u8::MAX,
+        },
     }
 }
 
 /// Whether two magnetized claims physically collide (hard exclusion).
 ///
 /// Collision = both claims are magnetized AND in Crystallization phase AND
-/// topological distance is 0 (same file / same module). RFC-001 INV-02.
+/// topological distance is <= 1 (same file or same module). RFC-001 INV-02.
 pub fn claims_collide(a: &Claim, b: &Claim, now_unix_ms: u64) -> bool {
     is_magnetized(a, now_unix_ms)
         && is_magnetized(b, now_unix_ms)
         && matches!(a.phase, AgentPhase::Crystallization)
         && matches!(b.phase, AgentPhase::Crystallization)
-        && topological_distance(&a.request.scope, &b.request.scope) == 0
+        && topological_distance(&a.request.scope, &b.request.scope) <= 1
 }
 
 #[cfg(test)]
@@ -178,6 +213,7 @@ mod tests {
             max_lease_window_ms: 3600000,
             status: ClaimStatus::Active,
             preempted_by: None,
+            phase: AgentPhase::Exploration,
             consumed: AgentBudgets::default(),
         }
     }
@@ -290,5 +326,186 @@ mod tests {
             wall_seconds: 0,
         };
         assert!(!budget_within_granted(&over));
+    }
+
+    // ── RFC-001 Verification & Property Tests ───────────────────────────────
+
+    #[test]
+    fn test_topological_distance_matrix() {
+        // d = 0: exact same file or scope
+        let f1 = ClaimScope::File {
+            path: "crates/cynic-protocol/src/agent_coordination/predicates.rs".to_string(),
+        };
+        assert_eq!(topological_distance(&f1, &f1), 0);
+
+        let m1 = ClaimScope::Module {
+            crate_name: "cynic-protocol".to_string(),
+            module_path: "agent_coordination".to_string(),
+        };
+        assert_eq!(topological_distance(&m1, &m1), 0);
+
+        // d = 1: different files in same module directory
+        let f2 = ClaimScope::File {
+            path: "crates/cynic-protocol/src/agent_coordination/mod.rs".to_string(),
+        };
+        assert_eq!(topological_distance(&f1, &f2), 1);
+        assert_eq!(topological_distance(&m1, &f1), 1);
+
+        // d = 2: different modules within same crate
+        let m2 = ClaimScope::Module {
+            crate_name: "cynic-protocol".to_string(),
+            module_path: "memory".to_string(),
+        };
+        assert_eq!(topological_distance(&m1, &m2), 2);
+
+        let f_diff_mod = ClaimScope::File {
+            path: "crates/cynic-protocol/src/memory.rs".to_string(),
+        };
+        assert_eq!(topological_distance(&f1, &f_diff_mod), 2);
+
+        // d = 3: different crates in same workspace
+        let f_diff_crate = ClaimScope::File {
+            path: "crates/cynic-kernel/src/lib.rs".to_string(),
+        };
+        assert_eq!(topological_distance(&f1, &f_diff_crate), 3);
+
+        // d = u8::MAX: disjoint scopes
+        let f_infra = ClaimScope::File {
+            path: "infra/DEBT_TAXONOMY.md".to_string(),
+        };
+        assert_eq!(topological_distance(&f1, &f_infra), u8::MAX);
+        assert_eq!(topological_distance(&ClaimScope::Fleet, &f1), u8::MAX);
+    }
+
+    #[test]
+    fn test_test_01_topological_exclusion() {
+        // RFC-001 §5 Test-01:
+        // Disjoint modules (d=2) coexist in Crystallization phase.
+        let mut claim_a = make_claim(
+            ClaimScope::Module {
+                crate_name: "cynic-protocol".to_string(),
+                module_path: "agent_coordination".to_string(),
+            },
+            ClaimType::Exclusive,
+        );
+        claim_a.phase = AgentPhase::Crystallization;
+
+        let mut claim_b = make_claim(
+            ClaimScope::Module {
+                crate_name: "cynic-protocol".to_string(),
+                module_path: "memory".to_string(),
+            },
+            ClaimType::Exclusive,
+        );
+        claim_b.phase = AgentPhase::Crystallization;
+
+        assert_eq!(
+            topological_distance(&claim_a.request.scope, &claim_b.request.scope),
+            2
+        );
+        assert!(!claims_collide(&claim_a, &claim_b, 2000));
+
+        // Same file (d=0) collides in Crystallization phase.
+        let mut claim_same_file = make_claim(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
+            },
+            ClaimType::Exclusive,
+        );
+        claim_same_file.phase = AgentPhase::Crystallization;
+
+        let mut claim_same_file_2 = make_claim(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
+            },
+            ClaimType::Exclusive,
+        );
+        claim_same_file_2.phase = AgentPhase::Crystallization;
+
+        assert_eq!(
+            topological_distance(
+                &claim_same_file.request.scope,
+                &claim_same_file_2.request.scope
+            ),
+            0
+        );
+        assert!(claims_collide(&claim_same_file, &claim_same_file_2, 2000));
+
+        // Same file does NOT collide if either agent is in Exploration phase.
+        claim_same_file_2.phase = AgentPhase::Exploration;
+        assert!(!claims_collide(&claim_same_file, &claim_same_file_2, 2000));
+    }
+
+    #[test]
+    fn test_test_02_passive_demagnetization() {
+        // RFC-001 §5 Test-02:
+        // An active claim whose timestamp is older than expires_at_unix_ms is inert.
+        let mut claim = make_claim(
+            ClaimScope::File {
+                path: "crates/cynic-protocol/src/lib.rs".to_string(),
+            },
+            ClaimType::Exclusive,
+        );
+        claim.phase = AgentPhase::Crystallization;
+        claim.status = ClaimStatus::Active;
+        claim.granted_at_unix_ms = 1000;
+        claim.expires_at_unix_ms = 5000;
+
+        // At t=4999, claim is active and magnetized.
+        assert!(is_magnetized(&claim, 4999));
+
+        // At t=5000, claim is passively demagnetized without mutating status field.
+        assert!(!is_magnetized(&claim, 5000));
+
+        // Incoming colliding claim at t=5000 experiences zero repulsion.
+        let mut incoming = claim.clone();
+        incoming.claim_id = "incoming".to_string();
+        assert!(!claims_collide(&claim, &incoming, 5000));
+    }
+
+    #[test]
+    fn test_test_03_monotonic_budget_invariant() {
+        // RFC-001 §5 Test-03:
+        // A parent with 20 remaining actions attempting to allocate 25 is rejected.
+        let mut parent = make_claim(ClaimScope::Fleet, ClaimType::Exclusive);
+        parent.request.budget = AgentBudgets {
+            actions: 50,
+            wall_seconds: 3600,
+        };
+        parent.consumed = AgentBudgets {
+            actions: 30,
+            wall_seconds: 1200,
+        };
+        assert_eq!(parent.remaining_budget().actions, 20);
+
+        use crate::agent_coordination::{AGENT_FIELD_ENVELOPE_SCHEMA, AgentFieldEnvelope};
+
+        let excessive_child = AgentFieldEnvelope {
+            schema: AGENT_FIELD_ENVELOPE_SCHEMA.to_string(),
+            envelope_id: "env_child_001".to_string(),
+            parent_agent_id: "test".to_string(),
+            parent_claim_id: "claim_test".to_string(),
+            recursion_depth: 1,
+            intent_vector: "Solve subtask".to_string(),
+            invariant_constraints: vec![],
+            output_schema: "output.v1".to_string(),
+            budget: AgentBudgets {
+                actions: 25,
+                wall_seconds: 600,
+            },
+            permitted_scopes: vec![],
+            forbidden_scopes: vec![],
+            deadline_unix_ms: 10000,
+        };
+
+        let result = excessive_child.validate_against_parent(&parent);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.contains(&"child_budget_actions_exceeds_parent".to_string()));
+
+        // Valid child within 20 remaining actions passes.
+        let mut valid_child = excessive_child.clone();
+        valid_child.budget.actions = 20;
+        assert!(valid_child.validate_against_parent(&parent).is_ok());
     }
 }

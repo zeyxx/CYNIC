@@ -18,7 +18,7 @@
         "kind": "file",
         "path": "infra/DEBT_TAXONOMY.md"
       },
-      "status": "active",
+      "status": "expired",
       "temporal": {
         "started_at_unix_s": 1724000000,
         "ttl_seconds": 1800
@@ -42,7 +42,7 @@
         "kind": "crate",
         "path": "crates/cynic-host"
       },
-      "status": "active",
+      "status": "expired",
       "temporal": {
         "started_at_unix_s": 1789052910,
         "ttl_seconds": 3600
@@ -66,7 +66,7 @@
         "kind": "crate",
         "path": "crates/cynic-protocol"
       },
-      "status": "active",
+      "status": "expired",
       "temporal": {
         "started_at_unix_s": 1788456951,
         "ttl_seconds": 1800
@@ -90,7 +90,7 @@
         "kind": "crate",
         "path": "crates/cynic-node"
       },
-      "status": "active",
+      "status": "expired",
       "temporal": {
         "started_at_unix_s": 1789054875,
         "ttl_seconds": 3600
@@ -114,7 +114,7 @@
         "kind": "crate",
         "path": "crates/cynic-kernel"
       },
-      "status": "active",
+      "status": "expired",
       "temporal": {
         "started_at_unix_s": 1789052910,
         "ttl_seconds": 3600
@@ -122,6 +122,6 @@
     }
   ],
   "merge_queue": [],
-  "revision": 42,
+  "revision": 43,
   "schema": "cynic.agent_claims.v2"
 }
