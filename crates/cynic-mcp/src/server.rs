@@ -116,6 +116,42 @@ impl CynicMcpServer {
             .map(Json)
             .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))
     }
+
+    /// Read the placement registry (`infra/registry.json`) and return it as
+    /// observed. Desired state, not liveness: node `status` values come from
+    /// the file, and only read-back proof promotes them.
+    #[tool(
+        name = "infra_registry_read",
+        description = "Read the placement registry as observed on disk"
+    )]
+    fn infra_registry_read(&self) -> Result<Json<serde_json::Value>, ErrorData> {
+        read_registry().map(Json)
+    }
+
+    /// Validate the placement registry structure: schema marker, node
+    /// identity/role, service names, and network plane CIDRs. Structural
+    /// validation of desired state — not a liveness proof.
+    #[tool(
+        name = "infra_registry_validate",
+        description = "Validate the placement registry structure"
+    )]
+    fn infra_registry_validate(&self) -> Result<Json<serde_json::Value>, ErrorData> {
+        let registry = read_registry()?;
+        Ok(Json(validate_registry(&registry)))
+    }
+
+    /// Check IP address management coherence from the placement registry:
+    /// every assigned address must fall inside its plane CIDR, and no two
+    /// owners may claim the same address in the same plane. Pure
+    /// reconciliation over observed desired state — no packets sent.
+    #[tool(
+        name = "network_ipam_check",
+        description = "Check IPAM coherence of assigned addresses against plane CIDRs"
+    )]
+    fn network_ipam_check(&self) -> Result<Json<serde_json::Value>, ErrorData> {
+        let registry = read_registry()?;
+        Ok(Json(check_ipam(&registry)))
+    }
 }
 
 /// Contract files inventoried by `cynic_api_contracts`, relative to the
@@ -247,6 +283,223 @@ fn decide_harness_progression(
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))
 }
 
+fn read_registry() -> Result<serde_json::Value, ErrorData> {
+    let root = crate::resolve_workspace_root().map_err(|error| {
+        ErrorData::internal_error(format!("workspace root unobserved: {error}"), None)
+    })?;
+    let content = std::fs::read_to_string(root.join("infra/registry.json")).map_err(|error| {
+        ErrorData::internal_error(format!("registry unreadable: {error}"), None)
+    })?;
+    serde_json::from_str(&content)
+        .map_err(|error| ErrorData::internal_error(format!("registry invalid JSON: {error}"), None))
+}
+
+fn validate_registry(registry: &serde_json::Value) -> serde_json::Value {
+    let mut errors: Vec<String> = Vec::new();
+    if registry
+        .get("schema")
+        .and_then(|schema| schema.as_str())
+        .is_none()
+    {
+        errors.push("missing schema marker".to_string());
+    }
+    let nodes = registry.get("nodes").and_then(|nodes| nodes.as_array());
+    match nodes {
+        None => errors.push("missing nodes array".to_string()),
+        Some(nodes) => {
+            for (index, node) in nodes.iter().enumerate() {
+                for field in ["id", "role", "status"] {
+                    if node.get(field).and_then(|value| value.as_str()).is_none() {
+                        errors.push(format!("nodes[{index}] missing {field}"));
+                    }
+                }
+                if let Some(services) = node
+                    .get("services")
+                    .and_then(|services| services.as_array())
+                {
+                    for (service_index, service) in services.iter().enumerate() {
+                        if service.get("name").and_then(|name| name.as_str()).is_none() {
+                            errors.push(format!(
+                                "nodes[{index}].services[{service_index}] missing name"
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let Some(planes) = registry
+        .get("network_policy")
+        .and_then(|policy| policy.get("planes"))
+        .and_then(|planes| planes.as_object())
+    {
+        for (plane, descriptor) in planes {
+            match descriptor.get("cidr").and_then(|cidr| cidr.as_str()) {
+                None => errors.push(format!("network_policy.planes.{plane} missing cidr")),
+                Some(cidr) => {
+                    if parse_cidr(cidr).is_none() {
+                        errors.push(format!("network_policy.planes.{plane} invalid cidr {cidr}"));
+                    }
+                }
+            }
+        }
+    }
+    serde_json::json!({
+        "valid": errors.is_empty(),
+        "error_count": errors.len(),
+        "errors": errors,
+    })
+}
+
+/// One observed address assignment: which owner claims which IP in which plane.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IpAssignment {
+    owner: String,
+    plane: String,
+    ip: String,
+}
+
+fn parse_ipv4(text: &str) -> Option<u32> {
+    let mut address: u32 = 0;
+    let mut parts = 0;
+    for part in text.split('.') {
+        let octet: u32 = part.parse().ok()?;
+        if octet > 255 || parts == 4 {
+            return None;
+        }
+        address = (address << 8) | octet;
+        parts += 1;
+    }
+    (parts == 4).then_some(address)
+}
+
+fn parse_cidr(text: &str) -> Option<(u32, u32)> {
+    let (base, prefix) = text.split_once('/')?;
+    let prefix: u32 = prefix.parse().ok()?;
+    if prefix > 32 {
+        return None;
+    }
+    let network = parse_ipv4(base)?;
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u32::MAX << (32 - prefix)
+    };
+    Some((network & mask, mask))
+}
+
+fn collect_assignments(registry: &serde_json::Value) -> Vec<IpAssignment> {
+    let mut assignments = Vec::new();
+    if let Some(reservations) = registry
+        .get("network_policy")
+        .and_then(|policy| policy.get("reservations"))
+        .and_then(|reservations| reservations.as_array())
+    {
+        for reservation in reservations {
+            let owner = reservation
+                .get("name")
+                .and_then(|name| name.as_str())
+                .unwrap_or("unnamed_reservation");
+            for plane in ["management", "synapse"] {
+                if let Some(ip) = reservation.get(plane).and_then(|ip| ip.as_str()) {
+                    assignments.push(IpAssignment {
+                        owner: owner.to_string(),
+                        plane: plane.to_string(),
+                        ip: ip.to_string(),
+                    });
+                }
+            }
+        }
+    }
+    if let Some(nodes) = registry.get("nodes").and_then(|nodes| nodes.as_array()) {
+        for node in nodes {
+            let owner = node
+                .get("id")
+                .and_then(|id| id.as_str())
+                .unwrap_or("unnamed_node");
+            if let Some(network) = node.get("network").and_then(|network| network.as_object()) {
+                for (plane, ip) in network {
+                    if let Some(ip) = ip.as_str() {
+                        assignments.push(IpAssignment {
+                            owner: owner.to_string(),
+                            plane: plane.clone(),
+                            ip: ip.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    assignments
+}
+
+fn check_ipam(registry: &serde_json::Value) -> serde_json::Value {
+    let mut cidrs: std::collections::BTreeMap<String, (u32, u32)> =
+        std::collections::BTreeMap::new();
+    if let Some(planes) = registry
+        .get("network_policy")
+        .and_then(|policy| policy.get("planes"))
+        .and_then(|planes| planes.as_object())
+    {
+        for (plane, descriptor) in planes {
+            if let Some(cidr) = descriptor
+                .get("cidr")
+                .and_then(|cidr| cidr.as_str())
+                .and_then(parse_cidr)
+            {
+                cidrs.insert(plane.clone(), cidr);
+            }
+        }
+    }
+    let assignments = collect_assignments(registry);
+    let mut conflicts: Vec<String> = Vec::new();
+    let mut out_of_range: Vec<String> = Vec::new();
+    let mut seen: std::collections::BTreeMap<(String, String), String> =
+        std::collections::BTreeMap::new();
+    for assignment in &assignments {
+        let address = parse_ipv4(&assignment.ip);
+        match address {
+            None => out_of_range.push(format!(
+                "{} claims unparsable IP {} in plane {}",
+                assignment.owner, assignment.ip, assignment.plane
+            )),
+            Some(address) => {
+                match cidrs.get(&assignment.plane) {
+                    None => out_of_range.push(format!(
+                        "{} claims {} in plane {} without a declared CIDR",
+                        assignment.owner, assignment.ip, assignment.plane
+                    )),
+                    Some((network, mask)) => {
+                        if address & mask != *network {
+                            out_of_range.push(format!(
+                                "{} claims {} outside plane {} range",
+                                assignment.owner, assignment.ip, assignment.plane
+                            ));
+                        }
+                    }
+                }
+                let key = (assignment.plane.clone(), assignment.ip.clone());
+                if let Some(first) = seen.get(&key) {
+                    if first != &assignment.owner {
+                        conflicts.push(format!(
+                            "{} and {} both claim {} in plane {}",
+                            first, assignment.owner, assignment.ip, assignment.plane
+                        ));
+                    }
+                } else {
+                    seen.insert(key, assignment.owner.clone());
+                }
+            }
+        }
+    }
+    serde_json::json!({
+        "assignment_count": assignments.len(),
+        "conflicts": conflicts,
+        "out_of_range": out_of_range,
+        "coherent": conflicts.is_empty() && out_of_range.is_empty(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,6 +579,85 @@ mod tests {
             server
                 .cynic_agent_runtime_observe(Parameters(args))
                 .is_err()
+        );
+    }
+
+    fn fixture_registry() -> serde_json::Value {
+        serde_json::json!({
+            "schema": "cynic.registry.v1.minimal",
+            "network_policy": {
+                "planes": {
+                    "management": { "cidr": "192.168.100.0/24" },
+                    "synapse": { "cidr": "10.10.10.0/24" }
+                },
+                "reservations": [
+                    { "name": "a", "management": "192.168.100.1", "synapse": "10.10.10.1" },
+                    { "name": "b", "management": "192.168.100.2" }
+                ]
+            },
+            "nodes": [
+                { "id": "a", "role": "hypervisor", "status": "observed",
+                  "network": { "management": "192.168.100.1", "synapse": "10.10.10.1" } },
+                { "id": "b", "role": "builder", "status": "candidate",
+                  "services": [ { "name": "cynic-node" } ] }
+            ]
+        })
+    }
+
+    #[test]
+    fn validate_registry_accepts_fixture() {
+        let report = validate_registry(&fixture_registry());
+        assert_eq!(report.get("valid"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
+    fn validate_registry_reports_missing_schema() {
+        let report = validate_registry(&serde_json::json!({ "nodes": [] }));
+        assert_eq!(report.get("valid"), Some(&serde_json::Value::Bool(false)));
+    }
+
+    #[test]
+    fn ipam_accepts_coherent_fixture() {
+        let report = check_ipam(&fixture_registry());
+        assert_eq!(report.get("coherent"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
+    fn ipam_detects_duplicate_and_out_of_range() {
+        let mut registry = fixture_registry();
+        registry["network_policy"]["reservations"]
+            .as_array_mut()
+            .expect("reservations")
+            .push(serde_json::json!({ "name": "c", "management": "192.168.100.2" }));
+        registry["nodes"]
+            .as_array_mut()
+            .expect("nodes")
+            .push(serde_json::json!({
+                "id": "rogue", "role": "x", "status": "candidate",
+                "network": { "synapse": "11.0.0.9" }
+            }));
+        let report = check_ipam(&registry);
+        assert_eq!(
+            report.get("coherent"),
+            Some(&serde_json::Value::Bool(false))
+        );
+        let conflicts = report
+            .get("conflicts")
+            .and_then(|conflicts| conflicts.as_array())
+            .expect("conflicts");
+        assert!(conflicts.iter().any(|conflict| {
+            conflict
+                .as_str()
+                .is_some_and(|text| text.contains("192.168.100.2"))
+        }));
+        let out_of_range = report
+            .get("out_of_range")
+            .and_then(|items| items.as_array())
+            .expect("out_of_range");
+        assert!(
+            out_of_range
+                .iter()
+                .any(|item| item.as_str().is_some_and(|text| text.contains("11.0.0.9")))
         );
     }
 }
