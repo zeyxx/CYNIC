@@ -182,68 +182,65 @@ impl ProjectionCoordinatorPort for SqliteProjectionAdapter {
                 last_applied_sequence,
             } = &mut *state;
 
-            let tx_result = conn.transaction();
-            match tx_result {
-                Ok(tx) => {
-                    let mut state_tx = SqliteStateTransaction { tx: &tx };
-                    let apply_result = projectors[idx].apply(entry, &mut state_tx);
-
-                    match apply_result {
-                        Ok(()) => {
-                            // Update watermark atomically inside the transaction
-                            let watermark_res = tx.execute(
-                                "INSERT INTO _cynic_storage_watermark (id, last_applied_seq, last_entry_hash, updated_at_unix_ms)
-                                 VALUES (1, ?1, ?2, ?3)
-                                 ON CONFLICT(id) DO UPDATE SET
-                                     last_applied_seq = ?1,
-                                     last_entry_hash = ?2,
-                                     updated_at_unix_ms = ?3;",
-                                params![entry.sequence.0, entry.entry_hash.to_prefixed_hex(), now_ms],
-                            );
-
-                            if let Err(e) = watermark_res {
-                                return Err(StorageError::Io(format!(
-                                    "watermark update failed: {e}"
-                                )));
-                            }
-
-                            tx.commit()
-                                .map_err(|e| StorageError::Io(format!("tx commit failed: {e}")))?;
-                            *last_applied_sequence = entry.sequence;
-                            Ok(())
-                        }
-                        Err(e) => {
-                            // Projector failed: roll back and quarantine in DLQ
-                            drop(tx);
-                            tracing::error!(
-                                "Projector for schema {} failed at seq {}: {e}. Quarantining to DLQ.",
-                                entry.schema,
-                                entry.sequence.0
-                            );
-
-                            let dlq_res = conn.execute(
-                                "INSERT INTO _cynic_dlq (sequence, schema, entry_hash, error_reason, payload_bytes, quarantined_at_unix_ms)
-                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6);",
-                                params![
-                                    entry.sequence.0,
-                                    entry.schema,
-                                    entry.entry_hash.to_prefixed_hex(),
-                                    e.to_string(),
-                                    entry.payload.as_ref(),
-                                    now_ms,
-                                ],
-                            );
-
-                            if let Err(dlq_err) = dlq_res {
-                                tracing::error!("Failed to record in DLQ: {dlq_err}");
-                            }
-
-                            // Do NOT brick the node on projection error
-                            Ok(())
-                        }
+            let apply_outcome = {
+                let tx = conn
+                    .transaction()
+                    .map_err(|e| StorageError::Io(format!("failed to open transaction: {e}")))?;
+                let mut state_tx = SqliteStateTransaction { tx: &tx };
+                let apply_result = projectors[idx].apply(entry, &mut state_tx);
+                if apply_result.is_ok() {
+                    let watermark_res = tx.execute(
+                        "INSERT INTO _cynic_storage_watermark (id, last_applied_seq, last_entry_hash, updated_at_unix_ms)
+                         VALUES (1, ?1, ?2, ?3)
+                         ON CONFLICT(id) DO UPDATE SET
+                             last_applied_seq = ?1,
+                             last_entry_hash = ?2,
+                             updated_at_unix_ms = ?3;",
+                        params![entry.sequence.0, entry.entry_hash.to_prefixed_hex(), now_ms],
+                    );
+                    if let Err(e) = watermark_res {
+                        return Err(StorageError::Io(format!("watermark update failed: {e}")));
                     }
+                    tx.commit()
+                        .map_err(|e| StorageError::Io(format!("tx commit failed: {e}")))?;
+                    Ok(())
+                } else {
+                    Err(apply_result.unwrap_err())
                 }
-                Err(e) => Err(StorageError::Io(format!("failed to open transaction: {e}"))),
+            };
+
+            match apply_outcome {
+                Ok(()) => {
+                    *last_applied_sequence = entry.sequence;
+                    Ok(())
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "Projector for schema {} failed at seq {}: {e}. Quarantining to DLQ.",
+                        entry.schema,
+                        entry.sequence.0
+                    );
+
+                    let dlq_res = conn.execute(
+                        "INSERT INTO _cynic_dlq (sequence, schema, entry_hash, error_reason, payload_bytes, quarantined_at_unix_ms)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6);",
+                        params![
+                            entry.sequence.0,
+                            entry.schema,
+                            entry.entry_hash.to_prefixed_hex(),
+                            e.to_string(),
+                            entry.payload.as_ref(),
+                            now_ms,
+                        ],
+                    );
+
+                    if let Err(dlq_err) = dlq_res {
+                        tracing::error!("Failed to record in DLQ: {dlq_err}");
+                    }
+
+                    // Do NOT brick the node on projection error
+                    Ok(())
+                }
             }
         } else {
             // Unhandled schema: update watermark and skip cleanly
