@@ -176,11 +176,17 @@ impl ProjectionCoordinatorPort for SqliteProjectionAdapter {
             .unwrap_or(0);
 
         if let Some(idx) = matching_idx {
-            let tx_result = state.conn.transaction();
+            let SqliteProjectionState {
+                conn,
+                projectors,
+                last_applied_sequence,
+            } = &mut *state;
+
+            let tx_result = conn.transaction();
             match tx_result {
                 Ok(tx) => {
                     let mut state_tx = SqliteStateTransaction { tx: &tx };
-                    let apply_result = state.projectors[idx].apply(entry, &mut state_tx);
+                    let apply_result = projectors[idx].apply(entry, &mut state_tx);
 
                     match apply_result {
                         Ok(()) => {
@@ -203,7 +209,7 @@ impl ProjectionCoordinatorPort for SqliteProjectionAdapter {
 
                             tx.commit()
                                 .map_err(|e| StorageError::Io(format!("tx commit failed: {e}")))?;
-                            state.last_applied_sequence = entry.sequence;
+                            *last_applied_sequence = entry.sequence;
                             Ok(())
                         }
                         Err(e) => {
@@ -215,7 +221,7 @@ impl ProjectionCoordinatorPort for SqliteProjectionAdapter {
                                 entry.sequence.0
                             );
 
-                            let dlq_res = state.conn.execute(
+                            let dlq_res = conn.execute(
                                 "INSERT INTO _cynic_dlq (sequence, schema, entry_hash, error_reason, payload_bytes, quarantined_at_unix_ms)
                                  VALUES (?1, ?2, ?3, ?4, ?5, ?6);",
                                 params![
