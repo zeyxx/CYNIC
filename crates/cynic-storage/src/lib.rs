@@ -9,7 +9,9 @@
 
 pub mod error;
 pub mod ports;
+pub mod projection;
 pub mod types;
+pub mod vector;
 pub mod wal;
 
 pub use error::StorageError;
@@ -17,11 +19,13 @@ pub use ports::{
     DomainProjector, ProjectionCoordinatorPort, StateTransaction, StoragePort, VectorStorePort,
     WalJournalPort,
 };
+pub use projection::SqliteProjectionAdapter;
 pub use types::{
     AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
     WalAppendInput, WalEntry, WalReceipt,
 };
+pub use vector::SimdVectorAdapter;
 pub use wal::WalFsAdapter;
 
 #[cfg(test)]

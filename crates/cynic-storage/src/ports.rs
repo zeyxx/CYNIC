@@ -27,6 +27,11 @@ pub trait WalJournalPort: Send + Sync {
 /// Abstract state transaction boundary for projecting views into embedded stores.
 pub trait StateTransaction {
     fn execute_statement(&mut self, statement: &str) -> Result<(), StorageError>;
+    fn execute_sql(
+        &mut self,
+        sql: &str,
+        params: &[&(dyn rusqlite::ToSql + Sync)],
+    ) -> Result<usize, StorageError>;
 }
 
 /// Bounded-context projection reducer.
