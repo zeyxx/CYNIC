@@ -17,9 +17,9 @@ pub use ports::{
     WalJournalPort,
 };
 pub use types::{
-    CausalWitness, DistanceMetric, Hash512, IntegrityReport, MetadataTensor, OpaqueEnvelope,
-    PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding, WalAppendInput, WalEntry,
-    WalReceipt,
+    AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
+    MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
+    WalAppendInput, WalEntry, WalReceipt,
 };
 
 #[cfg(test)]
@@ -78,5 +78,18 @@ mod tests {
             Some("architect")
         );
         assert_eq!(tensor.residual_unknowns.len(), 1);
+    }
+
+    #[test]
+    fn compact_metadata_tensor_stack_inlined() {
+        let mut tensor = CompactMetadataTensor::new(1, Hash512::GENESIS);
+        tensor.insert_continuous(0x0001, 14.2);
+        tensor.insert_continuous(0x0002, 0.95);
+        tensor.discrete_keys.push(0x0010);
+        tensor.discrete_vals.push("crystallization".to_string());
+
+        assert_eq!(tensor.continuous_keys.len(), 2);
+        assert_eq!(tensor.continuous_vals[0], 14.2);
+        assert_eq!(tensor.discrete_vals[0], "crystallization");
     }
 }

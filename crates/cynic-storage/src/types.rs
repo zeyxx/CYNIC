@@ -86,6 +86,7 @@ pub struct WalEntry {
     pub sequence: SequenceNumber,
     pub poh_tick: PoHTick,
     pub previous_hash: Hash512,
+    pub commit_hash: Hash512,
     pub entry_hash: Hash512,
     pub schema: String,
     pub payload: Bytes,
@@ -154,6 +155,45 @@ impl MetadataTensor {
             continuous_axes: BTreeMap::new(),
             discrete_axes: BTreeMap::new(),
             residual_unknowns: Vec::new(),
+        }
+    }
+}
+
+/// 2-byte interned token representing a known metadata axis dimension.
+pub type AxisToken = u16;
+
+/// High-throughput zero-heap-allocation metadata tensor.
+/// Inlines up to 8 continuous axes, 6 discrete string values, and 4 unknowns on the stack.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompactMetadataTensor {
+    pub schema_token: AxisToken,
+    pub causal_anchor: Hash512,
+    pub continuous_keys: smallvec::SmallVec<[AxisToken; 8]>,
+    pub continuous_vals: smallvec::SmallVec<[f64; 8]>,
+    pub discrete_keys: smallvec::SmallVec<[AxisToken; 6]>,
+    pub discrete_vals: smallvec::SmallVec<[String; 6]>,
+    pub residual_unknowns: smallvec::SmallVec<[AxisToken; 4]>,
+}
+
+impl CompactMetadataTensor {
+    pub fn new(schema_token: AxisToken, causal_anchor: Hash512) -> Self {
+        Self {
+            schema_token,
+            causal_anchor,
+            continuous_keys: smallvec::SmallVec::new(),
+            continuous_vals: smallvec::SmallVec::new(),
+            discrete_keys: smallvec::SmallVec::new(),
+            discrete_vals: smallvec::SmallVec::new(),
+            residual_unknowns: smallvec::SmallVec::new(),
+        }
+    }
+
+    pub fn insert_continuous(&mut self, token: AxisToken, val: f64) {
+        if let Some(pos) = self.continuous_keys.iter().position(|&k| k == token) {
+            self.continuous_vals[pos] = val;
+        } else {
+            self.continuous_keys.push(token);
+            self.continuous_vals.push(val);
         }
     }
 }
