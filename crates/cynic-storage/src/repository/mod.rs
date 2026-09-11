@@ -13,7 +13,7 @@ use serde::de::DeserializeOwned;
 use std::sync::Arc;
 
 use crate::error::StorageError;
-use crate::ports::{DomainProjector, StateTransaction, WalJournalPort};
+use crate::ports::{DomainProjector, ProjectionCoordinatorPort, StateTransaction, WalJournalPort};
 use crate::projection::SqliteProjectionAdapter;
 use crate::types::{CausalWitness, SequenceNumber, WalAppendInput, WalEntry, WalReceipt};
 
@@ -277,7 +277,7 @@ impl StorageAggregate for cynic_protocol::runtime::RuntimeProof {
         cynic_protocol::runtime::RUNTIME_PROOF_SCHEMA
     }
     fn aggregate_id(&self) -> &str {
-        &self.source_commit
+        &self.gate
     }
 }
 
