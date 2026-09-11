@@ -2,16 +2,14 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::rust_source::{line_count, relative_to_workspace, rust_files_under, workspace_root};
+use crate::rust_source::{
+    line_count, relative_to_workspace, rust_files_under, workspace_crate_names, workspace_root,
+};
 
-const CORE_CRATES: &[(&str, usize, usize)] = &[
-    ("cynic-cli", 300, 220),
-    ("cynic-host", 300, 220),
-    ("cynic-node", 300, 220),
-    ("cynic-inference", 300, 220),
-    ("cynic-kernel", 300, 220),
-    ("cynic-protocol", 300, 220),
-];
+/// Entrypoint bounds policy: uniform for every workspace member. Which crates
+/// exist is observed from the workspace — never a hardcoded table.
+const DEFAULT_MAIN_THRESHOLD: usize = 300;
+const DEFAULT_LIB_THRESHOLD: usize = 220;
 
 const HOTSPOT_LINE_THRESHOLD: usize = 400;
 
@@ -28,7 +26,7 @@ pub(crate) struct CrateAuditReport {
 
 #[derive(Serialize)]
 pub(crate) struct CrateAuditEntry {
-    pub(crate) crate_name: &'static str,
+    pub(crate) crate_name: String,
     pub(crate) status: &'static str,
     pub(crate) crate_root: String,
     pub(crate) rust_file_count: usize,
@@ -61,11 +59,9 @@ pub(crate) struct CrateAuditCheck {
 }
 
 pub(crate) fn audit_core_crates() -> CrateAuditReport {
-    let crates = CORE_CRATES
+    let crates = workspace_crate_names()
         .iter()
-        .map(|(name, main_threshold, lib_threshold)| {
-            audit_crate(name, *main_threshold, *lib_threshold)
-        })
+        .map(|name| audit_crate(name, DEFAULT_MAIN_THRESHOLD, DEFAULT_LIB_THRESHOLD))
         .collect::<Vec<_>>();
     let ok_count = crates.iter().filter(|entry| entry.status == "ok").count();
     let blocked_count = crates.len().saturating_sub(ok_count);
@@ -80,11 +76,7 @@ pub(crate) fn audit_core_crates() -> CrateAuditReport {
     }
 }
 
-fn audit_crate(
-    crate_name: &'static str,
-    main_threshold: usize,
-    lib_threshold: usize,
-) -> CrateAuditEntry {
+fn audit_crate(crate_name: &str, main_threshold: usize, lib_threshold: usize) -> CrateAuditEntry {
     let crate_root = workspace_root().join("crates").join(crate_name);
     let rust_files = rust_files_under(&crate_root);
     let has_architecture_boundary_test = crate_root.join("tests/architecture_boundary.rs").exists();
@@ -153,7 +145,7 @@ fn audit_crate(
         "blocked"
     };
     CrateAuditEntry {
-        crate_name,
+        crate_name: crate_name.to_string(),
         status,
         crate_root: crate_root.display().to_string(),
         rust_file_count: rust_files.len(),

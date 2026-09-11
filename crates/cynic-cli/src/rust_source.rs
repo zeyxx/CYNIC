@@ -47,6 +47,30 @@ fn is_workspace_root(path: &Path) -> bool {
         && path.join("infra/registry.json").is_file()
 }
 
+/// Canonical workspace crate inventory, OBSERVED from `crates/*/Cargo.toml` —
+/// never a hardcoded list. Adding or removing a crate directory updates every
+/// audit scan automatically. `cynic-protocol` first (protocol_is_pure law:
+/// wire contracts home), remainder sorted. Entries without a `Cargo.toml`
+/// are not workspace members and are excluded.
+pub(crate) fn workspace_crate_names() -> Vec<String> {
+    let crates_root = workspace_root().join("crates");
+    let Ok(entries) = std::fs::read_dir(&crates_root) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_str()?.to_string();
+            entry.path().join("Cargo.toml").is_file().then_some(name)
+        })
+        .collect();
+    names.sort();
+    if let Some(position) = names.iter().position(|name| name == "cynic-protocol") {
+        let protocol = names.remove(position);
+        names.insert(0, protocol);
+    }
+    names
+}
 pub(crate) fn relative_to_workspace(path: &Path) -> String {
     relative_path(&workspace_root(), path)
 }
@@ -100,5 +124,22 @@ mod tests {
         let root = resolve_workspace_root(None).expect("workspace root");
         assert!(root.join("contracts/foundation.json").is_file());
         assert!(root.join("infra/registry.json").is_file());
+    }
+
+    #[test]
+    fn crate_inventory_is_observed_not_hardcoded() {
+        let names = workspace_crate_names();
+        assert!(names.contains(&"cynic-protocol".to_string()));
+        assert!(names.contains(&"cynic-cli".to_string()));
+        assert_eq!(names[0], "cynic-protocol");
+        assert!(!names.iter().any(|name| name == "cynic-askesis"));
+        assert!(!names.iter().any(|name| name == "cynic-mcp"));
+        let mut sorted = names.clone();
+        sorted.sort();
+        if let Some(position) = sorted.iter().position(|name| name == "cynic-protocol") {
+            let protocol = sorted.remove(position);
+            sorted.insert(0, protocol);
+        }
+        assert_eq!(names, sorted);
     }
 }

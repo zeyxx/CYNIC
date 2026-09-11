@@ -12,29 +12,13 @@ const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.c
 const CANONICAL_GATE: &str = "cynic dev check (native)";
 const ARCHITECTURE_BOUNDARY_GATE: &str = "cargo test -q -p cynic-cli --test architecture_boundary";
 
-/// Native canonical crate order. Dependency direction, workspace members only.
-/// cynic-askesis is excluded: the directory does not exist (contract drift,
-/// see runtime-authority audit). cynic-mcp is excluded: no such workspace
-/// member. This list must stay aligned with Cargo.toml workspace members.
-
-/// Dependency-ordered validation layers. Each layer is checked and tested in
-/// isolation before the next, so a break in one crate does not mask or cascade
-/// into the others. Order = compilation/dependency direction.
-const NATIVE_CHECK_CRATES: &[&str] = &[
-    "cynic-protocol",
-    "cynic-host",
-    "cynic-node",
-    "cynic-kernel",
-    "cynic-cli",
-    "cynic-inference",
-];
-const LAYER_ORDER: &[&str] = &[
-    "cynic-protocol",
-    "cynic-host",
-    "cynic-node",
-    "cynic-kernel",
-    "cynic-cli",
-];
+/// Native canonical crate order: every observed workspace member,
+/// `cynic-protocol` first. The gate covers the whole workspace — an
+/// experimental crate that stops compiling fails here honestly instead of
+/// rotting behind a hardcoded baseline list.
+fn native_check_crates() -> Vec<String> {
+    crate::rust_source::workspace_crate_names()
+}
 const CACHE_INTEGRITY_STEP_ID: &str = "cache_integrity_offline_locked";
 
 #[derive(Debug, Serialize)]
@@ -96,7 +80,7 @@ pub(crate) struct CargoTargetPolicy {
 struct DevCheckStep {
     id: String,
     program: &'static str,
-    args: Vec<&'static str>,
+    args: Vec<String>,
     target_dir: Option<PathBuf>,
 }
 
@@ -261,11 +245,11 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
                 args: vec![],
                 target_dir: None,
             }];
-            for krate in NATIVE_CHECK_CRATES {
+            for krate in native_check_crates() {
                 steps.push(DevCheckStep {
                     id: format!("cargo_check_{}", krate.replace('-', "_")),
                     program: "cargo",
-                    args: vec!["check", "-p", krate],
+                    args: vec!["check".to_string(), "-p".to_string(), krate],
                     target_dir: Some(target_root.join("native_check")),
                 });
             }
@@ -279,12 +263,12 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
                 id: "installed_runtime".to_string(),
                 program: "cargo",
                 args: vec![
-                    "test",
-                    "-q",
-                    "-p",
-                    "cynic-cli",
-                    "--test",
-                    "installed_runtime",
+                    "test".to_string(),
+                    "-q".to_string(),
+                    "-p".to_string(),
+                    "cynic-cli".to_string(),
+                    "--test".to_string(),
+                    "installed_runtime".to_string(),
                 ],
                 target_dir: Some(target_root.join("installed_runtime")),
             });
@@ -300,14 +284,20 @@ fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
             let mut steps = vec![DevCheckStep {
                 id: CACHE_INTEGRITY_STEP_ID.to_string(),
                 program: "cargo",
-                args: vec!["metadata", "--offline", "--locked", "--format-version", "1"],
+                args: vec![
+                    "metadata".to_string(),
+                    "--offline".to_string(),
+                    "--locked".to_string(),
+                    "--format-version".to_string(),
+                    "1".to_string(),
+                ],
                 target_dir: Some(target_root.join("cache_integrity")),
             }];
-            for layer in LAYER_ORDER {
+            for layer in native_check_crates() {
                 steps.push(DevCheckStep {
                     id: format!("check_layer_{}", layer),
                     program: "cargo",
-                    args: vec!["check", "-p", layer],
+                    args: vec!["check".to_string(), "-p".to_string(), layer.clone()],
                     target_dir: Some(target_root.join(format!("layer_{}", layer))),
                 });
             }
@@ -321,12 +311,12 @@ fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
         id: id.clone(),
         program: "cargo",
         args: vec![
-            "test",
-            "-q",
-            "-p",
-            "cynic-cli",
-            "--test",
-            "architecture_boundary",
+            "test".to_string(),
+            "-q".to_string(),
+            "-p".to_string(),
+            "cynic-cli".to_string(),
+            "--test".to_string(),
+            "architecture_boundary".to_string(),
         ],
         target_dir: Some(target_root.join(&id)),
     }
@@ -340,7 +330,7 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
         return run_native_surface_audit(workspace_root, step);
     }
     let command = std::iter::once(step.program.to_string())
-        .chain(step.args.iter().map(|arg| (*arg).to_string()))
+        .chain(step.args.iter().cloned())
         .collect::<Vec<_>>();
     let mut env = vec![
         DevCheckEnv {
@@ -533,7 +523,7 @@ fn aggregate_canonical_steps(steps: &[DevCheckStepReport]) -> (bool, bool, bool)
     let authority_json_ok = by_id("authority_json")
         .map(|step| step.status == "ok")
         .unwrap_or(false);
-    let cargo_check_ok = NATIVE_CHECK_CRATES.iter().all(|krate| {
+    let cargo_check_ok = native_check_crates().iter().all(|krate| {
         let id = format!("cargo_check_{}", krate.replace('-', "_"));
         by_id(&id).map(|step| step.status == "ok").unwrap_or(false)
     });
@@ -618,7 +608,8 @@ mod tests {
             Path::new("/tmp/cynic-dev-check-targets"),
             &DevCheckMode::Canonical,
         );
-        assert_eq!(steps.len(), NATIVE_CHECK_CRATES.len() + 3);
+        let member_count = crate::rust_source::workspace_crate_names().len();
+        assert_eq!(steps.len(), member_count + 3);
         assert_eq!(steps[0].id, "authority_json");
         assert_eq!(steps[0].program, "native:authority_json");
         assert!(steps.iter().all(|step| step.program != "make"));
@@ -627,12 +618,23 @@ mod tests {
             .filter(|step| step.program == "cargo")
             .map(|step| step.id.as_str())
             .collect();
-        assert_eq!(cargo_ids.len(), NATIVE_CHECK_CRATES.len() + 1);
+        assert_eq!(cargo_ids.len(), member_count + 1);
         let last_native = steps
             .iter()
             .find(|step| step.id == "surface_audit")
             .expect("surface_audit step");
         assert_eq!(last_native.program, "native:surface_audit");
+    }
+
+    fn expected_architecture_boundary_args() -> Vec<String> {
+        vec![
+            "test".to_string(),
+            "-q".to_string(),
+            "-p".to_string(),
+            "cynic-cli".to_string(),
+            "--test".to_string(),
+            "architecture_boundary".to_string(),
+        ]
     }
 
     #[test]
@@ -644,17 +646,7 @@ mod tests {
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].id, "architecture_boundary_primary");
         assert_eq!(steps[0].program, "cargo");
-        assert_eq!(
-            steps[0].args,
-            vec![
-                "test",
-                "-q",
-                "-p",
-                "cynic-cli",
-                "--test",
-                "architecture_boundary"
-            ]
-        );
+        assert_eq!(steps[0].args, expected_architecture_boundary_args());
     }
 
     #[test]
@@ -674,17 +666,7 @@ mod tests {
         );
         assert_eq!(step.id, "architecture_boundary_fallback");
         assert_eq!(step.program, "cargo");
-        assert_eq!(
-            step.args,
-            vec![
-                "test",
-                "-q",
-                "-p",
-                "cynic-cli",
-                "--test",
-                "architecture_boundary"
-            ]
-        );
+        assert_eq!(step.args, expected_architecture_boundary_args());
         assert_eq!(
             step.target_dir,
             Some(PathBuf::from(

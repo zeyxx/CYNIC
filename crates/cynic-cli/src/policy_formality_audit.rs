@@ -11,19 +11,17 @@
 
 use serde::Serialize;
 
-use crate::rust_source::{relative_path, rust_files_under, workspace_root};
+use crate::rust_source::{relative_path, rust_files_under, workspace_crate_names, workspace_root};
 
-/// Crates searched after `cynic-protocol`, in priority order. Protocol hits are
-/// reported as canonical typed law; later hits as runtime-crate-only typing.
-const RUNTIME_CRATES: &[&str] = &[
-    "cynic-host",
-    "cynic-node",
-    "cynic-kernel",
-    "cynic-inference",
-    "cynic-mcp",
-    "cynic-askesis",
-    "cynic-cli",
-];
+/// Crates searched after `cynic-protocol`, in workspace order. Protocol hits
+/// are reported as canonical typed law; later hits as runtime-crate-only
+/// typing. Observed from the workspace — never a hardcoded list.
+fn runtime_crates() -> Vec<String> {
+    workspace_crate_names()
+        .into_iter()
+        .filter(|name| name != "cynic-protocol")
+        .collect()
+}
 
 struct PolicyFormalitySpec {
     /// Stable policy identifier (snake_case).
@@ -221,7 +219,7 @@ pub(crate) fn audit_policy_formality() -> PolicyFormalityReport {
         .map(|spec| {
             let protocol_evidence = find_token_evidence("cynic-protocol", spec.scan_tokens);
             let (mut status, evidence_paths) = if protocol_evidence.is_empty() {
-                let runtime_evidence = RUNTIME_CRATES
+                let runtime_evidence = runtime_crates()
                     .iter()
                     .flat_map(|crate_name| {
                         find_token_evidence(crate_name, spec.scan_tokens)

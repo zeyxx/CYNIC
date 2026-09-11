@@ -16,20 +16,6 @@ use crate::rust_source::{relative_path, rust_files_under, workspace_root};
 
 pub(crate) const SCHEMA_REGISTRY_AUDIT_SCHEMA: &str = "cynic.cli.schema_registry_audit.v1";
 
-/// Crates scanned, in canonical order. `cynic-protocol` first: it is the
-/// intended canonical home for wire contracts (protocol_is_pure law).
-const SCHEMA_SCAN_CRATES: &[&str] = &[
-    "cynic-protocol",
-    "cynic-host",
-    "cynic-node",
-    "cynic-kernel",
-    "cynic-inference",
-    "cynic-cli",
-    "cynic-observer",
-    "cynic-intel",
-    "cynic-zeroclaw-solana",
-];
-
 #[derive(Serialize)]
 pub(crate) struct SchemaRegistryAuditReport {
     pub(crate) schema: &'static str,
@@ -90,7 +76,7 @@ impl SchemaScan {
         let crates_root = workspace_root().join("crates");
         let root_observable = crates_root.exists();
 
-        for crate_name in SCHEMA_SCAN_CRATES {
+        for crate_name in &crate::rust_source::workspace_crate_names() {
             let crate_src = crates_root.join(crate_name).join("src");
             if !crate_src.exists() {
                 // Unknown is data: an absent crate source must not silently
