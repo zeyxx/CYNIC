@@ -11,6 +11,7 @@ members = [
     "crates/cynic-zeroclaw-solana",
     "crates/cynic-market",
     "crates/cynic-storage",
+    "crates/cynic-mcp",
 ]
 resolver = "2"
 

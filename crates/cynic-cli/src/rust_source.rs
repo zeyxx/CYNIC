@@ -131,9 +131,16 @@ mod tests {
         let names = workspace_crate_names();
         assert!(names.contains(&"cynic-protocol".to_string()));
         assert!(names.contains(&"cynic-cli".to_string()));
+        assert!(names.contains(&"cynic-mcp".to_string()));
         assert_eq!(names[0], "cynic-protocol");
-        assert!(!names.iter().any(|name| name == "cynic-askesis"));
-        assert!(!names.iter().any(|name| name == "cynic-mcp"));
+        // Every entry is backed by a real crate directory — no phantoms.
+        let root = resolve_workspace_root(None).expect("workspace root");
+        for name in &names {
+            assert!(
+                root.join("crates").join(name).join("Cargo.toml").is_file(),
+                "{name} has no crate directory"
+            );
+        }
         let mut sorted = names.clone();
         sorted.sort();
         if let Some(position) = sorted.iter().position(|name| name == "cynic-protocol") {

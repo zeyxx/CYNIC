@@ -52,11 +52,10 @@ mod tests {
     #[test]
     fn canonical_surfaces_hold_explicit_mcp_containment() {
         // Explicit temporary containment (AGENTS.md repair law): every surface
-        // is ok, but agent_exposure stays blocked on exactly one finding kind
-        // — mcp_source_not_in_workspace — because no `#[tool]` implementation
-        // exists in the workspace. Removal condition: implement the tools
-        // in-tree, or move counterpart proof to the runtime handshake with
-        // its own read-back gate.
+        // is ok, but agent_exposure stays blocked while declared tools lack
+        // in-repo `#[tool]` counterparts. Gradient, not binary: each tool
+        // implemented in cynic-mcp shrinks the phantom count by exactly one.
+        // Removal condition: zero phantoms — restore the all-ok assertion.
         let report = audit_canonical_surfaces();
         assert!(report.surfaces.iter().all(|entry| entry.status == "ok"));
         assert!(report
@@ -64,11 +63,11 @@ mod tests {
             .iter()
             .all(|finding| finding.status == "ok"));
         assert_eq!(report.agent_exposure.status, "blocked");
-        assert_eq!(report.agent_exposure.blocked_count, 1);
+        assert!(report.agent_exposure.source_tool_count >= 3);
         assert!(report.agent_exposure.findings.iter().all(|finding| {
-            finding.kind == "mcp_source_not_in_workspace" && finding.severity == "critical"
+            finding.kind == "exposure_tool_not_in_source" && finding.severity == "critical"
         }));
         assert_eq!(report.status, "blocked");
-        assert_eq!(report.blocked_count, 1);
+        assert_eq!(report.blocked_count, report.agent_exposure.blocked_count);
     }
 }

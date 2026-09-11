@@ -721,6 +721,18 @@
         {
           "name": "service_status",
           "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_mcp_ping",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_protocol_versions",
+          "tier": "baseline_runtime"
+        },
+        {
+          "name": "cynic_workspace_inventory",
+          "tier": "baseline_runtime"
         }
       ],
       "command": "cynic-mcp",
@@ -989,6 +1001,16 @@
       "operator_tools": [
         "cynic runtime adopt --json --seed <path> [--approve]"
       ]
+    },
+    "mcp_bootstrap": {
+      "description": "In-tree MCP server surface (cynic-mcp crate): liveness, protocol versions, workspace inventory. Read-only tools with live in-process executors.",
+      "tier": "baseline_runtime",
+      "tools": [
+        "cynic_mcp_ping",
+        "cynic_protocol_versions",
+        "cynic_workspace_inventory"
+      ],
+      "operator_tools": []
     }
   },
   "exposed_domains": [

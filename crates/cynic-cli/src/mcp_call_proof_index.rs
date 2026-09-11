@@ -151,17 +151,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proof_index_reports_missing_counterparts_explicitly() {
-        // Explicit containment: no `#[tool]` implementation exists in the
-        // workspace, so every declared tool is an honest phantom and coverage
-        // is 0 — never 100 by construction. Removal condition: implement the
-        // tools in-tree (phantoms shrink per tool) or move counterpart proof
-        // to the runtime handshake with its own read-back gate.
+    fn proof_index_tracks_rollout_gradient() {
+        // Gradient: every tool implemented in cynic-mcp converts exactly one
+        // phantom into coverage. Undeclared must always be zero — an
+        // implemented tool without exposure declaration is never acceptable.
         let index = mcp_call_proof_index();
-        assert_eq!(index.tool_count, 0);
-        assert!(index.declared_count > 0);
-        assert_eq!(index.phantom_count, index.declared_count);
-        assert_eq!(index.coverage_percent, 0.0);
+        assert!(index.tool_count >= 3);
+        assert!(index.declared_count > index.tool_count);
+        assert_eq!(index.undeclared_count, 0);
+        assert_eq!(index.phantom_count, index.declared_count - index.tool_count);
         assert_eq!(index.status, "blocked");
     }
 }
