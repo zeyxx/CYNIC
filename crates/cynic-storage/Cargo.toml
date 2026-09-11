@@ -6,8 +6,8 @@ description = "CYNIC Storage — sovereign SMR event-sourced WAL and embedded st
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-bytes = "1"
-hex = "0.4"
+bytes = { version = "1", features = ["serde"] }
+hex = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
