@@ -131,6 +131,33 @@ pub struct OpaqueEnvelope {
     pub residual_unknowns: Vec<String>,
 }
 
+/// Extensible, unbounded metadata tensor attached to any storage envelope (Fiber Bundle model).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MetadataTensor {
+    /// Invariant base manifold schema identifier
+    pub schema_uri: String,
+    /// Cryptographic causal anchor
+    pub causal_anchor: Hash512,
+    /// Continuous scalar degrees of freedom (energy, probability, duration, market score)
+    pub continuous_axes: BTreeMap<String, f64>,
+    /// Discrete structural degrees of freedom (spatial scope, agent phase, tenant, role)
+    pub discrete_axes: BTreeMap<String, String>,
+    /// Explicit residual unknowns for unobserved dimensions
+    pub residual_unknowns: Vec<String>,
+}
+
+impl MetadataTensor {
+    pub fn new(schema_uri: impl Into<String>, causal_anchor: Hash512) -> Self {
+        Self {
+            schema_uri: schema_uri.into(),
+            causal_anchor,
+            continuous_axes: BTreeMap::new(),
+            discrete_axes: BTreeMap::new(),
+            residual_unknowns: Vec::new(),
+        }
+    }
+}
+
 /// Periodic snapshot checkpoint binding state root to WAL sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageCheckpoint {

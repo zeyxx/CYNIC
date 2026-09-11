@@ -309,47 +309,131 @@ Prior to merging `crates/cynic-storage` into main, the implementation must provi
 
 ---
 
-## 10. Forward Horizon — GraphRAG Engine & Analytical Data Warehouse Study
+## 10. Analytical Data Warehouse Architecture (Parquet + Embedded DuckDB)
 
-This ratified V1 baseline serves as the deterministic foundation for the upcoming storage evolution:
-1. **GraphRAG Reasoning Engine**: Formalizing knowledge graph traversal algorithms over SurrealKV to inject context-aware axioms and prevent multi-agent hallucination loops.
-2. **Analytical Data Warehouse (OLAP Tier)**: For long-term historical forensics across fleet nodes, an external read-only analytical plane (e.g. Parquet / DuckDB columnar dumps from cold WAL segments) will be evaluated to avoid burdening the operational OLTP node runtime.
+The operational OLTP node runtime (WAL + SurrealKV) is reserved for real-time state machine transitions and low-latency agent coordination. Analytical workloads (cross-node forensics, retroactive telemetry audits, multi-month metabolic trends) are offloaded to an **embedded columnar OLAP engine**:
+
+1. **Cold Segment Columnarization**:
+   - Sealed WAL segments older than the active retention window (e.g. 7 days) and verified by checkpoint are transformed into Apache Parquet columnar files:
+     `$CYNIC_DATA_DIR/storage/warehouse/year=2026/month=09/events_seg_000042.parquet`
+   - Parquet encoding leverages Dictionary Encoding, Run-Length Encoding (RLE), Bit-Packing, and Zstandard (zstd) compression, achieving 15–30x lossless compaction over raw JSON.
+2. **In-Process DuckDB Query Plane**:
+   - Zero external analytical cluster (no ClickHouse daemon, no Snowflake, zero remote dependency).
+   - Embedded `duckdb` vectorizes SQL scans directly over local/remote Parquet files via SIMD execution kernels:
+     ```sql
+     SELECT
+         discrete_axes['spatial.crate'] AS crate_name,
+         AVG(continuous_axes['metabolic.joules']) AS avg_joules,
+         SUM(continuous_axes['metabolic.tokens']) AS total_tokens
+     FROM read_parquet('/var/lib/cynic/storage/warehouse/*/*.parquet')
+     WHERE continuous_axes['epistemic.certainty'] > 0.8
+     GROUP BY crate_name;
+     ```
 
 ---
 
-## 11. Physical Scale Hierarchy: From Planck Scale to Molecular Data Compression
+## 11. The 6 Degrees of Information Density & Mathematical Compression Limits
 
-In CYNIC, information and storage are not treated as arbitrary text strings, but as a **thermodynamic scale ladder** where data undergoes progressive compression and binding:
+Storage in CYNIC is governed by **Rate-Distortion Theory** and statistical physics (coarse-graining / renormalization group). It rejects arbitrary classification in favor of six rigorous degrees of density:
 
 ```text
-SCALE              PHYSICAL ANALOGY        STORAGE SUBSTRATE                ENTROPY & NATURE
-─────────────────────────────────────────────────────────────────────────────────────────────
-1. Planck Scale    Quantum Fluctuation     Raw Bytes / Proof-of-History Tick  Maximum Entropy
-                   (Indivisible quanta)    (sha3-512 hashes, u64 sequence)   Zero semantic bias
-                                                   │
-2. Subatomic       Quarks, Gluons,         Typed Primitives                  Fundamental charges
-   Scale           Electrons, Neutrons     (PrincipalPubkey, Hash512,        Conservation laws
-                                           PoHTick, SequenceNumber)
-                                                   │
-3. Atomic          Atoms                   Self-Contained Immutable Events   Indivisible units of
-   Scale           (Elements: H, C, O)     (WalEntry, CausalWitness,         historical reality
-                                           OpaqueEnvelope)
-                                                   │
-4. Molecular       Molecules, Valence      Bound Entities & Causal Edges     Semantic emergence
-   Scale           Bonds (H2O, Amino Acids) (Crystals with GraphRAG edges    Valence bonding
-                                           ->implies->, Mandates, Claims)
-                                                   │
-5. Macromolecular  Proteins, Enzymes       SMR Materialized Views            Functional engines
-   Scale                                   (SurrealKV / SQLite projections,  Metabolic catalysis
-                                           Phi consensus, Active balances)
-                                                   │
-6. Macroscopic     Organism / Biosphere    CYNIC Node / Fleet / Warehouse    Sovereign boundary
-   Scale                                   (Cold Parquet OLAP, Solana)       Full reconstitution
+DEGREE                  NATURE & ENUM             SUBSTRATE & ENGINE              DISTORTION TOLERATED
+──────────────────────────────────────────────────────────────────────────────────────────────────────
+Degree 0: Raw Signal    Continuous Flux           RAM Ring-Buffers                High (Volatile,
+                        (stdout, tokens, pipes)   (Ephemera, zero-I/O)            transient dissipation)
+                                │
+Degree 1: Causal Atom   Discrete Event Link       Append-Only Binary WAL          D = 0 (Strict Shannon
+                        (WalEntry, Witness, PoH)  (sha3-512, Ed25519, fdatasync)  lossless conservation)
+                                │
+Degree 2: State View    O(1) Operational State    SurrealKV / SQLite              D = 0 (Deterministic
+                        (Active claims, balances) (Disposable SMR caches)         materialized projection)
+                                │
+Degree 3: Valence Graph Relational Entanglement   SurrealKV Graph Engine          D = 0 (Structural
+                        (Mandate->Claim->Proof)   (Edges ->supports->, ->refutes) topological links)
+                                │
+Degree 4: Wisdom Crystal Semantic Distillation    In-Memory HNSW / SurrealKV      D > 0 (Controlled
+                        (State vector |ψ⟩, M2)    (int8 / Matryoshka quantized)   semantic lossy reduction)
+                                │
+Degree 5: Condensate    Historical Forensics      Columnar Parquet + DuckDB       D = 0 on dimensions,
+                        (Fleet ledger warehouse)  (Zstd dictionary, bit-packed)   lossless analytics
 ```
 
-### 11.1 The Thermodynamic Compression Law
+### 11.1 Mathematical Principles of Transition
+1. **Shannon Lossless Bound ($D = 0$)**: Raw execution logs contain $H(X) \approx 1.2\text{--}2.5 \text{ bits/byte}$. Lossless compression alone achieves at most $3\times\text{--}6\times$ compaction. Therefore, lossless compression is strictly reserved for Degree 1 (WAL) and Degree 5 (Parquet).
+2. **Johnson-Lindenstrauss & Vector Quantization (Degree 4)**: For $N$ semantic lessons, projecting into a $D$-dimensional Hilbert space preserves relative Euclidean distances within $(1 \pm \epsilon)$. Quantizing float32 embeddings to `int8` yields a **$4\times$ memory reduction with $<1.5\%$ top-k recall loss**. Further 1-bit Matryoshka binary quantization yields a **$32\times$ reduction (128 bytes per vector)** for ultra-high-speed candidate pre-filtering.
 
-As information transitions up the ladder:
-1. **Planck / Subatomic ($\to$ Atomic)**: Conservation is absolute. Zero data is dropped. Every bit, sequence tick, and cryptographic signature is preserved in the append-only WAL.
-2. **Atomic ($\to$ Molecular / Crystals)**: Compression via semantic distillation. Thousands of raw tool observation events collapse into a single **Crystal of Wisdom** $|\psi\rangle \in \mathbb{R}^D$ carrying a certainty coefficient. Microscopic details are discarded; macroscopic invariants are retained.
-3. **Molecular ($\to$ Macro / Warehouse)**: Cold segments are columnarized into Parquet/DuckDB formats (dictionary encoding, bit-packing, zstd compression) for high-density historical forensics without loading uncompressed event graphs into active node RAM.
+---
+
+## 12. The Metadata Tensor & Unbounded Fiber Bundle Model
+
+No dimension count is fixed. Metadata is modeled mathematically as a **Fiber Bundle** $E \xrightarrow{\pi} B$:
+- **The Base $B$**: Minimal invariant consensus manifold (SequenceNumber, ContentDigest, CausalSignature).
+- **The Fiber $F_x$**: Extensible, dynamic $K$-dimensional metadata tensor attached to event $x$.
+
+```rust
+use std::collections::BTreeMap;
+
+/// Extensible, unbounded metadata tensor attached to any storage envelope.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MetadataTensor {
+    /// Invariant base manifold
+    pub schema_uri: String,
+    pub causal_anchor: [u8; 64],
+
+    /// Continuous scalar degrees of freedom (energy, probability, duration, market score)
+    /// e.g. {"metabolic.joules": 14.2, "epistemic.certainty": 0.94, "market.price": 0.38}
+    pub continuous_axes: BTreeMap<String, f64>,
+
+    /// Discrete structural degrees of freedom (spatial scope, agent phase, tenant, role)
+    /// e.g. {"spatial.crate": "cynic-storage", "agent.phase": "crystallization"}
+    pub discrete_axes: BTreeMap<String, String>,
+
+    /// Explicit residual unknowns for unobserved dimensions
+    pub residual_unknowns: Vec<String>,
+}
+```
+
+### Invariant: Zero Schema Migration Penalty
+1. **In WAL (L0)**: Serialized as a zero-copy binary envelope without loss.
+2. **In SurrealKV (L1)**: Ingested dynamically via schema-flexible document/graph structures without `ALTER TABLE`.
+3. **In Parquet (L2)**: Stored as typed `MAP<VARCHAR, DOUBLE>` and `MAP<VARCHAR, VARCHAR>` columns, allowing new dimensions to be introduced across the fleet with zero backfill cost.
+
+---
+
+## 13. The 4-Step Distillation Protocol (Degree 1 $\to$ Degree 4)
+
+A Crystal of Wisdom is never generated by unconstrained LLM narration. It is forged through a deterministic thermodynamic filter:
+
+```text
+[Raw Observation Stream (Degree 1)]
+               │
+               ▼  Step 1: Shannon Information Filter (Surprise / Non-Triviality)
+[Emergence Candidate]
+               │
+               ▼  Step 2: Welford M2 Statistical Variance & Certainty Convergence
+[Hypothetical Invariant]
+               │
+               ▼  Step 3: Falsification by Inverse Read-Back Proof
+[Empirical Law]
+               │
+               ▼  Step 4: int8 Vector Quantization & Graph Valence Binding
+[Sealed Crystal (Degree 4)]
+```
+
+1. **Step 1: Shannon Surprise Filter**:
+   $$I(E) = -\log_2 P(E)$$
+   Events with $P(E) \approx 1$ (routine zero-exit builds, expected test passes) convey $I \to 0$ and are bypassed. Events with $P(E) \ll 1$ (rare toolchain crashes, unexpected kernel faults) trigger candidate emergence.
+2. **Step 2: Welford M2 Convergence**:
+   Computes rolling mean and sample variance $s_n^2 = \frac{M_{2, n}}{n}$ online:
+   $$M_{2, n} = M_{2, n-1} + (x_n - \bar{x}_{n-1})(x_n - \bar{x}_n)$$
+   Certainty $C = 1 - \frac{s_n}{\bar{x}_n}$. A candidate crystallizes only when sample count $n \ge 3$ and $C \ge 0.80$.
+3. **Step 3: Inverse Read-Back Falsification**:
+   The agent must prove causal validity:
+   - Initial state: Command $A$ fails with error $X$.
+   - Mutation applied: Candidate rule $B$ enacted.
+   - Read-back proof: Identical command $A$ yields exit code 0.
+   Failure to demonstrate causal inversion aborts crystallization.
+4. **Step 4: int8 Vector Quantization & Valence Bonding**:
+   The distilled invariant ($< 200$ chars) is vectorized into a dynamic $D$-dimensional embedding, quantized to `int8`, and bound to domain nodes via valence edges (`->supports->`, `->refutes->`).
+5. **Landauer Shattering Protocol**:
+   When future read-back observation refutes an existing crystal ($C \to 0$), Landauer dissipation is recorded: the crystal is shattered (quarantined from active graph traversals) with its refutation proof permanently anchored in the WAL.

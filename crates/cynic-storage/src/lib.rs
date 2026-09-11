@@ -17,8 +17,9 @@ pub use ports::{
     WalJournalPort,
 };
 pub use types::{
-    CausalWitness, DistanceMetric, Hash512, IntegrityReport, OpaqueEnvelope, PoHTick,
-    SequenceNumber, StorageCheckpoint, VectorEmbedding, WalAppendInput, WalEntry, WalReceipt,
+    CausalWitness, DistanceMetric, Hash512, IntegrityReport, MetadataTensor, OpaqueEnvelope,
+    PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding, WalAppendInput, WalEntry,
+    WalReceipt,
 };
 
 #[cfg(test)]
@@ -56,5 +57,26 @@ mod tests {
 
         let v1536 = VectorEmbedding::new("voyage", DistanceMetric::Cosine, vec![0.1; 1536]);
         assert_eq!(v1536.dimension, 1536);
+    }
+
+    #[test]
+    fn metadata_tensor_extensibility() {
+        let mut tensor = MetadataTensor::new("cynic.test.v1", Hash512::GENESIS);
+        tensor
+            .continuous_axes
+            .insert("metabolic.joules".to_string(), 42.5);
+        tensor
+            .discrete_axes
+            .insert("agent.role".to_string(), "architect".to_string());
+        tensor
+            .residual_unknowns
+            .push("thermal_dissipation".to_string());
+
+        assert_eq!(tensor.continuous_axes.get("metabolic.joules"), Some(&42.5));
+        assert_eq!(
+            tensor.discrete_axes.get("agent.role").map(String::as_str),
+            Some("architect")
+        );
+        assert_eq!(tensor.residual_unknowns.len(), 1);
     }
 }
