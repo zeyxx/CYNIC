@@ -8,10 +8,9 @@ const CORE_CRATES: &[(&str, usize, usize)] = &[
     ("cynic-cli", 300, 220),
     ("cynic-host", 300, 220),
     ("cynic-node", 300, 220),
-    ("cynic-mcp", 300, 220),
+    ("cynic-inference", 300, 220),
     ("cynic-kernel", 300, 220),
     ("cynic-protocol", 300, 220),
-    ("cynic-askesis", 300, 220),
 ];
 
 const HOTSPOT_LINE_THRESHOLD: usize = 400;
@@ -189,18 +188,14 @@ mod tests {
     fn crate_audit_reports_core_crates() {
         let report = audit_core_crates();
         assert_eq!(report.schema, "cynic.cli.crate_audit.v1");
-        assert!(report.crate_count >= 7);
-        assert!(
-            report
-                .crates
-                .iter()
-                .any(|entry| entry.crate_name == "cynic-cli" && entry.rust_file_count > 0)
-        );
-        assert!(
-            report
-                .crates
-                .iter()
-                .any(|entry| entry.crate_name == "cynic-node" && !entry.entrypoints.is_empty())
-        );
+        assert!(report.crate_count >= 6);
+        assert!(report
+            .crates
+            .iter()
+            .any(|entry| entry.crate_name == "cynic-cli" && entry.rust_file_count > 0));
+        assert!(report
+            .crates
+            .iter()
+            .any(|entry| entry.crate_name == "cynic-node" && !entry.entrypoints.is_empty()));
     }
 }

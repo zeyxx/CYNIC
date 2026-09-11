@@ -25,7 +25,6 @@ const SCHEMA_SCAN_CRATES: &[&str] = &[
     "cynic-kernel",
     "cynic-inference",
     "cynic-cli",
-    "cynic-askesis",
     "cynic-observer",
     "cynic-intel",
     "cynic-zeroclaw-solana",
