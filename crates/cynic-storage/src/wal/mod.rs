@@ -54,6 +54,10 @@ impl WalFsAdapter {
 
         if active_path.exists() {
             let mut file = File::open(&active_path).map_err(|e| StorageError::Io(e.to_string()))?;
+            let file_len = file
+                .metadata()
+                .map_err(|e| StorageError::Io(e.to_string()))?
+                .len();
             let mut reader = BufReader::new(&mut file);
             let mut expected_prev_hash = Hash512::GENESIS;
 
@@ -84,49 +88,30 @@ impl WalFsAdapter {
                         // Clean EOF
                         break;
                     }
-                    Err(FrameDecodeError::TornTail { .. }) => {
-                        // Recoverable torn tail at EOF: truncate to last valid frame offset
-                        tracing::warn!(
-                            "Recovering torn tail in active WAL segment at offset {frame_start_offset}. Truncating to {valid_file_len} bytes."
-                        );
-                        drop(reader);
-                        drop(file);
-                        let trunc_file = OpenOptions::new()
-                            .write(true)
-                            .open(&active_path)
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        trunc_file
-                            .set_len(valid_file_len)
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        trunc_file
-                            .sync_data()
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        break;
-                    }
-                    Err(FrameDecodeError::Io(e))
-                        if e.kind() == std::io::ErrorKind::UnexpectedEof =>
-                    {
-                        // Also treated as torn tail at EOF
-                        tracing::warn!(
-                            "Unexpected EOF in active WAL segment at offset {frame_start_offset}. Truncating to {valid_file_len} bytes."
-                        );
-                        drop(reader);
-                        drop(file);
-                        let trunc_file = OpenOptions::new()
-                            .write(true)
-                            .open(&active_path)
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        trunc_file
-                            .set_len(valid_file_len)
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        trunc_file
-                            .sync_data()
-                            .map_err(|e| StorageError::Io(e.to_string()))?;
-                        break;
-                    }
                     Err(e) => {
-                        // Mid-log corruption or fatal error: fail closed!
-                        return Err(StorageError::from(e));
+                        let remaining = file_len.saturating_sub(frame_start_offset);
+                        if remaining < frame::MIN_FRAME_LEN as u64 {
+                            // Recoverable torn tail strictly at EOF (< MIN_FRAME_LEN bytes)
+                            tracing::warn!(
+                                "Recovering torn tail in active WAL segment at offset {frame_start_offset} ({remaining} bytes). Truncating to {valid_file_len} bytes."
+                            );
+                            drop(reader);
+                            drop(file);
+                            let trunc_file = OpenOptions::new()
+                                .write(true)
+                                .open(&active_path)
+                                .map_err(|e| StorageError::Io(e.to_string()))?;
+                            trunc_file
+                                .set_len(valid_file_len)
+                                .map_err(|e| StorageError::Io(e.to_string()))?;
+                            trunc_file
+                                .sync_data()
+                                .map_err(|e| StorageError::Io(e.to_string()))?;
+                            break;
+                        } else {
+                            // Corruption with full frame length remaining: fail closed!
+                            return Err(StorageError::from(e));
+                        }
                     }
                 }
             }
