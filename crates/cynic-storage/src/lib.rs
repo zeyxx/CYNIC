@@ -10,6 +10,7 @@
 pub mod error;
 pub mod ports;
 pub mod projection;
+pub mod repository;
 pub mod types;
 pub mod vector;
 pub mod wal;
@@ -20,6 +21,9 @@ pub use ports::{
     WalJournalPort,
 };
 pub use projection::SqliteProjectionAdapter;
+pub use repository::{
+    CynicStorageHub, GenericAggregateProjector, StorageAggregate, TypedRepository,
+};
 pub use types::{
     AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
