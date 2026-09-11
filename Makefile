@@ -11,7 +11,7 @@ CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
-CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-askesis cynic-inference
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-inference
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
 CYNIC_BUILD_ADMISSION_GRANT ?=
@@ -65,15 +65,9 @@ secret-literal-check: ## Reject high-confidence literal credentials in Git-track
 	@test -f target/debug/cynic && ./target/debug/cynic secret lint 2>&1 || echo "(cynic secret lint skipped — binary not built)"
 
 .PHONY: check
-check: authority-check ## Build-runner validation of the living low-layer Rust runtime baseline
-	@echo "==> cargo check core crates (per-crate toolchain dispatch)"
-	@for crate in $(CORE_CRATES); do \
-		echo "  -> $$crate"; \
-		( cd "crates/$$crate" && $(RUST_ENV) $(CARGO) check -p "$$crate" ); \
-	done
-	@echo "==> surface-audit (cold-link ceiling: rustc 1.96 codegen ICE on cynic-inference graph — toolchain bug, not source debt)"
-	@$(MAKE) --no-print-directory surface-audit
-	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+check: ## Native validation via cynic dev check (no make recursion, no jq; exit code is the gate)
+	@echo "==> cynic dev check (native, no make, no jq)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev check --json > /dev/null
 
 # Layered, per-layer validation. Dependency order: protocol -> host -> node ->
 # kernel -> mcp -> cli. Each layer gets an isolated target dir and a

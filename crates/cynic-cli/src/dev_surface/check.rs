@@ -9,18 +9,30 @@ const SCHEMA: &str = "cynic.dev_check.v1";
 const DEFAULT_STATE_ROOT: &str = "/var/lib/cynic";
 const OUTPUT_TAIL_LIMIT: usize = 12_000;
 const CARGO_FETCH_TARGETS: &[&str] = &["index.crates.io", "crates.io", "static.crates.io"];
-const CANONICAL_GATE: &str = "make check";
+const CANONICAL_GATE: &str = "cynic dev check (native)";
 const ARCHITECTURE_BOUNDARY_GATE: &str = "cargo test -q -p cynic-cli --test architecture_boundary";
+
+/// Native canonical crate order. Dependency direction, workspace members only.
+/// cynic-askesis is excluded: the directory does not exist (contract drift,
+/// see runtime-authority audit). cynic-mcp is excluded: no such workspace
+/// member. This list must stay aligned with Cargo.toml workspace members.
 
 /// Dependency-ordered validation layers. Each layer is checked and tested in
 /// isolation before the next, so a break in one crate does not mask or cascade
 /// into the others. Order = compilation/dependency direction.
+const NATIVE_CHECK_CRATES: &[&str] = &[
+    "cynic-protocol",
+    "cynic-host",
+    "cynic-node",
+    "cynic-kernel",
+    "cynic-cli",
+    "cynic-inference",
+];
 const LAYER_ORDER: &[&str] = &[
     "cynic-protocol",
     "cynic-host",
     "cynic-node",
     "cynic-kernel",
-    "cynic-mcp",
     "cynic-cli",
 ];
 const CACHE_INTEGRITY_STEP_ID: &str = "cache_integrity_offline_locked";
@@ -166,16 +178,7 @@ pub(crate) fn run_dev_check(
     let executed_count = steps.len();
     let (authority_json_ok, cargo_check_ok, surface_audit_ok) =
         if matches!(mode, DevCheckMode::Canonical) {
-            steps
-                .first()
-                .map(|step| {
-                    infer_make_check_steps(
-                        &step.stdout_tail,
-                        &step.stderr_tail,
-                        step.status == "ok",
-                    )
-                })
-                .unwrap_or((false, false, false))
+            aggregate_canonical_steps(&steps)
         } else {
             (false, false, false)
         };
@@ -199,7 +202,7 @@ pub(crate) fn run_dev_check(
             isolation: "per_step_target_dir",
             root: target_root.display().to_string(),
             shared_worktree_target_allowed: false,
-            reason: "dev check delegates to make check but must not share worktree target/debug artifacts across agents, sessions, or native C build scripts",
+            reason: "native dev check isolates cargo artifacts under target_root; never share worktree target/debug across agents, sessions, or native C build scripts",
         },
         cargo_fetch_preflight,
         stop_on_first_failure: true,
@@ -246,13 +249,47 @@ fn is_single_path_component(path: &Path) -> bool {
 
 fn planned_steps(target_root: &Path, mode: &DevCheckMode) -> Vec<DevCheckStep> {
     match mode {
-        DevCheckMode::Canonical => vec![DevCheckStep {
-            id: "make_check".to_string(),
-            program: "make",
-            args: vec!["check"],
-            // Isolate cargo artifacts for this gate invocation.
-            target_dir: Some(target_root.join("make_check")),
-        }],
+        // Native canonical gate: no make, no jq, no shell pipeline.
+        // Authority JSON is validated in-process, cargo check runs per crate
+        // with an isolated CARGO_TARGET_DIR, surface audit calls the real
+        // audit function directly, and the installed-runtime guard runs as a
+        // cargo test step. Exit code of `cynic dev check --json` is the gate.
+        DevCheckMode::Canonical => {
+            let mut steps = vec![DevCheckStep {
+                id: "authority_json".to_string(),
+                program: "native:authority_json",
+                args: vec![],
+                target_dir: None,
+            }];
+            for krate in NATIVE_CHECK_CRATES {
+                steps.push(DevCheckStep {
+                    id: format!("cargo_check_{}", krate.replace('-', "_")),
+                    program: "cargo",
+                    args: vec!["check", "-p", krate],
+                    target_dir: Some(target_root.join("native_check")),
+                });
+            }
+            steps.push(DevCheckStep {
+                id: "surface_audit".to_string(),
+                program: "native:surface_audit",
+                args: vec![],
+                target_dir: None,
+            });
+            steps.push(DevCheckStep {
+                id: "installed_runtime".to_string(),
+                program: "cargo",
+                args: vec![
+                    "test",
+                    "-q",
+                    "-p",
+                    "cynic-cli",
+                    "--test",
+                    "installed_runtime",
+                ],
+                target_dir: Some(target_root.join("installed_runtime")),
+            });
+            steps
+        }
         DevCheckMode::ArchitectureOnly => {
             vec![architecture_boundary_step(
                 target_root,
@@ -296,6 +333,12 @@ fn architecture_boundary_step(target_root: &Path, id: String) -> DevCheckStep {
 }
 
 fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
+    if step.program == "native:authority_json" {
+        return run_native_authority_json(workspace_root, step);
+    }
+    if step.program == "native:surface_audit" {
+        return run_native_surface_audit(workspace_root, step);
+    }
     let command = std::iter::once(step.program.to_string())
         .chain(step.args.iter().map(|arg| (*arg).to_string()))
         .collect::<Vec<_>>();
@@ -383,21 +426,125 @@ fn run_step(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
     }
 }
 
-fn infer_make_check_steps(stdout: &str, stderr: &str, passed: bool) -> (bool, bool, bool) {
-    if passed {
-        return (true, true, true);
+/// Native authority validation: parse the four machine-readable authorities
+/// in-process. Replaces `jq empty` from make authority-check. No subprocess,
+/// no shell, no jq.
+fn run_native_authority_json(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
+    const AUTHORITY_FILES: &[&str] = &[
+        "contracts/foundation.json",
+        "infra/runtime-authority.json",
+        "infra/registry.json",
+        "infra/agent-exposure.json",
+    ];
+    let started = Instant::now();
+    let command = vec!["native:authority_json".to_string()];
+    let mut failures = Vec::new();
+    for relative in AUTHORITY_FILES {
+        let path = workspace_root.join(relative);
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                if let Err(error) = serde_json::from_str::<serde_json::Value>(&content) {
+                    failures.push(format!("{relative}: invalid JSON: {error}"));
+                }
+            }
+            Err(error) => failures.push(format!("{relative}: cannot read: {error}")),
+        }
     }
-    let combined = format!("{stdout}\n{stderr}");
-    let cargo_started = combined.contains("cargo check core crates");
-    let audit_started = combined.contains("auditing canonical CLI surfaces");
-    let authority_json_ok = cargo_started || audit_started;
-    let cargo_check_ok = audit_started;
-    let surface_audit_ok = false;
+    let ok = failures.is_empty();
+    DevCheckStepReport {
+        id: step.id,
+        status: if ok { "ok" } else { "blocked" },
+        command,
+        env: vec![],
+        cwd: workspace_root.display().to_string(),
+        target_dir: None,
+        exit_code: Some(if ok { 0 } else { 1 }),
+        duration_ms: started.elapsed().as_millis(),
+        stdout_tail: if ok {
+            "authority_json: 4 files parsed".to_string()
+        } else {
+            String::new()
+        },
+        stderr_tail: failures.join("\n"),
+        failure_kind: if ok {
+            None
+        } else {
+            Some("authority_json_invalid".to_string())
+        },
+    }
+}
+
+/// Native surface audit: call the real audit function directly instead of
+/// spawning `make surface-audit` and piping through jq.
+fn run_native_surface_audit(workspace_root: &Path, step: DevCheckStep) -> DevCheckStepReport {
+    let started = Instant::now();
+    let report = crate::surface_audit::audit_canonical_surfaces();
+    let ok = report.blocked_count == 0;
+    let mut stderr_tail = String::new();
+    if !ok {
+        let mut lines = Vec::new();
+        for surface in &report.surfaces {
+            if surface.status != "ok" {
+                lines.push(format!("surface {}: {}", surface.id, surface.status));
+            }
+        }
+        for finding in &report.external_projection_findings {
+            if finding.status != "ok" {
+                lines.push(format!(
+                    "projection {}: {}",
+                    finding.file_path, finding.status
+                ));
+            }
+        }
+        if report.agent_exposure.status != "ok" {
+            lines.push(format!(
+                "agent_exposure: {} blocked",
+                report.agent_exposure.blocked_count
+            ));
+        }
+        stderr_tail = lines.join("\n");
+    }
+    DevCheckStepReport {
+        id: step.id,
+        status: if ok { "ok" } else { "blocked" },
+        command: vec!["native:surface_audit".to_string()],
+        env: vec![],
+        cwd: workspace_root.display().to_string(),
+        target_dir: None,
+        exit_code: Some(if ok { 0 } else { 1 }),
+        duration_ms: started.elapsed().as_millis(),
+        stdout_tail: format!(
+            "surface_audit: {}/{} ok, {} blocked",
+            report.ok_count, report.surface_count, report.blocked_count
+        ),
+        stderr_tail,
+        failure_kind: if ok {
+            None
+        } else {
+            Some("surface_audit_blocked".to_string())
+        },
+    }
+}
+
+/// Aggregate native canonical steps into the three report flags. No stdout
+/// scraping: each step carries its own typed status.
+fn aggregate_canonical_steps(steps: &[DevCheckStepReport]) -> (bool, bool, bool) {
+    let by_id = |id: &str| steps.iter().find(|step| step.id == id);
+    let authority_json_ok = by_id("authority_json")
+        .map(|step| step.status == "ok")
+        .unwrap_or(false);
+    let cargo_check_ok = NATIVE_CHECK_CRATES.iter().all(|krate| {
+        let id = format!("cargo_check_{}", krate.replace('-', "_"));
+        by_id(&id).map(|step| step.status == "ok").unwrap_or(false)
+    });
+    let surface_audit_ok = by_id("surface_audit")
+        .map(|step| step.status == "ok")
+        .unwrap_or(false);
     (authority_json_ok, cargo_check_ok, surface_audit_ok)
 }
 
 fn should_run_architecture_boundary_fallback(step: &DevCheckStepReport) -> bool {
-    step.id == "make_check"
+    step.id.starts_with("cargo_check_")
         && step.status == "blocked"
         && step.failure_kind.as_deref() == Some("compiler_or_linker_artifact_corruption")
 }
@@ -466,15 +613,26 @@ mod tests {
     }
 
     #[test]
-    fn planned_steps_are_single_make_check_gate() {
+    fn planned_steps_are_native_without_make_or_jq() {
         let steps = planned_steps(
             Path::new("/tmp/cynic-dev-check-targets"),
             &DevCheckMode::Canonical,
         );
-        assert_eq!(steps.len(), 1);
-        assert_eq!(steps[0].id, "make_check");
-        assert_eq!(steps[0].program, "make");
-        assert_eq!(steps[0].args, vec!["check"]);
+        assert_eq!(steps.len(), NATIVE_CHECK_CRATES.len() + 3);
+        assert_eq!(steps[0].id, "authority_json");
+        assert_eq!(steps[0].program, "native:authority_json");
+        assert!(steps.iter().all(|step| step.program != "make"));
+        let cargo_ids: Vec<&str> = steps
+            .iter()
+            .filter(|step| step.program == "cargo")
+            .map(|step| step.id.as_str())
+            .collect();
+        assert_eq!(cargo_ids.len(), NATIVE_CHECK_CRATES.len() + 1);
+        let last_native = steps
+            .iter()
+            .find(|step| step.id == "surface_audit")
+            .expect("surface_audit step");
+        assert_eq!(last_native.program, "native:surface_audit");
     }
 
     #[test]
@@ -500,12 +658,9 @@ mod tests {
     }
 
     #[test]
-    fn infer_steps_fail_closed_before_cargo() {
-        let (a, c, s) = infer_make_check_steps(
-            "==> checking foundation, runtime authority, and registry\n",
-            "jq: parse error",
-            false,
-        );
+    fn aggregate_steps_fail_closed_without_all_native_ok() {
+        let steps: Vec<DevCheckStepReport> = Vec::new();
+        let (a, c, s) = aggregate_canonical_steps(&steps);
         assert!(!a);
         assert!(!c);
         assert!(!s);
@@ -541,12 +696,12 @@ mod tests {
     #[test]
     fn linker_crash_runs_architecture_boundary_fallback() {
         let step = DevCheckStepReport {
-            id: "make_check".to_string(),
+            id: "cargo_check_cynic_kernel".to_string(),
             status: "blocked",
-            command: vec!["make".to_string(), "check".to_string()],
+            command: vec!["cargo".to_string(), "check".to_string()],
             env: vec![],
             cwd: ".".to_string(),
-            target_dir: Some("/tmp/cynic-dev-check-targets/make_check".to_string()),
+            target_dir: Some("/tmp/cynic-dev-check-targets/native_check".to_string()),
             exit_code: Some(101),
             duration_ms: 1,
             stdout_tail: String::new(),
