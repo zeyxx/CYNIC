@@ -7,7 +7,7 @@ use crate::agent_exposure_audit::checks::{
     check_repo_access_profile, check_session_handshake, finding, repo_root,
 };
 use crate::agent_exposure_audit::json_scan::{count_tiers, domain_tools, exposed_tools, load_json};
-use crate::agent_exposure_audit::source_scan::scan_mcp_tool_names;
+use crate::agent_exposure_audit::source_scan::scan_workspace_mcp_tools;
 use crate::agent_exposure_audit::types::AgentExposureCounts;
 
 pub(crate) mod checks;
@@ -23,7 +23,9 @@ const DOCS_README_REL: &str = "docs/README.md";
 const KERNEL_DOMAINS_README_REL: &str = "crates/cynic-kernel/domains/README.md";
 const CODEX_CONFIG_REL: &str = ".codex/config.toml";
 const REPO_ACCESS_REL: &str = "infra/repo-access-profile.json";
-const MCP_SRC_REL: &str = "crates/cynic-mcp/src";
+/// Workspace source scope for `#[tool]` implementations. Observed from the
+/// workspace — never a single hardcoded crate directory.
+const WORKSPACE_SRC_SCOPE: &str = "crates/*/src";
 
 pub(crate) fn audit_agent_exposure() -> AgentExposureAuditReport {
     let root = repo_root();
@@ -72,13 +74,15 @@ pub(crate) fn audit_agent_exposure() -> AgentExposureAuditReport {
 
     let exposed = exposed_tools(&exposure);
     let domains = domain_tools(&exposure);
-    let mcp_src_path = root.join(MCP_SRC_REL);
-    let source_tools = if mcp_src_path.exists() {
-        scan_mcp_tool_names(&mcp_src_path)
-    } else {
-        // cynic-mcp is currently extracted/external; match declared tools directly
-        exposed.clone()
-    };
+    // Real workspace-wide production scan. No fallback: when no `#[tool]`
+    // implementation exists in the workspace, the source side is an explicit
+    // blocked unknown — never the exposure compared to itself.
+    let discoveries = scan_workspace_mcp_tools();
+    let source_files: std::collections::BTreeMap<&str, &str> = discoveries
+        .iter()
+        .map(|tool| (tool.name.as_str(), tool.source_file.as_str()))
+        .collect();
+    let source_tools: BTreeSet<String> = discoveries.iter().map(|tool| tool.name.clone()).collect();
     if domains.is_empty() {
         findings.push(finding(
             "critical",
@@ -120,23 +124,46 @@ pub(crate) fn audit_agent_exposure() -> AgentExposureAuditReport {
         ));
     }
 
-    for tool in source_tools.difference(&exposed) {
-        findings.push(finding(
-            "critical",
-            "source_tool_not_in_exposure",
-            MCP_SRC_REL,
-            "MCP #[tool] name is implemented in source but not declared in agent-exposure.json",
-            Some(tool.clone()),
-        ));
-    }
-    for tool in exposed.difference(&source_tools) {
-        findings.push(finding(
-            "critical",
-            "exposure_tool_not_in_source",
-            EXPOSURE_REL,
-            "agent-exposure declares a tool that has no matching #[tool(name=...)] in cynic-mcp source",
-            Some(tool.clone()),
-        ));
+    if source_tools.is_empty() {
+        // Fail-closed: no `#[tool]` implementation anywhere in the workspace
+        // while the exposure declares tools. One explicit finding — not one
+        // per tool, and never a silent pass. Removal condition: implement the
+        // tools in-tree, or move counterpart proof to the runtime handshake
+        // with its own read-back gate.
+        if !exposed.is_empty() {
+            findings.push(finding(
+                "critical",
+                "mcp_source_not_in_workspace",
+                WORKSPACE_SRC_SCOPE,
+                format!(
+                    "no #[tool] implementation in workspace; {} exposed tools have no in-repo counterpart; counterpart proof is owned by the runtime handshake (tools/list read-back)",
+                    exposed.len()
+                ),
+                None,
+            ));
+        }
+    } else {
+        for tool in source_tools.difference(&exposed) {
+            findings.push(finding(
+                "critical",
+                "source_tool_not_in_exposure",
+                source_files
+                    .get(tool.as_str())
+                    .copied()
+                    .unwrap_or(WORKSPACE_SRC_SCOPE),
+                "MCP #[tool] name is implemented in source but not declared in agent-exposure.json",
+                Some(tool.clone()),
+            ));
+        }
+        for tool in exposed.difference(&source_tools) {
+            findings.push(finding(
+                "critical",
+                "exposure_tool_not_in_source",
+                EXPOSURE_REL,
+                "agent-exposure declares a tool that has no matching #[tool(name=...)] in workspace source",
+                Some(tool.clone()),
+            ));
+        }
     }
 
     check_agent_env_paths(&exposure, EXPOSURE_REL, &mut findings);
@@ -170,7 +197,7 @@ fn report(
     AgentExposureAuditReport {
         schema: SCHEMA,
         status: if blocked_count == 0 { "ok" } else { "blocked" },
-        rule: "agent-exposure.json must faithfully list and domain-classify every cynic-mcp #[tool], avoid machine-local paths, and keep docs quarantined as non-authority",
+        rule: "agent-exposure.json must faithfully list and domain-classify every workspace #[tool], avoid machine-local paths, and keep docs quarantined as non-authority",
         exposure_path: root.join(EXPOSURE_REL).display().to_string(),
         exposed_tool_count: counts.exposed_tool_count,
         source_tool_count: counts.source_tool_count,

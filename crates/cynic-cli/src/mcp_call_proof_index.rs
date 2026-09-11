@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::agent_exposure_audit::checks::repo_root;
-use crate::agent_exposure_audit::source_scan::scan_mcp_tools;
+use crate::agent_exposure_audit::source_scan::scan_workspace_mcp_tools;
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct McpToolProof {
     pub name: String,
@@ -42,13 +42,10 @@ const SCHEMA: &str = "cynic.cli.mcp_call_proof_index.v1";
 
 pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
     let root = repo_root();
-    let mcp_src = root.join("crates/cynic-mcp/src");
-    let discoveries = if mcp_src.exists() {
-        scan_mcp_tools(&mcp_src)
-    } else {
-        // cynic-mcp extracted; treat declared tools as discovered
-        vec![]
-    };
+    // Real workspace-wide production scan. No fabricated coverage: with zero
+    // in-repo `#[tool]` implementations, every declared tool is an explicit
+    // phantom and coverage is 0 — never 100 by construction.
+    let discoveries = scan_workspace_mcp_tools();
     // Load declared tools + domains from agent-exposure
     let exposure_path = root.join("infra/agent-exposure.json");
     let exposure: serde_json::Value = std::fs::read_to_string(&exposure_path)
@@ -90,7 +87,7 @@ pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
             McpToolProof {
                 name: d.name.clone(),
                 description: d.description.clone(),
-                source_file: "crates/cynic-mcp/src".to_string(),
+                source_file: d.source_file.clone(),
                 line: d.line,
                 declared: declared.contains(&d.name),
                 domain,
@@ -101,8 +98,10 @@ pub(crate) fn mcp_call_proof_index() -> McpCallProofIndex {
     let impl_names: BTreeSet<String> = discoveries.iter().map(|d| d.name.clone()).collect();
 
     let (phantom, undeclared, coverage) = if impl_names.is_empty() {
-        // cynic-mcp is external; treat all declared tools as covered
-        (vec![], vec![], 100.0)
+        // No in-repo implementations: every declared tool lacks a counterpart.
+        let p: Vec<String> = declared.iter().cloned().collect();
+        let c = if declared.is_empty() { 100.0 } else { 0.0 };
+        (p, vec![], c)
     } else {
         let p: Vec<String> = declared.difference(&impl_names).cloned().collect();
         let u: Vec<String> = impl_names.difference(&declared).cloned().collect();
@@ -152,13 +151,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proof_index_reports_high_coverage() {
+    fn proof_index_reports_missing_counterparts_explicitly() {
+        // Explicit containment: no `#[tool]` implementation exists in the
+        // workspace, so every declared tool is an honest phantom and coverage
+        // is 0 — never 100 by construction. Removal condition: implement the
+        // tools in-tree (phantoms shrink per tool) or move counterpart proof
+        // to the runtime handshake with its own read-back gate.
         let index = mcp_call_proof_index();
-        assert!(
-            index.coverage_percent > 90.0,
-            "coverage should be high, got {}",
-            index.coverage_percent
-        );
-        assert!(index.phantom_count == 0, "phantoms: {:?}", index.phantoms);
+        assert_eq!(index.tool_count, 0);
+        assert!(index.declared_count > 0);
+        assert_eq!(index.phantom_count, index.declared_count);
+        assert_eq!(index.coverage_percent, 0.0);
+        assert_eq!(index.status, "blocked");
     }
 }

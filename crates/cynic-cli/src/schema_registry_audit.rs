@@ -60,7 +60,7 @@ struct SchemaScan {
 /// Splits one source file into (production, tests) using the repo-standard
 /// marker. Falls back to the bare attribute when the `mod tests` spelling
 /// differs; both directions are conservative for fixture classification.
-fn split_production_and_tests(content: &str) -> (&str, &str) {
+pub(crate) fn split_production_and_tests(content: &str) -> (&str, &str) {
     let cut = content
         .find("#[cfg(test)]\nmod tests")
         .or_else(|| content.find("#[cfg(test)]"));

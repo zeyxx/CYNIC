@@ -9,13 +9,33 @@ pub(crate) struct McpToolDiscovery {
     pub(crate) name: String,
     pub(crate) description: String,
     pub(crate) line: usize,
+    pub(crate) source_file: String,
 }
 
-pub(crate) fn scan_mcp_tool_names(src_root: &Path) -> BTreeSet<String> {
-    scan_mcp_tools(src_root)
-        .into_iter()
-        .map(|t| t.name)
-        .collect()
+/// Workspace-wide production scan: every observed workspace member's `src`,
+/// test modules stripped (fixtures must never certify as implementations).
+/// Replaces the stale single-crate scan of a `cynic-mcp` directory that does
+/// not exist. An empty result is honest data — never a pass.
+pub(crate) fn scan_workspace_mcp_tools() -> Vec<McpToolDiscovery> {
+    let root = crate::rust_source::workspace_root();
+    let prefix = format!("{}/", root.display());
+    let mut tools = Vec::new();
+    for crate_name in crate::rust_source::workspace_crate_names() {
+        let src_root = root.join("crates").join(&crate_name).join("src");
+        for mut tool in scan_mcp_tools(&src_root) {
+            // scan_mcp_tools records absolute display paths; re-root them so
+            // findings carry workspace-relative evidence paths.
+            let relative = tool
+                .source_file
+                .strip_prefix(&prefix)
+                .unwrap_or(&tool.source_file)
+                .to_string();
+            tool.source_file = relative;
+            tools.push(tool);
+        }
+    }
+    tools.sort_by(|a, b| a.name.cmp(&b.name));
+    tools
 }
 
 pub(crate) fn scan_mcp_tools(src_root: &Path) -> Vec<McpToolDiscovery> {
@@ -24,7 +44,17 @@ pub(crate) fn scan_mcp_tools(src_root: &Path) -> Vec<McpToolDiscovery> {
         let Ok(source) = fs::read_to_string(&path) else {
             continue;
         };
-        tools.extend(extract_tools(&source));
+        // Production only: test fixtures must never certify as implementations.
+        let (production, _) = crate::schema_registry_audit::split_production_and_tests(&source);
+        let rel = path.display().to_string();
+        tools.extend(extract_tools(production).into_iter().map(|t| {
+            let line = t.line;
+            McpToolDiscovery {
+                source_file: rel.clone(),
+                line,
+                ..t
+            }
+        }));
     }
     tools.sort_by(|a, b| a.name.cmp(&b.name));
     tools
@@ -45,6 +75,7 @@ fn extract_tools(source: &str) -> Vec<McpToolDiscovery> {
                 name,
                 description: description.unwrap_or_default(),
                 line,
+                source_file: String::new(),
             });
         }
         idx = start + 7;
