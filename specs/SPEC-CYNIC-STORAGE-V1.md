@@ -50,7 +50,7 @@ Storage separates durable sequential append from rich multi-dimensional queries:
      [ ENGINE 1: BINARY WAL ]                              [ ENGINE 2: EMBEDDED SURREALKV ]
      • Native Rust binary log                              • surrealdb = { version = "2", features = ["kv-surrealkv"] }
      • sha3-512 + Ed25519 + fdatasync                      • In-process, zero daemon, zero network port
-     • 64 MB chunked segments                              • Native Graph (->), HNSW Vector Index (1024-dim)
+     • 64 MB chunked segments                              • Native Graph (->), HNSW Dynamic Vector Index (D-dim)
      • Source of Truth / SMR Log                           • Materialized View / GraphRAG Intelligence
 ```
 
@@ -62,7 +62,7 @@ Storage is organized into five functional data planes serving the cybernetic and
 
 ### Plane 1: Cognitive Crystals (Wisdom 4D & GraphRAG)
 - **Role**: Unit of distilled operational knowledge and empirical learning.
-- **Attributes**: Content string, 1024-dim embedding vector, Welford M2 certainty score, causal edge relationships (`->supports->`, `->invalidates->`).
+- **Attributes**: Content string, dynamic $D$-dimensional embedding vector (supporting 384, 768, 1024, 1536+ and Matryoshka sub-vector truncation), Welford M2 certainty score, causal edge relationships (`->supports->`, `->invalidates->`).
 - **Operation**:
   - Semantic retrieval via native in-process HNSW: `SELECT * FROM crystal WHERE embedding <|40, COSINE|> $query_vec AND certainty > 0.8`.
   - Shattering mechanism: When read-back observation proves a crystal invalid, its certainty decays; sub-threshold crystals are shattered (quarantined from active memory).
@@ -314,3 +314,42 @@ Prior to merging `crates/cynic-storage` into main, the implementation must provi
 This ratified V1 baseline serves as the deterministic foundation for the upcoming storage evolution:
 1. **GraphRAG Reasoning Engine**: Formalizing knowledge graph traversal algorithms over SurrealKV to inject context-aware axioms and prevent multi-agent hallucination loops.
 2. **Analytical Data Warehouse (OLAP Tier)**: For long-term historical forensics across fleet nodes, an external read-only analytical plane (e.g. Parquet / DuckDB columnar dumps from cold WAL segments) will be evaluated to avoid burdening the operational OLTP node runtime.
+
+---
+
+## 11. Physical Scale Hierarchy: From Planck Scale to Molecular Data Compression
+
+In CYNIC, information and storage are not treated as arbitrary text strings, but as a **thermodynamic scale ladder** where data undergoes progressive compression and binding:
+
+```text
+SCALE              PHYSICAL ANALOGY        STORAGE SUBSTRATE                ENTROPY & NATURE
+─────────────────────────────────────────────────────────────────────────────────────────────
+1. Planck Scale    Quantum Fluctuation     Raw Bytes / Proof-of-History Tick  Maximum Entropy
+                   (Indivisible quanta)    (sha3-512 hashes, u64 sequence)   Zero semantic bias
+                                                   │
+2. Subatomic       Quarks, Gluons,         Typed Primitives                  Fundamental charges
+   Scale           Electrons, Neutrons     (PrincipalPubkey, Hash512,        Conservation laws
+                                           PoHTick, SequenceNumber)
+                                                   │
+3. Atomic          Atoms                   Self-Contained Immutable Events   Indivisible units of
+   Scale           (Elements: H, C, O)     (WalEntry, CausalWitness,         historical reality
+                                           OpaqueEnvelope)
+                                                   │
+4. Molecular       Molecules, Valence      Bound Entities & Causal Edges     Semantic emergence
+   Scale           Bonds (H2O, Amino Acids) (Crystals with GraphRAG edges    Valence bonding
+                                           ->implies->, Mandates, Claims)
+                                                   │
+5. Macromolecular  Proteins, Enzymes       SMR Materialized Views            Functional engines
+   Scale                                   (SurrealKV / SQLite projections,  Metabolic catalysis
+                                           Phi consensus, Active balances)
+                                                   │
+6. Macroscopic     Organism / Biosphere    CYNIC Node / Fleet / Warehouse    Sovereign boundary
+   Scale                                   (Cold Parquet OLAP, Solana)       Full reconstitution
+```
+
+### 11.1 The Thermodynamic Compression Law
+
+As information transitions up the ladder:
+1. **Planck / Subatomic ($\to$ Atomic)**: Conservation is absolute. Zero data is dropped. Every bit, sequence tick, and cryptographic signature is preserved in the append-only WAL.
+2. **Atomic ($\to$ Molecular / Crystals)**: Compression via semantic distillation. Thousands of raw tool observation events collapse into a single **Crystal of Wisdom** $|\psi\rangle \in \mathbb{R}^D$ carrying a certainty coefficient. Microscopic details are discarded; macroscopic invariants are retained.
+3. **Molecular ($\to$ Macro / Warehouse)**: Cold segments are columnarized into Parquet/DuckDB formats (dictionary encoding, bit-packing, zstd compression) for high-density historical forensics without loading uncompressed event graphs into active node RAM.

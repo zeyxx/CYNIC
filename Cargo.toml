@@ -10,6 +10,7 @@ members = [
     "crates/cynic-observer",
     "crates/cynic-zeroclaw-solana",
     "crates/cynic-market",
+    "crates/cynic-storage",
 ]
 resolver = "2"
 

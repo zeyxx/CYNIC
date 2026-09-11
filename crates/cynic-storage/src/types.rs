@@ -1,0 +1,170 @@
+//! Storage domain types — immutable records, cryptographic witnesses, and envelopes.
+
+use bytes::Bytes;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Monotonically increasing sequence number in the WAL.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct SequenceNumber(pub u64);
+
+impl SequenceNumber {
+    pub const GENESIS: Self = Self(0);
+
+    pub fn next(&self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
+/// Proof-of-History tick index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PoHTick(pub u64);
+
+/// Fixed-size SHA3-512 cryptographic digest (64 raw bytes).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Hash512(pub [u8; 64]);
+
+impl Hash512 {
+    pub const GENESIS: Self = Self([0u8; 64]);
+
+    /// Canonical prefixed hex representation per Foundation §11.
+    pub fn to_prefixed_hex(&self) -> String {
+        format!("sha3-512:{}", hex::encode(self.0))
+    }
+
+    /// Parse from a canonical prefixed hex string.
+    pub fn from_prefixed_hex(s: &str) -> Result<Self, String> {
+        let hex_str = s
+            .strip_prefix("sha3-512:")
+            .ok_or_else(|| format!("missing sha3-512: prefix in '{s}'"))?;
+        let bytes = hex::decode(hex_str).map_err(|e| format!("invalid hex: {e}"))?;
+        if bytes.len() != 64 {
+            return Err(format!(
+                "expected 64 bytes for SHA3-512, got {}",
+                bytes.len()
+            ));
+        }
+        let mut arr = [0u8; 64];
+        arr.copy_from_slice(&bytes);
+        Ok(Self(arr))
+    }
+}
+
+impl Serialize for Hash512 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_prefixed_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for Hash512 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_prefixed_hex(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Cryptographic witness asserting execution mandate, signer pubkey, and proof anchor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CausalWitness {
+    #[serde(with = "hex")]
+    pub principal_pubkey: [u8; 32],
+    #[serde(with = "hex")]
+    pub signature: [u8; 64],
+    pub mandate_id: Option<String>,
+    pub proof_anchor: Option<Hash512>,
+}
+
+/// Fully decoded entry read from the append-only WAL.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalEntry {
+    pub sequence: SequenceNumber,
+    pub poh_tick: PoHTick,
+    pub previous_hash: Hash512,
+    pub entry_hash: Hash512,
+    pub schema: String,
+    pub payload: Bytes,
+    pub witness: CausalWitness,
+}
+
+/// Input payload submitted for appending to the WAL.
+#[derive(Debug, Clone)]
+pub struct WalAppendInput {
+    pub schema: String,
+    pub payload: Bytes,
+    pub witness: CausalWitness,
+}
+
+/// Durable receipt returned upon successful fdatasync write to the WAL.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalReceipt {
+    pub sequence: SequenceNumber,
+    pub entry_hash: Hash512,
+    pub poh_tick: PoHTick,
+}
+
+/// Cryptographic verification report of the entire WAL chain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IntegrityReport {
+    pub verified_up_to_seq: SequenceNumber,
+    pub root_hash: Hash512,
+    pub total_entries: u64,
+    pub is_valid: bool,
+}
+
+/// Lossless extensibility envelope for unformalized matter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpaqueEnvelope {
+    pub envelope_id: String,
+    pub schema: String,
+    pub source_principal: String,
+    pub recorded_at_unix_ms: u64,
+    pub indexed_tags: BTreeMap<String, String>,
+    pub parent_envelope_id: Option<String>,
+    pub payload_json: String,
+    pub payload_hash: String,
+    pub residual_unknowns: Vec<String>,
+}
+
+/// Periodic snapshot checkpoint binding state root to WAL sequence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageCheckpoint {
+    pub sequence: SequenceNumber,
+    pub root_hash: Hash512,
+    pub created_at_unix_ms: u64,
+}
+
+/// Distance metric for vector search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DistanceMetric {
+    Cosine,
+    DotProduct,
+    Euclidean,
+}
+
+/// Dynamic-dimensional vector embedding representation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VectorEmbedding {
+    pub model_id: String,
+    pub dimension: usize,
+    pub metric: DistanceMetric,
+    pub components: Vec<f32>,
+}
+
+impl VectorEmbedding {
+    pub fn new(model_id: impl Into<String>, metric: DistanceMetric, components: Vec<f32>) -> Self {
+        let dimension = components.len();
+        Self {
+            model_id: model_id.into(),
+            dimension,
+            metric,
+            components,
+        }
+    }
+}
