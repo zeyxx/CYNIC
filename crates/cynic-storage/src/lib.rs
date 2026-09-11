@@ -10,6 +10,7 @@
 pub mod error;
 pub mod ports;
 pub mod types;
+pub mod wal;
 
 pub use error::StorageError;
 pub use ports::{
@@ -21,6 +22,7 @@ pub use types::{
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
     WalAppendInput, WalEntry, WalReceipt,
 };
+pub use wal::WalFsAdapter;
 
 #[cfg(test)]
 mod tests {
