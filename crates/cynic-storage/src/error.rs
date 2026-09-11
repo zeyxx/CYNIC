@@ -39,6 +39,9 @@ pub enum StorageError {
         cause: String,
     },
 
+    #[error("Frame payload too large: {len} > {max}")]
+    PayloadTooLarge { len: usize, max: usize },
+
     #[error("Storage lock contention: {0}")]
     LockContention(String),
 
