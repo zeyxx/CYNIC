@@ -11,6 +11,7 @@ pub struct StorageConfig {
     pub namespace: String,
     pub database: String,
     pub identity: StorageIdentityConfig,
+    pub data_dir: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +53,7 @@ impl Default for StorageConfig {
             namespace: "cynic".to_string(),
             database: "main".to_string(),
             identity: StorageIdentityConfig::default(),
+            data_dir: None,
         }
     }
 }

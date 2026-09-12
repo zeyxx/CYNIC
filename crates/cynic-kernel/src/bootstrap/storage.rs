@@ -33,8 +33,12 @@ impl fmt::Debug for StorageRuntime {
 pub async fn connect_storage_runtime(storage_config: &StorageConfig) -> StorageRuntime {
     // 1. Initialize Sovereign WAL + SQLite Book Ledger
     let ledger: Option<Arc<CynicLedger<WalFsAdapter>>> = {
-        let wal_dir = std::path::Path::new(&storage_config.data_dir).join("wal");
-        let proj_db = std::path::Path::new(&storage_config.data_dir).join("views.db");
+        let base_dir = storage_config
+            .data_dir
+            .clone()
+            .unwrap_or_else(|| "/var/lib/cynic/data".to_string());
+        let wal_dir = std::path::Path::new(&base_dir).join("wal");
+        let proj_db = std::path::Path::new(&base_dir).join("views.db");
         match WalFsAdapter::open(&wal_dir) {
             Ok(wal) => {
                 let wal_arc = Arc::new(wal);
