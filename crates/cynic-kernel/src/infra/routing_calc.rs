@@ -27,15 +27,19 @@ impl cynic_inference::ports::routing_event_port::RoutingEventPort
         success: bool,
     ) -> Result<(), String> {
         let event = Event {
-            event_type: "dog_performance".to_string(),
-            domain: domain.to_string(),
-            data: serde_json::json!({
-                "dog_id": dog_id,
-                "domain": domain,
-                "latency_ms": latency_ms,
-                "success": success,
-            }),
+            tool: "routing_calculator".to_string(),
+            node: dog_id.to_string(),
+            elapsed_ms: latency_ms as u64,
+            output_bytes: 0,
+            success,
+            metadata: format!("domain:{domain}"),
+            agent_id: "cynic-kernel".to_string(),
             timestamp: chrono::Utc::now().timestamp(),
+            failure_reason: if success {
+                "none".into()
+            } else {
+                "dog_failure".into()
+            },
         };
         self.0.store_event(&event).await.map_err(|e| e.to_string())
     }
@@ -51,8 +55,8 @@ impl RoutingCalculatorStorageExt for RoutingCalculator {
 
         let mut dog_nodes = std::collections::HashMap::new();
         for b in backends {
-            if let Some(node) = &b.node {
-                dog_nodes.insert(b.id.clone(), node.clone());
+            if let Some(node) = &b.fleet_node {
+                dog_nodes.insert(b.name.clone(), node.clone());
             }
         }
         calc.set_dog_nodes(dog_nodes);

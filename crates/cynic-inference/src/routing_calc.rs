@@ -114,7 +114,17 @@ impl RoutingCalculator {
         }
     }
 
-    /// Select the best N Dogs for a domain within a latency budget.
+    /// Bulk update routing table for a domain (called by DogPerformanceCollector).
+    pub fn update_domain_routing(&self, domain: &str, mut perfs: Vec<DogPerformance>) {
+        let mut cache = self.cache.write().unwrap();
+        perfs.sort_by(|a, b| {
+            b.success_rate
+                .partial_cmp(&a.success_rate)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.avg_latency_ms.cmp(&b.avg_latency_ms))
+        });
+        cache.insert(domain.to_string(), perfs);
+    }
     pub fn select_dogs(
         &self,
         domain: &str,
