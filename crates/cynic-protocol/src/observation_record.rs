@@ -76,4 +76,16 @@ pub struct RawObservation {
     pub consumer: Option<String>,
     #[serde(default)]
     pub action: Option<String>,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+    #[serde(default)]
+    pub maturity: Option<f64>,
+    #[serde(default)]
+    pub hash: String,
+    #[serde(default)]
+    pub prev_hash: String,
+    #[serde(default)]
+    pub observers: Vec<String>,
+    #[serde(default)]
+    pub consensus_score: Option<f64>,
 }
