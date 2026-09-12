@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-inference = { path = "../cynic-inference" }
+cynic-vcs = { path = "../cynic-vcs" }
 # The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
 # serde impls are required. cynic-kernel already declares it this way; cynic-host
 # did not, because no compiled module had ever needed it.
@@ -37,4 +38,3 @@ tempfile = "3"
 # cynic_intel::{escore, futarchy}. The crate exists and exports them; it was
 # simply never declared as a dependency, so neither suite could compile.
 cynic-intel = { path = "../cynic-intel" }
-cynic-vcs = { path = "../cynic-vcs" }
