@@ -86,14 +86,16 @@ pub fn build_observation_with_ledger(
     let resolved_domain = domain.unwrap_or_else(|| infer_domain(target.as_deref(), Some(&tool)));
     let resolved_agent_id = agent_id.unwrap_or_else(|| "unknown".into());
 
-    let hash = content_hash(
-        &tool,
-        target.as_deref(),
-        &resolved_domain,
-        status.as_deref(),
-        context.as_deref(),
-        value.as_ref(),
+    let hash_input = format!(
+        "{}:{}:{}:{}:{}:{}",
+        tool,
+        target.as_deref().unwrap_or(""),
+        resolved_domain,
+        status.as_deref().unwrap_or(""),
+        context.as_deref().unwrap_or(""),
+        value.as_ref().map(|v| v.to_string()).unwrap_or_default(),
     );
+    let hash = format!("{:x}", content_hash(&hash_input));
 
     let confidence_str = confidence.unwrap_or_else(|| "observed".into());
     let consensus_score = match confidence_str.as_str() {
