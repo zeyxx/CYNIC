@@ -39,6 +39,7 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
     let coord = storage_runtime.coord;
     let node_control_store = storage_runtime.node_control;
     let node_enrollment_store = storage_runtime.node_enrollment;
+    let _ledger = storage_runtime.ledger;
 
     {
         let configs = backend_configs.clone();
