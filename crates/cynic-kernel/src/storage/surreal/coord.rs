@@ -68,17 +68,36 @@ impl CoordPort for SurrealHttpStorage {
 
             // [SOVEREIGN DUAL-WRITE] Mirror claim lease to CynicLedger WAL + Book
             if let Some(ledger) = &self.ledger {
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
                 let claim_entry = cynic_protocol::agent_coordination::Claim {
                     schema: cynic_protocol::agent_coordination::CLAIM_SCHEMA.to_string(),
                     claim_id: lease_id.clone(),
-                    claim_type: claim_type.to_string(),
-                    agent_id: agent_id.to_string(),
-                    target: target.to_string(),
-                    fencing_token,
+                    request: cynic_protocol::agent_coordination::ClaimRequest {
+                        schema: cynic_protocol::agent_coordination::CLAIM_REQUEST_SCHEMA
+                            .to_string(),
+                        agent_id: agent_id.to_string(),
+                        session_id: "kernel-session".to_string(),
+                        scope: cynic_protocol::agent_coordination::ClaimScope::File {
+                            path: target.to_string(),
+                        },
+                        claim_type: cynic_protocol::agent_coordination::ClaimType::ExclusiveWrite,
+                        budget: cynic_protocol::agent_coordination::AgentBudgets::default(),
+                        ttl_seconds: 300,
+                        max_lease_window_ms: 300_000,
+                        parent_claim_id: None,
+                    },
                     lease_id: lease_id.clone(),
-                    claimed_at: chrono::Utc::now().to_rfc3339(),
-                    expires_at: expires_at.to_string(),
-                    active: true,
+                    fencing_token,
+                    granted_at_unix_ms: now_ms,
+                    expires_at_unix_ms: now_ms + 300_000,
+                    max_lease_window_ms: 300_000,
+                    status: cynic_protocol::agent_coordination::ClaimStatus::Active,
+                    preempted_by: None,
+                    phase: cynic_protocol::agent_coordination::AgentPhase::Crystallization,
+                    consumed: cynic_protocol::agent_coordination::AgentBudgets::default(),
                 };
                 let witness = cynic_storage::types::CausalWitness {
                     principal_pubkey: [0u8; 32],
@@ -197,17 +216,35 @@ impl CoordPort for SurrealHttpStorage {
 
         // [SOVEREIGN DUAL-WRITE] Update claim lease in CynicLedger WAL + Book
         if let Some(ledger) = &self.ledger {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
             let claim_entry = cynic_protocol::agent_coordination::Claim {
                 schema: cynic_protocol::agent_coordination::CLAIM_SCHEMA.to_string(),
                 claim_id: guard.lease_id.clone(),
-                claim_type: "released".to_string(),
-                agent_id: guard.agent_id.clone(),
-                target: guard.target.clone(),
-                fencing_token: guard.fencing_token,
+                request: cynic_protocol::agent_coordination::ClaimRequest {
+                    schema: cynic_protocol::agent_coordination::CLAIM_REQUEST_SCHEMA.to_string(),
+                    agent_id: guard.agent_id.clone(),
+                    session_id: "kernel-session".to_string(),
+                    scope: cynic_protocol::agent_coordination::ClaimScope::File {
+                        path: guard.target.clone(),
+                    },
+                    claim_type: cynic_protocol::agent_coordination::ClaimType::ExclusiveWrite,
+                    budget: cynic_protocol::agent_coordination::AgentBudgets::default(),
+                    ttl_seconds: 0,
+                    max_lease_window_ms: 0,
+                    parent_claim_id: None,
+                },
                 lease_id: guard.lease_id.clone(),
-                claimed_at: chrono::Utc::now().to_rfc3339(),
-                expires_at: chrono::Utc::now().to_rfc3339(),
-                active: false,
+                fencing_token: guard.fencing_token,
+                granted_at_unix_ms: now_ms,
+                expires_at_unix_ms: now_ms,
+                max_lease_window_ms: 0,
+                status: cynic_protocol::agent_coordination::ClaimStatus::Released,
+                preempted_by: None,
+                phase: cynic_protocol::agent_coordination::AgentPhase::Exploration,
+                consumed: cynic_protocol::agent_coordination::AgentBudgets::default(),
             };
             let witness = cynic_storage::types::CausalWitness {
                 principal_pubkey: [0u8; 32],
