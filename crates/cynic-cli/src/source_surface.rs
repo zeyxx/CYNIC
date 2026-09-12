@@ -237,10 +237,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     );
 
     if apply {
-        let runner = cynic_host::update_lifecycle::LocalArgvRunner;
-        let proof = cynic_host::source_worktree_reconcile::apply_worktree_convergence(
-            &plan, &runner, false,
-        );
+        let runner = cynic_vcs::LocalVcsRunner;
+        let proof = cynic_vcs::reconcile::apply_worktree_convergence(&plan, &runner, false);
 
         if json {
             emit_pretty_json(&proof)
