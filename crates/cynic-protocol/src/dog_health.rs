@@ -94,7 +94,11 @@ impl DogStats {
     pub fn record_success(&mut self) {
         self.total_calls += 1;
         self.success_count += 1;
-        self.last_success = Some(chrono::Utc::now().timestamp_millis());
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        self.last_success = Some(now_ms);
     }
 
     pub fn record_success_with_latency(&mut self, elapsed_ms: u64) {

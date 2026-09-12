@@ -46,10 +46,6 @@ pub fn sanitize_crystal_content(content: &str) -> String {
     for pattern in DIRECTIVE_PATTERNS {
         if lowered.contains(pattern) {
             // Log and replace — don't silently strip, leave evidence
-            tracing::warn!(
-                pattern = pattern,
-                "crystal content contained prompt directive — stripped"
-            );
             // Replace the directive with a marker (preserves surrounding context)
             let sanitized = case_insensitive_replace(&truncated, pattern, "[REDACTED]");
             // Recurse once in case of multiple directives
@@ -109,10 +105,6 @@ pub fn sanitize_observation_target(target: &str) -> String {
     let lowered = truncated.to_lowercase();
     for pattern in DIRECTIVE_PATTERNS {
         if lowered.contains(pattern) {
-            tracing::warn!(
-                pattern = pattern,
-                "observation target contained prompt directive — stripped"
-            );
             return case_insensitive_replace(&truncated, pattern, "[REDACTED]");
         }
     }
