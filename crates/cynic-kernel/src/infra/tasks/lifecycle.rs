@@ -287,66 +287,6 @@ pub fn spawn_backfill(
     handle
 }
 
-// ── Storage reconnect (K15: detection → action) ────────────
-//
-// When the kernel boots with NullStorage (SurrealDB unavailable), this task
-// periodically attempts to reconnect. On success, swaps NullStorage → SurrealDB
-// transparently for all consumers. Stops polling once connected.
-
-pub fn spawn_storage_reconnect(
-    reconnector: Arc<crate::storage::reconnectable::StorageReconnector>,
-    event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
-    shutdown: CancellationToken,
-) -> JoinHandle<()> {
-    let handle = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(30));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        interval.tick().await; // skip first tick
-
-        loop {
-            tokio::select! {
-                _ = shutdown.cancelled() => {
-                    klog!("[SHUTDOWN] Storage reconnect task stopped");
-                    break;
-                }
-                _ = interval.tick() => {
-                    // K6: timeout the reconnect attempt
-                    match tokio::time::timeout(
-                        Duration::from_secs(10),
-                        reconnector.try_reconnect(),
-                    )
-                    .await
-                    {
-                        Ok(true) => {
-                            klog!("[Ring 1] Storage RECONNECTED — NullStorage → SurrealDB");
-                            let _ = event_tx.send(KernelEvent::StorageReconnected);
-                            break;
-                        }
-                        Ok(false) => {
-                            // Either already connected or reconnect failed.
-                            // If already connected, stop polling.
-                            if let Ok(false) = tokio::time::timeout(
-                                Duration::from_secs(5),
-                                reconnector.is_degraded(),
-                            )
-                            .await
-                            {
-                                klog!("[Ring 1] Storage healthy — reconnect task exiting");
-                                break;
-                            }
-                        }
-                        Err(_) => {
-                            tracing::debug!("storage reconnect attempt timed out (10s)");
-                        }
-                    }
-                }
-            }
-        }
-    });
-    klog!("[Ring 2] Storage reconnect task started (every 30s)");
-    handle
-}
-
 // ── Introspection loop (MAPE-K Analyze, every 5 min) ────────
 
 #[allow(clippy::too_many_arguments)]

@@ -37,7 +37,6 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
     let storage_runtime = bootstrap::storage::connect_storage_runtime(&storage_config).await;
     let storage_port = storage_runtime.storage_port;
     let coord = storage_runtime.coord;
-    let reconnector = storage_runtime.reconnector;
     let node_control_store = storage_runtime.node_control;
     let node_enrollment_store = storage_runtime.node_enrollment;
 
@@ -155,7 +154,6 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
             embedding: Arc::clone(&embedding),
             coord: Arc::clone(&coord),
             storage_port: Arc::clone(&storage_port),
-            reconnector: Arc::clone(&reconnector),
             usage_tracker: Arc::clone(&usage_tracker),
             metrics: Arc::clone(&metrics),
             task_health: Arc::clone(&task_health),

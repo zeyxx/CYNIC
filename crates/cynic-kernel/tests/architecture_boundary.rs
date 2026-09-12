@@ -250,10 +250,8 @@ fn kernel_lifecycle_surface_stays_host_owned() {
 #[test]
 fn kernel_storage_must_not_own_inference_model_registry() {
     let storage_mod = read_repo_file("crates/cynic-kernel/src/domain/storage/mod.rs");
-    // Walk the whole storage surface instead of listing files: `storage/surreal.rs`,
-    // `storage/memory.rs` and `storage/reconnectable.rs` have all been split into
-    // module directories, and the previous hardcoded list panicked on the stale
-    // `reconnectable.rs` path while silently covering none of the moved code.
+    // Walk the whole storage surface instead of listing files: `storage/surreal.rs`
+    // and `storage/memory.rs` have all been split into module directories.
     let storage_tree = format!(
         "{}\n{}",
         read_repo_tree("crates/cynic-kernel/src/domain/storage"),

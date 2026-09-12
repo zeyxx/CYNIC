@@ -11,7 +11,6 @@ mod schema;
 mod validation;
 
 pub mod memory;
-pub mod reconnectable;
 pub mod surreal;
 
 pub use client::SurrealHttpStorage;

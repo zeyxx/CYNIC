@@ -19,8 +19,8 @@ pub use convergence_consumer::spawn_convergence_consumer;
 pub use governance::spawn_governance_queue;
 pub use lifecycle::{
     flush_usage_on_shutdown, spawn_auto_remediation, spawn_backfill, spawn_coord_expiry,
-    spawn_introspection, spawn_pattern_analyzer, spawn_session_summarizer, spawn_storage_reconnect,
-    spawn_usage_flush, spawn_usage_flush_with_organ,
+    spawn_introspection, spawn_pattern_analyzer, spawn_session_summarizer, spawn_usage_flush,
+    spawn_usage_flush_with_organ,
 };
 
 pub fn spawn_signal_handler(

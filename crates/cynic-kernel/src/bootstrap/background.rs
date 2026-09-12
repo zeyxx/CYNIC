@@ -16,7 +16,6 @@ pub struct RuntimeBackgroundTaskInputs {
     pub embedding: Arc<AutoRecoveryEmbedding>,
     pub coord: Arc<dyn crate::domain::coord::CoordPort>,
     pub storage_port: Arc<dyn crate::domain::storage::StoragePort>,
-    pub reconnector: Arc<crate::storage::reconnectable::StorageReconnector>,
     pub usage_tracker: Arc<tokio::sync::Mutex<crate::domain::usage::DogUsageTracker>>,
     pub metrics: Arc<crate::domain::metrics::Metrics>,
     pub task_health: Arc<crate::infra::task_health::TaskHealth>,
@@ -34,7 +33,6 @@ impl std::fmt::Debug for RuntimeBackgroundTaskInputs {
             .field("embedding_ptr", &Arc::as_ptr(&self.embedding))
             .field("coord_ptr", &Arc::as_ptr(&self.coord))
             .field("storage_port_ptr", &Arc::as_ptr(&self.storage_port))
-            .field("reconnector_ptr", &Arc::as_ptr(&self.reconnector))
             .field("metrics_ptr", &Arc::as_ptr(&self.metrics))
             .field("task_health_ptr", &Arc::as_ptr(&self.task_health))
             .field("event_tx", &"broadcast::Sender")
@@ -52,7 +50,6 @@ pub fn spawn_runtime_background_tasks(inputs: RuntimeBackgroundTaskInputs) {
         embedding,
         coord,
         storage_port,
-        reconnector,
         usage_tracker,
         metrics,
         task_health,
@@ -183,11 +180,6 @@ pub fn spawn_runtime_background_tasks(inputs: RuntimeBackgroundTaskInputs) {
         // Event consumer disabled
 
         // ─── Layer 4 Slack alerter: disabled
-
-        // ─── Storage reconnect (K15: detection → action) ──
-        // Ephemeral task — exits once storage is connected. No TaskHealth tracking
-        // needed: effect is observable through storage status in /health.
-        infra::tasks::spawn_storage_reconnect(Arc::clone(&reconnector), event_tx, shutdown.clone());
 
         // Probe scheduler disabled
 
