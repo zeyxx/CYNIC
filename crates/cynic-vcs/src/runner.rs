@@ -21,6 +21,30 @@ pub struct ArgvOutput {
     pub spawn_error: Option<String>,
 }
 
+impl ArgvOutput {
+    pub fn success(&self) -> bool {
+        self.spawn_error.is_none() && self.exit_code == Some(0)
+    }
+
+    pub fn summary(&self) -> String {
+        if let Some(err) = &self.spawn_error {
+            return format!("spawn error: {err}");
+        }
+        let code = self
+            .exit_code
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "none".into());
+        let msg = if !self.stdout.trim().is_empty() {
+            self.stdout.trim()
+        } else if !self.stderr.trim().is_empty() {
+            self.stderr.trim()
+        } else {
+            "empty output"
+        };
+        format!("exit {code}: {msg}")
+    }
+}
+
 pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
