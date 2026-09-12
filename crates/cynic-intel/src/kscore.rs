@@ -25,14 +25,54 @@ pub struct KScore {
     pub median_hold_hours: Option<f64>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct KScoreConfigSnapshot {
+    pub enabled: bool,
+    pub top_n_wallets: usize,
+    pub swap_history_limit: usize,
     pub weight_diamond_hands: f64,
     pub weight_organic_growth: f64,
     pub weight_longevity: f64,
     pub accumulator_threshold: f64,
     pub holder_threshold: f64,
     pub reducer_threshold: f64,
+}
+
+impl Default for KScoreConfigSnapshot {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            top_n_wallets: 10,
+            swap_history_limit: 20,
+            weight_diamond_hands: 0.40,
+            weight_organic_growth: 0.35,
+            weight_longevity: 0.25,
+            accumulator_threshold: 0.80,
+            holder_threshold: 0.50,
+            reducer_threshold: 0.20,
+        }
+    }
+}
+
+impl KScoreConfigView for KScoreConfigSnapshot {
+    fn weight_diamond_hands(&self) -> f64 {
+        self.weight_diamond_hands
+    }
+    fn weight_organic_growth(&self) -> f64 {
+        self.weight_organic_growth
+    }
+    fn weight_longevity(&self) -> f64 {
+        self.weight_longevity
+    }
+    fn accumulator_threshold(&self) -> f64 {
+        self.accumulator_threshold
+    }
+    fn holder_threshold(&self) -> f64 {
+        self.holder_threshold
+    }
+    fn reducer_threshold(&self) -> f64 {
+        self.reducer_threshold
+    }
 }
 
 pub trait KScoreConfigView {

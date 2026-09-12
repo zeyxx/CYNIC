@@ -68,7 +68,8 @@ impl HeliusEnricher {
     /// Everything else → "wallet". Cost: 1 credit (getAccountInfo).
     pub(super) async fn classify_holder(&self, token_account: &str) -> String {
         use cynic_protocol::solana_constants::{
-            AMM_PROGRAMS, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS, SYSTEM_PROGRAM,
+            AMM_PROGRAMS, BURN_ADDRESSES, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS,
+            SYSTEM_PROGRAM,
         };
 
         let Some(owner) = self.resolve_owner(token_account).await else {

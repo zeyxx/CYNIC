@@ -160,30 +160,7 @@ pub struct HolderIdentity {
     pub entity_type: Option<String>,
 }
 
-/// Classification of a token holder based on buy/sell behavior.
-/// Derived from retention_ratio = current_balance / total_bought.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HolderClass {
-    /// Bought more since initial purchase (retention >= accumulator_threshold, default 1.5)
-    Accumulator,
-    /// Holding all or most (retention >= holder_threshold, default 1.0)
-    Holder,
-    /// Sold some (retention >= reducer_threshold, default 0.5)
-    Reducer,
-    /// Sold most or all (retention < reducer_threshold)
-    Extractor,
-}
-
-impl std::fmt::Display for HolderClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Accumulator => write!(f, "accumulator"),
-            Self::Holder => write!(f, "holder"),
-            Self::Reducer => write!(f, "reducer"),
-            Self::Extractor => write!(f, "extractor"),
-        }
-    }
-}
+pub use crate::kscore::{HolderClass, KScore, WalletBehaviorView};
 
 /// Per-wallet behavioral analysis from SWAP transaction history.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,40 +175,33 @@ pub struct WalletBehavior {
     pub hold_time_hours: Option<f64>,
 }
 
-/// K-Score composite — behavioral health metric for a token.
-/// Formula: K = DiamondHands^w_dh × OrganicGrowth^w_og × Longevity^w_lon
-/// Weights configurable via backends.toml [kscore].
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct KScore {
-    /// Final composite score (0.0 to 1.0)
-    pub score: f64,
-    /// DiamondHands pillar: sqrt(conviction × retention_signal)
-    /// conviction = (accumulators + holders) / analyzed
-    /// retention_signal = tanh(accumulators / max(extractors,1) / 2)
-    ///   tanh saturates to 1.0 when acc >> ext (strong diamond hands)
-    ///   tanh → 0 when ext >> acc (everyone selling)
-    pub diamond_hands: f64,
-    /// OrganicGrowth pillar: sqrt(holder_norm × inverse_concentration)
-    pub organic_growth: f64,
-    /// Longevity pillar: 1 - e^(-age_days/21)
-    pub longevity: f64,
-    /// Wallets analyzed
-    pub wallets_analyzed: u32,
-    /// Breakdown: how many of each class
-    pub accumulators: u32,
-    pub holders: u32,
-    pub reducers: u32,
-    pub extractors: u32,
-    /// Median hold duration in hours across analyzed wallets for this token.
-    /// None when fewer than half of wallets have hold time data.
-    pub median_hold_hours: Option<f64>,
+impl WalletBehaviorView for WalletBehavior {
+    fn class(&self) -> HolderClass {
+        self.class
+    }
+    fn hold_time_hours(&self) -> Option<f64> {
+        self.hold_time_hours
+    }
 }
 
 impl TokenData {
     /// Format enriched data as a structured stimulus for Dogs.
     /// This follows the [METRICS] / [BASELINES] / [AXIOM EVIDENCE] / [QUESTION] format.
-    pub fn to_stimulus(&self) -> String {
-        crate::domain::stimulus::build_token_stimulus(self)
+    pub fn to_stimulus_content(&self) -> String {
+        format!(
+            "Solana token: {} ({})\nPrice: ${:.4}\nSupply: {}\nHolders: {} (top1: {:.1}%, top10: {:.1}%)\nLP status: {}\nAge: {}h",
+            self.name.as_deref().unwrap_or("Unknown"),
+            self.symbol.as_deref().unwrap_or("?"),
+            self.price_usd.unwrap_or(0.0),
+            self.supply
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "?".into()),
+            self.holder_count,
+            self.top1_pct,
+            self.top10_pct,
+            self.lp_status,
+            self.age_hours,
+        )
     }
 }
 
