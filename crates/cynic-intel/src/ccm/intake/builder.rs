@@ -1,7 +1,7 @@
 //! Observation builders and domain inference logic.
 
 use super::hash::content_hash;
-use crate::json::JsonValue;
+use cynic_protocol::{Observation, sanitize_observation_target};
 
 /// Infer domain from file extension or target pattern.
 pub fn infer_domain(target: Option<&str>, tool: Option<&str>) -> String {
@@ -52,7 +52,7 @@ pub fn build_observation(
     agent_id: Option<String>,
     session_id: Option<String>,
     tags: Option<Vec<String>>,
-) -> crate::domain::storage::Observation {
+) -> Observation {
     build_observation_with_ledger(
         tool, target, domain, status, context, project, agent_id, session_id, tags,
         None, // value
@@ -64,7 +64,7 @@ pub fn build_observation(
     )
 }
 
-/// Extended build_observation with ledger system support.
+/// Build an `Observation` with full ledger fields.
 #[allow(clippy::too_many_arguments)]
 pub fn build_observation_with_ledger(
     tool: String,
@@ -76,53 +76,58 @@ pub fn build_observation_with_ledger(
     agent_id: Option<String>,
     session_id: Option<String>,
     tags: Option<Vec<String>>,
-    value: Option<JsonValue>,
+    value: Option<serde_json::Value>,
     confidence: Option<String>,
     consumer: Option<String>,
     action: Option<String>,
     depends_on: Option<Vec<String>>,
     maturity: Option<f64>,
-) -> crate::domain::storage::Observation {
+) -> Observation {
     let resolved_domain = domain.unwrap_or_else(|| infer_domain(target.as_deref(), Some(&tool)));
     let resolved_agent_id = agent_id.unwrap_or_else(|| "unknown".into());
 
-    let hash_input = format!(
-        "{:}|{:}|{:}|{:}",
-        resolved_domain,
-        tool,
-        target.as_deref().unwrap_or(""),
-        chrono::Utc::now().timestamp_millis()
+    let hash = content_hash(
+        &tool,
+        target.as_deref(),
+        &resolved_domain,
+        status.as_deref(),
+        context.as_deref(),
+        value.as_ref(),
     );
-    let hash = format!("{:x}", content_hash(&hash_input));
 
-    let consensus_score = confidence.as_deref().and_then(|c| match c {
-        "observed" => Some(0.9),
-        "deduced" => Some(0.7),
-        "inferred" => Some(0.5),
-        "conjecture" => Some(0.3),
+    let confidence_str = confidence.unwrap_or_else(|| "observed".into());
+    let consensus_score = match confidence_str.as_str() {
+        "observed" => Some(1.0),
+        "deduced" => Some(0.8),
+        "inferred" => Some(0.6),
+        "conjecture" => Some(0.4),
+        _ => None,
+    };
+
+    let maturity_val = maturity.or_else(|| match confidence_str.as_str() {
+        "observed" => Some(1.0),
+        "deduced" => Some(0.8),
         _ => None,
     });
 
-    crate::domain::storage::Observation {
-        project: project.unwrap_or_else(|| "CYNIC".into()),
+    Observation {
+        project: project.unwrap_or_else(|| "cynic".into()),
         agent_id: resolved_agent_id.clone(),
         tool,
-        target: crate::domain::sanitize::sanitize_observation_target(&target.unwrap_or_default()),
+        target: sanitize_observation_target(&target.unwrap_or_default()),
         domain: resolved_domain,
         status: status.unwrap_or_else(|| "success".into()),
-        context: context
-            .map(|c| c.chars().take(2000).collect())
-            .unwrap_or_default(),
+        context: context.unwrap_or_default(),
         session_id: session_id.unwrap_or_default(),
-        timestamp: chrono::Utc::now().timestamp_millis(),
+        timestamp: chrono::Utc::now().timestamp(),
         tags: tags.unwrap_or_default(),
         source_tier: String::new(),
         value,
-        confidence,
+        confidence: Some(confidence_str),
         consumer,
         action,
         depends_on: depends_on.unwrap_or_default(),
-        maturity,
+        maturity: maturity_val,
         hash,
         prev_hash: String::new(),
         observers: vec![resolved_agent_id],

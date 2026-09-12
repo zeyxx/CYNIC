@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::dog::{PHI_INV, PHI_INV2, PHI_INV3};
+use cynic_protocol::{PHI_INV, PHI_INV2, PHI_INV3, RawObservation, delimit_crystal_content};
 
 #[cfg(test)]
 use super::crystal::Crystal;
@@ -258,7 +258,7 @@ pub fn format_crystal_context(
             "BARK" => "negative pattern (historically suspicious)",
             _ => "pattern",
         };
-        let delimited = crate::domain::sanitize::delimit_crystal_content(c.content());
+        let delimited = delimit_crystal_content(c.content());
         let line = format!(
             "- [{} {} — {}] (certainty: {:.2}, quality: {:.2}, {} obs): {}",
             state_label,
@@ -334,9 +334,7 @@ pub fn format_session_context(summaries: &[SessionSummary], max_chars: usize) ->
 
 /// Format raw observations into a summarization prompt for the sovereign LLM.
 /// Pure function — no I/O.
-pub fn format_summarization_prompt(
-    observations: &[crate::domain::storage::RawObservation],
-) -> String {
+pub fn format_summarization_prompt(observations: &[RawObservation]) -> String {
     let mut items: Vec<String> = Vec::new();
     for obs in observations.iter().take(30) {
         items.push(format!(
@@ -637,7 +635,7 @@ mod tests {
 
     #[test]
     fn summarization_prompt_formats_observations() {
-        use crate::domain::storage::RawObservation;
+        // use cynic_protocol::RawObservation;
         let obs = vec![
             RawObservation {
                 id: String::new(),
@@ -696,7 +694,7 @@ mod tests {
 
     #[test]
     fn summarization_prompt_caps_at_30_observations() {
-        use crate::domain::storage::RawObservation;
+        // use cynic_protocol::RawObservation;
         let obs: Vec<RawObservation> = (0..50)
             .map(|i| RawObservation {
                 id: String::new(),

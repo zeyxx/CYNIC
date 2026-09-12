@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod adapters;
+pub mod ccm;
 pub mod domain_enrichment;
 pub mod epistemic;
 pub mod escore;

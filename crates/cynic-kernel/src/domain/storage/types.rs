@@ -2,48 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A development workflow observation — tool usage, file edits, errors.
-/// Captured automatically by hooks, stored with TTL, feeds CCM.
-/// Extended: ledger system with hash chain, consensus, multi-observer support.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Observation {
-    pub project: String,
-    pub agent_id: String,
-    pub tool: String,
-    pub target: String,
-    pub domain: String,
-    pub status: String,
-    pub context: String,
-    pub session_id: String,
-    pub timestamp: i64,
-    pub tags: Vec<String>,
-    /// E1: Source tier — classified at write time via classify_source_tier().
-    /// "permanent" (organs/services), "cron" (scheduled), "session" (ephemeral).
-    #[serde(default)]
-    pub source_tier: String,
-
-    // ── Ledger system ──
-    #[serde(default)]
-    pub value: Option<crate::json::JsonValue>, // K5-exempt: arbitrary JSON for heterogeneous observation facts; unavoidable for generic observation storage
-    #[serde(default)]
-    pub confidence: Option<String>, // observed|deduced|inferred|conjecture
-    #[serde(default)]
-    pub consumer: Option<String>, // K15: who must act on this
-    #[serde(default)]
-    pub action: Option<String>, // K15: what changes if true
-    #[serde(default)]
-    pub depends_on: Vec<String>, // Kairos: dependencies for ripeness
-    #[serde(default)]
-    pub maturity: Option<f64>, // Kairos: is it ripe (≥φ⁻¹)?
-    #[serde(default)]
-    pub hash: String, // SHA256 hash of this observation
-    #[serde(default)]
-    pub prev_hash: String, // Hash of previous observation (chain)
-    #[serde(default)]
-    pub observers: Vec<String>, // Observer agent_ids (for consensus)
-    #[serde(default)]
-    pub consensus_score: Option<f64>, // Weighted average of observer confidence
-}
+pub use cynic_protocol::{Observation, RawObservation};
 
 impl crate::domain::proof::Provable for Observation {
     fn source_organ(&self) -> String {
@@ -66,54 +25,6 @@ impl crate::domain::proof::Provable for Observation {
             "legacy_sha256": self.hash,
         })
     }
-}
-
-/// Raw observation row — used by list_observations_raw and get_session_observations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawObservation {
-    /// SurrealDB record ID (e.g. "observation:abc123") — preserved for API compat.
-    #[serde(default)]
-    pub id: String,
-    pub tool: String,
-    pub target: String,
-    pub domain: String,
-    pub status: String,
-    #[serde(default)]
-    pub context: String,
-    #[serde(default)]
-    pub created_at: i64,
-    #[serde(default)]
-    pub project: String,
-    #[serde(default)]
-    pub agent_id: String,
-    #[serde(default)]
-    pub session_id: String,
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub source_tier: String,
-
-    // ── Ledger system ──
-    #[serde(default)]
-    pub value: Option<crate::json::JsonValue>, // K5-exempt: arbitrary JSON for heterogeneous observation facts; unavoidable for generic observation storage
-    #[serde(default)]
-    pub confidence: Option<String>,
-    #[serde(default)]
-    pub consumer: Option<String>,
-    #[serde(default)]
-    pub action: Option<String>,
-    #[serde(default)]
-    pub depends_on: Vec<String>,
-    #[serde(default)]
-    pub maturity: Option<f64>,
-    #[serde(default)]
-    pub hash: String,
-    #[serde(default)]
-    pub prev_hash: String,
-    #[serde(default)]
-    pub observers: Vec<String>,
-    #[serde(default)]
-    pub consensus_score: Option<f64>,
 }
 
 /// Historical usage row loaded at boot.

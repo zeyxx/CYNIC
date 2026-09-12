@@ -252,7 +252,7 @@ pub fn filter_mature(crystals: Vec<Crystal>) -> Vec<MatureCrystal> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::dog::PHI_INV;
+    use cynic_protocol::{PHI_INV, PHI_INV2};
 
     fn make_crystal(confidence: f64, observations: u32, state: CrystalState) -> Crystal {
         Crystal {
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn phi_bounds_are_consistent() {
-        use crate::domain::dog::PHI_INV2;
+        // PHI_INV2 checked above
         let phi_inv = PHI_INV;
         let phi_inv2 = PHI_INV2;
         assert!(
