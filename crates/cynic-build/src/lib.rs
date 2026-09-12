@@ -7,8 +7,6 @@ use cynic_protocol::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use cynic_vcs::runner::ArgvRunner;
-
 pub mod compressor;
 
 pub const BUILD_PROOF_SCHEMA: &str = "cynic.host.build_proof.v1";
@@ -230,7 +228,44 @@ impl BuildConformanceEvidence {
     }
 }
 
-pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof {
+/// Port for executing build commands (dependency inversion).
+pub trait BuildRunner: Send + Sync {
+    fn run_command(&self, argv: &[&str]) -> BuildCommandOutput;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildCommandOutput {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub spawn_error: Option<String>,
+}
+
+impl BuildCommandOutput {
+    pub fn success(&self) -> bool {
+        self.spawn_error.is_none() && self.exit_code == Some(0)
+    }
+
+    pub fn summary(&self) -> String {
+        if let Some(err) = &self.spawn_error {
+            return format!("spawn error: {err}");
+        }
+        let code = self
+            .exit_code
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "none".into());
+        let msg = if !self.stdout.trim().is_empty() {
+            self.stdout.trim()
+        } else if !self.stderr.trim().is_empty() {
+            self.stderr.trim()
+        } else {
+            "empty output"
+        };
+        format!("exit {code}: {msg}")
+    }
+}
+
+pub fn run_build(request: &BuildRequest, runner: &dyn BuildRunner) -> BuildProof {
     let evidence_refs = request
         .input
         .evidence_refs
@@ -331,7 +366,7 @@ pub fn run_build(request: &BuildRequest, runner: &dyn ArgvRunner) -> BuildProof 
     }
 
     let argv_refs = request.argv.iter().map(String::as_str).collect::<Vec<_>>();
-    let output = runner.run(&argv_refs);
+    let output = runner.run_command(&argv_refs);
     let command = BuildCommandProof {
         argv: request.argv.clone(),
         success: output.success(),

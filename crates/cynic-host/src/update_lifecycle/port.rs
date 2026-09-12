@@ -39,7 +39,57 @@ impl ArgvOutput {
     }
 }
 
-pub use cynic_vcs::runner::{ArgvOutput, ArgvRunner, LocalVcsRunner as LocalArgvRunner};
+/// Argv-only command runner (no shell composition).
+pub trait ArgvRunner: Send + Sync {
+    fn run(&self, argv: &[&str]) -> ArgvOutput;
+}
+
+impl<T: ArgvRunner + ?Sized> cynic_build::BuildRunner for T {
+    fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
+        let out = self.run(argv);
+        cynic_build::BuildCommandOutput {
+            exit_code: out.exit_code,
+            stdout: out.stdout,
+            stderr: out.stderr,
+            spawn_error: out.spawn_error,
+        }
+    }
+}
+
+/// Production runner: spawns argv[0] with remaining args.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LocalArgvRunner;
+
+impl ArgvRunner for LocalArgvRunner {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        observe_argv(argv);
+        if argv.is_empty() {
+            return ArgvOutput {
+                exit_code: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: Some("empty argv".into()),
+            };
+        }
+        match std::process::Command::new(argv[0])
+            .args(&argv[1..])
+            .output()
+        {
+            Ok(o) => ArgvOutput {
+                exit_code: o.status.code(),
+                stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&o.stderr).into_owned(),
+                spawn_error: None,
+            },
+            Err(e) => ArgvOutput {
+                exit_code: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: Some(format!("spawn {}: {e}", argv[0])),
+            },
+        }
+    }
+}
 
 /// Observe mode (tranche 2): compute the pure verdict and append one JSONL
 /// line. Best-effort by contract: a logging failure warns on stderr and

@@ -54,7 +54,7 @@ fn build_runner_depends_on_abstract_argv_runner() {
         fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {:?}: {}", path, e));
 
     assert!(
-        content.contains("runner: &dyn ArgvRunner"),
-        "Port Inversion Violation: run_build must take abstract `&dyn ArgvRunner`"
+        content.contains("runner: &dyn BuildRunner"),
+        "Port Inversion Violation: run_build must take abstract `&dyn BuildRunner`"
     );
 }
