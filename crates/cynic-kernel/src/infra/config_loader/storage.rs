@@ -55,6 +55,7 @@ pub fn load_storage_config(path: &std::path::Path) -> StorageConfig {
         namespace,
         database,
         identity: load_storage_identity(from_toml.as_ref(), &defaults.identity),
+        data_dir: std::env::var("CYNIC_DATA_DIR").ok(),
     }
 }
 
