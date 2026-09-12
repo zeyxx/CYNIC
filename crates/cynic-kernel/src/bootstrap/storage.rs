@@ -74,8 +74,9 @@ pub async fn connect_storage_runtime(storage_config: &StorageConfig) -> StorageR
         Option<Arc<dyn NodeControlStorePort>>,
         Option<Arc<dyn NodeEnrollmentStorePort>>,
     ) = match crate::storage::SurrealHttpStorage::init(storage_config).await {
-        Ok(storage) => {
+        Ok(mut storage) => {
             crate::klog!("[Ring 1] Storage: HEALTHY (SurrealDB HTTP)");
+            storage.ledger = ledger.clone();
             let db = Arc::new(storage);
             (
                 Arc::clone(&db) as _,

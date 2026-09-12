@@ -80,6 +80,33 @@ pub(super) async fn store_proof_of_history(
         crate::storage::escape_surreal(&hex::encode(signature.to_bytes()))
     );
 
+    // [SOVEREIGN DUAL-WRITE] Mirror to CynicLedger (WAL + SQLite Projections)
+    if let Some(ledger) = &storage.ledger {
+        let proof_entry = cynic_protocol::runtime::RuntimeProof {
+            schema: cynic_protocol::runtime::RUNTIME_PROOF_SCHEMA.to_string(),
+            source_commit: poh.source_organ.clone(),
+            tree_hash: chained_hash.clone(),
+            artifact_digest: hex::encode(signature.to_bytes()),
+            receipts: vec![],
+            blockers: vec![],
+        };
+        let witness = cynic_storage::types::CausalWitness {
+            principal_pubkey: [0u8; 32],
+            signature: [0u8; 64],
+            mandate_id: Some("mandate-poh".to_string()),
+            proof_anchor: None,
+        };
+        use cynic_storage::book::LedgerBook;
+        if let Err(e) = ledger.proofs.post(&proof_entry, witness) {
+            tracing::warn!(error = %e, "Failed to mirror ProofOfHistory to Sovereign Ledger Book");
+        } else {
+            crate::klog!(
+                "[Ring 1] ProofOfHistory {} mirrored to Sovereign WAL + Book",
+                poh.event_type
+            );
+        }
+    }
+
     let payload_str = serde_json::to_string(&poh.payload).unwrap_or_else(|_| "null".to_string());
 
     let query = format!(

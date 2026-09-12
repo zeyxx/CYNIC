@@ -23,6 +23,8 @@ pub struct SurrealHttpStorage {
     auth: std::sync::RwLock<SensitiveString>,
     credentials: StorageCredentials,
     pub(crate) metrics: crate::storage::StorageMetrics,
+    pub ledger:
+        Option<std::sync::Arc<cynic_storage::book::CynicLedger<cynic_storage::wal::WalFsAdapter>>>,
 }
 
 impl std::fmt::Debug for SurrealHttpStorage {
@@ -114,6 +116,7 @@ impl SurrealHttpStorage {
             auth: std::sync::RwLock::new(bearer_auth),
             credentials,
             metrics: crate::storage::StorageMetrics::new(),
+            ledger: None,
         };
 
         storage.query("RETURN true").await.map_err(|e| {
@@ -312,6 +315,7 @@ mod tests {
             )
             .unwrap(),
             metrics: crate::storage::StorageMetrics::new(),
+            ledger: None,
         };
 
         let debug = format!("{storage:?}");
