@@ -4,7 +4,7 @@
 // This file owns ParseFailureGate — organ-internal state not needed by judge.
 
 // Re-export domain types for backward compat within organ/
-pub use crate::domain::dog_health::{DogStats, ScoreFailureKind};
+pub use cynic_protocol::{DogStats, ScoreFailureKind};
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};

@@ -4,10 +4,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::organ::health::ParseFailureGate;
 use crate::organ::inference_organ::InferenceOrgan;
 use crate::organ::registry::{Backend, BackendHealth};
+use cynic_protocol::{DogStats, ScoreFailureKind, ScoreOutcome};
 
 /// Per-backend health tracking entry (private — exposed only via BackendHandle).
 #[derive(Debug)]

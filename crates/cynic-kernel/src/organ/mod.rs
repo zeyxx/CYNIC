@@ -1,17 +1,4 @@
-//! organ/ — InferenceOrgan: owns backend registry, health tracking, and routing data.
-//!
-//! Canonical types live in `cynic_inference::domain::backend_health` (§481).
-//! Organ internal structures are modularized into bounded components (<300 LOC).
+//! organ — re-exported from `cynic-inference` per Foundation §481 & CRATE_MODELS.md §83.
+//! The concrete InferenceOrgan (registry of Dog backends and health tracking) lives in `cynic-inference`.
 
-pub mod backend_handle;
-pub mod health;
-pub mod inference_organ;
-pub mod registry;
-
-#[cfg(test)]
-mod tests;
-
-pub use backend_handle::{BackendEntry, BackendHandle};
-pub use health::ParseFailureGate;
-pub use inference_organ::InferenceOrgan;
-pub use registry::{Backend, BackendHealth, BackendId, DeclaredCapabilities, MeasuredCapabilities};
+pub use cynic_inference::organ::*;

@@ -5,6 +5,7 @@ pub mod domain;
 pub mod embedding;
 pub mod inference;
 pub mod math;
+pub mod organ;
 /// Historical probe module for attaching to Osmantic ODS / OpenAI-compat peers.
 /// Prefer `adapters::ods` (documents ODS as external bootstrap framework).
 pub mod ods_discovery;

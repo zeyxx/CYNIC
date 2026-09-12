@@ -1,8 +1,8 @@
 use super::*;
-use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::organ::registry::{
     Backend, BackendHealth, BackendId, DeclaredCapabilities, MeasuredCapabilities,
 };
+use cynic_protocol::{DogStats, ScoreFailureKind, ScoreOutcome};
 use std::time::{Duration, Instant};
 
 fn make_backend(id: &str) -> Backend {
