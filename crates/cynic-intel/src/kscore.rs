@@ -3,7 +3,7 @@
 //! This crate owns the behavioral intelligence math. The kernel adapts its local
 //! config and behavior shapes through thin traits.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HolderClass {
     Accumulator,
     Holder,
@@ -11,7 +11,7 @@ pub enum HolderClass {
     Extractor,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct KScore {
     pub score: f64,
     pub diamond_hands: f64,
