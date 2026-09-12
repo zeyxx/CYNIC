@@ -11,6 +11,7 @@ pub mod ods_discovery;
 pub mod organ;
 pub mod ports;
 pub mod progress;
+pub mod routing_calc;
 pub mod vector_memory;
 pub mod verdict_cache;
 

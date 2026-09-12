@@ -10,4 +10,5 @@ pub mod local_runtime_port;
 pub mod model_publisher_port;
 pub mod model_registry_port;
 pub mod model_store_port;
+pub mod routing_event_port;
 pub mod summarization_port;

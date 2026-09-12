@@ -69,6 +69,7 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
         }
     }
 
+    use crate::infra::routing_calc::RoutingCalculatorStorageExt;
     let routing_calc = Arc::new(
         infra::routing_calc::RoutingCalculator::with_storage_and_backends(
             Arc::clone(&storage_port),
