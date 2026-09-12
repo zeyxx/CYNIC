@@ -267,7 +267,7 @@ pub trait ActivityStorage: Send + Sync {
     ) -> Result<(), StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
-    async fn get_session_compliances(
+    async fn list_session_compliance(
         &self,
         limit: u32,
     ) -> Result<Vec<cynic_intel::compliance::SessionCompliance>, StorageError>;
