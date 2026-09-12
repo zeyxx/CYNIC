@@ -15,7 +15,7 @@ fn mark_malformed_attribute(
     *malformed = true;
 }
 
-pub(crate) fn parse_porcelain(
+pub fn parse_porcelain(
     text: &str,
     repository_root: &Path,
     workspace_store: &Path,
