@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::update_lifecycle::ArgvRunner;
+use crate::runner::ArgvRunner;
 use cynic_protocol::source_worktree::{
     ExecutedActionReceipt, SOURCE_WORKTREE_APPLY_PROOF_SCHEMA, WorktreeConvergenceAction,
     WorktreeConvergenceApplyProof, WorktreeConvergencePlan,
@@ -233,7 +233,7 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use crate::runner::{ArgvOutput, MapArgvRunner};
     use cynic_protocol::source_worktree::{
         WorktreeConvergenceAction, WorktreeConvergencePlan, WorktreeConvergenceSummary,
     };

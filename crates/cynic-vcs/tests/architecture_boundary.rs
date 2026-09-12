@@ -30,7 +30,14 @@ fn vcs_never_depends_on_high_layer_crates() {
 #[test]
 fn vcs_domain_modules_are_pure_zero_io() {
     // Pure domain modules must not perform direct OS/process I/O
-    let domain_files = ["src/entry.rs", "src/parse.rs"];
+    let domain_files = [
+        "src/entry.rs",
+        "src/parse.rs",
+        "src/sync/types.rs",
+        "src/sync/reconcile.rs",
+        "src/reconcile/types.rs",
+        "src/reconcile/reconcile.rs",
+    ];
     for rel_path in &domain_files {
         let path = vcs_crate_root().join(rel_path);
         let content = fs::read_to_string(&path)

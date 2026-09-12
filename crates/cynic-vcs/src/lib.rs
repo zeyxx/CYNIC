@@ -2,7 +2,9 @@
 
 pub mod entry;
 pub mod parse;
+pub mod reconcile;
 pub mod runner;
+pub mod sync;
 
 use std::path::{Path, PathBuf};
 

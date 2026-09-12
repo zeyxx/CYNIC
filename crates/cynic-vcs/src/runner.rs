@@ -1,4 +1,4 @@
-//! Port definitions for VCS runners.
+//! Command execution abstractions for VCS operations.
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VcsCommandOutput {
@@ -10,6 +10,19 @@ pub struct VcsCommandOutput {
 
 pub trait VcsRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> VcsCommandOutput;
+}
+
+/// String-oriented argv runner output matching CYNIC ArgvOutput.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArgvOutput {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub spawn_error: Option<String>,
+}
+
+pub trait ArgvRunner: Send + Sync {
+    fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -41,6 +54,41 @@ impl VcsRunner for LocalVcsRunner {
                 stderr: Vec::new(),
                 spawn_error: Some(format!("spawn {}: {error}", argv[0])),
             },
+        }
+    }
+}
+
+impl ArgvRunner for LocalVcsRunner {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        let out = <Self as VcsRunner>::run(self, argv);
+        ArgvOutput {
+            exit_code: out.exit_code,
+            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+            spawn_error: out.spawn_error,
+        }
+    }
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct MapArgvRunner {
+    pub responses: Vec<(Vec<String>, ArgvOutput)>,
+}
+
+#[cfg(test)]
+impl ArgvRunner for MapArgvRunner {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        for (pattern, resp) in &self.responses {
+            if pattern.iter().map(|s| s.as_str()).eq(argv.iter().copied()) {
+                return resp.clone();
+            }
+        }
+        ArgvOutput {
+            exit_code: Some(1),
+            stdout: String::new(),
+            stderr: format!("unmatched argv: {:?}", argv),
+            spawn_error: None,
         }
     }
 }

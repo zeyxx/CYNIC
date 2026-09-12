@@ -245,10 +245,12 @@ mod tests {
         let mut obs = mock_observation();
         obs.cortex.commits_ahead = Some(5);
         let decision = reconcile(&obs);
-        assert!(decision
-            .actions
-            .iter()
-            .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 })));
+        assert!(
+            decision
+                .actions
+                .iter()
+                .any(|a| matches!(a, SyncAction::PushCortexToForgejo { commits: 5 }))
+        );
     }
 
     #[test]
@@ -256,10 +258,12 @@ mod tests {
         let mut obs = mock_observation();
         obs.forgejo.commits_ahead = Some(10);
         let decision = reconcile(&obs);
-        assert!(decision
-            .actions
-            .iter()
-            .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 })));
+        assert!(
+            decision
+                .actions
+                .iter()
+                .any(|a| matches!(a, SyncAction::PushForgejoToGithub { commits: 10 }))
+        );
     }
 
     #[test]
@@ -293,9 +297,11 @@ mod tests {
 
         assert!(decision.needs_review);
         assert!(decision.actions.is_empty());
-        assert!(decision
-            .unknowns
-            .iter()
-            .any(|unknown| unknown.contains("forgejo remote is not reachable")));
+        assert!(
+            decision
+                .unknowns
+                .iter()
+                .any(|unknown| unknown.contains("forgejo remote is not reachable"))
+        );
     }
 }
