@@ -1095,6 +1095,7 @@ dependencies = [
  "cynic-protocol",
  "hex",
  "parking_lot",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha3",

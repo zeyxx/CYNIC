@@ -1,11 +1,11 @@
-//! Schema-driven typed repositories — zero-SQL aggregate stores for CYNIC.
-//! Provides typed, type-safe, document/aggregate access to:
-//! 1. Identity & Nodes
-//! 2. Governance & Mandates
-//! 3. Coordination & Claims
-//! 4. Wisdom & Verdicts
-//! 5. Metabolism & Invoices
-//! 6. Evidence & Proofs
+//! Sovereign Ledger Books — zero-SQL typed aggregate books for CYNIC.
+//! Implements double-entry bookkeeping (*partita doppia*) across 6 canonical books:
+//! 1. Citizen & Node identities (`citizens`, `nodes`)
+//! 2. Mandates & Offices (`mandates`)
+//! 3. Coordination & Claims (`claims`)
+//! 4. Metabolism & Invoices (`invoices`)
+//! 5. Evidence & Runtime Proofs (`proofs`)
+//! 6. Unformalized Matter (`envelopes`)
 
 use bytes::Bytes;
 use serde::Serialize;
@@ -17,23 +17,35 @@ use crate::ports::{DomainProjector, ProjectionCoordinatorPort, StateTransaction,
 use crate::projection::SqliteProjectionAdapter;
 use crate::types::{CausalWitness, SequenceNumber, WalAppendInput, WalEntry, WalReceipt};
 
-/// Trait implemented by any domain aggregate that can be stored in a typed repository.
-pub trait StorageAggregate: Serialize + DeserializeOwned + Send + Sync + 'static {
-    /// Canonical schema URI identifying this aggregate type in the WAL and SMR projections.
+/// Trait implemented by any domain entity that can be posted to a LedgerBook.
+pub trait BookEntry: Serialize + DeserializeOwned + Send + Sync + 'static {
+    /// Canonical schema URI identifying this entry type in the WAL journal and SMR projections.
     fn schema_uri() -> &'static str;
 
-    /// Unique identifier for this aggregate instance.
-    fn aggregate_id(&self) -> &str;
+    /// Unique identifier for this book entry.
+    fn entry_id(&self) -> &str;
 }
 
-/// Generic projector that projects any `StorageAggregate` into a dedicated SQLite table.
-pub struct GenericAggregateProjector<T: StorageAggregate> {
+/// Abstract contract for a Ledger Book storing typed entries.
+pub trait LedgerBook<T: BookEntry>: Send + Sync {
+    /// Post a new or updated entry to the book, backed by an immutable WAL receipt.
+    fn post(&self, entry: &T, witness: CausalWitness) -> Result<WalReceipt, StorageError>;
+
+    /// Read an entry from the book by ID in O(1).
+    fn read(&self, id: &str) -> Result<Option<T>, StorageError>;
+
+    /// Scan all entries currently inscribed in the book.
+    fn scan_all(&self) -> Result<Vec<T>, StorageError>;
+}
+
+/// Generic SMR projector that posts journal events into a dedicated SQLite book table.
+pub struct GenericBookProjector<T: BookEntry> {
     table_name: &'static str,
     schema_uri: &'static str,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: StorageAggregate> GenericAggregateProjector<T> {
+impl<T: BookEntry> GenericBookProjector<T> {
     pub fn new(table_name: &'static str) -> Self {
         Self {
             table_name,
@@ -43,13 +55,12 @@ impl<T: StorageAggregate> GenericAggregateProjector<T> {
     }
 }
 
-impl<T: StorageAggregate> DomainProjector for GenericAggregateProjector<T> {
+impl<T: BookEntry> DomainProjector for GenericBookProjector<T> {
     fn supported_schemas(&self) -> &[&str] {
         std::slice::from_ref(&self.schema_uri)
     }
 
     fn apply(&self, entry: &WalEntry, tx: &mut dyn StateTransaction) -> Result<(), StorageError> {
-        // Ensure table exists
         let create_table_sql = format!(
             "CREATE TABLE IF NOT EXISTS {} (
                 id TEXT PRIMARY KEY,
@@ -65,8 +76,8 @@ impl<T: StorageAggregate> DomainProjector for GenericAggregateProjector<T> {
         let payload_str = std::str::from_utf8(&entry.payload)
             .map_err(|e| StorageError::Codec(format!("invalid UTF-8 in payload: {e}")))?;
 
-        let aggregate: T = serde_json::from_str(payload_str)
-            .map_err(|e| StorageError::Codec(format!("failed to deserialize aggregate: {e}")))?;
+        let book_entry: T = serde_json::from_str(payload_str)
+            .map_err(|e| StorageError::Codec(format!("failed to deserialize book entry: {e}")))?;
 
         let insert_sql = format!(
             "INSERT INTO {} (id, schema, updated_seq, payload_json)
@@ -78,7 +89,7 @@ impl<T: StorageAggregate> DomainProjector for GenericAggregateProjector<T> {
             self.table_name
         );
 
-        let id = aggregate.aggregate_id().to_string();
+        let id = book_entry.entry_id().to_string();
         let schema = self.schema_uri.to_string();
         let seq = entry.sequence.0 as i64;
         let json_payload = payload_str.to_string();
@@ -89,24 +100,23 @@ impl<T: StorageAggregate> DomainProjector for GenericAggregateProjector<T> {
     }
 }
 
-/// Generic Zero-SQL typed repository backed by an append-only WAL and an SMR projection view.
-pub struct TypedRepository<T: StorageAggregate, W: WalJournalPort> {
+/// Concrete Zero-SQL typed book backed by an append-only WAL and an SMR projection view.
+pub struct TypedBook<T: BookEntry, W: WalJournalPort> {
     table_name: &'static str,
     wal: Arc<W>,
     projection: SqliteProjectionAdapter,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
+impl<T: BookEntry, W: WalJournalPort> TypedBook<T, W> {
     pub fn new(
         table_name: &'static str,
         wal: Arc<W>,
         mut projection: SqliteProjectionAdapter,
     ) -> Result<Self, StorageError> {
-        let projector = GenericAggregateProjector::<T>::new(table_name);
+        let projector = GenericBookProjector::<T>::new(table_name);
         projection.register_projector(Box::new(projector))?;
 
-        // Initialize table immediately
         let create_sql = format!(
             "CREATE TABLE IF NOT EXISTS {} (
                 id TEXT PRIMARY KEY,
@@ -122,7 +132,7 @@ impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
             let conn = rusqlite::Connection::open(projection.db_path())
                 .map_err(|e| StorageError::Io(e.to_string()))?;
             conn.execute_batch(&create_sql)
-                .map_err(|e| StorageError::Io(format!("failed to create aggregate table: {e}")))?;
+                .map_err(|e| StorageError::Io(format!("failed to create book table: {e}")))?;
         }
 
         Ok(Self {
@@ -132,10 +142,11 @@ impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
             _marker: std::marker::PhantomData,
         })
     }
+}
 
-    /// Save or mutate an aggregate. Appends to the immutable WAL and updates SMR projection.
-    pub fn save(&self, aggregate: &T, witness: CausalWitness) -> Result<WalReceipt, StorageError> {
-        let payload_json = serde_json::to_string(aggregate)
+impl<T: BookEntry, W: WalJournalPort> LedgerBook<T> for TypedBook<T, W> {
+    fn post(&self, entry: &T, witness: CausalWitness) -> Result<WalReceipt, StorageError> {
+        let payload_json = serde_json::to_string(entry)
             .map_err(|e| StorageError::Codec(format!("serialization failed: {e}")))?;
 
         let input = WalAppendInput {
@@ -150,20 +161,19 @@ impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
             .next()
             .ok_or_else(|| StorageError::Io("empty receipt from WAL append".to_string()))?;
 
-        // Read back entry from WAL and project into SQLite
+        // Read back entry from WAL and project into SQLite book
         let mut stream = self
             .wal
             .scan_stream(receipt.sequence, Some(receipt.sequence))?;
         if let Some(entry_res) = stream.next() {
-            let entry = entry_res?;
-            self.projection.project_entry(&entry)?;
+            let wal_entry = entry_res?;
+            self.projection.project_entry(&wal_entry)?;
         }
 
         Ok(receipt)
     }
 
-    /// Retrieve an aggregate by ID in O(1) from the SQLite state view. Zero SQL exposed to caller.
-    pub fn get(&self, id: &str) -> Result<Option<T>, StorageError> {
+    fn read(&self, id: &str) -> Result<Option<T>, StorageError> {
         let sql = format!(
             "SELECT payload_json FROM {} WHERE id = ?1 LIMIT 1;",
             self.table_name
@@ -190,8 +200,7 @@ impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
         }
     }
 
-    /// List all aggregates currently stored in the materialized view.
-    pub fn list_all(&self) -> Result<Vec<T>, StorageError> {
+    fn scan_all(&self) -> Result<Vec<T>, StorageError> {
         let sql = format!(
             "SELECT payload_json FROM {} ORDER BY updated_seq ASC;",
             self.table_name
@@ -220,99 +229,98 @@ impl<T: StorageAggregate, W: WalJournalPort> TypedRepository<T, W> {
     }
 }
 
-// ── Domain Aggregate Implementations ─────────────────────────────────────────
+// ── Domain BookEntry Implementations ─────────────────────────────────────────
 
 // 1. Identity & Node Accounts
-impl StorageAggregate for cynic_protocol::peer::CitizenAccount {
+impl BookEntry for cynic_protocol::peer::CitizenAccount {
     fn schema_uri() -> &'static str {
         cynic_protocol::peer::CITIZEN_ACCOUNT_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.citizen_id
     }
 }
 
-impl StorageAggregate for cynic_protocol::peer::NodeAccount {
+impl BookEntry for cynic_protocol::peer::NodeAccount {
     fn schema_uri() -> &'static str {
         cynic_protocol::peer::NODE_ACCOUNT_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.node_id
     }
 }
 
 // 2. Governance & Mandate Accounts
-impl StorageAggregate for cynic_protocol::peer::MandateAccount {
+impl BookEntry for cynic_protocol::peer::MandateAccount {
     fn schema_uri() -> &'static str {
         cynic_protocol::peer::MANDATE_ACCOUNT_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.mandate_id
     }
 }
 
 // 3. Coordination & Claims
-impl StorageAggregate for cynic_protocol::agent_coordination::Claim {
+impl BookEntry for cynic_protocol::agent_coordination::Claim {
     fn schema_uri() -> &'static str {
         cynic_protocol::agent_coordination::CLAIM_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.claim_id
     }
 }
 
 // 4. Metabolism & Invoices
-impl StorageAggregate for cynic_protocol::metabolic_invoice::MetabolicInvoice {
+impl BookEntry for cynic_protocol::metabolic_invoice::MetabolicInvoice {
     fn schema_uri() -> &'static str {
         cynic_protocol::metabolic_invoice::METABOLIC_INVOICE_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.source_commit
     }
 }
 
 // 5. Evidence & Proofs
-impl StorageAggregate for cynic_protocol::runtime::RuntimeProof {
+impl BookEntry for cynic_protocol::runtime::RuntimeProof {
     fn schema_uri() -> &'static str {
         cynic_protocol::runtime::RUNTIME_PROOF_SCHEMA
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.gate
     }
 }
 
 // 6. Unformalized Matter / Opaque Envelope
-impl StorageAggregate for crate::types::OpaqueEnvelope {
+impl BookEntry for crate::types::OpaqueEnvelope {
     fn schema_uri() -> &'static str {
         "cynic.opaque_envelope.v2"
     }
-    fn aggregate_id(&self) -> &str {
+    fn entry_id(&self) -> &str {
         &self.envelope_id
     }
 }
 
-/// Unified facade holding the 6 typed repositories for CYNIC.
-pub struct CynicStorageHub<W: WalJournalPort> {
-    pub identity_citizens: TypedRepository<cynic_protocol::peer::CitizenAccount, W>,
-    pub identity_nodes: TypedRepository<cynic_protocol::peer::NodeAccount, W>,
-    pub governance_mandates: TypedRepository<cynic_protocol::peer::MandateAccount, W>,
-    pub coordination_claims: TypedRepository<cynic_protocol::agent_coordination::Claim, W>,
-    pub metabolism_invoices:
-        TypedRepository<cynic_protocol::metabolic_invoice::MetabolicInvoice, W>,
-    pub evidence_proofs: TypedRepository<cynic_protocol::runtime::RuntimeProof, W>,
-    pub opaque_envelopes: TypedRepository<crate::types::OpaqueEnvelope, W>,
+/// Sovereign master ledger holding the 6 specialized books of CYNIC.
+pub struct CynicLedger<W: WalJournalPort> {
+    pub citizens: TypedBook<cynic_protocol::peer::CitizenAccount, W>,
+    pub nodes: TypedBook<cynic_protocol::peer::NodeAccount, W>,
+    pub mandates: TypedBook<cynic_protocol::peer::MandateAccount, W>,
+    pub claims: TypedBook<cynic_protocol::agent_coordination::Claim, W>,
+    pub invoices: TypedBook<cynic_protocol::metabolic_invoice::MetabolicInvoice, W>,
+    pub proofs: TypedBook<cynic_protocol::runtime::RuntimeProof, W>,
+    pub envelopes: TypedBook<crate::types::OpaqueEnvelope, W>,
 }
 
-impl<W: WalJournalPort + 'static> CynicStorageHub<W> {
-    pub fn new(wal: Arc<W>, projection: SqliteProjectionAdapter) -> Result<Self, StorageError> {
+impl<W: WalJournalPort + 'static> CynicLedger<W> {
+    pub fn open(wal: Arc<W>, projection: SqliteProjectionAdapter) -> Result<Self, StorageError> {
         Ok(Self {
-            identity_citizens: TypedRepository::new("citizens", wal.clone(), projection.clone())?,
-            identity_nodes: TypedRepository::new("nodes", wal.clone(), projection.clone())?,
-            governance_mandates: TypedRepository::new("mandates", wal.clone(), projection.clone())?,
-            coordination_claims: TypedRepository::new("claims", wal.clone(), projection.clone())?,
-            metabolism_invoices: TypedRepository::new("invoices", wal.clone(), projection.clone())?,
-            evidence_proofs: TypedRepository::new("proofs", wal.clone(), projection.clone())?,
-            opaque_envelopes: TypedRepository::new("opaque_envelopes", wal, projection)?,
+            citizens: TypedBook::new("citizens", wal.clone(), projection.clone())?,
+            nodes: TypedBook::new("nodes", wal.clone(), projection.clone())?,
+            mandates: TypedBook::new("mandates", wal.clone(), projection.clone())?,
+            claims: TypedBook::new("claims", wal.clone(), projection.clone())?,
+            invoices: TypedBook::new("invoices", wal.clone(), projection.clone())?,
+            proofs: TypedBook::new("proofs", wal.clone(), projection.clone())?,
+            envelopes: TypedBook::new("envelopes", wal, projection)?,
         })
     }
 }
@@ -337,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn typed_repository_zero_sql_lifecycle() {
+    fn ledger_book_zero_sql_post_read_scan() {
         let temp_dir = tempfile::tempdir().expect("tempdir");
         let wal_dir = temp_dir.path().join("wal");
         let db_path = temp_dir.path().join("state.db");
@@ -345,8 +353,8 @@ mod tests {
         let wal = Arc::new(WalFsAdapter::open(&wal_dir).expect("open wal"));
         let projection = SqliteProjectionAdapter::open(&db_path).expect("open projection");
 
-        let repo: TypedRepository<Claim, WalFsAdapter> =
-            TypedRepository::new("claims", wal, projection).expect("repo new");
+        let book: TypedBook<Claim, WalFsAdapter> =
+            TypedBook::new("claims", wal, projection).expect("book new");
 
         let claim = Claim {
             schema: CLAIM_SCHEMA.to_string(),
@@ -378,21 +386,21 @@ mod tests {
             consumed: AgentBudgets::default(),
         };
 
-        // 1. Zero-SQL Save
-        let receipt = repo.save(&claim, test_witness()).expect("save claim");
+        // 1. Inscribe in Book (post)
+        let receipt = book.post(&claim, test_witness()).expect("post claim");
         assert_eq!(receipt.sequence, SequenceNumber(1));
 
-        // 2. Zero-SQL Get
-        let retrieved = repo
-            .get("claim_test_123")
-            .expect("get claim")
+        // 2. Read from Book (read)
+        let retrieved = book
+            .read("claim_test_123")
+            .expect("read claim")
             .expect("must exist");
         assert_eq!(retrieved.claim_id, "claim_test_123");
         assert_eq!(retrieved.request.agent_id, "agent_alpha");
         assert_eq!(retrieved.phase, AgentPhase::Crystallization);
 
-        // 3. Zero-SQL List All
-        let all = repo.list_all().expect("list all");
+        // 3. Scan all entries in Book (scan_all)
+        let all = book.scan_all().expect("scan all");
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].claim_id, "claim_test_123");
     }

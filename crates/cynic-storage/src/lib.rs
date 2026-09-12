@@ -7,23 +7,21 @@
 //! 2. **Projections are Disposable**: Embedded state views (SurrealKV / SQLite) are derived caches.
 //! 3. **Zero External Daemon SPOF** (`INV-03`): Storage operates strictly in-process.
 
+pub mod book;
 pub mod error;
 pub mod ports;
 pub mod projection;
-pub mod repository;
 pub mod types;
 pub mod vector;
 pub mod wal;
 
+pub use book::{BookEntry, CynicLedger, GenericBookProjector, LedgerBook, TypedBook};
 pub use error::StorageError;
 pub use ports::{
     DomainProjector, ProjectionCoordinatorPort, StateTransaction, StoragePort, VectorStorePort,
     WalJournalPort,
 };
 pub use projection::SqliteProjectionAdapter;
-pub use repository::{
-    CynicStorageHub, GenericAggregateProjector, StorageAggregate, TypedRepository,
-};
 pub use types::{
     AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
