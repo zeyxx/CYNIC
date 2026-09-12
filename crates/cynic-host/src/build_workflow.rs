@@ -24,7 +24,7 @@ pub struct BuildWorkflowConfig<'a> {
     /// Guard issued by the canonical workload claim/lease path.
     /// None is an explicit blocked state, never a request to synthesize one.
     pub lease_guard: Option<LeaseGuard>,
-    pub argv_runner: &'a dyn ArgvRunner,
+    pub argv_runner: &'a dyn cynic_build::BuildRunner,
     pub source_snapshot: SourceSnapshot,
     pub recipe: BuildRecipe,
     pub argv: Vec<String>,

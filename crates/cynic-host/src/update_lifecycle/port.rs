@@ -44,9 +44,13 @@ pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
 
-impl<T: ArgvRunner + ?Sized> cynic_build::BuildRunner for T {
+/// Production runner: spawns argv[0] with remaining args.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LocalArgvRunner;
+
+impl cynic_build::BuildRunner for LocalArgvRunner {
     fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
-        let out = self.run(argv);
+        let out = <Self as ArgvRunner>::run(self, argv);
         cynic_build::BuildCommandOutput {
             exit_code: out.exit_code,
             stdout: out.stdout,
@@ -55,10 +59,6 @@ impl<T: ArgvRunner + ?Sized> cynic_build::BuildRunner for T {
         }
     }
 }
-
-/// Production runner: spawns argv[0] with remaining args.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LocalArgvRunner;
 
 impl ArgvRunner for LocalArgvRunner {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
@@ -158,6 +158,18 @@ impl MapArgvRunner {
                     )
                 })
                 .collect(),
+        }
+    }
+}
+
+impl cynic_build::BuildRunner for MapArgvRunner {
+    fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
+        let out = <Self as ArgvRunner>::run(self, argv);
+        cynic_build::BuildCommandOutput {
+            exit_code: out.exit_code,
+            stdout: out.stdout,
+            stderr: out.stderr,
+            spawn_error: out.spawn_error,
         }
     }
 }
