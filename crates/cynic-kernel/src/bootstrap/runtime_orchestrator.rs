@@ -107,7 +107,7 @@ pub async fn run_runtime(entry_flags: KernelEntryFlags) -> Result<(), Box<dyn st
         bootstrap::node_enrollment::load_node_enrollment_runtime(node_enrollment_store)
             .map_err(std::io::Error::other)?;
 
-    let verdict_cache = Arc::new(domain::verdict_cache::VerdictCache::new());
+    let verdict_cache = Arc::new(cynic_inference::verdict_cache::VerdictCache::new());
     let metrics = Arc::new(domain::metrics::Metrics::new());
 
     bootstrap::runtime_state::hydrate_runtime_state(&storage_port, &usage_tracker, &metrics).await;

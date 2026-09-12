@@ -1,8 +1,8 @@
 use super::{build_where_clause, safe_limit, sanitize_record_id};
 use crate::domain::ccm::SessionSummary;
-use crate::domain::compliance::SessionCompliance;
 use crate::domain::storage::{Event, Observation, RawEvent, RawObservation, StorageError};
 use crate::storage::{SurrealHttpStorage, escape_surreal};
+use cynic_intel::compliance::SessionCompliance;
 
 fn optional_string_sql(value: &Option<String>) -> String {
     value

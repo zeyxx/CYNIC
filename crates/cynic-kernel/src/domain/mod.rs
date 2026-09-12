@@ -1,7 +1,6 @@
 pub mod agent_session;
 pub mod ccm;
 pub mod chat;
-pub mod compliance;
 pub mod constants;
 pub mod contract;
 pub mod coord;
@@ -11,27 +10,25 @@ pub mod dog_health;
 pub mod enrichment;
 pub mod epoche;
 pub mod events;
-pub mod node_control;
-pub mod node_enrollment;
-
 pub mod health_gate;
-pub mod helius_credit;
-pub mod kscore;
 pub mod lease_proof;
 pub mod metabolism;
 pub mod metrics;
+pub mod node_control;
+pub mod node_enrollment;
 pub mod organ;
 pub mod pattern_analysis;
 pub mod poih;
 pub mod probe;
 pub mod proof;
 pub mod sanitize;
-pub mod solana_constants;
 pub mod state_log;
-pub mod stimulus;
 pub mod storage;
-pub mod token_postprocessor;
 pub mod usage;
-pub mod verdict_cache;
 pub mod verdict_queue;
 pub mod zones;
+
+// Re-exports from domain-owner crates per Foundation §481 (SoC)
+pub use cynic_inference::verdict_cache;
+pub use cynic_intel::compliance;
+pub use cynic_intel::stimulus;

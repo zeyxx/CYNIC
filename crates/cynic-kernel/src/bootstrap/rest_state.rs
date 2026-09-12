@@ -17,7 +17,7 @@ pub struct RestStateInputs {
     pub coord: Arc<dyn domain::coord::CoordPort>,
     pub embedding: Arc<AutoRecoveryEmbedding>,
     pub usage: Arc<tokio::sync::Mutex<domain::usage::DogUsageTracker>>,
-    pub verdict_cache: Arc<domain::verdict_cache::VerdictCache>,
+    pub verdict_cache: Arc<cynic_inference::verdict_cache::VerdictCache>,
     pub task_health: Arc<infra::task_health::TaskHealth>,
     pub metrics: Arc<domain::metrics::Metrics>,
     pub api_key: Option<String>,

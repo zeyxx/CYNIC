@@ -218,7 +218,7 @@ impl ActivityStorage for InMemoryStorage {
 
     async fn store_session_compliance(
         &self,
-        _compliance: &crate::domain::compliance::SessionCompliance,
+        _compliance: &cynic_intel::compliance::SessionCompliance,
     ) -> Result<(), StorageError> {
         Ok(())
     }
@@ -226,7 +226,7 @@ impl ActivityStorage for InMemoryStorage {
     async fn list_session_compliance(
         &self,
         _limit: u32,
-    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+    ) -> Result<Vec<cynic_intel::compliance::SessionCompliance>, StorageError> {
         Ok(vec![])
     }
 

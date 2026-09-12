@@ -263,14 +263,14 @@ pub trait ActivityStorage: Send + Sync {
     #[allow(clippy::too_many_arguments)]
     async fn store_session_compliance(
         &self,
-        compliance: &crate::domain::compliance::SessionCompliance,
+        compliance: &cynic_intel::compliance::SessionCompliance,
     ) -> Result<(), StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
-    async fn list_session_compliance(
+    async fn get_session_compliances(
         &self,
         limit: u32,
-    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError>;
+    ) -> Result<Vec<cynic_intel::compliance::SessionCompliance>, StorageError>;
     // WHY: matches database schema
     #[allow(clippy::too_many_arguments)]
     async fn zone_activity(

@@ -16,10 +16,10 @@ use crate::domain::node_enrollment::NodeEnrollmentRuntime;
 use crate::domain::organ::OrganPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
-use crate::domain::verdict_cache::VerdictCache;
 use crate::infra::task_health::TaskHealth;
 use crate::introspection::Alert;
 use cynic_inference::embedding::EmbeddingPort;
+use cynic_inference::verdict_cache::VerdictCache;
 use cynic_inference::{SlotSemaphoreMap, SlotTracker};
 
 // ── ROLE-SCOPED AUTH ──────────────────────────────────────

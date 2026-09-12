@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::api::rest::response::storage_error;
 use crate::api::rest::types::{AppState, ErrorResponse};
-use crate::domain::compliance;
+use cynic_intel::compliance;
 
 /// GET /sessions/{agent_id}/compliance — Score a session's workflow compliance.
 pub async fn compliance_handler(

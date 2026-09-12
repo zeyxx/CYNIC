@@ -331,14 +331,14 @@ impl ActivityStorage for SurrealHttpStorage {
     }
     async fn store_session_compliance(
         &self,
-        compliance: &crate::domain::compliance::SessionCompliance,
+        compliance: &cynic_intel::compliance::SessionCompliance,
     ) -> Result<(), StorageError> {
         activity::store_session_compliance(self, compliance).await
     }
     async fn list_session_compliance(
         &self,
         limit: u32,
-    ) -> Result<Vec<crate::domain::compliance::SessionCompliance>, StorageError> {
+    ) -> Result<Vec<cynic_intel::compliance::SessionCompliance>, StorageError> {
         activity::list_session_compliance(self, limit).await
     }
     async fn zone_activity(
