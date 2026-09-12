@@ -70,6 +70,11 @@ Shared worktree. Never `git add -A` or `git add .`. Stage explicit paths, verify
 ## Boundaries
 
 Always: typed argv execution, explicit `--yes` / `--apply` for mutation, machine-readable JSON proof, dynamic registry over hardcoded hosts or paths. Library-first: domain types, ports, and use cases in `src/lib.rs`, thin `src/main.rs` facade.
+Architecture & Crate Invariants (Mandatory):
+- Strict DAG downward: Higher layers depend on lower layers, never the reverse. Pure domain crates (`cynic-protocol`, `cynic-vcs`, etc.) must NEVER depend on orchestrator or host crates (`cynic-host`, `cynic-kernel`, `cynic-node`).
+- Zero-I/O Domain Core: Domain modules (`entry.rs`, `parse.rs`, state machines) are 100% pure (no `std::process`, no `reqwest`, no `tokio::spawn`). Side-effects stay behind explicit Ports in `runner.rs` or `adapters/`.
+- Facade & Ratchet: Monolith crates (`cynic-host`, `cynic-node`) are under strict ratchet. No net growth allowed. Autonomous sub-domains must be clean-room extracted to micro-crates, with dead branches pruned destructively rather than kept as legacy baggage.
+- Automated Architectural Tests: Every crate boundary must be guarded by executable tests in `tests/architecture_boundary.rs`.
 Ask first: new crate, command, contract, or dependency; anything touching credentials, network, fleet, release, or another agent's scope.
 Never: commit secrets; mask unverified code with `allow(dead_code)`; recreate contract forests or Python organs as authority; turn a missing observer, adapter, or proof into a success report; amplify your own authority, budget, or scope.
 
