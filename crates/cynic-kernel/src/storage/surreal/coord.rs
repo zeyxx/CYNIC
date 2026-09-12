@@ -83,7 +83,7 @@ impl CoordPort for SurrealHttpStorage {
                         scope: cynic_protocol::agent_coordination::ClaimScope::File {
                             path: target.to_string(),
                         },
-                        claim_type: cynic_protocol::agent_coordination::ClaimType::ExclusiveWrite,
+                        claim_type: cynic_protocol::agent_coordination::ClaimType::Exclusive,
                         budget: cynic_protocol::agent_coordination::AgentBudgets::default(),
                         ttl_seconds: 300,
                         max_lease_window_ms: 300_000,
@@ -230,7 +230,7 @@ impl CoordPort for SurrealHttpStorage {
                     scope: cynic_protocol::agent_coordination::ClaimScope::File {
                         path: guard.target.clone(),
                     },
-                    claim_type: cynic_protocol::agent_coordination::ClaimType::ExclusiveWrite,
+                    claim_type: cynic_protocol::agent_coordination::ClaimType::Exclusive,
                     budget: cynic_protocol::agent_coordination::AgentBudgets::default(),
                     ttl_seconds: 0,
                     max_lease_window_ms: 0,
