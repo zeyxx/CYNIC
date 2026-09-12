@@ -84,11 +84,16 @@ pub(super) async fn store_proof_of_history(
     if let Some(ledger) = &storage.ledger {
         let proof_entry = cynic_protocol::runtime::RuntimeProof {
             schema: cynic_protocol::runtime::RUNTIME_PROOF_SCHEMA.to_string(),
-            source_commit: poh.source_organ.clone(),
-            tree_hash: chained_hash.clone(),
-            artifact_digest: hex::encode(signature.to_bytes()),
-            receipts: vec![],
-            blockers: vec![],
+            gate: poh.event_type.clone(),
+            status: "sealed".to_string(),
+            producer: poh.source_organ.clone(),
+            subject: chained_hash.clone(),
+            observed_at_unix_ms: poh.timestamp as u128,
+            evidence: vec![cynic_protocol::runtime::RuntimeProofEvidence {
+                id: format!("sig:{}", hex::encode(signature.to_bytes())),
+                status: "valid".to_string(),
+                detail: format!("prev_hash:{}", prev_hash),
+            }],
         };
         let witness = cynic_storage::types::CausalWitness {
             principal_pubkey: [0u8; 32],
