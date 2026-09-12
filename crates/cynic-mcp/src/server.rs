@@ -454,6 +454,7 @@ fn check_ipam(registry: &serde_json::Value) -> serde_json::Value {
     let assignments = collect_assignments(registry);
     let mut conflicts: Vec<String> = Vec::new();
     let mut out_of_range: Vec<String> = Vec::new();
+    let mut unknown_plane: Vec<String> = Vec::new();
     let mut seen: std::collections::BTreeMap<(String, String), String> =
         std::collections::BTreeMap::new();
     for assignment in &assignments {
@@ -465,7 +466,7 @@ fn check_ipam(registry: &serde_json::Value) -> serde_json::Value {
             )),
             Some(address) => {
                 match cidrs.get(&assignment.plane) {
-                    None => out_of_range.push(format!(
+                    None => unknown_plane.push(format!(
                         "{} claims {} in plane {} without a declared CIDR",
                         assignment.owner, assignment.ip, assignment.plane
                     )),
@@ -496,7 +497,8 @@ fn check_ipam(registry: &serde_json::Value) -> serde_json::Value {
         "assignment_count": assignments.len(),
         "conflicts": conflicts,
         "out_of_range": out_of_range,
-        "coherent": conflicts.is_empty() && out_of_range.is_empty(),
+        "unknown_plane": unknown_plane,
+        "coherent": conflicts.is_empty() && out_of_range.is_empty() && unknown_plane.is_empty(),
     })
 }
 
@@ -659,5 +661,32 @@ mod tests {
                 .iter()
                 .any(|item| item.as_str().is_some_and(|text| text.contains("11.0.0.9")))
         );
+    }
+
+    #[test]
+    fn ipam_separates_unknown_plane_from_out_of_range() {
+        let mut registry = fixture_registry();
+        registry["nodes"]
+            .as_array_mut()
+            .expect("nodes")
+            .push(serde_json::json!({
+                "id": "forgejo-like", "role": "x", "status": "candidate",
+                "network": { "local": "10.10.10.101" }
+            }));
+        let report = check_ipam(&registry);
+        let unknown_plane = report
+            .get("unknown_plane")
+            .and_then(|items| items.as_array())
+            .expect("unknown_plane");
+        assert!(
+            unknown_plane
+                .iter()
+                .any(|item| item.as_str().is_some_and(|text| text.contains("local")))
+        );
+        let out_of_range = report
+            .get("out_of_range")
+            .and_then(|items| items.as_array())
+            .expect("out_of_range");
+        assert!(out_of_range.is_empty());
     }
 }

@@ -105,3 +105,21 @@ fn stdio_serve_decides_harness_progression_live() {
     assert!(lines[1].contains("harness_progression_must_be_single_step"));
     assert!(lines[1].contains("\"isError\":false"));
 }
+
+#[test]
+fn stdio_serve_checks_live_ipam_shape() {
+    // Against the real workspace registry: assert the report shape and that
+    // it observes assignments — never the verdict, which belongs to the file.
+    let lines = handshake(
+        &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2026-07-28","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"network_ipam_check"}}"#,
+        ],
+        2,
+    );
+    assert_eq!(lines.len(), 2);
+    assert!(lines[1].contains("\"assignment_count\""));
+    assert!(lines[1].contains("\"unknown_plane\""));
+    assert!(lines[1].contains("\"isError\":false"));
+}
