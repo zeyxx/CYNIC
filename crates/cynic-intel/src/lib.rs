@@ -2,6 +2,7 @@
 
 pub mod adapters;
 pub mod ccm;
+pub mod compliance;
 pub mod domain_enrichment;
 pub mod epistemic;
 pub mod escore;
@@ -14,6 +15,7 @@ pub mod rug_prefilter;
 pub mod rug_risk;
 pub mod solana_safety_dog;
 pub mod sop_sanitizer;
+pub mod stimulus;
 pub mod token_postprocessor;
 pub mod wallet_enrichment;
 pub mod wallet_judgment;
