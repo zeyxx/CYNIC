@@ -1,5 +1,3 @@
-//! registry.rs — Re-exports canonical Backend health and capabilities from cynic-inference.
-//!
-//! SoC rule (foundation §481): cynic-inference owns backend health and capability types.
+//! registry.rs — Re-exports canonical Backend health and capabilities from domain::backend_health.
 
-pub use cynic_inference::domain::backend_health::*;
+pub use crate::domain::backend_health::*;
