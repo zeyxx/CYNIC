@@ -164,12 +164,12 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         }
     };
 
-    let inventory = cynic_host::source_worktree_inventory::observe_source_worktree_inventory(
+    let inventory = cynic_vcs::observe_source_worktree_inventory(
         &root_canonical,
         &ws_store_canonical,
         "cynic",
         "local",
-        &cynic_host::source_worktree_inventory::LocalSourceWorktreeInventoryRunner,
+        &cynic_vcs::LocalVcsRunner,
     );
     let head_sha = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])

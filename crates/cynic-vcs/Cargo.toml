@@ -1,0 +1,16 @@
+[package]
+name = "cynic-vcs"
+version = "0.1.0"
+edition = "2024"
+authors = ["CYNIC Team"]
+description = "Version Control System (VCS) domain and host adapters for CYNIC sovereign runtimes"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.17"
