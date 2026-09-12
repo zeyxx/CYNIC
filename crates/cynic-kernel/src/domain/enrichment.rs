@@ -235,25 +235,10 @@ impl TokenData {
     }
 }
 
+pub use cynic_intel::domain_enrichment::{EnrichmentError, TokenData};
 /// Port trait for token enrichment.
 /// Adapters implement this to fetch on-chain data from any source.
-#[async_trait]
-pub trait TokenEnricherPort: Send + Sync {
-    /// Enrich a Solana mint address with on-chain data.
-    /// Returns None if the address is not a valid token.
-    async fn enrich(&self, mint_address: &str) -> Result<Option<TokenData>, EnrichmentError>;
-}
-
-/// Enrichment errors — separate from Dog/Judge errors.
-#[derive(Debug, thiserror::Error)]
-pub enum EnrichmentError {
-    #[error("enrichment request failed: {0}")]
-    RequestFailed(String),
-    #[error("enrichment timed out")]
-    Timeout,
-    #[error("enrichment unavailable")]
-    Unavailable,
-}
+pub use cynic_intel::ports::solana_ports::TokenEnricherPort;
 
 /// Check if a string looks like a Solana address (32-44 chars, base58 alphabet).
 pub fn looks_like_solana_address(s: &str) -> bool {

@@ -5,7 +5,7 @@ use super::{
     HeliusAsset, HeliusEnricher, HolderConcentration, LargestAccount, RpcResponse,
     RpcResponseWithContext, SignatureInfo,
 };
-use crate::domain::enrichment::EnrichmentError;
+use crate::domain_enrichment::EnrichmentError;
 
 impl HeliusEnricher {
     pub(super) async fn get_asset(

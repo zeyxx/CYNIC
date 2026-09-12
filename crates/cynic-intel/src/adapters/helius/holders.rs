@@ -13,7 +13,7 @@ impl HeliusEnricher {
         holder_balances: &[f64],
         total_supply: Option<f64>,
     ) -> (String, Option<f64>, Option<f64>) {
-        use crate::domain::solana_constants::{BURN_ADDRESSES, LOCKER_PROGRAMS};
+        use cynic_protocol::solana_constants::{BURN_ADDRESSES, LOCKER_PROGRAMS};
 
         let check_count = holder_addresses.len().min(5);
         let mut lp_status = "unsecured".to_string();
@@ -67,8 +67,8 @@ impl HeliusEnricher {
     /// Known AMM/DEX programs → "lp_pool". Burn addresses → "burn". Lockers → "locker".
     /// Everything else → "wallet". Cost: 1 credit (getAccountInfo).
     pub(super) async fn classify_holder(&self, token_account: &str) -> String {
-        use crate::domain::solana_constants::{
-            AMM_PROGRAMS, BURN_ADDRESSES, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS,
+        use cynic_protocol::solana_constants::{
+            AMM_PROGRAMS, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS, SYSTEM_PROGRAM,
         };
 
         let Some(owner) = self.resolve_owner(token_account).await else {
@@ -112,9 +112,9 @@ impl HeliusEnricher {
         holder_addresses: &[String],
         holder_balances: &[f64],
         total_supply_ui: f64,
-    ) -> Option<crate::domain::enrichment::HolderContext> {
-        use crate::domain::enrichment::HolderType;
-        use crate::domain::solana_constants::{
+    ) -> Option<crate::domain_enrichment::HolderContext> {
+        use crate::domain_enrichment::HolderType;
+        use cynic_protocol::solana_constants::{
             AMM_PROGRAMS as AMM_AUTHORITIES, BURN_ADDRESSES as BURN_AUTHORITIES,
             INFRA_PROGRAMS as INFRA_AUTHORITIES, LOCKER_PROGRAMS as LOCKER_AUTHORITIES,
             ORACLE_PROGRAMS as ORACLE_AUTHORITIES, SYSTEM_PROGRAM,
@@ -299,7 +299,7 @@ impl HeliusEnricher {
         let contract_pct = to_pct(contract_sum);
         let wallet_pct = to_pct(wallet_sum);
 
-        let ctx = crate::domain::enrichment::HolderContext {
+        let ctx = crate::domain_enrichment::HolderContext {
             classified,
             lp_pct,
             burn_pct,
@@ -342,15 +342,15 @@ impl HeliusEnricher {
         mint: &str,
         holder_addresses: &[String],
         holder_balances: &[f64],
-        config: &crate::infra::config::KScoreConfig,
+        config: &crate::kscore::KScoreConfigSnapshot,
         holder_count: u64,
         top10_pct: f64,
         age_hours: u64,
     ) -> (
-        Vec<crate::domain::enrichment::WalletBehavior>,
-        crate::domain::enrichment::KScore,
+        Vec<crate::domain_enrichment::WalletBehavior>,
+        crate::domain_enrichment::KScore,
     ) {
-        use crate::domain::enrichment::WalletBehavior;
+        use crate::domain_enrichment::WalletBehavior;
 
         let n = holder_addresses.len().min(config.top_n_wallets);
         let mut behaviors = Vec::with_capacity(n);
@@ -383,7 +383,7 @@ impl HeliusEnricher {
                 1.0 // No SWAP data = assume holding
             };
 
-            let class = crate::domain::kscore::classify_wallet(retention, config);
+            let class = crate::kscore::classify_wallet(retention, config);
 
             behaviors.push(WalletBehavior {
                 class,
@@ -394,13 +394,8 @@ impl HeliusEnricher {
         }
 
         // Compute K-Score from behaviors
-        let kscore = crate::domain::kscore::compute_kscore(
-            &behaviors,
-            holder_count,
-            top10_pct,
-            age_hours,
-            config,
-        );
+        let kscore =
+            crate::kscore::compute_kscore(&behaviors, holder_count, top10_pct, age_hours, config);
 
         tracing::info!(
             mint = %mint,

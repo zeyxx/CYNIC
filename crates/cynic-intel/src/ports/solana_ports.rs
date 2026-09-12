@@ -1,5 +1,6 @@
 //! Hexagonal Ports for Solana Operations, RPC observation, and SOP safety evaluation.
 
+use crate::domain_enrichment::{EnrichmentError, TokenData};
 use crate::solana_safety_dog::SolanaSafetyReport;
 use async_trait::async_trait;
 use cynic_protocol::solana_ops::{
@@ -29,6 +30,12 @@ pub trait SolanaSafetyPort: Send + Sync {
 pub trait SolanaRpcPort: Send + Sync {
     async fn get_signatures_for_address(&self, address: &str) -> Result<Vec<String>, String>;
     async fn get_balance(&self, address: &str) -> Result<u64, String>;
+}
+
+/// Port for on-chain token data enrichment (replaces direct Helius coupling).
+#[async_trait]
+pub trait TokenEnricherPort: Send + Sync {
+    async fn enrich(&self, mint_address: &str) -> Result<Option<TokenData>, EnrichmentError>;
 }
 
 /// Webhook-driven settlement notification payload (push — zero polling).

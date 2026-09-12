@@ -35,7 +35,6 @@ pub fn build_runtime_services(
     let enricher: Option<Arc<dyn domain::enrichment::TokenEnricherPort>> =
         match backends::helius::HeliusEnricher::from_env() {
             Some(helius) => {
-                let helius = helius.with_kscore_config(dog_thresholds.kscore.clone());
                 crate::klog!(
                     "[Boot] Helius enricher configured — token-analysis with K-Score behavioral analysis"
                 );

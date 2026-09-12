@@ -1,7 +1,7 @@
 //! REST API calls: token-metadata (v0), Enhanced Transactions (v0), batch-identity (v1).
 
 use super::{HELIUS_BEHAVIORAL_TIMEOUT, HeliusEnricher};
-use crate::domain::enrichment::EnrichmentError;
+use crate::domain_enrichment::EnrichmentError;
 
 impl HeliusEnricher {
     pub(super) async fn get_offchain_metadata(
@@ -141,7 +141,7 @@ impl HeliusEnricher {
     pub(super) async fn batch_identity(
         &self,
         addresses: &[String],
-    ) -> Vec<crate::domain::enrichment::HolderIdentity> {
+    ) -> Vec<crate::domain_enrichment::HolderIdentity> {
         let api_key = self.rpc_url.split("api-key=").nth(1).unwrap_or_default();
         let url = format!("https://api.helius.xyz/v1/wallet/batch-identity?api-key={api_key}");
         let start = std::time::Instant::now();
@@ -205,7 +205,7 @@ impl HeliusEnricher {
                     }
                     _ => {}
                 }
-                identified.push(crate::domain::enrichment::HolderIdentity {
+                identified.push(crate::domain_enrichment::HolderIdentity {
                     address,
                     name,
                     category,

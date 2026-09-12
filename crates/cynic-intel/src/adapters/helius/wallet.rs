@@ -3,7 +3,7 @@
 //! Flow: getBalance + Enhanced Transaction History + getAssetsByOwner → behavioral profile
 
 use super::{HELIUS_BEHAVIORAL_TIMEOUT, HeliusEnricher};
-use crate::domain::enrichment::EnrichmentError;
+use crate::domain_enrichment::EnrichmentError;
 use cynic_intel::wallet_enrichment::WalletBehavioralProfile;
 use std::collections::HashMap;
 
