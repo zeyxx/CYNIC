@@ -3,10 +3,8 @@
 pub mod apply;
 pub mod observe;
 
-pub use cynic_vcs::sync::{
-    SourceLayer, SourceState, SyncAction, SyncDecision, SyncObservation, SyncPlan, SyncStep, plan,
-    reconcile,
-};
+pub use cynic_vcs::sync as types;
+pub use cynic_vcs::sync::*;
 
 pub use apply::*;
 pub use observe::*;
