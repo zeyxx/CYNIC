@@ -424,12 +424,11 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         // GGUF architecture preflight — fail closed before systemd restart storms.
         crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = std::path::Path::new(&profile.model_path);
-        let store = crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
-        let gguf_meta = crate::domain::gguf_meta::preflight_gguf_with_store(
-            model_path,
-            store.as_ref(),
-        )
-        .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
+        let store =
+            crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
+        let gguf_meta =
+            crate::domain::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
+                .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
 
         // Probe-driven plan: regenerate runtime env + resource drop-in every start.
         crate::progress::progress("plan", "probe hardware + materialize runtime env/drop-in");

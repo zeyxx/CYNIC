@@ -448,12 +448,11 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
 
         crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = Path::new(&profile.model_path);
-        let store = crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
-        let gguf_meta = crate::domain::gguf_meta::preflight_gguf_with_store(
-            model_path,
-            store.as_ref(),
-        )
-        .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
+        let store =
+            crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
+        let gguf_meta =
+            crate::domain::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
+                .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
         crate::progress::progress(
             "preflight",
             format!("arch={}", gguf_meta.architecture.as_deref().unwrap_or("?")),

@@ -15,7 +15,9 @@ pub mod systemd_user;
 pub mod vault_inventory;
 
 pub use docker_supervisor::DockerLocalRuntime;
-pub use engine_capability_store::{EngineCapabilities, EngineCapabilityStore, Observation, PreflightDecision};
+pub use engine_capability_store::{
+    EngineCapabilities, EngineCapabilityStore, Observation, PreflightDecision,
+};
 pub use model_store::FsModelStore;
 pub use process_supervisor::{InferenceSupervisorKind, ProcessLocalRuntime};
 pub use session_store::FsChatSessionStore;

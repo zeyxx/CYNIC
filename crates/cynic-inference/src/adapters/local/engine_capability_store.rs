@@ -17,13 +17,44 @@ use serde::{Deserialize, Serialize};
 /// Couvre les arches documentées dans llama.cpp b9444+.
 pub fn static_fallback_arches() -> &'static [&'static str] {
     &[
-        "llama", "qwen2", "qwen2vl", "qwen3", "qwen35", "qwen35moe",
-        "phi3", "phi2", "gemma", "gemma2", "gemma3",
-        "mistral", "mixtral", "command-r", "deepseek2", "deepseek",
-        "gpt2", "gptneox", "starcoder", "refact", "bert", "nomic-bert",
-        "rwkv", "rwkv6", "mamba", "jamba", "cohere", "dbrx",
-        "olmo", "arctic", "chatglm", "glm4", "stablelm",
-        "internlm2", "minicpm", "minicpm3", "granite", "openelm",
+        "llama",
+        "qwen2",
+        "qwen2vl",
+        "qwen3",
+        "qwen35",
+        "qwen35moe",
+        "phi3",
+        "phi2",
+        "gemma",
+        "gemma2",
+        "gemma3",
+        "mistral",
+        "mixtral",
+        "command-r",
+        "deepseek2",
+        "deepseek",
+        "gpt2",
+        "gptneox",
+        "starcoder",
+        "refact",
+        "bert",
+        "nomic-bert",
+        "rwkv",
+        "rwkv6",
+        "mamba",
+        "jamba",
+        "cohere",
+        "dbrx",
+        "olmo",
+        "arctic",
+        "chatglm",
+        "glm4",
+        "stablelm",
+        "internlm2",
+        "minicpm",
+        "minicpm3",
+        "granite",
+        "openelm",
     ]
 }
 
@@ -251,8 +282,14 @@ mod tests {
         caps.observe("qwen35moe", true);
         caps.observe("dspark", false);
 
-        assert_eq!(caps.arch_status("qwen35moe"), ArchStatus::Observed(Observation::Ok));
-        assert_eq!(caps.arch_status("dspark"), ArchStatus::Observed(Observation::Fail));
+        assert_eq!(
+            caps.arch_status("qwen35moe"),
+            ArchStatus::Observed(Observation::Ok)
+        );
+        assert_eq!(
+            caps.arch_status("dspark"),
+            ArchStatus::Observed(Observation::Fail)
+        );
         assert_eq!(caps.arch_status("llama"), ArchStatus::Fallback);
         assert_eq!(caps.arch_status("nonexistent"), ArchStatus::Unknown);
     }
@@ -263,8 +300,16 @@ mod tests {
         caps.observe("qwen35moe", true);
         caps.observe("dspark", false);
 
-        assert_eq!(caps.preflight_decision("qwen35moe"), PreflightDecision::Allow);
-        assert_eq!(caps.preflight_decision("llama"), PreflightDecision::Warn { format: "arch 'llama' unverified (static fallback only); launch to confirm".into() });
+        assert_eq!(
+            caps.preflight_decision("qwen35moe"),
+            PreflightDecision::Allow
+        );
+        assert_eq!(
+            caps.preflight_decision("llama"),
+            PreflightDecision::Warn {
+                format: "arch 'llama' unverified (static fallback only); launch to confirm".into()
+            }
+        );
         assert_eq!(
             caps.preflight_decision("dspark"),
             PreflightDecision::Reject {
@@ -274,7 +319,8 @@ mod tests {
         assert_eq!(
             caps.preflight_decision("nonexistent"),
             PreflightDecision::Reject {
-                reason: "arch 'nonexistent' never observed and not in fallback; launch required".into(),
+                reason: "arch 'nonexistent' never observed and not in fallback; launch required"
+                    .into(),
             }
         );
     }

@@ -153,7 +153,9 @@ pub fn preflight_gguf_with_store(
             crate::adapters::local::engine_capability_store::PreflightDecision::Allow => {
                 return Ok(meta);
             }
-            crate::adapters::local::engine_capability_store::PreflightDecision::Reject { reason } => {
+            crate::adapters::local::engine_capability_store::PreflightDecision::Reject {
+                reason,
+            } => {
                 return Err(LocalRuntimeCompatError::UnsupportedArch {
                     path: meta.path,
                     architecture: arch.to_string(),

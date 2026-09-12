@@ -369,7 +369,8 @@ pub fn is_startable_weight_path(path: &str, id_hint: &str) -> bool {
         return false;
     }
     // Must parse as GGUF with architecture known to our engine generation.
-    let store = crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
+    let store =
+        crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
     match preflight_gguf_with_store(p, store.as_ref()) {
         Ok(_) => true,
         Err(_) => {
