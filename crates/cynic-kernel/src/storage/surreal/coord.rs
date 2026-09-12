@@ -65,6 +65,39 @@ impl CoordPort for SurrealHttpStorage {
             if let Err(e) = self.heartbeat(agent_id).await {
                 tracing::warn!(error = %e, agent_id, "heartbeat after claim failed");
             }
+
+            // [SOVEREIGN DUAL-WRITE] Mirror claim lease to CynicLedger WAL + Book
+            if let Some(ledger) = &self.ledger {
+                let claim_entry = cynic_protocol::agent_coordination::Claim {
+                    schema: cynic_protocol::agent_coordination::CLAIM_SCHEMA.to_string(),
+                    claim_id: lease_id.clone(),
+                    claim_type: claim_type.to_string(),
+                    agent_id: agent_id.to_string(),
+                    target: target.to_string(),
+                    fencing_token,
+                    lease_id: lease_id.clone(),
+                    claimed_at: chrono::Utc::now().to_rfc3339(),
+                    expires_at: expires_at.to_string(),
+                    active: true,
+                };
+                let witness = cynic_storage::types::CausalWitness {
+                    principal_pubkey: [0u8; 32],
+                    signature: [0u8; 64],
+                    mandate_id: Some("mandate-claim".to_string()),
+                    proof_anchor: None,
+                };
+                use cynic_storage::book::LedgerBook;
+                if let Err(e) = ledger.claims.post(&claim_entry, witness) {
+                    tracing::warn!(error = %e, "Failed to mirror Claim to Sovereign Ledger Book");
+                } else {
+                    crate::klog!(
+                        "[Ring 1] Claim lease {} (target: {}) mirrored to Sovereign WAL + Book",
+                        lease_id,
+                        target
+                    );
+                }
+            }
+
             return Ok(ClaimResult::Claimed(crate::domain::coord::ClaimGrant {
                 lease_id,
                 fencing_token,
@@ -161,6 +194,31 @@ impl CoordPort for SurrealHttpStorage {
                 guard.fencing_token,
             ));
         }
+
+        // [SOVEREIGN DUAL-WRITE] Update claim lease in CynicLedger WAL + Book
+        if let Some(ledger) = &self.ledger {
+            let claim_entry = cynic_protocol::agent_coordination::Claim {
+                schema: cynic_protocol::agent_coordination::CLAIM_SCHEMA.to_string(),
+                claim_id: guard.lease_id.clone(),
+                claim_type: "released".to_string(),
+                agent_id: guard.agent_id.clone(),
+                target: guard.target.clone(),
+                fencing_token: guard.fencing_token,
+                lease_id: guard.lease_id.clone(),
+                claimed_at: chrono::Utc::now().to_rfc3339(),
+                expires_at: chrono::Utc::now().to_rfc3339(),
+                active: false,
+            };
+            let witness = cynic_storage::types::CausalWitness {
+                principal_pubkey: [0u8; 32],
+                signature: [0u8; 64],
+                mandate_id: Some("mandate-release".to_string()),
+                proof_anchor: None,
+            };
+            use cynic_storage::book::LedgerBook;
+            let _ = ledger.claims.post(&claim_entry, witness);
+        }
+
         Ok(LeaseMutationResult::applied(
             LeaseAction::Release,
             &guard.target,
