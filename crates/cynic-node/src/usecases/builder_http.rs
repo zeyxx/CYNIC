@@ -134,35 +134,27 @@ async fn submit_workload(
         ));
     }
 
-    let accepted_at_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    let target_ref = match &payload.package {
-        Some(pkg) => format!("crates/{pkg}"),
-        None => "workspace".to_string(),
-    };
+    let accepted_at_ms = chrono::Utc::now().timestamp_millis() as u64;
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
+        requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
-        source_reference: BuildSourceReference {
+        source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
-            kind: "commit".to_string(),
-            target: commit_sha.clone(),
+            repository_id: "CYNIC".to_string(),
+            transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
+                .to_string(),
+            revision: commit_sha.clone(),
+            authority_ref: "agent_submission".into(),
+            snapshot: None,
         },
         action: format!("cargo:{}", payload.action),
-        target: target_ref,
-        requested_by: payload.requested_by.clone(),
-        required_role: "build_runner".to_string(),
-        budget: AgentBudgets {
-            actions: 10,
-            wall_seconds: 600,
-            cpu_ms: None,
-        },
-        timeout_seconds: 600,
+        desired_role: "build_runner".into(),
+        mutation_authorized: true,
+        proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
+        release_publication: None,
         evidence_refs: vec![format!("agent:{}@{}", payload.requested_by, commit_sha)],
     };
 
@@ -216,12 +208,15 @@ async fn submit_workload(
         completion: None,
     };
 
-    state.store.write(&record).map_err(|e| {
-        (
+    if let Err(e) = state
+        .store
+        .compare_and_swap(&workload_id, None, &record, accepted_at_ms)
+    {
+        return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("store write failed: {e:?}"),
-        )
-    })?;
+            format!("store CAS failed: {e:?}"),
+        ));
+    }
 
     Ok(Json(AcceptanceProof {
         schema: "cynic.builder.acceptance_proof.v1",
