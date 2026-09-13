@@ -41,14 +41,9 @@ pub(crate) fn builder_runtime_config_from(
             .as_ref()
             .map(|scheduler| scheduler.repository_id.clone())
             .unwrap_or_else(crate::config::default_build_repository_id),
-        transport_uri: format!(
-            "ssh://forgejo@forgejo.synapse.cynic:22/owner/{}.git",
-            node_config
-                .build_scheduler
-                .as_ref()
-                .map(|scheduler| scheduler.repository_id.clone())
-                .unwrap_or_else(crate::config::default_build_repository_id)
-        ),
+        transport_uri: std::env::var("CYNIC_GIT_TRANSPORT_URI").unwrap_or_else(|_| {
+            "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git".to_string()
+        }),
     }
 }
 
