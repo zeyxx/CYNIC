@@ -138,7 +138,7 @@ async fn main() -> ExitCode {
             let local_attestation = cynic_consensus::NodeEpochAttestation {
                 schema: cynic_consensus::FLEET_EPOCH_ATTESTATION_SCHEMA.to_string(),
                 node_id: "cynic-host-cortex".to_string(),
-                epoch_sequence: *expected_epoch,
+                epoch_sequence: expected_epoch,
                 commit_sha: expected_commit.clone(),
                 binary_sha256: "local-active".to_string(),
                 registry_digest: "registry-v1".to_string(),
@@ -148,11 +148,11 @@ async fn main() -> ExitCode {
             };
 
             let consensus = cynic_consensus::evaluate_fleet_consensus(
-                *expected_epoch,
-                expected_commit,
+                expected_epoch,
+                &expected_commit,
                 &registered_nodes,
                 &[local_attestation],
-                *max_skew_ms,
+                max_skew_ms,
                 now_unix_ms,
             );
 
