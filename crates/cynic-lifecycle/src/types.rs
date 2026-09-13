@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::runtime_harness::RuntimeHarnessContext;
+use crate::harness_context::RuntimeHarnessContext;
 
 use super::time::now_ms;
 

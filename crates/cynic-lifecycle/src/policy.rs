@@ -1,21 +1,64 @@
 //! Phase policy tables (pure). Gate *commands* are declared argv strings;
 //! execution is the runner port's job.
 
-use crate::runtime_harness::{
-    canary_context, closed_local_lab_context, conformance_context, production_context,
-    staging_context,
-};
+use crate::harness_context::{RuntimeHarnessContext, RuntimeHarnessKind};
+use cynic_protocol::HarnessAuthority;
 
 use super::types::{GateCheck, LifecyclePhase, MutationClass, PhasePolicy};
 
 impl LifecyclePhase {
-    pub fn harness(&self) -> crate::runtime_harness::RuntimeHarnessContext {
-        match self {
-            Self::ClosedLocalLab => closed_local_lab_context(),
-            Self::Conformance => conformance_context(),
-            Self::Staging => staging_context(),
-            Self::Canary => canary_context(),
-            Self::Production => production_context(),
+    pub fn harness(&self) -> RuntimeHarnessContext {
+        let (kind, role, authority, boundary, scope, mutates_net) = match self {
+            Self::ClosedLocalLab => (
+                RuntimeHarnessKind::BareMetalDirect,
+                "local_lab",
+                HarnessAuthority::ConstituentHuman,
+                "host_process",
+                "workspace",
+                false,
+            ),
+            Self::Conformance => (
+                RuntimeHarnessKind::IsolatedNamespace,
+                "conformance_runner",
+                HarnessAuthority::ConstituentHuman,
+                "sandbox_namespace",
+                "ephemeral",
+                false,
+            ),
+            Self::Staging => (
+                RuntimeHarnessKind::RootlessContainer,
+                "staging_supervisor",
+                HarnessAuthority::JudicialCouncil,
+                "rootless_container",
+                "cluster",
+                true,
+            ),
+            Self::Canary => (
+                RuntimeHarnessKind::RootlessContainer,
+                "canary_supervisor",
+                HarnessAuthority::JudicialCouncil,
+                "rootless_container",
+                "fleet_canary",
+                true,
+            ),
+            Self::Production => (
+                RuntimeHarnessKind::BareMetalDirect,
+                "sovereign_operator",
+                HarnessAuthority::JudicialCouncil,
+                "host_system",
+                "global_sovereign",
+                true,
+            ),
+        };
+
+        RuntimeHarnessContext {
+            schema: crate::harness_context::RUNTIME_HARNESS_CONTEXT_SCHEMA,
+            kind,
+            role,
+            authority,
+            isolation_boundary: boundary,
+            target_scope: scope,
+            mutates_host_network: mutates_net,
         }
     }
 }

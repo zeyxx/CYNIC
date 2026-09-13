@@ -14,7 +14,8 @@
 //! CLI injects [`LocalArgvRunner`]; tests inject [`MapArgvRunner`].
 
 mod apply;
-mod gate;
+pub mod gate;
+pub mod harness_context;
 pub mod kernel_release;
 mod observe;
 mod plan;

@@ -8,7 +8,7 @@ use super::types::{
     KernelIdentityEvidence, KernelReleaseAction, KernelReleaseEvent, KernelReleaseReport,
     KernelReleaseSpec,
 };
-use crate::update_lifecycle::{ArgvRunner, MutationClass, load_state, phase_policy};
+use crate::{ArgvRunner, MutationClass, load_state, phase_policy};
 
 type ReconcileError = (Option<Box<KernelReleaseSpec>>, String);
 
