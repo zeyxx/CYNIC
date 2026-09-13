@@ -3,6 +3,7 @@
 //! Pure parsers live in `probe`; the observe port is in `port`; canonical
 //! types are re-exported from `cynic_protocol::network` so host-domain code
 //! has a stable path (`crate::domain::network::*`) without duplicating policy.
+pub mod actuator;
 pub mod discovery;
 pub mod dns;
 pub mod firewall_policy;
@@ -15,6 +16,7 @@ pub mod telemetry;
 pub mod types;
 pub mod watchdog_alerter;
 
+pub use actuator::*;
 pub use discovery::*;
 pub use dns::*;
 pub use firewall_policy::*;
