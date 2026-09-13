@@ -28,6 +28,7 @@ pub mod proxmox_disk_extension;
 pub mod proxmox_substrate;
 pub mod remote_branch_graph;
 pub mod remote_build_artefact;
+pub mod http_freebox_probe_adapter;
 pub mod fleet_branch_graph_observer;
 pub mod fleet_build_discovery_observer;
 pub mod fleet_queue_observer;

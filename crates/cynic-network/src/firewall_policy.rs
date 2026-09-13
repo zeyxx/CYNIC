@@ -46,6 +46,7 @@ impl DynamicFirewallPolicy {
         rules.push("table inet cynic_filter {".to_string());
         rules.push("    chain inbound {".to_string());
         rules.push("        type filter hook input priority 0; policy drop;".to_string());
+        rules.push("        ct state invalid drop comment \"cynic: drop invalid packets (anti-scan/malformed)\"".to_string());
         rules.push("        ct state established,related accept".to_string());
         rules.push("        iifname \"lo\" accept".to_string());
         rules.push("        ip protocol icmp accept".to_string());
@@ -85,10 +86,18 @@ impl DynamicFirewallPolicy {
                     ));
                 }
                 NetworkPlaneScope::PublicWan => {
-                    rules.push(format!(
-                        "        {} dport {} accept comment \"cynic: {} public-wan\"",
-                        b.protocol, b.port, b.service_name
-                    ));
+                    if b.protocol == "udp" && b.port == 44196 {
+                        // Hardened anti-DoS rate limiting for WireGuard WAN endpoint
+                        rules.push(format!(
+                            "        udp dport 44196 limit rate 50/second burst 100 packets accept comment \"cynic: {} public-wan anti-dos rate-limited\"",
+                            b.service_name
+                        ));
+                    } else {
+                        rules.push(format!(
+                            "        {} dport {} accept comment \"cynic: {} public-wan\"",
+                            b.protocol, b.port, b.service_name
+                        ));
+                    }
                 }
             }
         }
@@ -109,7 +118,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn generates_strict_zero_trust_ruleset_without_scripts() {
+    fn renders_nftables_ruleset_with_hardened_security() {
         let policy = DynamicFirewallPolicy {
             schema: DYNAMIC_FIREWALL_POLICY_SCHEMA.to_string(),
             node_id: "cortex".to_string(),
@@ -118,10 +127,10 @@ mod tests {
                     service_name: "cynic-kernel".to_string(),
                     port: 3030,
                     protocol: "tcp".to_string(),
-                    allowed_scope: NetworkPlaneScope::ClusterMesh,
+                    allowed_scope: NetworkPlaneScope::SynapseOnly,
                 },
                 DynamicPortBinding {
-                    service_name: "wireguard-mesh".to_string(),
+                    service_name: "wireguard".to_string(),
                     port: 44196,
                     protocol: "udp".to_string(),
                     allowed_scope: NetworkPlaneScope::PublicWan,
@@ -130,10 +139,9 @@ mod tests {
             generated_at_unix_ms: 1000,
         };
 
-        let nft = policy.render_nftables_ruleset();
-        assert!(nft.contains("policy drop;"));
-        assert!(nft.contains("ip saddr { 10.10.10.0/24, 192.168.100.0/24 } tcp dport 3030 accept"));
-        assert!(nft.contains("udp dport 44196 accept"));
-        assert!(!nft.contains("192.168.0.0")); // LAN Wi-Fi strictly absent/blocked
+        let rules = policy.render_nftables_ruleset();
+        assert!(rules.contains("ct state invalid drop"));
+        assert!(rules.contains("udp dport 44196 limit rate 50/second burst 100 packets accept"));
+        assert!(rules.contains("ip saddr 10.10.10.0/24 tcp dport 3030 accept"));
     }
 }

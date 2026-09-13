@@ -35,4 +35,8 @@ fn network_domain_has_zero_direct_io_network_calls() {
         !content.contains("tokio"),
         "cynic-network core domain must not depend on tokio async runtime directly"
     );
+    assert!(
+        !content.contains("reqwest"),
+        "cynic-network core domain must not depend on reqwest HTTP client directly (Hexagonal SoC)"
+    );
 }

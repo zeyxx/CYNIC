@@ -249,6 +249,8 @@ async fn get_proof(
                 "state": record.record.state,
                 "committed_at_ms": record.committed_at_ms,
                 "record_digest": record.record_digest,
+                "claim": record.record.claim,
+                "completion": record.record.completion,
                 "envelope": record.record.envelope,
             });
             Ok(Json(proof))
