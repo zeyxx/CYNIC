@@ -124,7 +124,13 @@ pub async fn orchestrate_build_submission(
         fencing_token: 1,
     };
     let now_ms = now_unix_s * 1000;
-    let claimed = match claim_agent_workload(&base_record, lease_guard.clone(), now_ms + 300_000, now_ms, 3_600_000) {
+    let claimed = match claim_agent_workload(
+        &base_record,
+        lease_guard.clone(),
+        now_ms + 300_000,
+        now_ms,
+        3_600_000,
+    ) {
         Ok(r) => r,
         Err(violation) => {
             return Ok(BuildSubmissionPlan {
@@ -134,7 +140,10 @@ pub async fn orchestrate_build_submission(
                 delivery: None,
                 grant: None,
                 submission: None,
-                blockers: vec![format!("claim_refused:{}:{}", violation.code, violation.message)],
+                blockers: vec![format!(
+                    "claim_refused:{}:{}",
+                    violation.code, violation.message
+                )],
             });
         }
     };
@@ -148,7 +157,10 @@ pub async fn orchestrate_build_submission(
                 delivery: None,
                 grant: None,
                 submission: None,
-                blockers: vec![format!("consume_refused:{}:{}", violation.code, violation.message)],
+                blockers: vec![format!(
+                    "consume_refused:{}:{}",
+                    violation.code, violation.message
+                )],
             });
         }
     };
@@ -377,9 +389,7 @@ mod tests {
         let signer = FakeSigner {
             key_id: format!("sha256:{}", "a".repeat(64)),
         };
-        let submitter = FakeSubmitter {
-            should_fail: false,
-        };
+        let submitter = FakeSubmitter { should_fail: false };
         let runtime = tokio::runtime::Runtime::new().expect("async runtime");
         let plan = runtime
             .block_on(orchestrate_build_submission(

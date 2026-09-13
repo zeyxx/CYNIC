@@ -34,6 +34,21 @@ pub(crate) enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Evaluate fleet epoch consensus and clock skew across cluster nodes.
+    ConsensusStatus {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Expected epoch sequence number to evaluate.
+        #[arg(long, default_value_t = 1)]
+        expected_epoch: u64,
+        /// Expected commit SHA for this epoch.
+        #[arg(long, default_value = "HEAD")]
+        expected_commit: String,
+        /// Maximum allowed clock skew in milliseconds before warning.
+        #[arg(long, default_value_t = 5000)]
+        max_skew_ms: u64,
+    },
     /// Run only the node-owned control and enrollment loops for a declared runtime role.
     Control {
         /// Role-projected node-control TOML; no inference backend fields are required.
