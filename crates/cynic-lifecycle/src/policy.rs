@@ -12,7 +12,7 @@ impl LifecyclePhase {
             Self::ClosedLocalLab => (
                 RuntimeHarnessKind::BareMetalDirect,
                 "local_lab",
-                HarnessAuthority::ConstituentHuman,
+                HarnessAuthority::TestProjection,
                 "host_process",
                 "workspace",
                 false,
@@ -20,7 +20,7 @@ impl LifecyclePhase {
             Self::Conformance => (
                 RuntimeHarnessKind::IsolatedNamespace,
                 "conformance_runner",
-                HarnessAuthority::ConstituentHuman,
+                HarnessAuthority::ConformanceGate,
                 "sandbox_namespace",
                 "ephemeral",
                 false,
@@ -28,7 +28,7 @@ impl LifecyclePhase {
             Self::Staging => (
                 RuntimeHarnessKind::RootlessContainer,
                 "staging_supervisor",
-                HarnessAuthority::JudicialCouncil,
+                HarnessAuthority::ReleaseCandidate,
                 "rootless_container",
                 "cluster",
                 true,
@@ -36,7 +36,7 @@ impl LifecyclePhase {
             Self::Canary => (
                 RuntimeHarnessKind::RootlessContainer,
                 "canary_supervisor",
-                HarnessAuthority::JudicialCouncil,
+                HarnessAuthority::FleetCanary,
                 "rootless_container",
                 "fleet_canary",
                 true,
@@ -44,7 +44,7 @@ impl LifecyclePhase {
             Self::Production => (
                 RuntimeHarnessKind::BareMetalDirect,
                 "sovereign_operator",
-                HarnessAuthority::JudicialCouncil,
+                HarnessAuthority::RuntimeAuthority,
                 "host_system",
                 "global_sovereign",
                 true,
