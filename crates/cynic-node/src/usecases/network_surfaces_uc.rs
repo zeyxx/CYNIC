@@ -67,7 +67,8 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             json: _,
             max_handshake_age_secs,
         } => {
-            let snapshot = cynic_network::NetworkSecuritySnapshot {
+            let snapshot = cynic_network::NetworkTelemetrySnapshot {
+                schema: cynic_network::NETWORK_TELEMETRY_SNAPSHOT_SCHEMA.to_string(),
                 node_id: "local-node".to_string(),
                 listening_ports: vec![3030, 44196],
                 wireguard_peers: std::collections::BTreeMap::new(),
@@ -77,13 +78,13 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                     .map(|d| d.as_millis() as u64)
                     .unwrap_or(0),
             };
-            let alerts = cynic_network::evaluate_network_security(
+            let alerts = cynic_intel::introspection::soc::analyze_network_telemetry(
                 &snapshot,
                 &[3030, 44196, 9090],
                 max_handshake_age_secs * 1000,
             );
             let report = serde_json::json!({
-                "schema": cynic_network::NETWORK_SECURITY_REPORT_SCHEMA,
+                "schema": "cynic.intel.soc_security_report.v1",
                 "status": if alerts.is_empty() { "clean" } else { "threats_detected" },
                 "alerts_count": alerts.len(),
                 "alerts": alerts,

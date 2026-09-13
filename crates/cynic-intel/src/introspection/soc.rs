@@ -172,6 +172,58 @@ pub fn detect_dbus_timeout(count: u32) -> Option<Alert> {
     }
 }
 
+/// Analyzes network telemetry against cluster policy and thresholds.
+pub fn analyze_network_telemetry(
+    snapshot: &cynic_network::NetworkTelemetrySnapshot,
+    allowed_ports: &[u16],
+    max_handshake_age_ms: u64,
+) -> Vec<Alert> {
+    let mut alerts = Vec::new();
+
+    // 1. Rogue Port Detection
+    for port in &snapshot.listening_ports {
+        if !allowed_ports.contains(port) {
+            alerts.push(Alert {
+                alert_type: "RogueListeningPort".to_string(),
+                severity: "high".to_string(),
+                message: format!("Unmanaged port {} active on {}", port, snapshot.node_id),
+                timestamp_unix_ms: snapshot.observed_at_unix_ms,
+            });
+        }
+    }
+
+    // 2. WireGuard Handshake Decay Detection
+    for (peer_id, peer) in &snapshot.wireguard_peers {
+        match peer.last_handshake_unix_ms {
+            None => {
+                alerts.push(Alert {
+                    alert_type: "WireGuardNeverConnected".to_string(),
+                    severity: "critical".to_string(),
+                    message: format!("Peer {} has zero handshakes", peer_id),
+                    timestamp_unix_ms: snapshot.observed_at_unix_ms,
+                });
+            }
+            Some(last_hs) => {
+                let age = snapshot.observed_at_unix_ms.saturating_sub(last_hs);
+                if age > max_handshake_age_ms {
+                    alerts.push(Alert {
+                        alert_type: "WireGuardHandshakeDecay".to_string(),
+                        severity: "high".to_string(),
+                        message: format!(
+                            "Peer {} handshake decayed ({}s age)",
+                            peer_id,
+                            age / 1000
+                        ),
+                        timestamp_unix_ms: snapshot.observed_at_unix_ms,
+                    });
+                }
+            }
+        }
+    }
+
+    alerts
+}
+
 /// Combined check: all detection functions applied to one forensics snapshot.
 pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Vec<Alert> {
     let mut alerts = Vec::new();

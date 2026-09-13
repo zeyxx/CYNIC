@@ -17,6 +17,7 @@ reqwest = { version = "0.13.4", features = ["json"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 tracing = "0.1"
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-network = { path = "../cynic-network" }
 
 # Async test harness only: the crate's own surfaces stay runtime-agnostic behind
 # async-trait, so tokio is never a build dependency of the library itself.
