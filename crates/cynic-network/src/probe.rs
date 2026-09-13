@@ -2,9 +2,7 @@
 //! returns typed layers of `cynic_protocol::network`. Tests use deterministic
 //! fixtures, not host reads — the layer owns the parser, not the substrate.
 
-use crate::domain::network::types::{
-    InterfacePressure, InterfaceUsage, NetworkAddress, NetworkRoute,
-};
+use crate::types::{InterfacePressure, InterfaceUsage, NetworkAddress, NetworkRoute};
 
 /// Parse a `/proc/net/dev` snapshot into L3 usage counters.
 ///

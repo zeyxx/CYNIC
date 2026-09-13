@@ -5,7 +5,7 @@
 //! runner). The port keeps the host-side decision boundary: it decides
 //! which layer each parser result feeds, never the raw substrate.
 
-use crate::domain::network::types::NetworkReport;
+use crate::types::NetworkReport;
 
 /// Read-only account of the network substrate in 4 layers.
 ///

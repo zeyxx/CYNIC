@@ -4,10 +4,16 @@
 //! types are re-exported from `cynic_protocol::network` so host-domain code
 //! has a stable path (`crate::domain::network::*`) without duplicating policy.
 pub mod freebox;
-mod port;
-mod probe;
+pub mod port;
+pub mod probe;
 pub mod types;
 pub mod watchdog_alerter;
+
+pub use freebox::*;
+pub use port::*;
+pub use probe::*;
+pub use types::*;
+pub use watchdog_alerter::*;
 
 pub use freebox::{FreeboxProbePort, HttpFreeboxProbeAdapter};
 pub use port::NetworkObservationPort;

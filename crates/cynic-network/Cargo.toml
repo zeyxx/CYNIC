@@ -1,0 +1,17 @@
+[package]
+name = "cynic-network"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Pure domain models, routing topologies, WireGuard actuation, and network probes for CYNIC"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.17"
