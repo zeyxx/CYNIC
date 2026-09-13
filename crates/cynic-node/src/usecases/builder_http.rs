@@ -104,6 +104,8 @@ pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) ->
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentBuildSubmission {
     pub commit_sha: String,
+    #[serde(default)]
+    pub repository_id: Option<String>,
     #[serde(default = "default_cargo_package")]
     pub package: Option<String>,
     #[serde(default = "default_build_action")]
@@ -143,7 +145,9 @@ async fn submit_workload(
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
-            repository_id: state.config.repository_id.clone(),
+            repository_id: payload
+                .repository_id
+                .unwrap_or_else(|| state.config.repository_id.clone()),
             transport_uri: state.config.transport_uri.clone(),
             revision: commit_sha.clone(),
             authority_ref: "agent_submission".into(),
