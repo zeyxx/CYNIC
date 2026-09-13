@@ -183,12 +183,11 @@ pub fn analyze_network_telemetry(
     // 1. Rogue Port Detection
     for port in &snapshot.listening_ports {
         if !allowed_ports.contains(port) {
-            alerts.push(Alert {
-                alert_type: "RogueListeningPort".to_string(),
-                severity: "high".to_string(),
-                message: format!("Unmanaged port {} active on {}", port, snapshot.node_id),
-                timestamp_unix_ms: snapshot.observed_at_unix_ms,
-            });
+            alerts.push(Alert::new(
+                "RogueListeningPort",
+                format!("Unmanaged port {} active on {}", port, snapshot.node_id),
+                "critical",
+            ));
         }
     }
 
@@ -196,26 +195,20 @@ pub fn analyze_network_telemetry(
     for (peer_id, peer) in &snapshot.wireguard_peers {
         match peer.last_handshake_unix_ms {
             None => {
-                alerts.push(Alert {
-                    alert_type: "WireGuardNeverConnected".to_string(),
-                    severity: "critical".to_string(),
-                    message: format!("Peer {} has zero handshakes", peer_id),
-                    timestamp_unix_ms: snapshot.observed_at_unix_ms,
-                });
+                alerts.push(Alert::new(
+                    "WireGuardNeverConnected",
+                    format!("Peer {} has zero handshakes", peer_id),
+                    "critical",
+                ));
             }
             Some(last_hs) => {
                 let age = snapshot.observed_at_unix_ms.saturating_sub(last_hs);
                 if age > max_handshake_age_ms {
-                    alerts.push(Alert {
-                        alert_type: "WireGuardHandshakeDecay".to_string(),
-                        severity: "high".to_string(),
-                        message: format!(
-                            "Peer {} handshake decayed ({}s age)",
-                            peer_id,
-                            age / 1000
-                        ),
-                        timestamp_unix_ms: snapshot.observed_at_unix_ms,
-                    });
+                    alerts.push(Alert::new(
+                        "WireGuardHandshakeDecay",
+                        format!("Peer {} handshake decayed ({}s age)", peer_id, age / 1000),
+                        "warning",
+                    ));
                 }
             }
         }
