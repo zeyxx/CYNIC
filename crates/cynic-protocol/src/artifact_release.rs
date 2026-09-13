@@ -4,7 +4,7 @@ pub const RUNTIME_ARTIFACT_RELEASE_SPEC_SCHEMA: &str = "cynic.runtime_artifact_r
 pub const RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA: &str = "cynic.runtime_artifact_release.report.v1";
 pub const RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA: &str = "cynic.runtime_artifact_release.event.v1";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeArtifactReleaseSpec {
     pub schema: String,
     pub node_id: String,
@@ -19,7 +19,7 @@ pub struct RuntimeArtifactReleaseSpec {
     pub requires_privilege: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeArtifactSpec {
     pub id: String,
     pub path: String,
