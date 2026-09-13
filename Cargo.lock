@@ -851,17 +851,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-build"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-protocol",
+ "cynic-vcs",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cynic-channel"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "clap",
  "crossterm",
+ "cynic-build",
  "cynic-host",
  "cynic-inference",
  "cynic-node",
  "cynic-observer",
  "cynic-protocol",
+ "cynic-storage",
+ "cynic-vcs",
  "hex",
  "libc",
  "ratatui",
@@ -875,14 +905,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-consensus"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-protocol",
+ "ed25519-dalek",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-host"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "cynic-build",
  "cynic-inference",
  "cynic-intel",
+ "cynic-lifecycle",
+ "cynic-network",
  "cynic-protocol",
+ "cynic-sandbox",
+ "cynic-vcs",
  "ed25519-dalek",
  "hex",
  "hmac",
@@ -906,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-inference"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -924,21 +974,39 @@ dependencies = [
 
 [[package]]
 name = "cynic-intel"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "blake3",
+ "chrono",
+ "cynic-intel-soc",
  "cynic-protocol",
+ "dirs",
  "hex",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "cynic-intel-soc"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-network",
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
 name = "cynic-kernel"
-version = "26.6.12"
+version = "0.2.0"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -953,6 +1021,7 @@ dependencies = [
  "cynic-intel",
  "cynic-node",
  "cynic-protocol",
+ "cynic-storage",
  "dirs",
  "dotenvy",
  "ed25519-dalek",
@@ -986,8 +1055,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-lifecycle"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-build",
+ "cynic-protocol",
+ "cynic-storage",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tracing",
+]
+
+[[package]]
 name = "cynic-market"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cynic-intel",
  "cynic-protocol",
@@ -1000,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cynic-host",
  "cynic-protocol",
@@ -1011,16 +1097,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-network"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
  "base64 0.22.1",
  "chrono",
  "clap",
+ "cynic-consensus",
  "cynic-host",
  "cynic-inference",
+ "cynic-lifecycle",
+ "cynic-network",
  "cynic-protocol",
  "ed25519-dalek",
  "futures-util",
@@ -1051,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-observer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -1073,7 +1174,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ed25519-dalek",
@@ -1088,8 +1189,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-sandbox"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "cynic-protocol",
@@ -1106,8 +1218,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-vcs"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-zeroclaw-solana"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
