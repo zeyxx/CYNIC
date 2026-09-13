@@ -165,6 +165,7 @@ async fn execute_claimed(
     {
         Ok(prepared) => prepared,
         Err(error) => {
+            tracing::warn!(%error, workload_id = %claimed.record.envelope.workload_id, "build preparation failed");
             execution_cancel.cancel();
             let renewal_count = monitor.await.unwrap_or(0);
             persist_renewal_proof(&claimed.record.envelope.workload_id, &guard, renewal_count);

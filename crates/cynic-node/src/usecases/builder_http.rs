@@ -143,9 +143,8 @@ async fn submit_workload(
         source_commit: commit_sha.clone(),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
-            repository_id: "CYNIC".to_string(),
-            transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
-                .to_string(),
+            repository_id: state.config.repository_id.clone(),
+            transport_uri: state.config.transport_uri.clone(),
             revision: commit_sha.clone(),
             authority_ref: "agent_submission".into(),
             snapshot: None,
