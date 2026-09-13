@@ -67,7 +67,7 @@ pub(super) async fn publish(
         config.max_bytes,
         Duration::from_secs(config.timeout_secs),
     )?;
-    publish_with_ports(
+    let published = publish_with_ports(
         node_id,
         envelope,
         workspace,
@@ -82,7 +82,43 @@ pub(super) async fn publish(
         &artifact_store,
     )
     .await
-    .map(Some)
+    .map(Some)?;
+
+    // [SOVEREIGN AUTO-DEPLOYMENT] When a release build finishes successfully on node,
+    // prepare KernelReleaseSpec for blue-green reconciliation via cynic-lifecycle
+    let release_bin = workspace.workspace_root.join("target/release/cynic-node");
+    if release_bin.exists() {
+        let spec = cynic_protocol::artifact_release::RuntimeArtifactReleaseSpec {
+            schema: "cynic.runtime_artifact_release_spec.v1".to_string(),
+            node_id: node_id.to_string(),
+            phase: "conformance".to_string(),
+            service_id: "cynic-node".to_string(),
+            identity_schema: "cynic.service_identity_evidence.v1".to_string(),
+            artifact: cynic_protocol::artifact_release::RuntimeArtifactSpec {
+                id: format!("cynic-node-{}", &envelope.workload_id),
+                path: release_bin.display().to_string(),
+                executable_name: "cynic-node".to_string(),
+                sha256: format!("sha256:{}", &envelope.workload_id),
+                version: "0.2.0".to_string(),
+                git_sha: envelope.action.input_digest.clone().unwrap_or_default(),
+            },
+            install_root: "/var/lib/cynic".to_string(),
+            identity_url: "http://127.0.0.1:9090/health".to_string(),
+            restart_argv: vec![
+                "systemctl".to_string(),
+                "restart".to_string(),
+                "cynic-node".to_string(),
+            ],
+            requires_privilege: false,
+        };
+        let spec_path =
+            std::path::Path::new(&config.work_root).join("active-kernel-release-spec.json");
+        if let Ok(json_spec) = serde_json::to_string_pretty(&spec) {
+            let _ = std::fs::write(spec_path, json_spec);
+        }
+    }
+
+    Ok(published)
 }
 
 #[allow(clippy::too_many_arguments)]

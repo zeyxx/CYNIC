@@ -40,6 +40,7 @@ rusqlite = { version = "0.34", features = ["bundled"] }
 zeroize = "1"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-host = { path = "../cynic-host" }
+cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-inference = { path = "../cynic-inference" }
 async-trait = "0.1"
 axum = "0.8"
