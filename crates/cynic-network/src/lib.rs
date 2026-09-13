@@ -20,7 +20,7 @@ pub use actuator::*;
 pub use discovery::*;
 pub use dns::*;
 pub use firewall_policy::*;
-pub use freebox::*;
+pub use freebox::FreeboxProbePort;
 pub use mesh_plan::*;
 pub use port::*;
 pub use probe::*;

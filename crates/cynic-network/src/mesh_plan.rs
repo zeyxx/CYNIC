@@ -3,8 +3,8 @@
 //! Pure transformation: (MeshRegistry) -> NetworkMeshPlan. Zero I/O, zero network calls.
 
 use cynic_protocol::{
-    NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
-    NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
+    NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshPeer, NetworkMeshPlan,
+    NetworkMeshRoute, NetworkMeshService,
 };
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -87,48 +87,62 @@ pub fn generate_mesh_plan(
         })
         .unwrap_or_else(|| "wireguard".to_string());
 
-    let mut peers = Vec::new();
-    let mut services = Vec::new();
+    let mut desired_peers = Vec::new();
 
     for node in &registry.nodes {
         if let Some(node_id) = &node.id {
-            peers.push(NetworkMeshPeer {
-                node_id: node_id.clone(),
-                address: format!("peer:{}", node_id),
-                allowed_ips: vec!["10.10.10.0/24".to_string()],
-                endpoint: None,
-            });
-
+            let mut services = Vec::new();
             for svc in &node.services {
-                if let (Some(name), Some(port)) = (&svc.name, svc.port) {
+                if let Some(name) = &svc.name {
                     services.push(NetworkMeshService {
                         name: name.clone(),
-                        node_id: node_id.clone(),
-                        port,
+                        port: svc.port,
                         protocol: "tcp".to_string(),
                     });
                 }
             }
+
+            desired_peers.push(NetworkMeshPeer {
+                id: node_id.clone(),
+                role: None,
+                status: node.status.clone(),
+                address: format!("peer:{}", node_id),
+                local_address: None,
+                dns_names: vec![format!("{}.synapse.cynic", node_id)],
+                services,
+            });
         }
     }
 
+    let peer_count = desired_peers.len();
+
     Ok(NetworkMeshPlan {
-        schema: NETWORK_MESH_PLAN_SCHEMA.to_string(),
-        service_plane,
+        schema: NETWORK_MESH_PLAN_SCHEMA,
+        status: "planned",
         provider,
-        peers,
+        registry_path: "infra/registry.json".to_string(),
+        service_plane,
+        cidr: Some("10.10.10.0/24".to_string()),
+        dns_zone: Some("synapse.cynic".to_string()),
+        desired_peer_count: peer_count,
+        desired_peers,
         routes: vec![NetworkMeshRoute {
             destination: "10.10.10.0/24".to_string(),
-            gateway: None,
-            metric: Some(100),
+            via_peer: "cortex".to_string(),
+            provider: "wireguard".to_string(),
         }],
-        dns_records: vec![],
-        acl_rules: vec![NetworkMeshAclRule {
+        dns: vec![],
+        acl: vec![NetworkMeshAclRule {
+            id: "acl-synapse-mesh".to_string(),
             source: "10.10.10.0/24".to_string(),
             destination: "10.10.10.0/24".to_string(),
+            port: None,
+            protocol: "any".to_string(),
             action: "accept".to_string(),
         }],
-        unknowns: vec![],
+        actuator_required: true,
+        can_apply: true,
+        apply_requires: vec![],
     })
 }
 
@@ -161,9 +175,9 @@ mod tests {
         let plan = generate_mesh_plan(&registry, None).expect("mesh plan generation ok");
         assert_eq!(plan.service_plane, "synapse");
         assert_eq!(plan.provider, "wireguard");
-        assert_eq!(plan.peers.len(), 1);
-        assert_eq!(plan.peers[0].node_id, "cortex");
-        assert_eq!(plan.services.len(), 1);
-        assert_eq!(plan.services[0].name, "cynic-kernel");
+        assert_eq!(plan.desired_peers.len(), 1);
+        assert_eq!(plan.desired_peers[0].id, "cortex");
+        assert_eq!(plan.desired_peers[0].services.len(), 1);
+        assert_eq!(plan.desired_peers[0].services[0].name, "cynic-kernel");
     }
 }
