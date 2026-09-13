@@ -17,6 +17,7 @@ members = [
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",
     "crates/cynic-network",
+    "crates/cynic-intel-soc",
 ]
 resolver = "2"
 
