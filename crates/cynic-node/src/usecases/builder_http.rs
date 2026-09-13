@@ -175,12 +175,14 @@ async fn submit_workload(
     })?;
 
     envelope.action.working_directory = None;
-    envelope.plan_digest = digest_json(&envelope.action).map_err(|_| {
+    let new_plan_digest = digest_json(&envelope.action).map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             "plan digest recomputation failed".to_string(),
         )
     })?;
+    envelope.plan_digest = new_plan_digest.clone();
+    envelope.policy_admission.intent.plan_digest = new_plan_digest;
 
     let admission = admit_agent_workload(&envelope);
     if !admission.admitted() {
@@ -427,12 +429,14 @@ async fn webhook_forgejo(
     // gateway must not invent node paths here. The plan digest is recomputed
     // so it keeps binding the exact action stored.
     envelope.action.working_directory = None;
-    envelope.plan_digest = digest_json(&envelope.action).map_err(|_| {
+    let new_plan_digest = digest_json(&envelope.action).map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             "plan digest recomputation failed".to_string(),
         )
     })?;
+    envelope.plan_digest = new_plan_digest.clone();
+    envelope.policy_admission.intent.plan_digest = new_plan_digest;
     let admission = admit_agent_workload(&envelope);
     if !admission.admitted() {
         return Err((
