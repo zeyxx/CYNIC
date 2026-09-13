@@ -17,7 +17,7 @@ use crate::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_wat
 use crate::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use crate::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 use crate::{config, shutdown::install_signal_handler};
-use cynic_host::domain::network::freebox::HttpFreeboxProbeAdapter;
+use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;

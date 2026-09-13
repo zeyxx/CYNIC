@@ -78,7 +78,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                     .map(|d| d.as_millis() as u64)
                     .unwrap_or(0),
             };
-            let alerts = cynic_intel::introspection::soc::analyze_network_telemetry(
+            let alerts = cynic_intel_soc::analyze_network_telemetry(
                 &snapshot,
                 &[3030, 44196, 9090],
                 max_handshake_age_secs * 1000,
