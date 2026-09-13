@@ -150,7 +150,11 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: format!("cargo:{}", payload.action),
+        action: match payload.action.as_str() {
+            "build" => "make:build".to_string(),
+            "build-release" => "make:build-release".to_string(),
+            _ => "make:check".to_string(),
+        },
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
