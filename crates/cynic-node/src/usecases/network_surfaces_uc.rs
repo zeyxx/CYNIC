@@ -72,7 +72,10 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 listening_ports: vec![3030, 44196],
                 wireguard_peers: std::collections::BTreeMap::new(),
                 dropped_packets_count: 0,
-                observed_at_unix_ms: cynic_protocol::now_unix_ms(),
+                observed_at_unix_ms: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0),
             };
             let alerts = cynic_network::evaluate_network_security(
                 &snapshot,
