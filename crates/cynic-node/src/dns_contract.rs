@@ -411,15 +411,10 @@ pub(crate) fn dns_forbidden_patterns() -> Vec<&'static str> {
 }
 
 pub(crate) fn dns_bundle_files() -> Vec<String> {
-    let context = dns_runtime_context();
-    vec![
-        context.bundle_config_filename.to_string(),
-        SYNAPSE_DNS_README_FILENAME.to_string(),
-        context.bundle_service_filename.to_string(),
-        SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
-        SYNAPSE_DNS_MANIFEST_FILENAME.to_string(),
-        SYNAPSE_DNS_HOSTS_FILENAME.to_string(),
-    ]
+    cynic_network::canonical_dns_bundle_files()
+        .into_iter()
+        .map(str::to_string)
+        .collect()
 }
 
 pub(crate) fn dns_bundle_config_filename() -> &'static str {
