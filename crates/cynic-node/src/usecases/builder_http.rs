@@ -95,8 +95,141 @@ pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) ->
     Router::new()
         .route("/health", get(health))
         .route("/webhook/forgejo", post(webhook_forgejo))
+        .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
         .with_state(state)
+}
+
+/// Agent build submission payload for `POST /workloads/submit`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBuildSubmission {
+    pub commit_sha: String,
+    #[serde(default = "default_cargo_package")]
+    pub package: Option<String>,
+    #[serde(default = "default_build_action")]
+    pub action: String,
+    pub requested_by: String,
+}
+
+fn default_cargo_package() -> Option<String> {
+    None
+}
+
+fn default_build_action() -> String {
+    "check".to_string()
+}
+
+async fn submit_workload(
+    State(state): State<AppState>,
+    Json(payload): Json<AgentBuildSubmission>,
+) -> Result<Json<AcceptanceProof>, (StatusCode, String)> {
+    let commit_sha = payload.commit_sha.trim().to_string();
+    if commit_sha.len() != 40 || !commit_sha.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!(
+                "invalid commit SHA: expected 40 hex chars, got {}",
+                commit_sha.len()
+            ),
+        ));
+    }
+
+    let accepted_at_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    let target_ref = match &payload.package {
+        Some(pkg) => format!("crates/{pkg}"),
+        None => "workspace".to_string(),
+    };
+
+    let request = BuildAgentRequest {
+        schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+        request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
+        source_commit: commit_sha.clone(),
+        source_reference: BuildSourceReference {
+            schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+            kind: "commit".to_string(),
+            target: commit_sha.clone(),
+        },
+        action: format!("cargo:{}", payload.action),
+        target: target_ref,
+        requested_by: payload.requested_by.clone(),
+        required_role: "build_runner".to_string(),
+        budget: AgentBudgets {
+            actions: 10,
+            wall_seconds: 600,
+            cpu_ms: None,
+        },
+        timeout_seconds: 600,
+        evidence_refs: vec![format!("agent:{}@{}", payload.requested_by, commit_sha)],
+    };
+
+    let mut envelope = compose_build_agent_workload(
+        &request,
+        &state.config.node_id,
+        &state.config.workspace_root,
+    )
+    .map_err(|blockers| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("composition failed: {blockers:?}"),
+        )
+    })?;
+
+    envelope.action.working_directory = None;
+    envelope.plan_digest = digest_json(&envelope.action).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "plan digest recomputation failed".to_string(),
+        )
+    })?;
+
+    let admission = admit_agent_workload(&envelope);
+    if !admission.admitted() {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("workload admission refused: {:?}", admission),
+        ));
+    }
+
+    let workload_id = envelope.workload_id.clone();
+    if state.store.read(&workload_id).ok().flatten().is_some() {
+        return Ok(Json(AcceptanceProof {
+            schema: "cynic.builder.acceptance_proof.v1",
+            workload_id,
+            commit_sha,
+            accepted_at_ms,
+            status: "duplicate",
+        }));
+    }
+
+    let record = AgentWorkloadRecord {
+        schema: "cynic.agent_workload_record.v1".into(),
+        envelope,
+        state: AgentWorkloadState::Dispatched,
+        claim: None,
+        last_fencing_token: 0,
+        cancellation_generation: 0,
+        consumed_actions: 0,
+        completion: None,
+    };
+
+    state.store.write(&record).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("store write failed: {e:?}"),
+        )
+    })?;
+
+    Ok(Json(AcceptanceProof {
+        schema: "cynic.builder.acceptance_proof.v1",
+        workload_id,
+        commit_sha,
+        accepted_at_ms,
+        status: "accepted",
+    }))
 }
 
 async fn health() -> (StatusCode, &'static str) {
