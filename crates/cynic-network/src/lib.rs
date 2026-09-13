@@ -8,6 +8,7 @@ pub mod freebox;
 pub mod port;
 pub mod probe;
 pub mod registry_maintenance;
+pub mod security_soc;
 pub mod types;
 pub mod watchdog_alerter;
 
@@ -16,6 +17,7 @@ pub use freebox::*;
 pub use port::*;
 pub use probe::*;
 pub use registry_maintenance::*;
+pub use security_soc::*;
 pub use types::*;
 pub use watchdog_alerter::*;
 
