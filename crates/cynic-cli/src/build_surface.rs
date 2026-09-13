@@ -50,6 +50,30 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         source_commit: Option<String>,
     },
+    /// Submit a build workload natively to the builder HTTP node (no SSH).
+    Submit {
+        /// Exact 40-character source commit.
+        #[arg(long)]
+        commit: String,
+        /// Optional single package scope. None = workspace.
+        #[arg(long)]
+        package: Option<String>,
+        /// Action to execute: check, test, build, build-release.
+        #[arg(long, default_value = "check")]
+        action: String,
+        /// Agent or requester identifier.
+        #[arg(long, default_value = "cynic-operator")]
+        requested_by: String,
+        /// Builder HTTP endpoint.
+        #[arg(long, default_value = "http://10.10.10.119:9090")]
+        builder_url: String,
+        /// Wait for completion and fetch proof.
+        #[arg(long)]
+        wait: bool,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Trigger a distributed build on the observed network runner.
     Trigger {
         /// Exact 40-character source commit.
@@ -249,6 +273,23 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             apply,
             artifact_path,
             source_commit,
+        ),
+        BuildCommand::Submit {
+            commit,
+            package,
+            action,
+            requested_by,
+            builder_url,
+            wait,
+            json,
+        } => submit_build(
+            &commit,
+            package.as_deref(),
+            &action,
+            &requested_by,
+            &builder_url,
+            wait,
+            json,
         ),
         BuildCommand::Trigger {
             commit,
@@ -489,8 +530,8 @@ fn invoice_for_commit(
     invoice
         .validate()
         .map_err(|blockers| format!("invoice invalid: {}", blockers.join(", ")))?;
-    let rendered = serde_json::to_string_pretty(&invoice)
-        .map_err(|e| format!("serialize invoice: {e}"))?;
+    let rendered =
+        serde_json::to_string_pretty(&invoice).map_err(|e| format!("serialize invoice: {e}"))?;
     if json {
         println!("{rendered}");
     } else {
@@ -531,23 +572,100 @@ fn prove_build(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|e| format!("async runtime unavailable: {e}"))?;
+    let runtime =
+        tokio::runtime::Runtime::new().map_err(|e| format!("async runtime unavailable: {e}"))?;
     let adapter = SshBuildProof::new(host, user, "builder");
     let report = runtime.block_on(adapter.prove(&request))?;
     if json {
         println!(
             "{}",
-            serde_json::to_string_pretty(&report)
-                .map_err(|e| format!("serialize proof: {e}"))?
+            serde_json::to_string_pretty(&report).map_err(|e| format!("serialize proof: {e}"))?
         );
     } else {
-        println!(
-            "build proof {}: {:?}",
-            report.source_commit, report.status
-        );
+        println!("build proof {}: {:?}", report.source_commit, report.status);
     }
     Ok(())
+}
+
+fn submit_build(
+    commit: &str,
+    package: Option<&str>,
+    action: &str,
+    requested_by: &str,
+    builder_url: &str,
+    wait: bool,
+    json: bool,
+) -> Result<(), String> {
+    let payload = serde_json::json!({
+        "commit_sha": commit,
+        "package": package,
+        "action": action,
+        "requested_by": requested_by,
+    });
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("http client init failed: {e}"))?;
+
+    let submit_url = format!("{}/workloads/submit", builder_url.trim_end_matches('/'));
+    let res = client
+        .post(&submit_url)
+        .json(&payload)
+        .send()
+        .map_err(|e| format!("failed to submit workload to {submit_url}: {e}"))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().unwrap_or_default();
+        return Err(format!("builder rejected submission ({status}): {body}"));
+    }
+
+    let proof: serde_json::Value = res
+        .json()
+        .map_err(|e| format!("failed to parse acceptance proof: {e}"))?;
+
+    if !wait {
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&proof).unwrap_or_default()
+            );
+        } else {
+            let wid = proof["workload_id"].as_str().unwrap_or("unknown");
+            println!("Workload admitted successfully: id={wid} (status: accepted)");
+        }
+        return Ok(());
+    }
+
+    let wid = proof["workload_id"].as_str().unwrap_or("");
+    let proof_url = format!("{}/proofs/{}", builder_url.trim_end_matches('/'), wid);
+    let start = std::time::Instant::now();
+    let poll_timeout = std::time::Duration::from_secs(600);
+
+    while start.elapsed() < poll_timeout {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        if let Ok(pres) = client.get(&proof_url).send() {
+            if pres.status().is_success() {
+                if let Ok(pjson) = pres.json::<serde_json::Value>() {
+                    let state = pjson["state"].as_str().unwrap_or("");
+                    if state == "completed" || state == "failed" {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&pjson).unwrap_or_default()
+                            );
+                        } else {
+                            println!("Build finished: state={state} id={wid}");
+                        }
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!("timed out waiting for proof of workload {wid}"))
 }
 
 fn run_build(
