@@ -582,13 +582,17 @@
         {
           "name": "cynic-node",
           "artifact": "cynic-node",
+          "scheme": "http",
+          "endpoint_host": "10.10.10.119",
+          "port": 9090,
+          "network_plane": "synapse",
           "unit": "cynic-node.service",
           "supervisor": {
             "provider": "systemd"
           },
           "health": {
-            "kind": "process",
-            "process": "cynic-node"
+            "kind": "http",
+            "url": "http://10.10.10.119:9090/health"
           }
         }
       ],
