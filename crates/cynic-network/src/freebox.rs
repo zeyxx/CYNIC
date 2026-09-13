@@ -170,7 +170,7 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
             _ => None,
         };
 
-        let Some(challenge) = challenge else {
+        let Some(&ref challenge) = challenge.as_ref() else {
             return Ok(FreeboxLanObservation {
                 schema: FREEBOX_LAN_OBSERVATION_SCHEMA.to_string(),
                 endpoint: endpoint.to_string(),
