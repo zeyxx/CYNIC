@@ -72,7 +72,7 @@ pub fn append_event(
 
 #[cfg(test)]
 mod tests {
-    use super::types::{KERNEL_RELEASE_EVENT_SCHEMA, KernelReleaseEvent};
+    use super::super::kernel_release::types::{KERNEL_RELEASE_EVENT_SCHEMA, KernelReleaseEvent};
     use super::*;
 
     fn event(node: &str) -> KernelReleaseEvent {
