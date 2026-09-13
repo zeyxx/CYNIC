@@ -6,6 +6,7 @@
 pub mod discovery;
 pub mod firewall_policy;
 pub mod freebox;
+pub mod mesh_plan;
 pub mod port;
 pub mod probe;
 pub mod registry_maintenance;
@@ -16,6 +17,7 @@ pub mod watchdog_alerter;
 pub use discovery::*;
 pub use firewall_policy::*;
 pub use freebox::*;
+pub use mesh_plan::*;
 pub use port::*;
 pub use probe::*;
 pub use registry_maintenance::*;

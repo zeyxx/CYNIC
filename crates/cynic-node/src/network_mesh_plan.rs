@@ -18,11 +18,16 @@ pub(crate) fn build_network_mesh_plan(
     registry_path: &str,
     provider_override: Option<&str>,
 ) -> Result<NetworkMeshPlan, String> {
-    build_network_mesh_plan_with_reader(
-        registry_path,
-        provider_override,
-        &LocalNetworkMeshRegistryReader,
-    )
+    let registry_path_ref = Path::new(registry_path);
+    let registry: model::MeshRegistry =
+        LocalNetworkMeshRegistryReader.load_mesh_registry(registry_path_ref)?;
+
+    // Delegate to pure cynic-network domain engine
+    let net_registry: cynic_network::MeshRegistry =
+        serde_json::from_value(serde_json::to_value(&registry).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+
+    cynic_network::generate_mesh_plan(&net_registry, provider_override)
 }
 
 fn build_network_mesh_plan_with_reader(
