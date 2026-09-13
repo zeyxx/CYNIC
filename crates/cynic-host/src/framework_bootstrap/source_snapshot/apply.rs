@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::plan::plan_source_snapshot;
 use super::types::{SourceSnapshotPlan, SourceSnapshotReport};

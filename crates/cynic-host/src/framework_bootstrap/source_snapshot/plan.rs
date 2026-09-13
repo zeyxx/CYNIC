@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::types::SourceSnapshotPlan;
 

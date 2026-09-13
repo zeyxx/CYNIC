@@ -4,16 +4,16 @@ use std::fs;
 use std::path::Path;
 
 use crate::bridge;
-use crate::framework_bootstrap::bundle::files::{
+use crate::bundle::files::{
     copy_registry, copy_runtime_artifact, copy_standalone_cli_if_available, write_executable_file,
     write_file,
 };
-use crate::framework_bootstrap::bundle::seed::{write_seed_checksums, write_seed_manifest};
-use crate::framework_bootstrap::scripts::{
+use crate::bundle::seed::{write_seed_checksums, write_seed_manifest};
+use crate::scripts::{
     BootstrapRuntimeArtifact, bootstrap_enroll_script, bootstrap_install_script,
     bootstrap_security_maintenance_script, bootstrap_verify_script,
 };
-use crate::framework_bootstrap::types::FrameworkBootstrapBundleReport;
+use crate::types::FrameworkBootstrapBundleReport;
 
 mod files;
 mod node_control;

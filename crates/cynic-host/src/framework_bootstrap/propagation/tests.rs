@@ -4,7 +4,7 @@ use super::plan::{enrollment_operations, valid_seed_id};
 use super::types::{
     FrameworkPropagationDecision, FrameworkPropagationObservation, FrameworkPropagationPlan,
 };
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
 
 const SEED_ID: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const BASKET_DIGEST: &str =

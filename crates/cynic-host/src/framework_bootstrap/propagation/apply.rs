@@ -1,6 +1,6 @@
 use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::types::{
     FrameworkPropagationExecution, FrameworkPropagationPlan, FrameworkPropagationReport,

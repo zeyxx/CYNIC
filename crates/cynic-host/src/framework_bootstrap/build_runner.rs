@@ -11,7 +11,6 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::clock::now_unix_ms;
-use crate::update_lifecycle::ArgvRunner;
 use crate::{
     adapters::local_build_cache::LocalBuildCacheAdapter,
     domain::disk::build_runner::{
@@ -19,6 +18,7 @@ use crate::{
         reconcile_build_cache,
     },
 };
+use cynic_lifecycle::ArgvRunner;
 
 pub const BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA: &str = "cynic.build_runner.bootstrap_plan.v1";
 
@@ -452,7 +452,7 @@ pub fn reconcile_build_runner_bootstrap(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::ArgvOutput;
+    use cynic_lifecycle::ArgvOutput;
     #[test]
     fn forbids_activation_in_the_rust_bootstrap_boundary() {
         let plan = plan_build_runner_bootstrap(&BuildRunnerBootstrapRequest {

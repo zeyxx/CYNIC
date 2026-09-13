@@ -1,4 +1,4 @@
-use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
 use super::apply::prove_snapshot_import;
 use super::plan_source_snapshot;

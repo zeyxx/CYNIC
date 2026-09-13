@@ -3,8 +3,8 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::registry::resolve_framework_transport;
-use crate::update_lifecycle::ArgvRunner;
 use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
+use cynic_lifecycle::ArgvRunner;
 
 use super::decision::decide_framework_propagation;
 use super::observe::observe_framework_propagation_with_transport;

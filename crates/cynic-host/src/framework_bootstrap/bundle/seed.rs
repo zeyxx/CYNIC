@@ -3,9 +3,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use crate::framework_bootstrap::types::{
-    FrameworkSeedArtifact, FrameworkSeedEnrollment, FrameworkSeedManifest,
-};
+use crate::types::{FrameworkSeedArtifact, FrameworkSeedEnrollment, FrameworkSeedManifest};
 
 pub(super) fn write_seed_checksums(output_dir: &Path, files: &[String]) -> Result<(), String> {
     let mut entries = files

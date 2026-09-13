@@ -1,5 +1,5 @@
-use crate::update_lifecycle::ArgvRunner;
 use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::RemoteExecutionPort};
+use cynic_lifecycle::ArgvRunner;
 
 use super::types::{FrameworkPropagationObservation, FrameworkPropagationProbe};
 
