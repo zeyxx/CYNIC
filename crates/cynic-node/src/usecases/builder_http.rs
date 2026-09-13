@@ -134,7 +134,7 @@ async fn submit_workload(
         ));
     }
 
-    let accepted_at_ms = chrono::Utc::now().timestamp_millis() as u64;
+    let accepted_at_ms = chrono::Utc::now().timestamp_millis();
 
     let request = BuildAgentRequest {
         schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
@@ -210,7 +210,7 @@ async fn submit_workload(
 
     if let Err(e) = state
         .store
-        .compare_and_swap(&workload_id, None, &record, accepted_at_ms)
+        .compare_and_swap(&workload_id, None, &record, accepted_at_ms as u64)
     {
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
