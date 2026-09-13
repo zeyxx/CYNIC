@@ -178,10 +178,12 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
                 hosts.push(FreeboxHostEntry {
                     id,
                     primary_name,
-                    host_type,
+                    ip: ipv4,
+                    mac: None,
+                    host_type: Some(host_type),
                     reachable,
                     active,
-                    ipv4,
+                    interface: None,
                 });
             }
         }
@@ -193,8 +195,30 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
 
         Ok(FreeboxLanObservation {
             schema: FREEBOX_LAN_OBSERVATION_SCHEMA.to_string(),
-            observed_at_unix_ms: now_ms,
+            endpoint: endpoint.to_string(),
+            reachable: true,
+            auth_state: if session_token.is_some() {
+                "authenticated".to_string()
+            } else {
+                "unauthenticated".to_string()
+            },
+            box_model_name: None,
+            device_name: None,
+            api_version: None,
+            api_domain: None,
+            https_port: None,
+            https_available: false,
+            uid: None,
+            wan_status: None,
+            wan_ipv4: None,
+            wan_ipv6: None,
+            rate_down_bps: None,
+            rate_up_bps: None,
+            bytes_down_total: None,
+            bytes_up_total: None,
             hosts,
+            observed_at_unix_ms: now_ms,
+            unknowns: vec![],
         })
     }
 }
