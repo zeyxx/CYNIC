@@ -1,7 +1,7 @@
 [package]
 name = "cynic-sandbox"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 authors = ["CYNIC Sovereign Collective"]
 description = "Deterministic execution sandboxing and confinement domain for CYNIC"
 license = "MIT OR Apache-2.0"

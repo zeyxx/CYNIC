@@ -1,7 +1,7 @@
 [package]
 name = "cynic-vcs"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 authors = ["CYNIC Team"]
 description = "Version Control System (VCS) domain and host adapters for CYNIC sovereign runtimes"
 license = "MIT OR Apache-2.0"

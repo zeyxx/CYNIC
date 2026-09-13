@@ -111,6 +111,7 @@ use crate::transport_surface::TransportCommand;
 #[derive(Parser)]
 #[command(
     name = "cynic",
+    version = concat!(env!("CARGO_PKG_VERSION"), " (release 2026.09.12)"),
     about = "Portable CYNIC operator CLI",
     after_help = "Start here: cynic status → cynic doctor → cynic models list → cynic chat\nAdvanced runtime surfaces: cynic advanced"
 )]

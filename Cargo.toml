@@ -18,6 +18,12 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.2.0"
+edition = "2024"
+authors = ["CYNIC Sovereign Collective"]
+license = "MIT OR Apache-2.0"
+
 # ── Industrial lint configuration (Axum/Embark Studios baseline) ──
 # Compiler lints = Layer 0 enforcement. 100% reliable, 0 context cost.
 # Keep this file as compiler-enforced law. Do not encode runtime policy here.
