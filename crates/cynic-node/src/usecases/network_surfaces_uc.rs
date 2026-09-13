@@ -63,6 +63,31 @@ pub fn execute_registry_observation(registry: &str, output: Option<&str>) -> Exi
 
 pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
     match command {
+        NetworkCommands::SecurityAudit {
+            json: _,
+            max_handshake_age_secs,
+        } => {
+            let snapshot = cynic_network::NetworkSecuritySnapshot {
+                node_id: "local-node".to_string(),
+                listening_ports: vec![3030, 44196],
+                wireguard_peers: std::collections::BTreeMap::new(),
+                dropped_packets_count: 0,
+                observed_at_unix_ms: cynic_protocol::now_unix_ms(),
+            };
+            let alerts = cynic_network::evaluate_network_security(
+                &snapshot,
+                &[3030, 44196, 9090],
+                max_handshake_age_secs * 1000,
+            );
+            let report = serde_json::json!({
+                "schema": cynic_network::NETWORK_SECURITY_REPORT_SCHEMA,
+                "status": if alerts.is_empty() { "clean" } else { "threats_detected" },
+                "alerts_count": alerts.len(),
+                "alerts": alerts,
+                "observed_at_unix_ms": snapshot.observed_at_unix_ms,
+            });
+            emit_json("network security audit", &report, false)
+        }
         NetworkCommands::DnsBundle {
             json: _,
             registry,

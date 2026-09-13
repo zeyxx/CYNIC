@@ -297,6 +297,15 @@ pub(crate) enum ReleaseCommands {
 #[derive(Subcommand)]
 pub enum NetworkCommands {
     /// Emit canonical Synapse DNS activation bundle.
+    SecurityAudit {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Maximum allowed WireGuard handshake age in seconds before warning.
+        #[arg(long, default_value_t = 180)]
+        max_handshake_age_secs: u64,
+    },
+    /// Emit canonical Synapse DNS activation bundle.
     DnsBundle {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
         #[arg(long)]
