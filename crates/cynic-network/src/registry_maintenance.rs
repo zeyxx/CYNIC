@@ -23,10 +23,11 @@ pub fn reconcile_registry_observations(
 
     let observed_nodes = observed
         .get_mut("nodes")
-        .and_modify(|n| {
+        .map(|n| {
             if !n.is_object() {
                 *n = json!({});
             }
+            n
         })
         .ok_or_else(|| "observed.nodes must be a JSON object".to_string())?
         .as_object_mut()
