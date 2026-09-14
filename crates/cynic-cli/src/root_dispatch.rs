@@ -19,7 +19,6 @@ use crate::operator_help::execute_advanced_help;
 use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
 use crate::session_surface::execute_session;
 use crate::solana_surface::{SolanaCommand, execute_solana};
-use crate::transport_surface::{TransportCommand, execute_transport};
 use crate::{Command, DepsCommand};
 
 pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
@@ -40,7 +39,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Solana { command } => execute_solana_command(command),
         Command::Dev { command } => execute_dev(command),
         Command::Bootstrap { command } => execute_bootstrap(command),
-        Command::Transport { command } => execute_transport_command(command),
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
         Command::Node { command } => execute_node_activation(command),
@@ -139,10 +137,6 @@ fn execute_dev_command(command: DevCommand) -> ExitCode {
 
 fn execute_bootstrap_command(command: BootstrapCommand) -> ExitCode {
     execute_bootstrap(command)
-}
-
-fn execute_transport_command(command: TransportCommand) -> ExitCode {
-    execute_transport(&command)
 }
 
 fn execute_network_command(command: NetworkCommand) -> ExitCode {

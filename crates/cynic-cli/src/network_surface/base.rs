@@ -265,6 +265,7 @@ pub(crate) fn try_execute_base(
             }
         }
         NetworkCommand::Peer { command } => Ok(cynic_node::execute_peer_command(&command)),
+        NetworkCommand::Transport { command } => Ok(crate::transport_surface::execute_transport(&command)),
         other => Err(other),
     }
 }

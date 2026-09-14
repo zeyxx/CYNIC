@@ -69,6 +69,11 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: cynic_node::cli::PeerCommands,
     },
+    /// Host-level transport inspection and SSH configuration supervision.
+    Transport {
+        #[command(subcommand)]
+        command: crate::transport_surface::TransportCommand,
+    },
     /// Full 4-layer network observation (L1 physical, L2 addresses/routes, L3 usage, L4 pressure, Freebox router)
     Observe {
         #[arg(long)]

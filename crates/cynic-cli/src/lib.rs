@@ -99,7 +99,6 @@ use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use crate::runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use crate::solana_surface::SolanaCommand;
-use crate::transport_surface::TransportCommand;
 
 #[derive(Parser)]
 #[command(
@@ -161,11 +160,6 @@ pub(crate) enum Command {
     Bootstrap {
         #[command(subcommand)]
         command: BootstrapCommand,
-    },
-    #[command(hide = true)]
-    Transport {
-        #[command(subcommand)]
-        command: TransportCommand,
     },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
