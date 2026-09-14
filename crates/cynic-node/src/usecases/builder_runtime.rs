@@ -71,8 +71,9 @@ pub async fn run_builder_runtime(
     store: Arc<dyn AgentWorkloadStorePort>,
     shutdown: CancellationToken,
 ) -> Result<(), String> {
+    let listen_addr = config.http_listen_addr;
     let http_config = BuilderHttpConfig {
-        listen_addr: config.http_listen_addr,
+        listen_addr,
         state_root: config.state_root,
         workspace_root: config.workspace_root,
         node_id: config.node_id,
@@ -82,5 +83,7 @@ pub async fn run_builder_runtime(
         transport_uri: config.transport_uri,
     };
 
-    run_http_server(http_config, store, shutdown).await
+    run_http_server(http_config, store, listen_addr, shutdown)
+        .await
+        .map_err(|e| e.to_string())
 }
