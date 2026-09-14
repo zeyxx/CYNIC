@@ -32,21 +32,36 @@ pub(crate) fn builder_runtime_config_from(
         .map(|scheduler| scheduler.repository_id.clone())
         .unwrap_or_else(crate::config::default_build_repository_id);
 
+    let registry_path = node_config
+        .build_scheduler
+        .as_ref()
+        .map(|s| s.registry_path.clone())
+        .unwrap_or_else(crate::config::default_runtime_registry_path);
+
     let transport_uri = node_config
         .build_scheduler
         .as_ref()
         .and_then(|scheduler| scheduler.transport_uri.clone())
         .or_else(|| {
-            let registry_path = node_config
-                .build_scheduler
-                .as_ref()
-                .map(|s| s.registry_path.clone())
-                .unwrap_or_else(crate::config::default_runtime_registry_path);
-            let adapter = crate::adapters::registry::LocalRegistryAdapter::new(registry_path);
+            let adapter = crate::adapters::registry::LocalRegistryAdapter::new(&registry_path);
             adapter
                 .repository_transport_uri(&node_config.node_id, &repo_id)
                 .ok()
                 .flatten()
+        })
+        .or_else(|| {
+            // Fallback to reading the in-tree repository transport if available
+            let in_tree_registry = std::path::Path::new("infra/registry.json");
+            if in_tree_registry.exists() {
+                let adapter =
+                    crate::adapters::registry::LocalRegistryAdapter::new(in_tree_registry);
+                adapter
+                    .repository_transport_uri(&node_config.node_id, &repo_id)
+                    .ok()
+                    .flatten()
+            } else {
+                None
+            }
         })
         .or_else(|| std::env::var("CYNIC_GIT_TRANSPORT_URI").ok())
         .unwrap_or_default();
