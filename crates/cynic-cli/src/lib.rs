@@ -310,22 +310,8 @@ pub(crate) enum Command {
         #[arg(long)]
         apply: bool,
     },
-    /// Branch graph — thin projection via LocalBranchGraphAdapter.
-    Branch {
-        #[command(subcommand)]
-        command: BranchCommand,
-    },
     /// Binary source identity: exact git SHA baked at compile time.
     Version {
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-#[derive(Debug, Clone, Subcommand)]
-pub enum BranchCommand {
-    /// Branch graph parent inference (BranchGraph {parent Option}).
-    Graph {
         #[arg(long)]
         json: bool,
     },
