@@ -46,7 +46,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Transport { command } => execute_transport_command(command),
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
-        Command::Peer { command } => crate::peer_surface::execute_peer(command),
         Command::Node { command } => execute_node_activation(command),
         Command::Audit { command } => execute_audit_command(command),
         Command::Advanced => execute_advanced_help(),

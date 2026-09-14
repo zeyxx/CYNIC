@@ -64,6 +64,11 @@ pub(crate) enum NetworkCommand {
         #[arg(long, default_value = "infra/registry.json")]
         registry: Option<String>,
     },
+    /// Peer connectivity, observation, and consensus status.
+    Peer {
+        #[command(subcommand)]
+        command: cynic_node::cli::PeerCommands,
+    },
     /// Full 4-layer network observation (L1 physical, L2 addresses/routes, L3 usage, L4 pressure, Freebox router)
     Observe {
         #[arg(long)]

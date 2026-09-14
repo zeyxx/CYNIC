@@ -264,6 +264,7 @@ pub(crate) fn try_execute_base(
                 Ok(ExitCode::FAILURE)
             }
         }
+        NetworkCommand::Peer { command } => Ok(cynic_node::execute_peer_command(&command)),
         other => Err(other),
     }
 }

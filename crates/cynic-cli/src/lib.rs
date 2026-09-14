@@ -183,15 +183,10 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: session_surface::SessionCommand,
     },
-    /// Unified network management, observation, mesh planning, and registry audit.
+    /// Unified network management, observation, mesh planning, peer consensus, and registry audit.
     Network {
         #[command(subcommand)]
         command: NetworkCommand,
-    },
-    /// CynicPeer sovereign state engine, local storage and ingress commands.
-    Peer {
-        #[command(subcommand)]
-        command: cynic_node::cli::PeerCommands,
     },
     /// Observe and manage node identity, enrollment certificates, and lifecycle activation.
     Node {
