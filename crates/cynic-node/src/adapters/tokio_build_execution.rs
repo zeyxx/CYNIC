@@ -115,7 +115,6 @@ impl BuildExecutionPort for TokioBuildExecution {
                         next_sample = Instant::now() + Duration::from_millis(25);
                     }
                     () = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => {
-                        let _ = child.kill().await;
                         return Err(BuildExecutionError::Timeout);
                     }
                 }
