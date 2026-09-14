@@ -320,12 +320,6 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: forensics_surface::ForensicsCommand,
     },
-    /// Agent host VM placement and conformance planning.
-    #[command(name = "agent-host")]
-    AgentHost {
-        #[command(subcommand)]
-        command: agent_host_surface::AgentHostCommand,
-    },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {
         #[arg(long)]

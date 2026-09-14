@@ -117,6 +117,11 @@ pub(crate) enum AgentCommand {
         #[command(subcommand)]
         command: IntentCommand,
     },
+    /// Plan or observe Proxmox agent host VM placement and conformance.
+    Host {
+        #[command(subcommand)]
+        command: crate::agent_host_surface::AgentHostCommand,
+    },
 }
 
 pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
@@ -221,5 +226,6 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             ExitCode::SUCCESS
         }
         AgentCommand::Intent { command } => execute_intent(command),
+        AgentCommand::Host { command } => crate::agent_host_surface::execute_agent_host(command),
     }
 }

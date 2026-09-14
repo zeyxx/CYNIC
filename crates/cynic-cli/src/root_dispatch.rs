@@ -100,7 +100,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
         Command::Judgment { command } => crate::judgment_surface::execute_judgment(command),
         Command::Forensics { command } => execute_forensics(command),
-        Command::AgentHost { command } => crate::agent_host_surface::execute_agent_host(command),
         Command::Branch { command } => match command {
             crate::BranchCommand::Graph { json } => {
                 crate::branch_graph_surface::execute_branch_graph(json)
