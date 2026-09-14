@@ -240,12 +240,23 @@ async fn get_proof(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     match state.store.read(&id) {
         Ok(Some(record)) => {
+            let parcel_receipt =
+                if record.record.state.terminal() && record.record.completion.is_some() {
+                    cynic_protocol::SettledParcelReceipt::for_record(
+                        &record.record,
+                        record.committed_at_ms,
+                    )
+                    .ok()
+                } else {
+                    None
+                };
             let proof = serde_json::json!({
                 "schema": "cynic.builder.proof.v1",
                 "workload_id": id,
                 "state": record.record.state,
                 "committed_at_ms": record.committed_at_ms,
                 "record_digest": record.record_digest,
+                "parcel_receipt": parcel_receipt,
                 "claim": record.record.claim,
                 "completion": record.record.completion,
                 "envelope": record.record.envelope,

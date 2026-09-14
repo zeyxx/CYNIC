@@ -690,7 +690,9 @@ fn submit_build(
                     if state != last_state {
                         if !json {
                             let elapsed = start.elapsed().as_secs();
-                            println!("[+{elapsed}s] Workload {wid} state transition: {last_state} -> {state}");
+                            println!(
+                                "[+{elapsed}s] Workload {wid} state transition: {last_state} -> {state}"
+                            );
                         }
                         last_state = state.to_string();
                     }
@@ -702,12 +704,31 @@ fn submit_build(
                                 serde_json::to_string_pretty(&pjson).unwrap_or_default()
                             );
                         } else {
-                            println!("Build finished in {}s: state={state} id={wid}", start.elapsed().as_secs());
+                            println!(
+                                "Build finished in {}s: state={state} id={wid}",
+                                start.elapsed().as_secs()
+                            );
+                            if let Some(receipt) = pjson.get("parcel_receipt") {
+                                if let Some(digest) =
+                                    receipt.get("final_record_digest").and_then(|d| d.as_str())
+                                {
+                                    println!("Hermetic Parcel Digest: {digest}");
+                                }
+                                if let Some(settled_at) =
+                                    receipt.get("settled_at_ms").and_then(|t| t.as_u64())
+                                {
+                                    println!("Settled At: {settled_at} ms");
+                                }
+                            }
                             if let Some(completion) = pjson.get("completion") {
-                                if let Some(status) = completion.get("status").and_then(|s| s.as_str()) {
+                                if let Some(status) =
+                                    completion.get("status").and_then(|s| s.as_str())
+                                {
                                     println!("Result Status: {status}");
                                 }
-                                if let Some(evs) = completion.get("evidence_refs").and_then(|e| e.as_array()) {
+                                if let Some(evs) =
+                                    completion.get("evidence_refs").and_then(|e| e.as_array())
+                                {
                                     println!("Sealed Evidence References ({}):", evs.len());
                                     for ev in evs {
                                         println!("  - {}", ev.as_str().unwrap_or_default());
