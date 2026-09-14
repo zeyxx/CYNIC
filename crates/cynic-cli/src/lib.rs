@@ -309,7 +309,7 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: federation_surface::FederationCommand,
     },
-    /// Trigger a distributed build on the network runner for an exact commit.
+    /// Execute, submit, and observe reproducible sovereign builds.
     Build {
         #[command(subcommand)]
         command: build_surface::BuildCommand,

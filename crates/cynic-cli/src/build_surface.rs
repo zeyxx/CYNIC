@@ -64,9 +64,9 @@ pub(crate) enum BuildCommand {
         /// Agent or requester identifier.
         #[arg(long, default_value = "cynic-operator")]
         requested_by: String,
-        /// Builder HTTP endpoint.
-        #[arg(long, default_value = "http://10.10.10.119:9090")]
-        builder_url: String,
+        /// Builder HTTP endpoint (resolved dynamically from registry if omitted).
+        #[arg(long)]
+        builder_url: Option<String>,
         /// Wait for completion and fetch proof.
         #[arg(long)]
         wait: bool,
@@ -282,15 +282,21 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             builder_url,
             wait,
             json,
-        } => submit_build(
-            &commit,
-            package.as_deref(),
-            &action,
-            &requested_by,
-            &builder_url,
-            wait,
-            json,
-        ),
+        } => {
+            let url = match builder_url {
+                Some(explicit) => explicit,
+                None => resolve_default_builder_url()?,
+            };
+            submit_build(
+                &commit,
+                package.as_deref(),
+                &action,
+                &requested_by,
+                &url,
+                wait,
+                json,
+            )
+        }
         BuildCommand::Trigger {
             commit,
             phase,
@@ -585,6 +591,32 @@ fn prove_build(
         println!("build proof {}: {:?}", report.source_commit, report.status);
     }
     Ok(())
+}
+
+fn resolve_default_builder_url() -> Result<String, String> {
+    if let Ok(env_url) = std::env::var("CYNIC_BUILDER_URL") {
+        if !env_url.trim().is_empty() {
+            return Ok(env_url);
+        }
+    }
+    let registry_path = std::path::Path::new("infra/registry.json");
+    if registry_path.exists() {
+        let content = std::fs::read_to_string(registry_path)
+            .map_err(|e| format!("cannot read infra/registry.json: {e}"))?;
+        let reg: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| format!("invalid infra/registry.json format: {e}"))?;
+        if let Some(nodes) = reg["nodes"].as_array() {
+            for node in nodes {
+                let role = node["role"].as_str().unwrap_or_default();
+                if role == "build_runner" {
+                    if let Some(ip) = node["network"]["synapse"].as_str() {
+                        return Ok(format!("http://{ip}:9090"));
+                    }
+                }
+            }
+        }
+    }
+    Err("could not resolve builder URL dynamically from infra/registry.json or CYNIC_BUILDER_URL env".into())
 }
 
 fn submit_build(
