@@ -250,6 +250,20 @@ pub(crate) fn try_execute_base(
                 Ok(ExitCode::SUCCESS)
             }
         }
+        NetworkCommand::Audit { json, registry } => {
+            let registry_path = registry.unwrap_or_else(|| "infra/registry.json".to_string());
+            let report = crate::network_audit::build_network_audit(&registry_path);
+            if json {
+                crate::cli_json::emit_pretty_json(&report);
+            } else {
+                crate::network_audit::render_text(&report);
+            }
+            if report.status == "ok" {
+                Ok(ExitCode::SUCCESS)
+            } else {
+                Ok(ExitCode::FAILURE)
+            }
+        }
         other => Err(other),
     }
 }

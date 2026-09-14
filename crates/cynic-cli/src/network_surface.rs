@@ -57,6 +57,13 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkActuatorCommand,
     },
+    /// Audit declared vs observed network state (DNS, WireGuard, services).
+    Audit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: Option<String>,
+    },
     /// Full 4-layer network observation (L1 physical, L2 addresses/routes, L3 usage, L4 pressure, Freebox router)
     Observe {
         #[arg(long)]

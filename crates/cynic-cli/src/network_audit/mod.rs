@@ -5,6 +5,9 @@ mod render;
 mod scan;
 mod types;
 
+pub use scan::build_network_audit;
+pub use render::render_text;
+
 #[derive(Subcommand)]
 pub(crate) enum NetworkAuditCommand {
     /// Audit declared vs observed network state (DNS, WireGuard, services).

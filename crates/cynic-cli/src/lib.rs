@@ -99,8 +99,7 @@ use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::integrations_surface::IntegrationsCommand;
 use crate::judge_surface::JudgeCommand;
 use crate::lab_surface::LabCommand;
-use crate::network_audit::NetworkAuditCommand;
-use crate::network_surface::NetworkCommand;
+use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::NodeActivationCommand;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
@@ -179,17 +178,12 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: TransportCommand,
     },
-    /// Read-only network audit: declared (registry) vs observed (DNS, WireGuard, services).
-    NetworkAudit {
-        #[command(subcommand)]
-        command: NetworkAuditCommand,
-    },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
         #[command(subcommand)]
         command: session_surface::SessionCommand,
     },
-    #[command(hide = true)]
+    /// Unified network management, observation, mesh planning, and registry audit.
     Network {
         #[command(subcommand)]
         command: NetworkCommand,
