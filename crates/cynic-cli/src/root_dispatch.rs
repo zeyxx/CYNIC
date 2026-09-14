@@ -9,7 +9,6 @@ use crate::command_manifest::commands_manifest;
 use crate::deps_surface;
 use crate::dev_surface::{DevCommand, execute_dev};
 use crate::fleet_surface::{FleetCommand, execute_fleet};
-use crate::forensics_surface::execute_forensics;
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::execute_node_activation;
 use crate::operator_doctor::execute_operator_doctor;
@@ -17,7 +16,6 @@ use crate::operator_errors::execute_operator_errors;
 use crate::operator_help::execute_advanced_help;
 use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
 use crate::session_surface::execute_session;
-use crate::solana_surface::{SolanaCommand, execute_solana};
 use crate::{Command, DepsCommand};
 
 pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
@@ -35,7 +33,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Commands { json } => execute_commands_manifest(json),
         Command::Fleet { command } => execute_fleet_command(command),
         Command::Runtime { command } => execute_runtime_command(command),
-        Command::Solana { command } => execute_solana_command(command),
         Command::Dev { command } => execute_dev(command),
         Command::Bootstrap { command } => execute_bootstrap(command),
         Command::Session { command } => execute_session(&command),
@@ -90,7 +87,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Git { command } => crate::git_surface::execute_git(command),
         Command::Judge { command } => crate::judge_surface::execute_judge(command),
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
-        Command::Forensics { command } => execute_forensics(command),
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
@@ -123,10 +119,6 @@ fn execute_fleet_command(command: FleetCommand) -> ExitCode {
 
 fn execute_runtime_command(command: RuntimeCommand) -> ExitCode {
     execute_runtime(command)
-}
-
-fn execute_solana_command(command: SolanaCommand) -> ExitCode {
-    execute_solana(command)
 }
 
 fn execute_dev_command(command: DevCommand) -> ExitCode {

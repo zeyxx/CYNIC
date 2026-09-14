@@ -76,7 +76,6 @@ pub mod runtime_surface;
 pub mod rust_source;
 pub mod schema_registry_audit;
 pub mod session_surface;
-pub mod solana_surface;
 pub mod source_surface;
 pub mod surface_audit;
 pub mod surface_registry;
@@ -97,7 +96,6 @@ use crate::node_activation_surface::NodeActivationCommand;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use crate::runtime_surface::{OperatorModelsCommand, RuntimeCommand};
-use crate::solana_surface::SolanaCommand;
 
 #[derive(Parser)]
 #[command(
@@ -144,12 +142,6 @@ pub(crate) enum Command {
     },
     /// Explain and list the advanced runtime surfaces.
     Advanced,
-    /// Read-only Solana observation planning surfaces.
-    #[command(hide = true)]
-    Solana {
-        #[command(subcommand)]
-        command: SolanaCommand,
-    },
     #[command(hide = true)]
     Dev {
         #[command(subcommand)]
@@ -278,12 +270,6 @@ pub(crate) enum Command {
     Mask {
         #[command(subcommand)]
         command: mask_surface::MaskCommand,
-    },
-    /// Forensics — post-crash evidence, timeline, post-mortem.
-    #[command(hide = true)]
-    Forensics {
-        #[command(subcommand)]
-        command: forensics_surface::ForensicsCommand,
     },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {

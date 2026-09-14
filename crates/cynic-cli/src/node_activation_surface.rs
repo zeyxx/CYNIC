@@ -69,6 +69,11 @@ pub(crate) enum NodeActivationCommand {
         #[arg(long, default_value_t = 80)]
         max_commits: usize,
     },
+    /// Host crash forensics, boot timeline, and post-mortem evidence.
+    Forensics {
+        #[command(subcommand)]
+        command: crate::forensics_surface::ForensicsCommand,
+    },
 }
 
 #[derive(Serialize)]
@@ -359,6 +364,9 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                 Ok(report) => crate::emit_json(&report, false),
                 Err(error) => crate::fail(error),
             }
+        }
+        NodeActivationCommand::Forensics { command } => {
+            crate::forensics_surface::execute_forensics(command)
         }
     }
 }
