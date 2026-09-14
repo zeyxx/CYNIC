@@ -46,14 +46,10 @@ pub mod forensics_surface;
 pub mod fs_json;
 pub mod git_surface;
 pub mod host_exec_alias_surface;
-pub mod integrations_readonly_surface;
-pub mod integrations_surface;
-pub mod integrations_surface_render;
 pub mod invoice_log;
 pub mod judge_surface;
 pub mod judgment_surface;
 pub mod kernel_boundary_audit;
-pub mod lab_surface;
 pub mod lifecycle_surface;
 pub mod lifecycle_surface_context;
 pub mod lifecycle_surface_execute;
@@ -96,9 +92,7 @@ use crate::dev_surface::DevCommand;
 use crate::fleet_surface::FleetCommand;
 use crate::git_surface::GitCommand;
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
-use crate::integrations_surface::IntegrationsCommand;
 use crate::judge_surface::JudgeCommand;
-use crate::lab_surface::LabCommand;
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::NodeActivationCommand;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
@@ -169,11 +163,6 @@ pub(crate) enum Command {
         command: BootstrapCommand,
     },
     #[command(hide = true)]
-    Lab {
-        #[command(subcommand)]
-        command: LabCommand,
-    },
-    #[command(hide = true)]
     Transport {
         #[command(subcommand)]
         command: TransportCommand,
@@ -197,12 +186,6 @@ pub(crate) enum Command {
     Audit {
         #[command(subcommand)]
         command: AuditCommand,
-    },
-    /// Observe CYNIC-managed services and external provider connections.
-    #[command(hide = true)]
-    Integrations {
-        #[command(subcommand)]
-        command: IntegrationsCommand,
     },
     /// Source sync — observe/reconcile/apply across layers + release bot
     Source {

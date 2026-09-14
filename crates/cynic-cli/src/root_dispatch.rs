@@ -11,8 +11,6 @@ use crate::deps_surface;
 use crate::dev_surface::{DevCommand, execute_dev};
 use crate::fleet_surface::{FleetCommand, execute_fleet};
 use crate::forensics_surface::execute_forensics;
-use crate::integrations_surface::{IntegrationsCommand, execute_integrations};
-use crate::lab_surface::{LabCommand, execute_lab};
 use crate::network_surface::{NetworkCommand, execute_network};
 use crate::node_activation_surface::execute_node_activation;
 use crate::operator_doctor::execute_operator_doctor;
@@ -40,16 +38,14 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Fleet { command } => execute_fleet_command(command),
         Command::Runtime { command } => execute_runtime_command(command),
         Command::Solana { command } => execute_solana_command(command),
-        Command::Dev { command } => execute_dev_command(command),
-        Command::Bootstrap { command } => execute_bootstrap_command(command),
-        Command::Lab { command } => execute_lab_command(command),
+        Command::Dev { command } => execute_dev(command),
+        Command::Bootstrap { command } => execute_bootstrap(command),
         Command::Transport { command } => execute_transport_command(command),
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
         Command::Node { command } => execute_node_activation(command),
         Command::Audit { command } => execute_audit_command(command),
         Command::Advanced => execute_advanced_help(),
-        Command::Integrations { command } => execute_integrations_command(command),
         Command::Deps { command, json } => execute_deps_command(command, json),
         Command::Update { target, json } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
@@ -151,10 +147,6 @@ fn execute_bootstrap_command(command: BootstrapCommand) -> ExitCode {
     execute_bootstrap(command)
 }
 
-fn execute_lab_command(command: LabCommand) -> ExitCode {
-    execute_lab(command)
-}
-
 fn execute_transport_command(command: TransportCommand) -> ExitCode {
     execute_transport(&command)
 }
@@ -165,10 +157,6 @@ fn execute_network_command(command: NetworkCommand) -> ExitCode {
 
 fn execute_audit_command(command: AuditCommand) -> ExitCode {
     execute_audit(&command)
-}
-
-fn execute_integrations_command(command: IntegrationsCommand) -> ExitCode {
-    execute_integrations(command)
 }
 
 fn execute_deps_command(command: Option<DepsCommand>, json: bool) -> ExitCode {
