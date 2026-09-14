@@ -21,13 +21,9 @@ pub(super) fn claim_if_available(
     current: &DurableAgentWorkloadRecord,
 ) -> Result<Option<DurableAgentWorkloadRecord>, String> {
     let now_ms = current_unix_ms();
-    if current.record.state == AgentWorkloadState::Claimed
-        && current
-            .record
-            .claim
-            .as_ref()
-            .is_some_and(|claim| claim.expires_at_ms > now_ms)
-    {
+    // A workload that is already Claimed by this runner must not be re-claimed or
+    // have its fencing token bumped while it is actively in flight.
+    if current.record.state == AgentWorkloadState::Claimed {
         return Ok(None);
     }
     let guard = LeaseGuard {
