@@ -331,7 +331,7 @@ async fn execute_claimed(
         persist_cancellation_proof(workload_id, latest.revision);
         Ok(())
     } else {
-        lifecycle::finish(
+        if let Err(err) = lifecycle::finish(
             store,
             &latest,
             &guard,
@@ -340,7 +340,10 @@ async fn execute_claimed(
             unknowns,
             started.elapsed(),
             measured_cpu_ms,
-        )?;
+        ) {
+            tracing::error!(%err, workload_id, "lifecycle::finish failed");
+            return Err(err);
+        }
         if status == AgentCompletionStatus::Completed {
             let proof_refs = evidence_refs
                 .iter()
