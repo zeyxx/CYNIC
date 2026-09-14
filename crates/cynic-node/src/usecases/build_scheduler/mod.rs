@@ -331,10 +331,19 @@ async fn execute_claimed(
         persist_cancellation_proof(workload_id, latest.revision);
         Ok(())
     } else {
+        // Must use latest.record.claim's guard so the lease and fencing token
+        // strictly match the latest durable revision after claim renewals!
+        let active_guard = latest
+            .record
+            .claim
+            .as_ref()
+            .map(|c| c.guard.clone())
+            .unwrap_or_else(|| guard.clone());
+
         if let Err(err) = lifecycle::finish(
             store,
             &latest,
-            &guard,
+            &active_guard,
             status,
             evidence_refs.clone(),
             unknowns,
