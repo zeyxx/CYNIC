@@ -99,11 +99,8 @@ pub(super) async fn prepare(
     if cancellation.is_cancelled() {
         return Err("build_scheduler_cancelled_before_action_reservation".into());
     }
-    let (mut consumed, action_now_ms) =
+    let (consumed, action_now_ms) =
         reserve_action(store, &claimed.record.envelope.workload_id, guard)?;
-    consumed.record.envelope.action.working_directory =
-        Some(workspace.workspace_root.to_string_lossy().to_string());
-    consumed.record.envelope.action.input_digest = Some(source_layout.evidence_digest.clone());
     let signed = issue_signed_build_workload_grant(
         &consumed,
         &control.node_id,

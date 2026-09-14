@@ -177,15 +177,9 @@ async fn submit_workload(
         )
     })?;
 
-    envelope.action.working_directory = None;
-    let new_plan_digest = digest_json(&envelope.action).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "plan digest recomputation failed".to_string(),
-        )
-    })?;
-    envelope.plan_digest = new_plan_digest.clone();
-    envelope.policy_admission.intent.plan_digest = new_plan_digest;
+    // Do NOT wipe envelope.action.working_directory; compose_build_agent_workload
+    // computes the canonical bounded action working directory and input_digest,
+    // which are cryptographically sealed in plan_digest and verified by derive_build_workload_grant.
 
     let admission = admit_agent_workload(&envelope);
     if !admission.admitted() {
@@ -433,15 +427,9 @@ async fn webhook_forgejo(
     // The node assigns the registry-resolved layout at prepare time; the
     // gateway must not invent node paths here. The plan digest is recomputed
     // so it keeps binding the exact action stored.
-    envelope.action.working_directory = None;
-    let new_plan_digest = digest_json(&envelope.action).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "plan digest recomputation failed".to_string(),
-        )
-    })?;
-    envelope.plan_digest = new_plan_digest.clone();
-    envelope.policy_admission.intent.plan_digest = new_plan_digest;
+    // Do NOT wipe envelope.action.working_directory; compose_build_agent_workload
+    // computes the canonical bounded action working directory and input_digest,
+    // which are cryptographically sealed in plan_digest and verified by derive_build_workload_grant.
     let admission = admit_agent_workload(&envelope);
     if !admission.admitted() {
         return Err((
