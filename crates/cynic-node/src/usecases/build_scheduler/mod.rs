@@ -340,7 +340,7 @@ async fn execute_claimed(
             .map(|c| c.guard.clone())
             .unwrap_or_else(|| guard.clone());
 
-        if let Err(err) = lifecycle::finish(
+        let _receipt = match lifecycle::finish(
             store,
             &latest,
             &active_guard,
@@ -350,9 +350,20 @@ async fn execute_claimed(
             started.elapsed(),
             measured_cpu_ms,
         ) {
-            tracing::error!(%err, workload_id, "lifecycle::finish failed");
-            return Err(err);
-        }
+            Ok(receipt) => {
+                tracing::info!(
+                    workload_id,
+                    settled_at_ms = receipt.settled_at_ms,
+                    final_record_digest = %receipt.final_record_digest,
+                    "hermetic parcel settled successfully"
+                );
+                receipt
+            }
+            Err(err) => {
+                tracing::error!(%err, workload_id, "lifecycle::finish failed");
+                return Err(err);
+            }
+        };
         if status == AgentCompletionStatus::Completed {
             let proof_refs = evidence_refs
                 .iter()

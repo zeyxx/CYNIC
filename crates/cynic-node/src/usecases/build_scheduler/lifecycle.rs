@@ -3,8 +3,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use cynic_protocol::{
     AGENT_COMPLETION_ENVELOPE_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus,
     AgentWorkloadRecord, AgentWorkloadState, DurableAgentWorkloadRecord, LeaseGuard,
-    acknowledge_agent_workload_cancellation, claim_agent_workload, complete_agent_workload,
-    finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
+    SettledParcelReceipt, acknowledge_agent_workload_cancellation, claim_agent_workload,
+    complete_agent_workload, finalize_unclaimed_agent_workload_cancellation,
+    renew_agent_workload_claim, settle_parcel_with_receipt,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -154,6 +155,7 @@ pub(super) fn finish_blocked(
         Duration::ZERO,
         None,
     )
+    .map(|_| ())
 }
 
 pub(super) fn acknowledge_cancelled(
@@ -198,7 +200,7 @@ pub(super) fn finish(
     unknowns: Vec<String>,
     elapsed: Duration,
     measured_cpu_ms: Option<u64>,
-) -> Result<(), String> {
+) -> Result<SettledParcelReceipt, String> {
     let completion = completion(
         &durable.record,
         status,
@@ -207,16 +209,17 @@ pub(super) fn finish(
         elapsed,
         measured_cpu_ms,
     );
-    let next = complete_agent_workload(&durable.record, guard, &completion, current_unix_ms())
+    let now_ms = current_unix_ms();
+    let (next, receipt) = settle_parcel_with_receipt(&durable.record, guard, &completion, now_ms)
         .map_err(|error| error.code)?;
     store
         .compare_and_swap(
             &durable.record.envelope.workload_id,
             Some(durable.revision),
             &next,
-            current_unix_ms(),
+            now_ms,
         )
-        .map(|_| ())
+        .map(|_| receipt)
         .map_err(|error| error.code)
 }
 
