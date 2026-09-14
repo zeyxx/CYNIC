@@ -672,15 +672,29 @@ fn submit_build(
 
     let wid = proof["workload_id"].as_str().unwrap_or("");
     let proof_url = format!("{}/proofs/{}", builder_url.trim_end_matches('/'), wid);
+    if !json {
+        println!("Admitted workload {wid} to builder {builder_url}");
+        println!("Streaming state updates (polling {})...", proof_url);
+    }
+
     let start = std::time::Instant::now();
-    let poll_timeout = std::time::Duration::from_secs(600);
+    let poll_timeout = std::time::Duration::from_secs(900);
+    let mut last_state = String::new();
 
     while start.elapsed() < poll_timeout {
         std::thread::sleep(std::time::Duration::from_secs(3));
         if let Ok(pres) = client.get(&proof_url).send() {
             if pres.status().is_success() {
                 if let Ok(pjson) = pres.json::<serde_json::Value>() {
-                    let state = pjson["state"].as_str().unwrap_or("");
+                    let state = pjson["state"].as_str().unwrap_or("unknown");
+                    if state != last_state {
+                        if !json {
+                            let elapsed = start.elapsed().as_secs();
+                            println!("[+{elapsed}s] Workload {wid} state transition: {last_state} -> {state}");
+                        }
+                        last_state = state.to_string();
+                    }
+
                     if state == "completed" || state == "failed" {
                         if json {
                             println!(
@@ -688,9 +702,24 @@ fn submit_build(
                                 serde_json::to_string_pretty(&pjson).unwrap_or_default()
                             );
                         } else {
-                            println!("Build finished: state={state} id={wid}");
+                            println!("Build finished in {}s: state={state} id={wid}", start.elapsed().as_secs());
+                            if let Some(completion) = pjson.get("completion") {
+                                if let Some(status) = completion.get("status").and_then(|s| s.as_str()) {
+                                    println!("Result Status: {status}");
+                                }
+                                if let Some(evs) = completion.get("evidence_refs").and_then(|e| e.as_array()) {
+                                    println!("Sealed Evidence References ({}):", evs.len());
+                                    for ev in evs {
+                                        println!("  - {}", ev.as_str().unwrap_or_default());
+                                    }
+                                }
+                            }
                         }
-                        return Ok(());
+                        if state == "completed" {
+                            return Ok(());
+                        } else {
+                            return Err(format!("workload {wid} failed on builder"));
+                        }
                     }
                 }
             }
