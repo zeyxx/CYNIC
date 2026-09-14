@@ -193,8 +193,8 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: cynic_node::cli::PeerCommands,
     },
-    /// Observe and manage node activation (deployment_epoch + bootstrap + takeover).
-    NodeActivation {
+    /// Observe and manage node identity, enrollment certificates, and lifecycle activation.
+    Node {
         #[command(subcommand)]
         command: NodeActivationCommand,
     },
