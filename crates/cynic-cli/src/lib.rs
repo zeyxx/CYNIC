@@ -86,7 +86,6 @@ pub mod version_surface;
 pub mod workload_observation;
 
 use crate::agent_surface::AgentCommand;
-use crate::audit_surface::AuditCommand;
 use crate::bootstrap_surface::BootstrapCommand;
 use crate::dev_surface::DevCommand;
 use crate::fleet_surface::FleetCommand;
@@ -175,11 +174,6 @@ pub(crate) enum Command {
     Node {
         #[command(subcommand)]
         command: NodeActivationCommand,
-    },
-    #[command(hide = true)]
-    Audit {
-        #[command(subcommand)]
-        command: AuditCommand,
     },
     /// Source sync — observe/reconcile/apply across layers + release bot
     Source {

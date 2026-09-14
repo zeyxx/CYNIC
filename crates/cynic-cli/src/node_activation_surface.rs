@@ -62,6 +62,13 @@ pub(crate) enum NodeActivationCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Audit host commits, divergence, and node health state.
+    HostAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_t = 80)]
+        max_commits: usize,
+    },
 }
 
 #[derive(Serialize)]
@@ -342,6 +349,15 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                     eprintln!("Verification error: {e}");
                     ExitCode::FAILURE
                 }
+            }
+        }
+        NodeActivationCommand::HostAudit { json, max_commits } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            match crate::node_host_audit::build_node_host_audit(max_commits) {
+                Ok(report) => crate::emit_json(&report, false),
+                Err(error) => crate::fail(error),
             }
         }
     }

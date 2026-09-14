@@ -1,7 +1,6 @@
 use std::process::ExitCode;
 
 use crate::agent_surface::execute_agent;
-use crate::audit_surface::{AuditCommand, execute_audit};
 use crate::bootstrap_surface::{BootstrapCommand, execute_bootstrap};
 use crate::build_surface::execute_build;
 use crate::chat_surface::{ChatArgs, execute_chat};
@@ -42,7 +41,6 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
         Command::Node { command } => execute_node_activation(command),
-        Command::Audit { command } => execute_audit_command(command),
         Command::Advanced => execute_advanced_help(),
         Command::Deps { command, json } => execute_deps_command(command, json),
         Command::Update { target, json } => {
@@ -141,10 +139,6 @@ fn execute_bootstrap_command(command: BootstrapCommand) -> ExitCode {
 
 fn execute_network_command(command: NetworkCommand) -> ExitCode {
     execute_network(command)
-}
-
-fn execute_audit_command(command: AuditCommand) -> ExitCode {
-    execute_audit(&command)
 }
 
 fn execute_deps_command(command: Option<DepsCommand>, json: bool) -> ExitCode {
