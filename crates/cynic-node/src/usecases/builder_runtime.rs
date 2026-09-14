@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
 use crate::config;
-use crate::ports::AgentWorkloadStorePort;
-use crate::usecases::builder_http::{BuilderHttpConfig, run_builder_http_server};
+use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
+use crate::usecases::builder_http::{BuilderHttpConfig, run_http_server};
 
 #[derive(Debug, Clone)]
 pub struct BuilderRuntimeConfig {
@@ -41,7 +41,7 @@ pub(crate) fn builder_runtime_config_from(
                 .build_scheduler
                 .as_ref()
                 .map(|s| s.registry_path.clone())
-                .unwrap_or_else(crate::config::defaults::default_runtime_registry_path);
+                .unwrap_or_else(crate::config::default_runtime_registry_path);
             let adapter = crate::adapters::registry::LocalRegistryAdapter::new(registry_path);
             adapter
                 .repository_transport_uri(&node_config.node_id, &repo_id)
@@ -82,5 +82,5 @@ pub async fn run_builder_runtime(
         transport_uri: config.transport_uri,
     };
 
-    run_builder_http_server(http_config, store, shutdown).await
+    run_http_server(http_config, store, shutdown).await
 }
