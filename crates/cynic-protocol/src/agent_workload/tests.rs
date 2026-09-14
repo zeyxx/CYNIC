@@ -13,12 +13,12 @@ use crate::{
 };
 
 use super::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, SETTLED_PARCEL_RECEIPT_SCHEMA,
     acknowledge_agent_workload_cancellation, admit_agent_workload, admit_agent_workload_dispatch,
     admit_workload_action, admit_workload_mandate_binding, claim_agent_workload,
     complete_agent_workload, consume_agent_workload_action,
     finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
-    request_agent_workload_cancellation,
+    request_agent_workload_cancellation, settle_parcel, settle_parcel_with_receipt,
 };
 
 fn evidence(kind: &str) -> AgentEvidenceRef {
@@ -464,4 +464,195 @@ fn a_degraded_build_is_terminal_but_cannot_claim_completion() {
     let terminal = complete_agent_workload(&claimed, &guard(1), &completion, 11).unwrap();
     assert_eq!(terminal.state, AgentWorkloadState::Degraded);
     assert!(terminal.state.terminal());
+}
+
+#[test]
+fn parcel_settlement_succeeds_and_generates_hermetic_receipt() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+
+    let (settled, receipt) =
+        settle_parcel_with_receipt(&claimed, &guard(1), &completion, 15).expect("valid settlement");
+
+    assert_eq!(settled.state, AgentWorkloadState::Completed);
+    assert!(settled.claim.is_none());
+    assert_eq!(settled.completion, Some(completion.clone()));
+
+    assert_eq!(receipt.schema, SETTLED_PARCEL_RECEIPT_SCHEMA);
+    assert_eq!(receipt.workload_id, "workload-1");
+    assert_eq!(receipt.settled_at_ms, 15);
+    assert_eq!(receipt.status, AgentCompletionStatus::Completed);
+    assert_eq!(receipt.evidence_count, 1);
+    assert_eq!(receipt.final_record_digest, digest_json(&settled).unwrap());
+}
+
+#[test]
+fn parcel_settlement_rejects_plan_tampering_in_flight() {
+    let mut claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    // Tamper with argv in flight
+    claimed
+        .envelope
+        .action
+        .argv
+        .push("--malicious-flag".to_string());
+
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+
+    let err = settle_parcel(&claimed, &guard(1), &completion, 15).unwrap_err();
+    assert_eq!(err.code, "plan_digest_tampered");
+}
+
+#[test]
+fn parcel_settlement_rejects_stale_or_mismatched_guard() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+
+    // Mismatched fencing token
+    let err = settle_parcel(&claimed, &guard(2), &completion, 15).unwrap_err();
+    assert_eq!(err.code, "claim_guard_rejected");
+}
+
+#[test]
+fn parcel_settlement_rejects_expired_lease() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+
+    // now_ms = 25 > expires_at_ms = 20
+    let err = settle_parcel(&claimed, &guard(1), &completion, 25).unwrap_err();
+    assert_eq!(err.code, "claim_expired");
+}
+
+#[test]
+fn parcel_settlement_rejects_missing_expected_proof() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+    // Return evidence other than the expected "canonical_gate_report"
+    let completion = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("arbitrary_log_ref")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+
+    let err = settle_parcel(&claimed, &guard(1), &completion, 15).unwrap_err();
+    assert_eq!(err.code, "expected_proof_missing");
+}
+
+#[test]
+fn parcel_settlement_rejects_exceeded_budgets() {
+    let claimed = claim_agent_workload(&record(), guard(1), 20, 10, 100_000).unwrap();
+
+    // 1. Exceeded action budget (delegated: 2, reported: 3)
+    let action_overflow = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 3,
+            children: 0,
+            wall_time_ms: 50,
+            cpu_ms: None,
+        },
+    };
+    assert!(settle_parcel(&claimed, &guard(1), &action_overflow, 15).is_err());
+
+    // 2. Exceeded wall time (delegated: 900_000, reported: 900_001)
+    let time_overflow = AgentCompletionEnvelope {
+        schema: AGENT_COMPLETION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "delegation-1".to_string(),
+        node_id: "builder-1".to_string(),
+        agent_id: "build-agent-1".to_string(),
+        parent_agent_id: None,
+        status: AgentCompletionStatus::Completed,
+        evidence_refs: vec![evidence("canonical_gate_report")],
+        unknowns: Vec::new(),
+        consumed_budget: AgentBudget {
+            context_tokens: 100,
+            actions: 1,
+            children: 0,
+            wall_time_ms: 900_001,
+            cpu_ms: None,
+        },
+    };
+    assert!(settle_parcel(&claimed, &guard(1), &time_overflow, 15).is_err());
 }

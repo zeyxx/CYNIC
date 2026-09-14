@@ -3,6 +3,7 @@ mod capability_status;
 mod delivery;
 mod durability;
 mod lifecycle;
+mod settlement;
 mod shared;
 mod types;
 mod workspace;
@@ -41,6 +42,9 @@ pub use lifecycle::{
     complete_agent_workload, consume_agent_workload_action,
     finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
     request_agent_workload_cancellation,
+};
+pub use settlement::{
+    SETTLED_PARCEL_RECEIPT_SCHEMA, SettledParcelReceipt, settle_parcel, settle_parcel_with_receipt,
 };
 pub use types::{
     AGENT_WORKLOAD_ADMISSION_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
