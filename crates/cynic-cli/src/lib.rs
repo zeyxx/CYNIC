@@ -291,12 +291,6 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: mask_surface::MaskCommand,
     },
-    /// Judgment projection and canonical content-addressed digest.
-    #[command(hide = true)]
-    Judgment {
-        #[command(subcommand)]
-        command: judgment_surface::JudgmentCommand,
-    },
     /// Forensics — post-crash evidence, timeline, post-mortem.
     #[command(hide = true)]
     Forensics {

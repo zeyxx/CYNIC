@@ -15,6 +15,22 @@ pub(crate) enum JudgeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Project the runtime's current state into a single CynicJudgment.
+    Runtime {
+        #[arg(long)]
+        json: bool,
+        /// Optional subject id (defaults to local hostname).
+        #[arg(long)]
+        subject: Option<String>,
+    },
+    /// Output the content-addressed canonical digest of a judgment.
+    Digest {
+        #[arg(long)]
+        json: bool,
+        /// Optional subject id (defaults to local hostname).
+        #[arg(long)]
+        subject: Option<String>,
+    },
 }
 
 pub(crate) fn execute_judge(command: JudgeCommand) -> ExitCode {
@@ -42,6 +58,18 @@ pub(crate) fn execute_judge(command: JudgeCommand) -> ExitCode {
                 println!("  diff {} bytes hash {}..", obs.diff_bytes_len, &obs.diff_hash[..8.min(obs.diff_hash.len())]);
                 ExitCode::SUCCESS
             }
+        }
+        JudgeCommand::Runtime { json, subject } => {
+            crate::judgment_surface::execute_judgment(crate::judgment_surface::JudgmentCommand::Judgment {
+                json,
+                subject,
+            })
+        }
+        JudgeCommand::Digest { json, subject } => {
+            crate::judgment_surface::execute_judgment(crate::judgment_surface::JudgmentCommand::Digest {
+                json,
+                subject,
+            })
         }
     }
 }
