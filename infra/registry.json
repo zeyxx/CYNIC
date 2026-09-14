@@ -535,7 +535,8 @@
         "repositories": [
           {
             "id": "cynic",
-            "relative_path": "CYNIC"
+            "relative_path": "CYNIC",
+            "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
           }
         ]
       },

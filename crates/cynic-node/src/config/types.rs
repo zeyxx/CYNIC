@@ -74,6 +74,7 @@ pub struct BuildSchedulerConfig {
     pub registry_path: PathBuf,
     #[serde(default = "defaults::default_build_repository_id")]
     pub repository_id: String,
+    pub transport_uri: Option<String>,
     #[serde(default = "defaults::default_build_scheduler_interval_secs")]
     pub interval_secs: u64,
     #[serde(default = "defaults::default_build_claim_ttl_secs")]

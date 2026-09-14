@@ -70,6 +70,7 @@ pub(super) struct RegistrySourceWorkspaceLayout {
 pub(super) struct RegistrySourceRepository {
     pub(super) id: String,
     pub(super) relative_path: String,
+    pub(super) transport_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

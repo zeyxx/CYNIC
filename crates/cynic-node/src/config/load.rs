@@ -87,6 +87,9 @@ fn expand_node_control(cfg: &mut NodeControlConfig) -> Result<(), String> {
     if let Some(scheduler) = cfg.build_scheduler.as_mut() {
         scheduler.registry_path = expand_path(&scheduler.registry_path)?;
         scheduler.repository_id = expand_env_vars(&scheduler.repository_id)?;
+        if let Some(ref mut uri) = scheduler.transport_uri {
+            *uri = expand_env_vars(uri)?;
+        }
         if let Some(publication) = scheduler.release_publication.as_mut() {
             publication.artifact_base_url = expand_env_vars(&publication.artifact_base_url)?;
             publication.authentication_kind = expand_env_vars(&publication.authentication_kind)?;

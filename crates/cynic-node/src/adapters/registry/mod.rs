@@ -46,6 +46,28 @@ impl LocalRegistryAdapter {
         })
     }
 
+    pub fn repository_transport_uri(
+        &self,
+        node_id: &str,
+        repository_id: &str,
+    ) -> Result<Option<String>, RegistryAdapterError> {
+        let registry = self.load_registry()?;
+        let nodes = registry.nodes.unwrap_or_default();
+        let target_node = nodes
+            .into_iter()
+            .find(|n| n.id.as_deref() == Some(node_id) || n.name.as_deref() == Some(node_id));
+        if let Some(node) = target_node {
+            if let Some(layout) = node.source_workspace_layout {
+                for repo in layout.repositories {
+                    if repo.id == repository_id {
+                        return Ok(repo.transport_uri);
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
     pub fn declared_nodes(&self) -> Result<Vec<Node>, RegistryAdapterError> {
         let registry = self.load_registry()?;
         Ok(registry

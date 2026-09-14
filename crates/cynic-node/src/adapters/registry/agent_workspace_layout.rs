@@ -117,6 +117,7 @@ fn resolve_layout(
         dedicated: layout.dedicated_worktrees,
         required_principal: layout.principal.clone(),
         evidence_digest,
+        transport_uri: repository.transport_uri.clone(),
     })
 }
 

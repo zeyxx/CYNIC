@@ -15,6 +15,7 @@ pub struct AgentWorkspaceLayout {
     pub dedicated: bool,
     pub required_principal: String,
     pub evidence_digest: String,
+    pub transport_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

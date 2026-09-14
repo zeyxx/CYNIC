@@ -224,6 +224,7 @@ mod tests {
             dedicated: true,
             required_principal: "cynic".into(),
             evidence_digest: "sha256:test".into(),
+            transport_uri: None,
         };
         let plan = AgentWorkspaceLifecyclePlan {
             schema: AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA.into(),
