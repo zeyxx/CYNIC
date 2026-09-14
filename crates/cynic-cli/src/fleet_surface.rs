@@ -366,7 +366,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
 
             let freebox_obs = if let Some(endpoint) = freebox {
                 let probe =
-                    cynic_host::domain::network::freebox::HttpFreeboxProbeAdapter::default();
+                    cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter::default();
                 probe.probe_freebox_lan(&endpoint).ok()
             } else {
                 None
