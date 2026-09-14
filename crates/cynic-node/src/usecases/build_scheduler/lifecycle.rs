@@ -42,12 +42,16 @@ pub(super) fn claim_if_available(
         fencing_token: current.record.last_fencing_token.saturating_add(1),
     };
     let lease_ms = scheduler.claim_ttl_secs.saturating_mul(1_000);
+    let max_lease_window_ms = scheduler
+        .command_timeout_secs
+        .saturating_mul(1_000)
+        .max(lease_ms);
     let claimed = claim_agent_workload(
         &current.record,
         guard,
         now_ms.saturating_add(lease_ms),
         now_ms,
-        lease_ms,
+        max_lease_window_ms,
     )
     .map_err(|error| error.code)?;
     match store.compare_and_swap(
