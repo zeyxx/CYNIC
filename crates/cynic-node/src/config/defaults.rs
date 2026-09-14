@@ -135,7 +135,7 @@ pub(super) fn default_builder_listen_addr() -> std::net::SocketAddr {
 }
 
 pub(super) fn default_workspace_root() -> std::path::PathBuf {
-    std::path::PathBuf::from("/var/lib/cynic/builder-workspace")
+    std::path::PathBuf::from("/var/lib/cynic/source/workspaces")
 }
 
 pub(super) fn default_watchdog_registry_path() -> String {
