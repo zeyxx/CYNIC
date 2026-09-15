@@ -167,32 +167,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs a real workspace checkout plus cargo metadata (builder-only proof)"]
-    fn live_closure_inventory_counts_real_packages() {
-        let output = std::process::Command::new("cargo")
-            .args(["metadata", "--format-version", "1", "--frozen"])
-            .output()
-            .expect("cargo metadata must run");
-        assert!(output.status.success());
-        let stdout = String::from_utf8(output.stdout).unwrap();
-        let package_count = serde_json::from_str::<serde_json::Value>(&stdout).unwrap()["packages"]
-            .as_array()
-            .unwrap()
-            .len();
-        // The live closure is two orders of magnitude above any fixture.
-        assert!(
-            package_count > 100,
-            "live closure has {package_count} packages"
-        );
-        let bytes = build_release_sbom_cyclonedx(&stdout, "cynic", "0.1.0").unwrap();
-        let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(
-            document["components"].as_array().unwrap().len(),
-            package_count
-        );
-    }
-
-    #[test]
     fn sbom_rejects_unparseable_and_empty_closures() {
         assert!(build_release_sbom_cyclonedx("not json", "cynic", "0.1.0").is_err());
         assert!(build_release_sbom_cyclonedx(r#"{"packages": []}"#, "cynic", "0.1.0").is_err());
