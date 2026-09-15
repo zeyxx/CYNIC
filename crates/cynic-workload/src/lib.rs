@@ -5,6 +5,7 @@
 //! with the callers (node scheduler, host lifecycle) behind their ports.
 
 mod admission;
+mod agent_scheduler;
 mod capability_status;
 mod delivery;
 mod durability;
@@ -21,6 +22,12 @@ mod workspace_types;
 
 pub use admission::{
     admit_agent_workload, admit_agent_workload_dispatch, admit_workload_mandate_binding,
+};
+pub use agent_scheduler::{
+    AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AGENT_SCHEDULER_STEP_OBSERVATION_SCHEMA,
+    AGENT_SCHEDULER_STEP_PLAN_SCHEMA, AgentSchedulerJournalRecord, AgentSchedulerJournalStatus,
+    AgentSchedulerStepObservation, reconcile_agent_scheduler_step,
+    validate_agent_scheduler_journal_record,
 };
 pub use capability_status::{
     AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,

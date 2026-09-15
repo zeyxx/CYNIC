@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_protocol::{
+use cynic_workload::{
     AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerJournalRecord,
     AgentSchedulerJournalStatus, AgentSchedulerStepObservation, digest_json,
     reconcile_agent_scheduler_step,
