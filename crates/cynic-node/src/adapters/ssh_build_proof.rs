@@ -10,7 +10,7 @@ use std::process::Command;
 use std::time::Instant;
 
 use crate::ports::build_proof_port::BuildProofPort;
-use cynic_protocol::build_proof::{BuildProofReport, BuildProofRequest};
+use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
 use crate::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE;
 
@@ -69,7 +69,7 @@ impl BuildProofPort for SshBuildProof {
         let package = request.package.as_deref();
 
         let (check_args, test_args) = match &request.phase {
-            cynic_protocol::build_proof::BuildProofPhase::Check => {
+            cynic_build::build_proof::BuildProofPhase::Check => {
                 let mut a: Vec<String> = vec![
                     "env".to_string(),
                     "RUST_MIN_STACK=8589934592".to_string(),
@@ -89,7 +89,7 @@ impl BuildProofPort for SshBuildProof {
                 a.push("--lib".to_string());
                 (a, None)
             }
-            cynic_protocol::build_proof::BuildProofPhase::Test { filter } => {
+            cynic_build::build_proof::BuildProofPhase::Test { filter } => {
                 let mut a: Vec<String> = vec![
                     "env".to_string(),
                     "RUST_MIN_STACK=8589934592".to_string(),
@@ -118,11 +118,11 @@ impl BuildProofPort for SshBuildProof {
 
         if !ok {
             return Ok(BuildProofReport {
-                schema: cynic_protocol::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+                schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
                 source_commit: sha.clone(),
                 package: request.package.clone(),
                 phase: "check".to_string(),
-                status: cynic_protocol::build_proof::BuildProofStatus::Failed {
+                status: cynic_build::build_proof::BuildProofStatus::Failed {
                     detail: format!("stdout: {stdout}\nstderr: {stderr}"),
                 },
                 argv: check_args.iter().map(|s| (*s).to_string()).collect(),
@@ -139,11 +139,11 @@ impl BuildProofPort for SshBuildProof {
             let (ok, stdout, stderr) = self.run_remote(&test_args)?;
             if !ok {
                 return Ok(BuildProofReport {
-                    schema: cynic_protocol::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+                    schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
                     source_commit: sha.clone(),
                     package: request.package.clone(),
                     phase: "test".to_string(),
-                    status: cynic_protocol::build_proof::BuildProofStatus::Failed {
+                    status: cynic_build::build_proof::BuildProofStatus::Failed {
                         detail: format!("stdout: {stdout}\nstderr: {stderr}"),
                     },
                     argv: test_args.iter().map(|s| (*s).to_string()).collect(),
@@ -153,20 +153,20 @@ impl BuildProofPort for SshBuildProof {
                     tests_failed: None,
                 });
             }
-            let (passed, failed) = cynic_protocol::build_proof::parse_cargo_test_counts(&stdout);
+            let (passed, failed) = cynic_build::build_proof::parse_cargo_test_counts(&stdout);
             tests_passed = passed;
             tests_failed = failed;
         }
 
         Ok(BuildProofReport {
-            schema: cynic_protocol::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
+            schema: cynic_build::build_proof::BUILD_PROOF_REPORT_SCHEMA.to_string(),
             source_commit: sha.clone(),
             package: request.package.clone(),
             phase: match &request.phase {
-                cynic_protocol::build_proof::BuildProofPhase::Check => "check".to_string(),
-                cynic_protocol::build_proof::BuildProofPhase::Test { .. } => "test".to_string(),
+                cynic_build::build_proof::BuildProofPhase::Check => "check".to_string(),
+                cynic_build::build_proof::BuildProofPhase::Test { .. } => "test".to_string(),
             },
-            status: cynic_protocol::build_proof::BuildProofStatus::Converged,
+            status: cynic_build::build_proof::BuildProofStatus::Converged,
             argv: check_args.iter().map(|s| (*s).to_string()).collect(),
             node_id: self.node_id.clone(),
             elapsed_secs: start.elapsed().as_secs(),

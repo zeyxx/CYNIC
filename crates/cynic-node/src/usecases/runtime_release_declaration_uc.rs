@@ -9,7 +9,7 @@ pub struct RuntimeReleaseDeclarationReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub mutation_attempted: bool,
-    pub declaration: cynic_protocol::RuntimeReleaseDeclaration,
+    pub declaration: cynic_build::RuntimeReleaseDeclaration,
     pub kernel_http_status: Option<u16>,
     pub read_back: Option<serde_json::Value>,
     pub read_back_violations: Vec<String>,
@@ -20,10 +20,10 @@ pub fn prepare_runtime_release_declaration(
     requested_by: String,
     workload_id: String,
     mut desired_state: cynic_protocol::NodeDesiredState,
-) -> Result<cynic_protocol::RuntimeReleaseDeclaration, String> {
-    desired_state.policy_digest = cynic_protocol::runtime_release_policy_digest(&desired_state)?;
-    Ok(cynic_protocol::RuntimeReleaseDeclaration {
-        schema: cynic_protocol::RUNTIME_RELEASE_DECLARATION_SCHEMA.to_string(),
+) -> Result<cynic_build::RuntimeReleaseDeclaration, String> {
+    desired_state.policy_digest = cynic_build::runtime_release_policy_digest(&desired_state)?;
+    Ok(cynic_build::RuntimeReleaseDeclaration {
+        schema: cynic_build::RUNTIME_RELEASE_DECLARATION_SCHEMA.to_string(),
         requested_by,
         workload_id,
         desired_state,
@@ -31,7 +31,7 @@ pub fn prepare_runtime_release_declaration(
 }
 
 pub fn plan_runtime_release_declaration(
-    declaration: cynic_protocol::RuntimeReleaseDeclaration,
+    declaration: cynic_build::RuntimeReleaseDeclaration,
 ) -> RuntimeReleaseDeclarationReport {
     RuntimeReleaseDeclarationReport {
         schema: "cynic.runtime_release_declaration_report.v1",
@@ -47,7 +47,7 @@ pub fn plan_runtime_release_declaration(
 
 pub async fn apply_runtime_release_declaration(
     port: &impl RuntimeReleaseDeclarationPort,
-    declaration: cynic_protocol::RuntimeReleaseDeclaration,
+    declaration: cynic_build::RuntimeReleaseDeclaration,
 ) -> Result<RuntimeReleaseDeclarationReport, String> {
     let read_back = port.declare_runtime_release(&declaration).await?;
     let read_back_violations = if (200..300).contains(&read_back.http_status) {

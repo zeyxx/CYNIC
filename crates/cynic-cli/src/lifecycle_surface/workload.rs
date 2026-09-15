@@ -29,7 +29,7 @@ pub(super) fn submit(
     let request = match fs::read_to_string(&request_path)
         .map_err(|error| format!("read workload request: {error}"))
         .and_then(|raw| {
-            serde_json::from_str::<cynic_protocol::BuildAgentRequest>(&raw)
+            serde_json::from_str::<cynic_build::BuildAgentRequest>(&raw)
                 .map_err(|error| format!("decode workload request: {error}"))
         }) {
         Ok(mut request) => {

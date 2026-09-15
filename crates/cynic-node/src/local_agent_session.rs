@@ -436,7 +436,7 @@ impl crate::ports::runtime_release_declaration_port::RuntimeReleaseDeclarationPo
 {
     async fn declare_runtime_release(
         &self,
-        declaration: &cynic_protocol::RuntimeReleaseDeclaration,
+        declaration: &cynic_build::RuntimeReleaseDeclaration,
     ) -> Result<
         crate::ports::runtime_release_declaration_port::RuntimeReleaseDeclarationReadBack,
         String,

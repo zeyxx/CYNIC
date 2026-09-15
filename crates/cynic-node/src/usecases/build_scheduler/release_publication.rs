@@ -1,4 +1,4 @@
-use cynic_protocol::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
+use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
 
 use std::{collections::BTreeMap, time::Duration};
 
@@ -6,11 +6,18 @@ use cynic_host::{
     adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
     ports::evidence_store::ContentAddressedEvidenceStorePort,
 };
-use cynic_protocol::{
-    AgentEvidenceRef, AgentWorkloadEnvelope, RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
-    RuntimeReleasePublicationManifest, SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
-    SignedReleaseBasketRequest, build_agent_request_from_workload, build_evidence_envelope,
+use cynic_build::{
+    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
+    RuntimeReleasePublicationManifest,
+    SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
+    SignedReleaseBasketRequest,
+    build_agent_request_from_workload,
     plan_signed_release_basket,
+};
+use cynic_protocol::{
+    AgentEvidenceRef,
+    AgentWorkloadEnvelope,
+    build_evidence_envelope,
 };
 
 use crate::{
@@ -38,7 +45,7 @@ pub(super) async fn publish(
     provenance: &[String],
     evidence_store: &LocalContentAddressedEvidenceStore,
 ) -> Result<Option<AgentEvidenceRef>, String> {
-    if cynic_protocol::canonical_build_action_from_argv(&envelope.action.argv)
+    if cynic_build::canonical_build_action_from_argv(&envelope.action.argv)
         != Some("make:build-release")
     {
         return Ok(None);
@@ -128,7 +135,7 @@ async fn publish_with_ports<P, S, A>(
     workspace: &BuildWorkspaceReadBack,
     evidence_refs: &[AgentEvidenceRef],
     registry_digest: String,
-    publication_intent: cynic_protocol::BuildReleasePublicationIntent,
+    publication_intent: cynic_build::BuildReleasePublicationIntent,
     observed_at_ms: u64,
     provenance: &[String],
     evidence_store: &dyn ContentAddressedEvidenceStorePort,

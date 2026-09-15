@@ -15,8 +15,8 @@ use cynic_node::ports::build_proof_port::BuildProofPort;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
 use cynic_protocol::SourceSnapshot;
-use cynic_protocol::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
-use cynic_protocol::build_proof::{BuildProofPhase, BuildProofRequest};
+use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
+use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 
@@ -574,7 +574,7 @@ fn prove_build(
         other => return Err(format!("invalid proof phase: {other}")),
     };
     let request = BuildProofRequest::new(commit, package, proof_phase);
-    let violations = cynic_protocol::build_proof::validate_build_proof_request(&request);
+    let violations = cynic_build::build_proof::validate_build_proof_request(&request);
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }

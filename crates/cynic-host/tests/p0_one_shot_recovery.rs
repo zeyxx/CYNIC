@@ -10,9 +10,15 @@ use cynic_host::one_shot_authority::{
     LocalOneShotCapabilityAuthority, OneShotCapabilityAuthorityPort,
 };
 use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_build::{
+    build_runner_bootstrap_action_digest,
+};
 use cynic_protocol::{
-    ONE_SHOT_CAPABILITY_OUTCOME_SCHEMA, ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability,
-    OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus, build_runner_bootstrap_action_digest,
+    ONE_SHOT_CAPABILITY_OUTCOME_SCHEMA,
+    ONE_SHOT_CAPABILITY_SCHEMA,
+    OneShotCapability,
+    OneShotCapabilityOutcome,
+    OneShotCapabilityOutcomeStatus,
 };
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};

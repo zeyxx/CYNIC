@@ -1,13 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
-    SignedReleaseBasketReadBack, build_agent_request_from_workload,
-    build_source_reference_from_workload, canonical_build_action_from_argv, digest_json,
-    validate_agent_workload_delivery, validate_node_desired_state,
-    validate_signed_release_basket_read_back,
+use crate::build::{
+    build_agent_request_from_workload, build_source_reference_from_workload,
+    canonical_build_action_from_argv,
 };
-use crate::{DeploymentEpoch, derive_deployment_epoch};
+use crate::release_publication::{
+    SignedReleaseBasketReadBack, validate_signed_release_basket_read_back,
+};
+use cynic_protocol::{
+    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
+    digest_json, validate_agent_workload_delivery, validate_node_desired_state,
+};
+use cynic_protocol::{DeploymentEpoch, derive_deployment_epoch};
 
 pub const RUNTIME_RELEASE_DECLARATION_SCHEMA: &str = "cynic.runtime_release_declaration.v1";
 pub const RUNTIME_RELEASE_ADMISSION_SCHEMA: &str = "cynic.runtime_release_admission.v2";
@@ -209,7 +213,7 @@ fn valid_release_proof_payload(payload: &serde_json::Value, source_commit: &str)
     let Some(artifacts) = payload["artifacts"].as_object() else {
         return false;
     };
-    let Ok(required) = crate::runtime_release_artifact_names() else {
+    let Ok(required) = cynic_protocol::runtime_release_artifact_names() else {
         return false;
     };
     artifacts.len() == required.len()
@@ -230,22 +234,28 @@ fn valid_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
+    use crate::build::{
+        BUILD_AGENT_REQUEST_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
+        BuildSourceReference, compose_build_agent_workload,
+    };
+    use crate::release_publication::{
+        RuntimeReleasePublicationManifest, SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA,
+        SignedReleaseBasketReadBack,
+    };
+    use cynic_protocol::{
         AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
         AGENT_WORKLOAD_RECORD_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentEvidenceRef,
-        AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
-        BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest, BuildSourceReference,
+        AgentWorkloadRecord, AgentWorkloadState,
         DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
         RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
-        RuntimeReleasePublicationManifest, RuntimeSeedRequest,
-        SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SignedReleaseBasketReadBack,
-        build_evidence_envelope, complete_agent_workload_delivery, compose_build_agent_workload,
+        RuntimeSeedRequest,
+        build_evidence_envelope, complete_agent_workload_delivery,
     };
-    use crate::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
+    use cynic_protocol::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
-            schema: crate::NODE_DESIRED_STATE_SCHEMA.to_string(),
+            schema: cynic_protocol::NODE_DESIRED_STATE_SCHEMA.to_string(),
             node_id: "node-a".to_string(),
             role: "runtime".to_string(),
             generation: 1,
@@ -329,8 +339,8 @@ mod tests {
                 "source_commit_read_back".to_string(),
                 "build_runner_observation".to_string(),
             ],
-            release_publication: Some(crate::BuildReleasePublicationIntent {
-                schema: crate::BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
+            release_publication: Some(crate::build::BuildReleasePublicationIntent {
+                schema: crate::build::BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
                 release_id: "release-a".to_string(),
                 release_epoch: 1,
             }),
@@ -362,7 +372,7 @@ mod tests {
         )
         .unwrap();
         let publication_manifest = RuntimeReleasePublicationManifest {
-            schema: crate::RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA.to_string(),
+            schema: crate::release_publication::RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA.to_string(),
             release_id: "release-a".to_string(),
             release_epoch: 1,
             source_commit: source_commit.clone(),
@@ -379,7 +389,7 @@ mod tests {
                 locator: "https://artifacts.cynic/release-a.sig".to_string(),
             },
             signer_identity: "cynic-release".to_string(),
-            signature_namespace: crate::RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
+            signature_namespace: crate::release_publication::RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
             residual_unknowns: vec![],
         };
         let manifest_digest = digest_json(&publication_manifest).unwrap();
@@ -493,8 +503,8 @@ mod tests {
             },
         )
         .unwrap();
-        let publication = crate::AgentWorkloadCompletionPublication {
-            schema: crate::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
+        let publication = cynic_protocol::AgentWorkloadCompletionPublication {
+            schema: cynic_protocol::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: "cynic-builder".to_string(),
             workload_id,
             published_at_ms: 4,

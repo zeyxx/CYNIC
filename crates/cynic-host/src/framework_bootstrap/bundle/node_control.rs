@@ -74,9 +74,9 @@ fn render_release_publication_config(registry: &serde_json::Value) -> Result<Str
         .get("release_publication")
         .cloned()
         .ok_or_else(|| "release publication desired state is absent".to_string())?;
-    let desired = serde_json::from_value::<cynic_protocol::ReleasePublicationDesiredState>(desired)
+    let desired = serde_json::from_value::<cynic_build::ReleasePublicationDesiredState>(desired)
         .map_err(|_| "release publication desired state is invalid".to_string())?;
-    let blockers = cynic_protocol::validate_release_publication_desired_state(&desired);
+    let blockers = cynic_build::validate_release_publication_desired_state(&desired);
     if !blockers.is_empty() {
         return Err(blockers.join(","));
     }

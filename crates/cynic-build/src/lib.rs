@@ -1,13 +1,39 @@
 use std::path::Path;
 
-use cynic_protocol::build::fleet::{AttemptVerdict, BuildResult, BuildStatus, ToolchainFaultClass};
-use cynic_protocol::{
-    BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope, EvidenceEnvelope,
+use crate::build::fleet::{AttemptVerdict, BuildResult, BuildStatus, ToolchainFaultClass};
+use crate::build::{
+    BuildInputAdmission, BuildRunnerAdmission, BuildRunnerEnvelope,
 };
+use cynic_protocol::EvidenceEnvelope;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod build;
+pub mod build_artefact;
+pub mod build_discovery;
+pub mod build_discovery_recipe;
+pub mod build_node;
+pub mod build_proof;
+pub mod build_queue;
+pub mod build_reliability;
+pub mod build_slice;
+pub mod build_workflow;
 pub mod compressor;
+pub mod release_publication;
+pub mod runtime_release;
+
+pub use build::*;
+pub use build_artefact::*;
+pub use build_discovery::*;
+pub use build_discovery_recipe::*;
+pub use build_node::*;
+pub use build_proof::*;
+pub use build_queue::*;
+pub use build_reliability::*;
+pub use build_slice::*;
+pub use build_workflow::*;
+pub use release_publication::*;
+pub use runtime_release::*;
 
 pub const BUILD_PROOF_SCHEMA: &str = "cynic.host.build_proof.v1";
 
@@ -15,7 +41,7 @@ pub const BUILD_PROOF_SCHEMA: &str = "cynic.host.build_proof.v1";
 ///
 /// A chronic-ICE host (see `AGENTS.md` harness rules) crashes rustc without ever
 /// judging the code. Attributing that to the source manufactures a false
-/// failure, so the raw signals are mapped to `cynic_protocol::build::fleet`
+/// failure, so the raw signals are mapped to `crate::build::fleet`
 /// types and the canonical classifier decides. `None` means the toolchain did
 /// judge the source and the failure is real.
 fn toolchain_fault_from_command(

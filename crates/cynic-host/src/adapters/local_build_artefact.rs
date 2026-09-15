@@ -17,7 +17,7 @@ use crate::domain::build_artefact::port::{
 use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
-use cynic_protocol::build_artefact::{
+use cynic_build::build_artefact::{
     BUILD_ARTEFACT_GC_RESULT_SCHEMA, BUILD_ARTEFACT_REPORT_SCHEMA, BuildArtefactGcPlan,
     BuildArtefactGcResult, BuildArtefactGcStepExecution, BuildArtefactReport,
 };
@@ -283,7 +283,7 @@ fn fetch_remote_shas() -> Vec<String> {
 }
 
 fn execute_gc_item(
-    item: &cynic_protocol::build_artefact::BuildArtefactGcItem,
+    item: &cynic_build::build_artefact::BuildArtefactGcItem,
 ) -> BuildArtefactGcStepExecution {
     if item.argv.is_empty() {
         return BuildArtefactGcStepExecution {

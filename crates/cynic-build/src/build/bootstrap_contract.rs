@@ -6,8 +6,8 @@
 //! structural invariants that any signed binding MUST satisfy before the host
 //! attempts to consume the one-shot capability.
 
-use crate::machine_enrollment::{MACHINE_ENROLLMENT_AUTHORITY_CLASS, MachineEnrollment};
-use crate::one_shot_capability::{OneShotCapability, valid_sha256};
+use cynic_protocol::machine_enrollment::{MACHINE_ENROLLMENT_AUTHORITY_CLASS, MachineEnrollment};
+use cynic_protocol::one_shot_capability::{OneShotCapability, valid_sha256};
 
 /// A single canonical contract unifying a capability + enrollment + binding.
 ///
@@ -80,8 +80,8 @@ impl BuildRunnerBootstrapAdmissionContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::machine_enrollment::MachineEnrollment;
-    use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
+    use cynic_protocol::machine_enrollment::MachineEnrollment;
+    use cynic_protocol::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 
     fn enrollment(node_id: &str) -> MachineEnrollment {
         let pubkey = "0".repeat(64);

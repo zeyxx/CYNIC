@@ -3,7 +3,7 @@
 //! This module validates an action and translates it to a bounded Cargo argv.
 //! It does not spawn processes, choose a runner, or grant execution authority.
 
-use cynic_protocol::build_slice::{
+use cynic_build::build_slice::{
     BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase, BuildSliceTarget,
 };
 
@@ -70,7 +70,7 @@ pub fn build_slice_cargo_argv(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::build_slice::{BUILD_SLICE_ACTION_SCHEMA, BuildSliceScope};
+    use cynic_build::build_slice::{BUILD_SLICE_ACTION_SCHEMA, BuildSliceScope};
 
     fn action(phase: BuildSlicePhase) -> BuildSliceAction {
         BuildSliceAction {

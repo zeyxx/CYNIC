@@ -1,4 +1,4 @@
-use cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA;
+use cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA;
 
 use crate::adapters::host_observation::{CommandObservation, TcpObservation};
 #[cfg(any(test, kani))]
@@ -120,7 +120,7 @@ impl NodeObservation {
     pub(crate) fn registry_observation(
         &self,
         registry_path: &str,
-    ) -> cynic_protocol::RuntimeNodeObservation {
+    ) -> cynic_build::RuntimeNodeObservation {
         let observed_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
         let resolution = cynic_host::registry::resolve_host_profile_resolution(
             &self.hostname,
@@ -142,7 +142,7 @@ impl NodeObservation {
                 cynic_protocol::SecurityEvidenceState::Unknown,
             ),
         };
-        cynic_protocol::RuntimeNodeObservation {
+        cynic_build::RuntimeNodeObservation {
             schema: BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
             status,
             node_id,

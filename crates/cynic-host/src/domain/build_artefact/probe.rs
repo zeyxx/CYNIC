@@ -1,7 +1,7 @@
 //! Pure parsers for build artefact observation (no I/O).
 //! 4-layer substrate mining: physical -> volume -> usage (checkouts) -> pressure.
 
-use cynic_protocol::build_artefact::{
+use cynic_build::build_artefact::{
     BUILD_ARTEFACT_GC_PLAN_SCHEMA, BuildArtefactGcItem, BuildArtefactGcPlan, BuildArtefactReport,
     CheckoutEntry, DiskPressure,
 };

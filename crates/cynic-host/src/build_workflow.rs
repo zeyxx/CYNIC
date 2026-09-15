@@ -1,6 +1,6 @@
 //! Build workflow runtime — wires the pure workflow to impure ports.
 //!
-//! The pure decision lives in `cynic_protocol::build_workflow::BuildWorkflow`.
+//! The pure decision lives in `cynic_build::build_workflow::BuildWorkflow`.
 //! This runtime injects the impure parts:
 //!   - observation: SSH or JSON adapter
 //!   - lease verification: HTTP adapter
@@ -9,8 +9,8 @@
 //! The runtime itself is testable by injecting fake adapters.
 
 use cynic_protocol::LeaseGuard;
-use cynic_protocol::build::BuildRecipe;
-use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
+use cynic_build::build::BuildRecipe;
+use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::source_control::SourceSnapshot;
 
 use crate::build::{BuildProof, BuildRequest, run_build};
@@ -177,13 +177,13 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use crate::update_lifecycle::MapArgvRunner;
-    use cynic_protocol::BuildRunnerObservation;
-    use cynic_protocol::build::BUILD_RECIPE_SCHEMA;
+    use cynic_build::BuildRunnerObservation;
+    use cynic_build::build::BUILD_RECIPE_SCHEMA;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {
-            schema: cynic_protocol::build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+            schema: cynic_build::build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
             status: "observed".to_string(),
             node_id: "builder-1".to_string(),
             hostname: "builder-1".to_string(),

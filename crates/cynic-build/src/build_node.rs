@@ -13,7 +13,7 @@
 //! candidate is reachable and healthy, return `None` and let the caller emit a
 //! `TopologyDriftSignal` rather than silently degrading to a broken node.
 
-use crate::health_signal::OsHealthAnomaly;
+pub use cynic_protocol::health_signal::NodeHealthView;
 
 /// Priority of a build role. Lower number = higher priority. Two builders
 /// minimum (primary + secondary) tolerate one node loss with distinct roles.
@@ -34,39 +34,6 @@ impl BuildRolePriority {
             "build_runner_tertiary" => Some(Self::Tertiary),
             _ => None,
         }
-    }
-}
-
-/// Compact, transport-neutral view of a node's OS-substrate health, folded
-/// from its active `OsHealthAnomaly` list so the resolver stays dependency-light.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct NodeHealthView {
-    pub critical_active: bool,
-    pub warning_active: bool,
-    pub active_osha_codes: Vec<String>,
-    /// Available memory in MiB (observed locally; 0 for remote peers without agent).
-    pub available_mem_mib: u64,
-}
-
-impl NodeHealthView {
-    pub fn from_anomalies(anomalies: &[OsHealthAnomaly], available_mem_mib: u64) -> Self {
-        let mut view = NodeHealthView::default();
-        view.available_mem_mib = available_mem_mib;
-        for a in anomalies {
-            let is_critical = a.severity.eq_ignore_ascii_case("critical");
-            let is_warning = a.severity.eq_ignore_ascii_case("warning");
-            if is_critical {
-                view.critical_active = true;
-            } else if is_warning {
-                view.warning_active = true;
-            }
-            if let Some(code) = &a.error_code {
-                if !view.active_osha_codes.contains(code) {
-                    view.active_osha_codes.push(code.clone());
-                }
-            }
-        }
-        view
     }
 }
 

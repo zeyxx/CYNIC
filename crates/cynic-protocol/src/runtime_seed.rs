@@ -13,6 +13,9 @@ pub const RUNTIME_SEED_OBSERVATION_SCHEMA: &str = "cynic.runtime_seed.observatio
 pub const RUNTIME_SEED_PLAN_SCHEMA: &str = "cynic.runtime_seed.plan.v4";
 pub const RUNTIME_SEED_BUNDLE_MARKER_SCHEMA: &str = "cynic.runtime_seed.bundle_marker.v3";
 pub const RUNTIME_SEED_BUNDLE_MARKER_FILE: &str = ".cynic-runtime-bundle.json";
+/// Signature namespace for runtime-seed release signatures. Owned by the seed
+/// domain so release publication and seed validation share one literal.
+pub const RUNTIME_RELEASE_SIGNATURE_NAMESPACE: &str = "cynic-runtime-seed";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeSeedBundleMarker {
@@ -313,9 +316,7 @@ pub fn validate_runtime_seed_request(request: &RuntimeSeedRequest) -> Vec<String
         "runtime_seed_signature_source",
         &mut blockers,
     );
-    if request.signature_namespace
-        != crate::release_publication::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
-    {
+    if request.signature_namespace != RUNTIME_RELEASE_SIGNATURE_NAMESPACE {
         blockers.push("runtime_seed_signature_namespace_mismatch".to_string());
     }
     if request.basket_path.is_empty()

@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::disk::{DiskFilesystem, PhysicalDisk};
+use cynic_protocol::disk::{DiskFilesystem, PhysicalDisk};
 
 pub const BUILD_ARTEFACT_REPORT_SCHEMA: &str = "cynic.build_artefact_report.v1";
 pub const BUILD_ARTEFACT_GC_PLAN_SCHEMA: &str = "cynic.build_artefact_gc_plan.v1";
@@ -124,7 +124,7 @@ pub struct FleetBuildArtefactReport {
     pub nodes: Vec<FleetBuildArtefactNode>,
     pub residual_unknowns: Vec<String>,
     #[serde(default)]
-    pub budget: Option<crate::task_pipeline::EnergyBudget>,
+    pub budget: Option<cynic_protocol::task_pipeline::EnergyBudget>,
     #[serde(default)]
     pub poll_cost_ms: Option<u64>,
 }

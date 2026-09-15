@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::branch_graph::{BranchGraph, BRANCH_GRAPH_SCHEMA};
-use cynic_protocol::build_discovery::{
+use cynic_build::build_discovery::{
     BuildDiscoveryReport, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA,
 };
 use cynic_protocol::queue::QueuePlan;
@@ -51,7 +51,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         let host = vv.lines().find(|l| l.starts_with("host:")).map(|l| l["host:".len()..].trim().to_string()).unwrap_or_else(|| "x86_64-unknown-linux-gnu".into());
         parse_cargo_metadata(&json, now_secs(), toolchain, host)
     }
-    fn observe_gc_plan(&self) -> cynic_protocol::build_artefact::BuildArtefactGcPlan {
+    fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
         let raw_list = self.ssh(&["ls","-1","/var/lib/cynic/checkouts"]).unwrap_or_default();
         let remote_shas = self.ssh(&["git","ls-remote","origin"]).map(|s| s.lines().filter_map(|l| l.split_whitespace().next().map(|v| v.to_string())).collect::<Vec<_>>()).unwrap_or_default();
         let mut lines = Vec::new();
@@ -69,8 +69,8 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         let checkouts = parse_checkout_list(&lines.join("\n"), &remote_shas);
         let df_k = self.ssh(&["df","-k","/var/lib/cynic/checkouts"]).or_else(|_| self.ssh(&["df","-k","/"])).unwrap_or_default();
         let pressure = parse_df_pressure(&df_k, checkouts.iter().filter(|c| c.is_root_owned).count());
-        let report = cynic_protocol::build_artefact::BuildArtefactReport {
-            schema: cynic_protocol::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
+        let report = cynic_build::build_artefact::BuildArtefactReport {
+            schema: cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
             timestamp: String::new(), physical_disks: vec![], filesystems: vec![], checkouts,
             total_checkout_bytes: 0, total_checkout_human: "0B".into(), target_bytes: 0, target_human: "0B".into(),
             pressure, residual_unknowns: vec![],

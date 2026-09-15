@@ -9,14 +9,13 @@
 use std::fs;
 use std::path::Path;
 
+use cynic_build::build::{
+    BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA, BuildRunnerBootstrapCapabilityBinding,
+    build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
+    validate_build_runner_bootstrap_capability_binding,
+};
 use cynic_protocol::{
-    MachineEnrollment, ONE_SHOT_CAPABILITY_SCHEMA,
-    build::{
-        BUILD_RUNNER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA, BuildRunnerBootstrapCapabilityBinding,
-        build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
-        validate_build_runner_bootstrap_capability_binding,
-    },
-    one_shot_capability::OneShotCapability,
+    MachineEnrollment, ONE_SHOT_CAPABILITY_SCHEMA, one_shot_capability::OneShotCapability,
 };
 use sha2::{Digest, Sha256};
 

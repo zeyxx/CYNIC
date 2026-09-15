@@ -15,7 +15,7 @@ use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, p
 use crate::domain::build_artefact::{BuildArtefactGcPlan, BuildArtefactReport};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::update_lifecycle::ArgvRunner;
-use cynic_protocol::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
+use cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
 use cynic_protocol::disk::bytes_to_human;
 
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {

@@ -16,7 +16,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
-use cynic_protocol::build::bootstrap_admission::{
+use cynic_build::build::bootstrap_admission::{
     BuildRunnerBootstrapCapabilityBinding, RUNTIME_PUBLISHER_BOOTSTRAP_CAPABILITY_BINDING_SCHEMA,
     RuntimePublisherCapabilityBinding, build_runner_bootstrap_input_digest,
     runtime_publisher_bootstrap_input_digest, validate_build_runner_bootstrap_capability_binding,

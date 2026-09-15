@@ -1,4 +1,4 @@
-use cynic_protocol::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
+use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
 
 use std::{collections::BTreeMap, fs, path::Path};
 
@@ -212,7 +212,7 @@ mod tests {
         let refs = persist_success_proofs(
             "node-1",
             "workload-1",
-            &[cynic_protocol::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            &[cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             &workspace,
             &execution,
             &["make".to_string(), "check".to_string()],
@@ -222,7 +222,7 @@ mod tests {
         )
         .expect("grant read-back proof must be supported");
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].kind, cynic_protocol::BUILD_GRANT_READ_BACK_PROOF);
+        assert_eq!(refs[0].kind, cynic_build::BUILD_GRANT_READ_BACK_PROOF);
         assert_eq!(refs[0].subject, "workload-1");
         assert!(!refs[0].digest.is_empty());
         assert_eq!(store.0.lock().unwrap().len(), 1);

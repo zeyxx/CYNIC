@@ -7,6 +7,22 @@ use crate::{
 
 pub const NODE_DESIRED_STATE_SCHEMA: &str = "cynic.node_desired_state.v1";
 pub const NODE_CONTROL_OBSERVATION_SCHEMA: &str = "cynic.node_control_observation.v1";
+/// Scheduler runtime capabilities a node must attest at enrollment.
+/// Wire-contract vocabulary shared by node enrollment, the build scheduler,
+/// and host bootstrap; owned here so no build-scheduler dependency leaks
+/// into node identity.
+pub const BUILD_SCHEDULER_RUNTIME_CAPABILITIES: &[&str] = &[
+    "kernel_to_node_workload_delivery_read_back",
+    "scheduler_claim_renewal",
+    "scheduler_cancellation_delivery",
+    "scheduler_crash_recovery",
+    "node_owned_build_grant_machine_signer",
+    "build_runner_signature_and_live_workload_verifier",
+    "scheduler_to_build_runner_execution_transport",
+    "build_completion_and_artifact_read_back",
+    "node_workspace_observer_wiring_and_proof",
+];
+
 pub const NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.node_control_plan.v2";
 pub const SIGNED_NODE_CONTROL_PLAN_SCHEMA: &str = "cynic.signed_node_control_plan.v1";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,8 +2,8 @@
 //! No I/O, no hard-coded argv: BoundedAction is derived from gc_plan items or branch name.
 
 use cynic_protocol::branch_graph::{is_root, is_stale, BranchGraph};
-use cynic_protocol::build_artefact::BuildArtefactGcPlan;
-use cynic_protocol::build_discovery::BuildDiscoveryReport;
+use cynic_build::build_artefact::BuildArtefactGcPlan;
+use cynic_build::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::queue::{BoundedAction, QueueItem, QueuePlan, QueueReason, QUEUE_PLAN_SCHEMA};
 
 fn reason_rank(r: &QueueReason) -> u8 {
@@ -116,8 +116,8 @@ pub fn build_queue_plan(
 mod tests {
     use super::*;
     use cynic_protocol::branch_graph::{BranchGraph, BranchNode, BRANCH_GRAPH_SCHEMA};
-    use cynic_protocol::build_artefact::{BuildArtefactGcItem, BuildArtefactGcPlan, BUILD_ARTEFACT_GC_PLAN_SCHEMA};
-    use cynic_protocol::build_discovery::{BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA};
+    use cynic_build::build_artefact::{BuildArtefactGcItem, BuildArtefactGcPlan, BUILD_ARTEFACT_GC_PLAN_SCHEMA};
+    use cynic_build::build_discovery::{BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA};
 
     fn branch_graph() -> BranchGraph {
         BranchGraph {

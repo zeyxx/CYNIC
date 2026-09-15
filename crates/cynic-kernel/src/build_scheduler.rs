@@ -12,8 +12,8 @@ use crate::domain::node_control::NodeControlStorePort;
 use crate::domain::storage::StoragePort;
 #[allow(unused_imports)]
 use cynic_protocol::SecurityEvidenceState;
-use cynic_protocol::build::{BuildRecipe, BuildRunnerObservation};
-use cynic_protocol::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
+use cynic_build::build::{BuildRecipe, BuildRunnerObservation};
+use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::{LeaseVerification, SourceSnapshot};
 
 /// Build scheduler error.
@@ -234,7 +234,7 @@ mod tests {
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {
-            schema: cynic_protocol::build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+            schema: cynic_build::build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
             status: "observed".to_string(),
             node_id: "builder-1".to_string(),
             hostname: "builder-1".to_string(),
@@ -267,7 +267,7 @@ mod tests {
 
     fn valid_recipe() -> BuildRecipe {
         BuildRecipe {
-            schema: cynic_protocol::build::BUILD_RECIPE_SCHEMA.to_string(),
+            schema: cynic_build::build::BUILD_RECIPE_SCHEMA.to_string(),
             action: "make:check".to_string(),
             // The action must appear in allowed_actions or validate_build_recipe
             // refuses the recipe — the allow-list is the admission contract.

@@ -1,5 +1,5 @@
 use chrono::Utc;
-use cynic_protocol::build_proof::{BUILD_PROOF_CARD_SCHEMA_V1, BuildProofCard};
+use crate::build_proof::{BUILD_PROOF_CARD_SCHEMA_V1, BuildProofCard};
 use sha2::{Digest, Sha256};
 
 pub fn compress_build_proof(

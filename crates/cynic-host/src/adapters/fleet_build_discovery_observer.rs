@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
-use cynic_protocol::build_discovery::BuildDiscoveryReport;
+use cynic_build::build_discovery::BuildDiscoveryReport;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};

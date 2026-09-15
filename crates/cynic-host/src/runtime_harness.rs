@@ -1,4 +1,4 @@
-use cynic_protocol::build::{
+use cynic_build::build::{
     BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
     BuildRunnerRouteState, reconcile_build_runner_route,
 };
@@ -369,13 +369,18 @@ mod tests {
         validate_runtime_harness_target_attestation,
         validate_runtime_harness_target_attestation_at,
     };
-    use cynic_protocol::build::{
+    use cynic_build::build::{
         BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRunnerCoordinationRouteObservation,
         BuildRunnerProviderRouteObservation, BuildRunnerRouteObservation, BuildRunnerRoutePath,
         BuildRunnerRouteState, BuildRunnerSeedRouteObservation,
         BuildRunnerSshTrustRouteObservation,
     };
-    use cynic_protocol::{BuildRunnerObservation, SecurityEvidenceState};
+    use cynic_build::{
+    BuildRunnerObservation,
+};
+use cynic_protocol::{
+    SecurityEvidenceState,
+};
 
     fn attested_lab_target() -> RuntimeHarnessTargetAttestation {
         let context = closed_local_lab_context();
@@ -490,8 +495,8 @@ mod tests {
 
     const ROUTE_NOW: u64 = 1_000_000;
 
-    fn route_desired() -> cynic_protocol::build::BuildRunnerRouteDesiredState {
-        cynic_protocol::build::BuildRunnerRouteDesiredState {
+    fn route_desired() -> cynic_build::build::BuildRunnerRouteDesiredState {
+        cynic_build::build::BuildRunnerRouteDesiredState {
             node_id: "cynic-builder".to_string(),
             provider: "proxmox".to_string(),
             resource_id: "lxc/105".to_string(),

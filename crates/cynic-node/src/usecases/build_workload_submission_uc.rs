@@ -3,10 +3,17 @@
 //! MCP, CLI, and a local Unix-socket client are projections over this use
 //! case. None of those transports owns build admission or workload shape.
 
+use cynic_build::{
+    BuildAgentRequest,
+    BuildAgentRequestAdmission,
+    admit_build_agent_request,
+    compose_build_agent_workload,
+    plan_build_agent_request,
+};
 use cynic_protocol::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, BuildAgentRequest,
-    BuildAgentRequestAdmission, admit_agent_workload, admit_build_agent_request,
-    compose_build_agent_workload, plan_build_agent_request,
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryStatus,
+    admit_agent_workload,
 };
 use serde::Serialize;
 
@@ -166,12 +173,12 @@ mod tests {
     #[test]
     fn plan_only_never_composes_a_delivery() {
         let request = BuildAgentRequest {
-            schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            schema: cynic_build::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id: "check-aaaaaaaaaaaa-agent".to_string(),
             requested_by: "agent".to_string(),
             source_commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-            source: cynic_protocol::BuildSourceReference {
-                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+            source: cynic_build::BuildSourceReference {
+                schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
                 transport_uri: "ssh://forgejo/cynic.git".to_string(),
                 revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
@@ -181,7 +188,7 @@ mod tests {
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: false,
-            proof_requirements: vec![cynic_protocol::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             release_publication: None,
             evidence_refs: vec!["source-proof".to_string()],
         };

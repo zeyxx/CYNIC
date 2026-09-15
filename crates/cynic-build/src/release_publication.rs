@@ -2,10 +2,13 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use crate::build::{
     BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
+    valid_release_publication_id,
+};
+use cynic_protocol::{
     RUNTIME_SEED_BUNDLE_MARKER_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
-    RuntimeSeedBundleMarker, valid_release_publication_id,
+    RuntimeSeedBundleMarker,
 };
 
 pub const SIGNED_RELEASE_BASKET_REQUEST_SCHEMA: &str = "cynic.release.signed_basket_request.v2";
@@ -13,7 +16,7 @@ pub const SIGNED_RELEASE_BASKET_PLAN_SCHEMA: &str = "cynic.release.signed_basket
 pub const SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA: &str = "cynic.release.signed_basket_read_back.v2";
 pub const RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA: &str =
     "cynic.release.publication_manifest.v2";
-pub const RUNTIME_RELEASE_SIGNATURE_NAMESPACE: &str = "cynic-runtime-seed";
+pub use cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE;
 pub const RELEASE_PUBLICATION_DESIRED_STATE_SCHEMA: &str =
     "cynic.release_publication.desired_state.v1";
 
@@ -176,7 +179,7 @@ pub fn validate_signed_release_basket_read_back(
             blockers.push(format!("signed_release_{kind}_digest_invalid"));
         }
     }
-    if crate::digest_json(manifest).ok().as_deref() != Some(read_back.manifest_digest.as_str()) {
+    if cynic_protocol::digest_json(manifest).ok().as_deref() != Some(read_back.manifest_digest.as_str()) {
         blockers.push("signed_release_manifest_digest_mismatch".to_string());
     }
     for (kind, source) in [
@@ -232,7 +235,7 @@ fn validate_request(request: &SignedReleaseBasketRequest) -> Vec<String> {
         .keys()
         .map(String::as_str)
         .collect::<Vec<_>>();
-    match crate::runtime_release_artifact_names() {
+    match cynic_protocol::runtime_release_artifact_names() {
         Ok(required) if names == required.iter().map(String::as_str).collect::<Vec<_>>() => {}
         Ok(_) => blockers.push("signed_release_artifact_set_mismatch".to_string()),
         Err(error) => blockers.push(format!("signed_release_runtime_basket_invalid:{error}")),
@@ -282,7 +285,7 @@ mod tests {
                 release_id: "release-a".to_string(),
                 release_epoch: 1,
             },
-            artifacts: crate::runtime_release_artifact_names()
+            artifacts: cynic_protocol::runtime_release_artifact_names()
                 .unwrap()
                 .into_iter()
                 .map(|name| (name.to_string(), format!("sha256:{}", "c".repeat(64))))
@@ -339,7 +342,7 @@ mod tests {
             schema: SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA.to_string(),
             node_id: "builder-a".to_string(),
             workload_id: "build-a".to_string(),
-            manifest_digest: crate::digest_json(&manifest).unwrap(),
+            manifest_digest: cynic_protocol::digest_json(&manifest).unwrap(),
             manifest,
             manifest_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
@@ -407,8 +410,8 @@ mod tests {
             serde_json::from_value(legacy).expect("legacy manifest parses");
         assert!(parsed.residual_unknowns.is_empty());
         // Unknowns are digest-covered: mutating them breaks the manifest digest.
-        let before = crate::digest_json(&manifest).unwrap();
+        let before = cynic_protocol::digest_json(&manifest).unwrap();
         manifest.residual_unknowns.push("release_extra".to_string());
-        assert_ne!(crate::digest_json(&manifest).unwrap(), before);
+        assert_ne!(cynic_protocol::digest_json(&manifest).unwrap(), before);
     }
 }

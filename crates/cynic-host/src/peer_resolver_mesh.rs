@@ -6,7 +6,7 @@
 use std::net::TcpStream;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::build_node::NodeHealthView;
+use cynic_build::build_node::NodeHealthView;
 use cynic_protocol::error_catalog::CynicErrorCode;
 use cynic_protocol::health_signal::OsHealthAnomaly;
 use cynic_protocol::peer_resolver::{

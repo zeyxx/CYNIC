@@ -278,10 +278,16 @@ mod tests {
     use crate::adapters::local_agent_workload_completion_receipt::LocalAgentWorkloadCompletionReceipt;
     use crate::adapters::local_agent_workload_delivery_lease::LocalAgentWorkloadDeliveryLeaseStore;
     use crate::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
-    use cynic_protocol::{
-        AGENT_WORKLOAD_DELIVERY_SCHEMA, AgentWorkloadDeliveryStatus, BUILD_AGENT_REQUEST_SCHEMA,
-        BuildAgentRequest, accept_agent_workload_delivery, compose_build_agent_workload,
-    };
+    use cynic_build::{
+    BUILD_AGENT_REQUEST_SCHEMA,
+    BuildAgentRequest,
+    compose_build_agent_workload,
+};
+use cynic_protocol::{
+    AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AgentWorkloadDeliveryStatus,
+    accept_agent_workload_delivery,
+};
     use std::sync::Mutex;
 
     struct DeliveryStub {
@@ -322,8 +328,8 @@ mod tests {
             request_id: "validate-test".to_string(),
             requested_by: "agent-test".to_string(),
             source_commit: "a".repeat(40),
-            source: cynic_protocol::BuildSourceReference {
-                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+            source: cynic_build::BuildSourceReference {
+                schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".into(),
                 transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),

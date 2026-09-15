@@ -66,7 +66,7 @@ pub(crate) fn execute_build_artefact(json: bool, apply: bool) -> ExitCode {
     }
 }
 
-fn print_report_human(report: &cynic_protocol::build_artefact::BuildArtefactReport) {
+fn print_report_human(report: &cynic_build::build_artefact::BuildArtefactReport) {
     println!("════════════════════════════════════════════════════════════");
     println!("  CYNIC BUILD ARTEFACT REPORT — {}", report.timestamp);
     println!("════════════════════════════════════════════════════════════");
@@ -104,7 +104,7 @@ fn print_report_human(report: &cynic_protocol::build_artefact::BuildArtefactRepo
     }
 }
 
-fn print_gc_plan_human(plan: &cynic_protocol::build_artefact::BuildArtefactGcPlan) {
+fn print_gc_plan_human(plan: &cynic_build::build_artefact::BuildArtefactGcPlan) {
     println!(
         "── GC Plan ({} reclaimable) ─────────────────────────",
         plan.total_reclaimable_human
@@ -123,7 +123,7 @@ fn print_gc_plan_human(plan: &cynic_protocol::build_artefact::BuildArtefactGcPla
     println!("Total reclaimable: {}", plan.total_reclaimable_human);
 }
 
-fn print_gc_result_human(result: &cynic_protocol::build_artefact::BuildArtefactGcResult) {
+fn print_gc_result_human(result: &cynic_build::build_artefact::BuildArtefactGcResult) {
     println!("════════════════════════════════════════════════════════════");
     println!("  CYNIC BUILD ARTEFACT GC — {}", result.timestamp);
     println!("════════════════════════════════════════════════════════════");

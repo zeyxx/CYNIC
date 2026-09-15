@@ -99,6 +99,29 @@ impl ArgvObservation {
     }
 }
 
+/// Canonical build-gate actions: `make:*` operator intents expand to the exact
+/// nested cargo gates the builder may execute. Pure mapping owned by the argv
+/// admission domain so build scheduling and source release share one source.
+pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
+    match requested_action {
+        "make:check" => Ok(["make:check", "cargo:check", "cargo:run", "cargo:test"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
+        "make:build" => Ok(["make:build", "cargo:build"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
+        "make:build-release" => Ok(["make:build-release", "cargo:build"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()),
+        _ => Err(format!(
+            "unsupported canonical build action: {requested_action}"
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::update_lifecycle::ArgvRunner;
 
 pub trait BuildRunnerObservationPort {
-    fn observe(&self) -> Result<cynic_protocol::BuildRunnerObservation, String>;
+    fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String>;
 }
 
 pub trait BuildLeaseVerificationPort {
@@ -26,7 +26,7 @@ impl<'a> JsonBuildRunnerObservationAdapter<'a> {
 }
 
 impl BuildRunnerObservationPort for JsonBuildRunnerObservationAdapter<'_> {
-    fn observe(&self) -> Result<cynic_protocol::BuildRunnerObservation, String> {
+    fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String> {
         let raw = fs::read_to_string(self.path)
             .map_err(|error| format!("failed to read build runner observation: {error}"))?;
         parse_observation(&raw)
@@ -48,7 +48,7 @@ impl<'a, R: ArgvRunner> SshBuildRunnerObservationAdapter<'a, R> {
 }
 
 impl<R: ArgvRunner> BuildRunnerObservationPort for SshBuildRunnerObservationAdapter<'_, R> {
-    fn observe(&self) -> Result<cynic_protocol::BuildRunnerObservation, String> {
+    fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String> {
         let argv = [
             "ssh",
             "-o",
@@ -74,8 +74,8 @@ impl<R: ArgvRunner> BuildRunnerObservationPort for SshBuildRunnerObservationAdap
     }
 }
 
-fn parse_observation(raw: &str) -> Result<cynic_protocol::BuildRunnerObservation, String> {
-    let mut observation = serde_json::from_str::<cynic_protocol::BuildRunnerObservation>(raw)
+fn parse_observation(raw: &str) -> Result<cynic_build::BuildRunnerObservation, String> {
+    let mut observation = serde_json::from_str::<cynic_build::BuildRunnerObservation>(raw)
         .map_err(|error| format!("failed to parse build runner observation: {error}"))?;
     observation.evidence_refs.push(format!(
         "sha256:{}",
@@ -203,8 +203,8 @@ mod tests {
 
     #[test]
     fn ssh_observer_requires_strict_noninteractive_transport() {
-        let observation = cynic_protocol::RuntimeNodeObservation {
-            schema: cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+        let observation = cynic_build::RuntimeNodeObservation {
+            schema: cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
             status: "observed".to_string(),
             node_id: "builder-1".to_string(),
             hostname: "builder-1".to_string(),

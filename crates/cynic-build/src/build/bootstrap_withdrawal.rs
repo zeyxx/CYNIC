@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 pub const BOOTSTRAP_WITHDRAWAL_SCHEMA: &str = "cynic.bootstrap_withdrawal.v1";
 
 use super::route_convergence::BuildRunnerRouteState;
-use crate::MemberStatus;
+use cynic_protocol::MemberStatus;
 
 /// Evidence inputs crossing all four layers. Each field is a proof reference
 /// plus its observation instant; freshness windows are consumer-owned.

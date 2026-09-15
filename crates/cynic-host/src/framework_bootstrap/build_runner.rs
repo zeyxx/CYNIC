@@ -206,7 +206,7 @@ fn registry_file_digest(path: &Path) -> Option<String> {
 
 pub fn write_bootstrap_admission_receipt(
     path: &Path,
-    receipt: &cynic_protocol::BuildRunnerBootstrapAdmission,
+    receipt: &cynic_build::BuildRunnerBootstrapAdmission,
 ) -> Result<(), String> {
     if !receipt.validate().is_empty() {
         return Err("build_runner_bootstrap_receipt_contract_invalid".to_string());
@@ -214,7 +214,7 @@ pub fn write_bootstrap_admission_receipt(
     let bytes = serde_json::to_vec_pretty(receipt)
         .map_err(|_| "build_runner_bootstrap_receipt_encode_failed".to_string())?;
     write_new_json_durable(path, &bytes, "build_runner_bootstrap_receipt")?;
-    let read_back: cynic_protocol::BuildRunnerBootstrapAdmission = serde_json::from_slice(
+    let read_back: cynic_build::BuildRunnerBootstrapAdmission = serde_json::from_slice(
         &std::fs::read(path)
             .map_err(|_| "build_runner_bootstrap_receipt_read_back_failed".to_string())?,
     )
@@ -270,7 +270,7 @@ pub fn bootstrap_admission_from_proof(
     plan: &BuildRunnerBootstrapPlan,
     registry_path: &Path,
     registry_digest: String,
-) -> cynic_protocol::BuildRunnerBootstrapAdmission {
+) -> cynic_build::BuildRunnerBootstrapAdmission {
     let allowed_actions = match plan.target_phase.as_str() {
         "check" => vec![
             "make:check".to_string(),
@@ -281,8 +281,8 @@ pub fn bootstrap_admission_from_proof(
         "build" => vec!["make:build".to_string(), "cargo:build".to_string()],
         _ => Vec::new(),
     };
-    cynic_protocol::BuildRunnerBootstrapAdmission {
-        schema: cynic_protocol::BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA.to_string(),
+    cynic_build::BuildRunnerBootstrapAdmission {
+        schema: cynic_build::BUILD_RUNNER_BOOTSTRAP_ADMISSION_SCHEMA.to_string(),
         status: "admitted".to_string(),
         authority_class: "MachineEnrollment".to_string(),
         node_id: plan.node_id.clone(),

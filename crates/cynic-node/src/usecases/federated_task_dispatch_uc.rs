@@ -7,7 +7,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
-use cynic_protocol::build_node::{BuildNodeCandidate, resolve_build_node};
+use cynic_build::build_node::{BuildNodeCandidate, resolve_build_node};
 use cynic_protocol::{
     DomainTask, DomainTaskStatus, FederatedNodeLease, FederatedTaskEnvelope, TaskDomain,
 };

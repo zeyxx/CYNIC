@@ -25,7 +25,7 @@ pub struct BuildSourceSnapshotReference {
     pub format: String,
     pub authority_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<crate::RuntimeArtifactSource>,
+    pub source: Option<cynic_protocol::RuntimeArtifactSource>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -213,7 +213,7 @@ pub fn validate_build_source_reference(source: &BuildSourceReference) -> Vec<Str
         }
         match &snapshot.source {
             Some(source) => {
-                if source.transport != crate::RuntimeArtifactTransportKind::Https {
+                if source.transport != cynic_protocol::RuntimeArtifactTransportKind::Https {
                     blockers.push("build_source_snapshot_transport_unsupported".to_string());
                 }
                 if !secret_free_https_locator(&source.locator) {
@@ -349,8 +349,8 @@ mod tests {
             digest: format!("sha256:{}", "a".repeat(64)),
             format: "git_bundle_v1".to_string(),
             authority_ref: "source-release:test".to_string(),
-            source: Some(crate::RuntimeArtifactSource {
-                transport: crate::RuntimeArtifactTransportKind::Https,
+            source: Some(cynic_protocol::RuntimeArtifactSource {
+                transport: cynic_protocol::RuntimeArtifactTransportKind::Https,
                 locator: "https://storage.invalid/snapshot.bundle?token=secret".to_string(),
             }),
         });

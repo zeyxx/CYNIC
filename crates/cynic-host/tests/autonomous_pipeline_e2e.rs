@@ -22,8 +22,8 @@ use cynic_host::harness_progression::{
     decide_harness_progression,
 };
 use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
-use cynic_protocol::build::BuildRunnerObservation;
-use cynic_protocol::runtime_release::RuntimeReleaseDeclaration;
+use cynic_build::build::BuildRunnerObservation;
+use cynic_build::runtime_release::RuntimeReleaseDeclaration;
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ fn valid_source_snapshot() -> SourceSnapshot {
 
 fn valid_observation() -> BuildRunnerObservation {
     BuildRunnerObservation {
-        schema: cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
+        schema: cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA.to_string(),
         status: "converged".to_string(),
         node_id: "builder-1".to_string(),
         hostname: "builder-1".to_string(),
@@ -179,7 +179,7 @@ fn e2e_step2_build_workflow_executes_with_proof() {
         lease_adapter: &lease,
         argv_runner: &runner,
         source_snapshot: valid_source_snapshot(),
-        recipe: cynic_protocol::build_recipe("make:check").expect("valid recipe"),
+        recipe: cynic_build::build_recipe("make:check").expect("valid recipe"),
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
         install_path: None,
@@ -217,7 +217,7 @@ fn e2e_step2_build_workflow_blocks_on_dirty_source() {
         lease_adapter: &lease,
         argv_runner: &runner,
         source_snapshot: dirty,
-        recipe: cynic_protocol::build_recipe("make:check").expect("valid recipe"),
+        recipe: cynic_build::build_recipe("make:check").expect("valid recipe"),
         argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
         install_path: None,
@@ -282,10 +282,16 @@ fn e2e_step3_harness_allowed_with_proofs() {
 /// E2E step 4: Runtime release declaration construction + digest binding
 #[test]
 fn e2e_step4_runtime_release_declaration_constructs() {
-    use cynic_protocol::{
-        NODE_DESIRED_STATE_SCHEMA, RUNTIME_RELEASE_DECLARATION_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA,
-        RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedRequest,
-    };
+    use cynic_build::{
+    RUNTIME_RELEASE_DECLARATION_SCHEMA,
+};
+use cynic_protocol::{
+    NODE_DESIRED_STATE_SCHEMA,
+    RUNTIME_SEED_REQUEST_SCHEMA,
+    RuntimeArtifactSource,
+    RuntimeArtifactTransportKind,
+    RuntimeSeedRequest,
+};
 
     let source_commit = valid_sha40();
     let proof_digest = format!("sha256:{}", "b".repeat(64));
@@ -335,7 +341,7 @@ fn e2e_step4_runtime_release_declaration_constructs() {
         required_services: Vec::new(),
         paused: false,
     };
-    desired.policy_digest = cynic_protocol::runtime_release_policy_digest(&desired).unwrap();
+    desired.policy_digest = cynic_build::runtime_release_policy_digest(&desired).unwrap();
 
     let declaration = RuntimeReleaseDeclaration {
         schema: RUNTIME_RELEASE_DECLARATION_SCHEMA.to_string(),
@@ -348,7 +354,7 @@ fn e2e_step4_runtime_release_declaration_constructs() {
     assert!(!digest.is_empty());
 
     let policy_digest =
-        cynic_protocol::runtime_release_policy_digest(&declaration.desired_state).unwrap();
+        cynic_build::runtime_release_policy_digest(&declaration.desired_state).unwrap();
     assert_eq!(policy_digest, declaration.desired_state.policy_digest);
 }
 

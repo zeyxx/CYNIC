@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use cynic_protocol::build_artefact::{
+use cynic_build::build_artefact::{
     BUILD_ARTEFACT_REPORT_SCHEMA, BuildArtefactReport, FLEET_BUILD_ARTEFACT_SCHEMA,
     FleetBuildArtefactNode, FleetBuildArtefactReport,
 };
@@ -74,7 +74,7 @@ impl<R: ArgvRunner> FleetBuildArtefactObserver<R> {
                 total_checkout_human: "0B".to_string(),
                 target_bytes: 0,
                 target_human: "0B".to_string(),
-                pressure: cynic_protocol::build_artefact::DiskPressure {
+                pressure: cynic_build::build_artefact::DiskPressure {
                     avail_bytes: 0,
                     avail_human: "0B".to_string(),
                     use_pct: 0,

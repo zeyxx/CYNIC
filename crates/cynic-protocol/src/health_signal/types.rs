@@ -323,3 +323,36 @@ pub struct AutonomicRemediationPlan {
     pub stop_condition: String,
     pub rollback_intent: String,
 }
+
+/// Compact, transport-neutral view of a node's OS-substrate health, folded
+/// from its active `OsHealthAnomaly` list so resolvers stay dependency-light.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct NodeHealthView {
+    pub critical_active: bool,
+    pub warning_active: bool,
+    pub active_osha_codes: Vec<String>,
+    /// Available memory in MiB (observed locally; 0 for remote peers without agent).
+    pub available_mem_mib: u64,
+}
+
+impl NodeHealthView {
+    pub fn from_anomalies(anomalies: &[OsHealthAnomaly], available_mem_mib: u64) -> Self {
+        let mut view = NodeHealthView::default();
+        view.available_mem_mib = available_mem_mib;
+        for a in anomalies {
+            let is_critical = a.severity.eq_ignore_ascii_case("critical");
+            let is_warning = a.severity.eq_ignore_ascii_case("warning");
+            if is_critical {
+                view.critical_active = true;
+            } else if is_warning {
+                view.warning_active = true;
+            }
+            if let Some(code) = &a.error_code {
+                if !view.active_osha_codes.contains(code) {
+                    view.active_osha_codes.push(code.clone());
+                }
+            }
+        }
+        view
+    }
+}

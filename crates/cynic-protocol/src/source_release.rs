@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{SecurityEvidenceState, canonical_build_actions};
+use crate::SecurityEvidenceState;
+use crate::argv_allow::canonical_build_actions;
 
 pub const SOURCE_RELEASE_REQUEST_SCHEMA: &str = "cynic.source.release_request.v1";
 pub const SOURCE_RELEASE_OBSERVATION_SCHEMA: &str = "cynic.source.release_observation.v1";

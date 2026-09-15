@@ -39,6 +39,7 @@ ed25519-dalek = "2"
 rusqlite = { version = "0.34", features = ["bundled"] }
 zeroize = "1"
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-build = { path = "../cynic-build" }
 cynic-host = { path = "../cynic-host" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }

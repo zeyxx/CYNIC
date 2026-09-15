@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::build_node::NodeHealthView;
+use crate::health_signal::NodeHealthView;
 use crate::emergence::RolePriority;
 
 /// Transport used to reach a peer endpoint.

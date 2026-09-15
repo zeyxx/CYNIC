@@ -1,19 +1,30 @@
 //! Build submission orchestrator — admission + grant + submission.
 //!
 //! This is the canonical path for triggering a build:
-//!   1. admit the BuildAgentRequest (cynic_protocol::admit_build_agent_request)
-//!   2. compose the AgentWorkloadEnvelope (cynic_protocol::compose_build_agent_workload)
+//!   1. admit the BuildAgentRequest (cynic_build::admit_build_agent_request)
+//!   2. compose the AgentWorkloadEnvelope (cynic_build::compose_build_agent_workload)
 //!   3. issue a signed ed25519 BuildWorkloadGrant (issue_signed_build_workload_grant)
 //!   4. submit the delivery to the kernel (BuildWorkloadSubmissionPort::submit)
 //!
 //! CLI and MCP are projections over this orchestrator. Neither owns admission,
 //! grant signing, or submission policy.
 
+use cynic_build::{
+    BuildAgentRequest,
+    BuildAgentRequestAdmission,
+    BuildRunnerRouteDecision,
+    BuildRunnerRoutePath,
+    BuildRunnerRouteState,
+    admit_build_agent_request,
+    compose_build_agent_workload,
+};
 use cynic_protocol::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, AgentWorkloadState, BuildAgentRequest,
-    BuildAgentRequestAdmission, BuildRunnerRouteDecision, BuildRunnerRoutePath,
-    BuildRunnerRouteState, LeaseGuard, admit_build_agent_request, claim_agent_workload,
-    compose_build_agent_workload, consume_agent_workload_action,
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryStatus,
+    AgentWorkloadState,
+    LeaseGuard,
+    claim_agent_workload,
+    consume_agent_workload_action,
 };
 use serde::Serialize;
 
@@ -328,12 +339,12 @@ mod tests {
 
     fn valid_request() -> BuildAgentRequest {
         BuildAgentRequest {
-            schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            schema: cynic_build::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id: "test-request-001".to_string(),
             requested_by: "test-agent".to_string(),
             source_commit: "a".repeat(40),
-            source: cynic_protocol::BuildSourceReference {
-                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+            source: cynic_build::BuildSourceReference {
+                schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
                 transport_uri: "ssh://forgejo/cynic.git".to_string(),
                 revision: "a".repeat(40),

@@ -7,7 +7,10 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use cynic_protocol::{SignedBuildWorkloadGrant, validate_signed_build_workload_grant};
+use cynic_build::{
+    SignedBuildWorkloadGrant,
+    validate_signed_build_workload_grant,
+};
 
 use crate::ports::build_workload_grant_store_port::{
     BuildWorkloadGrantStoreError, BuildWorkloadGrantStorePort, PersistedBuildWorkloadGrant,
@@ -183,10 +186,12 @@ fn error(code: &str) -> BuildWorkloadGrantStoreError {
 
 #[cfg(test)]
 mod tests {
-    use cynic_protocol::{
-        BUILD_WORKLOAD_GRANT_SCHEMA, BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, BuildWorkloadGrant,
-        SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
-    };
+    use cynic_build::{
+    BUILD_WORKLOAD_GRANT_SCHEMA,
+    BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE,
+    BuildWorkloadGrant,
+    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
+};
 
     use super::*;
 

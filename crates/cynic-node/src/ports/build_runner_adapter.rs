@@ -9,7 +9,7 @@ use crate::ports::build_runner::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, LayerProof,
     LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
 };
-use cynic_protocol::build::canonical_argv_from_build_action;
+use cynic_build::build::canonical_argv_from_build_action;
 
 /// Minimal argv command runner (no shell composition).
 ///

@@ -308,7 +308,7 @@ mod tests {
             hex::encode(signing_key.verifying_key().as_bytes()),
         )
         .expect("write authority public key");
-        let action_digest = cynic_protocol::build_runner_bootstrap_action_digest("make:build")
+        let action_digest = cynic_build::build_runner_bootstrap_action_digest("make:build")
             .expect("build action digest");
         let capability = signed_bootstrap_capability(&signing_key, action_digest.clone());
         let authority = LocalOneShotCapabilityAuthority::new(&public_key_path, root.path());

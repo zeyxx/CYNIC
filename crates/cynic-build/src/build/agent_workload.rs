@@ -1,4 +1,4 @@
-use crate::{
+use cynic_protocol::{
     AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
     AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
     AgentEvidenceLineage, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadInput,
@@ -107,7 +107,7 @@ pub fn build_source_reference_from_workload(
                 // build_source_snapshot_recovery_source_invalid.
                 schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
                 digest: snapshot.subject.clone(),
-                format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+                format: cynic_protocol::SOURCE_MATERIALIZATION_FORMAT.to_string(),
                 authority_ref: snapshot
                     .lineage
                     .as_ref()
@@ -373,7 +373,7 @@ mod tests {
 
         assert_eq!(envelope.action.argv, vec!["make", "check"]);
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
-        assert!(crate::admit_agent_workload(&envelope).admitted());
+        assert!(cynic_protocol::admit_agent_workload(&envelope).admitted());
         assert_eq!(
             build_source_reference_from_workload(&envelope).unwrap(),
             request.source
@@ -421,10 +421,10 @@ mod tests {
         let snapshot = crate::BuildSourceSnapshotReference {
             schema: crate::BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
             digest: format!("sha256:{}", "c".repeat(64)),
-            format: crate::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+            format: cynic_protocol::SOURCE_MATERIALIZATION_FORMAT.to_string(),
             authority_ref: "source-release:release-abc".to_string(),
-            source: Some(crate::RuntimeArtifactSource {
-                transport: crate::RuntimeArtifactTransportKind::Https,
+            source: Some(cynic_protocol::RuntimeArtifactSource {
+                transport: cynic_protocol::RuntimeArtifactTransportKind::Https,
                 locator: "https://cynic-storage-primary.synapse.cynic/source-snapshots/cccc.bundle"
                     .to_string(),
             }),
@@ -514,7 +514,7 @@ mod tests {
         envelope.input.as_mut().unwrap().payload["action"] =
             serde_json::Value::String("make:build-release".to_string());
 
-        assert!(!crate::admit_agent_workload(&envelope).admitted());
+        assert!(!cynic_protocol::admit_agent_workload(&envelope).admitted());
         assert!(build_agent_request_from_workload(&envelope).is_err());
     }
 

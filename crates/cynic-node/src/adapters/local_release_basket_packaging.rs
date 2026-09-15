@@ -6,8 +6,12 @@ use std::{
     process::Command,
 };
 
+use cynic_build::{
+    SignedReleaseBasketPlan,
+};
 use cynic_protocol::{
-    RUNTIME_SEED_BUNDLE_MARKER_FILE, SignedReleaseBasketPlan, canonical_json_bytes,
+    RUNTIME_SEED_BUNDLE_MARKER_FILE,
+    canonical_json_bytes,
 };
 use sha2::{Digest, Sha256};
 
@@ -228,11 +232,13 @@ fn safe_identifier(value: &str) -> bool {
 mod tests {
     use std::collections::BTreeMap;
 
-    use cynic_protocol::{
-        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
-        SIGNED_RELEASE_BASKET_REQUEST_SCHEMA, SignedReleaseBasketRequest,
-        plan_signed_release_basket,
-    };
+    use cynic_build::{
+    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA,
+    BuildReleasePublicationIntent,
+    SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
+    SignedReleaseBasketRequest,
+    plan_signed_release_basket,
+};
 
     use super::*;
 

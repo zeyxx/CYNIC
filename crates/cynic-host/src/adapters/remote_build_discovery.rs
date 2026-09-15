@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::update_lifecycle::ArgvRunner;
-use cynic_protocol::build_discovery::BuildDiscoveryReport;
+use cynic_build::build_discovery::BuildDiscoveryReport;
 
 pub struct RemoteBuildDiscoveryAdapter<R: ArgvRunner> {
     runner: Arc<R>,

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     AgentWorkloadState, DurableAgentWorkloadRecord, validate_durable_agent_workload_record,
 };
 
@@ -45,7 +45,7 @@ pub struct SignedBuildWorkloadGrant {
 pub fn build_workload_grant_signing_bytes(
     signed: &SignedBuildWorkloadGrant,
 ) -> Result<Vec<u8>, serde_json::Error> {
-    crate::canonical_json_bytes(&serde_json::json!({
+    cynic_protocol::canonical_json_bytes(&serde_json::json!({
         "schema": signed.schema,
         "authority_key_id": signed.authority_key_id,
         "signature_namespace": signed.signature_namespace,

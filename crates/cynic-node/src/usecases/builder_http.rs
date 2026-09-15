@@ -16,12 +16,26 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 
+use cynic_build::{
+    BUILD_AGENT_REQUEST_SCHEMA,
+    BUILD_GRANT_READ_BACK_PROOF,
+    BUILD_SOURCE_REFERENCE_SCHEMA,
+    BuildAgentRequest,
+    BuildSourceReference,
+    compose_build_agent_workload,
+};
 use cynic_protocol::{
-    AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope,
-    AgentWorkloadRecord, AgentWorkloadState, BUILD_AGENT_REQUEST_SCHEMA,
-    BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA, BuildAgentRequest,
-    BuildSourceReference, MutationAdmission, SecurityEvidenceState, admit_agent_workload,
-    admit_build_mutation, compose_build_agent_workload, digest_json,
+    AGENT_CITIZENSHIP_SCHEMA,
+    AgentBudgets,
+    AgentCitizenshipRecord,
+    AgentScope,
+    AgentWorkloadRecord,
+    AgentWorkloadState,
+    MutationAdmission,
+    SecurityEvidenceState,
+    admit_agent_workload,
+    admit_build_mutation,
+    digest_json,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -664,7 +678,7 @@ mod tests {
         let commit_sha = payload.after.clone();
         let config_repo = crate::config::default_build_repository_id();
         let request = BuildAgentRequest {
-            schema: cynic_protocol::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            schema: cynic_build::BUILD_AGENT_REQUEST_SCHEMA.to_string(),
             request_id: format!("forgejo-{}", Uuid::new_v4()),
             requested_by: payload
                 .pusher
@@ -673,7 +687,7 @@ mod tests {
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
             source: BuildSourceReference {
-                schema: cynic_protocol::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
                 transport_uri: format!(
                     "ssh://forgejo@forgejo.synapse.cynic:22/owner/{}.git",
@@ -686,12 +700,12 @@ mod tests {
             action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
-            proof_requirements: vec![cynic_protocol::BUILD_GRANT_READ_BACK_PROOF.to_string()],
+            proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
             release_publication: None,
             evidence_refs: vec![format!("forgejo:{}@{}", reref_name(&payload), commit_sha)],
         };
 
-        let admission = cynic_protocol::admit_build_agent_request(&request);
+        let admission = cynic_build::admit_build_agent_request(&request);
         assert_eq!(
             admission.status, "admitted",
             "blockers: {:?}",
@@ -699,7 +713,7 @@ mod tests {
         );
 
         let envelope =
-            cynic_protocol::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
+            cynic_build::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
                 .expect("webhook request composes a bounded workload");
         assert_eq!(envelope.action.argv, vec!["make", "check"]);
     }

@@ -5,7 +5,7 @@
 //! adapter they need.
 
 use async_trait::async_trait;
-use cynic_protocol::build_proof::{BuildProofReport, BuildProofRequest};
+use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
 #[async_trait]
 pub trait BuildProofPort: Send + Sync {

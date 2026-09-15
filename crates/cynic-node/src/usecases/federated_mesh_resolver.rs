@@ -21,7 +21,7 @@ use std::path::Path;
 use ed25519_dalek::{Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::build_node::NodeHealthView;
+use cynic_build::build_node::NodeHealthView;
 use cynic_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };

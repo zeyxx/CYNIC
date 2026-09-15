@@ -1,10 +1,17 @@
 use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, time::Duration};
 
+use cynic_build::{
+    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
+    RuntimeReleasePublicationManifest,
+    SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA,
+    SignedReleaseBasketReadBack,
+    validate_signed_release_basket_read_back,
+};
 use cynic_protocol::{
-    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA, RuntimeArtifactSource,
-    RuntimeArtifactTransportKind, RuntimeReleasePublicationManifest,
-    SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA, SignedReleaseBasketReadBack, canonical_json_bytes,
-    digest_json, validate_signed_release_basket_read_back,
+    RuntimeArtifactSource,
+    RuntimeArtifactTransportKind,
+    canonical_json_bytes,
+    digest_json,
 };
 use reqwest::{Body, Client, Url};
 use sha2::{Digest, Sha256};
@@ -174,7 +181,7 @@ impl HttpReleaseArtifactPublication {
 
 impl ReleaseArtifactPublicationPort for HttpReleaseArtifactPublication {
     fn targets(&self, release_id: &str) -> Result<ReleasePublicationTargets, String> {
-        if !cynic_protocol::valid_release_publication_id(release_id) {
+        if !cynic_build::valid_release_publication_id(release_id) {
             return Err("release_publication_release_id_invalid".to_string());
         }
         let source = |suffix: &str| -> Result<RuntimeArtifactSource, String> {

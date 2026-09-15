@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_protocol::SignedBuildWorkloadGrant;
+use cynic_build::SignedBuildWorkloadGrant;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildWorkloadGrantStoreError {

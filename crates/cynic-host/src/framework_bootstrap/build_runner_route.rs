@@ -4,12 +4,21 @@
 //! It only composes independent read-backs so a later bounded adapter receives a
 //! route selected once by `cynic-protocol`.
 
-use cynic_protocol::{
-    BuildRunnerCoordinationRouteObservation, BuildRunnerProviderRouteObservation,
-    BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
-    BuildRunnerSeedRouteObservation, BuildRunnerSshTrustRouteObservation, NodeNetworkAttachment,
-    NodeSubstrateExistence, NodeSubstrateObservation, NodeSubstratePower,
+use cynic_build::{
+    BuildRunnerCoordinationRouteObservation,
+    BuildRunnerProviderRouteObservation,
+    BuildRunnerRouteDecision,
+    BuildRunnerRouteDesiredState,
+    BuildRunnerRouteObservation,
+    BuildRunnerSeedRouteObservation,
+    BuildRunnerSshTrustRouteObservation,
     reconcile_build_runner_route,
+};
+use cynic_protocol::{
+    NodeNetworkAttachment,
+    NodeSubstrateExistence,
+    NodeSubstrateObservation,
+    NodeSubstratePower,
 };
 
 use crate::ssh_trust::SshTrustVerification;
@@ -21,7 +30,7 @@ pub fn reconcile_build_runner_route_from_read_backs(
     provider: &NodeSubstrateObservation,
     ssh_trust: &SshTrustVerification,
     seed: Option<&BootstrapBuildProof>,
-    builder_runtime: Option<cynic_protocol::BuildRunnerObservation>,
+    builder_runtime: Option<cynic_build::BuildRunnerObservation>,
     coordination: BuildRunnerCoordinationRouteObservation,
     now_unix_ms: u64,
 ) -> BuildRunnerRouteDecision {
@@ -91,7 +100,13 @@ pub fn reconcile_build_runner_route_from_read_backs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{BuildRunnerRoutePath, BuildRunnerRouteState, NodeSubstrateObservation};
+    use cynic_build::{
+    BuildRunnerRoutePath,
+    BuildRunnerRouteState,
+};
+use cynic_protocol::{
+    NodeSubstrateObservation,
+};
 
     const NOW: u64 = 1_000_000;
 

@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use cynic_protocol::SecurityEvidenceState;
 
 use super::bootstrap_admission::{
     BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,

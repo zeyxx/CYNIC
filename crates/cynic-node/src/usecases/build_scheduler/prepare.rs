@@ -5,9 +5,14 @@ use std::{
 };
 
 use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_build::{
+    build_source_reference_from_workload,
+};
 use cynic_protocol::{
-    DurableAgentWorkloadRecord, LeaseGuard, build_source_reference_from_workload,
-    consume_agent_workload_action, digest_json,
+    DurableAgentWorkloadRecord,
+    LeaseGuard,
+    consume_agent_workload_action,
+    digest_json,
 };
 
 use crate::{

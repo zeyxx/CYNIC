@@ -6,8 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::digest_json;
-use crate::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
+use cynic_protocol::digest_json;
+use cynic_protocol::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 
 pub const BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA: &str =
     "cynic.build_runner.bootstrap_preflight.v1";
@@ -263,7 +263,7 @@ mod tests {
             registry_digest: format!("sha256:{}", "c".repeat(64)),
             executor_digest: format!("sha256:{}", "d".repeat(64)),
             capability: OneShotCapability {
-                schema: crate::ONE_SHOT_CAPABILITY_SCHEMA.to_string(),
+                schema: cynic_protocol::ONE_SHOT_CAPABILITY_SCHEMA.to_string(),
                 status: "admitted".to_string(),
                 authority_class: "MachineEnrollment".to_string(),
                 capability_id: "bootstrap_build_1".to_string(),

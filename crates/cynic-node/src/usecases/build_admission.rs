@@ -7,7 +7,7 @@
 //! record instead of writing a second one. Only `cargo check` is eligible:
 //! later phases mutate and need their own admission slice. Nothing spawns.
 
-use cynic_protocol::build_slice::{
+use cynic_build::build_slice::{
     BUILD_SLICE_ACTION_SCHEMA, BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase,
     BuildSliceScope, BuildSliceTarget,
 };

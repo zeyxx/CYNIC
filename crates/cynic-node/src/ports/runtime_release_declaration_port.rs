@@ -1,4 +1,4 @@
-use cynic_protocol::RuntimeReleaseDeclaration;
+use cynic_build::RuntimeReleaseDeclaration;
 
 /// Kernel mutation boundary for an already-formed runtime release declaration.
 #[async_trait::async_trait]

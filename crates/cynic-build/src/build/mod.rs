@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use cynic_protocol::argv_allow::canonical_build_actions;
+
 pub mod bootstrap_admission;
 pub mod bootstrap_contract;
 pub mod bootstrap_withdrawal;
@@ -30,10 +32,10 @@ pub use route_convergence::{
 pub mod fleet;
 pub mod ice_evidence;
 pub mod recipe;
-use crate::LEASE_VERIFICATION_SCHEMA;
+use cynic_protocol::LEASE_VERIFICATION_SCHEMA;
 #[allow(unused_imports)]
-use crate::coord::LEASE_VERIFICATION_SCHEMA as _LEASE_VERIFICATION_SCHEMA;
-use crate::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
+use cynic_protocol::coord::LEASE_VERIFICATION_SCHEMA as _LEASE_VERIFICATION_SCHEMA;
+use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;
@@ -74,37 +76,6 @@ pub const BUILD_BOOTSTRAP_GRANT_SCHEMA: &str = "cynic.build.bootstrap_grant.v1";
 /// this constant instead of restating the string.
 pub const BUILD_GRANT_READ_BACK_PROOF: &str = "build_grant_read_back";
 pub const BUILD_RUNNER_OBSERVATION_MAX_AGE_MS: u64 = 300_000;
-pub const BUILD_SCHEDULER_RUNTIME_CAPABILITIES: &[&str] = &[
-    "kernel_to_node_workload_delivery_read_back",
-    "scheduler_claim_renewal",
-    "scheduler_cancellation_delivery",
-    "scheduler_crash_recovery",
-    "node_owned_build_grant_machine_signer",
-    "build_runner_signature_and_live_workload_verifier",
-    "scheduler_to_build_runner_execution_transport",
-    "build_completion_and_artifact_read_back",
-    "node_workspace_observer_wiring_and_proof",
-];
-
-pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
-    match requested_action {
-        "make:check" => Ok(["make:check", "cargo:check", "cargo:run", "cargo:test"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build" => Ok(["make:build", "cargo:build"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build-release" => Ok(["make:build-release", "cargo:build"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        _ => Err(format!(
-            "unsupported canonical build action: {requested_action}"
-        )),
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildInputAdmission {

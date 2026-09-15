@@ -4,7 +4,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::branch_graph::{BranchGraph, BRANCH_GRAPH_SCHEMA};
-use cynic_protocol::build_discovery::{
+use cynic_build::build_discovery::{
     BuildDiscoveryReport, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA,
 };
 use cynic_protocol::queue::QueuePlan;
@@ -39,8 +39,8 @@ impl LocalQueueAdapter {
         let gc_plan = LocalBuildArtefactAdapter
             .observe_build_artefacts()
             .map(|r| LocalBuildArtefactAdapter.plan_gc(&r))
-            .unwrap_or_else(|_| cynic_protocol::build_artefact::BuildArtefactGcPlan {
-                schema: cynic_protocol::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
+            .unwrap_or_else(|_| cynic_build::build_artefact::BuildArtefactGcPlan {
+                schema: cynic_build::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
                 items: vec![],
                 total_reclaimable_bytes: 0,
                 total_reclaimable_human: "0B".to_string(),
@@ -54,7 +54,7 @@ impl crate::domain::queue::port::QueuePlanningPort for LocalQueueAdapter {
         &self,
         branch_graph: &BranchGraph,
         discovery: &BuildDiscoveryReport,
-        gc_plan: &cynic_protocol::build_artefact::BuildArtefactGcPlan,
+        gc_plan: &cynic_build::build_artefact::BuildArtefactGcPlan,
         now: u64,
     ) -> QueuePlan {
         build_queue_plan(branch_graph, discovery, gc_plan, now)

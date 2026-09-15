@@ -1,11 +1,19 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_build::{
+    BUILD_SOURCE_REFERENCE_SCHEMA,
+    BuildSourceReference,
+};
 use cynic_protocol::{
-    BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference, SOURCE_MATERIALIZATION_FORMAT,
-    SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
-    SourceMaterializationRequest, SourceRepositoryBootstrapDecision,
-    SourceRepositoryBootstrapRequest, digest_json, plan_source_materialization,
+    SOURCE_MATERIALIZATION_FORMAT,
+    SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
+    SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
+    SourceMaterializationRequest,
+    SourceRepositoryBootstrapDecision,
+    SourceRepositoryBootstrapRequest,
+    digest_json,
+    plan_source_materialization,
     reconcile_source_repository_bootstrap,
 };
 
@@ -113,7 +121,7 @@ async fn prepare_snapshot_source<R: ArgvRunner, T: RuntimeArtifactTransportPort>
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     source: &BuildSourceReference,
-    snapshot: &cynic_protocol::BuildSourceSnapshotReference,
+    snapshot: &cynic_build::BuildSourceSnapshotReference,
     workload_id: &str,
     mut layout: AgentWorkspaceLayout,
     runner: &R,

@@ -206,7 +206,7 @@ fn successful_machine_enrollment_requires_exact_read_back_before_convergence() {
                     })
                     .to_string(),
                     "node_observation_read_back" => serde_json::json!({
-                        "schema": cynic_protocol::BUILD_RUNNER_OBSERVATION_SCHEMA,
+                        "schema": cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA,
                         "status": "observed",
                         "node_id": "builder",
                     })

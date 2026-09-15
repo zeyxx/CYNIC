@@ -6,9 +6,14 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use cynic_protocol::{
-    NodeControlPlan, RuntimeReleaseAdmission, RuntimeReleaseDeclaration, SignedNodeControlPlan,
+use cynic_build::{
+    RuntimeReleaseAdmission,
+    RuntimeReleaseDeclaration,
     admit_runtime_release,
+};
+use cynic_protocol::{
+    NodeControlPlan,
+    SignedNodeControlPlan,
 };
 use serde::Serialize;
 
