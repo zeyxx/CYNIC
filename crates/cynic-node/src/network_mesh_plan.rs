@@ -1,17 +1,21 @@
+#[cfg(any(test, kani))]
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
 use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
+use cynic_protocol::NetworkMeshPlan;
+#[cfg(any(test, kani))]
 use cynic_protocol::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
-    NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
+    NetworkMeshRoute, NetworkMeshService,
 };
 
 pub(crate) mod model;
 #[cfg(kani)]
 mod verification;
 
+#[cfg(any(test, kani))]
 use model::{NetworkPlane, NetworkPolicy, RegistryNode};
 
 pub(crate) fn build_network_mesh_plan(
