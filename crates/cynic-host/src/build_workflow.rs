@@ -13,7 +13,7 @@ use cynic_build::build::BuildRecipe;
 use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::source_control::SourceSnapshot;
 
-use crate::build::{BuildProof, BuildRequest, run_build};
+use crate::build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use crate::update_lifecycle::ArgvRunner;
 
@@ -144,7 +144,12 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                 install_path: config.install_path.clone(),
                 apply: false,
             };
-            let proof = run_build(&request, config.argv_runner);
+            let proof = run_build(
+                &request,
+                config.argv_runner,
+                &StdFilesystem,
+                &OsIdentity,
+            );
             Ok(BuildWorkflowResult::Planned { proof })
         }
         BuildWorkflowOutcome::Execute {
@@ -166,7 +171,12 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                 install_path: config.install_path.clone(),
                 apply: true,
             };
-            let proof = run_build(&request, config.argv_runner);
+            let proof = run_build(
+                &request,
+                config.argv_runner,
+                &StdFilesystem,
+                &OsIdentity,
+            );
             Ok(BuildWorkflowResult::Executed { proof })
         }
     }
