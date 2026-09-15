@@ -7,8 +7,8 @@ pub mod frame;
 
 use parking_lot::RwLock;
 use std::fs::{File, OpenOptions};
-use std::io::{BufReader, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::io::{BufReader, Seek, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::error::StorageError;
@@ -17,14 +17,12 @@ use crate::types::{
     Hash512, IntegrityReport, PoHTick, SequenceNumber, WalAppendInput, WalEntry, WalReceipt,
 };
 use frame::{
-    FrameDecodeError, compute_commit_hash, compute_entry_hash, decode_frame, encode_frame,
+    compute_commit_hash, compute_entry_hash, decode_frame, encode_frame,
 };
 
 /// Internal mutable state for the active WAL segment.
 struct WalFsState {
-    dir: PathBuf,
     active_file: File,
-    active_segment_id: u64,
     latest_sequence: SequenceNumber,
     latest_entry_hash: Hash512,
     latest_poh_tick: PoHTick,
@@ -124,9 +122,7 @@ impl WalFsAdapter {
             .map_err(|e| StorageError::Io(e.to_string()))?;
 
         let state = WalFsState {
-            dir,
             active_file,
-            active_segment_id: 1,
             latest_sequence: latest_seq,
             latest_entry_hash: latest_hash,
             latest_poh_tick: latest_poh,

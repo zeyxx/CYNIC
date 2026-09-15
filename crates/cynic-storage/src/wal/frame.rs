@@ -2,7 +2,7 @@
 
 use bytes::Bytes;
 use sha3::{Digest, Sha3_512};
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 
 use super::crc::crc32c;
 use crate::error::StorageError;

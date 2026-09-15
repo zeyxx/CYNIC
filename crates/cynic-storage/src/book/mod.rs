@@ -15,7 +15,7 @@ use std::sync::Arc;
 use crate::error::StorageError;
 use crate::ports::{DomainProjector, ProjectionCoordinatorPort, StateTransaction, WalJournalPort};
 use crate::projection::SqliteProjectionAdapter;
-use crate::types::{CausalWitness, SequenceNumber, WalAppendInput, WalEntry, WalReceipt};
+use crate::types::{CausalWitness, WalAppendInput, WalEntry, WalReceipt};
 
 /// Trait implemented by any domain entity that can be posted to a LedgerBook.
 pub trait BookEntry: Serialize + DeserializeOwned + Send + Sync + 'static {
@@ -328,7 +328,7 @@ impl<W: WalJournalPort + 'static> CynicLedger<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{CausalWitness, Hash512, PoHTick};
+    use crate::types::{CausalWitness, Hash512, PoHTick, SequenceNumber};
     use crate::wal::WalFsAdapter;
     use cynic_protocol::agent_citizenship::AgentBudgets;
     use cynic_protocol::agent_coordination::{
