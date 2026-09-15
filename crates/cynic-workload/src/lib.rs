@@ -6,6 +6,7 @@
 
 mod admission;
 mod agent_scheduler;
+mod agent_skill;
 mod capability_status;
 mod delivery;
 mod durability;
@@ -29,6 +30,7 @@ pub use agent_scheduler::{
     AgentSchedulerStepObservation, reconcile_agent_scheduler_step,
     validate_agent_scheduler_journal_record,
 };
+pub use agent_skill::*;
 pub use capability_status::{
     AGENT_CONSTITUTION_STATUS_SCHEMA, AGENT_EXECUTION_REQUIRED_RUNTIME_CAPABILITIES,
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentConstitutionRuntimeStatus,

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AgentEvidenceRef, digest_json, validate_evidence_refs};
+use cynic_protocol::{AgentEvidenceRef, digest_json, validate_evidence_refs};
 
 use super::{AgentSkillBundle, AgentSkillBundleViolation, violation};
 

@@ -7,7 +7,9 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AgentBudget, AgentDelegationEnvelope, AgentEvidenceRef, validate_evidence_refs};
+use cynic_protocol::{
+    AgentBudget, AgentDelegationEnvelope, AgentEvidenceRef, validate_evidence_refs,
+};
 
 mod delivery;
 mod metadata;

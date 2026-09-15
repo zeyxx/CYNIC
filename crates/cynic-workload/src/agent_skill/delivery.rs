@@ -1,6 +1,7 @@
 //! Composition and semantic validation of skill delivery inputs.
 
-use crate::{AgentDelegationEnvelope, AgentWorkloadInput, digest_json};
+use crate::{AGENT_WORKLOAD_INPUT_SCHEMA, AgentWorkloadInput, digest_json};
+use cynic_protocol::AgentDelegationEnvelope;
 
 use super::{
     AGENT_SKILL_DELIVERY_INPUT_SCHEMA, AgentSkillBinding, AgentSkillBindingAdmission,
@@ -28,7 +29,7 @@ pub fn compose_agent_skill_delivery_input(
     .expect("agent skill delivery input is serializable");
     let digest = digest_json(&payload).expect("agent skill delivery input is digestible");
     Ok(AgentWorkloadInput {
-        schema: crate::AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
+        schema: AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
         kind: "agent_skill_delivery".to_string(),
         digest,
         payload,
@@ -44,7 +45,7 @@ pub fn validate_agent_skill_delivery_input(
     delegation: &AgentDelegationEnvelope,
 ) -> Vec<AgentSkillBundleViolation> {
     let mut violations = Vec::new();
-    if input.schema != crate::AGENT_WORKLOAD_INPUT_SCHEMA {
+    if input.schema != AGENT_WORKLOAD_INPUT_SCHEMA {
         violations.push(violation(
             "skill_delivery_input_schema_invalid",
             "skill delivery input must use the canonical workload input schema",
