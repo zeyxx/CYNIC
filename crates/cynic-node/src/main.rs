@@ -76,7 +76,7 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use crate::cli::{Cli, Commands, ReleaseCommands};
+use crate::cli::{Cli, Commands};
 use crate::usecases::agent_scheduler_step_uc;
 use crate::usecases::agent_source_change_uc;
 use crate::usecases::agent_workload_store_uc;
@@ -84,7 +84,6 @@ use crate::usecases::agent_workspace_lifecycle_uc;
 use crate::usecases::build_workload_grant_uc;
 use crate::usecases::network_surfaces_uc;
 use crate::usecases::node_identity_uc;
-use crate::usecases::runtime_artifact_release_uc;
 use crate::usecases::source_admission_uc;
 use crate::usecases::source_materialization_uc;
 use crate::usecases::source_repository_bootstrap_uc;
@@ -186,20 +185,6 @@ async fn main() -> ExitCode {
         }
         Some(Commands::Network { command }) => {
             return network_surfaces_uc::execute_network_command(&command);
-        }
-        Some(Commands::Release { command }) => {
-            return match command {
-                ReleaseCommands::Reconcile {
-                    spec,
-                    lifecycle_state,
-                    yes,
-                    json: _,
-                } => runtime_artifact_release_uc::execute_reconcile(
-                    &spec,
-                    lifecycle_state.as_deref(),
-                    yes,
-                ),
-            };
         }
         Some(Commands::AgentWorkspace {
             request,

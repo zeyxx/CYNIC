@@ -92,11 +92,6 @@ pub(crate) enum Commands {
         #[command(subcommand)]
         command: PeerCommands,
     },
-    /// Reconcile versioned runtime artifacts on this machine.
-    Release {
-        #[command(subcommand)]
-        command: ReleaseCommands,
-    },
     /// Plan or apply one lease-fenced source change in a sovereign agent worktree.
     AgentWorkspace {
         /// Path to a JSON cynic.agent_source_change_transaction_request file.
@@ -285,25 +280,6 @@ pub(crate) enum Commands {
         #[arg(long)]
         apply: bool,
         /// Emit machine-readable JSON. This command always emits JSON.
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum ReleaseCommands {
-    /// Plan or apply one desired artifact release with observation and rollback proof.
-    Reconcile {
-        /// Path to a cynic.runtime_artifact_release.spec.v1 JSON file.
-        #[arg(long)]
-        spec: String,
-        /// Update lifecycle state controlling the allowed harness phase.
-        #[arg(long)]
-        lifecycle_state: Option<String>,
-        /// Required guard for staging, activation, restart, observation and proof writes.
-        #[arg(long)]
-        yes: bool,
-        /// Emit machine-readable JSON. The node release surface always emits JSON.
         #[arg(long)]
         json: bool,
     },
