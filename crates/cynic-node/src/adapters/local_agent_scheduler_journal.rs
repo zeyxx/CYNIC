@@ -7,9 +7,9 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use cynic_protocol::{
-    AgentSchedulerJournalRecord, AgentSchedulerJournalStatus,
-    validate_agent_scheduler_journal_record,
+use cynic_workload::{
+    AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerJournalRecord,
+    AgentSchedulerJournalStatus, validate_agent_scheduler_journal_record,
 };
 
 use crate::ports::{
@@ -192,7 +192,7 @@ fn error(code: &str) -> AgentWorkspacePortError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
+    use cynic_workload::{AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerStepPlan};
 
     fn planned(recorded_at_ms: u64) -> AgentSchedulerJournalRecord {
         AgentSchedulerJournalRecord {
