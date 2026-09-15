@@ -44,9 +44,9 @@ Forme: PRIMAIRE / POSSEDÉ / DÉLÉGUÉ / INTERDIT.
   DÉLÉGUÉ: lecture host/mutation runtime → host/node.
   INTERDIT: lire le host, muter le runtime, posséder de l'I/O réseau
            réel (§468 protocol_is_pure).
-  NOTE: build(3926)+agent_workload(4324)=82% du crate. Si ces deux
-        débordent, les extraire dans build/protocol dédiés — PAS les
-        noyer dans protocol.
+  NOTE: build extrait vers cynic-build (2026-09-15, commits 0f6feae0+
+        hexagonalisation 5c73f59b). Reste agent_workload (~4.9k): extraire
+        vers cynic-workload dédié — PAS le noyer dans protocol.
 
 --- cynic-host (host substrate + runtime authority) ---
   PRIMAIRE: observation host (disk/mem/cpu/net per AGENTS.md §125),
@@ -105,6 +105,19 @@ Forme: PRIMAIRE / POSSEDÉ / DÉLÉGUÉ / INTERDIT.
            findings, du state schema (§472 cli_is_adapter).
   NOTE: runtime_surface(4324) domine le cli. Est-ce facade ou logique
         qui a fui? À auditer (peut-être slice vers crate métier).
+
+--- cynic-build (pipeline de build souveraine, bounded context hexagonal) ---
+  PRIMAIRE: admission, ordonnancement, preuve et publication des builds.
+  POSSEDÉ: types (types.rs), ports pilotés BuildRunner/FilesystemPort/
+           IdentityPort (ports.rs), décisions du runner (runner.rs),
+           adapters OS + fake mémoire (adapters/), contrats purs
+           build/*, release_publication, runtime_release.
+  DÉLÉGUÉ: exécution des commandes → BuildRunner (implémenté par
+           cynic-lifecycle); substrate host → host; coordination → kernel.
+  INTERDIT: I/O ou spawn dans types/runner/lib (std::fs, Command
+           réservés aux adapters/), dépendre de host/kernel/node/cli/mcp.
+  NOTE: extrait de cynic-protocol 2026-09-15. lib.rs = facade fine,
+        ratchet architecture_boundary.rs pin l'hexagone.
 
 --- cynic-observer / cynic-askesis / cynic-intel / cynic-zeroclaw-solana ---
   PRIMAIRE: observer = solana ingestion; askesis = companion reasoning
