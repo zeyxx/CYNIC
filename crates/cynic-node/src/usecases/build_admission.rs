@@ -11,14 +11,34 @@ use cynic_build::build_slice::{
     BUILD_SLICE_ACTION_SCHEMA, BuildSliceAction, BuildSliceNetworkMode, BuildSlicePhase,
     BuildSliceScope, BuildSliceTarget,
 };
+use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentBoundedAction,
+    AgentWorkloadEnvelope,
+    AgentWorkloadRecord,
+    AgentWorkloadState,
+    DurableAgentWorkloadRecord,
+    admit_agent_workload,
+};
 use cynic_protocol::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA,
-    AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
-    AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
-    DurableAgentWorkloadRecord, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
-    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
-    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
-    admit_agent_workload, digest_json,
+    AGENT_DELEGATION_ENVELOPE_SCHEMA,
+    AgentBudget,
+    AgentCapabilityGrant,
+    AgentDelegationEnvelope,
+    AgentEvidenceRef,
+    EXECUTION_AUTHORIZATION_SCHEMA,
+    ExecutionAuthorization,
+    MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA,
+    PolicyAdmissionReport,
+    PolicyAuthority,
+    PolicyDecision,
+    PolicyIntentRef,
+    PolicyScope,
+    PolicySetRef,
+    RequiredProof,
+    digest_json,
 };
 
 use crate::ports::build_slice_runner::build_slice_cargo_argv;

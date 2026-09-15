@@ -7,9 +7,16 @@ use crate::build::{
 use crate::release_publication::{
     SignedReleaseBasketReadBack, validate_signed_release_basket_read_back,
 };
+use cynic_workload::{
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryStatus,
+    validate_agent_workload_delivery,
+};
 use cynic_protocol::{
-    AgentCompletionStatus, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, NodeDesiredState,
-    digest_json, validate_agent_workload_delivery, validate_node_desired_state,
+    AgentCompletionStatus,
+    NodeDesiredState,
+    digest_json,
+    validate_node_desired_state,
 };
 use cynic_protocol::{DeploymentEpoch, derive_deployment_epoch};
 
@@ -242,16 +249,30 @@ mod tests {
         RuntimeReleasePublicationManifest, SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA,
         SignedReleaseBasketReadBack,
     };
-    use cynic_protocol::{
-        AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_DELIVERY_SCHEMA,
-        AGENT_WORKLOAD_RECORD_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentEvidenceRef,
-        AgentWorkloadRecord, AgentWorkloadState,
-        DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
-        RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
-        RuntimeSeedRequest,
-        build_evidence_envelope, complete_agent_workload_delivery,
-    };
-    use cynic_protocol::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
+    use cynic_workload::{
+    AGENT_WORKLOAD_DELIVERY_SCHEMA,
+    AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentWorkloadRecord,
+    AgentWorkloadState,
+    DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
+    DurableAgentWorkloadRecord,
+    complete_agent_workload_delivery,
+};
+use cynic_protocol::{
+    AGENT_COMPLETION_ENVELOPE_SCHEMA,
+    AgentBudget,
+    AgentCompletionEnvelope,
+    AgentEvidenceRef,
+    RUNTIME_SEED_REQUEST_SCHEMA,
+    RuntimeArtifactSource,
+    RuntimeArtifactTransportKind,
+    RuntimeSeedRequest,
+    build_evidence_envelope,
+};
+    use cynic_workload::{
+    AgentWorkloadDeliveryAcceptance,
+    accept_agent_workload_delivery,
+};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
@@ -372,7 +393,8 @@ mod tests {
         )
         .unwrap();
         let publication_manifest = RuntimeReleasePublicationManifest {
-            schema: crate::release_publication::RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA.to_string(),
+            schema: crate::release_publication::RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA
+                .to_string(),
             release_id: "release-a".to_string(),
             release_epoch: 1,
             source_commit: source_commit.clone(),
@@ -389,7 +411,8 @@ mod tests {
                 locator: "https://artifacts.cynic/release-a.sig".to_string(),
             },
             signer_identity: "cynic-release".to_string(),
-            signature_namespace: crate::release_publication::RUNTIME_RELEASE_SIGNATURE_NAMESPACE.to_string(),
+            signature_namespace: crate::release_publication::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
+                .to_string(),
             residual_unknowns: vec![],
         };
         let manifest_digest = digest_json(&publication_manifest).unwrap();
@@ -503,8 +526,8 @@ mod tests {
             },
         )
         .unwrap();
-        let publication = cynic_protocol::AgentWorkloadCompletionPublication {
-            schema: cynic_protocol::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
+        let publication = cynic_workload::AgentWorkloadCompletionPublication {
+            schema: cynic_workload::AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA.to_string(),
             node_id: "cynic-builder".to_string(),
             workload_id,
             published_at_ms: 4,

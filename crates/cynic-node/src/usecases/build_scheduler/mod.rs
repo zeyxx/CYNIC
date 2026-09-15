@@ -12,11 +12,13 @@ use cynic_build::{
     canonical_build_action_from_argv,
     plan_build_queue,
 };
-use cynic_protocol::{
-    AgentCompletionStatus,
+use cynic_workload::{
     AgentWorkloadState,
     DurableAgentWorkloadRecord,
     admit_agent_workload,
+};
+use cynic_protocol::{
+    AgentCompletionStatus,
 };
 use tokio_util::sync::CancellationToken;
 

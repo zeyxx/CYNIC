@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentEvidenceRef, AgentWorkloadClaim, AgentWorkloadState, AgentWorkspaceClaimObservation,
-    AgentWorkspaceObservation, LeaseGuard, validate_evidence_refs,
+    AgentWorkloadClaim, AgentWorkloadState, AgentWorkspaceClaimObservation,
+    AgentWorkspaceObservation,
 };
+use cynic_protocol::{AgentEvidenceRef, LeaseGuard, validate_evidence_refs};
 
 use super::workspace_checks::agent_workspace_target;
 

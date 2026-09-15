@@ -7,7 +7,7 @@
 //! not here.
 
 use async_trait::async_trait;
-use cynic_protocol::AgentWorkloadDelivery;
+use cynic_workload::AgentWorkloadDelivery;
 use serde::{Deserialize, Serialize};
 
 /// Transport-level read-back after a workload submission attempt.

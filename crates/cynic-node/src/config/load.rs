@@ -131,7 +131,7 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
         );
     }
     if cfg.workload_delivery_lease_ttl_secs.saturating_mul(1_000)
-        > cynic_protocol::AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS
+        > cynic_workload::AGENT_WORKLOAD_DELIVERY_LEASE_MAX_TTL_MS
     {
         return Err(
             "node_control.workload_delivery_lease_ttl_secs exceeds protocol maximum".into(),

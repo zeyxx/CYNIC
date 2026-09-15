@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AgentEvidenceRef, LeaseGuard};
+use cynic_protocol::{AgentEvidenceRef, LeaseGuard};
 
 pub const AGENT_WORKSPACE_REQUEST_SCHEMA: &str = "cynic.agent_workspace_request.v1";
 pub const AGENT_WORKSPACE_OBSERVATION_SCHEMA: &str = "cynic.agent_workspace_observation.v1";

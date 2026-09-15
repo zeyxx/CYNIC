@@ -9,7 +9,7 @@ use reqwest::Client;
 use crate::ports::build_workload_submission_port::{
     BuildWorkloadSubmissionPort, BuildWorkloadSubmissionReadBack,
 };
-use cynic_protocol::AgentWorkloadDelivery;
+use cynic_workload::AgentWorkloadDelivery;
 
 #[derive(Debug, Clone)]
 pub struct HttpBuildWorkloadSubmission {

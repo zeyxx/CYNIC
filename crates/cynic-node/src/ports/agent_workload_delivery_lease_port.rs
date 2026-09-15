@@ -1,4 +1,4 @@
-use cynic_protocol::AgentWorkloadDeliveryLease;
+use cynic_workload::AgentWorkloadDeliveryLease;
 
 pub trait AgentWorkloadDeliveryLeasePort: Send + Sync {
     fn read(&self, workload_id: &str) -> Result<Option<AgentWorkloadDeliveryLease>, String>;

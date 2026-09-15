@@ -6,7 +6,7 @@ use crate::ports::build_workload_observation_port::{
 
 pub struct BuildWorkloadObservationResult {
     pub read_back: BuildWorkloadObservationReadBack,
-    pub delivery: Option<cynic_protocol::AgentWorkloadDelivery>,
+    pub delivery: Option<cynic_workload::AgentWorkloadDelivery>,
     pub read_back_violations: Vec<String>,
 }
 
@@ -16,7 +16,7 @@ pub async fn observe_build_workload(
 ) -> Result<BuildWorkloadObservationResult, String> {
     let read_back = port.observe_workload(workload_id).await?;
     let mut read_back_violations =
-        match cynic_protocol::parse_agent_workload_observation_read_back(&read_back.body) {
+        match cynic_workload::parse_agent_workload_observation_read_back(&read_back.body) {
             Ok(delivery) if delivery.envelope.workload_id == workload_id => {
                 return Ok(BuildWorkloadObservationResult {
                     read_back,

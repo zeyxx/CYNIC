@@ -1,6 +1,9 @@
-use cynic_protocol::{
-    admit_source_change_submission, AgentWorkloadDelivery, AgentWorkloadDeliveryStatus,
-    AgentWorkloadEnvelope, SourceChangeSubmission,
+use cynic_workload::{
+    admit_source_change_submission,
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryStatus,
+    AgentWorkloadEnvelope,
+    SourceChangeSubmission,
 };
 
 use crate::ports::agent_workload_submission_port::{
@@ -23,7 +26,7 @@ pub fn plan_source_change_submission(
         ]);
     }
     Ok(AgentWorkloadDelivery {
-        schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+        schema: cynic_workload::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
         target_node_id: workload.delegation.node_id.clone(),
         submitted_by,
         submitted_at_ms,
@@ -50,7 +53,7 @@ pub async fn submit_source_change_submission(
         return Err("source_change_submission_kernel_http_status_not_success".into());
     }
     let violations =
-        cynic_protocol::validate_agent_workload_submission_read_back(delivery, &read_back.body);
+        cynic_workload::validate_agent_workload_submission_read_back(delivery, &read_back.body);
     if violations.is_empty() {
         Ok(read_back)
     } else {

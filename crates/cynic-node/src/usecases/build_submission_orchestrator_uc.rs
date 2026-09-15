@@ -18,13 +18,15 @@ use cynic_build::{
     admit_build_agent_request,
     compose_build_agent_workload,
 };
-use cynic_protocol::{
+use cynic_workload::{
     AgentWorkloadDelivery,
     AgentWorkloadDeliveryStatus,
     AgentWorkloadState,
-    LeaseGuard,
     claim_agent_workload,
     consume_agent_workload_action,
+};
+use cynic_protocol::{
+    LeaseGuard,
 };
 use serde::Serialize;
 
@@ -118,8 +120,8 @@ pub async fn orchestrate_build_submission(
     };
 
     // Step 2b: Claim the workload so the grant can be issued
-    let base_record = cynic_protocol::AgentWorkloadRecord {
-        schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+    let base_record = cynic_workload::AgentWorkloadRecord {
+        schema: cynic_workload::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         envelope: envelope.clone(),
         state: AgentWorkloadState::Dispatched,
         claim: None,
@@ -177,7 +179,7 @@ pub async fn orchestrate_build_submission(
     };
 
     let delivery = AgentWorkloadDelivery {
-        schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+        schema: cynic_workload::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
         target_node_id: transport,
         submitted_by: request.requested_by.clone(),
         submitted_at_ms: now_ms,
@@ -195,8 +197,8 @@ pub async fn orchestrate_build_submission(
     };
 
     // Step 3: Issue signed grant
-    let grant_record = cynic_protocol::AgentWorkloadRecord {
-        schema: cynic_protocol::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+    let grant_record = cynic_workload::AgentWorkloadRecord {
+        schema: cynic_workload::AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         envelope: envelope.clone(),
         state: consumed.state,
         claim: consumed.claim,
@@ -205,8 +207,8 @@ pub async fn orchestrate_build_submission(
         consumed_actions: consumed.consumed_actions,
         completion: None,
     };
-    let durable_record = cynic_protocol::DurableAgentWorkloadRecord {
-        schema: cynic_protocol::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+    let durable_record = cynic_workload::DurableAgentWorkloadRecord {
+        schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         revision: 1,
         previous_record_digest: None,
         record_digest: cynic_protocol::digest_json(&grant_record)

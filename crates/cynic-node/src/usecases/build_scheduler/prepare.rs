@@ -8,10 +8,12 @@ use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_build::{
     build_source_reference_from_workload,
 };
-use cynic_protocol::{
+use cynic_workload::{
     DurableAgentWorkloadRecord,
-    LeaseGuard,
     consume_agent_workload_action,
+};
+use cynic_protocol::{
+    LeaseGuard,
     digest_json,
 };
 

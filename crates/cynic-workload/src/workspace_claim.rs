@@ -8,7 +8,7 @@ use super::{
         AgentWorkspaceClaimDecision, AgentWorkspaceClaimIntent,
     },
 };
-use crate::digest_json;
+use cynic_protocol::digest_json;
 
 pub fn admit_agent_workspace_claim(
     workload: &AgentWorkloadEnvelope,

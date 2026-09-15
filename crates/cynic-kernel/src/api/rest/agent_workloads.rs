@@ -5,8 +5,10 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use cynic_protocol::{
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+use cynic_workload::{
+    AgentWorkloadCompletionPublication,
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryAcceptance,
     AgentWorkloadDeliveryStatus,
 };
 use serde::{Deserialize, Serialize};

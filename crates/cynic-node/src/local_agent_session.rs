@@ -371,7 +371,7 @@ impl crate::ports::build_workload_submission_port::BuildWorkloadSubmissionPort
 {
     async fn submit(
         &self,
-        delivery: &cynic_protocol::AgentWorkloadDelivery,
+        delivery: &cynic_workload::AgentWorkloadDelivery,
     ) -> Result<crate::ports::build_workload_submission_port::BuildWorkloadSubmissionReadBack, String>
     {
         let response = self

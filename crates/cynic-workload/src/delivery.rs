@@ -4,7 +4,7 @@ use super::{
     AgentWorkloadEnvelope, DurableAgentWorkloadRecord, admit_agent_workload,
     validate_durable_agent_workload_record,
 };
-use crate::{
+use cynic_protocol::{
     AgentCompletionEnvelope, EvidenceEnvelope, admit_completion,
     build_evidence_envelope_with_lineage,
 };
@@ -289,7 +289,7 @@ pub fn accept_agent_workload_delivery(
     let lease_id = if renewing {
         prior.map_or_else(String::new, |lease| lease.lease_id.clone())
     } else {
-        crate::digest_json(&serde_json::json!({
+        cynic_protocol::digest_json(&serde_json::json!({
             "workload_id": delivery.envelope.workload_id,
             "consumer_instance_id": acceptance.consumer_instance_id,
             "fencing_token": fencing_token,

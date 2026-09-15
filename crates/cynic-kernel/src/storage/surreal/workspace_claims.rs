@@ -1,10 +1,17 @@
 use cynic_node::ports::agent_workspace_port::{
     AgentWorkspaceClaimStorePort, AgentWorkspacePortError,
 };
-use cynic_protocol::{
-    AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome, AgentWorkspaceZone, LeaseGuard, agent_workspace_target,
+use cynic_workload::{
+    AgentWorkspaceClaimAdmission,
+    AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome,
+    AgentWorkspaceZone,
+    agent_workspace_target,
     workspace_claim_admission_matches,
+};
+use cynic_protocol::{
+    LeaseGuard,
 };
 
 use crate::storage::{SurrealHttpStorage, escape_surreal, sanitize_id};
@@ -18,7 +25,7 @@ impl AgentWorkspaceClaimStorePort for SurrealHttpStorage {
     ) -> Result<AgentWorkspaceClaimOutcome, AgentWorkspacePortError> {
         if !workspace_claim_admission_matches(intent, admission) {
             return Ok(AgentWorkspaceClaimOutcome::Rejected {
-                violations: vec![cynic_protocol::AgentWorkspaceViolation {
+                violations: vec![cynic_workload::AgentWorkspaceViolation {
                     code: "workspace_claim_admission_rejected".to_string(),
                     message: "claim admission is absent, denied, or bound to another intent"
                         .to_string(),

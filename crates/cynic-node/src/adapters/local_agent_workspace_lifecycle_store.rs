@@ -8,7 +8,10 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
-use cynic_protocol::{AgentWorkspaceLifecycleRecord, validate_agent_workspace_lifecycle_record};
+use cynic_workload::{
+    AgentWorkspaceLifecycleRecord,
+    validate_agent_workspace_lifecycle_record,
+};
 
 use crate::ports::agent_workspace_port::{
     AgentWorkspaceLifecycleStorePort, AgentWorkspacePortError,
@@ -233,9 +236,13 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> AgentWorkspaceP
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
-        AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA, AgentEvidenceRef, AgentWorkspaceRetentionRoot,
-    };
+    use cynic_workload::{
+    AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA,
+    AgentWorkspaceRetentionRoot,
+};
+use cynic_protocol::{
+    AgentEvidenceRef,
+};
 
     fn record() -> AgentWorkspaceLifecycleRecord {
         AgentWorkspaceLifecycleRecord {

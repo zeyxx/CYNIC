@@ -4,8 +4,9 @@ use std::{
     path::PathBuf,
 };
 
-use cynic_protocol::{
-    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentExecutionRuntimeObservation,
+use cynic_workload::{
+    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA,
+    AgentExecutionRuntimeObservation,
 };
 use sha2::{Digest, Sha256};
 

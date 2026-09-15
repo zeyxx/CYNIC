@@ -9,7 +9,7 @@ use cynic_build::{
     validate_build_workload_grant,
     validate_signed_build_workload_grant,
 };
-use cynic_protocol::{
+use cynic_workload::{
     DurableAgentWorkloadRecord,
 };
 

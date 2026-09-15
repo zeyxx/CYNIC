@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion, digest_json,
 };
 

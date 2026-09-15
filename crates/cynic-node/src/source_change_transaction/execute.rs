@@ -1,10 +1,20 @@
 use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
-use cynic_protocol::{
-    AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA,
-    AGENT_WORKSPACE_REQUEST_SCHEMA, AgentEvidenceRef, AgentWorkspaceClaimIntent,
-    AgentWorkspaceClaimOutcome, AgentWorkspaceDecision, AgentWorkspaceLifecycleRecord,
-    AgentWorkspaceRequest, admit_agent_workspace_claim, build_evidence_envelope, digest_json,
+use cynic_workload::{
+    AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA,
+    AGENT_WORKSPACE_LIFECYCLE_RECORD_SCHEMA,
+    AGENT_WORKSPACE_REQUEST_SCHEMA,
+    AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimOutcome,
+    AgentWorkspaceDecision,
+    AgentWorkspaceLifecycleRecord,
+    AgentWorkspaceRequest,
+    admit_agent_workspace_claim,
     reconcile_agent_workspace,
+};
+use cynic_protocol::{
+    AgentEvidenceRef,
+    build_evidence_envelope,
+    digest_json,
 };
 
 use crate::ports::{
@@ -352,8 +362,8 @@ where
 
 fn rolled_back(
     workload_id: String,
-    reconciliation: cynic_protocol::AgentWorkspaceReconciliation,
-    apply_report: cynic_protocol::AgentWorkspaceApplyReport,
+    reconciliation: cynic_workload::AgentWorkspaceReconciliation,
+    apply_report: cynic_workload::AgentWorkspaceApplyReport,
     blocker: String,
     rollback_unknown: Option<String>,
 ) -> AgentSourceChangeTransactionResult {

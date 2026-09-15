@@ -10,7 +10,12 @@
 //! AGENS.md §7: adapters disposable — this LocalWorkloadSigner is swappable
 //! for a kernel-backed signer once Phase 3.1 (node-owned scheduler) is live.
 
-use cynic_protocol::{AgentWorkloadEnvelope, PolicyAuthority};
+use cynic_workload::{
+    AgentWorkloadEnvelope,
+};
+use cynic_protocol::{
+    PolicyAuthority,
+};
 
 use crate::ports::workload_signer_port::{WorkloadAdmission, WorkloadSignerPort};
 
@@ -79,10 +84,18 @@ mod tests {
     use super::*;
 
     fn admitted_envelope() -> AgentWorkloadEnvelope {
-        use cynic_protocol::{
-            AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction, AgentDelegationEnvelope,
-            AgentEvidenceRef, PolicyAdmissionReport, PolicyDecision, PolicyScope, RequiredProof,
-        };
+        use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AgentBoundedAction,
+};
+use cynic_protocol::{
+    AgentDelegationEnvelope,
+    AgentEvidenceRef,
+    PolicyAdmissionReport,
+    PolicyDecision,
+    PolicyScope,
+    RequiredProof,
+};
         AgentWorkloadEnvelope {
             schema: AGENT_WORKLOAD_ENVELOPE_SCHEMA.to_string(),
             workload_id: "fed-1".to_string(),

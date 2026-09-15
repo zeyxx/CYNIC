@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     AgentCompletionEnvelope, AgentDelegationEnvelope, ExecutionAuthorization, LeaseGuard,
     PolicyAdmissionReport,
 };

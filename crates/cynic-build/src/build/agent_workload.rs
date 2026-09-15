@@ -1,10 +1,29 @@
+use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AGENT_WORKLOAD_INPUT_SCHEMA,
+    AgentBoundedAction,
+    AgentWorkloadEnvelope,
+    AgentWorkloadInput,
+};
 use cynic_protocol::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA,
-    AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
-    AgentEvidenceLineage, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadInput,
-    EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
-    POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
-    PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
+    AGENT_DELEGATION_ENVELOPE_SCHEMA,
+    AgentBudget,
+    AgentCapabilityGrant,
+    AgentDelegationEnvelope,
+    AgentEvidenceLineage,
+    AgentEvidenceRef,
+    EXECUTION_AUTHORIZATION_SCHEMA,
+    ExecutionAuthorization,
+    MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA,
+    PolicyAdmissionReport,
+    PolicyAuthority,
+    PolicyDecision,
+    PolicyIntentRef,
+    PolicyScope,
+    PolicySetRef,
+    RequiredProof,
+    digest_json,
 };
 
 use super::{
@@ -373,7 +392,7 @@ mod tests {
 
         assert_eq!(envelope.action.argv, vec!["make", "check"]);
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
-        assert!(cynic_protocol::admit_agent_workload(&envelope).admitted());
+        assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
         assert_eq!(
             build_source_reference_from_workload(&envelope).unwrap(),
             request.source
@@ -514,7 +533,7 @@ mod tests {
         envelope.input.as_mut().unwrap().payload["action"] =
             serde_json::Value::String("make:build-release".to_string());
 
-        assert!(!cynic_protocol::admit_agent_workload(&envelope).admitted());
+        assert!(!cynic_workload::admit_agent_workload(&envelope).admitted());
         assert!(build_agent_request_from_workload(&envelope).is_err());
     }
 

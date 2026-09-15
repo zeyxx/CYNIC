@@ -1,7 +1,11 @@
 use std::{fs, io::Write, path::PathBuf};
 
+use cynic_workload::{
+    AgentWorkloadDeliveryLease,
+    validate_agent_workload_delivery_lease,
+};
 use cynic_protocol::{
-    AgentWorkloadDeliveryLease, digest_json, validate_agent_workload_delivery_lease,
+    digest_json,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -113,7 +117,7 @@ impl AgentWorkloadDeliveryLeasePort for LocalAgentWorkloadDeliveryLeaseStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA;
+    use cynic_workload::AGENT_WORKLOAD_DELIVERY_LEASE_SCHEMA;
 
     #[test]
     fn replaces_renewed_lease_and_reads_back_exact_fence() {

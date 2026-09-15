@@ -179,7 +179,9 @@ pub fn validate_signed_release_basket_read_back(
             blockers.push(format!("signed_release_{kind}_digest_invalid"));
         }
     }
-    if cynic_protocol::digest_json(manifest).ok().as_deref() != Some(read_back.manifest_digest.as_str()) {
+    if cynic_protocol::digest_json(manifest).ok().as_deref()
+        != Some(read_back.manifest_digest.as_str())
+    {
         blockers.push("signed_release_manifest_digest_mismatch".to_string());
     }
     for (kind, source) in [

@@ -1,6 +1,11 @@
+use cynic_workload::{
+    AgentWorkspaceClaimAdmission,
+    AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome,
+};
 use cynic_protocol::{
-    AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome, LeaseGuard,
+    LeaseGuard,
 };
 use serde::de::DeserializeOwned;
 

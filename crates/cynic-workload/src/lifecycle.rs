@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
-use crate::{AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion};
+use cynic_protocol::{
+    AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion,
+};
 
 use super::{
     admission::admit_agent_workload,

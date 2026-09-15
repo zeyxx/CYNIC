@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
-use cynic_protocol::{
-    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
+use cynic_workload::{
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryStatus,
+    validate_agent_workload_delivery,
 };
 
 use crate::ports::agent_workload_completion_receipt_port::AgentWorkloadCompletionReceiptPort;

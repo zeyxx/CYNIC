@@ -24,16 +24,18 @@ use cynic_build::{
     BuildSourceReference,
     compose_build_agent_workload,
 };
+use cynic_workload::{
+    AgentWorkloadRecord,
+    AgentWorkloadState,
+    admit_agent_workload,
+};
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA,
     AgentBudgets,
     AgentCitizenshipRecord,
     AgentScope,
-    AgentWorkloadRecord,
-    AgentWorkloadState,
     MutationAdmission,
     SecurityEvidenceState,
-    admit_agent_workload,
     admit_build_mutation,
 };
 
@@ -255,7 +257,7 @@ async fn get_proof(
         Ok(Some(record)) => {
             let parcel_receipt =
                 if record.record.state.terminal() && record.record.completion.is_some() {
-                    cynic_protocol::SettledParcelReceipt::for_record(
+                    cynic_workload::SettledParcelReceipt::for_record(
                         &record.record,
                         record.committed_at_ms,
                     )

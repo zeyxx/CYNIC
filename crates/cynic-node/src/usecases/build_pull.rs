@@ -6,7 +6,10 @@
 //! phases mutate and need their own admission slice. A missing or expired
 //! lease skips the workload with an explicit reason instead of running it.
 
-use cynic_protocol::{AgentWorkloadState, DurableAgentWorkloadRecord};
+use cynic_workload::{
+    AgentWorkloadState,
+    DurableAgentWorkloadRecord,
+};
 
 use crate::ports::agent_workload_delivery_lease_port::AgentWorkloadDeliveryLeasePort;
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
@@ -216,15 +219,34 @@ pub fn execute_pull_run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
-        AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA,
-        AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction, AgentBudget, AgentCapabilityGrant,
-        AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadDeliveryLease,
-        AgentWorkloadEnvelope, AgentWorkloadRecord, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
-        EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
-        POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
-        PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
-    };
+    use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentBoundedAction,
+    AgentWorkloadDeliveryLease,
+    AgentWorkloadEnvelope,
+    AgentWorkloadRecord,
+    DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
+};
+use cynic_protocol::{
+    AGENT_DELEGATION_ENVELOPE_SCHEMA,
+    AgentBudget,
+    AgentCapabilityGrant,
+    AgentDelegationEnvelope,
+    AgentEvidenceRef,
+    EXECUTION_AUTHORIZATION_SCHEMA,
+    ExecutionAuthorization,
+    MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA,
+    PolicyAdmissionReport,
+    PolicyAuthority,
+    PolicyDecision,
+    PolicyIntentRef,
+    PolicyScope,
+    PolicySetRef,
+    RequiredProof,
+    digest_json,
+};
     use std::collections::HashMap;
 
     struct MapLeases {

@@ -1,3 +1,9 @@
+//! cynic-workload: agent workload bounded context.
+//!
+//! Admission, claims, delivery, durability, settlement, and workspace
+//! reconciliation for sovereign agent workloads. Pure domain: effects stay
+//! with the callers (node scheduler, host lifecycle) behind their ports.
+
 mod admission;
 mod capability_status;
 mod delivery;
@@ -5,6 +11,7 @@ mod durability;
 mod lifecycle;
 mod settlement;
 mod shared;
+mod source_change_submission;
 mod types;
 mod workspace;
 mod workspace_checks;

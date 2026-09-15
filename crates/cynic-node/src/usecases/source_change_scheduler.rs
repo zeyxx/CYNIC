@@ -4,9 +4,13 @@ use cynic_host::{
     adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
     update_lifecycle::LocalArgvRunner,
 };
-use cynic_protocol::{
-    parse_source_change_submission_input, AgentCompletionStatus, AgentEvidenceRef,
+use cynic_workload::{
+    parse_source_change_submission_input,
     AgentWorkloadState,
+};
+use cynic_protocol::{
+    AgentCompletionStatus,
+    AgentEvidenceRef,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -102,8 +106,8 @@ async fn execute_claimed(
     control: &NodeControlConfig,
     scheduler: &SourceChangeSchedulerConfig,
     store: &LocalAgentWorkloadStore,
-    claimed: cynic_protocol::DurableAgentWorkloadRecord,
-    submission: cynic_protocol::SourceChangeSubmission,
+    claimed: cynic_workload::DurableAgentWorkloadRecord,
+    submission: cynic_workload::SourceChangeSubmission,
     shutdown: &CancellationToken,
 ) -> Result<(), String> {
     let workload_id = claimed.record.envelope.workload_id.clone();
@@ -199,8 +203,8 @@ async fn execute_claimed(
 async fn execute_transaction(
     control: &NodeControlConfig,
     scheduler: &SourceChangeSchedulerConfig,
-    workload: &cynic_protocol::AgentWorkloadEnvelope,
-    submission: &cynic_protocol::SourceChangeSubmission,
+    workload: &cynic_workload::AgentWorkloadEnvelope,
+    submission: &cynic_workload::SourceChangeSubmission,
 ) -> Result<crate::source_change_transaction::AgentSourceChangeTransactionResult, String> {
     let api_key = std::env::var("CYNIC_KERNEL_API_KEY")
         .ok()

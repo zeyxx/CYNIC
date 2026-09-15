@@ -3,9 +3,10 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    admit_agent_workload, digest_json, AgentWorkloadEnvelope, AgentWorkspaceChange,
-    AgentWorkspaceRetentionRoot, AgentWorkspaceZone, RuntimeArtifactSource,
+    AgentWorkloadEnvelope, AgentWorkspaceChange, AgentWorkspaceRetentionRoot, AgentWorkspaceZone,
+    admit_agent_workload,
 };
+use cynic_protocol::{RuntimeArtifactSource, digest_json};
 
 pub const SOURCE_CHANGE_SUBMISSION_SCHEMA: &str = "cynic.source_change_submission.v1";
 pub const SOURCE_CHANGE_SUBMISSION_ADMISSION_SCHEMA: &str =
@@ -191,12 +192,12 @@ fn valid_sha256_digest(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        AgentBoundedAction, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
-        AgentEvidenceRef, AgentWorkloadEnvelope, ExecutionAuthorization, MutationContract,
-        PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
-        PolicySetRef, RequiredProof, RuntimeArtifactTransportKind, EXECUTION_AUTHORIZATION_SCHEMA,
-        POLICY_ADMISSION_REPORT_SCHEMA,
+    use crate::{AgentBoundedAction, AgentWorkloadEnvelope};
+    use cynic_protocol::{
+        AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope, AgentEvidenceRef,
+        EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, MutationContract,
+        POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority, PolicyDecision,
+        PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, RuntimeArtifactTransportKind,
     };
 
     use super::*;
@@ -281,7 +282,7 @@ mod tests {
             }),
             action,
             delegation: AgentDelegationEnvelope {
-                schema: crate::AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
+                schema: cynic_protocol::AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
                 delegation_id: "delegation-1".to_string(),
                 node_id: "node-1".to_string(),
                 agent_id: "agent-1".to_string(),
@@ -350,9 +351,11 @@ mod tests {
         let mut candidate = submission();
         candidate.blobs.clear();
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(admission
-            .blockers
-            .contains(&"source_change_submission_blob_set_mismatch".to_string()));
+        assert!(
+            admission
+                .blockers
+                .contains(&"source_change_submission_blob_set_mismatch".to_string())
+        );
     }
 
     #[test]
@@ -364,9 +367,11 @@ mod tests {
             result_digest: None,
         });
         let admission = admit_source_change_submission(&candidate, &workload(&candidate));
-        assert!(admission
-            .blockers
-            .contains(&"source_change_submission_v1_requires_one_change".to_string()));
+        assert!(
+            admission
+                .blockers
+                .contains(&"source_change_submission_v1_requires_one_change".to_string())
+        );
     }
 
     #[test]

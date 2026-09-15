@@ -206,13 +206,13 @@ mod tests {
                 node_id: "node-1".into(),
                 scheduler_epoch: 1,
                 step_id: "step-1".into(),
-                lifecycle: cynic_protocol::AgentWorkspaceLifecyclePlan {
-                    schema: cynic_protocol::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA.into(),
+                lifecycle: cynic_workload::AgentWorkspaceLifecyclePlan {
+                    schema: cynic_workload::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA.into(),
                     workload_id: "workload-1".into(),
                     repository_id: "cynic".into(),
                     workspace_id: "workspace-1".into(),
                     mutates: false,
-                    decision: cynic_protocol::AgentWorkspaceLifecycleDecision::Keep {
+                    decision: cynic_workload::AgentWorkspaceLifecycleDecision::Keep {
                         reasons: vec!["test".into()],
                     },
                 },

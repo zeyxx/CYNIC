@@ -1,9 +1,11 @@
 use std::{fs, path::Path};
 
 use cynic_host::update_lifecycle::ArgvRunner;
-use cynic_protocol::{
-    AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA, AgentWorkspaceLifecycleDecision,
-    AgentWorkspaceLifecyclePlan, agent_workspace_target,
+use cynic_workload::{
+    AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
+    AgentWorkspaceLifecycleDecision,
+    AgentWorkspaceLifecyclePlan,
+    agent_workspace_target,
 };
 
 use crate::ports::agent_workspace_port::{
@@ -212,7 +214,7 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> AgentWorkspaceP
 mod tests {
     use super::*;
     use cynic_host::update_lifecycle::MapArgvRunner;
-    use cynic_protocol::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA;
+    use cynic_workload::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA;
 
     #[test]
     fn adapter_rejects_non_collect_decisions_before_io() {

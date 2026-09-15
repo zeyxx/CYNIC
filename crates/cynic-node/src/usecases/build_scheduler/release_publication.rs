@@ -14,9 +14,11 @@ use cynic_build::{
     build_agent_request_from_workload,
     plan_signed_release_basket,
 };
+use cynic_workload::{
+    AgentWorkloadEnvelope,
+};
 use cynic_protocol::{
     AgentEvidenceRef,
-    AgentWorkloadEnvelope,
     build_evidence_envelope,
 };
 

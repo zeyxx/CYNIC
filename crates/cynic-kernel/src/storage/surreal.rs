@@ -577,22 +577,22 @@ impl ProofOfHistoryStorage for SurrealHttpStorage {
 impl StoragePort for SurrealHttpStorage {
     async fn submit_agent_workload_delivery(
         &self,
-        delivery: &cynic_protocol::AgentWorkloadDelivery,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        delivery: &cynic_workload::AgentWorkloadDelivery,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         workload_delivery::submit(self, delivery).await
     }
 
     async fn agent_workload_delivery(
         &self,
         workload_id: &str,
-    ) -> Result<Option<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+    ) -> Result<Option<cynic_workload::AgentWorkloadDelivery>, StorageError> {
         workload_delivery::read(self, workload_id).await
     }
 
     async fn pending_agent_workload_deliveries(
         &self,
         node_id: &str,
-    ) -> Result<Vec<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+    ) -> Result<Vec<cynic_workload::AgentWorkloadDelivery>, StorageError> {
         workload_delivery::pending(self, node_id).await
     }
 
@@ -600,25 +600,25 @@ impl StoragePort for SurrealHttpStorage {
         &self,
         workload_id: &str,
         node_id: &str,
-        acceptance: &cynic_protocol::AgentWorkloadDeliveryAcceptance,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        acceptance: &cynic_workload::AgentWorkloadDeliveryAcceptance,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         workload_delivery::accept(self, workload_id, node_id, acceptance).await
     }
 
     async fn complete_agent_workload_delivery(
         &self,
-        publication: &cynic_protocol::AgentWorkloadCompletionPublication,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        publication: &cynic_workload::AgentWorkloadCompletionPublication,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         workload_delivery::complete(self, publication).await
     }
 
     async fn reserve_agent_workspace_claim(
         &self,
-        intent: &cynic_protocol::AgentWorkspaceClaimIntent,
-        admission: &cynic_protocol::AgentWorkspaceClaimAdmission,
+        intent: &cynic_workload::AgentWorkspaceClaimIntent,
+        admission: &cynic_workload::AgentWorkspaceClaimAdmission,
         now_ms: u64,
     ) -> Result<
-        cynic_protocol::AgentWorkspaceClaimOutcome,
+        cynic_workload::AgentWorkspaceClaimOutcome,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::reserve(
@@ -632,7 +632,7 @@ impl StoragePort for SurrealHttpStorage {
         repository_id: &str,
         now_ms: u64,
     ) -> Result<
-        Vec<cynic_protocol::AgentWorkspaceClaimObservation>,
+        Vec<cynic_workload::AgentWorkspaceClaimObservation>,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::repository_claims(
@@ -649,7 +649,7 @@ impl StoragePort for SurrealHttpStorage {
         requested_ttl_ms: u64,
         now_ms: u64,
     ) -> Result<
-        cynic_protocol::AgentWorkspaceClaimObservation,
+        cynic_workload::AgentWorkspaceClaimObservation,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         cynic_node::ports::agent_workspace_port::AgentWorkspaceClaimStorePort::renew(

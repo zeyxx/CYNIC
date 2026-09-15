@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{
-    AgentWorkloadState, DurableAgentWorkloadRecord, validate_durable_agent_workload_record,
+use cynic_workload::{
+    AgentWorkloadState,
+    DurableAgentWorkloadRecord,
+    validate_durable_agent_workload_record,
 };
 
 use super::canonical_build_actions;

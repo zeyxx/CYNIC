@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
 use axum::{Extension, extract::State, http::StatusCode, response::Json};
+use cynic_workload::{
+    AgentWorkspaceClaimAdmission,
+    AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome,
+};
 use cynic_protocol::{
-    AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome, LeaseGuard,
+    LeaseGuard,
 };
 use serde::Deserialize;
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{digest_json, source_worktree_lease_target};
+use cynic_protocol::{digest_json, source_worktree_lease_target};
 
 use super::workspace_types::{
     AGENT_WORKSPACE_REQUEST_SCHEMA, AgentWorkspaceChange, AgentWorkspaceClaimObservation,

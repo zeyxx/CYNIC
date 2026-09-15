@@ -1,5 +1,7 @@
-use cynic_protocol::{
-    AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
+use cynic_workload::{
+    AgentWorkloadCompletionPublication,
+    AgentWorkloadDelivery,
+    AgentWorkloadDeliveryAcceptance,
 };
 
 pub trait AgentWorkloadDeliveryPort: Send + Sync {

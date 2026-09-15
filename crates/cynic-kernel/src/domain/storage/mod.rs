@@ -541,8 +541,8 @@ pub trait StoragePort:
 
     async fn submit_agent_workload_delivery(
         &self,
-        _delivery: &cynic_protocol::AgentWorkloadDelivery,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        _delivery: &cynic_workload::AgentWorkloadDelivery,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload delivery storage is unavailable".to_string(),
         ))
@@ -551,7 +551,7 @@ pub trait StoragePort:
     async fn agent_workload_delivery(
         &self,
         _workload_id: &str,
-    ) -> Result<Option<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+    ) -> Result<Option<cynic_workload::AgentWorkloadDelivery>, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload delivery storage is unavailable".to_string(),
         ))
@@ -560,7 +560,7 @@ pub trait StoragePort:
     async fn pending_agent_workload_deliveries(
         &self,
         _node_id: &str,
-    ) -> Result<Vec<cynic_protocol::AgentWorkloadDelivery>, StorageError> {
+    ) -> Result<Vec<cynic_workload::AgentWorkloadDelivery>, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload delivery storage is unavailable".to_string(),
         ))
@@ -570,8 +570,8 @@ pub trait StoragePort:
         &self,
         _workload_id: &str,
         _node_id: &str,
-        _acceptance: &cynic_protocol::AgentWorkloadDeliveryAcceptance,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        _acceptance: &cynic_workload::AgentWorkloadDeliveryAcceptance,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload delivery storage is unavailable".to_string(),
         ))
@@ -579,8 +579,8 @@ pub trait StoragePort:
 
     async fn complete_agent_workload_delivery(
         &self,
-        _publication: &cynic_protocol::AgentWorkloadCompletionPublication,
-    ) -> Result<cynic_protocol::AgentWorkloadDelivery, StorageError> {
+        _publication: &cynic_workload::AgentWorkloadCompletionPublication,
+    ) -> Result<cynic_workload::AgentWorkloadDelivery, StorageError> {
         Err(StorageError::ConnectionFailed(
             "durable agent workload completion storage is unavailable".to_string(),
         ))
@@ -588,11 +588,11 @@ pub trait StoragePort:
 
     async fn reserve_agent_workspace_claim(
         &self,
-        _intent: &cynic_protocol::AgentWorkspaceClaimIntent,
-        _admission: &cynic_protocol::AgentWorkspaceClaimAdmission,
+        _intent: &cynic_workload::AgentWorkspaceClaimIntent,
+        _admission: &cynic_workload::AgentWorkspaceClaimAdmission,
         _now_ms: u64,
     ) -> Result<
-        cynic_protocol::AgentWorkspaceClaimOutcome,
+        cynic_workload::AgentWorkspaceClaimOutcome,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         Err(
@@ -608,7 +608,7 @@ pub trait StoragePort:
         _repository_id: &str,
         _now_ms: u64,
     ) -> Result<
-        Vec<cynic_protocol::AgentWorkspaceClaimObservation>,
+        Vec<cynic_workload::AgentWorkspaceClaimObservation>,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         Err(
@@ -625,7 +625,7 @@ pub trait StoragePort:
         _requested_ttl_ms: u64,
         _now_ms: u64,
     ) -> Result<
-        cynic_protocol::AgentWorkspaceClaimObservation,
+        cynic_workload::AgentWorkspaceClaimObservation,
         cynic_node::ports::agent_workspace_port::AgentWorkspacePortError,
     > {
         Err(

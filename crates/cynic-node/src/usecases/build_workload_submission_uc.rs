@@ -10,7 +10,7 @@ use cynic_build::{
     compose_build_agent_workload,
     plan_build_agent_request,
 };
-use cynic_protocol::{
+use cynic_workload::{
     AgentWorkloadDelivery,
     AgentWorkloadDeliveryStatus,
     admit_agent_workload,
@@ -100,7 +100,7 @@ pub async fn submit_build_workload_submission(
 ) -> Result<BuildWorkloadSubmissionResult, String> {
     let read_back = port.submit(delivery).await?;
     let read_back_violations = if (200..300).contains(&read_back.http_status) {
-        cynic_protocol::validate_agent_workload_submission_read_back(delivery, &read_back.body)
+        cynic_workload::validate_agent_workload_submission_read_back(delivery, &read_back.body)
     } else {
         vec!["kernel_http_status_not_success".to_string()]
     };
@@ -147,7 +147,7 @@ pub fn plan_build_workload_submission(
     Ok(BuildWorkloadSubmissionPlan {
         admission,
         delivery: Some(AgentWorkloadDelivery {
-            schema: cynic_protocol::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
+            schema: cynic_workload::AGENT_WORKLOAD_DELIVERY_SCHEMA.to_string(),
             target_node_id: transport.node_id,
             submitted_by: request.requested_by.clone(),
             submitted_at_ms,

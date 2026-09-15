@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus, LeaseGuard, admit_completion,
     digest_json,
 };
@@ -243,7 +243,7 @@ fn add_budget(total: &mut AgentBudget, budget: &AgentBudget) -> Result<(), Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_workload::tests::record;
+    use crate::tests::record;
 
     #[test]
     fn durable_record_binds_payload_and_predecessor() {
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn aggregate_sibling_budget_counts_active_children() {
-        let mut candidate = crate::agent_workload::tests::test_envelope();
+        let mut candidate = crate::tests::test_envelope();
         let mut parent = candidate.delegation.clone();
         parent.delegation_id = "parent-delegation".into();
         parent.agent_id = "parent-agent".into();

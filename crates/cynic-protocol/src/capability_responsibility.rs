@@ -154,7 +154,7 @@ pub fn capability_responsibility_catalog() -> CapabilityResponsibilityCatalog {
             contract(
                 "source",
                 "cynic-node",
-                "cynic-protocol::agent_workload",
+                "cynic-workload",
                 "cynic-node",
                 "cynic-node",
                 "source mutation requires an admitted workload, preimage binding, and fenced workspace claim",
@@ -218,7 +218,7 @@ pub fn capability_responsibility_catalog() -> CapabilityResponsibilityCatalog {
             contract(
                 "orchestrator",
                 "cynic-node",
-                "cynic-protocol::agent_workload",
+                "cynic-workload",
                 "orchestrator_adapter",
                 "node_scheduler",
                 "workload placement and execution remain admitted, scoped, budgeted, and recoverable",

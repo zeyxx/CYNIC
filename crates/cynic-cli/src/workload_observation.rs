@@ -16,7 +16,7 @@ use cynic_host::build_runner_harness::registry::read_registry;
 use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_node::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
-use cynic_protocol::DurableAgentWorkloadRecord;
+use cynic_workload::DurableAgentWorkloadRecord;
 
 /// Observe one workload by id.
 pub(crate) fn execute_observe_workload(
@@ -306,14 +306,32 @@ fn emit(value: serde_json::Value, json: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
-        AGENT_DELEGATION_ENVELOPE_SCHEMA, AGENT_WORKLOAD_ENVELOPE_SCHEMA,
-        AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction, AgentBudget, AgentCapabilityGrant,
-        AgentDelegationEnvelope, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkloadRecord,
-        AgentWorkloadState, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
-        MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
-        PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof,
-    };
+    use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AGENT_WORKLOAD_RECORD_SCHEMA,
+    AgentBoundedAction,
+    AgentWorkloadEnvelope,
+    AgentWorkloadRecord,
+    AgentWorkloadState,
+};
+use cynic_protocol::{
+    AGENT_DELEGATION_ENVELOPE_SCHEMA,
+    AgentBudget,
+    AgentCapabilityGrant,
+    AgentDelegationEnvelope,
+    AgentEvidenceRef,
+    EXECUTION_AUTHORIZATION_SCHEMA,
+    ExecutionAuthorization,
+    MutationContract,
+    POLICY_ADMISSION_REPORT_SCHEMA,
+    PolicyAdmissionReport,
+    PolicyAuthority,
+    PolicyDecision,
+    PolicyIntentRef,
+    PolicyScope,
+    PolicySetRef,
+    RequiredProof,
+};
 
     fn dummy_envelope() -> AgentWorkloadEnvelope {
         let action = AgentBoundedAction {

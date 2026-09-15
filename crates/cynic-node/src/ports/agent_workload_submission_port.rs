@@ -1,4 +1,4 @@
-use cynic_protocol::AgentWorkloadDelivery;
+use cynic_workload::AgentWorkloadDelivery;
 
 /// Transport-neutral boundary for delivery of any already-admitted agent
 /// workload.  The transport owns no admission, scheduler, or execution policy.

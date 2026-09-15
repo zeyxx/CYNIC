@@ -1,8 +1,11 @@
 use std::{fs, path::PathBuf};
 
-use cynic_protocol::{
-    AgentWorkspaceApplyReport, AgentWorkspaceApplyStatus, AgentWorkspaceMutationKind,
-    AgentWorkspaceReconciliation, AgentWorkspaceRequest,
+use cynic_workload::{
+    AgentWorkspaceApplyReport,
+    AgentWorkspaceApplyStatus,
+    AgentWorkspaceMutationKind,
+    AgentWorkspaceReconciliation,
+    AgentWorkspaceRequest,
 };
 
 use super::local_agent_workspace_apply_support::{

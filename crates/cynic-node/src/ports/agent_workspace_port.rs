@@ -2,10 +2,19 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use cynic_workload::{
+    AgentWorkspaceClaimAdmission,
+    AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome,
+    AgentWorkspaceLifecycleObservation,
+    AgentWorkspaceLifecyclePlan,
+    AgentWorkspaceLifecycleRecord,
+    AgentWorkspaceObservation,
+    AgentWorkspaceRequest,
+};
 use cynic_protocol::{
-    AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome, AgentWorkspaceLifecycleObservation, AgentWorkspaceLifecyclePlan,
-    AgentWorkspaceLifecycleRecord, AgentWorkspaceObservation, AgentWorkspaceRequest, LeaseGuard,
+    LeaseGuard,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

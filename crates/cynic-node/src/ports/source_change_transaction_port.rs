@@ -1,5 +1,7 @@
-use cynic_protocol::{
-    AgentWorkspaceApplyReport, AgentWorkspaceReconciliation, AgentWorkspaceRequest,
+use cynic_workload::{
+    AgentWorkspaceApplyReport,
+    AgentWorkspaceReconciliation,
+    AgentWorkspaceRequest,
 };
 
 use super::agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspacePortError};

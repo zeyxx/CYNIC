@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{
+use cynic_protocol::{
     AgentRecursionDecision, PolicyDecision, admit_child_delegation, admit_root_delegation,
 };
 
@@ -36,7 +36,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
             "plan_digest must be a sha256 content digest",
         ));
     }
-    match crate::digest_json(&envelope.action) {
+    match cynic_protocol::digest_json(&envelope.action) {
         Ok(digest) if digest == envelope.plan_digest => {}
         Ok(_) => violations.push(violation(
             "action_plan_digest_mismatch",
@@ -54,7 +54,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
                 "workload input requires the canonical schema and a typed kind",
             ));
         }
-        match crate::digest_json(&input.payload) {
+        match cynic_protocol::digest_json(&input.payload) {
             Ok(digest) if digest == input.digest && valid_sha256_digest(&input.digest) => {}
             _ => violations.push(violation(
                 "workload_input_digest_mismatch",
@@ -154,7 +154,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
             "bounded action mutation, privilege, and rollback must match canonical policy",
         ));
     }
-    if authorization.schema != crate::EXECUTION_AUTHORIZATION_SCHEMA {
+    if authorization.schema != cynic_protocol::EXECUTION_AUTHORIZATION_SCHEMA {
         violations.push(violation(
             "invalid_execution_authorization_schema",
             "execution authorization schema is not supported",
@@ -275,7 +275,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
 
 pub fn admit_workload_mandate_binding(
     envelope: &AgentWorkloadEnvelope,
-    mandate: &crate::peer::MandateAccount,
+    mandate: &cynic_protocol::peer::MandateAccount,
     now_unix_s: u64,
 ) -> AgentWorkloadAdmission {
     let Some(binding) = envelope.mandate_binding.as_ref() else {
@@ -306,7 +306,9 @@ pub fn admit_workload_mandate_binding(
             "workload binding fencing token must equal the observed mandate",
         ));
     }
-    if crate::digest_json(mandate).ok().as_deref() != Some(binding.snapshot_digest.as_str()) {
+    if cynic_protocol::digest_json(mandate).ok().as_deref()
+        != Some(binding.snapshot_digest.as_str())
+    {
         violations.push(violation(
             "mandate_snapshot_digest_mismatch",
             "workload binding must bind the exact observed mandate snapshot",

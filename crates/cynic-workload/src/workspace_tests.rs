@@ -1,9 +1,10 @@
 use crate::{
-    AgentEvidenceLineage, AgentEvidenceRef, AgentWorkloadEnvelope, AgentWorkspaceChange,
-    AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation, AgentWorkspaceDecision,
-    AgentWorkspaceObservation, AgentWorkspacePathObservation, AgentWorkspaceRequest,
-    AgentWorkspaceZone, AgentWorkspaceZoneKind, LeaseGuard, digest_json,
+    AgentWorkloadEnvelope, AgentWorkspaceChange, AgentWorkspaceClaimIntent,
+    AgentWorkspaceClaimObservation, AgentWorkspaceDecision, AgentWorkspaceObservation,
+    AgentWorkspacePathObservation, AgentWorkspaceRequest, AgentWorkspaceZone,
+    AgentWorkspaceZoneKind,
 };
+use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, LeaseGuard, digest_json};
 
 use super::{
     AGENT_WORKSPACE_CLAIM_INTENT_SCHEMA, AGENT_WORKSPACE_OBSERVATION_SCHEMA,

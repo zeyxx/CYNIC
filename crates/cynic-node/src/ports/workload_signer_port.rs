@@ -10,7 +10,12 @@
 //! AGENS.md §6: a decision must not be recalculated in multiple apply surfaces;
 //! the canonical admit decision lives here, projected by LocalWorkloadSigner.
 
-use cynic_protocol::{AgentWorkloadEnvelope, ExecutionAuthorization};
+use cynic_workload::{
+    AgentWorkloadEnvelope,
+};
+use cynic_protocol::{
+    ExecutionAuthorization,
+};
 
 /// Admission verdict from the workload signer (reuses the 2N+1 kernel grant
 /// admission shape: PolicyAdmissionReport.decision + ExecutionAuthorization).
@@ -57,15 +62,23 @@ impl WorkloadSignerPort for NullWorkloadSigner {
 mod tests {
     use super::*;
     use crate::ports::workload_signer_port::WorkloadSignerPort;
-    use cynic_protocol::AgentWorkloadEnvelope;
+    use cynic_workload::AgentWorkloadEnvelope;
 
     /// Minimal envelope stub for port-level admit shape coverage.
     fn stub_envelope() -> AgentWorkloadEnvelope {
-        use cynic_protocol::{
-            AGENT_WORKLOAD_ENVELOPE_SCHEMA, AgentBoundedAction, AgentDelegationEnvelope,
-            AgentEvidenceRef, PolicyAdmissionReport,
-            PolicyAuthority, PolicyDecision, PolicyScope, RequiredProof,
-        };
+        use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
+    AgentBoundedAction,
+};
+use cynic_protocol::{
+    AgentDelegationEnvelope,
+    AgentEvidenceRef,
+    PolicyAdmissionReport,
+    PolicyAuthority,
+    PolicyDecision,
+    PolicyScope,
+    RequiredProof,
+};
         AgentWorkloadEnvelope {
             schema: AGENT_WORKLOAD_ENVELOPE_SCHEMA.to_string(),
             workload_id: "fed-1".to_string(),

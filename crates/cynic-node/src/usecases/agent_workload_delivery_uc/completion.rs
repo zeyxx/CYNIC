@@ -1,6 +1,7 @@
 use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
-use cynic_protocol::{
-    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA, AgentWorkloadCompletionPublication,
+use cynic_workload::{
+    AGENT_WORKLOAD_COMPLETION_PUBLICATION_SCHEMA,
+    AgentWorkloadCompletionPublication,
 };
 
 use crate::ports::{
