@@ -370,16 +370,33 @@ fn main() {
     let git_sha = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
+        .ok()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "unknown".to_string());
-    let git_sha = if git_sha.is_empty() {
-        "unknown".to_string()
-    } else {
-        git_sha
+        .filter(|s| !s.is_empty() && s.len() == 40 && s.chars().all(|c| c.is_ascii_hexdigit()));
+    // fail-closed: a binary with no verifiable source identity must not claim
+    // a proven build. The proof surface (operator, deploy, admission) reads
+    // CYNIC_GIT_SHA and rejects "unknown".
+    let git_sha = match git_sha {
+        Some(sha) => sha,
+        None => {
+            let is_release = env::var("PROFILE").as_deref() == Ok("release");
+            if is_release {
+                eprintln!(
+                    "surface registry version surface: release binary built outside a \
+                     verifiable git work tree — refusing to bake 'unknown' identity \
+                     (CYNIC_GIT_SHA cannot resolve to a real commit). Build from a \
+                     checked-out repository with .git present."
+                );
+                exit(1);
+            }
+            "unknown".to_string()
+        }
     };
     let profile = env::var("PROFILE").unwrap_or_else(|_| "dev".to_string());
     println!("cargo:rustc-env=CYNIC_GIT_SHA={git_sha}");
     println!("cargo:rustc-env=CYNIC_BUILD_PROFILE={profile}");
+    let build_proof = env::var("CYNIC_BUILD_PROOF_SHA").unwrap_or_default();
+    println!("cargo:rustc-env=CYNIC_BUILD_PROOF_SHA={build_proof}");
 
     let cargo_manifest_dir =
         env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| fail("CARGO_MANIFEST_DIR is not set"));

@@ -11,6 +11,7 @@ pub fn version_json() -> String {
         "schema": "cynic.cli.version.v1",
         "git_sha": env!("CYNIC_GIT_SHA"),
         "build_profile": env!("CYNIC_BUILD_PROFILE"),
+        "build_proof_sha": env!("CYNIC_BUILD_PROOF_SHA"),
     })
     .to_string()
 }
@@ -20,10 +21,18 @@ pub fn execute_version(json: bool) {
     if json {
         println!("{}", version_json());
     } else {
+        let proof = env!("CYNIC_BUILD_PROOF_SHA");
+        let proof_tag = if proof.is_empty() {
+            "untracked".to_string()
+        } else {
+            format!("proof={}", proof)
+        };
         println!(
-            "cynic {} ({})",
+            "cynic {} {} build_profile={} {}",
+            env!("CARGO_PKG_VERSION"),
             env!("CYNIC_GIT_SHA"),
-            env!("CYNIC_BUILD_PROFILE")
+            env!("CYNIC_BUILD_PROFILE"),
+            proof_tag
         );
     }
 }
