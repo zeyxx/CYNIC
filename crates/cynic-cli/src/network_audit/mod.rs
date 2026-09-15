@@ -1,7 +1,7 @@
 use clap::Subcommand;
 use std::process::ExitCode;
 
-mod render;
+pub(crate) mod render;
 mod scan;
 mod types;
 
