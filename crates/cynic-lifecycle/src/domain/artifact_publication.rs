@@ -32,7 +32,7 @@ impl std::str::FromStr for TransportProtocol {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "http_put" | "generic_http_put_get" | "http" => Ok(TransportProtocol::HttpOnly),
+            "http_put" | "generic_http_put_get" | "http" => Ok(TransportProtocol::HttpPut),
             "ssh" => Ok(TransportProtocol::Ssh),
             "" => Ok(Self::default()),
             _ => Ok(Self::default()),

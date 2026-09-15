@@ -22,6 +22,7 @@ mod observe;
 mod plan;
 mod policy;
 mod port;
+mod promote;
 pub mod ports;
 mod repair;
 mod state_store;
