@@ -35,6 +35,7 @@ pub mod fleet_queue_observer;
 pub mod local_queue;
 pub mod remote_build_discovery;
 pub mod remote_cpu;
+pub mod artifact_publisher_http;
 pub mod remote_disk;
 pub mod remote_queue;
 pub mod remote_execution;
