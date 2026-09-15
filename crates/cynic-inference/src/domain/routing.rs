@@ -1,4 +1,4 @@
-use cynic_protocol::DataClassification;
+use cynic_workload::DataClassification;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferenceClass {

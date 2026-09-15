@@ -1,4 +1,4 @@
-use cynic_protocol::DataClassification;
+use cynic_workload::DataClassification;
 
 use crate::domain::backend_identity::{BackendHealthSnapshot, BackendIdentity};
 use crate::domain::routing::{RoutingConstraint, RoutingDecision, RoutingIntent};

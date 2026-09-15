@@ -202,7 +202,7 @@ mod tests {
             step_id: "step-1".into(),
             plan_digest: format!("sha256:{}", "a".repeat(64)),
             plan: Some(AgentSchedulerStepPlan {
-                schema: cynic_protocol::AGENT_SCHEDULER_STEP_PLAN_SCHEMA.into(),
+                schema: cynic_workload::AGENT_SCHEDULER_STEP_PLAN_SCHEMA.into(),
                 node_id: "node-1".into(),
                 scheduler_epoch: 1,
                 step_id: "step-1".into(),
@@ -216,7 +216,7 @@ mod tests {
                         reasons: vec!["test".into()],
                     },
                 },
-                decision: cynic_protocol::AgentSchedulerStepDecision::Idle {
+                decision: cynic_workload::AgentSchedulerStepDecision::Idle {
                     reasons: vec!["test".into()],
                 },
             }),
