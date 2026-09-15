@@ -12,12 +12,12 @@
 //! The impure parts (observation, lease verification, execution) are injected
 //! via ports so the workflow itself is unit-testable.
 
-use cynic_protocol::LeaseVerification;
 use crate::build::{
     BuildBootstrapGrant, BuildInputAdmission, BuildRecipe, BuildRunnerAdmission,
     BuildRunnerEnvelope, BuildRunnerObservation, admit_build_input, admit_build_runner,
     compose_build_runner_envelope, plan_build_runner, validate_build_recipe,
 };
+use cynic_protocol::LeaseVerification;
 use cynic_protocol::source_control::SourceSnapshot;
 
 /// Pure build workflow decision — no IO, no process spawn.
