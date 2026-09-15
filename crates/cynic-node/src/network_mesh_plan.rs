@@ -30,6 +30,9 @@ pub(crate) fn build_network_mesh_plan(
     cynic_network::generate_mesh_plan(&net_registry, provider_override)
 }
 
+/// Test/kani-only legacy engine: the live path delegates to cynic-network.
+/// Kept for the unit tests below and the kani proofs in verification.rs.
+#[cfg(any(test, kani))]
 fn build_network_mesh_plan_with_reader(
     registry_path: &str,
     provider_override: Option<&str>,
@@ -120,6 +123,7 @@ fn build_network_mesh_plan_with_reader(
     })
 }
 
+#[cfg(any(test, kani))]
 fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> String {
     let Some(policy) = policy else {
         return service_plane.to_string();
@@ -134,6 +138,7 @@ fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> String 
         .unwrap_or_else(|| "synapse".to_string())
 }
 
+#[cfg(any(test, kani))]
 fn peer_from_node(
     node: &RegistryNode,
     service_plane: &str,
@@ -178,6 +183,7 @@ fn peer_from_node(
     })
 }
 
+#[cfg(any(test, kani))]
 fn reservation_dns_by_name(policy: Option<&NetworkPolicy>) -> BTreeMap<String, Vec<String>> {
     policy
         .map(|policy| {
@@ -193,6 +199,7 @@ fn reservation_dns_by_name(policy: Option<&NetworkPolicy>) -> BTreeMap<String, V
         .unwrap_or_default()
 }
 
+#[cfg(any(test, kani))]
 fn default_dns_names(id: &str, plane: Option<&NetworkPlane>) -> Vec<String> {
     plane
         .and_then(|plane| plane.dns_zone.as_ref())

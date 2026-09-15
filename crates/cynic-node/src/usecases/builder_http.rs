@@ -35,7 +35,6 @@ use cynic_protocol::{
     SecurityEvidenceState,
     admit_agent_workload,
     admit_build_mutation,
-    digest_json,
 };
 
 use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
