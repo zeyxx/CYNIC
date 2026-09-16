@@ -1,5 +1,6 @@
 use std::{fs, process::ExitCode};
 
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::{RuntimeSeedObservation, RuntimeSeedRequest, reconcile_runtime_seed};
 
 use crate::{
@@ -10,7 +11,6 @@ use crate::{
     runtime_seed::{
         LocalRuntimeSeedActivation, RuntimeSeedActivationPort, SshRuntimeSeedSignatureVerifier,
     },
-    update_lifecycle::LocalArgvRunner,
 };
 
 pub(crate) fn execute_plan(args: &[String]) -> Result<ExitCode, String> {
