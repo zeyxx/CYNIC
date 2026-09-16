@@ -13,7 +13,6 @@ mod inference_matrix;
 mod inference_optimal;
 mod manifest;
 mod opportunities;
-mod organism_audit;
 mod surface_matrix;
 
 use audits::{
@@ -86,10 +85,6 @@ pub(crate) enum DevCommand {
         registry: Option<PathBuf>,
         #[arg(long = "name")]
         names: Vec<String>,
-    },
-    OrganismAudit {
-        #[arg(long)]
-        json: bool,
     },
     DebtAudit(AuditArgs),
     Doctor {
@@ -188,7 +183,6 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             registry,
             names,
         } => crate::fleet_divergence::run(json, registry, names),
-        DevCommand::OrganismAudit { json } => organism_audit::run(json),
         DevCommand::DebtAudit(a) => execute_debt_audit(a.json, a.output, a.persist),
         DevCommand::Doctor { json } => {
             if !json {

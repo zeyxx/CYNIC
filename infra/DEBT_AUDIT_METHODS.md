@@ -65,7 +65,7 @@ Méthode : table de 18 Tier1 avérés + 30 partial + 3 ok, tri ROI, preuves file
 ### Autres audits souverains (même méthodes)
 
 - **surface-audit / policy-formality / schema-registry / agent-exposure** : même pattern table + scan + couverture + schéma versionné.
-- **data-centric-audit / organism-audit / fleet-divergence** : lecture ledger/registry JSON + prédicats sur présence/coverage/OOM → `refuted` vs `unobservable` (unknown non fault).
+- **data-centric-audit / fleet-divergence** : lecture ledger/registry JSON + prédicats sur présence/coverage/OOM → `refuted` vs `unobservable` (unknown non fault).
 - **inference-matrix / inference-optimal** : sweep paramétrique exhaustif (context tiers, KV-quant, threads, topologies, harnesses) → ledger empirique → solveur `optimal` (balanced/latency/throughput) → export TOML. Méthode : énumération produit cartésien + mesure, pas d'heuristique.
 
 ## Garanties souveraines
