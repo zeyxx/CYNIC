@@ -156,6 +156,63 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "agent",
+                commands: vec![
+                    "cynic agent identify --agent-id <id> [--agent-kind <kind>] [--registry <path>] [--kernel-base <url>] [--json]",
+                    "cynic agent register --agent-id <id> [--intent <text>] [--registry <path>] [--kernel-base <url>] [--json]",
+                    "cynic agent claim --agent-id <id> --target <path> [--claim-type <file|crate>] [--ttl-seconds <n>] [--budget-actions <n>] [--budget-wall-seconds <n>] [--registry <path>] [--kernel-base <url>] [--json]",
+                    "cynic agent release --agent-id <id> --target <path> --lease-id <id> [--fencing-token <n>] [--proof-ref <ref>]... [--registry <path>] [--kernel-base <url>] [--json]",
+                    "cynic agent status [--agent-id <id|*>] [--registry <path>] [--kernel-base <url>] [--json]",
+                    "cynic agent session-context [--registry <path>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "node",
+                commands: vec![
+                    "cynic node status --node-id <id> [--json]",
+                    "cynic node activate --node-id <id> [--yes] [--json]",
+                    "cynic node identity-init --key-path <path> [--json]",
+                    "cynic node csr-create --node-id <id> --role <role> --key-path <path> [--json]",
+                    "cynic node cert-inspect --cert-path <path> [--json]",
+                    "cynic node cert-verify --kernel-pubkey-hex <hex> --cert-path <path> [--json]",
+                    "cynic node host-audit [--json] [--max-commits <n>]",
+                ],
+            },
+            CommandDomain {
+                name: "source",
+                commands: vec![
+                    "cynic source status [--root <path>] [--json]",
+                    "cynic source release [--root <path>] [--dry-run] [--apply] [--json]",
+                    "cynic source sync [--root <path>] [--apply] [--json]",
+                    "cynic source worktree [--root <path>] [--workspace-store <path>] [--apply] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "git",
+                commands: vec![
+                    "cynic git branch-graph [--json]",
+                    "cynic git branch-status [--root <path>] [--json]",
+                    "cynic git reconcile [--root <path>] [--json]",
+                    "cynic git hygiene [--root <path>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "judge",
+                commands: vec![
+                    "cynic judge patch --branch <name> [--root <path>] [--json]",
+                    "cynic judge runtime --subject <id> [--json]",
+                    "cynic judge digest --subject <id> [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "deps",
+                commands: vec![
+                    "cynic deps plan",
+                    "cynic deps audit",
+                    "cynic deps upgrade [--yes] [--apply --confirm <token>] [--only <id>]...",
+                ],
+            },
+            CommandDomain {
                 name: "lifecycle",
                 commands: vec![
                     "cynic lifecycle evidence <operation> [-- <operation-flags>]",
