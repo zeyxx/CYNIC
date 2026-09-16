@@ -61,6 +61,21 @@ fn validate_ssh_target(target: &str) -> Result<(), PublishError> {
     Ok(())
 }
 
+fn validate_remote_segment(segment: &str) -> Result<(), PublishError> {
+    if segment.is_empty()
+        || segment == "."
+        || segment == ".."
+        || !segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+    {
+        return Err(PublishError::Transport(
+            "invalid remote path segment".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
     fn publish(
         &self,
@@ -79,6 +94,29 @@ impl<R: ArgvRunner> ArtifactPublisher for SshArtifactPublisher<R> {
             ".cynic-releases/{}/{}",
             request.proof_sha, request.artefact_name
         );
+        let remote_dir = format!(".cynic-releases/{}", request.proof_sha);
+        let mkdir_argv = vec![
+            "ssh".to_string(),
+            "-o".to_string(),
+            "BatchMode=yes".to_string(),
+            "-o".to_string(),
+            "StrictHostKeyChecking=yes".to_string(),
+            "-o".to_string(),
+            "ConnectTimeout=10".to_string(),
+            request.target.target.clone(),
+            format!("mkdir -p {remote_dir}"),
+        ];
+        validate_ssh_target(&request.target.target)?;
+        validate_remote_segment(&request.proof_sha)?;
+        validate_remote_segment(&request.artefact_name)?;
+        let mkdir_refs: Vec<&str> = mkdir_argv.iter().map(String::as_str).collect();
+        let mkdir_out = self.runner.run(&mkdir_refs);
+        if !mkdir_out.success() {
+            return Err(PublishError::Transport(format!(
+                "ssh mkdir failed: {}",
+                mkdir_out.spawn_error.unwrap_or(mkdir_out.stderr)
+            )));
+        }
         let destination = format!("{}:{remote_path}", request.target.target);
         let argv = self.scp_argv(&request.local_path, &destination)?;
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
@@ -162,6 +200,26 @@ mod tests {
     #[test]
     fn successful_copy_reports_ssh_uri() {
         let mut runner = MapArgvRunner::default();
+        let ok = ArgvOutput {
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+            spawn_error: None,
+        };
+        runner.responses.push((
+            vec![
+                "ssh".to_string(),
+                "-o".to_string(),
+                "BatchMode=yes".to_string(),
+                "-o".to_string(),
+                "StrictHostKeyChecking=yes".to_string(),
+                "-o".to_string(),
+                "ConnectTimeout=10".to_string(),
+                "cynic@10.10.10.119".to_string(),
+                "mkdir -p .cynic-releases/abc123".to_string(),
+            ],
+            ok.clone(),
+        ));
         runner.responses.push((
             vec![
                 "scp".to_string(),
@@ -174,12 +232,7 @@ mod tests {
                 "/bin/sh".to_string(),
                 "cynic@10.10.10.119:.cynic-releases/abc123/cynic".to_string(),
             ],
-            ArgvOutput {
-                exit_code: Some(0),
-                stdout: String::new(),
-                stderr: String::new(),
-                spawn_error: None,
-            },
+            ok,
         ));
         let publisher = SshArtifactPublisher::with_runner(runner);
         let done = publisher.publish(&request()).expect("published");
@@ -188,5 +241,33 @@ mod tests {
             done.published_uri,
             "ssh://cynic@10.10.10.119:.cynic-releases/abc123/cynic"
         );
+    }
+
+    #[test]
+    fn mkdir_failure_is_transport_error() {
+        let mut runner = MapArgvRunner::default();
+        runner.responses.push((
+            vec!["ssh".to_string()],
+            ArgvOutput {
+                exit_code: Some(1),
+                stdout: String::new(),
+                stderr: "denied".to_string(),
+                spawn_error: None,
+            },
+        ));
+        let publisher = SshArtifactPublisher::with_runner(runner);
+        let err = publisher.publish(&request()).unwrap_err();
+        assert!(matches!(err, PublishError::Transport(_)));
+    }
+
+    #[test]
+    fn malicious_proof_is_rejected() {
+        let mut req = request();
+        req.proof_sha = "a; rm -rf /".to_string();
+        let publisher = SshArtifactPublisher::with_runner(MapArgvRunner::default());
+        assert!(matches!(
+            publisher.publish(&req),
+            Err(PublishError::Transport(_))
+        ));
     }
 }
