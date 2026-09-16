@@ -287,7 +287,7 @@ mod tests {
     /// Every visible top-level clap subcommand must have a manifest domain,
     /// and every domain must match a real subcommand. `operator` is the
     /// documented multi-variant family (models/doctor/errors/status);
-    /// `commands` is the manifest meta-command itself.
+    /// `commands` and `advanced` are manifest/meta help commands, not domains.
     #[test]
     fn manifest_domains_match_clap_surface() {
         let cli = Cli::command();
@@ -301,7 +301,7 @@ mod tests {
 
         let multi = ["models", "doctor", "errors", "status"];
         for name in &clap_names {
-            if name == "commands" || multi.contains(&name.as_str()) {
+            if name == "commands" || name == "advanced" || multi.contains(&name.as_str()) {
                 continue;
             }
             assert!(
