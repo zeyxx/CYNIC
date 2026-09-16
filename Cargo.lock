@@ -890,6 +890,7 @@ dependencies = [
  "cynic-build",
  "cynic-host",
  "cynic-inference",
+ "cynic-lifecycle",
  "cynic-node",
  "cynic-protocol",
  "cynic-storage",
