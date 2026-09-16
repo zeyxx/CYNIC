@@ -16,7 +16,41 @@ use crate::agent_surface::types::{
 
 use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
 
-const KERNEL_BASE: &str = "http://localhost:8080";
+/// Resolve the kernel REST base URL.
+///
+/// Precedence: explicit `--kernel-base` > `CYNIC_KERNEL_BASE` env > registry
+/// (`nodes[]` with `role == "kernel_primary"`, service `cynic-kernel`,
+/// `{scheme}://{endpoint_host}:{port}`). Returns `None` when nothing
+/// resolves — callers then use the local claims projection directly,
+/// same degraded mode as a kernel transport failure. Never hardcodes
+/// a host, IP, or port.
+pub(crate) fn resolve_kernel_base(
+    registry_path: &str,
+    override_base: Option<&str>,
+) -> Option<String> {
+    if let Some(base) = override_base.filter(|s| !s.trim().is_empty()) {
+        return Some(base.trim_end_matches('/').to_string());
+    }
+    if let Ok(env) = std::env::var("CYNIC_KERNEL_BASE") {
+        if !env.trim().is_empty() {
+            return Some(env.trim_end_matches('/').to_string());
+        }
+    }
+    let content = std::fs::read_to_string(registry_path).ok()?;
+    let doc: Value = serde_json::from_str(&content).ok()?;
+    let nodes = doc.get("nodes")?.as_array()?;
+    let node = nodes
+        .iter()
+        .find(|n| n.get("role").and_then(|r| r.as_str()) == Some("kernel_primary"))?;
+    let services = node.get("services")?.as_array()?;
+    let svc = services
+        .iter()
+        .find(|s| s.get("name").and_then(|n| n.as_str()) == Some("cynic-kernel"))?;
+    let scheme = svc.get("scheme").and_then(|s| s.as_str()).unwrap_or("http");
+    let host = svc.get("endpoint_host")?.as_str()?;
+    let port = svc.get("port").and_then(|p| p.as_u64())?;
+    Some(format!("{scheme}://{host}:{port}"))
+}
 
 fn now_unix_ms() -> u64 {
     SystemTime::now()
@@ -29,10 +63,16 @@ fn now_unix_ms() -> u64 {
 pub(crate) fn execute_identify(
     agent_id: &str,
     agent_kind: Option<&str>,
+    kernel_base: Option<&str>,
 ) -> Result<AgentIdentifyReport, String> {
-    let client = reqwest::blocking::Client::new();
+    let Some(base) = kernel_base else {
+        return Err(
+            "kernel unreachable: no kernel base resolved (registry or --kernel-base)".to_string(),
+        );
+    };
+    let client = kernel_client();
     let resp = client
-        .post(format!("{}/coord/identify", KERNEL_BASE))
+        .post(format!("{base}/coord/identify"))
         .json(&serde_json::json!({
             "agent_id": agent_id,
             "agent_kind": agent_kind,
@@ -73,10 +113,19 @@ pub(crate) fn execute_identify(
 }
 
 /// Register agent with kernel.
-pub(crate) fn execute_register(agent_id: &str, intent: &str) -> Result<(), String> {
-    let client = reqwest::blocking::Client::new();
+pub(crate) fn execute_register(
+    agent_id: &str,
+    intent: &str,
+    kernel_base: Option<&str>,
+) -> Result<(), String> {
+    let Some(base) = kernel_base else {
+        return Err(
+            "kernel unreachable: no kernel base resolved (registry or --kernel-base)".to_string(),
+        );
+    };
+    let client = kernel_client();
     let resp = client
-        .post(format!("{}/coord/register", KERNEL_BASE))
+        .post(format!("{base}/coord/register"))
         .json(&serde_json::json!({
             "agent_id": agent_id,
             "intent": intent,
@@ -105,10 +154,24 @@ pub(crate) fn execute_claim(
     ttl_seconds: Option<u64>,
     budget_actions: Option<u64>,
     budget_wall_seconds: Option<u64>,
+    kernel_base: Option<&str>,
 ) -> Result<AgentClaimReport, String> {
+    let claim_local = || {
+        execute_claim_local(
+            agent_id,
+            target,
+            claim_type,
+            ttl_seconds,
+            budget_actions,
+            budget_wall_seconds,
+        )
+    };
+    let Some(base) = kernel_base else {
+        return claim_local();
+    };
     let client = kernel_client();
     let resp = match client
-        .post(format!("{}/coord/claim", KERNEL_BASE))
+        .post(format!("{base}/coord/claim"))
         .json(&serde_json::json!({
             "agent_id": agent_id,
             "target": target,
@@ -121,14 +184,7 @@ pub(crate) fn execute_claim(
     {
         Ok(resp) => resp,
         Err(_) => {
-            return execute_claim_local(
-                agent_id,
-                target,
-                claim_type,
-                ttl_seconds,
-                budget_actions,
-                budget_wall_seconds,
-            );
+            return claim_local();
         }
     };
 
@@ -189,10 +245,14 @@ pub(crate) fn execute_release(
     lease_id: &str,
     fencing_token: u64,
     proof_refs: Vec<String>,
+    kernel_base: Option<&str>,
 ) -> Result<AgentReleaseReport, String> {
+    let Some(base) = kernel_base else {
+        return execute_release_local(agent_id, target, lease_id, proof_refs);
+    };
     let client = kernel_client();
     let resp = match client
-        .post(format!("{}/coord/release", KERNEL_BASE))
+        .post(format!("{base}/coord/release"))
         .json(&serde_json::json!({
             "agent_id": agent_id,
             "target": target,
@@ -512,13 +572,19 @@ fn execute_release_local(
 }
 
 /// Query active claims status.
-pub(crate) fn execute_status(agent_id: &str) -> Result<AgentStatusReport, String> {
+pub(crate) fn execute_status(
+    agent_id: &str,
+    kernel_base: Option<&str>,
+) -> Result<AgentStatusReport, String> {
+    let Some(base) = kernel_base else {
+        return execute_status_from_claims_file(agent_id);
+    };
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(300))
         .build()
         .unwrap_or_default();
     let resp = client
-        .get(format!("{}/coord/who?agent_id={}", KERNEL_BASE, agent_id))
+        .get(format!("{base}/coord/who?agent_id={agent_id}"))
         .send();
 
     if resp.is_err() {

@@ -16,6 +16,7 @@ use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
     execute_claim, execute_identify, execute_register, execute_release, execute_status,
+    resolve_kernel_base,
 };
 use self::intent::{IntentCommand, execute_intent};
 
@@ -35,6 +36,12 @@ pub(crate) enum AgentCommand {
         /// Agent kind (hermes, codex, claude, cynic, human_admin)
         #[arg(long)]
         agent_kind: Option<String>,
+        /// Registry path used to resolve the kernel REST base.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
+        #[arg(long)]
+        kernel_base: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -47,6 +54,12 @@ pub(crate) enum AgentCommand {
         /// Registration intent (objective statement)
         #[arg(long, default_value = "sovereign-agent-session")]
         intent: String,
+        /// Registry path used to resolve the kernel REST base.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
+        #[arg(long)]
+        kernel_base: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -71,6 +84,12 @@ pub(crate) enum AgentCommand {
         /// Wall-time budget (seconds)
         #[arg(long, default_value = "3600")]
         budget_wall_seconds: Option<u64>,
+        /// Registry path used to resolve the kernel REST base.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
+        #[arg(long)]
+        kernel_base: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -93,6 +112,12 @@ pub(crate) enum AgentCommand {
         /// Proof references (evidence of completed work)
         #[arg(long)]
         proof_ref: Vec<String>,
+        /// Registry path used to resolve the kernel REST base.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
+        #[arg(long)]
+        kernel_base: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -102,6 +127,12 @@ pub(crate) enum AgentCommand {
         /// Agent ID (defaults to all active claims when omitted)
         #[arg(long, env = "CYNIC_AGENT_ID", default_value = "*")]
         agent_id: String,
+        /// Registry path used to resolve the kernel REST base.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+        /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
+        #[arg(long)]
+        kernel_base: Option<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -129,8 +160,14 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
         AgentCommand::Identify {
             agent_id,
             agent_kind,
+            registry,
+            kernel_base,
             json: _,
-        } => match execute_identify(&agent_id, agent_kind.as_deref()) {
+        } => match execute_identify(
+            &agent_id,
+            agent_kind.as_deref(),
+            resolve_kernel_base(&registry, kernel_base.as_deref()).as_deref(),
+        ) {
             Ok(report) => {
                 emit_pretty_json(&report);
                 ExitCode::SUCCESS
@@ -143,8 +180,14 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
         AgentCommand::Register {
             agent_id,
             intent,
+            registry,
+            kernel_base,
             json: _,
-        } => match execute_register(&agent_id, &intent) {
+        } => match execute_register(
+            &agent_id,
+            &intent,
+            resolve_kernel_base(&registry, kernel_base.as_deref()).as_deref(),
+        ) {
             Ok(()) => {
                 let report = serde_json::json!({
                     "schema": "cynic.cli.agent_register_report.v1",
@@ -166,6 +209,8 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             ttl_seconds,
             budget_actions,
             budget_wall_seconds,
+            registry,
+            kernel_base,
             json: _,
         } => match execute_claim(
             &agent_id,
@@ -174,6 +219,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             ttl_seconds,
             budget_actions,
             budget_wall_seconds,
+            resolve_kernel_base(&registry, kernel_base.as_deref()).as_deref(),
         ) {
             Ok(report) => {
                 emit_pretty_json(&report);
@@ -190,8 +236,17 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             lease_id,
             fencing_token,
             proof_ref,
+            registry,
+            kernel_base,
             json: _,
-        } => match execute_release(&agent_id, &target, &lease_id, fencing_token, proof_ref) {
+        } => match execute_release(
+            &agent_id,
+            &target,
+            &lease_id,
+            fencing_token,
+            proof_ref,
+            resolve_kernel_base(&registry, kernel_base.as_deref()).as_deref(),
+        ) {
             Ok(report) => {
                 emit_pretty_json(&report);
                 ExitCode::SUCCESS
@@ -201,7 +256,15 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::Status { agent_id, json: _ } => match execute_status(&agent_id) {
+        AgentCommand::Status {
+            agent_id,
+            registry,
+            kernel_base,
+            json: _,
+        } => match execute_status(
+            &agent_id,
+            resolve_kernel_base(&registry, kernel_base.as_deref()).as_deref(),
+        ) {
             Ok(report) => {
                 emit_pretty_json(&report);
                 ExitCode::SUCCESS
