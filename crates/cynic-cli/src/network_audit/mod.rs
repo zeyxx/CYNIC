@@ -6,7 +6,7 @@ mod scan;
 mod types;
 
 pub use scan::build_network_audit;
-pub use render::render_text;
+pub(crate) use render::render_text;
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkAuditCommand {
