@@ -4,7 +4,7 @@ use cynic_host::runtime_layout::current_runtime_layout;
 
 #[derive(Parser)]
 #[command(name = "cynic-node", about = "CYNIC inference backend supervisor")]
-pub(crate) struct Cli {
+pub struct Cli {
     /// Path to node config file
     #[arg(short, long)]
     pub config: Option<String>,
@@ -18,7 +18,7 @@ pub(crate) struct Cli {
 }
 
 #[derive(Subcommand)]
-pub(crate) enum Commands {
+pub enum Commands {
     /// Observe or create the node-local Ed25519 identity used for machine enrollment.
     NodeIdentity {
         /// Registry-bound node identity whose private key remains local.

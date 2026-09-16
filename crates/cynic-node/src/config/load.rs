@@ -16,7 +16,7 @@ pub(crate) fn derive_models_url(base_url: &str) -> String {
     format!("{trimmed}/models")
 }
 
-pub(crate) fn load(path: &str) -> Result<Config, String> {
+pub fn load(path: &str) -> Result<Config, String> {
     let raw =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
 

@@ -22,7 +22,7 @@ use lifecycle::run_lifecycle;
 /// `ExitCode::FAILURE` on unrecoverable errors.
 ///
 /// Owns the config so it can be reloaded from disk on model mismatch (L2 auto-heal).
-pub(crate) async fn run_node(
+pub async fn run_node(
     client: &Client,
     config_path: &str,
     cfg: Config,

@@ -4,7 +4,7 @@ mod load;
 mod types;
 
 #[allow(unused_imports)]
-pub(crate) use load::*;
+pub use load::*;
 pub use types::*;
 
 /// Canonical fallback repository id for build surfaces that lack an explicit

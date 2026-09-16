@@ -22,7 +22,7 @@ use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;
 
-pub(crate) async fn execute(config_path: &str) -> ExitCode {
+pub async fn execute(config_path: &str) -> ExitCode {
     let cfg = match config::load_watchdog(config_path) {
         Ok(config) => config,
         Err(error) => {

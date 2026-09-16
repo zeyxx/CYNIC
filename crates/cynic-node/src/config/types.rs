@@ -5,18 +5,18 @@ use std::path::PathBuf;
 use super::defaults;
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct Config {
-    pub(crate) kernel: KernelConfig,
-    pub(crate) dog: DogConfig,
-    pub(crate) process: ProcessConfig,
+pub struct Config {
+    pub kernel: KernelConfig,
+    pub dog: DogConfig,
+    pub process: ProcessConfig,
     #[serde(default)]
-    pub(crate) restart: RestartConfig,
+    pub restart: RestartConfig,
     #[serde(default)]
-    pub(crate) health: HealthConfig,
+    pub health: HealthConfig,
     #[serde(default)]
-    pub(crate) federation: Option<FederationConfig>,
+    pub federation: Option<FederationConfig>,
     #[serde(default)]
-    pub(crate) node_control: Option<NodeControlConfig>,
+    pub node_control: Option<NodeControlConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -206,18 +206,18 @@ impl Default for RestartConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct HealthConfig {
+#[derive(Debug, Clone, Deserialize)]
+pub struct HealthConfig {
     #[serde(default = "defaults::default_health_interval_secs")]
-    pub(crate) interval_secs: u64,
+    pub interval_secs: u64,
     #[serde(default = "defaults::default_verify_interval_secs")]
-    pub(crate) verify_interval_secs: u64,
+    pub verify_interval_secs: u64,
     #[serde(default = "defaults::default_health_timeout_secs")]
-    pub(crate) timeout_secs: u64,
+    pub timeout_secs: u64,
     #[serde(default = "defaults::default_max_failures")]
-    pub(crate) max_failures: u32,
+    pub max_failures: u32,
     #[serde(default = "defaults::default_startup_timeout_secs")]
-    pub(crate) startup_timeout_secs: u64,
+    pub startup_timeout_secs: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
