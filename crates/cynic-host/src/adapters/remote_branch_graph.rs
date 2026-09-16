@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::branch_graph::port::{BranchGraphObservationError, BranchGraphObservationPort};
 use crate::domain::branch_graph::probe::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::branch_graph::BranchGraph;
 
 pub struct RemoteBranchGraphAdapter<R: ArgvRunner> {
@@ -94,7 +94,7 @@ impl<R: ArgvRunner> cynic_protocol::branch_graph::BranchObservationPort for Remo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
     use std::sync::Arc;
 
     fn ok(stdout: &str) -> ArgvOutput {

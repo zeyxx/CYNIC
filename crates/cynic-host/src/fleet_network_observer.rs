@@ -15,7 +15,7 @@ use crate::adapters::local_network::LocalNetworkAdapter;
 use crate::adapters::remote_network::RemoteNetworkAdapter;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
 
 use cynic_protocol::network::{
@@ -302,7 +302,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     fn registry_json(ip: &str) -> String {
         format!(

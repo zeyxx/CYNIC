@@ -9,7 +9,7 @@ use crate::domain::network::{
     NetworkObservationPort, PhysicalInterface, parse_addr_from_json, parse_pressure_from_dev,
     parse_route_from_json, parse_usage_from_dev,
 };
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 pub struct RemoteNetworkAdapter<R: ArgvRunner> {
     runner: R,
@@ -157,7 +157,7 @@ impl<R: ArgvRunner + Clone> NetworkObservationPort for RemoteNetworkAdapter<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     fn stub_ssh(stdout: &str) -> MapArgvRunner {
         MapArgvRunner {

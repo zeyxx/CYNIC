@@ -7,7 +7,7 @@
 
 use serde::Serialize;
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeTakeoverActivationPlan {
@@ -230,7 +230,7 @@ mod tests {
             },
         )
         .expect("plan");
-        let runner = crate::update_lifecycle::MapArgvRunner {
+        let runner = cynic_lifecycle::MapArgvRunner {
             responses: vec![
                 (plan.stop_standby_argv.clone(), success_output("")),
                 (plan.start_active_argv.clone(), success_output("")),
@@ -249,8 +249,8 @@ mod tests {
         assert_eq!(report.status, "activated_proved");
     }
 
-    fn success_output(stdout: &str) -> crate::update_lifecycle::ArgvOutput {
-        crate::update_lifecycle::ArgvOutput {
+    fn success_output(stdout: &str) -> cynic_lifecycle::ArgvOutput {
+        cynic_lifecycle::ArgvOutput {
             exit_code: Some(0),
             stdout: stdout.to_string(),
             stderr: String::new(),

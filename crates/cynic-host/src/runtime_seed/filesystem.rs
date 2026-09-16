@@ -11,7 +11,7 @@ use cynic_protocol::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::{
     RELEASE_MARKER, RELEASE_MARKER_SCHEMA, RuntimeSeedReleaseMarker,

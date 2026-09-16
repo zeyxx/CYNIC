@@ -3,7 +3,7 @@ use std::process::ExitCode;
 use cynic_host::kernel_proof_persistence::{CurlKernelProofHistoryAdapter, KernelProofHistoryPort};
 use cynic_host::runtime_network_preflight::observe_runtime_network_preflight;
 use cynic_host::runtime_network_preflight::to_host_proof_submission;
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 
 use crate::emit_json;
 

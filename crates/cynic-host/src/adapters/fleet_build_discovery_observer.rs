@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use cynic_build::build_discovery::BuildDiscoveryReport;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 pub const FLEET_BUILD_DISCOVERY_SCHEMA: &str = "cynic.fleet_build_discovery.v1";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag="outcome", rename_all="snake_case")]

@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::SOURCE_MATERIALIZATION_FORMAT;
 
 use crate::{
@@ -204,7 +204,7 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> SourceMateriali
 
 #[cfg(test)]
 mod tests {
-    use cynic_host::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
     use sha2::{Digest, Sha256};
 
     use super::*;

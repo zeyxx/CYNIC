@@ -6,7 +6,7 @@ use cynic_host::ports::NodeSubstrateObservationPort;
 use cynic_host::registry::{
     resolve_node_substrate_desired_state, resolve_provider_control_transport,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 
 use crate::{emit_json, fail};
 

@@ -16,7 +16,7 @@
 use cynic_protocol::AgentHostDesired;
 use serde_json::Value;
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
 
@@ -346,7 +346,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshAgentHostObserver<'a, R> {
         Ok(Self { runner, ssh_target })
     }
 
-    fn pvesh(&self, args: &[String]) -> Result<crate::update_lifecycle::ArgvOutput, String> {
+    fn pvesh(&self, args: &[String]) -> Result<cynic_lifecycle::ArgvOutput, String> {
         let mut argv = vec![
             "ssh".to_string(),
             "-o".to_string(),
@@ -590,7 +590,7 @@ impl<R: ArgvRunner> AgentHostObservationPort for ProxmoxSshAgentHostObserver<'_,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, ArgvRunner};
     use cynic_protocol::{AgentHostDesired, agent_host_sandbox::AgentHostHarness};
 
     // ---- Mock runner -------------------------------------------------------

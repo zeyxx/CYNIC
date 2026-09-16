@@ -25,7 +25,7 @@ pub struct TunnelSupervisor {
 impl TunnelSupervisor {
     pub fn new(
         config: KernelTunnelConfig,
-        runner: std::sync::Arc<dyn crate::update_lifecycle::ArgvRunner + Send + Sync>,
+        runner: std::sync::Arc<dyn cynic_lifecycle::ArgvRunner + Send + Sync>,
         interval_secs: u64,
         max_failures: u32,
     ) -> Self {
@@ -86,7 +86,7 @@ impl TunnelSupervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
     use std::path::PathBuf;
     use std::sync::Arc;
 
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn supervisor_observes_initial_unhealthy() {
-        let runner: Arc<dyn crate::update_lifecycle::ArgvRunner + Send + Sync> =
+        let runner: Arc<dyn cynic_lifecycle::ArgvRunner + Send + Sync> =
             Arc::new(MapArgvRunner { responses: vec![] });
         let sup = TunnelSupervisor::new(fake_config(), runner, 1, 3);
         let health = sup.observe();
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn supervisor_stops_loop() {
-        let runner: Arc<dyn crate::update_lifecycle::ArgvRunner + Send + Sync> =
+        let runner: Arc<dyn cynic_lifecycle::ArgvRunner + Send + Sync> =
             Arc::new(MapArgvRunner { responses: vec![] });
         let sup = TunnelSupervisor::new(fake_config(), runner, 1, 3);
         sup.stop();

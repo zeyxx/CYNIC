@@ -18,7 +18,7 @@ use crate::domain::cpu::port::CpuObservationPort;
 use crate::domain::cpu::{FleetCpuNode, FleetCpuReport};
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 const FLEET_CPU_SCHEMA: &str = "cynic.fleet_cpu.v1";
 
@@ -181,7 +181,7 @@ impl<R: ArgvRunner> FleetCpuObserver<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     const SAMPLE_CPUINFO: &str = "\
 processor\t: 0

@@ -9,7 +9,7 @@ use cynic_host::runtime_takeover_activation::{
     RuntimeTakeoverActivationReport, apply_runtime_takeover_activation,
     plan_runtime_takeover_activation,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::decide_runtime_takeover;
 use tokio_util::sync::CancellationToken;
 

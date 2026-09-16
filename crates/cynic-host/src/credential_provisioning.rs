@@ -145,7 +145,7 @@ pub fn scan_unprovisioned_enrollment_transports(
 pub fn provision_ssh_credential(
     transport: &EnrollmentTransport,
     secrets_dir: &Path,
-    runner: &dyn crate::update_lifecycle::ArgvRunner,
+    runner: &dyn cynic_lifecycle::ArgvRunner,
 ) -> Result<CredentialProvisionProof, String> {
     let key_path = secrets_dir.join(&transport.credential_ref);
 

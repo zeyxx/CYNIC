@@ -21,7 +21,7 @@ use chrono::{DateTime, Utc};
 
 use crate::domain::disk::probe::parse_df_filesystems;
 use crate::domain::disk::{DiskCleanupPlan, DiskObservationPort, DiskReport};
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use std::sync::Arc;
 
@@ -111,7 +111,7 @@ impl<R: ArgvRunner> DiskObservationPort for RemoteDiskAdapter<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     /// Sample `df -h --output=...` stdout (Linux) returning two real + one tmpfs.
     const SAMPLE_DF: &str = "\

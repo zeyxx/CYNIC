@@ -10,7 +10,7 @@ use chrono::Utc;
 
 use crate::domain::cpu::port::{CpuObservationError, CpuObservationPort};
 use crate::domain::cpu::{CpuReport, CpuUsage, parse_cpuinfo, parse_pressure_cpu, parse_stat};
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 /// SSH remote CPU adapter. Generic over the argv runner for testability.
 pub struct RemoteCpuAdapter<R: ArgvRunner> {

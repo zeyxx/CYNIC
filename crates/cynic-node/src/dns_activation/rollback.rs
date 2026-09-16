@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::filesystem::{Backup, rollback_files_and_directories};
 use super::types::{DnsActivationObservation, DnsActivationSpec};

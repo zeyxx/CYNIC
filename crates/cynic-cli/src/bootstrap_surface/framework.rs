@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::framework_bootstrap;
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 
 use crate::fs_json::write_pretty_json_file;
 use crate::{emit_json, fail};

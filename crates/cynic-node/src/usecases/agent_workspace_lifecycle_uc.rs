@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_workload::{
     AgentWorkspaceLifecycleDecision,
     reconcile_agent_workspace_lifecycle,

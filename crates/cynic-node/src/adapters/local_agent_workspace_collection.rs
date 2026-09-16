@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_workload::{
     AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
     AgentWorkspaceLifecycleDecision,
@@ -213,7 +213,7 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> AgentWorkspaceP
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_host::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
     use cynic_workload::AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA;
 
     #[test]

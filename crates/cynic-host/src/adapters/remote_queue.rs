@@ -13,7 +13,7 @@ use crate::domain::branch_graph::probe::{enrich_with_parents, parse_git_for_each
 use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 pub struct RemoteQueueAdapter<R: ArgvRunner> {
     runner: Arc<R>,

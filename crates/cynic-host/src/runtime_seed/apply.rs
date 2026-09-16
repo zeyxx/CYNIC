@@ -4,7 +4,7 @@ use cynic_protocol::{
     RuntimeSeedAction, RuntimeSeedRequest, SecurityEvidenceState, reconcile_runtime_seed,
 };
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::{
     RuntimeSeedApplyReport,

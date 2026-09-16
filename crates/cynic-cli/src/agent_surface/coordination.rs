@@ -47,6 +47,9 @@ pub(crate) fn resolve_kernel_base(
         .iter()
         .find(|s| s.get("name").and_then(|n| n.as_str()) == Some("cynic-kernel"))?;
     let scheme = svc.get("scheme").and_then(|s| s.as_str()).unwrap_or("http");
+    if scheme != "http" && scheme != "https" {
+        return None;
+    }
     let host = svc.get("endpoint_host")?.as_str()?;
     let port = svc.get("port").and_then(|p| p.as_u64())?;
     Some(format!("{scheme}://{host}:{port}"))
@@ -346,6 +349,20 @@ fn now_unix_s() -> u64 {
 }
 
 fn claims_file_path() -> std::path::PathBuf {
+    // Anchor to the enclosing git worktree so a claim from a subdirectory
+    // lands in the same projection as every other agent. Fall back to the
+    // cwd when outside git (explicit unknown, same file name).
+    if let Ok(output) = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        if output.status.success() {
+            let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !root.is_empty() {
+                return std::path::PathBuf::from(root).join(".agent-claims.json");
+            }
+        }
+    }
     std::path::PathBuf::from(".agent-claims.json")
 }
 
@@ -792,10 +809,8 @@ mod tests {
     use super::*;
 
     fn fixture_registry() -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "cynic-agent-resolve-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("cynic-agent-resolve-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("registry.json");
         std::fs::write(

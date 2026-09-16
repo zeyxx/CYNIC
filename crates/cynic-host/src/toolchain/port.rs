@@ -13,7 +13,7 @@ use crate::toolchain::observe::{
 use crate::toolchain::policy::{ToolchainDecision, reconcile_toolchain};
 use crate::toolchain::proof::{ToolchainProof, ToolchainProofWriter};
 use crate::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

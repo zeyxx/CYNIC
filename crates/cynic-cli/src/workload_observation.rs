@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use cynic_host::build_runner_harness::registry::read_registry;
-use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_node::adapters::local_agent_workload_store::LocalAgentWorkloadStore;
 use cynic_node::ports::agent_workload_store_port::AgentWorkloadStorePort;
 use cynic_workload::DurableAgentWorkloadRecord;

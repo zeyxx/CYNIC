@@ -5,7 +5,7 @@ use cynic_protocol::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 pub trait BuildRunnerObservationPort {
     fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String>;
@@ -164,7 +164,7 @@ mod tests {
     use cynic_protocol::LEASE_VERIFICATION_SCHEMA;
 
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     #[test]
     fn live_verifier_rejects_response_for_another_guard() {

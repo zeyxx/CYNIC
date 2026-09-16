@@ -3,7 +3,7 @@ use cynic_protocol::{
     runtime_compatibility::runtime_compatibility_actions,
 };
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::types::{MCP_RUNTIME_OBSERVATION_SCHEMA, McpRuntimeObservation};
 
@@ -74,7 +74,7 @@ pub fn observe_mcp_runtime(binary: &str, runner: &dyn ArgvRunner) -> McpRuntimeO
 mod tests {
     use cynic_protocol::{RUNTIME_COMPATIBILITY_PLAN_SCHEMA, RuntimeCompatibilityStatus};
 
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     use super::observe_mcp_runtime;
 

@@ -1,4 +1,4 @@
-use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use cynic_protocol::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 
 use crate::ports::storage_guest_port::{StorageGuestObservationPort, StorageGuestTarget};
@@ -134,7 +134,7 @@ fn parse_df_output(stdout: &str) -> (Option<u64>, Option<u64>) {
 #[cfg(test)]
 mod tests {
     use super::{parse_df_output, parse_service_active};
-    use cynic_host::update_lifecycle::ArgvOutput;
+    use cynic_lifecycle::ArgvOutput;
 
     #[test]
     fn parses_machine_readable_df() {

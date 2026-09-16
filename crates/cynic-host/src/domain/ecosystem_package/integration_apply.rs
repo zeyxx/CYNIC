@@ -3,7 +3,7 @@ use crate::execution::{
     HostExecutionPlan, HostExecutionPlanReport, HostExecutionStep, HostExecutionStepExecution,
     command_to_argv, host_execution_plan_from_commands,
 };
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 use super::integration_decision::{IntegrationDecisionSurface, decide_integration_action};
 use super::integration_port::IntegrationObservationPort;
@@ -268,7 +268,7 @@ mod tests {
         ConnectionState, IntegrationObservationPort, IntegrationPrincipal, IntegrationSpec,
         RawIntegrationObservation, integration_recipe::HF_INSTALL_URL,
     };
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     struct FakePort {
         observations: Vec<BTreeMap<&'static str, RawIntegrationObservation>>,

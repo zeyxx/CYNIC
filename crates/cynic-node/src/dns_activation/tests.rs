@@ -1,4 +1,4 @@
-use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
 use super::apply::root_authority_blocker;
 use super::decision::plan_dns_activation;

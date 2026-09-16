@@ -20,7 +20,7 @@ use crate::adapters::remote_build_artefact::RemoteBuildArtefactAdapter;
 use crate::domain::build_artefact::port::BuildArtefactObservationPort;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 fn poll_budget_ms() -> u64 {
     std::env::var("CYNIC_POLL_BUDGET_MS")

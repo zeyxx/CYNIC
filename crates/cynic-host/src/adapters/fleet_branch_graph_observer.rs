@@ -8,7 +8,7 @@ use cynic_protocol::branch_graph::BranchGraph;
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 pub const FLEET_BRANCH_GRAPH_SCHEMA: &str = "cynic.fleet_branch_graph.v1";
 

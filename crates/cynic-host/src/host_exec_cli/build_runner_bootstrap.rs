@@ -28,7 +28,7 @@ use crate::framework_bootstrap::build_runner::{
 };
 use crate::one_shot_authority::{LocalOneShotCapabilityAuthority, OneShotCapabilityAuthorityPort};
 use crate::toolchain::ToolchainLifecycle;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 use super::{args, io};
 

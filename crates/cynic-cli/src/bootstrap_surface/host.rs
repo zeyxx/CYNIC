@@ -16,7 +16,7 @@ use cynic_host::registry::{
 use cynic_host::runtime_layout::current_runtime_layout;
 use cynic_host::runtime_proof;
 use cynic_host::service_supervisor_observation::{self, SupervisorProvider};
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_host::usecases::{
     build_host_apply_report_with_resolution, build_host_bundle_with_resolution,
     execute_admitted_service_apply, execute_host_apply, observe_host_with_resolution,

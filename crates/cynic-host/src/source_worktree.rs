@@ -13,7 +13,7 @@ use crate::source_control::{SourceWorktreeObservation, observe_source_worktree};
 use crate::source_lease::SourceLeaseVerifier;
 #[cfg(test)]
 use crate::source_lease::UnavailableSourceLeaseVerifier;
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 pub const SOURCE_WORKTREE_REPORT_SCHEMA: &str = "cynic.host.source_worktree_report.v1";
 
@@ -185,7 +185,7 @@ fn report(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     struct Verified;
     impl SourceLeaseVerifier for Verified {

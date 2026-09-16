@@ -6,7 +6,7 @@
 //! (`infra/agent-exposure.json` plus the protocol projection types). A spawn
 //! failure is returned as-is, never upgraded into a success.
 
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 
 /// Execution port for one MCP tool call over the local CLI surface.
 pub trait McpToolPort {

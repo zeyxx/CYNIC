@@ -15,7 +15,7 @@ use serde::Serialize;
 use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;
 use crate::source_lease::SourceLeaseVerifier;
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 
 pub const SOURCE_CONTROL_PROOF_SCHEMA: &str = "cynic.host.source_control_proof.v1";
 

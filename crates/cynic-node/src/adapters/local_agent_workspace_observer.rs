@@ -3,7 +3,7 @@ use std::{
     path::{Component, Path},
 };
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_workload::{
     AGENT_WORKSPACE_OBSERVATION_SCHEMA,
     AgentWorkspaceClaimObservation,

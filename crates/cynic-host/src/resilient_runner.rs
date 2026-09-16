@@ -16,7 +16,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 
 /// Circuit breaker state machine — pure observation, no hidden mutation.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -227,7 +227,7 @@ impl<R: ArgvRunner> ArgvRunner for ResilientArgvRunner<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
     use std::sync::Arc;
 
     /// Fake runner: fails N times then succeeds.

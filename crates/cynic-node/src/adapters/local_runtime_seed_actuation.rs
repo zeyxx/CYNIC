@@ -5,7 +5,7 @@ use cynic_host::{
         RuntimeSeedApplyReport, SshRuntimeSeedSignatureVerifier, apply_runtime_seed,
         persist_runtime_seed_evidence,
     },
-    update_lifecycle::LocalArgvRunner,
+    cynic_lifecycle::LocalArgvRunner,
 };
 use cynic_protocol::RuntimeSeedRequest;
 

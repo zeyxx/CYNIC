@@ -6,7 +6,7 @@ use cynic_protocol::storage_topology::{
     StorageTopologyReport,
 };
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use super::probe::{
     StorageClientPolicyObservationPort, StorageTopologyObservationPort, storage_topology_report,

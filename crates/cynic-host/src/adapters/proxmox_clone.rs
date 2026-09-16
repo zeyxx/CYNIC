@@ -1,4 +1,4 @@
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use serde::{Deserialize, Serialize};
 
 pub const LXC_CLONE_OBSERVATION_SCHEMA: &str = "cynic.lxc_clone.observation.v1";
@@ -153,7 +153,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
     use std::collections::HashMap;
 
     #[test]

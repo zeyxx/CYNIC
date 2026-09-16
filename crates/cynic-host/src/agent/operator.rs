@@ -9,7 +9,7 @@
 //! The LLM is a tool, never the authority. The agent decides what to ask,
 //! whether to use the response, and when to escalate.
 
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::llm_port::*;
 
 /// Operator agent that observes and acts on the organism.
@@ -121,7 +121,7 @@ impl<R: ArgvRunner> OperatorAgentPort for OperatorAgent<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
 
     struct FakeLlm {
         response: String,
@@ -160,7 +160,7 @@ mod tests {
             responses: vec![
                 (
                     vec!["git".to_string(), "branch".to_string(), "--show-current".to_string()],
-                    crate::update_lifecycle::ArgvOutput {
+                    cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "main".to_string(),
                         stderr: String::new(),
@@ -169,7 +169,7 @@ mod tests {
                 ),
                 (
                     vec!["git".to_string(), "status".to_string(), "--short".to_string()],
-                    crate::update_lifecycle::ArgvOutput {
+                    cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: " M file.rs".to_string(),
                         stderr: String::new(),
@@ -178,7 +178,7 @@ mod tests {
                 ),
                 (
                     vec!["git".to_string(), "log".to_string(), "--oneline".to_string(), "-5".to_string()],
-                    crate::update_lifecycle::ArgvOutput {
+                    cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "abc123 commit 1\ndef456 commit 2".to_string(),
                         stderr: String::new(),

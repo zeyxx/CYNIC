@@ -7,7 +7,7 @@ use std::sync::Arc;
 use cynic_host::adapters::local_build_discovery::LocalBuildDiscoveryAdapter;
 use cynic_host::adapters::remote_build_discovery::RemoteBuildDiscoveryAdapter;
 use cynic_host::domain::build_discovery::port::BuildDiscoveryObservationPort;
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 
 use crate::cli_json::emit_pretty_json;
 use crate::emit_json;

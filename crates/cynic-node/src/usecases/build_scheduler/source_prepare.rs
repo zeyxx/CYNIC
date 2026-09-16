@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_build::{
     BUILD_SOURCE_REFERENCE_SCHEMA,
     BuildSourceReference,

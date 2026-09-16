@@ -1,4 +1,4 @@
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use crate::{
     adapters::agent_access::observe_linux_uid, runtime_authority::default_runtime_authority_paths,
 };
@@ -453,7 +453,7 @@ fn first_line(output: &str) -> String {
         .collect()
 }
 
-fn command_reason(output: &crate::update_lifecycle::ArgvOutput, label: &str) -> String {
+fn command_reason(output: &cynic_lifecycle::ArgvOutput, label: &str) -> String {
     if output.success() {
         format!("{label}_command_observed")
     } else if let Some(error) = &output.spawn_error {
@@ -466,7 +466,7 @@ fn command_reason(output: &crate::update_lifecycle::ArgvOutput, label: &str) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     #[test]
     fn mercury_status_failure_degrades_without_promoting_execution() {

@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_build::build_discovery::BuildDiscoveryReport;
 
 pub struct RemoteBuildDiscoveryAdapter<R: ArgvRunner> {
@@ -74,7 +74,7 @@ impl<R: ArgvRunner> BuildDiscoveryObservationPort for RemoteBuildDiscoveryAdapte
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     fn ok_out(stdout: &str) -> ArgvOutput {
         ArgvOutput {

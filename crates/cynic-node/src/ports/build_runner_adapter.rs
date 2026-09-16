@@ -13,7 +13,7 @@ use cynic_build::build::canonical_argv_from_build_action;
 
 /// Minimal argv command runner (no shell composition).
 ///
-/// Mirrors the `ArgvRunner` pattern from `cynic-host::update_lifecycle::port`,
+/// Mirrors the `ArgvRunner` pattern from `cynic-lifecycle::port`,
 /// kept local here so `cynic-node` does not depend on `cynic-host`.
 pub trait CommandRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> CommandOutput;
@@ -66,7 +66,7 @@ impl CommandRunner for LocalCommandRunner {
 }
 
 /// Observe mode (tranche 2): same contract as
-/// `cynic-host::update_lifecycle::port::observe_argv` — pure verdict from
+/// `cynic-lifecycle::port::observe_argv` — pure verdict from
 /// `cynic-protocol::argv_allow`, best-effort JSONL append, never blocks
 /// execution. Duplicated here (not shared) because `cynic-node` must not
 /// depend on `cynic-host`; the verdict function is the single source.

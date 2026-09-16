@@ -6,7 +6,7 @@
 //!   apply() -> CleanupProof (via ArgvRunner SSH)
 
 use cynic_protocol::cleanup::*;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 pub struct CleanupAgent<R: ArgvRunner> {
     runner: R,
@@ -136,20 +136,20 @@ fn infer_target_kind(path: &str) -> CleanupTargetKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
 
     fn fake_runner() -> MapArgvRunner {
         MapArgvRunner {
             responses: vec![
                 (vec!["ssh".to_string(), "cynic-builder-ssh".to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
-                 crate::update_lifecycle::ArgvOutput {
+                 cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "Filesystem                        Size  Used  Avail Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   40G   38G     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,
                  }),
                 (vec!["ssh".to_string(), "cynic-builder-ssh".to_string(), "du".to_string(), "-sh".to_string(), "/var/lib/cynic/checkouts/*".to_string()],
-                 crate::update_lifecycle::ArgvOutput {
+                 cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "2.5G\t/var/lib/cynic/checkouts/abc123\n402M\t/var/lib/cynic/checkouts/def456".to_string(),
                      stderr: String::new(),

@@ -19,7 +19,7 @@ use crate::domain::memory::port::MemoryObservationPort;
 use crate::domain::memory::{FleetMemoryNode, FleetMemoryReport};
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 const FLEET_MEMORY_SCHEMA: &str = "cynic.fleet_memory.v1";
 
@@ -178,7 +178,7 @@ impl<R: ArgvRunner> FleetMemoryObserver<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     const SAMPLE_MEMINFO: &str = "\
 MemTotal:       16383756 kB

@@ -15,7 +15,7 @@ use cynic_host::agent_host::{
     AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
     plan_agent_host_vm,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_node::adapters::proxmox_control::ProxmoxControlAdapter;
 use cynic_protocol::AgentHostDesired;
 

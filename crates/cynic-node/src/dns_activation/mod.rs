@@ -20,7 +20,7 @@ pub(crate) fn apply_dns_activation_value(
     serde_json::to_value(apply_dns_activation(
         &spec,
         yes,
-        &cynic_host::update_lifecycle::LocalArgvRunner,
+        &cynic_lifecycle::LocalArgvRunner,
     ))
     .map_err(|error| format!("DNS activation apply serialization failed: {error}"))
 }

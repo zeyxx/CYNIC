@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use cynic_host::{
     mcp_runtime::{MCP_RUNTIME_OBSERVATION_SCHEMA, McpRuntimeObservation, observe_mcp_runtime},
-    update_lifecycle::LocalArgvRunner,
+    cynic_lifecycle::LocalArgvRunner,
 };
 use cynic_protocol::{
     RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeProof, RuntimeProofBundle,

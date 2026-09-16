@@ -5,7 +5,7 @@ use cynic_protocol::{
 };
 
 use crate::ports::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 pub struct ProxmoxSshSubstrateAdapter<'a, R: ArgvRunner> {
     runner: &'a R,
@@ -44,7 +44,7 @@ impl<'a, R: ArgvRunner> ProxmoxSshSubstrateAdapter<'a, R> {
         Ok((kind, id))
     }
 
-    fn pvesh(&self, args: &[String]) -> Result<crate::update_lifecycle::ArgvOutput, String> {
+    fn pvesh(&self, args: &[String]) -> Result<cynic_lifecycle::ArgvOutput, String> {
         let mut argv = vec![
             "ssh".to_string(),
             "-o".to_string(),

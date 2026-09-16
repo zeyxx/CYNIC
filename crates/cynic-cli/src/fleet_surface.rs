@@ -229,7 +229,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter = cynic_host::fleet_disk_observer::FleetDiskObserver::with_runner(
                 registry_path.to_string_lossy().to_string(),
-                cynic_host::update_lifecycle::LocalArgvRunner,
+                cynic_lifecycle::LocalArgvRunner,
             )
             .with_ssh_target(ssh_target);
             let report = adapter.observe();
@@ -247,7 +247,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter = cynic_host::fleet_memory_observer::FleetMemoryObserver::with_runner(
                 registry_path.to_string_lossy().to_string(),
-                cynic_host::update_lifecycle::LocalArgvRunner,
+                cynic_lifecycle::LocalArgvRunner,
             )
             .with_ssh_target(ssh_target);
             let report = adapter.observe();
@@ -265,7 +265,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter = cynic_host::fleet_cpu_observer::FleetCpuObserver::with_runner(
                 registry_path.to_string_lossy().to_string(),
-                cynic_host::update_lifecycle::LocalArgvRunner,
+                cynic_lifecycle::LocalArgvRunner,
             )
             .with_ssh_target(ssh_target);
             let report = adapter.observe();
@@ -283,7 +283,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 resolve_runtime_paths(&RuntimeContext::from_env(registry)).registry_path;
             let adapter = cynic_host::fleet_network_observer::FleetNetworkObserver::with_runner(
                 registry_path.to_string_lossy().to_string(),
-                cynic_host::update_lifecycle::LocalArgvRunner,
+                cynic_lifecycle::LocalArgvRunner,
             )
             .with_ssh_target(ssh_target);
             let report = adapter.observe();
@@ -302,7 +302,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
             let adapter =
                 cynic_host::fleet_build_artefact_observer::FleetBuildArtefactObserver::with_runner(
                     registry_path.to_string_lossy().to_string(),
-                    cynic_host::update_lifecycle::LocalArgvRunner,
+                    cynic_lifecycle::LocalArgvRunner,
                 )
                 .with_ssh_target(ssh_target);
             let report = adapter.observe();

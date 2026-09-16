@@ -13,7 +13,7 @@ use cynic_host::network_actuation::{
     gate_network_actuation_harness, gate_network_actuation_request,
 };
 use cynic_host::runtime_harness::{RuntimeHarnessContext, RuntimeHarnessTargetAttestation};
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 use crate::adapters::qemu_guest_agent_network_runner::{
     QemuGuestAgentNetworkObserver, QemuGuestAgentNetworkRunner,
@@ -84,7 +84,7 @@ mod tests {
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };
-    use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, ArgvRunner};
     use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 
     use super::{QemuNetworkActuationConfig, execute_qemu_network_actuation};

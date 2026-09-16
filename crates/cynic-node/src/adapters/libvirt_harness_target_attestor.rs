@@ -2,7 +2,7 @@ use cynic_host::runtime_harness::{
     RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessContext,
     RuntimeHarnessTargetAttestation,
 };
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use sha2::{Digest, Sha256};
 
 const TARGET_ATTESTATION_TTL_MS: u64 = 5 * 60 * 1_000;
@@ -130,7 +130,7 @@ fn observe_transport(
     target_id: &str,
     transport: &str,
     transport_target: &str,
-) -> Option<cynic_host::update_lifecycle::ArgvOutput> {
+) -> Option<cynic_lifecycle::ArgvOutput> {
     if transport != "qemu-guest-agent" || transport_target != target_id {
         return None;
     }
@@ -144,7 +144,7 @@ fn observe_transport(
     ]))
 }
 
-fn qga_ping_succeeded(output: &cynic_host::update_lifecycle::ArgvOutput) -> bool {
+fn qga_ping_succeeded(output: &cynic_lifecycle::ArgvOutput) -> bool {
     output.success()
         && serde_json::from_str::<serde_json::Value>(&output.stdout)
             .ok()
@@ -162,7 +162,7 @@ mod tests {
     use cynic_host::runtime_harness::{
         closed_local_lab_context, validate_runtime_harness_target_attestation,
     };
-    use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
     use super::LibvirtHarnessTargetAttestor;
     use crate::ports::harness_target_attestation_port::{

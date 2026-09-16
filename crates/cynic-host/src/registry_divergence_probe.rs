@@ -13,7 +13,7 @@
 
 use cynic_protocol::registry_claim_audit::{ClaimKind, ClaimObservation, NameObservation};
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 /// A claim to check, extracted from the registry by the caller.
 #[derive(Debug, Clone)]
@@ -253,7 +253,7 @@ pub fn probe_service_binding(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
     use cynic_protocol::registry_claim_audit::{ClaimVerdict, judge_claim, judge_name};
 
     fn ok(stdout: &str) -> ArgvOutput {

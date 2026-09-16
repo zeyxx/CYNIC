@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::{
     SourceMaterializationAction, SourceMaterializationObservation, SourceMaterializationPlan,
     SourceMaterializationRequest, plan_source_materialization,
@@ -161,7 +161,7 @@ pub fn execute_source_materialization(
     }
 }
 
-fn execute_action<R: cynic_host::update_lifecycle::ArgvRunner>(
+fn execute_action<R: cynic_lifecycle::ArgvRunner>(
     acquisition: &dyn SourceSnapshotAcquisitionPort,
     adapter: &LocalSourceMaterialization<'_, R>,
     request: &SourceMaterializationRequest,

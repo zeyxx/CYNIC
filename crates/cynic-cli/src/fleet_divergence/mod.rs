@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use cynic_host::registry_divergence_probe::{
     assemble_name_observation, probe_address_reachable, resolve_name_here,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::registry_claim_audit::{
     ClaimKind, ClaimVerdict, NameVerdict, claim_to_signal_payload, compare_declarative_sources,
     judge_claim, judge_name, name_to_signal_payload, summarize_claims,

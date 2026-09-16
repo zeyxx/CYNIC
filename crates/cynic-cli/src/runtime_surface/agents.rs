@@ -8,7 +8,7 @@ use cynic_host::{
         observe_agent_runtimes, observe_linux_process_identity, plan_runtime_adoption,
     },
     runtime_authority::default_runtime_authority_paths,
-    update_lifecycle::LocalArgvRunner,
+    cynic_lifecycle::LocalArgvRunner,
 };
 use cynic_inference::{HermesGatewayService, HermesGatewayState};
 

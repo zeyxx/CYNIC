@@ -5,7 +5,7 @@ use std::sync::Arc;
 use cynic_protocol::storage_topology::StorageTopologyObserved;
 
 use super::probe::StorageTopologyObservationPort;
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use std::time::Instant;
 
 pub struct RemoteStorageTopologyAdapter<R: ArgvRunner> {

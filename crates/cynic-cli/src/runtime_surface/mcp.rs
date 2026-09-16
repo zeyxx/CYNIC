@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_host::{mcp_runtime::observe_mcp_runtime, update_lifecycle::LocalArgvRunner};
+use cynic_host::{mcp_runtime::observe_mcp_runtime, cynic_lifecycle::LocalArgvRunner};
 
 use crate::emit_json;
 

@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_workload::AgentWorkspaceRequest;
 
 use crate::ports::agent_workspace_port::{

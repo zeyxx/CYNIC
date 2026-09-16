@@ -17,7 +17,7 @@ use crate::{
         SourceMaterializationPort, SourceMaterializationPortError,
     },
 };
-use cynic_host::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
     SecurityEvidenceState, SourceMaterializationObservation, SourceMaterializationRequest,
@@ -358,7 +358,7 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> SourceMateriali
 
 #[cfg(test)]
 mod tests {
-    use cynic_host::update_lifecycle::MapArgvRunner;
+    use cynic_lifecycle::MapArgvRunner;
     use cynic_protocol::{SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA};
 
     use super::*;

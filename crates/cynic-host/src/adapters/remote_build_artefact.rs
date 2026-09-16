@@ -14,7 +14,7 @@ use crate::domain::build_artefact::port::BuildArtefactObservationPort;
 use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
 use crate::domain::build_artefact::{BuildArtefactGcPlan, BuildArtefactReport};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 use cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
 use cynic_protocol::disk::bytes_to_human;
 
@@ -159,7 +159,7 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
     use std::sync::Arc;
 
     fn runner_with(map: Vec<(Vec<String>, ArgvOutput)>) -> MapArgvRunner {

@@ -11,7 +11,7 @@ use cynic_protocol::{
     TransportKind, TransportReadback, TransportState, parse_wg_dump,
 };
 
-use crate::update_lifecycle::ArgvRunner;
+use cynic_lifecycle::ArgvRunner;
 
 /// Declared desired peer of one node on the overlay (registry projection).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -132,7 +132,7 @@ impl<'a> WgReadbackObserver<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::update_lifecycle::ArgvOutput;
+    use cynic_lifecycle::ArgvOutput;
 
     const DUMP: &str = "\
 wg0\t0000\t51820\toff

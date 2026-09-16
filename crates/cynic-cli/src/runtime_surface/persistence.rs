@@ -3,7 +3,7 @@ use std::process::ExitCode;
 use cynic_host::kernel_proof_persistence::{
     CurlKernelProofPersistenceAdapter, KernelProofPersistencePort,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::RuntimeProofPersistenceRecord;
 
 use crate::cli_json::emit_pretty_json;

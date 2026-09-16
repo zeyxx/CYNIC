@@ -14,7 +14,7 @@ use cynic_host::agent_runtime::{
 use cynic_host::runtime_authority::default_runtime_authority_paths;
 use cynic_host::toolchain::observe::ToolchainObservationPort;
 use cynic_host::toolchain::{ToolchainLifecycle, ToolchainLifecycleReport};
-use cynic_host::update_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 
 use crate::{emit_json, fail};
 

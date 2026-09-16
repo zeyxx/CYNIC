@@ -127,7 +127,6 @@ pub mod tmux_session_supervision;
 pub mod toolchain;
 pub mod transport;
 pub mod tunnel_supervisor;
-pub mod update_lifecycle;
 pub mod usecases;
 pub mod vertical_conformance;
 pub mod wireguard_readback;

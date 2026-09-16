@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use cynic_host::{
     adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
-    update_lifecycle::LocalArgvRunner,
+    cynic_lifecycle::LocalArgvRunner,
 };
 use cynic_workload::{
     parse_source_change_submission_input,

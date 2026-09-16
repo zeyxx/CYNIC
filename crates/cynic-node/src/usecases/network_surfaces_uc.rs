@@ -33,7 +33,7 @@ use crate::usecases::network_actuation_target_uc::{
     QemuNetworkActuationConfig, execute_qemu_network_actuation,
 };
 use cynic_host::runtime_harness::runtime_harness_catalog;
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 
 pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));

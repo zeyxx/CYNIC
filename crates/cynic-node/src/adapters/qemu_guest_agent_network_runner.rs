@@ -9,7 +9,7 @@ use cynic_host::runtime_harness::{
     RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
     validate_runtime_harness_target_attestation,
 };
-use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use serde_json::{Value, json};
 
 use crate::domain::network_execution::NetworkExecutionBoundary;
@@ -320,7 +320,7 @@ mod tests {
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context,
     };
-    use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
+    use cynic_lifecycle::{ArgvOutput, ArgvRunner};
     use serde_json::Value;
 
     use cynic_host::network_actuation::{
