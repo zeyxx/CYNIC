@@ -6,7 +6,7 @@ use super::{
     apply_machine_enrollment_authority, observe_machine_enrollment_authority,
     plan_machine_enrollment_authority, resolve_machine_enrollment_authority_spec,
 };
-use crate::machine_enrollment::MachineEnrollmentAuthoritySpec;
+use crate::framework_bootstrap::machine_enrollment::MachineEnrollmentAuthoritySpec;
 
 fn spec(root: &std::path::Path) -> MachineEnrollmentAuthoritySpec {
     let metadata = std::fs::metadata(root).expect("temp metadata");

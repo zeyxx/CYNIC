@@ -4,7 +4,7 @@ use std::os::unix::fs::MetadataExt;
 use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
 use super::{apply_runtime_binding, observe_runtime_binding, plan_runtime_binding};
-use crate::runtime_binding::types::RuntimeBindingSpec;
+use crate::framework_bootstrap::runtime_binding::types::RuntimeBindingSpec;
 
 fn spec(root: &std::path::Path, port: u16) -> RuntimeBindingSpec {
     let metadata = std::fs::metadata(root).expect("metadata");
