@@ -119,6 +119,7 @@ pub(super) async fn publish(
                 "cynic-node".to_string(),
             ],
             requires_privilege: false,
+            publication: None,
         };
         let spec_path =
             std::path::Path::new(&config.work_root).join("active-kernel-release-spec.json");
