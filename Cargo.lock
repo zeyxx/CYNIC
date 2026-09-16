@@ -1167,7 +1167,6 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "blake3",
- "cynic-host",
  "cynic-intel",
  "cynic-protocol",
  "env_logger",
@@ -1178,6 +1177,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "sysinfo 0.39.6",
  "tempfile",
  "tokio",
  "tokio-tungstenite 0.30.0",

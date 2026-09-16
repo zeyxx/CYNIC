@@ -40,7 +40,7 @@ impl WriteAheadLog {
     pub fn append(
         &mut self,
         record: &WalRecord,
-        metabolic_state: &cynic_host::ports::metabolism::MetabolicState,
+        metabolic_state: &cynic_protocol::capacity::MetabolicState,
     ) -> io::Result<()> {
         let mut json = serde_json::to_string(record)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -49,7 +49,7 @@ impl WriteAheadLog {
         self.file.write_all(json.as_bytes())?;
 
         // Logique adaptative: fsync si ressources suffisantes, asynchrone si survie
-        use cynic_host::ports::metabolism::MetabolicState;
+        use cynic_protocol::capacity::MetabolicState;
         match metabolic_state {
             MetabolicState::HighPerformance | MetabolicState::Standard => {
                 self.file.sync_data()?;
@@ -92,7 +92,7 @@ impl WriteAheadLog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_host::ports::metabolism::MetabolicState;
+    use cynic_protocol::capacity::MetabolicState;
     use tempfile::NamedTempFile;
 
     #[test]

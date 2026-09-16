@@ -92,7 +92,7 @@ pub async fn run_server(
                 crate::watcher::WSS_RECONNECTIONS.load(std::sync::atomic::Ordering::Relaxed);
 
             // 4. Dimension Métabolisme Système
-            use cynic_host::ports::metabolism::{MetabolismProvider, OsMetabolism};
+            use crate::metabolism::{MetabolismProvider, OsMetabolism};
             let mut metabolism = OsMetabolism::new();
             let metabolic_state = format!("{:?}", metabolism.current_state());
 

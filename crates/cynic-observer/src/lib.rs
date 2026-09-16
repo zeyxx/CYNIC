@@ -5,7 +5,9 @@ pub mod dashboard;
 pub mod delegation;
 pub mod domain;
 pub mod federation;
+pub mod metabolism;
 pub mod parser;
+pub mod runner;
 pub mod signal_mapper;
 pub mod solana_archive;
 pub mod source;
@@ -15,7 +17,7 @@ pub mod watcher;
 pub use buffer::*;
 pub use domain::*;
 use serde::{Deserialize, Serialize};
-pub use solana_archive::{plan_fanout_request, FanoutPlanRequest, HeliusPlan};
+pub use solana_archive::{FanoutPlanRequest, HeliusPlan, plan_fanout_request};
 pub use source::*;
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).

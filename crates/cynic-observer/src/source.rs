@@ -8,11 +8,11 @@
 //! - Inference
 //! - Social/Offchain
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::metabolism::{MetabolismProvider, OsMetabolism};
 use async_trait::async_trait;
-use cynic_host::ports::metabolism::{MetabolismProvider, OsMetabolism};
 
 use crate::domain::UniversalObserverEvent;
 

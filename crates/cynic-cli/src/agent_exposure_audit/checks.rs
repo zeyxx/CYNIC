@@ -34,7 +34,7 @@ pub(crate) fn finding(
 }
 
 pub(crate) fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    crate::rust_source::workspace_root()
 }
 
 pub(crate) fn check_no_machine_local_paths(

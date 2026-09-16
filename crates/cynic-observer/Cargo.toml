@@ -15,7 +15,7 @@ rustls = { version = "0.23.42", features = ["ring"] }
 async-trait = "0.1"
 # Optionnel pour la fédération P2P plus tard:
 # libp2p = { version = "0.52", features = ["tokio", "gossipsub", "tcp", "noise", "yamux"] }
-cynic-host = { path = "../cynic-host" }
+sysinfo = "0.39.6"
 blake3 = "1.8.5"
 libp2p = { version = "0.56.0", features = ["tokio", "gossipsub", "tcp", "noise", "yamux", "mdns", "macros", "kad"] }
 cynic-intel = { path = "../cynic-intel" }
