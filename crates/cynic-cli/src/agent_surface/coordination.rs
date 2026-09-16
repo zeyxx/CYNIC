@@ -109,9 +109,16 @@ pub(crate) fn execute_identify(
     kernel_base: Option<&str>,
 ) -> Result<AgentIdentifyReport, String> {
     let Some(base) = kernel_base else {
-        return Err(
-            "kernel unreachable: no kernel base resolved (registry or --kernel-base)".to_string(),
-        );
+        // No kernel reachable or resolvable: self-attested local identity.
+        // credential_kind marks the absence of kernel attestation explicitly.
+        return Ok(AgentIdentifyReport {
+            schema: AGENT_IDENTIFY_REPORT_SCHEMA,
+            status: "identified",
+            agent_id: agent_id.to_string(),
+            agent_kind: agent_kind.unwrap_or("external").to_string(),
+            credential_kind: "local_unattested".to_string(),
+            attested_at_unix_ms: now_unix_ms(),
+        });
     };
     let client = kernel_client();
     let resp = client

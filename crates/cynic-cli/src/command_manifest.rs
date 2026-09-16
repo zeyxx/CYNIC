@@ -81,14 +81,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime inference-hf-suggest --json [--category chat] [--limit N]",
                     "cynic runtime inference-hf-download <repo> --json [--alias NAME] [--include <glob>]... [--no-profile] [--cache-only]",
                     "cynic runtime inference-plan <alias> --json [--apply]",
-                    "cynic deps [--json]",
-                    "cynic deps plan [--json]",
-                    "cynic deps audit [--json]",
-                    "cynic deps upgrade [--yes] [--json] [--apply --confirm <token>] [--only <id>]...",
-                    "cynic update [<target>] [--json]",
-                    "cynic status [--json]",
-                    "cynic runtime deps [--json]  # alias",
-                    "cynic runtime deps-audit [--json]  # alias",
+                    "cynic runtime deps [--json]  # alias of cynic deps",
+                    "cynic runtime deps-plan [--json]  # alias of cynic deps plan",
+                    "cynic runtime deps-audit [--json]  # alias of cynic deps audit",
+                    "cynic runtime deps-upgrade [--json]  # alias of cynic deps upgrade",
                 ],
             },
             CommandDomain {
@@ -213,6 +209,39 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "session",
+                commands: vec!["cynic session observe [--json]"],
+            },
+            CommandDomain {
+                name: "update",
+                commands: vec!["cynic update [<target>] [--json]"],
+            },
+            CommandDomain {
+                name: "task",
+                commands: vec![
+                    "cynic task push --domain <d> --title <t> --queue-path <path> [--priority <p>] [--payload <json>] [--agent <id>] [--json]",
+                    "cynic task list --domain <d> --status <s> --queue-path <path> [--json]",
+                    "cynic task claim --domain <d> --agent <id> --queue-path <path> [--json]",
+                    "cynic task complete --task-id <id> --agent <id> --queue-path <path> [--evidence <ref>] [--json]",
+                    "cynic task fail --task-id <id> --reason <text> --queue-path <path> [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "federation",
+                commands: vec!["cynic federation status [--json]"],
+            },
+            CommandDomain {
+                name: "mask",
+                commands: vec![
+                    "cynic mask forge --report <path> [--source <path>] [--json] [--yes]",
+                    "cynic mask start [--alias <name>] [--json] [--yes]",
+                ],
+            },
+            CommandDomain {
+                name: "queue",
+                commands: vec!["cynic queue [--json] [--apply]"],
+            },
+            CommandDomain {
                 name: "lifecycle",
                 commands: vec![
                     "cynic lifecycle evidence <operation> [-- <operation-flags>]",
@@ -246,5 +275,46 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Cli;
+    use clap::CommandFactory;
+
+    /// Every visible top-level clap subcommand must have a manifest domain,
+    /// and every domain must match a real subcommand. `operator` is the
+    /// documented multi-variant family (models/doctor/errors/status);
+    /// `commands` is the manifest meta-command itself.
+    #[test]
+    fn manifest_domains_match_clap_surface() {
+        let cli = Cli::command();
+        let clap_names: Vec<String> = cli
+            .get_subcommands()
+            .filter(|s| !s.is_hide_set())
+            .map(|s| s.get_name().to_string())
+            .collect();
+        let manifest = commands_manifest();
+        let domains: Vec<&str> = manifest.domains.iter().map(|d| d.name).collect();
+
+        let multi = ["models", "doctor", "errors", "status"];
+        for name in &clap_names {
+            if name == "commands" || multi.contains(&name.as_str()) {
+                continue;
+            }
+            assert!(
+                domains.contains(&name.as_str()),
+                "clap subcommand `cynic {name}` has no manifest domain"
+            );
+        }
+        assert!(domains.contains(&"operator"), "operator domain missing");
+        for domain in &domains {
+            assert!(
+                clap_names.iter().any(|n| n == domain) || *domain == "operator",
+                "manifest domain `{domain}` matches no clap subcommand"
+            );
+        }
     }
 }
