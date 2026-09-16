@@ -118,3 +118,43 @@ pub struct RuntimeArtifactReleaseEvent {
     pub prev_hash: String,
     pub hash: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn legacy_spec() -> serde_json::Value {
+        serde_json::json!({
+            "schema": "cynic.runtime_artifact_release.spec.v1",
+            "node_id": "n",
+            "phase": "conformance",
+            "service_id": "s",
+            "identity_schema": "i",
+            "artifact": {
+                "id": "a", "path": "/tmp/a", "executable_name": "a",
+                "sha256": "b", "version": "0.2.0", "git_sha": "c"
+            },
+            "install_root": "/var/lib/cynic",
+            "identity_url": "http://127.0.0.1:9090/identity",
+            "restart_argv": ["systemctl", "restart"],
+            "requires_privilege": false
+        })
+    }
+
+    #[test]
+    fn legacy_spec_without_publication_stays_local_only() {
+        let spec: RuntimeArtifactReleaseSpec =
+            serde_json::from_value(legacy_spec()).expect("legacy spec parses");
+        assert!(spec.publication.is_none());
+    }
+
+    #[test]
+    fn publication_protocol_defaults_to_http_put() {
+        let mut raw = legacy_spec();
+        raw["publication"] = serde_json::json!({"node": "synapse", "endpoint": ""});
+        let spec: RuntimeArtifactReleaseSpec =
+            serde_json::from_value(raw).expect("spec with publication parses");
+        let target = spec.publication.expect("target");
+        assert_eq!(target.protocol, "http_put");
+    }
+}

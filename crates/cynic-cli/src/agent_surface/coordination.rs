@@ -786,3 +786,73 @@ fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, 
         total_claims: total,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fixture_registry() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "cynic-agent-resolve-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("registry.json");
+        std::fs::write(
+            &path,
+            serde_json::json!({
+                "nodes": [
+                    {
+                        "id": "k",
+                        "role": "kernel_primary",
+                        "services": [
+                            {"name": "cynic-kernel", "scheme": "http",
+                             "endpoint_host": "192.168.100.2", "port": 3030}
+                        ]
+                    },
+                    {
+                        "id": "b",
+                        "role": "build_runner",
+                        "services": [{"name": "cynic-node", "endpoint_host": "10.10.10.119"}]
+                    }
+                ],
+                "provider_control": {"endpoint": "https://pve.synapse.cynic:8006"}
+            })
+            .to_string(),
+        )
+        .expect("fixture");
+        path
+    }
+
+    #[test]
+    fn kernel_base_resolves_from_registry() {
+        let path = fixture_registry();
+        let base = resolve_kernel_base(path.to_str().unwrap(), None).expect("base");
+        assert_eq!(base, "http://192.168.100.2:3030");
+    }
+
+    #[test]
+    fn explicit_override_wins_over_registry() {
+        let path = fixture_registry();
+        let base = resolve_kernel_base(path.to_str().unwrap(), Some("http://127.0.0.1:9999/"))
+            .expect("base");
+        assert_eq!(base, "http://127.0.0.1:9999");
+    }
+
+    #[test]
+    fn missing_registry_yields_none() {
+        assert!(resolve_kernel_base("/nonexistent/registry.json", None).is_none());
+    }
+
+    #[test]
+    fn builder_endpoint_resolves_from_registry() {
+        let path = fixture_registry();
+        let host = resolve_builder_endpoint(path.to_str().unwrap()).expect("host");
+        assert_eq!(host, "10.10.10.119");
+    }
+
+    #[test]
+    fn git_remote_never_empty() {
+        assert!(!resolve_git_remote().is_empty());
+    }
+}
