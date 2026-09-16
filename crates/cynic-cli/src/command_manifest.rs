@@ -299,7 +299,7 @@ mod tests {
         let manifest = commands_manifest();
         let domains: Vec<&str> = manifest.domains.iter().map(|d| d.name).collect();
 
-        let multi = ["models", "doctor", "errors", "status"];
+        let multi = ["models", "doctor", "errors", "status", "version"];
         for name in &clap_names {
             if name == "commands" || name == "advanced" || multi.contains(&name.as_str()) {
                 continue;
