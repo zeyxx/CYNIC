@@ -5,10 +5,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cynic_host::{
-    adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
-    cynic_lifecycle::LocalArgvRunner,
-};
+use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+use cynic_lifecycle::LocalArgvRunner;
 
 use crate::{
     adapters::{
