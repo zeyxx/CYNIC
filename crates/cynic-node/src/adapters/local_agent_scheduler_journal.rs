@@ -8,8 +8,8 @@ use std::{
 use std::os::unix::fs::OpenOptionsExt;
 
 use cynic_workload::{
-    AGENT_SCHEDULER_JOURNAL_RECORD_SCHEMA, AgentSchedulerJournalRecord,
-    AgentSchedulerJournalStatus, validate_agent_scheduler_journal_record,
+    AgentSchedulerJournalRecord, AgentSchedulerJournalStatus,
+    validate_agent_scheduler_journal_record,
 };
 
 use crate::ports::{
