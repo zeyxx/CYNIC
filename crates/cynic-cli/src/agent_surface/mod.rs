@@ -16,7 +16,7 @@ use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
     execute_claim, execute_identify, execute_register, execute_release, execute_status,
-    resolve_kernel_base,
+    resolve_builder_endpoint, resolve_git_remote, resolve_kernel_base,
 };
 use self::intent::{IntentCommand, execute_intent};
 
@@ -142,6 +142,9 @@ pub(crate) enum AgentCommand {
         /// Print JSON output (default true)
         #[arg(long, default_value = "true")]
         json: bool,
+        /// Registry path used to resolve the builder endpoint.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
     },
     /// Seal or verify intent transmission records (nested arm, no new top level)
     Intent {
@@ -274,15 +277,15 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::SessionContext { json: _ } => {
+        AgentCommand::SessionContext { json: _, registry } => {
             let report = serde_json::json!({
                 "schema": "cynic.agent.session_context.v1",
                 "status": "observed",
                 "git_sha": env!("CYNIC_GIT_SHA"),
                 "version": env!("CARGO_PKG_VERSION"),
                 "canonical_service_plane": "synapse",
-                "builder": "10.10.10.119",
-                "git_remote": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+                "builder": resolve_builder_endpoint(&registry).unwrap_or("unknown".to_string()),
+                "git_remote": resolve_git_remote(),
                 "active_claims_file": ".agent-claims.json",
             });
             emit_pretty_json(&report);

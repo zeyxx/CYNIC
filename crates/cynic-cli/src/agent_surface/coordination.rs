@@ -52,6 +52,46 @@ pub(crate) fn resolve_kernel_base(
     Some(format!("{scheme}://{host}:{port}"))
 }
 
+/// Resolve the build-runner endpoint host from the registry.
+///
+/// Reads `nodes[]` with `role == "build_runner"`, first service
+/// `endpoint_host`. Returns `None` when the registry is unreadable —
+/// callers report `unknown`, never a hardcoded IP.
+pub(crate) fn resolve_builder_endpoint(registry_path: &str) -> Option<String> {
+    let content = std::fs::read_to_string(registry_path).ok()?;
+    let doc: Value = serde_json::from_str(&content).ok()?;
+    let nodes = doc.get("nodes")?.as_array()?;
+    let node = nodes
+        .iter()
+        .find(|n| n.get("role").and_then(|r| r.as_str()) == Some("build_runner"))?;
+    let services = node.get("services")?.as_array()?;
+    let host = services
+        .iter()
+        .filter_map(|s| s.get("endpoint_host").and_then(|h| h.as_str()))
+        .find(|h| !h.trim().is_empty())?;
+    Some(host.to_string())
+}
+
+/// Resolve the git remote from the live repository.
+///
+/// Runs `git remote get-url origin`; returns `"unknown"` when git is
+/// unavailable or has no origin — never a hardcoded URL.
+pub(crate) fn resolve_git_remote() -> String {
+    std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .unwrap_or("unknown".to_string())
+}
+
 fn now_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
