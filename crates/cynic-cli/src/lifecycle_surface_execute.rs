@@ -7,6 +7,7 @@ use crate::lifecycle_surface_render::{
     print_apply_human, print_gate_human, print_kernel_release_human, print_ops_human,
     print_plan_human, print_promote_human, print_repair_human, print_status_human,
 };
+use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
 use cynic_lifecycle::{
     ApplyReport, KernelReleaseReport, RepairReport, apply_phase, ops_report, plan_report, promote,
     reconcile_kernel_release, repair_apply, repair_plan, run_gates, status_report,
@@ -180,23 +181,38 @@ fn publish_after_release(spec_path: &str, registry: &str) -> ExitCode {
         .as_ref()
         .map(|t| t.endpoint.clone())
         .unwrap_or_default();
-    let publisher =
-        cynic_host::adapters::artifact_publisher_http::HttpArtifactPublisher::new(&http_target);
-    match cynic_lifecycle::kernel_release::publish_released_artifact(
+    let request = match cynic_lifecycle::kernel_release::publication_request_for(
         &spec,
         proof_sha,
         &http_target,
         &ssh_target,
-        &publisher,
     ) {
-        Ok(Some(published)) => {
-            println!(
-                "published {} -> {}",
-                published.proof_sha, published.published_uri
-            );
+        Some(request) => request,
+        None => return ExitCode::SUCCESS,
+    };
+    // Primary channel is HTTP PUT; SSH is strictly a fallback, used only
+    // when the spec declares protocol ssh.
+    let published = match request.target.protocol {
+        cynic_lifecycle::domain::artifact_publication::TransportProtocol::Ssh => {
+            let publisher =
+                cynic_host::adapters::artifact_publisher_ssh::SshArtifactPublisher::with_runner(
+                    cynic_lifecycle::LocalArgvRunner,
+                );
+            publisher.publish(&request)
+        }
+        _ => {
+            let publisher =
+                cynic_host::adapters::artifact_publisher_http::HttpArtifactPublisher::new(
+                    &http_target,
+                );
+            publisher.publish(&request)
+        }
+    };
+    match published {
+        Ok(done) => {
+            println!("published {} -> {}", done.proof_sha, done.published_uri);
             ExitCode::SUCCESS
         }
-        Ok(None) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("release publication failed: {error}");
             ExitCode::FAILURE
