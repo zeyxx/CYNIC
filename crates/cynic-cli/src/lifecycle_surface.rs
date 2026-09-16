@@ -1,7 +1,7 @@
-//! Update lifecycle CLI — thin adapter over cynic-host::update_lifecycle.
+//! Update lifecycle CLI — thin adapter over cynic-lifecycle.
 //!
-//! Business logic, policy tables, and observation live in the host crate.
-//! This surface only: clap parse → inject LocalArgvRunner → print.
+//! Business logic, policy tables, and observation live in the cynic-lifecycle
+//! crate. This surface only: clap parse → inject LocalArgvRunner → print.
 //!
 //! ```text
 //! cynic lifecycle status|plan|gate|promote
@@ -13,16 +13,9 @@
 
 use std::process::ExitCode;
 
-use crate::cli_exit::{success_if_status, success_if_status_in};
-use crate::cli_json::emit_pretty_json;
-use crate::lifecycle_surface_context::{runner, state_path};
 use crate::lifecycle_surface_execute::{
     execute_apply, execute_evidence, execute_gate, execute_kernel_release, execute_plan,
     execute_promote, execute_repair, execute_report, execute_status,
-};
-use crate::lifecycle_surface_render::{
-    print_apply_human, print_gate_human, print_kernel_release_human, print_ops_human,
-    print_plan_human, print_promote_human, print_repair_human, print_status_human,
 };
 use clap::Subcommand;
 
@@ -113,7 +106,6 @@ pub(crate) enum LifecycleCommand {
 }
 
 pub(crate) fn execute_lifecycle(command: LifecycleCommand) -> ExitCode {
-    lifecycle_surface_contract_smoke();
     match command {
         LifecycleCommand::Evidence { args } => execute_evidence(args),
         LifecycleCommand::Status { json, state } => execute_status(json, state),
@@ -137,27 +129,3 @@ pub(crate) fn execute_lifecycle(command: LifecycleCommand) -> ExitCode {
     }
 }
 
-fn lifecycle_surface_contract_smoke() {
-    struct ReportProbe {
-        status: &'static str,
-    }
-
-    let report = ReportProbe { status: "blocked" };
-    let code = success_if_status_in(&report.status, &["ok", "planned"], ExitCode::SUCCESS);
-    let _ = success_if_status_in(&report.status, &["ok", "planned"], code);
-    let _ = success_if_status(&report.status, "ok", code);
-    let _emit_pretty_json: fn(&serde_json::Value) -> ExitCode = emit_pretty_json;
-    let _ = (
-        _emit_pretty_json,
-        runner,
-        state_path,
-        print_status_human,
-        print_plan_human,
-        print_gate_human,
-        print_promote_human,
-        print_ops_human,
-        print_repair_human,
-        print_apply_human,
-        print_kernel_release_human,
-    );
-}

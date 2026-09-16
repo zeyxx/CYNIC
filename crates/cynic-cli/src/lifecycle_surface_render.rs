@@ -1,4 +1,4 @@
-use cynic_host::update_lifecycle::{
+use cynic_lifecycle::{
     ApplyReport, KernelReleaseReport, LifecycleGateReport, LifecyclePlanReport,
     LifecyclePromoteReport, LifecycleStatusReport, OpsReport, RepairReport,
 };

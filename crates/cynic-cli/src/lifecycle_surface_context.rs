@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_host::update_lifecycle::{LocalArgvRunner, default_state_path};
+use cynic_lifecycle::{LocalArgvRunner, default_state_path};
 
 pub(crate) fn runner() -> LocalArgvRunner {
     LocalArgvRunner

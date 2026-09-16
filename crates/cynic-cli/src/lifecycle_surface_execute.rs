@@ -7,7 +7,7 @@ use crate::lifecycle_surface_render::{
     print_apply_human, print_gate_human, print_kernel_release_human, print_ops_human,
     print_plan_human, print_promote_human, print_repair_human, print_status_human,
 };
-use cynic_host::update_lifecycle::{
+use cynic_lifecycle::{
     ApplyReport, KernelReleaseReport, RepairReport, apply_phase, ops_report, plan_report, promote,
     reconcile_kernel_release, repair_apply, repair_plan, run_gates, status_report,
 };
