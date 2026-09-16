@@ -1,29 +1,21 @@
 //! Local forensic observation adapter.
-//!
-//! Reads real crash evidence from the host using argv-based external calls
-//! (`journalctl`, `systemctl`) and direct filesystem reads (`/proc`,
-//! `/var/crash`). All evidence is parsed via the pure parsers in `probe.rs`.
-//!
-//! This adapter follows the same pattern as `LocalCpuAdapter` and
-//! `LocalMemoryAdapter`: stateless reads on each call, no caching, best-effort
-//! collection where a missing source becomes a residual unknown rather than a
-//! hard failure.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::domain::forensics::port::{ForensicError, ForensicObservationPort};
-use crate::domain::forensics::types::{
-    CrashKind, EvidenceSource, FORENSIC_TIMELINE_SCHEMA, ForensicEvidence, ForensicTimeline,
-    PostMortemReport, ServiceLoop, TimelineEntry,
-};
-use crate::domain::forensics::{
+use crate::port::{ForensicError, ForensicObservationPort};
+use crate::probe::{
     parse_boot_id, parse_boot_table_line, parse_crash_dump_header, parse_dmesg_gpu_fault,
     parse_kernel_trap, parse_service_failed_line,
 };
+use crate::types::{
+    CrashKind, EvidenceSource, FORENSIC_TIMELINE_SCHEMA, ForensicEvidence, ForensicTimeline,
+    POST_MORTEM_REPORT_SCHEMA, PostMortemReport, ServiceLoop, TimelineEntry,
+};
 
 /// Local forensic adapter. Stateless — reads host evidence on each call.
+#[derive(Debug, Default, Clone, Copy)]
 pub struct LocalForensicAdapter;
 
 impl LocalForensicAdapter {
@@ -72,7 +64,6 @@ impl LocalForensicAdapter {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().and_then(|e| e.to_str()) == Some("crash") {
-                    // Only include if user-readable (best-effort check)
                     if fs::metadata(&path).is_ok() {
                         dumps.push(path);
                     }
@@ -113,17 +104,10 @@ impl LocalForensicAdapter {
     }
 }
 
-impl Default for LocalForensicAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ForensicObservationPort for LocalForensicAdapter {
     fn collect_evidence(&self, boot_id: &str) -> Result<Vec<ForensicEvidence>, ForensicError> {
         let mut evidence = Vec::new();
 
-        // 1. Kernel evidence from journalctl --boot <id> -k
         if let Some(journal) = Self::read_journal(boot_id, true) {
             for line in journal.lines() {
                 if let Some(e) = parse_dmesg_gpu_fault(line) {
@@ -134,7 +118,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             }
         }
 
-        // 2. Service failure evidence from journalctl --boot <id>
         if let Some(journal) = Self::read_journal(boot_id, false) {
             for line in journal.lines() {
                 if let Some(_loop) = parse_service_failed_line(line) {
@@ -151,7 +134,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             }
         }
 
-        // 3. Crash dump evidence from /var/crash/*.crash
         for dump_path in Self::list_crash_dumps() {
             if let Some(content) = Self::read_file_head(&dump_path, 4096) {
                 if let Some((executable, _date)) = parse_crash_dump_header(&content) {
@@ -214,7 +196,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             .unwrap_or_default()
             .as_secs() as i64;
 
-        // Classify crash from collected evidence
         let gpu_fault_count = evidence
             .iter()
             .filter(|e| matches!(e.kind, CrashKind::GpuHang))
@@ -244,7 +225,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             })
             .collect();
 
-        // Determine crash kind from evidence
         let crash = if gpu_fault_count > 0 {
             Some(CrashKind::GpuHang)
         } else if softlockup_trap_count > 0 {
@@ -255,7 +235,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             None
         };
 
-        // Find previous boot from boot table
         let previous_boot_id = Self::read_boot_table().and_then(|table| {
             let mut prev: Option<String> = None;
             for line in table.lines() {
@@ -272,7 +251,7 @@ impl ForensicObservationPort for LocalForensicAdapter {
         let uptime_before_crash_secs = Self::read_uptime_secs();
 
         Ok(PostMortemReport {
-            schema: cynic_protocol::POST_MORTEM_REPORT_SCHEMA.to_string(),
+            schema: POST_MORTEM_REPORT_SCHEMA.to_string(),
             boot_id: boot_id.to_string(),
             previous_boot_id,
             uptime_before_crash_secs,
@@ -290,12 +269,8 @@ impl ForensicObservationPort for LocalForensicAdapter {
     fn service_loops(&self) -> Result<Vec<ServiceLoop>, ForensicError> {
         let mut loops = Vec::new();
 
-        // Use systemctl --failed to find active crash loops
         if let Some(output) = Self::read_systemctl_failed() {
             for line in output.lines() {
-                // systemctl --failed output format:
-                // UNIT                    LOAD   ACTIVE SUB     DESCRIPTION
-                // discord-pac-server.service loaded failed failed Discord PAC Server
                 let trimmed = line.trim();
                 if trimmed.is_empty() || trimmed.starts_with("UNIT") || trimmed.starts_with("LOAD")
                 {
@@ -315,7 +290,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
             }
         }
 
-        // Also scan journal for service failure lines
         if let Some(boot_id) = Self::read_current_boot_id() {
             if let Some(journal) = Self::read_journal(&boot_id, false) {
                 for line in journal.lines() {
@@ -334,7 +308,6 @@ impl ForensicObservationPort for LocalForensicAdapter {
 mod tests {
     use super::*;
 
-    /// Regression: ensure the adapter binds the port trait.
     fn _assert_port<T: ForensicObservationPort>() {}
     #[test]
     fn local_forensic_adapts_observation_port() {

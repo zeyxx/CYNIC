@@ -6,9 +6,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_host::domain::forensics::local::LocalForensicAdapter;
-use cynic_host::domain::forensics::port::ForensicObservationPort;
-use cynic_host::domain::forensics::probe::parse_boot_table_line;
+use cynic_forensics::{ForensicObservationPort, LocalForensicAdapter, parse_boot_table_line};
 
 #[derive(Subcommand)]
 pub(crate) enum ForensicsCommand {

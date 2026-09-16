@@ -888,6 +888,7 @@ dependencies = [
  "clap",
  "crossterm",
  "cynic-build",
+ "cynic-forensics",
  "cynic-host",
  "cynic-inference",
  "cynic-lifecycle",
@@ -924,12 +925,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-forensics"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-host"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
  "cynic-build",
+ "cynic-forensics",
  "cynic-inference",
  "cynic-intel",
  "cynic-lifecycle",
@@ -1023,6 +1036,7 @@ dependencies = [
  "bytes",
  "chrono",
  "cynic-build",
+ "cynic-forensics",
  "cynic-host",
  "cynic-inference",
  "cynic-intel",

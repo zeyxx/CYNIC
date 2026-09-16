@@ -22,6 +22,7 @@ cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-forensics = { path = "../cynic-forensics" }
 tokio = { version = "1", features = ["full"] }
 ratatui = { version = "0.29", default-features = true }
 crossterm = "0.28"

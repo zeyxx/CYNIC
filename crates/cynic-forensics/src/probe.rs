@@ -1,17 +1,8 @@
 //! Pure parsers for the forensics vertical — no I/O, fully deterministic.
-//!
-//! Each parser takes raw substrate text (from dmesg, journalctl, /var/crash,
-//! /proc/sys/kernel/random/boot_id) and returns the canonical protocol types.
-//! They are testable without a host and reused by `LocalForensicAdapter`.
 
-use crate::domain::forensics::types::{CrashKind, EvidenceSource, ForensicEvidence, ServiceLoop};
+use crate::types::{CrashKind, EvidenceSource, ForensicEvidence, ServiceLoop};
 
 /// Parse a dmesg/journalctl line for GPU fault signatures.
-///
-/// Matches:
-/// - `amdgpu.*page fault` (e.g. `[gfxhub0] no-retry page fault`)
-/// - `ring gfx timeout`
-/// - `reset failed`
 pub fn parse_dmesg_gpu_fault(line: &str) -> Option<ForensicEvidence> {
     let lower = line.to_lowercase();
     let matched = lower.contains("amdgpu") && lower.contains("page fault")
@@ -31,10 +22,6 @@ pub fn parse_dmesg_gpu_fault(line: &str) -> Option<ForensicEvidence> {
 }
 
 /// Parse a kernel log line for trap signatures.
-///
-/// Matches:
-/// - `trap invalid opcode`
-/// - `softlockup`
 pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
     let lower = line.to_lowercase();
     let matched = lower.contains("trap invalid opcode") || lower.contains("softlockup");
@@ -52,9 +39,6 @@ pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
 }
 
 /// Parse boot_id from `/proc/sys/kernel/random/boot_id` content.
-///
-/// The file contains a single line like:
-/// `66515a0e-43dc-4a9b-860a-f1625e78b103`
 pub fn parse_boot_id(input: &str) -> Option<String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -64,11 +48,6 @@ pub fn parse_boot_id(input: &str) -> Option<String> {
 }
 
 /// Parse a line from `journalctl --list-boots` output.
-///
-/// Format: `IDX BOOT_ID FIRST_ENTRY LAST_ENTRY`
-/// Example: `-1 66515a0e-43dc-4a9b-860a-f1625e78b103 1724000000000000 1724100000000000`
-///
-/// Returns (boot_id, first_entry, last_entry) if the line is a valid boot entry.
 pub fn parse_boot_table_line(line: &str) -> Option<(String, i64, i64)> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -78,7 +57,6 @@ pub fn parse_boot_table_line(line: &str) -> Option<(String, i64, i64)> {
     if parts.len() < 4 {
         return None;
     }
-    // First column is the index (may be negative), skip it.
     let boot_id = parts[1].to_string();
     let first_entry: i64 = parts[2].parse().ok()?;
     let last_entry: i64 = parts[3].parse().ok()?;
@@ -86,23 +64,16 @@ pub fn parse_boot_table_line(line: &str) -> Option<(String, i64, i64)> {
 }
 
 /// Parse a journalctl line for systemd service failure signatures.
-///
-/// Matches lines like:
-/// `août 30 22:40:39 ubuntu systemd[2920]: discord-pac-server.service: Failed with result 'exit-code'.`
-///
-/// Extracts the unit name and exit status.
 pub fn parse_service_failed_line(line: &str) -> Option<ServiceLoop> {
     let trimmed = line.trim();
     if !trimmed.contains("Failed with result") {
         return None;
     }
-    // Extract unit name: look for `<unit>.service:` pattern
     let unit = trimmed.split_whitespace().find_map(|tok| {
         tok.strip_suffix(".service:")
             .or_else(|| tok.strip_suffix(".service"))
             .map(String::from)
     })?;
-    // Determine exit status from the result string
     let exit_status = if trimmed.contains("exit-code") {
         203
     } else if trimmed.contains("failure") {
@@ -121,9 +92,6 @@ pub fn parse_service_failed_line(line: &str) -> Option<ServiceLoop> {
 }
 
 /// Parse the header of an Apport crash dump file.
-///
-/// Extracts `ExecutablePath` and `Date` fields from the header text.
-/// Returns (executable_path, date) if both are found.
 pub fn parse_crash_dump_header(content: &str) -> Option<(String, String)> {
     let mut executable_path = None;
     let mut date = None;
@@ -213,12 +181,12 @@ mod tests {
     #[test]
     fn parse_boot_id_empty() {
         assert!(parse_boot_id("").is_none());
-        assert!(parse_boot_id("   ").is_none());
+        assert!(parse_boot_id("   \n").is_none());
     }
 
     #[test]
     fn parse_boot_table_line_valid() {
-        let line = "-1 66515a0e-43dc-4a9b-860a-f1625e78b103 1724000000000000 1724100000000000";
+        let line = " -1 66515a0e-43dc-4a9b-860a-f1625e78b103 1724000000000000 1724100000000000 Sat 2026-08-30 20:00:00 CEST—Sat 2026-08-30 22:45:00 CEST";
         let (boot_id, first, last) =
             parse_boot_table_line(line).expect("should parse boot table line");
         assert_eq!(boot_id, "66515a0e-43dc-4a9b-860a-f1625e78b103");
@@ -227,46 +195,45 @@ mod tests {
     }
 
     #[test]
-    fn parse_boot_table_line_empty() {
+    fn parse_boot_table_line_invalid() {
         assert!(parse_boot_table_line("").is_none());
-    }
-
-    #[test]
-    fn parse_boot_table_line_too_few_columns() {
-        assert!(parse_boot_table_line("-1 abc123").is_none());
+        assert!(parse_boot_table_line("invalid line").is_none());
     }
 
     #[test]
     fn parse_service_failed_line_exit_code() {
         let line = "août 30 22:40:39 ubuntu systemd[2920]: discord-pac-server.service: Failed with result 'exit-code'.";
-        let loop_info = parse_service_failed_line(line).expect("should parse service failed line");
-        assert_eq!(loop_info.unit, "discord-pac-server");
-        assert_eq!(loop_info.exit_status, 203);
+        let sl = parse_service_failed_line(line).expect("should parse service failed line");
+        assert_eq!(sl.unit, "discord-pac-server");
+        assert_eq!(sl.exit_status, 203);
+    }
+
+    #[test]
+    fn parse_service_failed_line_failure() {
+        let line = "systemd[1]: foobar.service: Failed with result 'failure'.";
+        let sl = parse_service_failed_line(line).expect("should parse service failure");
+        assert_eq!(sl.unit, "foobar");
+        assert_eq!(sl.exit_status, 1);
     }
 
     #[test]
     fn parse_service_failed_line_no_match() {
-        let line = "août 30 22:40:39 ubuntu systemd[2920]: Started Discord PAC Server.";
+        let line = "systemd[1]: Started User Manager for UID 1000.";
         assert!(parse_service_failed_line(line).is_none());
     }
 
     #[test]
     fn parse_crash_dump_header_valid() {
-        let content =
-            "ExecutablePath: /usr/bin/bash\nDate: 2026-08-30T22:35:12Z\nProblemType: Crash\n";
-        let (exec_path, date) = parse_crash_dump_header(content).expect("should parse header");
-        assert_eq!(exec_path, "/usr/bin/bash");
-        assert_eq!(date, "2026-08-30T22:35:12Z");
+        let content = "ProblemType: Crash\nDate: Sat Aug 30 22:45:00 2026\nExecutablePath: /usr/bin/some-app\nProcCmdline: some-app --flag\n";
+        let (exec_path, date) =
+            parse_crash_dump_header(content).expect("should parse crash dump header");
+        assert_eq!(exec_path, "/usr/bin/some-app");
+        assert_eq!(date, "Sat Aug 30 22:45:00 2026");
     }
 
     #[test]
-    fn parse_crash_dump_header_missing_field() {
-        let content = "ExecutablePath: /usr/bin/bash\nProblemType: Crash\n";
+    fn parse_crash_dump_header_missing_fields() {
+        let content = "ProblemType: Crash\nProcCmdline: some-app\n";
         assert!(parse_crash_dump_header(content).is_none());
-    }
-
-    #[test]
-    fn parse_crash_dump_header_empty() {
-        assert!(parse_crash_dump_header("").is_none());
     }
 }

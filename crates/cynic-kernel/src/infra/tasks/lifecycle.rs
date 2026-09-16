@@ -386,7 +386,7 @@ pub fn spawn_introspection(
                                 });
                             }
                             // SOC/forensics detection on host crash evidence
-                            if let Some(boot_id) = cynic_host::domain::forensics::local::LocalForensicAdapter::read_current_boot_id() {
+                            if let Some(boot_id) = cynic_forensics::LocalForensicAdapter::read_current_boot_id() {
                                 let soc_alerts = crate::introspection::analyze_soc(&boot_id, &event_tx);
                                 if !soc_alerts.is_empty() {
                                     tracing::warn!(

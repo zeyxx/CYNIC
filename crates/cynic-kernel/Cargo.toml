@@ -17,6 +17,7 @@ cynic-build = { path = "../cynic-build" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
+cynic-forensics = { path = "../cynic-forensics" }
 dotenvy = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }

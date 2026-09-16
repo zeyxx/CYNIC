@@ -21,6 +21,7 @@ members = [
     "crates/cynic-consensus",
     "crates/cynic-channel",
     "crates/cynic-workload",
+    "crates/cynic-forensics",
 ]
 resolver = "2"
 

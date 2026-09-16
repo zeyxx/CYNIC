@@ -14,8 +14,7 @@ use crate::introspection::rules::{
 };
 use crate::introspection::soc::{ForensicsSnapshot, SocThresholds, check_all};
 use crate::introspection::types::{Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD};
-use cynic_host::domain::forensics::local::LocalForensicAdapter;
-use cynic_host::domain::forensics::port::ForensicObservationPort;
+use cynic_forensics::{ForensicObservationPort, LocalForensicAdapter};
 use cynic_protocol::forensics::CrashKind;
 
 /// Run one introspection tick. Returns alerts (empty = healthy).

@@ -13,6 +13,7 @@ cynic-build = { path = "../cynic-build" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
+cynic-forensics = { path = "../cynic-forensics" }
 # The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
 # serde impls are required. cynic-kernel already declares it this way; cynic-host
 # did not, because no compiled module had ever needed it.
