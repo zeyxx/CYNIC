@@ -293,6 +293,10 @@ mod tests {
         let cli = Cli::command();
         let clap_names: Vec<String> = cli
             .get_subcommands()
+            .map(|s| s.get_name().to_string())
+            .collect();
+        let visible: Vec<String> = cli
+            .get_subcommands()
             .filter(|s| !s.is_hide_set())
             .map(|s| s.get_name().to_string())
             .collect();
@@ -300,7 +304,7 @@ mod tests {
         let domains: Vec<&str> = manifest.domains.iter().map(|d| d.name).collect();
 
         let multi = ["models", "doctor", "errors", "status", "version"];
-        for name in &clap_names {
+        for name in &visible {
             if name == "commands" || name == "advanced" || multi.contains(&name.as_str()) {
                 continue;
             }
