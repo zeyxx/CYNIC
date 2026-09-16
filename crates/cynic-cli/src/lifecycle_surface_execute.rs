@@ -119,15 +119,99 @@ pub(crate) fn execute_kernel_release(
     json: bool,
     yes: bool,
     state: Option<String>,
+    registry: String,
 ) -> ExitCode {
     let path = state_path(state);
     let report = reconcile_kernel_release(&path, std::path::Path::new(&spec), yes, &runner());
     if json {
         let code = emit_pretty_json(&report);
-        return exit_for_kernel_release(&report, code);
+        let exit = exit_for_kernel_release(&report, code);
+        if exit == ExitCode::SUCCESS {
+            return publish_after_release(&spec, &registry);
+        }
+        return exit;
     }
     print_kernel_release_human(&report, yes);
-    exit_for_kernel_release(&report, ExitCode::SUCCESS)
+    let exit = exit_for_kernel_release(&report, ExitCode::SUCCESS);
+    if exit == ExitCode::SUCCESS {
+        return publish_after_release(&spec, &registry);
+    }
+    exit
+}
+
+/// Publish the staged artifact when the spec declares a publication target.
+///
+/// No-op (SUCCESS) for local-only specs. Reads the spec back from disk so
+/// the decision rests on the same desired state that was reconciled.
+/// Fail-closed: publication errors surface as FAILURE, never masked.
+fn publish_after_release(spec_path: &str, registry: &str) -> ExitCode {
+    let raw = match std::fs::read_to_string(spec_path) {
+        Ok(raw) => raw,
+        Err(error) => {
+            eprintln!("release publication failed: read {spec_path}: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let spec: cynic_lifecycle::kernel_release::types::KernelReleaseSpec =
+        match serde_json::from_str(&raw) {
+            Ok(spec) => spec,
+            Err(error) => {
+                eprintln!("release publication failed: parse {spec_path}: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+    if spec.publication.is_none() {
+        return ExitCode::SUCCESS;
+    }
+    let proof_sha = env!("CYNIC_BUILD_PROOF_SHA");
+    if proof_sha.is_empty() {
+        eprintln!("release publication failed: no build proof baked into this binary");
+        return ExitCode::FAILURE;
+    }
+    let http_target = match provider_control_endpoint(registry) {
+        Some(endpoint) => endpoint,
+        None => {
+            eprintln!("release publication failed: no provider_control endpoint in {registry}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let ssh_target = spec
+        .publication
+        .as_ref()
+        .map(|t| t.endpoint.clone())
+        .unwrap_or_default();
+    let publisher =
+        cynic_host::adapters::artifact_publisher_http::HttpArtifactPublisher::new(&http_target);
+    match cynic_lifecycle::kernel_release::publish_released_artifact(
+        &spec,
+        proof_sha,
+        &http_target,
+        &ssh_target,
+        &publisher,
+    ) {
+        Ok(Some(published)) => {
+            println!(
+                "published {} -> {}",
+                published.proof_sha, published.published_uri
+            );
+            ExitCode::SUCCESS
+        }
+        Ok(None) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("release publication failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Resolve the provider_control HTTP endpoint from the registry.
+fn provider_control_endpoint(registry_path: &str) -> Option<String> {
+    let content = std::fs::read_to_string(registry_path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&content).ok()?;
+    doc.get("provider_control")?
+        .get("endpoint")?
+        .as_str()
+        .map(|s| s.trim_end_matches('/').to_string())
 }
 
 fn exit_for_repair(report: &RepairReport, ok_code: ExitCode) -> ExitCode {

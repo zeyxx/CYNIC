@@ -223,7 +223,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic lifecycle report [--json]   # operational findings (end black box)",
                     "cynic lifecycle repair [--yes] [--json]",
                     "cynic lifecycle apply [--yes] [--json]",
-                    "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json]",
+                    "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json] [--registry <path>]",
                 ],
             },
             CommandDomain {

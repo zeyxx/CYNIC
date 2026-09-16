@@ -102,6 +102,9 @@ pub(crate) enum LifecycleCommand {
         yes: bool,
         #[arg(long)]
         state: Option<String>,
+        /// Registry path used to resolve the publication endpoint.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
     },
 }
 
@@ -125,7 +128,7 @@ pub(crate) fn execute_lifecycle(command: LifecycleCommand) -> ExitCode {
             json,
             yes,
             state,
-        } => execute_kernel_release(spec, json, yes, state),
+            registry,
+        } => execute_kernel_release(spec, json, yes, state, registry),
     }
 }
-

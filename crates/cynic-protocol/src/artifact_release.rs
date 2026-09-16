@@ -17,6 +17,28 @@ pub struct RuntimeArtifactReleaseSpec {
     pub restart_argv: Vec<String>,
     #[serde(default)]
     pub requires_privilege: bool,
+    /// Optional remote publication target. When present, the CLI publishes
+    /// the staged artifact to this target after a successful local
+    /// activation (provenance: artifact sha256 + git_sha). Absent means
+    /// local-only release (historical behavior, unchanged).
+    #[serde(default)]
+    pub publication: Option<ArtifactPublicationTarget>,
+}
+
+/// Remote publication target for a released artifact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactPublicationTarget {
+    /// Registry node id owning the target (e.g. `synapse`).
+    pub node: String,
+    /// Concrete endpoint for the transport (host, URL, or ssh target).
+    pub endpoint: String,
+    /// Transport protocol: `http_put` (default) or `ssh`.
+    #[serde(default = "default_publication_protocol")]
+    pub protocol: String,
+}
+
+fn default_publication_protocol() -> String {
+    "http_put".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
