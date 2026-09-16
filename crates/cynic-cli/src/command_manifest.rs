@@ -46,13 +46,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "solana",
-                commands: vec![
-                    "cynic solana plan --json --cluster <cluster> --target <address> [--helius-plan <free|developer|business|professional|enterprise|unknown>] [--commitment <confirmed|finalized>] [--signature-page-limit <n>] [--max-signature-pages <n>] [--max-transactions <n>] [--expected-transactions <n>]",
-                    "cynic solana probe-plan --json --registry <path> --cluster <cluster> --target <address> --corpus-id <id>",
-                ],
-            },
-            CommandDomain {
                 name: "runtime",
                 commands: vec![
                     "cynic runtime paths --json [--registry <path>]",
@@ -143,26 +136,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "lab",
-                commands: vec![
-                    "cynic lab plan --json [--registry <path>]",
-                    "cynic lab provision --json [--registry <path>] --apply",
-                    "cynic lab bundle --json [--registry <path>] --output-dir <dir>",
-                    "cynic lab guest-bootstrap bundle --json --output-dir <dir> (alias of cynic bootstrap framework bundle)",
-                    "cynic lab image plan --json [--registry <path>]",
-                    "cynic lab image resolve --json [--registry <path>]",
-                    "cynic lab image fetch --json [--registry <path>] --apply",
-                ],
-            },
-            CommandDomain {
-                name: "transport",
-                commands: vec![
-                    "cynic transport matrix",
-                    "cynic transport security-audit",
-                    "cynic transport ssh-inspect --host <hostname|ip>",
-                ],
-            },
-            CommandDomain {
                 name: "network",
                 commands: vec![
                     "cynic network chain [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
@@ -180,27 +153,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic network mesh coordination [--registry <path>] [--endpoint <url>] [--api-key <token>] [--check-health]",
                     "cynic network provider-fallback <status|hosts> [--registry <path>] [--hosts-path <path>] [--check-connectivity] [--output-dir <dir>]",
                     "cynic network actuator <status|bundle|plan|apply> [--registry <path>] [--output-dir <dir> | --bundle-dir <dir>] [--profile <name>] [--apply]",
-                ],
-            },
-            CommandDomain {
-                name: "peer",
-                commands: vec![
-                    "cynic peer status [--dir <path>] [--registry <path>] [--json]",
-                    "cynic peer inspect --kind <citizen|node|mandate> --id <id> [--dir <path>] [--json]",
-                    "cynic peer submit-tx --file <path> [--dir <path>] [--json]",
-                ],
-            },
-            CommandDomain {
-                name: "audit",
-                commands: vec!["cynic audit node-host --json [--max-commits <n>]"],
-            },
-            CommandDomain {
-                name: "integrations",
-                commands: vec![
-                    "cynic integrations status [--json]",
-                    "cynic integrations plan [--json]",
-                    "cynic integrations adopt <id> [--json] [--apply]",
-                    "cynic integrations connect <id> [--json] [--apply]",
                 ],
             },
             CommandDomain {
