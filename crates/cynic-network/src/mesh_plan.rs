@@ -3,8 +3,8 @@
 //! Pure transformation: (MeshRegistry) -> NetworkMeshPlan. Zero I/O, zero network calls.
 
 use cynic_protocol::{
-    NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshPeer, NetworkMeshPlan,
-    NetworkMeshRoute, NetworkMeshService,
+    NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
+    NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
 };
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -56,7 +56,10 @@ pub struct NetworkReservation {
 pub struct RegistryNode {
     pub id: Option<String>,
     pub name: Option<String>,
+    pub role: Option<String>,
     pub status: Option<String>,
+    #[serde(default)]
+    pub network: BTreeMap<String, String>,
     #[serde(default)]
     pub services: Vec<RegistryService>,
 }
@@ -67,6 +70,86 @@ pub struct RegistryService {
     pub port: Option<u16>,
 }
 
+fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> String {
+    let Some(policy) = policy else {
+        return service_plane.to_string();
+    };
+    if policy.planes.contains_key(service_plane) {
+        return service_plane.to_string();
+    }
+    policy
+        .planes
+        .iter()
+        .find_map(|(name, plane)| (plane.canonical == Some(true)).then(|| name.clone()))
+        .unwrap_or_else(|| "synapse".to_string())
+}
+
+fn reservation_dns_by_name(policy: Option<&NetworkPolicy>) -> BTreeMap<String, Vec<String>> {
+    policy
+        .map(|policy| {
+            policy
+                .reservations
+                .iter()
+                .filter_map(|reservation| {
+                    let name = reservation.name.clone()?;
+                    Some((name, reservation.dns.clone()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn default_dns_names(id: &str, plane: Option<&NetworkPlane>) -> Vec<String> {
+    plane
+        .and_then(|plane| plane.dns_zone.as_ref())
+        .map(|zone| vec![format!("{id}.{zone}")])
+        .unwrap_or_default()
+}
+
+fn peer_from_node(
+    node: &RegistryNode,
+    service_plane: &str,
+    reservation_dns: &BTreeMap<String, Vec<String>>,
+    plane: Option<&NetworkPlane>,
+) -> Option<NetworkMeshPeer> {
+    let id = node
+        .name
+        .clone()
+        .or_else(|| node.id.clone())
+        .filter(|value| !value.is_empty())?;
+    let address = node.network.get(service_plane).cloned()?;
+    let dns_names = reservation_dns
+        .get(&id)
+        .cloned()
+        .unwrap_or_else(|| default_dns_names(&id, plane));
+    let local_address = node
+        .network
+        .get("local")
+        .cloned()
+        .filter(|value| value != &address);
+    let services = node
+        .services
+        .iter()
+        .filter_map(|service| {
+            service.name.as_ref().map(|name| NetworkMeshService {
+                name: name.clone(),
+                port: service.port,
+                protocol: "tcp".to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Some(NetworkMeshPeer {
+        id,
+        role: node.role.clone(),
+        status: node.status.clone(),
+        address,
+        local_address,
+        dns_names,
+        services,
+    })
+}
+
 /// Pure calculation of a NetworkMeshPlan from a parsed MeshRegistry structure.
 pub fn generate_mesh_plan(
     registry: &MeshRegistry,
@@ -74,75 +157,84 @@ pub fn generate_mesh_plan(
 ) -> Result<NetworkMeshPlan, String> {
     let policy = registry.network_policy.as_ref();
     let service_plane = policy
-        .and_then(|p| p.canonical_service_plane.clone())
+        .and_then(|policy| policy.canonical_service_plane.clone())
         .unwrap_or_else(|| "synapse".to_string());
-
+    let addr_plane = address_plane(policy, &service_plane);
+    let plane = policy.and_then(|policy| policy.planes.get(&addr_plane));
     let provider = provider_override
-        .filter(|v| !v.trim().is_empty())
+        .filter(|value| !value.trim().is_empty())
         .map(str::to_string)
         .or_else(|| {
             policy
-                .and_then(|p| p.mesh.as_ref())
-                .and_then(|m| m.provider.clone())
+                .and_then(|policy| policy.mesh.as_ref())
+                .and_then(|mesh| mesh.provider.clone())
         })
         .unwrap_or_else(|| "wireguard".to_string());
-
-    let mut desired_peers = Vec::new();
-
-    for node in &registry.nodes {
-        if let Some(node_id) = &node.id {
-            let mut services = Vec::new();
-            for svc in &node.services {
-                if let Some(name) = &svc.name {
-                    services.push(NetworkMeshService {
-                        name: name.clone(),
-                        port: svc.port,
-                        protocol: "tcp".to_string(),
-                    });
-                }
-            }
-
-            desired_peers.push(NetworkMeshPeer {
-                id: node_id.clone(),
-                role: None,
-                status: node.status.clone(),
-                address: format!("peer:{}", node_id),
-                local_address: None,
-                dns_names: vec![format!("{}.synapse.cynic", node_id)],
-                services,
-            });
-        }
-    }
-
-    let peer_count = desired_peers.len();
+    let reservation_dns = reservation_dns_by_name(policy);
+    let desired_peers = registry
+        .nodes
+        .iter()
+        .filter_map(|node| peer_from_node(node, &addr_plane, &reservation_dns, plane))
+        .collect::<Vec<_>>();
+    let routes = desired_peers
+        .iter()
+        .map(|peer| NetworkMeshRoute {
+            destination: format!("{}/32", peer.address),
+            via_peer: peer.id.clone(),
+            provider: provider.clone(),
+        })
+        .collect::<Vec<_>>();
+    let dns = desired_peers
+        .iter()
+        .flat_map(|peer| {
+            peer.dns_names
+                .iter()
+                .map(|name| NetworkMeshDnsRecord {
+                    name: name.clone(),
+                    address: peer.address.clone(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let acl = desired_peers
+        .iter()
+        .flat_map(|peer| {
+            peer.services.iter().map(|service| NetworkMeshAclRule {
+                id: format!("allow:{}:{}", peer.id, service.name),
+                source: "mesh".to_string(),
+                destination: peer.id.clone(),
+                port: service.port,
+                protocol: service.protocol.clone(),
+                action: "allow".to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
 
     Ok(NetworkMeshPlan {
         schema: NETWORK_MESH_PLAN_SCHEMA,
-        status: "planned",
+        status: if desired_peers.len() > 1 {
+            "planned"
+        } else {
+            "insufficient_peers"
+        },
         provider,
         registry_path: "infra/registry.json".to_string(),
         service_plane,
-        cidr: Some("10.10.10.0/24".to_string()),
-        dns_zone: Some("synapse.cynic".to_string()),
-        desired_peer_count: peer_count,
+        cidr: plane.and_then(|plane| plane.cidr.clone()),
+        dns_zone: plane.and_then(|plane| plane.dns_zone.clone()),
+        desired_peer_count: desired_peers.len(),
         desired_peers,
-        routes: vec![NetworkMeshRoute {
-            destination: "10.10.10.0/24".to_string(),
-            via_peer: "cortex".to_string(),
-            provider: "wireguard".to_string(),
-        }],
-        dns: vec![],
-        acl: vec![NetworkMeshAclRule {
-            id: "acl-synapse-mesh".to_string(),
-            source: "10.10.10.0/24".to_string(),
-            destination: "10.10.10.0/24".to_string(),
-            port: None,
-            protocol: "any".to_string(),
-            action: "accept".to_string(),
-        }],
+        routes,
+        dns,
+        acl,
         actuator_required: true,
-        can_apply: true,
-        apply_requires: vec![],
+        can_apply: false,
+        apply_requires: vec![
+            "network_actuator_bundle",
+            "bounded_root_helper",
+            "provider_specific_secret_material",
+            "runtime_observation_after_apply",
+        ],
     })
 }
 
@@ -164,7 +256,9 @@ mod tests {
             nodes: vec![RegistryNode {
                 id: Some("cortex".to_string()),
                 name: Some("cortex".to_string()),
+                role: None,
                 status: Some("observed".to_string()),
+                network: BTreeMap::from([("synapse".to_string(), "10.10.10.100".to_string())]),
                 services: vec![RegistryService {
                     name: Some("cynic-kernel".to_string()),
                     port: Some(3030),
