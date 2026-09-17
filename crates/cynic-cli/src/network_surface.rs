@@ -123,43 +123,20 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         apply: bool,
     },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum NetworkDnsCommand {
-    Status {
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long)]
-        resolve_dns: bool,
-        #[arg(long)]
-        hosts_path: Option<String>,
-        #[arg(long)]
-        corefile_path: Option<String>,
-        #[arg(long)]
-        service_path: Option<String>,
-        #[arg(long)]
-        resolved_dropin_path: Option<String>,
-    },
-    Bundle {
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long)]
-        output_dir: String,
-    },
-    Plan {
+    /// Declarative Zero-Trust nftables firewall policy and audit
+    Firewall {
         #[arg(long)]
         json: bool,
-    },
-    Activate {
         #[arg(long)]
         registry: Option<String>,
         #[arg(long)]
-        bundle_dir: String,
+        node_id: Option<String>,
         #[arg(long)]
-        yes: bool,
+        audit: bool,
     },
 }
+
+pub(crate) use dns::NetworkDnsCommand;
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkMeshCommand {

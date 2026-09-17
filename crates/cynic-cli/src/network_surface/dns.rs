@@ -1,10 +1,47 @@
 use std::process::ExitCode;
 
+use clap::Subcommand;
 use cynic_node::NetworkCommands;
 
-use crate::network_surface::{NetworkCommand, NetworkDnsCommand};
+use crate::network_surface::NetworkCommand;
 use crate::registry_path;
 use crate::runtime_paths::RuntimePaths;
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkDnsCommand {
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        hosts_path: Option<String>,
+        #[arg(long)]
+        corefile_path: Option<String>,
+        #[arg(long)]
+        service_path: Option<String>,
+        #[arg(long)]
+        resolved_dropin_path: Option<String>,
+    },
+    Bundle {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+    Plan {
+        #[arg(long)]
+        json: bool,
+    },
+    Activate {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        yes: bool,
+    },
+}
 
 pub(crate) fn try_execute_dns(
     command: NetworkCommand,

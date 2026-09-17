@@ -161,6 +161,15 @@ impl LocalNetworkAdapter {
             observed_at_unix_ms,
         }
     }
+
+    /// Read live nftables ruleset on host without modifying state.
+    pub fn observe_nftables_ruleset(&self) -> Result<String, String> {
+        match capture_command("nft", &["list", "ruleset"]) {
+            Ok(out) if out.success => Ok(out.stdout),
+            Ok(out) => Err(out.stderr),
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
 
 impl Default for LocalNetworkAdapter {

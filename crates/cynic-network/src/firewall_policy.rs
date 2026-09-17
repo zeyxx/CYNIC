@@ -25,10 +25,29 @@ pub struct DynamicPortBinding {
     pub allowed_scope: NetworkPlaneScope,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicFirewallPlanes {
+    pub synapse_cidr: String,
+    pub management_cidr: String,
+    pub wireguard_interface: String,
+}
+
+impl Default for DynamicFirewallPlanes {
+    fn default() -> Self {
+        Self {
+            synapse_cidr: "10.10.10.0/24".to_string(),
+            management_cidr: "192.168.100.0/24".to_string(),
+            wireguard_interface: "wg0".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DynamicFirewallPolicy {
     pub schema: String,
     pub node_id: String,
+    #[serde(default)]
+    pub planes: DynamicFirewallPlanes,
     pub bindings: Vec<DynamicPortBinding>,
     pub generated_at_unix_ms: u64,
 }
@@ -59,30 +78,30 @@ impl DynamicFirewallPolicy {
                 }
                 NetworkPlaneScope::SynapseOnly => {
                     rules.push(format!(
-                        "        ip saddr 10.10.10.0/24 {} dport {} accept comment \"cynic: {} synapse-only\"",
-                        b.protocol, b.port, b.service_name
+                        "        ip saddr {} {} dport {} accept comment \"cynic: {} synapse-only\"",
+                        self.planes.synapse_cidr, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::WireguardOnly => {
                     rules.push(format!(
-                        "        iifname \"wg0\" {} dport {} accept comment \"cynic: {} wireguard-only\"",
-                        b.protocol, b.port, b.service_name
+                        "        iifname \"{}\" {} dport {} accept comment \"cynic: {} wireguard-only\"",
+                        self.planes.wireguard_interface, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::DirectManagementOnly => {
                     rules.push(format!(
-                        "        ip saddr 192.168.100.0/24 {} dport {} accept comment \"cynic: {} management-only\"",
-                        b.protocol, b.port, b.service_name
+                        "        ip saddr {} {} dport {} accept comment \"cynic: {} management-only\"",
+                        self.planes.management_cidr, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::ClusterMesh => {
                     rules.push(format!(
-                        "        ip saddr {{ 10.10.10.0/24, 192.168.100.0/24 }} {} dport {} accept comment \"cynic: {} cluster-synapse-mgmt\"",
-                        b.protocol, b.port, b.service_name
+                        "        ip saddr {{ {}, {} }} {} dport {} accept comment \"cynic: {} cluster-synapse-mgmt\"",
+                        self.planes.synapse_cidr, self.planes.management_cidr, b.protocol, b.port, b.service_name
                     ));
                     rules.push(format!(
-                        "        iifname \"wg0\" {} dport {} accept comment \"cynic: {} cluster-wireguard\"",
-                        b.protocol, b.port, b.service_name
+                        "        iifname \"{}\" {} dport {} accept comment \"cynic: {} cluster-wireguard\"",
+                        self.planes.wireguard_interface, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::PublicWan => {
@@ -111,6 +130,173 @@ impl DynamicFirewallPolicy {
     pub fn allowed_ports_set(&self) -> BTreeSet<u16> {
         self.bindings.iter().map(|b| b.port).collect()
     }
+}
+
+/// Derives a DynamicFirewallPolicy directly from a registry JSON Value for a given node.
+pub fn derive_firewall_policy_from_registry(
+    registry: &serde_json::Value,
+    target_node_id: &str,
+    now_unix_ms: u64,
+) -> Result<DynamicFirewallPolicy, String> {
+    let synapse_cidr = registry
+        .pointer("/network_policy/planes/synapse/cidr")
+        .and_then(|v| v.as_str())
+        .unwrap_or("10.10.10.0/24")
+        .to_string();
+    let management_cidr = registry
+        .pointer("/network_policy/planes/management/cidr")
+        .and_then(|v| v.as_str())
+        .unwrap_or("192.168.100.0/24")
+        .to_string();
+    let wireguard_interface = "wg0".to_string();
+
+    let planes = DynamicFirewallPlanes {
+        synapse_cidr,
+        management_cidr,
+        wireguard_interface,
+    };
+
+    let nodes = registry
+        .get("nodes")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| "missing nodes in registry".to_string())?;
+
+    let node = nodes
+        .iter()
+        .find(|n| {
+            let nid = n.get("id").and_then(|v| v.as_str());
+            let name = n.get("name").and_then(|v| v.as_str());
+            let aliases: Vec<&str> = n
+                .get("aliases")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
+                .unwrap_or_default();
+            nid == Some(target_node_id)
+                || name == Some(target_node_id)
+                || aliases.contains(&target_node_id)
+        })
+        .ok_or_else(|| format!("node {} not found in registry", target_node_id))?;
+
+    let canonical_node_id = node
+        .get("id")
+        .or_else(|| node.get("name"))
+        .and_then(|v| v.as_str())
+        .unwrap_or(target_node_id)
+        .to_string();
+
+    let mut bindings = Vec::new();
+
+    // Default SSH on administration/management
+    bindings.push(DynamicPortBinding {
+        service_name: "sshd".to_string(),
+        port: 22,
+        protocol: "tcp".to_string(),
+        allowed_scope: NetworkPlaneScope::DirectManagementOnly,
+    });
+
+    // Check WireGuard listen port for this node
+    if let Some(wg_nodes) = registry
+        .pointer("/network_policy/wireguard/nodes")
+        .and_then(|v| v.as_array())
+    {
+        let is_wg_peer = wg_nodes
+            .iter()
+            .any(|w| w.get("node_id").and_then(|v| v.as_str()) == Some(canonical_node_id.as_str()));
+        if is_wg_peer {
+            bindings.push(DynamicPortBinding {
+                service_name: "wireguard".to_string(),
+                port: 44196,
+                protocol: "udp".to_string(),
+                allowed_scope: NetworkPlaneScope::PublicWan,
+            });
+        }
+    }
+
+    if let Some(services) = node.get("services").and_then(|v| v.as_array()) {
+        for s in services {
+            let name = s
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unnamed")
+                .to_string();
+            let port = match s.get("port").and_then(|v| v.as_u64()) {
+                Some(p) => p as u16,
+                None => continue,
+            };
+            let protocol = s
+                .get("protocol")
+                .and_then(|v| v.as_str())
+                .unwrap_or("tcp")
+                .to_string();
+            let plane_str = s
+                .get("network_plane")
+                .and_then(|v| v.as_str())
+                .unwrap_or("synapse");
+
+            let allowed_scope = match plane_str {
+                "synapse" => NetworkPlaneScope::SynapseOnly,
+                "management" => NetworkPlaneScope::DirectManagementOnly,
+                "wireguard" | "overlay" => NetworkPlaneScope::WireguardOnly,
+                "cluster" | "mesh" | "all" => NetworkPlaneScope::ClusterMesh,
+                "loopback" => NetworkPlaneScope::LoopbackOnly,
+                "public" | "wan" => NetworkPlaneScope::PublicWan,
+                _ => NetworkPlaneScope::SynapseOnly,
+            };
+
+            bindings.push(DynamicPortBinding {
+                service_name: name,
+                port,
+                protocol,
+                allowed_scope,
+            });
+        }
+    }
+
+    Ok(DynamicFirewallPolicy {
+        schema: DYNAMIC_FIREWALL_POLICY_SCHEMA.to_string(),
+        node_id: canonical_node_id,
+        planes,
+        bindings,
+        generated_at_unix_ms: now_unix_ms,
+    })
+}
+
+/// Pure comparison between declarative firewall policy and live nft ruleset text.
+/// Returns a list of compliance issues or drifts (empty if 100% compliant).
+pub fn audit_firewall_ruleset(
+    policy: &DynamicFirewallPolicy,
+    live_nft_ruleset: &str,
+) -> Vec<String> {
+    let mut findings = Vec::new();
+    if live_nft_ruleset.trim().is_empty() {
+        findings.push("nftables ruleset is empty or unobservable".to_string());
+        return findings;
+    }
+
+    if !live_nft_ruleset.contains("cynic_filter") {
+        findings.push("table inet cynic_filter is absent from active ruleset".to_string());
+    }
+
+    if !live_nft_ruleset.contains("policy drop") {
+        findings
+            .push("inbound chain default policy drop is absent from active ruleset".to_string());
+    }
+
+    if !live_nft_ruleset.contains("ct state invalid drop") {
+        findings.push("anti-scan drop (ct state invalid drop) is absent".to_string());
+    }
+
+    for b in &policy.bindings {
+        let expected_port = format!("dport {}", b.port);
+        if !live_nft_ruleset.contains(&expected_port) {
+            findings.push(format!(
+                "service '{}' port {} ({}) rule is absent from active ruleset",
+                b.service_name, b.port, b.protocol
+            ));
+        }
+    }
+
+    findings
 }
 
 /// Extract all declared service ports from a registry JSON Value.
@@ -188,6 +374,7 @@ mod tests {
         let policy = DynamicFirewallPolicy {
             schema: DYNAMIC_FIREWALL_POLICY_SCHEMA.to_string(),
             node_id: "cortex".to_string(),
+            planes: DynamicFirewallPlanes::default(),
             bindings: vec![
                 DynamicPortBinding {
                     service_name: "cynic-kernel".to_string(),
@@ -244,5 +431,46 @@ mod tests {
         let all_ports = extract_allowed_ports_from_registry(&reg, None);
         assert!(all_ports.contains(&3030));
         assert!(all_ports.contains(&9090));
+    }
+
+    #[test]
+    fn derives_firewall_policy_and_audits_ruleset() {
+        let reg = serde_json::json!({
+            "network_policy": {
+                "planes": {
+                    "synapse": { "cidr": "10.10.10.0/24" },
+                    "management": { "cidr": "192.168.100.0/24" },
+                    "overlay": { "cidr": "10.20.0.0/24" }
+                },
+                "wireguard": {
+                    "nodes": [
+                        { "node_id": "cynic-builder" }
+                    ]
+                }
+            },
+            "nodes": [
+                {
+                    "id": "cynic-builder",
+                    "services": [
+                        { "name": "builder-daemon", "port": 9090, "network_plane": "synapse" }
+                    ]
+                }
+            ]
+        });
+
+        let policy = derive_firewall_policy_from_registry(&reg, "cynic-builder", 1000)
+            .expect("derive policy ok");
+        assert_eq!(policy.node_id, "cynic-builder");
+        assert!(policy.bindings.iter().any(|b| b.port == 9090));
+        assert!(policy.bindings.iter().any(|b| b.port == 44196));
+        assert!(policy.bindings.iter().any(|b| b.port == 22));
+
+        let ruleset = policy.render_nftables_ruleset();
+        let findings = audit_firewall_ruleset(&policy, &ruleset);
+        assert!(findings.is_empty(), "rendered ruleset must pass audit");
+
+        let bad_ruleset = "table inet other_filter { chain test { policy accept; } }";
+        let bad_findings = audit_firewall_ruleset(&policy, bad_ruleset);
+        assert!(!bad_findings.is_empty());
     }
 }

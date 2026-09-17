@@ -292,6 +292,19 @@ pub(crate) fn try_execute_base(
                 apply,
             },
         )),
+        NetworkCommand::Firewall {
+            json: _,
+            registry,
+            node_id,
+            audit,
+        } => Ok(cynic_node::execute_network_command(
+            &NetworkCommands::FirewallPolicy {
+                json: true,
+                registry: registry_path(registry),
+                node_id,
+                audit,
+            },
+        )),
         other => Err(other),
     }
 }

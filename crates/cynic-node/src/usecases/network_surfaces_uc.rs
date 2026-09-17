@@ -192,6 +192,91 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
 
             emit_json("registry reconciliation", &result, false)
         }
+        NetworkCommands::FirewallPolicy {
+            json: _,
+            registry,
+            node_id,
+            audit,
+        } => {
+            let registry_path = registry;
+            let content = match std::fs::read_to_string(registry_path) {
+                Ok(c) => c,
+                Err(error) => {
+                    tracing::error!("failed to read registry at {registry_path}: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let registry_val: serde_json::Value = match serde_json::from_str(&content) {
+                Ok(v) => v,
+                Err(error) => {
+                    tracing::error!("failed to parse registry JSON: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let target_node = match node_id {
+                Some(id) => id.clone(),
+                None => {
+                    let hostname = cynic_host::runtime_layout::observed_hostname();
+                    cynic_host::registry::resolve_host_profile_resolution(
+                        &hostname,
+                        Some(registry_path),
+                    )
+                    .ok()
+                    .and_then(|r| r.matched_node)
+                    .unwrap_or(hostname)
+                }
+            };
+
+            let now_unix_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+
+            let policy = match cynic_network::firewall_policy::derive_firewall_policy_from_registry(
+                &registry_val,
+                &target_node,
+                now_unix_ms,
+            ) {
+                Ok(p) => p,
+                Err(error) => {
+                    tracing::error!("failed to derive firewall policy: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let rendered_ruleset = policy.render_nftables_ruleset();
+
+            let audit_findings = if *audit {
+                let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter::new();
+                let live_ruleset = adapter.observe_nftables_ruleset().unwrap_or_default();
+                Some(cynic_network::firewall_policy::audit_firewall_ruleset(
+                    &policy,
+                    &live_ruleset,
+                ))
+            } else {
+                None
+            };
+
+            let is_compliant = audit_findings
+                .as_ref()
+                .map(|f| f.is_empty())
+                .unwrap_or(true);
+            let result = serde_json::json!({
+                "schema": "cynic.network.firewall_policy_report.v1",
+                "status": if is_compliant { "compliant" } else { "drift_detected" },
+                "node_id": policy.node_id,
+                "registry_path": registry_path,
+                "bindings_count": policy.bindings.len(),
+                "bindings": policy.bindings,
+                "nftables_ruleset": rendered_ruleset,
+                "audit_enabled": *audit,
+                "audit_findings": audit_findings,
+                "generated_at_unix_ms": now_unix_ms,
+            });
+
+            emit_json("firewall policy", &result, false)
+        }
         NetworkCommands::DnsBundle {
             json: _,
             registry,
@@ -824,6 +909,18 @@ mod tests {
             registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
             timeout_ms: 100,
             apply: false,
+        };
+        let code = execute_network_command(&cmd);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn firewall_policy_executes_without_panic() {
+        let cmd = NetworkCommands::FirewallPolicy {
+            json: true,
+            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+            node_id: None,
+            audit: false,
         };
         let code = execute_network_command(&cmd);
         assert_eq!(code, ExitCode::SUCCESS);

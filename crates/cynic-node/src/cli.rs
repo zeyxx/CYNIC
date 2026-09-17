@@ -314,6 +314,21 @@ pub enum NetworkCommands {
         #[arg(long)]
         apply: bool,
     },
+    /// Derive declarative Zero-Trust nftables firewall policy and audit against host.
+    FirewallPolicy {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Registry path used to derive firewall policy.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Target node ID to compile policy for (defaults to local node).
+        #[arg(long)]
+        node_id: Option<String>,
+        /// Audit live host nftables ruleset against compiled policy.
+        #[arg(long)]
+        audit: bool,
+    },
     /// Emit canonical Synapse DNS activation bundle.
     DnsBundle {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
