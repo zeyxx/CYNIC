@@ -66,31 +66,131 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
         NetworkCommands::SecurityAudit {
             json: _,
             max_handshake_age_secs,
+            registry,
         } => {
-            let snapshot = cynic_network::NetworkTelemetrySnapshot {
-                schema: cynic_network::NETWORK_TELEMETRY_SNAPSHOT_SCHEMA.to_string(),
-                node_id: "local-node".to_string(),
-                listening_ports: vec![3030, 44196],
-                wireguard_peers: std::collections::BTreeMap::new(),
-                dropped_packets_count: 0,
-                observed_at_unix_ms: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_millis() as u64)
-                    .unwrap_or(0),
-            };
+            let hostname = cynic_host::runtime_layout::observed_hostname();
+            let node_id =
+                cynic_host::registry::resolve_host_profile_resolution(&hostname, Some(registry))
+                    .ok()
+                    .and_then(|r| r.matched_node)
+                    .unwrap_or(hostname);
+            let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter::new();
+            let snapshot = adapter.observe_live_telemetry(&node_id, Some("wg0"));
+
+            let registry_json = std::fs::read_to_string(registry)
+                .ok()
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+            let allowed_ports = registry_json
+                .as_ref()
+                .map(|reg| cynic_network::extract_allowed_ports_from_registry(reg, Some(&node_id)))
+                .unwrap_or_else(|| vec![22, 3030, 44196, 51820, 9090]);
+
             let alerts = cynic_intel_soc::analyze_network_telemetry(
                 &snapshot,
-                &[3030, 44196, 9090],
+                &allowed_ports,
                 max_handshake_age_secs * 1000,
             );
             let report = serde_json::json!({
                 "schema": "cynic.intel.soc_security_report.v1",
                 "status": if alerts.is_empty() { "clean" } else { "threats_detected" },
+                "node_id": snapshot.node_id,
+                "listening_ports_observed": snapshot.listening_ports,
+                "allowed_ports_policy": allowed_ports,
+                "wireguard_peers_count": snapshot.wireguard_peers.len(),
+                "dropped_packets_count": snapshot.dropped_packets_count,
                 "alerts_count": alerts.len(),
                 "alerts": alerts,
                 "observed_at_unix_ms": snapshot.observed_at_unix_ms,
             });
             emit_json("network security audit", &report, false)
+        }
+        NetworkCommands::ReconcileObserved {
+            json: _,
+            registry,
+            timeout_ms,
+            apply,
+        } => {
+            let registry_path = registry;
+            let content = match std::fs::read_to_string(registry_path) {
+                Ok(c) => c,
+                Err(error) => {
+                    tracing::error!("failed to read registry at {registry_path}: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let mut registry_val: serde_json::Value = match serde_json::from_str(&content) {
+                Ok(v) => v,
+                Err(error) => {
+                    tracing::error!("failed to parse registry JSON: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let hostname = cynic_host::runtime_layout::observed_hostname();
+            let observer_node_id = cynic_host::registry::resolve_host_profile_resolution(
+                &hostname,
+                Some(registry_path),
+            )
+            .ok()
+            .and_then(|r| r.matched_node)
+            .unwrap_or(hostname);
+
+            let specs = cynic_network::discovery::extract_desired_network_specs(&registry_val);
+            let probe = cynic_host::adapters::local_network::LocalNetworkDiscoveryProbeAdapter;
+            let now_unix_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+
+            let report = cynic_network::discovery::discover_cluster_nodes(
+                &observer_node_id,
+                &specs,
+                &probe,
+                *timeout_ms,
+                now_unix_ms,
+            );
+
+            let updated_count =
+                match cynic_network::registry_maintenance::reconcile_registry_observations(
+                    &mut registry_val,
+                    &report,
+                ) {
+                    Ok(cnt) => cnt,
+                    Err(error) => {
+                        tracing::error!("failed to reconcile registry observations: {error}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+
+            if *apply {
+                let serialized = match serde_json::to_string_pretty(&registry_val) {
+                    Ok(s) => s,
+                    Err(error) => {
+                        tracing::error!("failed to serialize updated registry: {error}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+                if let Err(error) = std::fs::write(registry_path, serialized) {
+                    tracing::error!("failed to write updated registry: {error}");
+                    return ExitCode::FAILURE;
+                }
+            }
+
+            let result = serde_json::json!({
+                "schema": "cynic.network.registry_reconciliation_report.v1",
+                "status": if report.drift_detected { "drift_detected" } else { "ok" },
+                "observer_node_id": observer_node_id,
+                "registry_path": registry_path,
+                "nodes_evaluated": specs.len(),
+                "nodes_updated": updated_count,
+                "drift_detected": report.drift_detected,
+                "drift_summary": report.drift_summary,
+                "applied": *apply,
+                "observed_nodes": registry_val.pointer("/observed/nodes"),
+                "observed_at_unix_ms": now_unix_ms,
+            });
+
+            emit_json("registry reconciliation", &result, false)
         }
         NetworkCommands::DnsBundle {
             json: _,
@@ -697,12 +797,35 @@ fn emit_json<T: serde::Serialize>(label: &str, value: &T, should_fail: bool) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::should_fail_runtime_status;
+    use super::*;
 
     #[test]
     fn runtime_status_only_fails_when_blocked() {
         assert!(should_fail_runtime_status("blocked"));
         assert!(!should_fail_runtime_status("provider_fallback_active"));
         assert!(!should_fail_runtime_status("mesh_active"));
+    }
+
+    #[test]
+    fn security_audit_executes_live_telemetry_without_panic() {
+        let cmd = NetworkCommands::SecurityAudit {
+            json: true,
+            max_handshake_age_secs: 180,
+            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+        };
+        let code = execute_network_command(&cmd);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn reconcile_observed_dry_run_executes_without_panic() {
+        let cmd = NetworkCommands::ReconcileObserved {
+            json: true,
+            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+            timeout_ms: 100,
+            apply: false,
+        };
+        let code = execute_network_command(&cmd);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 }

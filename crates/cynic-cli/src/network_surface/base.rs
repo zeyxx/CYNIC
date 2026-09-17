@@ -265,7 +265,33 @@ pub(crate) fn try_execute_base(
             }
         }
         NetworkCommand::Peer { command } => Ok(cynic_node::execute_peer_command(&command)),
-        NetworkCommand::Transport { command } => Ok(crate::transport_surface::execute_transport(&command)),
+        NetworkCommand::Transport { command } => {
+            Ok(crate::transport_surface::execute_transport(&command))
+        }
+        NetworkCommand::SecurityAudit {
+            json: _,
+            max_handshake_age_secs,
+            registry,
+        } => Ok(cynic_node::execute_network_command(
+            &NetworkCommands::SecurityAudit {
+                json: true,
+                max_handshake_age_secs,
+                registry: registry_path(registry),
+            },
+        )),
+        NetworkCommand::ReconcileObserved {
+            json: _,
+            registry,
+            timeout_ms,
+            apply,
+        } => Ok(cynic_node::execute_network_command(
+            &NetworkCommands::ReconcileObserved {
+                json: true,
+                registry: registry_path(registry),
+                timeout_ms,
+                apply,
+            },
+        )),
         other => Err(other),
     }
 }

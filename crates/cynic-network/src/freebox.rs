@@ -3,7 +3,7 @@
 //! Core domain is 100% Zero-I/O: contains only data types, pure parsers,
 //! and the abstract `FreeboxProbePort` trait. Zero network sockets or HTTP clients.
 
-use cynic_protocol::{FreeboxHostEntry, FreeboxLanObservation};
+use cynic_protocol::FreeboxLanObservation;
 
 pub trait FreeboxProbePort: Send + Sync {
     fn probe_freebox_lan(&self, endpoint: &str) -> Result<FreeboxLanObservation, String>;

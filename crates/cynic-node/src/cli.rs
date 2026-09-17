@@ -287,7 +287,7 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum NetworkCommands {
-    /// Emit canonical Synapse DNS activation bundle.
+    /// Network SOC security audit (rogue listening ports, WireGuard handshake decay).
     SecurityAudit {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
         #[arg(long)]
@@ -295,6 +295,24 @@ pub enum NetworkCommands {
         /// Maximum allowed WireGuard handshake age in seconds before warning.
         #[arg(long, default_value_t = 180)]
         max_handshake_age_secs: u64,
+        /// Registry path used to derive allowed services and topology.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+    },
+    /// Reconcile discovered cluster network observations into registry.json observed section.
+    ReconcileObserved {
+        /// Emit JSON. Present for explicit operator intent; currently always JSON.
+        #[arg(long)]
+        json: bool,
+        /// Registry path used to derive desired state and write observed status.
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// TCP probe timeout in milliseconds.
+        #[arg(long, default_value_t = 500)]
+        timeout_ms: u64,
+        /// Atomically write updated observed state to the registry file.
+        #[arg(long)]
+        apply: bool,
     },
     /// Emit canonical Synapse DNS activation bundle.
     DnsBundle {

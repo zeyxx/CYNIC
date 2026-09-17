@@ -73,8 +73,7 @@ pub fn reconcile_network_watchdog_outbox(
 mod tests {
     use super::*;
     use cynic_protocol::{
-        DnsSynapseAssessment, NetworkAlert, NetworkAlertLevel, ServicePortAssessment,
-        WireguardMeshAssessment,
+        DnsSynapseAssessment, NetworkAlert, NetworkAlertLevel, WireguardMeshAssessment,
     };
 
     #[test]

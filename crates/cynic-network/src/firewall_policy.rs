@@ -113,6 +113,72 @@ impl DynamicFirewallPolicy {
     }
 }
 
+/// Extract all declared service ports from a registry JSON Value.
+/// If `target_node_id` is provided, filters for that node; otherwise collects cluster-wide declared ports.
+pub fn extract_allowed_ports_from_registry(
+    registry: &serde_json::Value,
+    target_node_id: Option<&str>,
+) -> Vec<u16> {
+    let mut ports = BTreeSet::new();
+    // Standard administration ports
+    ports.insert(22);
+
+    // Overlay WireGuard listen port if declared
+    if let Some(policy) = registry.get("network_policy") {
+        if let Some(_overlay) = policy.get("planes").and_then(|p| p.get("overlay")) {
+            ports.insert(44196);
+            ports.insert(51820);
+        }
+    }
+
+    if let Some(nodes) = registry.get("nodes").and_then(|n| n.as_array()) {
+        for node in nodes {
+            let node_name = node.get("name").and_then(|v| v.as_str());
+            let node_id = node.get("id").and_then(|v| v.as_str());
+            let aliases: Vec<&str> = node
+                .get("aliases")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
+                .unwrap_or_default();
+
+            let matches = match target_node_id {
+                Some(target) => {
+                    node_name == Some(target)
+                        || node_id == Some(target)
+                        || aliases.contains(&target)
+                }
+                None => true,
+            };
+
+            if matches {
+                if let Some(services) = node.get("services").and_then(|s| s.as_array()) {
+                    for svc in services {
+                        if let Some(port) = svc.get("port").and_then(|p| p.as_u64()) {
+                            ports.insert(port as u16);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if ports.len() <= 3 {
+        if let Some(nodes) = registry.get("nodes").and_then(|n| n.as_array()) {
+            for node in nodes {
+                if let Some(services) = node.get("services").and_then(|s| s.as_array()) {
+                    for svc in services {
+                        if let Some(port) = svc.get("port").and_then(|p| p.as_u64()) {
+                            ports.insert(port as u16);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ports.into_iter().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +209,40 @@ mod tests {
         assert!(rules.contains("ct state invalid drop"));
         assert!(rules.contains("udp dport 44196 limit rate 50/second burst 100 packets accept"));
         assert!(rules.contains("ip saddr 10.10.10.0/24 tcp dport 3030 accept"));
+    }
+
+    #[test]
+    fn extracts_allowed_ports_from_registry_json() {
+        let reg = serde_json::json!({
+            "network_policy": {
+                "planes": {
+                    "overlay": { "cidr": "10.20.0.0/24" }
+                }
+            },
+            "nodes": [
+                {
+                    "name": "cynic-kernel",
+                    "services": [
+                        { "name": "kernel", "port": 3030 }
+                    ]
+                },
+                {
+                    "name": "cynic-builder",
+                    "services": [
+                        { "name": "builder", "port": 9090 }
+                    ]
+                }
+            ]
+        });
+
+        let kernel_ports = extract_allowed_ports_from_registry(&reg, Some("cynic-kernel"));
+        assert!(kernel_ports.contains(&22));
+        assert!(kernel_ports.contains(&3030));
+        assert!(kernel_ports.contains(&44196));
+        assert!(!kernel_ports.contains(&9090));
+
+        let all_ports = extract_allowed_ports_from_registry(&reg, None);
+        assert!(all_ports.contains(&3030));
+        assert!(all_ports.contains(&9090));
     }
 }

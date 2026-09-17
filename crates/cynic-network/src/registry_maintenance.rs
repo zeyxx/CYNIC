@@ -2,9 +2,8 @@
 //! Ingests NetworkDiscoveryReports, updates the "observed" section of registry.json,
 //! and triggers bounded auto-reconciliation actions without manual human intervention.
 
-use crate::discovery::{DiscoveredNode, NetworkDiscoveryReport, NodeReachability};
+use crate::discovery::{NetworkDiscoveryReport, NodeReachability};
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
 
 pub const REGISTRY_UPDATE_REPORT_SCHEMA: &str = "cynic.network.registry_update_report.v1";
 
@@ -57,6 +56,8 @@ pub fn reconcile_registry_observations(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::discovery::DiscoveredNode;
+    use std::collections::BTreeMap;
 
     #[test]
     fn reconciles_discovered_nodes_into_registry_observed_section() {

@@ -103,6 +103,26 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Network SOC security audit (rogue listening ports, WireGuard handshake decay)
+    SecurityAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_t = 180)]
+        max_handshake_age_secs: u64,
+        #[arg(long)]
+        registry: Option<String>,
+    },
+    /// Reconcile discovered cluster network observations into registry.json observed section
+    ReconcileObserved {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long, default_value_t = 500)]
+        timeout_ms: u64,
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -282,25 +302,12 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
     let _network_command_type: &str = std::any::type_name::<NetworkCommands>();
     let _ = _network_command_type;
     let runtime = resolve_runtime_paths(&RuntimeContext::from_env(None));
-    let command = match base::try_execute_base(command, &runtime) {
-        Ok(code) => return code,
-        Err(command) => command,
-    };
-    let command = match dns::try_execute_dns(command, &runtime) {
-        Ok(code) => return code,
-        Err(command) => command,
-    };
-    let command = match mesh::try_execute_mesh(command, &runtime) {
-        Ok(code) => return code,
-        Err(command) => command,
-    };
-    let command = match provider_fallback::try_execute_provider_fallback(command, &runtime) {
-        Ok(code) => return code,
-        Err(command) => command,
-    };
-    match actuator::try_execute_actuator(command) {
-        Ok(code) => code,
-        Err(NetworkCommand::Actuator { .. }) => unreachable!("actuator command must be handled"),
-        Err(_) => unreachable!("all network commands must be handled"),
-    }
+    base::try_execute_base(command, &runtime)
+        .or_else(|cmd| dns::try_execute_dns(cmd, &runtime))
+        .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
+        .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
+        .unwrap_or_else(|cmd| match actuator::try_execute_actuator(cmd) {
+            Ok(code) => code,
+            Err(_) => unreachable!("all network commands must be handled"),
+        })
 }

@@ -170,6 +170,96 @@ pub fn parse_ifname_from_dev(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Parse `/proc/net/tcp` or `/proc/net/tcp6` text into sorted, deduplicated listening ports.
+pub fn parse_listening_ports_from_proc_tcp(text: &str) -> Vec<u16> {
+    let mut ports = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        if cols[3] != "0A" {
+            continue;
+        }
+        if let Some((_, port_hex)) = cols[1].rsplit_once(':') {
+            if let Ok(port) = u16::from_str_radix(port_hex, 16) {
+                if port > 0 {
+                    ports.insert(port);
+                }
+            }
+        }
+    }
+    ports.into_iter().collect()
+}
+
+/// Parse total dropped packets from `/proc/net/dev` text.
+pub fn parse_dropped_packets_from_dev(text: &str) -> u64 {
+    parse_usage_from_dev(text)
+        .iter()
+        .map(|u| u.rx_drop.saturating_add(u.tx_drop))
+        .sum()
+}
+
+/// Parse `wg show <iface> dump` into pure WireGuard peer telemetry metrics.
+pub fn parse_wireguard_telemetry(
+    dump: &str,
+) -> std::collections::BTreeMap<String, crate::telemetry::WireguardPeerMetrics> {
+    let mut peers = std::collections::BTreeMap::new();
+    for (idx, line) in dump.lines().enumerate() {
+        if idx == 0 || line.trim().is_empty() {
+            continue;
+        }
+        let cols: Vec<&str> = line.split('\t').collect();
+        if cols.len() < 4 {
+            continue;
+        }
+        let public_key = cols[0].trim().to_string();
+        if public_key.is_empty() {
+            continue;
+        }
+
+        let (endpoint, handshake_unix_s, rx_bytes, tx_bytes) = if cols.len() >= 8 {
+            let ep = if cols[2].trim().is_empty() || cols[2].trim() == "(none)" {
+                None
+            } else {
+                Some(cols[2].trim().to_string())
+            };
+            let hs: u64 = cols[4].trim().parse().unwrap_or(0);
+            let rx: u64 = cols[5].trim().parse().unwrap_or(0);
+            let tx: u64 = cols[6].trim().parse().unwrap_or(0);
+            (ep, hs, rx, tx)
+        } else {
+            let ep = if cols[1].trim().is_empty() || cols[1].trim() == "(none)" {
+                None
+            } else {
+                Some(cols[1].trim().to_string())
+            };
+            let hs: u64 = cols.get(3).and_then(|c| c.trim().parse().ok()).unwrap_or(0);
+            let rx: u64 = cols.get(4).and_then(|c| c.trim().parse().ok()).unwrap_or(0);
+            let tx: u64 = cols.get(5).and_then(|c| c.trim().parse().ok()).unwrap_or(0);
+            (ep, hs, rx, tx)
+        };
+
+        let last_handshake_unix_ms = if handshake_unix_s == 0 {
+            None
+        } else {
+            Some(handshake_unix_s.saturating_mul(1000))
+        };
+
+        peers.insert(
+            public_key.clone(),
+            crate::telemetry::WireguardPeerMetrics {
+                public_key,
+                endpoint,
+                last_handshake_unix_ms,
+                transfer_rx_bytes: rx_bytes,
+                transfer_tx_bytes: tx_bytes,
+            },
+        );
+    }
+    peers
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,5 +366,42 @@ mod tests {
     #[test]
     fn empty_dev_yields_no_usage() {
         assert!(parse_usage_from_dev("").is_empty());
+    }
+
+    #[test]
+    fn parse_listening_ports_from_proc_tcp_extracts_listen_ports() {
+        let fixture = r#"
+  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 00000000:2603 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 50564 1 0000000000000000 100 0 0 10 0
+   1: 0100007F:0BC2 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 50565 1 0000000000000000 100 0 0 10 0
+   2: 0100007F:1F90 0100007F:2382 01 00000000:00000000 00:00000000 00000000     0        0 50566 1 0000000000000000 100 0 0 10 0
+"#;
+        let ports = parse_listening_ports_from_proc_tcp(fixture);
+        // 0x2603 = 9731, 0x0BC2 = 3010. Connection (01) is ignored.
+        assert_eq!(ports, vec![3010, 9731]);
+    }
+
+    #[test]
+    fn parse_dropped_packets_sums_rx_and_tx() {
+        let drops = parse_dropped_packets_from_dev(DEV_SNAPSHOT);
+        // DEV_SNAPSHOT has rx_drop=1, tx_drop=0
+        assert_eq!(drops, 1);
+    }
+
+    #[test]
+    fn parse_wireguard_telemetry_extracts_metrics() {
+        let wg_dump = "wg0\tpubkey\t51820\toff\n\
+            NwnCBCswWWXr89AUEi6wEX+O7PHbZYQV8/2RWz1cayo=\t10.10.10.101:44196\t10.20.0.2/32\t1724612345\t21600\t65400\t25\n\
+            kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8=\t10.10.10.119:44196\t10.20.0.5/32\t0\t0\t5111808\t25";
+        let peers = parse_wireguard_telemetry(wg_dump);
+        assert_eq!(peers.len(), 2);
+        let p1 = &peers["NwnCBCswWWXr89AUEi6wEX+O7PHbZYQV8/2RWz1cayo="];
+        assert_eq!(p1.endpoint.as_deref(), Some("10.10.10.101:44196"));
+        assert_eq!(p1.last_handshake_unix_ms, Some(1724612345000));
+        assert_eq!(p1.transfer_rx_bytes, 21600);
+        assert_eq!(p1.transfer_tx_bytes, 65400);
+
+        let p2 = &peers["kRs1uCQBwuBWJJP0wA0P4eHY3QKtpM/fEw6fdvPaEV8="];
+        assert_eq!(p2.last_handshake_unix_ms, None);
     }
 }
