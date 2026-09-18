@@ -1,0 +1,62 @@
+{
+  "schema": "cynic.release_domain_spec.v1",
+  "status": "normative",
+  "crate": "cynic-release",
+  "purpose": "Formal domain specification, business logic, and architectural boundaries for the cynic-release micro-crate.",
+  "ownership": {
+    "primary": "Pure decision engine for release validation, semver qualification, and public relay projection eligibility.",
+    "owns": [
+      "Parsing and evaluation of machine-readable release contracts (release-gates, relay-policy, release-versioning, staging-model)",
+      "Pure domain types: ReleaseVersion, ReleaseCandidate, GateProofRecord, GateEvaluationReport, ReleaseEligibilityVerdict, RelayDecisionProof",
+      "Pure evaluation rules: gate compliance scoring, semver monotonicity, conventional commit classification, tag integrity",
+      "Driven ports: GateProofProvider, RelayActuatorPort"
+    ],
+    "delegates": [
+      {
+        "responsibility": "Build and artifact execution gates (cargo check, cargo test, make build-release)",
+        "delegate_crate": "cynic-build"
+      },
+      {
+        "responsibility": "Git transport, push, tag ref creation, worktree inspection, and remote ls-remote read-backs",
+        "delegate_crate": "cynic-vcs"
+      },
+      {
+        "responsibility": "Low-layer host OS primitives, clock, and secret material resolution",
+        "delegate_crate": "cynic-host"
+      },
+      {
+        "responsibility": "Operator command-line parsing, argument validation, and output rendering",
+        "delegate_crate": "cynic-cli"
+      }
+    ],
+    "forbidden": [
+      "Direct process spawning via std::process::Command (Zero-I/O domain core)",
+      "Direct network HTTP/TCP communication (e.g. reqwest, hyper)",
+      "Direct filesystem mutation inside decision logic (std::fs::write, std::fs::remove_file)",
+      "Upward dependencies: MUST NEVER depend on cynic-host, cynic-kernel, cynic-node, cynic-cli, or cynic-mcp"
+    ]
+  },
+  "business_logic": {
+    "inputs": [
+      "ReleaseCandidate metadata (head_sha, proposed_tag, branch, commit_messages)",
+      "GateProofRecords (evidence of cargo_check, unit_tests, secret_lint, architecture_boundary)",
+      "RelayTopology (sovereign remote identity, relay remote identity, current observed refs)"
+    ],
+    "evaluation_steps": [
+      "1. Verify proposed release version matches SemVer format and strict monotonic ordering against prior tags",
+      "2. Check mandatory gates against supplied GateProofRecords; require 100% pass and 0 secret findings",
+      "3. Classify conventional commits to verify tag bump magnitude (major, minor, patch)",
+      "4. If all gates satisfied, produce ReleaseEligibilityVerdict::Eligible with signed proof hash",
+      "5. Evaluate relay policy: if sovereign branch is ahead, produce RelayDecisionProof::Authorized with exact target ref and method"
+    ],
+    "outputs": [
+      "ReleaseEligibilityVerdict (Eligible | Blocked { reasons })",
+      "RelayDecisionProof (Authorized { target_remote, target_ref, method } | Rejected { blockers })"
+    ]
+  },
+  "invariants": [
+    "Strict DAG downward: cynic-release depends ONLY on cynic-protocol (and standard serialization/error crates)",
+    "Every decision produces an immutable, machine-readable verdict with a schema identifier and timestamp",
+    "Automated architectural tests in tests/architecture_boundary.rs verify no forbidden imports or I/O calls"
+  ]
+}

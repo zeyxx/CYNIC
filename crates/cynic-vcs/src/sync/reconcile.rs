@@ -109,35 +109,39 @@ pub fn plan(decision: &SyncDecision) -> SyncPlan {
     for action in &decision.actions {
         match action {
             SyncAction::PushCortexToForgejo { commits: _ } => {
-                rollback = RollbackIntent::ResetCortex {
-                    to_sha: decision
-                        .observation
-                        .cortex
-                        .head_sha
-                        .clone()
-                        .unwrap_or_default(),
-                };
-                steps.push(SyncStep::GitCommand {
-                    argv: vec![
-                        "git".to_string(),
-                        "push".to_string(),
-                        "forgejo".to_string(),
-                        "main".to_string(),
-                    ],
-                    layer: SourceLayer::Cortex,
-                });
+                if let Some(name) = decision.observation.forgejo.remote_name.as_deref() {
+                    rollback = RollbackIntent::ResetCortex {
+                        to_sha: decision
+                            .observation
+                            .cortex
+                            .head_sha
+                            .clone()
+                            .unwrap_or_default(),
+                    };
+                    steps.push(SyncStep::GitCommand {
+                        argv: vec![
+                            "git".to_string(),
+                            "push".to_string(),
+                            name.to_string(),
+                            "main".to_string(),
+                        ],
+                        layer: SourceLayer::Cortex,
+                    });
+                }
             }
             SyncAction::PushForgejoToGithub { commits: _ } => {
-                steps.push(SyncStep::GitCommand {
-                    argv: vec![
-                        "git".to_string(),
-                        "push".to_string(),
-                        "--force".to_string(),
-                        "origin".to_string(),
-                        "main".to_string(),
-                    ],
-                    layer: SourceLayer::Forgejo,
-                });
+                if let Some(name) = decision.observation.github.remote_name.as_deref() {
+                    steps.push(SyncStep::GitCommand {
+                        argv: vec![
+                            "git".to_string(),
+                            "push".to_string(),
+                            "--force".to_string(),
+                            name.to_string(),
+                            "main".to_string(),
+                        ],
+                        layer: SourceLayer::Forgejo,
+                    });
+                }
             }
             SyncAction::MergeBranchIntoMain { branch, strategy } => match strategy {
                 MergeStrategy::Merge => {
@@ -197,6 +201,7 @@ mod tests {
             schema: "test",
             cortex: SourceState {
                 layer: SourceLayer::Cortex,
+                remote_name: None,
                 remote_url: None,
                 head_sha: Some("abc123".to_string()),
                 branch: Some("main".to_string()),
@@ -208,6 +213,7 @@ mod tests {
             },
             forgejo: SourceState {
                 layer: SourceLayer::Forgejo,
+                remote_name: Some("origin".to_string()),
                 remote_url: Some("ssh://forgejo@...".to_string()),
                 head_sha: Some("abc123".to_string()),
                 branch: Some("main".to_string()),
@@ -219,6 +225,7 @@ mod tests {
             },
             github: SourceState {
                 layer: SourceLayer::GitHub,
+                remote_name: Some("github".to_string()),
                 remote_url: Some("https://github.com/...".to_string()),
                 head_sha: Some("abc123".to_string()),
                 branch: Some("main".to_string()),

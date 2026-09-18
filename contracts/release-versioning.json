@@ -1,0 +1,103 @@
+{
+  "schema": "cynic.release-versioning.v1",
+  "status": "normative",
+  "purpose": "Versioning and release tagging contract for CYNIC public projection.",
+  "versioning": {
+    "scheme": "semver",
+    "reference": "https://semver.org",
+    "format": "vMAJOR.MINOR.PATCH",
+    "hybrid_date": {
+      "enabled": true,
+      "format": "vMAJOR.MINOR.PATCH (YYYY.MM.DD)",
+      "reference_project": "NousResearch/hermes-agent"
+    }
+  },
+  "tagging": {
+    "source_of_truth": "Git tag",
+    "tag_prefix": "v",
+    "tag_target": "commit SHA on forgejo/main after release gate"
+  },
+  "release_notes": {
+    "generation": "automated from conventional commits since last tag",
+    "commit_convention": "conventional-commits.org",
+    "public_notes": {
+      "source": "generated changelog",
+      "review": "optional human review before public relay",
+      "localized": false
+    }
+  },
+  "artifacts": {
+    "build_release": {
+      "enabled": true,
+      "command": "make build-release",
+      "checksum": {
+        "algorithm": "SHA-256",
+        "format": "artifact-name.sha256",
+        "reference": "industry standard for binary distribution"
+      }
+    },
+    "distribution_manifest": {
+      "enabled": true,
+      "file": "distribution.yaml",
+      "fields": ["name", "version", "description", "hermes_requires", "env_requires"],
+      "reference_project": "NousResearch/hermes-agent",
+      "purpose": "machine-readable release metadata for downstream consumers"
+    }
+  },
+  "public_projection": {
+    "target": "github/main or github release tag",
+    "condition": "release gate passed + versioning contract satisfied",
+    "never_include": ["secrets", "tokens", "private keys", "credentials"]
+  },
+  "rules": [
+    {
+      "id": "version_scheme_semver",
+      "rule": "CYNIC release versions follow semantic versioning (MAJOR.MINOR.PATCH) with optional hybrid date suffix for traceability.",
+      "notes": [
+        "MAJOR: breaking changes to public API or contracts",
+        "MINOR: new backward-compatible functionality",
+        "PATCH: backward-compatible bug fixes"
+      ]
+    },
+    {
+      "id": "git_tag_authority",
+      "rule": "Git tag is the source of truth for a release version. No release exists without a tag.",
+      "notes": [
+        "Tag is created on forgejo/main after release gate passes",
+        "Tag format: vX.Y.Z or vX.Y.Z-YYYY.MM.DD"
+      ]
+    },
+    {
+      "id": "release_notes_from_commits",
+      "rule": "Release notes are generated from conventional commits since the last tag.",
+      "notes": [
+        "Commit convention: conventional-commits.org",
+        "Public notes may be reviewed before relay but generation is automated"
+      ]
+    },
+    {
+      "id": "artifacts_with_checksums",
+      "rule": "Build release artifacts include SHA-256 checksums for integrity verification.",
+      "notes": [
+        "Checksum file: artifact-name.sha256",
+        "Standard practice for binary distribution"
+      ]
+    },
+    {
+      "id": "distribution_manifest",
+      "rule": "A distribution.yaml manifest accompanies each release with name, version, description, and environment requirements.",
+      "notes": [
+        "Pattern from NousResearch/hermes-agent",
+        "Machine-readable for automated downstream consumption"
+      ]
+    },
+    {
+      "id": "public_projection_no_secrets",
+      "rule": "Public projection (GitHub) never includes secrets, tokens, private keys, or credentials.",
+      "notes": [
+        "Secrets remain in /etc/cynic/secrets/ with mode 0600, root:cynic",
+        "Reference via credential_ref in infra/repo-remotes.json only"
+      ]
+    }
+  ]
+}

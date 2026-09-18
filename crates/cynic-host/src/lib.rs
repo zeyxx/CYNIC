@@ -90,7 +90,6 @@ pub mod profiles;
 pub mod registry;
 pub mod registry_divergence_probe;
 pub mod registry_observation;
-pub mod release_bot;
 pub mod repo_access;
 pub mod resilient_runner;
 pub mod runtime_authority;

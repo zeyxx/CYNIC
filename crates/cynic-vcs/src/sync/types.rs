@@ -23,6 +23,7 @@ impl std::fmt::Display for SourceLayer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceState {
     pub layer: SourceLayer,
+    pub remote_name: Option<String>,
     pub remote_url: Option<String>,
     pub head_sha: Option<String>,
     pub branch: Option<String>,

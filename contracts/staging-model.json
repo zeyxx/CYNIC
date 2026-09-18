@@ -1,0 +1,87 @@
+{
+  "schema": "cynic.staging-model.v1",
+  "status": "normative",
+  "purpose": "Staging model for CYNIC public projection validation before production relay.",
+  "strategy": {
+    "approach": "staging_environment_optional",
+    "reference": "industry standard: main → staging → production pipeline",
+    "decision": "staging as validation environment, not public-facing branch"
+  },
+  "environments": {
+    "development": {
+      "source": "agent branches on forgejo",
+      "visibility": "private",
+      "purpose": "feature development, testing, review"
+    },
+    "staging": {
+      "source": "forgejo/main after merge",
+      "visibility": "private or limited public",
+      "purpose": "integration testing, validation before release tag",
+      "deployment_trigger": "merge to forgejo/main",
+      "validation_gated": true,
+      "notes": [
+        "Staging validates integration before release",
+        "May be internal-only or limited public for review"
+      ]
+    },
+    "production": {
+      "source": "release tag on forgejo/main",
+      "visibility": "public (GitHub relay)",
+      "purpose": "public projection for downstream consumers",
+      "deployment_trigger": "release tag creation after gates pass",
+      "notes": [
+        "Production relay to GitHub only on validated release tags",
+        "GitHub relay is projection, not authority"
+      ]
+    }
+  },
+  "public_projection": {
+    "staging_public": false,
+    "production_public": true,
+    "rationale": "Corporate front: public sees validated releases only, not staging work",
+    "github_receives": "production releases only (release tags)",
+    "staging_visibility": "private forgejo branch or limited review access"
+  },
+  "validation_flow": {
+    "merge_to_main": {
+      "from": "agent branch PR merged to forgejo/main",
+      "triggers": ["staging deployment", "integration tests"],
+      "gates": ["cargo check", "tests", "secret lint", "architecture boundary"],
+      "on_pass": "ready for release consideration",
+      "on_fail": "block, fix, re-merge"
+    },
+    "release_consideration": {
+      "when": "after staging validation passes",
+      "action": "create release tag vX.Y.Z on forgejo/main",
+      "requires": ["all gates passed", "release notes generated", "artifacts built if required"],
+      "triggers_relay": "yes, to GitHub production projection"
+    }
+  },
+  "rules": [
+    {
+      "id": "staging_private_or_limited",
+      "rule": "Staging environment is private or limited-access, not public-facing.",
+      "notes": [
+        "Public projection sees only validated production releases",
+        "Staging may be internal-only for integration validation"
+      ]
+    },
+    {
+      "id": "production_from_release_tags_only",
+      "rule": "Production public projection (GitHub) receives releases only from validated release tags.",
+      "notes": [
+        "No direct deployment from main to public projection",
+        "Release tag is the gate between staging validation and public visibility"
+      ]
+    },
+    {
+      "id": "corporate_front_public_projection",
+      "rule": "Public projection maintains corporate-friendly surface: README, badges, release notes, clean history.",
+      "notes": [
+        "No cypherpunk jargon in public README",
+        "Release notes readable by recruiters and external reviewers",
+        "GitHub main reflects validated production state"
+      ]
+    }
+  ]
+}

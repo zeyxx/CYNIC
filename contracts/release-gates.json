@@ -1,0 +1,134 @@
+{
+  "schema": "cynic.release-gates.v1",
+  "status": "normative",
+  "purpose": "Release validation gates required before a version can be promoted to public projection.",
+  "gates": {
+    "mandatory": [
+      {
+        "name": "cargo_check",
+        "description": "Workspace compiles without errors",
+        "command": "cargo check --workspace",
+        "pass_condition": "exit code 0",
+        "reference": "Rust toolchain standard"
+      },
+      {
+        "name": "tests",
+        "description": "All tests pass",
+        "command": "cargo test --workspace",
+        "pass_condition": "all tests pass",
+        "reference": "Rust toolchain standard"
+      },
+      {
+        "name": "secret_lint",
+        "description": "No secrets, tokens, or credentials in source",
+        "command": "cynic secret lint",
+        "pass_condition": "no findings",
+        "reference": "CYNIC secret management contract"
+      },
+      {
+        "name": "architecture_boundary",
+        "description": "Crate boundaries and DAG invariants preserved",
+        "command": "cynic dev check --architecture-only",
+        "pass_condition": "all boundary checks pass",
+        "reference": "CYNIC architecture contract"
+      }
+    ],
+    "optional": [
+      {
+        "name": "build_release",
+        "description": "Full release build with artifacts",
+        "command": "make build-release",
+        "pass_condition": "build succeeds + artifacts produced",
+        "reference": "CYNIC build contract",
+        "checksum_required": true
+      },
+      {
+        "name": "builder_validation",
+        "description": "Build validated on builder node 10.10.10.119",
+        "command": "ssh cynic@10.10.10.119 'cd /path/to/repo && make build-release'",
+        "pass_condition": "build succeeds on builder",
+        "reference": "CYNIC builder as SSOT for build validation"
+      }
+    ]
+  },
+  "pipeline": {
+    "stages": [
+      {
+        "name": "local_validation",
+        "gates": ["cargo_check", "tests", "secret_lint", "architecture_boundary"],
+        "on_failure": "block release, report failure"
+      },
+      {
+        "name": "optional_artifact_build",
+        "gates": ["build_release"],
+        "on_failure": "block release if artifacts required, otherwise warn"
+      },
+      {
+        "name": "builder_cross_validation",
+        "gates": ["builder_validation"],
+        "on_failure": "block release, report builder failure"
+      }
+    ]
+  },
+  "metrics": {
+    "build_green": {
+      "description": "Build passes without errors",
+      "tracked": true,
+      "threshold": "100% pass required"
+    },
+    "tests_green": {
+      "description": "All tests pass",
+      "tracked": true,
+      "threshold": "100% pass required"
+    },
+    "secrets_clean": {
+      "description": "No secrets found in source",
+      "tracked": true,
+      "threshold": "0 findings required"
+    },
+    "architecture_conformant": {
+      "description": "Crate boundaries and DAG invariants preserved",
+      "tracked": true,
+      "threshold": "all checks pass"
+    },
+    "artifact_integrity": {
+      "description": "Release artifacts have valid SHA-256 checksums",
+      "tracked": true,
+      "threshold": "all checksums valid"
+    }
+  },
+  "rules": [
+    {
+      "id": "mandatory_gates_before_tag",
+      "rule": "All mandatory gates must pass before a release tag is created on forgejo/main.",
+      "notes": [
+        "Mandatory gates: cargo check, tests, secret lint, architecture boundary",
+        "Failure of any mandatory gate blocks the release"
+      ]
+    },
+    {
+      "id": "optional_gates_toggleable",
+      "rule": "Optional gates (build_release, builder_validation) can be enabled/disabled based on release requirements.",
+      "notes": [
+        "Build release required for binary distribution releases",
+        "Builder validation recommended for production releases"
+      ]
+    },
+    {
+      "id": "metrics_tracked_per_release",
+      "rule": "Build and validation metrics are tracked for each release for audit and trend analysis.",
+      "notes": [
+        "Metrics: build green, tests green, secrets clean, architecture conformant, artifact integrity",
+        "All thresholds are 100% pass or 0 findings as appropriate"
+      ]
+    },
+    {
+      "id": "gate_results_persistent",
+      "rule": "Gate results are persisted as machine-readable evidence, not just console output.",
+      "notes": [
+        "Reference: cynic.source_workflow_observation.v1 pattern",
+        "Evidence stored for release audit trail"
+      ]
+    }
+  ]
+}

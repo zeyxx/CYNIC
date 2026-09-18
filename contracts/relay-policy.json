@@ -1,0 +1,103 @@
+{
+  "schema": "cynic.relay-policy.v1",
+  "status": "normative",
+  "purpose": "Policy for automatic relay of validated releases from Forgejo (SSOT) to GitHub (public projection).",
+  "topology": {
+    "sovereign_source": "Forgejo (ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git)",
+    "public_projection": "GitHub (git@github.com:zeyxx/CYNIC.git)",
+    "relationship": "relay mirror, not authority",
+    "reference": "infra/repo-remotes.json"
+  },
+  "trigger": {
+    "event": "release tag created on forgejo/main",
+    "condition": "all release gates passed",
+    "source": "forgejo/main",
+    "notes": [
+      "Tag format: vX.Y.Z or vX.Y.Z-YYYY.MM.DD",
+      "Tag must be on commit that passed all gates"
+    ]
+  },
+  "action": {
+    "type": "git push to public relay",
+    "target": "github/main or github release tag",
+    "method": "force-push allowed on relay (projection, not authority)",
+    "credential": "SSH deploy key from /etc/cynic/secrets/github-deploy-key",
+    "read_back": "verify github/ref matches forgejo/ref after push"
+  },
+  "stages": [
+    {
+      "name": "tag_created",
+      "on_forgejo": true,
+      "condition": "tag vX.Y.Z created on forgejo/main",
+      "next": "validate_tag"
+    },
+    {
+      "name": "validate_tag",
+      "checks": [
+        "tag exists on forgejo/main",
+        "tag points to commit that passed all release gates",
+        "release gates evidence available"
+      ],
+      "on_fail": "block relay, report validation failure",
+      "next": "relay_push"
+    },
+    {
+      "name": "relay_push",
+      "action": "git push --tags github",
+      "on_github": true,
+      "read_back": "verify github tag SHA matches forgejo tag SHA",
+      "on_fail": "rollback, report relay failure",
+      "next": "relay_complete"
+    },
+    {
+      "name": "relay_complete",
+      "status": "relay successful",
+      "evidence": "tag SHA on github matches tag SHA on forgejo",
+      "notes": ["public projection now has validated release"]
+    }
+  ],
+  "rollback": {
+    "on_failure": "remove tag from github if relay fails after push",
+    "manual_intervention": "required for divergent history or force-push of relay",
+    "reference": "infra/observability/source-workflow-observation.json promotion rule"
+  },
+  "exclusions": {
+    "no_direct_github_commits": "GitHub is relay only. No direct commits, PRs, or mutations from GitHub.",
+    "no_force_push_without_reason": "Force-push to GitHub relay only for valid release promotion, never arbitrary history rewrite.",
+    "no_public_secrets": "No secrets, credentials, or sensitive data in public projection."
+  },
+  "rules": [
+    {
+      "id": "relay_only_on_validated_tag",
+      "rule": "Relay to GitHub occurs only when a release tag is created on forgejo/main after all release gates pass.",
+      "notes": [
+        "No relay for arbitrary commits",
+        "No relay if gates not passed"
+      ]
+    },
+    {
+      "id": "relay_read_back_required",
+      "rule": "After relay push, verify that GitHub tag SHA matches Forgejo tag SHA.",
+      "notes": [
+        "Read-back proof required for relay completion",
+        "Mismatch indicates relay failure"
+      ]
+    },
+    {
+      "id": "github_projection_not_authority",
+      "rule": "GitHub is a public projection and relay mirror. It is not the source of truth for CYNIC.",
+      "notes": [
+        "Sovereign source remains Forgejo",
+        "GitHub can be force-pushed for relay but never drives the project"
+      ]
+    },
+    {
+      "id": "no_direct_github_mutations",
+      "rule": "No direct commits, PRs, or mutations originate from GitHub.",
+      "notes": [
+        "All changes flow through Forgejo",
+        "GitHub receives validated releases only"
+      ]
+    }
+  ]
+}

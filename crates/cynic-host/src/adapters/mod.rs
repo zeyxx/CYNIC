@@ -42,4 +42,6 @@ pub mod remote_queue;
 pub mod remote_execution;
 pub mod remote_memory;
 pub mod remote_network;
+pub mod release_gate_adapter;
+pub mod release_relay_adapter;
 pub mod window_runner;

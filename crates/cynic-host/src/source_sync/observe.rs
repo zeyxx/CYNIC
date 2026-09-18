@@ -31,6 +31,7 @@ pub fn observe_layer(root: &Path, layer: SourceLayer) -> SourceState {
 
     SourceState {
         layer,
+        remote_name,
         remote_url,
         head_sha,
         branch,

@@ -104,6 +104,7 @@ fn extract_attr_value(block: &str, key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     #[test]
     fn extract_tool_names_from_attribute_blocks() {

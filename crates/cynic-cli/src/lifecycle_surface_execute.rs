@@ -127,14 +127,13 @@ pub(crate) fn execute_kernel_release(
     if json {
         let code = emit_pretty_json(&report);
         let exit = exit_for_kernel_release(&report, code);
-        if exit == ExitCode::SUCCESS {
+        if exit == ExitCode::SUCCESS && report.status == "ok" {
             return publish_after_release(&spec, &registry);
         }
-        return exit;
     }
     print_kernel_release_human(&report, yes);
     let exit = exit_for_kernel_release(&report, ExitCode::SUCCESS);
-    if exit == ExitCode::SUCCESS {
+    if exit == ExitCode::SUCCESS && report.status == "ok" {
         return publish_after_release(&spec, &registry);
     }
     exit

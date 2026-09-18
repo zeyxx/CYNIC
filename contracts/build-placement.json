@@ -1,0 +1,42 @@
+{
+  "schema": "cynic.build.placement.v1",
+  "status": "normative",
+  "purpose": "Formal placement policy for build execution. Only authorized build nodes may compile CYNIC source.",
+  "policy": {
+    "id": "build-execution-restricted-to-authorized-nodes",
+    "rule": "Build execution (make:check, make:build, make:build-release) is restricted to nodes declared in infra/registries/build.json -> authorized_build_nodes.",
+    "enforcement_point": "crates/cynic-build/src/build/agent_request.rs :: admit_build_agent_request()",
+    "on_violation": "Block at admission. Return status 'blocked' with blocker 'build_agent_request_node_not_authorized'.",
+    "no_exception": "No agent role (including human_admin) overrides this policy. Even human_admin cannot build on cortex.",
+    "rationale": [
+      "cynic-host-cortex is the operator workstation. It is a dirty environment (browsers, IDEs, user processes). Building here would compromise reproducibility and security.",
+      "cynic-host-proxmox is the hypervisor. Building on the hypervisor compromises host integrity.",
+      "local-kernel executes kernel services. Build workloads risk kernel stability.",
+      "forgejo is the source SSOT. Builds on the forge risk source integrity.",
+      "cynic-lxc-surrealdb is storage primary. Builds risk storage integrity.",
+      "Only cynic-builder is provisioned, monitored, and admitted as a build node."
+    ]
+  },
+  "admission_checks": {
+    "node_authorization": {
+      "description": "Verify request.node_id is in authorized_build_nodes",
+      "blocker_code": "build_agent_request_node_not_authorized",
+      "blocker_message": "Node '{node_id}' is not an authorized build node. Build execution is restricted to: {authorized_list}"
+    },
+    "node_not_explicitly_denied": {
+      "description": "Verify request.node_id is not in explicitly_non_authorized",
+      "blocker_code": "build_agent_request_node_explicitly_denied",
+      "blocker_message": "Node '{node_id}' is explicitly denied for build execution. Reason: {reason}"
+    }
+  },
+  "registry_reference": {
+    "authorized_nodes": "infra/registries/build.json -> authorized_build_nodes",
+    "deny_list": "infra/registries/build.json -> explicitly_non_authorized",
+    "network_isolation": "infra/registries/network.json -> wireguard.nodes[isolation_policy=builder_dmz]"
+  },
+  "audit": {
+    "log_all_attempts": true,
+    "log_blocked_attempts": true,
+    "proof_required": "build_agent_request_admission_result"
+  }
+}

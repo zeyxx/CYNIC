@@ -122,9 +122,10 @@ fn blocked_source_mutation() -> SourceExit {
 
 fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> ExitCode {
     let observation = cynic_host::source_sync::observe_all_layers(root);
-    let gate = cynic_host::release_bot::run_gate(root);
+    let proofs = cynic_host::adapters::release_gate_adapter::collect_host_gate_proofs(root);
+    let report = cynic_release::evaluate_gate_records(proofs);
 
-    let exit = if gate.all_passed() {
+    let exit = if report.all_passed {
         SourceExit {
             status: "ready",
             summary: format!(
@@ -136,8 +137,9 @@ fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> Exi
         SourceExit {
             status: "blocked",
             summary: format!(
-                "gate failed — {} checks failed",
-                gate.checks.iter().filter(|c| !c.passed).count()
+                "gate failed — {} checks failed: {}",
+                report.blockers.len(),
+                report.blockers.join("; ")
             ),
         }
     };
