@@ -61,6 +61,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::constitutional_court_surface::CourtCommand,
     },
+    /// Discovery — proactive capability declaration and fleet observation.
+    Discovery {
+        #[command(subcommand)]
+        command: crate::discovery_surface::DiscoveryCommand,
+    },
     /// Explain stable CYNIC error codes and their operator remediation.
     Errors {
         #[arg(long)]

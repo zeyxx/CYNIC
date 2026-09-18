@@ -27,6 +27,7 @@ pub mod command_manifest;
 pub mod constitutional_court_surface;
 pub mod crate_audit;
 pub mod debt_audit;
+pub mod discovery_surface;
 pub mod deps_surface;
 pub mod deps_surface_audit;
 pub mod deps_surface_model;
