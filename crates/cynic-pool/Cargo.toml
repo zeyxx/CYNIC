@@ -1,0 +1,26 @@
+[package]
+name = "cynic-pool"
+version = "0.2.0"
+edition = "2024"
+authors = ["CYNIC Sovereign Collective"]
+description = "Contribution pool protocol, types, difficulty adjustment, merkle proofs, and reward distribution for CYNIC"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+blake3 = "1"
+chrono = { version = "0.4", features = ["serde"] }
+hex = "0.4"
+tracing = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+
+[[bin]]
+name = "cynic-pool"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+cli = []

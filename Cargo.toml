@@ -23,6 +23,8 @@ members = [
     "crates/cynic-workload",
     "crates/cynic-forensics",
     "crates/cynic-release",
+    "crates/cynic-lxc",
+    "crates/cynic-pool",
 ]
 resolver = "2"
 

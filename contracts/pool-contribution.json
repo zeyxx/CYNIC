@@ -1,0 +1,84 @@
+{
+  "schema": "cynic.pool.contribution.v1",
+  "status": "normative",
+  "purpose": "Formal protocol for the CYNIC contribution pool. Inspired by Bitcoin's Stratum protocol and Proof-of-Work, but the work is useful (build, audit, observation, relay).",
+  "definitions": {
+    "node": "Physical or virtual machine executing one or more agents. Network identity (IP, WireGuard key, DNS).",
+    "agent": "Autonomous software process running on a node. Has role, capabilities, session. Executes loops.",
+    "loop": "Deterministic algorithm: observe -> decide -> action -> prove. Core unit of agent behavior.",
+    "contribution": "Verifiable proof of useful work produced by an agent's loop. Submitted to the pool for validation.",
+    "contributor": "Agent identity registered in the pool. Identified by agent_id + role, not by node.",
+    "pool": "Coordinator that distributes tasks, validates contributions, maintains the reward ledger.",
+    "epoch": "Fixed-duration window (e.g. 2016 contributions) after which difficulty adjusts.",
+    "share": "Partial contribution validated by the pool but not yet aggregated into a block.",
+    "block": "Aggregation of validated shares with a merkle root. Anchors the epoch's contribution history."
+  },
+  "contribution_kinds": {
+    "build_proof": {
+      "description": "make:check / make:build / make:build-release succeeded on authorized node",
+      "required_evidence": ["build_log_digest", "artifact_digest", "argv_hash"]
+    },
+    "audit_proof": {
+      "description": "Architecture boundary or ownership audit passed",
+      "required_evidence": ["audit_report_digest", "schema_version"]
+    },
+    "observation_proof": {
+      "description": "Runtime state observed and read-back",
+      "required_evidence": ["observation_digest", "timestamp_unix_ms"]
+    },
+    "relay_proof": {
+      "description": "Tag relayed from forgejo to github with verified read-back",
+      "required_evidence": ["tag_name", "local_sha", "remote_sha", "matches"]
+    },
+    "network_proof": {
+      "description": "WireGuard handshake verified with peer",
+      "required_evidence": ["peer_id", "handshake_unix_s", "latest_handshake_delta_s"]
+    }
+  },
+  "protocol_flow": {
+    "handshake": {
+      "description": "Contributor registers with the pool. Declares role + capabilities.",
+      "fields": ["agent_id", "role", "capabilities", "node_id", "public_key"]
+    },
+    "difficulty": {
+      "description": "Pool assigns current difficulty target to contributor.",
+      "fields": ["epoch", "target_threshold", "contribution_kind"]
+    },
+    "task": {
+      "description": "Pool dispatches a task to the contributor.",
+      "fields": ["task_id", "contribution_kind", "inputs", "target"]
+    },
+    "submit": {
+      "description": "Contributor submits completed work with proof.",
+      "fields": ["task_id", "contribution_kind", "proof", "nonce"]
+    },
+    "ack": {
+      "description": "Pool validates and acknowledges (accepted/rejected + share value).",
+      "fields": ["task_id", "status", "share_value", "reason_if_rejected"]
+    }
+  },
+  "difficulty_adjustment": {
+    "mechanism": "Every epoch (2016 shares), recalculate difficulty based on actual vs target epoch duration.",
+    "formula": "new_difficulty = previous_difficulty * (target_epoch_duration / actual_epoch_duration)",
+    "clamp": [0.25, 4.0],
+    "minimum_difficulty": 1
+  },
+  "reward": {
+    "model": "PPLNS (Pay Per Last N Shares)",
+    "n_shares": 1000,
+    "halving_interval_epochs": 210000,
+    "initial_reward_per_block": 50.0,
+    "currency": "CYN"
+  },
+  "merkle": {
+    "leaf_prefix": "cynic-pool-leaf",
+    "node_prefix": "cynic-pool-node",
+    "algorithm": "BLAKE3",
+    "description": "Cross-registry integrity: every registry update produces a leaf. Pool aggregates leaves into a block-level merkle root."
+  },
+  "governance": {
+    "rule": "Pool protocol rules can only be modified via a cynic governance proposal with human_admin approval.",
+    "authority": "contracts/foundation.json",
+    "enforcement": "Pool contract violations result in share rejection and optional contributor ban."
+  }
+}
