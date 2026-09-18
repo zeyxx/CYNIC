@@ -1,0 +1,16 @@
+[package]
+name = "cynic-discovery-host"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+cynic-discovery = { path = "../cynic-discovery" }
+cynic-host = { path = "../cynic-host" }
+cynic-build = { path = "../cynic-build" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true
