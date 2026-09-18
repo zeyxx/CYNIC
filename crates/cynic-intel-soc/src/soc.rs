@@ -17,6 +17,8 @@ pub struct SocThresholds {
     pub watchdog_failure_count: u32,
     pub service_cascade_exec_delta: u64,
     pub service_restart_rate_per_hour: f64,
+    pub rcu_stall_count: u32,
+    pub hung_task_count: u32,
 }
 
 impl Default for SocThresholds {
@@ -31,6 +33,8 @@ impl Default for SocThresholds {
             watchdog_failure_count: 5,
             service_cascade_exec_delta: 1000,
             service_restart_rate_per_hour: 500.0,
+            rcu_stall_count: 1,
+            hung_task_count: 2,
         }
     }
 }
@@ -46,6 +50,8 @@ pub struct ForensicsSnapshot {
     pub watchdog_failures: u32,
     pub service_restart_rate: f64,
     pub dbus_timeouts: u32,
+    pub rcu_stalls: u32,
+    pub hung_tasks: u32,
 }
 
 /// GPU page fault detection. ≥ 1 fault in 60s window → GpuHang suspicion.
@@ -76,6 +82,41 @@ pub fn detect_softlockup(thresholds: &SocThresholds, trap_count: u32) -> Option<
                 thresholds.kernel_trap_count
             ),
             severity: "critical",
+        })
+    } else {
+        None
+    }
+}
+
+/// RCU grace period stall detection. ≥ 1 stall in window → RcuStall suspicion.
+/// Observed 2026-09-18: rcu_preempt stalls cascading to progressive freeze.
+pub fn detect_rcu_stall(thresholds: &SocThresholds, stall_count: u32) -> Option<Alert> {
+    if stall_count >= thresholds.rcu_stall_count {
+        Some(Alert {
+            kind: "soc_rcu_stall",
+            message: format!(
+                "RCU grace period stall detected ({stall_count} stalls in window, threshold: {}). \
+                 CPU/task refused quiescent state. Progressive freeze / hardlockup imminent.",
+                thresholds.rcu_stall_count
+            ),
+            severity: "critical",
+        })
+    } else {
+        None
+    }
+}
+
+/// Hung task detection. ≥ threshold blocked tasks → HungTask suspicion.
+pub fn detect_hung_task(thresholds: &SocThresholds, hung_count: u32) -> Option<Alert> {
+    if hung_count >= thresholds.hung_task_count {
+        Some(Alert {
+            kind: "soc_hung_task",
+            message: format!(
+                "Hung task detected ({hung_count} tasks blocked > 120s, threshold: {}). \
+                 I/O or scheduler stall. HungTask risk.",
+                thresholds.hung_task_count
+            ),
+            severity: "warning",
         })
     } else {
         None
@@ -226,6 +267,12 @@ pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Ve
     if let Some(a) = detect_softlockup(thresholds, snapshot.kernel_traps) {
         alerts.push(a);
     }
+    if let Some(a) = detect_rcu_stall(thresholds, snapshot.rcu_stalls) {
+        alerts.push(a);
+    }
+    if let Some(a) = detect_hung_task(thresholds, snapshot.hung_tasks) {
+        alerts.push(a);
+    }
     if let Some(a) = detect_service_cascade(thresholds, snapshot.service_cascades) {
         alerts.push(a);
     }
@@ -267,6 +314,24 @@ mod tests {
     }
 
     #[test]
+    fn test_rcu_stall_detection() {
+        let t = SocThresholds::default();
+        assert!(detect_rcu_stall(&t, 0).is_none());
+        let a = detect_rcu_stall(&t, 1).expect("alert on 1 stall");
+        assert_eq!(a.kind, "soc_rcu_stall");
+        assert_eq!(a.severity, "critical");
+    }
+
+    #[test]
+    fn test_hung_task_detection() {
+        let t = SocThresholds::default();
+        assert!(detect_hung_task(&t, 1).is_none());
+        let a = detect_hung_task(&t, 2).expect("alert on 2 hung tasks");
+        assert_eq!(a.kind, "soc_hung_task");
+        assert_eq!(a.severity, "warning");
+    }
+
+    #[test]
     fn test_service_cascade_detection() {
         let t = SocThresholds::default();
         assert!(detect_service_cascade(&t, 500).is_none());
@@ -304,8 +369,10 @@ mod tests {
             watchdog_failures: 6,
             service_restart_rate: 600.0,
             dbus_timeouts: 3,
+            rcu_stalls: 1,
+            hung_tasks: 3,
         };
         let alerts = check_all(&t, &snap);
-        assert_eq!(alerts.len(), 7);
+        assert_eq!(alerts.len(), 9);
     }
 }

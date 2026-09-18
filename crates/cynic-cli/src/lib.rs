@@ -24,6 +24,7 @@ pub mod cli_args;
 pub mod cli_exit;
 pub mod cli_json;
 pub mod command_manifest;
+pub mod constitutional_court_surface;
 pub mod crate_audit;
 pub mod debt_audit;
 pub mod deps_surface;

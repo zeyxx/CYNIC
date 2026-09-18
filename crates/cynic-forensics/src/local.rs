@@ -7,7 +7,8 @@ use std::process::Command;
 use crate::port::{ForensicError, ForensicObservationPort};
 use crate::probe::{
     parse_boot_id, parse_boot_table_line, parse_crash_dump_header, parse_dmesg_gpu_fault,
-    parse_kernel_trap, parse_service_failed_line,
+    parse_hung_task, parse_kernel_trap, parse_rcu_context_switch_warning, parse_rcu_stall,
+    parse_service_failed_line,
 };
 use crate::types::{
     CrashKind, EvidenceSource, FORENSIC_TIMELINE_SCHEMA, ForensicEvidence, ForensicTimeline,
@@ -114,6 +115,12 @@ impl ForensicObservationPort for LocalForensicAdapter {
                     evidence.push(e);
                 } else if let Some(e) = parse_kernel_trap(line) {
                     evidence.push(e);
+                } else if let Some(e) = parse_rcu_stall(line) {
+                    evidence.push(e);
+                } else if let Some(e) = parse_hung_task(line) {
+                    evidence.push(e);
+                } else if let Some(e) = parse_rcu_context_switch_warning(line) {
+                    evidence.push(e);
                 }
             }
         }
@@ -204,6 +211,14 @@ impl ForensicObservationPort for LocalForensicAdapter {
             .iter()
             .filter(|e| matches!(e.kind, CrashKind::SoftLockup))
             .count() as u32;
+        let rcu_stall_count = evidence
+            .iter()
+            .filter(|e| matches!(e.kind, CrashKind::RcuStall))
+            .count() as u32;
+        let hung_task_count = evidence
+            .iter()
+            .filter(|e| matches!(e.kind, CrashKind::HungTask))
+            .count() as u32;
         let cynic_canary_disconnections = evidence
             .iter()
             .filter(|e| matches!(e.source, EvidenceSource::CynicCanary { .. }))
@@ -227,6 +242,10 @@ impl ForensicObservationPort for LocalForensicAdapter {
 
         let crash = if gpu_fault_count > 0 {
             Some(CrashKind::GpuHang)
+        } else if rcu_stall_count > 0 {
+            Some(CrashKind::RcuStall)
+        } else if hung_task_count > 0 {
+            Some(CrashKind::HungTask)
         } else if softlockup_trap_count > 0 {
             Some(CrashKind::SoftLockup)
         } else if !service_loops.is_empty() {
@@ -258,6 +277,8 @@ impl ForensicObservationPort for LocalForensicAdapter {
             crash,
             gpu_fault_count,
             softlockup_trap_count,
+            rcu_stall_count,
+            hung_task_count,
             service_loops,
             cynic_canary_disconnections,
             core_dumps,

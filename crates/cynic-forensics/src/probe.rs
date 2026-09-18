@@ -22,9 +22,46 @@ pub fn parse_dmesg_gpu_fault(line: &str) -> Option<ForensicEvidence> {
 }
 
 /// Parse a kernel log line for trap signatures.
+/// Matches: `trap invalid opcode`, `softlockup`, `hardlockup` (NMI watchdog).
 pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
     let lower = line.to_lowercase();
-    let matched = lower.contains("trap invalid opcode") || lower.contains("softlockup");
+    if lower.contains("trap invalid opcode") || lower.contains("softlockup") {
+        return Some(ForensicEvidence {
+            source: EvidenceSource::Dmesg {
+                timestamp: String::new(),
+            },
+            kind: CrashKind::SoftLockup,
+            snippet: line.trim().to_string(),
+            severity: 70,
+        });
+    }
+    if lower.contains("hardlockup")
+        || lower.contains("hard lockup")
+        || lower.contains("nmi watchdog")
+    {
+        return Some(ForensicEvidence {
+            source: EvidenceSource::Dmesg {
+                timestamp: String::new(),
+            },
+            kind: CrashKind::SoftLockup,
+            snippet: line.trim().to_string(),
+            severity: 90,
+        });
+    }
+    None
+}
+
+/// Parse an RCU grace period stall line from dmesg/journalctl.
+/// Matches: `rcu_preempt detected stalls`, `rcu_sched detected stalls`,
+/// `rcu_tasks detected stalls`, `rcu_tasks_trace detected stalls`,
+/// `expedited RCU stall`.
+pub fn parse_rcu_stall(line: &str) -> Option<ForensicEvidence> {
+    let lower = line.to_lowercase();
+    let matched = lower.contains("rcu_preempt detected stalls")
+        || lower.contains("rcu_sched detected stalls")
+        || lower.contains("rcu_tasks detected stalls")
+        || lower.contains("rcu_tasks_trace detected stalls")
+        || lower.contains("expedited rcu stall");
     if !matched {
         return None;
     }
@@ -32,9 +69,50 @@ pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
         source: EvidenceSource::Dmesg {
             timestamp: String::new(),
         },
-        kind: CrashKind::SoftLockup,
+        kind: CrashKind::RcuStall,
         snippet: line.trim().to_string(),
-        severity: 70,
+        severity: 85,
+    })
+}
+
+/// Parse a hung task line from dmesg/journalctl.
+/// Matches: `hung_task: blocked for N seconds`, `hung task: blocked for N seconds`,
+/// `task <name>:<pid> blocked for more than N seconds`.
+pub fn parse_hung_task(line: &str) -> Option<ForensicEvidence> {
+    let lower = line.to_lowercase();
+    let is_hung = lower.contains("hung_task")
+        || lower.contains("hung task")
+        || (lower.contains("task ") && lower.contains("blocked for"));
+    if !is_hung {
+        return None;
+    }
+    if !lower.contains("blocked for") {
+        return None;
+    }
+    Some(ForensicEvidence {
+        source: EvidenceSource::Dmesg {
+            timestamp: String::new(),
+        },
+        kind: CrashKind::HungTask,
+        snippet: line.trim().to_string(),
+        severity: 75,
+    })
+}
+
+/// Parse an RCU read-side critical section context switch warning.
+/// Precursor signal: `Voluntary context switch within RCU read-side critical section`.
+pub fn parse_rcu_context_switch_warning(line: &str) -> Option<ForensicEvidence> {
+    let lower = line.to_lowercase();
+    if !lower.contains("voluntary context switch within rcu") {
+        return None;
+    }
+    Some(ForensicEvidence {
+        source: EvidenceSource::Dmesg {
+            timestamp: String::new(),
+        },
+        kind: CrashKind::RcuStall,
+        snippet: line.trim().to_string(),
+        severity: 55,
     })
 }
 
@@ -235,5 +313,93 @@ mod tests {
     fn parse_crash_dump_header_missing_fields() {
         let content = "ProblemType: Crash\nProcCmdline: some-app\n";
         assert!(parse_crash_dump_header(content).is_none());
+    }
+
+    // ── RCU stall parser ──────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_rcu_stall_preempt() {
+        let line = "rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:\n";
+        let evidence = parse_rcu_stall(line).expect("should match RCU preempt stall");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+        assert_eq!(evidence.severity, 85);
+    }
+
+    #[test]
+    fn parse_rcu_stall_sched() {
+        let line = "rcu: INFO: rcu_sched detected stalls on CPUs/tasks:\n";
+        let evidence = parse_rcu_stall(line).expect("should match RCU sched stall");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+    }
+
+    #[test]
+    fn parse_rcu_stall_tasks() {
+        let line = "rcu: INFO: rcu_tasks detected stalls on tasks:\n";
+        let evidence = parse_rcu_stall(line).expect("should match RCU tasks stall");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+    }
+
+    #[test]
+    fn parse_rcu_stall_tasks_trace() {
+        let line = "rcu: INFO: rcu_tasks_trace detected stalls on tasks:\n";
+        let evidence = parse_rcu_stall(line).expect("should match RCU tasks trace stall");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+    }
+
+    #[test]
+    fn parse_rcu_stall_expedited() {
+        let line = "INFO: rcu: expedited RCU stall\n";
+        let evidence = parse_rcu_stall(line).expect("should match expedited RCU stall");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+    }
+
+    #[test]
+    fn parse_rcu_stall_no_match() {
+        let line = "rcu: INFO: rcu_preempt gp-kthread woke\n";
+        assert!(parse_rcu_stall(line).is_none());
+    }
+
+    // ── Hung task parser ──────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_hung_task_valid() {
+        let line = "kernel: INFO: task kworker/0:0:1234 blocked for more than 120 seconds.\n";
+        let evidence = parse_hung_task(line).expect("should match hung task");
+        assert_eq!(evidence.kind, CrashKind::HungTask);
+        assert_eq!(evidence.severity, 75);
+    }
+
+    #[test]
+    fn parse_hung_task_no_match() {
+        let line = "kernel: INFO: task kworker/0:0:1234: state=S\n";
+        assert!(parse_hung_task(line).is_none());
+    }
+
+    // ── RCU context switch warning ────────────────────────────────────────────
+
+    #[test]
+    fn parse_rcu_context_switch_warning_valid() {
+        let line = "kernel: Voluntary context switch within RCU read-side critical section!\n";
+        let evidence = parse_rcu_context_switch_warning(line)
+            .expect("should match RCU context switch warning");
+        assert_eq!(evidence.kind, CrashKind::RcuStall);
+        assert_eq!(evidence.severity, 55);
+    }
+
+    #[test]
+    fn parse_rcu_context_switch_warning_no_match() {
+        let line = "kernel: RCU read-side critical section\n";
+        assert!(parse_rcu_context_switch_warning(line).is_none());
+    }
+
+    // ── Hardlockup (NMI) ─────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_kernel_trap_hardlockup() {
+        let line =
+            "NMI: Watchdog detected hard LOCKUP - CPU#0: hard lockup - CPU#0 stuck for 28s!\n";
+        let evidence = parse_kernel_trap(line).expect("should match hardlockup");
+        assert_eq!(evidence.kind, CrashKind::SoftLockup);
+        assert_eq!(evidence.severity, 90);
     }
 }

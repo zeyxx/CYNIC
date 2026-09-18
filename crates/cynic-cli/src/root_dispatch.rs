@@ -75,6 +75,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Models { command } => execute_operator_models(command),
         Command::Doctor { json } => execute_operator_doctor(json),
         Command::Errors { json } => execute_operator_errors(json),
+        Command::Court { command } => crate::constitutional_court_surface::execute_court(command),
         Command::Task { command } => crate::task_surface::execute_task(command),
         Command::Federation { command } => crate::federation_surface::execute_federation(command),
         Command::Build { command } => execute_build(command)
@@ -88,6 +89,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Judge { command } => crate::judge_surface::execute_judge(command),
         Command::Mask { command } => crate::mask_surface::execute_mask(command),
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
+        Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS

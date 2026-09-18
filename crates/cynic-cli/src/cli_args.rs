@@ -6,6 +6,7 @@ use crate::build_surface::BuildCommand;
 use crate::dev_surface::DevCommand;
 use crate::federation_surface::FederationCommand;
 use crate::fleet_surface::FleetCommand;
+use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
 use crate::judge_surface::JudgeCommand;
 use crate::lifecycle_surface::LifecycleCommand;
@@ -54,6 +55,11 @@ pub(crate) enum Command {
     Doctor {
         #[arg(long)]
         json: bool,
+    },
+    /// Constitutional court — audit policy alignment across surfaces.
+    Court {
+        #[command(subcommand)]
+        command: crate::constitutional_court_surface::CourtCommand,
     },
     /// Explain stable CYNIC error codes and their operator remediation.
     Errors {
@@ -197,6 +203,11 @@ pub(crate) enum Command {
         json: bool,
         #[arg(long)]
         apply: bool,
+    },
+    /// Forensics — read-only projection of host crash evidence.
+    Forensics {
+        #[command(subcommand)]
+        command: ForensicsCommand,
     },
     /// Binary source identity: exact git SHA baked at compile time.
     Version {

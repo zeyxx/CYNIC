@@ -19,8 +19,12 @@ pub const POST_MORTEM_REPORT_SCHEMA: &str = "cynic.post_mortem_report.v1";
 pub enum CrashKind {
     /// GPU page fault + ring timeout + reset failure. Observed 2026-08-30.
     GpuHang,
-    /// Kernel traps (invalid opcode, softlockup). Observed 2026-08-18.
+    /// Kernel traps (invalid opcode, softlockup, hardlockup). Observed 2026-08-18.
     SoftLockup,
+    /// RCU grace period stall (CPU/task refused quiescent state > 21s). Observed 2026-09-18.
+    RcuStall,
+    /// Hung task (task blocked > watchdog_thresh). Observed in production.
+    HungTask,
     /// 203/EXEC explosion cascading from another crash. Observed constantly.
     ServiceCascade,
     /// Reboot with no trace (5 min uptime). Observed 2026-08-25.
@@ -37,6 +41,8 @@ impl CrashKind {
         match self {
             Self::GpuHang => "gpu_hang",
             Self::SoftLockup => "soft_lockup",
+            Self::RcuStall => "rcu_stall",
+            Self::HungTask => "hung_task",
             Self::ServiceCascade => "service_cascade",
             Self::Immediate => "immediate",
             Self::ProgressiveFreeze => "progressive_freeze",
@@ -152,6 +158,10 @@ pub struct PostMortemReport {
     pub gpu_fault_count: u32,
     /// Count of kernel traps (invalid opcode, softlockup).
     pub softlockup_trap_count: u32,
+    /// Count of RCU grace period stalls (CPU/task refused quiescent state). Observed 2026-09-18.
+    pub rcu_stall_count: u32,
+    /// Count of hung tasks (blocked > watchdog_thresh).
+    pub hung_task_count: u32,
     /// Service restart loops active during the crash window.
     pub service_loops: Vec<ServiceLoop>,
     /// Number of cynic-kernel SSE stream disconnections.
@@ -188,6 +198,10 @@ pub struct SocThresholds {
     pub service_exec_delta_per_hour: u64,
     /// Service restart rate per hour → crash-loop.
     pub service_restart_rate_per_hour: f64,
+    /// RCU grace period stall count → RcuStall suspicion.
+    pub rcu_stall_count: u32,
+    /// Hung task count → HungTask suspicion.
+    pub hung_task_count: u32,
 }
 
 impl Default for SocThresholds {
@@ -202,6 +216,8 @@ impl Default for SocThresholds {
             journald_watchdog_count: 5,
             service_exec_delta_per_hour: 1000,
             service_restart_rate_per_hour: 500.0,
+            rcu_stall_count: 1,
+            hung_task_count: 2,
         }
     }
 }
@@ -283,6 +299,8 @@ mod tests {
         for kind in [
             CrashKind::GpuHang,
             CrashKind::SoftLockup,
+            CrashKind::RcuStall,
+            CrashKind::HungTask,
             CrashKind::ServiceCascade,
             CrashKind::Immediate,
             CrashKind::ProgressiveFreeze,
@@ -298,6 +316,8 @@ mod tests {
     fn crash_kind_labels() {
         assert_eq!(CrashKind::GpuHang.as_str(), "gpu_hang");
         assert_eq!(CrashKind::SoftLockup.as_str(), "soft_lockup");
+        assert_eq!(CrashKind::RcuStall.as_str(), "rcu_stall");
+        assert_eq!(CrashKind::HungTask.as_str(), "hung_task");
         assert_eq!(CrashKind::Unknown.as_str(), "unknown");
     }
 
@@ -350,6 +370,8 @@ mod tests {
             crash: Some(CrashKind::GpuHang),
             gpu_fault_count: 12,
             softlockup_trap_count: 0,
+            rcu_stall_count: 1,
+            hung_task_count: 0,
             service_loops: vec![ServiceLoop {
                 unit: "discord-pac-server".into(),
                 restart_count: 8454,
@@ -375,6 +397,8 @@ mod tests {
         assert_eq!(t.journald_watchdog_count, 5);
         assert_eq!(t.service_exec_delta_per_hour, 1000);
         assert_eq!(t.service_restart_rate_per_hour, 500.0);
+        assert_eq!(t.rcu_stall_count, 1);
+        assert_eq!(t.hung_task_count, 2);
     }
 
     #[test]
