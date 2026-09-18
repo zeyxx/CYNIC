@@ -14,10 +14,11 @@ const OPENAPI_JSON: &str = r#"{
     "version": "minimal-runtime"
   },
   "paths": {
-    "/identity": {},
-    "/health": {},
-    "/ready": {},
-    "/coord/register": {},
+      "/identity": {},
+      "/health": {},
+      "/ready": {},
+      "/capabilities": {},
+      "/coord/register": {},
     "/coord/who": {},
     "/coord/claim": {},
     "/coord/release": {},
@@ -34,6 +35,7 @@ const API_TOPOLOGY_JSON: &str = r#"{
     "/identity",
     "/health",
     "/ready",
+    "/capabilities",
     "/coord/register",
     "/coord/who",
     "/coord/claim",

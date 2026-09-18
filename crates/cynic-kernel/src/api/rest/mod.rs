@@ -10,6 +10,7 @@ pub mod bootstrap_binding;
 pub mod coord;
 pub mod coord_lease;
 pub mod data;
+pub mod capabilities;
 pub mod discovery;
 pub mod dispatch;
 pub mod event;
@@ -65,6 +66,7 @@ use self::data::{
     observe_crystal_hypha_handler, proof_of_history_handler, public_observations_handler,
     sessions_handler, shatter_crystal_handler, usage_handler, verdicts_handler,
 };
+use self::capabilities::capabilities_handler;
 use self::discovery::{
     api_layer_alignment_handler, api_topology_handler, identity_handler, openapi_handler,
 };
@@ -145,6 +147,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/identity", get(identity_handler))
         .route("/api/topology", get(api_topology_handler))
         .route("/api/layer-alignment", get(api_layer_alignment_handler))
+        .route("/capabilities", get(capabilities_handler))
         .route("/events/ws", axum::routing::get(ws_handler))
         .route("/health", get(health_handler))
         .route("/attention", get(attention_handler))
