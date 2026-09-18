@@ -262,12 +262,19 @@ fn registry_dns_zone(registry: &Registry) -> String {
 }
 
 fn provider_fallback_cidr(registry: &Registry) -> String {
-    registry
+    let planes = registry
         .network_policy
         .as_ref()
-        .and_then(|policy| policy.planes.as_ref())
-        .and_then(|planes| planes.proxmox_guest.as_ref())
+        .and_then(|policy| policy.planes.as_ref());
+
+    planes
+        .and_then(|p| p.proxmox_guest.as_ref())
         .and_then(|plane| plane.cidr.clone())
+        .or_else(|| {
+            planes
+                .and_then(|p| p.synapse.as_ref())
+                .and_then(|plane| plane.cidr.clone())
+        })
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "10.10.10.0/24".to_string())
 }

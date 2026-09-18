@@ -223,7 +223,12 @@ pub fn discover_cluster_nodes(
 /// Pure extractor of desired node network specs from a registry JSON Value.
 pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<DesiredNodeNetworkSpec> {
     let mut specs = Vec::new();
-    let mut reservations_synapse: std::collections::HashMap<String, String> =
+    let canonical_service_plane = registry
+        .pointer("/network_policy/canonical_service_plane")
+        .and_then(|v| v.as_str())
+        .unwrap_or("synapse");
+
+    let mut reservations_service: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
     let mut reservations_direct: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -233,10 +238,18 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
     {
         for r in reservations {
             if let Some(name) = r.get("name").and_then(|v| v.as_str()) {
-                if let Some(syn) = r.get("synapse").and_then(|v| v.as_str()) {
-                    reservations_synapse.insert(name.to_string(), syn.to_string());
+                if let Some(syn) = r
+                    .get(canonical_service_plane)
+                    .or_else(|| r.get("synapse"))
+                    .and_then(|v| v.as_str())
+                {
+                    reservations_service.insert(name.to_string(), syn.to_string());
                 }
-                if let Some(mgmt) = r.get("management").and_then(|v| v.as_str()) {
+                if let Some(mgmt) = r
+                    .get("management")
+                    .or_else(|| r.get("direct"))
+                    .and_then(|v| v.as_str())
+                {
                     reservations_direct.insert(name.to_string(), mgmt.to_string());
                 }
             }
@@ -277,8 +290,28 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
             }
             let name = n.get("name").and_then(|v| v.as_str()).unwrap_or(node_id);
 
-            let synapse_ip = reservations_synapse.get(name).cloned();
-            let direct_ip = reservations_direct.get(name).cloned();
+            let node_net = n.get("network");
+            let synapse_ip = node_net
+                .and_then(|net| {
+                    net.get(canonical_service_plane)
+                        .or_else(|| net.get("synapse"))
+                })
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| reservations_service.get(name).cloned())
+                .or_else(|| reservations_service.get(node_id).cloned());
+
+            let direct_ip = node_net
+                .and_then(|net| {
+                    net.get("management")
+                        .or_else(|| net.get("direct"))
+                        .or_else(|| net.get("local"))
+                })
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| reservations_direct.get(name).cloned())
+                .or_else(|| reservations_direct.get(node_id).cloned());
+
             let (wireguard_ip, wireguard_public_key) = match wg_nodes.get(node_id) {
                 Some((ip, pk)) => (
                     if ip.is_empty() {
@@ -431,5 +464,61 @@ mod tests {
             }
         );
         assert!(!report.drift_detected);
+    }
+
+    #[test]
+    fn extracts_specs_dynamically_from_nodes_and_reservations() {
+        let registry = serde_json::json!({
+            "schema": "cynic.network.registry.v1",
+            "network_policy": {
+                "canonical_service_plane": "custom_mesh",
+                "reservations": [
+                    {
+                        "name": "node-b",
+                        "custom_mesh": "10.42.0.2",
+                        "management": "192.168.1.2"
+                    }
+                ],
+                "wireguard": {
+                    "nodes": [
+                        {
+                            "node_id": "node-a",
+                            "overlay_ip": "10.99.0.1",
+                            "public_key": "pk_a"
+                        }
+                    ]
+                }
+            },
+            "nodes": [
+                {
+                    "id": "node-a",
+                    "network": {
+                        "custom_mesh": "10.42.0.1",
+                        "direct": "192.168.1.1"
+                    },
+                    "services": [
+                        {"name": "rpc", "port": 8080}
+                    ]
+                },
+                {
+                    "id": "node-b",
+                    "name": "node-b"
+                }
+            ]
+        });
+
+        let specs = extract_desired_network_specs(&registry);
+        assert_eq!(specs.len(), 2);
+
+        let spec_a = specs.iter().find(|s| s.node_id == "node-a").unwrap();
+        assert_eq!(spec_a.synapse_ip.as_deref(), Some("10.42.0.1"));
+        assert_eq!(spec_a.direct_ip.as_deref(), Some("192.168.1.1"));
+        assert_eq!(spec_a.wireguard_ip.as_deref(), Some("10.99.0.1"));
+        assert_eq!(spec_a.wireguard_public_key.as_deref(), Some("pk_a"));
+        assert_eq!(spec_a.probe_ports, vec![8080]);
+
+        let spec_b = specs.iter().find(|s| s.node_id == "node-b").unwrap();
+        assert_eq!(spec_b.synapse_ip.as_deref(), Some("10.42.0.2"));
+        assert_eq!(spec_b.direct_ip.as_deref(), Some("192.168.1.2"));
     }
 }

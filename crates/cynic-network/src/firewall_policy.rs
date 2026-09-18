@@ -138,8 +138,14 @@ pub fn derive_firewall_policy_from_registry(
     target_node_id: &str,
     now_unix_ms: u64,
 ) -> Result<DynamicFirewallPolicy, String> {
+    let canonical_service_plane = registry
+        .pointer("/network_policy/canonical_service_plane")
+        .and_then(|v| v.as_str())
+        .unwrap_or("synapse");
+    let service_cidr_pointer = format!("/network_policy/planes/{}/cidr", canonical_service_plane);
     let synapse_cidr = registry
-        .pointer("/network_policy/planes/synapse/cidr")
+        .pointer(&service_cidr_pointer)
+        .or_else(|| registry.pointer("/network_policy/planes/synapse/cidr"))
         .and_then(|v| v.as_str())
         .unwrap_or("10.10.10.0/24")
         .to_string();
