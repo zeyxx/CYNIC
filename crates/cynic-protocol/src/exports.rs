@@ -10,7 +10,18 @@ pub use crate::agent_isolation::*;
 pub use crate::agent_mutation_gates::*;
 pub use crate::agent_recursion::*;
 pub use crate::agent_review::*;
-pub use crate::agent_session::*;
+pub use crate::agent_session::{
+    agent_session_authority_digest, compose_root_agent_launch, reconcile_agent_session,
+    reconcile_agent_session_renewal, validate_agent_session_record, validate_agent_session_rotation,
+    AgentRootLaunchPlan, AgentRootLaunchRequest, AgentSessionAction, AgentSessionAuthority,
+    AgentSessionCredentialKind, AgentSessionEnrollment, AgentSessionPeerObservation,
+    AgentSessionPlan, AgentSessionRecord, AgentSessionRenewalPlan, AgentSessionRenewalRequest,
+    AgentSessionRequest, AgentSessionState, AgentSessionTransport,
+    AGENT_ROOT_LAUNCH_PLAN_SCHEMA, AGENT_ROOT_LAUNCH_REQUEST_SCHEMA,
+    AGENT_SESSION_AUTHORITY_SCHEMA, AGENT_SESSION_PEER_OBSERVATION_SCHEMA,
+    AGENT_SESSION_PLAN_SCHEMA, AGENT_SESSION_RECORD_SCHEMA, AGENT_SESSION_RENEWAL_PLAN_SCHEMA,
+    AGENT_SESSION_RENEWAL_REQUEST_SCHEMA, AGENT_SESSION_REQUEST_SCHEMA,
+};
 pub use crate::agentic_tool_call::*;
 pub use crate::anchor_client::*;
 pub use crate::artifact_release::*;
@@ -56,7 +67,8 @@ pub use crate::forgejo_token::*;
 pub use crate::framework::*;
 pub use crate::freshness::*;
 pub use crate::harness::*;
-pub use crate::health_signal::*;
+pub use crate::health_signal::reconcile_health_signal;
+pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;
 pub use crate::integrity::*;
 pub use crate::judgment::*;
@@ -72,7 +84,12 @@ pub use crate::node_execution_mode::*;
 pub use crate::node_identity::*;
 pub use crate::observation_record::*;
 pub use crate::observe::*;
-pub use crate::one_shot_capability::*;
+pub use crate::one_shot_capability::{
+    authority_class, OneShotCapability, OneShotCapabilityConsumption,
+    OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus,
+    ONE_SHOT_CAPABILITY_CONSUMPTION_SCHEMA, ONE_SHOT_CAPABILITY_OUTCOME_SCHEMA,
+    ONE_SHOT_CAPABILITY_SCHEMA,
+};
 pub use crate::organic_opportunity::*;
 pub use crate::outcomes::*;
 pub use crate::peer::*;
