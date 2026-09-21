@@ -6,6 +6,7 @@
 
 use blake3::Hasher;
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use rand::Rng;
 use rand::rngs::OsRng;
 use std::path::PathBuf;
 
@@ -55,11 +56,8 @@ fn generate_and_save(path: &std::path::Path) -> SigningKey {
     let dir = path.parent().unwrap();
     let _ = std::fs::create_dir_all(dir);
 
-    // Generate seed directly — avoids rand_core version mismatch between
-    // ed25519-dalek (rand_core 0.6) and rand 0.9 (rand_core 0.9).
-    use rand::RngCore;
     let mut seed = [0u8; 32];
-    OsRng.fill_bytes(&mut seed);
+    OsRng.fill(&mut seed);
     let keypair = SigningKey::from_bytes(&seed);
 
     match std::fs::write(path, keypair.to_bytes()) {
