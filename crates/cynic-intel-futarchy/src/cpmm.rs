@@ -12,7 +12,7 @@ pub fn create_market(
 ) -> ConditionalMarket {
     let half_pool = initial_liquidity_units / 2;
     ConditionalMarket {
-        schema: FUTARCHY_MARKET_SCHEMA_V1,
+        schema: FUTARCHY_MARKET_SCHEMA_V1.to_string(),
         market_id: market_id.to_string(),
         proposal_id: proposal_id.to_string(),
         question: question.to_string(),

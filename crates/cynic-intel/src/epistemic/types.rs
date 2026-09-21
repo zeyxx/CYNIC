@@ -51,7 +51,7 @@ pub struct ValidatorDogScore {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EpistemicVerdict {
-    pub schema: &'static str,
+    pub schema: String,
     pub verdict_id: String,
     pub stimulus_id: String,
     pub domain: String,
@@ -75,7 +75,7 @@ pub enum CrystalState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrystalKnowledge {
-    pub schema: &'static str,
+    pub schema: String,
     pub crystal_id: String,
     pub domain: String,
     pub pattern_digest: String,

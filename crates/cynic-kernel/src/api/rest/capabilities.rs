@@ -19,7 +19,7 @@ const CAPABILITIES_SCHEMA: &str = "cynic.kernel.capabilities.v1";
 /// Top-level capabilities response.
 #[derive(Debug, Serialize)]
 pub struct CapabilitiesResponse {
-    schema: &'static str,
+    schema: String,
     service: &'static str,
     node_id: String,
     pid: u32,
@@ -78,7 +78,7 @@ fn build_capabilities(state: &AppState) -> CapabilitiesResponse {
     let bearer_auth = state.role_keys.has_any_authentication_authority();
 
     CapabilitiesResponse {
-        schema: CAPABILITIES_SCHEMA,
+        schema: CAPABILITIES_SCHEMA.to_string(),
         service: "cynic-kernel",
         node_id: super::discovery::observed_node_id(),
         pid: std::process::id(),
@@ -89,7 +89,7 @@ fn build_capabilities(state: &AppState) -> CapabilitiesResponse {
         routes: build_routes(bearer_auth),
         inference: InferenceCapability {
             available: inference_backends > 0,
-            backends: inference_backends + 1, // +1 for deterministic-dog
+            backends: inference_backends, // do not count deterministic-dog unless it's actually serving
             sovereign_backends,
             models_endpoint: "/models",
         },

@@ -104,7 +104,7 @@ pub fn evaluate_epistemic_consensus(
     };
 
     Ok(EpistemicVerdict {
-        schema: EPISTEMIC_VERDICT_SCHEMA_V1,
+        schema: EPISTEMIC_VERDICT_SCHEMA_V1.to_string(),
         verdict_id: verdict_id.to_string(),
         stimulus_id: stimulus_id.to_string(),
         domain: domain.to_string(),

@@ -19,8 +19,10 @@ pub const POST_MORTEM_REPORT_SCHEMA: &str = "cynic.post_mortem_report.v1";
 pub enum CrashKind {
     /// GPU page fault + ring timeout + reset failure. Observed 2026-08-30.
     GpuHang,
-    /// Kernel traps (invalid opcode, softlockup, hardlockup). Observed 2026-08-18.
+    /// Kernel traps (invalid opcode, softlockup). Observed 2026-08-18.
     SoftLockup,
+    /// NMI watchdog hard lockup — CPU stuck with interrupts disabled. Observed 2026-08-18.
+    HardLockup,
     /// RCU grace period stall (CPU/task refused quiescent state > 21s). Observed 2026-09-18.
     RcuStall,
     /// Hung task (task blocked > watchdog_thresh). Observed in production.
@@ -41,6 +43,7 @@ impl CrashKind {
         match self {
             Self::GpuHang => "gpu_hang",
             Self::SoftLockup => "soft_lockup",
+            Self::HardLockup => "hard_lockup",
             Self::RcuStall => "rcu_stall",
             Self::HungTask => "hung_task",
             Self::ServiceCascade => "service_cascade",
@@ -158,6 +161,8 @@ pub struct PostMortemReport {
     pub gpu_fault_count: u32,
     /// Count of kernel traps (invalid opcode, softlockup).
     pub softlockup_trap_count: u32,
+    /// Count of NMI watchdog hard lockups (CPU stuck with interrupts disabled).
+    pub hardlockup_trap_count: u32,
     /// Count of RCU grace period stalls (CPU/task refused quiescent state). Observed 2026-09-18.
     pub rcu_stall_count: u32,
     /// Count of hung tasks (blocked > watchdog_thresh).
@@ -370,6 +375,7 @@ mod tests {
             crash: Some(CrashKind::GpuHang),
             gpu_fault_count: 12,
             softlockup_trap_count: 0,
+            hardlockup_trap_count: 0,
             rcu_stall_count: 1,
             hung_task_count: 0,
             service_loops: vec![ServiceLoop {

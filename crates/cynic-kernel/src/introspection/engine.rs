@@ -247,7 +247,9 @@ pub fn analyze_soc(
         .count() as u32;
     let kernel_trap_count = evidence
         .iter()
-        .filter(|e| matches!(e.kind, CrashKind::SoftLockup))
+        .filter(|e| {
+            matches!(e.kind, CrashKind::SoftLockup) || matches!(e.kind, CrashKind::HardLockup)
+        })
         .count() as u32;
     let service_loops = adapter.service_loops().unwrap_or_default();
     let service_restart_rate = service_loops

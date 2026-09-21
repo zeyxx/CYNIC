@@ -43,7 +43,7 @@ pub fn parse_kernel_trap(line: &str) -> Option<ForensicEvidence> {
             source: EvidenceSource::Dmesg {
                 timestamp: String::new(),
             },
-            kind: CrashKind::SoftLockup,
+            kind: CrashKind::HardLockup,
             snippet: line.trim().to_string(),
             severity: 90,
         });
@@ -399,7 +399,7 @@ mod tests {
         let line =
             "NMI: Watchdog detected hard LOCKUP - CPU#0: hard lockup - CPU#0 stuck for 28s!\n";
         let evidence = parse_kernel_trap(line).expect("should match hardlockup");
-        assert_eq!(evidence.kind, CrashKind::SoftLockup);
+        assert_eq!(evidence.kind, CrashKind::HardLockup);
         assert_eq!(evidence.severity, 90);
     }
 }

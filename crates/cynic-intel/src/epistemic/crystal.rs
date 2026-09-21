@@ -9,7 +9,7 @@ pub const FIBONACCI_CANONICAL_THRESHOLD: u32 = 233; // F13
 impl CrystalKnowledge {
     pub fn new(crystal_id: &str, domain: &str, pattern_digest: &str, now: i64) -> Self {
         Self {
-            schema: CRYSTAL_SCHEMA_V1,
+            schema: CRYSTAL_SCHEMA_V1.to_string(),
             crystal_id: crystal_id.to_string(),
             domain: domain.to_string(),
             pattern_digest: pattern_digest.to_string(),

@@ -211,6 +211,10 @@ impl ForensicObservationPort for LocalForensicAdapter {
             .iter()
             .filter(|e| matches!(e.kind, CrashKind::SoftLockup))
             .count() as u32;
+        let hardlockup_trap_count = evidence
+            .iter()
+            .filter(|e| matches!(e.kind, CrashKind::HardLockup))
+            .count() as u32;
         let rcu_stall_count = evidence
             .iter()
             .filter(|e| matches!(e.kind, CrashKind::RcuStall))
@@ -246,6 +250,8 @@ impl ForensicObservationPort for LocalForensicAdapter {
             Some(CrashKind::RcuStall)
         } else if hung_task_count > 0 {
             Some(CrashKind::HungTask)
+        } else if hardlockup_trap_count > 0 {
+            Some(CrashKind::HardLockup)
         } else if softlockup_trap_count > 0 {
             Some(CrashKind::SoftLockup)
         } else if !service_loops.is_empty() {
@@ -277,6 +283,7 @@ impl ForensicObservationPort for LocalForensicAdapter {
             crash,
             gpu_fault_count,
             softlockup_trap_count,
+            hardlockup_trap_count,
             rcu_stall_count,
             hung_task_count,
             service_loops,

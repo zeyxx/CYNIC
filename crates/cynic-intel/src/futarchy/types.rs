@@ -38,7 +38,7 @@ pub struct MarketResolution {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConditionalMarket {
-    pub schema: &'static str,
+    pub schema: String,
     pub market_id: String,
     pub proposal_id: String,
     pub question: String,
