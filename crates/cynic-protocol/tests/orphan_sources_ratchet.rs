@@ -19,23 +19,10 @@ mod orphan_sources;
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
 const QUARANTINED: &[&str] = &[
-    "agent_execution_provenance.rs",
-    // audit.rs left the quarantine: declared and re-exported in lib.rs, so the
-    // audit contract types cynic-host's audit_engine consumes now compile.
-    "build/bootstrap_recovery.rs",
-    // coordination_authority.rs left the quarantine: declared in lib.rs; its
-    // node-owned consumer (coordination_posture_uc) now compiles and tests it.
-    "coordination_fault_harness.rs",
-    "coordination_journal.rs",
-    "coordination_scaling_harness.rs",
-    "detection.rs",
-    "eval_hygiene.rs",
     "fleet_inference/mod.rs",
     "fleet_inference/policy.rs",
     "fleet_inference/types.rs",
-    "hardening.rs",
     "runtime/degradation.rs",
-    "source_change_submission.rs",
 ];
 
 #[test]
