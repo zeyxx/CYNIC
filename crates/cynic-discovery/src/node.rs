@@ -48,8 +48,6 @@ pub struct FleetCapabilities {
     pub observed_at_unix_s: u64,
     /// All nodes observed.
     pub nodes: Vec<NodeCapabilities>,
-    /// Nodes that failed to respond (residual unknowns).
-    pub failed_nodes: Vec<(String, String)>,
 }
 
 impl FleetCapabilities {
@@ -58,7 +56,6 @@ impl FleetCapabilities {
             schema: DISCOVERY_CAPABILITIES_SCHEMA.to_string(),
             observed_at_unix_s: timestamp_now(),
             nodes,
-            failed_nodes: Vec::new(),
         }
     }
 
@@ -78,11 +75,6 @@ impl FleetCapabilities {
     /// Count of live (responding) nodes.
     pub fn live_count(&self) -> usize {
         self.nodes.len()
-    }
-
-    /// Count of failed nodes.
-    pub fn failed_count(&self) -> usize {
-        self.failed_nodes.len()
     }
 
     /// True if the fleet has at least one build executor.

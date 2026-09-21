@@ -262,6 +262,10 @@ pub fn analyze_soc(
         gpu_faults: gpu_fault_count,
         kernel_traps: kernel_trap_count,
         service_restart_rate,
+        observed_at_unix_s: std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
         ..Default::default()
     };
 

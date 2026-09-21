@@ -212,6 +212,17 @@ pub struct PolicyViolation {
 }
 
 impl PolicyViolation {
+    /// Clamp q_score to valid range [0.0, 100.0], replacing NaN/Inf with 0.0.
+    pub fn normalize_q_score(raw: f64) -> f64 {
+        if raw.is_nan() || raw.is_infinite() || raw < 0.0 {
+            0.0
+        } else if raw > 100.0 {
+            100.0
+        } else {
+            raw
+        }
+    }
+
     pub fn is_blocking(&self) -> bool {
         self.nature.is_blocking()
     }

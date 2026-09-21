@@ -18,7 +18,9 @@ pub struct SocThresholds {
     pub service_cascade_exec_delta: u64,
     pub service_restart_rate_per_hour: f64,
     pub rcu_stall_count: u32,
+    pub rcu_stall_window_secs: u64,
     pub hung_task_count: u32,
+    pub hung_task_window_secs: u64,
 }
 
 impl Default for SocThresholds {
@@ -34,7 +36,9 @@ impl Default for SocThresholds {
             service_cascade_exec_delta: 1000,
             service_restart_rate_per_hour: 500.0,
             rcu_stall_count: 1,
+            rcu_stall_window_secs: 300,
             hung_task_count: 2,
+            hung_task_window_secs: 120,
         }
     }
 }
@@ -52,6 +56,8 @@ pub struct ForensicsSnapshot {
     pub dbus_timeouts: u32,
     pub rcu_stalls: u32,
     pub hung_tasks: u32,
+    /// Unix timestamp when this snapshot was observed (for freshness checks).
+    pub observed_at_unix_s: u64,
 }
 
 /// GPU page fault detection. ≥ 1 fault in 60s window → GpuHang suspicion.
@@ -261,6 +267,28 @@ pub fn analyze_network_telemetry(
 /// Combined check: all detection functions applied to one forensics snapshot.
 pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Vec<Alert> {
     let mut alerts = Vec::new();
+    // Freshness check: reject snapshots older than the longest window.
+    let max_window = thresholds
+        .gpu_fault_window_secs
+        .max(thresholds.kernel_trap_window_secs)
+        .max(thresholds.rcu_stall_window_secs)
+        .max(thresholds.hung_task_window_secs)
+        .max(thresholds.canary_disconnect_window_secs);
+    let now_unix_s = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if snapshot.observed_at_unix_s > 0 && now_unix_s.saturating_sub(snapshot.observed_at_unix_s) > max_window {
+        alerts.push(Alert {
+            kind: "soc_snapshot_stale".to_string(),
+            message: format!(
+                "ForensicsSnapshot stale (observed {}s ago, max window {}s). Ignoring.",
+                now_unix_s - snapshot.observed_at_unix_s, max_window
+            ),
+            severity: "critical".to_string(),
+        });
+        return alerts;
+    }
     if let Some(a) = detect_gpu_fault(thresholds, snapshot.gpu_faults) {
         alerts.push(a);
     }
