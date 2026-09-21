@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod adapters;
+pub mod autoresearch;
 pub mod ccm;
 pub mod compliance;
 pub mod domain_enrichment;

@@ -38,7 +38,7 @@ pub struct TraceUnitEmitter;
 impl TraceUnitEmitter {
     /// Inspect one line and emit one `TraceUnit` per matching bucket
     /// (multi-count, miner parity). Detection is delegated to the canonical
-    /// word-anchored table (`crate::bucket_signatures`) — the previous
+    /// word-anchored table (`super::bucket_signatures`) — the previous
     /// loose-substring first-match here produced ~99.8% false positives on
     /// the real corpus and undercounted multi-failure lines.
     pub fn emit_from_line(
@@ -46,7 +46,7 @@ impl TraceUnitEmitter {
         line: &str,
         _bucket_rx: &[(&str, &str)],
     ) -> Vec<TraceUnit> {
-        crate::bucket_signatures::matching_buckets(line)
+        super::bucket_signatures::matching_buckets(line)
             .into_iter()
             .map(|domain| TraceUnit {
                 session_id: session_id.to_string(),

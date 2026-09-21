@@ -144,6 +144,12 @@ actionable: yes"
     }
 }
 
+impl Default for OfflineReflection {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait::async_trait]
 impl ReasoningAdapter for OfflineReflection {
     async fn hypothesize(&self, _evidence: &str) -> Result<Vec<SkillHypothesis>, ReasoningError> {
