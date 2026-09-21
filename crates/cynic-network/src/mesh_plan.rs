@@ -70,7 +70,7 @@ pub struct RegistryService {
     pub port: Option<u16>,
 }
 
-fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> String {
+pub fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> String {
     let Some(policy) = policy else {
         return service_plane.to_string();
     };
@@ -99,7 +99,7 @@ fn reservation_dns_by_name(policy: Option<&NetworkPolicy>) -> BTreeMap<String, V
         .unwrap_or_default()
 }
 
-fn default_dns_names(id: &str, plane: Option<&NetworkPlane>) -> Vec<String> {
+pub fn default_dns_names(id: &str, plane: Option<&NetworkPlane>) -> Vec<String> {
     plane
         .and_then(|plane| plane.dns_zone.as_ref())
         .map(|zone| vec![format!("{id}.{zone}")])
