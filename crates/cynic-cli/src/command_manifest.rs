@@ -46,6 +46,16 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "forensics",
+                commands: vec![
+                    "cynic forensics collect [--json]",
+                    "cynic forensics report [--json]",
+                    "cynic forensics snapshot [--json]",
+                    "cynic forensics diff --a <id> --b <id> [--json]",
+                    "cynic forensics watch [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "runtime",
                 commands: vec![
                     "cynic runtime paths --json [--registry <path>]",
@@ -102,6 +112,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic dev agent-exposure --json [--output <path>] [--persist]",
                     "cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]",
                     "cynic dev opportunities [--json] [--frame <id>] [--output <path>]",
+                ],
+            },
+            CommandDomain {
+                name: "discovery",
+                commands: vec![
+                    "cynic discovery capabilities [--json]",
+                    "cynic discovery nodes [--json]",
+                    "cynic discovery events [--watch] [--json]",
+                    "cynic discovery discover --kind local|remote [--target <ssh>] [--json]",
                 ],
             },
             CommandDomain {
@@ -254,6 +273,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic lifecycle apply [--yes] [--json]",
                     "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json] [--registry <path>]",
                 ],
+            },
+            CommandDomain {
+                name: "court",
+                commands: vec!["cynic court audit [--scope <surfaces>] [--json]"],
             },
             CommandDomain {
                 name: "build",

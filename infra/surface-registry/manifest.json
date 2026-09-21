@@ -132,6 +132,18 @@
   {
    "id": "runtime_forgejo_token",
    "path": "fragments/runtime_forgejo_token.json"
+  },
+  {
+   "id": "discovery_surface",
+   "path": "fragments/discovery_surface.json"
+  },
+  {
+   "id": "forensics_surface",
+   "path": "fragments/forensics_surface.json"
+  },
+  {
+   "id": "court_surface",
+   "path": "fragments/court_surface.json"
   }
  ],
  "retired": [

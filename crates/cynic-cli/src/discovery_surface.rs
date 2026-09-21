@@ -9,12 +9,14 @@
 //!   events       — SSE subscription to discovery events (real-time)
 //!   discover     — trigger a build-discovery scan (local/remote)
 
+use std::io::BufRead;
 use std::process::ExitCode;
 
 use clap::Subcommand;
 
 use crate::cli_json::emit_pretty_json;
 use crate::emit_json;
+use cynic_host::domain::build_discovery::port::BuildDiscoveryObservationPort;
 
 #[derive(Subcommand)]
 pub(crate) enum DiscoveryCommand {
