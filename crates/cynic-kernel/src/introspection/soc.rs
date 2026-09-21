@@ -2,4 +2,4 @@
 //!
 //! Canonical owner: `cynic-intel` (SoC foundation §481).
 
-pub use cynic_intel::introspection::soc::*;
+pub use cynic_intel_soc::*;

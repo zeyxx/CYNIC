@@ -62,7 +62,7 @@ authority-check: secret-literal-check ## Read-only local validation of machine-r
 
 .PHONY: secret-literal-check
 secret-literal-check: ## Reject high-confidence literal credentials in Git-tracked source
-	@test -f target/debug/cynic && ./target/debug/cynic secret lint 2>&1 || echo "(cynic secret lint skipped — binary not built)"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- secret lint
 
 .PHONY: check
 check: ## Native validation via cynic dev check (no make recursion, no jq; exit code is the gate)
@@ -444,7 +444,11 @@ build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows work
 
 .PHONY: build-release
 build-release: ## Admitted release build on the registry-selected build runner
-	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-host -p cynic-kernel -p cynic-node -p cynic-cli --release
+	@packages="$$(jq -er '[.artifacts[].crate] | if length > 0 and all(.[]; type == "string" and test("^[A-Za-z0-9_-]+$$")) then unique[] else error("invalid runtime basket packages") end' infra/runtime-basket.json)"
+	mapfile -t packages <<< "$$packages"
+	args=(build --release)
+	for package in "$${packages[@]}"; do args+=(-p "$$package"); done
+	$(RELEASE_RUST_ENV) $(CARGO) "$${args[@]}"
 
 .PHONY: test
 test: ## Run tests for low-layer core crates

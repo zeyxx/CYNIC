@@ -102,7 +102,7 @@ pub(crate) enum FleetCommand {
         json: bool,
         #[arg(long)]
         registry: Option<String>,
-        #[arg(long, default_value = "http://192.168.0.254")]
+        #[arg(long)]
         freebox: Option<String>,
     },
     /// Emit a cryptographically signed heartbeat pulse.

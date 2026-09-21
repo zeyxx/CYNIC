@@ -6,10 +6,12 @@
 //! evidence, returning alerts ONLY when anomaly thresholds are violated.
 //! Healthy system = zero alerts = silent.
 
+pub mod ports;
 pub mod rules;
 pub mod soc;
 pub mod types;
 
+pub use ports::*;
 pub use rules::{RETIRED_SOURCES, classify_source_tier, is_permanent_source};
 pub use soc::{
     ForensicsSnapshot, SocThresholds, analyze_network_telemetry, check_all,

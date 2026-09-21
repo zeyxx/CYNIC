@@ -78,7 +78,7 @@ pub(crate) enum NetworkCommand {
     Observe {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "http://192.168.0.254")]
+        #[arg(long)]
         freebox: Option<String>,
     },
     /// Network watchdog assessment with active alerts
@@ -87,7 +87,7 @@ pub(crate) enum NetworkCommand {
         json: bool,
         #[arg(long, default_value = "wg0")]
         interface: String,
-        #[arg(long, default_value = "http://192.168.0.254")]
+        #[arg(long)]
         freebox: Option<String>,
     },
     /// Reconcile and synchronize WireGuard peers and Synapse DNS from registry desired state

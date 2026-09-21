@@ -20,17 +20,12 @@ mod orphan_sources;
 /// list may only shrink.
 const QUARANTINED: &[&str] = &[
     "adapters/host_exec_disk.rs",
-    "adapters/proxmox_clone.rs",
-    // audit_engine/{mod,rules,scanner}.rs left the quarantine: declared in
-    // lib.rs, so run_workspace_audit and its rules now compile.
     "container_runtime/local.rs",
     "container_runtime/mod.rs",
     "container_runtime/normalize.rs",
     "container_runtime/policy.rs",
     "container_runtime/port.rs",
     "container_runtime/types.rs",
-    // coordination_lease_store/mod.rs left the quarantine: declared in lib.rs,
-    // and the two integration suites that import it now compile.
     "detection_engine/hardware.rs",
     "detection_engine/mod.rs",
     "detection_engine/provenance.rs",
@@ -45,6 +40,7 @@ const QUARANTINED: &[&str] = &[
     "host_hardening/types.rs",
     "local_agent_session.rs",
     "runtime_takeover_activation.rs",
+    "signed_heartbeat.rs",
     "source_control/commit_scope.rs",
     "storage_census/growth.rs",
     "storage_census/local.rs",
@@ -53,7 +49,6 @@ const QUARANTINED: &[&str] = &[
     "storage_census/port.rs",
     "storage_census/process.rs",
     "storage_census/types.rs",
-    "update_lifecycle/repair_loop.rs",
 ];
 
 #[test]

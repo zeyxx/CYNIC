@@ -233,15 +233,7 @@ fn trust_chain_full_vertical_e2e() {
         generation: 10,
         policy_digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
             .to_string(),
-        release: RuntimeSeedRequest {
-            schema: "cynic.runtime_seed_request.v1".to_string(),
-            release_id: "cynic-v0.2.0".to_string(),
-            source_commit: "75b4cd4b".to_string(),
-            source_bundle_digest:
-                "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-                    .to_string(),
-            release_signature: None,
-        },
+        release: RuntimeSeedRequest::example("node-worker", "cynic-v0.2.0", "75b4cd4b"),
         required_capabilities: vec!["build_runner".to_string()],
         required_services: vec![],
         paused: false,

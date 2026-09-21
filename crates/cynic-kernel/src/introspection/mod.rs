@@ -1,6 +1,7 @@
 //! MAPE-K Analyze loop — self-observation for ANOMALIES ONLY.
 //!
-//! Re-exports pure introspection types and rules from `cynic-intel` (SoC foundation §481).
+//! Pure types and detection functions live in `cynic-intel-soc`.
+//! Orchestration (engine, probe, rules) is kernel-local.
 
 pub mod engine;
 pub mod probe;
@@ -11,9 +12,10 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-pub use cynic_intel::introspection::{
-    Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD, RETIRED_SOURCES, SAVINGS_PCT_THRESHOLD,
-    classify_source_tier, is_permanent_source,
+// Re-exports for kernel-internal consumers (observe, health, agent_tasks).
+pub use cynic_intel_soc::{
+    Alert, EMBED_FAILURE_THRESHOLD, FAILURE_RATE_THRESHOLD, ForensicsSnapshot, RETIRED_SOURCES,
+    SAVINGS_PCT_THRESHOLD, SocThresholds, classify_source_tier, is_permanent_source,
 };
 pub use engine::analyze;
 pub use engine::analyze_soc;

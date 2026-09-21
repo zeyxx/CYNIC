@@ -1,0 +1,62 @@
+{
+  "schema": "cynic.observability.loop.v1",
+  "status": "normative",
+  "purpose": "Formal feedback loop pattern for every CYNIC runtime component. Observation -> Evaluation -> Action -> Proof -> Learning. No component is complete without all five stages.",
+  "definitions": {
+    "stage_1_observation": "Capture real-time state of a component (health, metrics, logs). Source: cynic-node health checks, cynic-host probes, systemd status.",
+    "stage_2_evaluation": "Compare observed state against desired state (declared in contracts/registry). Detect drift, degradation, or failure.",
+    "stage_3_action": "Apply bounded mutation to reconcile drift. Mutations are admitted (lease-guarded, human-approved where required).",
+    "stage_4_proof": "Read-back verification that the action produced the expected effect. Evidence persisted.",
+    "stage_5_learning": "Adjust thresholds, difficulty, or models based on accumulated history. Prevents stale configuration."
+  },
+  "implementation_pattern": {
+    "observation": {
+      "frequency_s": 10,
+      "executor": "cynic-node / cynic-kernel health probes",
+      "output_schema": "cynic.component_observation.v1",
+      "storage": "runtime journal (append-only, ring buffer)"
+    },
+    "evaluation": {
+      "frequency_s": 30,
+      "executor": "cynic-kernel reconciliation loop",
+      "rules": "Per-component threshold definitions",
+      "output": " drift_report or convergence_report"
+    },
+    "action": {
+      "trigger": "drift exceeds threshold",
+      "guard": "admission grant + lease + budget check",
+      "rollback": "automatic on proof failure"
+    },
+    "proof": {
+      "timeout_ms": 5000,
+      "failure_action": "retry once, then escalate to operator",
+      "persistence": "runtime journal entry"
+    },
+    "learning": {
+      "frequency": "every epoch (configurable)",
+      "executor": "cynic-kernel analytics module",
+      "inputs": ["observation history", "action outcomes", "proof success rate"],
+      "outputs": ["updated thresholds", "difficulty adjustment", "capacity forecast"],
+      "schema": "cynic.learning_epoch.v1"
+    }
+  },
+  "per_component": {
+    "builder": {
+      "observation": "make check time, build success rate, CPU/RAM/disk",
+      "learning_target": "difficulty (how many builds/day we can sustain), energy budget, timeout thresholds"
+    },
+    "network_mesh": {
+      "observation": "handshake latency, peer reachability, bandwidth",
+      "learning_target": "keepalive interval, watchdog thresholds, route optimization"
+    },
+    "source_relay": {
+      "observation": "push latency, SHA match success, credential age",
+      "learning_target": "retry policy, credential rotation schedule"
+    }
+  },
+  "no_stale_config": {
+    "rule": "Any threshold or parameter that has not been updated in 30 days must be flagged as stale.",
+    "detection": "cynic-kernel staleness probe",
+    "action": "alert operator, fall back to last-known-good or default with explicit marking"
+  }
+}

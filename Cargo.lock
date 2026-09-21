@@ -851,6 +851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-askesis"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "cynic-build"
 version = "0.2.0"
 dependencies = [
@@ -888,12 +897,15 @@ dependencies = [
  "clap",
  "crossterm",
  "cynic-build",
+ "cynic-discovery",
+ "cynic-discovery-host",
  "cynic-forensics",
  "cynic-host",
  "cynic-inference",
  "cynic-lifecycle",
  "cynic-node",
  "cynic-protocol",
+ "cynic-release",
  "cynic-storage",
  "cynic-vcs",
  "cynic-workload",
@@ -925,6 +937,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-discovery"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "cynic-discovery-host"
+version = "0.2.0"
+dependencies = [
+ "cynic-build",
+ "cynic-discovery",
+ "cynic-host",
+ "serde",
+]
+
+[[package]]
 name = "cynic-forensics"
 version = "0.2.0"
 dependencies = [
@@ -946,8 +977,11 @@ dependencies = [
  "cynic-inference",
  "cynic-intel",
  "cynic-lifecycle",
+ "cynic-lxc",
  "cynic-network",
+ "cynic-pkg",
  "cynic-protocol",
+ "cynic-release",
  "cynic-sandbox",
  "cynic-vcs",
  "cynic-workload",
@@ -998,16 +1032,43 @@ dependencies = [
  "async-trait",
  "blake3",
  "chrono",
+ "cynic-inference",
  "cynic-intel-soc",
  "cynic-protocol",
  "dirs",
  "hex",
+ "regex",
  "reqwest 0.13.4",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "cynic-intel-escore"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "chrono",
+ "cynic-intel",
+ "cynic-protocol",
+ "hex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cynic-intel-futarchy"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "cynic-intel",
+ "cynic-protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1094,6 +1155,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-lxc"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "ed25519-dalek",
+ "hex",
+ "libc",
+ "rustix 1.1.4",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "cynic-market"
 version = "0.2.0"
 dependencies = [
@@ -1147,6 +1224,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-network",
  "cynic-protocol",
+ "cynic-release",
  "cynic-workload",
  "ed25519-dalek",
  "futures-util",
@@ -1198,6 +1276,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-pkg"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "cynic-pool"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "cynic-protocol"
 version = "0.2.0"
 dependencies = [
@@ -1211,6 +1314,17 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "url",
+]
+
+[[package]]
+name = "cynic-release"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

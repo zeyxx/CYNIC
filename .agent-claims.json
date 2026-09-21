@@ -2111,9 +2111,33 @@
         "started_at_unix_s": 1789990123,
         "ttl_seconds": 1800
       }
+    },
+    {
+      "agent_id": "hermes",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_hermes_1789991995",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-protocol"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1789991995,
+        "ttl_seconds": 1800
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 169,
+  "revision": 170,
   "schema": "cynic.agent_claims.v2"
 }

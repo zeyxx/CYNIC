@@ -2,7 +2,11 @@
 //!
 //! Canonical owner: `cynic-intel` (SoC foundation §481).
 
-use crate::introspection::{Alert, ForensicsSnapshot, SocThresholds};
+use crate::rules::classify_source_tier;
+use crate::rules::is_permanent_source;
+use crate::soc::check_all;
+use crate::soc::{ForensicsSnapshot, SocThresholds};
+use crate::types::Alert;
 
 /// Port for anomaly analysis and introspection diagnostics across the organism.
 pub trait IntrospectionPort: std::fmt::Debug + Send + Sync {
@@ -23,7 +27,7 @@ pub struct LocalIntrospectionEngine;
 
 impl IntrospectionPort for LocalIntrospectionEngine {
     fn classify_tier(&self, source_id: &str) -> &'static str {
-        crate::introspection::classify_source_tier(source_id)
+        crate::rules::classify_source_tier(source_id)
     }
 
     fn evaluate_soc_forensics(
@@ -31,7 +35,7 @@ impl IntrospectionPort for LocalIntrospectionEngine {
         thresholds: &SocThresholds,
         snapshot: &ForensicsSnapshot,
     ) -> Vec<Alert> {
-        crate::introspection::check_all(thresholds, snapshot)
+        crate::soc::check_all(thresholds, snapshot)
     }
 }
 

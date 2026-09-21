@@ -119,6 +119,17 @@ Forme: PRIMAIRE / POSSEDÉ / DÉLÉGUÉ / INTERDIT.
   NOTE: extrait de cynic-protocol 2026-09-15. lib.rs = facade fine,
         ratchet architecture_boundary.rs pin l'hexagone.
 
+--- cynic-release (moteur de décision release & relais vitrine) ---
+  PRIMAIRE: évaluation et décision pure d'éligibilité release et de relay.
+  POSSEDÉ: types purs de décision (ReleaseVersion, ReleaseEligibilityVerdict,
+           RelayDecisionProof), évaluation des contrats machine release-gates,
+           relay-policy, release-versioning, staging-model.
+  DÉLÉGUÉ: exécution des gates de compilation/test/artefacts → cynic-build;
+           transport git, tags et push → cynic-vcs; observation hôte → cynic-host;
+           façade opérateur → cynic-cli.
+  INTERDIT: std::process::Command, I/O réseau direct, muter le filesystem,
+           dépendre de host/kernel/node/cli/mcp (DAG strictement descendant).
+
 --- cynic-observer / cynic-askesis / cynic-intel / cynic-zeroclaw-solana ---
   PRIMAIRE: observer = solana ingestion; askesis = companion reasoning
            isolé (framework askesis_companion); intel = INTELLIGENCE

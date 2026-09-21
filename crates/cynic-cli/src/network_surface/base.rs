@@ -140,23 +140,44 @@ pub(crate) fn try_execute_base(
             let freebox_probe = HttpFreeboxProbeAdapter::default();
             let outbox_store = InMemoryNotificationOutboxStore::default();
 
-            let services = vec![
-                ServiceProbeSpec {
-                    service: "forgejo".to_string(),
-                    node: "forgejo".to_string(),
-                    endpoint: "10.10.10.101:3000".to_string(),
-                },
-                ServiceProbeSpec {
-                    service: "surrealdb".to_string(),
-                    node: "cynic-lxc-surrealdb".to_string(),
-                    endpoint: "10.10.10.103:8000".to_string(),
-                },
-                ServiceProbeSpec {
-                    service: "kernel".to_string(),
-                    node: "local-kernel".to_string(),
-                    endpoint: "192.168.100.2:3030".to_string(),
-                },
-            ];
+            let reg_path = crate::registry_path(None);
+            let mut services = Vec::new();
+            if let Ok(content) = std::fs::read_to_string(&reg_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let canonical_plane = val
+                        .pointer("/network_policy/canonical_service_plane")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("synapse");
+                    if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
+                        for node in nodes {
+                            let node_id =
+                                node.get("id").and_then(|v| v.as_str()).unwrap_or_default();
+                            let ip = node
+                                .get("network")
+                                .and_then(|n| n.get(canonical_plane).or_else(|| n.get("synapse")))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("127.0.0.1");
+                            if let Some(svcs) = node.get("services").and_then(|s| s.as_array()) {
+                                for svc in svcs {
+                                    let svc_name = svc
+                                        .get("name")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or_default();
+                                    let port =
+                                        svc.get("port").and_then(|p| p.as_u64()).unwrap_or(0);
+                                    if port > 0 {
+                                        services.push(ServiceProbeSpec {
+                                            service: svc_name.to_string(),
+                                            node: node_id.to_string(),
+                                            endpoint: format!("{ip}:{port}"),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             let adapter = LocalNetworkAdapter;
             let pressure = adapter.observe_network().pressure;

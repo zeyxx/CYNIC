@@ -129,8 +129,8 @@ pub(crate) enum RuntimeCommand {
     StorageCredential {
         #[arg(long, default_value_t = false)]
         json: bool,
-        #[arg(long, default_value = "http://10.10.10.103:8000")]
-        endpoint: String,
+        #[arg(long)]
+        endpoint: Option<String>,
     },
     /// Bounded storage client-policy mutation with exact read-back proof; requires --apply.
     StorageClientPolicySet {
@@ -480,7 +480,44 @@ pub(crate) fn forgejo_token_adapter_selector()
     let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
         .or_else(|_| std::env::var("FORGEJO_API_URL"))
         .or_else(|_| std::env::var("FORGEJO_URL"))
-        .unwrap_or_else(|_| "http://10.10.10.101:3000".to_string());
+        .unwrap_or_else(|_| {
+            let reg_path = crate::registry_path(None);
+            if let Ok(content) = std::fs::read_to_string(&reg_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(nodes) = json.get("nodes").and_then(|n| n.as_array()) {
+                        for node in nodes {
+                            let role = node
+                                .get("role")
+                                .and_then(|r| r.as_str())
+                                .unwrap_or_default();
+                            let id = node.get("id").and_then(|r| r.as_str()).unwrap_or_default();
+                            if role == "forge_primary" || id == "forgejo" {
+                                let ip = node
+                                    .get("network")
+                                    .and_then(|n| n.get("synapse"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("127.0.0.1");
+                                let port = node
+                                    .get("services")
+                                    .and_then(|s| s.as_array())
+                                    .and_then(|svcs| {
+                                        svcs.iter()
+                                            .find(|s| {
+                                                s.get("name").and_then(|n| n.as_str())
+                                                    == Some("forgejo")
+                                            })
+                                            .and_then(|s| s.get("port"))
+                                            .and_then(|p| p.as_u64())
+                                    })
+                                    .unwrap_or(3000);
+                                return format!("http://{ip}:{port}");
+                            }
+                        }
+                    }
+                }
+            }
+            "http://127.0.0.1:3000".to_string()
+        });
 
     Box::new(cynic_host::forgejo_token::HttpForgejoTokenApiAdapter {
         api_base: api_url,
@@ -554,7 +591,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             host_checks::execute_storage_capabilities(json, url.as_deref())
         }
         RuntimeCommand::StorageCredential { json, endpoint } => {
-            match execute_storage_credential_sync(json, &endpoint) {
+            match execute_storage_credential_sync(json, endpoint.as_deref()) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => fail(e),
             }
@@ -737,16 +774,69 @@ pub(crate) fn execute_harness_progress(
     Ok(())
 }
 
-pub(crate) fn execute_storage_credential_sync(json: bool, endpoint: &str) -> Result<(), String> {
+pub(crate) fn execute_storage_credential_sync(
+    json: bool,
+    endpoint: Option<&str>,
+) -> Result<(), String> {
     use cynic_host::storage_credential_sync::{
         StorageCredentialSyncAdapter, StorageCredentialSyncPort,
     };
     use cynic_protocol::storage_credential_sync::{StorageCredentialSpec, decide_credential_sync};
 
+    let resolved_endpoint = endpoint
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("CYNIC_SURREALDB_URL").ok())
+        .or_else(|| std::env::var("SURREALDB_URL").ok())
+        .unwrap_or_else(|| {
+            let reg_path = crate::registry_path(None);
+            if let Ok(content) = std::fs::read_to_string(&reg_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
+                        for node in nodes {
+                            let role = node
+                                .get("role")
+                                .and_then(|r| r.as_str())
+                                .unwrap_or_default();
+                            let id = node.get("id").and_then(|r| r.as_str()).unwrap_or_default();
+                            let services = node.get("services").and_then(|s| s.as_array());
+                            let has_surreal = services
+                                .map(|svcs| {
+                                    svcs.iter().any(|s| {
+                                        s.get("name").and_then(|n| n.as_str()) == Some("surrealdb")
+                                    })
+                                })
+                                .unwrap_or(false);
+                            if role == "storage_primary" || id.contains("surrealdb") || has_surreal
+                            {
+                                let ip = node
+                                    .get("network")
+                                    .and_then(|n| n.get("synapse"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("127.0.0.1");
+                                let port = services
+                                    .and_then(|svcs| {
+                                        svcs.iter()
+                                            .find(|s| {
+                                                s.get("name").and_then(|n| n.as_str())
+                                                    == Some("surrealdb")
+                                            })
+                                            .and_then(|s| s.get("port"))
+                                            .and_then(|p| p.as_u64())
+                                    })
+                                    .unwrap_or(8000);
+                                return format!("http://{ip}:{port}");
+                            }
+                        }
+                    }
+                }
+            }
+            "http://127.0.0.1:8000".to_string()
+        });
+
     let spec = StorageCredentialSpec {
         username: "root".into(),
         password: "cynic".into(),
-        endpoint: endpoint.into(),
+        endpoint: resolved_endpoint,
         namespace: "cynic".into(),
         database: "main".into(),
     };

@@ -1,0 +1,67 @@
+{
+  "schema": "cynic.pruning-policy.v1",
+  "status": "draft",
+  "purpose": "Formal pruning and debloat policy for CYNIC crates, modules, and dependency boundaries. Behavior-driven, auditable, revocable.",
+  "scope": {
+    "applies_to": ["all workspace crates", "internal module organization", "dependency decisions"],
+    "excludes": ["isolated experimental fragments unless promoted into the workspace"]
+  },
+  "split_criteria": {
+    "module_sufficient": {
+      "description": "A module is enough when the boundary is only organizational or narrative, with no independent compilation, reuse, versioning, or test/service reason.",
+      "note": "crate splitting is not a goal in itself"
+    },
+    "crate_justified": {
+      "conditions": [
+        "A responsibility changes on a different schedule or reason",
+        "A distinct compilation/service requirement (build, runtime, no_std, wasm, isolated test, feature gating, heavy dependency isolation)",
+        "A stable public API that is reused, or must be reused",
+        "An independent test/service reason",
+        "A dependency cycle that forces moving a shared responsibility into a separate crate or shared abstraction"
+      ]
+    },
+    "suspect_over_splitting": {
+      "signal": "A crate is too small, too tightly coupled to one consumer, and has no strong reason to live on its own.",
+      "action": "Candidate for fusion or return to a module, not yet another crate."
+    }
+  },
+  "responsibility_rules": {
+    "clear_owner": "Each crate/module must have an identifiable perimeter and a clear contract for what it exposes vs hides.",
+    "public_surface_contract": "Public surface is a commitment; it does not expand without reason.",
+    "one_way_dependency": "Dependency direction must be readable; obscure, implicit, or bidirectional dependencies are avoided without an abstraction.",
+    "domain_no_infrastructure_by_default": "Domain logic must not depend on adapters, infrastructure, framework, driver, or runtime-specific concerns unless it is explicitly that kind of layer."
+  },
+  "visibility_rules": {
+    "tightest_usable": "Use the narrowest visibility that communicates intent. Private by default, pub(crate) for internal shared detail, pub only where it is a real public API.",
+    "no_permanent_broadening": "Do not keep a module or item permanently over-opened for a temporary convenience. If opened, document why and close it again when possible."
+  },
+  "pruning_rules": {
+    "remove_orphans_first": "Orphaned, abandoned, or non-verified modules/crates with no real reason are removal or fusion candidates, before structural design.",
+    "no_footprint_justification": "Do not keep code 'just in case' without a current reason. A pure future justification without a present trigger is archived or isolated, not kept as passive debt.",
+    "extract_only_with_real_reason": "Before extracting a crate, verify the reason for the crate is real and current. A hypothetical future reason is delayed or documented with a trigger, not used to force a new crate now.",
+    "no_split_for_split_sake": "Do not fragment into more crates to satisfy an empty formal rule."
+  },
+  "debt_and_cleanup_rules": {
+    "debt_as_state": "Treat debt as a measurable, owned state, not vague discomfort. 'Old' is not enough by itself.",
+    "deduplication_before_new_abstraction": "Merge proven duplication before introducing new abstractions.",
+    "refactor_for_reason": "Refactor from an identified problem, with a proposed fix, verified effects, and only the necessary moves."
+  },
+  "maintenance_rules": {
+    "verify_before_touching": "Verify users, dependencies, tests, references, build effects, and runtime impact before touching a module or crate.",
+    "no_refactor_by_default": "Refactor from a real identified problem, not from a desire to move code for its own sake."
+  },
+  "violations": {
+    "god_module": "One module or crate accumulating unrelated responsibilities with no clear boundary is a violation signal, not yet a verdict.",
+    "dumping_ground": "A module that becomes a catch-all without a coherent responsibility is a violation signal.",
+    "framework_in_domain": "Domain code importing framework, driver, runtime, or infrastructure-specific types without an explicit adapter role is a violation signal.",
+    "broad_pub_by_convenience": "Permanent over-broad visibility used to avoid a real boundary is a violation signal."
+  },
+  "known_ambiguities": {
+    "suspect_to_small_crate_threshold": "The exact threshold for 'too small a crate' is contextual; the rule gives a signal, not an automatic verdict.",
+    "module_vs_crate_elasticity": "The line can shift over time when a reason becomes real or disappears."
+  },
+  "known_exclusions": [
+    "This policy does not replace verification of code, tests, dependencies, build, and real impact.",
+    "This policy does not decide automatically; it produces signals and decision rules."
+  ]
+}

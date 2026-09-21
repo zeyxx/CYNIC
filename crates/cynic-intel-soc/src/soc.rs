@@ -280,12 +280,12 @@ pub fn check_all(thresholds: &SocThresholds, snapshot: &ForensicsSnapshot) -> Ve
         .unwrap_or(0);
     if snapshot.observed_at_unix_s > 0 && now_unix_s.saturating_sub(snapshot.observed_at_unix_s) > max_window {
         alerts.push(Alert {
-            kind: "soc_snapshot_stale".to_string(),
+            kind: "soc_snapshot_stale",
             message: format!(
                 "ForensicsSnapshot stale (observed {}s ago, max window {}s). Ignoring.",
                 now_unix_s - snapshot.observed_at_unix_s, max_window
             ),
-            severity: "critical".to_string(),
+            severity: "critical",
         });
         return alerts;
     }

@@ -1,0 +1,31 @@
+{
+  "schema": "cynic.catalog.index.v1",
+  "purpose": "Runtime entry points. All state is observed live — never static files.",
+  "authority": "contracts/foundation.json",
+  "runtime_commands": {
+    "status": "cynic status --json",
+    "health": "cynic runtime suite --json",
+    "proofs": "cynic runtime proof-persist --json --proof <path>",
+    "audit": "cynic dev kernel-audit --json",
+    "ownership": "cynic dev ownership-audit --json",
+    "surfaces": "cynic dev surfaces --json",
+    "network": "cynic network mesh status --json",
+    "pool": "cynic pool status --json"
+  },
+  "contracts": {
+    "foundation": "contracts/foundation.json",
+    "pool_contribution": "contracts/pool-contribution.json",
+    "build_placement": "contracts/build-placement.json",
+    "relay_policy": "contracts/relay-policy.json",
+    "release_gates": "contracts/release-gates.json",
+    "observability_loop": "contracts/observability-loop.json"
+  },
+  "principles": {
+    "no_stale": "Parameters not updated in 30 days are flagged stale and fall back to last-known-good.",
+    "observed_not_declared": "Runtime state is observed via health probes, never written by hand.",
+    "feedback_loop": "Observation -> Evaluation -> Action -> Proof -> Learning. Mandatory for every component.",
+    "single_source": "cynic-kernel is the runtime SSOT. Registry files are deprecated in favor of observed state."
+  },
+  "degraissage_target": "cynic-host (139 pub mod) must be slimmed. Next extractions: observer loops, admission, capacity monitoring must become standalone crates.",
+  "feedback": "This file is a contract pointer. It does not contain data — only pointers to runtime endpoints and contracts."
+}

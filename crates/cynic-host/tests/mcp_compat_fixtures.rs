@@ -12,7 +12,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cynic_host::mcp_runtime::observe_mcp_runtime;
-use cynic_host::update_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
 
 fn fixture(name: &str) -> String {
     let path: PathBuf = [

@@ -9,7 +9,6 @@ pub mod epistemic;
 pub mod escore;
 pub mod futarchy;
 pub mod helius_credit;
-pub mod introspection;
 pub mod kscore;
 pub mod ports;
 pub mod rug_prefilter;

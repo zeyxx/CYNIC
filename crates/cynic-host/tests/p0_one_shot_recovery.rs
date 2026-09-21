@@ -9,7 +9,7 @@ use cynic_host::framework_bootstrap::build_runner::{
 use cynic_host::one_shot_authority::{
     LocalOneShotCapabilityAuthority, OneShotCapabilityAuthorityPort,
 };
-use cynic_host::update_lifecycle::LocalArgvRunner;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_build::{
     build_runner_bootstrap_action_digest,
 };

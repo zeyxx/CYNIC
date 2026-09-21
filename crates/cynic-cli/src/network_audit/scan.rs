@@ -231,8 +231,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
                 "DNS resolution failed for {} record(s) in zone '{}'",
                 dns_audit.failed_records, dns_audit.zone
             ),
-            recovery_hint: "Check PVE dnsmasq (10.10.10.1) and /etc/resolv.conf on nodes"
-                .to_string(),
+            recovery_hint: "Check PVE dnsmasq and /etc/resolv.conf on nodes".to_string(),
         });
     }
 

@@ -13,7 +13,7 @@ use cynic_host::toolchain::policy::{
     reconcile_toolchain_full,
 };
 use cynic_host::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
-use cynic_host::update_lifecycle::{ArgvOutput, ArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use std::collections::HashMap;
 
 /// Fake runner that returns scripted outputs for rustup/rustc argv.
