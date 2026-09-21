@@ -97,10 +97,7 @@ fn observed_hostname() -> String {
 }
 
 pub(crate) fn observed_node_id() -> String {
-    std::env::var("CYNIC_NODE_ID")
-        .ok()
-        .filter(|node_id| !node_id.trim().is_empty())
-        .unwrap_or_else(observed_hostname)
+    crate::infra::node_identity::stable_node_id()
 }
 
 /// Minimal unauthenticated process identity for bounded service discovery.
