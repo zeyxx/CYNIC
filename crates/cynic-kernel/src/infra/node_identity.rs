@@ -18,8 +18,7 @@ fn hermes_dir() -> PathBuf {
     std::env::var("HERMES_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
-                .join(".hermes")
+            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string())).join(".hermes")
         })
 }
 
@@ -56,8 +55,12 @@ fn generate_and_save(path: &std::path::Path) -> SigningKey {
     let dir = path.parent().unwrap();
     let _ = std::fs::create_dir_all(dir);
 
-    let mut csprng = OsRng;
-    let keypair = SigningKey::generate(&mut csprng);
+    // Generate seed directly — avoids rand_core version mismatch between
+    // ed25519-dalek (rand_core 0.6) and rand 0.9 (rand_core 0.9).
+    use rand::RngCore;
+    let mut seed = [0u8; 32];
+    OsRng.fill_bytes(&mut seed);
+    let keypair = SigningKey::from_bytes(&seed);
 
     match std::fs::write(path, keypair.to_bytes()) {
         Ok(()) => {
@@ -92,7 +95,7 @@ pub fn crypto_node_id() -> String {
         .collect()
 }
 
-/// Best-effort stable node_id — crypto primary, hostname fallback.
+/// Best-effort stable node_id — crypto primary, env override for dev/test.
 pub fn stable_node_id() -> String {
     // If CYNIC_NODE_ID override is set, use it (test/dev only).
     if let Ok(override_id) = std::env::var("CYNIC_NODE_ID") {
