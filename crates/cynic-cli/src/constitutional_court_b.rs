@@ -194,9 +194,9 @@ pub async fn execute_court_b(scope: Option<Vec<SurfaceType>>, json: bool) -> Exi
     match court.run_audit(scope, &mandate).await {
         Ok(result) => {
             if json {
-                if let Err(e) = emit_pretty_json(&result.report) {
-                    eprintln!("json emit error: {e}");
-                    return ExitCode::FAILURE;
+                let json_exit = emit_pretty_json(&result.report);
+                if json_exit != ExitCode::SUCCESS {
+                    return json_exit;
                 }
             } else {
                 render_human_report(&result.report);

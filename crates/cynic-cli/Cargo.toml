@@ -24,6 +24,10 @@ cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
+cynic-askesis = { path = "../cynic-askesis" }
+cynic-intel = { path = "../cynic-intel" }
+cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
+cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
 cynic-discovery-host = { path = "../cynic-discovery-host" }
 tokio = { version = "1", features = ["full"] }

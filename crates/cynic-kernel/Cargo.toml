@@ -15,6 +15,7 @@ cynic-protocol = { path = "../cynic-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-build = { path = "../cynic-build" }
 cynic-intel = { path = "../cynic-intel" }
+cynic-askesis = { path = "../cynic-askesis" }
 cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-forensics = { path = "../cynic-forensics" }
