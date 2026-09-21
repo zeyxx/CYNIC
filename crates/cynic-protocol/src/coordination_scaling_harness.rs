@@ -208,7 +208,7 @@ mod tests {
         assert!(
             outcome
                 .blockers
-                .contains(&"coordination_fencing_not_monotonic".to_string())
+                .contains(&"proposed_fencing_not_ahead_of_committed".to_string())
         );
     }
 

@@ -15,10 +15,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ContaminationRisk {
     None,
-    Exact,         // sha256 match
-    NearDuplicate, // >90% similarity
-    Semantic,      // embedding similarity
     Rephrase,      // paraphrase detected
+    Semantic,      // embedding similarity
+    NearDuplicate, // >85% similarity
+    Exact,         // sha256 match
 }
 
 /// A detected overlap between training/eval references.
@@ -102,13 +102,13 @@ fn detect_overlap(train: &str, eval: &str) -> Option<ContaminationRisk> {
     }
 
     let similarity = compute_similarity(train, eval);
-    if similarity >= 0.95 {
+    if similarity >= 0.85 {
         return Some(ContaminationRisk::NearDuplicate);
     }
-    if similarity >= 0.85 {
+    if similarity >= 0.70 {
         return Some(ContaminationRisk::Semantic);
     }
-    if similarity >= 0.70 {
+    if similarity >= 0.50 {
         return Some(ContaminationRisk::Rephrase);
     }
     None
@@ -204,7 +204,9 @@ mod tests {
     #[test]
     fn jaccard_similarity_correct() {
         let sim = compute_similarity("the cat sat on the mat", "the cat sat on the hat");
-        assert!(sim > 0.8);
+        // 4 shared words ("the", "cat", "sat", "on") out of 6 unique words ("the", "cat", "sat", "on", "mat", "hat") = 4/6
+        assert!((sim - 4.0 / 6.0).abs() < 1e-6);
+        assert!(sim > 0.6);
         assert!(sim < 1.0);
     }
 }

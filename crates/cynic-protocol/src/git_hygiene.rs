@@ -53,7 +53,7 @@ pub struct GitHygieneDecision {
 
 pub fn check_hygiene(obs: &GitHygieneObservation) -> GitHygieneDecision {
     let mut violations = Vec::new();
-    let mut unknowns = obs.unknowns.clone();
+    let unknowns = obs.unknowns.clone();
 
     // Dirty on main is always a violation
     if obs.current_branch.as_deref() == Some("main") && (!obs.staged_files.is_empty() || !obs.dirty_files.is_empty()) {

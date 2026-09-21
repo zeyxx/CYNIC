@@ -15,7 +15,7 @@ use crate::cleanup::types::*;
 pub fn reconcile_cleanup(obs: &CleanupObservation) -> CleanupDecision {
     let mut safe_to_delete = Vec::new();
     let mut needs_review = Vec::new();
-    let mut keep = Vec::new();
+    let keep = Vec::new();
 
     for item in &obs.items {
         match item.target_kind {
