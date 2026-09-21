@@ -105,20 +105,8 @@ impl AskesisEntry {
 }
 
 pub(crate) fn sha256_hex(input: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-
-    // Pure Rust fallback — no sha2 crate dependency.
-    // In production, adapters use ring::digest or sha2 crate.
-    let mut hasher1 = DefaultHasher::new();
-    input.hash(&mut hasher1);
-    let h1 = hasher1.finish();
-
-    let mut hasher2 = DefaultHasher::new();
-    h1.hash(&mut hasher2);
-    input.hash(&mut hasher2);
-    let h2 = hasher2.finish();
-
-    // Format as 64 hex chars (simulating SHA-256 output shape)
-    format!("{:016x}{:016x}{:016x}{:016x}", h1, h2, h1 ^ h2, h2 ^ h1)
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
 }

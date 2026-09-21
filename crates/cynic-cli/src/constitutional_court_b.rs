@@ -201,7 +201,12 @@ pub async fn execute_court_b(scope: Option<Vec<SurfaceType>>, json: bool) -> Exi
             } else {
                 render_human_report(&result.report);
             }
-            ExitCode::SUCCESS
+            let exit = if result.report.violations.is_empty() && result.report.coherence_score >= 80.0 {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
+            exit
         }
         Err(e) => {
             eprintln!("court audit error: {e}");
