@@ -399,6 +399,7 @@ mod tests {
             dbus_timeouts: 3,
             rcu_stalls: 1,
             hung_tasks: 3,
+            observed_at_unix_s: 0, // test: epoch 0 = always fresh
         };
         let alerts = check_all(&t, &snap);
         assert_eq!(alerts.len(), 9);

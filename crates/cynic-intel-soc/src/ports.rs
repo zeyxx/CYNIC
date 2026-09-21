@@ -59,6 +59,9 @@ mod tests {
             watchdog_failures: 0,
             service_restart_rate: 0.0,
             dbus_timeouts: 0,
+            rcu_stalls: 0,
+            hung_tasks: 0,
+            observed_at_unix_s: 0,
         };
         let alerts = engine.evaluate_soc_forensics(&thresholds, &snap);
         assert_eq!(alerts.len(), 1);
