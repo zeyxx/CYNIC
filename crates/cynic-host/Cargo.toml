@@ -46,3 +46,4 @@ tempfile = "3"
 # cynic_intel::{escore, futarchy}. The crate exists and exports them; it was
 # simply never declared as a dependency, so neither suite could compile.
 cynic-intel = { path = "../cynic-intel" }
+cynic-pkg = { path = "../cynic-pkg" }

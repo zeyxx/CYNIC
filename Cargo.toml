@@ -26,6 +26,7 @@ members = [
     "crates/cynic-forensics",
     "crates/cynic-release",
     "crates/cynic-lxc",
+    "crates/cynic-pkg",
     "crates/cynic-pool",
 ]
 resolver = "2"

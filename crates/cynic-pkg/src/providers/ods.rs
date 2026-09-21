@@ -1,8 +1,8 @@
 //! Osmantic ODS provider — principal-local pin checkout + install.sh.
 
-use crate::domain::ecosystem_package::port::EcosystemPackageProvider;
-use crate::domain::ecosystem_package::probe::which;
-use crate::domain::ecosystem_package::types::{
+use crate::port::EcosystemPackageProvider;
+use crate::probe::which;
+use crate::types::{
     ApplyStep, EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 
@@ -223,7 +223,7 @@ command -v docker >/dev/null
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::ecosystem_package::types::RunAs;
+    use crate::types::RunAs;
     use std::path::PathBuf;
 
     fn test_layout() -> PrincipalInstallLayout {

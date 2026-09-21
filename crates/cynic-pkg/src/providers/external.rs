@@ -1,7 +1,7 @@
 //! External-channel providers — vendor self-update CLIs (hf, npm, rustup, …).
 
-use crate::domain::ecosystem_package::port::EcosystemPackageProvider;
-use crate::domain::ecosystem_package::types::{
+use crate::port::EcosystemPackageProvider;
+use crate::types::{
     ApplyStep, EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 

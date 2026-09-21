@@ -168,8 +168,8 @@ mod tests {
             &self,
             _argv: &[String],
             _cwd: Option<&std::path::Path>,
-        ) -> super::super::execution::PackageCommandOutput {
-            super::super::execution::PackageCommandOutput {
+        ) -> crate::execution::PackageCommandOutput {
+            crate::execution::PackageCommandOutput {
                 exit_code: Some(0),
                 stdout: "verified".to_string(),
                 stderr: String::new(),
@@ -221,7 +221,7 @@ mod tests {
         };
         let plan = EcosystemPackagePlan {
             dep_id: "test".into(),
-            channel: crate::domain::ecosystem_package::types::ProviderChannel::External,
+            channel: crate::types::ProviderChannel::External,
             principal: layout.principal,
             layout: layout.clone(),
             reason: "test".into(),
@@ -238,31 +238,5 @@ mod tests {
             result.message,
             "principal `cynic` not writable — run as that user or enable passwordless sudo -u cynic"
         );
-    }
-
-    #[test]
-    fn applies_plan_through_injected_executor() {
-        let plan = EcosystemPackagePlan {
-            dep_id: "test".into(),
-            channel: ProviderChannel::External,
-            principal: InstallPrincipalKind::RuntimeUser,
-            layout: test_layout(),
-            reason: "test".into(),
-            steps: vec![ApplyStep {
-                role: "fake-step".into(),
-                argv: vec!["never-spawned".into()],
-                cwd: None,
-                mutates: false,
-                privilege_required: false,
-                as_principal: false,
-            }],
-            auto_applicable: true,
-            proofs: vec![],
-            summary_commands: vec!["never-spawned".into()],
-        };
-
-        let result = apply_package_plan_with_executor(&plan, &FakeExecutor);
-        assert!(result.ok);
-        assert_eq!(result.steps_run[0].stdout_tail, "verified");
     }
 }

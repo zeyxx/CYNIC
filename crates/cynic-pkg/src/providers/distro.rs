@@ -1,7 +1,7 @@
 //! Distro-managed providers — formal channel, plan-only (no CYNIC apply).
 
-use crate::domain::ecosystem_package::port::EcosystemPackageProvider;
-use crate::domain::ecosystem_package::types::{
+use crate::port::EcosystemPackageProvider;
+use crate::types::{
     EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 

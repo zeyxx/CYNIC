@@ -122,7 +122,7 @@ pub fn provider_spec(id: &str) -> Option<&'static EcosystemProviderSpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::ecosystem_package::types::ProviderChannel;
+    use crate::types::ProviderChannel;
 
     #[test]
     fn provider_table_covers_llama_and_ods_as_scripted() {

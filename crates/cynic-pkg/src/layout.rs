@@ -2,10 +2,27 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::runtime_authority::default_runtime_principal_layout;
-
 use super::authority::{LocalPrincipalAuthority, PrincipalAuthorityPort};
 use super::types::{InstallPrincipalKind, PrincipalInstallLayout, RunAs};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimePrincipalLayout {
+    pub runtime_user: String,
+    pub runtime_group: String,
+    pub home_dir: PathBuf,
+    pub state_root: PathBuf,
+    pub log_root: PathBuf,
+}
+
+pub fn default_runtime_principal_layout() -> RuntimePrincipalLayout {
+    RuntimePrincipalLayout {
+        runtime_user: "cynic".to_string(),
+        runtime_group: "cynic".to_string(),
+        home_dir: PathBuf::from("/var/lib/cynic"),
+        state_root: PathBuf::from("/var/lib/cynic"),
+        log_root: PathBuf::from("/var/log/cynic"),
+    }
+}
 
 /// Resolve the runtime principal install layout (user `cynic` by default).
 ///

@@ -41,7 +41,7 @@ pub fn observe_python_tooling(layout: &PrincipalInstallLayout) -> ObservedPython
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::ecosystem_package::types::{InstallPrincipalKind, RunAs};
+    use crate::types::{InstallPrincipalKind, RunAs};
     use std::path::PathBuf;
 
     fn test_layout() -> PrincipalInstallLayout {

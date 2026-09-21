@@ -7,12 +7,12 @@ pub mod external;
 pub mod llama_cpp;
 pub mod ods;
 
-use crate::domain::ecosystem_package::port::EcosystemPackageProvider;
-use crate::domain::ecosystem_package::types::{
+use crate::port::EcosystemPackageProvider;
+use crate::types::{
     EcosystemPackageApplyResult, EcosystemPackagePlan, PrincipalInstallLayout,
     PythonInstallProvenance,
 };
-use crate::domain::ecosystem_package::{apply_package_plan, provider_spec, python_cli_policy};
+use crate::{apply_package_plan, provider_spec, python_cli_policy};
 
 use self::distro::{DOCKER, SYSTEMD};
 use self::external::{CARGO, CLAUDE_CODE, CODEX_CLI, HERMES_AGENT, HUGGINGFACE_CLI, RUSTC, UV};
@@ -62,7 +62,7 @@ pub fn plan_for_dep(
             .map(|spec| {
                 matches!(
                     spec.principal,
-                    crate::domain::ecosystem_package::types::InstallPrincipalKind::RuntimeUser
+                    crate::types::InstallPrincipalKind::RuntimeUser
                 )
             })
             .unwrap_or(false);
@@ -112,8 +112,8 @@ pub fn has_auto_handler(dep_id: &str) -> bool {
         .map(|p| {
             matches!(
                 p.channel(),
-                crate::domain::ecosystem_package::types::ProviderChannel::Scripted
-                    | crate::domain::ecosystem_package::types::ProviderChannel::External
+                crate::types::ProviderChannel::Scripted
+                    | crate::types::ProviderChannel::External
             )
         })
         .unwrap_or(false)
@@ -127,7 +127,7 @@ pub use ods::plan_ods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::ecosystem_package::types::{InstallPrincipalKind, RunAs};
+    use crate::types::{InstallPrincipalKind, RunAs};
     use std::path::PathBuf;
 
     fn principal_layout() -> PrincipalInstallLayout {
