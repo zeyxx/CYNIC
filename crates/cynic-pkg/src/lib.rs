@@ -7,6 +7,7 @@
 
 pub mod authority;
 pub mod execution;
+pub mod integration;
 pub mod layout;
 pub mod port;
 pub mod probe;
@@ -51,5 +52,8 @@ pub use types::{
 };
 pub use upstream_probe::{
     probe_github_latest_release, probe_npm_latest_version, probe_pypi_latest_version,
-    probe_upstream_version, UpstreamSourceKind, UpstreamVersionInfo,
+    probe_upstream_version, probe_upstream_version_with_port, HttpUpstreamProbe,
+    OfflineUpstreamProbe, UpstreamProbePort, UpstreamSourceKind, UpstreamVersionInfo,
 };
+pub use integration::*;
+

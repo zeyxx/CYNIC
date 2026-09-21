@@ -239,4 +239,33 @@ mod tests {
             "principal `cynic` not writable — run as that user or enable passwordless sudo -u cynic"
         );
     }
+
+    #[test]
+    fn apply_with_custom_executor() {
+        let layout = test_layout();
+        let step = ApplyStep {
+            role: "step".into(),
+            argv: vec!["echo".into(), "hi".into()],
+            cwd: None,
+            mutates: true,
+            privilege_required: false,
+            as_principal: false,
+        };
+        let plan = EcosystemPackagePlan {
+            dep_id: "test".into(),
+            channel: crate::types::ProviderChannel::External,
+            principal: layout.principal,
+            layout: layout.clone(),
+            reason: "test".into(),
+            steps: vec![step],
+            auto_applicable: true,
+            proofs: vec![],
+            summary_commands: vec!["test".into()],
+        };
+
+        let executor = FakeExecutor;
+        let result = apply_package_plan_with_executor(&plan, &executor);
+        assert!(result.ok);
+        assert!(result.attempted);
+    }
 }

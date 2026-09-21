@@ -1,10 +1,11 @@
 //! Stable integration identities and capability ownership.
 
-use super::integration_types::{
+use super::types::{
     IntegrationCapability, IntegrationDependencySpec, IntegrationKind, IntegrationPrincipal,
     IntegrationSpec,
 };
-use crate::domain::ecosystem_package::{python_cli_policy, types::ToolingAuthorityFamily};
+use crate::python_cli_policy::python_cli_policy;
+use crate::types::ToolingAuthorityFamily;
 
 const GITHUB_CAPABILITIES: &[IntegrationCapability] = &[IntegrationCapability::PublicRelay];
 const HF_CAPABILITIES: &[IntegrationCapability] = &[IntegrationCapability::ModelHub];
@@ -14,6 +15,7 @@ const GITHUB_DEPENDENCY: IntegrationDependencySpec = IntegrationDependencySpec {
     tooling_authority_family: None,
     expected_tooling_provenance: None,
 };
+
 pub fn integration_specs() -> Vec<IntegrationSpec> {
     let hf_policy = python_cli_policy("huggingface-cli").expect("hf python cli policy");
     vec![

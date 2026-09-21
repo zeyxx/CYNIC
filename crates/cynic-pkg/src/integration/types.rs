@@ -3,19 +3,19 @@
 //! These shapes describe presence, execution identity, and connection presence.
 //! They never contain credential values.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::domain::ecosystem_package::{ToolingAuthorityFamily, ToolingInstallProvenance};
-use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
+use super::lifecycle::{BoundaryKind, LifecycleDisposition, LifecycleStatus};
+use crate::types::{ToolingAuthorityFamily, ToolingInstallProvenance};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationKind {
     ManagedService,
     ExternalCli,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationPrincipal {
     RuntimeUser,
@@ -23,7 +23,7 @@ pub enum IntegrationPrincipal {
     SystemManaged,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
     Connected,
@@ -32,7 +32,7 @@ pub enum ConnectionState {
     NotApplicable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationCapability {
     ManagedService,
@@ -49,14 +49,14 @@ pub struct IntegrationDependencySpec {
     pub expected_tooling_provenance: Option<ToolingInstallProvenance>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationDependencyView {
     pub id: String,
     pub install_principal: IntegrationPrincipal,
     pub tooling_authority: Option<IntegrationToolingAuthorityView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationToolingAuthorityView {
     pub integration_id: Option<String>,
     pub dependency_id: Option<String>,
@@ -120,7 +120,7 @@ impl RawIntegrationObservation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationConnectionObservation {
     pub state: ConnectionState,
     pub account: Option<String>,
@@ -128,7 +128,7 @@ pub struct IntegrationConnectionObservation {
     pub secret_exposed: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationObservation {
     pub id: String,
     pub kind: IntegrationKind,
@@ -154,7 +154,7 @@ pub struct IntegrationObservation {
     pub proofs: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationStatusSummary {
     pub total: usize,
     pub ready: usize,
@@ -163,7 +163,7 @@ pub struct IntegrationStatusSummary {
     pub connection_required: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationsStatusReport {
     pub schema: &'static str,
     pub status: &'static str,

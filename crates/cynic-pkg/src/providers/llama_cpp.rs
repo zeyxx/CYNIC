@@ -8,6 +8,7 @@ use crate::types::{
     ApplyStep, EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 
+#[derive(Debug)]
 pub struct LlamaCppProvider;
 
 impl EcosystemPackageProvider for LlamaCppProvider {

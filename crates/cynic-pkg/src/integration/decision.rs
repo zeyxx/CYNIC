@@ -1,14 +1,27 @@
-use super::integration_plan_types::IntegrationPlanAction;
-use super::integration_types::{IntegrationObservation, IntegrationPrincipal};
+//! Pure decision engine for integration state reconciliation.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+use super::types::{IntegrationObservation, IntegrationPrincipal};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationPlanAction {
+    None,
+    RepairServiceReachability,
+    ConnectOperatorCli,
+    ConnectRuntimeCli,
+    AdoptRuntimeCli,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IntegrationDecisionSurface {
     Observe,
     Connect,
     Adopt,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrationDecision {
     pub action: IntegrationPlanAction,
     pub surface: IntegrationDecisionSurface,

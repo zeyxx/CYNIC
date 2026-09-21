@@ -5,6 +5,7 @@ use crate::types::{
     EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 
+#[derive(Debug)]
 pub struct DistroManagedProvider {
     pub id: &'static str,
     pub summary: &'static str,

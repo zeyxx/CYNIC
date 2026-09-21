@@ -6,15 +6,7 @@ use super::integration_types::{
     IntegrationDependencyView, IntegrationPrincipal, IntegrationToolingAuthorityView,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IntegrationPlanAction {
-    None,
-    RepairServiceReachability,
-    ConnectOperatorCli,
-    ConnectRuntimeCli,
-    AdoptRuntimeCli,
-}
+pub use cynic_pkg::integration::decision::IntegrationPlanAction;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct IntegrationExecutionPlan {

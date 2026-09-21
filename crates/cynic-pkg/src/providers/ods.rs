@@ -6,6 +6,7 @@ use crate::types::{
     ApplyStep, EcosystemPackagePlan, InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
 };
 
+#[derive(Debug)]
 pub struct OdsProvider;
 
 impl EcosystemPackageProvider for OdsProvider {

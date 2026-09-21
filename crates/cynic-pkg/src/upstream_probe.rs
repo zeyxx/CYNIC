@@ -1,6 +1,6 @@
 //! Live upstream release probing for Python (PyPI), Node (npm), and GitHub releases.
 //!
-//! Fact-checks latest published versions on demand without static hardcoding.
+//! Fact-checks latest published versions on demand behind an explicit `UpstreamProbePort`.
 
 use serde::Deserialize;
 use std::time::Duration;
@@ -17,6 +17,49 @@ pub enum UpstreamSourceKind {
     PyPI,
     Npm,
     GitHub,
+}
+
+/// Port for upstream version discovery. Separates pure version selection from HTTP side-effects.
+pub trait UpstreamProbePort: Send + Sync {
+    fn probe_pypi(&self, distribution: &str) -> Result<String, String>;
+    fn probe_github(&self, owner_repo: &str) -> Result<String, String>;
+    fn probe_npm(&self, package_name: &str) -> Result<String, String>;
+}
+
+/// Default network HTTP implementation using bounded reqwest.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct HttpUpstreamProbe;
+
+impl UpstreamProbePort for HttpUpstreamProbe {
+    fn probe_pypi(&self, distribution: &str) -> Result<String, String> {
+        probe_pypi_latest_version(distribution)
+    }
+
+    fn probe_github(&self, owner_repo: &str) -> Result<String, String> {
+        probe_github_latest_release(owner_repo)
+    }
+
+    fn probe_npm(&self, package_name: &str) -> Result<String, String> {
+        probe_npm_latest_version(package_name)
+    }
+}
+
+/// Offline / mock implementation for deterministic zero-network testability.
+#[derive(Debug, Default, Clone)]
+pub struct OfflineUpstreamProbe;
+
+impl UpstreamProbePort for OfflineUpstreamProbe {
+    fn probe_pypi(&self, _distribution: &str) -> Result<String, String> {
+        Err("offline".to_string())
+    }
+
+    fn probe_github(&self, _owner_repo: &str) -> Result<String, String> {
+        Err("offline".to_string())
+    }
+
+    fn probe_npm(&self, _package_name: &str) -> Result<String, String> {
+        Err("offline".to_string())
+    }
 }
 
 #[derive(Deserialize)]
@@ -97,15 +140,32 @@ pub fn probe_npm_latest_version(package_name: &str) -> Result<String, String> {
     Ok(resp.version)
 }
 
-/// Dynamic upstream version probe dispatcher.
+/// Dynamic upstream version probe dispatcher with default HTTP adapter.
 pub fn probe_upstream_version(
     dep_id: &str,
     python_dist: Option<&str>,
     github_repo: Option<&str>,
     npm_pkg: Option<&str>,
 ) -> Option<UpstreamVersionInfo> {
+    probe_upstream_version_with_port(
+        dep_id,
+        python_dist,
+        github_repo,
+        npm_pkg,
+        &HttpUpstreamProbe,
+    )
+}
+
+/// Dynamic upstream version probe dispatcher behind explicit port.
+pub fn probe_upstream_version_with_port(
+    dep_id: &str,
+    python_dist: Option<&str>,
+    github_repo: Option<&str>,
+    npm_pkg: Option<&str>,
+    port: &dyn UpstreamProbePort,
+) -> Option<UpstreamVersionInfo> {
     if let Some(repo) = github_repo {
-        if let Ok(version) = probe_github_latest_release(repo) {
+        if let Ok(version) = port.probe_github(repo) {
             return Some(UpstreamVersionInfo {
                 dep_id: dep_id.to_string(),
                 latest_version: version,
@@ -114,7 +174,7 @@ pub fn probe_upstream_version(
         }
     }
     if let Some(dist) = python_dist {
-        if let Ok(version) = probe_pypi_latest_version(dist) {
+        if let Ok(version) = port.probe_pypi(dist) {
             return Some(UpstreamVersionInfo {
                 dep_id: dep_id.to_string(),
                 latest_version: version,
@@ -123,7 +183,7 @@ pub fn probe_upstream_version(
         }
     }
     if let Some(pkg) = npm_pkg {
-        if let Ok(version) = probe_npm_latest_version(pkg) {
+        if let Ok(version) = port.probe_npm(pkg) {
             return Some(UpstreamVersionInfo {
                 dep_id: dep_id.to_string(),
                 latest_version: version,
@@ -150,5 +210,13 @@ mod tests {
         let json = r#"{"tag_name":"v2026.8.3"}"#;
         let parsed: GitHubReleaseInfo = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.tag_name.trim_start_matches('v'), "2026.8.3");
+    }
+
+    #[test]
+    fn offline_port_returns_none() {
+        let port = OfflineUpstreamProbe;
+        assert!(
+            probe_upstream_version_with_port("dep", Some("dist"), None, None, &port).is_none()
+        );
     }
 }

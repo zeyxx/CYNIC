@@ -12,15 +12,21 @@ pub use cynic_pkg::{
 
 pub mod integration_apply;
 pub mod integration_apply_types;
-pub mod integration_catalog;
+pub mod integration_catalog {
+    pub use cynic_pkg::integration::catalog::*;
+}
 pub mod integration_connect;
 pub mod integration_connect_types;
-pub mod integration_decision;
+pub mod integration_decision {
+    pub use cynic_pkg::integration::decision::*;
+}
 pub mod integration_plan;
 pub mod integration_plan_types;
 pub mod integration_port;
 pub mod integration_recipe;
-pub mod integration_types;
+pub mod integration_types {
+    pub use cynic_pkg::integration::types::*;
+}
 
 // ── Stable public surface (CLI + tests) ─────────────────────────────────────
 

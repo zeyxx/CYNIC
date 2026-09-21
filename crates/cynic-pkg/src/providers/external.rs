@@ -6,6 +6,7 @@ use crate::types::{
 };
 
 /// Static external provider (argv owned as &'static).
+#[derive(Debug)]
 pub struct ExternalCliProvider {
     pub id: &'static str,
     pub argv: &'static [&'static str],
