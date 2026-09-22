@@ -82,9 +82,7 @@ pub enum TransformResult {
     /// Record transformed with resolved proxy flag.
     Transformed(DnsRecordShape),
     /// Record intentionally skipped during migration.
-    Skipped {
-        reason: &'static str,
-    },
+    Skipped { reason: &'static str },
 }
 
 /// Transform a registrar DNS record for Cloudflare ingestion.
@@ -147,7 +145,10 @@ mod tests {
 
     #[test]
     fn classify_txt_as_verification() {
-        assert_eq!(classify_record(DnsRecordType::TXT), RecordCategory::Verification);
+        assert_eq!(
+            classify_record(DnsRecordType::TXT),
+            RecordCategory::Verification
+        );
     }
 
     #[test]
@@ -158,7 +159,10 @@ mod tests {
 
     #[test]
     fn classify_ns_as_registrar_owned() {
-        assert_eq!(classify_record(DnsRecordType::NS), RecordCategory::RegistrarOwned);
+        assert_eq!(
+            classify_record(DnsRecordType::NS),
+            RecordCategory::RegistrarOwned
+        );
     }
 
     #[test]

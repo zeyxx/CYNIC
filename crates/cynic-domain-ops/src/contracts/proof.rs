@@ -232,8 +232,14 @@ mod tests {
 
         assert_eq!(proof.status, ProofStatus::Violates);
         let read_back = proof.provider_read_back.as_object().unwrap();
-        assert_eq!(read_back.get("expected").unwrap().get("status").unwrap(), 200);
-        assert_eq!(read_back.get("observed").unwrap().get("status").unwrap(), 404);
+        assert_eq!(
+            read_back.get("expected").unwrap().get("status").unwrap(),
+            200
+        );
+        assert_eq!(
+            read_back.get("observed").unwrap().get("status").unwrap(),
+            404
+        );
     }
 
     #[test]
@@ -261,6 +267,9 @@ mod tests {
     fn parse_proof_rejects_malformed_json() {
         let result = parse_proof("{ broken json");
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), DomainOpsError::JsonParse { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            DomainOpsError::JsonParse { .. }
+        ));
     }
 }

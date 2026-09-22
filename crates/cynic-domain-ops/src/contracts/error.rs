@@ -17,22 +17,13 @@ pub enum DomainOpsError {
     },
 
     #[error("schema mismatch: expected '{expected}', got '{got}'")]
-    SchemaMismatch {
-        expected: &'static str,
-        got: String,
-    },
+    SchemaMismatch { expected: &'static str, got: String },
 
     #[error("invalid domain name '{domain}': {reason}")]
-    InvalidDomain {
-        domain: String,
-        reason: String,
-    },
+    InvalidDomain { domain: String, reason: String },
 
     #[error("provider config error for '{provider}': {reason}")]
-    ProviderConfig {
-        provider: String,
-        reason: String,
-    },
+    ProviderConfig { provider: String, reason: String },
 
     #[error("proxy policy error: {0}")]
     ProxyPolicy(String),

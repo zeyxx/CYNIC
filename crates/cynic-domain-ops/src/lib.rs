@@ -32,6 +32,9 @@ pub use crate::domain::{
 pub use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
 pub use crate::runner::run_domain_ops;
 
+// Re-export secret management types from cynic-secrets (horizontal layer).
+pub use cynic_secrets::{SecretEntry, SecretProviderPort, SecretStatus, SecretStorePort};
+
 // Contract deserialization and proof construction.
 pub use crate::contracts::{DomainOpsError, build_proof, parse_desired_state, proof_to_json};
 
@@ -40,5 +43,8 @@ pub use cynic_protocol::domain_ops::{
     DelegationProof, DnsRecordShape, DnsRecordType, DomainAvailability, DomainOperation,
     DomainOperationProof, DomainOpsDesiredState, EdgeProbeResult, EdgeProbeSpec,
     NameserverUpdateReceipt, ProofStatus, ProviderConfig, ProxyMode, ProxyPolicy,
-    RegistrationReceipt, SkippedRecord, ZoneMigrationResult, ZoneRecordDiff,
+    RegistrationReceipt, SkippedRecord, ZoneMigrationResult, ZoneRecordDiff, env_secret,
+    file_secret,
 };
+pub use cynic_protocol::secret_reference::SecretReference;
+pub use cynic_protocol::secret_reference::{SecretClass, SecretProvider as SecretProviderKind};

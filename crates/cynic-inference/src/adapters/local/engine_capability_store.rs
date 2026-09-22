@@ -9,8 +9,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use serde::{Deserialize, Serialize};
-
 // ── Domain types (pure, no I/O) ──
 pub use crate::domain::engine_caps::{
     ArchStatus, EngineCapabilities, Observation, PreflightDecision,

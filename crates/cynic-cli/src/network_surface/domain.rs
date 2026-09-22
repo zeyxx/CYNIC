@@ -17,9 +17,12 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_domain_cloudflare::CloudflareClient;
-use cynic_domain_ops::{SecretProvider, parse_desired_state, run_domain_ops};
-use cynic_domain_porkbun::{EnvSecretProvider, PorkbunRegistrar};
+use cynic_domain_ops::{
+    SecretProvider, SecretReference, env_secret, parse_desired_state, run_domain_ops,
+};
+use cynic_domain_porkbun::PorkbunRegistrar;
 use cynic_protocol::domain_ops::ProofStatus;
+use cynic_secrets::CompositeSecretProvider;
 
 use crate::network_surface::NetworkCommand;
 use crate::runtime_paths::RuntimePaths;
@@ -104,16 +107,16 @@ fn execute_domain(desired_state_path: &str, apply: bool, ns_cutover_confirmed: b
         Err(e) => return fail(format!("invalid desired state: {e}")),
     };
 
-    // 3. Construct adapters from credentials (env-injected, never inline)
-    let env_provider = EnvSecretProvider;
+    // 3. Construct adapters from credentials — resolved via CompositeSecretProvider.
+    // V2: env → file → OS keyring. Secrets are NEVER inline.
+    let secrets = CompositeSecretProvider::default();
 
-    // Porkbun registrar — credentials resolved via SecretProvider port.
-    // V1: same SecretReference used for both key and secret (Porkbun API key
-    // doubles as secret). Separate SecretReference fields reserved for V2.
+    // Porkbun registrar — credentials resolved through the SecretProvider port.
+    // V1 fallback: same SecretReference used for both key and secret (Porkbun API key).
     let registrar = match PorkbunRegistrar::from_secret_refs(
         &desired.registrar.credential,
         &desired.registrar.credential,
-        &env_provider,
+        &secrets,
     ) {
         Ok(r) => r,
         Err(e) => {
@@ -124,32 +127,33 @@ fn execute_domain(desired_state_path: &str, apply: bool, ns_cutover_confirmed: b
         }
     };
 
-    // Cloudflare client — API token from SecretReference, account ID from env.
-    let cf_token = match env_provider.resolve(&desired.dns_authority.credential) {
-        Some(v) => v,
-        None => {
-            return fail(format!(
-                "cloudflare credential not resolved: env var '{}' is not set",
-                desired.dns_authority.credential.locator
-            ));
+    // Cloudflare client — use from_secret_refs (resolves token + account_id).
+    // The account_id SecretReference falls back to CF_ACCOUNT_ID env var
+    // when not specified in the desired-state contract.
+    let cf_account_ref = desired
+        .dns_authority_account_id
+        .clone()
+        .unwrap_or_else(|| env_secret("cf-account-id", "CF_ACCOUNT_ID"));
+
+    let cloudflare = match CloudflareClient::from_secret_refs(
+        &desired.dns_authority.credential,
+        &cf_account_ref,
+        &secrets,
+        desired.expected_nameservers.clone(),
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            return fail(format!("cloudflare credential resolution failed: {}", e));
         }
     };
-    let cf_account_id = std::env::var("CF_ACCOUNT_ID").unwrap_or_default();
-    let cloudflare = CloudflareClient::new(
-        cf_token,
-        cf_account_id,
-        desired.expected_nameservers.clone(),
-    );
 
     // 4. Run domain operations (delegates all logic to the runner)
-    // CloudflareClient implements both CloudflareDnsPort and EdgeProbePort,
-    // so the same instance serves as both dns port and probe port.
     let proofs = run_domain_ops(
         &desired,
         &registrar,
         &cloudflare,
         &cloudflare,
-        &env_provider,
+        &secrets,
         apply,
         ns_cutover_confirmed,
     );

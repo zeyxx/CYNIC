@@ -19,11 +19,7 @@ use cynic_protocol::domain_ops::DomainOperation;
 ///
 /// This is pure and deterministic: the same inputs always produce the same
 /// key, enabling safe retries without duplicate side effects.
-pub fn generate_idempotency_key(
-    domain: &str,
-    operation: DomainOperation,
-    content: &str,
-) -> String {
+pub fn generate_idempotency_key(domain: &str, operation: DomainOperation, content: &str) -> String {
     let mut hasher = Sha3_512::new();
     hasher.update(domain.as_bytes());
     hasher.update(b"\x00");
@@ -76,7 +72,8 @@ mod tests {
     #[test]
     fn different_operations_produce_different_keys() {
         let key1 = generate_idempotency_key("example.com", DomainOperation::Register, "content");
-        let key2 = generate_idempotency_key("example.com", DomainOperation::UpdateNameservers, "content");
+        let key2 =
+            generate_idempotency_key("example.com", DomainOperation::UpdateNameservers, "content");
         assert_ne!(key1, key2);
     }
 

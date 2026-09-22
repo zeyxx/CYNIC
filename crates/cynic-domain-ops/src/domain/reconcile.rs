@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use cynic_protocol::domain_ops::{DnsRecordShape, DnsRecordType, ProxyPolicy, ZoneRecordDiff};
 
-use crate::domain::transform::{transform_record_for_cloudflare, TransformResult};
+use crate::domain::transform::{TransformResult, transform_record_for_cloudflare};
 
 /// Record key for diffing: identity is (name, type).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -184,7 +184,12 @@ mod tests {
     fn all_new_records_go_to_add() {
         let registrar = vec![
             record("www.example.com", DnsRecordType::A, "1.2.3.4", true),
-            record("mail.example.com", DnsRecordType::MX, "mail.example.com", false),
+            record(
+                "mail.example.com",
+                DnsRecordType::MX,
+                "mail.example.com",
+                false,
+            ),
         ];
         let diff = reconcile_zone(&registrar, &[], &ProxyPolicy::default());
         assert_eq!(diff.add.len(), 2);
@@ -194,9 +199,7 @@ mod tests {
 
     #[test]
     fn all_existing_records_go_to_remove() {
-        let cf = vec![
-            record("old.example.com", DnsRecordType::A, "5.6.7.8", true),
-        ];
+        let cf = vec![record("old.example.com", DnsRecordType::A, "5.6.7.8", true)];
         let diff = reconcile_zone(&[], &cf, &ProxyPolicy::default());
         assert_eq!(diff.add.len(), 0);
         assert_eq!(diff.remove.len(), 1);
@@ -223,7 +226,12 @@ mod tests {
     #[test]
     fn changed_proxy_flag_goes_to_update() {
         let registrar = vec![record("www.example.com", DnsRecordType::A, "1.2.3.4", true)];
-        let cloudflare = vec![record("www.example.com", DnsRecordType::A, "1.2.3.4", false)];
+        let cloudflare = vec![record(
+            "www.example.com",
+            DnsRecordType::A,
+            "1.2.3.4",
+            false,
+        )];
         let diff = reconcile_zone(&registrar, &cloudflare, &ProxyPolicy::default());
         assert_eq!(diff.update.len(), 1);
     }
@@ -232,8 +240,18 @@ mod tests {
     fn ns_records_are_skipped_from_diff() {
         let registrar = vec![
             record("www.example.com", DnsRecordType::A, "1.2.3.4", true),
-            record("ns1.example.com", DnsRecordType::NS, "ns1.registrar.com", false),
-            record("ns2.example.com", DnsRecordType::NS, "ns2.registrar.com", false),
+            record(
+                "ns1.example.com",
+                DnsRecordType::NS,
+                "ns1.registrar.com",
+                false,
+            ),
+            record(
+                "ns2.example.com",
+                DnsRecordType::NS,
+                "ns2.registrar.com",
+                false,
+            ),
         ];
         let diff = reconcile_zone(&registrar, &[], &ProxyPolicy::default());
         assert_eq!(diff.add.len(), 1);
@@ -242,7 +260,12 @@ mod tests {
 
     #[test]
     fn mx_records_are_dns_only_after_transform() {
-        let registrar = vec![record("mail.example.com", DnsRecordType::MX, "mail.example.com", false)];
+        let registrar = vec![record(
+            "mail.example.com",
+            DnsRecordType::MX,
+            "mail.example.com",
+            false,
+        )];
         let diff = reconcile_zone(&registrar, &[], &ProxyPolicy::default());
         assert_eq!(diff.add.len(), 1);
         assert!(!diff.add[0].proxied);
@@ -252,14 +275,19 @@ mod tests {
     fn mixed_zone_produces_correct_diff() {
         let registrar = vec![
             record("www.example.com", DnsRecordType::A, "1.2.3.4", true),
-            record("mail.example.com", DnsRecordType::MX, "mail.example.com", false),
+            record(
+                "mail.example.com",
+                DnsRecordType::MX,
+                "mail.example.com",
+                false,
+            ),
         ];
         let cloudflare = vec![
-            record("www.example.com", DnsRecordType::A, "99.99.99.99", true),  // stale
-            record("old.example.com", DnsRecordType::A, "5.6.7.8", true),       // to remove
+            record("www.example.com", DnsRecordType::A, "99.99.99.99", true), // stale
+            record("old.example.com", DnsRecordType::A, "5.6.7.8", true),     // to remove
         ];
         let diff = reconcile_zone(&registrar, &cloudflare, &ProxyPolicy::default());
-        assert_eq!(diff.add.len(), 1);   // mail.example.com MX
+        assert_eq!(diff.add.len(), 1); // mail.example.com MX
         assert_eq!(diff.remove.len(), 1); // old.example.com A
         assert_eq!(diff.update.len(), 1); // www.example.com A content changed
     }
@@ -267,7 +295,12 @@ mod tests {
     #[test]
     fn detect_cname_conflict_at_same_name() {
         let records = vec![
-            record("www.example.com", DnsRecordType::CNAME, "target.pages.dev", true),
+            record(
+                "www.example.com",
+                DnsRecordType::CNAME,
+                "target.pages.dev",
+                true,
+            ),
             record("www.example.com", DnsRecordType::A, "1.2.3.4", true),
         ];
         let conflict = detect_cname_conflict(&records);
@@ -287,16 +320,24 @@ mod tests {
 
     #[test]
     fn no_conflict_with_only_cname() {
-        let records = vec![
-            record("www.example.com", DnsRecordType::CNAME, "target.pages.dev", true),
-        ];
+        let records = vec![record(
+            "www.example.com",
+            DnsRecordType::CNAME,
+            "target.pages.dev",
+            true,
+        )];
         assert!(detect_cname_conflict(&records).is_none());
     }
 
     #[test]
     fn detect_conflict_between_existing_and_incoming() {
         let existing = vec![record("www.example.com", DnsRecordType::A, "1.2.3.4", true)];
-        let incoming = vec![record("www.example.com", DnsRecordType::CNAME, "target.pages.dev", true)];
+        let incoming = vec![record(
+            "www.example.com",
+            DnsRecordType::CNAME,
+            "target.pages.dev",
+            true,
+        )];
         let conflict = detect_conflict_between(&existing, &incoming);
         assert!(conflict.is_some());
     }
@@ -304,7 +345,12 @@ mod tests {
     #[test]
     fn no_false_conflict_between_different_names() {
         let existing = vec![record("a.example.com", DnsRecordType::A, "1.2.3.4", true)];
-        let incoming = vec![record("b.example.com", DnsRecordType::CNAME, "target.pages.dev", true)];
+        let incoming = vec![record(
+            "b.example.com",
+            DnsRecordType::CNAME,
+            "target.pages.dev",
+            true,
+        )];
         assert!(detect_conflict_between(&existing, &incoming).is_none());
     }
 }

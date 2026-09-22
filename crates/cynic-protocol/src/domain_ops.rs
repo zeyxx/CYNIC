@@ -278,6 +278,11 @@ pub struct DomainOpsDesiredState {
     /// Populated = desired-state is the source of truth (set records).
     #[serde(default)]
     pub zone_records: Vec<DnsRecordShape>,
+    /// Cloudflare-style account ID as a SecretReference (optional).
+    /// When absent, the CLI falls back to `"CF_ACCOUNT_ID"` env var.
+    /// Future: providers like CF require account-scoped zone operations.
+    #[serde(default)]
+    pub dns_authority_account_id: Option<SecretReference>,
 }
 
 // ── Operations & proofs ────────────────────────────────────────────────────

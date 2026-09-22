@@ -36,10 +36,7 @@ fn domain_module_is_pure_zero_io() {
     let base = Path::new(env!("CARGO_MANIFEST_DIR"));
     let domain_dir = base.join("src/domain");
 
-    assert!(
-        domain_dir.exists(),
-        "domain/ directory must exist"
-    );
+    assert!(domain_dir.exists(), "domain/ directory must exist");
 
     for entry in std::fs::read_dir(&domain_dir).expect("read domain dir") {
         let entry = entry.expect("read dir entry");

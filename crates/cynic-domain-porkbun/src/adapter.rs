@@ -122,10 +122,11 @@ impl PorkbunRegistrar {
     ///
     /// The `key_ref` resolves the API key env var; `secret_ref` resolves the
     /// API secret env var. This is the standard V1 credential injection path.
+    /// Accepts any `SecretProviderPort` implementation (env, composite, keyring).
     pub fn from_secret_refs(
         key_ref: &SecretReference,
         secret_ref: &SecretReference,
-        provider: &EnvSecretProvider,
+        provider: &impl SecretProvider,
     ) -> Result<Self, PorkbunError> {
         let api_key = provider
             .resolve(key_ref)

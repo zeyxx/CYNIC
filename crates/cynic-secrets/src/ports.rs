@@ -19,7 +19,18 @@ pub trait SecretProviderPort {
     fn resolve(&self, reference: &SecretReference) -> Option<String>;
 
     /// Read-back: metadata about the secret's presence and posture.
-    fn status(&self, reference: &SecretReference) -> SecretStatus;
+    /// Default impl derives status from `resolve()` — backends can override
+    /// for richer metadata (last_rotated, entropy estimation, etc.).
+    fn status(&self, reference: &SecretReference) -> SecretStatus {
+        SecretStatus {
+            id: reference.id.clone(),
+            class: reference.class,
+            provider: reference.provider,
+            locator: reference.locator.clone(),
+            present: self.resolve(reference).is_some(),
+            last_rotated_secs: None,
+        }
+    }
 }
 
 /// Write port: create, rotate, delete, and enumerate secrets.

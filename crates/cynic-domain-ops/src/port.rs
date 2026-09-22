@@ -7,12 +7,14 @@
 //! Authority: foundation.json §37 (portable_host_contract) — systemd/k8s/ssh/
 //! rest/mcp/shell are adapters behind portable ports.
 
-use cynic_protocol::secret_reference::SecretReference;
-
 use cynic_protocol::domain_ops::{
-    DelegationProof, DnsRecordShape, DomainAvailability, EdgeProbeResult,
-    NameserverUpdateReceipt, RegistrationReceipt,
+    DelegationProof, DnsRecordShape, DomainAvailability, EdgeProbeResult, NameserverUpdateReceipt,
+    RegistrationReceipt,
 };
+
+// SecretProviderPort + SecretStorePort re-exported from cynic-secrets
+// (horizontal secret management layer shared by ALL CYNIC crates).
+// Backwards-compatible alias: SecretProvider = SecretProviderPort.
 
 /// Port for registrar operations (domain availability, registration, NS).
 ///
@@ -98,10 +100,4 @@ pub trait EdgeProbePort {
     fn check_tld_delegation(&self, domain: &str) -> DelegationProof;
 }
 
-/// Port for secret resolution — resolves `SecretReference` to actual secret value.
-///
-/// Implementations read from: env vars, principal-owned files, OS keyring.
-/// Never stores or logs the secret value.
-pub trait SecretProvider {
-    fn resolve(&self, reference: &SecretReference) -> Option<String>;
-}
+pub use cynic_secrets::{SecretProviderPort as SecretProvider, SecretStorePort};

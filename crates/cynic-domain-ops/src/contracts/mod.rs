@@ -14,6 +14,6 @@ pub mod proof;
 pub use desired_state::{desired_state_to_json, parse_desired_state};
 pub use error::DomainOpsError;
 pub use proof::{
-    blocked_proof, build_proof, parse_proof, parse_proof_chain, proof_chain_to_json,
-    proof_to_json, violation_proof,
+    blocked_proof, build_proof, parse_proof, parse_proof_chain, proof_chain_to_json, proof_to_json,
+    violation_proof,
 };

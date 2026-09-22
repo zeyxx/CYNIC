@@ -28,6 +28,7 @@ cynic-askesis = { path = "../cynic-askesis" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
 cynic-domain-porkbun = { path = "../cynic-domain-porkbun" }
 cynic-domain-cloudflare = { path = "../cynic-domain-cloudflare" }
+cynic-secrets = { path = "../cynic-secrets" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
 cynic-intel-soc = { path = "../cynic-intel-soc" }

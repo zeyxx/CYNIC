@@ -491,6 +491,7 @@ mod tests {
                 })
                 .collect(),
             zone_records: Vec::new(),
+            dns_authority_account_id: None,
         }
     }
 

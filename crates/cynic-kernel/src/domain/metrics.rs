@@ -404,7 +404,7 @@ pub fn append_dog_metrics(
 /// Append organ quality metrics from DogStats snapshots.
 pub fn append_organ_metrics(
     out: &mut String,
-    snapshots: &[(String, crate::domain::dog_health::DogStats)],
+    snapshots: &[(String, cynic_protocol::dog_health::DogStats)],
 ) {
     use std::fmt::Write;
 
@@ -577,7 +577,7 @@ mod tests {
 
     #[test]
     fn organ_metrics_renders_correctly() {
-        let stats = crate::domain::dog_health::DogStats::new();
+        let stats = cynic_protocol::dog_health::DogStats::new();
         let snapshots = vec![("test-dog".to_string(), stats)];
         let mut out = String::new();
         append_organ_metrics(&mut out, &snapshots);
