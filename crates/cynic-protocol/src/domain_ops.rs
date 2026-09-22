@@ -615,28 +615,28 @@ mod tests {
 
     #[test]
     fn desired_state_zone_records_roundtrips() {
-        let json = r#"{\
+        let json = r#"{
             "schema": "cynic.domain_ops.desired_state.v1",
             "domain": "talaria.build",
-            "registrar": {\
+            "registrar": {
                 "provider": "porkbun",
-                "credential": {\
+                "credential": {
                     "id": "porkbun-key",
                     "class": "RuntimeMachineIdentity",
                     "provider": "process_environment",
                     "locator": "PORKBUN_API_KEY"
-                }\
+                }
             },
-            "dns_authority": {\
+            "dns_authority": {
                 "provider": "cloudflare",
-                "credential": {\
+                "credential": {
                     "id": "cf-token",
                     "class": "RuntimeMachineIdentity",
                     "provider": "process_environment",
                     "locator": "CF_API_TOKEN"
-                }\
+                }
             },
-            "proxy_policy": {\
+            "proxy_policy": {
                 "web_records": "proxied",
                 "mail_records": "dns_only",
                 "verification_records": "dns_only",
@@ -644,21 +644,21 @@ mod tests {
             },
             "expected_nameservers": ["ns1.cloudflare.com", "ns2.cloudflare.com"],
             "edge_probes": [],
-            "zone_records": [\
-                {\
+            "zone_records": [
+                {
                     "name": "talaria.build",
                     "type": "CNAME",
                     "content": "cname.vercel-dns.com",
                     "ttl": 1,
                     "proxied": true
                 },
-                {\
+                {
                     "name": "www.talaria.build",
                     "type": "CNAME",
                     "content": "cname.vercel-dns.com",
                     "ttl": 1,
                     "proxied": true
-                }\
+                }
             ]
         }"#;
         let state: DomainOpsDesiredState = serde_json::from_str(json).unwrap();
