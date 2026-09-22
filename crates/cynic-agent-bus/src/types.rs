@@ -88,6 +88,8 @@ pub enum ClaimError {
     ScopeLocked(String),
     #[error("budget exhausted for claim {0}")]
     BudgetExhausted(String),
+    #[error("invalid proof for claim")]
+    InvalidProof,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

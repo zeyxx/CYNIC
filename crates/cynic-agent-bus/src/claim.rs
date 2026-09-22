@@ -129,7 +129,15 @@ impl ClaimManager {
         Ok(claim)
     }
 
-    pub async fn release(&self, claim_id: &str) -> Result<(), ClaimError> {
+    pub async fn release(&self, claim_id: &str, proof: Proof) -> Result<(), ClaimError> {
+        let claim = self
+            .store
+            .get_claim(claim_id)
+            .await
+            .ok_or_else(|| ClaimError::NotFound(claim_id.to_string()))?;
+        if proof.parent_task_id != claim.task_id && proof.child_task_id != claim.task_id {
+            return Err(ClaimError::InvalidProof);
+        }
         self.store.release(claim_id).await
     }
 
@@ -183,7 +191,14 @@ mod tests {
         let claim = manager.claim(&task).await.unwrap();
         assert_eq!(claim.claim_id, "claim_t1");
         assert_eq!(claim.status, ClaimStatus::Active);
-        manager.release("claim_t1").await.unwrap();
+        manager.release("claim_t1", Proof {
+            parent_task_id: "t1".to_string(),
+            child_task_id: "t1".to_string(),
+            scope: Scope { kind: ScopeKind::File, path: "src/foo.rs".to_string() },
+            consumed_budget: Budget { actions: 0, wall_seconds: 60 },
+            output_hash: Hash32([0u8; 32]),
+            timestamp_unix_s: 0,
+        }).await.unwrap();
     }
 
     #[tokio::test]
