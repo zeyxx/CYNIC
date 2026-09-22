@@ -87,8 +87,6 @@ impl ModelLayout {
     }
 }
 
-
-
 pub fn resolve_vault_dir() -> PathBuf {
     if let Ok(p) = std::env::var(env_keys::MODEL_VAULT) {
         return PathBuf::from(p);

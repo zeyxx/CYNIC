@@ -522,7 +522,7 @@ pub(crate) fn forgejo_token_adapter_selector()
     Box::new(cynic_host::forgejo_token::HttpForgejoTokenApiAdapter {
         api_base: api_url,
         principal: "jeanterre13".to_string(),
-        authorization_token: std::env::var("FORGEJO_TOKEN").ok(),
+        authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),
     })
 }
 

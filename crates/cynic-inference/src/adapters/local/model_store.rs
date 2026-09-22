@@ -4,10 +4,10 @@ use std::fs;
 use std::path::Path;
 
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
-use crate::infra::model_layout::ModelLayout;
 use crate::domain::model_store::{
     ModelArtifact, ModelLocationKind, ModelStoreReport, ModelStoreTotals,
 };
+use crate::infra::model_layout::ModelLayout;
 use crate::ports::local_runtime_port::{LocalModelInventoryPort, LocalRuntimeError};
 use crate::ports::model_store_port::ModelStorePort;
 

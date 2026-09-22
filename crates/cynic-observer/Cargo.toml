@@ -21,6 +21,7 @@ libp2p = { version = "0.56.0", features = ["tokio", "gossipsub", "tcp", "noise",
 cynic-intel = { path = "../cynic-intel" }
 reqwest = { version = "0.13.4", features = ["json"] }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-secrets = { path = "../cynic-secrets" }
 
 [dev-dependencies]
 tempfile = "3"

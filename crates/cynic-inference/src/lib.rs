@@ -3,8 +3,8 @@ pub mod application;
 pub mod config_loader;
 pub mod domain;
 pub mod embedding;
-pub mod infra;
 pub mod inference;
+pub mod infra;
 pub mod math;
 pub mod ods_discovery;
 pub mod organ;
@@ -80,10 +80,10 @@ pub use domain::chat_session::{
 pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::hardware_profile::HardwareProfile;
 pub use domain::hf_catalog::{ModelCategory, category_catalog, short_alias_from_repo};
+pub use domain::local_runtime::LocalRuntimeState;
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
-pub use domain::local_runtime::LocalRuntimeState;
 pub use domain::matrix_sweep::empirical_store::{
     ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal,
 };
@@ -94,7 +94,9 @@ pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeR
 // Infrastructure (I/O primitives)
 pub use infra::backend_health;
 pub use infra::backend_health::*;
-pub use infra::domain_task_queue::{DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError};
+pub use infra::domain_task_queue::{
+    DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError,
+};
 pub use infra::gguf_meta::{
     GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
     preflight_gguf_with_store, read_gguf_meta,

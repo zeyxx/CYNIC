@@ -54,18 +54,18 @@ pub async fn execute_agent_source_change(
         );
     }
 
-    let kernel_api_key = match std::env::var("CYNIC_KERNEL_API_KEY")
-        .ok()
-        .filter(|value| !value.is_empty())
-    {
-        Some(api_key) => api_key,
-        None => {
-            return emit_error(
+    let kernel_api_key =
+        match cynic_secrets::env_var("kernel-api-key-agent-src", "CYNIC_KERNEL_API_KEY")
+            .filter(|value| !value.is_empty())
+        {
+            Some(api_key) => api_key,
+            None => {
+                return emit_error(
                 "kernel_api_key_missing:CYNIC_KERNEL_API_KEY is required for agent-bound claims"
                     .to_string(),
             );
-        }
-    };
+            }
+        };
     let state_root = PathBuf::from(state_root);
     let blobs = LocalAgentSourceBlobStore::new(state_root.join("source/blobs"));
     if let Err(error) = persist_result_blob(&request, result_file, &blobs) {

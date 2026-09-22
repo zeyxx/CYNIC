@@ -17,6 +17,7 @@ reqwest = { version = "0.13.4", features = ["json"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 tracing = "0.1"
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-secrets = { path = "../cynic-secrets" }
 cynic-inference = { path = "../cynic-inference" }
 regex = "1"
 

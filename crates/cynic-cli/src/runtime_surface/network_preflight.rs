@@ -25,7 +25,7 @@ pub(crate) fn execute_network_preflight(
             .map(str::to_string)
             .or_else(|| std::env::var("CYNIC_KERNEL_URL").ok())
             .unwrap_or_else(|| "http://127.0.0.1:8000".to_string());
-        let token = std::env::var("CYNIC_KERNEL_API_KEY").ok();
+        let token = cynic_secrets::env_var("kernel-api-key", "CYNIC_KERNEL_API_KEY");
         let runner = LocalArgvRunner;
         let adapter = CurlKernelProofHistoryAdapter::new(&runner, endpoint, token);
         let poh_report = adapter.persist_poh(&submission);

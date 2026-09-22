@@ -206,8 +206,7 @@ async fn execute_transaction(
     workload: &cynic_workload::AgentWorkloadEnvelope,
     submission: &cynic_workload::SourceChangeSubmission,
 ) -> Result<crate::source_change_transaction::AgentSourceChangeTransactionResult, String> {
-    let api_key = std::env::var("CYNIC_KERNEL_API_KEY")
-        .ok()
+    let api_key = cynic_secrets::env_var("kernel-api-key-scheduler", "CYNIC_KERNEL_API_KEY")
         .filter(|value| !value.is_empty())
         .ok_or("source_change_scheduler_kernel_api_key_missing")?;
     let state_root = &control.agent_workload_state_root;

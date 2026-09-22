@@ -140,8 +140,7 @@ pub async fn execute_source_repository_bootstrap(
             ));
         }
     };
-    let api_key = match std::env::var("CYNIC_KERNEL_API_KEY")
-        .ok()
+    let api_key = match cynic_secrets::env_var("kernel-api-key-bootstrap", "CYNIC_KERNEL_API_KEY")
         .filter(|value| !value.is_empty())
     {
         Some(api_key) => api_key,

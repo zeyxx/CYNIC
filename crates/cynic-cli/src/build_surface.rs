@@ -887,7 +887,7 @@ fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), S
     let config = WebhookServerConfig {
         bind: bind.to_string(),
         node_webhook_url: node_webhook_url.to_string(),
-        webhook_secret: std::env::var("CYNIC_WEBHOOK_SECRET").ok(),
+        webhook_secret: cynic_secrets::env_var("webhook-secret", "CYNIC_WEBHOOK_SECRET"),
     };
 
     let handle = spawn_webhook_server(config)
@@ -898,7 +898,7 @@ fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), S
         "bind": bind,
         "node_webhook_url": node_webhook_url,
         "forwarding": "configured",
-        "webhook_secret_present": std::env::var("CYNIC_WEBHOOK_SECRET").is_ok(),
+        "webhook_secret_present": cynic_secrets::env_var_present("webhook-secret", "CYNIC_WEBHOOK_SECRET"),
     });
 
     if json {
@@ -908,7 +908,7 @@ fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), S
         println!("  Node webhook: {node_webhook_url}");
         println!(
             "  Webhook secret: {}",
-            if std::env::var("CYNIC_WEBHOOK_SECRET").is_ok() {
+            if cynic_secrets::env_var_present("webhook-secret", "CYNIC_WEBHOOK_SECRET") {
                 "configured"
             } else {
                 "absent (unsigned pushes are reported as such)"

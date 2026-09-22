@@ -29,7 +29,7 @@ pub(crate) fn execute_persistence(
         .map(str::to_string)
         .or_else(|| std::env::var("CYNIC_KERNEL_URL").ok())
         .unwrap_or_else(|| "http://127.0.0.1:8000".to_string());
-    let token = std::env::var("CYNIC_KERNEL_API_KEY").ok();
+    let token = cynic_secrets::env_var("kernel-api-key", "CYNIC_KERNEL_API_KEY");
     let runner = LocalArgvRunner;
     let adapter = CurlKernelProofPersistenceAdapter::new(&runner, endpoint, token);
     let report = adapter.persist(&record);

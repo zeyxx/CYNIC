@@ -26,3 +26,25 @@ pub use adapters::ProcessEnvironmentSecretProvider;
 pub use composite::CompositeSecretProvider;
 pub use ports::{SecretProviderPort, SecretStorePort};
 pub use protocol::{SecretEntry, SecretError, SecretStatus};
+
+/// V1 resolution helper — resolves an env var through the standard provider.
+///
+/// Atomic migration path replacing `std::env::var("X").ok()`:
+/// ```rust
+/// // BEFORE: let key = std::env::var("MY_KEY").ok();
+/// // AFTER:  let key = cynic_secrets::env_var("my-key", "MY_KEY");
+/// ```
+/// Future: `main.rs` injects `CompositeSecretProvider` for V2→V3 fallback;
+/// this helper then delegates to the injected provider.
+pub fn env_var(id: &str, var: &str) -> Option<String> {
+    ProcessEnvironmentSecretProvider.resolve(&SecretReference::env(id, var))
+}
+
+/// V1 presence check — whether a secret env var is set.
+///
+/// Replaces `std::env::var("X").is_ok()` patterns.
+pub fn env_var_present(id: &str, var: &str) -> bool {
+    ProcessEnvironmentSecretProvider
+        .status(&SecretReference::env(id, var))
+        .present
+}

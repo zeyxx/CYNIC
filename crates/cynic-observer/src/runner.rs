@@ -17,7 +17,7 @@ use crate::watcher::{Watcher, fetch_transaction_details};
 use crate::{BoundedIngestionBuffer, ObserverEvent, OverflowPolicy};
 
 pub fn load_helius_key() -> Option<String> {
-    if let Ok(key) = std::env::var("CYNIC_HELIUS_API_KEY") {
+    if let Some(key) = cynic_secrets::env_var("helius-api-key-obs", "CYNIC_HELIUS_API_KEY") {
         return Some(key.trim().to_string());
     }
     let home = std::env::var("HOME").ok()?;
@@ -113,8 +113,8 @@ pub async fn run_argo_node() -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
     });
 
-    let node_pubkey = std::env::var("CYNIC_NODE_PUBKEY")
-        .unwrap_or_else(|_| "argo-sovereign-node-dev".to_string());
+    let node_pubkey = cynic_secrets::env_var("node-pubkey", "CYNIC_NODE_PUBKEY")
+        .unwrap_or_else(|| "argo-sovereign-node-dev".to_string());
     let rpc_url_clone = rpc_url.clone();
     let connected_peers_telemetry = connected_peers.clone();
 

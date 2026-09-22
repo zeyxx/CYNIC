@@ -49,8 +49,7 @@ pub async fn execute_agent_workspace_lifecycle(
         Ok(layout) => layout,
         Err(failure) => return emit_unknown(&failure.code),
     };
-    let api_key = match std::env::var("CYNIC_KERNEL_API_KEY")
-        .ok()
+    let api_key = match cynic_secrets::env_var("kernel-api-key-workspace", "CYNIC_KERNEL_API_KEY")
         .filter(|value| !value.is_empty())
     {
         Some(value) => value,

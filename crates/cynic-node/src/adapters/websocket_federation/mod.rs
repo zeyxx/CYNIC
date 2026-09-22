@@ -29,12 +29,12 @@ impl RuntimeFederationFactory for WebSocketFederationFactory {
 
 impl WebSocketFederationAdapter {
     pub fn from_env(kernel_http_url: &str, node_identity: &str) -> Self {
-        let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_else(|_| {
+        let api_key = cynic_secrets::env_var("ws-api-key", "CYNIC_API_KEY").unwrap_or_else(|| {
             tracing::warn!("CYNIC_API_KEY not set; WebSocket authentication will fail");
             String::new()
         });
-        let node_public_key = std::env::var("CYNIC_NODE_PUBLIC_KEY")
-            .unwrap_or_else(|_| DEFAULT_NODE_PUBLIC_KEY.to_string());
+        let node_public_key = cynic_secrets::env_var("node-public-key", "CYNIC_NODE_PUBLIC_KEY")
+            .unwrap_or_else(|| DEFAULT_NODE_PUBLIC_KEY.to_string());
         let queue_home = std::env::var("CYNIC_STATE_ROOT")
             .or_else(|_| std::env::var("HOME"))
             .ok()

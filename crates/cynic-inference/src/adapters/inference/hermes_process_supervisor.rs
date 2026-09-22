@@ -318,9 +318,10 @@ fn api_key() -> Option<String> {
 /// - `${CYNIC_PRINCIPAL_HOME|HOME}/.config/cynic/hermes-api-key`
 /// - `/etc/cynic/hermes-api-key`
 pub fn read_hermes_api_key() -> Option<String> {
-    std::env::var("CYNIC_HERMES_API_KEY")
-        .ok()
-        .or_else(|| std::env::var("API_SERVER_KEY").ok())
+    // V1 migration: env vars through SecretProviderPort.
+    // File-based fallback chain retained as-is (env::var_os for path discovery).
+    cynic_secrets::env_var("hermes-api-key", "CYNIC_HERMES_API_KEY")
+        .or_else(|| cynic_secrets::env_var("hermes-api-key-alt", "API_SERVER_KEY"))
         .or_else(|| {
             std::env::var_os("CYNIC_HERMES_API_KEY_FILE")
                 .and_then(|path| fs::read_to_string(PathBuf::from(path)).ok())

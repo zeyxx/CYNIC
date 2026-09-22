@@ -116,7 +116,7 @@ impl HeliusEnricher {
     /// Build from HELIUS_API_KEY env var or ~/.helius/config.json.
     pub fn from_env() -> Option<Self> {
         // Try env var first
-        if let Ok(key) = std::env::var("HELIUS_API_KEY")
+        if let Some(key) = cynic_secrets::env_var("helius-api-key", "HELIUS_API_KEY")
             && !key.is_empty()
         {
             return Some(Self::new(&key));

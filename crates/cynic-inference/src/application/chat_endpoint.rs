@@ -450,7 +450,7 @@ fn all_model_ids_from_body(body: &serde_json::Value) -> Vec<String> {
 /// 3. `CYNIC_BACKEND_<NAME>_API_KEY` when backend name known
 /// 4. principal /etc convention file `llama-api-key` under config_dir
 pub fn resolve_chat_api_key(backend_name: Option<&str>) -> Option<String> {
-    if let Ok(k) = std::env::var("CYNIC_CHAT_API_KEY") {
+    if let Some(k) = cynic_secrets::env_var("chat-api-key", "CYNIC_CHAT_API_KEY") {
         let k = k.trim().to_string();
         if !k.is_empty() {
             return Some(k);
