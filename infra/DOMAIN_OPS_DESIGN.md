@@ -375,7 +375,14 @@ parameters — the domain layer never decides to cut over NS without consent.
 **Acceptance**: End-to-end test with memory adapters produces correct proof chain.
 Architecture boundary test passes.
 
-### Phase 5: CLI Projection ✅ (cynic-cli)
+### Phase 5: CLI Projection ✅ validated (cynic-cli)
+
+Builder proof (10.10.10.119, rustc 1.96.0 + 8 GiB stack):
+- `cargo check -p cynic-cli --lib` → exit 0 (4m47s cold)
+- `cargo test -p cynic-cli --test architecture_boundary` → 20 passed, 17 failed (0 liés à domain; tous pré-existants)
+- `cargo test -p cynic-domain-ops --lib` → 55/55 PASS
+- Live execution: `plan`/`status`/`verify` produisent des proof chains JSON valides avec EnvSecretProvider
+- Binary buildé scp → /tmp/cynic-fresh (79 MB, debug)
 
 New subcommands nested under `cynic network domain`:
 
