@@ -5,30 +5,26 @@ use tokio::sync::Mutex;
 
 use crate::types::*;
 
-/// Task event for the ledger log.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TaskEvent {
     Created(Task),
     Updated { id: String, status: TaskStatus, result: Option<String> },
-    Claimed(Claim),
-    ClaimReleased { claim_id: String },
 }
 
-/// Ledger store interface.
 #[async_trait::async_trait]
 pub trait Ledger: Send + Sync {
     async fn create_task(&self, task: Task) -> Result<(), String>;
     async fn get_task(&self, id: &str) -> Option<Task>;
-    async fn list_tasks(&self) -> Vec<Task>;
-    async fn update_task(&self, id: String, status: TaskStatus, result: Option<String>) -> Result<(), String>;
-    async fn post_message(&self, task_id: &str, agent: &str, body: &str) -> Result<(), String>;
-    async fn list_messages(&self, task_id: &str) -> Vec<String>;
+    async fn update_task(
+        &self,
+        id: String,
+        status: TaskStatus,
+        result: Option<String>,
+    ) -> Result<(), String>;
 }
 
-/// In-memory ledger for local development and testing.
 pub struct InMemoryLedger {
     tasks: Arc<Mutex<HashMap<String, Task>>>,
-    messages: Arc<Mutex<HashMap<String, Vec<String>>>>,
     events: Arc<Mutex<Vec<TaskEvent>>>,
 }
 
@@ -36,7 +32,6 @@ impl InMemoryLedger {
     pub fn new() -> Self {
         Self {
             tasks: Arc::new(Mutex::new(HashMap::new())),
-            messages: Arc::new(Mutex::new(HashMap::new())),
             events: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -62,29 +57,24 @@ impl Ledger for InMemoryLedger {
         self.tasks.lock().await.get(id).cloned()
     }
 
-    async fn list_tasks(&self) -> Vec<Task> {
-        self.tasks.lock().await.values().cloned().collect()
-    }
-
-    async fn update_task(&self, id: String, status: TaskStatus, result: Option<String>) -> Result<(), String> {
+    async fn update_task(
+        &self,
+        id: String,
+        status: TaskStatus,
+        result: Option<String>,
+    ) -> Result<(), String> {
         let mut tasks = self.tasks.lock().await;
-        let task = tasks.get_mut(&id).ok_or_else(|| format!("task {} not found", id))?;
+        let task = tasks
+            .get_mut(&id)
+            .ok_or_else(|| format!("task {} not found", id))?;
         task.status = status.clone();
         task.result = result.clone();
         task.updated_at_unix_s = now_unix_s();
-        self.events.lock().await.push(TaskEvent::Updated { id, status, result });
+        self.events
+            .lock()
+            .await
+            .push(TaskEvent::Updated { id, status, result });
         Ok(())
-    }
-
-    async fn post_message(&self, task_id: &str, agent: &str, body: &str) -> Result<(), String> {
-        let mut messages = self.messages.lock().await;
-        let entry = messages.entry(task_id.to_string()).or_default();
-        entry.push(format!("[{}] {}", agent, body));
-        Ok(())
-    }
-
-    async fn list_messages(&self, task_id: &str) -> Vec<String> {
-        self.messages.lock().await.get(task_id).cloned().unwrap_or_default()
     }
 }
 
@@ -107,7 +97,7 @@ mod tests {
             parent_task_id: None,
             created_by: AgentId([0u8; 16]),
             assigned_to: AgentId([1u8; 16]),
-            kind: TaskKind::SoloFile,
+            kind: TaskKind::Solo,
             subject: "test task".to_string(),
             body: "do something".to_string(),
             status: TaskStatus::Queued,
@@ -116,7 +106,10 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget { actions: 10, wall_seconds: 60 },
+            budget: Budget {
+                actions: 10,
+                wall_seconds: 60,
+            },
         };
         ledger.create_task(task.clone()).await.unwrap();
         let retrieved = ledger.get_task("t1").await;
