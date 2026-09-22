@@ -1,10 +1,10 @@
 //! Pure queue planning — reconcile branch graph + discovery + GC plan into a QueuePlan.
 //! No I/O, no hard-coded argv: BoundedAction is derived from gc_plan items or branch name.
 
-use cynic_protocol::branch_graph::{is_root, is_stale, BranchGraph};
 use cynic_build::build_artefact::BuildArtefactGcPlan;
 use cynic_build::build_discovery::BuildDiscoveryReport;
-use cynic_protocol::queue::{BoundedAction, QueueItem, QueuePlan, QueueReason, QUEUE_PLAN_SCHEMA};
+use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
+use cynic_protocol::queue::{BoundedAction, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueueReason};
 
 fn reason_rank(r: &QueueReason) -> u8 {
     match r {
@@ -67,7 +67,12 @@ pub fn build_queue_plan(
                 reason,
                 action: BoundedAction {
                     // derived from branch name, not a magic constant list
-                    argv: vec!["git".to_string(), "branch".to_string(), "-D".to_string(), node.name.clone()],
+                    argv: vec![
+                        "git".to_string(),
+                        "branch".to_string(),
+                        "-D".to_string(),
+                        node.name.clone(),
+                    ],
                     requires_privilege: false,
                 },
             });
@@ -78,12 +83,7 @@ pub fn build_queue_plan(
     for gc in &gc_plan.items {
         let reason = gc_reason(&gc.reason);
         // branch = last path component (checkout dir name), fallback to full path
-        let branch = gc
-            .path
-            .rsplit('/')
-            .next()
-            .unwrap_or(&gc.path)
-            .to_string();
+        let branch = gc.path.rsplit('/').next().unwrap_or(&gc.path).to_string();
         items.push(QueueItem {
             id: gc.id.clone(),
             branch,
@@ -115,9 +115,13 @@ pub fn build_queue_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::branch_graph::{BranchGraph, BranchNode, BRANCH_GRAPH_SCHEMA};
-    use cynic_build::build_artefact::{BuildArtefactGcItem, BuildArtefactGcPlan, BUILD_ARTEFACT_GC_PLAN_SCHEMA};
-    use cynic_build::build_discovery::{BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA};
+    use cynic_build::build_artefact::{
+        BUILD_ARTEFACT_GC_PLAN_SCHEMA, BuildArtefactGcItem, BuildArtefactGcPlan,
+    };
+    use cynic_build::build_discovery::{
+        BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
+    };
+    use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph, BranchNode};
 
     fn branch_graph() -> BranchGraph {
         BranchGraph {
@@ -125,9 +129,27 @@ mod tests {
             root: "main".to_string(),
             root_commit: "aaaa".to_string(),
             nodes: vec![
-                BranchNode { name: "main".to_string(), commit: "aaaa".to_string(), parent: None, has_upstream: true, last_commit_unix_s: Some(1_000_000) },
-                BranchNode { name: "orphan-feature".to_string(), commit: "bbbb".to_string(), parent: Some("main".to_string()), has_upstream: false, last_commit_unix_s: Some(1_000_000) },
-                BranchNode { name: "stale-wip".to_string(), commit: "cccc".to_string(), parent: Some("main".to_string()), has_upstream: true, last_commit_unix_s: Some(0) },
+                BranchNode {
+                    name: "main".to_string(),
+                    commit: "aaaa".to_string(),
+                    parent: None,
+                    has_upstream: true,
+                    last_commit_unix_s: Some(1_000_000),
+                },
+                BranchNode {
+                    name: "orphan-feature".to_string(),
+                    commit: "bbbb".to_string(),
+                    parent: Some("main".to_string()),
+                    has_upstream: false,
+                    last_commit_unix_s: Some(1_000_000),
+                },
+                BranchNode {
+                    name: "stale-wip".to_string(),
+                    commit: "cccc".to_string(),
+                    parent: Some("main".to_string()),
+                    has_upstream: true,
+                    last_commit_unix_s: Some(0),
+                },
             ],
         }
     }
@@ -138,7 +160,14 @@ mod tests {
             toolchain: Toolchain("stable".to_string()),
             host_triple: HostTriple("x86_64-unknown-linux-gnu".to_string()),
             targets: vec!["x86_64-unknown-linux-gnu".to_string()],
-            crates: vec![DiscoveredCrate { name: "cynic-host".to_string(), edition: "2024".to_string(), bins: vec![], libs: vec!["cynic-host".to_string()], tests: vec![], custom_build: false }],
+            crates: vec![DiscoveredCrate {
+                name: "cynic-host".to_string(),
+                edition: "2024".to_string(),
+                bins: vec![],
+                libs: vec!["cynic-host".to_string()],
+                tests: vec![],
+                custom_build: false,
+            }],
             observed_at_unix_s: 1_000_000,
             residual_unknowns: vec![],
         }
@@ -148,8 +177,34 @@ mod tests {
         BuildArtefactGcPlan {
             schema: BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
             items: vec![
-                BuildArtefactGcItem { id: "checkout:abc123".to_string(), label: "orphan".to_string(), path: "/var/lib/cynic/checkouts/old-orphan".to_string(), size_human: "1M".to_string(), size_bytes: 1024, reason: "orphan(no remote)".to_string(), requires_privilege: false, argv: vec!["rm".to_string(), "-rf".to_string(), "/var/lib/cynic/checkouts/old-orphan".to_string()] },
-                BuildArtefactGcItem { id: "checkout:def456".to_string(), label: "aged".to_string(), path: "/var/lib/cynic/checkouts/aged-one".to_string(), size_human: "2M".to_string(), size_bytes: 2048, reason: "age 56h".to_string(), requires_privilege: true, argv: vec!["rm".to_string(), "-rf".to_string(), "/var/lib/cynic/checkouts/aged-one".to_string()] },
+                BuildArtefactGcItem {
+                    id: "checkout:abc123".to_string(),
+                    label: "orphan".to_string(),
+                    path: "/var/lib/cynic/checkouts/old-orphan".to_string(),
+                    size_human: "1M".to_string(),
+                    size_bytes: 1024,
+                    reason: "orphan(no remote)".to_string(),
+                    requires_privilege: false,
+                    argv: vec![
+                        "rm".to_string(),
+                        "-rf".to_string(),
+                        "/var/lib/cynic/checkouts/old-orphan".to_string(),
+                    ],
+                },
+                BuildArtefactGcItem {
+                    id: "checkout:def456".to_string(),
+                    label: "aged".to_string(),
+                    path: "/var/lib/cynic/checkouts/aged-one".to_string(),
+                    size_human: "2M".to_string(),
+                    size_bytes: 2048,
+                    reason: "age 56h".to_string(),
+                    requires_privilege: true,
+                    argv: vec![
+                        "rm".to_string(),
+                        "-rf".to_string(),
+                        "/var/lib/cynic/checkouts/aged-one".to_string(),
+                    ],
+                },
             ],
             total_reclaimable_bytes: 3072,
             total_reclaimable_human: "3M".to_string(),
@@ -174,7 +229,10 @@ mod tests {
         assert_eq!(plan.items[3].reason, QueueReason::StaleBranch);
         // BoundedAction not hardcoded: gc argv reused, privilege preserved
         assert_eq!(plan.items[1].action.requires_privilege, true);
-        assert_eq!(plan.items[1].action.argv[2], "/var/lib/cynic/checkouts/aged-one");
+        assert_eq!(
+            plan.items[1].action.argv[2],
+            "/var/lib/cynic/checkouts/aged-one"
+        );
         assert_eq!(plan.items[2].action.argv[3], "orphan-feature");
         assert_eq!(plan.items[2].recipe_id, "cynic-host");
     }
@@ -186,12 +244,37 @@ mod tests {
             root: "main".to_string(),
             root_commit: "aaaa".to_string(),
             nodes: vec![
-                BranchNode { name: "main".to_string(), commit: "aaaa".to_string(), parent: None, has_upstream: true, last_commit_unix_s: Some(999_999) },
-                BranchNode { name: "fresh".to_string(), commit: "bbbb".to_string(), parent: Some("main".to_string()), has_upstream: true, last_commit_unix_s: Some(999_999) },
+                BranchNode {
+                    name: "main".to_string(),
+                    commit: "aaaa".to_string(),
+                    parent: None,
+                    has_upstream: true,
+                    last_commit_unix_s: Some(999_999),
+                },
+                BranchNode {
+                    name: "fresh".to_string(),
+                    commit: "bbbb".to_string(),
+                    parent: Some("main".to_string()),
+                    has_upstream: true,
+                    last_commit_unix_s: Some(999_999),
+                },
             ],
         };
-        let d = BuildDiscoveryReport { schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(), toolchain: Toolchain("stable".into()), host_triple: HostTriple("x".into()), targets: vec![], crates: vec![], observed_at_unix_s: 0, residual_unknowns: vec![] };
-        let gc = BuildArtefactGcPlan { schema: BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(), items: vec![], total_reclaimable_bytes: 0, total_reclaimable_human: "0".into() };
+        let d = BuildDiscoveryReport {
+            schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
+            toolchain: Toolchain("stable".into()),
+            host_triple: HostTriple("x".into()),
+            targets: vec![],
+            crates: vec![],
+            observed_at_unix_s: 0,
+            residual_unknowns: vec![],
+        };
+        let gc = BuildArtefactGcPlan {
+            schema: BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
+            items: vec![],
+            total_reclaimable_bytes: 0,
+            total_reclaimable_human: "0".into(),
+        };
         let plan = build_queue_plan(&bg, &d, &gc, 1_000_000);
         assert!(plan.items.is_empty());
         assert_eq!(plan.items.len(), 0);

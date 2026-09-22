@@ -4,17 +4,10 @@
 //! case. None of those transports owns build admission or workload shape.
 
 use cynic_build::{
-    BuildAgentRequest,
-    BuildAgentRequestAdmission,
-    admit_build_agent_request,
-    compose_build_agent_workload,
-    plan_build_agent_request,
+    BuildAgentRequest, BuildAgentRequestAdmission, admit_build_agent_request,
+    compose_build_agent_workload, plan_build_agent_request,
 };
-use cynic_workload::{
-    AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus,
-    admit_agent_workload,
-};
+use cynic_workload::{AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, admit_agent_workload};
 use serde::Serialize;
 
 use crate::ports::build_workload_submission_port::{

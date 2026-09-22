@@ -3,12 +3,12 @@
 //! Proves the full flow without real SSH/HTTP/cargo by injecting fake adapters.
 //! This is the canonical proof that the build capability works end-to-end.
 
-use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use cynic_build::build::{
     BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation, build_recipe,
 };
+use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
+use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ─────────────────────────────────────────────
@@ -190,8 +190,15 @@ fn e2e_workflow_blocked_when_lease_rejected() {
     );
     let result = result.unwrap();
     match result {
-        BuildWorkflowResult::Blocked { runner_blockers, grant_blockers, .. } => {
-            assert!(!runner_blockers.is_empty() || !grant_blockers.is_empty(), "should have blockers");
+        BuildWorkflowResult::Blocked {
+            runner_blockers,
+            grant_blockers,
+            ..
+        } => {
+            assert!(
+                !runner_blockers.is_empty() || !grant_blockers.is_empty(),
+                "should have blockers"
+            );
         }
         other => panic!("expected Blocked, got {:?}", other),
     }
@@ -248,7 +255,9 @@ fn e2e_workflow_executed_when_apply_true() {
     let result = result.unwrap();
     match result {
         BuildWorkflowResult::Executed { proof } => {
-            assert!(proof.status == "executed" || proof.status == "failed" || proof.status == "proved");
+            assert!(
+                proof.status == "executed" || proof.status == "failed" || proof.status == "proved"
+            );
             assert_eq!(proof.source_commit, "abc123def456");
         }
         other => panic!("expected Executed, got {:?}", other),

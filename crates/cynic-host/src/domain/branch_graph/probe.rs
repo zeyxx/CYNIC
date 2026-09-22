@@ -5,9 +5,7 @@
 
 use std::collections::HashMap;
 
-use cynic_protocol::branch_graph::{
-    BranchGraph, BranchNode, BRANCH_GRAPH_SCHEMA, is_stale,
-};
+use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph, BranchNode, is_stale};
 
 /// Parse `git for-each-ref` raw output into a `BranchGraph`.
 ///
@@ -38,12 +36,14 @@ pub fn parse_git_for_each_ref(raw: &str, root_commit: &str, _now: u64) -> Branch
         }
         let upstream = parts.get(2).map(|s| s.trim()).unwrap_or("");
         let has_upstream = !upstream.is_empty();
-        let last_commit_unix_s: Option<u64> = parts
-            .get(3)
-            .and_then(|s| {
-                let s = s.trim();
-                if s.is_empty() { None } else { s.parse::<u64>().ok() }
-            });
+        let last_commit_unix_s: Option<u64> = parts.get(3).and_then(|s| {
+            let s = s.trim();
+            if s.is_empty() {
+                None
+            } else {
+                s.parse::<u64>().ok()
+            }
+        });
 
         nodes.push(BranchNode {
             name,
@@ -94,7 +94,9 @@ pub fn parse_git_log_graph(raw: &str) -> HashMap<String, Option<String>> {
             continue;
         }
         let mut parts = cleaned.split_whitespace();
-        let Some(commit) = parts.next() else { continue; };
+        let Some(commit) = parts.next() else {
+            continue;
+        };
         // Validate hex commit (at least 7 chars hex) to skip decoration noise.
         if !commit.chars().all(|c| c.is_ascii_hexdigit()) || commit.len() < 7 {
             continue;
@@ -177,10 +179,15 @@ mod tests {
     fn parse_git_log_graph_basic() {
         let raw = "abc123def456abc123def456abc123def456abcd\ndef456abc123def456abc123def456abc123def456ab abc123def456abc123def456abc123def456abcd\n* aaa111aaa111aaa111aaa111aaa111aaa111aaaa def456abc123def456abc123def456abc123def456ab";
         let m = parse_git_log_graph(raw);
-        assert_eq!(m.get("abc123def456abc123def456abc123def456abcd"), Some(&None));
+        assert_eq!(
+            m.get("abc123def456abc123def456abc123def456abcd"),
+            Some(&None)
+        );
         assert_eq!(
             m.get("def456abc123def456abc123def456abc123def456ab"),
-            Some(&Some("abc123def456abc123def456abc123def456abcd".to_string()))
+            Some(&Some(
+                "abc123def456abc123def456abc123def456abcd".to_string()
+            ))
         );
     }
 

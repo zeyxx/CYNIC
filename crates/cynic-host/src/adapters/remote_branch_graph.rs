@@ -9,7 +9,9 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::branch_graph::port::{BranchGraphObservationError, BranchGraphObservationPort};
-use crate::domain::branch_graph::probe::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
+use crate::domain::branch_graph::probe::{
+    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
+};
 use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::branch_graph::BranchGraph;
 
@@ -85,7 +87,9 @@ impl<R: ArgvRunner> BranchGraphObservationPort for RemoteBranchGraphAdapter<R> {
     }
 }
 
-impl<R: ArgvRunner> cynic_protocol::branch_graph::BranchObservationPort for RemoteBranchGraphAdapter<R> {
+impl<R: ArgvRunner> cynic_protocol::branch_graph::BranchObservationPort
+    for RemoteBranchGraphAdapter<R>
+{
     fn observe(&self) -> Result<BranchGraph, String> {
         BranchGraphObservationPort::observe_branch_graph(self).map_err(|e| e)
     }
@@ -137,18 +141,23 @@ mod tests {
             fn run(&self, argv: &[&str]) -> ArgvOutput {
                 let joined = argv.join(" ");
                 if joined.contains("for-each-ref") {
-                    return ok("main|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|origin/main|1700000000\nfeature|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb||1700000000");
+                    return ok(
+                        "main|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|origin/main|1700000000\nfeature|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb||1700000000",
+                    );
                 }
                 if joined.contains("rev-parse") {
                     return ok("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
                 }
                 if joined.contains("log") {
-                    return ok("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+                    return ok(
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    );
                 }
                 ok("")
             }
         }
-        let adapter = RemoteBranchGraphAdapter::new(Arc::new(BranchFake), "cynic@10.0.0.1").unwrap();
+        let adapter =
+            RemoteBranchGraphAdapter::new(Arc::new(BranchFake), "cynic@10.0.0.1").unwrap();
         let graph = adapter.observe_branch_graph().unwrap();
         assert_eq!(graph.nodes.len(), 2);
         assert_eq!(graph.root, "main");

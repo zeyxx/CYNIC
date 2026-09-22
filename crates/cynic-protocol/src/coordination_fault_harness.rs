@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::coordination_authority::{
-    decide_quorum_write, CoordinationAuthorityMode, QuorumObservation,
+    CoordinationAuthorityMode, QuorumObservation, decide_quorum_write,
 };
 
 pub const COORDINATION_FAULT_HARNESS_SCHEMA: &str = "cynic.coordination.fault_harness.v1";
@@ -186,9 +186,11 @@ mod tests {
         });
         assert!(!outcome.mutation_allowed);
         assert!(!outcome.promotion_allowed);
-        assert!(outcome
-            .blockers
-            .contains(&"healthy_quorum_below_required".into()));
+        assert!(
+            outcome
+                .blockers
+                .contains(&"healthy_quorum_below_required".into())
+        );
     }
 
     #[test]
@@ -210,9 +212,11 @@ mod tests {
             takeover: takeover_with_prior(false, true, 8, 9),
         });
         assert!(!outcome.promotion_allowed);
-        assert!(outcome
-            .blockers
-            .contains(&"fencing_token_not_monotonic".into()));
+        assert!(
+            outcome
+                .blockers
+                .contains(&"fencing_token_not_monotonic".into())
+        );
     }
 
     #[test]

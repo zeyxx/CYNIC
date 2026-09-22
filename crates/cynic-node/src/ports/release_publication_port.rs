@@ -5,13 +5,9 @@ use std::{
 };
 
 use cynic_build::{
-    RuntimeReleasePublicationManifest,
-    SignedReleaseBasketPlan,
-    SignedReleaseBasketReadBack,
+    RuntimeReleasePublicationManifest, SignedReleaseBasketPlan, SignedReleaseBasketReadBack,
 };
-use cynic_protocol::{
-    RuntimeArtifactSource,
-};
+use cynic_protocol::RuntimeArtifactSource;
 
 #[derive(Debug)]
 pub struct PackagedReleaseBasket {

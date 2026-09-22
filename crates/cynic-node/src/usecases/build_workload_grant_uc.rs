@@ -1,17 +1,11 @@
 use std::{fs, path::Path, process::ExitCode};
 
 use cynic_build::{
-    BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE,
-    SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
-    SignedBuildWorkloadGrant,
-    build_workload_grant_signing_bytes,
-    derive_build_workload_grant,
-    validate_build_workload_grant,
-    validate_signed_build_workload_grant,
+    BUILD_WORKLOAD_GRANT_SIGNATURE_NAMESPACE, SIGNED_BUILD_WORKLOAD_GRANT_SCHEMA,
+    SignedBuildWorkloadGrant, build_workload_grant_signing_bytes, derive_build_workload_grant,
+    validate_build_workload_grant, validate_signed_build_workload_grant,
 };
-use cynic_workload::{
-    DurableAgentWorkloadRecord,
-};
+use cynic_workload::DurableAgentWorkloadRecord;
 
 use crate::adapters::ed25519_build_workload_grant::Ed25519BuildWorkloadGrantVerifier;
 use crate::ports::build_workload_grant_port::{

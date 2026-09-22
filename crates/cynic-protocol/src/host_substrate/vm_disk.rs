@@ -95,33 +95,37 @@ mod tests {
     #[test]
     fn extension_rejects_target_smaller_than_current() {
         let ext = VmDiskExtension::new(105, "pve", 60, 40, "Invalid");
-        assert!(ext
-            .validate()
-            .contains(&"vm_disk_extension_target_must_exceed_current".to_string()));
+        assert!(
+            ext.validate()
+                .contains(&"vm_disk_extension_target_must_exceed_current".to_string())
+        );
     }
 
     #[test]
     fn extension_rejects_target_too_large() {
         let ext = VmDiskExtension::new(105, "pve", 40, 600, "Too big");
-        assert!(ext
-            .validate()
-            .contains(&"vm_disk_extension_target_too_large".to_string()));
+        assert!(
+            ext.validate()
+                .contains(&"vm_disk_extension_target_too_large".to_string())
+        );
     }
 
     #[test]
     fn extension_rejects_zero_vmid() {
         let ext = VmDiskExtension::new(0, "pve", 40, 60, "Invalid");
-        assert!(ext
-            .validate()
-            .contains(&"vm_disk_extension_vmid_zero".to_string()));
+        assert!(
+            ext.validate()
+                .contains(&"vm_disk_extension_vmid_zero".to_string())
+        );
     }
 
     #[test]
     fn extension_rejects_empty_node() {
         let ext = VmDiskExtension::new(105, "", 40, 60, "Invalid");
-        assert!(ext
-            .validate()
-            .contains(&"vm_disk_extension_node_empty".to_string()));
+        assert!(
+            ext.validate()
+                .contains(&"vm_disk_extension_node_empty".to_string())
+        );
     }
 
     #[test]

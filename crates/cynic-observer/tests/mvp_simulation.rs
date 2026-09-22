@@ -65,7 +65,10 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     }
 
     if let Some((sig, nonce)) = found_winning_tx {
-        println!("⚠️ GRINDING THÉORIQUE TOUJOURS POSSIBLE (si slot_hash est fixe) : AttackerNode gagne en {} essais avec {}", nonce, sig);
+        println!(
+            "⚠️ GRINDING THÉORIQUE TOUJOURS POSSIBLE (si slot_hash est fixe) : AttackerNode gagne en {} essais avec {}",
+            nonce, sig
+        );
     }
 
     // CAS B : Avec Slot Hash (PoH) dynamique inconnu à l'avance
@@ -84,7 +87,10 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         "✓ ATTÉNUATION PoH CONFIRMÉE : La signature forgée ne gagne plus. Le Leader élu est : {}",
         selected_leader
     );
-    assert_ne!(selected_leader, "AttackerNode", "L'attaquant n'a pas pu hacker la loterie car le slot hash dynamique a brouillé les pistes.");
+    assert_ne!(
+        selected_leader, "AttackerNode",
+        "L'attaquant n'a pas pu hacker la loterie car le slot hash dynamique a brouillé les pistes."
+    );
 
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 3 : Faille 2 - Désynchronisation Kademlia & Atténuation Epoch Checkpoints
@@ -135,7 +141,10 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         leader_a, leader_b,
         "L'atténuation par Epoch checkpoints a échoué."
     );
-    println!("✓ ATTÉNUATION EPOCH CONFIRMÉE : Node_A et Node_B s'accordent sur le même leader ({}) malgré la désynchronisation DHT.", leader_a);
+    println!(
+        "✓ ATTÉNUATION EPOCH CONFIRMÉE : Node_A et Node_B s'accordent sur le même leader ({}) malgré la désynchronisation DHT.",
+        leader_a
+    );
 
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 4 : Faille 3 - Wash-Trading & Atténuation du Decay par volume
@@ -156,5 +165,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         mapped_micro.token_signals.is_empty(),
         "Le micro-volume aurait dû être filtré !"
     );
-    println!("✓ ATTÉNUATION WASH-TRADE CONFIRMÉE : La transaction de 0.005 SOL a été ignorée par le mapper.");
+    println!(
+        "✓ ATTÉNUATION WASH-TRADE CONFIRMÉE : La transaction de 0.005 SOL a été ignorée par le mapper."
+    );
 }

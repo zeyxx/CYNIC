@@ -32,8 +32,18 @@ pub const ACCEPTED_COMMIT_TYPES: &[&str] = &[
 ///
 /// `agent` is the canonical per-agent prefix (`agent/<id>/<scope>`). The others
 /// are retained for human/infra workflows that still want isolation.
-pub const ACCEPTED_BRANCH_PREFIXES: &[&str] =
-    &["agent", "integration", "recovery", "backup", "feat", "fix", "docs", "refactor", "test", "chore"];
+pub const ACCEPTED_BRANCH_PREFIXES: &[&str] = &[
+    "agent",
+    "integration",
+    "recovery",
+    "backup",
+    "feat",
+    "fix",
+    "docs",
+    "refactor",
+    "test",
+    "chore",
+];
 
 /// Refs that no agent may push to directly. Promotion to these refs happens
 /// only through the merge bot / PR flow.
@@ -58,7 +68,10 @@ impl Default for CommitPolicy {
     fn default() -> Self {
         Self {
             schema: SOURCE_POLICY_SCHEMA.to_string(),
-            accepted_types: ACCEPTED_COMMIT_TYPES.iter().map(|s| s.to_string()).collect(),
+            accepted_types: ACCEPTED_COMMIT_TYPES
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             max_subject_len: MAX_COMMIT_SUBJECT_LEN,
             forbidden_substrings: Vec::new(),
         }
@@ -78,8 +91,14 @@ impl Default for BranchPolicy {
     fn default() -> Self {
         Self {
             schema: SOURCE_POLICY_SCHEMA.to_string(),
-            accepted_prefixes: ACCEPTED_BRANCH_PREFIXES.iter().map(|s| s.to_string()).collect(),
-            protected_refs: DEFAULT_PROTECTED_REFS.iter().map(|s| s.to_string()).collect(),
+            accepted_prefixes: ACCEPTED_BRANCH_PREFIXES
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            protected_refs: DEFAULT_PROTECTED_REFS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         }
     }
 }
@@ -117,7 +136,11 @@ pub fn commit_conforms(intent: &str, policy: &CommitPolicy) -> Vec<String> {
     };
 
     let ctype = re.0.to_lowercase();
-    if !policy.accepted_types.iter().any(|t| t.eq_ignore_ascii_case(&ctype)) {
+    if !policy
+        .accepted_types
+        .iter()
+        .any(|t| t.eq_ignore_ascii_case(&ctype))
+    {
         blockers.push(format!("commit_type_unaccepted:{ctype}"));
     }
 
@@ -218,7 +241,9 @@ mod tests {
     #[test]
     fn conventional_commit_conforms() {
         let policy = CommitPolicy::default();
-        assert!(commit_conforms("feat(protocol): add source policy predicates", &policy).is_empty());
+        assert!(
+            commit_conforms("feat(protocol): add source policy predicates", &policy).is_empty()
+        );
         assert!(commit_conforms("fix(source): reject direct main push", &policy).is_empty());
         assert!(commit_conforms("chore: regenerate Cargo.lock", &policy).is_empty());
         assert!(commit_conforms("refactor!: drop legacy git adapter", &policy).is_empty());
@@ -228,14 +253,22 @@ mod tests {
     fn non_conventional_commit_is_blocked() {
         let policy = CommitPolicy::default();
         let blockers = commit_conforms("updated the thing", &policy);
-        assert!(blockers.iter().any(|b| b == "commit_intent_not_conventional"));
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b == "commit_intent_not_conventional")
+        );
     }
 
     #[test]
     fn unknown_commit_type_is_blocked() {
         let policy = CommitPolicy::default();
         let blockers = commit_conforms("wip: half done", &policy);
-        assert!(blockers.iter().any(|b| b.starts_with("commit_type_unaccepted")));
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("commit_type_unaccepted"))
+        );
     }
 
     #[test]
@@ -257,7 +290,11 @@ mod tests {
         let policy = BranchPolicy::default();
         let blockers = branch_conforms("main", &policy);
         assert!(blockers.iter().any(|b| b == "branch_is_protected_ref:main"));
-        assert!(blockers.iter().any(|b| b.starts_with("branch_prefix_unaccepted")));
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("branch_prefix_unaccepted"))
+        );
     }
 
     #[test]
@@ -269,7 +306,10 @@ mod tests {
 
     #[test]
     fn ref_is_protected_detects_trunk() {
-        let protected: Vec<String> = DEFAULT_PROTECTED_REFS.iter().map(|s| s.to_string()).collect();
+        let protected: Vec<String> = DEFAULT_PROTECTED_REFS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         assert!(ref_is_protected("main", &protected));
         assert!(ref_is_protected("forgejo/main", &protected));
         assert!(!ref_is_protected("agent/hermes/x", &protected));
@@ -281,7 +321,10 @@ mod tests {
             agent_branch_for("hermes", "agent-source-protocol"),
             Some("agent/hermes/agent-source-protocol".to_string())
         );
-        assert_eq!(agent_branch_for("hermes", ""), Some("agent/hermes/work".to_string()));
+        assert_eq!(
+            agent_branch_for("hermes", ""),
+            Some("agent/hermes/work".to_string())
+        );
         assert_eq!(agent_branch_for("", "x"), None);
     }
 
@@ -290,6 +333,10 @@ mod tests {
         let mut policy = CommitPolicy::default();
         policy.forbidden_substrings.push("PASSWORD=".to_string());
         let blockers = commit_conforms("fix(auth): rotate PASSWORD=supersecret", &policy);
-        assert!(blockers.iter().any(|b| b.starts_with("commit_intent_contains_forbidden")));
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("commit_intent_contains_forbidden"))
+        );
     }
 }

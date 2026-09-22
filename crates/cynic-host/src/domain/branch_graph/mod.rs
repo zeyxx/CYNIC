@@ -7,8 +7,10 @@ pub mod port;
 pub mod probe;
 
 pub use cynic_protocol::branch_graph::{
-    is_root, is_stale, BranchGraph, BranchNode, BranchObservationPort, BRANCH_GRAPH_SCHEMA,
-    BRANCH_STALE_AFTER_SECS,
+    BRANCH_GRAPH_SCHEMA, BRANCH_STALE_AFTER_SECS, BranchGraph, BranchNode, BranchObservationPort,
+    is_root, is_stale,
 };
 pub use port::{BranchGraphObservationError, BranchGraphObservationPort};
-pub use probe::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph, stale_via_policy};
+pub use probe::{
+    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph, stale_via_policy,
+};

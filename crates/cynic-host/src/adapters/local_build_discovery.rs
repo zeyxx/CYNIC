@@ -25,7 +25,11 @@ fn workspace_root() -> Option<PathBuf> {
     }
 }
 
-fn run(dir: &std::path::Path, cmd: &str, args: &[&str]) -> Result<crate::process_observation::CommandCapture, String> {
+fn run(
+    dir: &std::path::Path,
+    cmd: &str,
+    args: &[&str],
+) -> Result<crate::process_observation::CommandCapture, String> {
     capture_command_in_dir(cmd, args, Some(dir)).map_err(|e| format!("{cmd}_spawn: {e}"))
 }
 
@@ -38,7 +42,11 @@ impl BuildDiscoveryObservationPort for LocalBuildDiscoveryAdapter {
 
         let root = workspace_root().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
-        let meta = run(&root, "cargo", &["metadata", "--format-version", "1", "--no-deps", "--frozen"])?;
+        let meta = run(
+            &root,
+            "cargo",
+            &["metadata", "--format-version", "1", "--no-deps", "--frozen"],
+        )?;
         if !meta.success {
             return Err(format!(
                 "cargo_metadata_failed: exit={:?} stderr={}",

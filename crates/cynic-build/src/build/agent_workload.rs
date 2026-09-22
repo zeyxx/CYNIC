@@ -1,29 +1,12 @@
-use cynic_workload::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
-    AGENT_WORKLOAD_INPUT_SCHEMA,
-    AgentBoundedAction,
-    AgentWorkloadEnvelope,
-    AgentWorkloadInput,
-};
 use cynic_protocol::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA,
-    AgentBudget,
-    AgentCapabilityGrant,
-    AgentDelegationEnvelope,
-    AgentEvidenceLineage,
-    AgentEvidenceRef,
-    EXECUTION_AUTHORIZATION_SCHEMA,
-    ExecutionAuthorization,
-    MutationContract,
-    POLICY_ADMISSION_REPORT_SCHEMA,
-    PolicyAdmissionReport,
-    PolicyAuthority,
-    PolicyDecision,
-    PolicyIntentRef,
-    PolicyScope,
-    PolicySetRef,
-    RequiredProof,
-    digest_json,
+    AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
+    AgentEvidenceLineage, AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization,
+    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
+    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
+};
+use cynic_workload::{
+    AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_INPUT_SCHEMA, AgentBoundedAction,
+    AgentWorkloadEnvelope, AgentWorkloadInput,
 };
 
 use super::{

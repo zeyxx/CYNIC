@@ -8,7 +8,9 @@ pub mod reflection;
 pub mod trace_fs;
 
 pub use bucket_signatures::{
-    bucket_domains, first_matching_bucket, matching_buckets, signature_count, BucketSignature,
+    BucketSignature, bucket_domains, first_matching_bucket, matching_buckets, signature_count,
 };
-pub use reflection::{parse_hypotheses, OfflineReflection, ReflectionAdapter};
-pub use trace_fs::{default_bucket_patterns, observe_reader, TraceFsAdapter, TraceSource, TraceUnitEmitter};
+pub use reflection::{OfflineReflection, ReflectionAdapter, parse_hypotheses};
+pub use trace_fs::{
+    TraceFsAdapter, TraceSource, TraceUnitEmitter, default_bucket_patterns, observe_reader,
+};

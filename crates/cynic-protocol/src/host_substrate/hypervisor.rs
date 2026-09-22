@@ -132,10 +132,7 @@ pub enum VmControlOp {
         bridge: String,
     },
     /// Remove a network interface.
-    RemoveNetwork {
-        vmid: u32,
-        index: u32,
-    },
+    RemoveNetwork { vmid: u32, index: u32 },
     /// Create a snapshot.
     CreateSnapshot {
         vmid: u32,
@@ -143,15 +140,9 @@ pub enum VmControlOp {
         description: Option<String>,
     },
     /// Delete a snapshot.
-    DeleteSnapshot {
-        vmid: u32,
-        name: String,
-    },
+    DeleteSnapshot { vmid: u32, name: String },
     /// Rollback to a snapshot.
-    RollbackSnapshot {
-        vmid: u32,
-        name: String,
-    },
+    RollbackSnapshot { vmid: u32, name: String },
     /// Clone a VM.
     CloneVm {
         vmid: u32,
@@ -195,7 +186,11 @@ impl VmControlOp {
     pub fn validate(&self) -> Vec<String> {
         let mut blockers = Vec::new();
         match self {
-            VmControlOp::ExtendDisk { target_gb, current_gb, .. } => {
+            VmControlOp::ExtendDisk {
+                target_gb,
+                current_gb,
+                ..
+            } => {
                 if *target_gb <= *current_gb {
                     blockers.push("extend_disk_target_must_exceed_current".to_string());
                 }
@@ -269,7 +264,10 @@ mod tests {
             current_gb: 60,
             target_gb: 40,
         };
-        assert!(op.validate().contains(&"extend_disk_target_must_exceed_current".to_string()));
+        assert!(
+            op.validate()
+                .contains(&"extend_disk_target_must_exceed_current".to_string())
+        );
     }
 
     #[test]
@@ -280,7 +278,10 @@ mod tests {
             current_gb: 40,
             target_gb: 600,
         };
-        assert!(op.validate().contains(&"extend_disk_target_too_large".to_string()));
+        assert!(
+            op.validate()
+                .contains(&"extend_disk_target_too_large".to_string())
+        );
     }
 
     #[test]

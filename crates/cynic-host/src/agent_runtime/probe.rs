@@ -1,7 +1,7 @@
-use cynic_lifecycle::ArgvRunner;
 use crate::{
     adapters::agent_access::observe_linux_uid, runtime_authority::default_runtime_authority_paths,
 };
+use cynic_lifecycle::ArgvRunner;
 
 use super::{
     specs::RUNTIME_SPECS,

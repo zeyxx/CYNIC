@@ -1,10 +1,6 @@
 use cynic_workload::{
-    AgentWorkloadEnvelope,
-    AgentWorkspaceApplyReport,
-    AgentWorkspaceChange,
-    AgentWorkspaceReconciliation,
-    AgentWorkspaceRetentionRoot,
-    AgentWorkspaceZone,
+    AgentWorkloadEnvelope, AgentWorkspaceApplyReport, AgentWorkspaceChange,
+    AgentWorkspaceReconciliation, AgentWorkspaceRetentionRoot, AgentWorkspaceZone,
 };
 use serde::{Deserialize, Serialize};
 

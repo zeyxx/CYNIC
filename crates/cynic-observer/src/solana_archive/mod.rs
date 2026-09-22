@@ -26,40 +26,40 @@ mod trace;
 mod types;
 
 pub use backfill::{
-    apply_history_page, next_backfill_action, BackfillAction, BackfillCheckpoint,
-    BackfillHaltReason, BackfillSpec,
+    BackfillAction, BackfillCheckpoint, BackfillHaltReason, BackfillSpec, apply_history_page,
+    next_backfill_action,
 };
-pub use backfill_record::{record_history_page, BackfillRecordError, BackfillRecordReceipt};
+pub use backfill_record::{BackfillRecordError, BackfillRecordReceipt, record_history_page};
 pub use compatibility::{
+    CompatibilityError, LegacyObservation, MigrationRejection, MigrationReport,
     from_odysseum_value, migrate_odysseum_json_bytes, migrate_odysseum_json_directory,
-    migrate_odysseum_json_file, read_json_lines, CompatibilityError, LegacyObservation,
-    MigrationRejection, MigrationReport,
+    migrate_odysseum_json_file, read_json_lines,
 };
 pub use coverage::{CoverageGap, CoverageLedger, CoverageStatus};
 pub use coverage_report::{
-    build_coverage_report, build_coverage_report_from_pages, read_coverage_report, CoverageReport,
-    CoverageReportStatus, ObservationWindow,
+    CoverageReport, CoverageReportStatus, ObservationWindow, build_coverage_report,
+    build_coverage_report_from_pages, read_coverage_report,
 };
 pub use decode::{
-    classify_instruction, decode_transaction, DecodedInstruction, DecodedTransaction,
-    InstructionDecodeStatus,
+    DecodedInstruction, DecodedTransaction, InstructionDecodeStatus, classify_instruction,
+    decode_transaction,
 };
 pub use fanout::{
-    apply_fanout_failure, apply_signature_page, apply_transaction, next_fanout_action,
     FanoutAction, FanoutCheckpoint, FanoutFailure, FanoutFailureKind, FanoutHaltReason,
-    FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec,
+    FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, apply_fanout_failure, apply_signature_page,
+    apply_transaction, next_fanout_action,
 };
 pub use fanout_plan::{
-    plan_fanout, plan_fanout_request, FanoutExecutionPlan, FanoutPlanError, FanoutPlanRequest,
+    FanoutExecutionPlan, FanoutPlanError, FanoutPlanRequest, plan_fanout, plan_fanout_request,
 };
 pub use fanout_record::{
-    record_fanout_failure, record_signature_page, record_transaction, FanoutRecordError,
-    SignaturePageRecordReceipt, TransactionRecordReceipt,
+    FanoutRecordError, SignaturePageRecordReceipt, TransactionRecordReceipt, record_fanout_failure,
+    record_signature_page, record_transaction,
 };
 pub use fanout_runner::{
-    run_fanout, BoxSleepFuture, FanoutRunError, FanoutRunReport, FanoutSleeper, TokioFanoutSleeper,
+    BoxSleepFuture, FanoutRunError, FanoutRunReport, FanoutSleeper, TokioFanoutSleeper, run_fanout,
 };
-pub use integrity::{verify_payload, IntegrityCheck, IntegrityStatus};
+pub use integrity::{IntegrityCheck, IntegrityStatus, verify_payload};
 pub use live::{
     BoxSourceFuture, HistoryFilters, IndexedHistoryPage, IndexedHistoryQuery, IndexedHistorySource,
     IndexedTransactionRecord, RawTransactionObservation, SignaturePage, SignatureQuery,
@@ -68,27 +68,27 @@ pub use live::{
 };
 pub use live_adapter::JsonRpcAdapter;
 pub use metering::{
-    reconcile_project_usage, select_backfill_strategy, BackfillStrategy, CreditConfidence,
-    CreditMeasurement, HeliusCreditCatalog, HeliusPlan, MetricsAggregate, ProjectUsageSnapshot,
-    RequestMetrics,
+    BackfillStrategy, CreditConfidence, CreditMeasurement, HeliusCreditCatalog, HeliusPlan,
+    MetricsAggregate, ProjectUsageSnapshot, RequestMetrics, reconcile_project_usage,
+    select_backfill_strategy,
 };
 pub use provider_probe::{
-    samples_from_signature_pages, samples_from_transactions, summarize_provider_probe,
     ArchiveDepth, ProbeBudget, ProbeOutcome, ProbeSample, ProviderCapabilityProfile,
-    ProviderProbeSpec,
+    ProviderProbeSpec, samples_from_signature_pages, samples_from_transactions,
+    summarize_provider_probe,
 };
 pub use provider_registry::{
-    build_probe_plan, ProbeAction, ProbeActionKind, ProbePlan, ProbePlanError, ProbeTarget,
-    ProviderRegistry, ProviderRegistryEntry,
+    ProbeAction, ProbeActionKind, ProbePlan, ProbePlanError, ProbeTarget, ProviderRegistry,
+    ProviderRegistryEntry, build_probe_plan,
 };
 pub use pump::{
-    InstructionFamily, PumpAssetState, PumpLifecycle, PumpProfileRegistry, PumpProgramFamily,
-    PumpProgramProfile, PUMP_AMM_PROGRAM_ID, PUMP_FEES_PROGRAM_ID, PUMP_PROGRAM_ID,
+    InstructionFamily, PUMP_AMM_PROGRAM_ID, PUMP_FEES_PROGRAM_ID, PUMP_PROGRAM_ID, PumpAssetState,
+    PumpLifecycle, PumpProfileRegistry, PumpProgramFamily, PumpProgramProfile,
 };
-pub use reconcile::{reconcile_signature_pages, ReconciliationStatus, SignatureReconciliation};
+pub use reconcile::{ReconciliationStatus, SignatureReconciliation, reconcile_signature_pages};
 pub use storage::{
     BackfillStore, FanoutReadStore, FanoutStore, FileBackfillStore, FileFanoutStore, StorageError,
     StoredPageReceipt,
 };
-pub use trace::{trace_legacy_json_bytes, trace_legacy_json_file, ObservedTrace, TraceStatus};
+pub use trace::{ObservedTrace, TraceStatus, trace_legacy_json_bytes, trace_legacy_json_file};
 pub use types::{Commitment, DecodeStatus, ProviderKind, SolanaObservation};

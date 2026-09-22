@@ -1,6 +1,6 @@
 use super::{
-    apply_history_page, BackfillCheckpoint, BackfillSpec, BackfillStore, IndexedHistoryPage,
-    StorageError, StoredPageReceipt,
+    BackfillCheckpoint, BackfillSpec, BackfillStore, IndexedHistoryPage, StorageError,
+    StoredPageReceipt, apply_history_page,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

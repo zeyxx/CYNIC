@@ -159,7 +159,11 @@ mod tests {
         MapArgvRunner {
             responses: vec![
                 (
-                    vec!["git".to_string(), "branch".to_string(), "--show-current".to_string()],
+                    vec![
+                        "git".to_string(),
+                        "branch".to_string(),
+                        "--show-current".to_string(),
+                    ],
                     cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "main".to_string(),
@@ -168,7 +172,11 @@ mod tests {
                     },
                 ),
                 (
-                    vec!["git".to_string(), "status".to_string(), "--short".to_string()],
+                    vec![
+                        "git".to_string(),
+                        "status".to_string(),
+                        "--short".to_string(),
+                    ],
                     cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: " M file.rs".to_string(),
@@ -177,7 +185,12 @@ mod tests {
                     },
                 ),
                 (
-                    vec!["git".to_string(), "log".to_string(), "--oneline".to_string(), "-5".to_string()],
+                    vec![
+                        "git".to_string(),
+                        "log".to_string(),
+                        "--oneline".to_string(),
+                        "-5".to_string(),
+                    ],
                     cynic_lifecycle::ArgvOutput {
                         exit_code: Some(0),
                         stdout: "abc123 commit 1\ndef456 commit 2".to_string(),

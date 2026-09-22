@@ -1,22 +1,14 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cynic_workload::{
-    AgentWorkloadRecord,
-    AgentWorkloadState,
-    DurableAgentWorkloadRecord,
-    SettledParcelReceipt,
-    acknowledge_agent_workload_cancellation,
-    claim_agent_workload,
-    finalize_unclaimed_agent_workload_cancellation,
-    renew_agent_workload_claim,
-    settle_parcel_with_receipt,
-};
 use cynic_protocol::{
-    AGENT_COMPLETION_ENVELOPE_SCHEMA,
-    AgentBudget,
-    AgentCompletionEnvelope,
-    AgentCompletionStatus,
+    AGENT_COMPLETION_ENVELOPE_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentCompletionStatus,
     LeaseGuard,
+};
+use cynic_workload::{
+    AgentWorkloadRecord, AgentWorkloadState, DurableAgentWorkloadRecord, SettledParcelReceipt,
+    acknowledge_agent_workload_cancellation, claim_agent_workload,
+    finalize_unclaimed_agent_workload_cancellation, renew_agent_workload_claim,
+    settle_parcel_with_receipt,
 };
 use tokio_util::sync::CancellationToken;
 

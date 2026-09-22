@@ -121,10 +121,8 @@ pub(crate) fn print_ops_human(report: &OpsReport) {
     );
     println!();
     for finding in &report.findings {
-        if matches!(
-            finding.severity,
-            cynic_lifecycle::FindingSeverity::Info
-        ) && finding.repair_command.is_none()
+        if matches!(finding.severity, cynic_lifecycle::FindingSeverity::Info)
+            && finding.repair_command.is_none()
         {
             continue;
         }

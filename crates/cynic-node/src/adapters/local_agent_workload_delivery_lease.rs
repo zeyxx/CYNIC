@@ -1,12 +1,7 @@
 use std::{fs, io::Write, path::PathBuf};
 
-use cynic_workload::{
-    AgentWorkloadDeliveryLease,
-    validate_agent_workload_delivery_lease,
-};
-use cynic_protocol::{
-    digest_json,
-};
+use cynic_protocol::digest_json;
+use cynic_workload::{AgentWorkloadDeliveryLease, validate_agent_workload_delivery_lease};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

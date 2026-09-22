@@ -1,8 +1,8 @@
 //! Market loop — proposal → prediction → resolution → scoring.
 
-use crate::types::*;
 use crate::registry::MarketRegistry;
 use crate::scoring::ScoringEngine;
+use crate::types::*;
 
 /// Market loop engine.
 pub struct MarketLoop {
@@ -143,11 +143,7 @@ impl MarketLoop {
     }
 
     /// Get all predictions for a proposal.
-    pub fn get_predictions(
-        &self,
-        registry: &MarketRegistry,
-        proposal_id: &str,
-    ) -> Vec<Prediction> {
+    pub fn get_predictions(&self, registry: &MarketRegistry, proposal_id: &str) -> Vec<Prediction> {
         registry
             .predictions_for_proposal(proposal_id)
             .iter()
@@ -156,11 +152,7 @@ impl MarketLoop {
     }
 
     /// Calculate consensus (fraction of yes predictions) for a proposal.
-    pub fn calculate_consensus(
-        &self,
-        registry: &MarketRegistry,
-        proposal_id: &str,
-    ) -> Option<f64> {
+    pub fn calculate_consensus(&self, registry: &MarketRegistry, proposal_id: &str) -> Option<f64> {
         let predictions = self.get_predictions(registry, proposal_id);
         if predictions.is_empty() {
             return None;

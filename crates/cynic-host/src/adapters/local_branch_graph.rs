@@ -7,7 +7,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::branch_graph::port::{BranchGraphObservationError, BranchGraphObservationPort};
-use crate::domain::branch_graph::probe::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
+use crate::domain::branch_graph::probe::{
+    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
+};
 use crate::process_observation::capture_command;
 use cynic_protocol::branch_graph::BranchGraph;
 

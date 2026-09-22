@@ -306,32 +306,17 @@ fn emit(value: serde_json::Value, json: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::{
+        AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget, AgentCapabilityGrant,
+        AgentDelegationEnvelope, AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA,
+        ExecutionAuthorization, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA,
+        PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
+        PolicySetRef, RequiredProof,
+    };
     use cynic_workload::{
-    AGENT_WORKLOAD_ENVELOPE_SCHEMA,
-    AGENT_WORKLOAD_RECORD_SCHEMA,
-    AgentBoundedAction,
-    AgentWorkloadEnvelope,
-    AgentWorkloadRecord,
-    AgentWorkloadState,
-};
-use cynic_protocol::{
-    AGENT_DELEGATION_ENVELOPE_SCHEMA,
-    AgentBudget,
-    AgentCapabilityGrant,
-    AgentDelegationEnvelope,
-    AgentEvidenceRef,
-    EXECUTION_AUTHORIZATION_SCHEMA,
-    ExecutionAuthorization,
-    MutationContract,
-    POLICY_ADMISSION_REPORT_SCHEMA,
-    PolicyAdmissionReport,
-    PolicyAuthority,
-    PolicyDecision,
-    PolicyIntentRef,
-    PolicyScope,
-    PolicySetRef,
-    RequiredProof,
-};
+        AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
+        AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
+    };
 
     fn dummy_envelope() -> AgentWorkloadEnvelope {
         let action = AgentBoundedAction {

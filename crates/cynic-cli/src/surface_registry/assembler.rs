@@ -352,9 +352,19 @@ fn scan_fragments(
 ) -> Result<(), String> {
     let proc_path = PathBuf::from(format!("/proc/self/fd/{}", dir.as_raw_fd()));
     let mut entries: Vec<_> = fs::read_dir(&proc_path)
-        .map_err(|e| format!("cannot scan fragments directory {}: {e}", relative.display()))?
+        .map_err(|e| {
+            format!(
+                "cannot scan fragments directory {}: {e}",
+                relative.display()
+            )
+        })?
         .collect::<Result<_, _>>()
-        .map_err(|e| format!("cannot scan fragments directory {}: {e}", relative.display()))?;
+        .map_err(|e| {
+            format!(
+                "cannot scan fragments directory {}: {e}",
+                relative.display()
+            )
+        })?;
     entries.sort_by_key(|entry| entry.file_name());
     for entry in entries {
         let name = entry.file_name();
@@ -362,7 +372,11 @@ fn scan_fragments(
             .to_str()
             .ok_or_else(|| format!("non-UTF-8 entry under fragments: {}", relative.display()))?;
         if name == "." || name == ".." || name.contains('/') {
-            return Err(format!("unsafe entry under fragments: {}/{}", relative.display(), name));
+            return Err(format!(
+                "unsafe entry under fragments: {}/{}",
+                relative.display(),
+                name
+            ));
         }
         let entry_relative = relative.join(name);
         let entry_path = proc_path.join(name);

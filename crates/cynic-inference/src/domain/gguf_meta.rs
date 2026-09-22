@@ -4,6 +4,7 @@
 //! unsupported arches (e.g. `dspark` on older llama.cpp) instead of a false
 //! systemd "active" then crash loop.
 
+use crate::domain::engine_caps::EngineCapabilities;
 use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::Path;
@@ -137,7 +138,7 @@ pub fn default_supported_arches_for_llama_b9444() -> &'static [&'static str] {
 /// Falls back to static list when no store is available.
 pub fn preflight_gguf_with_store(
     path: &Path,
-    store: Option<&crate::adapters::local::engine_capability_store::EngineCapabilities>,
+    store: Option<&EngineCapabilities>,
 ) -> Result<GgufMeta, LocalRuntimeCompatError> {
     let meta = read_gguf_meta(path).map_err(|e| LocalRuntimeCompatError::Meta(e.to_string()))?;
     let Some(arch) = meta.architecture.as_deref() else {
@@ -150,26 +151,24 @@ pub fn preflight_gguf_with_store(
     // Path 1: observed capabilities (highest confidence)
     if let Some(store) = store {
         match store.preflight_decision(arch) {
-            crate::adapters::local::engine_capability_store::PreflightDecision::Allow => {
+            crate::domain::engine_caps::PreflightDecision::Allow => {
                 return Ok(meta);
             }
-            crate::adapters::local::engine_capability_store::PreflightDecision::Reject {
-                reason,
-            } => {
+            crate::domain::engine_caps::PreflightDecision::Reject { reason } => {
                 return Err(LocalRuntimeCompatError::UnsupportedArch {
                     path: meta.path,
                     architecture: arch.to_string(),
                     hint: reason,
                 });
             }
-            crate::adapters::local::engine_capability_store::PreflightDecision::Warn { .. } => {
+            crate::domain::engine_caps::PreflightDecision::Warn { .. } => {
                 // Fall through to static fallback check
             }
         }
     }
 
     // Path 2: static fallback (filet de sécurité)
-    if crate::adapters::local::engine_capability_store::static_fallback_arches().contains(&arch) {
+    if crate::domain::engine_caps::static_fallback_arches().contains(&arch) {
         return Ok(meta);
     }
 
@@ -182,7 +181,7 @@ pub fn preflight_gguf_with_store(
             hint: format!(
                 "arch '{arch}' not in observed capabilities or static fallback. \
                  Launch once to register, or add to fallback list. Supported examples: {}",
-                crate::adapters::local::engine_capability_store::static_fallback_arches()
+                crate::domain::engine_caps::static_fallback_arches()
                     .iter()
                     .take(12)
                     .copied()

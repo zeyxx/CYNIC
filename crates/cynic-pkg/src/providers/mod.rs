@@ -112,8 +112,7 @@ pub fn has_auto_handler(dep_id: &str) -> bool {
         .map(|p| {
             matches!(
                 p.channel(),
-                crate::types::ProviderChannel::Scripted
-                    | crate::types::ProviderChannel::External
+                crate::types::ProviderChannel::Scripted | crate::types::ProviderChannel::External
             )
         })
         .unwrap_or(false)

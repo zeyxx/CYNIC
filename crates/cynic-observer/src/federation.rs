@@ -1,13 +1,13 @@
+use libp2p::PeerId;
 use libp2p::identity;
 use libp2p::swarm::SwarmEvent;
-use libp2p::PeerId;
 use libp2p::{
-    gossipsub, kad, mdns, noise, swarm::NetworkBehaviour, tcp, yamux, Swarm, SwarmBuilder,
+    Swarm, SwarmBuilder, gossipsub, kad, mdns, noise, swarm::NetworkBehaviour, tcp, yamux,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 

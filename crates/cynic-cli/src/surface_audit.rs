@@ -58,10 +58,12 @@ mod tests {
         // Removal condition: zero phantoms — restore the all-ok assertion.
         let report = audit_canonical_surfaces();
         assert!(report.surfaces.iter().all(|entry| entry.status == "ok"));
-        assert!(report
-            .external_projection_findings
-            .iter()
-            .all(|finding| finding.status == "ok"));
+        assert!(
+            report
+                .external_projection_findings
+                .iter()
+                .all(|finding| finding.status == "ok")
+        );
         assert_eq!(report.agent_exposure.status, "blocked");
         assert!(report.agent_exposure.source_tool_count >= 3);
         assert!(report.agent_exposure.findings.iter().all(|finding| {

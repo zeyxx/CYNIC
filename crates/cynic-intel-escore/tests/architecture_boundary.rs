@@ -12,7 +12,11 @@ fn escore_domain_has_no_orchestrator_dependencies() {
         fs::read_to_string(escore_crate_root().join("Cargo.toml")).expect("read Cargo.toml");
 
     let forbidden = [
-        "cynic-host", "cynic-kernel", "cynic-node", "cynic-cli", "cynic-intel-soc",
+        "cynic-host",
+        "cynic-kernel",
+        "cynic-node",
+        "cynic-cli",
+        "cynic-intel-soc",
     ];
     for f in &forbidden {
         assert!(

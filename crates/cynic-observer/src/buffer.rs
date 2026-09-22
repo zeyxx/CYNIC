@@ -7,8 +7,8 @@
 //! Adapts to metabolic pressure: supports `DropOldest`, `RejectNew`, and batch draining.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 

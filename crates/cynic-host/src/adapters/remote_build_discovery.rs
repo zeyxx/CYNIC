@@ -6,8 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::build_discovery::port::BuildDiscoveryObservationPort;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
-use cynic_lifecycle::ArgvRunner;
 use cynic_build::build_discovery::BuildDiscoveryReport;
+use cynic_lifecycle::ArgvRunner;
 
 pub struct RemoteBuildDiscoveryAdapter<R: ArgvRunner> {
     runner: Arc<R>,
@@ -54,7 +54,8 @@ impl<R: ArgvRunner> BuildDiscoveryObservationPort for RemoteBuildDiscoveryAdapte
             .unwrap_or_default()
             .as_secs();
 
-        let meta_stdout = self.ssh_run(&["cargo", "metadata", "--format-version", "1", "--no-deps"])?;
+        let meta_stdout =
+            self.ssh_run(&["cargo", "metadata", "--format-version", "1", "--no-deps"])?;
 
         let toolchain = self
             .ssh_run(&["rustc", "--version", "--verbose"])

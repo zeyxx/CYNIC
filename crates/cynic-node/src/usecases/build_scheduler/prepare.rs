@@ -4,18 +4,10 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use cynic_build::build_source_reference_from_workload;
 use cynic_lifecycle::LocalArgvRunner;
-use cynic_build::{
-    build_source_reference_from_workload,
-};
-use cynic_workload::{
-    DurableAgentWorkloadRecord,
-    consume_agent_workload_action,
-};
-use cynic_protocol::{
-    LeaseGuard,
-    digest_json,
-};
+use cynic_protocol::{LeaseGuard, digest_json};
+use cynic_workload::{DurableAgentWorkloadRecord, consume_agent_workload_action};
 
 use crate::{
     adapters::{

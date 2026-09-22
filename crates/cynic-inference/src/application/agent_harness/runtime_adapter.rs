@@ -6,10 +6,7 @@
 //! CYNIC coordination authority.
 
 use async_trait::async_trait;
-use cynic_workload::{
-    AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus,
-};
+use cynic_workload::{AgentWorkloadDelivery, AgentWorkloadDeliveryStatus};
 use serde::{Deserialize, Serialize};
 
 pub const AGENT_RUNTIME_RECEIPT_SCHEMA: &str = "cynic.agent_runtime_receipt.v1";

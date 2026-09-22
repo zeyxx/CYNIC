@@ -11,12 +11,7 @@ fn discovery_host_never_depends_on_high_layer_crates() {
     let content = fs::read_to_string(&cargo_toml_path)
         .unwrap_or_else(|e| panic!("failed to read {:?}: {}", cargo_toml_path, e));
 
-    let forbidden = [
-        "cynic-kernel",
-        "cynic-node",
-        "cynic-cli",
-        "cynic-mcp",
-    ];
+    let forbidden = ["cynic-kernel", "cynic-node", "cynic-cli", "cynic-mcp"];
     for dep in &forbidden {
         assert!(
             !content.contains(dep),

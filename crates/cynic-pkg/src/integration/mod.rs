@@ -10,8 +10,8 @@ pub mod types;
 
 pub use catalog::integration_specs;
 pub use decision::{
-    decide_integration_action, IntegrationDecision, IntegrationDecisionSurface,
-    IntegrationPlanAction,
+    IntegrationDecision, IntegrationDecisionSurface, IntegrationPlanAction,
+    decide_integration_action,
 };
 pub use lifecycle::{
     BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,

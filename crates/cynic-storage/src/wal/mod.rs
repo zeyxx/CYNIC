@@ -16,9 +16,7 @@ use crate::ports::WalJournalPort;
 use crate::types::{
     Hash512, IntegrityReport, PoHTick, SequenceNumber, WalAppendInput, WalEntry, WalReceipt,
 };
-use frame::{
-    compute_commit_hash, compute_entry_hash, decode_frame, encode_frame,
-};
+use frame::{compute_commit_hash, compute_entry_hash, decode_frame, encode_frame};
 
 /// Internal mutable state for the active WAL segment.
 struct WalFsState {

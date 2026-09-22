@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::judgment::{CynicJudgment, CynefinDomain, DijkwLayer, SagePhase};
+use crate::judgment::{CynefinDomain, CynicJudgment, DijkwLayer, SagePhase};
 
 pub const JUDGE_PATCH_SCHEMA: &str = "cynic.judge_patch.v1";
 
@@ -87,7 +87,11 @@ pub fn judge_patch(input: &PatchJudgmentInput) -> CynicJudgment {
     }
 
     let mut j = CynicJudgment::new(
-        format!("judge-patch:{}:{}", obs.branch, obs.diff_hash.chars().take(8).collect::<String>()),
+        format!(
+            "judge-patch:{}:{}",
+            obs.branch,
+            obs.diff_hash.chars().take(8).collect::<String>()
+        ),
         actionable,
         layer,
         phase,
@@ -110,7 +114,11 @@ mod tests {
                 schema: JUDGE_PATCH_SCHEMA.to_string(),
                 branch: "agent/hermes/x".to_string(),
                 base_commit: "abc".to_string(),
-                diff_hash: if diff_len == 0 { "".to_string() } else { "deadbeefcafe".to_string() },
+                diff_hash: if diff_len == 0 {
+                    "".to_string()
+                } else {
+                    "deadbeefcafe".to_string()
+                },
                 diff_bytes_len: diff_len,
                 ahead,
                 behind,

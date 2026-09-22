@@ -74,17 +74,13 @@ pub async fn dispatch_command(command: Commands) -> ExitCode {
             registry,
             fail_on_warning,
             fail_on_critical,
-        } => {
-            network_surfaces_uc::execute_observe(&registry, fail_on_warning, fail_on_critical)
-        }
+        } => network_surfaces_uc::execute_observe(&registry, fail_on_warning, fail_on_critical),
         Commands::RegistryObservation {
             json: _,
             registry,
             output,
         } => network_surfaces_uc::execute_registry_observation(&registry, output.as_deref()),
-        Commands::Network { command } => {
-            network_surfaces_uc::execute_network_command(&command)
-        }
+        Commands::Network { command } => network_surfaces_uc::execute_network_command(&command),
         Commands::AgentWorkspace {
             request,
             result_file,
@@ -146,11 +142,9 @@ pub async fn dispatch_command(command: Commands) -> ExitCode {
             state_root,
             apply,
             json: _,
-        } => agent_workload_store_uc::execute_agent_workload_transition(
-            &request,
-            &state_root,
-            apply,
-        ),
+        } => {
+            agent_workload_store_uc::execute_agent_workload_transition(&request, &state_root, apply)
+        }
         Commands::BuildWorkloadGrantVerify {
             grant,
             workload_record,

@@ -74,7 +74,11 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
         ]
     }
 
-    pub fn apply_clone(&self, source_vmid: u32, clone_vmid: u32) -> Result<LxcCloneOutcome, String> {
+    pub fn apply_clone(
+        &self,
+        source_vmid: u32,
+        clone_vmid: u32,
+    ) -> Result<LxcCloneOutcome, String> {
         let argv = self.plan_clone(source_vmid, clone_vmid);
         let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
         let output = self.runner.run(&refs);

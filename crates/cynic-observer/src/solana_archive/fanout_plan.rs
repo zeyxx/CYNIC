@@ -1,6 +1,6 @@
 use super::{
-    next_fanout_action, select_backfill_strategy, BackfillStrategy, FanoutAction, FanoutCheckpoint,
-    FanoutSpec, HeliusCreditCatalog, HeliusPlan,
+    BackfillStrategy, FanoutAction, FanoutCheckpoint, FanoutSpec, HeliusCreditCatalog, HeliusPlan,
+    next_fanout_action, select_backfill_strategy,
 };
 use serde::{Deserialize, Serialize};
 

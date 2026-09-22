@@ -6,20 +6,10 @@ mod source_prepare;
 
 use std::time::{Duration, Instant};
 
+use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
-use cynic_build::{
-    QueuedCandidate,
-    canonical_build_action_from_argv,
-    plan_build_queue,
-};
-use cynic_workload::{
-    AgentWorkloadState,
-    DurableAgentWorkloadRecord,
-    admit_agent_workload,
-};
-use cynic_protocol::{
-    AgentCompletionStatus,
-};
+use cynic_protocol::AgentCompletionStatus;
+use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
 
 use crate::{

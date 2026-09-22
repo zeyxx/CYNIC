@@ -2,9 +2,9 @@ use std::path::Path;
 
 use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
 use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
-use cynic_protocol::NetworkMeshPlan;
 #[cfg(test)]
 use cynic_protocol::NETWORK_MESH_PLAN_SCHEMA;
+use cynic_protocol::NetworkMeshPlan;
 
 pub(crate) mod model;
 #[cfg(kani)]
@@ -46,15 +46,15 @@ fn build_network_mesh_plan_with_reader(
 
 #[cfg(any(test, kani))]
 fn address_plane(policy: Option<&model::NetworkPolicy>, service_plane: &str) -> String {
-    let net_policy: Option<cynic_network::NetworkPolicy> = policy
-        .and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
+    let net_policy: Option<cynic_network::NetworkPolicy> =
+        policy.and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
     cynic_network::address_plane(net_policy.as_ref(), service_plane)
 }
 
 #[cfg(any(test, kani))]
 fn default_dns_names(id: &str, plane: Option<&model::NetworkPlane>) -> Vec<String> {
-    let net_plane: Option<cynic_network::NetworkPlane> = plane
-        .and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
+    let net_plane: Option<cynic_network::NetworkPlane> =
+        plane.and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
     cynic_network::default_dns_names(id, net_plane.as_ref())
 }
 

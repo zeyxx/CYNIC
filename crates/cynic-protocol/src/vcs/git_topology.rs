@@ -153,7 +153,10 @@ pub fn validate_git_topology_observation(obs: &GitTopologyObservation) -> Vec<St
         let checks: &[(bool, GitTopologyUnknown)] = &[
             (e.ahead.is_some(), GitTopologyUnknown::Ahead),
             (e.behind.is_some(), GitTopologyUnknown::Behind),
-            (e.last_commit_unix_s.is_some(), GitTopologyUnknown::LastCommit),
+            (
+                e.last_commit_unix_s.is_some(),
+                GitTopologyUnknown::LastCommit,
+            ),
             (e.has_worktree.is_some(), GitTopologyUnknown::Worktree),
             (e.dirty_count.is_some(), GitTopologyUnknown::Dirty),
             (e.parent.is_some(), GitTopologyUnknown::Parent),

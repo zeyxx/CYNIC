@@ -5,20 +5,13 @@
 //! route selected once by `cynic-protocol`.
 
 use cynic_build::{
-    BuildRunnerCoordinationRouteObservation,
-    BuildRunnerProviderRouteObservation,
-    BuildRunnerRouteDecision,
-    BuildRunnerRouteDesiredState,
-    BuildRunnerRouteObservation,
-    BuildRunnerSeedRouteObservation,
-    BuildRunnerSshTrustRouteObservation,
+    BuildRunnerCoordinationRouteObservation, BuildRunnerProviderRouteObservation,
+    BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
+    BuildRunnerSeedRouteObservation, BuildRunnerSshTrustRouteObservation,
     reconcile_build_runner_route,
 };
 use cynic_protocol::{
-    NodeNetworkAttachment,
-    NodeSubstrateExistence,
-    NodeSubstrateObservation,
-    NodeSubstratePower,
+    NodeNetworkAttachment, NodeSubstrateExistence, NodeSubstrateObservation, NodeSubstratePower,
 };
 
 use crate::ssh_trust::SshTrustVerification;
@@ -100,13 +93,8 @@ pub fn reconcile_build_runner_route_from_read_backs(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_build::{
-    BuildRunnerRoutePath,
-    BuildRunnerRouteState,
-};
-use cynic_protocol::{
-    NodeSubstrateObservation,
-};
+    use cynic_build::{BuildRunnerRoutePath, BuildRunnerRouteState};
+    use cynic_protocol::NodeSubstrateObservation;
 
     const NOW: u64 = 1_000_000;
 

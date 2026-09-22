@@ -56,7 +56,9 @@ pub fn check_hygiene(obs: &GitHygieneObservation) -> GitHygieneDecision {
     let unknowns = obs.unknowns.clone();
 
     // Dirty on main is always a violation
-    if obs.current_branch.as_deref() == Some("main") && (!obs.staged_files.is_empty() || !obs.dirty_files.is_empty()) {
+    if obs.current_branch.as_deref() == Some("main")
+        && (!obs.staged_files.is_empty() || !obs.dirty_files.is_empty())
+    {
         violations.push(HygieneViolation::DirtyOnMain);
     }
 

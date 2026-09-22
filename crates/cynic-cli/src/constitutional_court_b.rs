@@ -107,9 +107,9 @@ impl CourtB {
                 SurfaceType::CliSurface => self.observe_cli_surface(),
                 SurfaceType::McpTool => Self::observe_mcp_tool(),
                 SurfaceType::Skill => self.observe_skill(),
-                SurfaceType::Runtime => {
-                    Err("runtime observation not yet wired (requires SSE/events consumer)".to_string())
-                }
+                SurfaceType::Runtime => Err(
+                    "runtime observation not yet wired (requires SSE/events consumer)".to_string(),
+                ),
             };
 
             if let Err(reason) = status {
@@ -153,7 +153,10 @@ impl CourtB {
     }
 
     fn observe_mcp_tool() -> Result<(), String> {
-        Err("MCP tool scan requires cynic-mcp compile-time registry (debt: not yet extracted)".to_string())
+        Err(
+            "MCP tool scan requires cynic-mcp compile-time registry (debt: not yet extracted)"
+                .to_string(),
+        )
     }
 
     fn observe_skill(&self) -> Result<(), String> {
@@ -201,11 +204,12 @@ pub async fn execute_court_b(scope: Option<Vec<SurfaceType>>, json: bool) -> Exi
             } else {
                 render_human_report(&result.report);
             }
-            let exit = if result.report.violations.is_empty() && result.report.coherence_score >= 80.0 {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            };
+            let exit =
+                if result.report.violations.is_empty() && result.report.coherence_score >= 80.0 {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::FAILURE
+                };
             exit
         }
         Err(e) => {

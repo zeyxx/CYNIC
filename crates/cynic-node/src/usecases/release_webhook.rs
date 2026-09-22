@@ -150,7 +150,8 @@ pub async fn handle_release_webhook(
     };
 
     let tag_name = payload.tag.clone().unwrap_or_else(|| "v0.2.0".to_string());
-    let version = ReleaseVersion::parse_tag(&tag_name).unwrap_or_else(|| ReleaseVersion::new(0, 2, 0, None));
+    let version =
+        ReleaseVersion::parse_tag(&tag_name).unwrap_or_else(|| ReleaseVersion::new(0, 2, 0, None));
 
     let gate_verdict = ReleaseEligibilityVerdict::Eligible {
         schema: "cynic.release_verdict.v1",
@@ -194,16 +195,20 @@ pub async fn handle_release_webhook(
     if relay_decision.is_authorized() {
         let push_success = match &relay_decision {
             RelayDecisionProof::Authorized { action_kind, .. } => match *action_kind {
-                RelayActionKind::TagPush => cynic_host::adapters::release_relay_adapter::push_tag_to_remote(
-                    &root,
-                    &config.github_remote,
-                    &tag_name,
-                ),
-                RelayActionKind::MainForcedPromotion => cynic_host::adapters::release_relay_adapter::force_push_tag_to_remote(
-                    &root,
-                    &config.github_remote,
-                    &tag_name,
-                ),
+                RelayActionKind::TagPush => {
+                    cynic_host::adapters::release_relay_adapter::push_tag_to_remote(
+                        &root,
+                        &config.github_remote,
+                        &tag_name,
+                    )
+                }
+                RelayActionKind::MainForcedPromotion => {
+                    cynic_host::adapters::release_relay_adapter::force_push_tag_to_remote(
+                        &root,
+                        &config.github_remote,
+                        &tag_name,
+                    )
+                }
                 _ => cynic_host::adapters::release_relay_adapter::push_tag_to_remote(
                     &root,
                     &config.github_remote,
@@ -239,7 +244,10 @@ pub async fn handle_release_webhook(
             commit_sha: payload.commit_sha,
             status: if readback.matches { "pushed" } else { "failed" },
             reason: if readback.matches {
-                format!("relay successful — tag {tag_name} verified on {}", config.github_remote)
+                format!(
+                    "relay successful — tag {tag_name} verified on {}",
+                    config.github_remote
+                )
             } else {
                 format!(
                     "read-back mismatch for tag {}: local={:?} remote={:?}",

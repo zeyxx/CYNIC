@@ -195,8 +195,8 @@ mod tests {
         std::fs::create_dir_all(&root).expect("mkdir");
         let authority =
             crate::one_shot_authority::LocalOneShotCapabilityAuthority::new(&pubkey_path, &root);
-        let action_digest = cynic_build::build_runner_bootstrap_action_digest("make:build")
-            .expect("action digest");
+        let action_digest =
+            cynic_build::build_runner_bootstrap_action_digest("make:build").expect("action digest");
         let consumed = authority
             .verify_and_consume(
                 &capability,

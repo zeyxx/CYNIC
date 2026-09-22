@@ -36,17 +36,17 @@ pub use integration_catalog::integration_specs;
 pub use integration_connect::connect_integration;
 pub use integration_connect_types::IntegrationConnectReport;
 pub use integration_decision::{
-    decide_integration_action, IntegrationDecision, IntegrationDecisionSurface,
+    IntegrationDecision, IntegrationDecisionSurface, decide_integration_action,
 };
-pub use integration_plan::{plan_integrations, INTEGRATIONS_PLAN_SCHEMA};
+pub use integration_plan::{INTEGRATIONS_PLAN_SCHEMA, plan_integrations};
 pub use integration_plan_types::{
     IntegrationExecutionPlan, IntegrationPlanAction, IntegrationPlanItem, IntegrationsPlanReport,
     IntegrationsPlanSummary,
 };
 pub use integration_port::{
-    observe_integrations, IntegrationObservationPort, INTEGRATIONS_STATUS_SCHEMA,
+    INTEGRATIONS_STATUS_SCHEMA, IntegrationObservationPort, observe_integrations,
 };
-pub use integration_recipe::{build_integration_recipe, IntegrationRecipe};
+pub use integration_recipe::{IntegrationRecipe, build_integration_recipe};
 pub use integration_types::{
     ConnectionState, IntegrationCapability, IntegrationConnectionObservation,
     IntegrationDependencySpec, IntegrationDependencyView, IntegrationKind, IntegrationObservation,

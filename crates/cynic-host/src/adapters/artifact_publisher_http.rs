@@ -11,7 +11,7 @@ use std::fs;
 use std::path::Path;
 
 use cynic_lifecycle::domain::artifact_publication::{
-    ArtifactPublicationRequest, PublishedArtefact, PublishError, TransportProtocol,
+    ArtifactPublicationRequest, PublishError, PublishedArtefact, TransportProtocol,
 };
 use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
 
@@ -63,11 +63,9 @@ impl ArtifactPublisher for HttpArtifactPublisher {
             return Err(PublishError::NotFound(request.local_path.clone()));
         }
 
-        let artefact_bytes =
-            fs::read(&request.local_path).map_err(|e| PublishError::Transport(format!(
-                "read artefact {}: {}",
-                request.local_path, e
-            )))?;
+        let artefact_bytes = fs::read(&request.local_path).map_err(|e| {
+            PublishError::Transport(format!("read artefact {}: {}", request.local_path, e))
+        })?;
 
         let url = format!(
             "{}/{}/{}",

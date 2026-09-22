@@ -9,14 +9,10 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_build::{
-    BuildRunnerBootstrapCapabilityBinding,
-    build_runner_bootstrap_action_digest,
+    BuildRunnerBootstrapCapabilityBinding, build_runner_bootstrap_action_digest,
     validate_build_runner_bootstrap_capability_binding,
 };
-use cynic_protocol::{
-    OneShotCapabilityOutcome,
-    OneShotCapabilityOutcomeStatus,
-};
+use cynic_protocol::{OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus};
 use sha2::{Digest, Sha256};
 
 use crate::framework_bootstrap::build_runner::{

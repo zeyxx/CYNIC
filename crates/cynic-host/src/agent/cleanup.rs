@@ -5,8 +5,8 @@
 //!   reconcile_cleanup() -> CleanupDecision (pure)
 //!   apply() -> CleanupProof (via ArgvRunner SSH)
 
-use cynic_protocol::cleanup::*;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
+use cynic_protocol::cleanup::*;
 
 pub struct CleanupAgent<R: ArgvRunner> {
     runner: R,
@@ -27,17 +27,31 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
     /// Observe disk state via SSH commands.
     pub fn observe(&self) -> Result<CleanupObservation, String> {
-        let df_output = self.runner.run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
+        let df_output = self
+            .runner
+            .run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
         let parts: Vec<&str> = df_output.stdout.split_whitespace().collect();
         if parts.len() < 10 {
             return Err(format!("unexpected df output: {}", df_output.stdout));
         }
-        let total: u64 = parts[8].parse().map_err(|_| format!("parse total: {}", parts[8]))?;
-        let used: u64 = parts[9].parse().map_err(|_| format!("parse used: {}", parts[9]))?;
-        let available: u64 = parts[10].parse().map_err(|_| format!("parse available: {}", parts[10]))?;
+        let total: u64 = parts[8]
+            .parse()
+            .map_err(|_| format!("parse total: {}", parts[8]))?;
+        let used: u64 = parts[9]
+            .parse()
+            .map_err(|_| format!("parse used: {}", parts[9]))?;
+        let available: u64 = parts[10]
+            .parse()
+            .map_err(|_| format!("parse available: {}", parts[10]))?;
         let disk_used_percent = ((used as f64 / total as f64) * 100.0) as u8;
 
-        let du_output = self.runner.run(&["ssh", "cynic-builder-ssh", "du", "-sh", "/var/lib/cynic/checkouts/*"]);
+        let du_output = self.runner.run(&[
+            "ssh",
+            "cynic-builder-ssh",
+            "du",
+            "-sh",
+            "/var/lib/cynic/checkouts/*",
+        ]);
         let mut items = Vec::new();
         for line in du_output.stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -84,7 +98,9 @@ impl<R: ArgvRunner> CleanupAgent<R> {
             }
         }
 
-        let df_after = self.runner.run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
+        let df_after = self
+            .runner
+            .run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
         let parts: Vec<&str> = df_after.stdout.split_whitespace().collect();
         let disk_used_percent_after = if parts.len() >= 10 {
             let total: u64 = parts[8].parse().unwrap_or(1);
@@ -109,11 +125,17 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 fn parse_size(s: &str) -> u64 {
     let s = s.trim();
     if let Some(num) = s.strip_suffix('G') {
-        num.parse::<f64>().map(|n| (n * 1_000_000_000.0) as u64).unwrap_or(0)
+        num.parse::<f64>()
+            .map(|n| (n * 1_000_000_000.0) as u64)
+            .unwrap_or(0)
     } else if let Some(num) = s.strip_suffix('M') {
-        num.parse::<f64>().map(|n| (n * 1_000_000.0) as u64).unwrap_or(0)
+        num.parse::<f64>()
+            .map(|n| (n * 1_000_000.0) as u64)
+            .unwrap_or(0)
     } else if let Some(num) = s.strip_suffix('K') {
-        num.parse::<f64>().map(|n| (n * 1_000.0) as u64).unwrap_or(0)
+        num.parse::<f64>()
+            .map(|n| (n * 1_000.0) as u64)
+            .unwrap_or(0)
     } else {
         s.parse::<u64>().unwrap_or(0)
     }

@@ -3,18 +3,20 @@
 //! SSOT for what the deployed engine actually supports — learned a posteriori
 //! from launch outcomes, not hardcoded. Invalidation on binary change.
 //!
-//! Part of CYNIC External Tool Capability Registry
-//! (`infra/EXTERNAL_TOOL_REGISTRY.md`).
+//! This is an adapter — it imports domain types and provides I/O.
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
-/// Default static fallback — filet de sécurité quand rien n'est observé.
-/// Couvre les arches documentées dans llama.cpp b9444+.
+// ── Domain types (pure, no I/O) ──
+pub use crate::domain::engine_caps::{
+    ArchStatus, EngineCapabilities, Observation, PreflightDecision,
+};
+
+/// Default static fallback — covers llama.cpp b9444+ documented arches.
 pub fn static_fallback_arches() -> &'static [&'static str] {
     &[
         "llama",
@@ -56,126 +58,6 @@ pub fn static_fallback_arches() -> &'static [&'static str] {
         "granite",
         "openelm",
     ]
-}
-
-/// Result of observing a capability.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum Observation {
-    /// Lancement réussi confirmé.
-    Ok,
-    /// Échec confirmé (crash llama-server, erreur chargement).
-    Fail,
-}
-
-/// Per-architecture observation status.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ArchStatus {
-    /// Confirmé par observation.
-    Observed(Observation),
-    /// Présent dans le fallback statique, jamais vérifié.
-    Fallback,
-    /// Jamais observé, pas dans le fallback.
-    Unknown,
-}
-
-/// Observed capabilities of the deployed llama-server binary.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EngineCapabilities {
-    #[serde(default = "default_schema")]
-    schema: String,
-    /// Path to the binary.
-    pub bin_path: String,
-    /// Fingerprint for invalidation (size:mtime).
-    pub bin_fingerprint: String,
-    /// llama-server version string.
-    pub version: String,
-    /// Last probe timestamp.
-    pub last_probed_at_unix_s: u64,
-    /// Observed architecture outcomes (arch → status).
-    #[serde(default)]
-    pub observed_arches: HashMap<String, Observation>,
-    /// GPU / CPU backends detected at probe time.
-    #[serde(default)]
-    pub backends: Vec<String>,
-}
-
-fn default_schema() -> String {
-    "cynic.inference.engine_capabilities.v1".into()
-}
-
-impl Default for EngineCapabilities {
-    fn default() -> Self {
-        Self {
-            schema: default_schema(),
-            bin_path: String::new(),
-            bin_fingerprint: String::new(),
-            version: "unknown".into(),
-            last_probed_at_unix_s: 0,
-            observed_arches: HashMap::new(),
-            backends: Vec::new(),
-        }
-    }
-}
-
-impl EngineCapabilities {
-    pub fn new(bin_path: impl Into<String>, version: impl Into<String>) -> Self {
-        Self {
-            bin_path: bin_path.into(),
-            version: version.into(),
-            last_probed_at_unix_s: now_unix_s(),
-            ..Default::default()
-        }
-    }
-
-    /// Enregistrer le résultat d'un lancement pour une architecture.
-    pub fn observe(&mut self, arch: &str, success: bool) {
-        let obs = if success {
-            Observation::Ok
-        } else {
-            Observation::Fail
-        };
-        self.observed_arches.insert(arch.to_string(), obs);
-        self.last_probed_at_unix_s = now_unix_s();
-    }
-
-    /// Statut d'une architecture (observé > fallback > inconnu).
-    pub fn arch_status(&self, arch: &str) -> ArchStatus {
-        if let Some(obs) = self.observed_arches.get(arch) {
-            return ArchStatus::Observed(*obs);
-        }
-        if static_fallback_arches().contains(&arch) {
-            return ArchStatus::Fallback;
-        }
-        ArchStatus::Unknown
-    }
-
-    /// Décision de préflight : autoriser, warn, ou rejeter.
-    pub fn preflight_decision(&self, arch: &str) -> PreflightDecision {
-        match self.arch_status(arch) {
-            ArchStatus::Observed(Observation::Ok) => PreflightDecision::Allow,
-            ArchStatus::Observed(Observation::Fail) => PreflightDecision::Reject {
-                reason: format!("arch '{arch}' observed as FAIL on {}", self.bin_path),
-            },
-            ArchStatus::Fallback => PreflightDecision::Warn {
-                format: format!(
-                    "arch '{arch}' unverified (static fallback only); launch to confirm"
-                ),
-            },
-            ArchStatus::Unknown => PreflightDecision::Reject {
-                reason: format!(
-                    "arch '{arch}' never observed and not in fallback; launch required"
-                ),
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PreflightDecision {
-    Allow,
-    Warn { format: String },
-    Reject { reason: String },
 }
 
 /// Compute binary fingerprint (size:mtime) for invalidation.
@@ -222,7 +104,7 @@ impl EngineCapabilityStore {
         let caps = fs::read_to_string(&cache_path)
             .ok()
             .and_then(|s| serde_json::from_str::<EngineCapabilities>(&s).ok())
-            .unwrap_or_default();
+            .unwrap_or_else(EngineCapabilities::default);
         Self { cache_path, caps }
     }
 
@@ -327,7 +209,6 @@ mod tests {
 
     #[test]
     fn fingerprint_format() {
-        // Create a temp file, fingerprint it.
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("fake-bin");
         fs::write(&p, b"hello").unwrap();

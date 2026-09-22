@@ -2,10 +2,8 @@ use std::{fs, path::Path};
 
 use cynic_lifecycle::ArgvRunner;
 use cynic_workload::{
-    AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA,
-    AgentWorkspaceLifecycleDecision,
-    AgentWorkspaceLifecyclePlan,
-    agent_workspace_target,
+    AGENT_WORKSPACE_LIFECYCLE_PLAN_SCHEMA, AgentWorkspaceLifecycleDecision,
+    AgentWorkspaceLifecyclePlan, agent_workspace_target,
 };
 
 use crate::ports::agent_workspace_port::{

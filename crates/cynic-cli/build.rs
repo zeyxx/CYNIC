@@ -4,10 +4,7 @@ use std::{
     ffi::{CString, OsStr},
     fs::{self, File},
     io::{Read, Write},
-    os::{
-        fd::AsFd,
-        unix::ffi::OsStrExt,
-    },
+    os::{fd::AsFd, unix::ffi::OsStrExt},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -256,11 +253,7 @@ fn atomic_write(path: &Path, payload: &[u8]) {
         match rfs::openat(
             parent.as_fd(),
             &candidate,
-            OFlags::WRONLY
-                | OFlags::CREATE
-                | OFlags::EXCL
-                | OFlags::NOFOLLOW
-                | OFlags::CLOEXEC,
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::from_bits_truncate(0o600),
         ) {
             Ok(owned) => {
@@ -287,10 +280,7 @@ fn atomic_write(path: &Path, payload: &[u8]) {
         // statat with SYMLINK_NOFOLLOW observes the directory entry itself.
         match rfs::statat(parent.as_fd(), &target_c, AtFlags::SYMLINK_NOFOLLOW) {
             Ok(stat) => {
-                if !matches!(
-                    FileType::from_raw_mode(stat.st_mode),
-                    FileType::RegularFile
-                ) {
+                if !matches!(FileType::from_raw_mode(stat.st_mode), FileType::RegularFile) {
                     return Err("generated output target is not a regular file".to_string());
                 }
             }

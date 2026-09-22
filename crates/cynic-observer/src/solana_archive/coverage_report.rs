@@ -1,6 +1,7 @@
 use super::{
-    reconcile_signature_pages, CoverageGap, FanoutCheckpoint, FanoutHaltReason, FanoutReadStore,
-    FanoutSpec, ReconciliationStatus, SignaturePage, SignatureReconciliation, StorageError,
+    CoverageGap, FanoutCheckpoint, FanoutHaltReason, FanoutReadStore, FanoutSpec,
+    ReconciliationStatus, SignaturePage, SignatureReconciliation, StorageError,
+    reconcile_signature_pages,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;

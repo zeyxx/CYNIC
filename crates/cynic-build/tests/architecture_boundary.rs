@@ -49,8 +49,8 @@ fn build_compressor_is_pure_zero_io() {
 
 #[test]
 fn build_runner_depends_on_abstract_argv_runner() {
-    let runner = fs::read_to_string(build_crate_root().join("src/runner.rs"))
-        .expect("runner.rs must exist");
+    let runner =
+        fs::read_to_string(build_crate_root().join("src/runner.rs")).expect("runner.rs must exist");
     assert!(
         runner.contains("runner: &dyn BuildRunner"),
         "Port Inversion Violation: run_build must take abstract `&dyn BuildRunner`"
@@ -59,16 +59,15 @@ fn build_runner_depends_on_abstract_argv_runner() {
         !runner.contains("std::fs::") && !runner.contains("std::process::"),
         "Hexagonal Violation: runner.rs must not touch std::fs or std::process directly"
     );
-    let ports = fs::read_to_string(build_crate_root().join("src/ports.rs"))
-        .expect("ports.rs must exist");
+    let ports =
+        fs::read_to_string(build_crate_root().join("src/ports.rs")).expect("ports.rs must exist");
     assert!(
         ports.contains("pub trait BuildRunner")
             && ports.contains("pub trait FilesystemPort")
             && ports.contains("pub trait IdentityPort"),
         "Port Violation: ports.rs must declare BuildRunner, FilesystemPort, IdentityPort"
     );
-    let lib = fs::read_to_string(build_crate_root().join("src/lib.rs"))
-        .expect("lib.rs must exist");
+    let lib = fs::read_to_string(build_crate_root().join("src/lib.rs")).expect("lib.rs must exist");
     assert!(
         !lib.contains("std::fs::") && !lib.contains("std::process::"),
         "Facade Violation: lib.rs must stay a thin composition surface"

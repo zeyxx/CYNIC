@@ -1,9 +1,9 @@
 //! Pure parsers for build discovery (no I/O).
 
 use cynic_build::build_discovery::{
-    BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA,
+    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
 };
-use cynic_build::build_discovery_recipe::{BuildDiscoveryRecipe, BUILD_DISCOVERY_RECIPE_SCHEMA};
+use cynic_build::build_discovery_recipe::{BUILD_DISCOVERY_RECIPE_SCHEMA, BuildDiscoveryRecipe};
 use serde::Deserialize;
 
 /// Minimal cargo metadata shape (only fields we need).
@@ -64,7 +64,9 @@ pub fn parse_cargo_metadata(
         } else {
             // workspace_members are PackageId like "cynic-host 0.1.0 (path+file://...)"
             // match by prefix "name "
-            ws_set.iter().any(|m| m.starts_with(&format!("{} ", pkg.name)))
+            ws_set
+                .iter()
+                .any(|m| m.starts_with(&format!("{} ", pkg.name)))
                 || ws_set.contains(&pkg.name)
         };
         if !is_member {
@@ -203,7 +205,11 @@ pub fn derive_recipes(report: &BuildDiscoveryReport) -> Vec<BuildDiscoveryRecipe
             });
         }
         // Crate with no bin/lib/test but still buildable -> generic cargo build -p
-        if krate.bins.is_empty() && krate.libs.is_empty() && krate.tests.is_empty() && !krate.custom_build {
+        if krate.bins.is_empty()
+            && krate.libs.is_empty()
+            && krate.tests.is_empty()
+            && !krate.custom_build
+        {
             out.push(BuildDiscoveryRecipe {
                 schema: BUILD_DISCOVERY_RECIPE_SCHEMA.to_string(),
                 id: format!("build:{}:crate", krate.name),
@@ -249,22 +255,42 @@ mod tests {
 
     #[test]
     fn parse_filters_workspace_members() {
-        let r = parse_cargo_metadata(SAMPLE, 123, "stable".into(), "x86_64-unknown-linux-gnu".into()).unwrap();
+        let r = parse_cargo_metadata(
+            SAMPLE,
+            123,
+            "stable".into(),
+            "x86_64-unknown-linux-gnu".into(),
+        )
+        .unwrap();
         assert_eq!(r.crates.len(), 2);
-        assert!(r.crates.iter().any(|c| c.name=="cynic-host"));
+        assert!(r.crates.iter().any(|c| c.name == "cynic-host"));
         assert_eq!(r.observed_at_unix_s, 123);
         assert_eq!(r.targets, vec!["x86_64-unknown-linux-gnu"]);
     }
 
     #[test]
     fn derive_recipes_bins_libs() {
-        let r = parse_cargo_metadata(SAMPLE, 0, "stable".into(), "x86_64-unknown-linux-gnu".into()).unwrap();
+        let r = parse_cargo_metadata(
+            SAMPLE,
+            0,
+            "stable".into(),
+            "x86_64-unknown-linux-gnu".into(),
+        )
+        .unwrap();
         let recipes = derive_recipes(&r);
-        assert!(recipes.iter().any(|x| x.id=="build:cynic-host:bin:mybin"));
-        assert!(recipes.iter().any(|x| x.id=="build:cynic-host:lib:cynic-host"));
-        assert!(recipes.iter().any(|x| x.id=="build:cynic-protocol:custom-build"));
+        assert!(recipes.iter().any(|x| x.id == "build:cynic-host:bin:mybin"));
+        assert!(
+            recipes
+                .iter()
+                .any(|x| x.id == "build:cynic-host:lib:cynic-host")
+        );
+        assert!(
+            recipes
+                .iter()
+                .any(|x| x.id == "build:cynic-protocol:custom-build")
+        );
         // foo not in workspace -> no recipe
-        assert!(!recipes.iter().any(|x| x.crate_name=="foo"));
+        assert!(!recipes.iter().any(|x| x.crate_name == "foo"));
     }
 
     #[test]

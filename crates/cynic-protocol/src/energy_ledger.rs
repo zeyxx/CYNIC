@@ -176,7 +176,10 @@ impl EnergyLedger {
 
     /// Get remaining budget for an allocation.
     pub fn remaining_budget(&self, allocation_id: &str) -> Option<EnergyDimensions> {
-        let allocation = self.allocations.iter().find(|a| a.allocation_id == allocation_id)?;
+        let allocation = self
+            .allocations
+            .iter()
+            .find(|a| a.allocation_id == allocation_id)?;
         let consumed = self
             .consumptions
             .iter()
@@ -191,11 +194,15 @@ impl EnergyLedger {
             });
 
         Some(EnergyDimensions {
-            wall_time_ms: allocation.max_budget.wall_time_ms.saturating_sub(consumed.wall_time_ms),
+            wall_time_ms: allocation
+                .max_budget
+                .wall_time_ms
+                .saturating_sub(consumed.wall_time_ms),
             cpu_ms: sub_opt(allocation.max_budget.cpu_ms, consumed.cpu_ms),
             network_bytes: sub_opt(allocation.max_budget.network_bytes, consumed.network_bytes),
             disk_bytes: sub_opt(allocation.max_budget.disk_bytes, consumed.disk_bytes),
-            estimated_joules: (allocation.max_budget.estimated_joules - consumed.estimated_joules).max(0.0),
+            estimated_joules: (allocation.max_budget.estimated_joules - consumed.estimated_joules)
+                .max(0.0),
         })
     }
 
@@ -306,7 +313,9 @@ mod tests {
             disk_bytes: None,
             estimated_joules: 250.0,
         };
-        let proof = ledger.record(&alloc_id, consumed, vec!["evidence1".to_string()]).unwrap();
+        let proof = ledger
+            .record(&alloc_id, consumed, vec!["evidence1".to_string()])
+            .unwrap();
         assert!(proof.within_budget);
         assert_eq!(proof.efficiency, 0.5);
     }

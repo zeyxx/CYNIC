@@ -88,7 +88,11 @@ pub enum PublishError {
 /// Encodes the `release_publication/protocol` policy from `infra/registry.json`
 /// without touching network/filesystem. `protocol_str` is the raw value of
 /// `release_publication.protocol` (e.g. `generic_http_put_get` or `ssh`).
-pub fn select_transport(protocol_str: &str, http_target: &str, ssh_target: &str) -> PublicationTarget {
+pub fn select_transport(
+    protocol_str: &str,
+    http_target: &str,
+    ssh_target: &str,
+) -> PublicationTarget {
     let protocol: TransportProtocol = protocol_str
         .parse::<TransportProtocol>()
         .unwrap_or_default();

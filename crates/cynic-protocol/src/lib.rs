@@ -43,6 +43,7 @@ pub mod development;
 pub mod development_genesis;
 pub mod digest;
 pub mod discovery;
+pub mod domain_ops;
 pub mod domain_tasks;
 pub mod emergence;
 pub mod emergence_gallery;

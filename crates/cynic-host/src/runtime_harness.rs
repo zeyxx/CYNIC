@@ -369,18 +369,14 @@ mod tests {
         validate_runtime_harness_target_attestation,
         validate_runtime_harness_target_attestation_at,
     };
+    use cynic_build::BuildRunnerObservation;
     use cynic_build::build::{
         BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRunnerCoordinationRouteObservation,
         BuildRunnerProviderRouteObservation, BuildRunnerRouteObservation, BuildRunnerRoutePath,
         BuildRunnerRouteState, BuildRunnerSeedRouteObservation,
         BuildRunnerSshTrustRouteObservation,
     };
-    use cynic_build::{
-    BuildRunnerObservation,
-};
-use cynic_protocol::{
-    SecurityEvidenceState,
-};
+    use cynic_protocol::SecurityEvidenceState;
 
     fn attested_lab_target() -> RuntimeHarnessTargetAttestation {
         let context = closed_local_lab_context();

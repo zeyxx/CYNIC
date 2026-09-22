@@ -37,7 +37,10 @@ pub(crate) fn execute_judge(command: JudgeCommand) -> ExitCode {
     match command {
         JudgeCommand::Patch { branch, root, json } => {
             let obs = cynic_host::judge_patch_observer::observe_patch(Path::new(&root), &branch);
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             let input = cynic_protocol::judge_patch::PatchJudgmentInput {
                 observation: obs.clone(),
                 judged_at_unix_s: now,
@@ -49,27 +52,32 @@ pub(crate) fn execute_judge(command: JudgeCommand) -> ExitCode {
                     observation: &'a cynic_protocol::judge_patch::PatchObservation,
                     judgment: &'a cynic_protocol::judgment::CynicJudgment,
                 }
-                emit_pretty_json(&Out { observation: &obs, judgment: &judgment })
+                emit_pretty_json(&Out {
+                    observation: &obs,
+                    judgment: &judgment,
+                })
             } else {
                 println!(
                     "judge patch {}: actionable={} confidence={:.2} domain={:?} unknowns={:?}",
-                    branch, judgment.actionable, judgment.confidence, judgment.cynefin_domain, judgment.residual_unknowns
+                    branch,
+                    judgment.actionable,
+                    judgment.confidence,
+                    judgment.cynefin_domain,
+                    judgment.residual_unknowns
                 );
-                println!("  diff {} bytes hash {}..", obs.diff_bytes_len, &obs.diff_hash[..8.min(obs.diff_hash.len())]);
+                println!(
+                    "  diff {} bytes hash {}..",
+                    obs.diff_bytes_len,
+                    &obs.diff_hash[..8.min(obs.diff_hash.len())]
+                );
                 ExitCode::SUCCESS
             }
         }
-        JudgeCommand::Runtime { json, subject } => {
-            crate::judgment_surface::execute_judgment(crate::judgment_surface::JudgmentCommand::Judgment {
-                json,
-                subject,
-            })
-        }
-        JudgeCommand::Digest { json, subject } => {
-            crate::judgment_surface::execute_judgment(crate::judgment_surface::JudgmentCommand::Digest {
-                json,
-                subject,
-            })
-        }
+        JudgeCommand::Runtime { json, subject } => crate::judgment_surface::execute_judgment(
+            crate::judgment_surface::JudgmentCommand::Judgment { json, subject },
+        ),
+        JudgeCommand::Digest { json, subject } => crate::judgment_surface::execute_judgment(
+            crate::judgment_surface::JudgmentCommand::Digest { json, subject },
+        ),
     }
 }

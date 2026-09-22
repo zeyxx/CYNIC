@@ -5,8 +5,7 @@ use std::{
 };
 
 use cynic_workload::{
-    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA,
-    AgentExecutionRuntimeObservation,
+    AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentExecutionRuntimeObservation,
 };
 use sha2::{Digest, Sha256};
 

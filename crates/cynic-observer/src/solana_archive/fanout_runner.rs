@@ -1,8 +1,8 @@
 use super::{
-    next_fanout_action, record_fanout_failure, record_signature_page, record_transaction,
     FanoutAction, FanoutCheckpoint, FanoutFailure, FanoutHaltReason, FanoutRecordError,
     FanoutRetryDecision, FanoutRetryPolicy, FanoutSpec, FanoutStore, SignatureSource, SourceError,
-    TransactionQuery, TransactionSource,
+    TransactionQuery, TransactionSource, next_fanout_action, record_fanout_failure,
+    record_signature_page, record_transaction,
 };
 use std::future::Future;
 use std::pin::Pin;

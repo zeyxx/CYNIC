@@ -153,8 +153,10 @@ mod tests {
 
     #[test]
     fn unknown_program_is_not_classified_as_pump() {
-        assert!(PumpProfileRegistry::canonical()
-            .resolve("unknown")
-            .is_none());
+        assert!(
+            PumpProfileRegistry::canonical()
+                .resolve("unknown")
+                .is_none()
+        );
     }
 }

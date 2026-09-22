@@ -1,17 +1,11 @@
 use cynic_node::ports::agent_workspace_port::{
     AgentWorkspaceClaimStorePort, AgentWorkspacePortError,
 };
+use cynic_protocol::LeaseGuard;
 use cynic_workload::{
-    AgentWorkspaceClaimAdmission,
-    AgentWorkspaceClaimIntent,
-    AgentWorkspaceClaimObservation,
-    AgentWorkspaceClaimOutcome,
-    AgentWorkspaceZone,
-    agent_workspace_target,
+    AgentWorkspaceClaimAdmission, AgentWorkspaceClaimIntent, AgentWorkspaceClaimObservation,
+    AgentWorkspaceClaimOutcome, AgentWorkspaceZone, agent_workspace_target,
     workspace_claim_admission_matches,
-};
-use cynic_protocol::{
-    LeaseGuard,
 };
 
 use crate::storage::{SurrealHttpStorage, escape_surreal, sanitize_id};

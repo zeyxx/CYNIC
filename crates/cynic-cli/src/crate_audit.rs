@@ -181,13 +181,17 @@ mod tests {
         let report = audit_core_crates();
         assert_eq!(report.schema, "cynic.cli.crate_audit.v1");
         assert!(report.crate_count >= 6);
-        assert!(report
-            .crates
-            .iter()
-            .any(|entry| entry.crate_name == "cynic-cli" && entry.rust_file_count > 0));
-        assert!(report
-            .crates
-            .iter()
-            .any(|entry| entry.crate_name == "cynic-node" && !entry.entrypoints.is_empty()));
+        assert!(
+            report
+                .crates
+                .iter()
+                .any(|entry| entry.crate_name == "cynic-cli" && entry.rust_file_count > 0)
+        );
+        assert!(
+            report
+                .crates
+                .iter()
+                .any(|entry| entry.crate_name == "cynic-node" && !entry.entrypoints.is_empty())
+        );
     }
 }

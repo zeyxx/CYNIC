@@ -275,8 +275,7 @@ mod tests {
             decided_at_unix_s: 100,
         };
         let relay_contract = dummy_relay_contract();
-        let proof =
-            evaluate_relay_eligibility(&verdict, &relay_contract, "github", "main", false);
+        let proof = evaluate_relay_eligibility(&verdict, &relay_contract, "github", "main", false);
         assert!(!proof.is_authorized());
     }
 
@@ -290,8 +289,7 @@ mod tests {
             decided_at_unix_s: 100,
         };
         let relay_contract = dummy_relay_contract();
-        let proof =
-            evaluate_relay_eligibility(&verdict, &relay_contract, "github", "main", true);
+        let proof = evaluate_relay_eligibility(&verdict, &relay_contract, "github", "main", true);
         assert!(proof.is_authorized());
         match &proof {
             RelayDecisionProof::Authorized { action_kind, .. } => {

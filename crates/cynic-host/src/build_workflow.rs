@@ -8,9 +8,9 @@
 //!
 //! The runtime itself is testable by injecting fake adapters.
 
-use cynic_protocol::LeaseGuard;
 use cynic_build::build::BuildRecipe;
 use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
+use cynic_protocol::LeaseGuard;
 use cynic_protocol::source_control::SourceSnapshot;
 
 use crate::build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
@@ -144,12 +144,7 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                 install_path: config.install_path.clone(),
                 apply: false,
             };
-            let proof = run_build(
-                &request,
-                config.argv_runner,
-                &StdFilesystem,
-                &OsIdentity,
-            );
+            let proof = run_build(&request, config.argv_runner, &StdFilesystem, &OsIdentity);
             Ok(BuildWorkflowResult::Planned { proof })
         }
         BuildWorkflowOutcome::Execute {
@@ -171,12 +166,7 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
                 install_path: config.install_path.clone(),
                 apply: true,
             };
-            let proof = run_build(
-                &request,
-                config.argv_runner,
-                &StdFilesystem,
-                &OsIdentity,
-            );
+            let proof = run_build(&request, config.argv_runner, &StdFilesystem, &OsIdentity);
             Ok(BuildWorkflowResult::Executed { proof })
         }
     }
@@ -186,9 +176,9 @@ pub fn run_build_workflow(config: &BuildWorkflowConfig) -> Result<BuildWorkflowR
 mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-    use cynic_lifecycle::MapArgvRunner;
     use cynic_build::BuildRunnerObservation;
     use cynic_build::build::BUILD_RECIPE_SCHEMA;
+    use cynic_lifecycle::MapArgvRunner;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
     fn valid_observation() -> BuildRunnerObservation {

@@ -7,18 +7,13 @@ use crate::build::{
 use crate::release_publication::{
     SignedReleaseBasketReadBack, validate_signed_release_basket_read_back,
 };
-use cynic_workload::{
-    AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus,
-    validate_agent_workload_delivery,
-};
 use cynic_protocol::{
-    AgentCompletionStatus,
-    NodeDesiredState,
-    digest_json,
-    validate_node_desired_state,
+    AgentCompletionStatus, NodeDesiredState, digest_json, validate_node_desired_state,
 };
 use cynic_protocol::{DeploymentEpoch, derive_deployment_epoch};
+use cynic_workload::{
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
+};
 
 pub const RUNTIME_RELEASE_DECLARATION_SCHEMA: &str = "cynic.runtime_release_declaration.v1";
 pub const RUNTIME_RELEASE_ADMISSION_SCHEMA: &str = "cynic.runtime_release_admission.v2";
@@ -249,30 +244,17 @@ mod tests {
         RuntimeReleasePublicationManifest, SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA,
         SignedReleaseBasketReadBack,
     };
+    use cynic_protocol::{
+        AGENT_COMPLETION_ENVELOPE_SCHEMA, AgentBudget, AgentCompletionEnvelope, AgentEvidenceRef,
+        RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
+        RuntimeSeedRequest, build_evidence_envelope,
+    };
     use cynic_workload::{
-    AGENT_WORKLOAD_DELIVERY_SCHEMA,
-    AGENT_WORKLOAD_RECORD_SCHEMA,
-    AgentWorkloadRecord,
-    AgentWorkloadState,
-    DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA,
-    DurableAgentWorkloadRecord,
-    complete_agent_workload_delivery,
-};
-use cynic_protocol::{
-    AGENT_COMPLETION_ENVELOPE_SCHEMA,
-    AgentBudget,
-    AgentCompletionEnvelope,
-    AgentEvidenceRef,
-    RUNTIME_SEED_REQUEST_SCHEMA,
-    RuntimeArtifactSource,
-    RuntimeArtifactTransportKind,
-    RuntimeSeedRequest,
-    build_evidence_envelope,
-};
-    use cynic_workload::{
-    AgentWorkloadDeliveryAcceptance,
-    accept_agent_workload_delivery,
-};
+        AGENT_WORKLOAD_DELIVERY_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentWorkloadRecord,
+        AgentWorkloadState, DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA, DurableAgentWorkloadRecord,
+        complete_agent_workload_delivery,
+    };
+    use cynic_workload::{AgentWorkloadDeliveryAcceptance, accept_agent_workload_delivery};
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {

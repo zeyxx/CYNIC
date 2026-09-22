@@ -1,5 +1,5 @@
 use cynic_intel::escore::metrics::ESCORE_METRICS;
-use cynic_protocol::{RuntimeProof, RuntimeProofEvidence, RUNTIME_PROOF_SCHEMA};
+use cynic_protocol::{RUNTIME_PROOF_SCHEMA, RuntimeProof, RuntimeProofEvidence};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 

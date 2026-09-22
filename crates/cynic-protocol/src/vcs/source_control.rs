@@ -258,13 +258,9 @@ pub fn admit_source_stage(
             // (`agent/<id>/<scope>`), never to a protected trunk directly.
             if let Some(branch) = snapshot.branch.as_deref() {
                 let policy = crate::source_policy::BranchPolicy::default();
-                let branch_blockers =
-                    crate::source_policy::branch_conforms(branch, &policy);
+                let branch_blockers = crate::source_policy::branch_conforms(branch, &policy);
                 blockers.extend(branch_blockers);
-                if crate::source_policy::ref_is_protected(
-                    branch,
-                    &policy.protected_refs,
-                ) {
+                if crate::source_policy::ref_is_protected(branch, &policy.protected_refs) {
                     blockers.push("sovereign_promotion_to_protected_ref".to_string());
                 }
             } else {

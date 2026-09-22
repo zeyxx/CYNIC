@@ -4,6 +4,7 @@ pub mod backend_identity;
 pub mod chat;
 pub mod chat_session;
 pub mod embedding;
+pub mod engine_caps;
 pub mod gguf_meta;
 pub mod hardware_profile;
 

@@ -896,12 +896,16 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
+ "cynic-askesis",
  "cynic-build",
  "cynic-discovery",
  "cynic-discovery-host",
  "cynic-forensics",
  "cynic-host",
  "cynic-inference",
+ "cynic-intel",
+ "cynic-intel-futarchy",
+ "cynic-intel-soc",
  "cynic-lifecycle",
  "cynic-node",
  "cynic-protocol",
@@ -1026,6 +1030,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-inference-runtime"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "cynic-inference",
+ "cynic-protocol",
+ "cynic-workload",
+ "futures-util",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "toml",
+ "tracing",
+]
+
+[[package]]
 name = "cynic-intel"
 version = "0.2.0"
 dependencies = [
@@ -1033,7 +1057,6 @@ dependencies = [
  "blake3",
  "chrono",
  "cynic-inference",
- "cynic-intel-soc",
  "cynic-protocol",
  "dirs",
  "hex",
@@ -1096,11 +1119,13 @@ dependencies = [
  "blake3",
  "bytes",
  "chrono",
+ "cynic-askesis",
  "cynic-build",
  "cynic-forensics",
  "cynic-host",
  "cynic-inference",
  "cynic-intel",
+ "cynic-intel-soc",
  "cynic-node",
  "cynic-protocol",
  "cynic-storage",

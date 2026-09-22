@@ -16,12 +16,12 @@ use cynic_host::registry::{
 use cynic_host::runtime_layout::current_runtime_layout;
 use cynic_host::runtime_proof;
 use cynic_host::service_supervisor_observation::{self, SupervisorProvider};
-use cynic_lifecycle::LocalArgvRunner;
 use cynic_host::usecases::{
     build_host_apply_report_with_resolution, build_host_bundle_with_resolution,
     execute_admitted_service_apply, execute_host_apply, observe_host_with_resolution,
     service_apply_satisfied_preconditions,
 };
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 // surface_audit_marker: build_host_activation_plan_with_resolution
 

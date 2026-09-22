@@ -6,13 +6,8 @@ use std::{
     process::Command,
 };
 
-use cynic_build::{
-    SignedReleaseBasketPlan,
-};
-use cynic_protocol::{
-    RUNTIME_SEED_BUNDLE_MARKER_FILE,
-    canonical_json_bytes,
-};
+use cynic_build::SignedReleaseBasketPlan;
+use cynic_protocol::{RUNTIME_SEED_BUNDLE_MARKER_FILE, canonical_json_bytes};
 use sha2::{Digest, Sha256};
 
 use crate::ports::release_publication_port::{
@@ -233,12 +228,10 @@ mod tests {
     use std::collections::BTreeMap;
 
     use cynic_build::{
-    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA,
-    BuildReleasePublicationIntent,
-    SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
-    SignedReleaseBasketRequest,
-    plan_signed_release_basket,
-};
+        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
+        SIGNED_RELEASE_BASKET_REQUEST_SCHEMA, SignedReleaseBasketRequest,
+        plan_signed_release_basket,
+    };
 
     use super::*;
 

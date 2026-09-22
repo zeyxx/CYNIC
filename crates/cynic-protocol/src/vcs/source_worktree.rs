@@ -8,8 +8,7 @@ use std::path::PathBuf;
 
 pub const SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA: &str =
     "cynic.source_worktree.convergence_plan.v1";
-pub const SOURCE_WORKTREE_APPLY_PROOF_SCHEMA: &str =
-    "cynic.source_worktree.apply_proof.v1";
+pub const SOURCE_WORKTREE_APPLY_PROOF_SCHEMA: &str = "cynic.source_worktree.apply_proof.v1";
 
 /// Snapshot of an observed worktree passed into the pure decision function.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -148,7 +147,10 @@ pub fn reconcile_worktree_convergence_pure(
             actions.push(WorktreeConvergenceAction::RetainActiveWorkspace {
                 workspace_path: wt.path.clone(),
                 branch: wt.branch.clone(),
-                reason: format!("Protected: {} uncommitted changes present", wt.dirty_file_count),
+                reason: format!(
+                    "Protected: {} uncommitted changes present",
+                    wt.dirty_file_count
+                ),
             });
             summary.retained_active_count += 1;
             continue;

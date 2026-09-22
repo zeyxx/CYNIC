@@ -14,8 +14,8 @@ pub mod entry;
 pub mod log;
 pub mod writer;
 
-pub use entry::{AskesisEntry, AskesisKind, ASKESIS_ENTRY_SCHEMA, GENESIS_HASH};
-pub use log::{AskesisLog, ASKESIS_SCHEMA};
+pub use entry::{ASKESIS_ENTRY_SCHEMA, AskesisEntry, AskesisKind, GENESIS_HASH};
+pub use log::{ASKESIS_SCHEMA, AskesisLog};
 pub use writer::AskesisWriter;
 
 #[cfg(test)]

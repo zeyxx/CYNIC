@@ -45,8 +45,8 @@ impl MarketRegistry {
     /// Load from disk or create empty.
     pub fn load(path: &Path) -> Result<Self, String> {
         if path.exists() {
-            let content = fs::read_to_string(path)
-                .map_err(|e| format!("{}: {}", path.display(), e))?;
+            let content =
+                fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))?;
             serde_json::from_str::<Self>(&content)
                 .map_err(|e| format!("parse {}: {}", path.display(), e))
         } else {
@@ -56,13 +56,10 @@ impl MarketRegistry {
 
     /// Save to disk atomically (write temp + rename).
     pub fn save(&self, path: &Path) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| e.to_string())?;
+        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         let tmp = path.with_extension("tmp");
-        fs::write(&tmp, json)
-            .map_err(|e| format!("{}: {}", tmp.display(), e))?;
-        fs::rename(&tmp, path)
-            .map_err(|e| format!("rename {}: {}", path.display(), e))?;
+        fs::write(&tmp, json).map_err(|e| format!("{}: {}", tmp.display(), e))?;
+        fs::rename(&tmp, path).map_err(|e| format!("rename {}: {}", path.display(), e))?;
         Ok(())
     }
 
@@ -84,14 +81,18 @@ impl MarketRegistry {
         }
         let id = proposal.proposal_id.clone();
         self.proposals.insert(id.clone(), proposal);
-        self.events.push(MarketEvent::ProposalCreated { proposal_id: id });
+        self.events
+            .push(MarketEvent::ProposalCreated { proposal_id: id });
         Ok(())
     }
 
     /// Submit a prediction.
     pub fn submit_prediction(&mut self, prediction: Prediction) -> Result<(), String> {
         if self.predictions.contains_key(&prediction.prediction_id) {
-            return Err(format!("prediction {} already exists", prediction.prediction_id));
+            return Err(format!(
+                "prediction {} already exists",
+                prediction.prediction_id
+            ));
         }
         // Validate actor exists
         if !self.actors.contains_key(&prediction.actor_id) {
@@ -103,18 +104,23 @@ impl MarketRegistry {
         }
         let id = prediction.prediction_id.clone();
         self.predictions.insert(id.clone(), prediction);
-        self.events.push(MarketEvent::PredictionSubmitted { prediction_id: id });
+        self.events
+            .push(MarketEvent::PredictionSubmitted { prediction_id: id });
         Ok(())
     }
 
     /// Record a resolution.
     pub fn record_resolution(&mut self, resolution: Resolution) -> Result<(), String> {
         if self.resolutions.contains_key(&resolution.resolution_id) {
-            return Err(format!("resolution {} already exists", resolution.resolution_id));
+            return Err(format!(
+                "resolution {} already exists",
+                resolution.resolution_id
+            ));
         }
         let id = resolution.resolution_id.clone();
         self.resolutions.insert(id.clone(), resolution);
-        self.events.push(MarketEvent::ResolutionCompleted { resolution_id: id });
+        self.events
+            .push(MarketEvent::ResolutionCompleted { resolution_id: id });
         Ok(())
     }
 

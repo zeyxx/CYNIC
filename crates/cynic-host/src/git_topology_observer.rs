@@ -9,8 +9,8 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_protocol::git_topology::{
-    GitBranchEntry, GitBranchState, GitTopologyObservation, GitTopologyUnknown,
-    GitTopologyObservationUnknown, GIT_TOPOLOGY_SCHEMA,
+    GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitBranchState, GitTopologyObservation,
+    GitTopologyObservationUnknown, GitTopologyUnknown,
 };
 
 const MAX_BRANCHES: usize = 256;
@@ -29,14 +29,17 @@ fn run_git(root: &Path, args: &[&str]) -> Option<String> {
 }
 
 fn is_inside_repo(root: &Path) -> bool {
-    run_git(root, &["rev-parse", "--is-inside-work-tree"])
-        .is_some_and(|s| s.trim() == "true")
+    run_git(root, &["rev-parse", "--is-inside-work-tree"]).is_some_and(|s| s.trim() == "true")
 }
 
 fn current_branch(root: &Path) -> Option<String> {
     let s = run_git(root, &["branch", "--show-current"])?;
     let t = s.trim();
-    if t.is_empty() { None } else { Some(t.to_string()) }
+    if t.is_empty() {
+        None
+    } else {
+        Some(t.to_string())
+    }
 }
 
 fn node_id() -> String {
@@ -60,10 +63,14 @@ fn read_branch_refs(root: &Path) -> Vec<(String, String, Option<u64>)> {
     };
     let mut v = Vec::new();
     for line in out.lines().take(MAX_BRANCHES) {
-        if line.trim().is_empty() { continue; }
+        if line.trim().is_empty() {
+            continue;
+        }
         let mut parts = line.splitn(3, '|');
         let name = parts.next().unwrap_or("").trim().to_string();
-        if name.is_empty() { continue; }
+        if name.is_empty() {
+            continue;
+        }
         let sha = parts.next().unwrap_or("").trim().to_string();
         let ts = parts.next().and_then(|s| s.trim().parse::<u64>().ok());
         v.push((name, sha, ts));
@@ -80,9 +87,14 @@ fn read_first_parents(root: &Path) -> std::collections::HashMap<String, String> 
     };
     for line in out.lines().take(MAX_COMMITS) {
         let mut parts = line.split_whitespace();
-        let (Some(commit), Some(parent)) = (parts.next(), parts.next()) else { continue; };
-        if commit.len() < 7 || parent.len() < 7 { continue; }
-        map.entry(commit.to_string()).or_insert_with(|| parent.to_string());
+        let (Some(commit), Some(parent)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if commit.len() < 7 || parent.len() < 7 {
+            continue;
+        }
+        map.entry(commit.to_string())
+            .or_insert_with(|| parent.to_string());
     }
     map
 }
@@ -99,10 +111,16 @@ fn has_remote_branch(root: &Path, branch: &str) -> bool {
 fn count_ahead_behind(root: &Path, branch: &str) -> (Option<u32>, Option<u32>) {
     // Ahead = commits in branch not in origin/main
     // Behind = commits in origin/main not in branch
-    let ahead = run_git(root, &["rev-list", "--count", &format!("origin/main..{branch}")])
-        .and_then(|s| s.trim().parse::<u32>().ok());
-    let behind = run_git(root, &["rev-list", "--count", &format!("{branch}..origin/main")])
-        .and_then(|s| s.trim().parse::<u32>().ok());
+    let ahead = run_git(
+        root,
+        &["rev-list", "--count", &format!("origin/main..{branch}")],
+    )
+    .and_then(|s| s.trim().parse::<u32>().ok());
+    let behind = run_git(
+        root,
+        &["rev-list", "--count", &format!("{branch}..origin/main")],
+    )
+    .and_then(|s| s.trim().parse::<u32>().ok());
     (ahead, behind)
 }
 
@@ -125,7 +143,9 @@ fn dirty_count_for_current(root: &Path, is_current: bool) -> (Option<u32>, bool)
 }
 
 fn derive_state(behind: Option<u32>, _ahead: Option<u32>, has_remote: bool) -> GitBranchState {
-    if !has_remote { return GitBranchState::Orphan; }
+    if !has_remote {
+        return GitBranchState::Orphan;
+    }
     match behind {
         Some(b) if b >= 100 => GitBranchState::Dead,
         Some(b) if b >= 50 => GitBranchState::Divergent,
@@ -135,7 +155,10 @@ fn derive_state(behind: Option<u32>, _ahead: Option<u32>, has_remote: bool) -> G
 }
 
 pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
 
     if !is_inside_repo(root) {
         return GitTopologyObservation {
@@ -174,11 +197,8 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
     let main_tip = run_git(root, &["rev-parse", "main"])
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
-    let stack_parents = crate::domain::git::stack::infer_stack_parents(
-        &tips,
-        &read_first_parents(root),
-        &main_tip,
-    );
+    let stack_parents =
+        crate::domain::git::stack::infer_stack_parents(&tips, &read_first_parents(root), &main_tip);
 
     for (branch, _sha, ts) in refs.into_iter().take(MAX_BRANCHES) {
         if entries.len() >= MAX_BRANCHES {
@@ -186,19 +206,35 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
             break;
         }
         let has_remote = has_remote_branch(root, &branch);
-        let (ahead, behind) = if has_remote { count_ahead_behind(root, &branch) } else { (None, None) };
+        let (ahead, behind) = if has_remote {
+            count_ahead_behind(root, &branch)
+        } else {
+            (None, None)
+        };
         let is_current = current.as_deref() == Some(branch.as_str());
         let has_wt = has_worktree(root, &branch);
         let (dirty, dirty_unknown) = dirty_count_for_current(root, is_current);
 
         let mut unknowns = Vec::new();
-        if ahead.is_none() { unknowns.push(GitTopologyUnknown::Ahead); }
-        if behind.is_none() { unknowns.push(GitTopologyUnknown::Behind); }
-        if ts.is_none() { unknowns.push(GitTopologyUnknown::LastCommit); }
-        if has_wt.is_none() { unknowns.push(GitTopologyUnknown::Worktree); }
-        if dirty_unknown { unknowns.push(GitTopologyUnknown::Dirty); }
+        if ahead.is_none() {
+            unknowns.push(GitTopologyUnknown::Ahead);
+        }
+        if behind.is_none() {
+            unknowns.push(GitTopologyUnknown::Behind);
+        }
+        if ts.is_none() {
+            unknowns.push(GitTopologyUnknown::LastCommit);
+        }
+        if has_wt.is_none() {
+            unknowns.push(GitTopologyUnknown::Worktree);
+        }
+        if dirty_unknown {
+            unknowns.push(GitTopologyUnknown::Dirty);
+        }
         let parent = stack_parents.get(&branch).cloned();
-        if parent.is_none() { unknowns.push(GitTopologyUnknown::Parent); }
+        if parent.is_none() {
+            unknowns.push(GitTopologyUnknown::Parent);
+        }
 
         entries.push(GitBranchEntry {
             branch: branch.clone(),
@@ -242,12 +278,21 @@ mod tests {
         let obs = observe_git_topology(Path::new("."));
         // Should not be GitCommandFailed when run inside repo
         assert!(
-            !obs.observation_unknowns.contains(&GitTopologyObservationUnknown::GitCommandFailed),
+            !obs.observation_unknowns
+                .contains(&GitTopologyObservationUnknown::GitCommandFailed),
             "should be inside git repo"
         );
-        assert!(validate_git_topology_observation(&obs).is_empty(), "validation: {:?}", validate_git_topology_observation(&obs));
+        assert!(
+            validate_git_topology_observation(&obs).is_empty(),
+            "validation: {:?}",
+            validate_git_topology_observation(&obs)
+        );
         // Must contain at least main
-        assert!(obs.entries.iter().any(|e| e.branch == "main"), "entries: {:?}", obs.entries.iter().map(|e| &e.branch).collect::<Vec<_>>());
+        assert!(
+            obs.entries.iter().any(|e| e.branch == "main"),
+            "entries: {:?}",
+            obs.entries.iter().map(|e| &e.branch).collect::<Vec<_>>()
+        );
     }
 }
 
@@ -257,15 +302,28 @@ mod tests {
 
 pub fn observe_git_hygiene(root: &Path) -> cynic_protocol::git_hygiene::GitHygieneObservation {
     use cynic_protocol::git_hygiene::GIT_HYGIENE_SCHEMA;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
     let current = current_branch(root);
 
     let staged = run_git(root, &["diff", "--cached", "--name-only"])
-        .map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect::<Vec<_>>())
+        .map(|s| {
+            s.lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
 
     let dirty = run_git(root, &["status", "--porcelain"])
-        .map(|s| s.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect::<Vec<_>>())
+        .map(|s| {
+            s.lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
 
     // Read claim scope from .agent-claims.json (best-effort)
@@ -286,12 +344,21 @@ pub fn observe_git_hygiene(root: &Path) -> cynic_protocol::git_hygiene::GitHygie
 fn read_claim_scope(root: &Path) -> (Option<String>, Option<String>) {
     let path = root.join(".agent-claims.json");
     let content = std::fs::read_to_string(&path).ok();
-    let Some(content) = content else { return (None, None); };
-    let json: serde_json::Value = match serde_json::from_str(&content) { Ok(v) => v, Err(_) => return (None, None) };
+    let Some(content) = content else {
+        return (None, None);
+    };
+    let json: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return (None, None),
+    };
     let claims = json.get("claims").and_then(|v| v.as_array());
-    let Some(claims) = claims else { return (None, None); };
+    let Some(claims) = claims else {
+        return (None, None);
+    };
     for claim in claims {
-        if claim.get("status").and_then(|v| v.as_str()) != Some("active") { continue; }
+        if claim.get("status").and_then(|v| v.as_str()) != Some("active") {
+            continue;
+        }
         let scope = claim.get("scope");
         let kind = scope.and_then(|s| s.get("kind")).and_then(|v| v.as_str());
         let path = scope.and_then(|s| s.get("path")).and_then(|v| v.as_str());

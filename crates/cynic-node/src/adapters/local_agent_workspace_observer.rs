@@ -4,17 +4,10 @@ use std::{
 };
 
 use cynic_lifecycle::ArgvRunner;
+use cynic_protocol::{AgentEvidenceLineage, AgentEvidenceRef, digest_json};
 use cynic_workload::{
-    AGENT_WORKSPACE_OBSERVATION_SCHEMA,
-    AgentWorkspaceClaimObservation,
-    AgentWorkspaceObservation,
-    AgentWorkspacePathObservation,
-    AgentWorkspaceRequest,
-};
-use cynic_protocol::{
-    AgentEvidenceLineage,
-    AgentEvidenceRef,
-    digest_json,
+    AGENT_WORKSPACE_OBSERVATION_SCHEMA, AgentWorkspaceClaimObservation, AgentWorkspaceObservation,
+    AgentWorkspacePathObservation, AgentWorkspaceRequest,
 };
 use sha2::{Digest, Sha256};
 

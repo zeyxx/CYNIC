@@ -13,6 +13,8 @@
 //!
 //! No external infra required — all ports are faked via MapArgvRunner + fakes.
 
+use cynic_build::build::BuildRunnerObservation;
+use cynic_build::runtime_release::RuntimeReleaseDeclaration;
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_host::forgejo_webhook::{ForgejoHandlerConfig, ForgejoPayload, handle_forgejo_payload};
@@ -22,8 +24,6 @@ use cynic_host::harness_progression::{
     decide_harness_progression,
 };
 use cynic_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
-use cynic_build::build::BuildRunnerObservation;
-use cynic_build::runtime_release::RuntimeReleaseDeclaration;
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ────────────────────────────────────────────────────────────
@@ -197,7 +197,9 @@ fn e2e_step2_build_workflow_executes_with_proof() {
 
     match result {
         BuildWorkflowResult::Executed { proof } => {
-            assert!(proof.status == "executed" || proof.status == "failed" || proof.status == "proved");
+            assert!(
+                proof.status == "executed" || proof.status == "failed" || proof.status == "proved"
+            );
             assert_eq!(proof.source_commit, valid_sha40());
         }
         other => panic!("expected Executed, got {other:?}"),
@@ -294,16 +296,11 @@ fn e2e_step3_harness_allowed_with_proofs() {
 /// E2E step 4: Runtime release declaration construction + digest binding
 #[test]
 fn e2e_step4_runtime_release_declaration_constructs() {
-    use cynic_build::{
-    RUNTIME_RELEASE_DECLARATION_SCHEMA,
-};
-use cynic_protocol::{
-    NODE_DESIRED_STATE_SCHEMA,
-    RUNTIME_SEED_REQUEST_SCHEMA,
-    RuntimeArtifactSource,
-    RuntimeArtifactTransportKind,
-    RuntimeSeedRequest,
-};
+    use cynic_build::RUNTIME_RELEASE_DECLARATION_SCHEMA;
+    use cynic_protocol::{
+        NODE_DESIRED_STATE_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource,
+        RuntimeArtifactTransportKind, RuntimeSeedRequest,
+    };
 
     let source_commit = valid_sha40();
     let proof_digest = format!("sha256:{}", "b".repeat(64));

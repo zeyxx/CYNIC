@@ -3,8 +3,8 @@
 //! Lives in `adapters/` (substrate), not `agent/` (workloads).
 //! The cleanup agent (`agent/cleanup.rs`) calls this adapter.
 
-use serde_json::Value;
 use cynic_lifecycle::ArgvRunner;
+use serde_json::Value;
 
 pub struct ProxmoxSshDiskExtensionAdapter<'a, R: ArgvRunner> {
     runner: &'a R,
@@ -82,14 +82,14 @@ impl<'a, R: ArgvRunner> ProxmoxSshDiskExtensionAdapter<'a, R> {
     /// Resize a VM disk.
     ///
     /// `size_delta` is a string like "+20G" or "40G".
-    pub fn resize_disk(
-        &self,
-        vmid: u32,
-        size_delta: &str,
-    ) -> Result<(), String> {
+    pub fn resize_disk(&self, vmid: u32, size_delta: &str) -> Result<(), String> {
         let node = self.resolve_node(vmid)?;
         let vm_type = self.detect_vm_type(&node, vmid)?;
-        let disk_id = if vm_type == "lxc" { "rootfs" } else { "virtio0" };
+        let disk_id = if vm_type == "lxc" {
+            "rootfs"
+        } else {
+            "virtio0"
+        };
         self.pvesh(&[
             "set".to_string(),
             format!("/nodes/{node}/{vm_type}/{vmid}/resize"),

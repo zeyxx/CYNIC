@@ -7,7 +7,7 @@
 //! Architecture hexagonale : entrée = `PumpFunAction`, sortie = `Vec<EScoreSignal>`.
 //! Le mapping est pur, déterministe, et testable sans réseau.
 
-use cynic_intel::escore::types::{EScoreSignal, EvidenceTier, ScoreUnit, StatType, SCORE_SCALE};
+use cynic_intel::escore::types::{EScoreSignal, EvidenceTier, SCORE_SCALE, ScoreUnit, StatType};
 
 use crate::parser::PumpFunAction;
 
@@ -241,7 +241,7 @@ fn volume_to_score(lamports: u64) -> ScoreUnit {
     // Approximation entière de ln(lamports / 1e9 + 1) × SCORE_SCALE
     // On évite les floats avec une approximation par paliers logarithmiques.
     let sol_units = lamports / 1_000_000; // en micro-SOL pour rester en u64
-                                          // Paliers : chaque doublement de volume = +0.7 point (~ln(2))
+    // Paliers : chaque doublement de volume = +0.7 point (~ln(2))
     let bits = 64 - sol_units.leading_zeros() as u64;
     bits * SCORE_SCALE * 7 / 10 // ≈ ln(sol_units) × SCORE_SCALE
 }
@@ -281,14 +281,18 @@ mod tests {
 
         assert_eq!(mapped.wallet_signals.len(), 2);
         assert_eq!(mapped.token_signals.len(), 1);
-        assert!(mapped
-            .wallet_signals
-            .iter()
-            .any(|s| s.stat_type == StatType::Poiesis));
-        assert!(mapped
-            .wallet_signals
-            .iter()
-            .any(|s| s.stat_type == StatType::Parrhesia));
+        assert!(
+            mapped
+                .wallet_signals
+                .iter()
+                .any(|s| s.stat_type == StatType::Poiesis)
+        );
+        assert!(
+            mapped
+                .wallet_signals
+                .iter()
+                .any(|s| s.stat_type == StatType::Parrhesia)
+        );
     }
 
     #[test]
@@ -368,10 +372,12 @@ mod tests {
             is_buy: false,
         };
         let mapped = map_action(&dump, NOW);
-        assert!(mapped
-            .token_signals
-            .iter()
-            .any(|s| s.stat_type == StatType::Parrhesia));
+        assert!(
+            mapped
+                .token_signals
+                .iter()
+                .any(|s| s.stat_type == StatType::Parrhesia)
+        );
     }
 
     #[test]

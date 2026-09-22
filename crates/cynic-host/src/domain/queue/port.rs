@@ -1,6 +1,6 @@
-use cynic_protocol::branch_graph::BranchGraph;
 use cynic_build::build_artefact::BuildArtefactGcPlan;
 use cynic_build::build_discovery::BuildDiscoveryReport;
+use cynic_protocol::branch_graph::BranchGraph;
 use cynic_protocol::queue::QueuePlan;
 
 use super::probe::build_queue_plan;

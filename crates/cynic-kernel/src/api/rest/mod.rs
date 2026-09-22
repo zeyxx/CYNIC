@@ -7,10 +7,10 @@ pub mod agent_workspace;
 pub mod attention;
 pub mod auth;
 pub mod bootstrap_binding;
+pub mod capabilities;
 pub mod coord;
 pub mod coord_lease;
 pub mod data;
-pub mod capabilities;
 pub mod discovery;
 pub mod dispatch;
 pub mod event;
@@ -52,6 +52,7 @@ use self::agent_workspace::{
 };
 use self::attention::attention_handler;
 use self::auth::{auth_input_handler, auth_verify_handler};
+use self::capabilities::capabilities_handler;
 use self::coord::coord_identify_handler;
 use self::coord::{
     coord_claim_batch_handler, coord_claim_handler, coord_heartbeat_handler,
@@ -66,7 +67,6 @@ use self::data::{
     observe_crystal_hypha_handler, proof_of_history_handler, public_observations_handler,
     sessions_handler, shatter_crystal_handler, usage_handler, verdicts_handler,
 };
-use self::capabilities::capabilities_handler;
 use self::discovery::{
     api_layer_alignment_handler, api_topology_handler, identity_handler, openapi_handler,
 };

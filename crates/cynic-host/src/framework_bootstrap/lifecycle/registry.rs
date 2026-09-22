@@ -586,9 +586,7 @@ impl<'a> LifecycleRegistry<'a> {
             .collect()
     }
 
-    fn release_publication_desired(
-        &self,
-    ) -> Option<cynic_build::ReleasePublicationDesiredState> {
+    fn release_publication_desired(&self) -> Option<cynic_build::ReleasePublicationDesiredState> {
         self.root
             .get("release_publication")
             .cloned()

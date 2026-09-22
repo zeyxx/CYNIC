@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "message_type", rename_all = "snake_case")]
 pub enum PoolMessage {
     /// Worker registers with the pool.
-    WorkerHandshake {
-        worker: Worker,
-    },
+    WorkerHandshake { worker: Worker },
     /// Pool assigns difficulty target.
     PoolDifficulty {
         epoch: u64,
@@ -23,13 +21,9 @@ pub enum PoolMessage {
         capabilities: Vec<String>,
     },
     /// Pool dispatches a task.
-    TaskDispatch {
-        task: Task,
-    },
+    TaskDispatch { task: Task },
     /// Worker submits task result.
-    TaskSubmit {
-        result: TaskResult,
-    },
+    TaskSubmit { result: TaskResult },
     /// Pool acknowledges submission.
     TaskAck {
         task_id: String,
@@ -38,10 +32,7 @@ pub enum PoolMessage {
         reason: Option<String>,
     },
     /// Worker claims reward.
-    RewardClaim {
-        agent_id: String,
-        up_to_epoch: u64,
-    },
+    RewardClaim { agent_id: String, up_to_epoch: u64 },
     /// Pool responds with reward summary.
     RewardResponse {
         agent_id: String,
@@ -90,7 +81,12 @@ pub struct TaskResult {
 }
 
 /// Helper to create a handshake message.
-pub fn worker_handshake(agent_id: &str, role: crate::types::Role, node_id: &str, capabilities: Vec<String>) -> PoolMessage {
+pub fn worker_handshake(
+    agent_id: &str,
+    role: crate::types::Role,
+    node_id: &str,
+    capabilities: Vec<String>,
+) -> PoolMessage {
     PoolMessage::WorkerHandshake {
         worker: Worker {
             agent_id: agent_id.to_string(),
@@ -106,7 +102,12 @@ pub fn worker_handshake(agent_id: &str, role: crate::types::Role, node_id: &str,
 }
 
 /// Helper to create a task dispatch.
-pub fn task_dispatch(task_id: &str, kind: ContributionKind, inputs: TaskInputs, target: u64) -> PoolMessage {
+pub fn task_dispatch(
+    task_id: &str,
+    kind: ContributionKind,
+    inputs: TaskInputs,
+    target: u64,
+) -> PoolMessage {
     PoolMessage::TaskDispatch {
         task: Task {
             task_id: task_id.to_string(),

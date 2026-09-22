@@ -78,10 +78,8 @@ pub fn plan_dns_activation_value(
     bundle_dir: &str,
 ) -> Result<serde_json::Value, String> {
     let spec = dns_activation::resolve_dns_activation_spec(registry, bundle_dir)?;
-    let observation = dns_activation::observe_dns_activation(
-        &spec,
-        &cynic_lifecycle::LocalArgvRunner,
-    );
+    let observation =
+        dns_activation::observe_dns_activation(&spec, &cynic_lifecycle::LocalArgvRunner);
     serde_json::to_value(dns_activation::plan_dns_activation(&spec, &observation))
         .map_err(|error| format!("DNS activation plan serialization failed: {error}"))
 }

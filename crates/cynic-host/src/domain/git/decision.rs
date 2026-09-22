@@ -49,7 +49,10 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
     let mut unknowns = Vec::new();
 
     if !obs.observation_unknowns.is_empty() {
-        unknowns.push(format!("observation_unknowns: {:?}", obs.observation_unknowns));
+        unknowns.push(format!(
+            "observation_unknowns: {:?}",
+            obs.observation_unknowns
+        ));
     }
 
     // Stack forest: branch -> parent, for depth. Unknown parents stay unknown.
@@ -174,12 +177,9 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
     }
 
     let needs_review = !unknowns.is_empty()
-        || actions.iter().any(|a| {
-            matches!(
-                a,
-                GitAction::Archive { .. } | GitAction::Split { .. }
-            )
-        });
+        || actions
+            .iter()
+            .any(|a| matches!(a, GitAction::Archive { .. } | GitAction::Split { .. }));
 
     let max_depth = obs.entries.len();
     let verdicts = actions
@@ -221,7 +221,7 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
 mod tests {
     use super::*;
     use cynic_protocol::git_topology::{
-        GitBranchEntry, GitTopologyObservation, GIT_TOPOLOGY_SCHEMA,
+        GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
     };
 
     fn valid_entry(branch: &str) -> GitBranchEntry {
@@ -260,10 +260,11 @@ mod tests {
             matches!(action, GitAction::NoOp { branch, reason }
                 if branch == "agent/hermes/dirty" && reason.contains("2 uncommitted paths"))
         }));
-        assert!(!d
-            .actions
-            .iter()
-            .any(|action| matches!(action, GitAction::ReadyForPr { .. })));
+        assert!(
+            !d.actions
+                .iter()
+                .any(|action| matches!(action, GitAction::ReadyForPr { .. }))
+        );
         assert!(d.verdicts.iter().any(|v| matches!(
             v,
             GitBranchVerdict { verdict: GitVerdict::Conflict { .. }, .. }
@@ -292,9 +293,13 @@ mod tests {
         assert!(d.actions.iter().any(
             |a| matches!(a, GitAction::NeedsRebase { branch, .. } if branch == "agent/hermes/div")
         ));
-        assert!(d.verdicts.iter().any(
-            |v| matches!(v, GitBranchVerdict { verdict: GitVerdict::Depend { behind: 60 }, .. })
-        ));
+        assert!(d.verdicts.iter().any(|v| matches!(
+            v,
+            GitBranchVerdict {
+                verdict: GitVerdict::Depend { behind: 60 },
+                ..
+            }
+        )));
     }
 
     #[test]
@@ -305,14 +310,16 @@ mod tests {
         e.state = GitBranchState::Dead;
         let d = reconcile_git_topology(&obs_with(vec![e], None));
         assert!(d.needs_review);
-        assert!(d
-            .actions
-            .iter()
-            .any(|a| matches!(a, GitAction::Archive { .. })));
-        assert!(d
-            .verdicts
-            .iter()
-            .any(|v| matches!(v.verdict, GitVerdict::Conflict { .. })));
+        assert!(
+            d.actions
+                .iter()
+                .any(|a| matches!(a, GitAction::Archive { .. }))
+        );
+        assert!(
+            d.verdicts
+                .iter()
+                .any(|v| matches!(v.verdict, GitVerdict::Conflict { .. }))
+        );
     }
 
     #[test]
@@ -325,10 +332,11 @@ mod tests {
         assert!(d.actions.iter().any(
             |a| matches!(a, GitAction::Split { branch, .. } if branch == "agent/hermes/dead-ahead")
         ));
-        assert!(!d
-            .actions
-            .iter()
-            .any(|a| matches!(a, GitAction::Archive { .. })));
+        assert!(
+            !d.actions
+                .iter()
+                .any(|a| matches!(a, GitAction::Archive { .. }))
+        );
     }
 
     #[test]
@@ -351,10 +359,11 @@ mod tests {
         e.unknowns = vec![GitTopologyUnknown::Parent];
         let d = reconcile_git_topology(&obs_with(vec![e], Some("main")));
         // Parent unknown tolerated: action proceeds (ReadyForPr), depth unknown.
-        assert!(d
-            .actions
-            .iter()
-            .any(|a| matches!(a, GitAction::ReadyForPr { .. })));
+        assert!(
+            d.actions
+                .iter()
+                .any(|a| matches!(a, GitAction::ReadyForPr { .. }))
+        );
         let v = d
             .verdicts
             .iter()

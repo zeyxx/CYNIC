@@ -5,14 +5,9 @@ use std::{
 };
 
 use cynic_workload::{
-    AGENT_WORKSPACE_APPLY_REPORT_SCHEMA,
-    AgentWorkspaceApplyReport,
-    AgentWorkspaceApplyStatus,
-    AgentWorkspaceDecision,
-    AgentWorkspaceMutationKind,
-    AgentWorkspaceReadBack,
-    AgentWorkspaceReconciliation,
-    AgentWorkspaceRequest,
+    AGENT_WORKSPACE_APPLY_REPORT_SCHEMA, AgentWorkspaceApplyReport, AgentWorkspaceApplyStatus,
+    AgentWorkspaceDecision, AgentWorkspaceMutationKind, AgentWorkspaceReadBack,
+    AgentWorkspaceReconciliation, AgentWorkspaceRequest,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};

@@ -3,14 +3,16 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::branch_graph::{BranchGraph, BRANCH_GRAPH_SCHEMA};
 use cynic_build::build_discovery::{
-    BuildDiscoveryReport, HostTriple, Toolchain, BUILD_DISCOVERY_REPORT_SCHEMA,
+    BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, HostTriple, Toolchain,
 };
+use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;
 
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
-use crate::domain::branch_graph::probe::{enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph};
+use crate::domain::branch_graph::probe::{
+    enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
+};
 use crate::domain::build_artefact::port::BuildArtefactObservationPort;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
@@ -62,7 +64,10 @@ impl crate::domain::queue::port::QueuePlanningPort for LocalQueueAdapter {
 }
 
 fn now_secs() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 fn observe_branch_graph_local() -> Result<BranchGraph, String> {
@@ -73,7 +78,11 @@ fn observe_branch_graph_local() -> Result<BranchGraph, String> {
         .unwrap_or_default();
     let raw_refs = capture_command(
         "git",
-        &["for-each-ref", "--format=%(refname:short)|%(objectname)|%(upstream:short)|%(committerdate:unix)", "refs/heads/"],
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)|%(objectname)|%(upstream:short)|%(committerdate:unix)",
+            "refs/heads/",
+        ],
     )
     .ok()
     .filter(|c| c.success)
@@ -104,7 +113,11 @@ fn observe_discovery_local() -> Result<BuildDiscoveryReport, String> {
         .ok()
         .filter(|c| c.success)
         .map(|c| {
-            c.stdout.lines().find(|l| l.starts_with("host:")).map(|l| l["host:".len()..].trim().to_string()).unwrap_or_else(|| "x86_64-unknown-linux-gnu".to_string())
+            c.stdout
+                .lines()
+                .find(|l| l.starts_with("host:"))
+                .map(|l| l["host:".len()..].trim().to_string())
+                .unwrap_or_else(|| "x86_64-unknown-linux-gnu".to_string())
         })
         .unwrap_or_else(|| "x86_64-unknown-linux-gnu".to_string());
     parse_cargo_metadata(&json, now_secs(), toolchain, host_triple)

@@ -18,7 +18,10 @@ use crate::domain::artifact_publication::{
 /// transport (HTTP PUT or SSH copy) against `request.target.target`.
 /// Must be fail-closed: never report success on a transport failure.
 pub trait ArtifactPublisher {
-    fn publish(&self, request: &ArtifactPublicationRequest) -> Result<PublishedArtefact, PublishError>;
+    fn publish(
+        &self,
+        request: &ArtifactPublicationRequest,
+    ) -> Result<PublishedArtefact, PublishError>;
 }
 
 /// Convenience adaptor — injects an [ArtifactPublisher] into a closure

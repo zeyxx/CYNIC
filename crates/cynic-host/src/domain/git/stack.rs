@@ -43,7 +43,10 @@ pub fn infer_stack_parents(
     // Reverse index: commit SHA -> branch names tipping exactly there.
     let mut tip_at: HashMap<&str, Vec<&str>> = HashMap::new();
     for (branch, sha) in tips {
-        tip_at.entry(sha.as_str()).or_default().push(branch.as_str());
+        tip_at
+            .entry(sha.as_str())
+            .or_default()
+            .push(branch.as_str());
     }
     let main_hist = main_history(first_parent, main_tip);
     let mut out = HashMap::new();
@@ -126,7 +129,10 @@ mod tests {
     use super::*;
 
     fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| ((*k).to_string(), (*v).to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect()
     }
 
     #[test]

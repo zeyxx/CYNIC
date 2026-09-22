@@ -53,7 +53,11 @@ pub fn run_doctor(repo_root: &Path) -> Result<DoctorReport, String> {
             rule: "R1",
             severity: Severity::Medium,
             count: r1.2.len(),
-            files: r1.2.iter().map(|p| p.to_string_lossy().to_string()).collect(),
+            files: r1
+                .2
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect(),
             recommendation: format!(
                 "Split files >400 lines ({} found). Use natural seams.",
                 r1.2.len()
@@ -120,8 +124,10 @@ pub fn run_doctor(repo_root: &Path) -> Result<DoctorReport, String> {
         .count();
 
     // Score: 1.0 - (weighted penalties)
-    let score =
-        1.0 - (violations_high as f64 * 0.15) - (violations_medium as f64 * 0.05) - (violations_low as f64 * 0.02);
+    let score = 1.0
+        - (violations_high as f64 * 0.15)
+        - (violations_medium as f64 * 0.05)
+        - (violations_low as f64 * 0.02);
 
     Ok(DoctorReport {
         schema: "cynic.dev.doctor.v1",
@@ -154,7 +160,9 @@ fn scan_file_lengths(
     for entry in walkdir::WalkDir::new(&src_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| {
+            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs")
+        })
     {
         total_files += 1;
         if let Ok(content) = std::fs::read_to_string(entry.path()) {
@@ -181,7 +189,9 @@ fn scan_cli_coupling(repo_root: &Path) -> Result<Vec<std::path::PathBuf>, String
     for entry in walkdir::WalkDir::new(&cli_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| {
+            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs")
+        })
     {
         if let Ok(content) = std::fs::read_to_string(entry.path()) {
             if content.contains("use cynic_host::")
@@ -208,7 +218,9 @@ fn scan_unbounded_loops(repo_root: &Path) -> Result<Vec<std::path::PathBuf>, Str
     for entry in walkdir::WalkDir::new(&src_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| {
+            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs")
+        })
     {
         if let Ok(content) = std::fs::read_to_string(entry.path()) {
             if content.contains("loop") && !content.contains("max_iterations") {
@@ -232,7 +244,9 @@ fn scan_println_without_proof(repo_root: &Path) -> Result<Vec<std::path::PathBuf
     for entry in walkdir::WalkDir::new(&cli_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| {
+            e.file_type().is_file() && e.path().extension().map_or(false, |ext| ext == "rs")
+        })
     {
         if let Ok(content) = std::fs::read_to_string(entry.path()) {
             if content.contains("println!")

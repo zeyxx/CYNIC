@@ -2,25 +2,17 @@ use cynic_build::RELEASE_BINARY_ARTIFACT_READ_BACK_SCHEMA;
 
 use std::{collections::BTreeMap, time::Duration};
 
+use cynic_build::{
+    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA, RuntimeReleasePublicationManifest,
+    SIGNED_RELEASE_BASKET_REQUEST_SCHEMA, SignedReleaseBasketRequest,
+    build_agent_request_from_workload, plan_signed_release_basket,
+};
 use cynic_host::{
     adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
     ports::evidence_store::ContentAddressedEvidenceStorePort,
 };
-use cynic_build::{
-    RUNTIME_RELEASE_PUBLICATION_MANIFEST_SCHEMA,
-    RuntimeReleasePublicationManifest,
-    SIGNED_RELEASE_BASKET_REQUEST_SCHEMA,
-    SignedReleaseBasketRequest,
-    build_agent_request_from_workload,
-    plan_signed_release_basket,
-};
-use cynic_workload::{
-    AgentWorkloadEnvelope,
-};
-use cynic_protocol::{
-    AgentEvidenceRef,
-    build_evidence_envelope,
-};
+use cynic_protocol::{AgentEvidenceRef, build_evidence_envelope};
+use cynic_workload::AgentWorkloadEnvelope;
 
 use crate::{
     adapters::{

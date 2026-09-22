@@ -215,8 +215,6 @@ mod tests {
     #[test]
     fn offline_port_returns_none() {
         let port = OfflineUpstreamProbe;
-        assert!(
-            probe_upstream_version_with_port("dep", Some("dist"), None, None, &port).is_none()
-        );
+        assert!(probe_upstream_version_with_port("dep", Some("dist"), None, None, &port).is_none());
     }
 }

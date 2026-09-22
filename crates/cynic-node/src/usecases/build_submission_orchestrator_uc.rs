@@ -10,23 +10,13 @@
 //! grant signing, or submission policy.
 
 use cynic_build::{
-    BuildAgentRequest,
-    BuildAgentRequestAdmission,
-    BuildRunnerRouteDecision,
-    BuildRunnerRoutePath,
-    BuildRunnerRouteState,
-    admit_build_agent_request,
-    compose_build_agent_workload,
+    BuildAgentRequest, BuildAgentRequestAdmission, BuildRunnerRouteDecision, BuildRunnerRoutePath,
+    BuildRunnerRouteState, admit_build_agent_request, compose_build_agent_workload,
 };
+use cynic_protocol::LeaseGuard;
 use cynic_workload::{
-    AgentWorkloadDelivery,
-    AgentWorkloadDeliveryStatus,
-    AgentWorkloadState,
-    claim_agent_workload,
+    AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, AgentWorkloadState, claim_agent_workload,
     consume_agent_workload_action,
-};
-use cynic_protocol::{
-    LeaseGuard,
 };
 use serde::Serialize;
 

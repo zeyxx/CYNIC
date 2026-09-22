@@ -22,7 +22,7 @@ pub enum CynicErrorDomain {
     Agent,
     Fleet,
     OsHealth,
-Storage,
+    Storage,
     /// Toolchain install provenance, binary resolution, mutator authority.
     Toolchain,
     /// Publication consent, scope boundaries, unwhitelisted field disclosure.
