@@ -323,7 +323,7 @@ Implements:
 - `proof_to_json` / `parse_proof` / `proof_chain_to_json` / `parse_proof_chain`: proof serialization
 - `DomainOpsError` (thiserror): 7 variants covering schema mismatch, invalid domain, invalid provider config, proxy policy, edge probe, JSON parse, unexpected proof schema
 
-### Phase 3: HTTP Adapters (cynic-domain-ops)
+### Phase 3: HTTP Adapters ✅ (3 micro-crates)
 
 - `adapters/porkbun.rs`: Porkbun API v2 client via reqwest
   - Endpoints: `/domains/check`, `/domains`, `/domains/{domain}/nameservers`,
@@ -514,9 +514,9 @@ cynic-protocol (types purs — DomainOpsDesiredState, DnsRecordShape, proofs)
 |---|---|---|---|---|
 | `cynic-protocol` | Pure types | 0 ✅ | (none) | `DomainOpsDesiredState`, `DnsRecordShape`, `DomainOperationProof` |
 | `cynic-domain-ops` | Hex center | 1 ✅ | `cynic-protocol` | `reconcile_zone`, `transform_record_for_cloudflare`, `run_domain_ops` |
-| `cynic-domain-porkbun` | Adapter | 3 | `cynic-domain-ops` | PorkbunApi (reqwest), implements `RegistrarPort` |
-| `cynic-domain-cloudflare` | Adapter | 3 | `cynic-domain-ops`, `cynic-domain-ops/adapters/probe` | CloudflareApi, implements `CloudflareDnsPort` + `EdgeProbePort` |
-| `cynic-domain-askesis` | Adapter | 3 | `cynic-askesis`, `cynic-domain-ops` | `BackupArchiver` — zone backup → append-only proof |
+| `cynic-domain-porkbun` | Adapter | 3 ✅ | `cynic-domain-ops` | PorkbunApi (reqwest), implements `RegistrarPort` |
+| `cynic-domain-cloudflare` | Adapter | 3 ✅ | `cynic-domain-ops`, `cynic-domain-ops/adapters/probe` | CloudflareApi, implements `CloudflareDnsPort` + `EdgeProbePort` |
+| `cynic-domain-askesis` | Adapter | 3 ✅ | `cynic-askesis`, `cynic-domain-ops` | `BackupArchiver` — zone backup → append-only proof |
 | `cynic-domain-pages` | Adapter (V2) | — | `cynic-domain-ops` | Cloudflare Pages deploy via Wrangler API |
 | `cynic-domain-redirects` | Adapter (V2) | — | `cynic-domain-ops` | Bulk Redirect desired state + ruleset management |
 | `cynic-domain-proxy-audit` | Adapter (V2) | — | `cynic-domain-ops` | CF proxy status audit + drift patch |
