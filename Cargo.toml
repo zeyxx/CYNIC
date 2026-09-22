@@ -24,6 +24,7 @@ members = [
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",
     "crates/cynic-network",
+    "crates/cynic-host-probes",
     "crates/cynic-intel-soc",
     "crates/cynic-consensus",
     "crates/cynic-channel",

@@ -37,3 +37,19 @@ pub struct SecretReference {
     pub provider: SecretProvider,
     pub locator: String,
 }
+
+impl SecretReference {
+    /// V1 migration helper: construct a SecretReference for a process-environment
+    /// variable. Replaces the `std::env::var("X")` anti-pattern with a typed,
+    /// injectable port reference.
+    ///
+    /// Usage: `secrets.resolve(&SecretReference::env("my-secret", "MY_SECRET"))`
+    pub fn env(id: &str, locator: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            class: SecretClass::RuntimeMachineIdentity,
+            provider: SecretProvider::ProcessEnvironment,
+            locator: locator.to_string(),
+        }
+    }
+}
