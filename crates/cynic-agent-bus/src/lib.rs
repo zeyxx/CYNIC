@@ -1,6 +1,7 @@
 //! CYNIC sovereign agent bus.
 
 pub mod identity;
+pub mod ledger;
 pub mod proof;
 pub mod types;
 
