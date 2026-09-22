@@ -11,6 +11,8 @@ pub trait ClaimStore: Send + Sync {
     async fn active_claims(&self) -> Vec<Claim>;
     async fn get_claim(&self, claim_id: &str) -> Option<Claim>;
     async fn find_by_scope(&self, path: &str) -> Vec<Claim>;
+    async fn expire_claims(&self) -> usize;
+    async fn is_expired(&self, claim_id: &str) -> bool;
 }
 
 pub struct InMemoryClaimStore {
@@ -68,6 +70,32 @@ impl ClaimStore for InMemoryClaimStore {
         }
         claim.status = ClaimStatus::Released;
         Ok(())
+    }
+
+    async fn expire_claims(&self) -> usize {
+        let mut claims = self.claims.lock().await;
+        let now = now_unix_s();
+        let mut expired = 0;
+        for claim in claims.values_mut() {
+            if matches!(claim.status, ClaimStatus::Active) {
+                let elapsed = now.saturating_sub(claim.acquired_at_unix_s);
+                if elapsed >= claim.ttl_seconds as u64 {
+                    claim.status = ClaimStatus::Expired;
+                    expired += 1;
+                }
+            }
+        }
+        expired
+    }
+
+    async fn is_expired(&self, claim_id: &str) -> bool {
+        let claims = self.claims.lock().await;
+        if let Some(claim) = claims.get(claim_id) {
+            let elapsed = now_unix_s().saturating_sub(claim.acquired_at_unix_s);
+            elapsed >= claim.ttl_seconds as u64
+        } else {
+            false
+        }
     }
 
     async fn active_claims(&self) -> Vec<Claim> {

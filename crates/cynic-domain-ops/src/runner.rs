@@ -155,8 +155,15 @@ pub fn run_domain_ops(
     let registrar_records = registrar.read_zone_records(domain);
     let current_ns = registrar.read_nameservers(domain);
 
+    // ── 2c. Select desired records (source of truth) ────────────────────────
+    let desired_records = if desired.zone_records.is_empty() {
+        &registrar_records
+    } else {
+        &desired.zone_records
+    };
+
     // ── 3. Pure: CNAME conflict detection (before any mutation) ────────────
-    if let Some(conflict) = detect_cname_conflict(&registrar_records) {
+    if let Some(conflict) = detect_cname_conflict(desired_records) {
         let key = generate_idempotency_key(domain, DomainOperation::MigrateZone, &conflict.name);
         proofs.push(blocked_proof(
             domain,
@@ -179,8 +186,13 @@ pub fn run_domain_ops(
         Vec::new()
     };
 
-    // ── 4. Reconcile (pure): diff registrar vs Cloudflare ───────────────────
-    let diff = reconcile_zone(&registrar_records, &cf_records, &desired.proxy_policy);
+    // ── 4. Reconcile (pure): diff desired vs Cloudflare ──────────────────────
+    let desired_records = if desired.zone_records.is_empty() {
+        &registrar_records
+    } else {
+        &desired.zone_records
+    };
+    let diff = reconcile_zone(desired_records, &cf_records, &desired.proxy_policy);
 
     // ── 5. Bounded action (gated by apply + ns_cutover_confirmed) ─────────
     if apply {
@@ -483,6 +495,7 @@ mod tests {
                     preserve_path: false,
                 })
                 .collect(),
+            zone_records: Vec::new(),
         }
     }
 
@@ -817,5 +830,65 @@ mod tests {
             &["ns2.cloudflare.com".to_string()],
         ));
         assert!(ns_sets_match(&[], &[]));
+    }
+
+    fn cname_record(name: &str, content: &str, proxied: bool) -> DnsRecordShape {
+        DnsRecordShape {
+            name: name.to_string(),
+            r#type: DnsRecordType::CNAME,
+            content: content.to_string(),
+            ttl: 1,
+            priority: None,
+            proxied,
+        }
+    }
+
+    #[test]
+    fn apply_true_with_desired_zone_records_syncs_to_cloudflare() {
+        let domain = "talaria.build";
+        let mut desired = desired_state(
+            domain,
+            vec!["ns1.cloudflare.com", "ns2.cloudflare.com"],
+            vec![
+                ("talaria.build", Some(200), true),
+                ("www.talaria.build", Some(200), true),
+            ],
+        );
+        desired.zone_records = vec![
+            cname_record("talaria.build", "cname.vercel-dns.com", true),
+            cname_record("www.talaria.build", "cname.vercel-dns.com", true),
+        ];
+
+        let registrar = MemoryRegistrar::new()
+            .with_availability(domain, false)
+            .with_zone_records(domain, vec![])
+            .with_nameservers(domain, vec!["ns1.cloudflare.com".to_string()]);
+
+        let cloudflare = MemoryCloudflare::new().with_zone(domain, "zone-talaria");
+        let probe = MemoryEdgeProbe::new().with_tld_delegation(
+            domain,
+            true,
+            vec!["ns1.cloudflare.com".to_string()],
+        );
+
+        let proofs = run_domain_ops(
+            &desired,
+            &registrar,
+            &cloudflare,
+            &probe,
+            &make_secrets(),
+            true,
+            false,
+        );
+
+        let migration_proof = proofs
+            .iter()
+            .find(|p| p.operation == DomainOperation::MigrateZone)
+            .expect("migration proof must exist when zone_records provided");
+        assert_eq!(migration_proof.status, ProofStatus::Success);
+
+        let result: ZoneMigrationResult =
+            serde_json::from_value(migration_proof.provider_read_back.clone()).unwrap();
+        assert_eq!(result.records_migrated, 2);
     }
 }

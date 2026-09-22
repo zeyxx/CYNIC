@@ -273,6 +273,11 @@ pub struct DomainOpsDesiredState {
     pub expected_nameservers: Vec<String>,
     /// Edge HTTP probes to verify after migration.
     pub edge_probes: Vec<EdgeProbeSpec>,
+    /// Desired DNS records to reconcile against the provider.
+    /// Empty = migrate from registrar (legacy mode).
+    /// Populated = desired-state is the source of truth (set records).
+    #[serde(default)]
+    pub zone_records: Vec<DnsRecordShape>,
 }
 
 // ── Operations & proofs ────────────────────────────────────────────────────
@@ -606,6 +611,63 @@ mod tests {
         assert_eq!(state.expected_nameservers.len(), 2);
         assert_eq!(state.edge_probes.len(), 1);
         assert_eq!(state.edge_probes[0].expected_status, Some(200));
+    }
+
+    #[test]
+    fn desired_state_zone_records_roundtrips() {
+        let json = r#"{\
+            "schema": "cynic.domain_ops.desired_state.v1",
+            "domain": "talaria.build",
+            "registrar": {\
+                "provider": "porkbun",
+                "credential": {\
+                    "id": "porkbun-key",
+                    "class": "RuntimeMachineIdentity",
+                    "provider": "process_environment",
+                    "locator": "PORKBUN_API_KEY"
+                }\
+            },
+            "dns_authority": {\
+                "provider": "cloudflare",
+                "credential": {\
+                    "id": "cf-token",
+                    "class": "RuntimeMachineIdentity",
+                    "provider": "process_environment",
+                    "locator": "CF_API_TOKEN"
+                }\
+            },
+            "proxy_policy": {\
+                "web_records": "proxied",
+                "mail_records": "dns_only",
+                "verification_records": "dns_only",
+                "dnssec_records": "dns_only"
+            },
+            "expected_nameservers": ["ns1.cloudflare.com", "ns2.cloudflare.com"],
+            "edge_probes": [],
+            "zone_records": [\
+                {\
+                    "name": "talaria.build",
+                    "type": "CNAME",
+                    "content": "cname.vercel-dns.com",
+                    "ttl": 1,
+                    "proxied": true
+                },
+                {\
+                    "name": "www.talaria.build",
+                    "type": "CNAME",
+                    "content": "cname.vercel-dns.com",
+                    "ttl": 1,
+                    "proxied": true
+                }\
+            ]
+        }"#;
+        let state: DomainOpsDesiredState = serde_json::from_str(json).unwrap();
+        assert_eq!(state.zone_records.len(), 2);
+        assert_eq!(state.zone_records[0].name, "talaria.build");
+        assert_eq!(state.zone_records[0].r#type, DnsRecordType::CNAME);
+        assert_eq!(state.zone_records[0].content, "cname.vercel-dns.com");
+        assert!(state.zone_records[0].proxied);
+        assert!(!state.zone_records[0].priority.is_some());
     }
 
     #[test]
