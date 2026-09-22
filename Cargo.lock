@@ -851,6 +851,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-agent-bus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blake3",
+ "cynic-protocol",
+ "ed25519-dalek",
+ "hex",
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
 name = "cynic-askesis"
 version = "0.2.0"
 dependencies = [
@@ -900,6 +920,9 @@ dependencies = [
  "cynic-build",
  "cynic-discovery",
  "cynic-discovery-host",
+ "cynic-domain-cloudflare",
+ "cynic-domain-ops",
+ "cynic-domain-porkbun",
  "cynic-forensics",
  "cynic-host",
  "cynic-inference",
@@ -5590,6 +5613,16 @@ dependencies = [
  "crunchy",
  "hex",
  "static_assertions",
+]
+
+[[package]]
+name = "ulid"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
+dependencies = [
+ "rand 0.9.5",
+ "web-time",
 ]
 
 [[package]]
