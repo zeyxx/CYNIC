@@ -1,7 +1,7 @@
 use cynic_workload::DataClassification;
 
 use crate::domain::backend_identity::{BackendHealthSnapshot, BackendIdentity};
-use crate::domain::routing::{RoutingConstraint, RoutingDecision, RoutingIntent};
+use crate::infra::routing::{RoutingConstraint, RoutingDecision, RoutingIntent};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrivacyRoutingError {
@@ -72,7 +72,7 @@ mod tests {
         BackendCapability, BackendHealthSnapshot, BackendIdentity,
     };
     use crate::domain::inference::BackendStatus;
-    use crate::domain::routing::{InferenceClass, RoutingConstraint, RoutingIntent};
+    use crate::infra::routing::{InferenceClass, RoutingConstraint, RoutingIntent};
     fn sovereign_backend() -> BackendHealthSnapshot {
         BackendHealthSnapshot {
             identity: BackendIdentity {

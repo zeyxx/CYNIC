@@ -1,12 +1,12 @@
 //! Filesystem inventory of operator-declared local model profiles.
 //!
-//! Paths resolve through [`crate::domain::model_layout::ModelLayout`].
+//! Paths resolve through [`crate::infra::model_layout::ModelLayout`].
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::domain::local_runtime::{LocalModelInventory, LocalModelProfile, LocalModelSource};
-use crate::domain::model_layout::{DEFAULT_UNIT_TEMPLATE, ModelLayout};
+use crate::infra::model_layout::{DEFAULT_UNIT_TEMPLATE, ModelLayout};
 use crate::ports::local_runtime_port::{LocalModelInventoryPort, LocalRuntimeError};
 
 #[derive(Debug)]
@@ -153,7 +153,7 @@ impl LocalModelInventoryPort for FsLocalModelInventory {
 }
 
 // Re-export resolvers for callers that imported them from this module.
-pub use crate::domain::model_layout::{resolve_profiles_dir, resolve_vault_dir};
+pub use crate::infra::model_layout::{resolve_profiles_dir, resolve_vault_dir};
 
 #[cfg(test)]
 mod tests {

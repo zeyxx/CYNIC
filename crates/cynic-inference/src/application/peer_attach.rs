@@ -23,7 +23,7 @@ use crate::adapters::ods::{ODS_DISCOVERY_SCHEMA, ODS_SURFACE, ODS_UPSTREAM};
 use crate::adapters::publishers::inference_toml::InferenceTomlPublisher;
 use crate::adapters::publishers::open_webui::OpenWebUiPublisher;
 use crate::application::model_sync_pipeline::ModelSyncPipeline;
-use crate::domain::model_layout::default_ods_probe_bases;
+use crate::infra::model_layout::default_ods_probe_bases;
 use crate::ods_discovery::{
     DiscoveredService, DiscoveryReport, discover_ods_services, sync_discovered_backends,
 };

@@ -1,4 +1,4 @@
-use crate::domain::routing::RoutingDecision;
+use crate::infra::routing::RoutingDecision;
 
 use serde::Serialize;
 

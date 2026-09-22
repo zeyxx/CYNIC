@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::domain::hardware_profile::HardwareProfile;
-use crate::domain::runtime_plan::EnginePlugins;
+use crate::infra::runtime_plan::EnginePlugins;
 
 /// Default plugin search roots (relative / FHS) — not machine-local home paths.
 const PLUGIN_CANDIDATES: &[&str] = &["/usr/local/lib/llama", "/usr/lib/llama", "/usr/local/lib"];

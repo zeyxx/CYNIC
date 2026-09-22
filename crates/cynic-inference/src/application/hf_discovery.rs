@@ -9,7 +9,7 @@ use crate::domain::hf_catalog::{
     CategoryInfo, HardwareFit, ModelCategory, category_catalog, estimate_gguf_bytes, score_fit,
     short_alias_from_repo,
 };
-use crate::domain::model_layout::ModelLayout;
+use crate::infra::model_layout::ModelLayout;
 use crate::ports::hf_hub_port::{
     HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
     HfSearchRequest,

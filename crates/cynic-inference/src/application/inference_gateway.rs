@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Child;
 use tokio::sync::{Mutex, RwLock};
 
-use crate::domain::domain_task_queue::DomainTaskQueue;
+use crate::infra::domain_task_queue::DomainTaskQueue;
 use crate::domain::matrix_sweep::HardwareBudget;
 use crate::domain::matrix_sweep::empirical_store::{ConstraintFilter, OptimizationGoal};
 use crate::ports::empirical_store_port::EmpiricalStorePort;

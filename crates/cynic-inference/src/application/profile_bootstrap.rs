@@ -15,9 +15,9 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::adapters::local::FsModelStore;
-use crate::domain::gguf_meta::preflight_gguf_with_store;
+use crate::infra::gguf_meta::preflight_gguf_with_store;
 use crate::domain::local_runtime::LocalModelProfile;
-use crate::domain::model_layout::ModelLayout;
+use crate::infra::model_layout::ModelLayout;
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
@@ -272,7 +272,7 @@ pub async fn bind_preferred_chat_model(
 
 fn running_process_alias() -> Option<String> {
     // Lightweight: process supervisor pidfile dir
-    let principal = crate::domain::principal_paths::PrincipalPaths::resolve();
+    let principal = crate::infra::principal_paths::PrincipalPaths::resolve();
     let dir = principal
         .home_dir
         .join(".local/state/cynic/inference/process");
@@ -577,7 +577,7 @@ pub fn forge_profile_from_benchmark_report(
     let model_path = winning_report.scenario.model.parameters.model_path.clone();
     let run_id = winning_report.run_id.clone();
     let alias = alias_from_artifact_id(&model_id);
-    let layout = crate::domain::model_layout::ModelLayout::from_env();
+    let layout = crate::infra::model_layout::ModelLayout::from_env();
     let profile_path = write_loopback_profile(&layout, &alias, &model_path, source_note)
         .map_err(|e| ForgeProfileError(format!("write loopback profile: {e}")))?;
 

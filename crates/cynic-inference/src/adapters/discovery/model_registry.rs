@@ -131,7 +131,7 @@ fn backend_capability(capability: &ModelCapability) -> Option<BackendCapability>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::model_registry::InferenceEngine;
+    use crate::infra::model_registry::InferenceEngine;
 
     #[tokio::test]
     async fn stores_filters_updates_and_prunes_model_backends() {

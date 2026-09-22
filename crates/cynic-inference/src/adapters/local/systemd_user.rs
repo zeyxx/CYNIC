@@ -427,7 +427,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         let store =
             crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
         let gguf_meta =
-            crate::domain::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
+            crate::infra::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
                 .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
 
         // Probe-driven plan: regenerate runtime env + resource drop-in every start.

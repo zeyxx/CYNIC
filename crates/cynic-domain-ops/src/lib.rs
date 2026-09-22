@@ -6,7 +6,7 @@
 //!
 //! Hexagonal layout:
 //! - `domain/` — pure domain logic (record transform, reconciliation, idempotency).
-//!   Zero I/O: no std::process, no reqwest, no tokio::spawn.
+//!   Zero I/O: no external process execution, no HTTP client, no async spawning.
 //! - `port.rs` — driven ports (trait definitions for registrar, DNS, edge probe).
 //! - `runner.rs` — orchestration over injected ports (Phase 4).
 //! - `adapters/` — provider HTTP clients (Phase 3).

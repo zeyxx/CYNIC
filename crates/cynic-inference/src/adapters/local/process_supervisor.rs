@@ -16,7 +16,7 @@ use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::local_runtime::{
     LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
 };
-use crate::domain::principal_paths::PrincipalPaths;
+use crate::infra::principal_paths::PrincipalPaths;
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
@@ -137,7 +137,7 @@ impl ProcessLocalRuntime {
         // Prefer probe-generated runtime env (principal layout), then static profile.
         let inventory = FsLocalModelInventory::from_env();
         let full = inventory.get_profile(&profile.alias)?;
-        let layout = crate::domain::model_layout::ModelLayout::from_env();
+        let layout = crate::infra::model_layout::ModelLayout::from_env();
         let runtime_env = layout
             .profiles_dir
             .join("runtime")
@@ -451,7 +451,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         let store =
             crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
         let gguf_meta =
-            crate::domain::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
+            crate::infra::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
                 .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
         crate::progress::progress(
             "preflight",

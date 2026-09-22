@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::model_layout::ModelLayout;
+use crate::infra::model_layout::ModelLayout;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HfHubError {

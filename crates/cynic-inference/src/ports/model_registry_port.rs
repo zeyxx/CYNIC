@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::domain::backend_identity::{BackendHealthSnapshot, BackendIdentity};
-use crate::domain::model_registry::{ModelBackend, ModelHealth};
+use crate::infra::model_registry::{ModelBackend, ModelHealth};
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ModelRegistryError {

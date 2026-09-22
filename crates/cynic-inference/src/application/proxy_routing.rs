@@ -103,7 +103,7 @@ impl ProxyTargets {
     /// Prefers targets with free slots, picking the one with lowest utilization.
     pub fn select_with_slot_tracker(
         &self,
-        slot_tracker: &crate::domain::slot_tracker::SlotTracker,
+        slot_tracker: &crate::infra::slot_tracker::SlotTracker,
         requested_backend: Option<&str>,
         requested_model: Option<&str>,
         requires_tools: bool,

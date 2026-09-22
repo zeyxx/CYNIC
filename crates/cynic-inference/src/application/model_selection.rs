@@ -1,5 +1,5 @@
 use crate::domain::backend_identity::BackendHealthSnapshot;
-use crate::domain::routing::{RoutingDecision, RoutingIntent};
+use crate::infra::routing::{RoutingDecision, RoutingIntent};
 
 use super::routing_policy::select_backend;
 

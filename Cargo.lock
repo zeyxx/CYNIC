@@ -960,6 +960,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-domain-ops"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-forensics"
 version = "0.2.0"
 dependencies = [

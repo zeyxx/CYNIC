@@ -16,8 +16,8 @@ use crate::adapters::ods::{ODS_SURFACE, ODS_UPSTREAM, discover_ods_services};
 use crate::config_loader::{
     InferenceConfigError, LoadedInferenceConfig, load_inference_config_from_path_public,
 };
-use crate::domain::model_layout::default_ods_probe_bases;
-use crate::domain::principal_paths::PrincipalPaths;
+use crate::infra::model_layout::default_ods_probe_bases;
+use crate::infra::principal_paths::PrincipalPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

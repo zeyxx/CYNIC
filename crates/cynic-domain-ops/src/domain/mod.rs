@@ -1,9 +1,9 @@
 //! Pure domain logic for external domain operations.
 //!
-//! This module is 100% pure: no I/O, no `std::process`, no `reqwest`, no
-//! `tokio::spawn`. All decision logic (record transformation, zone
-//! reconciliation, idempotency) lives here so it can be unit-tested
-//! deterministically without network access.
+//! This module is 100% pure: no I/O, no external process execution,
+//! no HTTP client, no async spawning. All decision logic (record
+//! transformation, zone reconciliation, idempotency) lives here so it
+//! can be unit-tested deterministically without network access.
 
 pub mod idempotency;
 pub mod reconcile;

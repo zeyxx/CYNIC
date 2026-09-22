@@ -43,7 +43,7 @@ pub enum DomainTaskQueueError {
     #[error("task admission refused: {error}")]
     AdmissionRequired {
         task_title: String,
-        error: crate::domain::task_admission_port::TaskAdmissionError,
+        error: crate::infra::task_admission_port::TaskAdmissionError,
     },
 }
 
@@ -53,7 +53,7 @@ pub struct DomainTaskQueue {
     /// Optional admission authority (plan §10 step 3). None = legacy
     /// behaviour (unbudgeted push always admitted). When set, every push
     /// passes through the EnergyBudget gate before touching storage.
-    admission: Option<std::sync::Arc<dyn crate::domain::task_admission_port::TaskAdmissionPort>>,
+    admission: Option<std::sync::Arc<dyn crate::infra::task_admission_port::TaskAdmissionPort>>,
 }
 
 impl std::fmt::Debug for DomainTaskQueue {
@@ -104,7 +104,7 @@ impl DomainTaskQueue {
     /// EnergyBudget gate. Idempotent per instance (last binding wins).
     pub fn with_admission(
         mut self,
-        admission: std::sync::Arc<dyn crate::domain::task_admission_port::TaskAdmissionPort>,
+        admission: std::sync::Arc<dyn crate::infra::task_admission_port::TaskAdmissionPort>,
     ) -> Self {
         self.admission = Some(admission);
         self
@@ -138,7 +138,7 @@ impl DomainTaskQueue {
     ) -> Result<DomainTask, DomainTaskQueueError> {
         if let Some(port) = &self.admission {
             if let Some(error) =
-                crate::domain::task_admission_port::TaskAdmissionError::from_decision(
+                crate::infra::task_admission_port::TaskAdmissionError::from_decision(
                     &port.admit(&payload),
                 )
             {
@@ -396,7 +396,7 @@ mod tests {
         fresh: bool,
     }
 
-    impl crate::domain::task_admission_port::TaskAdmissionPort for StubAdmission {
+    impl crate::infra::task_admission_port::TaskAdmissionPort for StubAdmission {
         fn open_reservations(&self) -> Vec<cynic_protocol::task_pipeline::EnergyBudget> {
             self.open.clone()
         }
@@ -485,7 +485,7 @@ mod tests {
         assert!(matches!(
             err,
             DomainTaskQueueError::AdmissionRequired { ref error, .. }
-                if matches!(error, crate::domain::task_admission_port::TaskAdmissionError::Blocked(_))
+                if matches!(error, crate::infra::task_admission_port::TaskAdmissionError::Blocked(_))
         ));
 
         // Refused tasks must not touch storage.
@@ -518,7 +518,7 @@ mod tests {
         assert!(matches!(
             err,
             DomainTaskQueueError::AdmissionRequired { ref error, .. }
-                if matches!(error, crate::domain::task_admission_port::TaskAdmissionError::Unknown(_))
+                if matches!(error, crate::infra::task_admission_port::TaskAdmissionError::Unknown(_))
         ));
     }
 }

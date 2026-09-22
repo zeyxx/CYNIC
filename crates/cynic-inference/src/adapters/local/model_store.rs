@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
-use crate::domain::model_layout::ModelLayout;
+use crate::infra::model_layout::ModelLayout;
 use crate::domain::model_store::{
     ModelArtifact, ModelLocationKind, ModelStoreReport, ModelStoreTotals,
 };

@@ -31,7 +31,7 @@ pub struct ConflictDetection {
 impl ConflictDetection {
     pub fn message(&self) -> String {
         format!(
-            "CNAME coexistence conflict at '{}': cannot have both {} and {} records",
+            "CNAME coexistence conflict at '{}': cannot have both {:?} and {:?} records",
             self.name, self.existing_type, self.incoming_type
         )
     }
@@ -76,14 +76,14 @@ pub fn reconcile_zone(
     // Add: in desired, not in CF
     for (key, desired_rec) in &desired_map {
         if !cf_map.contains_key(key) {
-            add.push(desired_rec.clone());
+            add.push((*desired_rec).clone());
         }
     }
 
     // Remove: in CF, not in desired
     for (key, cf_rec) in &cf_map {
         if !desired_map.contains_key(key) {
-            remove.push(cf_rec.clone());
+            remove.push((*cf_rec).clone());
         }
     }
 
@@ -91,7 +91,7 @@ pub fn reconcile_zone(
     for (key, desired_rec) in &desired_map {
         if let Some(cf_rec) = cf_map.get(key) {
             if desired_rec != cf_rec {
-                update.push(desired_rec.clone());
+                update.push((*desired_rec).clone());
             }
         }
     }

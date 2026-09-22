@@ -2,7 +2,7 @@
 
 use std::process::Command;
 
-use crate::domain::model_layout::ModelLayout;
+use crate::infra::model_layout::ModelLayout;
 use crate::ports::hf_hub_port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfSearchRequest,
 };

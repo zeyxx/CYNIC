@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use crate::adapters::local::engine_probe::probe_engine_plugins;
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::hardware_profile::HardwareProfile;
-use crate::domain::runtime_plan::{ProfileOverrides, RuntimeLaunchPlan, plan_launch};
+use crate::infra::runtime_plan::{ProfileOverrides, RuntimeLaunchPlan, plan_launch};
 use crate::ports::local_runtime_port::{LocalModelInventoryPort, LocalRuntimeError};
 
 #[derive(Debug)]
@@ -159,14 +159,14 @@ pub struct MaterializeReport {
 
 fn runtime_env_dir() -> PathBuf {
     // Always under model layout / principal — never operator $HOME as authority.
-    crate::domain::model_layout::ModelLayout::from_env()
+    crate::infra::model_layout::ModelLayout::from_env()
         .profiles_dir
         .join("runtime")
 }
 
 fn systemd_dropin_dir(alias: &str) -> PathBuf {
     // Principal home (.config/systemd/user), so linger user cynic can load drop-ins.
-    let principal = crate::domain::principal_paths::PrincipalPaths::resolve();
+    let principal = crate::infra::principal_paths::PrincipalPaths::resolve();
     principal.home_dir.join(format!(
         ".config/systemd/user/llama-server@{alias}.service.d"
     ))

@@ -10,8 +10,8 @@
 use cynic_protocol::secret_reference::SecretReference;
 
 use cynic_protocol::domain_ops::{
-    DelegationProof, DnsRecordShape, DomainAvailability, DomainOperationProof, EdgeProbeResult,
-    NameserverUpdateReceipt, RegistrationReceipt, ZoneMigrationResult,
+    DelegationProof, DnsRecordShape, DomainAvailability, EdgeProbeResult,
+    NameserverUpdateReceipt, RegistrationReceipt,
 };
 
 /// Port for registrar operations (domain availability, registration, NS).

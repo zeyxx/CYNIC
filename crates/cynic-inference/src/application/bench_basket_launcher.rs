@@ -236,7 +236,7 @@ pub async fn launch_basket(
 /// This is a projection into the model_store_port — here we use the same
 /// layout logic as profile_bootstrap to stay DRY.
 fn resolve_model_path_for_entry(alias: &str, _config: &ParametricConfigPoint) -> PathBuf {
-    use crate::domain::model_layout::ModelLayout;
+    use crate::infra::model_layout::ModelLayout;
     let layout = ModelLayout::from_env();
     layout.vault_dir.join(format!("{alias}.gguf"))
 }

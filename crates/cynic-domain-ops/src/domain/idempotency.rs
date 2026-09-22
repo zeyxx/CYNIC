@@ -99,6 +99,6 @@ mod tests {
     fn empty_content_still_produces_valid_key() {
         let key = generate_idempotency_key("example.com", DomainOperation::VerifyEdge, "");
         assert!(key.starts_with("sha3-512:"));
-        assert_eq!(&key["sha3-512:".len()..].len(), 128);
+        assert_eq!(key["sha3-512:".len()..].len(), 128);
     }
 }

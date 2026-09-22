@@ -114,7 +114,7 @@ pub fn resolve_vault_dir() -> PathBuf {
         return PathBuf::from(p);
     }
     // Principal-owned data plane (not operator $HOME when principal resolvable).
-    crate::domain::principal_paths::PrincipalPaths::resolve()
+    crate::infra::principal_paths::PrincipalPaths::resolve()
         .data_dir
         .join("models")
 }
@@ -123,7 +123,7 @@ pub fn resolve_profiles_dir() -> PathBuf {
     if let Ok(p) = std::env::var(env_keys::MODEL_PROFILES) {
         return PathBuf::from(p);
     }
-    crate::domain::principal_paths::PrincipalPaths::resolve()
+    crate::infra::principal_paths::PrincipalPaths::resolve()
         .config_dir
         .join("models")
 }
@@ -132,7 +132,7 @@ pub fn resolve_registry_path() -> PathBuf {
     if let Ok(p) = std::env::var(env_keys::MODEL_REGISTRY) {
         return PathBuf::from(p);
     }
-    crate::domain::principal_paths::PrincipalPaths::resolve()
+    crate::infra::principal_paths::PrincipalPaths::resolve()
         .config_dir
         .join("model-registry.json")
 }
@@ -145,7 +145,7 @@ pub fn resolve_hf_cache_dir() -> PathBuf {
         return PathBuf::from(p).join("hub");
     }
     // HF cache may stay operator-local (upstream CLI default); prefer principal cache.
-    crate::domain::principal_paths::PrincipalPaths::resolve()
+    crate::infra::principal_paths::PrincipalPaths::resolve()
         .cache_dir
         .join("huggingface/hub")
 }
@@ -154,7 +154,7 @@ pub fn resolve_llama_cache_dir() -> PathBuf {
     if let Ok(p) = std::env::var("LLAMA_CACHE") {
         return PathBuf::from(p);
     }
-    crate::domain::principal_paths::PrincipalPaths::resolve()
+    crate::infra::principal_paths::PrincipalPaths::resolve()
         .cache_dir
         .join("llama.cpp")
 }
@@ -168,7 +168,7 @@ pub fn resolve_hf_bin() -> PathBuf {
 
 /// Chat session state root under principal (override: CYNIC_CHAT_STATE).
 pub fn resolve_chat_state_dir() -> PathBuf {
-    crate::domain::principal_paths::PrincipalPaths::resolve().chat_state_dir
+    crate::infra::principal_paths::PrincipalPaths::resolve().chat_state_dir
 }
 
 /// Default ODS / OpenAI-compat probe bases (host-facing).
@@ -195,7 +195,7 @@ pub fn default_ods_probe_bases() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::principal_paths::{PathAuthority, PrincipalPaths};
+    use crate::infra::principal_paths::{PathAuthority, PrincipalPaths};
 
     #[test]
     fn vault_download_dir_slugs_repo() {

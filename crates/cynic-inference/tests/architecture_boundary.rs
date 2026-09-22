@@ -18,3 +18,147 @@ fn inference_domain_is_pure_zero_io() {
         );
     }
 }
+
+/// Domain layer MUST NOT depend on std::fs, tokio, reqwest, axum,
+/// futures_util, or crate::adapters::.
+#[test]
+fn domain_is_pure_no_io_or_async_deps() {
+    let domain_dir = inference_crate_root().join("src/domain");
+    let mut violations = Vec::new();
+
+    for entry in fs::read_dir(&domain_dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        if path.file_name().unwrap() == "mod.rs" {
+            continue;
+        }
+
+        let content = fs::read_to_string(&path).unwrap();
+        for (lineno, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with("use ") {
+                continue;
+            }
+            // Allow std::collections (pure data structures)
+            if trimmed.starts_with("use std::collections::") {
+                continue;
+            }
+            if trimmed.contains("use std::")
+                || trimmed.contains("use tokio::")
+                || trimmed.contains("use reqwest::")
+                || trimmed.contains("use axum::")
+                || trimmed.contains("use futures_util::")
+                || trimmed.contains("use crate::adapters::")
+                || trimmed.contains("use crate::infra::")
+            {
+                violations.push(format!(
+                    "{}:{}: {}",
+                    path.file_name().unwrap().to_str().unwrap(),
+                    lineno + 1,
+                    trimmed
+                ));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "domain/ purity violations:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Ports layer MUST NOT contain concrete implementations (structs with bodies).
+#[test]
+fn ports_are_traits_only() {
+    let ports_dir = inference_crate_root().join("src/ports");
+    let mut violations = Vec::new();
+
+    for entry in fs::read_dir(&ports_dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        if path.file_name().unwrap() == "mod.rs" {
+            continue;
+        }
+
+        let content = fs::read_to_string(&path).unwrap();
+        for (lineno, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed == "#[async_trait::async_trait]" {
+                continue;
+            }
+            if trimmed.starts_with("pub struct ")
+                || trimmed.starts_with("pub enum ")
+                || trimmed.starts_with("struct ")
+                || trimmed.starts_with("enum ")
+            {
+                violations.push(format!(
+                    "{}:{}: {}",
+                    path.file_name().unwrap().to_str().unwrap(),
+                    lineno + 1,
+                    trimmed
+                ));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "ports/ trait-only violations:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// Workspace DAG: domain MUST NOT depend on ports (ports depend on domain).
+#[test]
+fn domain_does_not_import_ports() {
+    let domain_dir = inference_crate_root().join("src/domain");
+    let mut violations = Vec::new();
+
+    for entry in fs::read_dir(&domain_dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+
+        let content = fs::read_to_string(&path).unwrap();
+        for (lineno, line) in content.lines().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.contains("use crate::ports::") || trimmed.contains("use super::ports::") {
+                violations.push(format!(
+                    "{}:{}: {}",
+                    path.file_name().unwrap().to_str().unwrap(),
+                    lineno + 1,
+                    trimmed
+                ));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "domain must not import ports:\n{}",
+        violations.join("\n")
+    );
+}
+
+/// EngineCapabilities domain type must have pure variants.
+#[test]
+fn engine_caps_is_pure_enum() {
+    let path = inference_crate_root().join("src/domain/engine_caps.rs");
+    let content = fs::read_to_string(&path).unwrap();
+
+    assert!(content.contains("pub struct EngineCapabilities"));
+    assert!(content.contains("pub enum ArchStatus"));
+    assert!(content.contains("pub enum Observation"));
+    assert!(content.contains("pub enum PreflightDecision"));
+
+    assert!(!content.contains("tokio"));
+    assert!(!content.contains("async fn"));
+    assert!(!content.contains("std::fs"));
+    assert!(!content.contains("std::io"));
+}

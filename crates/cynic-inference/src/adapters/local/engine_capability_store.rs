@@ -90,7 +90,7 @@ pub struct EngineCapabilityStore {
 impl EngineCapabilityStore {
     /// Load the default store from the canonical cache path.
     pub fn load_default() -> Option<EngineCapabilities> {
-        let cache_dir = crate::domain::principal_paths::PrincipalPaths::resolve().cache_dir;
+        let cache_dir = crate::infra::principal_paths::PrincipalPaths::resolve().cache_dir;
         let path = cache_dir.join("engine_capabilities.json");
         if path.exists() {
             Some(Self::load(path).capabilities().clone())

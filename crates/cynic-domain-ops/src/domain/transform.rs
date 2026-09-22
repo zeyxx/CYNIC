@@ -12,8 +12,7 @@
 //! `DnsRecordShape` entries.
 
 use cynic_protocol::domain_ops::{
-    DnsRecordShape, DnsRecordType, ProxyMode, ProxyPolicy, is_proxiable_record_type,
-    is_dns_only_by_default, resolve_proxy_flag,
+    DnsRecordShape, DnsRecordType, ProxyMode, ProxyPolicy, resolve_proxy_flag,
 };
 
 /// Classification of a DNS record into the policy category that governs its
@@ -172,27 +171,27 @@ mod tests {
         let policy = ProxyPolicy::default();
         // Web records: Auto → proxied (because default is Proxied)
         assert_eq!(
-            policy_for_record_type(DnsRecordType::A, policy),
+            policy_for_record_type(DnsRecordType::A, &policy),
             ProxyMode::Proxied
         );
         // Mail records: Auto → DnsOnly (default DnsOnly)
         assert_eq!(
-            policy_for_record_type(DnsRecordType::MX, policy),
+            policy_for_record_type(DnsRecordType::MX, &policy),
             ProxyMode::DnsOnly
         );
         // TXT: Auto → DnsOnly
         assert_eq!(
-            policy_for_record_type(DnsRecordType::TXT, policy),
+            policy_for_record_type(DnsRecordType::TXT, &policy),
             ProxyMode::DnsOnly
         );
         // DS: Auto → DnsOnly
         assert_eq!(
-            policy_for_record_type(DnsRecordType::DS, policy),
+            policy_for_record_type(DnsRecordType::DS, &policy),
             ProxyMode::DnsOnly
         );
         // NS: always DnsOnly regardless of policy
         assert_eq!(
-            policy_for_record_type(DnsRecordType::NS, policy),
+            policy_for_record_type(DnsRecordType::NS, &policy),
             ProxyMode::DnsOnly
         );
     }
