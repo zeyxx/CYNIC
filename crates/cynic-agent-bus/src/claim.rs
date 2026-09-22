@@ -134,7 +134,11 @@ impl ClaimManager {
     }
 
     pub fn has_budget(&self, claim: &Claim) -> bool {
-        claim.consumed_actions < claim.budget.actions
+        if claim.consumed_actions >= claim.budget.actions {
+            return false;
+        }
+        let elapsed = now_unix_s().saturating_sub(claim.acquired_at_unix_s);
+        elapsed < claim.budget.wall_seconds as u64
     }
 
     pub fn consume_action(&self, claim: &mut Claim) {
