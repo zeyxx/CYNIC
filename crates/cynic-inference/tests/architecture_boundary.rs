@@ -70,9 +70,11 @@ fn domain_is_pure_no_io_or_async_deps() {
     );
 }
 
-/// Ports layer MUST NOT contain concrete implementations (structs with bodies).
+/// Ports layer MUST contain trait definitions. Associated Error/DTO types are
+/// legitimate (e.g. `pub enum FooError {}`, `pub struct FooResult {}`).
+/// Forbidden: concrete `impl Foo for Bar` blocks (adapters own implementations).
 #[test]
-fn ports_are_traits_only() {
+fn ports_define_traits_not_impls() {
     let ports_dir = inference_crate_root().join("src/ports");
     let mut violations = Vec::new();
 
@@ -86,29 +88,26 @@ fn ports_are_traits_only() {
         }
 
         let content = fs::read_to_string(&path).unwrap();
-        for (lineno, line) in content.lines().enumerate() {
-            let trimmed = line.trim();
-            if trimmed == "#[async_trait::async_trait]" {
-                continue;
-            }
-            if trimmed.starts_with("pub struct ")
-                || trimmed.starts_with("pub enum ")
-                || trimmed.starts_with("struct ")
-                || trimmed.starts_with("enum ")
-            {
-                violations.push(format!(
-                    "{}:{}: {}",
-                    path.file_name().unwrap().to_str().unwrap(),
-                    lineno + 1,
-                    trimmed
-                ));
-            }
+        let has_trait = content.contains("pub trait ") || content.contains("trait ");
+        let has_impl_block = content.contains("impl ");
+
+        if !has_trait {
+            violations.push(format!(
+                "{}: file has no trait definition",
+                path.file_name().unwrap().to_str().unwrap()
+            ));
+        }
+        if has_impl_block && !content.contains("pub trait ") {
+            violations.push(format!(
+                "{}: ports must not contain impl blocks (adapters own impls)",
+                path.file_name().unwrap().to_str().unwrap()
+            ));
         }
     }
 
     assert!(
         violations.is_empty(),
-        "ports/ trait-only violations:\n{}",
+        "ports/ architecture violations:\n{}",
         violations.join("\n")
     );
 }

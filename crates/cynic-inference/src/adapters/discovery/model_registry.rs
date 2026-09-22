@@ -10,10 +10,8 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::{
-    domain::{
-        backend_identity::{BackendCapability, BackendIdentity},
-        model_registry::{ModelBackend, ModelCapability, ModelHealth},
-    },
+    domain::backend_identity::{BackendCapability, BackendIdentity},
+    infra::model_registry::{ModelBackend, ModelCapability, ModelHealth},
     ports::model_registry_port::{ModelRegistryError, ModelRegistryPort},
 };
 

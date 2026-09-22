@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::local_runtime::LocalModelProfile;
-use super::model_layout::ModelLayoutReport;
+use super::model_layout_report::ModelLayoutReport;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

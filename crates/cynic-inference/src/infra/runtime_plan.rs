@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::hardware_profile::{GpuClass, HardwareProfile};
+use crate::domain::hardware_profile::{GpuClass, HardwareProfile};
 
 const INFERENCE_DEVICE_ENV: &str = "CYNIC_INFERENCE_DEVICE";
 

@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::domain::model_layout_report::{ModelLayoutEnvKeys, ModelLayoutReport};
+
 /// Default unit template for native on-demand llama-server instances.
 pub const DEFAULT_UNIT_TEMPLATE: &str = "llama-server@.service";
 
@@ -21,8 +23,7 @@ pub mod env_keys {
     pub const ODS_PROBE_URLS: &str = "CYNIC_ODS_PROBE_URLS";
 }
 
-/// Resolved layout for model artifacts and operator profiles.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelLayout {
     /// Sovereign GGUF (and related weight) store.
     pub vault_dir: PathBuf,
@@ -86,28 +87,7 @@ impl ModelLayout {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelLayoutEnvKeys {
-    pub vault: &'static str,
-    pub profiles: &'static str,
-    pub registry: &'static str,
-    pub unit_template: &'static str,
-    pub hf_bin: &'static str,
-    pub ods_probe_urls: &'static str,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelLayoutReport {
-    pub schema: &'static str,
-    pub vault_dir: String,
-    pub profiles_dir: String,
-    pub registry_path: String,
-    pub hf_cache_dir: String,
-    pub llama_cache_dir: String,
-    pub unit_template: String,
-    pub hf_bin: String,
-    pub env_keys: ModelLayoutEnvKeys,
-}
 
 pub fn resolve_vault_dir() -> PathBuf {
     if let Ok(p) = std::env::var(env_keys::MODEL_VAULT) {
