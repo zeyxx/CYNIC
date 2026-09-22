@@ -4,8 +4,8 @@
 //! adapter behaviour. Uses MemorySecretProvider (no I/O) for determinism.
 
 use cynic_secrets::{
-    SecretClass, SecretProviderKind, SecretProviderPort, SecretReference,
-    adapters::{MemorySecretProvider, ProcessEnvironmentSecretProvider},
+    SecretClass, SecretProviderKind, SecretProviderPort, SecretStorePort, SecretReference,
+    adapters::{EncryptedFileSecretProvider, MemorySecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider},
 };
 
 fn ref_(id: &str, locator: &str, provider: SecretProviderKind) -> SecretReference {
@@ -92,4 +92,87 @@ fn status_reflects_presence() {
     );
     let status_missing = provider.status(&missing);
     assert!(!status_missing.present);
+}
+
+#[test]
+fn file_provider_roundtrip_encrypts_and_decrypts() {
+    let temp = tempfile::tempdir().unwrap();
+    let provider = EncryptedFileSecretProvider::new(temp.path());
+    let r = SecretReference {
+        id: "test-encrypted-secret".to_string(),
+        class: SecretClass::RuntimeMachineIdentity,
+        provider: SecretProviderKind::PrincipalOwnedFile,
+        locator: "test-encrypted-secret".to_string(),
+    };
+    let value = "super-secret-value-98765";
+
+    // Store — encrypts and writes
+    provider.store(&r, value).expect("store should succeed");
+
+    // Resolve — reads, decrypts, returns plaintext
+    let resolved = provider.resolve(&r);
+    assert_eq!(resolved, Some(value.to_string()));
+
+    // Status — present, with mtime
+    let status = provider.status(&r);
+    assert!(status.present);
+    assert!(status.last_rotated_secs.is_some());
+
+    // Delete
+    provider.delete(&r).expect("delete should succeed");
+    let resolved_after = provider.resolve(&r);
+    assert_eq!(resolved_after, None);
+    let status_after = provider.status(&r);
+    assert!(!status_after.present);
+}
+
+#[test]
+fn file_provider_rejects_non_file_references() {
+    let temp = tempfile::tempdir().unwrap();
+    let provider = EncryptedFileSecretProvider::new(temp.path());
+    let r = ref_("test", "TEST_VAR", SecretProviderKind::ProcessEnvironment);
+    assert_eq!(provider.resolve(&r), None);
+}
+
+#[test]
+fn keyring_provider_graceful_when_unavailable() {
+    let provider = OsCredentialStoreSecretProvider::default();
+    let r = ref_(
+        "test-keyring",
+        "test-keyring-id",
+        SecretProviderKind::OsCredentialStore,
+    );
+    // On a headless builder, secret-tool/security are likely absent.
+    // resolve returns None — the composite provider falls back to next.
+    let _ = provider.resolve(&r);
+    let status = provider.status(&r);
+    // status works regardless
+    assert_eq!(status.id, "test-keyring");
+}
+
+#[test]
+fn secret_reference_env_helper_creates_runtime_ref() {
+    let r = SecretReference::env("my-key", "MY_KEY");
+    assert_eq!(r.id, "my-key");
+    assert_eq!(r.class, SecretClass::RuntimeMachineIdentity);
+    assert_eq!(r.provider, SecretProviderKind::ProcessEnvironment);
+    assert_eq!(r.locator, "MY_KEY");
+}
+
+#[test]
+fn env_var_helper_resolves_env_var() {
+    unsafe { std::env::set_var("CYNIC_TEST_HELPER_SECRET", "helper-value-42") };
+    let result = cynic_secrets::env_var("helper-test", "CYNIC_TEST_HELPER_SECRET");
+    assert_eq!(result, Some("helper-value-42".to_string()));
+    unsafe { std::env::remove_var("CYNIC_TEST_HELPER_SECRET") };
+}
+
+#[test]
+fn env_var_present_helper_detects_presence() {
+    unsafe { std::env::remove_var("CYNIC_TEST_PRESENT_VAR") };
+    assert!(!cynic_secrets::env_var_present("test", "CYNIC_TEST_PRESENT_VAR"));
+
+    unsafe { std::env::set_var("CYNIC_TEST_PRESENT_VAR", "set") };
+    assert!(cynic_secrets::env_var_present("test", "CYNIC_TEST_PRESENT_VAR"));
+    unsafe { std::env::remove_var("CYNIC_TEST_PRESENT_VAR") };
 }

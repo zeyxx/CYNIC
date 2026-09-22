@@ -22,7 +22,7 @@ pub use cynic_protocol::secret_reference::{
     SecretClass, SecretProvider as SecretProviderKind, SecretReference,
 };
 // Re-export the port traits and concrete providers from this crate.
-pub use adapters::ProcessEnvironmentSecretProvider;
+pub use adapters::{EncryptedFileSecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider};
 pub use composite::CompositeSecretProvider;
 pub use ports::{SecretProviderPort, SecretStorePort};
 pub use protocol::{SecretEntry, SecretError, SecretStatus};
