@@ -568,7 +568,7 @@ mod tests {
                 "credential": {
                     "id": "porkbun-key",
                     "class": "RuntimeMachineIdentity",
-                    "provider": "ProcessEnvironment",
+                    "provider": "process_environment",
                     "locator": "PORKBUN_API_KEY"
                 }
             },
@@ -577,7 +577,7 @@ mod tests {
                 "credential": {
                     "id": "cf-token",
                     "class": "RuntimeMachineIdentity",
-                    "provider": "PrincipalOwnedFile",
+                    "provider": "principal_owned_file",
                     "locator": "/etc/cynic/secrets/cf-api-token"
                 }
             },

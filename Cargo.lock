@@ -1030,26 +1030,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-inference-runtime"
-version = "0.2.0"
-dependencies = [
- "async-trait",
- "axum",
- "cynic-inference",
- "cynic-protocol",
- "cynic-workload",
- "futures-util",
- "reqwest 0.13.4",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "toml",
- "tracing",
-]
-
-[[package]]
 name = "cynic-intel"
 version = "0.2.0"
 dependencies = [

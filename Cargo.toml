@@ -31,6 +31,7 @@ members = [
     "crates/cynic-pkg",
     "crates/cynic-pool",
     "crates/cynic-askesis",
+    "crates/cynic-domain-ops",
 ]
 resolver = "2"
 
