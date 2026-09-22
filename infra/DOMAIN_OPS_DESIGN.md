@@ -306,40 +306,22 @@ crates/cynic-domain-ops/
 **Acceptance**: `architecture_boundary.rs` enforces zero I/O in `domain/` module.
 Pure functions tested without any adapter.
 
-### Phase 2: Port Traits (cynic-domain-ops)
+### Phase 2: Contract deserialization (cynic-domain-ops) ✅
 
 ```rust
-// port.rs
-pub trait RegistrarPort {
-    fn check_availability(&self, domain: &str) -> DomainAvailability;
-    fn read_nameservers(&self, domain: &str) -> Vec<String>;
-    fn read_zone_records(&self, domain: &str) -> Vec<DnsRecordShape>;
-    fn check_pricing(&self, domain: &str, years: u8) -> PricingInfo;
-    fn register_domain(&self, domain: &str, years: u8, auto_renew: bool) -> RegistrationReceipt;
-    fn update_nameservers(&self, domain: &str, ns_set: &[String]) -> UpdateReceipt;
-    fn export_zone_backup(&self, domain: &str) -> String;  // raw zone export for backup
-}
-
-pub trait CloudflareDnsPort {
-    fn zone_exists(&self, zone: &str) -> bool;
-    fn read_zone_records(&self, zone: &str) -> Vec<DnsRecordShape>;
-    fn create_zone(&self, zone: &str) -> ZoneReceipt;
-    fn upsert_records(&self, zone: &str, records: &[DnsRecordShape], idempotency_key: &str) -> Vec<RecordReceipt>;
-    fn export_zone_backup(&self, zone: &str) -> String;  // backup for read-back
-}
-
-pub trait EdgeProbePort {
-    fn query_authoritative_ns(&self, domain: &str) -> Vec<String>;
-    fn http_probe(&self, fqdn: &str, resolve_to: &str, expected_status: Option<u16>, follow_redirects: bool) -> HttpProbeResult;
-}
-
-pub trait SecretProvider {
-    fn resolve(&self, ref_str: &str) -> Option<String>;  // "env:PORKBUN_API_KEY" or "file:/path"
-}
+// contracts/desired_state.rs
+pub fn parse_desired_state(json: &str) -> Result<DomainOpsDesiredState, DomainOpsError>
+// contracts/proof.rs
+pub fn build_proof(domain, op, status, key, read_back, ts) -> DomainOperationProof
+pub fn proof_to_json(proof) -> Result<String, DomainOpsError>
+pub fn parse_proof(json: &str) -> Result<DomainOperationProof, DomainOpsError>
 ```
 
-**Acceptance**: Port traits are pure (no default impls that do I/O).
-`memory.rs` adapter provides in-memory implementations for tests.
+Implements:
+- `parse_desired_state`: deserialize JSON, validate schema domain provider probes proxy policy
+- `build_proof` / `blocked_proof` / `violation_proof`: construct proof envelopes
+- `proof_to_json` / `parse_proof` / `proof_chain_to_json` / `parse_proof_chain`: proof serialization
+- `DomainOpsError` (thiserror): 7 variants covering schema mismatch, invalid domain, invalid provider config, proxy policy, edge probe, JSON parse, unexpected proof schema
 
 ### Phase 3: HTTP Adapters (cynic-domain-ops)
 
@@ -497,3 +479,175 @@ For each operation, V1 emits machine-readable proof:
 - No verification through recursive resolvers — authoritative NS only
 - No proxy status ambiguity — DNS-only vs proxied decided by pure policy
 - No CNAME conflict — ambiguous multi-record writes refused unless `replace_all`
+
+---
+
+## 7. Crate Ecosystem (V1 + V2)
+
+### 7.1 DAG des crates
+
+```
+cynic-protocol (types purs — DomainOpsDesiredState, DnsRecordShape, proofs)
+│
+├── cynic-domain-ops (logic pur + port traits + runner) [V1]
+│   ├── domain/       transform, reconcile, idempotency
+│   ├── port.rs       RegistrarPort, CloudflareDnsPort, EdgeProbePort, SecretProvider
+│   ├── runner.rs     orchestration: observe → reconcile → act → prove
+│   └── contracts/    desired-state deserialization
+│
+├── cynic-domain-porkbun (registrar adapter — RegistrarPort impl) [V1]
+├── cynic-domain-cloudflare (CF DNS + probe adapter — CloudflareDnsPort, EdgeProbePort impl) [V1]
+├── cynic-domain-askesis (backup → cynic-askesis append-only) [V1]
+│
+├── cynic-domain-pages (CF Pages deploy adapter) [V2]
+├── cynic-domain-redirects (CF Bulk Redirects adapter) [V2]
+├── cynic-domain-proxy-audit (CF proxy status audit/patch) [V2]
+└── cynic-domain-route (reverse-proxy route bootstrap) [V2]
+    │
+    ├── cynic-cli (thin projection: `cynic network domain plan/apply/verify`) [V1]
+    └── cynic-mcp (read-only agent tools: plan, status, verify) [V1]
+```
+
+### 7.2 Crate inventory
+
+| Crate | Hex role | Phase | Dependencies | Key types |
+|---|---|---|---|---|
+| `cynic-protocol` | Pure types | 0 ✅ | (none) | `DomainOpsDesiredState`, `DnsRecordShape`, `DomainOperationProof` |
+| `cynic-domain-ops` | Hex center | 1 ✅ | `cynic-protocol` | `reconcile_zone`, `transform_record_for_cloudflare`, `run_domain_ops` |
+| `cynic-domain-porkbun` | Adapter | 3 | `cynic-domain-ops` | PorkbunApi (reqwest), implements `RegistrarPort` |
+| `cynic-domain-cloudflare` | Adapter | 3 | `cynic-domain-ops`, `cynic-domain-ops/adapters/probe` | CloudflareApi, implements `CloudflareDnsPort` + `EdgeProbePort` |
+| `cynic-domain-askesis` | Adapter | 3 | `cynic-askesis`, `cynic-domain-ops` | `BackupArchiver` — zone backup → append-only proof |
+| `cynic-domain-pages` | Adapter (V2) | — | `cynic-domain-ops` | Cloudflare Pages deploy via Wrangler API |
+| `cynic-domain-redirects` | Adapter (V2) | — | `cynic-domain-ops` | Bulk Redirect desired state + ruleset management |
+| `cynic-domain-proxy-audit` | Adapter (V2) | — | `cynic-domain-ops` | CF proxy status audit + drift patch |
+| `cynic-domain-route` | Adapter (V2) | — | `cynic-domain-ops` | Reverse-proxy route + DNS record creation |
+
+### 7.3 Pourquoi des micro-crates séparés pour les providers ?
+
+`CRATE_MODELS.md` §2(2) + anti-monolithe mandat : chaque provider API = une frontière
+distincte. Un `adapters/porkbun.rs` monolithique dans `cynic-domain-ops` le pousserait
+au-delà de 40k LOC et violerait le ratchet. Les providers évoluent à des rythmes
+différents (Porkbun API v2 vs Cloudflare API v4). Clean-room extraction = compil
+incrémental + test isolation + feature flags par provider.
+
+Les adaptateurs partagent uniquement :
+- `cynic-protocol::domain_ops::*` (types purs)
+- `cynic-domain-ops::port::*` (traits)
+- `serde`, `reqwest`, `serde_json` (dépendances communes)
+
+---
+
+## 8. Lifecycle Client Domain (poste central CYNIC)
+
+### 8.1 Le flux complet — du client au site live verifié
+
+```
+Client request                       CYNIC central workstation
+  │
+  1. intake →                      cynic network domain plan --desired client.json --registry registry.json
+  client_domain desired-state
+  2. plan (read-only)            ← observe: availability, pricing, registrar zone
+                                 ← reconcile: transform for Cloudflare, diff against CF zone
+                                 ← emit: cynic.domain_ops.plan.v1
+  3. consent                     → (operator review: --yes gated)
+  4. apply                        → register domain (paid, --yes)
+                                 → NS cutover (separate --yes gate, rollback captured)
+                                 → zone backup → cynic-askesis
+                                 → migrate zone (idempotency keys)
+                                 → verify TLD delegation
+                                 → verify edge HTTP
+                                 → emit: cynic.domain_ops.proof.v1 chain
+  5. site deploy (V2)           → cynic network domain pages deploy --desired client.json
+  6. redirects (V2)             → cynic network domain redirects apply --desired client.json
+  7. renewal watch              → cynic network domain renewals scan
+                                 → (alerting via notify-send + Telegram)
+  8. ongoing status              ← cynic network domain status --domain example.com
+                                 ← cynic network domain verify --domain example.com
+```
+
+### 8.2 Registry externe — comment CYNIC découvre les providers
+
+`infra/registry.json` est étendu (pas hardcodé) :
+
+```jsonc
+{
+  "domain_providers": {
+    "porkbun": {
+      "api_endpoint": "https://api.porkbun.com/v2",
+      "credential_ref": "env:PORKBUN_API_KEY",
+      "adapter_crate": "cynic-domain-porkbun"
+    },
+    "cloudflare": {
+      "api_endpoint": "https://api.cloudflare.com/client/v4",
+      "credential_ref": "env:CF_API_TOKEN",
+      "adapter_crate": "cynic-domain-cloudflare"
+    }
+  },
+  "domain_projects_dir": "/etc/cynic/domain-projects/",
+  "domain_backup_store": "askesis://domain-ops-backups/"
+}
+```
+
+Le runner lit `--registry <path>` → résout le provider → injecte le bon adapter.
+Aucun IP/host en dur (mandat utilisateur : dynamic registries > hardcode).
+
+### 8.3 Multi-tenant desired-state
+
+Chaque client = un fichier `domain_ops.desired_state.v1` JSON :
+
+```json
+{
+  "schema": "cynic.domain_ops.desired_state.v1",
+  "project_id": "client-restaurant-le-bon-bistrot",
+  "domain": "lebonbistrot-menu.com",
+  "registrar": { "provider": "porkbun", "credential_ref": "env:PORKBUN_API_KEY" },
+  "dns_authority": { "provider": "cloudflare", "credential_ref": "env:CF_API_TOKEN" },
+  "proxy_policy": { "web_records": "proxied", "mail_records": "dns_only",
+                   "verification_records": "dns_only", "dnssec_records": "dns_only" },
+  "dns_records": [
+    { "name": "lebonbistrot-menu.com", "type": "A", "content": "1.2.3.4", "ttl": 300, "proxied": true },
+    { "name": "www.lebonbistrot-menu.com", "type": "CNAME", "content": "lebonbistrot-menu.com", "ttl": 1, "proxied": true },
+    { "name": "mail.lebonbistrot-menu.com", "type": "MX", "content": "mail.titouil.dev", "ttl": 300, "priority": 10, "proxied": false },
+    { "name": "lebonbistrot-menu.com", "type": "TXT", "content": "v=spf1 include:_spf.cloudflare.com ~all", "ttl": 300, "proxied": false }
+  ],
+  "expected_nameservers": ["ns1.cloudflare.com", "ns2.cloudflare.com"],
+  "edge_probes": [
+    { "fqdn": "lebonbistrot-menu.com", "expected_status": 200, "follow_redirects": true },
+    { "fqdn": "www.lebonbistrot-menu.com", "expected_status": 200, "follow_redirects": true }
+  ],
+  "pages_project": { "name": "lebonbistrot-menu", "source_dir": "sites/lebonbistrot-menu/dist" }  // V2
+}
+```
+
+### 8.4 Renewal & lifecycle monitoring
+
+```
+cynic network domain renewals scan --registry infra/registry.json
+  → read all desired-state files from project dir
+  → for each: check_domains_expiry via RegistrarPort
+  → emit: cynic.domain_ops.renewal.v1 (expiry, auto_renew, action_required)
+  → alert: notify-send (local) + Telegram (if telegram_provider configured)
+
+cynic network domain renewals apply --yes --domain <name>
+  → RegistrarPort.renew_domain (paid, --yes gated)
+  → emit: cynic.domain_ops.renewal.v1 proof
+```
+
+### 8.5 Proof pipeline — l'archivage CYNIC
+
+Chaque opération → `DomainOperationProof` JSON → `cynic-askesis` append-only :
+
+```
+cynic-askesis/
+  proofs/
+    domain_ops/
+      example.com/
+        20260922T143000_register.sha3-512:...
+        20260922T143100_ns_update.sha3-512:...
+        20260922T143200_zone_migration.sha3-512:...
+        20260922T143300_delegation.sha3-512:...
+        20260922T143400_edge_probe.sha3-512:...
+```
+
+Le MCP read-back: `cynic_domain_ops_proofs(domain)` → lit depuis cynic-askesis →
+affiche le proof chain sans appeler le provider (évite fausses négatives, rate limits).

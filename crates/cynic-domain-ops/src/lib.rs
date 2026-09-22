@@ -20,7 +20,7 @@ pub mod domain;
 pub mod port;
 pub mod runner;
 
-mod contracts;
+pub mod contracts;
 
 pub use crate::domain::{
     reconcile_zone, transform_record_for_cloudflare, generate_idempotency_key,
@@ -30,6 +30,9 @@ pub use crate::port::{
     CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider,
 };
 pub use crate::runner::run_domain_ops;
+
+// Contract deserialization and proof construction.
+pub use crate::contracts::{DomainOpsError, build_proof, parse_desired_state, proof_to_json};
 
 // Re-export protocol types for convenience.
 pub use cynic_protocol::domain_ops::{
