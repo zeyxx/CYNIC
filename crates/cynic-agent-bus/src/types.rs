@@ -1,4 +1,5 @@
 use ed25519_dalek::VerifyingKey;
+use serde;
 
 /// Agent identity — derived from ed25519 public key (first 16 bytes of BLAKE3 hash).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -25,13 +26,9 @@ pub enum TaskStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TaskKind {
-    SoloFile,
-    SoloCrate,
+    Solo,
     Chain,
     Fanout,
-    MultiPrism,
-    CrossCrate,
-    Organic,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -129,35 +126,12 @@ impl<'de> serde::Deserialize<'de> for Hash32 {
     }
 }
 
-/// 64-byte ed25519 signature.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(pub [u8; 64]);
 
-impl serde::Serialize for Signature {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&hex::encode(self.0))
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Signature {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        let mut arr = [0u8; 64];
-        arr.copy_from_slice(&bytes);
-        Ok(Signature(arr))
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Proof {
-    pub parent_commit: Hash32,
-    pub child_commit: Hash32,
-    pub parent_agent: AgentId,
-    pub child_agent: AgentId,
+    pub parent_task_id: String,
+    pub child_task_id: String,
     pub scope: Scope,
     pub consumed_budget: Budget,
     pub output_hash: Hash32,
     pub timestamp_unix_s: u64,
-    pub signature: Signature,
 }

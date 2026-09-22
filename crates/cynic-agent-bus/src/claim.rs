@@ -105,6 +105,11 @@ impl ClaimManager {
     }
 
     pub async fn claim(&self, task: &Task) -> Result<Claim, String> {
+        let scope_kind = match task.kind {
+            TaskKind::Solo => ScopeKind::File,
+            TaskKind::Chain => ScopeKind::Module,
+            TaskKind::Fanout => ScopeKind::Crate,
+        };
         let claim = Claim {
             claim_id: format!("claim_{}", task.id),
             task_id: task.id.clone(),
@@ -113,7 +118,7 @@ impl ClaimManager {
             budget: task.budget,
             consumed_actions: 0,
             scope: Scope {
-                kind: ScopeKind::File,
+                kind: scope_kind,
                 path: task.subject.clone(),
             },
             acquired_at_unix_s: now_unix_s(),
@@ -157,7 +162,7 @@ mod tests {
             parent_task_id: None,
             created_by: AgentId([0u8; 16]),
             assigned_to: AgentId([1u8; 16]),
-            kind: TaskKind::SoloFile,
+            kind: TaskKind::Solo,
             subject: "src/foo.rs".to_string(),
             body: "edit foo".to_string(),
             status: TaskStatus::Queued,
@@ -186,7 +191,7 @@ mod tests {
             parent_task_id: None,
             created_by: AgentId([0u8; 16]),
             assigned_to: AgentId([1u8; 16]),
-            kind: TaskKind::SoloFile,
+            kind: TaskKind::Solo,
             subject: "src/foo.rs".to_string(),
             body: "edit foo".to_string(),
             status: TaskStatus::Queued,
@@ -205,7 +210,7 @@ mod tests {
             parent_task_id: None,
             created_by: AgentId([0u8; 16]),
             assigned_to: AgentId([2u8; 16]),
-            kind: TaskKind::SoloFile,
+            kind: TaskKind::Solo,
             subject: "src/foo.rs".to_string(),
             body: "edit foo again".to_string(),
             status: TaskStatus::Queued,
