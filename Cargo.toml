@@ -34,6 +34,7 @@ members = [
     "crates/cynic-pkg",
     "crates/cynic-pool",
     "crates/cynic-askesis",
+    "crates/cynic-secrets",
     "crates/cynic-domain-ops",
     "crates/cynic-domain-askesis",
     "crates/cynic-domain-porkbun",

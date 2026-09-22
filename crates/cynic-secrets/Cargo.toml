@@ -1,0 +1,18 @@
+[package]
+name = "cynic-secrets"
+version = "0.2.0"
+edition = "2024"
+authors = ["CYNIC Sovereign Collective"]
+license = "MIT OR Apache-2.0"
+description = "Horizontal secret management layer for all CYNIC crates — resolution, storage, rotation, audit."
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha3 = "0.10"
+thiserror = "2.0"
+zeroize = "1.8"
+
+[dev-dependencies]
+tempfile = "3.27"
