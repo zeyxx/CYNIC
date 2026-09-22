@@ -6,6 +6,7 @@ members = [
     "crates/cynic-discovery-host",
     "crates/cynic-inference",
     "crates/cynic-agent-bus",
+    "crates/cynic-agent-bus-server",
     "crates/cynic-kernel",
     "crates/cynic-node",
     "crates/cynic-host",
