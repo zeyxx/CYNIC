@@ -22,13 +22,14 @@ pub mod runner;
 
 pub mod contracts;
 
+#[cfg(test)]
+pub mod adapters;
+
 pub use crate::domain::{
-    reconcile_zone, transform_record_for_cloudflare, generate_idempotency_key,
-    policy_for_record_type, classify_record,
+    classify_record, generate_idempotency_key, policy_for_record_type, reconcile_zone,
+    transform_record_for_cloudflare,
 };
-pub use crate::port::{
-    CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider,
-};
+pub use crate::port::{CloudflareDnsPort, EdgeProbePort, RegistrarPort, SecretProvider};
 pub use crate::runner::run_domain_ops;
 
 // Contract deserialization and proof construction.
@@ -36,9 +37,8 @@ pub use crate::contracts::{DomainOpsError, build_proof, parse_desired_state, pro
 
 // Re-export protocol types for convenience.
 pub use cynic_protocol::domain_ops::{
-    DnsRecordShape, DnsRecordType, ProxyMode, ProxyPolicy, ZoneRecordDiff,
-    DomainOperation, DomainOperationProof, ProofStatus,
-    DomainOpsDesiredState, ProviderConfig, EdgeProbeSpec,
-    DomainAvailability, RegistrationReceipt, NameserverUpdateReceipt,
-    ZoneMigrationResult, DelegationProof, EdgeProbeResult, SkippedRecord,
+    DelegationProof, DnsRecordShape, DnsRecordType, DomainAvailability, DomainOperation,
+    DomainOperationProof, DomainOpsDesiredState, EdgeProbeResult, EdgeProbeSpec,
+    NameserverUpdateReceipt, ProofStatus, ProviderConfig, ProxyMode, ProxyPolicy,
+    RegistrationReceipt, SkippedRecord, ZoneMigrationResult, ZoneRecordDiff,
 };
