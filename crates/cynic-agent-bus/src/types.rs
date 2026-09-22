@@ -81,6 +81,18 @@ pub enum ClaimStatus {
     Blocked,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ClaimError {
+    #[error("claim {0} already exists")]
+    AlreadyExists(String),
+    #[error("claim {0} not found")]
+    NotFound(String),
+    #[error("scope {0} is locked by another task")]
+    ScopeLocked(String),
+    #[error("budget exhausted for claim {0}")]
+    BudgetExhausted(String),
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Scope {
     pub kind: ScopeKind,
