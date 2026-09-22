@@ -229,7 +229,7 @@ fn load_backends_legacy(path: &Path) -> Vec<BackendConfig> {
 pub fn load_backends_from_env() -> Vec<BackendConfig> {
     let mut configs = Vec::new();
 
-    if let Ok(api_key) = std::env::var("GEMINI_API_KEY") {
+    if let Some(api_key) = cynic_secrets::env_var("gemini-api-key", "GEMINI_API_KEY") {
         let model =
             std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string());
         let base_url = "https://generativelanguage.googleapis.com/v1beta/openai".to_string();

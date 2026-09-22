@@ -1,15 +1,11 @@
 pub mod agent_session;
 pub mod constants;
 pub mod events;
-pub mod health_gate;
 pub mod metabolism;
 pub mod metrics;
 pub mod node_control;
 pub mod node_enrollment;
 pub mod pattern_analysis;
 pub mod probe;
-pub mod proof;
 pub mod sanitize;
-pub mod storage;
-pub mod usage;
 pub mod zones;
