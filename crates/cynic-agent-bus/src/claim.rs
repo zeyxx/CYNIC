@@ -13,9 +13,8 @@ pub trait ClaimStore: Send + Sync {
     async fn find_by_scope(&self, path: &str) -> Vec<Claim>;
 }
 
-
 pub struct InMemoryClaimStore {
-    claims: Arc<Mutex<HashMap<String, Claim>>>,
+    pub claims: Arc<Mutex<HashMap<String, Claim>>>,
 }
 
 impl InMemoryClaimStore {
@@ -25,16 +24,13 @@ impl InMemoryClaimStore {
         }
     }
 
-    /// Check if a scope overlaps with any active claim.
     fn scope_overlap(existing: &Scope, new: &Scope) -> bool {
         match (&existing.kind, &new.kind) {
             (ScopeKind::File, ScopeKind::File) => existing.path == new.path,
             (ScopeKind::Module, ScopeKind::Module) => existing.path == new.path,
             (ScopeKind::Crate, ScopeKind::Crate) => existing.path == new.path,
-            // Crate scope locks everything inside it
             (ScopeKind::Crate, _) => new.path.starts_with(&existing.path),
             (_, ScopeKind::Crate) => existing.path.starts_with(&new.path),
-            // Module scope locks files inside it
             (ScopeKind::Module, ScopeKind::File) => new.path.starts_with(&existing.path),
             (ScopeKind::File, ScopeKind::Module) => existing.path.starts_with(&new.path),
         }
@@ -45,13 +41,9 @@ impl InMemoryClaimStore {
 impl ClaimStore for InMemoryClaimStore {
     async fn acquire(&self, claim: Claim) -> Result<(), String> {
         let mut claims = self.claims.lock().await;
-
-        // Check for duplicate claim_id
         if claims.contains_key(&claim.claim_id) {
             return Err(format!("claim {} already exists", claim.claim_id));
         }
-
-        // Check for scope conflicts with active claims
         for existing in claims.values() {
             if matches!(existing.status, ClaimStatus::Active) {
                 if Self::scope_overlap(&existing.scope, &claim.scope) {
@@ -62,7 +54,6 @@ impl ClaimStore for InMemoryClaimStore {
                 }
             }
         }
-
         claims.insert(claim.claim_id.clone(), claim);
         Ok(())
     }
@@ -72,11 +63,9 @@ impl ClaimStore for InMemoryClaimStore {
         let claim = claims
             .get_mut(claim_id)
             .ok_or_else(|| ClaimError::NotFound(claim_id.to_string()))?;
-
         if matches!(claim.status, ClaimStatus::Released) {
             return Err(ClaimError::NotFound(claim_id.to_string()));
         }
-
         claim.status = ClaimStatus::Released;
         Ok(())
     }
@@ -106,9 +95,8 @@ impl ClaimStore for InMemoryClaimStore {
     }
 }
 
-/// Claim lifecycle manager — coordinates claim acquisition, budget tracking, and release.
 pub struct ClaimManager {
-    store: Arc<dyn ClaimStore>,
+    pub store: Arc<dyn ClaimStore>,
 }
 
 impl ClaimManager {
@@ -116,7 +104,6 @@ impl ClaimManager {
         Self { store }
     }
 
-    /// Acquire a claim for a task. Validates scope is not locked.
     pub async fn claim(&self, task: &Task) -> Result<Claim, String> {
         let claim = Claim {
             claim_id: format!("claim_{}", task.id),
@@ -126,29 +113,25 @@ impl ClaimManager {
             budget: task.budget,
             consumed_actions: 0,
             scope: Scope {
-                kind: ScopeKind::File, // Default, can be overridden
+                kind: ScopeKind::File,
                 path: task.subject.clone(),
             },
             acquired_at_unix_s: now_unix_s(),
-            ttl_seconds: 1800, // 30 minutes default
+            ttl_seconds: 1800,
             parent_claim_id: None,
         };
-
         self.store.acquire(claim.clone()).await?;
         Ok(claim)
     }
 
-    /// Release a claim when task completes or fails.
     pub async fn release(&self, claim_id: &str) -> Result<(), ClaimError> {
         self.store.release(claim_id).await
     }
 
-    /// Check if a claim has budget remaining.
     pub fn has_budget(&self, claim: &Claim) -> bool {
         claim.consumed_actions < claim.budget.actions
     }
 
-    /// Record an action consumed by a claim.
     pub fn consume_action(&self, claim: &mut Claim) {
         claim.consumed_actions += 1;
     }
@@ -169,7 +152,6 @@ mod tests {
     async fn claim_acquire_and_release() {
         let store = Arc::new(InMemoryClaimStore::new());
         let manager = ClaimManager::new(store);
-
         let task = Task {
             id: "t1".to_string(),
             parent_task_id: None,
@@ -184,13 +166,14 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget { actions: 10, wall_seconds: 60 },
+            budget: Budget {
+                actions: 10,
+                wall_seconds: 60,
+            },
         };
-
         let claim = manager.claim(&task).await.unwrap();
         assert_eq!(claim.claim_id, "claim_t1");
         assert_eq!(claim.status, ClaimStatus::Active);
-
         manager.release("claim_t1").await.unwrap();
     }
 
@@ -198,7 +181,6 @@ mod tests {
     async fn claim_scope_conflict() {
         let store = Arc::new(InMemoryClaimStore::new());
         let manager = ClaimManager::new(store);
-
         let task1 = Task {
             id: "t1".to_string(),
             parent_task_id: None,
@@ -213,9 +195,11 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget { actions: 10, wall_seconds: 60 },
+            budget: Budget {
+                actions: 10,
+                wall_seconds: 60,
+            },
         };
-
         let task2 = Task {
             id: "t2".to_string(),
             parent_task_id: None,
@@ -230,9 +214,11 @@ mod tests {
             created_at_unix_s: 0,
             updated_at_unix_s: 0,
             expires_at_unix_s: 0,
-            budget: Budget { actions: 10, wall_seconds: 60 },
+            budget: Budget {
+                actions: 10,
+                wall_seconds: 60,
+            },
         };
-
         manager.claim(&task1).await.unwrap();
         let result = manager.claim(&task2).await;
         assert!(result.is_err());
