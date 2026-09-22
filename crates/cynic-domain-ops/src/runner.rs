@@ -186,12 +186,7 @@ pub fn run_domain_ops(
         Vec::new()
     };
 
-    // ── 4. Reconcile (pure): diff desired vs Cloudflare ──────────────────────
-    let desired_records = if desired.zone_records.is_empty() {
-        &registrar_records
-    } else {
-        &desired.zone_records
-    };
+    // ── 4. Reconcile (pure): diff desired vs Cloudflare ────────────────────
     let diff = reconcile_zone(desired_records, &cf_records, &desired.proxy_policy);
 
     // ── 5. Bounded action (gated by apply + ns_cutover_confirmed) ─────────

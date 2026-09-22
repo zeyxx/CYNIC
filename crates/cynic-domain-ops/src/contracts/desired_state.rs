@@ -9,8 +9,8 @@
 //! must pass through `parse_desired_state` before reaching the runner.
 
 use cynic_protocol::domain_ops::{
-    DOMAIN_OPS_DESIRED_STATE_SCHEMA, DomainOpsDesiredState, EdgeProbeSpec, ProxyPolicy,
-    ProviderConfig,
+    DOMAIN_OPS_DESIRED_STATE_SCHEMA, DomainOpsDesiredState, EdgeProbeSpec, ProviderConfig,
+    ProxyPolicy,
 };
 
 use super::error::DomainOpsError;
@@ -82,9 +82,7 @@ fn validate_provider_config(config: &ProviderConfig, field: &str) -> Result<(), 
 /// Validate an edge probe specification.
 fn validate_edge_probe(probe: &EdgeProbeSpec) -> Result<(), DomainOpsError> {
     if probe.fqdn.trim().is_empty() {
-        return Err(DomainOpsError::EdgeProbe(format!(
-            "probe fqdn is empty"
-        )));
+        return Err(DomainOpsError::EdgeProbe(format!("probe fqdn is empty")));
     }
 
     // FQDN must be a valid domain or subdomain (strip trailing dot if present)
@@ -108,7 +106,10 @@ fn validate_proxy_policy(policy: &ProxyPolicy) -> Result<(), DomainOpsError> {
     // mail_records, verification_records, dnssec_records (they can never
     // actually be proxied by Cloudflare). We warn but don't reject —
     // the resolver will silently downgrade them.
-    if matches!(policy.mail_records, cynic_protocol::domain_ops::ProxyMode::Proxied) {
+    if matches!(
+        policy.mail_records,
+        cynic_protocol::domain_ops::ProxyMode::Proxied
+    ) {
         return Err(DomainOpsError::ProxyPolicy(
             "mail_records cannot be Proxied (Cloudflare does not proxy MX)".to_string(),
         ));
@@ -123,7 +124,10 @@ fn validate_proxy_policy(policy: &ProxyPolicy) -> Result<(), DomainOpsError> {
         ));
     }
 
-    if matches!(policy.dnssec_records, cynic_protocol::domain_ops::ProxyMode::Proxied) {
+    if matches!(
+        policy.dnssec_records,
+        cynic_protocol::domain_ops::ProxyMode::Proxied
+    ) {
         return Err(DomainOpsError::ProxyPolicy(
             "dnssec_records cannot be Proxied (DS/CAA are DNS-only)".to_string(),
         ));
@@ -181,7 +185,8 @@ mod tests {
                     "preserve_path": false
                 }
             ]
-        }"#.to_string()
+        }"#
+        .to_string()
     }
 
     #[test]
@@ -270,7 +275,10 @@ mod tests {
     #[test]
     fn rejects_proxied_mail_policy() {
         let mut json = valid_desired_state_json();
-        json = json.replace("\"mail_records\": \"dns_only\"", "\"mail_records\": \"proxied\"");
+        json = json.replace(
+            "\"mail_records\": \"dns_only\"",
+            "\"mail_records\": \"proxied\"",
+        );
         let result = parse_desired_state(&json);
         assert!(result.is_err());
         match &result.unwrap_err() {
