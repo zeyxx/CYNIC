@@ -129,8 +129,8 @@ mod tests {
 
     #[test]
     fn override_takes_precedence() {
-        std::env::set_var("CYNIC_NODE_ID", "test-node-override");
+        unsafe { std::env::set_var("CYNIC_NODE_ID", "test-node-override") };
         assert_eq!(stable_node_id(), "test-node-override");
-        std::env::remove_var("CYNIC_NODE_ID");
+        unsafe { std::env::remove_var("CYNIC_NODE_ID") };
     }
 }
