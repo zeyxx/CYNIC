@@ -8,6 +8,7 @@ use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 mod actuator;
 mod base;
 mod dns;
+mod domain;
 mod mesh;
 mod provider_fallback;
 
@@ -134,9 +135,15 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         audit: bool,
     },
+    /// External domain registration and DNS management (Porkbun + Cloudflare).
+    Domain {
+        #[command(subcommand)]
+        command: NetworkDomainCommand,
+    },
 }
 
 pub(crate) use dns::NetworkDnsCommand;
+pub(crate) use domain::NetworkDomainCommand;
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkMeshCommand {
@@ -283,6 +290,7 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         .or_else(|cmd| dns::try_execute_dns(cmd, &runtime))
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
         .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
+        .or_else(|cmd| domain::try_execute_domain(cmd, &runtime))
         .unwrap_or_else(|cmd| match actuator::try_execute_actuator(cmd) {
             Ok(code) => code,
             Err(_) => unreachable!("all network commands must be handled"),

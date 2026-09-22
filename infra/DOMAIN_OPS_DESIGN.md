@@ -346,7 +346,7 @@ Implements:
 **Acceptance**: All adapters implement ports. No adapter logic in domain module.
 `architecture_boundary.rs` enforces adapters are the only I/O layer.
 
-### Phase 4: Runner (cynic-domain-ops)
+### Phase 4: Runner ✅ (cynic-domain-ops)
 
 `runner.rs` orchestrates the full chain:
 
@@ -375,7 +375,7 @@ parameters — the domain layer never decides to cut over NS without consent.
 **Acceptance**: End-to-end test with memory adapters produces correct proof chain.
 Architecture boundary test passes.
 
-### Phase 5: CLI Projection (cynic-cli)
+### Phase 5: CLI Projection ✅ (cynic-cli)
 
 New subcommands nested under `cynic network domain`:
 
