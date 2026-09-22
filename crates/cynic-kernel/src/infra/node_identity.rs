@@ -6,8 +6,6 @@
 
 use blake3::Hasher;
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use rand::Rng;
-use rand::rngs::OsRng;
 use std::path::PathBuf;
 
 const IDENTITY_DIR: &str = "node-identity";
@@ -57,7 +55,7 @@ fn generate_and_save(path: &std::path::Path) -> SigningKey {
     let _ = std::fs::create_dir_all(dir);
 
     let mut seed = [0u8; 32];
-    OsRng.fill(&mut seed);
+    getrandom::getrandom(&mut seed).expect("getrandom: failed to generate seed");
     let keypair = SigningKey::from_bytes(&seed);
 
     match std::fs::write(path, keypair.to_bytes()) {

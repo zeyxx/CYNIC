@@ -10,8 +10,7 @@ pub mod loading;
 pub mod model;
 
 pub use loading::{
-    derive_slots_url, load_backends, load_backends_from_env, load_dog_thresholds,
-    load_organ_remediations, load_storage_config, load_system_contract,
+    derive_slots_url, load_backends, load_backends_from_env, load_organ_remediations,
 };
 pub use model::{
     AuthStyle, BackendConfig, BackendRemediation, BackendType, CircuitBreakerConfig,
