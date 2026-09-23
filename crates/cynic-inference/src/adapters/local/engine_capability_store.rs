@@ -199,8 +199,7 @@ mod tests {
         assert_eq!(
             caps.preflight_decision("nonexistent"),
             PreflightDecision::Reject {
-                reason: "arch 'nonexistent' never observed and not in fallback; launch required"
-                    .into(),
+                reason: "arch 'nonexistent' never observed on /usr/local/bin/llama-server".into(),
             }
         );
     }

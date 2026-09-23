@@ -67,6 +67,9 @@ impl EngineCapabilities {
         if let Some(obs) = self.observed_arches.get(arch) {
             return ArchStatus::Observed(*obs);
         }
+        if static_fallback_arches().contains(&arch) {
+            return ArchStatus::Fallback;
+        }
         ArchStatus::Unknown
     }
 

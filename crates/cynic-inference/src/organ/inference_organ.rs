@@ -12,7 +12,7 @@ use cynic_protocol::{DogStats, ScoreOutcome};
 /// InferenceOrgan — owns the registry of Dog backends and tracks their health.
 #[derive(Debug)]
 pub struct InferenceOrgan {
-    entries: HashMap<BackendId, BackendHandle>,
+    pub(crate) entries: HashMap<BackendId, BackendHandle>,
 }
 
 impl InferenceOrgan {
