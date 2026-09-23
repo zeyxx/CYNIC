@@ -149,7 +149,7 @@ impl MeshAdapter for WireguardAdapter {
 mod tests {
     use super::*;
     use crate::domain::mesh::PeerIdentity;
-    use cynic_protocol::network::{MeshRole, canonical_provider_for_role};
+    use cynic_network::{MeshRole, canonical_provider_for_role};
 
     fn peer(key: &str, ip: &str, endpoint: Option<&str>) -> PeerIdentity {
         PeerIdentity {

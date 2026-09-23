@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use cynic_network::FreeboxProbePort;
-use cynic_protocol::{FREEBOX_LAN_OBSERVATION_SCHEMA, FreeboxHostEntry, FreeboxLanObservation};
+use cynic_network::{FREEBOX_LAN_OBSERVATION_SCHEMA, FreeboxHostEntry, FreeboxLanObservation};
 use hmac::{Hmac, Mac};
 use serde_json::Value;
 use sha1::Sha1;

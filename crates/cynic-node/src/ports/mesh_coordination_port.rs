@@ -13,13 +13,13 @@
 //! overlay.
 //!
 //! Sovereignty is enforced one layer up by
-//! `cynic_protocol::network::admit_mesh_provider`: an implementor whose control
+//! `cynic_network::admit_mesh_provider`: an implementor whose control
 //! plane is SaaS is refused before it reaches this port, so nothing here needs
 //! to re-check it. Today the only admitted implementor is self-hosted Headscale
 //! (LXC 100, `10.10.10.40:8080` — `/health` 200, `/api/v1/node` 401, i.e. alive
 //! and authenticating).
 
-use cynic_protocol::network::{MeshRole, MeshSovereignty};
+use cynic_network::{MeshRole, MeshSovereignty};
 
 /// One member as the coordination provider sees it.
 ///
@@ -97,7 +97,7 @@ impl std::error::Error for MeshCoordinationError {}
 /// the registry respectively.
 pub trait MeshCoordinationPort {
     /// Provider name, matching a `provider` in
-    /// `cynic_protocol::network::mesh_provider_bindings`.
+    /// `cynic_network::mesh_provider_bindings`.
     fn provider(&self) -> String;
 
     /// Always `MeshRole::Coordination` for this port. Stated so a misfiled

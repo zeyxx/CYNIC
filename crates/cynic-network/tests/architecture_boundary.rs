@@ -40,3 +40,32 @@ fn network_domain_has_zero_direct_io_network_calls() {
         "cynic-network core domain must not depend on reqwest HTTP client directly (Hexagonal SoC)"
     );
 }
+
+#[test]
+fn network_extracted_domain_is_pure_zero_io() {
+    let domain_files = [
+        "src/types.rs",
+        "src/transport_readback.rs",
+    ];
+    for rel_path in &domain_files {
+        let path = network_crate_root().join(rel_path);
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read {:?}: {}", path, e));
+
+        assert!(
+            !content.contains("std::process::Command"),
+            "Pure Domain Violation: {} contains direct std::process::Command!",
+            rel_path
+        );
+        assert!(
+            !content.contains("reqwest"),
+            "Pure Domain Violation: {} contains network HTTP dependencies!",
+            rel_path
+        );
+        assert!(
+            !content.contains("tokio::spawn"),
+            "Pure Domain Violation: {} spawns async runtimes inside pure domain!",
+            rel_path
+        );
+    }
+}

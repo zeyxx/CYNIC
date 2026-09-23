@@ -20,8 +20,9 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use cynic_network::TransportReadback;
 use cynic_protocol::{
-    LivenessObservation, MemberStatus, MembershipPolicy, MembershipPolicyState, TransportReadback,
+    LivenessObservation, MemberStatus, MembershipPolicy, MembershipPolicyState,
     membership_liveness_transition,
 };
 
@@ -342,7 +343,8 @@ pub async fn run_membership_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{TransportKind, TransportState};
+    use cynic_network::TransportReadback;
+use cynic_protocol::{TransportKind, TransportState};
     use std::sync::Mutex;
 
     struct FixtureTransport(Vec<TransportReadback>);

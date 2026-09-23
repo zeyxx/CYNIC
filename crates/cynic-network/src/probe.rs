@@ -1,5 +1,5 @@
 //! Pure network parsers (no I/O). Each takes a captured substrate string and
-//! returns typed layers of `cynic_protocol::network`. Tests use deterministic
+//! returns typed layers of `types`. Tests use deterministic
 //! fixtures, not host reads — the layer owns the parser, not the substrate.
 
 use crate::types::{InterfacePressure, InterfaceUsage, NetworkAddress, NetworkRoute};

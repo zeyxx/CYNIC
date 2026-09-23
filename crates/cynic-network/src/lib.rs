@@ -1,7 +1,7 @@
 //! Network observation domain (4-layer: physical / volume / usage / pressure).
 //!
 //! Pure parsers live in `probe`; the observe port is in `port`; canonical
-//! types are re-exported from `cynic_protocol::network` so host-domain code
+//! types are re-exported from `types` so host-domain code
 //! has a stable path (`crate::domain::network::*`) without duplicating policy.
 pub mod actuator;
 pub mod discovery;
@@ -13,6 +13,7 @@ pub mod port;
 pub mod probe;
 pub mod registry_maintenance;
 pub mod telemetry;
+pub mod transport_readback;
 pub mod types;
 pub mod watchdog_alerter;
 
@@ -24,6 +25,7 @@ pub use freebox::FreeboxProbePort;
 pub use mesh_plan::*;
 pub use registry_maintenance::*;
 pub use telemetry::*;
+pub use transport_readback::*;
 pub use types::*;
 
 pub use port::NetworkObservationPort;

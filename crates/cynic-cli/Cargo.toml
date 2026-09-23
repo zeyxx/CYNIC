@@ -22,6 +22,7 @@ cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
+cynic-network = { path = "../cynic-network" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
 cynic-askesis = { path = "../cynic-askesis" }

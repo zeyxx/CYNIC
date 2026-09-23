@@ -1,7 +1,8 @@
 //! Network watchdog alert reconciliation to NotificationOutbox.
 
+use crate::types::{NetworkAlertLevel, NetworkWatchdogAssessment};
 use cynic_protocol::{
-    NOTIFICATION_OUTBOX_ENTRY_SCHEMA, NetworkAlertLevel, NetworkWatchdogAssessment,
+    NOTIFICATION_OUTBOX_ENTRY_SCHEMA, 
     NotificationChannel, NotificationContentClassification, NotificationDeliveryStatus,
     NotificationOutboxEntry, NotificationReferencedEvent, NotificationReferencedEventKind,
 };
@@ -72,14 +73,15 @@ pub fn reconcile_network_watchdog_outbox(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
-        DnsSynapseAssessment, NetworkAlert, NetworkAlertLevel, WireguardMeshAssessment,
+    use crate::types::{
+        DnsSynapseAssessment, NETWORK_WATCHDOG_ASSESSMENT_SCHEMA, NetworkAlert,
+        NetworkAlertLevel, NetworkWatchdogAssessment, WireguardMeshAssessment,
     };
 
     #[test]
     fn assessment_with_alerts_generates_valid_outbox_entries() {
         let assessment = NetworkWatchdogAssessment {
-            schema: cynic_protocol::NETWORK_WATCHDOG_ASSESSMENT_SCHEMA.to_string(),
+            schema: NETWORK_WATCHDOG_ASSESSMENT_SCHEMA.to_string(),
             status: "critical".to_string(),
             level: NetworkAlertLevel::Critical,
             wireguard_mesh: WireguardMeshAssessment {
@@ -122,7 +124,7 @@ mod tests {
     #[test]
     fn assessment_without_alerts_generates_empty_outbox() {
         let assessment = NetworkWatchdogAssessment {
-            schema: cynic_protocol::NETWORK_WATCHDOG_ASSESSMENT_SCHEMA.to_string(),
+            schema: NETWORK_WATCHDOG_ASSESSMENT_SCHEMA.to_string(),
             status: "ok".to_string(),
             level: NetworkAlertLevel::Ok,
             wireguard_mesh: WireguardMeshAssessment {

@@ -16,9 +16,9 @@ use crate::adapters::remote_network::RemoteNetworkAdapter;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
-use cynic_protocol::network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
+use cynic_network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
 
-use cynic_protocol::network::{
+use cynic_network::{
     DnsSynapseAssessment, FLEET_WATCHDOG_REPORT_SCHEMA, FleetWatchdogReport, FreeboxLanObservation,
     NetworkAlert, NetworkAlertLevel, ServicePortAssessment, WireguardMeshAssessment,
 };

@@ -1,12 +1,12 @@
 //! WireGuard read-back adapter (L4) — observes `wg show <iface> dump` through
 //! the injected [`ArgvRunner`] port and projects typed
-//! [`TransportReadback`](cynic_protocol::TransportReadback) reports.
+//! [`TransportReadback`](cynic_network::TransportReadback) reports.
 //!
 //! No raw `std::process::Command` here: tests inject fixture runners, prod
 //! injects [`LocalArgvRunner`]. The adapter is disposable; the typed proof is
 //! durable. Authority: `protocols/machine-enrollment-federation.md` step 2.
 
-use cynic_protocol::{
+use cynic_network::{
     TRANSPORT_FLEET_READBACK_SCHEMA, TRANSPORT_READBACK_SCHEMA, TransportFleetReadback,
     TransportKind, TransportReadback, TransportState, parse_wg_dump,
 };
@@ -86,7 +86,7 @@ impl<'a> WgReadbackObserver<'a> {
                 },
                 None => match peers.iter().find(|p| p.public_key == want.public_key) {
                     Some(peer) => {
-                        let mut rb = cynic_protocol::readback_from_wg_peer(
+                        let mut rb = cynic_network::readback_from_wg_peer(
                             &want.node_id,
                             peer,
                             now_unix_ms,

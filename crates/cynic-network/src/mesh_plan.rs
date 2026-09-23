@@ -2,7 +2,7 @@
 //! Clean-room extracted from cynic-node to cynic-network per Foundation §481 (SoC).
 //! Pure transformation: (MeshRegistry) -> NetworkMeshPlan. Zero I/O, zero network calls.
 
-use cynic_protocol::{
+use crate::types::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
 };

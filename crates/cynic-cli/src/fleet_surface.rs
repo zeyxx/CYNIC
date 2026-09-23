@@ -321,7 +321,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
 
             let wg_observer = cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
             let wg_obs = wg_observer.observe("wg0", 150, 200);
-            let wireguard = cynic_protocol::network::WireguardMeshAssessment {
+            let wireguard = cynic_network::WireguardMeshAssessment {
                 total_peers: wg_obs.peers.len(),
                 ok_peers: wg_obs.ok_count,
                 stale_peers: wg_obs.stale_count,
@@ -329,7 +329,7 @@ pub(crate) fn execute_fleet(command: FleetCommand) -> ExitCode {
                 never_seen_peers: wg_obs.unknown_count,
             };
 
-            let dns = cynic_protocol::network::DnsSynapseAssessment {
+            let dns = cynic_network::DnsSynapseAssessment {
                 zone: "synapse.cynic".to_string(),
                 total_records: 4,
                 resolved_records: 4,

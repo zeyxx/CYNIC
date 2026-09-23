@@ -11,7 +11,7 @@
 //! Sovereignty: the control plane is self-hosted (LXC 100, `10.10.10.40:8080`,
 //! observed 2026-08-20: `/health` 200, `/api/v1/node` 401 — alive and
 //! authenticating). That is what distinguishes it from Tailscale SaaS, which
-//! `cynic_protocol::network::admit_mesh_provider` refuses by type. The client
+//! `cynic_network::admit_mesh_provider` refuses by type. The client
 //! protocol is not the problem; a third-party control plane is.
 //!
 //! It must remain bounded to provider-specific coordination and must never
@@ -23,8 +23,8 @@ use crate::ports::mesh_coordination_port::{
 use cynic_host::process_observation::capture_command;
 use cynic_host::runtime_layout::current_runtime_layout;
 #[cfg(test)]
-use cynic_protocol::network::MeshRole;
-use cynic_protocol::network::MeshSovereignty;
+use cynic_network::MeshRole;
+use cynic_network::MeshSovereignty;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn the_adapter_matches_its_protocol_binding() {
         let adapter = HeadscaleAdapter::new("http://10.10.10.40:8080");
-        let binding = cynic_protocol::network::admit_mesh_provider(&adapter.provider())
+        let binding = cynic_network::admit_mesh_provider(&adapter.provider())
             .expect("self-hosted headscale must be admitted");
         assert_eq!(binding.role, adapter.role());
         assert_eq!(binding.sovereignty, adapter.sovereignty());
