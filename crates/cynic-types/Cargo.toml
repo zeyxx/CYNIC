@@ -1,0 +1,23 @@
+[package]
+name = "cynic-types"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Layer 0 atomic types: AgentId, Hash32, Budget, Scope, TaskId, Timestamp"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+ed25519-dalek = "2"
+hex = "0.4"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"
+
+[features]
+default = []
