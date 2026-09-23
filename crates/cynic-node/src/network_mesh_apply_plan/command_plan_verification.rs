@@ -1,4 +1,4 @@
-use cynic_protocol::NETWORK_MESH_PLAN_SCHEMA;
+use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
 
 use std::path::Path;
 

@@ -4,7 +4,6 @@
 //! No I/O, no adapters. Adapters live in `cynic-intel-adapters`.
 
 pub mod aggregator;
-pub mod contribution;
 pub mod decay;
 pub mod merkle;
 pub mod metrics;

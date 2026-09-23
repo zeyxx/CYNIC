@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use cynic_host::domain::network::freebox::FreeboxProbePort;
 use cynic_host::domain::network::reconcile_network_watchdog_outbox;
-use cynic_protocol::{
+use cynic_network::{
     DnsSynapseAssessment, InterfacePressure, NetworkAlertLevel, NetworkWatchdogAssessment,
     ServicePortAssessment, WireguardMeshAssessment, evaluate_network_watchdog,
 };

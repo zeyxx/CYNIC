@@ -10,7 +10,7 @@
 //!
 //! Authority: `protocols/machine-enrollment-federation.md` step 3 wiring.
 
-use cynic_protocol::{TRANSPORT_READBACK_SCHEMA, TransportKind, TransportReadback, TransportState};
+use cynic_network::{TRANSPORT_READBACK_SCHEMA, TransportKind, TransportReadback, TransportState};
 
 use crate::usecases::federation_membership_uc::MembershipTransportPort;
 

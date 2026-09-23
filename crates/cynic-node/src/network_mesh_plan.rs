@@ -3,8 +3,8 @@ use std::path::Path;
 use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
 use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
 #[cfg(test)]
-use cynic_protocol::NETWORK_MESH_PLAN_SCHEMA;
-use cynic_protocol::NetworkMeshPlan;
+use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
+use cynic_network::NetworkMeshPlan;
 
 pub(crate) mod model;
 #[cfg(kani)]
