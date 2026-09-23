@@ -37,3 +37,22 @@ fn forensics_probe_is_pure_zero_io() {
         );
     }
 }
+
+#[test]
+fn forensics_types_is_pure_zero_io() {
+    let types_rs =
+        fs::read_to_string(forensics_crate_root().join("src/types.rs")).expect("read types.rs");
+
+    let forbidden_io_patterns = [
+        "std::process::Command",
+        "reqwest",
+        "tokio::spawn",
+        "std::net::TcpStream",
+    ];
+    for pattern in &forbidden_io_patterns {
+        assert!(
+            !types_rs.contains(pattern),
+            "Architecture violation: cynic-forensics::types must be 100% pure Zero-I/O (found {pattern})"
+        );
+    }
+}
