@@ -1,27 +1,27 @@
 //! Pure reconciliation engine for source worktree convergence.
 //!
 //! Transforms read-only inventory observations into deterministic, bounded convergence plans.
-//! Strictly zero I/O and zero LLM dependency; delegates to `cynic_protocol::source_worktree`.
+//! Strictly zero I/O and zero LLM dependency; delegates to `crate::source_worktree`.
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::source_worktree::{
+use crate::source_worktree::{
     ObservedWorktreeSnapshot, WorktreeConvergencePlan, reconcile_worktree_convergence_pure,
 };
-use cynic_protocol::{SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation};
+use crate::{SourceWorktreeInventoryEntryState, SourceWorktreeInventoryObservation};
 
 /// Reconciles observed worktrees against desired main head.
 pub fn reconcile_source_worktrees(
     repository_root: &Path,
     inventory: &SourceWorktreeInventoryObservation,
     main_head_sha: &str,
-    active_claims_count: usize,
+    _active_claims_count: usize,
 ) -> WorktreeConvergencePlan {
     let mut snapshots = Vec::new();
 
     for entry in &inventory.entries {
         let is_active_root = entry.path_basis
-            == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
+            == crate::SourceWorktreeInventoryPathBasis::MainRepository
             || entry.relative_path.as_deref() == Some(".")
             || entry.relative_path.as_deref() == Some("")
             || entry.candidate_id == "cynic";
@@ -82,14 +82,14 @@ pub fn reconcile_source_worktrees(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::source_worktree::WorktreeConvergenceAction;
-    use cynic_protocol::{SourceWorktreeInventoryEntry, SourceWorktreeInventoryPathBasis};
+    use crate::source_worktree::WorktreeConvergenceAction;
+    use crate::{SourceWorktreeInventoryEntry, SourceWorktreeInventoryPathBasis};
 
     #[test]
     fn reconciles_prunable_worktree_into_prune_action() {
         let repo_root = Path::new("/var/lib/cynic/repo");
         let inventory = SourceWorktreeInventoryObservation {
-            schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+            schema: crate::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
             repository_id: "cynic".to_string(),
             node_id: "node-1".to_string(),
             observed_at_ms: 1700000000000,

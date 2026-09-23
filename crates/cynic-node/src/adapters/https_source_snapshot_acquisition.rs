@@ -4,7 +4,7 @@ use std::{
 };
 
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::SOURCE_MATERIALIZATION_FORMAT;
+use cynic_vcs::SOURCE_MATERIALIZATION_FORMAT;
 
 use crate::{
     adapters::source_snapshot_store::{digest_name, regular_file_without_symlink, verify_snapshot},

@@ -1,5 +1,6 @@
+use cynic_vcs::DevelopmentGenesisBuildPlan;
 use cynic_protocol::{
-    DevelopmentGenesisBuildPlan, NodeExecutionMode, NodeExecutionSurface,
+    NodeExecutionMode, NodeExecutionSurface,
     node_execution_mode_allows,
 };
 use std::{collections::BTreeMap, path::Path, time::Duration};
@@ -207,7 +208,7 @@ pub async fn execute_bootstrap_seed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::development_genesis::{
+    use cynic_vcs::development_genesis::{
         DEVELOPMENT_GENESIS_BUILD_REQUEST_SCHEMA, DevelopmentGenesisAction,
         DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildPlan,
         DevelopmentGenesisBuildRequest,

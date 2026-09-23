@@ -186,7 +186,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     let mut snapshots = Vec::new();
     for entry in &inventory.entries {
         let is_active_root = entry.path_basis
-            == cynic_protocol::SourceWorktreeInventoryPathBasis::MainRepository
+            == cynic_vcs::SourceWorktreeInventoryPathBasis::MainRepository
             || entry.relative_path.as_deref() == Some(".")
             || entry.relative_path.as_deref() == Some("")
             || entry.candidate_id == "cynic";
@@ -218,19 +218,19 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
             0
         };
 
-        snapshots.push(cynic_protocol::source_worktree::ObservedWorktreeSnapshot {
+        snapshots.push(cynic_vcs::source_worktree::ObservedWorktreeSnapshot {
             path,
             branch,
             head_sha: entry.head.clone().unwrap_or_default(),
             is_active_root,
             dirty_file_count,
             git_prunable: entry.git_prunable == Some(true)
-                || entry.state == cynic_protocol::SourceWorktreeInventoryEntryState::Malformed,
+                || entry.state == cynic_vcs::SourceWorktreeInventoryEntryState::Malformed,
             prunable_reason: entry.prunable_reason.clone(),
         });
     }
 
-    let plan = cynic_protocol::source_worktree::reconcile_worktree_convergence_pure(
+    let plan = cynic_vcs::source_worktree::reconcile_worktree_convergence_pure(
         root_canonical.clone(),
         &default_branch,
         &head_sha,
@@ -292,7 +292,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 
             for (idx, action) in plan.actions.iter().enumerate() {
                 match action {
-                    cynic_protocol::source_worktree::WorktreeConvergenceAction::PruneMergedWorkspace {
+                    cynic_vcs::source_worktree::WorktreeConvergenceAction::PruneMergedWorkspace {
                         workspace_path,
                         branch,
                         reason,
@@ -303,7 +303,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                         println!("      Decision: PruneMergedWorkspace");
                         println!("      Reason:   {}", reason);
                     }
-                    cynic_protocol::source_worktree::WorktreeConvergenceAction::EligibleForIntegration {
+                    cynic_vcs::source_worktree::WorktreeConvergenceAction::EligibleForIntegration {
                         workspace_path,
                         branch,
                         ahead_count,
@@ -314,7 +314,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                         println!("      Decision: EligibleForIntegration");
                         println!("      Reason:   Strictly ahead; requires verified BuildProof before merge");
                     }
-                    cynic_protocol::source_worktree::WorktreeConvergenceAction::EscalateDivergence {
+                    cynic_vcs::source_worktree::WorktreeConvergenceAction::EscalateDivergence {
                         workspace_path,
                         branch,
                         reason,
@@ -325,7 +325,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                         println!("      Decision: EscalateDivergence");
                         println!("      Reason:   {}", reason);
                     }
-                    cynic_protocol::source_worktree::WorktreeConvergenceAction::PruneZombieWorkspace {
+                    cynic_vcs::source_worktree::WorktreeConvergenceAction::PruneZombieWorkspace {
                         workspace_path,
                         branch,
                         reason,
@@ -336,7 +336,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                         println!("      Decision: PruneZombieWorkspace");
                         println!("      Reason:   {}", reason);
                     }
-                    cynic_protocol::source_worktree::WorktreeConvergenceAction::RetainActiveWorkspace {
+                    cynic_vcs::source_worktree::WorktreeConvergenceAction::RetainActiveWorkspace {
                         workspace_path,
                         branch,
                         reason,

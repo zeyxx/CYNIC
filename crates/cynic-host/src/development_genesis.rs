@@ -1,4 +1,4 @@
-use cynic_protocol::{
+use cynic_vcs::{
     DevelopmentGenesisBuildAdmission, DevelopmentGenesisBuildRequest,
     SourceMaterializationObservation, SourceMaterializationPlan, SourceMaterializationRequest,
     admit_development_genesis_build, development_genesis_canonical_argv,
@@ -182,11 +182,11 @@ mod tests {
     use std::cell::Cell;
 
     use super::*;
-    use cynic_protocol::development_genesis::{
+    use cynic_vcs::development_genesis::{
         DEVELOPMENT_GENESIS_BUILD_REQUEST_SCHEMA, DevelopmentGenesisAction,
         DevelopmentGenesisBuildRequest,
     };
-    use cynic_protocol::{
+    use cynic_vcs::{
         SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
         SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SecurityEvidenceState,
         SourceMaterializationObservation, SourceMaterializationRequest,

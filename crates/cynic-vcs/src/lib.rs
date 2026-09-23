@@ -1,20 +1,42 @@
 //! cynic-vcs — Sovereign Version Control System domain and runners for CYNIC.
 
+pub mod development_genesis;
 pub mod entry;
+pub mod forgejo;
+pub mod forgejo_token;
+pub mod git_hygiene;
+pub mod git_topology;
 pub mod parse;
 pub mod reconcile;
 pub mod runner;
+pub mod source_control;
+pub mod source_materialization;
+pub mod source_policy;
+pub mod source_release;
+pub mod source_repository_bootstrap;
+pub mod source_worktree;
+pub mod source_worktree_inventory;
 pub mod sync;
+
+#[cfg(test)]
+mod source_worktree_inventory_tests;
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::{
-    SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,
-};
-
-pub use entry::*;
+pub use development_genesis::*;
+pub use forgejo::*;
+pub use forgejo_token::*;
+pub use git_hygiene::*;
+pub use git_topology::*;
 pub use parse::*;
 pub use runner::*;
+pub use source_control::*;
+pub use source_materialization::*;
+pub use source_policy::*;
+pub use source_release::*;
+pub use source_repository_bootstrap::*;
+pub use source_worktree::*;
+pub use source_worktree_inventory::*;
 
 const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
 
@@ -83,7 +105,7 @@ pub fn observe_source_worktree_inventory(
     }
 
     SourceWorktreeInventoryObservation {
-        schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+        schema: SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
         repository_id: repository_id.to_string(),
         node_id: node_id.to_string(),
         observed_at_ms,
@@ -100,7 +122,7 @@ fn unknown_observation(
     unknown: SourceWorktreeInventoryObservationUnknown,
 ) -> SourceWorktreeInventoryObservation {
     SourceWorktreeInventoryObservation {
-        schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+        schema: SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
         repository_id: repository_id.to_string(),
         node_id: node_id.to_string(),
         observed_at_ms,
@@ -117,7 +139,7 @@ fn malformed_observation(
     evidence_digest: String,
 ) -> SourceWorktreeInventoryObservation {
     SourceWorktreeInventoryObservation {
-        schema: cynic_protocol::SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
+        schema: SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA.to_string(),
         repository_id: repository_id.to_string(),
         node_id: node_id.to_string(),
         observed_at_ms,

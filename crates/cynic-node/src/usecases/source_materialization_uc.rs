@@ -7,7 +7,7 @@ use std::{
 };
 
 use cynic_lifecycle::LocalArgvRunner;
-use cynic_protocol::{
+use cynic_vcs::{
     SourceMaterializationAction, SourceMaterializationObservation, SourceMaterializationPlan,
     SourceMaterializationRequest, plan_source_materialization,
 };

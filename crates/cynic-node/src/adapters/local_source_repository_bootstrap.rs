@@ -4,7 +4,7 @@ use std::{
 };
 
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::{
+use cynic_vcs::{
     SOURCE_REPOSITORY_BOOTSTRAP_OBSERVATION_SCHEMA, SourceRepositoryBootstrapObservation,
     SourceRepositoryBootstrapRequest,
 };

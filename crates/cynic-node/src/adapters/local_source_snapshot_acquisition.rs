@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cynic_protocol::SOURCE_MATERIALIZATION_FORMAT;
+use cynic_vcs::SOURCE_MATERIALIZATION_FORMAT;
 
 use crate::{
     adapters::source_snapshot_store::{snapshot_path, verify_snapshot},

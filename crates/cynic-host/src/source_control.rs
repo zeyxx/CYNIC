@@ -6,8 +6,9 @@
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::{
-    SecurityEvidenceState, SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
+use cynic_protocol::SecurityEvidenceState;
+use cynic_vcs::{
+    SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
     SourceSnapshot, admit_source_change,
 };
 use serde::Serialize;

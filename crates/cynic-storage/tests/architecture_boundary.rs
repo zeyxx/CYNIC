@@ -18,3 +18,36 @@ fn storage_domain_is_pure_zero_io() {
         );
     }
 }
+
+#[test]
+fn storage_domain_modules_are_pure_zero_io() {
+    let domain_files = [
+        "src/client_policy.rs",
+        "src/controller.rs",
+        "src/credential_sync.rs",
+        "src/identity.rs",
+        "src/lifecycle.rs",
+        "src/topology.rs",
+    ];
+    for rel_path in &domain_files {
+        let path = storage_crate_root().join(rel_path);
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read {:?}: {}", path, e));
+
+        assert!(
+            !content.contains("std::process::Command"),
+            "Pure Domain Violation: {} contains direct std::process::Command!",
+            rel_path
+        );
+        assert!(
+            !content.contains("reqwest"),
+            "Pure Domain Violation: {} contains network HTTP dependencies!",
+            rel_path
+        );
+        assert!(
+            !content.contains("tokio::spawn"),
+            "Pure Domain Violation: {} spawns async runtimes inside pure domain!",
+            rel_path
+        );
+    }
+}

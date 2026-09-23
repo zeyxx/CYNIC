@@ -8,7 +8,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use super::error::PorkbunError;
-use super::secret::EnvSecretProvider;
 
 /// Porkbun API base URL.
 const PORKBUN_API_BASE: &str = "https://api.porkbun.com/api/json/v2";

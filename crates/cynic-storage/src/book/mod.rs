@@ -328,7 +328,7 @@ impl<W: WalJournalPort + 'static> CynicLedger<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{CausalWitness, Hash512, PoHTick, SequenceNumber};
+    use crate::types::{CausalWitness, SequenceNumber};
     use crate::wal::WalFsAdapter;
     use cynic_protocol::agent_citizenship::AgentBudgets;
     use cynic_protocol::agent_coordination::{

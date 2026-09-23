@@ -16,7 +16,7 @@ use cynic_node::adapters::ssh_build_proof::SshBuildProof;
 use cynic_node::ports::build_proof_port::BuildProofPort;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
 use cynic_node::ports::build_runner_adapter::{LocalCommandRunner, SshBuildRunner};
-use cynic_protocol::SourceSnapshot;
+use cynic_vcs::SourceSnapshot;
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 

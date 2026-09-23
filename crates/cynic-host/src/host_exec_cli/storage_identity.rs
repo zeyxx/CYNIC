@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use cynic_protocol::{
+use cynic_storage::{
     STORAGE_IDENTITY_OBSERVATION_SCHEMA, STORAGE_IDENTITY_SPEC_SCHEMA, StorageEvidenceState,
     StorageIdentityObservation, StorageIdentityRole, StorageIdentitySpec,
     reconcile_storage_identity,

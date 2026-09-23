@@ -1017,6 +1017,7 @@ dependencies = [
  "cynic-node",
  "cynic-protocol",
  "cynic-release",
+ "cynic-secrets",
  "cynic-storage",
  "cynic-vcs",
  "cynic-workload",
@@ -1092,6 +1093,7 @@ name = "cynic-domain-ops"
 version = "0.2.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-secrets",
  "hex",
  "serde",
  "serde_json",
@@ -1106,6 +1108,7 @@ version = "0.2.0"
 dependencies = [
  "cynic-domain-ops",
  "cynic-protocol",
+ "cynic-secrets",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -1116,7 +1119,6 @@ dependencies = [
 name = "cynic-forensics"
 version = "0.2.0"
 dependencies = [
- "cynic-protocol",
  "serde",
  "serde_json",
  "tempfile",
@@ -1140,6 +1142,7 @@ dependencies = [
  "cynic-protocol",
  "cynic-release",
  "cynic-sandbox",
+ "cynic-storage",
  "cynic-vcs",
  "cynic-workload",
  "ed25519-dalek",
@@ -1164,12 +1167,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-host-probes"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "regex",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+ "sysinfo 0.37.2",
+ "tokio",
+ "toml",
+ "tracing",
+ "walkdir",
+ "which",
+]
+
+[[package]]
+name = "cynic-identity"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "ed25519-dalek",
+ "hex",
+ "rand_core 0.6.4",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cynic-inference"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum 0.8.9",
  "cynic-protocol",
+ "cynic-secrets",
  "cynic-workload",
  "futures-util",
  "reqwest 0.13.4",
@@ -1191,6 +1226,7 @@ dependencies = [
  "chrono",
  "cynic-inference",
  "cynic-protocol",
+ "cynic-secrets",
  "dirs",
  "hex",
  "regex",
@@ -1261,12 +1297,14 @@ dependencies = [
  "cynic-intel-soc",
  "cynic-node",
  "cynic-protocol",
+ "cynic-secrets",
  "cynic-storage",
  "cynic-workload",
  "dirs",
  "dotenvy",
  "ed25519-dalek",
  "futures-util",
+ "getrandom 0.2.17",
  "hex",
  "http-body-util",
  "hyper",
@@ -1383,6 +1421,9 @@ dependencies = [
  "cynic-network",
  "cynic-protocol",
  "cynic-release",
+ "cynic-secrets",
+ "cynic-storage",
+ "cynic-vcs",
  "cynic-workload",
  "ed25519-dalek",
  "futures-util",
@@ -1419,6 +1460,7 @@ dependencies = [
  "blake3",
  "cynic-intel",
  "cynic-protocol",
+ "cynic-secrets",
  "env_logger",
  "futures-util",
  "libp2p",
@@ -1497,6 +1539,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-secrets"
+version = "0.2.0"
+dependencies = [
+ "aes-gcm",
+ "blake3",
+ "cynic-protocol",
+ "getrandom 0.2.17",
+ "serde",
+ "serde_json",
+ "sha3",
+ "tempfile",
+ "thiserror 2.0.20",
+ "zeroize",
+]
+
+[[package]]
 name = "cynic-storage"
 version = "0.2.0"
 dependencies = [
@@ -1530,6 +1588,7 @@ name = "cynic-workload"
 version = "0.2.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-vcs",
  "hex",
  "serde",
  "serde_json",
@@ -1768,6 +1827,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
  "pkcs8",
+ "serde",
  "signature",
 ]
 

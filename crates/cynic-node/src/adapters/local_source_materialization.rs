@@ -18,11 +18,11 @@ use crate::{
     },
 };
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::{
+use cynic_protocol::SecurityEvidenceState;
+use cynic_vcs::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
-    SecurityEvidenceState, SourceMaterializationObservation, SourceMaterializationRequest,
+    SourceMaterializationObservation, SourceMaterializationRequest,
 };
-
 #[derive(Debug)]
 pub struct LocalSourceMaterialization<'a, R> {
     runner: &'a R,

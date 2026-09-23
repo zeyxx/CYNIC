@@ -37,6 +37,17 @@ fn vcs_domain_modules_are_pure_zero_io() {
         "src/sync/reconcile.rs",
         "src/reconcile/types.rs",
         "src/reconcile/reconcile.rs",
+        "src/forgejo.rs",
+        "src/git_hygiene.rs",
+        "src/git_topology.rs",
+        "src/source_control.rs",
+        "src/source_materialization.rs",
+        "src/source_policy.rs",
+        "src/source_release.rs",
+        "src/source_repository_bootstrap.rs",
+        "src/source_worktree.rs",
+        "src/source_worktree_inventory.rs",
+        "src/development_genesis.rs",
     ];
     for rel_path in &domain_files {
         let path = vcs_crate_root().join(rel_path);

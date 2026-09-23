@@ -74,7 +74,7 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
                 // Emit combined observation + decision for completeness
                 #[derive(serde::Serialize)]
                 struct Out<'a> {
-                    observation: &'a cynic_protocol::git_topology::GitTopologyObservation,
+                    observation: &'a cynic_vcs::git_topology::GitTopologyObservation,
                     decision: &'a cynic_host::domain::git::decision::GitReconcileDecision,
                 }
                 emit_pretty_json(&Out {
@@ -104,12 +104,12 @@ pub(crate) fn execute_git(command: GitCommand) -> ExitCode {
         }
         GitCommand::Hygiene { root, json } => {
             let obs = cynic_host::git_topology_observer::observe_git_hygiene(Path::new(&root));
-            let decision = cynic_protocol::git_hygiene::check_hygiene(&obs);
+            let decision = cynic_vcs::git_hygiene::check_hygiene(&obs);
             if json {
                 #[derive(serde::Serialize)]
                 struct Out<'a> {
-                    observation: &'a cynic_protocol::git_hygiene::GitHygieneObservation,
-                    decision: &'a cynic_protocol::git_hygiene::GitHygieneDecision,
+                    observation: &'a cynic_vcs::git_hygiene::GitHygieneObservation,
+                    decision: &'a cynic_vcs::git_hygiene::GitHygieneDecision,
                 }
                 emit_pretty_json(&Out {
                     observation: &obs,

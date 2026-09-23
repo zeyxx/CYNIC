@@ -1,4 +1,4 @@
-use cynic_protocol::StorageControllerRecord;
+use cynic_storage::StorageControllerRecord;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorageControllerStoreError {

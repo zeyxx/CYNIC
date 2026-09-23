@@ -1,6 +1,6 @@
 //! Git topology observer — read-only git plumbing, no mutation.
 //!
-//! Produces `cynic_protocol::git_topology::GitTopologyObservation` from the
+//! Produces `cynic_vcs::git_topology::GitTopologyObservation` from the
 //! local repository. All commands are bounded, timeout-free, and report
 //! unknowns instead of fabricating numbers.
 
@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::git_topology::{
+use cynic_vcs::git_topology::{
     GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitBranchState, GitTopologyObservation,
     GitTopologyObservationUnknown, GitTopologyUnknown,
 };
@@ -271,7 +271,7 @@ pub fn observe_git_topology(root: &Path) -> GitTopologyObservation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::git_topology::validate_git_topology_observation;
+    use cynic_vcs::git_topology::validate_git_topology_observation;
 
     #[test]
     fn observes_this_repo() {
@@ -300,8 +300,8 @@ mod tests {
 // Hygiene — staged vs claim coherence
 // ---------------------------------------------------------------------------
 
-pub fn observe_git_hygiene(root: &Path) -> cynic_protocol::git_hygiene::GitHygieneObservation {
-    use cynic_protocol::git_hygiene::GIT_HYGIENE_SCHEMA;
+pub fn observe_git_hygiene(root: &Path) -> cynic_vcs::git_hygiene::GitHygieneObservation {
+    use cynic_vcs::git_hygiene::GIT_HYGIENE_SCHEMA;
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -329,7 +329,7 @@ pub fn observe_git_hygiene(root: &Path) -> cynic_protocol::git_hygiene::GitHygie
     // Read claim scope from .agent-claims.json (best-effort)
     let (claim_branch, claim_scope) = read_claim_scope(root);
 
-    cynic_protocol::git_hygiene::GitHygieneObservation {
+    cynic_vcs::git_hygiene::GitHygieneObservation {
         schema: GIT_HYGIENE_SCHEMA.to_string(),
         observed_at_unix_s: now,
         current_branch: current,

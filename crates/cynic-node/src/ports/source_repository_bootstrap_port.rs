@@ -1,4 +1,4 @@
-use cynic_protocol::{SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapRequest};
+use cynic_vcs::{SourceRepositoryBootstrapObservation, SourceRepositoryBootstrapRequest};
 
 use crate::ports::agent_workspace_port::AgentWorkspaceLayout;
 

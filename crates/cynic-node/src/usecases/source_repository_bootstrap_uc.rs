@@ -5,7 +5,7 @@ use std::{
 };
 
 use cynic_lifecycle::LocalArgvRunner;
-use cynic_protocol::{
+use cynic_vcs::{
     SOURCE_REPOSITORY_BOOTSTRAP_REPORT_SCHEMA, SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
     SourceRepositoryBootstrapDecision, SourceRepositoryBootstrapProofAuthority,
     SourceRepositoryBootstrapReport, SourceRepositoryBootstrapRequest,
@@ -312,10 +312,10 @@ pub async fn execute_source_repository_bootstrap(
 fn report(
     status: SourceRepositoryBootstrapStatus,
     request: SourceRepositoryBootstrapRequest,
-    before: cynic_protocol::SourceRepositoryBootstrapObservation,
+    before: cynic_vcs::SourceRepositoryBootstrapObservation,
     decision: SourceRepositoryBootstrapDecision,
     planned_actions: Vec<Vec<String>>,
-    after: Option<cynic_protocol::SourceRepositoryBootstrapObservation>,
+    after: Option<cynic_vcs::SourceRepositoryBootstrapObservation>,
 ) -> SourceRepositoryBootstrapReport {
     let (blockers, unknowns) = match &decision {
         SourceRepositoryBootstrapDecision::Blocked { blockers } => (blockers.clone(), Vec::new()),

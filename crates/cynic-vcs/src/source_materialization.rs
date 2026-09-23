@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use cynic_protocol::SecurityEvidenceState;
 
 pub const SOURCE_MATERIALIZATION_REQUEST_SCHEMA: &str = "cynic.source.materialization_request.v1";
 pub const SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA: &str =

@@ -7,12 +7,12 @@
 
 use std::collections::HashMap;
 
-use cynic_protocol::git_topology::{GitTopologyObservation, GitTopologyUnknown};
+use cynic_vcs::git_topology::{GitTopologyObservation, GitTopologyUnknown};
 use serde::{Deserialize, Serialize};
 
 use super::verdict::{GitBranchVerdict, GitVerdict, verdict_for};
 
-pub use cynic_protocol::git_topology::GitBranchState;
+pub use cynic_vcs::git_topology::GitBranchState;
 
 pub const GIT_RECONCILE_SCHEMA: &str = "cynic.git_reconcile.v1";
 
@@ -220,7 +220,7 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::git_topology::{
+    use cynic_vcs::git_topology::{
         GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
     };
 

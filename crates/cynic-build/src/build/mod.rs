@@ -35,7 +35,7 @@ pub mod recipe;
 use cynic_protocol::LEASE_VERIFICATION_SCHEMA;
 #[allow(unused_imports)]
 use cynic_protocol::coord::LEASE_VERIFICATION_SCHEMA as _LEASE_VERIFICATION_SCHEMA;
-use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
+use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState}; use cynic_vcs::SourceSnapshot;
 pub use recipe::{BUILD_RECIPE_SCHEMA, BuildRecipe, build_recipe, validate_build_recipe};
 
 mod agent_request;

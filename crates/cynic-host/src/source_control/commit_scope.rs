@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use cynic_protocol::SourceSnapshot;
+use cynic_vcs::SourceSnapshot;
 
 pub(super) fn preflight_commit_scope(
     snapshot: &SourceSnapshot,

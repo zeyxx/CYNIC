@@ -1,4 +1,4 @@
-use crate::{
+use crate::source_worktree_inventory::{
     SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_OBSERVATION_SCHEMA,
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryObservation, SourceWorktreeInventoryObservationUnknown,

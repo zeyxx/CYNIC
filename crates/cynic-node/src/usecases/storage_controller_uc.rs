@@ -1,4 +1,4 @@
-use cynic_protocol::{
+use cynic_storage::{
     STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, StorageMetadata, StorageObservation,
     StoragePlan, reconcile_storage_status,
 };
@@ -10,7 +10,7 @@ use crate::ports::storage_controller_store_port::{
 use crate::ports::storage_mutation_port::{
     StorageMutationPort, StorageMutationRequest, StorageOperationReadBackPort,
 };
-use cynic_protocol::{StorageOperationEvent, advance_storage_operation};
+use cynic_storage::{StorageOperationEvent, advance_storage_operation};
 
 pub fn reconcile_storage_controller(
     store: &dyn StorageControllerStorePort,
@@ -63,7 +63,7 @@ pub async fn apply_pending_storage_operation<M: StorageMutationPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_protocol::StorageOperationPhase::Pending)
+        .filter(|operation| operation.phase == cynic_storage::StorageOperationPhase::Pending)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_pending".to_string(),
         })?;
@@ -125,7 +125,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     read_back: &R,
     node: &str,
     resource_id: &str,
-    guest_observation: &cynic_protocol::StorageObservation,
+    guest_observation: &cynic_storage::StorageObservation,
     now_ms: u64,
 ) -> Result<StorageControllerRecord, StorageControllerStoreError> {
     let current = store
@@ -136,7 +136,7 @@ pub async fn verify_storage_operation<R: StorageOperationReadBackPort + ?Sized>(
     let operation = current
         .operation
         .as_ref()
-        .filter(|operation| operation.phase == cynic_protocol::StorageOperationPhase::Verifying)
+        .filter(|operation| operation.phase == cynic_storage::StorageOperationPhase::Verifying)
         .ok_or_else(|| StorageControllerStoreError {
             code: "storage_operation_not_verifying".to_string(),
         })?;

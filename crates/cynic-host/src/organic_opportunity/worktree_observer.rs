@@ -9,7 +9,7 @@ use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::{
+use cynic_vcs::{
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryPathBasis,
 };

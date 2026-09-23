@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use crate::source_materialization::{
     SourceMaterializationObservation, SourceMaterializationPlan, SourceMaterializationRequest,
     plan_source_materialization,
 };
@@ -277,9 +277,10 @@ fn valid_source_capsule_reference(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
+    use cynic_protocol::SecurityEvidenceState;
+    use crate::source_materialization::{
         SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
-        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SecurityEvidenceState,
+        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, 
         SourceMaterializationObservation, SourceMaterializationRequest,
     };
 

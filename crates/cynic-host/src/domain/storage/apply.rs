@@ -1,7 +1,7 @@
 //! Bounded storage topology apply — typed argv, injected execution, re-observe proof.
 
-use cynic_protocol::storage_client_policy::StorageClientPolicy;
-use cynic_protocol::storage_topology::{
+use cynic_storage::client_policy::StorageClientPolicy;
+use cynic_storage::topology::{
     STORAGE_TOPOLOGY_REPORT_SCHEMA, StorageTopologyDesired, StorageTopologyObserved,
     StorageTopologyReport,
 };

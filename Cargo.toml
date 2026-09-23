@@ -24,6 +24,7 @@ members = [
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",
     "crates/cynic-network",
+    "crates/cynic-identity",
     "crates/cynic-host-probes",
     "crates/cynic-intel-soc",
     "crates/cynic-consensus",
@@ -122,6 +123,9 @@ incremental = false
 # cynic-kernel stays on 16 (its own rust-toolchain 1.95 is unaffected).
 codegen-units = 16
 debug = false
+[profile.dev.package.cynic-protocol]
+codegen-units = 1
+
 [profile.test]
 # codegen-units=1 triggers non-deterministic SIGSEGV on large crates (kernel, node).
 # codegen-units=16 is stable on both rustc 1.96 and 1.98.

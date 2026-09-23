@@ -1,4 +1,4 @@
-use cynic_protocol::{ForgejoDesiredState, ForgejoRepositoryPermission};
+use cynic_vcs::{ForgejoDesiredState, ForgejoRepositoryPermission};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;

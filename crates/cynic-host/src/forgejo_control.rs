@@ -2,10 +2,13 @@ use crate::forgejo_token::{
     ForgejoTokenApiPort, ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec,
     LocalForgejoTokenApiAdapter,
 };
-use cynic_protocol::{
+use cynic_vcs::{
     FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoDesiredState, ForgejoObservedState, ForgejoPlan,
+    plan_forgejo_convergence,
+};
+use cynic_protocol::{
     NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
-    SecurityEvidenceState as ForgejoEvidenceState, plan_forgejo_convergence,
+    SecurityEvidenceState as ForgejoEvidenceState,
 };
 
 use crate::repo_access::{
@@ -196,20 +199,20 @@ pub fn current_forgejo_plan() -> Result<ForgejoPlan, String> {
 /// Composable and observable as its own surface. Used by `current_forgejo_plan()`
 /// and projected directly by `cynic forgejo token-status`.
 pub fn current_forgejo_token_status()
--> Result<cynic_protocol::forgejo_token::ForgejoTokenStatusReport, String> {
+-> Result<cynic_vcs::forgejo_token::ForgejoTokenStatusReport, String> {
     let root = current_project_root().ok_or_else(|| "CYNIC project root not found".to_string())?;
     let desired = load_forgejo_desired_state(&root)?;
     let spec = forgejo_token_spec(&desired, None);
     let port: Box<dyn ForgejoTokenApiPort> = Box::new(LocalForgejoTokenApiAdapter);
     let observation = port.observe(&spec);
     let plan =
-        cynic_protocol::forgejo_token::plan_forgejo_token_convergence(spec.clone(), &observation);
+        cynic_vcs::forgejo_token::plan_forgejo_token_convergence(spec.clone(), &observation);
     let token_action_needed = matches!(
         observation.api_authenticated,
         ForgejoTokenAuthState::Absent | ForgejoTokenAuthState::Refuted
     );
-    Ok(cynic_protocol::forgejo_token::ForgejoTokenStatusReport {
-        schema: cynic_protocol::forgejo_token::FORGEJO_TOKEN_STATUS_SCHEMA.to_string(),
+    Ok(cynic_vcs::forgejo_token::ForgejoTokenStatusReport {
+        schema: cynic_vcs::forgejo_token::FORGEJO_TOKEN_STATUS_SCHEMA.to_string(),
         principal: spec.principal.clone(),
         token: observation,
         forgejo_plan_status: plan.status.clone(),
@@ -232,9 +235,8 @@ pub fn current_forgejo_token_status()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{
-        FORGEJO_TOKEN_OBSERVATION_SCHEMA, SecurityEvidenceState as ForgejoEvidenceState,
-    };
+    use cynic_vcs::FORGEJO_TOKEN_OBSERVATION_SCHEMA;
+    use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 
     #[derive(Debug)]
     struct FixedTokenPort(ForgejoTokenObservation);
@@ -247,7 +249,7 @@ mod tests {
         fn create(
             &self,
             _spec: &ForgejoTokenSpec,
-        ) -> Result<cynic_protocol::ForgejoTokenMetadata, String> {
+        ) -> Result<cynic_vcs::ForgejoTokenMetadata, String> {
             Err("not used in observation test".to_string())
         }
 
@@ -273,7 +275,7 @@ mod tests {
             api_url: "http://forgejo:3000/api/v1".into(),
             git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
             machine_principal: "cynic-machine".into(),
-            repository_permission: cynic_protocol::ForgejoRepositoryPermission::Write,
+            repository_permission: cynic_vcs::ForgejoRepositoryPermission::Write,
             machine_key_fingerprint: "SHA256:key".into(),
         };
         let observer = FixedObserver(ForgejoObservedState {
@@ -358,7 +360,7 @@ mod tests {
             api_url: "http://forgejo:3000/api/v1".into(),
             git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
             machine_principal: "cynic-machine".into(),
-            repository_permission: cynic_protocol::ForgejoRepositoryPermission::Write,
+            repository_permission: cynic_vcs::ForgejoRepositoryPermission::Write,
             machine_key_fingerprint: "SHA256:key".into(),
         });
         assert_eq!(

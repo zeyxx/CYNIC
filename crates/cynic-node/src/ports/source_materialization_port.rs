@@ -1,4 +1,4 @@
-use cynic_protocol::{SourceMaterializationObservation, SourceMaterializationRequest};
+use cynic_vcs::{SourceMaterializationObservation, SourceMaterializationRequest};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceMaterializationPortError {

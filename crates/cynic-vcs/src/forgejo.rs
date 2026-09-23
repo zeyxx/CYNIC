@@ -1,4 +1,4 @@
-use crate::{NetworkPathEvidence, SecurityEvidenceState as ForgejoEvidenceState};
+use cynic_protocol::{NetworkPathEvidence, SecurityEvidenceState as ForgejoEvidenceState};
 use serde::{Deserialize, Serialize};
 
 pub const FORGEJO_PLAN_SCHEMA: &str = "cynic.forgejo.plan.v1";
@@ -283,7 +283,7 @@ mod tests {
     fn absent_resources_become_separate_explicit_mutations() {
         let observed = ForgejoObservedState {
             admin_path: NetworkPathEvidence {
-                schema: crate::NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
+                schema: cynic_protocol::NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
                 id: "forgejo-admin".into(),
                 service_ref: "forgejo".into(),
                 name_resolution: ForgejoEvidenceState::Proven,
@@ -326,7 +326,7 @@ mod tests {
     fn unknown_resource_state_blocks_mutation_planning() {
         let observed = ForgejoObservedState {
             admin_path: NetworkPathEvidence {
-                schema: crate::NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
+                schema: cynic_protocol::NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
                 id: "forgejo-admin".into(),
                 service_ref: "forgejo".into(),
                 name_resolution: ForgejoEvidenceState::Proven,

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecretClass;
+use cynic_protocol::SecretClass;
 
 pub const STORAGE_IDENTITY_SPEC_SCHEMA: &str = "cynic.storage_identity_spec.v1";
 pub const STORAGE_IDENTITY_OBSERVATION_SCHEMA: &str = "cynic.storage_identity_observation.v1";

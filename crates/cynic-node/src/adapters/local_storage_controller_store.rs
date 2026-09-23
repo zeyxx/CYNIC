@@ -1,7 +1,8 @@
 use std::{fs, path::PathBuf};
 
-use cynic_protocol::{
-    STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, digest_json,
+use cynic_protocol::digest_json;
+use cynic_storage::{
+    STORAGE_CONTROLLER_RECORD_SCHEMA, StorageControllerRecord, 
     validate_storage_controller_record,
 };
 

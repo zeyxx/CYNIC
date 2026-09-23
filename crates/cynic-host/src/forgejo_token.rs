@@ -1,7 +1,7 @@
 //! Forgejo personal access token lifecycle port and adapters.
 //!
 //! This module follows the CYNIC coherence pattern:
-//! - `types` live in `cynic_protocol::forgejo_token` (never duplicated in host);
+//! - `types` live in `cynic_vcs::forgejo_token` (never duplicated in host);
 //! - the `Observe`/`Create`/`Remove` port is injected, never hard-wired to
 //!   `Command::new("forgejo")`;
 //! - adapters bind the concrete transport (SSH-local Exec or HTTP).
@@ -11,7 +11,7 @@
 //! (SSH-tunneled localhost HTTP or direct HTTPS). Provision reports carry only
 //! Forgejo-side metadata (token_id, sha1), never the secret itself.
 
-pub use cynic_protocol::forgejo_token::{
+pub use cynic_vcs::forgejo_token::{
     ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
     ForgejoTokenPlan, ForgejoTokenProvisionReport, ForgejoTokenSpec, ForgejoTokenStatusReport,
 };
@@ -24,7 +24,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
-use cynic_protocol::forgejo_token::{
+use cynic_vcs::forgejo_token::{
     FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
     FORGEJO_TOKEN_SPEC_SCHEMA,
 };

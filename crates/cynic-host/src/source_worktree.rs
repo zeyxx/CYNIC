@@ -6,7 +6,8 @@
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::{LeaseGuard, source_worktree_lease_target};
+use cynic_protocol::LeaseGuard;
+use cynic_vcs::source_worktree_lease_target;
 use serde::Serialize;
 
 use crate::source_control::{SourceWorktreeObservation, observe_source_worktree};

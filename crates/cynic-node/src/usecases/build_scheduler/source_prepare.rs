@@ -2,12 +2,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_build::{BUILD_SOURCE_REFERENCE_SCHEMA, BuildSourceReference};
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::{
+use cynic_vcs::{
     SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA,
-    SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA, SourceMaterializationRequest,
-    SourceRepositoryBootstrapDecision, SourceRepositoryBootstrapRequest, digest_json,
-    plan_source_materialization, reconcile_source_repository_bootstrap,
+    SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA,
+    SourceMaterializationRequest, SourceRepositoryBootstrapDecision,
+    SourceRepositoryBootstrapRequest, plan_source_materialization,
+    reconcile_source_repository_bootstrap,
 };
+use cynic_protocol::digest_json;
 
 use crate::{
     adapters::{

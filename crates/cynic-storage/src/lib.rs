@@ -8,13 +8,18 @@
 //! 3. **Zero External Daemon SPOF** (`INV-03`): Storage operates strictly in-process.
 
 pub mod book;
+pub mod client_policy;
+pub mod controller;
+pub mod credential_sync;
 pub mod error;
+pub mod identity;
+pub mod lifecycle;
 pub mod ports;
 pub mod projection;
+pub mod topology;
 pub mod types;
 pub mod vector;
 pub mod wal;
-
 pub use book::{BookEntry, CynicLedger, GenericBookProjector, LedgerBook, TypedBook};
 pub use error::StorageError;
 pub use ports::{
@@ -29,6 +34,12 @@ pub use types::{
 };
 pub use vector::SimdVectorAdapter;
 pub use wal::WalFsAdapter;
+pub use client_policy::*;
+pub use controller::*;
+pub use credential_sync::*;
+pub use identity::*;
+pub use lifecycle::*;
+pub use topology::*;
 
 #[cfg(test)]
 mod tests {

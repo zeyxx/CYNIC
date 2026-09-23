@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use cynic_protocol::storage_topology::StorageTopologyObserved;
+use cynic_storage::topology::StorageTopologyObserved;
 
 use super::probe::StorageTopologyObservationPort;
 use cynic_lifecycle::ArgvRunner;

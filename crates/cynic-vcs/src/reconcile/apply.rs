@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::runner::ArgvRunner;
-use cynic_protocol::source_worktree::{
+use crate::source_worktree::{
     ExecutedActionReceipt, SOURCE_WORKTREE_APPLY_PROOF_SCHEMA, WorktreeConvergenceAction,
     WorktreeConvergenceApplyProof, WorktreeConvergencePlan,
 };
@@ -234,7 +234,7 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
 mod tests {
     use super::*;
     use crate::runner::{ArgvOutput, MapArgvRunner};
-    use cynic_protocol::source_worktree::{
+    use crate::source_worktree::{
         WorktreeConvergenceAction, WorktreeConvergencePlan, WorktreeConvergenceSummary,
     };
 
@@ -278,7 +278,7 @@ mod tests {
             ],
         };
         let plan = WorktreeConvergencePlan {
-            schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
+            schema: crate::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
             repository_root: PathBuf::from("/repo"),
             default_branch: "main".to_string(),
             main_head_sha: "sha-001".to_string(),
@@ -312,7 +312,7 @@ mod tests {
     fn test_apply_dry_run_does_not_mutate() {
         let runner = MapArgvRunner { responses: vec![] };
         let plan = WorktreeConvergencePlan {
-            schema: cynic_protocol::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
+            schema: crate::source_worktree::SOURCE_WORKTREE_CONVERGENCE_PLAN_SCHEMA,
             repository_root: PathBuf::from("/repo"),
             default_branch: "main".to_string(),
             main_head_sha: "sha-001".to_string(),

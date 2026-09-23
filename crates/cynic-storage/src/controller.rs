@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    LeaseGuard,
-    storage_lifecycle::{StorageObservation, StoragePhase, StoragePlan, StorageReclaimPolicy},
-};
+use cynic_protocol::LeaseGuard;
+use crate::lifecycle::{StorageObservation, StoragePhase, StoragePlan, StorageReclaimPolicy};
 
 pub const STORAGE_CONTROLLER_RECORD_SCHEMA: &str = "cynic.storage_controller_record.v1";
 pub const STORAGE_OPERATION_SCHEMA: &str = "cynic.storage_operation.v1";
@@ -339,7 +337,7 @@ pub fn validate_storage_controller_record(record: &StorageControllerRecord) -> V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage_lifecycle::{
+    use crate::lifecycle::{
         STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA, StorageDecision,
     };
     #[test]

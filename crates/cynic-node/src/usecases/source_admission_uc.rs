@@ -2,7 +2,7 @@ use std::fs;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::{SourceReleaseObservation, SourceReleaseRequest, plan_source_release};
+use cynic_vcs::{SourceReleaseObservation, SourceReleaseRequest, plan_source_release};
 
 pub fn execute_source_admission_plan(request_path: &str, observation_path: &str) -> ExitCode {
     let request = match read_json::<SourceReleaseRequest>(request_path, "request") {

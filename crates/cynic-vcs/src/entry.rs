@@ -1,6 +1,6 @@
 use std::path::{Component, Path};
 
-use cynic_protocol::{
+use crate::source_worktree_inventory::{
     SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES, SOURCE_WORKTREE_INVENTORY_MAX_STRING_BYTES,
     SourceWorktreeInventoryEntry, SourceWorktreeInventoryEntryState,
     SourceWorktreeInventoryPathBasis, SourceWorktreeInventoryUnknown,

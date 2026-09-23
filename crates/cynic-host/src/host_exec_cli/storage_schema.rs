@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use cynic_protocol::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole, StorageIdentitySpec};
+use cynic_storage::{STORAGE_IDENTITY_SPEC_SCHEMA, StorageIdentityRole, StorageIdentitySpec};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 

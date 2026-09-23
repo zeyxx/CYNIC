@@ -15,7 +15,7 @@ use cynic_host::forgejo_token::{
     DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, observe_forgejo_token_runtime,
     provision_forgejo_token_apply, rotate_forgejo_token,
 };
-use cynic_protocol::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
+use cynic_vcs::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
 
 use crate::cli_json;
 use crate::runtime_surface::ForgejoTokenMode;
@@ -66,7 +66,7 @@ pub(crate) fn execute_forgejo_token(
 /// Read-only status: observe token presence + API validity, emit plan.
 fn execute_token_status(spec: &ForgejoTokenRuntimeSpec, json: bool, _yes: bool) -> ExitCode {
     let observation = observe_forgejo_token_runtime(spec);
-    let plan = cynic_protocol::forgejo_token::plan_forgejo_token_convergence(
+    let plan = cynic_vcs::forgejo_token::plan_forgejo_token_convergence(
         spec.token_spec.clone(),
         &observation,
     );
@@ -196,7 +196,7 @@ fn print_token_status(report: &ForgejoTokenStatusReport) {
 }
 
 /// Human-readable projection for `create`/`rotate` mode.
-fn print_token_provision(report: &cynic_protocol::forgejo_token::ForgejoTokenProvisionReport) {
+fn print_token_provision(report: &cynic_vcs::forgejo_token::ForgejoTokenProvisionReport) {
     println!("Forgejo token provision (principal: {})", report.principal);
     println!("  status:   {}", report.status);
     println!("  mutated:  {}", report.mutated);

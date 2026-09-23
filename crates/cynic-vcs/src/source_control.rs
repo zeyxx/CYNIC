@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{LeaseGuard, SecurityEvidenceState};
+use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
 
 pub const SOURCE_ADMISSION_REPORT_SCHEMA: &str = "cynic.source.admission.v1";
 pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1";

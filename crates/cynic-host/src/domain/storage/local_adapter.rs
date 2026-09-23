@@ -3,8 +3,8 @@
 
 use std::path::Path;
 
-use cynic_protocol::storage_client_policy::StorageClientPolicy;
-use cynic_protocol::storage_topology::StorageTopologyObserved;
+use cynic_storage::client_policy::StorageClientPolicy;
+use cynic_storage::topology::StorageTopologyObserved;
 
 use super::probe::{StorageClientPolicyObservationPort, StorageTopologyObservationPort};
 use std::time::Instant;

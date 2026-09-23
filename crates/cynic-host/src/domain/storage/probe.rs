@@ -1,8 +1,8 @@
 //! Storage topology probe — pure parsers, no I/O
 //! Lives in cynic_host::domain::storage::probe per Host substrate observation layering
 
-use cynic_protocol::storage_client_policy::StorageClientPolicy;
-use cynic_protocol::storage_topology::{StorageTopologyObserved, StorageTopologyReport};
+use cynic_storage::client_policy::StorageClientPolicy;
+use cynic_storage::topology::{StorageTopologyObserved, StorageTopologyReport};
 
 pub trait StorageTopologyObservationPort {
     fn observe_topology(&self) -> StorageTopologyObserved;
@@ -33,7 +33,7 @@ impl StorageClientPolicyObservationPort for InMemoryStorageClientPolicyAdapter {
 }
 
 pub fn storage_topology_report(
-    desired: &cynic_protocol::storage_topology::StorageTopologyDesired,
+    desired: &cynic_storage::topology::StorageTopologyDesired,
     observed: &StorageTopologyObserved,
     client_policy: &StorageClientPolicy,
 ) -> StorageTopologyReport {
@@ -50,7 +50,7 @@ pub fn storage_topology_report(
         residual.push("single_endpoint_client_policy".to_string());
     }
     StorageTopologyReport {
-        schema: cynic_protocol::storage_topology::STORAGE_TOPOLOGY_REPORT_SCHEMA.to_string(),
+        schema: cynic_storage::topology::STORAGE_TOPOLOGY_REPORT_SCHEMA.to_string(),
         desired_digest,
         observed_digest,
         pre_observed_digest: None,

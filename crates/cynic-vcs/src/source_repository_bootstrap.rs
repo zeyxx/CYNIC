@@ -73,7 +73,7 @@ pub struct SourceRepositoryBootstrapReport {
     #[serde(default)]
     pub planned_actions: Vec<Vec<String>>,
     pub after: Option<SourceRepositoryBootstrapObservation>,
-    pub lease: Option<crate::LeaseGuard>,
+    pub lease: Option<cynic_protocol::LeaseGuard>,
     pub proof_ref: Option<String>,
     #[serde(default)]
     pub proof_authority: SourceRepositoryBootstrapProofAuthority,

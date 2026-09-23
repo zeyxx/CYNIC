@@ -1,5 +1,5 @@
 use cynic_lifecycle::{ArgvOutput, ArgvRunner};
-use cynic_protocol::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
+use cynic_storage::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 
 use crate::ports::storage_guest_port::{StorageGuestObservationPort, StorageGuestTarget};
 
