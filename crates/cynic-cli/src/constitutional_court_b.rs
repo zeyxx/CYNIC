@@ -280,8 +280,8 @@ mod tests {
 
     #[test]
     fn observe_contracts_missing() {
-        let result = CourtB::observe_contracts();
-        let _ = result;
+        let court = CourtB::default();
+        let _ = court.observe_contracts();
     }
 
     #[test]

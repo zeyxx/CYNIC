@@ -179,7 +179,8 @@ mod tests {
     use cynic_build::BuildRunnerObservation;
     use cynic_build::build::BUILD_RECIPE_SCHEMA;
     use cynic_lifecycle::MapArgvRunner;
-    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
+    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
+    use cynic_vcs::SourceSnapshot;
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {

@@ -1014,6 +1014,7 @@ dependencies = [
  "cynic-intel-futarchy",
  "cynic-intel-soc",
  "cynic-lifecycle",
+ "cynic-network",
  "cynic-node",
  "cynic-protocol",
  "cynic-release",
@@ -1038,7 +1039,6 @@ name = "cynic-consensus"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "cynic-protocol",
  "ed25519-dalek",
  "hex",
  "serde",
@@ -1559,6 +1559,7 @@ name = "cynic-storage"
 version = "0.2.0"
 dependencies = [
  "bytes",
+ "cynic-consensus",
  "cynic-protocol",
  "hex",
  "parking_lot",
@@ -1587,6 +1588,7 @@ dependencies = [
 name = "cynic-workload"
 version = "0.2.0"
 dependencies = [
+ "cynic-consensus",
  "cynic-protocol",
  "cynic-vcs",
  "hex",
