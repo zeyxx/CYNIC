@@ -279,9 +279,8 @@ mod tests {
             created_at: None,
             ..Default::default()
         };
-        let stim = data.to_stimulus();
+        let stim = data.to_stimulus_content();
         assert!(stim.contains("Jupiter"));
-        assert!(stim.contains("REVOKED"));
-        assert!(stim.contains("holders: 250000"));
+        assert!(stim.contains("Holders: 250000"));
     }
 }

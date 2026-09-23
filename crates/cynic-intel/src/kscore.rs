@@ -212,33 +212,15 @@ mod tests {
 
     fn cfg() -> KScoreConfigSnapshot {
         KScoreConfigSnapshot {
+            enabled: true,
+            top_n_wallets: 10,
+            swap_history_limit: 20,
             weight_diamond_hands: 0.75,
             weight_organic_growth: 1.0,
             weight_longevity: 1.0,
             accumulator_threshold: 1.5,
             holder_threshold: 1.0,
             reducer_threshold: 0.5,
-        }
-    }
-
-    impl KScoreConfigView for KScoreConfigSnapshot {
-        fn weight_diamond_hands(&self) -> f64 {
-            self.weight_diamond_hands
-        }
-        fn weight_organic_growth(&self) -> f64 {
-            self.weight_organic_growth
-        }
-        fn weight_longevity(&self) -> f64 {
-            self.weight_longevity
-        }
-        fn accumulator_threshold(&self) -> f64 {
-            self.accumulator_threshold
-        }
-        fn holder_threshold(&self) -> f64 {
-            self.holder_threshold
-        }
-        fn reducer_threshold(&self) -> f64 {
-            self.reducer_threshold
         }
     }
 
@@ -330,19 +312,18 @@ mod tests {
         let behaviors = vec![
             FixtureBehavior {
                 class: HolderClass::Holder,
-                hold_time_hours: Some(48.0), // 2 days
+                hold_time_hours: Some(48.0),
             },
             FixtureBehavior {
                 class: HolderClass::Holder,
-                hold_time_hours: Some(240.0), // 10 days
+                hold_time_hours: Some(240.0),
             },
             FixtureBehavior {
                 class: HolderClass::Reducer,
-                hold_time_hours: None, // no buy found
+                hold_time_hours: None,
             },
         ];
         let score = compute_kscore(&behaviors, 500, 30.0, 200, &cfg());
-        // Median of [48.0, 240.0] (None excluded) = (48+240)/2 = 144.0
         assert_eq!(score.median_hold_hours, Some(144.0));
     }
 
