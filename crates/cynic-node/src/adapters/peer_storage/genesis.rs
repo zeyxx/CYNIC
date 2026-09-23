@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
-use cynic_protocol::peer::{
+use cynic_consensus::peer::{
     CitizenAccount, LedgerTransaction, LedgerTransactionPayload, NODE_ACCOUNT_SCHEMA, NodeAccount,
     NodeMembershipStatus, OFFICE_ACCOUNT_SCHEMA, OfficeAccount,
 };

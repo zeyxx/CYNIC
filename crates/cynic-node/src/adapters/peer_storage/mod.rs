@@ -23,7 +23,7 @@ pub use wal_file::PeerWalFile;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::peer::{
+    use cynic_consensus::peer::{
         CitizenAccount, LedgerTransaction, LedgerTransactionPayload, MANDATE_ACCOUNT_SCHEMA,
         MandateAccount, MandateStatus, NODE_ACCOUNT_SCHEMA, NodeAccount, NodeMembershipStatus,
         OFFICE_ACCOUNT_SCHEMA, OfficeAccount,

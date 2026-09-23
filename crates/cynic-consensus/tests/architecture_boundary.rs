@@ -22,3 +22,37 @@ fn consensus_domain_has_no_orchestrator_dependencies() {
         "cynic-consensus must not depend on cynic-host"
     );
 }
+
+#[test]
+fn peer_domain_is_pure_zero_io() {
+    let domain_files = [
+        "src/peer/accounts.rs",
+        "src/peer/engine.rs",
+        "src/peer/genesis.rs",
+        "src/peer/mod.rs",
+        "src/peer/state.rs",
+        "src/peer/transactions.rs",
+        "src/peer/wal.rs",
+    ];
+    for rel_path in &domain_files {
+        let path = consensus_crate_root().join(rel_path);
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read {:?}: {}", path, e));
+
+        assert!(
+            !content.contains("std::process::Command"),
+            "Pure Domain Violation: {} contains direct std::process::Command!",
+            rel_path
+        );
+        assert!(
+            !content.contains("reqwest"),
+            "Pure Domain Violation: {} contains network HTTP dependencies!",
+            rel_path
+        );
+        assert!(
+            !content.contains("tokio::spawn"),
+            "Pure Domain Violation: {} spawns async runtimes inside pure domain!",
+            rel_path
+        );
+    }
+}

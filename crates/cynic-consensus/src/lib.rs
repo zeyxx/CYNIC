@@ -4,6 +4,8 @@
 
 pub mod evaluator;
 pub mod types;
+pub mod peer;
+pub use peer::*;
 
 pub use evaluator::{compute_epoch_fingerprint, evaluate_fleet_consensus};
 pub use types::{

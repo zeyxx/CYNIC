@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use cynic_protocol::peer::{LedgerTransaction, TransactionReceipt};
+use cynic_consensus::peer::{LedgerTransaction, TransactionReceipt};
 
 use super::genesis::bootstrap_genesis_from_registry;
 use super::manager::PeerStorageManager;

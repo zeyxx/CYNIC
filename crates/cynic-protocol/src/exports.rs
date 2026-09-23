@@ -84,7 +84,6 @@ pub use crate::one_shot_capability::{
 };
 pub use crate::organic_opportunity::*;
 pub use crate::outcomes::*;
-pub use crate::peer::*;
 pub use crate::policy::*;
 pub use crate::pre_os::*;
 pub use crate::provider::*;

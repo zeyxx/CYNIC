@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::peer::{
+use cynic_consensus::peer::{
     GENESIS_PREV_HASH, LedgerTransaction, PeerState, TransactionReceipt, TransitionError, WalEntry,
     apply_transaction, replay_wal,
 };

@@ -232,18 +232,18 @@ impl<T: BookEntry, W: WalJournalPort> LedgerBook<T> for TypedBook<T, W> {
 // ── Domain BookEntry Implementations ─────────────────────────────────────────
 
 // 1. Identity & Node Accounts
-impl BookEntry for cynic_protocol::peer::CitizenAccount {
+impl BookEntry for cynic_consensus::peer::CitizenAccount {
     fn schema_uri() -> &'static str {
-        cynic_protocol::peer::CITIZEN_ACCOUNT_SCHEMA
+        cynic_consensus::peer::CITIZEN_ACCOUNT_SCHEMA
     }
     fn entry_id(&self) -> &str {
         &self.citizen_id
     }
 }
 
-impl BookEntry for cynic_protocol::peer::NodeAccount {
+impl BookEntry for cynic_consensus::peer::NodeAccount {
     fn schema_uri() -> &'static str {
-        cynic_protocol::peer::NODE_ACCOUNT_SCHEMA
+        cynic_consensus::peer::NODE_ACCOUNT_SCHEMA
     }
     fn entry_id(&self) -> &str {
         &self.node_id
@@ -251,9 +251,9 @@ impl BookEntry for cynic_protocol::peer::NodeAccount {
 }
 
 // 2. Governance & Mandate Accounts
-impl BookEntry for cynic_protocol::peer::MandateAccount {
+impl BookEntry for cynic_consensus::peer::MandateAccount {
     fn schema_uri() -> &'static str {
-        cynic_protocol::peer::MANDATE_ACCOUNT_SCHEMA
+        cynic_consensus::peer::MANDATE_ACCOUNT_SCHEMA
     }
     fn entry_id(&self) -> &str {
         &self.mandate_id
@@ -302,9 +302,9 @@ impl BookEntry for crate::types::OpaqueEnvelope {
 
 /// Sovereign master ledger holding the 6 specialized books of CYNIC.
 pub struct CynicLedger<W: WalJournalPort> {
-    pub citizens: TypedBook<cynic_protocol::peer::CitizenAccount, W>,
-    pub nodes: TypedBook<cynic_protocol::peer::NodeAccount, W>,
-    pub mandates: TypedBook<cynic_protocol::peer::MandateAccount, W>,
+    pub citizens: TypedBook<cynic_consensus::peer::CitizenAccount, W>,
+    pub nodes: TypedBook<cynic_consensus::peer::NodeAccount, W>,
+    pub mandates: TypedBook<cynic_consensus::peer::MandateAccount, W>,
     pub claims: TypedBook<cynic_protocol::agent_coordination::Claim, W>,
     pub invoices: TypedBook<cynic_protocol::metabolic_invoice::MetabolicInvoice, W>,
     pub proofs: TypedBook<cynic_protocol::runtime::RuntimeProof, W>,

@@ -3,7 +3,7 @@
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::peer::{CitizenAccount, MandateAccount, NodeAccount, PeerState};
+use cynic_consensus::peer::{CitizenAccount, MandateAccount, NodeAccount, PeerState};
 
 #[derive(Debug)]
 pub struct PeerSqliteProjection {

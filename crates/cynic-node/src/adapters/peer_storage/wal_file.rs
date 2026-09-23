@@ -4,7 +4,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::peer::{GENESIS_PREV_HASH, WalEntry, verify_wal_chain};
+use cynic_consensus::peer::{GENESIS_PREV_HASH, WalEntry, verify_wal_chain};
 
 #[derive(Debug)]
 pub struct PeerWalFile {

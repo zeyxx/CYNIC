@@ -275,7 +275,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
 
 pub fn admit_workload_mandate_binding(
     envelope: &AgentWorkloadEnvelope,
-    mandate: &cynic_protocol::peer::MandateAccount,
+    mandate: &cynic_consensus::peer::MandateAccount,
     now_unix_s: u64,
 ) -> AgentWorkloadAdmission {
     let Some(binding) = envelope.mandate_binding.as_ref() else {
