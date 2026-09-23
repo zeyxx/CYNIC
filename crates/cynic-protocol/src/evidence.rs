@@ -293,7 +293,7 @@ fn shares_digest(left: &[String], right: &[String]) -> bool {
     left.iter().any(|digest| right.contains(digest))
 }
 
-pub(crate) fn valid_sha256_digest(value: &str) -> bool {
+pub fn valid_sha256_digest(value: &str) -> bool {
     value.strip_prefix("sha256:").is_some_and(|digest| {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })

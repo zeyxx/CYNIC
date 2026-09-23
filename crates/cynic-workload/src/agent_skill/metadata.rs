@@ -270,7 +270,7 @@ mod tests {
              addressable by two digests"
         );
         // The shared helper genuinely differs — proof the divergence is real.
-        assert!(crate::evidence::valid_sha256_digest(&upper));
+        assert!(cynic_protocol::evidence::valid_sha256_digest(&upper));
     }
 
     fn evidence() -> AgentEvidenceRef {

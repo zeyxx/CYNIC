@@ -2,13 +2,13 @@ use crate::{
     AgentBoundedAction, AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
     WorkloadMandateBinding,
 };
+use cynic_consensus::{MandateAccount, MandateStatus};
 use cynic_protocol::{
     AGENT_COMPLETION_ENVELOPE_SCHEMA, AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget,
     AgentCapabilityGrant, AgentCompletionEnvelope, AgentCompletionStatus, AgentDelegationEnvelope,
     AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard,
-    MandateAccount, MandateStatus, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA,
-    PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
-    PolicySetRef, RequiredProof, digest_json,
+    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
+    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 
 use super::{

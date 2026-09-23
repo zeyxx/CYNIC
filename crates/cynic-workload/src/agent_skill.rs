@@ -384,7 +384,7 @@ mod tests {
                 digest: bundle.content_digest.clone(),
                 lineage: None,
             }],
-            capabilities: vec![crate::AgentCapabilityGrant {
+            capabilities: vec![cynic_protocol::AgentCapabilityGrant {
                 id: "workspace_read".to_string(),
                 mutates: false,
             }],
@@ -472,7 +472,10 @@ mod tests {
                 .expect("admitted binding produces workload input");
         assert_eq!(input.schema, crate::AGENT_WORKLOAD_INPUT_SCHEMA);
         assert_eq!(input.kind, "agent_skill_delivery");
-        assert_eq!(crate::digest_json(&input.payload).unwrap(), input.digest);
+        assert_eq!(
+            cynic_protocol::digest_json(&input.payload).unwrap(),
+            input.digest
+        );
         assert!(validate_agent_skill_delivery_input(&input, &delegation(&bundle)).is_empty());
     }
 

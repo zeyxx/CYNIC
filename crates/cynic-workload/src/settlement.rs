@@ -82,8 +82,6 @@ pub fn settle_parcel_with_receipt(
     completion: &AgentCompletionEnvelope,
     now_ms: u64,
 ) -> Result<(AgentWorkloadRecord, SettledParcelReceipt), AgentWorkloadViolation> {
-    require_valid_record(record)?;
-
     // 1. Verify action plan immutability against in-flight tampering
     let computed_plan_digest = digest_json(&record.envelope.action).map_err(|e| {
         violation(
@@ -98,7 +96,7 @@ pub fn settle_parcel_with_receipt(
         ));
     }
 
-    // 2. Verify active lease claim and guard invariants
+    require_valid_record(record)?;
     let claim = require_live_claim(record, guard, now_ms)?;
 
     // 3. Validate completion against delegation requirements
