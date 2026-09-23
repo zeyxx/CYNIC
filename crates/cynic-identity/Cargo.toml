@@ -1,0 +1,31 @@
+[package]
+name = "cynic-identity"
+version = "0.1.0"
+edition = "2021"
+description = "Cryptographic node identity for CYNIC — no_std + alloc compatible"
+
+# Feature `std` (default) enables key generation via OS entropy (OsRng).
+# Without `std`: pure verification + derivation only — Solana/WASM/sandbox safe.
+[features]
+default = ["std"]
+std = [
+    "dep:rand_core",
+    "ed25519-dalek/rand_core",
+    "serde/std",
+    "hex/std",
+    "thiserror/std",
+]
+
+[dependencies]
+ed25519-dalek = { version = "2", default-features = false, features = ["serde", "alloc", "zeroize"] }
+blake3 = { version = "1", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+thiserror = { version = "2", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+rand_core = { version = "0.6", optional = true, features = ["getrandom"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
