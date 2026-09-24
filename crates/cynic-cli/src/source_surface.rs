@@ -141,35 +141,83 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
     }
 }
 
-fn execute_release(root: &Path, _dry_run: bool, _apply: bool, json: bool) -> ExitCode {
+fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> ExitCode {
     let observation = cynic_host::source_sync::observe_all_layers(root);
     let proofs = cynic_host::adapters::release_gate_adapter::collect_host_gate_proofs(root);
     let report = cynic_release::evaluate_gate_records(proofs);
 
-    let exit = if report.all_passed {
-        SourceExit {
-            status: "ready",
-            summary: format!(
-                "gate passed — forgejo ahead by {} commits, ready for release",
-                observation.forgejo.commits_ahead.unwrap_or(0)
-            ),
-        }
-    } else {
-        SourceExit {
+    if !report.all_passed {
+        let exit = SourceExit {
             status: "blocked",
             summary: format!(
                 "gate failed — {} checks failed: {}",
                 report.blockers.len(),
                 report.blockers.join("; ")
             ),
-        }
-    };
+        };
+        return if json {
+            emit_pretty_json(&exit)
+        } else {
+            println!("{}", exit.summary);
+            ExitCode::FAILURE
+        };
+    }
 
-    if json {
-        emit_pretty_json(&exit)
+    if apply {
+        let remote = "github";
+        let branch = "main";
+        let push_result = cynic_host::adapters::release_relay_adapter::push_branch_to_remote(root, remote, branch);
+        let readback = cynic_host::adapters::release_relay_adapter::verify_branch_readback(root, remote, branch);
+
+        if json {
+            emit_pretty_json(&serde_json::json!({
+                "schema": "cynic.source_release_report.v1",
+                "status": if push_result.is_ok() && readback.matches { "success" } else { "failed" },
+                "remote": remote,
+                "branch": branch,
+                "readback": {
+                    "local_sha": readback.local_sha,
+                    "remote_sha": readback.remote_sha,
+                    "matches": readback.matches,
+                },
+                "push_error": push_result.as_ref().err(),
+            }))
+        } else {
+            match push_result {
+                Ok(_) => {
+                    println!("Release published to relay '{remote}' branch '{branch}'.");
+                    println!(
+                        "Read-back proof: local={} remote={} matches={}",
+                        readback.local_sha.as_deref().unwrap_or("none"),
+                        readback.remote_sha.as_deref().unwrap_or("none"),
+                        readback.matches
+                    );
+                    if readback.matches {
+                        ExitCode::SUCCESS
+                    } else {
+                        ExitCode::FAILURE
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Release push failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
     } else {
-        println!("{}", exit.summary);
-        ExitCode::SUCCESS
+        let exit = SourceExit {
+            status: "ready",
+            summary: format!(
+                "gate passed — forgejo ahead by {} commits, ready for release (pass --apply to execute)",
+                observation.forgejo.commits_ahead.unwrap_or(0)
+            ),
+        };
+        if json {
+            emit_pretty_json(&exit)
+        } else {
+            println!("{}", exit.summary);
+            ExitCode::SUCCESS
+        }
     }
 }
 fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
