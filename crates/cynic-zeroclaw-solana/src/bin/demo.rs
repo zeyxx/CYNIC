@@ -85,6 +85,7 @@ async fn main() -> Result<()> {
         actions: 10,
         children: 2,
         wall_time_ms: 30000,
+        cpu_ms: None,
     };
 
     let mut pay_req = SolanaPayRequest::new(cli.recipient)
