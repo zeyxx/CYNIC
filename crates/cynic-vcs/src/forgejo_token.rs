@@ -101,12 +101,8 @@ pub struct ForgejoTokenStatusReport {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgejoTokenProvisionReport {
     pub schema: String,
-    pub status: String,
     pub principal: String,
-    pub mutated: bool,
-    pub before: ForgejoTokenObservation,
-    pub after: ForgejoTokenObservation,
-    pub proofs: Vec<String>,
+    pub status: String,
     pub metadata: Option<ForgejoTokenMetadata>,
     pub token_metadata: Option<ForgejoTokenMetadata>,
     pub action_taken: String,
