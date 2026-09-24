@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.source_lifecycle.v1",
+  "version": "0.1.0",
+  "status": "normative",
+  "purpose": "Self-governance contract for sovereign code lifecycle, isolated worktrees, Forgejo PR actuation, and verified promotion gates.",
+  "principles": [
+    "Machine-readable first: lifecycle states and transitions are strictly typed data, never prose or manual assumptions.",
+    "Zero-I/O pure domain core: evaluation of merge eligibility, branch state, and worktree health is purely functional.",
+    "No mutation without read-back proof: any git actuation (worktree allocation, PR merge, relay push) must be observed and proven.",
+    "Shared worktree isolation: concurrent agents must never mutate shared HEAD; isolated worktrees are mandatory on Cortex."
+  ],
+  "topology": {
+    "local_workspace": "cortex",
+    "sovereign_ssot": "forgejo",
+    "build_gate_authority": "builder",
+    "public_relay": "github"
+  },
+  "branch_state_machine": {
+    "naming_pattern": "^agent/[a-z0-9_-]+/[a-z0-9_-]+$",
+    "states": [
+      "created",
+      "active",
+      "evaluated",
+      "pr_opened",
+      "merged",
+      "stale",
+      "archived"
+    ],
+    "thresholds": {
+      "stale_behind_commits": 50,
+      "archive_behind_commits": 150,
+      "max_active_branches": 5
+    }
+  },
+  "worktree_isolation": {
+    "root_directory": "~/.cynic/worktrees",
+    "allocation_rule": "Every agent task must allocate an isolated git worktree branched from verified origin/main.",
+    "cleanup_policy": "automatic_on_release_or_error",
+    "forbidden_actions": [
+      "git checkout on shared repository HEAD",
+      "git add -A / git add . in shared worktree"
+    ]
+  },
+  "pr_lifecycle": {
+    "sovereign_host": "http://10.10.10.101:3000",
+    "mandatory_gates": [
+      "workspace_check_offline",
+      "secret_lint_zero_findings",
+      "architecture_boundary_zero_violations",
+      "sha_triad_equality"
+    ],
+    "auto_merge_allowed_if": {
+      "all_gates_passed": true,
+      "reviews_satisfied": true,
+      "no_conflicts": true
+    }
+  }
+}

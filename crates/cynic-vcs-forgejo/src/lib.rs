@@ -1,6 +1,7 @@
 //! cynic-vcs-forgejo — Forgejo API adapters for CYNIC sovereign VCS.
 
 pub mod forgejo_token;
+pub mod pull_request;
 pub mod forgejo_webhook;
 pub mod forgejo_webhook_server;
 

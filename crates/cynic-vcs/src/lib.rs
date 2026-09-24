@@ -8,6 +8,7 @@ pub mod forgejo_token;
 pub mod git_hygiene;
 pub mod git_topology;
 pub mod parse;
+pub mod pull_request;
 pub mod reconcile;
 pub mod runner;
 pub mod source_control;
