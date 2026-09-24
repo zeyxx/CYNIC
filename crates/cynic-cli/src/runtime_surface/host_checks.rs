@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use cynic_protocol::RuntimeProofBundle;
 
-use crate::bootstrap_surface::{ProfileArgs, selected_host_context};
+use crate::host_profile_selection::{ProfileArgs, selected_host_context};
 use crate::{emit_json, fail};
 
 pub(crate) fn execute_harness(json: bool, kind: Option<&str>) -> ExitCode {

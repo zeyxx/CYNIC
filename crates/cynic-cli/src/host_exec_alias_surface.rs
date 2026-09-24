@@ -8,7 +8,7 @@ use cynic_host::ports::HostPrincipalPort;
 use cynic_host::usecases::observe_host_with_resolution;
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 
-use crate::bootstrap_surface::{
+use crate::host_profile_selection::{
     ProfileArgs, observed_blocked, selected_profile, selected_resolution,
 };
 use crate::{emit_json, fail};

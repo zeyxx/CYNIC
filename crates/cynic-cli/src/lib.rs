@@ -43,6 +43,7 @@ pub mod forensics_surface;
 pub mod fs_json;
 pub mod git_surface;
 pub mod host_exec_alias_surface;
+pub mod host_profile_selection;
 pub mod invoice_log;
 pub mod judge_surface;
 pub mod judgment_surface;
