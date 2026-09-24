@@ -6,10 +6,10 @@ use cynic_vcs::{
     FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoDesiredState, ForgejoObservedState, ForgejoPlan,
     plan_forgejo_convergence,
 };
-use cynic_protocol::{
+use cynic_network::transport_security::{
     NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
-    SecurityEvidenceState as ForgejoEvidenceState,
 };
+use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 
 use crate::repo_access::{
     RepoAccessStatusReport, current_project_root, current_repo_access_status,
