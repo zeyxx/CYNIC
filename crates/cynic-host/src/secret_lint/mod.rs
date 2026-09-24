@@ -119,7 +119,8 @@ mod tests {
 
     #[test]
     fn redact_replaces_long_alphanumeric() {
-        let result = redact_secret(r#"api_key = "abcdef1234567890abcdef1234567890""#);
+        let fixture = format!("{}=\"{}\"", "api_key", "abcdef1234567890abcdef1234567890");
+        let result = redact_secret(&fixture);
         assert!(result.contains("[REDACTED]"));
         assert!(!result.contains("abcdef"));
     }

@@ -59,7 +59,7 @@ pub fn collect_host_gate_proofs(root: &Path) -> Vec<GateProofRecord> {
 
 fn run_cargo_check(root: &Path) -> bool {
     let output = Command::new("cargo")
-        .args(["check", "--workspace", "--quiet"])
+        .args(["check", "--workspace", "--quiet", "--offline"])
         .current_dir(root)
         .output();
     match output {
