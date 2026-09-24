@@ -1,4 +1,4 @@
-use cynic_protocol::{HarnessObservation, HarnessScenario, HarnessScenarioId};
+use cynic_build::harness::{HarnessObservation, HarnessScenario, HarnessScenarioId};
 
 pub fn observe_harness_scenarios(
     scenarios: &[HarnessScenario],

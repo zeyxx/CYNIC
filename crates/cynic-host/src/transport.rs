@@ -4,7 +4,6 @@ use cynic_network::transport_security::{TransportScope, TransportSecurityReport,
 use cynic_protocol::SecurityEvidenceState;
 
 use crate::bridge;
-use crate::ssh_config::{self, SshConfigEntry, SshConfigParse};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ExecutableObservation {

@@ -1,8 +1,9 @@
 use std::time::Duration;
 use std::{cmp, io::Read};
 
-use cynic_storage::identity::{StorageIdentityRole, StorageIdentitySpec, storage_identity_spec_blockers};
-use crate::storage_identity::types::StorageEvidenceState;
+use cynic_storage::identity::{
+    StorageEvidenceState, StorageIdentityRole, StorageIdentitySpec, storage_identity_spec_blockers,
+};
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
 use serde::Deserialize;

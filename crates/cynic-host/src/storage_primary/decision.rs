@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use cynic_protocol::{
+use cynic_storage::lifecycle::{
     StorageClaimSpec, StorageClassSpec, StorageObservation, StoragePlan, StorageResizeRequest,
     StorageVolumeSpec, reconcile_storage,
 };

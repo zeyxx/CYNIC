@@ -1,4 +1,4 @@
-use cynic_protocol::{HarnessObservation, reconcile_harness_matrix};
+use cynic_build::harness::{HarnessObservation, reconcile_harness_matrix};
 
 use super::observe::observe_harness_scenarios;
 use super::registry::load_harness_scenarios;
@@ -29,8 +29,8 @@ pub fn build_runner_harness_plan(
 mod tests {
     use super::*;
     use crate::build_runner_harness::types::BUILD_RUNNER_HARNESS_REPORT_SCHEMA;
-    use cynic_protocol::HarnessScenarioId;
-    use cynic_protocol::HarnessStatus;
+    use cynic_build::harness::HarnessScenarioId;
+    use cynic_build::harness::HarnessStatus;
 
     #[test]
     fn build_runner_harness_plan_generates_six_cells_and_is_non_mutating() {
