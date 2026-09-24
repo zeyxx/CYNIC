@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cynic/tradition-registry-mapping/v0.2",
+  "title": "Mapping 50 Traditions → 6 E-Score Registries",
+  "description": "Les registres sont des SKINS cosmétiques. Les 7 stats (karteria, parrhesia, anaideia, philanthropia, autarkeia, poiesis, koinonia) sont INVARIANTS. Chaque tradition renomme ces 7 dimensions selon son vocabulaire culturel. Le mapping montre quelle tradition se reconnaît dans quel registre.",
+  "registries": {
+    "cynic": {
+      "id": "cynic",
+      "name": "CYNIC Canonique",
+      "vibe": "Philosophie grecque : mesure, vertu, citoyenneté, dialectique",
+      "traditions": [
+        {"name": "CYNIC", "fit": 1.0, "role": "Méta-système — auto-référentiel"},
+        {"name": "Agnosticisme", "fit": 0.95, "role": "Méthode grecque : évidentialisme, skepsis"},
+        {"name": "Confucianisme", "fit": 0.85, "role": "Harmonie, vertu, rituel — parallèle Li/Ren"},
+        {"name": "Rousseau", "fit": 0.80, "role": "Contrat social, volonté générale"},
+        {"name": "Aztèque", "fit": 0.70, "role": "Tonatiuh, calendrier, mesure du temps"},
+        {"name": "Dharma", "fit": 0.65, "role": "Devoir cosmique, ordre moral"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Karteria"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Parrhesia"},
+        "anaideia": {"cynic": "Anaideia", "local": "Anaideia"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "Philanthropia"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Autarkeia"},
+        "poiesis": {"cynic": "Poiesis", "local": "Poiesis"},
+        "koinonia": {"cynic": "Koinonia", "local": "Koinonia"}
+      }
+    },
+    "cypherpunk": {
+      "id": "cypherpunk",
+      "name": "Cypherpunk",
+      "vibe": "Numérique radical : chiffrement, vie privée, décentralisation, anti-système",
+      "traditions": [
+        {"name": "Open Source", "fit": 1.0, "role": "Code ouvert, fork, décentralisation"},
+        {"name": "Blockchain", "fit": 0.95, "role": "Registre distribué, consensus algorithmique"},
+        {"name": "Anarchisme", "fit": 0.85, "role": "Anti-hiérarchie, association libre"},
+        {"name": "Hermès", "fit": 0.70, "role": "Ruse, passage, tromperie créative"},
+        {"name": "Machiavel", "fit": 0.65, "role": "Calcul, stratégie, virtù"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Résistance"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Chiffrement"},
+        "anaideia": {"cynic": "Anaideia", "local": "Audit"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "Open Source"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Auto-hébergement"},
+        "poiesis": {"cynic": "Poiesis", "local": "Code"},
+        "koinonia": {"cynic": "Koinonia", "local": "Réseau"}
+      }
+    },
+    "nordic": {
+      "id": "nordic",
+      "name": "Nordique",
+      "vibe": "Germanique/scandinave : honneur, destin, héroïsme tragique, wyrd",
+      "traditions": [
+        {"name": "Nordique", "fit": 1.0, "role": "Wyrd, Edda, héroïsme"},
+        {"name": "Tengrism", "fit": 0.90, "role": "Mandat du Ciel, khan-guerrier"},
+        {"name": "Hegel", "fit": 0.75, "role": "Dialectique, lutte pour la reconnaissance"},
+        {"name": "Chondogyo", "fit": 0.70, "role": "Résistance paysanne, rébellion"},
+        {"name": "Chamanisme", "fit": 0.60, "role": "Voyage héroïque, quête de vision"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Hugr"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Sanning"},
+        "anaideia": {"cynic": "Anaideia", "local": "Hug"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "Gifting"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Sjalfstæði"},
+        "poiesis": {"cynic": "Poiesis", "local": "Skald"},
+        "koinonia": {"cynic": "Koinonia", "local": "Félag"}
+      }
+    },
+    "bushido": {
+      "id": "bushido",
+      "name": "Bushido",
+      "vibe": "Japonais : discipline, voie du guerrier, 7 vertus, service",
+      "traditions": [
+        {"name": "Bushido", "fit": 1.0, "role": "Voie du guerrier, 7 vertus"},
+        {"name": "Stoïcisme", "fit": 0.85, "role": "Discipline, contrôle de soi, devoir"},
+        {"name": "Inca", "fit": 0.80, "role": "Ayni, service, loyauté collective"},
+        {"name": "Sikhisme", "fit": 0.75, "role": "Seva, service, égalité"},
+        {"name": "Spartiate", "fit": 0.70, "role": "Guerre, discipline, 300"},
+        {"name": "Druidisme", "fit": 0.60, "role": "Arbitre, service, connaissance"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Chūgi"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Makoto"},
+        "anaideia": {"cynic": "Anaideia", "local": "Yūki"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "Jin"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Jisei"},
+        "poiesis": {"cynic": "Poiesis", "local": "Gijutsu"},
+        "koinonia": {"cynic": "Koinonia", "local": "Gi"}
+      }
+    },
+    "gnostic": {
+      "id": "gnostic",
+      "name": "Gnostic",
+      "vibe": "Mystique : connaissance intérieure, ésotérisme, union avec le divin",
+      "traditions": [
+        {"name": "Kabbale", "fit": 1.0, "role": "Sefirot, Ein Sof, mystique juive"},
+        {"name": "Soufisme", "fit": 0.95, "role": "Fana, dhikr, union avec le Divin"},
+        {"name": "Christianisme ésotérique", "fit": 0.90, "role": "Apophatisme, Eckhart, Hésychasme"},
+        {"name": "Druidisme", "fit": 0.85, "role": "Connaissance orale, Autre Monde"},
+        {"name": "Aborigène", "fit": 0.80, "role": "Tjukurpa, temps permanent"},
+        {"name": "Daoïsme", "fit": 0.90, "role": "Wu wei, flux, union avec la nature"},
+        {"name": "Bouddhisme", "fit": 0.85, "role": "Nirvana, vacuité, méditation"},
+        {"name": "Hinduisme", "fit": 0.80, "role": "Yoga, moksha, Brahman-Atman"},
+        {"name": "Zoroastrisme", "fit": 0.65, "role": "Asha, ordre cosmique"},
+        {"name": "Shinto", "fit": 0.60, "role": "Kami, purification, nature"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Dhikr"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Fana"},
+        "anaideia": {"cynic": "Anaideia", "local": "Tawakkul"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "Seva"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Tazkiyah"},
+        "poiesis": {"cynic": "Poiesis", "local": "Silsila"},
+        "koinonia": {"cynic": "Koinonia", "local": "Ummah"}
+      }
+    },
+    "degen": {
+      "id": "degen",
+      "name": "Degen",
+      "vibe": "Culture du risque : spéculation, casino, paris, memes, adrenaline",
+      "traditions": [
+        {"name": "Marxisme", "fit": 0.80, "role": "Spéculation sur la révolution, jackpot historique"},
+        {"name": "Nationalisme", "fit": 0.75, "role": "Appartenance émotionnelle, pari collectif"},
+        {"name": "Machiavel", "fit": 0.85, "role": "Ruse, calcul, virtù stratégique"},
+        {"name": "Capitalisme", "fit": 0.80, "role": "Marché, spéculation, risque-rendement"},
+        {"name": "Féminisme", "fit": 0.65, "role": "Risque social, pari sur l'égalité"}
+      ],
+      "stat_renames": {
+        "karteria": {"cynic": "Karteria", "local": "Diamond Hands"},
+        "parrhesia": {"cynic": "Parrhesia", "local": "Alpha"},
+        "anaideia": {"cynic": "Anaideia", "local": "Ape In"},
+        "philanthropia": {"cynic": "Philanthropia", "local": "WAGMI"},
+        "autarkeia": {"cynic": "Autarkeia", "local": "Rug Pull"},
+        "poiesis": {"cynic": "Poiesis", "local": "Mint"},
+        "koinonia": {"cynic": "Koinonia", "local": "Wen Moon"}
+      }
+    }
+  },
+  "coverage": {
+    "total_traditions": 50,
+    "assigned": 35,
+    "unassigned": [
+      "Christianisme exotérique",
+      "Islam",
+      "Judaïsme",
+      "Légalisme",
+      "Bouddhisme (branche Logos)",
+      "Maya",
+      "Thoth",
+      "Prisca_Theologia",
+      "KhoiSan",
+      "Ubuntu",
+      "Yoruba",
+      "Akan",
+      "Mapuche",
+      "Écologisme",
+      "Maori",
+      "Hawaïen"
+    ],
+    "note": "Les traditions non-assignées nécessitent un 7ème registre (ex: 'indigène' ou 'cosmique') ou une reclassification."
+  },
+  "principe_cle": "Les registres ne sont pas des catégories exclusives — ce sont des LENTILLES cosmétiques. Un utilisateur Yoruba peut choisir le registre Gnostic si ses valeurs sont mystiques, ou Cypherpunk si son combat est anti-système. Le mapping ci-dessus montre la PROXIMÉ CULTURELLE PAR DÉFAUT, pas une assignation rigide."
+}

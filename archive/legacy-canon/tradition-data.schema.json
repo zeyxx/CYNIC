@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cynic/tradition-data/v1.0",
+  "title": "CYNIC Tradition Data — Externalized dataset",
+  "description": "Single source of truth for tradition coordinates and metadata. Code reads this, never hardcodes.",
+  "type": "object",
+  "required": ["version", "traditions"],
+  "properties": {
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+    "last_updated": { "type": "string", "format": "date" },
+    "traditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "epoch", "mechanism", "scale", "coordinates", "core", "institutions", "coordination"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z_]+$" },
+          "name": { "type": "string" },
+          "epoch": { "type": "string", "enum": ["pre-civilizational", "ancient", "post-classical", "modern", "contemporary", "hypermodern"] },
+          "mechanism": { "type": "string", "enum": ["mythos", "logos", "ethos", "pathos", "bios", "techne"] },
+          "scale": { "type": "string", "enum": ["parentele", "tribe", "city", "empire", "civilization", "globe"] },
+          "coordinates": {
+            "type": "object",
+            "required": ["s", "b", "n"],
+            "properties": {
+              "s": { "type": "number", "minimum": 0, "maximum": 1 },
+              "b": { "type": "number", "minimum": 0, "maximum": 1 },
+              "n": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "core": { "type": "string", "maxLength": 200 },
+          "institutions": { "type": "array", "items": { "type": "string" } },
+          "coordination": { "type": "string", "maxLength": 200 },
+          "population_estimate": { "type": "integer", "minimum": 0 },
+          "duration_years": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

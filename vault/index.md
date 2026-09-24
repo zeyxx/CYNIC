@@ -60,7 +60,15 @@ Chaque note dans `vault/canon/traditions/` dispose de ses tags et coordonnées p
 
 ---
 
-## ⚓ V. Ancrages Normatifs & Runtime Authority
+## 📐 V. Études Fondamentales & Architecture Substrat (Bridges)
+* **Stockage Froid & Preuves Immuables** : `docs/foundation/D1-cold-evidence-storage.md` (Étude comparative SurrealDB vs journal JSONL signé Ed25519)
+* **Framework CLI d'Agents** : `docs/foundation/CYNIC_AGENT_CLI_FRAMEWORK.md` (Architecture du bus et injection de ports)
+* **Critique d'Isolation & Membranes de Miller** : `docs/design/cynic-isolation-critique.md` (Limites du modèle L0-L5, Object-Capability Membranes, seL4 microkernel et métabolisme de stockage)
+* **Plan d'Isolation Réseau** : `docs/design/cynic-master-isolation-plan.md` & `docs/design/cynic-net-protocol.md`
+
+---
+
+## ⚓ VI. Ancrages Normatifs & Runtime Authority
 1. **État Observé du Runtime**
 2. `contracts/foundation.json`
 3. `infra/runtime-authority.json`
