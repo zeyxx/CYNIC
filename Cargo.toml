@@ -87,7 +87,7 @@ zeroize = "1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 
 [workspace.package]
-version = "0.2.0"
+version = "0.8.0"
 edition = "2024"
 authors = ["CYNIC Sovereign Collective"]
 license = "MIT OR Apache-2.0"
