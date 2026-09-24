@@ -4,6 +4,7 @@ pub mod development_genesis;
 pub mod entry;
 pub mod forgejo;
 pub mod forgejo_port;
+pub mod forgejo_token;
 pub mod git_hygiene;
 pub mod git_topology;
 pub mod parse;
