@@ -34,6 +34,37 @@ pub fn read_local_tag_sha(root: &Path, tag: &str) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// Read the SHA of a branch on a remote.
+pub fn read_remote_branch_sha(root: &Path, remote: &str, branch: &str) -> Option<String> {
+    let output = Command::new("git")
+        .args(["ls-remote", "--heads", remote, branch])
+        .current_dir(root)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().next())
+        .map(|s| s.trim().to_string())
+}
+
+/// Read the local SHA a branch points to, if it exists.
+pub fn read_local_branch_sha(root: &Path, branch: &str) -> Option<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", &format!("refs/heads/{branch}")])
+        .current_dir(root)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 /// Push a tag to a remote.
 pub fn push_tag_to_remote(root: &Path, remote: &str, tag: &str) -> bool {
     let output = Command::new("git")
@@ -58,6 +89,70 @@ pub fn force_push_tag_to_remote(root: &Path, remote: &str, tag: &str) -> bool {
     }
 }
 
+/// Push a branch to a remote.
+pub fn push_branch_to_remote(root: &Path, remote: &str, branch: &str) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["push", remote, branch])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("git push {} {} failed: {}", remote, branch, e))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "git push {} {}: {}",
+            remote,
+            branch,
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
+/// Force-push a branch to a remote.
+pub fn force_push_branch_to_remote(root: &Path, remote: &str, branch: &str) -> Result<(), String> {
+    let output = Command::new("git")
+        .args(["push", "--force", remote, branch])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("git push --force {} {} failed: {}", remote, branch, e))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "git push --force {} {}: {}",
+            remote,
+            branch,
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
+/// Create a pull request using the GitHub CLI.
+pub fn create_pull_request(
+    root: &Path,
+    title: &str,
+    body: &str,
+    base: &str,
+    head: &str,
+) -> Result<String, String> {
+    let output = Command::new("gh")
+        .args([
+            "pr", "create", "--title", title, "--body", body, "--base", base, "--head", head,
+        ])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("gh pr create failed: {}", e))?;
+    if output.status.success() {
+        let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(url)
+    } else {
+        Err(format!(
+            "gh pr create: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
 /// Verify that the tag SHA on the remote matches the local tag SHA (read-back proof).
 pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadbackProof {
     let local_sha = read_local_tag_sha(root, tag);
@@ -65,10 +160,25 @@ pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadb
 
     RelayReadbackProof {
         schema: "cynic.relay_readback_proof.v1",
-        tag: tag.to_string(),
+        target: tag.to_string(),
         remote: remote.to_string(),
-        local_tag_sha: local_sha.clone(),
-        remote_tag_sha: remote_sha.clone(),
+        local_sha,
+        remote_sha,
+        matches: local_sha.is_some() && local_sha == remote_sha,
+    }
+}
+
+/// Verify branch read-back proof.
+pub fn verify_branch_readback(root: &Path, remote: &str, branch: &str) -> RelayReadbackProof {
+    let local_sha = read_local_branch_sha(root, branch);
+    let remote_sha = read_remote_branch_sha(root, remote, branch);
+
+    RelayReadbackProof {
+        schema: "cynic.relay_readback_proof.v1",
+        target: branch.to_string(),
+        remote: remote.to_string(),
+        local_sha,
+        remote_sha,
         matches: local_sha.is_some() && local_sha == remote_sha,
     }
 }
@@ -77,9 +187,9 @@ pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadb
 #[derive(Debug, Clone)]
 pub struct RelayReadbackProof {
     pub schema: &'static str,
-    pub tag: String,
+    pub target: String,
     pub remote: String,
-    pub local_tag_sha: Option<String>,
-    pub remote_tag_sha: Option<String>,
+    pub local_sha: Option<String>,
+    pub remote_sha: Option<String>,
     pub matches: bool,
 }

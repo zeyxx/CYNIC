@@ -34,7 +34,6 @@ pub mod proxmox_clone;
 pub mod proxmox_disk_extension;
 pub mod proxmox_substrate;
 pub mod release_gate_adapter;
-pub mod release_relay_adapter;
 pub mod remote_branch_graph;
 pub mod remote_build_artefact;
 pub mod remote_build_discovery;

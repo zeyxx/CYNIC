@@ -1145,6 +1145,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-storage",
  "cynic-vcs",
+ "cynic-vcs-forgejo",
  "cynic-workload",
  "ed25519-dalek",
  "hex",
