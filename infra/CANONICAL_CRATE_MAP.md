@@ -210,7 +210,17 @@ cynic-intel-soc              ✓ existant
 ```
 cynic-solana-observer        ← renommer cynic-observer (solana_archive = 80%)
 cynic-solana-zeroclaw        ← renommer cynic-zeroclaw-solana
-cynic-solana-anchor          → CRÉER — anchor_client.rs (de protocol)
+cynic-solana-anchor          → DEFERRED — anchor_client.rs purged 2026-09-24
+                                        (251 LOC, 10/10 symbols zero external
+                                        consumers). Recreate only when an
+                                        on-chain branch is actually wired.
+cynic-solana-pay             ✓ CRÉÉ 2026-09-24 (ex-solana/ de protocol:
+                                        constants + ops — payment/SOP
+                                        vocabulary, not anchor). AllowanceGrant
+                                        stays in protocol residue (shared
+                                        vocabulary via agentic_tool_call);
+                                        payment behavior lives here as
+                                        AllowanceGrantPaymentExt.
 ```
 
 ### FAMILLE : domain
@@ -309,8 +319,16 @@ SESSION 1 : Éclater cynic-protocol
     forensics.rs → cynic-host-forensics (absorber)
     peer/        → cynic-node-consensus (absorber)
     network.rs + transport_* → cynic-network (absorber)
-    harness.rs   → cynic-build-harness (créer)
-    solana/ + anchor_client.rs → cynic-solana-anchor (créer) + cynic-solana-zeroclaw
+    harness.rs   → cynic-build (absorbé 2026-09-24 avec harness_authority.rs;
+                   schemas cynic.build.harness_*)
+    solana/ + anchor_client.rs → cynic-solana-pay (créé 2026-09-24);
+                   anchor_client purged (dead code, DEFERRED)
+    ✅ VAGUE A TERMINÉE 2026-09-24 (commit 06c19797)
+    Leçons: (1) SecurityEvidenceState reste au résidu — vocabulaire de preuve
+    partagé 40 fichiers/5 crates; (2) AllowanceGrant = vocabulaire cross-family
+    (agentic_tool_call) → résidu, behavior en extension trait dans la crate
+    domaine (orphan rule); (3) coordination_{fault,scaling}_harness purgés
+    (0 consommateur externe).
 
   VAGUE B — importent uniquement des feuilles-A
     evidence.rs (→ digest_json)           → cynic-eval-evidence (créer)
