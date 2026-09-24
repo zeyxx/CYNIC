@@ -6,13 +6,13 @@ authors = ["CYNIC Sovereign Collective"]
 description = "Contribution pool protocol, types, difficulty adjustment, merkle proofs, and reward distribution for CYNIC"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde.workspace = true
+serde_json.workspace = true
 thiserror = "1"
-blake3 = "1"
-chrono = { version = "0.4", features = ["serde"] }
-hex = "0.4"
-tracing = "0.1"
+blake3.workspace = true
+chrono.workspace = true
+hex.workspace = true
+tracing.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]

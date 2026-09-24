@@ -22,23 +22,23 @@ cynic-intel = { path = "../cynic-intel" }
 # The lease store persists DateTime<Utc> lease deadlines to disk, so chrono's
 # serde impls are required. cynic-kernel already declares it this way; cynic-host
 # did not, because no compiled module had ever needed it.
-chrono = { version = "0.4", features = ["serde"] }
+chrono.workspace = true
 libc = "0.2"
-hex = "0.4"
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "native-tls"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-toml = "0.8"
+hex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
 sha2 = "0.10.8"
 hmac = "0.12"
 sha1 = "0.10"
-tokio = { version = "1.50.0", features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros"] }
-async-trait = "0.1"
+tokio.workspace = true
+async-trait.workspace = true
 sysinfo = "0.39.6"
-zeroize = "1"
-ed25519-dalek = "2"
+zeroize.workspace = true
+ed25519-dalek.workspace = true
 regex = "1"
-walkdir = "2"
+walkdir.workspace = true
 thiserror = "1"
 rand = "0.8"
 rpassword = "7.5.4"

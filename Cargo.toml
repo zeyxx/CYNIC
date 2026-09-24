@@ -48,6 +48,44 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+# Canonical versions — all crates must use `.workspace = true` to prevent duplication.
+# Target: eliminate 79 duplicate packages in cargo tree.
+tokio = { version = "1.50.0", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "blocking"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "timeout", "trace"] }
+axum = { version = "0.8", features = ["ws"] }
+hyper = { version = "1.10", features = ["http1", "http2", "server"] }
+hyper-util = { version = "0.1", features = ["server-auto", "tokio"] }
+tower = { version = "0.5", features = ["util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+rand = "0.9"
+blake3 = "1"
+sha2 = "0.11"
+sha3 = "0.10"
+hex = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+bitflags = "2"
+bytes = { version = "1", features = ["serde"] }
+http = "1"
+http-body-util = "0.1"
+async-trait = "0.1"
+futures = "0.3"
+futures-util = "0.3"
+walkdir = "2"
+which = "7"
+dirs = "6"
+toml = "0.8"
+arc-swap = "1"
+zeroize = "1"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+
 [workspace.package]
 version = "0.2.0"
 edition = "2024"

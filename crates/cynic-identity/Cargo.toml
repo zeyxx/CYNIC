@@ -17,11 +17,11 @@ std = [
 ]
 
 [dependencies]
-ed25519-dalek = { version = "2", default-features = false, features = ["serde", "alloc", "zeroize"] }
-blake3 = { version = "1", default-features = false }
-serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
-thiserror = { version = "2", default-features = false }
-hex = { version = "0.4", default-features = false, features = ["alloc"] }
+ed25519-dalek.workspace = true
+blake3.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+hex.workspace = true
 rand_core = { version = "0.6", optional = true, features = ["getrandom"] }
 
 [dev-dependencies]

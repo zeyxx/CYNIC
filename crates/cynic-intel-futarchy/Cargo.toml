@@ -5,11 +5,11 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde.workspace = true
+serde_json.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-intel = { path = "../cynic-intel" }
-chrono = "0.4"
+chrono.workspace = true
 
 [dev-dependencies]
 

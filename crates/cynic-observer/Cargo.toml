@@ -5,14 +5,14 @@ edition.workspace = true
 
 [dependencies]
 tokio = { version = "1.32", features = ["full"] }
-futures-util = "0.3"
+futures-util.workspace = true
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 env_logger = "0.11.11"
 rustls = { version = "0.23.42", features = ["ring"] }
-async-trait = "0.1"
+async-trait.workspace = true
 # Optionnel pour la fédération P2P plus tard:
 # libp2p = { version = "0.52", features = ["tokio", "gossipsub", "tcp", "noise", "yamux"] }
 sysinfo = "0.39.6"

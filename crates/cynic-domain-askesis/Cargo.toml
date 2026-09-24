@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-askesis = { path = "../cynic-askesis" }
-serde_json = "1"
+serde_json.workspace = true
 
 [lints]
 workspace = true

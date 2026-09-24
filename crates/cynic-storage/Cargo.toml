@@ -7,16 +7,16 @@ description = "CYNIC Storage — sovereign SMR event-sourced WAL and embedded st
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-consensus = { path = "../cynic-consensus" }
-bytes = { version = "1", features = ["serde"] }
-hex = { version = "0.4", features = ["serde"] }
+bytes.workspace = true
+hex.workspace = true
 parking_lot = "0.12"
 rusqlite = { version = "0.34", features = ["bundled"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha3 = "0.10"
+serde.workspace = true
+serde_json.workspace = true
+sha3.workspace = true
 smallvec = { version = "1", features = ["serde"] }
-thiserror = "2"
-tracing = "0.1"
+thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tempfile = "3"

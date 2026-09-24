@@ -7,16 +7,16 @@ publish = false
 description = "Layer 0 atomic types: AgentId, Hash32, Budget, Scope, TaskId, Timestamp"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-blake3 = "1"
-ed25519-dalek = "2"
-hex = "0.4"
+serde.workspace = true
+blake3.workspace = true
+ed25519-dalek.workspace = true
+hex.workspace = true
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-serde_json = "1"
+serde_json.workspace = true
 tempfile = "3"
 
 [features]

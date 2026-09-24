@@ -5,19 +5,19 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-async-trait = "0.1"
-axum = "0.8"
+async-trait.workspace = true
+axum.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-workload = { path = "../cynic-workload" }
-futures-util = "0.3"
-reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+futures-util.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror = "2.0.18"
 tokio = { version = "1", features = ["process", "rt", "macros", "sync", "time"] }
-toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
-tracing = "0.1"
+toml.workspace = true
+tracing.workspace = true
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

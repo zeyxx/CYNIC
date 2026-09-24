@@ -22,42 +22,42 @@ cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-forensics = { path = "../cynic-forensics" }
 dotenvy = "0.15"
-chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+chrono.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sysinfo = "0.37"
-tokio = { version = "1.50.0", features = ["full"] }
+tokio.workspace = true
 tokio-util = { version = "0.7", features = ["rt"] }
-base64 = "0.22"
+base64.workspace = true
 # surrealdb crate removed — using reqwest HTTP adapter (storage_http.rs) for SurrealDB 3.x
-toml = "0.8"
-walkdir = "2"
-async-trait = "0.1"
-axum = { version = "0.8", features = ["ws"] }
-tower-http = { version = "0.6", features = ["cors", "fs", "timeout", "trace"] }
+toml.workspace = true
+walkdir.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+tower-http.workspace = true
 rand = "0.9.0"
-futures-util = "0.3"
+futures-util.workspace = true
 tokio-tungstenite = "0.24"
-dirs = "6"
-blake3 = "1"
-bitflags = "2"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+dirs.workspace = true
+blake3.workspace = true
+bitflags.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 thiserror = "2.0.18"
-arc-swap = "1"
+arc-swap.workspace = true
 sha2 = "0.11.0"
 sha3 = "0.10.8"
-hex = "0.4"
+hex.workspace = true
 rusqlite = { version = "0.34", features = ["bundled"] }
-which = "7"
-ed25519-dalek = { version = "2", features = ["rand_core"] }
-http-body-util = "0.1"
-bytes = "1"
+which.workspace = true
+ed25519-dalek.workspace = true
+http-body-util.workspace = true
+bytes.workspace = true
 hyper-util = { version = "0.1.20", features = ["server-auto", "tokio"] }
 hyper = { version = "1.10.1", features = ["http1", "http2", "server"] }
-tower = { version = "0.5", features = ["util"] }
-zeroize = "1"
+tower.workspace = true
+zeroize.workspace = true
 getrandom = "0.2"
 
 [lints]

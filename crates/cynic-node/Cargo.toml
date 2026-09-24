@@ -14,30 +14,30 @@ name = "cynic-network-actuator"
 path = "src/actuator_main.rs"
 
 [dependencies]
-tokio = { version = "1.50.0", features = ["fs", "io-util", "macros", "rt-multi-thread", "process", "time", "signal", "sync"] }
+tokio.workspace = true
 tokio-util = { version = "0.7", features = ["io"] }
 tokio-tungstenite = "0.24"
 tokio-stream = { version = "0.1", features = ["sync"] }
-futures-util = "0.3"
+futures-util.workspace = true
 http = "1.1"
-reqwest = { version = "0.13", default-features = false, features = ["form", "json", "native-tls", "stream"] }
+reqwest.workspace = true
 process-wrap = { version = "9.1", features = ["tokio1"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-toml = "0.8"
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
 clap = { version = "4", features = ["derive"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
 notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
-chrono = "0.4"
+chrono.workspace = true
 sysinfo = "0.33"
 tempfile = "3"
 sha2 = "0.10.8"
-hex = "0.4"
-base64 = "0.22"
-ed25519-dalek = "2"
+hex.workspace = true
+base64.workspace = true
+ed25519-dalek.workspace = true
 rusqlite = { version = "0.34", features = ["bundled"] }
-zeroize = "1"
+zeroize.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-workload = { path = "../cynic-workload" }
@@ -51,10 +51,10 @@ cynic-consensus = { path = "../cynic-consensus" }
 cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-release = { path = "../cynic-release" }
-async-trait = "0.1"
-axum = "0.8"
+async-trait.workspace = true
+axum.workspace = true
 hmac = "0.12"
-uuid = { version = "1", features = ["v4"] }
+uuid.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

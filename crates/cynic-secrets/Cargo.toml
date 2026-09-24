@@ -10,7 +10,7 @@ description = "Horizontal secret management layer for all CYNIC crates — resol
 cynic-protocol = { path = "../cynic-protocol" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha3 = "0.10"
+sha3.workspace = true
 thiserror = "2.0"
 zeroize = "1.8"
 aes-gcm = "0.10"

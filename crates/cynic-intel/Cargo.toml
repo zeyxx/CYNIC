@@ -5,17 +5,17 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-async-trait = "0.1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror = "2.0.18"
-blake3 = "1"
-chrono = "0.4"
-dirs = "6"
-hex = "0.4"
+blake3.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+hex.workspace = true
 reqwest = { version = "0.13.4", features = ["json"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
-tracing = "0.1"
+tracing.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-solana-pay = { path = "../cynic-solana-pay" }
 cynic-secrets = { path = "../cynic-secrets" }

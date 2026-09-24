@@ -8,7 +8,7 @@ publish = false
 cynic-discovery = { path = "../cynic-discovery" }
 cynic-host = { path = "../cynic-host" }
 cynic-build = { path = "../cynic-build" }
-serde = { version = "1", features = ["derive"] }
+serde.workspace = true
 
 [dev-dependencies]
 

@@ -912,6 +912,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "cynic-protocol",
+ "cynic-types",
  "ed25519-dalek",
  "hex",
  "rand 0.9.5",
@@ -1218,6 +1219,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-inference-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "cynic-inference",
+ "cynic-protocol",
+ "hex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
 name = "cynic-intel"
 version = "0.2.0"
 dependencies = [
@@ -1227,6 +1248,7 @@ dependencies = [
  "cynic-inference",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-solana-pay",
  "dirs",
  "hex",
  "regex",
@@ -1384,6 +1406,7 @@ name = "cynic-mcp"
 version = "0.2.0"
 dependencies = [
  "cynic-host",
+ "cynic-lifecycle",
  "cynic-protocol",
  "rmcp",
  "serde",
@@ -1555,6 +1578,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-solana-pay"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "cynic-storage"
 version = "0.2.0"
 dependencies = [
@@ -1574,14 +1607,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-types"
+version = "0.2.0"
+dependencies = [
+ "blake3",
+ "ed25519-dalek",
+ "hex",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "cynic-vcs"
 version = "0.2.0"
 dependencies = [
+ "cynic-network",
  "cynic-protocol",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cynic-vcs-forgejo"
+version = "0.2.0"
+dependencies = [
+ "cynic-vcs",
+ "hex",
+ "hmac",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.20",
+ "zeroize",
 ]
 
 [[package]]
@@ -1607,6 +1669,7 @@ dependencies = [
  "clap",
  "cynic-intel",
  "cynic-protocol",
+ "cynic-solana-pay",
  "qrcodegen",
  "serde",
  "serde_json",
@@ -1829,7 +1892,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
  "pkcs8",
- "serde",
  "signature",
 ]
 
@@ -4482,12 +4544,10 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-rustls",
- "hyper-tls",
  "hyper-util",
  "js-sys",
  "log",
  "mime",
- "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -4496,10 +4556,8 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "serde_urlencoded",
  "sync_wrapper",
  "tokio",
- "tokio-native-tls",
  "tokio-rustls",
  "tokio-util",
  "tower",
