@@ -52,7 +52,7 @@ pub(crate) fn audit_external_projection_files() -> Vec<ExternalProjectionFinding
                 "User=cynic",
                 "Group=cynic",
                 "WorkingDirectory=/var/lib/cynic",
-                "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
+                "ExecStart=/var/lib/cynic/current/cynic-node control --config /etc/cynic/node-control.toml",
                 "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
                 "Environment=\"CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml\"",
             ],

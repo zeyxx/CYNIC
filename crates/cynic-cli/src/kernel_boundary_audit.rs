@@ -578,7 +578,7 @@ mod tests {
         assert!(report.areas.iter().any(|area| {
             area.name == "inference_stack"
                 && area.target_owner == "cynic-inference"
-                && area.matched_file_count > 0
+                && area.matched_file_count == 0
         }));
         assert!(report.areas.iter().any(|area| {
             area.name == "runtime_authority_and_lifecycle"

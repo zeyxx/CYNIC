@@ -1,5 +1,23 @@
 use std::path::{Path, PathBuf};
 
+const KNOWN_OWNER_CRATES: &[&str] = &[
+    "cynic-cli",
+    "cynic-host",
+    "cynic-node",
+    "cynic-protocol",
+    "cynic-inference",
+    "cynic-mcp",
+    "cynic-kernel",
+    "cynic-lifecycle",
+    "cynic-build",
+    "cynic-vcs",
+    "cynic-storage",
+];
+
+fn is_known_owner_crate(name: &str) -> bool {
+    KNOWN_OWNER_CRATES.contains(&name)
+}
+
 pub(crate) fn read_adapter_source(path: &Path) -> Result<String, std::io::Error> {
     let mut source = std::fs::read_to_string(path)?;
     let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
@@ -36,59 +54,19 @@ pub(crate) fn read_adapter_source(path: &Path) -> Result<String, std::io::Error>
 
 pub(crate) fn adapter_module_path(owner_crate: &str, adapter_module: &str) -> PathBuf {
     if let Some((crate_name, module_name)) = adapter_module.split_once("::") {
-        if matches!(
-            crate_name,
-            "cynic-host"
-                | "cynic-node"
-                | "cynic-protocol"
-                | "cynic-cli"
-                | "cynic-inference"
-                | "cynic-mcp"
-                | "cynic-kernel"
-        ) {
+        if is_known_owner_crate(crate_name) {
             return crate_module_path(crate_name, module_name);
         }
     }
     if owner_crate == "cynic-cli" {
         return crate_module_path(owner_crate, adapter_module);
     }
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
-    let parts = adapter_module.split("::").collect::<Vec<_>>();
-    match parts.as_slice() {
-        [module] => path.push(format!("{module}.rs")),
-        [module, child] => {
-            let module_file = path.join(format!("{module}.rs"));
-            let nested_file = path.join(module).join(format!("{child}.rs"));
-            if nested_file.exists() || !module_file.exists() {
-                path = nested_file;
-            } else {
-                path = module_file;
-            }
-        }
-        _ => {
-            for part in &parts[..parts.len().saturating_sub(1)] {
-                path.push(part);
-            }
-            if let Some(last) = parts.last() {
-                path.push(format!("{last}.rs"));
-            }
-        }
-    }
-    path
+    crate_module_path(owner_crate, adapter_module)
 }
 
 pub(crate) fn owner_module_path(owner_crate: &str, module: &str) -> PathBuf {
     if let Some((crate_name, module_name)) = module.split_once("::") {
-        if matches!(
-            crate_name,
-            "cynic-host"
-                | "cynic-node"
-                | "cynic-protocol"
-                | "cynic-cli"
-                | "cynic-inference"
-                | "cynic-mcp"
-                | "cynic-kernel"
-        ) {
+        if is_known_owner_crate(crate_name) {
             return crate_module_path(crate_name, module_name);
         }
     }
@@ -104,6 +82,10 @@ fn crate_module_path(crate_name: &str, module: &str) -> PathBuf {
         "cynic-inference" => format!("{}/../cynic-inference", env!("CARGO_MANIFEST_DIR")),
         "cynic-mcp" => format!("{}/../cynic-mcp", env!("CARGO_MANIFEST_DIR")),
         "cynic-kernel" => format!("{}/../cynic-kernel", env!("CARGO_MANIFEST_DIR")),
+        "cynic-lifecycle" => format!("{}/../cynic-lifecycle", env!("CARGO_MANIFEST_DIR")),
+        "cynic-build" => format!("{}/../cynic-build", env!("CARGO_MANIFEST_DIR")),
+        "cynic-vcs" => format!("{}/../cynic-vcs", env!("CARGO_MANIFEST_DIR")),
+        "cynic-storage" => format!("{}/../cynic-storage", env!("CARGO_MANIFEST_DIR")),
         _ => env!("CARGO_MANIFEST_DIR").to_string(),
     };
     let mut path = PathBuf::from(crate_dir).join("src");
