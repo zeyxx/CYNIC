@@ -37,6 +37,7 @@ Cet espace est le second cerveau de l'Opérateur Souverain (Titouan Corneloup / 
 * [[canon/whitepaper/08_ASKESIS_JUMEAU_NUMERIQUE_ET_IMMUNOLOGIE_BIOLOGIQUE|Spéc. 08 : Askesis, Jumeau Numérique et Immunologie Biologique]]
 * [[canon/whitepaper/09_PROTOCOLE_DEFCON_LOCAL_ET_CONCORDIA_PARTITION|Spéc. 09 : Protocole DEFCON-LOCAL, Hacking Physique et Réconciliation Concordia]]
 * [[canon/whitepaper/10_ESSIAMS_CYBERNETIQUES_ET_SCALING_HORIZONTAL_FRACTAL|Spéc. 10 : Essaims Cybernétiques, Auftragstaktik et Scaling Horizontal]]
+* [[canon/whitepaper/11_LE_COMPILATEUR_D_INTENTION_DELIBERATION_MULTI_PRISMES|Spéc. 11 : Le Compilateur d'Intention : Délibération Multi-Prismes]]
 
 ---
 
