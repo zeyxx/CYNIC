@@ -44,7 +44,7 @@ pub(crate) fn scan_mcp_tools(src_root: &Path) -> Vec<McpToolDiscovery> {
             continue;
         };
         // Production only: test fixtures must never certify as implementations.
-        let (production, _) = crate::schema_registry_audit::split_production_and_tests(&source);
+        let (production, _) = split_production_and_tests(&source);
         let rel = path.display().to_string();
         tools.extend(extract_tools(production).into_iter().map(|t| {
             let line = t.line;
@@ -99,6 +99,14 @@ fn extract_attr_value(block: &str, key: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn split_production_and_tests(source: &str) -> (&str, &str) {
+    if let Some(pos) = source.find("#[cfg(test)]") {
+        (&source[..pos], &source[pos..])
+    } else {
+        (source, "")
+    }
 }
 
 #[cfg(test)]
