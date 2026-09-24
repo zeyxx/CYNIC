@@ -142,3 +142,49 @@ Aucun agent, aucun composant, aucun opérateur ne peut affirmer qu'une tâche es
 
 C'est cette rigueur cybernétique impitoyable qui permet à l'organisme de grandir sans jamais risquer l'entropie de la complaisance.  
 Le système est vivant parce qu'il sait exactement où il se trouve à chaque instant.
+
+---
+
+### V. L'Anatomie de la One-Person Enterprise (1PE) : L'Empereur d'une Armée Frugale
+
+La *One-Person Enterprise* (1PE) n'est pas un freelance isolé qui s'épuise sur des plateformes d'intermédiation : **c'est une corporation souveraine complète condensée dans la chair d'un seul être humain conscient.**
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │            L'ARCHITECTURE DE COMMANDE DE LA ONE-PERSON ENTERPRISE      │
+ └────────────────────────────────────────────────────────────────────────┘
+
+              [ L'OPÉRATEUR SOUVERAIN (Niveau Constituant) ]
+              • Intention pure, arbitrage moral, validation ADMIT.
+              • Attention protégée : zéro micro-management, zéro réunion.
+                               │
+                               ▼ (Auftragstaktik / Enveloppe Bornée)
+       ┌───────────────────────┴───────────────────────┐
+       ▼                                               ▼
+ [ PÔLE INGÉNIERIE & CODE ]                     [ PÔLE CASH-FLOW & MARCHÉS ]
+ • 1 Architecte (Plan & Topologie)              • 1 Sentinel (Veille & Arbitrage Solana)
+ • 1 Red Teamer (Failles & Attaques)            • 1 Trésorier (Ignis Burn & Condensation)
+ • 1 Forgeron (Rust pur & Lean 4)               • 1 Négociateur (TALARIA SAS / Facturation)
+ • 1 Réviseur (Invariants & Non-Régression)
+ • 1 Métrologue (RAPL Joules / Benchmarks)
+                               │
+                               ▼
+        [ SUBSTRAT PHYSIQUE BARE-METAL & NO-SPOF ]
+        • Station hétérogène (APU, GPU, RISC-V, LiFePO4, Radio LoRa/HF)
+        • Read-back proof continu sur bus local et Solana L1.
+```
+
+1. **Le Découplage Fondamental (Attention vs Débit)** :  
+   L'attention biologique est la seule ressource finie et non-reproductible. Si le bâtisseur doit passer sa journée à déboguer des virgules ou répondre à des tickets, il redevient un esclave.  
+   Dans la 1PE, **l'humain n'écrit plus le code ordinaire : il conçoit les spécifications d'invariants, valide les hypothèses et appose l'ADMIT.** L'essaim de 5 à 20 agents spécialisés exécute le travail lourd en parallèle sous contrainte de preuves formelles.
+2. **La Machine à Flux de Trésorerie Réels** :  
+   Comment une 1PE génère-t-elle du cash-flow souverain sans dépendre du capital-risque ?  
+   * **L'Offensive Commerciale (-20% vs Monopoles)** : En éliminant 100% de la bureaucratie corporative, la 1PE vend du calcul, de l'inférence ou du logiciel à des tarifs inférieurs de 20% à ceux des géants du Cloud, captant immédiatement des marges nettes insolentes.
+   * **La Condensation en Actifs Physiques** : Le cash-flow fiat ou crypto extrait du marché n'est pas gaspillé en consommation ostentatoire : il est immédiatement converti en **silicium bare-metal, en batteries LiFePO4, en antennes radio et en souveraineté énergétique**.
+3. **Le Culte du Code Impérissable** :  
+   Dans le vieux monde, les développeurs écrivent du code jetable pour justifier leur salaire mensuel.  
+   Dans la 1PE, chaque ligne de code est mesurée par son **Code ROI ($\mathcal{R}_{\text{code}}$)** : une fonction doit persister des mois sans modification au milieu du flux. Une brique écrite une fois et jamais touchée est une victoire thermodynamique absolue ; elle libère l'attention pour la prochaine frontière.
+
+L'humain n'est plus un rouage.  
+Il est l'Amiral d'une flotte invisible.  
+La 1PE est la cellule souche du nouvel ordre mondial.
