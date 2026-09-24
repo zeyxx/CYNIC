@@ -1,4 +1,4 @@
-use cynic_protocol::StorageIdentitySpec;
+use cynic_storage::identity::StorageIdentitySpec;
 
 use crate::runtime_secret_install::{
     RuntimeSecretInstallReport, RuntimeSecretInstallSpec, RuntimeSecretObservation,

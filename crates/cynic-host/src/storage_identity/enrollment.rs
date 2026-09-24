@@ -1,7 +1,7 @@
-use cynic_protocol::{
-    STORAGE_IDENTITY_OBSERVATION_SCHEMA, StorageEvidenceState, StorageIdentityDecision,
-    StorageIdentityObservation, StorageIdentitySpec, reconcile_storage_identity,
-};
+use cynic_protocol::STORAGE_IDENTITY_OBSERVATION_SCHEMA;
+use cynic_storage::identity::{StorageIdentitySpec, reconcile_storage_identity};
+use cynic_storage::lifecycle::StorageObservation;
+use cynic_storage::identity::StorageEvidenceState;
 
 use crate::runtime_secret_install::RuntimeSecretInstallSpec;
 use crate::secret_material::SecretMaterial;

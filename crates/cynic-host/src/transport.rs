@@ -1,8 +1,7 @@
 use serde::Serialize;
 
-use cynic_protocol::{
-    SecurityEvidenceState, TransportScope, TransportSecurityReport, TransportSecuritySurface,
-};
+use cynic_network::transport_security::{TransportScope, TransportSecurityReport, TransportSecuritySurface};
+use cynic_protocol::SecurityEvidenceState;
 
 use crate::bridge;
 use crate::ssh_config::{self, SshConfigEntry, SshConfigParse};

@@ -1,4 +1,5 @@
-use cynic_protocol::{StorageEvidenceState, StorageIdentityPlan, StorageIdentityRole};
+use cynic_storage::identity::StorageEvidenceState;
+use cynic_storage::identity::{StorageIdentityPlan, StorageIdentityRole};
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
