@@ -3,10 +3,8 @@
 //! I/O-free so it's testable without a host. The concrete observer
 //! (`RuntimeForgejoObserver`) lives in `cynic-host` (needs `repo_access`).
 
-use crate::{
-    ForgejoDesiredState, ForgejoObservedState, ForgejoPlan, ForgejoTokenSpec,
-    FORGEJO_TOKEN_SPEC_SCHEMA, plan_forgejo_convergence,
-};
+use crate::forgejo_token::{ForgejoTokenSpec, FORGEJO_TOKEN_SPEC_SCHEMA};
+use crate::{ForgejoDesiredState, ForgejoObservedState, ForgejoPlan, plan_forgejo_convergence};
 
 /// Observation port for Forgejo. Given a desired state, produce an observed state.
 pub trait ForgejoObservationPort: Send + Sync {
