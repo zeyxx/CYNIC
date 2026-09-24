@@ -13,7 +13,7 @@ impl HeliusEnricher {
         holder_balances: &[f64],
         total_supply: Option<f64>,
     ) -> (String, Option<f64>, Option<f64>) {
-        use cynic_protocol::solana_constants::{BURN_ADDRESSES, LOCKER_PROGRAMS};
+        use cynic_solana_pay::{BURN_ADDRESSES, LOCKER_PROGRAMS};
 
         let check_count = holder_addresses.len().min(5);
         let mut lp_status = "unsecured".to_string();
@@ -67,7 +67,7 @@ impl HeliusEnricher {
     /// Known AMM/DEX programs → "lp_pool". Burn addresses → "burn". Lockers → "locker".
     /// Everything else → "wallet". Cost: 1 credit (getAccountInfo).
     pub(super) async fn classify_holder(&self, token_account: &str) -> String {
-        use cynic_protocol::solana_constants::{
+        use cynic_solana_pay::{
             AMM_PROGRAMS, BURN_ADDRESSES, INFRA_PROGRAMS, LOCKER_PROGRAMS, ORACLE_PROGRAMS,
         };
 
@@ -114,7 +114,7 @@ impl HeliusEnricher {
         total_supply_ui: f64,
     ) -> Option<crate::domain_enrichment::HolderContext> {
         use crate::domain_enrichment::HolderType;
-        use cynic_protocol::solana_constants::{
+        use cynic_solana_pay::{
             AMM_PROGRAMS as AMM_AUTHORITIES, BURN_ADDRESSES as BURN_AUTHORITIES,
             INFRA_PROGRAMS as INFRA_AUTHORITIES, LOCKER_PROGRAMS as LOCKER_AUTHORITIES,
             ORACLE_PROGRAMS as ORACLE_AUTHORITIES, SYSTEM_PROGRAM,

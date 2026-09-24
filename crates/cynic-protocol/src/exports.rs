@@ -23,7 +23,8 @@ pub use crate::agent_session::{
     validate_agent_session_rotation,
 };
 pub use crate::agentic_tool_call::*;
-pub use crate::anchor_client::*;
+pub use crate::allowance::*;
+
 pub use crate::artifact_release::*;
 pub use crate::audit::*;
 pub use crate::autoresearch::*;
@@ -59,7 +60,6 @@ pub use crate::fleet_discovery::*;
 pub use crate::fleet_heartbeat::*;
 pub use crate::framework::*;
 pub use crate::freshness::*;
-pub use crate::harness::*;
 pub use crate::health_signal::reconcile_health_signal;
 pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;
@@ -99,8 +99,6 @@ pub use crate::runtime_takeover_activation::*;
 pub use crate::sanitize::*;
 pub use crate::secret_reference::*;
 pub use crate::sensory::*;
-pub use crate::solana_constants::*;
-pub use crate::solana_ops::*;
 pub use crate::supervision::*;
 pub use crate::surface_registry::*;
 pub use crate::tasks::*;

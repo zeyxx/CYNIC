@@ -14,6 +14,7 @@ pub mod probe;
 pub mod registry_maintenance;
 pub mod telemetry;
 pub mod transport_readback;
+pub mod transport_security;
 pub mod types;
 pub mod watchdog_alerter;
 
@@ -26,6 +27,7 @@ pub use mesh_plan::*;
 pub use registry_maintenance::*;
 pub use telemetry::*;
 pub use transport_readback::*;
+pub use transport_security::*;
 pub use types::*;
 
 pub use port::NetworkObservationPort;

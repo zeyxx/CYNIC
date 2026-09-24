@@ -6,7 +6,7 @@ use cynic_protocol::agent_recursion::AgentBudget;
 use cynic_protocol::agentic_tool_call::{
     AgenticToolCallInput, AgenticToolCallResult, AgenticToolCallStatus,
 };
-use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest};
+use cynic_solana_pay::{AllowanceGrant, SolanaPayRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 

@@ -6,7 +6,7 @@ use cynic_protocol::agentic_tool_call::{
     AGENTIC_TOOL_CALL_RESULT_SCHEMA, AgenticToolCallInput, AgenticToolCallResult,
     AgenticToolCallStatus,
 };
-use cynic_protocol::solana_ops::{SolanaPayRequest, SopSanitizationInput};
+use cynic_solana_pay::{SolanaPayRequest, SopSanitizationInput};
 use serde_json::json;
 
 use crate::ports::agentic_tool_call_port::AgenticToolCallPort;

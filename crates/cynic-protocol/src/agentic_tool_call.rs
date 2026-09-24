@@ -4,7 +4,7 @@
 //! policy enforcement, monotonic budget consumption, and content-addressed proof.
 
 use crate::agent_recursion::AgentBudget;
-use crate::solana_ops::AllowanceGrant;
+use crate::allowance::AllowanceGrant;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

@@ -29,7 +29,7 @@
 use anyhow::Result;
 use clap::Parser;
 use cynic_protocol::agent_recursion::AgentBudget;
-use cynic_protocol::solana_ops::{AllowanceGrant, SolanaPayRequest};
+use cynic_solana_pay::{AllowanceGrant, SolanaPayRequest};
 use cynic_zeroclaw_solana::ZeroClawSolanaPlugin;
 
 #[derive(Parser, Debug)]

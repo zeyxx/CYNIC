@@ -4,7 +4,7 @@ use crate::ports::solana_ports::{SolanaSafetyPort, SopSafetyPort};
 use crate::solana_safety_dog::{SolanaSafetyReport, evaluate_solana_pay_request};
 use crate::sop_sanitizer::sanitize_sop_input;
 use async_trait::async_trait;
-use cynic_protocol::solana_ops::{
+use cynic_solana_pay::{
     AllowanceGrant, SolanaPayRequest, SopSanitizationInput, SopSanitizationResult,
 };
 

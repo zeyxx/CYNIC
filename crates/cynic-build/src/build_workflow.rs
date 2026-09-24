@@ -196,7 +196,8 @@ mod tests {
     use crate::build::{
         BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
     };
-    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState}; use cynic_vcs::SourceSnapshot;
+    use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
+    use cynic_vcs::SourceSnapshot;
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {

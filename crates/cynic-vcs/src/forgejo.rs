@@ -1,4 +1,5 @@
-use cynic_protocol::{NetworkPathEvidence, SecurityEvidenceState as ForgejoEvidenceState};
+use cynic_network::NetworkPathEvidence;
+use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 use serde::{Deserialize, Serialize};
 
 pub const FORGEJO_PLAN_SCHEMA: &str = "cynic.forgejo.plan.v1";

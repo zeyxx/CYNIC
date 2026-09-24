@@ -3,6 +3,7 @@
 //! Represents typed Solana Pay transfer requests, spend allowance grants,
 //! and SOP input/sanitization structures for ZeroClaw and CYNIC integration.
 
+use cynic_protocol::allowance::AllowanceGrant;
 use serde::{Deserialize, Serialize};
 
 /// A Solana Pay transfer request URL builder conforming to the Solana Pay spec.
@@ -119,23 +120,18 @@ impl SolanaPayRequest {
 }
 
 /// On-chain or local spend allowance grant for an agent delegate.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AllowanceGrant {
-    pub grant_id: String,
-    pub owner_pubkey: String,
-    pub delegate_pubkey: String,
-    pub spl_token: Option<String>,
-    pub max_amount_per_period: f64,
-    pub period_seconds: u64,
-    pub remaining_allowance: f64,
-    pub allowlist_recipients: Vec<String>,
-    pub allowlist_mints: Vec<String>,
-    pub expires_at: u64,
+/// Payment-domain behavior for the shared `AllowanceGrant` vocabulary.
+pub trait AllowanceGrantPaymentExt {
+    fn validate_transfer(
+        &self,
+        recipient: &str,
+        amount: f64,
+        mint: Option<&str>,
+    ) -> Result<(), String>;
 }
 
-impl AllowanceGrant {
-    /// Validates whether a proposed payment fits within the allowance spend limits and allowlists.
-    pub fn validate_transfer(
+impl AllowanceGrantPaymentExt for AllowanceGrant {
+    fn validate_transfer(
         &self,
         recipient: &str,
         amount: f64,
@@ -212,7 +208,7 @@ pub struct SolanaTakeoverAttestation {
 
 impl SolanaTakeoverAttestation {
     pub fn from_transition_record(
-        record: &crate::runtime_takeover::RoleTransitionRecord,
+        record: &cynic_protocol::runtime_takeover::RoleTransitionRecord,
         cluster: &str,
     ) -> Self {
         let memo = format!(
@@ -316,7 +312,7 @@ mod tests {
 
     #[test]
     fn solana_takeover_attestation_derivation() {
-        let record = crate::runtime_takeover::RoleTransitionRecord::new(
+        let record = cynic_protocol::runtime_takeover::RoleTransitionRecord::new(
             "tx-001".to_string(),
             Some("node-a".to_string()),
             "node-b".to_string(),

@@ -26,6 +26,7 @@ members = [
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",
     "crates/cynic-network",
+    "crates/cynic-solana-pay",
     "crates/cynic-identity",
     "crates/cynic-host-probes",
     "crates/cynic-intel-soc",
