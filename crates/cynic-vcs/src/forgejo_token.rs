@@ -69,7 +69,7 @@ pub struct ForgejoTokenObservation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgejoTokenMetadata {
     pub token_id: u64,
-    pub token_sha1: String,
+    pub sha1: String,
     pub name: String,
 }
 
