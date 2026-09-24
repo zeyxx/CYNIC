@@ -11,10 +11,6 @@
 //! (SSH-tunneled localhost HTTP or direct HTTPS). Provision reports carry only
 //! Forgejo-side metadata (token_id, sha1), never the secret itself.
 
-pub use cynic_vcs::forgejo_token::{
-    ForgejoTokenActionKind, ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
-    ForgejoTokenPlan, ForgejoTokenProvisionReport, ForgejoTokenSpec, ForgejoTokenStatusReport,
-};
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
@@ -25,8 +21,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
 use cynic_vcs::forgejo_token::{
-    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-    FORGEJO_TOKEN_SPEC_SCHEMA,
+    ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
+    ForgejoTokenProvisionReport, ForgejoTokenSpec, FORGEJO_TOKEN_OBSERVATION_SCHEMA,
+    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA,
 };
 
 pub const FORGEJO_TOKEN_DIRECTORY: &str = "/etc/cynic/secrets";
@@ -327,33 +324,27 @@ pub fn provision_forgejo_token(
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
     if spec.target_path != FORGEJO_TOKEN_PATH {
-        let observation = port.observe(spec);
         return ForgejoTokenProvisionReport {
-            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-            status: "blocked",
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+            status: "blocked".to_string(),
             principal: spec.principal.clone(),
-            mutated: false,
-            before: observation.clone(),
-            after: observation,
-            proofs: Vec::new(),
+            metadata: None,
             token_metadata: None,
+            action_taken: "none".to_string(),
             rollback_intent: "no mutation; non-canonical token path".to_string(),
             unknowns: vec!["forgejo_token_target_path_noncanonical".to_string()],
         };
     }
-    let before = port.observe(spec);
+    let observation = port.observe(spec);
 
-    if before.api_authenticated == ForgejoTokenAuthState::Proven {
+    if observation.api_authenticated == ForgejoTokenAuthState::Proven {
         return ForgejoTokenProvisionReport {
-            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-            status: "ready",
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+            status: "ready".to_string(),
             principal: spec.principal.clone(),
-            mutated: false,
-            before: before.clone(),
-            after: before.clone(),
-            // Proofs describe completed post-action evidence, not readiness.
-            proofs: Vec::new(),
+            metadata: None,
             token_metadata: None,
+            action_taken: "none".to_string(),
             rollback_intent: "no mutation; nothing to roll back".to_string(),
             unknowns: Vec::new(),
         };
@@ -363,37 +354,26 @@ pub fn provision_forgejo_token(
         Ok(metadata) => {
             let after = port.observe(spec);
             let converged = after.api_authenticated == ForgejoTokenAuthState::Proven;
-            let mut proofs: Vec<String> = Vec::new();
-            if after.secret_present {
-                proofs.push("token_file_present".to_string());
-            }
-            if after.owner_root == Some(true) {
-                proofs.push("token_owner_root".to_string());
-            }
-            if after.mode_o640 == Some(true) {
-                proofs.push("token_mode_640".to_string());
-            }
-            if after.api_authenticated == ForgejoTokenAuthState::Proven {
-                proofs.push("token_api_authenticated_proven".to_string());
-            }
             let mut unknowns = after.unknowns.clone();
             if !converged {
                 unknowns.push("forgejo_token_provision_read_back_not_converged".to_string());
             }
             let sha1_for_rollback = metadata.sha1.clone();
             ForgejoTokenProvisionReport {
-                schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-                status: if converged { "completed" } else { "blocked" },
+                schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+                status: if converged { "completed".to_string() } else { "blocked".to_string() },
                 principal: spec.principal.clone(),
-                mutated: true,
-                before,
-                after,
-                proofs: if converged { proofs } else { Vec::new() },
+                metadata: if converged && metadata.sha1 != "<unavailable>" {
+                    Some(metadata.clone())
+                } else {
+                    None
+                },
                 token_metadata: if converged && metadata.sha1 != "<unavailable>" {
                     Some(metadata)
                 } else {
                     None
                 },
+                action_taken: if converged { "created".to_string() } else { "blocked".to_string() },
                 rollback_intent: format!(
                     "revoke Forgejo token {} for principal '{}' via the same port",
                     sha1_for_rollback, spec.principal
@@ -402,14 +382,12 @@ pub fn provision_forgejo_token(
             }
         }
         Err(e) => ForgejoTokenProvisionReport {
-            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-            status: "blocked",
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+            status: "blocked".to_string(),
             principal: spec.principal.clone(),
-            mutated: false,
-            before,
-            after: port.observe(spec),
-            proofs: Vec::new(),
+            metadata: None,
             token_metadata: None,
+            action_taken: "none".to_string(),
             rollback_intent: "no mutation due to error; nothing to roll back".to_string(),
             unknowns: vec![format!("forgejo_token_create_failed:{e}")],
         },
@@ -423,16 +401,13 @@ pub fn rotate_forgejo_token(
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
     if spec.target_path != FORGEJO_TOKEN_PATH {
-        let observation = port.observe(spec);
         return ForgejoTokenProvisionReport {
-            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-            status: "blocked",
+            schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+            status: "blocked".to_string(),
             principal: spec.principal.clone(),
-            mutated: false,
-            before: observation.clone(),
-            after: observation,
-            proofs: Vec::new(),
+            metadata: None,
             token_metadata: None,
+            action_taken: "none".to_string(),
             rollback_intent: "no mutation; non-canonical token path".to_string(),
             unknowns: vec!["forgejo_token_target_path_noncanonical".to_string()],
         };
@@ -446,7 +421,6 @@ pub fn rotate_forgejo_token(
                 port,
                 before,
                 "forgejo_token_current_metadata_unavailable",
-                false,
             );
         }
     };
@@ -456,7 +430,6 @@ pub fn rotate_forgejo_token(
             port,
             before,
             &format!("forgejo_token_revoke_failed:{error}"),
-            true,
         );
     }
     match port.is_revoked(spec, &old.sha1) {
@@ -467,7 +440,6 @@ pub fn rotate_forgejo_token(
                 port,
                 before,
                 "forgejo_token_revocation_read_back_refuted",
-                true,
             );
         }
         Err(error) => {
@@ -476,7 +448,6 @@ pub fn rotate_forgejo_token(
                 port,
                 before,
                 &format!("forgejo_token_revocation_read_back_unknown:{error}"),
-                true,
             );
         }
     }
@@ -489,18 +460,12 @@ pub fn rotate_forgejo_token(
                 unknowns.push("forgejo_token_rotation_read_back_not_converged".to_string());
             }
             ForgejoTokenProvisionReport {
-                schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-                status: if converged { "completed" } else { "blocked" },
+                schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+                status: if converged { "completed".to_string() } else { "blocked".to_string() },
                 principal: spec.principal.clone(),
-                mutated: true,
-                before,
-                after,
-                proofs: if converged {
-                    vec!["token_previous_revoked".to_string()]
-                } else {
-                    Vec::new()
-                },
+                metadata: if converged { Some(metadata.clone()) } else { None },
                 token_metadata: if converged { Some(metadata) } else { None },
+                action_taken: if converged { "rotated".to_string() } else { "blocked".to_string() },
                 rollback_intent: format!(
                     "revoke replacement token for principal '{}' via the same port",
                     spec.principal
@@ -513,7 +478,6 @@ pub fn rotate_forgejo_token(
             port,
             before,
             &format!("forgejo_token_create_failed_after_revoke:{error}"),
-            true,
         ),
     }
 }
@@ -523,17 +487,14 @@ fn blocked_rotation_report(
     port: &dyn ForgejoTokenApiPort,
     before: ForgejoTokenObservation,
     reason: &str,
-    mutated: bool,
 ) -> ForgejoTokenProvisionReport {
     ForgejoTokenProvisionReport {
-        schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
-        status: "blocked",
+        schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
+        status: "blocked".to_string(),
         principal: spec.principal.clone(),
-        mutated,
-        before,
-        after: port.observe(spec),
-        proofs: Vec::new(),
+        metadata: None,
         token_metadata: None,
+        action_taken: "none".to_string(),
         rollback_intent: "rotation blocked; inspect revocation and replacement state".to_string(),
         unknowns: vec![reason.to_string()],
     }
@@ -883,8 +844,8 @@ mod tests {
         };
         let report = provision_forgejo_token(&spec, &StubPort);
         assert_eq!(report.status, "ready");
-        assert!(!report.mutated);
-        assert!(report.proofs.is_empty());
+        assert_eq!(report.action_taken, "none");
+        assert!(report.metadata.is_none());
     }
 
     #[test]
@@ -933,16 +894,12 @@ mod tests {
     }
 
     #[test]
-    fn noncanonical_paths_observe_through_injected_port() {
+    fn noncanonical_paths_blocked_before_port_interaction() {
         #[derive(Debug)]
         struct StubPort;
         impl ForgejoTokenApiPort for StubPort {
             fn observe(&self, spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
-                let mut observation = observe_forgejo_token(spec);
-                observation
-                    .unknowns
-                    .push("injected_observation".to_string());
-                observation
+                observe_forgejo_token(spec)
             }
             fn create(&self, _spec: &ForgejoTokenSpec) -> Result<ForgejoTokenMetadata, String> {
                 Err("must not create".to_string())
@@ -958,20 +915,10 @@ mod tests {
         };
         let provision = provision_forgejo_token(&spec, &StubPort);
         let rotation = rotate_forgejo_token(&spec, &StubPort);
-        assert!(
-            provision
-                .before
-                .unknowns
-                .iter()
-                .any(|u| u == "injected_observation")
-        );
-        assert!(
-            rotation
-                .before
-                .unknowns
-                .iter()
-                .any(|u| u == "injected_observation")
-        );
+        assert_eq!(provision.status, "blocked");
+        assert_eq!(provision.action_taken, "none");
+        assert_eq!(rotation.status, "blocked");
+        assert_eq!(rotation.action_taken, "none");
     }
 
     #[test]
@@ -1013,7 +960,7 @@ mod tests {
         };
         let report = rotate_forgejo_token(&spec, &InvalidIdentityPort);
         assert_eq!(report.status, "blocked");
-        assert!(!report.mutated);
+        assert_eq!(report.action_taken, "none");
         assert_eq!(
             report.unknowns[0],
             "forgejo_token_current_metadata_unavailable"
