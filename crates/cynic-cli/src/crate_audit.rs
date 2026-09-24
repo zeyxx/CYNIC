@@ -14,51 +14,51 @@ const DEFAULT_LIB_THRESHOLD: usize = 220;
 const HOTSPOT_LINE_THRESHOLD: usize = 400;
 
 #[derive(Serialize)]
-pub(crate) struct CrateAuditReport {
-    pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) rule: &'static str,
-    pub(crate) crate_count: usize,
-    pub(crate) ok_count: usize,
-    pub(crate) blocked_count: usize,
-    pub(crate) crates: Vec<CrateAuditEntry>,
+pub struct CrateAuditReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub rule: &'static str,
+    pub crate_count: usize,
+    pub ok_count: usize,
+    pub blocked_count: usize,
+    pub crates: Vec<CrateAuditEntry>,
 }
 
 #[derive(Serialize)]
-pub(crate) struct CrateAuditEntry {
-    pub(crate) crate_name: String,
-    pub(crate) status: &'static str,
-    pub(crate) crate_root: String,
-    pub(crate) rust_file_count: usize,
-    pub(crate) has_architecture_boundary_test: bool,
-    pub(crate) entrypoints: Vec<EntrypointAudit>,
-    pub(crate) hotspots: Vec<FileHotspot>,
-    pub(crate) checks: Vec<CrateAuditCheck>,
+pub struct CrateAuditEntry {
+    pub crate_name: String,
+    pub status: &'static str,
+    pub crate_root: String,
+    pub rust_file_count: usize,
+    pub has_architecture_boundary_test: bool,
+    pub entrypoints: Vec<EntrypointAudit>,
+    pub hotspots: Vec<FileHotspot>,
+    pub checks: Vec<CrateAuditCheck>,
 }
 
 #[derive(Serialize)]
-pub(crate) struct EntrypointAudit {
-    pub(crate) file_path: String,
-    pub(crate) line_count: usize,
-    pub(crate) status: &'static str,
-    pub(crate) threshold: usize,
+pub struct EntrypointAudit {
+    pub file_path: String,
+    pub line_count: usize,
+    pub threshold: usize,
+    pub status: &'static str,
 }
 
 #[derive(Serialize)]
-pub(crate) struct FileHotspot {
-    pub(crate) file_path: String,
-    pub(crate) line_count: usize,
-    pub(crate) status: &'static str,
+pub struct FileHotspot {
+    pub file_path: String,
+    pub line_count: usize,
+    pub status: &'static str,
 }
 
 #[derive(Serialize)]
-pub(crate) struct CrateAuditCheck {
-    pub(crate) name: &'static str,
-    pub(crate) status: &'static str,
-    pub(crate) detail: String,
+pub struct CrateAuditCheck {
+    pub name: &'static str,
+    pub status: &'static str,
+    pub detail: String,
 }
 
-pub(crate) fn audit_core_crates() -> CrateAuditReport {
+pub fn audit_core_crates() -> CrateAuditReport {
     let crates = workspace_crate_names()
         .iter()
         .map(|name| audit_crate(name, DEFAULT_MAIN_THRESHOLD, DEFAULT_LIB_THRESHOLD))
