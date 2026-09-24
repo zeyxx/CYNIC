@@ -104,7 +104,10 @@ pub struct ForgejoTokenProvisionReport {
     pub principal: String,
     pub status: String,
     pub metadata: Option<ForgejoTokenMetadata>,
+    pub token_metadata: Option<ForgejoTokenMetadata>,
     pub action_taken: String,
+    pub rollback_intent: String,
+    pub unknowns: Vec<String>,
 }
 
 pub fn plan_forgejo_token_convergence(
