@@ -164,7 +164,7 @@ impl DesignGateAnswers {
 // 4. HARD CONSTITUTIONAL BOUNDARIES (foundation.json)
 // ===========================================================================
 
-/// The 11 hard constitutional boundaries declared in `contracts/foundation.json`.
+/// The 13 hard constitutional boundaries declared in `contracts/foundation.json`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConstitutionalBoundary {
@@ -179,6 +179,8 @@ pub enum ConstitutionalBoundary {
     NoManualBlockerBypass,
     OrganicOpportunitiesInformPriority,
     McpIsProjectionNotBootstrap,
+    ExplicitOverImplicit,
+    StrictDagAndSingleResponsibility,
 }
 
 impl ConstitutionalBoundary {
@@ -194,8 +196,9 @@ impl ConstitutionalBoundary {
         Self::NoManualBlockerBypass,
         Self::OrganicOpportunitiesInformPriority,
         Self::McpIsProjectionNotBootstrap,
+        Self::ExplicitOverImplicit,
+        Self::StrictDagAndSingleResponsibility,
     ];
-
     pub fn rule_text(&self) -> &'static str {
         match self {
             Self::LowLayerFirst => {
@@ -230,6 +233,12 @@ impl ConstitutionalBoundary {
             }
             Self::McpIsProjectionNotBootstrap => {
                 "MCP is a replaceable projection of stable contracts. A missing MCP artifact cannot block local read-only observation."
+            }
+            Self::ExplicitOverImplicit => {
+                "The implicit is debt. Every intent, decision, gap, budget, recipient, schema version, and migration step must be explicit, typed, and machine-readable, or recorded as an owned explicit unknown with due scale."
+            }
+            Self::StrictDagAndSingleResponsibility => {
+                "Every crate follows the canonical cynic-<family>-<role> taxonomy. Architecture is a strict downward DAG (Layer 4 Projections -> Layer 3 Orchestrators -> Layer 2 Domains -> Layer 1 Host Substrate -> Layer 0 Pure Protocol). Cross-family concrete coupling, upward dependencies, God-object orchestrators exceeding 25k LOC, and domain I/O outside injected ports are constitutional violations."
             }
         }
     }
@@ -310,8 +319,8 @@ mod tests {
     }
 
     #[test]
-    fn all_11_constitutional_boundaries_have_non_empty_rule_text() {
-        assert_eq!(ConstitutionalBoundary::ALL.len(), 11);
+    fn all_13_constitutional_boundaries_have_non_empty_rule_text() {
+        assert_eq!(ConstitutionalBoundary::ALL.len(), 13);
         for boundary in ConstitutionalBoundary::ALL {
             assert!(!boundary.rule_text().is_empty());
         }

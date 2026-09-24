@@ -80,7 +80,7 @@ Never: commit secrets; mask unverified code with `allow(dead_code)`; recreate co
 
 ## Canonical pointers
 
-- Crate ownership and extraction: `infra/CRATE_OWNERSHIP.md`, `infra/CRATE_MODELS.md`, enforced by the dev audit surfaces above. A crate over ~40k LOC or implementing another domain's ports must be split.
+- Crate ownership and extraction: `infra/ARCHITECTURE_CONSTELLATIONS.md`, enforced by the dev audit surfaces above. A crate over ~40k LOC or implementing another domain's ports must be split.
 - Host substrate families: types in `cynic-protocol`, pure parsers in `cynic-host` domain probes, `Local`/`Remote` adapters, fleet rollup in `cynic-host`, thin CLI projection. An absent lower layer stays an explicit unknown.
 - Operator priority follows fresh organic opportunities (read-only proposals, never tasks or mutation authority). They never override sovereignty, admission, claims, or proof.
 - Runtime secrets are injected (env, then principal-owned file, then OS store behind a port). Never git, docs, chat logs, or proof JSON. Reports show presence, never the secret.

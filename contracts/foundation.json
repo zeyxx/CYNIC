@@ -67,6 +67,10 @@
       {
         "name": "explicit_over_implicit",
         "rule": "The implicit is debt. Every intent, decision, gap, budget, recipient, schema version, and migration step must be explicit, typed, and machine-readable, or recorded as an owned explicit unknown with due scale. Nothing is back-filled by guess: a missing observer, adapter, proof, budget, or address is reported as unknown or blocked, never fabricated into a successful-looking report. Guessing where a type, test, contract, or proof could answer is a constitutional violation."
+      },
+      {
+        "name": "strict_dag_and_single_responsibility",
+        "rule": "Every crate follows the canonical cynic-<family>-<role> taxonomy. Architecture is a strict downward DAG (Layer 4 Projections -> Layer 3 Orchestrators -> Layer 2 Domains -> Layer 1 Host Substrate -> Layer 0 Pure Protocol). Cross-family concrete coupling, upward dependencies, God-object orchestrators exceeding 25k LOC, and domain I/O outside injected ports are constitutional violations."
       }
     ],
     "deleted_authorities": [
