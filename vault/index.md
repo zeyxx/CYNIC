@@ -54,6 +54,7 @@ Chaque note dans `vault/canon/traditions/` dispose de ses tags et coordonnées p
 ---
 
 ## 🔬 IV. Modèles Physiques & Concepts Émergents
+* [[concepts/maieutic-attention-filter|La Boucle Maïeutique de l'Attention & L'Invariant de Décision 1-Page]]
 * [[concepts/magnetic-coordination|Magnetic Agent Coordination & Thermodynamics]]
 * [[concepts/parent-child-processes|Fractal Agent Recursion & Process Trees]]
 * [[concepts/internal-futarchy|Internal Prediction Markets & Consequence Estimation]]
