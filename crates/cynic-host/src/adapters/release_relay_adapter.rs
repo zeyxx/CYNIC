@@ -157,6 +157,7 @@ pub fn create_pull_request(
 pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadbackProof {
     let local_sha = read_local_tag_sha(root, tag);
     let remote_sha = read_remote_tag_sha(root, remote, tag);
+    let matches = local_sha.is_some() && local_sha == remote_sha;
 
     RelayReadbackProof {
         schema: "cynic.relay_readback_proof.v1",
@@ -164,7 +165,7 @@ pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadb
         remote: remote.to_string(),
         local_sha,
         remote_sha,
-        matches: local_sha.is_some() && local_sha == remote_sha,
+        matches,
     }
 }
 
@@ -172,6 +173,7 @@ pub fn verify_relay_readback(root: &Path, remote: &str, tag: &str) -> RelayReadb
 pub fn verify_branch_readback(root: &Path, remote: &str, branch: &str) -> RelayReadbackProof {
     let local_sha = read_local_branch_sha(root, branch);
     let remote_sha = read_remote_branch_sha(root, remote, branch);
+    let matches = local_sha.is_some() && local_sha == remote_sha;
 
     RelayReadbackProof {
         schema: "cynic.relay_readback_proof.v1",
@@ -179,7 +181,7 @@ pub fn verify_branch_readback(root: &Path, remote: &str, branch: &str) -> RelayR
         remote: remote.to_string(),
         local_sha,
         remote_sha,
-        matches: local_sha.is_some() && local_sha == remote_sha,
+        matches,
     }
 }
 
