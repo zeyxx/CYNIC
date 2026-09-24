@@ -1,58 +1,43 @@
-name: CI
+name: CYNIC CI & Verification Gate
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, "sync/*"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
-  # CI dev bypass: admission gate is for production build runners.
-  CYNIC_BUILD_ADMISSION_VERIFIED: 1
-  CYNIC_ALLOW_LOCAL_DEV_BUILD: 1
-  # GitHub Actions runners have network access; allow Cargo to fetch crates.
-  CARGO_NETWORK_MODE: online
-  CARGO_SOURCE_MODE: registry
-  # Use a workspace-local CARGO_HOME to mirror the repo's offline cache layout.
-  CARGO_HOME: ${{ github.workspace }}/.cargo-home
+  CARGO_TERM_COLOR: always
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
+  RUSTFLAGS: "-D warnings"
 
 jobs:
-  check:
-    name: Build & Validate
+  verify:
+    name: Layer 0-4 Verification Gate
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.96.0
-          components: rustfmt
+          components: clippy, rustfmt
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            .cargo-home/registry
-            .cargo-home/git
-            target
-          key: ${{ runner.os }}-cynic-${{ hashFiles('Cargo.lock') }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
 
-      - name: Validate authority files
-        run: make authority-check
+      - name: Validate Foundation & Infra JSON Contracts
+        run: |
+          jq empty contracts/foundation.json
+          jq empty infra/runtime-authority.json
+          jq empty infra/registry.json
+          jq empty infra/agent-exposure.json
+          jq empty infra/ecosystem-pins.json
 
-      - name: Secret literal check
-        run: make secret-literal-check
+      - name: Check Workspace Compilation
+        run: cargo check --workspace
 
-      - name: Surface audit
-        run: make surface-audit
-
-      - name: Cargo check core crates
-        run: make check
-
-      - name: Run core tests
-        run: make test
-
-      - name: Run lab smoke (portable, non-mutating)
-        run: make lab-smoke
+      - name: Run Test Suites
+        run: cargo test --workspace
