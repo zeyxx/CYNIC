@@ -81,7 +81,45 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             let decision = cynic_host::source_sync::reconcile(&observation);
             let plan = cynic_host::source_sync::plan(&decision);
             if apply {
-                emit_blocked_source_mutation(json)
+                let admission =
+                    cynic_host::adapters::source_admission_adapter::admit_source_sync(
+                        path, &decision,
+                    );
+                if !admission.admitted {
+                    if json {
+                        emit_pretty_json(&admission)
+                    } else {
+                        println!("Source sync BLOCKED by admission gate.");
+                        println!("Admission schema: {}", admission.schema);
+                        if !admission.gates_failed.is_empty() {
+                            println!("Failed gates: {:?}", admission.gates_failed);
+                        }
+                        for blocker in &admission.blockers {
+                            println!("  blocker: {blocker}");
+                        }
+                        ExitCode::FAILURE
+                    }
+                } else {
+                    let proof = cynic_host::source_sync::execute_plan(path, &plan);
+                    if json {
+                        emit_pretty_json(&proof)
+                    } else {
+                        println!(
+                            "Sync execution: {} steps, success={}",
+                            proof.steps_completed.len(),
+                            proof.success
+                        );
+                        for result in &proof.steps_completed {
+                            let status_sym = if result.success { "PASS" } else { "FAIL" };
+                            println!("  [{status_sym}] {:?}", result.step);
+                        }
+                        if proof.success {
+                            ExitCode::SUCCESS
+                        } else {
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
             } else {
                 if json {
                     emit_pretty_json(&plan)
@@ -100,23 +138,6 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             apply,
             json,
         } => execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json),
-    }
-}
-
-fn emit_blocked_source_mutation(json: bool) -> ExitCode {
-    let exit = blocked_source_mutation();
-    if json {
-        emit_pretty_json(&exit)
-    } else {
-        println!("{}", exit.summary);
-        ExitCode::FAILURE
-    }
-}
-
-fn blocked_source_mutation() -> SourceExit {
-    SourceExit {
-        status: "blocked",
-        summary: "blocked_unsupported_mutation: source sync and worktree apply require an admitted source-control transaction".to_string(),
     }
 }
 
@@ -373,10 +394,11 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 #[cfg(test)]
 mod tests {
     #[test]
-    fn source_mutations_are_blocked_until_source_control_is_admitted() {
-        let exit = super::blocked_source_mutation();
-
-        assert_eq!(exit.status, "blocked");
-        assert!(exit.summary.contains("blocked_unsupported_mutation"));
+    fn cli_source_surface_builds() {
+        let cmd = crate::SourceCommand::Status {
+            root: ".".into(),
+            json: false,
+        };
+        let _ = super::execute_source(cmd);
     }
 }

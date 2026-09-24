@@ -22,6 +22,7 @@ members = [
     "crates/cynic-storage",
     "crates/cynic-mcp",
     "crates/cynic-vcs",
+    "crates/cynic-vcs-forgejo",
     "crates/cynic-build",
     "crates/cynic-sandbox",
     "crates/cynic-lifecycle",

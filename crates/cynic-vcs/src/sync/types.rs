@@ -2,6 +2,65 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Admission verdict for a source sync plan.
+///
+/// Mirrors the `PolicyAdmissionReport` pattern in `cynic-protocol` but
+/// specialized for the source-control domain. A sync plan is only
+/// executable when `admitted == true` and `blockers.is_empty()`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceAdmissionReport {
+    pub schema: &'static str,
+    pub decision_digest: String,
+    pub gates_evaluated: Vec<String>,
+    pub gates_passed: Vec<String>,
+    pub gates_failed: Vec<String>,
+    pub admitted: bool,
+    pub blockers: Vec<String>,
+}
+
+impl SourceAdmissionReport {
+    /// Construct a blocked admission with the given gate failures.
+    pub fn blocked(
+        decision: &SyncDecision,
+        gates_passed: Vec<String>,
+        gates_failed: Vec<String>,
+        blockers: Vec<String>,
+    ) -> Self {
+        Self {
+            schema: SOURCE_ADMISSION_SCHEMA,
+            decision_digest: format!("{:p}", decision),
+            gates_evaluated: gates_passed
+                .iter()
+                .chain(gates_failed.iter())
+                .cloned()
+                .collect(),
+            gates_passed,
+            gates_failed,
+            admitted: false,
+            blockers,
+        }
+    }
+
+    /// Construct an admitted report.
+    pub fn admitted(
+        decision: &SyncDecision,
+        gates_evaluated: Vec<String>,
+        gates_passed: Vec<String>,
+    ) -> Self {
+        Self {
+            schema: SOURCE_ADMISSION_SCHEMA,
+            decision_digest: format!("{:p}", decision),
+            gates_evaluated,
+            gates_passed,
+            gates_failed: Vec::new(),
+            admitted: true,
+            blockers: Vec::new(),
+        }
+    }
+}
+
+pub const SOURCE_ADMISSION_SCHEMA: &str = "cynic.source_admission.v1";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceLayer {
