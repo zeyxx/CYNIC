@@ -75,7 +75,7 @@ fn execute_token_status(spec: &ForgejoTokenRuntimeSpec, json: bool, _yes: bool) 
         principal: spec.token_spec.principal.clone(),
         token: observation.clone(),
         forgejo_plan_status: plan.status.clone(),
-        token_action_needed: plan.actions.iter().any(|action| action.mutates),
+        token_action_needed: !plan.actions.is_empty(),
         requires_human_admin_secret: false,
         plan_action: if plan.actions.is_empty() {
             "observe".to_string()
@@ -198,24 +198,10 @@ fn print_token_status(report: &ForgejoTokenStatusReport) {
 /// Human-readable projection for `create`/`rotate` mode.
 fn print_token_provision(report: &cynic_vcs::forgejo_token::ForgejoTokenProvisionReport) {
     println!("Forgejo token provision (principal: {})", report.principal);
-    println!("  status:   {}", report.status);
-    println!("  mutated:  {}", report.mutated);
-    println!(
-        "  before.api_authenticated: {:?}",
-        report.before.api_authenticated
-    );
-    println!(
-        "  after.api_authenticated:  {:?}",
-        report.after.api_authenticated
-    );
+    println!("  status:       {}", report.status);
+    println!("  action_taken: {}", report.action_taken);
     if let Some(meta) = &report.token_metadata {
         println!("  token metadata: id={} name={}", meta.token_id, meta.name);
-    }
-    if !report.proofs.is_empty() {
-        println!("  proofs:");
-        for p in &report.proofs {
-            println!("    - {p}");
-        }
     }
     if !report.unknowns.is_empty() {
         println!("  unknowns:");
