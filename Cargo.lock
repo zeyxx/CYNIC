@@ -957,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-askesis"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-build"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-protocol",
@@ -983,7 +983,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-channel"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "hex",
@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-cli"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
@@ -1038,7 +1038,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-consensus"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "ed25519-dalek",
@@ -1052,7 +1052,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-discovery"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "serde",
@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-discovery-host"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-build",
  "cynic-discovery",
@@ -1071,7 +1071,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-domain-askesis"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-askesis",
  "cynic-protocol",
@@ -1080,7 +1080,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-domain-cloudflare"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-domain-ops",
  "cynic-protocol",
@@ -1092,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-domain-ops"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "cynic-secrets",
@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-domain-porkbun"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-domain-ops",
  "cynic-protocol",
@@ -1119,7 +1119,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-forensics"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1129,7 +1129,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-host"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-inference"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "axum 0.8.9",
@@ -1242,7 +1242,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-intel"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -1264,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-intel-escore"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "blake3",
  "chrono",
@@ -1278,7 +1278,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-intel-futarchy"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-intel",
@@ -1289,7 +1289,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-intel-soc"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-network",
@@ -1302,7 +1302,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-kernel"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1359,7 +1359,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-lifecycle"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-build",
@@ -1376,7 +1376,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-lxc"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "ed25519-dalek",
@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-market"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-intel",
  "cynic-protocol",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-mcp"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-host",
  "cynic-lifecycle",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-network"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-protocol",
@@ -1430,7 +1430,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-node"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "axum 0.8.9",
@@ -1479,7 +1479,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-observer"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -1502,7 +1502,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-pkg"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "reqwest 0.13.4",
@@ -1527,7 +1527,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-protocol"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "ed25519-dalek",
@@ -1543,7 +1543,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-release"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "serde",
@@ -1554,7 +1554,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-sandbox"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-protocol",
  "serde",
@@ -1591,7 +1591,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-storage"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "bytes",
  "cynic-consensus",
@@ -1610,7 +1610,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-types"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "blake3",
  "ed25519-dalek",
@@ -1622,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-vcs"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-network",
  "cynic-protocol",
@@ -1634,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-vcs-forgejo"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-vcs",
  "hex",
@@ -1650,7 +1650,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-workload"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cynic-consensus",
  "cynic-protocol",
@@ -1665,7 +1665,7 @@ dependencies = [
 
 [[package]]
 name = "cynic-zeroclaw-solana"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
