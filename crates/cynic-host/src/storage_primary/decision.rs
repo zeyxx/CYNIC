@@ -141,9 +141,9 @@ fn build_desired_state(
     let storage_registry = match registry.get("storage_registry") {
         Some(value) => {
             let storage_registry =
-                serde_json::from_value::<cynic_protocol::StorageRegistry>(value.clone())
+                serde_json::from_value::<cynic_storage::lifecycle::StorageRegistry>(value.clone())
                     .map_err(|error| vec![format!("storage_registry_invalid:{error}")])?;
-            let blockers = cynic_protocol::validate_storage_registry(&storage_registry);
+            let blockers = cynic_storage::lifecycle::validate_storage_registry(&storage_registry);
             if !blockers.is_empty() {
                 return Err(blockers);
             }

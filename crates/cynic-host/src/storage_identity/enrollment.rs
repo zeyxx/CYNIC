@@ -198,7 +198,7 @@ pub(crate) fn enroll_storage_identity(
 fn observation(
     spec: &StorageIdentitySpec,
     database_identity: StorageEvidenceState,
-    observed_role: Option<cynic_protocol::StorageIdentityRole>,
+    observed_role: Option<cynic_storage::identity::StorageIdentityRole>,
     local_credential: StorageEvidenceState,
     runtime_authentication: StorageEvidenceState,
     admin_authority_present: bool,
