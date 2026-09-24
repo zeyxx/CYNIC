@@ -174,7 +174,7 @@ cynic-inference-llm          → CRÉER — llm_port, fleet_inference/ (de proto
 cynic-vcs                    ✓ existant — résidu types
 cynic-vcs-git                → CRÉER — vcs/git_topology, git_hygiene, source_control,
                                         source_worktree* (de protocol)
-cynic-vcs-forgejo            → CRÉER — vcs/forgejo, forgejo_token (de protocol)
+cynic-vcs-forgejo            ✓ créé — vcs/forgejo, forgejo_token (adaptateurs + transport)
 ```
 
 ### FAMILLE : storage

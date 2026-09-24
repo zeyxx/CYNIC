@@ -203,6 +203,7 @@ inference ──ports──► host  (host consumes inference via traits ✓)
 | `cynic-build` | L2 | Sovereign build pipeline & receipts | Build admission, reproducible runner logic | Subprocess execution → `cynic-host` | Direct uncontained shell commands |
 | `cynic-release` | L2 | Release eligibility & relay gating | Cryptographic release gating, checksums | Build runner → `cynic-build` | Direct git pushes without proof |
 | `cynic-vcs` | L2 | Source control management & locks | Worktree gating, commit proof creation | Git CLI / SSH → `cynic-host` | Direct dirty working tree mutation |
+| `cynic-vcs-forgejo` | L1 | Forgejo VCS transport & webhook adapter | API tokens, webhooks, forgejo notifications | Types & ports → `cynic-vcs` | Autonomous policy decisions |
 | `cynic-askesis` | L2 | Epistemic reflection & audit log | Append-only proof bundles, history queries | Storage persistence → `cynic-storage` | In-flight coordination |
 | `cynic-intel` | L2 | Epistemic scoring & reasoning | E-Score calculation, futarchy algorithms | Trace parsing → `cynic-trace` | Raw host access |
 | `cynic-kernel` | L3 | Coordination bus & memory authority | Leases, fencing tokens, federation membrane | Host observation → `cynic-host` (ports) | Concrete domain imports, CLI rendering |
