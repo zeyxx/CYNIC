@@ -61,6 +61,7 @@ mod provider_fallback_hosts;
 mod provider_fallback_status;
 pub mod runtime_supervision;
 pub mod shutdown;
+pub(crate) mod source_change_transaction;
 pub(crate) mod supervise;
 pub(crate) mod system_probe;
 pub mod usecases;
