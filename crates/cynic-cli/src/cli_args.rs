@@ -1,19 +1,16 @@
 use clap::{Parser, Subcommand};
 
 use crate::agent_surface::AgentCommand;
-use crate::bootstrap_surface::BootstrapCommand;
+use crate::audit_surface::AuditCommand;
 use crate::build_surface::BuildCommand;
-use crate::dev_surface::DevCommand;
 use crate::federation_surface::FederationCommand;
-use crate::fleet_surface::FleetCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
 use crate::judge_surface::JudgeCommand;
-use crate::lifecycle_surface::LifecycleCommand;
 use crate::mask_surface::MaskCommand;
 use crate::network_surface::NetworkCommand;
 use crate::node_activation_surface::NodeActivationCommand;
-use crate::runtime_surface::{OperatorModelsCommand, RuntimeCommand};
+use crate::runtime_surface::OperatorModelsCommand;
 use crate::session_surface::SessionCommand;
 use crate::source_surface::SourceCommand;
 use crate::task_surface::TaskCommand;
@@ -35,16 +32,6 @@ pub(crate) enum Command {
     Commands {
         #[arg(long)]
         json: bool,
-    },
-    #[command(hide = true)]
-    Fleet {
-        #[command(subcommand)]
-        command: FleetCommand,
-    },
-    #[command(hide = true)]
-    Runtime {
-        #[command(subcommand)]
-        command: RuntimeCommand,
     },
     /// Inspect and explicitly control local LLM model profiles.
     Models {
@@ -73,16 +60,6 @@ pub(crate) enum Command {
     },
     /// Explain and list the advanced runtime surfaces.
     Advanced,
-    #[command(hide = true)]
-    Dev {
-        #[command(subcommand)]
-        command: DevCommand,
-    },
-    #[command(hide = true)]
-    Bootstrap {
-        #[command(subcommand)]
-        command: BootstrapCommand,
-    },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
         #[command(subcommand)]
@@ -113,21 +90,6 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: JudgeCommand,
     },
-    /// Ecosystem tech-watch and human-validated upgrades (canonical).
-    #[command(hide = true)]
-    Deps {
-        #[command(subcommand)]
-        command: Option<DepsCommand>,
-        /// Machine-readable JSON (default is human text).
-        #[arg(long, global = true)]
-        json: bool,
-    },
-    /// Update lifecycle: lab → conformance → staging → canary → production.
-    #[command(hide = true)]
-    Lifecycle {
-        #[command(subcommand)]
-        command: LifecycleCommand,
-    },
     /// One-word frictionless update for ecosystem components (hermes-agent, llama.cpp, cynic, etc.).
     Update {
         /// Optional target component id (e.g. hermes-agent). Omit to upgrade all stale components.
@@ -138,9 +100,16 @@ pub(crate) enum Command {
     },
     /// Read-only status of declared inference state and observed local LLM supervision.
     Status {
+        #[command(subcommand)]
+        command: Option<StatusCommand>,
         /// Machine-readable JSON report.
         #[arg(long)]
         json: bool,
+    },
+    /// Dynamic architectural invariants, secret scan & contract verification.
+    Audit {
+        #[command(subcommand)]
+        command: AuditCommand,
     },
     /// HumanAdmin governance observer surfaces.
     Agent {
@@ -221,24 +190,26 @@ pub(crate) enum Command {
     },
 }
 
-#[derive(Debug, Clone, Subcommand)]
-pub enum DepsCommand {
-    /// Ordered upgrade plan (manual + one-click items).
-    Plan,
-    /// Prioritized normalization audit for Python/system CLI authorities.
-    Audit,
-    /// Preview or apply scripted upgrades (`--yes` = one-click human consent).
-    Upgrade {
-        /// Apply all allowlisted scripted upgrades (explicit human consent).
+#[derive(Subcommand)]
+pub(crate) enum StatusCommand {
+    /// Read-only diagnosis of local LLM, network, and sovereign Git readiness.
+    Doctor {
         #[arg(long)]
-        yes: bool,
-        /// Non-interactive apply (agents): requires --confirm from a plan.
+        json: bool,
+    },
+    /// Inspect and explicitly control local LLM model profiles.
+    Models {
+        #[command(subcommand)]
+        command: OperatorModelsCommand,
+    },
+    /// Explain stable CYNIC error codes and their operator remediation.
+    Errors {
         #[arg(long)]
-        apply: bool,
+        json: bool,
+    },
+    /// Binary source identity: exact git SHA baked at compile time.
+    Version {
         #[arg(long)]
-        confirm: Option<String>,
-        /// Limit to dep ids (e.g. cynic, huggingface-cli).
-        #[arg(long = "only")]
-        only: Vec<String>,
+        json: bool,
     },
 }

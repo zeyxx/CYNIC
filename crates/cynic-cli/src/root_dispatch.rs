@@ -1,22 +1,20 @@
 use std::process::ExitCode;
 
+use crate::Command;
 use crate::agent_surface::execute_agent;
-use crate::bootstrap_surface::{BootstrapCommand, execute_bootstrap};
 use crate::build_surface::execute_build;
 use crate::chat_surface::{ChatArgs, execute_chat};
+use crate::cli_args::StatusCommand;
 use crate::cli_json::emit_pretty_json;
 use crate::command_manifest::commands_manifest;
 use crate::deps_surface;
-use crate::dev_surface::{DevCommand, execute_dev};
-use crate::fleet_surface::{FleetCommand, execute_fleet};
-use crate::network_surface::{NetworkCommand, execute_network};
+use crate::network_surface::execute_network;
 use crate::node_activation_surface::execute_node_activation;
 use crate::operator_doctor::execute_operator_doctor;
 use crate::operator_errors::execute_operator_errors;
 use crate::operator_help::execute_advanced_help;
-use crate::runtime_surface::{RuntimeCommand, execute_operator_models, execute_runtime};
+use crate::runtime_surface::execute_operator_models;
 use crate::session_surface::execute_session;
-use crate::{Command, DepsCommand};
 
 pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
     match command.print_help() {
@@ -31,21 +29,25 @@ pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
 pub(crate) fn execute_root_command(command: Command) -> ExitCode {
     match command {
         Command::Commands { json } => execute_commands_manifest(json),
-        Command::Fleet { command } => execute_fleet_command(command),
-        Command::Runtime { command } => execute_runtime_command(command),
-        Command::Dev { command } => execute_dev(command),
-        Command::Bootstrap { command } => execute_bootstrap(command),
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
         Command::Node { command } => execute_node_activation(command),
         Command::Advanced => execute_advanced_help(),
-        Command::Deps { command, json } => execute_deps_command(command, json),
         Command::Update { target, json } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
             deps_surface::execute_deps_upgrade(json, false, true, None, &only)
         }
-        Command::Status { json } => deps_surface::execute_deps(json),
-        Command::Lifecycle { command } => crate::lifecycle_surface::execute_lifecycle(command),
+        Command::Status { command, json } => match command {
+            None => crate::operator_status::execute_operator_status(json),
+            Some(StatusCommand::Doctor { json: j }) => execute_operator_doctor(j || json),
+            Some(StatusCommand::Models { command: c }) => execute_operator_models(c),
+            Some(StatusCommand::Errors { json: j }) => execute_operator_errors(j || json),
+            Some(StatusCommand::Version { json: j }) => {
+                crate::version_surface::execute_version(j || json);
+                ExitCode::SUCCESS
+            }
+        },
+        Command::Audit { command } => crate::audit_surface::execute_audit(&command),
         Command::Chat {
             prompt,
             resume,
@@ -114,40 +116,6 @@ fn execute_commands_manifest(json: bool) -> ExitCode {
     println!();
     println!("Machine-readable: cynic commands --json");
     ExitCode::SUCCESS
-}
-
-fn execute_fleet_command(command: FleetCommand) -> ExitCode {
-    execute_fleet(command)
-}
-
-fn execute_runtime_command(command: RuntimeCommand) -> ExitCode {
-    execute_runtime(command)
-}
-
-fn execute_dev_command(command: DevCommand) -> ExitCode {
-    execute_dev(command)
-}
-
-fn execute_bootstrap_command(command: BootstrapCommand) -> ExitCode {
-    execute_bootstrap(command)
-}
-
-fn execute_network_command(command: NetworkCommand) -> ExitCode {
-    execute_network(command)
-}
-
-fn execute_deps_command(command: Option<DepsCommand>, json: bool) -> ExitCode {
-    match command {
-        None => deps_surface::execute_deps(json),
-        Some(DepsCommand::Plan) => deps_surface::execute_deps_plan(json),
-        Some(DepsCommand::Audit) => deps_surface::execute_deps_audit(json),
-        Some(DepsCommand::Upgrade {
-            yes,
-            apply,
-            confirm,
-            only,
-        }) => deps_surface::execute_deps_upgrade(json, apply, yes, confirm.as_deref(), &only),
-    }
 }
 
 fn execute_chat_command(args: ChatArgs) -> ExitCode {
