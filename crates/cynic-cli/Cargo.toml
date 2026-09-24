@@ -20,6 +20,7 @@ cynic-protocol = { path = "../cynic-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
+cynic-vcs-forgejo = { path = "../cynic-vcs-forgejo" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }

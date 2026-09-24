@@ -11,9 +11,9 @@
 
 use std::process::ExitCode;
 
-use cynic_host::forgejo_token::{
-    DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, observe_forgejo_token_runtime,
-    provision_forgejo_token_apply, rotate_forgejo_token,
+use cynic_vcs_forgejo::forgejo_token::{
+    DefaultForgejoTokenSpec, ForgejoTokenRuntimeSpec, FORGEJO_TOKEN_PATH,
+    observe_forgejo_token_runtime, provision_forgejo_token_apply, rotate_forgejo_token,
 };
 use cynic_vcs::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
 
@@ -30,7 +30,7 @@ pub(crate) fn execute_forgejo_token(
     token_path: Option<String>,
 ) -> ExitCode {
     if let Some(path) = token_path.as_deref() {
-        if path != cynic_host::forgejo_token::FORGEJO_TOKEN_PATH {
+        if path != FORGEJO_TOKEN_PATH {
             if json {
                 let _ = cli_json::emit_pretty_json(&serde_json::json!({
                     "schema": FORGEJO_TOKEN_STATUS_REPORT_SCHEMA,

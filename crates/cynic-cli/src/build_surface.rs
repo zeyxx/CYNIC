@@ -879,7 +879,7 @@ fn run_build(
 }
 
 fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
-    use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
+    use cynic_vcs_forgejo::forgejo_webhook_server::spawn_webhook_server;
 
     if node_webhook_url.trim().is_empty() {
         return Err("node webhook URL is required; no forwarding target is guessed".to_string());
