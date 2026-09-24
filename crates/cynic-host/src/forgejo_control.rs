@@ -6,9 +6,12 @@ use crate::repo_access::{
     load_forgejo_desired_state,
 };
 
+use cynic_vcs::forgejo_token::{
+    ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec, ForgejoTokenStatusReport,
+    FORGEJO_TOKEN_STATUS_SCHEMA, plan_forgejo_token_convergence,
+};
 use cynic_vcs::{
-    ForgejoDesiredState, ForgejoPlan, ForgejoTokenAuthState, ForgejoTokenSpec,
-    build_forgejo_plan, forgejo_token_spec,
+    ForgejoDesiredState, ForgejoPlan, build_forgejo_plan, forgejo_token_spec,
 };
 
 use cynic_network::transport_security::{
@@ -45,7 +48,7 @@ impl RuntimeForgejoObserver {
         }
     }
 
-    pub fn token_observation(&self) -> Option<cynic_vcs_forgejo::ForgejoTokenObservation> {
+    pub fn token_observation(&self) -> Option<ForgejoTokenObservation> {
         let port = self.token_port.as_ref()?;
         let spec = self.token_spec.as_ref()?;
         Some(port.observe(spec))
@@ -142,20 +145,19 @@ pub fn current_forgejo_plan() -> Result<ForgejoPlan, String> {
     Ok(build_forgejo_plan(desired, &observer))
 }
 
-pub fn current_forgejo_token_status(
-) -> Result<cynic_vcs_forgejo::ForgejoTokenStatusReport, String> {
+pub fn current_forgejo_token_status() -> Result<ForgejoTokenStatusReport, String> {
     let root = current_project_root().ok_or_else(|| "CYNIC project root not found".to_string())?;
     let desired = load_forgejo_desired_state(&root)?;
     let spec = forgejo_token_spec(&desired, None);
     let port: Box<dyn ForgejoTokenApiPort> = Box::new(LocalForgejoTokenApiAdapter);
     let observation = port.observe(&spec);
-    let plan = cynic_vcs_forgejo::plan_forgejo_token_convergence(spec.clone(), &observation);
+    let plan = plan_forgejo_token_convergence(spec.clone(), &observation);
     let token_action_needed = matches!(
         observation.api_authenticated,
         ForgejoTokenAuthState::Absent | ForgejoTokenAuthState::Refuted
     );
-    Ok(cynic_vcs_forgejo::ForgejoTokenStatusReport {
-        schema: cynic_vcs_forgejo::FORGEJO_TOKEN_STATUS_SCHEMA.to_string(),
+    Ok(ForgejoTokenStatusReport {
+        schema: FORGEJO_TOKEN_STATUS_SCHEMA.to_string(),
         principal: spec.principal.clone(),
         token: observation,
         forgejo_plan_status: plan.status.clone(),
