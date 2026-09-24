@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use cynic_protocol::HarnessAuthority;
+use cynic_build::HarnessAuthority;
 
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 

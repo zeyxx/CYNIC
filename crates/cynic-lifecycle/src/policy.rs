@@ -2,7 +2,7 @@
 //! execution is the runner port's job.
 
 use crate::harness_context::{RuntimeHarnessContext, RuntimeHarnessKind};
-use cynic_protocol::HarnessAuthority;
+use cynic_build::HarnessAuthority;
 
 use super::types::{GateCheck, LifecyclePhase, MutationClass, PhasePolicy};
 

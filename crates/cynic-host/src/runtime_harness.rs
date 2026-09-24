@@ -4,7 +4,7 @@ use cynic_build::build::{
 };
 use serde::{Deserialize, Serialize};
 
-pub use cynic_protocol::HarnessAuthority;
+pub use cynic_build::HarnessAuthority;
 
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 pub const RUNTIME_HARNESS_CATALOG_SCHEMA: &str = "cynic.runtime_harness.catalog.v1";

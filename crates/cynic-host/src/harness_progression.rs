@@ -5,7 +5,7 @@
 //!   lab → conformance → staging → canary → production
 //!
 //! Each step requires explicit proof. No silent promotion.
-use cynic_protocol::HarnessAuthority;
+use cynic_build::HarnessAuthority;
 use serde::Serialize;
 
 pub use crate::runtime_harness::RuntimeHarnessKind;
