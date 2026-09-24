@@ -879,6 +879,7 @@ fn run_build(
 }
 
 fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
+    use cynic_vcs_forgejo::WebhookServerConfig;
     use cynic_vcs_forgejo::forgejo_webhook_server::spawn_webhook_server;
 
     if node_webhook_url.trim().is_empty() {
