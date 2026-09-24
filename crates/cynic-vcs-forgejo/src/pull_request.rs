@@ -1,162 +1,111 @@
-//! I/O transport adapters for Forgejo Pull Request API.
-//! Follows the observe -> plan -> apply -> read-back proof coherence pattern.
+//! Forgejo adapter implementing the sovereign `PrPort`.
+//!
+//! Follows observe -> plan -> apply -> read-back proof coherence pattern.
+//! Transport: curl CLI (no reqwest at this layer).
 
-use cynic_vcs::pull_request::{ForgejoPrState, ForgejoPullRequest};
-use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-pub const FORGEJO_PR_CREATE_PROOF_SCHEMA: &str = "cynic.forgejo.pr_create_proof.v1";
-pub const FORGEJO_PR_MERGE_PROOF_SCHEMA: &str = "cynic.forgejo.pr_merge_proof.v1";
+use cynic_vcs::pull_request::{
+    PR_CREATE_PROOF_SCHEMA, PR_MERGE_PROOF_SCHEMA, PrCreateProof, PrMergeProof, PrPort,
+    PrState, PullRequest,
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ForgejoPrCreateProof {
-    pub schema: &'static str,
-    pub pr_number: u64,
-    pub html_url: String,
-    pub head_ref: String,
-    pub base_ref: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ForgejoPrMergeProof {
-    pub schema: &'static str,
-    pub pr_number: u64,
-    pub merged: bool,
-    pub message: String,
-}
-
-pub struct ForgejoPrClient {
+pub struct ForgejoPrAdapter {
     pub api_base: String,
     pub owner: String,
     pub repo: String,
     pub token: Option<String>,
 }
 
-impl ForgejoPrClient {
+impl ForgejoPrAdapter {
     pub fn new(api_base: String, owner: String, repo: String, token: Option<String>) -> Self {
-        Self {
-            api_base,
-            owner,
-            repo,
-            token,
-        }
+        Self { api_base, owner, repo, token }
     }
 
-    /// List all pull requests matching state ("open", "closed", "all").
-    pub fn list_prs(&self, state: &str) -> Result<Vec<ForgejoPullRequest>, String> {
+    fn auth_header(&self) -> Option<String> {
+        self.token.as_ref().map(|t| format!("Authorization: token {t}"))
+    }
+
+    fn curl_get(&self, url: &str) -> Result<serde_json::Value, String> {
+        let mut cmd = Command::new("curl");
+        cmd.args(["-s", "-f", "-X", "GET", url]);
+        if let Some(h) = self.auth_header() {
+            cmd.args(["-H", &h]);
+        }
+        let out = cmd.output().map_err(|e| format!("curl exec failed: {e}"))?;
+        if !out.status.success() {
+            return Err(format!(
+                "GET {} failed ({}): {}",
+                url,
+                out.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
+        serde_json::from_slice(&out.stdout).map_err(|e| format!("invalid JSON: {e}"))
+    }
+
+    fn curl_post(&self, url: &str, body: &str) -> Result<serde_json::Value, String> {
+        let mut cmd = Command::new("curl");
+        cmd.args(["-s", "-f", "-X", "POST", url,
+                  "-H", "Content-Type: application/json", "-d", body]);
+        if let Some(h) = self.auth_header() {
+            cmd.args(["-H", &h]);
+        }
+        let out = cmd.output().map_err(|e| format!("curl exec failed: {e}"))?;
+        if !out.status.success() {
+            return Err(format!(
+                "POST {} failed ({}): {}",
+                url,
+                out.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
+        serde_json::from_slice(&out.stdout).map_err(|e| format!("invalid JSON: {e}"))
+    }
+}
+
+fn parse_pr(item: &serde_json::Value) -> PullRequest {
+    let str_path = |path: &[&str]| -> String {
+        let mut v = item;
+        for &k in path { v = &v[k]; }
+        v.as_str().unwrap_or_default().to_string()
+    };
+    PullRequest {
+        number:        item["number"].as_u64().unwrap_or_default(),
+        title:         str_path(&["title"]),
+        state: match item["state"].as_str().unwrap_or("open") {
+            "closed" => PrState::Closed,
+            _ => PrState::Open,
+        },
+        head_ref:      str_path(&["head", "ref"]),
+        head_sha:      str_path(&["head", "sha"]),
+        base_ref:      str_path(&["base", "ref"]),
+        base_sha:      str_path(&["base", "sha"]),
+        mergeable:     item["mergeable"].as_bool().unwrap_or(true),
+        has_conflicts: item["has_conflicts"].as_bool().unwrap_or(false),
+        html_url:      str_path(&["html_url"]),
+    }
+}
+
+impl PrPort for ForgejoPrAdapter {
+    fn list(&self, state: &str) -> Result<Vec<PullRequest>, String> {
         let url = format!(
-            "{}/api/v1/repos/{}/{}/pulls?state={}",
+            "{}/api/v1/repos/{}/{}/pulls?state={}&limit=50",
             self.api_base, self.owner, self.repo, state
         );
-
-        let mut cmd = Command::new("curl");
-        cmd.args(["-s", "-f", "-X", "GET", &url]);
-        if let Some(token) = &self.token {
-            cmd.args(["-H", &format!("Authorization: token {token}")]);
-        }
-
-        let output = cmd
-            .output()
-            .map_err(|e| format!("failed to execute curl: {e}"))?;
-
-        if !output.status.success() {
-            return Err(format!(
-                "curl request failed with code {}: {}",
-                output.status.code().unwrap_or(-1),
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
-
-        let raw_json: serde_json::Value = serde_json::from_slice(&output.stdout)
-            .map_err(|e| format!("invalid JSON from Forgejo: {e}"))?;
-
-        let items = raw_json
-            .as_array()
-            .ok_or_else(|| "expected JSON array of PRs".to_string())?;
-
-        let mut prs = Vec::new();
-        for item in items {
-            let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or_default();
-            let number = item.get("number").and_then(|v| v.as_u64()).unwrap_or_default();
-            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let state_str = item.get("state").and_then(|v| v.as_str()).unwrap_or("open");
-            let state = match state_str {
-                "closed" => ForgejoPrState::Closed,
-                _ => ForgejoPrState::Open,
-            };
-            let head_ref = item.get("head").and_then(|h| h.get("ref")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let head_sha = item.get("head").and_then(|h| h.get("sha")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let base_ref = item.get("base").and_then(|b| b.get("ref")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let base_sha = item.get("base").and_then(|b| b.get("sha")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-            let mergeable = item.get("mergeable").and_then(|v| v.as_bool()).unwrap_or(true);
-            let has_conflicts = item.get("has_conflicts").and_then(|v| v.as_bool()).unwrap_or(false);
-            let html_url = item.get("html_url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-
-            prs.push(ForgejoPullRequest {
-                id,
-                number,
-                title,
-                state,
-                head_ref,
-                head_sha,
-                base_ref,
-                base_sha,
-                mergeable,
-                has_conflicts,
-                html_url,
-            });
-        }
-
-        Ok(prs)
+        let json = self.curl_get(&url)?;
+        let items = json.as_array().ok_or("expected JSON array")?;
+        Ok(items.iter().map(parse_pr).collect())
     }
 
-    /// Open a new PR on Forgejo.
-    pub fn open_pr(
-        &self,
-        title: &str,
-        head: &str,
-        base: &str,
-        body: &str,
-    ) -> Result<ForgejoPrCreateProof, String> {
+    fn open(&self, title: &str, head: &str, base: &str, body: &str) -> Result<PrCreateProof, String> {
         let url = format!("{}/api/v1/repos/{}/{}/pulls", self.api_base, self.owner, self.repo);
-        let payload = serde_json::json!({
-            "title": title,
-            "head": head,
-            "base": base,
-            "body": body,
-        });
-
-        let mut cmd = Command::new("curl");
-        cmd.args([
-            "-s", "-f",
-            "-X", "POST",
-            &url,
-            "-H", "Content-Type: application/json",
-            "-d", &payload.to_string(),
-        ]);
-        if let Some(token) = &self.token {
-            cmd.args(["-H", &format!("Authorization: token {token}")]);
-        }
-
-        let output = cmd
-            .output()
-            .map_err(|e| format!("failed to execute curl: {e}"))?;
-
-        if !output.status.success() {
-            return Err(format!(
-                "failed to create PR: {}",
-                String::from_utf8_lossy(&output.stderr)
-            ));
-        }
-
-        let res: serde_json::Value = serde_json::from_slice(&output.stdout)
-            .map_err(|e| format!("invalid JSON response: {e}"))?;
-
-        let pr_number = res.get("number").and_then(|v| v.as_u64()).ok_or_else(|| "missing PR number in response".to_string())?;
-        let html_url = res.get("html_url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-
-        Ok(ForgejoPrCreateProof {
-            schema: FORGEJO_PR_CREATE_PROOF_SCHEMA,
+        let payload = serde_json::json!({"title": title, "head": head, "base": base, "body": body});
+        let res = self.curl_post(&url, &payload.to_string())?;
+        let pr_number = res["number"].as_u64().ok_or("missing PR number in response")?;
+        let html_url = res["html_url"].as_str().unwrap_or_default().to_string();
+        Ok(PrCreateProof {
+            schema: PR_CREATE_PROOF_SCHEMA,
             pr_number,
             html_url,
             head_ref: head.to_string(),
@@ -164,44 +113,32 @@ impl ForgejoPrClient {
         })
     }
 
-    /// Merge a PR on Forgejo.
-    pub fn merge_pr(&self, number: u64, style: &str) -> Result<ForgejoPrMergeProof, String> {
+    fn merge(&self, number: u64, style: &str) -> Result<PrMergeProof, String> {
+        // Forgejo merge returns 204 No Content — discard body, check exit code only.
         let url = format!(
             "{}/api/v1/repos/{}/{}/pulls/{}/merge",
             self.api_base, self.owner, self.repo, number
         );
-        let payload = serde_json::json!({
-            "Do": style, // "merge", "rebase", or "squash"
-        });
-
+        let payload = serde_json::json!({"Do": style});
         let mut cmd = Command::new("curl");
-        cmd.args([
-            "-s", "-f",
-            "-X", "POST",
-            &url,
-            "-H", "Content-Type: application/json",
-            "-d", &payload.to_string(),
-        ]);
-        if let Some(token) = &self.token {
-            cmd.args(["-H", &format!("Authorization: token {token}")]);
+        cmd.args(["-s", "-f", "-o", "/dev/null", "-X", "POST", &url,
+                  "-H", "Content-Type: application/json", "-d", &payload.to_string()]);
+        if let Some(h) = self.auth_header() {
+            cmd.args(["-H", &h]);
         }
-
-        let output = cmd
-            .output()
-            .map_err(|e| format!("failed to execute curl: {e}"))?;
-
-        if !output.status.success() {
+        let out = cmd.output().map_err(|e| format!("curl exec failed: {e}"))?;
+        if !out.status.success() {
             return Err(format!(
-                "failed to merge PR: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "merge PR#{number} failed ({}): {}",
+                out.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&out.stderr)
             ));
         }
-
-        Ok(ForgejoPrMergeProof {
-            schema: FORGEJO_PR_MERGE_PROOF_SCHEMA,
+        Ok(PrMergeProof {
+            schema: PR_MERGE_PROOF_SCHEMA,
             pr_number: number,
             merged: true,
-            message: format!("PR #{number} successfully merged with style '{style}'"),
+            message: format!("PR #{number} merged via Forgejo (style: {style})"),
         })
     }
 }
