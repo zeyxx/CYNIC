@@ -26,6 +26,11 @@ Règles :
   R6. no_std + alloc pour toute crate dont les deps le permettent.
       La frontière no_std/std IS la frontière domain/adapter.
       Enforcement : compilateur (pas un test, pas une convention).
+  R7. Une crate par DOMAINE fonctionnel cohésif — pas de cascade de micro-crates.
+      La sous-structure (types, parser, scrubber, slots...) vit en MODULES
+      INTERNES de la crate domaine, pas en crates séparées. Modèle SOTA :
+      solana-runtime, tokio+feature-flags — PAS 12 sous-crates par module.
+      Limite pratique : ~5-15k LOC par crate, 40k = god-object.
 ```
 
 ---
@@ -88,18 +93,20 @@ cynic-agent-bus-server       ✓ existant — projection REST
 cynic-agent-bus-coordinator  ✓ existant — orchestrateur fleet
 cynic-agent-channel          ← renommer cynic-channel (économie bilatérale HTLC)
 cynic-agent-pool             ← renommer cynic-pool (PoUW, PPLNS, récompenses)
-cynic-agent-coord            → CRÉER — coordination_lease, registry_claim_audit
-                                        (extraire de cynic-protocol)
-cynic-agent-session          → CRÉER — agent_session/ (extraire de cynic-protocol)
+cynic-agent-coordination     → CRÉER — UNE crate consolidée (R7) :
+                                        coordination_lease + registry_claim_audit +
+                                        agent_session/ + agent_coordination
+                                        (de protocol). Modules internes.
 ```
 
 ### FAMILLE : eval
 *Scoring, jugement, verdict, crystals.*
 ```
-cynic-eval-dog               → CRÉER — eval/dog, dog_health, wisdom (de protocol)
-cynic-eval-judgment          → CRÉER — judgment, kyon/ (de protocol)
-cynic-eval-evidence          → CRÉER — evidence, evidence_journal, evidence_projection,
-                                        observation_record (de protocol)
+cynic-eval                   → CRÉER — UNE crate consolidée (R7) :
+                                        evidence + eval/ + judgment + kyon +
+                                        emergence_gallery (de protocol, ~2.8k LOC).
+                                        Modules internes : evidence.rs, dog.rs,
+                                        judgment.rs, kyon/, gallery.rs.
 ```
 
 ### FAMILLE : kernel
@@ -141,10 +148,10 @@ cynic-node-autonomy          → CRÉER — emergence, local_autonomy
 ### FAMILLE : runtime
 *Placement, graine, takeover.*
 ```
-cynic-runtime-placement      → CRÉER — runtime_placement, runtime/ (de protocol)
-cynic-runtime-seed           → CRÉER — runtime_seed (de protocol)
-cynic-runtime-takeover       → CRÉER — runtime_takeover, runtime_takeover_activation
-                                        (de protocol)
+cynic-runtime                → CRÉER — UNE crate consolidée (R7) :
+                                        runtime + runtime_placement + runtime_seed +
+                                        runtime_takeover + runtime_takeover_activation
+                                        (de protocol, ~3.2k LOC). Modules internes.
 ```
 
 ### FAMILLE : fleet
@@ -156,9 +163,10 @@ cynic-fleet-heartbeat        → CRÉER — fleet_heartbeat, fleet_discovery (de
 ### FAMILLE : federation
 *Multi-organisation, bootstrap fédéré.*
 ```
-cynic-federation-membership  → CRÉER — federation_membership (de protocol)
-cynic-federation-authz       → CRÉER — federation_authz, federation_envelopes (de protocol)
-cynic-federation-bootstrap   → CRÉER — bootstrap_federation (de protocol)
+cynic-federation            → CRÉER — UNE crate consolidée (R7) :
+                                        federation_membership + federation_authz +
+                                        federation_envelopes + bootstrap_federation
+                                        (de protocol). Modules internes.
 ```
 
 ### FAMILLE : inference
@@ -171,9 +179,9 @@ cynic-inference-llm          → CRÉER — llm_port, fleet_inference/ (de proto
 ### FAMILLE : vcs
 *Source control, Git, Forgejo.*
 ```
-cynic-vcs                    ✓ existant — résidu types
-cynic-vcs-git                → CRÉER — vcs/git_topology, git_hygiene, source_control,
-                                        source_worktree* (de protocol)
+cynic-vcs                    ✓ existant — absorbe git_topology, git_hygiene,
+                                        source_control, source_worktree* comme
+                                        MODULES INTERNES (R7, Vague B)
 cynic-vcs-forgejo            ✓ créé — vcs/forgejo, forgejo_token (adaptateurs + transport)
 ```
 
@@ -192,8 +200,8 @@ cynic-network                ✓ existant — absorbe network.rs, transport_* de
 ### FAMILLE : build
 *CI/CD, harness de test.*
 ```
-cynic-build                  ✓ existant
-cynic-build-harness          → CRÉER — harness.rs, harness_authority (de protocol)
+cynic-build                  ✓ existant — a absorbé harness.rs + harness_authority
+                                        (2026-09-24, Vague A)
 ```
 
 ### FAMILLE : intel
@@ -273,26 +281,15 @@ cynic-market           → dans cynic-intel-futarchy (marché futarchique = exte
 
 ### CRÉER — extraire de cynic-protocol (voir §5 ordre d'extraction)
 ```
-cynic-eval-evidence
-cynic-eval-dog
-cynic-eval-judgment
-cynic-agent-coord
-cynic-agent-session
+cynic-eval (consolidée: evidence+dog+judgment+kyon+gallery)
+cynic-agent-coordination (consolidée: coord+session)
 cynic-node-protocol
 cynic-node-autonomy
 cynic-host-substrate
-cynic-runtime-placement
-cynic-runtime-seed
-cynic-runtime-takeover
+cynic-runtime (consolidée: placement+seed+takeover)
 cynic-fleet-heartbeat
-cynic-federation-membership
-cynic-federation-authz
-cynic-federation-bootstrap
+cynic-federation (consolidée)
 cynic-inference-llm
-cynic-vcs-git
-cynic-vcs-forgejo
-cynic-build-harness
-cynic-solana-anchor
 ```
 
 ### CRÉER — extraire de cynic-host
@@ -314,7 +311,7 @@ TIER 0 — Feuilles absolues (zero dep workspace)
 SESSION 1 : Éclater cynic-protocol
 ─────────────────────────────────────────────────────────
   VAGUE A — modules sans import intra-protocol (feuilles internes)
-    vcs/         → cynic-vcs (absorber) + créer cynic-vcs-git + cynic-vcs-forgejo
+    vcs/         → cynic-vcs (absorber) + cynic-vcs-forgejo (créé; git modules → cynic-vcs interne, R7)
     storage/     → cynic-storage (absorber)
     forensics.rs → cynic-host-forensics (absorber)
     peer/        → cynic-node-consensus (absorber)
@@ -397,7 +394,7 @@ Tier 1 (→ protocol only) :
 Tier 2 (→ T1) :
   cynic-build  cynic-inference  cynic-intel-soc
   cynic-eval-dog  cynic-eval-judgment  cynic-agent-coord
-  cynic-agent-session  cynic-vcs-git  cynic-vcs-forgejo
+  cynic-agent-coordination  cynic-vcs-forgejo
 
 Tier 3 (→ T2) :
   cynic-intel  cynic-host-lifecycle  cynic-domain-ops
