@@ -48,6 +48,16 @@ pub enum EvidenceDependency {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceEnvelope {
+    pub schema: String,
+    pub digest: String,
+    pub payload_digest: String,
+    pub subject: String,
+    pub producer: String,
+    pub observed_at_unix_ms: u128,
+    pub provenance: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lineage: Option<EvidenceLineage>,
     pub payload: Value,
 }
 
@@ -76,6 +86,20 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
     lineage: Option<EvidenceLineage>,
     payload: &T,
 ) -> Result<EvidenceEnvelope, String> {
+    if subject.trim().is_empty() {
+        return Err("evidence_subject_missing".to_string());
+    }
+    if producer.trim().is_empty() {
+        return Err("evidence_producer_missing".to_string());
+    }
+    if provenance.is_empty() {
+        return Err("evidence_provenance_missing".to_string());
+    }
+    let payload = serde_json::to_value(payload)
+        .map_err(|error| format!("serialize evidence payload: {error}"))?;
+    let payload_digest =
+        digest_json(&payload).map_err(|error| format!("digest evidence payload: {error}"))?;
+    let mut identity = serde_json::json!({
         "schema": EVIDENCE_ENVELOPE_SCHEMA,
         "payload_digest": payload_digest,
         "subject": subject.trim(),
@@ -91,6 +115,17 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
             .ok_or_else(|| "evidence_identity_not_object".to_string())?
             .insert("lineage".to_string(), lineage_value);
     }
+    let digest =
+        digest_json(&identity).map_err(|error| format!("digest evidence identity: {error}"))?;
+    Ok(EvidenceEnvelope {
+        schema: EVIDENCE_ENVELOPE_SCHEMA.to_string(),
+        digest,
+        payload_digest,
+        subject: subject.trim().to_string(),
+        producer: producer.trim().to_string(),
+        observed_at_unix_ms,
+        provenance,
+        lineage,
         payload,
     })
 }
@@ -263,6 +298,29 @@ pub fn valid_sha256_digest(value: &str) -> bool {
         digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn digest(marker: char) -> String {
+        format!("sha256:{}", marker.to_string().repeat(64))
+    }
+
+    fn evidence(marker: char, producer: char, origin: char) -> EvidenceRef {
+        EvidenceRef {
+            kind: "runtime_proof".to_string(),
+            subject: "local-kernel/process".to_string(),
+            digest: digest(marker),
+            lineage: Some(EvidenceLineage {
+                producer_id: format!("producer-{producer}"),
+                producer_attestation_digest: digest(producer),
+                origin_digests: vec![digest(origin)],
+                derivation_digests: Vec::new(),
+                influence_digests: Vec::new(),
+            }),
+        }
+    }
 
     #[test]
     fn payload_identity_is_stable_while_observation_identity_changes() {

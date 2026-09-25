@@ -72,6 +72,49 @@ pub enum InstallProvenance {
     UvVenv,
     GenericVirtualenv,
     VirtualEnv,
+    Pipx,
+    PipUserSite,
+    DistroManagedPackage,
+    ScriptedLocal,
+    NpmGlobal,
+    HomebrewCellar,
+    HomebrewCask,
+    RustupToolchain,
+    SystemPython,
+    Unknown,
+}
+
+/// Mutator authority responsible for updating or repairing a component.
+///
+/// Invariant 4: Upgrade and repair policy must derive from observed provenance
+/// instead of assuming a universal self-update command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MutatorAuthority {
+    UvTool,
+    UvPipSystem,
+    UvVenv,
+    Pipx,
+    PipUser,
+    DistroPackageManager,
+    CargoInstall,
+    NpmGlobal,
+    Homebrew,
+    Scripted,
+    Unknown,
+}
+
+/// Typed install authority record enforcing Invariant 4.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentInstallAuthority {
+    pub component_name: String,
+    pub owning_principal: String,
+    pub observed_provenance: InstallProvenance,
+    pub expected_provenance: InstallProvenance,
+    pub mutator_authority: MutatorAuthority,
+    pub is_canonical: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HardwareCapabilities {
     pub cpu_arch: String,
