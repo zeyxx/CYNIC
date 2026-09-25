@@ -1,9 +1,5 @@
 use cynic_intel::escore::metrics::ESCORE_METRICS;
-<<<<<<< HEAD
 use cynic_protocol::{RUNTIME_PROOF_SCHEMA, RuntimeProof, RuntimeProofEvidence};
-=======
-use cynic_protocol::{Epoch, RuntimeProof, RuntimeProofEvidence, RUNTIME_PROOF_SCHEMA};
->>>>>>> github/main
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -83,10 +79,6 @@ impl ConsensusTelemetry {
         node_pubkey: &str,
         connected_peers: usize,
         rpc_url: &str,
-<<<<<<< HEAD
-=======
-        current_epoch: Epoch,
->>>>>>> github/main
     ) -> RuntimeProof {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -135,10 +127,6 @@ impl ConsensusTelemetry {
         };
 
         // 4. Compilation de l'évidence de la réalité observable
-<<<<<<< HEAD
-=======
-        let current_epoch_u64 = current_epoch.id();
->>>>>>> github/main
         let mut evidence = vec![
             RuntimeProofEvidence {
                 id: "p2p_peers_count".to_string(),
@@ -151,10 +139,6 @@ impl ConsensusTelemetry {
                     "Nombres de pairs P2P connectés dans le DHT : {}",
                     connected_peers
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "rpc_latency".to_string(),
@@ -164,10 +148,6 @@ impl ConsensusTelemetry {
                     "watch".to_string()
                 },
                 detail: format!("Temps de réponse du RPC Solana : {} ms", rpc_latency_ms),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "rpc_observed_success_rate".to_string(),
@@ -181,10 +161,6 @@ impl ConsensusTelemetry {
                     success_rate * 100.0,
                     RPC_TRACKER.total_probes.load(Ordering::Relaxed)
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "escore_signals_processed".to_string(),
@@ -193,10 +169,6 @@ impl ConsensusTelemetry {
                     "Signaux E-Score traités par le Kernel : {}",
                     ESCORE_METRICS.signals_processed.load(Ordering::Relaxed)
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "escore_anti_whale_triggers".to_string(),
@@ -207,10 +179,6 @@ impl ConsensusTelemetry {
                         .anti_whale_dilutions_total
                         .load(Ordering::Relaxed)
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "wss_reconnections".to_string(),
@@ -223,10 +191,6 @@ impl ConsensusTelemetry {
                     "Nombre de reconnexions WebSocket initiées : {}",
                     crate::watcher::WSS_RECONNECTIONS.load(Ordering::Relaxed)
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "ingestion_completeness_rate".to_string(),
@@ -239,10 +203,6 @@ impl ConsensusTelemetry {
                     "Taux de complétude RPC public vs Helius (baseline) : {:.2}% ({} vs {} txs)",
                     completeness_rate, public_rpc_tx_count, helius_tx_count
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "ingestion_accuracy_match_rate".to_string(),
@@ -255,10 +215,6 @@ impl ConsensusTelemetry {
                     "Taux de concordance des données (exactitude) : {:.2}% ({} txs identiques)",
                     accuracy_match_rate, matched_tx_count
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
             RuntimeProofEvidence {
                 id: "ingestion_latency_comparison".to_string(),
@@ -271,10 +227,6 @@ impl ConsensusTelemetry {
                     "Latence d'ingestion : RPC public {}ms vs Helius {}ms",
                     avg_public_latency_ms, avg_helius_latency_ms
                 ),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             },
         ];
 
@@ -284,10 +236,6 @@ impl ConsensusTelemetry {
                 id: "rpc_failure_warning".to_string(),
                 status: "warning".to_string(),
                 detail: "Latence critique détectée sur le RPC Solana (>2000ms)".to_string(),
-<<<<<<< HEAD
-=======
-                epoch: Some(current_epoch_u64),
->>>>>>> github/main
             });
         }
 

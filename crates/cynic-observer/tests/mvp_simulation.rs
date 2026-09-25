@@ -1,10 +1,6 @@
 use cynic_observer::delegation::{ArgoNode, DelegationEngine, SwarmRegistry};
 use cynic_observer::parser::PumpFunAction;
 use cynic_observer::signal_mapper::map_action;
-<<<<<<< HEAD
-=======
-use cynic_protocol::Epoch;
->>>>>>> github/main
 
 #[test]
 fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
@@ -24,11 +20,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     };
 
     // Le Watcher / Mapper traduit en signaux (volume > 0.1 SOL donc non filtré)
-<<<<<<< HEAD
     let mapped = map_action(&action, now);
-=======
-    let mapped = map_action(&action, now, Epoch::new(0));
->>>>>>> github/main
     assert!(!mapped.token_signals.is_empty());
     println!(
         "✓ Action Pump.fun (5 SOL) traduite en {} signaux E-Score",
@@ -44,29 +36,17 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     registry.register_node(ArgoNode {
         pubkey: "AttackerNode".to_string(),
         infrastructure_escore: 10,
-<<<<<<< HEAD
         activation_epoch: 0,
-=======
-        activation_epoch: Epoch::ZERO,
->>>>>>> github/main
     });
     registry.register_node(ArgoNode {
         pubkey: "HonestNode_A".to_string(),
         infrastructure_escore: 90,
-<<<<<<< HEAD
         activation_epoch: 0,
-=======
-        activation_epoch: Epoch::ZERO,
->>>>>>> github/main
     });
     registry.register_node(ArgoNode {
         pubkey: "HonestNode_B".to_string(),
         infrastructure_escore: 90,
-<<<<<<< HEAD
         activation_epoch: 0,
-=======
-        activation_epoch: Epoch::ZERO,
->>>>>>> github/main
     });
 
     // CAS A : Sans Slot Hash (PoH) baseline stable
@@ -76,11 +56,7 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     for nonce in 0..1000 {
         let simulated_tx_signature = format!("solana_tx_sig_with_nonce_{}", nonce);
         let elected_leader =
-<<<<<<< HEAD
             DelegationEngine::elect_leader(&registry, &simulated_tx_signature, fixed_slot_hash, 0)
-=======
-            DelegationEngine::elect_leader(&registry, &simulated_tx_signature, fixed_slot_hash, Epoch::ZERO)
->>>>>>> github/main
                 .unwrap();
         if elected_leader == "AttackerNode" {
             found_winning_tx = Some((simulated_tx_signature, nonce));
@@ -89,14 +65,10 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     }
 
     if let Some((sig, nonce)) = found_winning_tx {
-<<<<<<< HEAD
         println!(
             "⚠️ GRINDING THÉORIQUE TOUJOURS POSSIBLE (si slot_hash est fixe) : AttackerNode gagne en {} essais avec {}",
             nonce, sig
         );
-=======
-        println!("⚠️ GRINDING THÉORIQUE TOUJOURS POSSIBLE (si slot_hash est fixe) : AttackerNode gagne en {} essais avec {}", nonce, sig);
->>>>>>> github/main
     }
 
     // CAS B : Avec Slot Hash (PoH) dynamique inconnu à l'avance
@@ -108,25 +80,17 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         &registry,
         "forged_sig_intended_for_fixed",
         real_slot_hash_from_poh,
-<<<<<<< HEAD
         0,
-=======
-        Epoch::ZERO,
->>>>>>> github/main
     )
     .unwrap();
     println!(
         "✓ ATTÉNUATION PoH CONFIRMÉE : La signature forgée ne gagne plus. Le Leader élu est : {}",
         selected_leader
     );
-<<<<<<< HEAD
     assert_ne!(
         selected_leader, "AttackerNode",
         "L'attaquant n'a pas pu hacker la loterie car le slot hash dynamique a brouillé les pistes."
     );
-=======
-    assert_ne!(selected_leader, "AttackerNode", "L'attaquant n'a pas pu hacker la loterie car le slot hash dynamique a brouillé les pistes.");
->>>>>>> github/main
 
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 3 : Faille 2 - Désynchronisation Kademlia & Atténuation Epoch Checkpoints
@@ -138,21 +102,13 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     view_node_a.register_node(ArgoNode {
         pubkey: "Node_1".to_string(),
         infrastructure_escore: 100,
-<<<<<<< HEAD
         activation_epoch: 0,
-=======
-        activation_epoch: Epoch::ZERO,
->>>>>>> github/main
     });
     // Node_2 vient de s'inscrire, Node_A le voit à l'époque 0 mais son activation est prévue pour l'époque 1
     view_node_a.register_node(ArgoNode {
         pubkey: "Node_2".to_string(),
         infrastructure_escore: 100,
-<<<<<<< HEAD
         activation_epoch: 1,
-=======
-        activation_epoch: Epoch::new(1),
->>>>>>> github/main
     });
 
     let mut view_node_b = SwarmRegistry::new();
@@ -160,24 +116,15 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
     view_node_b.register_node(ArgoNode {
         pubkey: "Node_1".to_string(),
         infrastructure_escore: 100,
-<<<<<<< HEAD
         activation_epoch: 0,
-=======
-        activation_epoch: Epoch::ZERO,
->>>>>>> github/main
     });
 
     let event_sig = "solana_real_tx_signature_abc123";
     let slot_hash = "slot_hash_abc_123";
 
     // Les deux nœuds calculent le leader pour l'epoch 0 en cours
-<<<<<<< HEAD
     let leader_a = DelegationEngine::elect_leader(&view_node_a, event_sig, slot_hash, 0).unwrap();
     let leader_b = DelegationEngine::elect_leader(&view_node_b, event_sig, slot_hash, 0).unwrap();
-=======
-    let leader_a = DelegationEngine::elect_leader(&view_node_a, event_sig, slot_hash, Epoch::ZERO).unwrap();
-    let leader_b = DelegationEngine::elect_leader(&view_node_b, event_sig, slot_hash, Epoch::ZERO).unwrap();
->>>>>>> github/main
 
     println!(
         "  Vue Nœud A (Élection Epoch 0) -> Leader élu : {}",
@@ -194,14 +141,10 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         leader_a, leader_b,
         "L'atténuation par Epoch checkpoints a échoué."
     );
-<<<<<<< HEAD
     println!(
         "✓ ATTÉNUATION EPOCH CONFIRMÉE : Node_A et Node_B s'accordent sur le même leader ({}) malgré la désynchronisation DHT.",
         leader_a
     );
-=======
-    println!("✓ ATTÉNUATION EPOCH CONFIRMÉE : Node_A et Node_B s'accordent sur le même leader ({}) malgré la désynchronisation DHT.", leader_a);
->>>>>>> github/main
 
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 4 : Faille 3 - Wash-Trading & Atténuation du Decay par volume
@@ -216,21 +159,13 @@ fn simulate_mvp_pipeline_and_expose_vulnerabilities() {
         is_buy: true,
     };
 
-<<<<<<< HEAD
     let mapped_micro = map_action(&micro_trade, now);
-=======
-    let mapped_micro = map_action(&micro_trade, now, Epoch::new(0));
->>>>>>> github/main
     // Le mapper doit rejeter le micro-volume pour ne générer aucun signal E-score.
     assert!(
         mapped_micro.token_signals.is_empty(),
         "Le micro-volume aurait dû être filtré !"
     );
-<<<<<<< HEAD
     println!(
         "✓ ATTÉNUATION WASH-TRADE CONFIRMÉE : La transaction de 0.005 SOL a été ignorée par le mapper."
     );
-=======
-    println!("✓ ATTÉNUATION WASH-TRADE CONFIRMÉE : La transaction de 0.005 SOL a été ignorée par le mapper.");
->>>>>>> github/main
 }
