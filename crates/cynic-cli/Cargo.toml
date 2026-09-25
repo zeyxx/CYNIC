@@ -54,10 +54,7 @@ rustix = { version = "1", features = ["fs"] }
 serde_json = "1"
 
 [build-dependencies]
-<<<<<<< HEAD
 rustix = { version = "1", features = ["fs"] }
-=======
->>>>>>> github/main
 serde_json = "1"
 
 [lints]
