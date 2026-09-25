@@ -1,10 +1,6 @@
 use std::collections::BTreeMap;
 
-<<<<<<< HEAD
 use serde::{Deserialize, Serialize};
-=======
-use serde::Deserialize;
->>>>>>> github/main
 use serde_json::Value;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -37,10 +33,7 @@ pub(super) struct RegistryPlane {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryReservation {
     pub(super) name: Option<String>,
-<<<<<<< HEAD
     pub(super) synapse: Option<String>,
-=======
->>>>>>> github/main
     pub(super) dns: Option<Vec<String>>,
 }
 
@@ -57,15 +50,11 @@ pub(super) struct RegistryNode {
     pub(super) vms: Option<Vec<RegistryVm>>,
     pub(super) proxmox_id: Option<String>,
     pub(super) proxmox: Option<RegistryProxmox>,
-<<<<<<< HEAD
     pub(super) source_workspace_layout: Option<RegistrySourceWorkspaceLayout>,
-=======
->>>>>>> github/main
     #[serde(default)]
     pub(super) energy_profile: BTreeMap<String, Value>,
 }
 
-<<<<<<< HEAD
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub(super) struct RegistrySourceWorkspaceLayout {
     pub(super) repository_store: String,
@@ -84,8 +73,6 @@ pub(super) struct RegistrySourceRepository {
     pub(super) transport_uri: Option<String>,
 }
 
-=======
->>>>>>> github/main
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryVm {
     pub(super) name: Option<String>,
@@ -98,7 +85,6 @@ pub(super) struct RegistryVm {
 pub(super) struct RegistryNodeNetwork {
     pub(super) synapse: Option<String>,
     pub(super) local: Option<String>,
-<<<<<<< HEAD
     pub(super) management: Option<String>,
 }
 
@@ -110,8 +96,6 @@ impl RegistryNodeNetwork {
             .or(self.management.as_deref())
             .filter(|value| !value.is_empty() && *value != "dhcp")
     }
-=======
->>>>>>> github/main
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -123,11 +107,8 @@ pub(super) struct RegistryProxmox {
 pub(super) struct RegistryService {
     pub(super) name: Option<String>,
     pub(super) port: Option<u16>,
-<<<<<<< HEAD
     pub(super) status: Option<String>,
     pub(super) optional: Option<bool>,
-=======
->>>>>>> github/main
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

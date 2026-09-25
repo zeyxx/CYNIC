@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
 
-=======
->>>>>>> github/main
 use std::path::Path;
 
 use super::command_plan::{
@@ -16,11 +13,7 @@ use crate::network_command_surface::NetworkCommandInvocation;
 
 fn sample_plan(with_dns: bool) -> MeshPlanFile {
     MeshPlanFile {
-<<<<<<< HEAD
         schema: NETWORK_MESH_PLAN_SCHEMA.to_string(),
-=======
-        schema: "cynic.network_mesh_plan.v1".to_string(),
->>>>>>> github/main
         status: "planned".to_string(),
         provider: "wireguard".to_string(),
         cidr: Some("10.30.0.0/24".to_string()),

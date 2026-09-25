@@ -11,7 +11,6 @@ pub async fn check_health(client: &Client, health_url: &str, timeout_secs: u64) 
     inner::check_health(client, health_url, timeout_secs).await
 }
 
-<<<<<<< HEAD
 /// Authenticated health observation for a node-managed backend.
 pub async fn check_health_with_bearer(
     client: &Client,
@@ -22,8 +21,6 @@ pub async fn check_health_with_bearer(
     inner::check_health_with_bearer(client, health_url, timeout_secs, bearer_token).await
 }
 
-=======
->>>>>>> github/main
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdentityResult {
     Match,

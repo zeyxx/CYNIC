@@ -3,10 +3,7 @@ use std::{env, io::Read, process::ExitCode};
 
 use cynic_inference::{
     LocalRuntimeServiceAny, ModelStoreService, RuntimePlanner, consolidate_vault,
-<<<<<<< HEAD
     forge_profile_from_benchmark_report,
-=======
->>>>>>> github/main
 };
 
 use super::emit_json;
@@ -92,17 +89,7 @@ fn extract_log_path(msg: &str) -> String {
         })
         .or_else(|| {
             msg.split_once("log=")
-<<<<<<< HEAD
                 .map(|(_, v)| v.split_whitespace().next().unwrap_or("").trim().to_string())
-=======
-                .map(|(_, v)| {
-                    v.split_whitespace()
-                        .next()
-                        .unwrap_or("")
-                        .trim()
-                        .to_string()
-                })
->>>>>>> github/main
         })
         .unwrap_or_default()
 }
@@ -125,15 +112,11 @@ fn print_recent_log_tail(log_path: &str, tail: usize) {
     let keep = tail.max(1);
     let lines: Vec<&str> = raw.lines().collect();
     let start = lines.len().saturating_sub(keep);
-<<<<<<< HEAD
     let preview = lines[start..]
         .iter()
         .copied()
         .collect::<Vec<_>>()
         .join("\n");
-=======
-    let preview = lines[start..].iter().copied().collect::<Vec<_>>().join("\n");
->>>>>>> github/main
     println!("  Logs (last {keep} lines):");
     for line in preview.lines() {
         println!("    {line}");
@@ -143,7 +126,6 @@ fn print_recent_log_tail(log_path: &str, tail: usize) {
 pub(crate) fn execute_inference_start(
     alias: Option<&str>,
     json: bool,
-<<<<<<< HEAD
     yes: bool,
     no_wait: bool,
 ) -> ExitCode {
@@ -153,10 +135,6 @@ pub(crate) fn execute_inference_start(
         );
         return ExitCode::FAILURE;
     }
-=======
-    no_wait: bool,
-) -> ExitCode {
->>>>>>> github/main
     cynic_inference::progress::progress(
         "resolve",
         "selecting startable vault profile (auto ensures profiles if needed)",
@@ -266,7 +244,6 @@ pub(crate) fn execute_inference_start(
     }
 }
 
-<<<<<<< HEAD
 pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool, yes: bool) -> ExitCode {
     if !yes {
         eprintln!(
@@ -274,9 +251,6 @@ pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool, yes: bool)
         );
         return ExitCode::FAILURE;
     }
-=======
-pub(crate) fn execute_inference_stop(alias: Option<&str>, json: bool) -> ExitCode {
->>>>>>> github/main
     let service = LocalRuntimeServiceAny::from_env();
     match service.stop(alias) {
         Ok(report) => {
@@ -454,11 +428,7 @@ pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> Ex
     match planner.plan_for_alias(alias) {
         Ok(plan) => {
             if apply {
-<<<<<<< HEAD
                 match planner.materialize(&plan) {
-=======
-                match planner.materialize_runtime_env(&plan) {
->>>>>>> github/main
                     Ok(mat) => {
                         let body = serde_json::json!({
                             "plan": plan,
@@ -493,7 +463,6 @@ pub(crate) fn execute_inference_plan(alias: &str, json: bool, apply: bool) -> Ex
         }
     }
 }
-<<<<<<< HEAD
 
 /// `cynic runtime inference-forge --benchmark <report>`: derive a vault profile
 /// from a winning benchmark run and (when `--yes`) hand off to the inference
@@ -540,5 +509,3 @@ pub(crate) fn execute_inference_forge(
         }
     }
 }
-=======
->>>>>>> github/main

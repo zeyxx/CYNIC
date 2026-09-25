@@ -2,11 +2,7 @@ use cynic_protocol::RuntimeProofPersistenceRecord;
 use serde::Serialize;
 use serde_json::Value;
 
-<<<<<<< HEAD
 use cynic_lifecycle::ArgvRunner;
-=======
-use crate::update_lifecycle::ArgvRunner;
->>>>>>> github/main
 
 pub const KERNEL_PROOF_PERSISTENCE_REPORT_SCHEMA: &str =
     "cynic.host.kernel_proof_persistence_report.v1";
@@ -108,40 +104,28 @@ impl<'a, R: ArgvRunner> KernelProofPersistencePort for CurlKernelProofPersistenc
         }
 
         let mut get_args = vec!["-G".to_string(), format!("{}/observations", self.endpoint)];
-<<<<<<< HEAD
         get_args.extend([
             "--data-urlencode".to_string(),
             "domain=cynic.runtime.proof".to_string(),
         ]);
-=======
-        get_args.extend(["--data-urlencode".to_string(), "domain=cynic.runtime.proof".to_string()]);
->>>>>>> github/main
         get_args.extend(["--data-urlencode".to_string(), format!("target={target}")]);
         get_args.extend(["--data-urlencode".to_string(), "limit=100".to_string()]);
         for header in self.headers() {
             get_args.extend(["-H".to_string(), header]);
         }
         let read_back = self.curl("read_back", &get_args);
-<<<<<<< HEAD
         let read_back_success =
             read_back.success && contains_persisted_record(&read_back.stdout, record);
-=======
-        let read_back_success = read_back.success && contains_persisted_record(&read_back.stdout, record);
->>>>>>> github/main
         if !read_back_success {
             blockers.push("kernel_proof_read_back_missing".to_string());
         }
         KernelProofPersistenceReport {
             schema: KERNEL_PROOF_PERSISTENCE_REPORT_SCHEMA,
-<<<<<<< HEAD
             status: if blockers.is_empty() {
                 "proved"
             } else {
                 "blocked"
             },
-=======
-            status: if blockers.is_empty() { "proved" } else { "blocked" },
->>>>>>> github/main
             endpoint: self.endpoint.clone(),
             target,
             post_success: post.success,
@@ -160,21 +144,13 @@ fn contains_persisted_record(raw: &str, record: &RuntimeProofPersistenceRecord) 
 }
 
 fn contains_record_value(value: &Value, record: &RuntimeProofPersistenceRecord) -> bool {
-<<<<<<< HEAD
     if value.get("schema").and_then(Value::as_str) == Some(record.schema.as_str())
-=======
-    if value
-        .get("schema")
-        .and_then(Value::as_str)
-        == Some(record.schema.as_str())
->>>>>>> github/main
         && value.get("node").and_then(Value::as_str) == Some(record.node.as_str())
         && value.get("revision").and_then(Value::as_str) == Some(record.revision.as_str())
     {
         return true;
     }
     match value {
-<<<<<<< HEAD
         Value::Array(values) => values
             .iter()
             .any(|value| contains_record_value(value, record)),
@@ -290,10 +266,3 @@ impl<'a, R: ArgvRunner> KernelProofHistoryPort for CurlKernelProofHistoryAdapter
         }
     }
 }
-=======
-        Value::Array(values) => values.iter().any(|value| contains_record_value(value, record)),
-        Value::Object(values) => values.values().any(|value| contains_record_value(value, record)),
-        _ => false,
-    }
-}
->>>>>>> github/main

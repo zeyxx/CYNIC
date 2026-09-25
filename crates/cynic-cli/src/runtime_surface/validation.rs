@@ -323,11 +323,7 @@ fn build_runtime_validation_report(
     };
 
     Ok(RuntimeValidationReport {
-<<<<<<< HEAD
         schema: cynic_protocol::RUNTIME_VALIDATION_SCHEMA,
-=======
-        schema: "cynic.runtime_validation.v1",
->>>>>>> github/main
         status,
         registry_path: registry_path.to_string(),
         lab_registry_path: lab_registry_path.to_string(),

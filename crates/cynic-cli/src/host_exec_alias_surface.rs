@@ -8,11 +8,7 @@ use cynic_host::ports::HostPrincipalPort;
 use cynic_host::usecases::observe_host_with_resolution;
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 
-<<<<<<< HEAD
 use crate::host_profile_selection::{
-=======
-use crate::bootstrap_surface::{
->>>>>>> github/main
     ProfileArgs, observed_blocked, selected_profile, selected_resolution,
 };
 use crate::{emit_json, fail};
@@ -94,10 +90,7 @@ fn execute_host_exec_alias(args: &[String]) -> Result<ExitCode, String> {
 
 fn parse_profile_args(args: &[String]) -> ProfileArgs {
     ProfileArgs {
-<<<<<<< HEAD
         json: false,
-=======
->>>>>>> github/main
         profile: flag_value(args, "--profile"),
         node: flag_value(args, "--node"),
         registry: flag_value(args, "--registry"),

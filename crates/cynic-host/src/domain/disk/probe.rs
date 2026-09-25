@@ -1,5 +1,4 @@
 //! Pure logic for planning cleanup items based on observed caches.
-<<<<<<< HEAD
 //!
 //! Also hosts the portable `df`-output parser so that both the local and the
 //! SSH remote disk adapters share one parsing path (no hardwired substrate).
@@ -154,10 +153,6 @@ pub fn parse_lsblk_disks(json_stdout: &str) -> Vec<PhysicalDisk> {
     }
     list
 }
-=======
-
-use super::types::{DiskCleanupItem, DiskCleanupPlan, DiskReport, bytes_to_human};
->>>>>>> github/main
 
 /// Build a cleanup plan from the observed disk report.
 pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
@@ -195,28 +190,11 @@ pub fn build_cleanup_plan(report: &DiskReport) -> DiskCleanupPlan {
                 label: "Purge rotated log files in /var/log/".to_string(),
                 size_human: cache.size_human.clone(),
                 size_bytes: cache.size_bytes,
-<<<<<<< HEAD
                 argv: ["rm", "-f"]
                     .iter()
                     .chain(ROTATED_SYSLOG_FILES.iter())
                     .map(|f| f.to_string())
                     .collect(),
-=======
-                argv: vec![
-                    "rm".to_string(),
-                    "-f".to_string(),
-                    "/var/log/syslog.1".to_string(),
-                    "/var/log/syslog.2.gz".to_string(),
-                    "/var/log/syslog.3.gz".to_string(),
-                    "/var/log/syslog.4.gz".to_string(),
-                    "/var/log/kern.log.1".to_string(),
-                    "/var/log/kern.log.2.gz".to_string(),
-                    "/var/log/kern.log.3.gz".to_string(),
-                    "/var/log/ufw.log.1".to_string(),
-                    "/var/log/ufw.log.2.gz".to_string(),
-                    "/var/log/ufw.log.3.gz".to_string(),
-                ],
->>>>>>> github/main
                 requires_privilege: true,
             }),
             "npm-cache" => Some(DiskCleanupItem {
@@ -270,7 +248,6 @@ mod tests {
     use super::*;
     use crate::domain::disk::types::{DiskCacheEntry, DiskReport};
 
-<<<<<<< HEAD
     const SAMPLE_DF: &str = "\
 Filesystem     Type  Size  Used Avail Use% Mounted on
 /dev/sda2      ext4   50G   30G   20G  60% /
@@ -385,8 +362,6 @@ overlay        overlay  50G   30G   20G  60% /
         );
     }
 
-=======
->>>>>>> github/main
     #[test]
     fn test_build_cleanup_plan() {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
@@ -409,10 +384,7 @@ overlay        overlay  50G   30G   20G  60% /
                 },
             ],
             large_files: vec![],
-<<<<<<< HEAD
             physical_disks: vec![],
-=======
->>>>>>> github/main
         };
 
         let plan = build_cleanup_plan(&report);

@@ -29,11 +29,8 @@ pub struct RuntimePrincipalLayout {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeAuthorityPaths {
     pub config_root: PathBuf,
-<<<<<<< HEAD
     pub kernel_socket_path: PathBuf,
     pub agent_access_group: String,
-=======
->>>>>>> github/main
     pub policy_root: PathBuf,
     pub helper_root: PathBuf,
     pub sudoers_dir: PathBuf,
@@ -66,18 +63,14 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
     let staging_root = principal.state_root.join("staging");
     RuntimeAuthorityPaths {
         config_root: PathBuf::from("/etc/cynic"),
-<<<<<<< HEAD
         kernel_socket_path: PathBuf::from("/run/cynic/kernel.sock"),
         agent_access_group: "cynic-agent".to_string(),
-=======
->>>>>>> github/main
         policy_root: PathBuf::from("/etc/cynic"),
         helper_root: PathBuf::from("/usr/local/libexec"),
         sudoers_dir: PathBuf::from("/etc/sudoers.d"),
         service_unit_dir: PathBuf::from("/etc/systemd/system"),
         dns_hosts_path: PathBuf::from("/etc/coredns/synapse.hosts"),
         dns_corefile_path: PathBuf::from("/etc/coredns/Corefile"),
-<<<<<<< HEAD
         dns_service_path: if PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service").exists()
             || PathBuf::from("/lib/systemd/system/cynic-dns-synapse.service").exists()
         {
@@ -85,9 +78,6 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         } else {
             PathBuf::from("/etc/systemd/system/coredns-synapse.service")
         },
-=======
-        dns_service_path: PathBuf::from("/etc/systemd/system/coredns-synapse.service"),
->>>>>>> github/main
         resolved_dropin_path: PathBuf::from("/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"),
         // Install bundles are durable, inspectable activation artifacts. `/tmp`
         // is suitable only when an explicit lab layout injects it.
@@ -118,14 +108,11 @@ mod tests {
     fn default_authority_paths_are_root_and_runtime_split() {
         let authority = default_runtime_authority_paths();
         assert_eq!(authority.config_root, PathBuf::from("/etc/cynic"));
-<<<<<<< HEAD
         assert_eq!(
             authority.kernel_socket_path,
             PathBuf::from("/run/cynic/kernel.sock")
         );
         assert_eq!(authority.agent_access_group, "cynic-agent");
-=======
->>>>>>> github/main
         assert_eq!(authority.helper_root, PathBuf::from("/usr/local/libexec"));
         assert_eq!(
             authority.principal.log_root,

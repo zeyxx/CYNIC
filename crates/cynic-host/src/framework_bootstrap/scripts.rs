@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 mod runtime_artifacts;
 
 pub(crate) use runtime_artifacts::BootstrapRuntimeArtifact;
@@ -30,9 +29,6 @@ fi
 }
 
 pub(crate) fn bootstrap_install_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
-=======
-pub(crate) fn bootstrap_install_script() -> String {
->>>>>>> github/main
     r#"#!/bin/sh
 set -eu
 
@@ -43,7 +39,6 @@ RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
-<<<<<<< HEAD
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
 NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
 NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
@@ -55,8 +50,6 @@ STATE_ROOT="${CYNIC_STATE_ROOT:-/var/lib/cynic}"
 RUNTIME_INSTALL_ROOT="${CYNIC_RUNTIME_INSTALL_ROOT:-$STATE_ROOT/runtime}"
 RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-artifacts/inbox}"
 BOOTSTRAP_RELEASE=""
-=======
->>>>>>> github/main
 
 if [ "$(id -u)" != "0" ]; then
   echo "install.sh must run as root" >&2
@@ -79,10 +72,7 @@ verify_seed_integrity() {
 }
 
 verify_seed_integrity
-<<<<<<< HEAD
 __CYNIC_RUNTIME_PREFLIGHT__
-=======
->>>>>>> github/main
 
 install_bootstrap_packages() {
   if command -v sudo >/dev/null 2>&1 && command -v visudo >/dev/null 2>&1; then
@@ -111,7 +101,6 @@ command -v sudo >/dev/null 2>&1 || { echo "sudo is required after package bootst
 install -d -o root -g root -m 0755 "$(dirname "$HELPER_TARGET")" "$(dirname "$SUDOERS_TARGET")"
 install -o root -g root -m 0755 "$BUNDLE/cynic-host-exec" "$HELPER_TARGET"
 install -o root -g root -m 0440 "$BUNDLE/cynic-host-exec.sudoers" "$SUDOERS_TARGET"
-<<<<<<< HEAD
 if [ -f "$ROOT/etc/node-control.toml" ]; then
   install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$NODE_CONTROL_CONFIG_TARGET")"
   install -o root -g "$RUNTIME_GROUP" -m 0640 "$ROOT/etc/node-control.toml" "$NODE_CONTROL_CONFIG_TARGET"
@@ -133,17 +122,11 @@ if [ -f "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" ]; then
   install -o root -g root -m 0755 "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" "$LXC_BRIDGE_TARGET"
   install -o root -g root -m 0440 "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge.sudoers" "$LXC_BRIDGE_SUDOERS"
   visudo -cf "$LXC_BRIDGE_SUDOERS"
-=======
-if [ -x "$ROOT/bin/cynic" ]; then
-  install -d -o root -g root -m 0755 "$(dirname "$CLI_TARGET")"
-  install -o root -g root -m 0755 "$ROOT/bin/cynic" "$CLI_TARGET"
->>>>>>> github/main
 fi
 visudo -cf "$SUDOERS_TARGET"
 
 "$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
 chown "$RUNTIME_USER:$RUNTIME_GROUP" /var/lib/cynic/bootstrap/principal-prepare.json
-<<<<<<< HEAD
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0750 \
   "$RUNTIME_ARTIFACT_INBOX"
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 \
@@ -179,14 +162,6 @@ grep -F "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-co
     } else {
         ""
     };
-=======
-
-echo "cynic framework bootstrap installed: $HELPER_TARGET"
-"#.to_string()
-}
-
-pub(crate) fn bootstrap_verify_script() -> String {
->>>>>>> github/main
     r#"#!/bin/sh
 set -eu
 
@@ -196,7 +171,6 @@ HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
 EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
-<<<<<<< HEAD
 NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
 NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
 NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
@@ -210,17 +184,12 @@ RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-arti
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
 test -d "$RUNTIME_INSTALL_ROOT"
 test -d "$RUNTIME_ARTIFACT_INBOX"
-=======
-
-install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
->>>>>>> github/main
 test -x "$HELPER_TARGET"
 test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
 if [ -x "$CLI_TARGET" ]; then
   "$CLI_TARGET" runtime paths --json > "$EVIDENCE_DIR/standalone-cli-runtime-paths.json"
 fi
-<<<<<<< HEAD
 __CYNIC_NODE_READ_BACK__
 if [ -x "$LXC_BRIDGE_TARGET" ]; then
   sudo -u "$RUNTIME_USER" sudo -n "$LXC_BRIDGE_TARGET" --status > "$EVIDENCE_DIR/lxc-exec-bridge-status.json"
@@ -235,16 +204,6 @@ echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
 "#
     .replace("__CYNIC_NODE_READ_BACK__", node_read_back)
     .replace("__CYNIC_RUNTIME_READ_BACK__", &verify_fragment(artifacts))
-=======
-
-"$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"
-sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
-sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" network-baseline observe > "$EVIDENCE_DIR/network-baseline-observe.json" || true
-
-chown "$RUNTIME_USER:$RUNTIME_GROUP" "$EVIDENCE_DIR"/*.json
-echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
-"#.to_string()
->>>>>>> github/main
 }
 
 pub(crate) fn bootstrap_security_maintenance_script() -> String {
@@ -285,7 +244,6 @@ fi
 echo "cynic framework bootstrap security maintenance passed"
 "#.to_string()
 }
-<<<<<<< HEAD
 
 #[cfg(test)]
 mod tests {
@@ -374,5 +332,3 @@ mod tests {
         );
     }
 }
-=======
->>>>>>> github/main

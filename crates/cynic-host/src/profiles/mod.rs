@@ -23,16 +23,11 @@ pub enum HostProfile {
     NetworkNode,
     AlpineOpenRcNetworkNode,
     ProxmoxHypervisor,
-<<<<<<< HEAD
     /// Fleet member with local runtime authority but no implicit mesh/DNS role.
     ManagementNode,
     /// CI / compile host: principal + privilege, no mesh substrate.
     BuildRunner,
     WindowsNode,
-=======
-    /// CI / compile host: principal + privilege, no mesh substrate.
-    BuildRunner,
->>>>>>> github/main
 }
 
 impl HostProfile {
@@ -41,13 +36,9 @@ impl HostProfile {
             "network-node" | "network-baseline" => Ok(Self::NetworkNode),
             "alpine-openrc" | "network-node-openrc" => Ok(Self::AlpineOpenRcNetworkNode),
             "proxmox-hypervisor" | "proxmox-host" => Ok(Self::ProxmoxHypervisor),
-<<<<<<< HEAD
             "management-node" | "management_node" => Ok(Self::ManagementNode),
             "build-runner" | "build_runner" => Ok(Self::BuildRunner),
             "windows-node" | "windows" | "windows-service" => Ok(Self::WindowsNode),
-=======
-            "build-runner" | "build_runner" => Ok(Self::BuildRunner),
->>>>>>> github/main
             other => Err(format!("unknown host profile: {other}")),
         }
     }
@@ -57,13 +48,9 @@ impl HostProfile {
             Self::NetworkNode => "network-node",
             Self::AlpineOpenRcNetworkNode => "alpine-openrc",
             Self::ProxmoxHypervisor => "proxmox-hypervisor",
-<<<<<<< HEAD
             Self::ManagementNode => "management-node",
             Self::BuildRunner => "build-runner",
             Self::WindowsNode => "windows-node",
-=======
-            Self::BuildRunner => "build-runner",
->>>>>>> github/main
         }
     }
 }
@@ -76,13 +63,9 @@ impl HostPrincipalPort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().principal_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_principal(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.desired_principal(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_principal(),
             Self::WindowsNode => families::HostFamilyProfile::windows_service().principal_policy(),
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.desired_principal(),
->>>>>>> github/main
         }
     }
 }
@@ -95,13 +78,9 @@ impl HostPrivilegePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().privilege_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_privilege(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.desired_privilege(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_privilege(),
             Self::WindowsNode => families::HostFamilyProfile::windows_service().privilege_policy(),
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.desired_privilege(),
->>>>>>> github/main
         }
     }
 }
@@ -114,13 +93,9 @@ impl HostPackagePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().package_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_packages(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.desired_packages(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_packages(),
             Self::WindowsNode => families::HostFamilyProfile::windows_service().package_policy(),
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.desired_packages(),
->>>>>>> github/main
         }
     }
 }
@@ -131,13 +106,9 @@ impl HostFilesystemPort for HostProfile {
             Self::NetworkNode => NetworkNodeHostProfile.desired_filesystem(),
             Self::AlpineOpenRcNetworkNode => NetworkNodeHostProfile.desired_filesystem(),
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_filesystem(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.desired_filesystem(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_filesystem(),
             Self::WindowsNode => NetworkNodeHostProfile.desired_filesystem(),
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.desired_filesystem(),
->>>>>>> github/main
         }
     }
 }
@@ -150,13 +121,9 @@ impl HostServicePort for HostProfile {
                 families::HostFamilyProfile::alpine_openrc().service_policy()
             }
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.desired_services(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.desired_services(),
             Self::BuildRunner => BuildRunnerHostProfile.desired_services(),
             Self::WindowsNode => families::HostFamilyProfile::windows_service().service_policy(),
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.desired_services(),
->>>>>>> github/main
         }
     }
 }
@@ -173,7 +140,6 @@ impl HostContractPort for HostProfile {
                 self.desired_services().contract(),
             ],
             Self::ProxmoxHypervisor => ProxmoxHypervisorHostProfile.declared_contracts(),
-<<<<<<< HEAD
             Self::ManagementNode => BuildRunnerHostProfile.declared_contracts(),
             Self::BuildRunner => BuildRunnerHostProfile.declared_contracts(),
             Self::WindowsNode => vec![
@@ -199,9 +165,3 @@ mod tests {
         assert!(profile.desired_services().units.is_empty());
     }
 }
-=======
-            Self::BuildRunner => BuildRunnerHostProfile.declared_contracts(),
-        }
-    }
-}
->>>>>>> github/main

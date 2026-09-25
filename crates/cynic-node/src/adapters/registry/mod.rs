@@ -4,7 +4,6 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
-<<<<<<< HEAD
 mod agent_workspace_layout;
 mod model;
 mod projections;
@@ -15,14 +14,6 @@ use model::Registry;
 use projections::{
     canonical_names_for, preferred_node_host, reservation_hosts_by_name,
     reservation_synapse_by_name, vm_aliases_by_name,
-=======
-mod model;
-mod projections;
-
-use model::Registry;
-use projections::{
-    canonical_names_for, preferred_node_host, reservation_hosts_by_name, vm_aliases_by_name,
->>>>>>> github/main
 };
 
 use crate::domain::fleet_truth::{Node, ObservedResource};
@@ -55,7 +46,6 @@ impl LocalRegistryAdapter {
         })
     }
 
-<<<<<<< HEAD
     pub fn repository_transport_uri(
         &self,
         node_id: &str,
@@ -78,8 +68,6 @@ impl LocalRegistryAdapter {
         Ok(None)
     }
 
-=======
->>>>>>> github/main
     pub fn declared_nodes(&self) -> Result<Vec<Node>, RegistryAdapterError> {
         let registry = self.load_registry()?;
         Ok(registry
@@ -250,13 +238,8 @@ impl LocalRegistryAdapter {
     fn local_ip(&self, node: &model::RegistryNode) -> Option<String> {
         node.network
             .as_ref()
-<<<<<<< HEAD
             .and_then(|network| network.best_ip())
             .map(|value| value.to_string())
-=======
-            .and_then(|network| network.local.clone())
-            .filter(|value| !value.is_empty())
->>>>>>> github/main
     }
 }
 
@@ -279,7 +262,6 @@ fn registry_dns_zone(registry: &Registry) -> String {
 }
 
 fn provider_fallback_cidr(registry: &Registry) -> String {
-<<<<<<< HEAD
     let planes = registry
         .network_policy
         .as_ref()
@@ -293,14 +275,6 @@ fn provider_fallback_cidr(registry: &Registry) -> String {
                 .and_then(|p| p.synapse.as_ref())
                 .and_then(|plane| plane.cidr.clone())
         })
-=======
-    registry
-        .network_policy
-        .as_ref()
-        .and_then(|policy| policy.planes.as_ref())
-        .and_then(|planes| planes.proxmox_guest.as_ref())
-        .and_then(|plane| plane.cidr.clone())
->>>>>>> github/main
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "10.10.10.0/24".to_string())
 }
@@ -352,10 +326,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
         let registry = self.load_registry()?;
         let dns_zone = registry_dns_zone(&registry);
         let reservation_hosts = reservation_hosts_by_name(&registry, &dns_zone);
-<<<<<<< HEAD
         let reservation_synapse = reservation_synapse_by_name(&registry);
-=======
->>>>>>> github/main
         let mut records = Vec::new();
         let vm_aliases = vm_aliases_by_name(registry.nodes.as_deref().unwrap_or(&[]));
         for node in registry.nodes.unwrap_or_default() {
@@ -372,7 +343,6 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(primary_name) = node.name.clone().filter(|value| !value.is_empty()) else {
                 continue;
             };
-<<<<<<< HEAD
             if reservation_synapse.get(&primary_name).map(String::as_str) != Some(synapse_ip) {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -383,8 +353,6 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 )
                 .into());
             }
-=======
->>>>>>> github/main
             records.push(RegistryNodeRecord {
                 node: primary_name.clone(),
                 ip: synapse_ip.to_string(),
@@ -486,13 +454,8 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(local_ip) = node
                 .network
                 .as_ref()
-<<<<<<< HEAD
                 .and_then(|network| network.best_ip())
                 .map(|value| value.to_string())
-=======
-                .and_then(|network| network.local.clone())
-                .filter(|value| value != "dhcp")
->>>>>>> github/main
             else {
                 continue;
             };
@@ -531,12 +494,8 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 .iter()
                 .find(|node| node.role.as_deref() == Some("hypervisor"))
                 .and_then(|node| node.network.as_ref())
-<<<<<<< HEAD
                 .and_then(|network| network.best_ip())
                 .map(|value| value.to_string())
-=======
-                .and_then(|network| network.local.clone())
->>>>>>> github/main
         });
         let cidr = provider_fallback_cidr(&registry);
         Ok(ProviderFallbackRoute {
@@ -563,11 +522,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(network) = node.network.as_ref() else {
                 continue;
             };
-<<<<<<< HEAD
             let Some(local_ip) = network.best_ip().map(|value| value.to_string()) else {
-=======
-            let Some(local_ip) = network.local.clone().filter(|value| value != "dhcp") else {
->>>>>>> github/main
                 continue;
             };
             let fallback_host = fallback_records
@@ -583,7 +538,6 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 .unwrap_or_else(|| preferred_node_host(&dns_zone, &node, None, &local_ip));
             let mut node_checks = Vec::new();
             for service in node.services.clone().unwrap_or_default() {
-<<<<<<< HEAD
                 if matches!(
                     service.status.as_deref(),
                     Some("planned")
@@ -595,8 +549,6 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
                 {
                     continue;
                 }
-=======
->>>>>>> github/main
                 let Some(port) = service.port else {
                     continue;
                 };

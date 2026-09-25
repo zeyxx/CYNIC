@@ -1,13 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::command_surface::{HostCommandSurface, argv_command, expectation, install_dir_command};
-<<<<<<< HEAD
 use crate::domain::package_provenance::{
     PackagePromotionObservation, PackagePromotionPolicy, PackageProvenancePolicy,
     assess_package_promotion,
 };
-=======
->>>>>>> github/main
 use crate::domain::shared::{
     BoundaryKind, HostSubstrateDomain, LifecycleDisposition, LifecycleProjection, LifecycleStatus,
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
@@ -25,11 +22,8 @@ pub struct PackagePolicy {
     pub policy_dir: String,
     pub source_projection_path: String,
     pub approved_sources: Vec<String>,
-<<<<<<< HEAD
     pub provenance: PackageProvenancePolicy,
     pub promotion_policy: PackagePromotionPolicy,
-=======
->>>>>>> github/main
     pub bootstrap_packages: Vec<String>,
 }
 
@@ -42,11 +36,8 @@ pub struct PackageStatusReport {
     pub next_boundary_reason: String,
     pub next_command: Option<String>,
     pub approved_sources_declared: bool,
-<<<<<<< HEAD
     pub provenance_selected: bool,
     pub provenance_blocker: Option<String>,
-=======
->>>>>>> github/main
     pub installed_packages: Vec<String>,
     pub missing_packages: Vec<String>,
     pub evidences: Vec<SubstrateEvidence>,
@@ -78,7 +69,6 @@ pub struct PackageApplyReport {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageObservedState {
     pub installed_packages: Vec<String>,
-<<<<<<< HEAD
     #[serde(default)]
     pub promotion: PackagePromotionObservation,
     #[serde(default)]
@@ -122,8 +112,6 @@ pub(crate) fn promoted_package_state(installed_packages: Vec<String>) -> Package
         },
         promotion_assessed_at_unix_s: TEST_PROMOTION_NOW_UNIX_S,
     }
-=======
->>>>>>> github/main
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,11 +191,7 @@ impl PackagePolicy {
                 install_path: self.source_projection_path.clone(),
                 mode: MODE_0644.octal.to_string(),
             }],
-<<<<<<< HEAD
             commands: self.gated_install_commands(context),
-=======
-            commands: self.install_commands(context),
->>>>>>> github/main
         }
     }
 
@@ -219,14 +203,6 @@ impl PackagePolicy {
         &self,
         context: &PackageCommandContext,
     ) -> PackageActivationPlan {
-<<<<<<< HEAD
-=======
-        let first_source = self
-            .approved_sources
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "<missing-approved-source>".to_string());
->>>>>>> github/main
         PackageActivationPlan {
             status: SurfaceStatus::Planned,
             preflight: vec![
@@ -238,18 +214,9 @@ impl PackagePolicy {
                         context.os_release_path.clone(),
                     ],
                 ),
-<<<<<<< HEAD
                 expectation("selected_provenance", self.provenance.description()),
             ],
             install_commands: self.gated_install_commands(context),
-=======
-                expectation(
-                    "selected_source",
-                    format!("approved package source selected: {first_source}"),
-                ),
-            ],
-            install_commands: self.install_commands(context),
->>>>>>> github/main
             postflight: self
                 .bootstrap_packages
                 .iter()
@@ -275,11 +242,7 @@ impl PackagePolicy {
         PackageApplyReport {
             status: SurfaceStatus::Planned,
             dry_run,
-<<<<<<< HEAD
             commands: self.gated_install_commands(context),
-=======
-            commands: self.install_commands(context),
->>>>>>> github/main
             proofs_required: self
                 .bootstrap_packages
                 .iter()
@@ -296,7 +259,6 @@ impl PackagePolicy {
             .cloned()
             .collect::<Vec<_>>();
         let approved_sources_declared = !self.approved_sources.is_empty();
-<<<<<<< HEAD
         let provenance_blocker = self.distribution_authority_blocker();
         let promotion = self.requires_distribution_authority().then(|| {
             assess_package_promotion(
@@ -313,16 +275,12 @@ impl PackagePolicy {
             && missing_packages.is_empty()
             && !promotion_blocked
         {
-=======
-        let status = if approved_sources_declared && missing_packages.is_empty() {
->>>>>>> github/main
             SurfaceStatus::Active
         } else if approved_sources_declared {
             SurfaceStatus::Blocked
         } else {
             SurfaceStatus::Degraded
         };
-<<<<<<< HEAD
         let lifecycle_status =
             if !approved_sources_declared || provenance_blocker.is_some() || promotion_blocked {
                 LifecycleStatus::Missing
@@ -331,25 +289,12 @@ impl PackagePolicy {
             } else {
                 LifecycleStatus::Ready
             };
-=======
-        let lifecycle_status = if !approved_sources_declared {
-            LifecycleStatus::Missing
-        } else if !missing_packages.is_empty() {
-            LifecycleStatus::PrincipalMismatch
-        } else {
-            LifecycleStatus::Ready
-        };
->>>>>>> github/main
         let projection = match lifecycle_status {
             LifecycleStatus::Ready => LifecycleProjection::ready_observe(
                 "approved package sources are declared and bootstrap packages are present",
             ),
             LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
-<<<<<<< HEAD
                 "package distribution authority, provenance observation, or promotion approval is incomplete",
-=======
-                "approved package source projection is not yet declared",
->>>>>>> github/main
                 Some("cynic host bootstrap packages --json".to_string()),
             ),
             LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
@@ -370,12 +315,9 @@ impl PackagePolicy {
             next_boundary_reason: projection.next_boundary_reason,
             next_command: projection.next_command,
             approved_sources_declared,
-<<<<<<< HEAD
             provenance_selected: !self.requires_distribution_authority()
                 || self.provenance.is_selected(),
             provenance_blocker: provenance_blocker.clone(),
-=======
->>>>>>> github/main
             installed_packages: observed.installed_packages.clone(),
             missing_packages,
             evidences: vec![
@@ -389,7 +331,6 @@ impl PackagePolicy {
                     detail: self.approved_sources.join(","),
                 },
                 SubstrateEvidence {
-<<<<<<< HEAD
                     id: "package_promotion_observation".to_string(),
                     status: match promotion.as_ref() {
                         Some(assessment) if assessment.eligible => SurfaceStatus::Active,
@@ -422,8 +363,6 @@ impl PackagePolicy {
                     ),
                 },
                 SubstrateEvidence {
-=======
->>>>>>> github/main
                     id: "bootstrap_packages_expected".to_string(),
                     status: SurfaceStatus::Planned,
                     detail: self.bootstrap_packages.join(","),
@@ -447,12 +386,9 @@ impl PackagePolicy {
                 ),
             ),
         ];
-<<<<<<< HEAD
         if self.bootstrap_packages.is_empty() {
             return commands;
         }
-=======
->>>>>>> github/main
         let install_argv = package_install_argv(self.manager, &self.bootstrap_packages, context);
         if install_argv.is_empty() {
             commands.push(expectation(
@@ -468,7 +404,6 @@ impl PackagePolicy {
         commands
     }
 
-<<<<<<< HEAD
     fn gated_install_commands(&self, context: &PackageCommandContext) -> Vec<HostCommandSurface> {
         match self.distribution_authority_blocker() {
             Some(blocker) => vec![expectation("package_provenance_blocked", blocker)],
@@ -478,10 +413,6 @@ impl PackagePolicy {
 
     pub fn apply_operations(&self) -> Vec<HostOperation> {
         let mut operations = vec![
-=======
-    pub fn apply_operations(&self) -> Vec<HostOperation> {
-        vec![
->>>>>>> github/main
             HostOperation::EnsureDir {
                 path: self.policy_dir.clone(),
                 mode: MODE_0755.unix,
@@ -490,7 +421,6 @@ impl PackagePolicy {
                 path: self.source_projection_path.clone(),
                 approved_sources: self.approved_sources.clone(),
             },
-<<<<<<< HEAD
         ];
         if self.distribution_authority_blocker().is_none() {
             operations.push(HostOperation::InstallBootstrapPackages {
@@ -509,13 +439,6 @@ impl PackagePolicy {
         self.requires_distribution_authority()
             .then(|| self.provenance.blocker())
             .flatten()
-=======
-            HostOperation::InstallBootstrapPackages {
-                approved_sources: self.approved_sources.clone(),
-                packages: self.bootstrap_packages.clone(),
-            },
-        ]
->>>>>>> github/main
     }
 }
 
@@ -543,7 +466,6 @@ fn package_query_argv(
                 package.to_string(),
             ]
         }
-<<<<<<< HEAD
         PackageManagerKind::Winget => vec![
             context.package_query_bin.clone(),
             "list".to_string(),
@@ -557,8 +479,6 @@ fn package_query_argv(
             "--exact".to_string(),
             package.to_string(),
         ],
-=======
->>>>>>> github/main
         PackageManagerKind::Unknown => vec![context.which_bin.clone(), package.to_string()],
     }
 }
@@ -596,7 +516,6 @@ fn package_install_argv(
             argv.extend(packages.iter().cloned());
             argv
         }
-<<<<<<< HEAD
         PackageManagerKind::Winget => {
             let mut argv = vec![
                 context.package_install_bin.clone(),
@@ -618,8 +537,6 @@ fn package_install_argv(
             argv.extend(packages.iter().cloned());
             argv
         }
-=======
->>>>>>> github/main
         PackageManagerKind::Rpm | PackageManagerKind::Unknown => Vec::new(),
     }
 }
@@ -628,10 +545,7 @@ fn package_install_argv(
 mod tests {
     use super::{PackageCommandContext, PackagePolicy};
     use crate::command_surface::render_command;
-<<<<<<< HEAD
     use crate::domain::package_provenance::{PackagePromotionPolicy, PackageProvenancePolicy};
-=======
->>>>>>> github/main
     use crate::runtime_layout::PackageManagerKind;
 
     fn context() -> PackageCommandContext {
@@ -652,15 +566,12 @@ mod tests {
             policy_dir: "/etc/cynic".to_string(),
             source_projection_path: "/etc/cynic/package-sources.json".to_string(),
             approved_sources: vec!["distribution_package".to_string()],
-<<<<<<< HEAD
             provenance: PackageProvenancePolicy::Repository {
                 source_id: "distribution_package".to_string(),
                 trusted_key_fingerprint: "0123456789abcdef".to_string(),
                 max_metadata_age_secs: 86_400,
             },
             promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
-=======
->>>>>>> github/main
             bootstrap_packages: vec!["coredns".to_string(), "wireguard-tools".to_string()],
         }
     }
@@ -714,7 +625,6 @@ mod tests {
 
         assert!(rendered.contains("/portable/bin/dnf install -y coredns wireguard-tools"));
     }
-<<<<<<< HEAD
 
     #[test]
     fn unresolved_provenance_never_plans_a_package_mutation() {
@@ -757,6 +667,4 @@ mod tests {
                 ))
         );
     }
-=======
->>>>>>> github/main
 }

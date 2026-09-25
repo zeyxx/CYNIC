@@ -3,13 +3,9 @@ use cynic_host::coordination_lease_store::CoordinationLeaseStore;
 use cynic_intel::escore::decay::{calculate_decay, calculate_quadratic_modifier};
 use cynic_intel::escore::merkle::{build_proof, merkle_root, verify_proof};
 use cynic_intel::escore::types::{EScoreSignal, EvidenceTier, SCORE_SCALE, StatType};
-<<<<<<< HEAD
 use cynic_intel::futarchy::cpmm::{
     calculate_prices_bps, create_market, execute_bet, resolve_market,
 };
-=======
-use cynic_intel::futarchy::cpmm::{calculate_prices_bps, create_market, execute_bet, resolve_market};
->>>>>>> github/main
 use cynic_intel::futarchy::types::{MarketDecision, PredictionBet, ProposalStatus};
 use cynic_protocol::{LeaseAction, LeaseGuard, TargetClaimOutcome};
 use std::path::Path;
@@ -54,15 +50,11 @@ fn test_adversarial_concurrent_lease_claims_and_zombie_writes() {
 
     // Invariant fondamental : EXACTEMENT 1 gagnant, 31 conflits
     assert_eq!(claimed_count, 1, "There must be exactly ONE winner");
-<<<<<<< HEAD
     assert_eq!(
         conflict_count,
         num_threads - 1,
         "All other concurrent claims must conflict"
     );
-=======
-    assert_eq!(conflict_count, num_threads - 1, "All other concurrent claims must conflict");
->>>>>>> github/main
 
     let grant = winner_grant.expect("winner grant");
     let agent_id = winner_agent.expect("winner agent");
@@ -75,14 +67,10 @@ fn test_adversarial_concurrent_lease_claims_and_zombie_writes() {
         fencing_token: grant.fencing_token,
     };
     let reject_impostor = store.mutate(&forged_guard, LeaseAction::Release, None, None);
-<<<<<<< HEAD
     assert!(
         !reject_impostor.is_applied(),
         "Impostor mutation must be rejected"
     );
-=======
-    assert!(!reject_impostor.is_applied(), "Impostor mutation must be rejected");
->>>>>>> github/main
 
     let stale_guard = LeaseGuard {
         agent_id: agent_id.clone(),
@@ -91,14 +79,10 @@ fn test_adversarial_concurrent_lease_claims_and_zombie_writes() {
         fencing_token: grant.fencing_token.saturating_sub(1), // Stale token
     };
     let reject_stale = store.mutate(&stale_guard, LeaseAction::Release, None, None);
-<<<<<<< HEAD
     assert!(
         !reject_stale.is_applied(),
         "Stale fencing token must be rejected"
     );
-=======
-    assert!(!reject_stale.is_applied(), "Stale fencing token must be rejected");
->>>>>>> github/main
 
     // Mutation légitime par le vrai détenteur
     let legitimate_guard = LeaseGuard {
@@ -129,14 +113,10 @@ fn test_adversarial_cpmm_extreme_bounds_and_overflow_resistance() {
         amount_units: 0,
         timestamp: 1_720_000_000,
     };
-<<<<<<< HEAD
     assert!(
         execute_bet(&mut market, zero_bet).is_err(),
         "Zero bet must fail"
     );
-=======
-    assert!(execute_bet(&mut market, zero_bet).is_err(), "Zero bet must fail");
->>>>>>> github/main
 
     // 2. Pari colossal (100 milliards) -> Calcul u128 sans overflow
     let whale_bet = PredictionBet {
@@ -150,7 +130,6 @@ fn test_adversarial_cpmm_extreme_bounds_and_overflow_resistance() {
 
     // Les prix doivent rester bornés entre 0 et 10 000 bps
     let (p_yes, p_no) = calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
-<<<<<<< HEAD
     assert_eq!(
         p_yes + p_no,
         10_000,
@@ -160,10 +139,6 @@ fn test_adversarial_cpmm_extreme_bounds_and_overflow_resistance() {
         p_yes > 7_000,
         "Price of YES should reflect massive buying pressure"
     );
-=======
-    assert_eq!(p_yes + p_no, 10_000, "Price sum must strictly equal 10,000 bps");
-    assert!(p_yes > 7_000, "Price of YES should reflect massive buying pressure");
->>>>>>> github/main
 
     // Résolution
     let resolution = resolve_market(&mut market, 1_720_000_100);
@@ -193,13 +168,10 @@ fn test_adversarial_merkle_tampering_and_sybil_resistance() {
             evidence_tier: EvidenceTier::T1OnChain,
             raw_weight: 10 * SCORE_SCALE,
             timestamp: 1_720_000_000,
-<<<<<<< HEAD
             // Field added to EScoreSignal after this suite was written. None is
             // the documented default: treat the signal at the runtime's current
             // epoch, preserving the fixture's original meaning.
             epoch: None,
-=======
->>>>>>> github/main
         },
         EScoreSignal {
             wallet_id: "wallet-sybil-2".to_string(),
@@ -207,13 +179,10 @@ fn test_adversarial_merkle_tampering_and_sybil_resistance() {
             evidence_tier: EvidenceTier::T1OnChain,
             raw_weight: 10 * SCORE_SCALE,
             timestamp: 1_720_000_000,
-<<<<<<< HEAD
             // Field added to EScoreSignal after this suite was written. None is
             // the documented default: treat the signal at the runtime's current
             // epoch, preserving the fixture's original meaning.
             epoch: None,
-=======
->>>>>>> github/main
         },
     ];
 
@@ -226,26 +195,18 @@ fn test_adversarial_merkle_tampering_and_sybil_resistance() {
     // 2. Falsification du hash de feuille
     let mut fake_leaf_proof = proof.clone();
     fake_leaf_proof.leaf_hash[0] ^= 0xFF;
-<<<<<<< HEAD
     assert!(
         !verify_proof(&fake_leaf_proof, &root),
         "Tampered leaf hash must be rejected"
     );
-=======
-    assert!(!verify_proof(&fake_leaf_proof, &root), "Tampered leaf hash must be rejected");
->>>>>>> github/main
 
     // 3. Falsification du chemin Merkle
     let mut fake_step_proof = proof;
     fake_step_proof.path[0].sibling_hash[0] ^= 0xFF;
-<<<<<<< HEAD
     assert!(
         !verify_proof(&fake_step_proof, &root),
         "Tampered path step must be rejected"
     );
-=======
-    assert!(!verify_proof(&fake_step_proof, &root), "Tampered path step must be rejected");
->>>>>>> github/main
 
     // 4. Propriété anti-Sybil du modificateur quadratique
     // Deux petits comptes de 10 points chacun doivent rapporter moins d'influence qu'un compte consolidé de 20 points

@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 use crate::domain::package_provenance::PackagePromotionPolicy;
-=======
->>>>>>> github/main
 use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
@@ -14,10 +11,7 @@ pub enum HostFamilyKind {
     DebianSystemd,
     AlpineOpenRc,
     ProxmoxHypervisor,
-<<<<<<< HEAD
     WindowsService,
-=======
->>>>>>> github/main
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,15 +42,7 @@ impl HostFamilyProfile {
                 "distribution_package".to_string(),
                 "approved_internal_package_mirror".to_string(),
             ],
-<<<<<<< HEAD
             bootstrap_packages: vec!["wireguard-tools".to_string(), "iproute2".to_string()],
-=======
-            bootstrap_packages: vec![
-                "wireguard-tools".to_string(),
-                "iproute2".to_string(),
-                "coredns".to_string(),
-            ],
->>>>>>> github/main
             service_units: vec![
                 ServiceUnitPolicy {
                     service_id: "wireguard_mesh".to_string(),
@@ -76,11 +62,7 @@ impl HostFamilyProfile {
                     restart_mode: "on-failure".to_string(),
                     source: "profile:debian_systemd".to_string(),
                     health_port: None,
-<<<<<<< HEAD
                     process_name: None,
-=======
-                    process_name: Some("coredns".to_string()),
->>>>>>> github/main
                     supervisor_provider: None,
                     health_kind: None,
                 },
@@ -98,7 +80,6 @@ impl HostFamilyProfile {
             ],
         }
     }
-<<<<<<< HEAD
     pub fn windows_service() -> Self {
         let _layout = current_runtime_layout();
         Self {
@@ -142,8 +123,6 @@ impl HostFamilyProfile {
             ],
         }
     }
-=======
->>>>>>> github/main
 
     pub fn proxmox_hypervisor() -> Self {
         let layout = current_runtime_layout();
@@ -260,10 +239,7 @@ impl HostFamilyProfile {
         PackagePolicy {
             manager: match self.kind {
                 HostFamilyKind::AlpineOpenRc => PackageManagerKind::Apk,
-<<<<<<< HEAD
                 HostFamilyKind::WindowsService => PackageManagerKind::Winget,
-=======
->>>>>>> github/main
                 HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
                     PackageManagerKind::Apt
                 }
@@ -271,15 +247,12 @@ impl HostFamilyProfile {
             policy_dir: self.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", self.config_dir),
             approved_sources: self.package_approved_sources.clone(),
-<<<<<<< HEAD
             // Injected, not hardcoded: approved_sources was already injected per
             // family while provenance was pinned to Unresolved here, so the
             // package domain was Blocked by construction and no host could ever
             // reach h3_packages_ready. Default remains Unresolved.
             provenance: current_runtime_layout().package_provenance(),
             promotion_policy: PackagePromotionPolicy::critical_infrastructure(),
-=======
->>>>>>> github/main
             bootstrap_packages: self.bootstrap_packages.clone(),
         }
     }
@@ -288,15 +261,9 @@ impl HostFamilyProfile {
         ServicePolicy {
             manager: match self.kind {
                 HostFamilyKind::AlpineOpenRc => ServiceManagerKind::OpenRc,
-<<<<<<< HEAD
                 HostFamilyKind::DebianSystemd
                 | HostFamilyKind::ProxmoxHypervisor
                 | HostFamilyKind::WindowsService => ServiceManagerKind::Systemd,
-=======
-                HostFamilyKind::DebianSystemd | HostFamilyKind::ProxmoxHypervisor => {
-                    ServiceManagerKind::Systemd
-                }
->>>>>>> github/main
             },
             unit_dir: self.service_unit_dir.clone(),
             units: self.service_units.clone(),
@@ -341,7 +308,6 @@ impl HostFamilyProfile {
                 "cynic-dns-actuator".to_string(),
                 "cynic-host-exec".to_string(),
             ],
-<<<<<<< HEAD
             HostFamilyKind::ProxmoxHypervisor => vec![
                 "cynic-host-exec".to_string(),
                 "cynic-lxc-exec-bridge".to_string(),
@@ -350,9 +316,6 @@ impl HostFamilyProfile {
                 "cynic-node.exe".to_string(),
                 "cynic-host-exec.exe".to_string(),
             ],
-=======
-            HostFamilyKind::ProxmoxHypervisor => vec!["cynic-host-exec".to_string()],
->>>>>>> github/main
         }
     }
 }
@@ -418,7 +381,6 @@ mod tests {
                 .all(|unit| unit.supervisor_provider.as_deref() == Some("openrc"))
         );
     }
-<<<<<<< HEAD
 
     #[test]
     fn windows_service_family_declares_winget_and_service_surfaces() {
@@ -440,6 +402,4 @@ mod tests {
                 .any(|unit| unit.unit_name == "WireGuardTunnel$wg0")
         );
     }
-=======
->>>>>>> github/main
 }

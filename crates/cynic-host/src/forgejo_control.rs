@@ -1,19 +1,11 @@
-<<<<<<< HEAD
 use cynic_vcs_forgejo::ForgejoTokenApiPort;
 use cynic_vcs_forgejo::LocalForgejoTokenApiAdapter;
-=======
-use cynic_protocol::{
-    ForgejoDesiredState, ForgejoObservedState, ForgejoPlan, NETWORK_PATH_EVIDENCE_SCHEMA,
-    NetworkPathEvidence, SecurityEvidenceState as ForgejoEvidenceState, plan_forgejo_convergence,
-};
->>>>>>> github/main
 
 use crate::repo_access::{
     RepoAccessStatusReport, current_project_root, current_repo_access_status,
     load_forgejo_desired_state,
 };
 
-<<<<<<< HEAD
 use cynic_vcs::forgejo_token::{
     ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec, ForgejoTokenStatusReport,
     FORGEJO_TOKEN_STATUS_SCHEMA, plan_forgejo_token_convergence,
@@ -27,33 +19,16 @@ use cynic_network::transport_security::{
 };
 
 use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
-=======
-pub trait ForgejoObservationPort: Send + Sync {
-    fn observe(&self, desired: &ForgejoDesiredState) -> ForgejoObservedState;
-}
-
-pub fn build_forgejo_plan(
-    desired: ForgejoDesiredState,
-    observer: &dyn ForgejoObservationPort,
-) -> ForgejoPlan {
-    let observed = observer.observe(&desired);
-    plan_forgejo_convergence(desired, &observed)
-}
->>>>>>> github/main
 
 #[derive(Debug)]
 pub struct RuntimeForgejoObserver {
     repo_access: RepoAccessStatusReport,
-<<<<<<< HEAD
     token_port: Option<Box<dyn ForgejoTokenApiPort>>,
     token_spec: Option<ForgejoTokenSpec>,
-=======
->>>>>>> github/main
 }
 
 impl RuntimeForgejoObserver {
     pub fn new(repo_access: RepoAccessStatusReport) -> Self {
-<<<<<<< HEAD
         Self {
             repo_access,
             token_port: None,
@@ -82,14 +57,6 @@ impl RuntimeForgejoObserver {
 
 impl cynic_vcs::ForgejoObservationPort for RuntimeForgejoObserver {
     fn observe(&self, desired: &ForgejoDesiredState) -> cynic_vcs::ForgejoObservedState {
-=======
-        Self { repo_access }
-    }
-}
-
-impl ForgejoObservationPort for RuntimeForgejoObserver {
-    fn observe(&self, desired: &ForgejoDesiredState) -> ForgejoObservedState {
->>>>>>> github/main
         let remote = self
             .repo_access
             .sovereign_remotes
@@ -113,7 +80,6 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                 remote.id, remote.api_tcp_reachability_status
             ));
         }
-<<<<<<< HEAD
         let authenticated_state = match self.token_observation() {
             Some(observation) => {
                 if observation.api_authenticated == ForgejoTokenAuthState::Proven {
@@ -135,9 +101,6 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
         };
 
         cynic_vcs::ForgejoObservedState {
-=======
-        ForgejoObservedState {
->>>>>>> github/main
             admin_path: NetworkPathEvidence {
                 schema: NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
                 id: format!("{}-admin", desired.instance_id),
@@ -149,21 +112,14 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
                     ForgejoEvidenceState::Unknown
                 },
                 transport_reachability,
-<<<<<<< HEAD
                 confidentiality: authenticated_state,
                 peer_identity: ssh_state,
                 application_identity: authenticated_state,
-=======
-                confidentiality: ForgejoEvidenceState::Unknown,
-                peer_identity: ForgejoEvidenceState::Unknown,
-                application_identity: ForgejoEvidenceState::Unknown,
->>>>>>> github/main
                 resolved_addresses: remote
                     .map(|remote| remote.api_resolved_addresses.clone())
                     .unwrap_or_default(),
                 evidence_refs: evidence_refs.clone(),
             },
-<<<<<<< HEAD
             owner_active: authenticated_state,
             repository_exists: authenticated_state,
             machine_principal_ready: authenticated_state,
@@ -172,13 +128,6 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
             ssh_host_identity: ssh_state,
             git_ssh_authenticated: authenticated_state,
             bootstrap_authority_revoked: authenticated_state,
-=======
-            owner_active: ForgejoEvidenceState::Unknown,
-            repository_exists: ForgejoEvidenceState::Unknown,
-            machine_key_enrolled: ForgejoEvidenceState::Unknown,
-            ssh_host_identity: ForgejoEvidenceState::Unknown,
-            git_ssh_authenticated: ForgejoEvidenceState::Unknown,
->>>>>>> github/main
             evidence_refs,
         }
     }
@@ -187,7 +136,6 @@ impl ForgejoObservationPort for RuntimeForgejoObserver {
 pub fn current_forgejo_plan() -> Result<ForgejoPlan, String> {
     let root = current_project_root().ok_or_else(|| "CYNIC project root not found".to_string())?;
     let desired = load_forgejo_desired_state(&root)?;
-<<<<<<< HEAD
     let token_spec = forgejo_token_spec(&desired, None);
     let observer = RuntimeForgejoObserver::with_token_port(
         current_repo_access_status(),
@@ -227,90 +175,4 @@ pub fn current_forgejo_token_status() -> Result<ForgejoTokenStatusReport, String
             .cloned()
             .collect(),
     })
-=======
-    let observer = RuntimeForgejoObserver::new(current_repo_access_status());
-    Ok(build_forgejo_plan(desired, &observer))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
-
-    struct FixedObserver(ForgejoObservedState);
-
-    impl ForgejoObservationPort for FixedObserver {
-        fn observe(&self, _desired: &ForgejoDesiredState) -> ForgejoObservedState {
-            self.0.clone()
-        }
-    }
-
-    #[test]
-    fn planning_depends_on_observation_port_not_local_processes() {
-        let desired = ForgejoDesiredState {
-            instance_id: "forgejo".into(),
-            owner: "owner".into(),
-            repository: "repo".into(),
-            api_url: "http://forgejo:3000/api/v1".into(),
-            git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
-            machine_key_fingerprint: "SHA256:key".into(),
-        };
-        let observer = FixedObserver(ForgejoObservedState {
-            admin_path: NetworkPathEvidence {
-                schema: NETWORK_PATH_EVIDENCE_SCHEMA.to_string(),
-                id: "forgejo-admin".into(),
-                service_ref: "forgejo".into(),
-                name_resolution: ForgejoEvidenceState::Proven,
-                network_route: ForgejoEvidenceState::Proven,
-                transport_reachability: ForgejoEvidenceState::Proven,
-                confidentiality: ForgejoEvidenceState::Proven,
-                peer_identity: ForgejoEvidenceState::Proven,
-                application_identity: ForgejoEvidenceState::Proven,
-                resolved_addresses: Vec::new(),
-                evidence_refs: vec!["admin-path.json".into()],
-            },
-            owner_active: ForgejoEvidenceState::Proven,
-            repository_exists: ForgejoEvidenceState::Proven,
-            machine_key_enrolled: ForgejoEvidenceState::Proven,
-            ssh_host_identity: ForgejoEvidenceState::Proven,
-            git_ssh_authenticated: ForgejoEvidenceState::Proven,
-            evidence_refs: vec!["proof.json".into()],
-        });
-
-        let plan = build_forgejo_plan(desired, &observer);
-        assert_eq!(plan.status, "ready");
-        assert!(plan.actions.is_empty());
-    }
-
-    #[test]
-    fn runtime_observer_does_not_invent_authenticated_state_from_tcp() {
-        let observer = RuntimeForgejoObserver::new(RepoAccessStatusReport {
-            schema: "test",
-            mutates: false,
-            profile_path: "profile.json".into(),
-            profile_exists: true,
-            canonical_project_root: None,
-            known_repos: Vec::new(),
-            sovereign_remotes: Vec::new(),
-            entries: Vec::new(),
-        });
-        let observed = observer.observe(&ForgejoDesiredState {
-            instance_id: "forgejo".into(),
-            owner: "owner".into(),
-            repository: "repo".into(),
-            api_url: "http://forgejo:3000/api/v1".into(),
-            git_ssh_url: "ssh://git@forgejo:22/owner/repo.git".into(),
-            machine_key_fingerprint: "SHA256:key".into(),
-        });
-        assert_eq!(
-            observed.admin_path.transport_reachability,
-            ForgejoEvidenceState::Unknown
-        );
-        assert_eq!(observed.repository_exists, ForgejoEvidenceState::Unknown);
-        assert_eq!(
-            observed.git_ssh_authenticated,
-            ForgejoEvidenceState::Unknown
-        );
-    }
->>>>>>> github/main
 }

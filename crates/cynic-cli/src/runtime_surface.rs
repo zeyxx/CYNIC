@@ -1,7 +1,6 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-<<<<<<< HEAD
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
@@ -32,26 +31,6 @@ mod registry_observation;
 mod report;
 mod resolver_plan;
 mod storage_topology;
-=======
-
-use crate::bootstrap_surface::ProfileArgs;
-
-mod agent_matrix;
-mod build;
-mod compat_aliases;
-mod disk;
-mod epoch;
-mod execution_context;
-mod host_checks;
-mod inference_dispatch;
-mod inference_surface;
-mod network_preflight;
-mod persistence;
-mod paths;
-mod report;
-mod registry_observation;
-mod resolver_plan;
->>>>>>> github/main
 mod suite;
 mod validation;
 
@@ -99,22 +78,18 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         proof: Option<String>,
     },
-<<<<<<< HEAD
     /// Assess local capacity: metabolic state + RAM/CPU headroom (read-only).
     /// Policy provenance: CYNIC_METABOLIC_POLICY (JSON file) or legacy defaults.
     Capacity {
         #[arg(long)]
         json: bool,
     },
-=======
->>>>>>> github/main
     Harness {
         #[arg(long)]
         json: bool,
         #[arg(long)]
         kind: Option<String>,
     },
-<<<<<<< HEAD
     HarnessProgress {
         #[arg(long, value_enum)]
         current_kind: RuntimeHarnessKindArg,
@@ -132,22 +107,12 @@ pub(crate) enum RuntimeCommand {
         // already declares `--json`, and clap panics at startup on a duplicate
         // argument id ("Argument names must be unique, but 'json' is in use by
         // more than one argument or group"). Read it from the flattened group.
-=======
-    Conformance {
-        #[arg(long)]
-        json: bool,
->>>>>>> github/main
         #[command(flatten)]
         profile: ProfileArgs,
     },
     Metrics {
-<<<<<<< HEAD
         // Same duplicate-id collision as Conformance: --json comes from
         // ProfileArgs, not from a second local declaration.
-=======
-        #[arg(long)]
-        json: bool,
->>>>>>> github/main
         #[command(flatten)]
         profile: ProfileArgs,
         #[arg(long)]
@@ -160,7 +125,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         url: Option<String>,
     },
-<<<<<<< HEAD
     /// Evaluate storage credential sync status.
     StorageCredential {
         #[arg(long, default_value_t = false)]
@@ -183,8 +147,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-=======
->>>>>>> github/main
     ExecutionContext {
         #[arg(long)]
         json: bool,
@@ -196,13 +158,10 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long = "host")]
         hosts: Vec<String>,
-<<<<<<< HEAD
         #[arg(long)]
         persist: bool,
         #[arg(long)]
         endpoint: Option<String>,
-=======
->>>>>>> github/main
     },
     ResolverPlan {
         #[arg(long)]
@@ -225,22 +184,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         endpoint: Option<String>,
     },
-<<<<<<< HEAD
-=======
-    /// Plan or explicitly execute a bounded build from a source proof snapshot.
-    Build {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        source_snapshot: String,
-        #[arg(long)]
-        artifact: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(last = true, required = true)]
-        command: Vec<String>,
-    },
->>>>>>> github/main
     /// Aggregate runtime phase, report, and inference SSOT status.
     Report {
         #[arg(long)]
@@ -288,18 +231,14 @@ pub(crate) enum RuntimeCommand {
         /// Useful when models are large and you want to keep the TUI responsive.
         #[arg(long)]
         no_wait: bool,
-<<<<<<< HEAD
         #[arg(long)]
         yes: bool,
-=======
->>>>>>> github/main
     },
     /// Stop the native local inference unit (optional alias; default = running).
     InferenceStop {
         alias: Option<String>,
         #[arg(long)]
         json: bool,
-<<<<<<< HEAD
         #[arg(long)]
         yes: bool,
     },
@@ -313,8 +252,6 @@ pub(crate) enum RuntimeCommand {
         json: bool,
         #[arg(long)]
         yes: bool,
-=======
->>>>>>> github/main
     },
     /// Peer / optional ODS attach plane (loose coupling).
     ///
@@ -463,7 +400,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-<<<<<<< HEAD
     /// Probe host memory capacity, swap, hugepages, and pressure stalls.
     Memory {
         #[arg(long)]
@@ -479,8 +415,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-=======
->>>>>>> github/main
     /// Plan or execute host disk space cleanup.
     DiskClean {
         #[arg(long)]
@@ -488,7 +422,6 @@ pub(crate) enum RuntimeCommand {
         /// Apply the cleanup plan (mutation).
         #[arg(long)]
         apply: bool,
-<<<<<<< HEAD
         /// Reconcile only the registry-declared build-runner cache profile.
         #[arg(long)]
         build_runner: bool,
@@ -591,22 +524,6 @@ pub(crate) fn forgejo_token_adapter_selector()
         principal: "jeanterre13".to_string(),
         authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),
     })
-=======
-    },
-    /// Inspect or advance the logical epoch clock.
-    /// Without subcommand: prints current epoch observation.
-    /// With --advance: advances the epoch by one (mutation).
-    Epoch {
-        #[arg(long)]
-        json: bool,
-        /// Advance the kernel temporal clock by one epoch (mutation).
-        #[arg(long)]
-        advance: bool,
-        /// Endpoint URL for the running kernel (default: http://127.0.0.1:3030).
-        #[arg(long)]
-        endpoint: Option<String>,
-    },
->>>>>>> github/main
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
@@ -625,18 +542,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             registry,
             observation,
             apply,
-<<<<<<< HEAD
         } => {
             registry_observation::execute_registry_observation(json, registry, &observation, apply)
         }
-=======
-        } => registry_observation::execute_registry_observation(
-            json,
-            registry,
-            &observation,
-            apply,
-        ),
->>>>>>> github/main
         RuntimeCommand::Validate {
             json,
             registry,
@@ -653,7 +561,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             profile,
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
-<<<<<<< HEAD
         RuntimeCommand::HarnessProgress {
             current_kind,
             target_kind,
@@ -714,27 +621,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             endpoint,
         } => {
             network_preflight::execute_network_preflight(json, &hosts, persist, endpoint.as_deref())
-=======
-        RuntimeCommand::Harness { json, kind } => {
-            host_checks::execute_harness(json, kind.as_deref())
-        }
-        RuntimeCommand::Conformance { json, profile } => {
-            host_checks::execute_conformance(json, &profile)
-        }
-        RuntimeCommand::Metrics {
-            json,
-            profile,
-            proof,
-        } => host_checks::execute_metrics(json, &profile, proof.as_deref()),
-        RuntimeCommand::StorageCapabilities { json, url } => {
-            host_checks::execute_storage_capabilities(json, url.as_deref())
-        }
-        RuntimeCommand::ExecutionContext { json, hosts } => {
-            execution_context::execute_execution_context(json, &hosts)
-        }
-        RuntimeCommand::NetworkPreflight { json, hosts } => {
-            network_preflight::execute_network_preflight(json, &hosts)
->>>>>>> github/main
         }
         RuntimeCommand::ResolverPlan { json, hosts } => {
             resolver_plan::execute_resolver_plan(json, &hosts)
@@ -747,23 +633,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             proof,
             endpoint,
         } => persistence::execute_persistence(json, &proof, endpoint.as_deref()),
-<<<<<<< HEAD
-=======
-        RuntimeCommand::Build {
-            json,
-            source_snapshot,
-            artifact,
-            apply,
-            command,
-        } => build::execute_build(json, &source_snapshot, &artifact, apply, &command),
->>>>>>> github/main
         RuntimeCommand::Report {
             json,
             output,
             persist,
         } => report::execute_report(json, output.as_deref(), persist),
         RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
-<<<<<<< HEAD
         RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
         RuntimeCommand::Memory { json } => memory::execute_memory(json),
         RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
@@ -778,8 +653,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             build_artefact::execute_build_artefact(json, apply)
         }
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
-=======
->>>>>>> github/main
         RuntimeCommand::Inference { .. }
         | RuntimeCommand::InferenceVault { .. }
         | RuntimeCommand::InferenceStatus { .. }
@@ -795,16 +668,12 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         | RuntimeCommand::InferenceHfSearch { .. }
         | RuntimeCommand::InferenceHfSuggest { .. }
         | RuntimeCommand::InferencePlan { .. }
-<<<<<<< HEAD
         | RuntimeCommand::InferenceForge { .. }
-=======
->>>>>>> github/main
         | RuntimeCommand::Deps { .. }
         | RuntimeCommand::DepsPlan { .. }
         | RuntimeCommand::DepsAudit { .. }
         | RuntimeCommand::DepsUpgrade { .. }
         | RuntimeCommand::Disk { .. }
-<<<<<<< HEAD
         | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
         RuntimeCommand::Harness { json, kind } => {
             // This arm used to sit in the `unreachable!("pre-dispatched runtime
@@ -995,13 +864,3 @@ pub(crate) fn execute_storage_credential_sync(
     }
     Ok(())
 }
-=======
- | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
- RuntimeCommand::Epoch {
-     json,
-     advance,
-     endpoint,
- } => epoch::execute_epoch(json, advance, endpoint),
-    }
-}
->>>>>>> github/main

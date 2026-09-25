@@ -309,10 +309,7 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
             }
         }
     }
@@ -335,13 +332,7 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
-<<<<<<< HEAD
             crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
-=======
-            PackageObservedState {
-                installed_packages: policy.bootstrap_packages.clone(),
-            }
->>>>>>> github/main
         }
     }
 

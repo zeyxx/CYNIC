@@ -146,7 +146,6 @@ async fn sampler_collect_with_ports_is_substitutable() {
     assert_eq!(observation["node"]["hostname"], "fake-node");
     assert_eq!(observation["kernel"]["reachable"], true);
 }
-<<<<<<< HEAD
 #[test]
 fn resolve_watchdog_services_and_peers_from_registry_is_dynamic() {
     let dir = tempfile::tempdir().unwrap();
@@ -194,5 +193,3 @@ fn resolve_watchdog_services_and_peers_from_registry_is_dynamic() {
     assert_eq!(peers.len(), 1);
     assert_eq!(peers[0], "10.20.0.6");
 }
-=======
->>>>>>> github/main

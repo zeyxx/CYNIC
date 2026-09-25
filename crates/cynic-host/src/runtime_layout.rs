@@ -4,10 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
 use crate::domain::package_provenance::PackageProvenancePolicy;
-=======
->>>>>>> github/main
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
 
@@ -54,30 +51,20 @@ pub enum PackageManagerKind {
     Apk,
     Dnf,
     Rpm,
-<<<<<<< HEAD
     Winget,
     Choco,
-=======
->>>>>>> github/main
     Unknown,
 }
 
 impl PackageManagerKind {
     pub fn parse(value: &str) -> Self {
         match value {
-<<<<<<< HEAD
             "apt" | "apt-get" | "debian" | "ubuntu" => Self::Apt,
             "apk" | "alpine" => Self::Apk,
             "dnf" => Self::Dnf,
             "rpm" => Self::Rpm,
             "winget" | "windows" => Self::Winget,
             "choco" | "chocolatey" => Self::Choco,
-=======
-            "apt" | "apt-get" | "debian" => Self::Apt,
-            "apk" | "alpine" => Self::Apk,
-            "dnf" => Self::Dnf,
-            "rpm" => Self::Rpm,
->>>>>>> github/main
             _ => Self::Unknown,
         }
     }
@@ -88,11 +75,8 @@ impl PackageManagerKind {
             Self::Apk => "apk",
             Self::Dnf => "dnf",
             Self::Rpm => "rpm",
-<<<<<<< HEAD
             Self::Winget => "winget",
             Self::Choco => "choco",
-=======
->>>>>>> github/main
             Self::Unknown => "unknown",
         }
     }
@@ -111,7 +95,6 @@ impl PackageManagerKind {
                 package.to_string(),
             ],
             Self::Dnf | Self::Rpm => vec![layout.rpm_bin(), "-q".to_string(), package.to_string()],
-<<<<<<< HEAD
             Self::Winget => vec![
                 layout.winget_bin(),
                 "list".to_string(),
@@ -125,8 +108,6 @@ impl PackageManagerKind {
                 "--exact".to_string(),
                 package.to_string(),
             ],
-=======
->>>>>>> github/main
             Self::Unknown => vec![layout.which_bin(), package.to_string()],
         }
     }
@@ -156,7 +137,6 @@ impl PackageManagerKind {
                 argv.extend(packages.iter().cloned());
                 argv
             }
-<<<<<<< HEAD
             Self::Winget => {
                 let mut argv = vec![
                     layout.winget_bin(),
@@ -174,8 +154,6 @@ impl PackageManagerKind {
                 argv.extend(packages.iter().cloned());
                 argv
             }
-=======
->>>>>>> github/main
             Self::Rpm | Self::Unknown => Vec::new(),
         }
     }
@@ -377,7 +355,6 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_service_unit(&self) -> String {
-<<<<<<< HEAD
         if let Ok(unit) = std::env::var("CYNIC_DNS_SERVICE_UNIT") {
             return unit;
         }
@@ -386,8 +363,6 @@ impl HostRuntimeLayout {
         {
             return "cynic-dns-synapse.service".to_string();
         }
-=======
->>>>>>> github/main
         match self.service_manager_kind().as_str() {
             "openrc" => "coredns-synapse".to_string(),
             _ => "coredns-synapse.service".to_string(),
@@ -488,11 +463,8 @@ impl HostRuntimeLayout {
             match self.package_manager_kind() {
                 PackageManagerKind::Apk => "apk",
                 PackageManagerKind::Dnf | PackageManagerKind::Rpm => "rpm",
-<<<<<<< HEAD
                 PackageManagerKind::Winget => "winget.exe",
                 PackageManagerKind::Choco => "choco.exe",
-=======
->>>>>>> github/main
                 PackageManagerKind::Apt | PackageManagerKind::Unknown => "dpkg",
             },
         )
@@ -505,24 +477,16 @@ impl HostRuntimeLayout {
                 PackageManagerKind::Apk => "apk",
                 PackageManagerKind::Dnf => "dnf",
                 PackageManagerKind::Rpm => "rpm",
-<<<<<<< HEAD
                 PackageManagerKind::Winget => "winget.exe",
                 PackageManagerKind::Choco => "choco.exe",
-=======
->>>>>>> github/main
                 PackageManagerKind::Apt | PackageManagerKind::Unknown => "apt-get",
             },
         )
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> github/main
     pub fn package_manager_kind(&self) -> PackageManagerKind {
         PackageManagerKind::parse(&env_path("CYNIC_PACKAGE_MANAGER_KIND", "apt"))
     }
 
-<<<<<<< HEAD
     /// Injected package distribution authority.
     ///
     /// `approved_sources` was already injected per family while `provenance` was
@@ -602,8 +566,6 @@ impl HostRuntimeLayout {
         }
     }
 
-=======
->>>>>>> github/main
     pub fn apk_bin(&self) -> String {
         env_path("CYNIC_APK_BIN", "apk")
     }
@@ -615,7 +577,6 @@ impl HostRuntimeLayout {
     pub fn rpm_bin(&self) -> String {
         env_path("CYNIC_RPM_BIN", "rpm")
     }
-<<<<<<< HEAD
     pub fn winget_bin(&self) -> String {
         env_path("CYNIC_WINGET_BIN", "winget.exe")
     }
@@ -623,8 +584,6 @@ impl HostRuntimeLayout {
     pub fn choco_bin(&self) -> String {
         env_path("CYNIC_CHOCO_BIN", "choco.exe")
     }
-=======
->>>>>>> github/main
 
     pub fn which_bin(&self) -> String {
         env_path("CYNIC_WHICH_BIN", "which")
@@ -723,10 +682,7 @@ mod tests {
     use std::sync::Mutex;
 
     use super::HostRuntimeLayout;
-<<<<<<< HEAD
     use crate::domain::package_provenance::PackageProvenancePolicy;
-=======
->>>>>>> github/main
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -787,7 +743,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
     fn package_provenance_defaults_to_unresolved_authority() {
         let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         let _kind = EnvOverride::set("CYNIC_PACKAGE_PROVENANCE_KIND", "unresolved");
@@ -859,8 +814,6 @@ mod tests {
     }
 
     #[test]
-=======
->>>>>>> github/main
     fn capabilities_can_select_openrc_service_manager_from_env() {
         let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
@@ -873,7 +826,6 @@ mod tests {
 
     #[test]
     fn dns_paths_follow_openrc_service_manager() {
-<<<<<<< HEAD
         // This probe is only meaningful on hosts WITHOUT the installed
         // cynic-dns systemd unit: when the real unit exists, the detection
         // branch correctly short-circuits to it and the openrc fallback is
@@ -888,8 +840,6 @@ mod tests {
             );
             return;
         }
-=======
->>>>>>> github/main
         let _env_lock = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let layout = HostRuntimeLayout::from_env();

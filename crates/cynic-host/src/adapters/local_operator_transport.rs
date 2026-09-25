@@ -10,11 +10,8 @@ use crate::transport::{
     TmuxSessionObservation,
 };
 
-<<<<<<< HEAD
 use crate::clock::now_unix_ms;
 
-=======
->>>>>>> github/main
 /// Local process adapter for read-only SSH/tmux operator evidence.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalOperatorTransportObserver;
@@ -43,7 +40,6 @@ impl OperatorTransportObservationPort for LocalOperatorTransportObserver {
             ])
             .output()
         {
-<<<<<<< HEAD
             Ok(output) if output.status.success() => {
                 let sessions = parse_tmux_sessions(&output.stdout);
                 let detail = sessions.is_empty().then(|| {
@@ -59,14 +55,6 @@ impl OperatorTransportObservationPort for LocalOperatorTransportObserver {
                     detail,
                 }
             }
-=======
-            Ok(output) if output.status.success() => TmuxHarnessObservation {
-                executable,
-                status: "active".to_string(),
-                sessions: parse_tmux_sessions(&output.stdout),
-                detail: None,
-            },
->>>>>>> github/main
             Ok(output) => {
                 let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
                 TmuxHarnessObservation {
@@ -95,10 +83,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "prerequisite_missing".to_string(),
-<<<<<<< HEAD
                 observed_at_unix_ms: now_unix_ms(),
-=======
->>>>>>> github/main
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),
@@ -111,11 +96,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
         }
 
         let scan = Command::new("ssh-keyscan")
-<<<<<<< HEAD
             .args(["-T", "5", "-t", "ed25519", target])
-=======
-            .args(["-T", "5", "-t", "ed25519,ecdsa,rsa", target])
->>>>>>> github/main
             .output();
         match scan {
             Ok(output) if output.status.success() && !output.stdout.is_empty() => {
@@ -128,10 +109,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                     } else {
                         "observed".to_string()
                     },
-<<<<<<< HEAD
                     observed_at_unix_ms: now_unix_ms(),
-=======
->>>>>>> github/main
                     ssh,
                     ssh_keyscan,
                     host_keys,
@@ -145,10 +123,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "unreachable".to_string(),
-<<<<<<< HEAD
                 observed_at_unix_ms: now_unix_ms(),
-=======
->>>>>>> github/main
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),
@@ -161,10 +136,7 @@ impl SshTargetInspectionPort for LocalOperatorTransportObserver {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "observation_failed".to_string(),
-<<<<<<< HEAD
                 observed_at_unix_ms: now_unix_ms(),
-=======
->>>>>>> github/main
                 ssh,
                 ssh_keyscan,
                 host_keys: Vec::new(),

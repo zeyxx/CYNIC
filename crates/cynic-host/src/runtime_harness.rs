@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use cynic_build::build::{
     BuildRunnerRouteDecision, BuildRunnerRouteDesiredState, BuildRunnerRouteObservation,
     BuildRunnerRouteState, reconcile_build_runner_route,
@@ -7,10 +6,6 @@ use serde::{Deserialize, Serialize};
 
 pub use cynic_build::HarnessAuthority;
 
-=======
-use serde::{Deserialize, Serialize};
-
->>>>>>> github/main
 pub const RUNTIME_HARNESS_CONTEXT_SCHEMA: &str = "cynic.runtime_harness.context.v1";
 pub const RUNTIME_HARNESS_CATALOG_SCHEMA: &str = "cynic.runtime_harness.catalog.v1";
 pub const RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA: &str =
@@ -73,19 +68,6 @@ pub enum RuntimeHarnessKind {
     Production,
 }
 
-<<<<<<< HEAD
-=======
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum HarnessAuthority {
-    TestProjection,
-    ConformanceGate,
-    ReleaseCandidate,
-    FleetCanary,
-    RuntimeAuthority,
-}
-
->>>>>>> github/main
 pub fn closed_local_lab_context() -> RuntimeHarnessContext {
     RuntimeHarnessContext {
         schema: RUNTIME_HARNESS_CONTEXT_SCHEMA,
@@ -304,7 +286,6 @@ pub fn runtime_harness_catalog(
     })
 }
 
-<<<<<<< HEAD
 /// Project the canonical BuildRunner route decision into a runtime harness
 /// observation report.
 ///
@@ -355,8 +336,6 @@ pub fn observe_build_runner_route(
     }
 }
 
-=======
->>>>>>> github/main
 impl RuntimeHarnessKind {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -383,7 +362,6 @@ impl RuntimeHarnessKind {
 #[cfg(test)]
 mod tests {
     use super::{
-<<<<<<< HEAD
         HarnessAuthority, RUNTIME_HARNESS_BUILD_RUNNER_ROUTE_SCHEMA,
         RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
         RuntimeHarnessTargetAttestation, closed_local_lab_context, conformance_context,
@@ -399,13 +377,6 @@ mod tests {
         BuildRunnerSshTrustRouteObservation,
     };
     use cynic_protocol::SecurityEvidenceState;
-=======
-        HarnessAuthority, RUNTIME_HARNESS_TARGET_ATTESTATION_SCHEMA, RuntimeHarnessKind,
-        RuntimeHarnessTargetAttestation, closed_local_lab_context, conformance_context,
-        runtime_harness_catalog, validate_runtime_harness_target_attestation,
-        validate_runtime_harness_target_attestation_at,
-    };
->>>>>>> github/main
 
     fn attested_lab_target() -> RuntimeHarnessTargetAttestation {
         let context = closed_local_lab_context();
@@ -515,7 +486,6 @@ mod tests {
                 .any(|violation| violation.code == "harness_target_transport_unverified")
         );
     }
-<<<<<<< HEAD
 
     // --- BuildRunner route projection (pure, no I/O) -------------------------
 
@@ -718,6 +688,4 @@ mod tests {
                 .contains(&"build_runner_seed_unproved_or_stale".to_string())
         );
     }
-=======
->>>>>>> github/main
 }

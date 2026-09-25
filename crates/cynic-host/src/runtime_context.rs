@@ -36,12 +36,8 @@ pub struct HostRuntimeContext {
 }
 
 pub fn observe_current_host_runtime_context() -> HostRuntimeContext {
-<<<<<<< HEAD
     // A missing registry identity is not authority to activate mesh DNS/WireGuard.
     let profile = resolve_current_host_profile(None).unwrap_or(HostProfile::ManagementNode);
-=======
-    let profile = resolve_current_host_profile(None).unwrap_or(HostProfile::NetworkNode);
->>>>>>> github/main
     let resolution = resolve_current_host_profile_resolution(None).ok();
     observe_host_runtime_context(profile, resolution)
 }
@@ -111,10 +107,7 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
             }
         }
     }
@@ -137,13 +130,7 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
-<<<<<<< HEAD
             crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
-=======
-            PackageObservedState {
-                installed_packages: policy.bootstrap_packages.clone(),
-            }
->>>>>>> github/main
         }
     }
 

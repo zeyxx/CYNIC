@@ -167,15 +167,9 @@ pub(crate) use hf::{
 };
 
 pub(crate) use local_runtime::{
-<<<<<<< HEAD
     execute_inference_discover, execute_inference_forge, execute_inference_models,
     execute_inference_models_consolidate, execute_inference_plan, execute_inference_start,
     execute_inference_status, execute_inference_stop, execute_inference_vault,
-=======
-    execute_inference_discover, execute_inference_models, execute_inference_models_consolidate,
-    execute_inference_plan, execute_inference_start, execute_inference_status,
-    execute_inference_stop, execute_inference_vault,
->>>>>>> github/main
 };
 
 fn emit_json(value: &impl serde::Serialize) -> ExitCode {

@@ -3,10 +3,7 @@
 
 mod host_runtime;
 mod kernel_bridge;
-<<<<<<< HEAD
 pub mod peer_handshake;
-=======
->>>>>>> github/main
 mod sampler;
 
 use std::process::ExitCode;
@@ -16,19 +13,15 @@ use reqwest::Client;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::WatchdogConfig;
-<<<<<<< HEAD
 use crate::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
 use crate::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use crate::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 use crate::{config, shutdown::install_signal_handler};
 use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
-=======
->>>>>>> github/main
 
 use kernel_bridge::post_observation;
 use sampler::LocalSampler;
 
-<<<<<<< HEAD
 pub async fn execute(config_path: &str) -> ExitCode {
     let cfg = match config::load_watchdog(config_path) {
         Ok(config) => config,
@@ -52,8 +45,6 @@ pub async fn execute(config_path: &str) -> ExitCode {
     run_watchdog(&client, cfg, &shutdown).await
 }
 
-=======
->>>>>>> github/main
 pub(crate) async fn run_watchdog(
     client: &Client,
     cfg: WatchdogConfig,
@@ -71,13 +62,10 @@ pub(crate) async fn run_watchdog(
     let mut interval = tokio::time::interval(Duration::from_secs(cfg.watchdog.interval_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-<<<<<<< HEAD
     let wg_observer = LocalPeerHandshakeObserver;
     let freebox_probe = HttpFreeboxProbeAdapter::default();
     let outbox_store = InMemoryNotificationOutboxStore::default();
 
-=======
->>>>>>> github/main
     loop {
         tokio::select! {
             _ = interval.tick() => {
@@ -85,7 +73,6 @@ pub(crate) async fn run_watchdog(
                 if let Err(e) = post_observation(client, &cfg, observation).await {
                     tracing::warn!(error = %e, "L0 watchdog observation failed");
                 }
-<<<<<<< HEAD
 
                 // Dynamically resolve services and overlay peers from registry SSOT
                 let services = resolve_watchdog_services(&cfg.watchdog.registry_path);
@@ -120,8 +107,6 @@ pub(crate) async fn run_watchdog(
                         }
                     }
                 }
-=======
->>>>>>> github/main
             }
             _ = shutdown.cancelled() => {
                 tracing::info!(node = %cfg.node.name, "L0 watchdog stopped");
@@ -131,7 +116,6 @@ pub(crate) async fn run_watchdog(
     }
 }
 
-<<<<<<< HEAD
 /// Dynamically resolve probeable services from `infra/registry.json`.
 ///
 /// Iterates over declared nodes and their services, finding the target IP
@@ -236,7 +220,5 @@ fn trigger_self_healing_keepalives(peer_ips: &[String]) {
     }
 }
 
-=======
->>>>>>> github/main
 #[cfg(test)]
 mod tests;

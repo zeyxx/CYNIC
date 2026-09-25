@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 pub mod agent_access;
 pub mod artifact_publisher_http;
 pub mod artifact_publisher_ssh;
@@ -16,15 +15,11 @@ pub mod local_capacity;
 pub mod local_causal_epoch_index;
 pub mod local_command_runner;
 pub mod local_cpu;
-=======
-pub mod local_command_runner;
->>>>>>> github/main
 pub mod local_disk;
 pub mod local_evidence_store;
 pub mod local_hardware_baseline;
 pub mod local_hardware_baseline_bundle;
 pub mod local_integration;
-<<<<<<< HEAD
 pub mod local_memory;
 pub mod local_network;
 pub mod local_observation;
@@ -51,11 +46,3 @@ pub mod remote_network;
 pub mod remote_queue;
 pub mod source_admission_adapter;
 pub mod window_runner;
-=======
-pub mod local_observation;
-pub mod local_operator_transport;
-pub mod local_pre_os;
-mod principal_manager;
-mod privilege_bridge;
-mod privilege_projection;
->>>>>>> github/main

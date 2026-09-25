@@ -70,7 +70,6 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
         }
     }
 
-<<<<<<< HEAD
     index
         .rust_files
         .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
@@ -80,11 +79,6 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
     index
         .manifests
         .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-=======
-    index.rust_files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-    index.json_files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-    index.manifests.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
->>>>>>> github/main
 
     index
 }

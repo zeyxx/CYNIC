@@ -62,7 +62,6 @@ pub(super) fn ensure_system_user(
     }
 }
 
-<<<<<<< HEAD
 pub(super) fn ensure_supplementary_group_member(user: &str, group: &str) -> HostCommandResult {
     if group_has_member(group, user) {
         return idempotent_identity_result("group_member", &format!("{group}:{user}"));
@@ -79,8 +78,6 @@ pub(super) fn ensure_supplementary_group_member(user: &str, group: &str) -> Host
     }
 }
 
-=======
->>>>>>> github/main
 pub(super) fn ensure_owned_dir(
     path: &str,
     user: &str,
@@ -133,7 +130,6 @@ fn identity_exists(database: &str, identity: &str) -> bool {
     .is_ok_and(|output| output.success)
 }
 
-<<<<<<< HEAD
 fn group_has_member(group: &str, user: &str) -> bool {
     capture_command(&current_runtime_layout().getent_bin(), &["group", group])
         .ok()
@@ -143,8 +139,6 @@ fn group_has_member(group: &str, user: &str) -> bool {
         .is_some_and(|members| members.split(',').any(|member| member == user))
 }
 
-=======
->>>>>>> github/main
 fn command_available(command: &str) -> bool {
     capture_command(&current_runtime_layout().which_bin(), &[command])
         .is_ok_and(|output| output.success)
@@ -186,12 +180,8 @@ fn missing_root_authority(kind: &str, target: &str) -> HostCommandResult {
         success: false,
         exit_code: Some(126),
         stdout: String::new(),
-<<<<<<< HEAD
         stderr: "root authority is required; refusing user-namespace ownership as proof"
             .to_string(),
-=======
-        stderr: "root authority is required; refusing user-namespace ownership as proof".to_string(),
->>>>>>> github/main
     }
 }
 

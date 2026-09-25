@@ -81,7 +81,6 @@ pub enum KernelEvent {
     AgentTaskCompleted {
         task_id: String,
     },
-<<<<<<< HEAD
     /// A crash was detected on the host (GPU hang, softlockup, etc.).
     CrashDetected {
         kind: String,
@@ -99,6 +98,4 @@ pub enum KernelEvent {
         count: u64,
         window_secs: u64,
     },
-=======
->>>>>>> github/main
 }

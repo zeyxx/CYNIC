@@ -98,13 +98,7 @@ fn next_steps(
         next.push("cynic deps plan  # ordered fix actions".into());
     }
     next.push("cynic deps upgrade --yes  # apply scripted + external providers".into());
-<<<<<<< HEAD
     next.push("cynic models start <alias> --yes --json".into());
-=======
-    next.push(
-        "cynic inference-start <alias>  # or: cynic runtime inference-start <alias> --json".into(),
-    );
->>>>>>> github/main
     if deps
         .iter()
         .any(|dep| dep.id == "ods" && dep.status == "missing")
@@ -221,9 +215,6 @@ fn tooling_provenance_name(provenance: ToolingInstallProvenance) -> &'static str
         ToolingInstallProvenance::HomebrewCask => "brew_cask",
         ToolingInstallProvenance::RustupToolchain => "rustup_toolchain",
         ToolingInstallProvenance::Unknown => "unknown",
-<<<<<<< HEAD
         _ => "unknown",
-=======
->>>>>>> github/main
     }
 }

@@ -64,7 +64,6 @@ fn runtime_projection_never_delegates_human_admin_principal_apply() {
     assert!(!rule.contains("service-reconcile *"));
     assert!(rule.contains("cynic ALL=(root) NOPASSWD: /portable/cynic-host-exec network-actuate"));
 }
-<<<<<<< HEAD
 
 #[test]
 fn bridge_bundle_can_use_the_independently_installed_runtime_seed() {
@@ -86,5 +85,3 @@ fn bridge_bundle_can_use_the_independently_installed_runtime_seed() {
     );
     let _ = fs::remove_dir_all(&root);
 }
-=======
->>>>>>> github/main

@@ -224,10 +224,7 @@ fn format_tooling_provenance(provenance: ToolingInstallProvenance) -> &'static s
         ToolingInstallProvenance::HomebrewCask => "brew_cask",
         ToolingInstallProvenance::RustupToolchain => "rustup_toolchain",
         ToolingInstallProvenance::Unknown => "unknown",
-<<<<<<< HEAD
         _ => "unknown",
-=======
->>>>>>> github/main
     }
 }
 

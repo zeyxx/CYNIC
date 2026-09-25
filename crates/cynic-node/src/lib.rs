@@ -18,7 +18,6 @@
 )]
 
 pub mod adapters;
-<<<<<<< HEAD
 pub(crate) mod announce;
 mod build_attestation;
 pub mod builder_activation;
@@ -27,19 +26,12 @@ pub mod cli_dispatch;
 pub mod config;
 pub(crate) mod config_watch;
 mod dns_activation;
-=======
-mod build_attestation;
-mod cli;
->>>>>>> github/main
 mod dns_activation_status;
 mod dns_bundle;
 mod dns_contract;
 mod dns_plan;
 pub mod domain;
-<<<<<<< HEAD
 pub mod facade;
-=======
->>>>>>> github/main
 pub mod fleet_inventory;
 pub mod fleet_observability;
 pub mod inference_node_ops;
@@ -62,15 +54,11 @@ mod network_runtime_proof;
 mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
-<<<<<<< HEAD
 pub mod node_control_runtime;
-=======
->>>>>>> github/main
 mod observe;
 pub mod ports;
 mod provider_fallback_hosts;
 mod provider_fallback_status;
-<<<<<<< HEAD
 pub mod runtime_supervision;
 pub mod shutdown;
 pub(crate) mod source_change_transaction;
@@ -83,80 +71,3 @@ pub mod websocket;
 
 pub use cli::NetworkCommands;
 pub use facade::*;
-=======
-pub mod usecases;
-pub mod verify;
-pub mod websocket;
-
-pub use cli::NetworkCommands;
-
-use std::process::ExitCode;
-
-pub fn build_network_runtime_status_value(
-    registry: &str,
-    resolve_dns: bool,
-    check_provider_connectivity: bool,
-    provider_hosts_path: &str,
-    hosts_path: &str,
-    corefile_path: &str,
-    service_path: &str,
-    resolved_dropin_path: &str,
-) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    let report = network_runtime_status::build_network_runtime_status(
-        registry,
-        resolve_dns,
-        check_provider_connectivity,
-        provider_hosts_path,
-        hosts_path,
-        corefile_path,
-        service_path,
-        resolved_dropin_path,
-    )?;
-    Ok(serde_json::to_value(report)?)
-}
-
-pub fn execute_observe_command(
-    registry: &str,
-    fail_on_warning: bool,
-    fail_on_critical: bool,
-) -> ExitCode {
-    usecases::network_surfaces_uc::execute_observe(registry, fail_on_warning, fail_on_critical)
-}
-
-pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
-    usecases::network_surfaces_uc::execute_network_command(command)
-}
-
-/// Observe a libvirt-backed harness target and emit the attestation consumed by
-/// network execution admission. This surface is read-only: it executes only
-/// domain/network/route observation argv through the injected binary paths.
-pub fn observe_libvirt_harness_target_attestation(
-    context: &cynic_host::runtime_harness::RuntimeHarnessContext,
-    target_id: &str,
-    transport: &str,
-    transport_target: &str,
-    expected_network_boundary: &str,
-    virsh_bin: &str,
-    ip_bin: &str,
-) -> Result<cynic_host::runtime_harness::RuntimeHarnessTargetAttestation, String> {
-    use crate::ports::harness_target_attestation_port::{
-        HarnessTargetAttestationPort, HarnessTargetAttestationRequest,
-    };
-
-    let attestor = adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor::new(
-        cynic_host::update_lifecycle::LocalArgvRunner,
-        virsh_bin,
-        ip_bin,
-    );
-    attestor.attest_target(
-        context,
-        &HarnessTargetAttestationRequest {
-            target_id: target_id.to_string(),
-            provider: "qemu-libvirt".to_string(),
-            transport: transport.to_string(),
-            transport_target: transport_target.to_string(),
-            expected_network_boundary: expected_network_boundary.to_string(),
-        },
-    )
-}
->>>>>>> github/main

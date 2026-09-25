@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 use cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA;
 
-=======
->>>>>>> github/main
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -27,11 +24,7 @@ pub fn project_registry_observation(
     apply: bool,
 ) -> Result<RegistryObservationReport, String> {
     let observation = read_json(observation_path, "observation")?;
-<<<<<<< HEAD
     if observation["schema"] != BUILD_RUNNER_OBSERVATION_SCHEMA {
-=======
-    if observation["schema"] != "cynic.runtime.node_observation.v1" {
->>>>>>> github/main
         return Err("observation schema must be cynic.runtime.node_observation.v1".to_string());
     }
     let node_id = observation["node_id"]
@@ -121,17 +114,11 @@ mod tests {
         )
         .expect("projection");
         assert_eq!(report.status, "planned");
-<<<<<<< HEAD
         assert!(
             !std::fs::read_to_string(&registry)
                 .expect("read registry")
                 .contains("cortex-1")
         );
-=======
-        assert!(!std::fs::read_to_string(&registry)
-            .expect("read registry")
-            .contains("cortex-1"));
->>>>>>> github/main
     }
 
     #[test]

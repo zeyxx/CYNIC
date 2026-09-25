@@ -1,21 +1,10 @@
-<<<<<<< HEAD
-=======
-use std::process::Command;
-
->>>>>>> github/main
 use crate::deps_surface_model::{
     DepEntry, DepSpec, DepWatch, PinEntry, PinView, PythonCliUpdateAuthorityView, VersionFrom,
 };
 use cynic_host::domain::ecosystem_package::{
-<<<<<<< HEAD
     EcosystemPackageExecutionPort, InstallPrincipalKind, LocalEcosystemPackageExecution,
     PrincipalInstallLayout, ProviderChannel, observe_python_install_authority,
     observe_tooling_authority, plan_for_dep, provider_spec, python_cli_policy, resolve_binary,
-=======
-    InstallPrincipalKind, PrincipalInstallLayout, ProviderChannel,
-    observe_python_install_authority, observe_tooling_authority, plan_for_dep, provider_spec,
-    python_cli_policy, resolve_binary,
->>>>>>> github/main
 };
 
 pub(crate) fn probe_and_evaluate(
@@ -23,7 +12,6 @@ pub(crate) fn probe_and_evaluate(
     pin: Option<&PinEntry>,
     layout: &PrincipalInstallLayout,
 ) -> DepEntry {
-<<<<<<< HEAD
     let executor = LocalEcosystemPackageExecution;
     probe_and_evaluate_with_executor(spec, pin, layout, &executor)
 }
@@ -34,8 +22,6 @@ fn probe_and_evaluate_with_executor(
     layout: &PrincipalInstallLayout,
     executor: &dyn EcosystemPackageExecutionPort,
 ) -> DepEntry {
-=======
->>>>>>> github/main
     let channel = channel_for_dep(spec.id);
     let install_principal = principal_for_dep(spec.id);
     let upgrade_mode = mode_from_channel(channel);
@@ -50,18 +36,6 @@ fn probe_and_evaluate_with_executor(
             break;
         }
     }
-<<<<<<< HEAD
-=======
-    if path.is_none() {
-        for bin in spec.bins {
-            if let Some(resolved_path) = which(bin) {
-                path = Some(resolved_path);
-                break;
-            }
-        }
-    }
-
->>>>>>> github/main
     let watch = DepWatch {
         upstream: spec.upstream,
         check_hint: spec.check_hint,
@@ -133,11 +107,7 @@ fn probe_and_evaluate_with_executor(
         };
     };
 
-<<<<<<< HEAD
     let version = read_version(spec, &path, executor);
-=======
-    let version = read_version(spec, &path);
->>>>>>> github/main
     let status = evaluate_status(spec.id, version.as_deref(), pin);
     let tooling_authority = spec.tooling_authority_family.map(|family| {
         observe_tooling_authority(
@@ -382,7 +352,6 @@ fn parse_version_triple(s: &str) -> Option<(u64, u64, u64)> {
     None
 }
 
-<<<<<<< HEAD
 fn read_version(
     spec: &DepSpec,
     path: &str,
@@ -401,37 +370,17 @@ fn read_version(
             if stdout.contains("inference-start") {
                 Some("cynic-cli+inference-start".into())
             } else if output.success() {
-=======
-fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
-    match spec.version_from {
-        VersionFrom::HelpPresence => {
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if stdout.contains("inference-start") {
-                Some("cynic-cli+inference-start".into())
-            } else if output.status.success() {
->>>>>>> github/main
                 Some("present-old-surface".into())
             } else {
                 Some("present".into())
             }
         }
         VersionFrom::StdoutFirstLine => {
-<<<<<<< HEAD
             let line = output
                 .stdout
                 .lines()
                 .next()
                 .or_else(|| output.stderr.lines().next())
-=======
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let line = stdout
-                .lines()
-                .next()
-                .or_else(|| stderr.lines().next())
->>>>>>> github/main
                 .unwrap_or("")
                 .trim();
             if line.is_empty() {
@@ -440,7 +389,6 @@ fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
                 Some(line.chars().take(120).collect())
             }
         }
-<<<<<<< HEAD
         VersionFrom::JsonField(field) => serde_json::from_str::<serde_json::Value>(&output.stdout)
             .ok()
             .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
@@ -454,28 +402,6 @@ fn read_version(spec: &DepSpec, path: &str) -> Option<String> {
     }
 }
 
-=======
-        VersionFrom::JsonField(field) => {
-            let output = Command::new(path).args(spec.version_args).output().ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            serde_json::from_str::<serde_json::Value>(&stdout)
-                .ok()
-                .and_then(|value| value.get(field)?.as_str().map(|s| s.to_string()))
-                .or_else(|| stdout.lines().next().map(|line| line.trim().to_string()))
-        }
-    }
-}
-
-fn which(bin: &str) -> Option<String> {
-    let output = Command::new("which").arg(bin).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if path.is_empty() { None } else { Some(path) }
-}
-
->>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use super::{

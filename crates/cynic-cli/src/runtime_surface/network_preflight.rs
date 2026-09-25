@@ -1,6 +1,5 @@
 use std::process::ExitCode;
 
-<<<<<<< HEAD
 use cynic_host::kernel_proof_persistence::{CurlKernelProofHistoryAdapter, KernelProofHistoryPort};
 use cynic_host::runtime_network_preflight::observe_runtime_network_preflight;
 use cynic_host::runtime_network_preflight::to_host_proof_submission;
@@ -14,16 +13,10 @@ pub(crate) fn execute_network_preflight(
     persist: bool,
     endpoint: Option<&str>,
 ) -> ExitCode {
-=======
-use crate::emit_json;
-
-pub(crate) fn execute_network_preflight(json: bool, hosts: &[String]) -> ExitCode {
->>>>>>> github/main
     if !json {
         return ExitCode::FAILURE;
     }
 
-<<<<<<< HEAD
     let report = observe_runtime_network_preflight(hosts);
 
     if persist {
@@ -40,8 +33,4 @@ pub(crate) fn execute_network_preflight(json: bool, hosts: &[String]) -> ExitCod
     } else {
         emit_json(&report, report.status != "ready")
     }
-=======
-    let report = cynic_host::runtime_network_preflight::observe_runtime_network_preflight(hosts);
-    emit_json(&report, report.status != "ready")
->>>>>>> github/main
 }

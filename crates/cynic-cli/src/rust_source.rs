@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 pub(crate) fn workspace_root() -> PathBuf {
-<<<<<<< HEAD
     resolve_workspace_root(None).unwrap_or_else(|_| PathBuf::from(".cynic-source-root-unobserved"))
 }
 
@@ -72,16 +71,6 @@ pub(crate) fn workspace_crate_names() -> Vec<String> {
     }
     names
 }
-=======
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest
-        .parent()
-        .and_then(Path::parent)
-        .unwrap_or_else(|| manifest.parent().unwrap_or_else(|| Path::new(".")))
-        .to_path_buf()
-}
-
->>>>>>> github/main
 pub(crate) fn relative_to_workspace(path: &Path) -> String {
     relative_path(&workspace_root(), path)
 }
@@ -118,7 +107,6 @@ pub(crate) fn line_count(path: &Path) -> Option<usize> {
         .ok()
         .map(|contents| contents.lines().count())
 }
-<<<<<<< HEAD
 
 #[cfg(test)]
 mod tests {
@@ -162,5 +150,3 @@ mod tests {
         assert_eq!(names, sorted);
     }
 }
-=======
->>>>>>> github/main

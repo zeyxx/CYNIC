@@ -6,11 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-<<<<<<< HEAD
 use crate::execution::digest_json;
 
-=======
->>>>>>> github/main
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HostExecRequest {
     pub node: String,
@@ -275,13 +272,6 @@ fn unknown_mutation_contract(request: &HostExecRequest) -> MutationContract {
     }
 }
 
-<<<<<<< HEAD
-=======
-fn digest_json<T: Serialize>(value: &T) -> String {
-    cynic_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
-}
-
->>>>>>> github/main
 pub fn service_from_argv(argv: &[String]) -> Option<String> {
     if argv.len() < 3 || argv.first().map(String::as_str) != Some("systemctl") {
         return None;

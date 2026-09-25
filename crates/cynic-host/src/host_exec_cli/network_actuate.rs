@@ -3,7 +3,6 @@ use std::process::ExitCode;
 
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority, RequiredProof};
 
-<<<<<<< HEAD
 use crate::execution::{HostCommandExecution, stderr_with_spawn_error};
 use crate::host_exec_cli::args::flag_value;
 use crate::host_exec_cli::io::emit_json;
@@ -12,28 +11,13 @@ use crate::network_actuation::{
     NetworkActuationObserver, NetworkActuationPlan, NetworkActuationRequest,
     NetworkActuationRuntime, admit_network_actuation_plan, build_network_actuation_commands,
     execute_network_actuation_with_readback, gate_network_actuation_plan,
-=======
-use crate::host_exec_cli::args::flag_value;
-use crate::host_exec_cli::io::emit_json;
-use crate::network_actuation::{
-    execute_network_actuation_with_readback, NetworkActuationExecutor, NetworkActuationObservation,
-    NetworkActuationObserver, NetworkActuationPlan, NetworkActuationRequest,
-    NetworkActuationRuntime, admit_network_actuation_plan,
-    build_network_actuation_commands, gate_network_actuation_plan,
-    NETWORK_ACTUATION_REQUEST_SCHEMA,
->>>>>>> github/main
 };
 use crate::registry::{
     ObservedManagementLink, ResolvedDirectManagementLink, ResolvedHostIdentity,
     resolve_observed_direct_management_link,
 };
 use crate::runtime_layout::current_runtime_layout;
-<<<<<<< HEAD
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
-=======
-use crate::update_lifecycle::{ArgvRunner, LocalArgvRunner};
-use crate::execution::HostCommandExecution;
->>>>>>> github/main
 
 pub(crate) fn execute(args: &[String]) -> Result<ExitCode, String> {
     let layout = current_runtime_layout();
@@ -90,7 +74,6 @@ fn execute_with_runner(
                         projection_blockers.push(format!("registry_projection_failed:{error}"))
                     }
                 },
-<<<<<<< HEAD
                 None => {
                     projection_blockers.push("local_management_observation_unavailable".to_string())
                 }
@@ -98,24 +81,11 @@ fn execute_with_runner(
         } else {
             projection_blockers
                 .push("registry_projection_failed:observation_unavailable".to_string());
-=======
-                None => projection_blockers
-                    .push("local_management_observation_unavailable".to_string()),
-            }
-        } else {
-            projection_blockers.push("registry_projection_failed:observation_unavailable".to_string());
->>>>>>> github/main
         }
     }
     let observation_allows = observation
         .as_ref()
-<<<<<<< HEAD
         .is_some_and(|value| projection_blockers.is_empty() && value.allows_profile(&profile));
-=======
-        .is_some_and(|value| {
-            projection_blockers.is_empty() && value.allows_profile(&profile)
-        });
->>>>>>> github/main
     let plan = if projection_blockers.is_empty() {
         observation.as_ref().and_then(|observed| {
             let layout = current_runtime_layout();
@@ -130,13 +100,8 @@ fn execute_with_runner(
                 wireguard_bin: capabilities.wireguard_tool.command,
                 network_manager_bin: capabilities.network_manager.command,
             };
-<<<<<<< HEAD
             build_network_actuation_commands(&profile, &observed.target, &runtime).map(|commands| {
                 NetworkActuationPlan {
-=======
-            build_network_actuation_commands(&profile, &observed.target, &runtime).map(
-                |commands| NetworkActuationPlan {
->>>>>>> github/main
                     schema: "cynic.host.network_actuation_plan.v1",
                     id: format!("network-actuate:{profile}:{target}"),
                     profile: profile.clone(),
@@ -152,13 +117,8 @@ fn execute_with_runner(
                         gate: "postflight_network_observation".to_string(),
                         subject: target.clone(),
                     }],
-<<<<<<< HEAD
                 }
             })
-=======
-                },
-            )
->>>>>>> github/main
         })
     } else {
         None
@@ -212,16 +172,9 @@ fn execute_with_runner(
                     ],
                 },
             );
-<<<<<<< HEAD
             proof
                 .postflight_controls
                 .insert("firewall".to_string(), observe_root_firewall(runner));
-=======
-            proof.postflight_controls.insert(
-                "firewall".to_string(),
-                observe_root_firewall(runner),
-            );
->>>>>>> github/main
             return emit_json(&proof, proof.status != "proved");
         }
     }
@@ -282,20 +235,6 @@ fn observe_root_firewall(runner: &impl ArgvRunner) -> serde_json::Value {
     })
 }
 
-<<<<<<< HEAD
-=======
-fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<String>) -> String {
-    if let Some(error) = spawn_error {
-        if stderr.is_empty() {
-            stderr = error;
-        } else {
-            stderr = format!("{error}: {stderr}");
-        }
-    }
-    stderr
-}
-
->>>>>>> github/main
 struct RootInvoker<'a> {
     runner: &'a dyn ArgvRunner,
 }
@@ -339,14 +278,9 @@ impl<'a> NetworkActuationObserver for NetworkActuationObserverLocal<'a> {
                 output.exit_code
             ));
         }
-<<<<<<< HEAD
         serde_json::from_str(&output.stdout).map_err(|error| {
             format!("postflight observation command returned invalid JSON: {error}")
         })
-=======
-        serde_json::from_str(&output.stdout)
-            .map_err(|error| format!("postflight observation command returned invalid JSON: {error}"))
->>>>>>> github/main
     }
 }
 
@@ -355,13 +289,8 @@ fn project_direct_management_target_from_registry(
     local_link: Option<&ObservedManagementLink>,
     registry_path: Option<&str>,
 ) -> Result<ResolvedHostIdentity, String> {
-<<<<<<< HEAD
     let hostname =
         std::env::var("HOSTNAME").map_err(|_| "hostname_observation_unavailable".to_string())?;
-=======
-    let hostname = std::env::var("HOSTNAME")
-        .map_err(|_| "hostname_observation_unavailable".to_string())?;
->>>>>>> github/main
     let identity = resolve_observed_direct_management_link(
         &hostname,
         &observation.target.synapse_cidr,
@@ -396,7 +325,6 @@ fn observe_local_management_link(
     if !route_output.success() {
         return None;
     }
-<<<<<<< HEAD
     let (route_interface, gateway) = route_output.stdout.lines().find_map(|line| {
         let fields = line.split_whitespace().collect::<Vec<_>>();
         let via = fields.iter().position(|field| *field == "via")?;
@@ -406,17 +334,6 @@ fn observe_local_management_link(
             fields.get(via + 1)?.to_string(),
         ))
     })?;
-=======
-    let (route_interface, gateway) = route_output
-        .stdout
-        .lines()
-        .find_map(|line| {
-            let fields = line.split_whitespace().collect::<Vec<_>>();
-            let via = fields.iter().position(|field| *field == "via")?;
-            let dev = fields.iter().position(|field| *field == "dev")?;
-            Some((fields.get(dev + 1)?.to_string(), fields.get(via + 1)?.to_string()))
-        })?;
->>>>>>> github/main
     let mut connection = None;
     let mut interface = None;
     let mut address = None;
@@ -456,11 +373,7 @@ fn apply_direct_management_projection(
 mod tests {
     use super::{execute_with_runner, project_direct_management_target_from_registry};
     use crate::network_actuation::NetworkActuationObservation;
-<<<<<<< HEAD
     use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
-=======
-    use crate::update_lifecycle::{ArgvOutput, MapArgvRunner};
->>>>>>> github/main
     use std::fs;
 
     #[test]
@@ -679,16 +592,10 @@ mod tests {
         assert_eq!(identity.match_source, "management_network");
         assert!(!identity.hostname_match);
         assert!(identity.network_match);
-<<<<<<< HEAD
         assert!(
             identity
                 .metadata
                 .contains(&"hostname_registry_alias_mismatch".to_string())
         );
-=======
-        assert!(identity
-            .metadata
-            .contains(&"hostname_registry_alias_mismatch".to_string()));
->>>>>>> github/main
     }
 }

@@ -2,11 +2,8 @@
 
 use cynic_inference::domain::backend_config as inference_backend_config;
 
-<<<<<<< HEAD
 pub use crate::infra::config_storage::{StorageConfig, StorageIdentityConfig};
 
-=======
->>>>>>> github/main
 /// Controls how much domain context a Dog receives in its prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PromptTier {
@@ -30,27 +27,6 @@ impl PromptTier {
     }
 }
 
-<<<<<<< HEAD
-=======
-/// SurrealDB connection config loaded from `[storage]` in `backends.toml`.
-#[derive(Debug, Clone)]
-pub struct StorageConfig {
-    pub url: String,
-    pub namespace: String,
-    pub database: String,
-}
-
-impl Default for StorageConfig {
-    fn default() -> Self {
-        Self {
-            url: "http://localhost:8000".to_string(),
-            namespace: "cynic".to_string(),
-            database: "main".to_string(),
-        }
-    }
-}
-
->>>>>>> github/main
 /// One inference backend definition in `backends.toml`.
 #[derive(Debug, Clone)]
 pub struct BackendConfig {

@@ -1,36 +1,21 @@
-<<<<<<< HEAD
 use std::collections::BTreeMap;
-=======
->>>>>>> github/main
 use std::fs;
 use std::path::Path;
 
 use cynic_host::install_contract::{ROOT_OWNERSHIP, owner_string};
 use serde::Serialize;
-<<<<<<< HEAD
 use sha2::{Digest, Sha256};
-=======
->>>>>>> github/main
 
 use crate::adapters::dns_renderer::SynapseDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
-<<<<<<< HEAD
     SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME, SYNAPSE_DNS_README_FILENAME,
     SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
     dns_activation_readme_for_zone, dns_bundle_config_filename, dns_bundle_files,
     dns_bundle_service_filename, dns_forbidden_patterns, dns_package_preconditions,
     dns_provider_config_for_zone, dns_provider_policy_surface_for_zone, dns_required_modes,
     dns_systemd_unit_for_zone, dns_target_paths_for_zone,
-=======
-    SYNAPSE_DNS_COREFILE_FILENAME, SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME,
-    SYNAPSE_DNS_README_FILENAME, SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME,
-    SYNAPSE_DNS_SERVICE_FILENAME, coredns_systemd_unit_for_zone, dns_activation_checks_for_zone,
-    dns_activation_readme_for_zone, dns_bundle_files, dns_forbidden_patterns,
-    dns_package_preconditions, dns_provider_policy_surface_for_zone, dns_required_modes,
-    dns_target_paths_for_zone,
->>>>>>> github/main
 };
 use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
@@ -48,10 +33,7 @@ pub(crate) struct DnsBundleReport {
     forbidden: Vec<&'static str>,
     bundle_dir: String,
     bundle_files: Vec<String>,
-<<<<<<< HEAD
     digests: BTreeMap<String, String>,
-=======
->>>>>>> github/main
 }
 
 pub(crate) fn build_dns_bundle(
@@ -78,21 +60,12 @@ pub(crate) fn build_dns_bundle(
         renderer.render_hosts(&topology)?,
     )?;
     fs::write(
-<<<<<<< HEAD
         out.join(dns_bundle_config_filename()),
         dns_provider_config_for_zone(&zone),
     )?;
     fs::write(
         out.join(dns_bundle_service_filename()),
         dns_systemd_unit_for_zone(&zone),
-=======
-        out.join(SYNAPSE_DNS_COREFILE_FILENAME),
-        renderer.render_corefile()?,
-    )?;
-    fs::write(
-        out.join(SYNAPSE_DNS_SERVICE_FILENAME),
-        coredns_systemd_unit_for_zone(&zone),
->>>>>>> github/main
     )?;
     fs::write(
         out.join(SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME),
@@ -103,7 +76,6 @@ pub(crate) fn build_dns_bundle(
         dns_activation_readme_for_zone(&zone, probe_fqdn.clone()),
     )?;
 
-<<<<<<< HEAD
     let bundle_files = dns_bundle_files();
     let digests = bundle_files
         .iter()
@@ -116,8 +88,6 @@ pub(crate) fn build_dns_bundle(
             ))
         })
         .collect::<Result<BTreeMap<_, _>, _>>()?;
-=======
->>>>>>> github/main
     let report = DnsBundleReport {
         schema: "cynic.organ_fleet.dns_activation_bundle.v1",
         mutates: false,
@@ -129,12 +99,8 @@ pub(crate) fn build_dns_bundle(
         activation_checks: dns_activation_checks_for_zone(&zone, probe_fqdn),
         forbidden: dns_forbidden_patterns(),
         bundle_dir: out.to_string_lossy().to_string(),
-<<<<<<< HEAD
         bundle_files,
         digests,
-=======
-        bundle_files: dns_bundle_files(),
->>>>>>> github/main
     };
     fs::write(
         out.join(SYNAPSE_DNS_MANIFEST_FILENAME),
@@ -161,7 +127,6 @@ mod tests {
         assert_eq!(report.schema, "cynic.organ_fleet.dns_activation_bundle.v1");
         assert!(out.path().join(SYNAPSE_DNS_MANIFEST_FILENAME).exists());
         assert!(out.path().join(SYNAPSE_DNS_HOSTS_FILENAME).exists());
-<<<<<<< HEAD
         assert_eq!(report.digests.len(), 5);
         assert!(
             report
@@ -169,7 +134,5 @@ mod tests {
                 .values()
                 .all(|digest| digest.starts_with("sha256:"))
         );
-=======
->>>>>>> github/main
     }
 }

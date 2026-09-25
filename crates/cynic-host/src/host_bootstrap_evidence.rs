@@ -291,10 +291,7 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
             }
         }
     }
@@ -317,13 +314,7 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
-<<<<<<< HEAD
             crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
-=======
-            PackageObservedState {
-                installed_packages: policy.bootstrap_packages.clone(),
-            }
->>>>>>> github/main
         }
     }
 
@@ -398,11 +389,7 @@ mod tests {
             canonical_role: None,
             profile_applied: "network-node",
             match_source: "node_name",
-<<<<<<< HEAD
             host_bootstrap_target_stage: Some("h2_filesystem_projected".to_string()),
-=======
-            host_bootstrap_target_stage: Some("h5_services_projected".to_string()),
->>>>>>> github/main
             host_bootstrap_required_domains: vec!["identity".to_string()],
             registry_path: Some("infra/registry.json".to_string()),
         };
@@ -413,7 +400,6 @@ mod tests {
         )
         .expect("evidence");
         assert_eq!(report.schema, "cynic.host_bootstrap_evidence.v1");
-<<<<<<< HEAD
         // Target h2 is satisfiable; h3+ are not, because the profile policy
         // declares an unresolved distribution authority by design.
         assert!(
@@ -426,10 +412,6 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(report.reached_stage, "h2_filesystem_projected");
-=======
-        assert!(report.target_satisfied);
-        assert_eq!(report.reached_stage, "h5_services_projected");
->>>>>>> github/main
         assert_eq!(report.lifecycle_status, LifecycleStatus::Ready);
         assert_eq!(report.next_boundary_kind, BoundaryKind::Observe);
     }
@@ -455,7 +437,6 @@ mod tests {
         .expect("evidence");
         assert_eq!(report.status, SurfaceStatus::Blocked);
         assert!(!report.target_satisfied);
-<<<<<<< HEAD
         // h3_packages_ready is unreached under the DEFAULT authority: families.rs
         // now injects provenance from HostRuntimeLayout::package_provenance(),
         // whose default is still unresolved_distribution_authority() on purpose.
@@ -485,9 +466,6 @@ mod tests {
             SurfaceStatus::Blocked,
             "an unselected distribution authority must block the package stage"
         );
-=======
-        assert_eq!(report.reached_stage, "h3_packages_ready");
->>>>>>> github/main
         assert_eq!(report.lifecycle_status, LifecycleStatus::PrincipalMismatch);
         assert_eq!(report.next_boundary_kind, BoundaryKind::Adopt);
         assert_eq!(

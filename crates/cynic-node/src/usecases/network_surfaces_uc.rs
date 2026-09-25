@@ -33,11 +33,7 @@ use crate::usecases::network_actuation_target_uc::{
     QemuNetworkActuationConfig, execute_qemu_network_actuation,
 };
 use cynic_host::runtime_harness::runtime_harness_catalog;
-<<<<<<< HEAD
 use cynic_lifecycle::LocalArgvRunner;
-=======
-use cynic_host::update_lifecycle::LocalArgvRunner;
->>>>>>> github/main
 
 pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
@@ -67,7 +63,6 @@ pub fn execute_registry_observation(registry: &str, output: Option<&str>) -> Exi
 
 pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
     match command {
-<<<<<<< HEAD
         NetworkCommands::SecurityAudit {
             json: _,
             max_handshake_age_secs,
@@ -282,8 +277,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
 
             emit_json("firewall policy", &result, false)
         }
-=======
->>>>>>> github/main
         NetworkCommands::DnsBundle {
             json: _,
             registry,
@@ -324,7 +317,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-<<<<<<< HEAD
         NetworkCommands::DnsActivate {
             json: _,
             registry,
@@ -341,8 +333,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-=======
->>>>>>> github/main
         NetworkCommands::Evidence { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
             let evidence = network_evidence::build_evidence(&observation);
@@ -553,7 +543,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let should_fail = report.status != "completed";
             emit_json("network mesh apply target", &report, should_fail)
         }
-<<<<<<< HEAD
         NetworkCommands::MeshCoordination {
             json: _,
             registry,
@@ -631,8 +620,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 emit_json("mesh coordination report", &payload, false)
             }
         }
-=======
->>>>>>> github/main
         NetworkCommands::ActuateTarget {
             json: _,
             request,
@@ -895,11 +882,7 @@ fn emit_json<T: serde::Serialize>(label: &str, value: &T, should_fail: bool) -> 
 
 #[cfg(test)]
 mod tests {
-<<<<<<< HEAD
     use super::*;
-=======
-    use super::should_fail_runtime_status;
->>>>>>> github/main
 
     #[test]
     fn runtime_status_only_fails_when_blocked() {
@@ -907,7 +890,6 @@ mod tests {
         assert!(!should_fail_runtime_status("provider_fallback_active"));
         assert!(!should_fail_runtime_status("mesh_active"));
     }
-<<<<<<< HEAD
 
     #[test]
     fn security_audit_executes_live_telemetry_without_panic() {
@@ -943,6 +925,4 @@ mod tests {
         let code = execute_network_command(&cmd);
         assert_eq!(code, ExitCode::SUCCESS);
     }
-=======
->>>>>>> github/main
 }

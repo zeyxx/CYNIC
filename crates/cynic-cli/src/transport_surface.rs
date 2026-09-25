@@ -14,7 +14,6 @@ pub(crate) enum TransportCommand {
         #[arg(long)]
         host: String,
     },
-<<<<<<< HEAD
     /// Full SSH configuration supervision: parse ~/.ssh/config, correlate
     /// with declared policy aliases, check key presence/permissions,
     /// and report connectivity state.
@@ -26,8 +25,6 @@ pub(crate) enum TransportCommand {
         #[arg(long)]
         json: bool,
     },
-=======
->>>>>>> github/main
 }
 
 pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
@@ -43,7 +40,6 @@ pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
             let observer = LocalOperatorTransportObserver;
             emit_json(&transport::inspect_ssh_target(&observer, host), false)
         }
-<<<<<<< HEAD
         TransportCommand::SshSupervision { config, json: _ } => {
             let report = match config {
                 Some(path) => {
@@ -55,7 +51,5 @@ pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
             crate::cli_json::emit_pretty_json(&report);
             ExitCode::from(code as u8)
         }
-=======
->>>>>>> github/main
     }
 }

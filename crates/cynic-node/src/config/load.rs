@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 use super::{
     Config, FederationConfig, NodeControlConfig, NodeControlRuntimeConfig, WatchdogConfig,
 };
-=======
-use super::{Config, FederationConfig, WatchdogConfig};
->>>>>>> github/main
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir, kernel_websocket_url,
 };
@@ -20,11 +16,7 @@ pub(crate) fn derive_models_url(base_url: &str) -> String {
     format!("{trimmed}/models")
 }
 
-<<<<<<< HEAD
 pub fn load(path: &str) -> Result<Config, String> {
-=======
-pub(crate) fn load(path: &str) -> Result<Config, String> {
->>>>>>> github/main
     let raw =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
 
@@ -34,17 +26,9 @@ pub(crate) fn load(path: &str) -> Result<Config, String> {
     resolve_kernel_api_key(&mut cfg.kernel.api_key, &cfg.kernel.api_key_env)?;
 
     if let Some(env_name) = &cfg.dog.api_key_env {
-<<<<<<< HEAD
         let key = cynic_secrets::env_var(&format!("dog-key:{}", env_name), env_name).ok_or_else(
             || format!("environment variable `{env_name}` not set (referenced in dog.api_key_env)"),
         )?;
-=======
-        let key = std::env::var(env_name).map_err(|e| {
-            format!(
-                "environment variable `{env_name}` not set (referenced in dog.api_key_env): {e}"
-            )
-        })?;
->>>>>>> github/main
         if !key.is_empty() {
             cfg.dog.api_key = Some(key);
         }
@@ -73,7 +57,6 @@ pub(crate) fn load_watchdog(path: &str) -> Result<WatchdogConfig, String> {
     Ok(cfg)
 }
 
-<<<<<<< HEAD
 pub(crate) fn load_node_control(path: &str) -> Result<NodeControlConfig, String> {
     let raw =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
@@ -248,11 +231,6 @@ pub(crate) fn validate_node_control(cfg: &NodeControlConfig) -> Result<(), Strin
 fn resolve_kernel_api_key(api_key: &mut String, env_name: &str) -> Result<(), String> {
     *api_key = cynic_secrets::env_var(env_name, env_name).ok_or_else(|| {
         format!("environment variable `{env_name}` not set (required for kernel auth)")
-=======
-fn resolve_kernel_api_key(api_key: &mut String, env_name: &str) -> Result<(), String> {
-    *api_key = std::env::var(env_name).map_err(|e| {
-        format!("environment variable `{env_name}` not set (required for kernel auth): {e}")
->>>>>>> github/main
     })?;
     if api_key.is_empty() {
         return Err(format!(
@@ -322,23 +300,14 @@ pub(crate) fn runtime_federation_config(cfg: &Config) -> RuntimeFederationConfig
             .and_then(|config| config.kernel_ws_url.clone())
             .unwrap_or_else(|| kernel_websocket_url(&cfg.kernel.url)),
         api_key: federation_api_key(federation).unwrap_or_else(|| {
-<<<<<<< HEAD
             cynic_secrets::env_var("ws-api-key", "CYNIC_API_KEY").unwrap_or_else(|| {
-=======
-            std::env::var("CYNIC_API_KEY").unwrap_or_else(|_| {
->>>>>>> github/main
                 tracing::warn!("CYNIC_API_KEY not set; WebSocket authentication will fail");
                 String::new()
             })
         }),
         node_public_key: federation_node_public_key(federation).unwrap_or_else(|| {
-<<<<<<< HEAD
             cynic_secrets::env_var("node-public-key", "CYNIC_NODE_PUBLIC_KEY")
                 .unwrap_or_else(|| DEFAULT_NODE_PUBLIC_KEY.to_string())
-=======
-            std::env::var("CYNIC_NODE_PUBLIC_KEY")
-                .unwrap_or_else(|_| DEFAULT_NODE_PUBLIC_KEY.to_string())
->>>>>>> github/main
         }),
         node_identity: cfg.dog.name.clone(),
         queue_dir: federation
@@ -361,11 +330,7 @@ fn federation_api_key(config: Option<&FederationConfig>) -> Option<String> {
     config
         .api_key_env
         .as_ref()
-<<<<<<< HEAD
         .and_then(|env_name| cynic_secrets::env_var(env_name, env_name))
-=======
-        .and_then(|env_name| std::env::var(env_name).ok())
->>>>>>> github/main
 }
 
 fn federation_node_public_key(config: Option<&FederationConfig>) -> Option<String> {
@@ -376,11 +341,7 @@ fn federation_node_public_key(config: Option<&FederationConfig>) -> Option<Strin
     config
         .node_public_key_env
         .as_ref()
-<<<<<<< HEAD
         .and_then(|env_name| cynic_secrets::env_var(env_name, env_name))
-=======
-        .and_then(|env_name| std::env::var(env_name).ok())
->>>>>>> github/main
 }
 
 pub(crate) fn validate_watchdog(cfg: &WatchdogConfig) -> Result<(), String> {

@@ -3,7 +3,6 @@ mod defaults;
 mod load;
 mod types;
 
-<<<<<<< HEAD
 #[allow(unused_imports)]
 pub use load::*;
 pub use types::*;
@@ -17,10 +16,6 @@ pub(crate) fn default_build_repository_id() -> String {
 pub(crate) fn default_runtime_registry_path() -> std::path::PathBuf {
     defaults::default_runtime_registry_path()
 }
-=======
-pub(crate) use load::*;
-pub(crate) use types::*;
->>>>>>> github/main
 
 #[cfg(test)]
 mod tests;

@@ -25,11 +25,7 @@ pub(crate) fn execute_epoch(json: bool, advance: bool, endpoint: Option<String>)
                 }
                 match resp.json::<serde_json::Value>() {
                     Ok(body) => {
-<<<<<<< HEAD
                         emit_pretty_json(&body);
-=======
-                        emit_pretty_json(&body, json);
->>>>>>> github/main
                     }
                     Err(e) => {
                         eprintln!("Réponse invalide du kernel: {}", e);
@@ -58,11 +54,7 @@ pub(crate) fn execute_epoch(json: bool, advance: bool, endpoint: Option<String>)
                 }
                 match resp.json::<serde_json::Value>() {
                     Ok(body) => {
-<<<<<<< HEAD
                         emit_pretty_json(&body);
-=======
-                        emit_pretty_json(&body, json);
->>>>>>> github/main
                     }
                     Err(e) => {
                         eprintln!("Réponse invalide du kernel: {}", e);

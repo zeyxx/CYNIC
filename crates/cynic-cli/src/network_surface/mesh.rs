@@ -109,7 +109,6 @@ pub(crate) fn try_execute_mesh(
                 observe_runtime,
             )
         }
-<<<<<<< HEAD
         NetworkMeshCommand::Coordination {
             registry,
             endpoint,
@@ -122,8 +121,6 @@ pub(crate) fn try_execute_mesh(
             api_key,
             check_health,
         }),
-=======
->>>>>>> github/main
     };
 
     Ok(exit)

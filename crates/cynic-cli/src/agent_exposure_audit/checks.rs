@@ -34,11 +34,7 @@ pub(crate) fn finding(
 }
 
 pub(crate) fn repo_root() -> PathBuf {
-<<<<<<< HEAD
     crate::rust_source::workspace_root()
-=======
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
->>>>>>> github/main
 }
 
 pub(crate) fn check_no_machine_local_paths(
@@ -82,7 +78,6 @@ pub(crate) fn check_codex_projection(
             None,
         ));
     }
-<<<<<<< HEAD
     if content
         .lines()
         .any(|line| line.trim_start().starts_with("[mcp_servers.cynic.tools."))
@@ -329,8 +324,6 @@ pub(crate) fn check_session_handshake(
             None,
         ));
     }
-=======
->>>>>>> github/main
 }
 
 pub(crate) fn check_agent_env_paths(

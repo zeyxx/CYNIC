@@ -14,26 +14,16 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
         RuntimeCommand::InferenceStart {
             alias,
             json,
-<<<<<<< HEAD
             yes,
-=======
->>>>>>> github/main
             no_wait,
         } => Ok(inference_surface::execute_inference_start(
             Some(alias.as_str()),
             json,
-<<<<<<< HEAD
             yes,
             no_wait,
         )),
         RuntimeCommand::InferenceStop { alias, json, yes } => Ok(
             inference_surface::execute_inference_stop(alias.as_deref(), json, yes),
-=======
-            no_wait,
-        )),
-        RuntimeCommand::InferenceStop { alias, json } => Ok(
-            inference_surface::execute_inference_stop(alias.as_deref(), json),
->>>>>>> github/main
         ),
         RuntimeCommand::InferenceDiscover {
             json,
@@ -110,7 +100,6 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
         RuntimeCommand::InferencePlan { alias, json, apply } => Ok(
             inference_surface::execute_inference_plan(&alias, json, apply),
         ),
-<<<<<<< HEAD
         RuntimeCommand::InferenceForge {
             report,
             alias: _,
@@ -119,8 +108,6 @@ pub(crate) fn try_execute_inference(command: RuntimeCommand) -> Result<ExitCode,
         } => Ok(inference_surface::execute_inference_forge(
             &report, "", json, yes,
         )),
-=======
->>>>>>> github/main
         other => Err(other),
     }
 }

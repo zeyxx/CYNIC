@@ -102,11 +102,7 @@ pub(crate) fn build_plan(deps: &DepsReport, observed_at_unix_ms: u64) -> DepsPla
         frictionless: FrictionlessHints {
             after_cli_change: "cynic deps upgrade --yes --only cynic",
             daily_check: "cynic deps",
-<<<<<<< HEAD
             model_start: "cynic models start <alias> --yes --json",
-=======
-            model_start: "cynic runtime inference-start <alias> --json",
->>>>>>> github/main
             pins_edit: "edit infra/ecosystem-pins.json then: cynic deps",
         },
     }

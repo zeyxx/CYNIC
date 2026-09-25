@@ -1,12 +1,8 @@
 use cynic_host::audit_engine::run_workspace_audit;
 use cynic_host::coordination_lease_store::CoordinationLeaseStore;
-<<<<<<< HEAD
 use cynic_intel::futarchy::cpmm::{
     calculate_prices_bps, create_market, execute_bet, resolve_market,
 };
-=======
-use cynic_intel::futarchy::cpmm::{calculate_prices_bps, create_market, execute_bet, resolve_market};
->>>>>>> github/main
 use cynic_intel::futarchy::types::{MarketDecision, PredictionBet, ProposalStatus};
 use cynic_intel::futarchy::vault::LiquidityVault;
 use cynic_protocol::{LeaseAction, LeaseGuard, TargetClaimOutcome};
@@ -72,13 +68,9 @@ fn test_full_multi_agent_coordination_and_futarchy_workflow() {
         6_000, // 60% threshold
     );
 
-<<<<<<< HEAD
     vault
         .allocate_market_liquidity(market.clone())
         .expect("seed market from vault");
-=======
-    vault.allocate_market_liquidity(market.clone()).expect("seed market from vault");
->>>>>>> github/main
 
     // Agent 1 parie OUI (500 000 unités)
     let bet1 = PredictionBet {
@@ -141,16 +133,7 @@ fn test_full_multi_agent_coordination_and_futarchy_workflow() {
         lease_id: grant_pi.lease_id,
         fencing_token: grant_pi.fencing_token,
     };
-<<<<<<< HEAD
     let final_pi = lease_store.mutate(&guard_pi, LeaseAction::Release, None, None);
-=======
-    let final_pi = lease_store.mutate(
-        &guard_pi,
-        LeaseAction::Release,
-        None,
-        None,
-    );
->>>>>>> github/main
     assert!(final_pi.is_applied());
 
     // Vérifier que tous les baux sont libérés

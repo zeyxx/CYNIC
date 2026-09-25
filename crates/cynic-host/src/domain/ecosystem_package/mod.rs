@@ -1,6 +1,5 @@
 //! Universal ecosystem package interface for operator tech-watch deps.
 //!
-<<<<<<< HEAD
 //! Core packaging definitions, providers, and authority models are delegated to
 //! the autonomous `cynic-pkg` micro-crate. Host-side integration adapters and
 //! execution plans remain anchored to host execution boundaries.
@@ -21,45 +20,13 @@ pub mod integration_connect_types;
 pub mod integration_decision {
     pub use cynic_pkg::integration::decision::*;
 }
-=======
-//! Layering (not a monolith):
-//! - [`types`] — shared contract vocabulary
-//! - [`layout`] — principal install paths (user `cynic`)
-//! - [`port`] — [`EcosystemPackageProvider`] + argv apply engine
-//! - [`registry`] — id → channel/principal metadata
-//! - [`probe`] — principal-aware binary resolve
-//! - [`providers`] — one adapter per tool (llama, ods, external, distro)
-//!
-//! Rule: nothing is permanently "manual-only". Channels are
-//! `scripted` | `external` | `distro_managed`.
-
-pub mod integration_apply;
-pub mod integration_apply_types;
-pub mod integration_catalog;
-pub mod integration_connect;
-pub mod integration_connect_types;
-pub mod integration_decision;
->>>>>>> github/main
 pub mod integration_plan;
 pub mod integration_plan_types;
 pub mod integration_port;
 pub mod integration_recipe;
-<<<<<<< HEAD
 pub mod integration_types {
     pub use cynic_pkg::integration::types::*;
 }
-=======
-pub mod integration_types;
-pub mod layout;
-pub mod port;
-pub mod probe;
-pub mod providers;
-pub mod python_cli_policy;
-pub mod python_tooling;
-pub mod registry;
-pub mod tooling_authority;
-pub mod types;
->>>>>>> github/main
 
 // ── Stable public surface (CLI + tests) ─────────────────────────────────────
 
@@ -86,47 +53,3 @@ pub use integration_types::{
     IntegrationObservationContext, IntegrationPrincipal, IntegrationSpec, IntegrationStatusSummary,
     IntegrationToolingAuthorityView, IntegrationsStatusReport, RawIntegrationObservation,
 };
-<<<<<<< HEAD
-=======
-pub use layout::resolve_principal_install_layout;
-pub use port::{EcosystemPackageProvider, apply_package_plan, materialize_argv};
-pub use probe::{
-    classify_python_install_provenance, observe_python_install_provenance, resolve_binary, which,
-};
-pub use providers::{
-    apply_for_dep, has_auto_handler, plan_external, plan_for_dep, plan_llama_cpp, plan_ods,
-};
-pub use python_cli_policy::{PythonCliPolicy, python_cli_policy};
-pub use python_tooling::observe_python_tooling;
-pub use registry::{EcosystemProviderSpec, ecosystem_provider_specs, provider_spec};
-pub use tooling_authority::{
-    observe_python_install_authority, observe_tooling_authority, tooling_authority_status,
-    tooling_provenance_from_python,
-};
-pub use types::{
-    ApplyStep, EcosystemPackageApplyResult, EcosystemPackagePlan, InstallPrincipalKind,
-    ObservedBinary, ObservedPythonTooling, PrincipalInstallLayout, ProviderChannel,
-    PythonInstallAuthority, PythonInstallProvenance, RunAs, StepExecution, ToolingAuthority,
-    ToolingAuthorityFamily, ToolingInstallProvenance, channel_auto_applicable,
-};
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn channel_auto_applicable_not_distro() {
-        assert!(channel_auto_applicable(ProviderChannel::Scripted));
-        assert!(channel_auto_applicable(ProviderChannel::External));
-        assert!(!channel_auto_applicable(ProviderChannel::DistroManaged));
-    }
-
-    #[test]
-    fn provider_dispatch_resolves_llama_and_ods() {
-        assert!(providers::provider("llama.cpp").is_some());
-        assert!(providers::provider("ods").is_some());
-        assert!(providers::provider("docker").is_some());
-        assert!(providers::provider("nope").is_none());
-    }
-}
->>>>>>> github/main

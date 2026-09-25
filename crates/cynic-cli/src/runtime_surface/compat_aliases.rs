@@ -23,7 +23,6 @@ pub(crate) fn try_execute_compat_alias(
             &only,
         )),
         RuntimeCommand::Disk { json } => Ok(super::disk::execute_disk(json)),
-<<<<<<< HEAD
         RuntimeCommand::Memory { json } => Ok(super::memory::execute_memory(json)),
         RuntimeCommand::Cpu { json } => Ok(super::cpu::execute_cpu(json)),
         RuntimeCommand::Network { json } => Ok(super::network::execute_network(json)),
@@ -42,11 +41,6 @@ pub(crate) fn try_execute_compat_alias(
             node.as_deref(),
             &state_root,
         )),
-=======
-        RuntimeCommand::DiskClean { json, apply } => {
-            Ok(super::disk::execute_disk_clean(json, apply))
-        }
->>>>>>> github/main
         other => Err(other),
     }
 }

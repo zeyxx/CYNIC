@@ -1,14 +1,10 @@
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
-<<<<<<< HEAD
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::domain::package_provenance::{
     PackageRepositoryObservation, promotion_observation_for_repository,
 };
-=======
-
->>>>>>> github/main
 use crate::domain::packages::PackageObservedState;
 use crate::domain::principal::{PrincipalObservedState, PrincipalPolicy};
 use crate::domain::privilege::{PrivilegeObservedState, PrivilegePolicy};
@@ -240,7 +236,6 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
             .and_then(|line| line.split(':').nth(2))
             .and_then(|value| value.parse::<u32>().ok());
 
-<<<<<<< HEAD
         let mut owned_paths = Vec::new();
         let mut ownership_unknown_paths = Vec::new();
         for path in policy.managed_paths() {
@@ -251,8 +246,6 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
             }
         }
 
-=======
->>>>>>> github/main
         PrincipalObservedState {
             user_present: passwd.is_some(),
             group_present: group.is_some(),
@@ -263,21 +256,12 @@ impl HostPrincipalObservationPort for LocalHostObservationAdapter {
                 .filter(|path| Path::new(path.as_str()).is_dir())
                 .cloned()
                 .collect(),
-<<<<<<< HEAD
             owned_paths,
             ownership_unknown_paths,
-=======
-            owned_paths: policy
-                .managed_paths()
-                .into_iter()
-                .filter(|path| path_owned_by(path, expected_uid, expected_gid))
-                .collect(),
->>>>>>> github/main
         }
     }
 }
 
-<<<<<<< HEAD
 enum PathOwnership {
     Owned,
     Mismatch,
@@ -324,14 +308,6 @@ fn identity_in_map(content: &str, identity: u32) -> bool {
             _ => false,
         }
     })
-=======
-fn path_owned_by(path: &str, expected_uid: Option<u32>, expected_gid: Option<u32>) -> bool {
-    let (Some(expected_uid), Some(expected_gid)) = (expected_uid, expected_gid) else {
-        return false;
-    };
-    std::fs::metadata(path)
-        .is_ok_and(|metadata| metadata.uid() == expected_uid && metadata.gid() == expected_gid)
->>>>>>> github/main
 }
 
 impl HostPrivilegeObservationPort for LocalHostObservationAdapter {
@@ -369,19 +345,15 @@ impl HostPackageObservationPort for LocalHostObservationAdapter {
                 .filter(|pkg| package_present(pkg))
                 .cloned()
                 .collect(),
-<<<<<<< HEAD
             promotion: observe_package_promotion(policy),
             promotion_assessed_at_unix_s: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map(|duration| duration.as_secs())
                 .unwrap_or(0),
-=======
->>>>>>> github/main
         }
     }
 }
 
-<<<<<<< HEAD
 fn observe_package_promotion(
     policy: &crate::domain::packages::PackagePolicy,
 ) -> crate::domain::package_provenance::PackagePromotionObservation {
@@ -394,8 +366,6 @@ fn observe_package_promotion(
     promotion_observation_for_repository(&policy.provenance, &receipt).unwrap_or_default()
 }
 
-=======
->>>>>>> github/main
 impl HostServiceObservationPort for LocalHostObservationAdapter {
     fn observe_services(&self, policy: &ServicePolicy) -> ServiceObservedState {
         let supervisor_observation =
@@ -457,11 +427,7 @@ fn unit_enabled(unit: &cynic_protocol::ServiceSupervisorUnitObservation) -> bool
 
 #[cfg(test)]
 mod tests {
-<<<<<<< HEAD
     use super::{identity_in_map, service_observation_to_substrate_unit};
-=======
-    use super::service_observation_to_substrate_unit;
->>>>>>> github/main
     use cynic_protocol::ServiceSupervisorUnitObservation;
 
     fn unit(
@@ -527,7 +493,6 @@ mod tests {
         assert!(!observed.enabled);
         assert!(!observed.active);
     }
-<<<<<<< HEAD
 
     #[test]
     fn identity_mapping_rejects_ids_outside_the_visible_namespace() {
@@ -538,6 +503,4 @@ mod tests {
         assert!(!identity_in_map(map, 1001));
         assert!(identity_in_map("0 0 4294967295\n", 1001));
     }
-=======
->>>>>>> github/main
 }

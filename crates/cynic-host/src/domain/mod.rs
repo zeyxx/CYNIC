@@ -1,5 +1,4 @@
 pub mod bootstrap;
-<<<<<<< HEAD
 pub mod branch_graph;
 pub mod build_artefact;
 pub mod build_discovery;
@@ -20,13 +19,3 @@ pub mod queue;
 pub mod services;
 pub mod shared;
 pub mod storage;
-=======
-pub mod disk;
-pub mod ecosystem_package;
-pub mod filesystem;
-pub mod packages;
-pub mod principal;
-pub mod privilege;
-pub mod services;
-pub mod shared;
->>>>>>> github/main

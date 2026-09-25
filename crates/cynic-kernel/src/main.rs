@@ -1,9 +1,5 @@
 use cynic_kernel::bootstrap::entry::{
-<<<<<<< HEAD
     KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file, main_verify,
-=======
-    KernelEntryFlags, configure_stdio_mode, init_tracing, load_env_file,
->>>>>>> github/main
     print_version_and_exit_if_requested, run_mcp_proxy_mode_if_requested,
 };
 use cynic_kernel::{bootstrap, klog};
@@ -23,7 +19,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if run_mcp_proxy_mode_if_requested(entry_flags).await? {
         return Ok(());
     }
-<<<<<<< HEAD
     if entry_flags.force_reprobe {
         // --reset flag triggers bootstrap verify
         if let Err(e) = main_verify().await {
@@ -32,8 +27,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         klog!("bootstrap verify PASSED - runtime starting");
     }
-=======
->>>>>>> github/main
 
     klog!("CYNIC V2 — SOVEREIGN BOOT");
     bootstrap::runtime_orchestrator::run_runtime(entry_flags).await

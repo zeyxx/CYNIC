@@ -35,7 +35,6 @@ struct FakeCommandRunner;
 struct FakeObservationAdapter;
 struct ReadyForServiceObservation;
 struct ActiveServiceObservation;
-<<<<<<< HEAD
 
 /// Fixed "now" for promotion assessment, well past the policy's 7-day floors.
 const PROMOTION_NOW_UNIX_S: u64 = 1_800_000_000;
@@ -58,8 +57,6 @@ fn satisfied_promotion_observation()
         emergency: false,
     }
 }
-=======
->>>>>>> github/main
 struct RecordingCommandRunner {
     calls: Cell<usize>,
 }
@@ -133,7 +130,6 @@ impl HostPackagePort for StaticHostContractPort {
             policy_dir: layout.config_dir.clone(),
             source_projection_path: format!("{}/package-sources.json", layout.config_dir),
             approved_sources: vec!["distribution_package".to_string()],
-<<<<<<< HEAD
             provenance: crate::domain::package_provenance::PackageProvenancePolicy::Repository {
                 source_id: "distribution_package".to_string(),
                 trusted_key_fingerprint: "test-key".to_string(),
@@ -141,8 +137,6 @@ impl HostPackagePort for StaticHostContractPort {
             },
             promotion_policy:
                 crate::domain::package_provenance::PackagePromotionPolicy::critical_infrastructure(),
-=======
->>>>>>> github/main
             bootstrap_packages: vec!["wireguard-tools".to_string(), "iproute2".to_string()],
         }
     }
@@ -204,12 +198,9 @@ impl HostCommandRunnerPort for FakeCommandRunner {
             HostOperation::EnsureSystemUser { user, .. } => {
                 format!("ensure_system_user user={user}")
             }
-<<<<<<< HEAD
             HostOperation::EnsureSupplementaryGroupMember { user, group } => {
                 format!("ensure_supplementary_group_member user={user} group={group}")
             }
-=======
->>>>>>> github/main
             HostOperation::EnsureOwnedDir { path, .. } => {
                 format!("ensure_owned_dir path={path}")
             }
@@ -275,10 +266,7 @@ impl HostPrincipalObservationPort for FakeObservationAdapter {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
             ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
         }
     }
 }
@@ -297,10 +285,7 @@ impl HostPackageObservationPort for FakeObservationAdapter {
     fn observe_packages(&self, _policy: &PackagePolicy) -> PackageObservedState {
         PackageObservedState {
             installed_packages: vec!["wireguard-tools".to_string()],
-<<<<<<< HEAD
             ..Default::default()
-=======
->>>>>>> github/main
         }
     }
 }
@@ -326,10 +311,7 @@ impl HostPrincipalObservationPort for ReadyForServiceObservation {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
             ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
         }
     }
 }
@@ -348,11 +330,8 @@ impl HostPackageObservationPort for ReadyForServiceObservation {
     fn observe_packages(&self, policy: &PackagePolicy) -> PackageObservedState {
         PackageObservedState {
             installed_packages: policy.bootstrap_packages.clone(),
-<<<<<<< HEAD
             promotion: satisfied_promotion_observation(),
             promotion_assessed_at_unix_s: PROMOTION_NOW_UNIX_S,
-=======
->>>>>>> github/main
         }
     }
 }
@@ -408,10 +387,7 @@ fn principal_status_is_active_when_observed_state_matches_policy() {
         observed_home_dir: Some(policy.home_dir.clone()),
         present_state_dirs,
         owned_paths: policy.managed_paths(),
-<<<<<<< HEAD
         ownership_unknown_paths: Vec::new(),
-=======
->>>>>>> github/main
     });
     assert_eq!(report.status, SurfaceStatus::Active);
 }
@@ -457,10 +433,7 @@ fn package_status_is_blocked_when_bootstrap_package_missing() {
     let policy = StaticHostContractPort.desired_packages();
     let report = policy.status(&PackageObservedState {
         installed_packages: vec!["wireguard-tools".to_string()],
-<<<<<<< HEAD
         ..Default::default()
-=======
->>>>>>> github/main
     });
     assert_eq!(report.status, SurfaceStatus::Blocked);
     assert!(report.missing_packages.contains(&"iproute2".to_string()));
@@ -470,17 +443,13 @@ fn package_status_is_blocked_when_bootstrap_package_missing() {
 fn package_activation_plan_refers_to_approved_source_and_postflight_checks() {
     let policy = StaticHostContractPort.desired_packages();
     let plan = policy.activation_plan();
-<<<<<<< HEAD
     // Preflight now asserts the *selected distribution authority* rather than a
     // prose mention of approved sources: an unresolved provenance must be
     // visible before any install command is considered.
-=======
->>>>>>> github/main
     assert!(
         plan.preflight
             .iter()
             .map(render_command)
-<<<<<<< HEAD
             .any(|item| item.contains("repository:distribution_package")),
         "preflight: {:?}",
         plan.preflight
@@ -499,9 +468,6 @@ fn package_activation_plan_refers_to_approved_source_and_postflight_checks() {
             .iter()
             .map(render_command)
             .collect::<Vec<_>>()
-=======
-            .any(|item| item.contains("approved package source"))
->>>>>>> github/main
     );
     assert!(
         plan.postflight

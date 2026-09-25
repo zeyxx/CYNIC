@@ -555,17 +555,11 @@ mod tests {
         assert_eq!(resolved.log_root, log_root);
         assert_eq!(resolved.provider_hosts_path, provider_hosts_path);
         assert_eq!(resolved.sudoers_dir, PathBuf::from("/etc/sudoers.d"));
-<<<<<<< HEAD
         assert!(
             resolved.dns_service_path
                 == PathBuf::from("/etc/systemd/system/coredns-synapse.service")
                 || resolved.dns_service_path
                     == PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service")
-=======
-        assert_eq!(
-            resolved.dns_service_path,
-            PathBuf::from("/etc/systemd/system/coredns-synapse.service")
->>>>>>> github/main
         );
     }
 

@@ -19,7 +19,6 @@ use cynic_kernel::domain::storage::NullStorage;
 use cynic_kernel::domain::usage::DogUsageTracker;
 use cynic_kernel::domain::verdict_cache::VerdictCache;
 use cynic_kernel::infra::task_health::TaskHealth;
-<<<<<<< HEAD
 
 #[test]
 fn signing_identity_requires_an_explicit_principal_binding() {
@@ -48,8 +47,6 @@ fn signing_identity_requires_an_explicit_principal_binding() {
     assert_eq!(principal.role, Role::Organ);
     assert_eq!(principal.mechanism, AuthenticationMechanism::BoundEd25519);
 }
-=======
->>>>>>> github/main
 
 fn test_state(api_key: Option<&str>) -> Arc<AppState> {
     test_state_with_role_keys(
@@ -60,10 +57,7 @@ fn test_state(api_key: Option<&str>) -> Arc<AppState> {
             internal: None,
             legacy: api_key.map(|s| s.to_string()),
             agent_bindings: Vec::new(),
-<<<<<<< HEAD
             signing_bindings: Vec::new(),
-=======
->>>>>>> github/main
         },
     )
 }
@@ -83,10 +77,7 @@ fn test_agent_state(agent_id: &str, api_key: &str) -> Arc<AppState> {
             internal: None,
             legacy: None,
             agent_bindings: vec![binding],
-<<<<<<< HEAD
             signing_bindings: Vec::new(),
-=======
->>>>>>> github/main
         },
     )
 }
@@ -96,12 +87,9 @@ fn test_state_with_role_keys(
     role_keys: cynic_kernel::api::rest::types::RoleKeyMap,
 ) -> Arc<AppState> {
     Arc::new(AppState {
-<<<<<<< HEAD
         agent_sessions: None,
         node_control: None,
         node_enrollment: None,
-=======
->>>>>>> github/main
         registered_services: Default::default(),
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
@@ -152,10 +140,6 @@ fn test_state_with_role_keys(
                 &std::collections::HashMap::new(),
             ),
         ),
-<<<<<<< HEAD
-=======
-        mail: None,
->>>>>>> github/main
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(
@@ -891,12 +875,9 @@ async fn coord_register_accepts_valid_intent() {
 async fn events_rejects_when_sse_semaphore_exhausted() {
     // Build state with 0 SSE permits — simulates all 32 slots taken.
     let state = Arc::new(AppState {
-<<<<<<< HEAD
         node_control: None,
         node_enrollment: None,
         agent_sessions: None,
-=======
->>>>>>> github/main
         registered_services: Default::default(),
         storage: Arc::new(NullStorage),
         coord: Arc::new(NullCoord),
@@ -912,10 +893,7 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
             internal: None,
             legacy: Some("sse-test-key".to_string()),
             agent_bindings: Vec::new(),
-<<<<<<< HEAD
             signing_bindings: Vec::new(),
-=======
->>>>>>> github/main
         },
         storage_info: StorageInfo {
             namespace: "test".into(),
@@ -957,10 +935,6 @@ async fn events_rejects_when_sse_semaphore_exhausted() {
                 &std::collections::HashMap::new(),
             ),
         ),
-<<<<<<< HEAD
-=======
-        mail: None,
->>>>>>> github/main
         node_registry: std::sync::Arc::new(cynic_kernel::api::websocket::NodeRegistry::new(120)),
         zones: std::sync::Arc::new(cynic_kernel::domain::zones::ZoneConfig::default()),
         producer_heartbeats: std::sync::Arc::new(std::sync::RwLock::new(

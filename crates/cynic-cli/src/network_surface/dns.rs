@@ -1,6 +1,5 @@
 use std::process::ExitCode;
 
-<<<<<<< HEAD
 use clap::Subcommand;
 use cynic_node::NetworkCommands;
 
@@ -44,14 +43,6 @@ pub(crate) enum NetworkDnsCommand {
     },
 }
 
-=======
-use cynic_node::NetworkCommands;
-
-use crate::network_surface::{NetworkCommand, NetworkDnsCommand};
-use crate::registry_path;
-use crate::runtime_paths::RuntimePaths;
-
->>>>>>> github/main
 pub(crate) fn try_execute_dns(
     command: NetworkCommand,
     runtime: &RuntimePaths,
@@ -92,7 +83,6 @@ pub(crate) fn try_execute_dns(
         NetworkDnsCommand::Plan { .. } => {
             cynic_node::execute_network_command(&NetworkCommands::DnsPlan { json: true })
         }
-<<<<<<< HEAD
         NetworkDnsCommand::Activate {
             registry,
             bundle_dir,
@@ -103,8 +93,6 @@ pub(crate) fn try_execute_dns(
             bundle_dir,
             yes,
         }),
-=======
->>>>>>> github/main
     };
 
     Ok(exit)

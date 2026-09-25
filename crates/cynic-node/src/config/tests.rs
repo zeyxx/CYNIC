@@ -247,7 +247,6 @@ fn expand_env_vars_dollar_without_brace() {
 }
 
 #[test]
-<<<<<<< HEAD
 fn node_control_config_loads_without_inference_sections() {
     use std::io::Write;
 
@@ -314,8 +313,6 @@ signer_identity = "cynic-release"
 }
 
 #[test]
-=======
->>>>>>> github/main
 fn load_fails_if_api_key_env_not_set() {
     use std::io::Write;
 
