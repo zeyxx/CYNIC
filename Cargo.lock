@@ -970,7 +970,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-protocol",
- "cynic-vcs",
  "cynic-workload",
  "hex",
  "libc",
@@ -1115,6 +1114,17 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cynic-eval"
+version = "0.2.0"
+dependencies = [
+ "cynic-protocol",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1654,7 +1664,6 @@ version = "0.8.0"
 dependencies = [
  "cynic-consensus",
  "cynic-protocol",
- "cynic-vcs",
  "hex",
  "serde",
  "serde_json",
