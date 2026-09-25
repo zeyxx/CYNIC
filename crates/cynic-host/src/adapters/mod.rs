@@ -45,4 +45,5 @@ pub mod remote_memory;
 pub mod remote_network;
 pub mod remote_queue;
 pub mod source_admission_adapter;
+pub mod vcs_runner;
 pub mod window_runner;

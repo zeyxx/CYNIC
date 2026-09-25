@@ -1,4 +1,7 @@
 //! Command execution abstractions for VCS operations.
+//!
+//! Layer-pure ports: defines runner traits without concrete OS process bindings.
+//! Concrete implementations (LocalVcsRunner) live in `cynic-host`.
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VcsCommandOutput {
@@ -47,51 +50,6 @@ impl ArgvOutput {
 
 pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LocalVcsRunner;
-
-impl VcsRunner for LocalVcsRunner {
-    fn run(&self, argv: &[&str]) -> VcsCommandOutput {
-        if argv.is_empty() {
-            return VcsCommandOutput {
-                exit_code: None,
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-                spawn_error: Some("empty argv".to_string()),
-            };
-        }
-        match std::process::Command::new(argv[0])
-            .args(&argv[1..])
-            .output()
-        {
-            Ok(output) => VcsCommandOutput {
-                exit_code: output.status.code(),
-                stdout: output.stdout,
-                stderr: output.stderr,
-                spawn_error: None,
-            },
-            Err(error) => VcsCommandOutput {
-                exit_code: None,
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-                spawn_error: Some(format!("spawn {}: {error}", argv[0])),
-            },
-        }
-    }
-}
-
-impl ArgvRunner for LocalVcsRunner {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        let out = <Self as VcsRunner>::run(self, argv);
-        ArgvOutput {
-            exit_code: out.exit_code,
-            stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
-            spawn_error: out.spawn_error,
-        }
-    }
 }
 
 #[cfg(test)]

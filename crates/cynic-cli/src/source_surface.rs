@@ -292,12 +292,17 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         }
     };
 
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     let inventory = cynic_vcs::observe_source_worktree_inventory(
-        &root_canonical,
+        root,
         &ws_store_canonical,
         "cynic",
         "local",
-        &cynic_vcs::LocalVcsRunner,
+        &cynic_host::adapters::vcs_runner::LocalVcsRunner,
+        now_ms,
     );
     let head_sha = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
@@ -365,8 +370,12 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     );
 
     if apply {
-        let runner = cynic_vcs::LocalVcsRunner;
-        let proof = cynic_vcs::reconcile::apply_worktree_convergence(&plan, &runner, false);
+        let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let proof = cynic_vcs::reconcile::apply_worktree_convergence(&plan, &runner, false, now);
 
         if json {
             emit_pretty_json(&proof)

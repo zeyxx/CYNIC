@@ -320,7 +320,8 @@ SESSION 1 : Éclater cynic-protocol
                    schemas cynic.build.harness_*)
     solana/ + anchor_client.rs → cynic-solana-pay (créé 2026-09-24);
                    anchor_client purged (dead code, DEFERRED)
-    ✅ VAGUE A TERMINÉE 2026-09-24 (commit 06c19797)
+    ✅ VAGUE A TERMINÉE 2026-09-24 (commit 06c19797
+      Preuve: cargo check -p 11 crates EXIT=0, 697✓/3 détenue par autre agent)
     Leçons: (1) SecurityEvidenceState reste au résidu — vocabulaire de preuve
     partagé 40 fichiers/5 crates; (2) AllowanceGrant = vocabulaire cross-family
     (agentic_tool_call) → résidu, behavior en extension trait dans la crate
@@ -328,7 +329,11 @@ SESSION 1 : Éclater cynic-protocol
     (0 consommateur externe).
 
   VAGUE B — importent uniquement des feuilles-A
-    evidence.rs (→ digest_json)           → cynic-eval-evidence (créer)
+    evidence.rs (→ digest_json)           → cynic-eval (CONSOMMÉ, shared vocab réside dans protocol)
+    eval/ + judgment + kyon +              → cynic-eval (CRÉÉ, Vague B)
+    convergence/ + evidence_journal +       evidence_projection +
+    judge_patch + emergence_gallery        emergence_gallery + agent_execution_provenance
+    (= R7 consolidation, PAS cynic-eval-<X> split — user vetoes 2026-09-25)
     convergence/ (→ evidence)             → cynic-node-consensus (absorber)
     node_identity/enrollment/control/activation → cynic-node-protocol (créer)
     runtime_placement/seed/takeover        → cynic-runtime-* (créer)
@@ -336,7 +341,7 @@ SESSION 1 : Éclater cynic-protocol
     host_substrate/ (cpu/disk/memory)      → cynic-host-substrate (créer)
 
   VAGUE C — importent B
-    eval/ + judgment + kyon               → cynic-eval-dog + cynic-eval-judgment
+    (eval/judgment/kyon déjà extractés dans cynic-eval Vague B)
     agent_session/ + agent_coordination   → cynic-agent-coord + cynic-agent-session
     fleet_heartbeat/discovery             → cynic-fleet-heartbeat
     llm_port + fleet_inference/           → cynic-inference-llm
@@ -387,13 +392,13 @@ Tier 1 (→ protocol only) :
   cynic-workload  cynic-secrets  cynic-network  cynic-storage
   cynic-vcs  cynic-host-forensics  cynic-host-lifecycle  cynic-host-release
   cynic-host-lxc  cynic-host-pkg  cynic-host-sandbox  cynic-agent-bus
-  cynic-node-consensus  cynic-eval-evidence  cynic-node-protocol
+  cynic-node-consensus  cynic-eval  cynic-node-protocol
   cynic-host-substrate  cynic-runtime-*  cynic-node-autonomy
   cynic-fleet-heartbeat  cynic-agent-channel  cynic-agent-pool
 
 Tier 2 (→ T1) :
   cynic-build  cynic-inference  cynic-intel-soc
-  cynic-eval-dog  cynic-eval-judgment  cynic-agent-coord
+  cynic-eval  cynic-agent-coord
   cynic-agent-coordination  cynic-vcs-forgejo
 
 Tier 3 (→ T2) :
@@ -429,9 +434,7 @@ TIER no_std + alloc  (on-chain Solana, sandboxes, WASM)
 
   À LA CRÉATION (extraction Session 1) :
     cynic-protocol résidu
-    cynic-eval-evidence
-    cynic-eval-dog
-    cynic-eval-judgment
+    cynic-eval            (déjà #![no_std] ready — eval/dog/judgment/kyon)
     cynic-agent-types     (types purs extraits de cynic-agent-bus)
 
   À VÉRIFIER (peuvent avoir des deps std cachées) :
@@ -498,7 +501,7 @@ E6. Zéro re-export global
 | `framework.rs` | cynic-cli | auto-description machine, sortante |
 | `emergence.rs` | cynic-node-autonomy | coordination sans kernel, domaine NODE |
 | `local_autonomy.rs` | cynic-node-autonomy | couplé à emergence (re-export mutuel) |
-| `emergence_gallery.rs` | cynic-eval-evidence | importe EvidenceEnvelope + CynicErrorCode |
+| `emergence_gallery.rs` | cynic-eval | importe EvidenceEnvelope + CynicErrorCodeCode |
 | `sensory.rs` | cynic-host-probes | SensoryPort trait, captures snapshot |
 
 ---

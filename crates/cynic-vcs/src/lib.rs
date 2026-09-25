@@ -54,14 +54,11 @@ pub fn observe_source_worktree_inventory(
     repository_id: &str,
     node_id: &str,
     runner: &impl VcsRunner,
+    observed_at_ms: u64,
 ) -> SourceWorktreeInventoryObservation {
     let root = repository_root.to_string_lossy().to_string();
     let argv = ["git", "-C", &root, "worktree", "list", "--porcelain", "-z"];
     let output = runner.run(&argv);
-    let observed_at_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
 
     if output.exit_code != Some(0) || output.spawn_error.is_some() {
         return unknown_observation(
@@ -157,7 +154,5 @@ fn malformed_observation(
 }
 
 fn observed_absolute_path(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path)
-        .or_else(|_| std::path::absolute(path))
-        .unwrap_or_else(|_| path.to_path_buf())
+    std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf())
 }

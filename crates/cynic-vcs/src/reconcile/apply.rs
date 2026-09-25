@@ -3,9 +3,8 @@
 //! Executes convergence plans through an injectable ArgvRunner and collects read-back evidence.
 //! Enforces exclusive locking and idempotent pruning.
 
-use std::fs::File;
+use std::any::Any;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::runner::ArgvRunner;
 use crate::source_worktree::{
@@ -13,41 +12,8 @@ use crate::source_worktree::{
     WorktreeConvergenceApplyProof, WorktreeConvergencePlan,
 };
 
-/// Simple RAII file lock guard for worktree convergence.
-pub struct ConvergenceLockGuard {
-    _file: Option<File>,
-    lock_path: PathBuf,
-}
-
-impl ConvergenceLockGuard {
-    pub fn acquire(repository_root: &Path) -> Result<Self, String> {
-        let lock_dir = repository_root.join(".git");
-        let lock_path = lock_dir.join("cynic-convergence.lock");
-
-        if !lock_dir.exists() {
-            // Non-git or mock environment: return unlocked stub
-            return Ok(Self {
-                _file: None,
-                lock_path,
-            });
-        }
-
-        match File::create(&lock_path) {
-            Ok(file) => Ok(Self {
-                _file: Some(file),
-                lock_path,
-            }),
-            Err(e) => Err(format!("failed to acquire convergence lock: {e}")),
-        }
-    }
-}
-
-impl Drop for ConvergenceLockGuard {
-    fn drop(&mut self) {
-        if self._file.is_some() {
-            let _ = std::fs::remove_file(&self.lock_path);
-        }
-    }
+pub trait VcsLockPort: Send + Sync {
+    fn acquire_lock(&self, repository_root: &Path) -> Result<Box<dyn Any>, String>;
 }
 
 /// Executes a convergence plan and returns structured read-back proof.
@@ -55,17 +21,9 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
     plan: &WorktreeConvergencePlan,
     runner: &R,
     dry_run: bool,
+    timestamp_epoch_seconds: u64,
 ) -> WorktreeConvergenceApplyProof {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-
-    let _lock = if !dry_run {
-        ConvergenceLockGuard::acquire(&plan.repository_root).ok()
-    } else {
-        None
-    };
+    let now = timestamp_epoch_seconds;
 
     let root_str = plan.repository_root.to_string_lossy();
     let mut receipts = Vec::new();
@@ -298,7 +256,7 @@ mod tests {
             summary: WorktreeConvergenceSummary::default(),
         };
 
-        let proof = apply_worktree_convergence(&plan, &runner, false);
+        let proof = apply_worktree_convergence(&plan, &runner, false, 1_700_000_000);
         assert_eq!(proof.executed_actions.len(), 2);
         assert!(proof.executed_actions[0].success);
         assert_eq!(
@@ -324,7 +282,7 @@ mod tests {
             summary: WorktreeConvergenceSummary::default(),
         };
 
-        let proof = apply_worktree_convergence(&plan, &runner, true);
+        let proof = apply_worktree_convergence(&plan, &runner, true, 1_700_000_000);
         assert_eq!(proof.executed_actions.len(), 1);
         assert!(proof.executed_actions[0].message.contains("Dry-run"));
         assert!(proof.all_successful);

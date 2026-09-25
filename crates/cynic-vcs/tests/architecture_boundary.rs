@@ -33,10 +33,12 @@ fn vcs_domain_modules_are_pure_zero_io() {
     let domain_files = [
         "src/entry.rs",
         "src/parse.rs",
+        "src/runner.rs",
         "src/sync/types.rs",
         "src/sync/reconcile.rs",
         "src/reconcile/types.rs",
         "src/reconcile/reconcile.rs",
+        "src/reconcile/apply.rs",
         "src/forgejo.rs",
         "src/git_hygiene.rs",
         "src/git_topology.rs",
@@ -57,6 +59,11 @@ fn vcs_domain_modules_are_pure_zero_io() {
         assert!(
             !content.contains("std::process::Command"),
             "Pure Domain Violation: {} contains direct `std::process::Command`! Move to an adapter or runner.",
+            rel_path
+        );
+        assert!(
+            !content.contains("std::fs::"),
+            "Pure Domain Violation: {} contains direct filesystem access `std::fs`!",
             rel_path
         );
         assert!(
