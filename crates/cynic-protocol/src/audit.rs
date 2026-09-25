@@ -65,10 +65,14 @@ pub struct AuditSummary {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditReportV2 {
+<<<<<<< HEAD
     /// Owned, not `&'static str`: a report that serializes but cannot round-trip
     /// back is not verifiable evidence. Borrowing here forces any deserializing
     /// caller into a `'static` lifetime it cannot satisfy.
     pub schema: String,
+=======
+    pub schema: &'static str,
+>>>>>>> github/main
     pub generated_at: String,
     pub summary: AuditSummary,
     pub violations: Vec<AuditViolation>,
@@ -95,7 +99,11 @@ mod tests {
     #[test]
     fn test_audit_report_v2_serde_roundtrip() {
         let report = AuditReportV2 {
+<<<<<<< HEAD
             schema: AUDIT_REPORT_SCHEMA_V2.to_string(),
+=======
+            schema: AUDIT_REPORT_SCHEMA_V2,
+>>>>>>> github/main
             generated_at: "2026-08-14T00:00:00Z".to_string(),
             summary: AuditSummary {
                 status: "ok".to_string(),

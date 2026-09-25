@@ -98,7 +98,11 @@ impl HeliusEnricher {
             credits: Arc::new(HeliumsCreditTracker::new(
                 chrono::Utc::now().timestamp_millis().to_string(),
             )),
+<<<<<<< HEAD:crates/cynic-intel/src/adapters/helius/mod.rs
             kscore_config: KScoreConfigSnapshot::default(),
+=======
+            kscore_config: crate::infra::config::KScoreConfig::default(),
+>>>>>>> github/main:crates/cynic-kernel/src/backends/helius/mod.rs
         }
     }
 

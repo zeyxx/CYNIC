@@ -4,7 +4,10 @@ pub mod fleet_reconcile;
 pub mod fleet_truth;
 pub mod homeostasis;
 pub mod mesh;
+<<<<<<< HEAD
 pub mod mesh_coordination;
+=======
+>>>>>>> github/main
 pub(crate) mod network_execution;
 pub(crate) mod network_mesh_apply;
 pub mod network_projection;
@@ -12,8 +15,11 @@ pub mod node_observation;
 pub mod observation_plan;
 pub mod observation_runtime;
 pub mod runtime_federation;
+<<<<<<< HEAD
 pub mod source_repository_proof;
 pub mod storage_lifecycle;
+=======
+>>>>>>> github/main
 pub mod supervision;
 pub mod system_observation;
 pub mod version;

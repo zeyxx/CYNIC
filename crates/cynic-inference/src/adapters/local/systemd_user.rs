@@ -424,17 +424,29 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
         // GGUF architecture preflight — fail closed before systemd restart storms.
         crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = std::path::Path::new(&profile.model_path);
+<<<<<<< HEAD
         let store =
             crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
         let gguf_meta =
             crate::infra::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
                 .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
+=======
+        let gguf_meta = crate::domain::gguf_meta::preflight_gguf_for_engine(
+            model_path,
+            crate::domain::gguf_meta::default_supported_arches_for_llama_b9444(),
+        )
+        .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
+>>>>>>> github/main
 
         // Probe-driven plan: regenerate runtime env + resource drop-in every start.
         crate::progress::progress("plan", "probe hardware + materialize runtime env/drop-in");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
+<<<<<<< HEAD
         let materialize = planner.materialize(&plan)?;
+=======
+        let materialize = planner.materialize_systemd_user(&plan)?;
+>>>>>>> github/main
 
         Self::stop_legacy_fixed_unit();
         for other in Self::list_running_aliases()? {

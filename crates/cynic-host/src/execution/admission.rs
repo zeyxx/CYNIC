@@ -318,6 +318,7 @@ pub(crate) fn digest_json<T: Serialize>(value: &T) -> String {
     cynic_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
 }
 
+<<<<<<< HEAD
 pub(crate) fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<String>) -> String {
     if let Some(error) = spawn_error {
         if stderr.is_empty() {
@@ -329,6 +330,8 @@ pub(crate) fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<St
     stderr
 }
 
+=======
+>>>>>>> github/main
 fn service_policy_descriptor(
     policy_id: &str,
     required_authority: PolicyAuthority,

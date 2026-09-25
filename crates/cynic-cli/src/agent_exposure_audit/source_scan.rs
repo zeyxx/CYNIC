@@ -1,8 +1,13 @@
+<<<<<<< HEAD
+=======
+use std::collections::BTreeSet;
+>>>>>>> github/main
 use std::fs;
 use std::path::Path;
 
 use crate::rust_source::rust_files_under;
 
+<<<<<<< HEAD
 #[derive(Debug, Clone)]
 pub(crate) struct McpToolDiscovery {
     pub(crate) name: String,
@@ -39,10 +44,15 @@ pub(crate) fn scan_workspace_mcp_tools() -> Vec<McpToolDiscovery> {
 
 pub(crate) fn scan_mcp_tools(src_root: &Path) -> Vec<McpToolDiscovery> {
     let mut tools = Vec::new();
+=======
+pub(crate) fn scan_mcp_tool_names(src_root: &Path) -> BTreeSet<String> {
+    let mut tools = BTreeSet::new();
+>>>>>>> github/main
     for path in rust_files_under(src_root) {
         let Ok(source) = fs::read_to_string(&path) else {
             continue;
         };
+<<<<<<< HEAD
         // Production only: test fixtures must never certify as implementations.
         let (production, _) = split_production_and_tests(&source);
         let rel = path.display().to_string();
@@ -79,12 +89,32 @@ fn extract_tools(source: &str) -> Vec<McpToolDiscovery> {
         }
         idx = start + 7;
         if idx >= source.len() {
+=======
+        tools.extend(extract_tool_names(&source));
+    }
+    tools
+}
+
+pub(crate) fn extract_tool_names(source: &str) -> BTreeSet<String> {
+    let mut tools = BTreeSet::new();
+    let bytes = source.as_bytes();
+    let mut idx = 0usize;
+    while let Some(rel) = source[idx..].find("#[tool(") {
+        let start = idx + rel;
+        let window = &source[start..source.len().min(start + 400)];
+        if let Some(name) = parse_tool_name(window) {
+            tools.insert(name);
+        }
+        idx = start + 7;
+        if idx >= bytes.len() {
+>>>>>>> github/main
             break;
         }
     }
     tools
 }
 
+<<<<<<< HEAD
 fn extract_attr_value(block: &str, key: &str) -> Option<String> {
     if let Some(pos) = block.find(key) {
         let after = &block[pos + key.len()..];
@@ -97,10 +127,29 @@ fn extract_attr_value(block: &str, key: &str) -> Option<String> {
                 }
             }
         }
+=======
+fn parse_tool_name(window: &str) -> Option<String> {
+    let name_key = "name";
+    let mut rest = window;
+    while let Some(pos) = rest.find(name_key) {
+        let after = rest[pos + name_key.len()..].trim_start();
+        if !after.starts_with('=') {
+            rest = &rest[pos + name_key.len()..];
+            continue;
+        }
+        let after_eq = after[1..].trim_start();
+        if let Some(stripped) = after_eq.strip_prefix('"') {
+            if let Some(end) = stripped.find('"') {
+                return Some(stripped[..end].to_string());
+            }
+        }
+        rest = after;
+>>>>>>> github/main
     }
     None
 }
 
+<<<<<<< HEAD
 fn split_production_and_tests(source: &str) -> (&str, &str) {
     if let Some(pos) = source.find("#[cfg(test)]") {
         (&source[..pos], &source[pos..])
@@ -113,6 +162,11 @@ fn split_production_and_tests(source: &str) -> (&str, &str) {
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+=======
+#[cfg(test)]
+mod tests {
+    use super::*;
+>>>>>>> github/main
 
     #[test]
     fn extract_tool_names_from_attribute_blocks() {
@@ -126,7 +180,11 @@ mod tests {
             #[tool(name = "cynic_judge", description = "judge")]
             async fn judge() {}
         "#;
+<<<<<<< HEAD
         let names: BTreeSet<String> = extract_tools(source).into_iter().map(|t| t.name).collect();
+=======
+        let names = extract_tool_names(source);
+>>>>>>> github/main
         assert!(names.contains("cynic_health"));
         assert!(names.contains("cynic_judge"));
         assert_eq!(names.len(), 2);

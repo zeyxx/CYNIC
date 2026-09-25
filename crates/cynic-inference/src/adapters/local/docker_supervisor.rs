@@ -1,7 +1,11 @@
 //! Docker-based local inference supervisor integrated with Osmantic ODS Compose infrastructure.
 //!
 //! Controls the ODS compose-managed `dream-llama-server` container by updating
+<<<<<<< HEAD
 //! `<CYNIC_ODS_DIR>/.env` and using `<CYNIC_ODS_DIR>/dream-cli` to restart the service.
+=======
+//! `/home/user/dream-server/.env` and using `/home/user/dream-server/dream-cli` to restart the service.
+>>>>>>> github/main
 //!
 //! Select with `CYNIC_INFERENCE_SUPERVISOR=docker`.
 
@@ -18,6 +22,7 @@ use crate::ports::local_runtime_port::{
 };
 
 const SUPERVISOR_SURFACE: &str = "docker";
+<<<<<<< HEAD
 const ODS_DIR_ENV: &str = "CYNIC_ODS_DIR";
 const ODS_DIR_DEFAULT: &str = "/var/lib/cynic/ods";
 
@@ -32,6 +37,9 @@ fn ods_dir() -> std::path::PathBuf {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| std::path::PathBuf::from(ODS_DIR_DEFAULT))
 }
+=======
+const ODS_DIR: &str = "/home/user/dream-server";
+>>>>>>> github/main
 
 #[derive(Debug)]
 pub struct DockerLocalRuntime {
@@ -50,7 +58,11 @@ impl DockerLocalRuntime {
     }
 
     fn read_active_env(&self) -> Result<(String, String), std::io::Error> {
+<<<<<<< HEAD
         let env_path = ods_dir().join(".env");
+=======
+        let env_path = Path::new(ODS_DIR).join(".env");
+>>>>>>> github/main
         let content = fs::read_to_string(env_path)?;
         let mut model = String::new();
         let mut port = "11434".to_string();
@@ -95,7 +107,11 @@ impl DockerLocalRuntime {
         ctx: &str,
         port: &str,
     ) -> Result<(), std::io::Error> {
+<<<<<<< HEAD
         let env_path = ods_dir().join(".env");
+=======
+        let env_path = Path::new(ODS_DIR).join(".env");
+>>>>>>> github/main
         let content = fs::read_to_string(&env_path)?;
         let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
 
@@ -186,7 +202,11 @@ impl LocalInferenceRuntimePort for DockerLocalRuntime {
             .to_str()
             .ok_or_else(|| LocalRuntimeError::Control("invalid GGUF filename encoding".into()))?;
 
+<<<<<<< HEAD
         let dest_path = ods_dir().join("data/models").join(gguf_filename);
+=======
+        let dest_path = Path::new(ODS_DIR).join("data/models").join(gguf_filename);
+>>>>>>> github/main
         if dest_path.exists() {
             let _ = fs::remove_file(&dest_path);
         }
@@ -204,7 +224,11 @@ impl LocalInferenceRuntimePort for DockerLocalRuntime {
         );
 
         // Restart ODS llama-server using ODS CLI
+<<<<<<< HEAD
         let status = Command::new(ods_dir().join("dream-cli"))
+=======
+        let status = Command::new(Path::new(ODS_DIR).join("dream-cli"))
+>>>>>>> github/main
             .args(["restart", "llama-server"])
             .status()
             .map_err(|e| LocalRuntimeError::Control(format!("execute dream-cli restart: {e}")))?;
@@ -259,7 +283,11 @@ impl LocalInferenceRuntimePort for DockerLocalRuntime {
             .unwrap_or_else(|_| ("unknown".to_string(), "11434".to_string()));
 
         // Stop ODS llama-server using ODS CLI
+<<<<<<< HEAD
         let status = Command::new(ods_dir().join("dream-cli"))
+=======
+        let status = Command::new(Path::new(ODS_DIR).join("dream-cli"))
+>>>>>>> github/main
             .args(["stop", "llama-server"])
             .status()
             .map_err(|e| LocalRuntimeError::Control(format!("execute dream-cli stop: {e}")))?;

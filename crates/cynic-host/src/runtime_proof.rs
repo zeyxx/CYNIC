@@ -5,8 +5,13 @@ use cynic_protocol::{
     RuntimeProofEvidence,
 };
 
+<<<<<<< HEAD
 use crate::build::BuildConformanceEvidence;
 use crate::domain::shared::SurfaceStatus;
+=======
+use crate::domain::shared::SurfaceStatus;
+use crate::build::BuildProof;
+>>>>>>> github/main
 use crate::usecases::HostObservationReports;
 use crate::vertical_conformance::VerticalConformanceReport;
 
@@ -132,14 +137,22 @@ pub fn assemble_runtime_proof_bundle(
 pub fn assemble_runtime_proof_persistence_record(
     bundle: &RuntimeProofBundle,
     verticals: &VerticalConformanceReport,
+<<<<<<< HEAD
     build_evidence: Option<&BuildConformanceEvidence>,
+=======
+    build_proof: Option<&BuildProof>,
+>>>>>>> github/main
 ) -> cynic_protocol::RuntimeProofPersistenceRecord {
     let node = bundle
         .proofs
         .first()
         .map(|proof| proof.subject.clone())
         .unwrap_or_else(|| "unknown-node".to_string());
+<<<<<<< HEAD
     let revision = build_evidence
+=======
+    let revision = build_proof
+>>>>>>> github/main
         .map(|proof| proof.source_commit.clone())
         .filter(|revision| !revision.is_empty())
         .unwrap_or_else(|| "observation-only".to_string());
@@ -147,11 +160,15 @@ pub fn assemble_runtime_proof_persistence_record(
         .verticals
         .iter()
         .flat_map(|vertical| vertical.evidence_refs.iter().cloned())
+<<<<<<< HEAD
         .chain(
             build_evidence
                 .into_iter()
                 .flat_map(|evidence| evidence.evidence_refs.iter().cloned()),
         )
+=======
+        .chain(build_proof.into_iter().map(|_| "build_proof".to_string()))
+>>>>>>> github/main
         .collect();
     cynic_protocol::runtime_proof_persistence_record(
         node,
@@ -231,7 +248,10 @@ mod tests {
                 home_matches: true,
                 missing_state_dirs: Vec::new(),
                 misowned_paths: Vec::new(),
+<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
                 evidences: Vec::new(),
             },
             privilege: PrivilegeStatusReport {
@@ -258,8 +278,11 @@ mod tests {
                         .to_string(),
                 next_command: None,
                 approved_sources_declared: true,
+<<<<<<< HEAD
                 provenance_selected: true,
                 provenance_blocker: None,
+=======
+>>>>>>> github/main
                 installed_packages: Vec::new(),
                 missing_packages: Vec::new(),
                 evidences: Vec::new(),

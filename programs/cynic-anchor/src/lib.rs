@@ -2,7 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{self, Burn, Token2022};
 
 pub mod state;
-pub mod cpmm_tests;
 use state::*;
 
 declare_id!("CYNiC11111111111111111111111111111111111111");
@@ -101,7 +100,7 @@ pub mod cynic_anchor {
     /// 5. Destruction déflationniste IGNIS avec Token-2022 Burn CPI
     pub fn execute_ignis_burn(ctx: Context<ExecuteIgnisBurn>, amount: u64) -> Result<()> {
         let mut vault = ctx.accounts.ignis_vault.load_mut()?;
-
+        
         let cpi_accounts = Burn {
             mint: ctx.accounts.mint.to_account_info(),
             from: ctx.accounts.token_source.to_account_info(),

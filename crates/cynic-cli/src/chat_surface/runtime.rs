@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+=======
+use std::time::Duration;
+use std::path::Path;
+use std::sync::Arc;
+>>>>>>> github/main
 
 use cynic_inference::{
     BuiltinToolInvoker, ChatEndpointSource, ChatService, ChatSessionStore, FsChatSessionStore,
@@ -76,11 +82,15 @@ fn parse_env_bool(name: &str) -> Option<bool> {
 fn extract_log_path_from_message(message: &str) -> Option<String> {
     message
         .split(';')
+<<<<<<< HEAD
         .find_map(|part| {
             part.trim()
                 .strip_prefix("log=")
                 .map(|value| value.to_string())
         })
+=======
+        .find_map(|part| part.trim().strip_prefix("log=").map(|value| value.to_string()))
+>>>>>>> github/main
         .or_else(|| {
             message
                 .split_once("log=")
@@ -437,7 +447,17 @@ async fn bind_preferred_local_alias(
             endpoint = await_local_endpoint(service, alias).await;
         }
         let endpoint = endpoint?;
+<<<<<<< HEAD
         return bind_alias_to_chat_model(&endpoint, alias, &log_path, readiness_deferred).await;
+=======
+        return bind_alias_to_chat_model(
+            &endpoint,
+            alias,
+            &log_path,
+            readiness_deferred,
+        )
+        .await;
+>>>>>>> github/main
     }
 
     let endpoint = endpoint?;
@@ -503,7 +523,11 @@ fn local_selector_error(
         "run: cynic runtime inference-vault --json"
     };
     format!(
+<<<<<<< HEAD
         "local model selector `{selector}` is not resolvable; it looks like a local GGUF/profile selector, but no matching alias exists in inventory. {alias_hint}. {action_hint}, then cynic models start <alias> --yes"
+=======
+        "local model selector `{selector}` is not resolvable; it looks like a local GGUF/profile selector, but no matching alias exists in inventory. {alias_hint}. {action_hint}, then cynic runtime inference-start <alias>"
+>>>>>>> github/main
     )
 }
 
@@ -704,16 +728,24 @@ mod tests {
         let four_gib = 4_u64 * 1024 * 1024 * 1024;
         assert!(should_defer_local_readiness_for_chat(Some(four_gib)));
         assert!(should_defer_local_readiness_for_chat(Some(four_gib + 1)));
+<<<<<<< HEAD
         assert!(should_defer_local_readiness_for_chat(Some(
             4_u64 * 1024 * 1024 * 1024 + 1
         )));
+=======
+        assert!(should_defer_local_readiness_for_chat(Some(4_u64 * 1024 * 1024 * 1024 + 1)));
+>>>>>>> github/main
     }
 
     #[test]
     fn should_not_defer_local_readiness_for_chat_for_small_model_sizes() {
+<<<<<<< HEAD
         assert!(!should_defer_local_readiness_for_chat(Some(
             2_u64 * 1024 * 1024 * 1024
         )));
+=======
+        assert!(!should_defer_local_readiness_for_chat(Some(2_u64 * 1024 * 1024 * 1024)));
+>>>>>>> github/main
         assert!(!should_defer_local_readiness_for_chat(Some(1)));
         assert!(!should_defer_local_readiness_for_chat(None));
     }

@@ -15,17 +15,26 @@ pub async fn run_server(
         bind_addr
     );
 
+<<<<<<< HEAD
     // Démarrage du thread de diffusion périodique de télémétrie multi-dimensionnelle
+=======
+    // Démarrage du thread de diffusion périodique de télémétrie
+>>>>>>> github/main
     let tx_telemetry = tx_broadcast.clone();
     let peers_clone = connected_peers.clone();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
+<<<<<<< HEAD
             // 1. Dimension Flotte & Mesh P2P
             let peers = peers_clone.load(std::sync::atomic::Ordering::Relaxed);
 
             // 2. Dimension Blockchain & RPC
+=======
+            // Collecter les métriques réelles du nœud
+            let peers = peers_clone.load(std::sync::atomic::Ordering::Relaxed);
+>>>>>>> github/main
             let success_rate = crate::consensus::ConsensusTelemetry::observed_success_rate();
             let total_probes = crate::consensus::RPC_TRACKER
                 .total_probes
@@ -77,7 +86,10 @@ pub async fn run_server(
                 0.0
             };
 
+<<<<<<< HEAD
             // 3. Dimension E-Score & Intel
+=======
+>>>>>>> github/main
             use cynic_intel::escore::metrics::ESCORE_METRICS;
             let signals_processed = ESCORE_METRICS
                 .signals_processed
@@ -91,11 +103,14 @@ pub async fn run_server(
             let wss_reconnections =
                 crate::watcher::WSS_RECONNECTIONS.load(std::sync::atomic::Ordering::Relaxed);
 
+<<<<<<< HEAD
             // 4. Dimension Métabolisme Système
             use crate::metabolism::{MetabolismProvider, OsMetabolism};
             let mut metabolism = OsMetabolism::new();
             let metabolic_state = format!("{:?}", metabolism.current_state());
 
+=======
+>>>>>>> github/main
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -103,6 +118,7 @@ pub async fn run_server(
 
             let payload = serde_json::json!({
                 "type": "telemetry",
+<<<<<<< HEAD
                 "dimensions": {
                     "fleet": {
                         "connected_peers": peers,
@@ -129,6 +145,8 @@ pub async fn run_server(
                         "anti_whale_triggers": anti_whale_triggers
                     }
                 },
+=======
+>>>>>>> github/main
                 "connected_peers": peers,
                 "rpc_success_rate": success_rate,
                 "rpc_total_probes": total_probes,
@@ -150,12 +168,23 @@ pub async fn run_server(
         }
     });
 
+<<<<<<< HEAD
     let tx_for_accept = tx_broadcast.clone();
     tokio::spawn(async move {
         while let Ok((stream, _)) = listener.accept().await {
             let rx = tx_for_accept.subscribe();
             tokio::spawn(async move {
                 handle_connection(stream, rx).await;
+=======
+    let rx_broadcast = tx_broadcast.clone();
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            let rx = rx_broadcast.clone();
+            tokio::spawn(async move {
+                if let Err(e) = handle_connection(stream, rx).await {
+                    log::debug!("Fin de connexion du Dashboard : {}", e);
+                }
+>>>>>>> github/main
             });
         }
     });
@@ -164,6 +193,7 @@ pub async fn run_server(
 }
 
 async fn handle_connection(
+<<<<<<< HEAD
     stream: TcpStream,
     mut rx_broadcast: broadcast::Receiver<serde_json::Value>,
 ) {
@@ -207,4 +237,52 @@ async fn handle_connection(
             }
         }
     }
+=======
+    mut stream: TcpStream,
+    rx_broadcast: broadcast::Sender<serde_json::Value>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut buf = [0; 2048];
+    // Peek dans le socket sans consommer pour identifier la nature HTTP ou WS
+    let n = stream.peek(&mut buf).await?;
+    if n == 0 {
+        return Ok(());
+    }
+    let request_str = std::str::from_utf8(&buf[..n]).unwrap_or("");
+
+    if request_str.contains("Upgrade: websocket") || request_str.contains("upgrade: websocket") {
+        // Upgrade de la connexion en WebSocket
+        let ws_stream = tokio_tungstenite::accept_async(stream).await?;
+        let (mut ws_sender, mut _ws_receiver) = ws_stream.split();
+
+        // S'abonner aux événements du flux
+        let mut rx = rx_broadcast.subscribe();
+
+        // Loop de transmission des événements au format WS
+        while let Ok(msg) = rx.recv().await {
+            let text = msg.to_string();
+            if let Err(_) = ws_sender.send(Message::Text(text.into())).await {
+                break;
+            }
+        }
+    } else if request_str.contains("GET / ") || request_str.contains("GET /index.html ") {
+        // Servir le fichier HTML du Dashboard embarqué
+        let html_content = include_str!("dashboard.html");
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            html_content.len(),
+            html_content
+        );
+        stream.write_all(response.as_bytes()).await?;
+        stream.flush().await?;
+    } else {
+        // Servir HTTP 404
+        let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        stream.write_all(response.as_bytes()).await?;
+        stream.flush().await?;
+    }
+
+    Ok(())
+>>>>>>> github/main
 }

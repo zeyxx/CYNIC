@@ -4,7 +4,10 @@ DEFINE TABLE IF NOT EXISTS observation;
 DEFINE TABLE IF NOT EXISTS agent_session;
 DEFINE TABLE IF NOT EXISTS agent_tasks;
 DEFINE TABLE IF NOT EXISTS work_claim;
+<<<<<<< HEAD
 DEFINE TABLE IF NOT EXISTS agent_workspace_claim_lock;
+=======
+>>>>>>> github/main
 DEFINE TABLE IF NOT EXISTS mcp_audit;
 DEFINE TABLE IF NOT EXISTS dog_usage;
 DEFINE TABLE IF NOT EXISTS session_summary;
@@ -106,6 +109,7 @@ DEFINE FIELD IF NOT EXISTS consumer ON agent_tasks TYPE option<string | null>;
 DEFINE FIELD IF NOT EXISTS escalation_policy ON agent_tasks TYPE option<string | null>;
 DEFINE INDEX IF NOT EXISTS agent_tasks_pending_idx ON agent_tasks FIELDS kind, domain, status, created_at;
 DEFINE INDEX IF NOT EXISTS agent_tasks_completed_idx ON agent_tasks FIELDS kind, domain, status, completed_at;
+<<<<<<< HEAD
 DEFINE FIELD IF NOT EXISTS workload_id ON agent_workload_delivery TYPE string;
 DEFINE FIELD IF NOT EXISTS idempotency_key ON agent_workload_delivery TYPE string;
 DEFINE FIELD IF NOT EXISTS node_id ON agent_workload_delivery TYPE string;
@@ -117,6 +121,8 @@ DEFINE FIELD IF NOT EXISTS terminal_at_ms ON agent_workload_delivery TYPE option
 DEFINE FIELD IF NOT EXISTS record_json ON agent_workload_delivery TYPE string;
 DEFINE INDEX IF NOT EXISTS agent_workload_delivery_idempotency_idx ON agent_workload_delivery FIELDS idempotency_key UNIQUE;
 DEFINE INDEX IF NOT EXISTS agent_workload_delivery_pending_idx ON agent_workload_delivery FIELDS node_id, status, submitted_at_ms;
+=======
+>>>>>>> github/main
 DEFINE FIELD IF NOT EXISTS agent_id ON work_claim TYPE string;
 DEFINE FIELD IF NOT EXISTS target ON work_claim TYPE string;
 DEFINE FIELD IF NOT EXISTS claim_type ON work_claim TYPE string;
@@ -132,6 +138,7 @@ DEFINE INDEX IF NOT EXISTS work_claim_target_idx ON work_claim FIELDS target;
 DEFINE FIELD IF NOT EXISTS status ON work_claim TYPE string DEFAULT 'claimed';
 DEFINE FIELD IF NOT EXISTS intent ON work_claim TYPE string DEFAULT '';
 DEFINE FIELD IF NOT EXISTS session_id ON work_claim TYPE string DEFAULT '';
+<<<<<<< HEAD
 DEFINE FIELD IF NOT EXISTS repository_id ON agent_workspace_claim TYPE string;
 DEFINE FIELD IF NOT EXISTS workspace_id ON agent_workspace_claim TYPE string;
 DEFINE FIELD IF NOT EXISTS workload_id ON agent_workspace_claim TYPE string;
@@ -155,6 +162,9 @@ DEFINE INDEX IF NOT EXISTS agent_workspace_claim_lease_idx ON agent_workspace_cl
 DEFINE FIELD IF NOT EXISTS repository_id ON agent_workspace_claim_lock TYPE string;
 DEFINE FIELD IF NOT EXISTS fencing_token ON agent_workspace_claim_lock TYPE int DEFAULT 0;
 DEFINE TABLE OVERWRITE runtime_proof_commit SCHEMAFULL;
+=======
+DEFINE TABLE IF NOT EXISTS runtime_proof_commit SCHEMAFULL;
+>>>>>>> github/main
 DEFINE FIELD IF NOT EXISTS proof_ref ON runtime_proof_commit TYPE string;
 DEFINE FIELD IF NOT EXISTS schema ON runtime_proof_commit TYPE string;
 DEFINE FIELD IF NOT EXISTS status ON runtime_proof_commit TYPE string;
@@ -199,6 +209,7 @@ DEFINE FIELD IF NOT EXISTS created_at ON event TYPE datetime;
 DEFINE INDEX IF NOT EXISTS event_node_idx ON event FIELDS node;
 DEFINE INDEX IF NOT EXISTS event_tool_idx ON event FIELDS tool;
 DEFINE INDEX IF NOT EXISTS event_created_idx ON event FIELDS created_at;
+<<<<<<< HEAD
 DEFINE TABLE IF NOT EXISTS node_desired_state SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS node_id ON node_desired_state TYPE string;
 DEFINE FIELD IF NOT EXISTS generation ON node_desired_state TYPE int;
@@ -231,3 +242,5 @@ DEFINE FIELD IF NOT EXISTS payload_digest ON evidence_projection TYPE string;
 DEFINE FIELD IF NOT EXISTS entry_hash ON evidence_projection TYPE string;
 DEFINE FIELD IF NOT EXISTS sealed_at_unix_s ON evidence_projection TYPE int;
 DEFINE INDEX IF NOT EXISTS evidence_projection_event_idx ON evidence_projection FIELDS event_id UNIQUE;
+=======
+>>>>>>> github/main

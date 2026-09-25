@@ -42,7 +42,10 @@ impl HostPrincipalObservationPort for ReadyObserver {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: policy.managed_paths(),
+<<<<<<< HEAD
             ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
         }
     }
 }
@@ -55,7 +58,10 @@ impl HostPrincipalObservationPort for MisownedObserver {
             observed_home_dir: Some(policy.home_dir.clone()),
             present_state_dirs: policy.state_dirs.clone(),
             owned_paths: Vec::new(),
+<<<<<<< HEAD
             ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
         }
     }
 }

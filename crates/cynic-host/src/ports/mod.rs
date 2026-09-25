@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 pub mod argv_execution;
 pub mod causal_epoch_index;
 pub mod evidence_store;
 pub mod metabolism;
 pub mod provider_substrate;
 pub mod remote_execution;
+=======
+pub mod evidence_store;
+pub mod metabolism;
+>>>>>>> github/main
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
@@ -19,8 +24,11 @@ use crate::execution::AdmittedHostOperation;
 use crate::hardware_conformance::HardwareObservation;
 use cynic_protocol::PreOsPlatformObservation;
 pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
+<<<<<<< HEAD
 pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 pub use remote_execution::RemoteExecutionPort;
+=======
+>>>>>>> github/main
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -35,10 +43,13 @@ pub enum HostOperation {
         home: String,
         shell: PrincipalLoginShell,
     },
+<<<<<<< HEAD
     EnsureSupplementaryGroupMember {
         user: String,
         group: String,
     },
+=======
+>>>>>>> github/main
     EnsureOwnedDir {
         path: String,
         user: String,

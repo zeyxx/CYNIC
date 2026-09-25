@@ -30,17 +30,32 @@ pub(super) fn draw(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
+<<<<<<< HEAD
             " chat ",
+=======
+            " OPERATOR DASHBOARD ",
+>>>>>>> github/main
             Style::default()
                 .fg(Theme::ACCENT_DIM)
                 .bg(Theme::HEADER_BG)
                 .add_modifier(Modifier::BOLD),
         ),
+<<<<<<< HEAD
         Span::raw(" "),
         Span::styled(&app.status, Style::default().fg(Theme::MUTED)),
     ]));
     f.render_widget(header, chunks[0]);
 
+=======
+        Span::raw(" | "),
+        Span::styled("φ⁻¹: 61.8% ", Style::default().fg(Color::Yellow)),
+        Span::raw("| "),
+        Span::styled("Synapse: 10.10.10.0/24 ", Style::default().fg(Color::Green)),
+        Span::raw("| "),
+        Span::styled(&app.status, Style::default().fg(Theme::MUTED)),
+    ]));
+    f.render_widget(header, chunks[0]);
+>>>>>>> github/main
     let scroll_focused = app.focus == Focus::Scrollback;
     let mut text_lines: Vec<Line> = Vec::new();
     for line in &app.lines {
@@ -138,6 +153,10 @@ pub(super) fn draw(f: &mut Frame, app: &App) {
         Span::styled("/temp [0..2] ", Style::default().fg(Theme::ACCENT)),
         Span::styled("/tail [n] ", Style::default().fg(Theme::ACCENT)),
         Span::styled("/help ", Style::default().fg(Theme::MUTED)),
+<<<<<<< HEAD
+=======
+
+>>>>>>> github/main
         Span::styled("Esc ", Style::default().fg(Theme::ACCENT)),
         Span::styled("quit  ", Style::default().fg(Theme::MUTED)),
         Span::styled(" · F2 ", Style::default().fg(Theme::ACCENT)),

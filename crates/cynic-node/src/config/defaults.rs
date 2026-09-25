@@ -38,6 +38,7 @@ pub(super) fn default_health_timeout_secs() -> u64 {
     5
 }
 
+<<<<<<< HEAD
 pub(super) fn default_node_control_interval_secs() -> u64 {
     30
 }
@@ -110,6 +111,8 @@ pub(super) fn default_enrollment_renewal_window_secs() -> u64 {
     300
 }
 
+=======
+>>>>>>> github/main
 pub(super) fn default_max_failures() -> u32 {
     3
 }
@@ -130,6 +133,7 @@ pub(super) fn default_watchdog_http_timeout_secs() -> u64 {
     5
 }
 
+<<<<<<< HEAD
 pub(super) fn default_builder_listen_addr() -> std::net::SocketAddr {
     "0.0.0.0:9090".parse().unwrap()
 }
@@ -138,6 +142,8 @@ pub(super) fn default_workspace_root() -> std::path::PathBuf {
     std::path::PathBuf::from("/var/lib/cynic/source/workspaces")
 }
 
+=======
+>>>>>>> github/main
 pub(super) fn default_watchdog_registry_path() -> String {
     DEFAULT_REGISTRY_PATH.to_string()
 }

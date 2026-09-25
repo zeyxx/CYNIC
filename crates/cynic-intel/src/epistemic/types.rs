@@ -51,7 +51,11 @@ pub struct ValidatorDogScore {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EpistemicVerdict {
+<<<<<<< HEAD
     pub schema: String,
+=======
+    pub schema: &'static str,
+>>>>>>> github/main
     pub verdict_id: String,
     pub stimulus_id: String,
     pub domain: String,
@@ -66,7 +70,11 @@ pub struct EpistemicVerdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CrystalState {
+<<<<<<< HEAD
     Observation,  // < 21 observations
+=======
+    Observation, // < 21 observations
+>>>>>>> github/main
     Crystallized, // >= 21 observations + confidence >= φ⁻¹
     Canonical,    // >= 233 observations (Fibonacci F13)
     Decaying,     // confidence < φ⁻²
@@ -75,7 +83,11 @@ pub enum CrystalState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrystalKnowledge {
+<<<<<<< HEAD
     pub schema: String,
+=======
+    pub schema: &'static str,
+>>>>>>> github/main
     pub crystal_id: String,
     pub domain: String,
     pub pattern_digest: String,

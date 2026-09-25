@@ -272,6 +272,7 @@ fn prepare_directory_commands_for_runtime(
 
 fn helper_binary_source() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let source = std::env::current_exe()?;
+<<<<<<< HEAD
     resolve_helper_binary_source(
         &source,
         Path::new(&current_runtime_layout().host_exec_helper_path()),
@@ -316,6 +317,26 @@ fn valid_helper_binary(path: &Path) -> bool {
                 && !metadata.file_type().is_symlink()
                 && std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0
         })
+=======
+    if !source.ends_with("cynic-host-exec") {
+        let sibling = source.with_file_name(HOST_EXEC_HELPER_FILENAME);
+        if sibling.exists() {
+            return Ok(sibling);
+        }
+        if let Some(parent) = source.parent().and_then(Path::parent) {
+            let target_debug = parent.join(HOST_EXEC_HELPER_FILENAME);
+            if target_debug.exists() {
+                return Ok(target_debug);
+            }
+        }
+        return Err(format!(
+            "unable to resolve cynic-host-exec near current executable: {}",
+            source.display()
+        )
+        .into());
+    }
+    Ok(source)
+>>>>>>> github/main
 }
 
 fn bundle_complete(path: impl AsRef<Path>) -> bool {

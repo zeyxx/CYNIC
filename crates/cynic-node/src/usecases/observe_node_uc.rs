@@ -110,6 +110,7 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
     ) -> crate::adapters::host_observation::CommandObservation {
         command_json(
             &self.network_manager_bin,
+<<<<<<< HEAD
             &[
                 "-t",
                 "-f",
@@ -118,6 +119,9 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
                 "show",
                 "--active",
             ],
+=======
+            &["-t", "-f", "NAME,UUID,TYPE,DEVICE", "connection", "show", "--active"],
+>>>>>>> github/main
         )
     }
 
@@ -125,7 +129,13 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
         command_json(&self.ip_bin, &["rule"])
     }
 
+<<<<<<< HEAD
     fn observe_network_namespaces(&self) -> crate::adapters::host_observation::CommandObservation {
+=======
+    fn observe_network_namespaces(
+        &self,
+    ) -> crate::adapters::host_observation::CommandObservation {
+>>>>>>> github/main
         command_json(&self.ip_bin, &["netns", "list"])
     }
 
@@ -505,6 +515,7 @@ mod tests {
             NodeObservationRuntimeInputs {
                 interfaces: command_ok("ip", &["-brief", "addr"], "wg0 UP 10.20.0.2/24"),
                 routes: command_ok("ip", &["route"], "10.20.0.0/24 dev wg0"),
+<<<<<<< HEAD
                 network_manager_connections: command_ok(
                     "nmcli",
                     &[
@@ -520,6 +531,8 @@ mod tests {
                 policy_routes: command_ok("ip", &["rule"], "0: from all lookup local"),
                 namespaces: command_ok("ip", &["netns", "list"], ""),
                 firewall: command_ok("nft", &["list", "ruleset"], "table inet filter"),
+=======
+>>>>>>> github/main
                 provider_fallback_route: command_fail("ip", &["route", "show", "10.10.10.0/24"]),
                 synapse_route: command_ok(
                     "ip",
@@ -585,9 +598,12 @@ mod tests {
             None,
             &NodeObservationCommandContext {
                 ip_bin: "/portable/bin/ip".to_string(),
+<<<<<<< HEAD
                 // Injected like every other binary: this test asserts no command
                 // path is hardcoded, so the field must be exercised, not defaulted.
                 network_manager_bin: "/portable/bin/nmcli".to_string(),
+=======
+>>>>>>> github/main
                 wg_bin: "/portable/bin/wg".to_string(),
                 systemctl_bin: "/portable/bin/systemctl".to_string(),
                 mesh_interface: "wg-portable".to_string(),

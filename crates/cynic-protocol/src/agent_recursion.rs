@@ -25,6 +25,7 @@ pub struct AgentBudget {
     pub actions: u32,
     pub children: u16,
     pub wall_time_ms: u64,
+<<<<<<< HEAD
     /// Measured cpu milliseconds for consumed budgets (close records).
     /// None = not measured — an explicit unknown, never zero. Reserved
     /// budgets (delegation) leave it None until a completion reports it.
@@ -32,6 +33,8 @@ pub struct AgentBudget {
     /// without the field still deserialize.
     #[serde(default)]
     pub cpu_ms: Option<u64>,
+=======
+>>>>>>> github/main
 }
 
 impl AgentBudget {
@@ -40,6 +43,7 @@ impl AgentBudget {
             && self.actions <= parent.actions
             && self.children <= parent.children
             && self.wall_time_ms <= parent.wall_time_ms
+<<<<<<< HEAD
             && match (self.cpu_ms, parent.cpu_ms) {
                 // Unmeasured consumption is an unknown of the receipt, not
                 // a violation (same rule as EnergyConsumed::within).
@@ -47,6 +51,8 @@ impl AgentBudget {
                 (Some(_), None) => false,
                 (Some(c), Some(p)) => c <= p,
             }
+=======
+>>>>>>> github/main
     }
 }
 
@@ -75,8 +81,11 @@ pub enum AgentCompletionStatus {
     Completed,
     Blocked,
     Failed,
+<<<<<<< HEAD
     Degraded,
     RecoveredUnattributed,
+=======
+>>>>>>> github/main
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,6 +205,7 @@ pub fn admit_child_delegation(
     admission(child.delegation_id.clone(), violations, missing_evidence)
 }
 
+<<<<<<< HEAD
 pub fn admit_root_delegation(delegation: &AgentDelegationEnvelope) -> AgentRecursionAdmission {
     let mut violations = validate_delegation(delegation);
     if delegation.parent_agent_id.is_some() {
@@ -213,6 +223,8 @@ pub fn admit_root_delegation(delegation: &AgentDelegationEnvelope) -> AgentRecur
     admission(delegation.delegation_id.clone(), violations, Vec::new())
 }
 
+=======
+>>>>>>> github/main
 pub fn admit_completion(
     delegation: &AgentDelegationEnvelope,
     completion: &AgentCompletionEnvelope,

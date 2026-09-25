@@ -8,7 +8,11 @@ Wants=cynic-kernel.service
 # Runtime projection for node process supervision.
 Type=simple
 WorkingDirectory=/var/lib/cynic
+<<<<<<< HEAD
 ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml
+=======
+ExecStart=/usr/local/bin/cynic-node
+>>>>>>> github/main
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30

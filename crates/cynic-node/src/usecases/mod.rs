@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pub mod agent_host_placement_uc;
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
@@ -17,10 +18,13 @@ pub mod builder_http;
 pub mod builder_runtime;
 pub mod coordination_observation_bridge;
 pub mod coordination_posture_uc;
+=======
+>>>>>>> github/main
 pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
+<<<<<<< HEAD
 pub mod network_sync_uc;
 pub mod network_watchdog_uc;
 // The federated mesh cluster declares together or not at all: probe_uc owns
@@ -46,3 +50,7 @@ pub mod source_materialization_uc;
 pub mod source_repository_bootstrap_uc;
 pub mod storage_controller_uc;
 pub mod storage_lifecycle_uc;
+=======
+pub mod observe_node_uc;
+pub mod runtime_artifact_release_uc;
+>>>>>>> github/main

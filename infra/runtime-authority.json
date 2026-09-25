@@ -17,8 +17,12 @@
       "artifact": "cynic-kernel",
       "owns": [
         "coordination",
+<<<<<<< HEAD
         "legacy agent coordination messages (not mutation execution authority)",
         "durable constitutional workload journal once implemented",
+=======
+        "agent tasks",
+>>>>>>> github/main
         "observations",
         "health",
         "runtime read-back"
@@ -40,14 +44,21 @@
       "artifact": "cynic-node",
       "owns": [
         "node-local supervision",
+<<<<<<< HEAD
         "node-local constitutional agent scheduler once activation gates are proved",
+=======
+>>>>>>> github/main
         "runtime probes",
         "network and DNS status",
         "node proof emission"
       ],
       "must_consume": [
+<<<<<<< HEAD
         "crates/cynic-host",
         "crates/cynic-protocol::agent_workload"
+=======
+        "crates/cynic-host"
+>>>>>>> github/main
       ]
     },
     "operator_cli": {
@@ -59,13 +70,28 @@
         "bounded local audits"
       ]
     },
+<<<<<<< HEAD
+=======
+    "agent_mcp": {
+      "owner": "crates/cynic-mcp",
+      "artifact": "cynic-mcp",
+      "owns": [
+        "agent-facing MCP tools",
+        "portable tool projection"
+      ]
+    },
+>>>>>>> github/main
     "protocol_contracts": {
       "owner": "crates/cynic-protocol",
       "artifact": null,
       "owns": [
         "shared no-I/O protocol types",
+<<<<<<< HEAD
         "payload helpers",
         "agent workload admission and pure lifecycle transitions"
+=======
+        "payload helpers"
+>>>>>>> github/main
       ]
     },
     "runtime_basket": {
@@ -108,7 +134,10 @@
     "owner": "crates/cynic-host",
     "runtime_user": "cynic",
     "runtime_group": "cynic",
+<<<<<<< HEAD
     "agent_access_group": "cynic-agent",
+=======
+>>>>>>> github/main
     "paths": [
       "/etc/cynic",
       "/var/lib/cynic",
@@ -130,9 +159,12 @@
       "signals": [
         "User=cynic",
         "Group=cynic",
+<<<<<<< HEAD
         "SupplementaryGroups=cynic-agent",
         "RuntimeDirectory=cynic",
         "CYNIC_KERNEL_SOCKET=/run/cynic/kernel.sock",
+=======
+>>>>>>> github/main
         "WorkingDirectory=/var/lib/cynic",
         "Environment=\"CYNIC_REGISTRY=/etc/cynic/registry.json\"",
         "root-owned systemd unit target"
@@ -176,6 +208,7 @@
     "Python lifecycle gates",
     "product UX as low-layer proof"
   ],
+<<<<<<< HEAD
   "canonical_runtime_capabilities": {
     "runtime_publisher": {
       "authority_class": "RuntimeMachineIdentity",
@@ -188,6 +221,8 @@
       "spof_model": "node-local grant signed by kernel; on peer death, a node with admitted runtime_publisher resumes publishing (no single HumanAdmin SPOF)"
     }
   },
+=======
+>>>>>>> github/main
   "experimental_workspace_crates": {
     "cynic-inference": {
       "owner": "crates/cynic-inference",
@@ -213,7 +248,11 @@
     "exposure_ssot": "infra/agent-exposure.json",
     "audit_command": "cynic dev agent-exposure --json",
     "docs_policy": "docs/ is quarantined historical prose; see docs/README.md. Docs are not runtime law.",
+<<<<<<< HEAD
     "rule": "Every #[tool] must appear in agent-exposure with a domain and tier. Machine-local absolute paths are forbidden in agent projections."
+=======
+    "rule": "Every cynic-mcp #[tool] must appear in agent-exposure with a domain and tier. Machine-local absolute paths are forbidden in agent projections."
+>>>>>>> github/main
   },
   "development_default": {
     "primary_check": "make check",

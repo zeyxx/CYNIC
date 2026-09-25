@@ -8,7 +8,10 @@ use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 mod actuator;
 mod base;
 mod dns;
+<<<<<<< HEAD
 mod domain;
+=======
+>>>>>>> github/main
 mod mesh;
 mod provider_fallback;
 
@@ -58,6 +61,7 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkActuatorCommand,
     },
+<<<<<<< HEAD
     /// Audit declared vs observed network state (DNS, WireGuard, services).
     Audit {
         #[arg(long)]
@@ -144,6 +148,37 @@ pub(crate) enum NetworkCommand {
 
 pub(crate) use dns::NetworkDnsCommand;
 pub(crate) use domain::NetworkDomainCommand;
+=======
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkDnsCommand {
+    Status {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        hosts_path: Option<String>,
+        #[arg(long)]
+        corefile_path: Option<String>,
+        #[arg(long)]
+        service_path: Option<String>,
+        #[arg(long)]
+        resolved_dropin_path: Option<String>,
+    },
+    Bundle {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        output_dir: String,
+    },
+    Plan {
+        #[arg(long)]
+        json: bool,
+    },
+}
+>>>>>>> github/main
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkMeshCommand {
@@ -219,6 +254,7 @@ pub(crate) enum NetworkMeshCommand {
         #[arg(long)]
         observe_runtime: bool,
     },
+<<<<<<< HEAD
     /// Observe and reconcile mesh coordination members and health.
     Coordination {
         /// Registry path used to derive declared mesh peers.
@@ -234,6 +270,8 @@ pub(crate) enum NetworkMeshCommand {
         #[arg(long)]
         check_health: bool,
     },
+=======
+>>>>>>> github/main
 }
 
 #[derive(Subcommand)]
@@ -286,6 +324,7 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
     let _network_command_type: &str = std::any::type_name::<NetworkCommands>();
     let _ = _network_command_type;
     let runtime = resolve_runtime_paths(&RuntimeContext::from_env(None));
+<<<<<<< HEAD
     base::try_execute_base(command, &runtime)
         .or_else(|cmd| dns::try_execute_dns(cmd, &runtime))
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
@@ -295,4 +334,27 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
             Ok(code) => code,
             Err(_) => unreachable!("all network commands must be handled"),
         })
+=======
+    let command = match base::try_execute_base(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match dns::try_execute_dns(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match mesh::try_execute_mesh(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    let command = match provider_fallback::try_execute_provider_fallback(command, &runtime) {
+        Ok(code) => return code,
+        Err(command) => command,
+    };
+    match actuator::try_execute_actuator(command) {
+        Ok(code) => code,
+        Err(NetworkCommand::Actuator { .. }) => unreachable!("actuator command must be handled"),
+        Err(_) => unreachable!("all network commands must be handled"),
+    }
+>>>>>>> github/main
 }

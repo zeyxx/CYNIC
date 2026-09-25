@@ -15,7 +15,11 @@ use crate::domain::ecosystem_package::{
 };
 use crate::repo_access::{current_project_root, load_forgejo_desired_state};
 use crate::runtime_authority::default_runtime_principal_layout;
+<<<<<<< HEAD
 use cynic_lifecycle::{ArgvOutput, ArgvRunner, LocalArgvRunner};
+=======
+use crate::update_lifecycle::{ArgvOutput, ArgvRunner, LocalArgvRunner};
+>>>>>>> github/main
 
 pub struct LocalIntegrationObservationAdapter<'a> {
     runner: &'a dyn ArgvRunner,
@@ -389,7 +393,11 @@ fn concise_failure(prefix: &str, output: &ArgvOutput) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+<<<<<<< HEAD
     use cynic_lifecycle::MapArgvRunner;
+=======
+    use crate::update_lifecycle::MapArgvRunner;
+>>>>>>> github/main
 
     #[test]
     fn repository_url_is_reduced_to_service_endpoint() {

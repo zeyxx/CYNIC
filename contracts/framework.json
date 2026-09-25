@@ -24,6 +24,7 @@
       "rule": "CYNIC may use Kubernetes-like semantics, but the domain model must also run on one host, systemd, VMs, LXC, or another substrate."
     }
   ],
+<<<<<<< HEAD
   "ambition_translation": [
     {
       "id": "sovereign_membrane",
@@ -296,6 +297,8 @@
       "required_proof": ["inspectable claim bound to primary source", "forbidden reading and public action"]
     }
   ],
+=======
+>>>>>>> github/main
   "canonical_layers": [
     {
       "id": "l0_protocol",
@@ -345,6 +348,10 @@
       "id": "l4_agent_exposure",
       "responsibility": "Expose backed capabilities to agents without duplicating domain authority.",
       "owned_by": [
+<<<<<<< HEAD
+=======
+        "cynic-mcp",
+>>>>>>> github/main
         "cynic-cli"
       ],
       "evidence": [

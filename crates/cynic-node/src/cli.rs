@@ -4,7 +4,11 @@ use cynic_host::runtime_layout::current_runtime_layout;
 
 #[derive(Parser)]
 #[command(name = "cynic-node", about = "CYNIC inference backend supervisor")]
+<<<<<<< HEAD
 pub struct Cli {
+=======
+pub(crate) struct Cli {
+>>>>>>> github/main
     /// Path to node config file
     #[arg(short, long)]
     pub config: Option<String>,
@@ -18,6 +22,7 @@ pub struct Cli {
 }
 
 #[derive(Subcommand)]
+<<<<<<< HEAD
 pub enum Commands {
     /// Observe or create the node-local Ed25519 identity used for machine enrollment.
     NodeIdentity {
@@ -58,6 +63,9 @@ pub enum Commands {
         #[arg(long)]
         check: bool,
     },
+=======
+pub(crate) enum Commands {
+>>>>>>> github/main
     /// Emit local node observation JSON and exit.
     Observe {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -87,6 +95,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: NetworkCommands,
     },
+<<<<<<< HEAD
     /// CynicPeer sovereign state engine, local storage and ingress commands.
     Peer {
         #[command(subcommand)]
@@ -280,6 +289,29 @@ pub enum Commands {
         #[arg(long)]
         apply: bool,
         /// Emit machine-readable JSON. This command always emits JSON.
+=======
+    /// Reconcile versioned runtime artifacts on this machine.
+    Release {
+        #[command(subcommand)]
+        command: ReleaseCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum ReleaseCommands {
+    /// Plan or apply one desired artifact release with observation and rollback proof.
+    Reconcile {
+        /// Path to a cynic.runtime_artifact_release.spec.v1 JSON file.
+        #[arg(long)]
+        spec: String,
+        /// Update lifecycle state controlling the allowed harness phase.
+        #[arg(long)]
+        lifecycle_state: Option<String>,
+        /// Required guard for staging, activation, restart, observation and proof writes.
+        #[arg(long)]
+        yes: bool,
+        /// Emit machine-readable JSON. The node release surface always emits JSON.
+>>>>>>> github/main
         #[arg(long)]
         json: bool,
     },
@@ -287,6 +319,7 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum NetworkCommands {
+<<<<<<< HEAD
     /// Network SOC security audit (rogue listening ports, WireGuard handshake decay).
     SecurityAudit {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -329,6 +362,8 @@ pub enum NetworkCommands {
         #[arg(long)]
         audit: bool,
     },
+=======
+>>>>>>> github/main
     /// Emit canonical Synapse DNS activation bundle.
     DnsBundle {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -371,6 +406,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         resolve_dns: bool,
     },
+<<<<<<< HEAD
     /// Plan or apply the exact digest-bound Synapse DNS bundle on this node.
     DnsActivate {
         #[arg(long)]
@@ -383,6 +419,8 @@ pub enum NetworkCommands {
         #[arg(long)]
         yes: bool,
     },
+=======
+>>>>>>> github/main
     /// Emit network evidence: current observation, dry-run plan, and DevSecOps gaps.
     Evidence {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -549,6 +587,7 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = 20)]
         qga_max_status_polls: usize,
     },
+<<<<<<< HEAD
     /// Observe or reconcile mesh coordination (membership and health).
     MeshCoordination {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -567,6 +606,8 @@ pub enum NetworkCommands {
         #[arg(long)]
         check_health: bool,
     },
+=======
+>>>>>>> github/main
     /// Execute a host-owned network-actuation request inside an attested QEMU guest.
     ActuateTarget {
         /// Emit JSON. Present for explicit operator intent; currently always JSON.
@@ -749,6 +790,7 @@ pub enum NetworkCommands {
     },
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Subcommand)]
 pub enum PeerCommands {
     /// Show peer SMR status, accounts summary and state root digest.
@@ -792,6 +834,8 @@ pub enum PeerCommands {
     },
 }
 
+=======
+>>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use clap::Parser;

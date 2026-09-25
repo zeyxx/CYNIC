@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cynic": {
+      "command": "ssh",
+      "args": ["cynic-host-gpu", "cynic-mcp"]
+    }
+  }
+}

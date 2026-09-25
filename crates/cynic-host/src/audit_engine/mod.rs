@@ -3,7 +3,13 @@ pub mod scanner;
 
 use std::path::Path;
 
+<<<<<<< HEAD
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
+=======
+use cynic_protocol::{
+    AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary,
+};
+>>>>>>> github/main
 
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, LayerBoundaryRule, NodeHostBoundaryRule,
@@ -75,7 +81,11 @@ pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
     };
 
     AuditReportV2 {
+<<<<<<< HEAD
         schema: AUDIT_REPORT_SCHEMA_V2.to_string(),
+=======
+        schema: AUDIT_REPORT_SCHEMA_V2,
+>>>>>>> github/main
         generated_at: chrono::Utc::now().to_rfc3339(),
         summary: AuditSummary {
             status,

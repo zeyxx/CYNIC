@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
 
+=======
+>>>>>>> github/main
 use std::collections::BTreeSet;
 use std::net::IpAddr;
 
@@ -69,7 +72,11 @@ pub(crate) fn validate_mesh_apply_bundle(
             manifest.status
         ));
     }
+<<<<<<< HEAD
     if plan.schema != NETWORK_MESH_PLAN_SCHEMA || plan.status != manifest.status {
+=======
+    if plan.schema != "cynic.network_mesh_plan.v1" || plan.status != manifest.status {
+>>>>>>> github/main
         return Err("mesh bundle manifest and plan schema/status must match".to_string());
     }
     if manifest.provider.trim().is_empty() || manifest.provider != plan.provider {
@@ -129,8 +136,11 @@ fn validate_ip_network(value: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+<<<<<<< HEAD
     use cynic_network::NETWORK_MESH_PLAN_SCHEMA;
 
+=======
+>>>>>>> github/main
     use super::{
         MeshBundleManifest, MeshPlanFile, MeshPlanPeerFile, MeshPlanRouteFile,
         validate_mesh_apply_bundle,
@@ -145,7 +155,11 @@ mod tests {
                 bundle_files: vec!["mesh-plan.json".to_string()],
             },
             MeshPlanFile {
+<<<<<<< HEAD
                 schema: NETWORK_MESH_PLAN_SCHEMA.to_string(),
+=======
+                schema: "cynic.network_mesh_plan.v1".to_string(),
+>>>>>>> github/main
                 status: "planned".to_string(),
                 provider: "wireguard".to_string(),
                 cidr: Some("10.30.0.0/24".to_string()),

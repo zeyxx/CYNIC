@@ -1,9 +1,17 @@
+<<<<<<< HEAD
+<<<<<<<< HEAD:crates/cynic-intel/src/kscore.rs
+=======
+>>>>>>> github/main
 //! Pure K-Score computation and classification for token wallet behaviors.
 //!
 //! This crate owns the behavioral intelligence math. The kernel adapts its local
 //! config and behavior shapes through thin traits.
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+=======
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+>>>>>>> github/main
 pub enum HolderClass {
     Accumulator,
     Holder,
@@ -11,7 +19,11 @@ pub enum HolderClass {
     Extractor,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+=======
+#[derive(Debug, Clone, Default)]
+>>>>>>> github/main
 pub struct KScore {
     pub score: f64,
     pub diamond_hands: f64,
@@ -25,11 +37,16 @@ pub struct KScore {
     pub median_hold_hours: Option<f64>,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct KScoreConfigSnapshot {
     pub enabled: bool,
     pub top_n_wallets: usize,
     pub swap_history_limit: usize,
+=======
+#[derive(Debug, Clone, Copy)]
+pub struct KScoreConfigSnapshot {
+>>>>>>> github/main
     pub weight_diamond_hands: f64,
     pub weight_organic_growth: f64,
     pub weight_longevity: f64,
@@ -38,6 +55,7 @@ pub struct KScoreConfigSnapshot {
     pub reducer_threshold: f64,
 }
 
+<<<<<<< HEAD
 impl Default for KScoreConfigSnapshot {
     fn default() -> Self {
         Self {
@@ -75,6 +93,8 @@ impl KScoreConfigView for KScoreConfigSnapshot {
     }
 }
 
+=======
+>>>>>>> github/main
 pub trait KScoreConfigView {
     fn weight_diamond_hands(&self) -> f64;
     fn weight_organic_growth(&self) -> f64;
@@ -212,9 +232,12 @@ mod tests {
 
     fn cfg() -> KScoreConfigSnapshot {
         KScoreConfigSnapshot {
+<<<<<<< HEAD
             enabled: true,
             top_n_wallets: 10,
             swap_history_limit: 20,
+=======
+>>>>>>> github/main
             weight_diamond_hands: 0.75,
             weight_organic_growth: 1.0,
             weight_longevity: 1.0,
@@ -224,6 +247,30 @@ mod tests {
         }
     }
 
+<<<<<<< HEAD
+=======
+    impl KScoreConfigView for KScoreConfigSnapshot {
+        fn weight_diamond_hands(&self) -> f64 {
+            self.weight_diamond_hands
+        }
+        fn weight_organic_growth(&self) -> f64 {
+            self.weight_organic_growth
+        }
+        fn weight_longevity(&self) -> f64 {
+            self.weight_longevity
+        }
+        fn accumulator_threshold(&self) -> f64 {
+            self.accumulator_threshold
+        }
+        fn holder_threshold(&self) -> f64 {
+            self.holder_threshold
+        }
+        fn reducer_threshold(&self) -> f64 {
+            self.reducer_threshold
+        }
+    }
+
+>>>>>>> github/main
     #[test]
     fn empty_behaviors_returns_zero_score() {
         let behaviors: Vec<FixtureBehavior> = Vec::new();
@@ -312,6 +359,7 @@ mod tests {
         let behaviors = vec![
             FixtureBehavior {
                 class: HolderClass::Holder,
+<<<<<<< HEAD
                 hold_time_hours: Some(48.0),
             },
             FixtureBehavior {
@@ -324,6 +372,21 @@ mod tests {
             },
         ];
         let score = compute_kscore(&behaviors, 500, 30.0, 200, &cfg());
+=======
+                hold_time_hours: Some(48.0), // 2 days
+            },
+            FixtureBehavior {
+                class: HolderClass::Holder,
+                hold_time_hours: Some(240.0), // 10 days
+            },
+            FixtureBehavior {
+                class: HolderClass::Reducer,
+                hold_time_hours: None, // no buy found
+            },
+        ];
+        let score = compute_kscore(&behaviors, 500, 30.0, 200, &cfg());
+        // Median of [48.0, 240.0] (None excluded) = (48+240)/2 = 144.0
+>>>>>>> github/main
         assert_eq!(score.median_hold_hours, Some(144.0));
     }
 
@@ -335,5 +398,99 @@ mod tests {
         }];
         let score = compute_kscore(&behaviors, 100, 30.0, 200, &cfg());
         assert_eq!(score.median_hold_hours, None);
+<<<<<<< HEAD
+========
+//! Compatibility adapter for K-Score computation.
+//! K-Score domain heuristics now live in `cynic-intel`.
+
+use crate::domain::enrichment::{HolderClass, KScore, WalletBehavior};
+use cynic_intel::kscore::{self as kscore_intel, HolderClass as IntelHolderClass};
+
+impl cynic_intel::kscore::KScoreConfigView for crate::infra::config::KScoreConfig {
+    fn weight_diamond_hands(&self) -> f64 {
+        self.weight_diamond_hands
+    }
+
+    fn weight_organic_growth(&self) -> f64 {
+        self.weight_organic_growth
+    }
+
+    fn weight_longevity(&self) -> f64 {
+        self.weight_longevity
+    }
+
+    fn accumulator_threshold(&self) -> f64 {
+        self.accumulator_threshold
+    }
+
+    fn holder_threshold(&self) -> f64 {
+        self.holder_threshold
+    }
+
+    fn reducer_threshold(&self) -> f64 {
+        self.reducer_threshold
+    }
+}
+
+struct WalletBehaviorAdapter<'a>(&'a WalletBehavior);
+
+impl cynic_intel::kscore::WalletBehaviorView for WalletBehaviorAdapter<'_> {
+    fn class(&self) -> kscore_intel::HolderClass {
+        map_holder_class_to_intel(&self.0.class)
+    }
+
+    fn hold_time_hours(&self) -> Option<f64> {
+        self.0.hold_time_hours
+    }
+}
+
+fn map_holder_class_to_intel(class: &HolderClass) -> kscore_intel::HolderClass {
+    match class {
+        HolderClass::Accumulator => kscore_intel::HolderClass::Accumulator,
+        HolderClass::Holder => kscore_intel::HolderClass::Holder,
+        HolderClass::Reducer => kscore_intel::HolderClass::Reducer,
+        HolderClass::Extractor => kscore_intel::HolderClass::Extractor,
+    }
+}
+
+fn map_holder_class_from_intel(class: kscore_intel::HolderClass) -> HolderClass {
+    match class {
+        IntelHolderClass::Accumulator => HolderClass::Accumulator,
+        IntelHolderClass::Holder => HolderClass::Holder,
+        IntelHolderClass::Reducer => HolderClass::Reducer,
+        IntelHolderClass::Extractor => HolderClass::Extractor,
+    }
+}
+
+/// Classify a wallet retention ratio using the intel-owned thresholds.
+pub fn classify_wallet(retention: f64, config: &crate::infra::config::KScoreConfig) -> HolderClass {
+    let intel_class = kscore_intel::classify_wallet(retention, config);
+    map_holder_class_from_intel(intel_class)
+}
+
+/// Compute token K-Score with intel-owned mathematics.
+pub fn compute_kscore(
+    behaviors: &[WalletBehavior],
+    holder_count: u64,
+    top10_pct: f64,
+    age_hours: u64,
+    config: &crate::infra::config::KScoreConfig,
+) -> KScore {
+    let adapted: Vec<_> = behaviors.iter().map(WalletBehaviorAdapter).collect();
+    let score = kscore_intel::compute_kscore(&adapted, holder_count, top10_pct, age_hours, config);
+    KScore {
+        score: score.score,
+        diamond_hands: score.diamond_hands,
+        organic_growth: score.organic_growth,
+        longevity: score.longevity,
+        wallets_analyzed: score.wallets_analyzed,
+        accumulators: score.accumulators,
+        holders: score.holders,
+        reducers: score.reducers,
+        extractors: score.extractors,
+        median_hold_hours: score.median_hold_hours,
+>>>>>>>> github/main:crates/cynic-kernel/src/domain/kscore.rs
+=======
+>>>>>>> github/main
     }
 }

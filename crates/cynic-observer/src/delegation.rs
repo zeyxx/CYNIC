@@ -1,11 +1,20 @@
 use std::collections::BTreeMap;
 
+<<<<<<< HEAD
+=======
+use cynic_protocol::Epoch;
+
+>>>>>>> github/main
 /// Représente un nœud Argo sur le réseau P2P
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArgoNode {
     pub pubkey: String,
     pub infrastructure_escore: u64, // Le score de fiabilité de ce nœud (Karteria)
+<<<<<<< HEAD
     pub activation_epoch: u64, // L'epoch à partir de laquelle ce nœud est actif dans le consensus
+=======
+    pub activation_epoch: Epoch,    // L'epoch à partir de laquelle ce nœud est actif dans le consensus
+>>>>>>> github/main
 }
 
 /// Le Registre Partagé (simplifié pour l'instant)
@@ -42,7 +51,11 @@ impl DelegationEngine {
         registry: &SwarmRegistry,
         event_signature: &str,
         slot_hash: &str,
+<<<<<<< HEAD
         current_epoch: u64,
+=======
+        current_epoch: Epoch,
+>>>>>>> github/main
     ) -> Option<String> {
         // Filtrer les nœuds actifs pour n'utiliser que l'Active Set figé à l'epoch actuelle
         let active_set: Vec<&ArgoNode> = registry
@@ -109,17 +122,29 @@ mod tests {
         registry.register_node(ArgoNode {
             pubkey: "Node_A_LowScore".to_string(),
             infrastructure_escore: 10,
+<<<<<<< HEAD
             activation_epoch: 0,
+=======
+            activation_epoch: Epoch::ZERO,
+>>>>>>> github/main
         });
         registry.register_node(ArgoNode {
             pubkey: "Node_B_HighScore".to_string(),
             infrastructure_escore: 90,
+<<<<<<< HEAD
             activation_epoch: 0,
+=======
+            activation_epoch: Epoch::ZERO,
+>>>>>>> github/main
         });
         registry.register_node(ArgoNode {
             pubkey: "Node_C_ZeroScore".to_string(),
             infrastructure_escore: 0,
+<<<<<<< HEAD
             activation_epoch: 0,
+=======
+            activation_epoch: Epoch::ZERO,
+>>>>>>> github/main
         });
 
         // On simule 100 événements avec des signatures différentes
@@ -131,7 +156,12 @@ mod tests {
 
         for i in 0..100 {
             let sig = format!("solana_tx_signature_{}", i);
+<<<<<<< HEAD
             let leader = DelegationEngine::elect_leader(&registry, &sig, slot_hash, 0).unwrap();
+=======
+            let leader = DelegationEngine::elect_leader(&registry, &sig, slot_hash, Epoch::ZERO)
+                .unwrap();
+>>>>>>> github/main
             match leader.as_str() {
                 "Node_A_LowScore" => count_a += 1,
                 "Node_B_HighScore" => count_b += 1,
@@ -140,7 +170,12 @@ mod tests {
             }
 
             // Le déterminisme est absolu : la même signature donne toujours le même leader
+<<<<<<< HEAD
             let leader_bis = DelegationEngine::elect_leader(&registry, &sig, slot_hash, 0).unwrap();
+=======
+            let leader_bis =
+                DelegationEngine::elect_leader(&registry, &sig, slot_hash, Epoch::ZERO).unwrap();
+>>>>>>> github/main
             assert_eq!(leader, leader_bis);
         }
 

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 use crate::infra::routing::RoutingDecision;
+=======
+use crate::domain::routing::RoutingDecision;
+>>>>>>> github/main
 
 use serde::Serialize;
 

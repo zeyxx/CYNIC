@@ -13,7 +13,11 @@ use cynic_protocol::{
 use serde::{Deserialize, Serialize};
 
 use crate::command_surface::{HostCommandSurface, argv_command};
+<<<<<<< HEAD
 use crate::execution::{HostCommandExecution, command_to_argv, digest_json};
+=======
+use crate::execution::{HostCommandExecution, command_to_argv};
+>>>>>>> github/main
 use crate::runtime_harness::{
     RuntimeHarnessContext, RuntimeHarnessTargetAttestation,
     validate_runtime_harness_target_attestation,
@@ -397,6 +401,13 @@ pub fn gate_network_actuation_request(request: &NetworkActuationRequest) -> Vec<
     blockers
 }
 
+<<<<<<< HEAD
+=======
+fn digest_json(value: &impl Serialize) -> String {
+    cynic_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
+}
+
+>>>>>>> github/main
 pub fn build_network_actuation_policy<'a>(
     allowed_profiles: impl IntoIterator<Item = &'a str>,
     runtime: &NetworkActuationRuntime,

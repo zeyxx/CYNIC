@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::runtime_layout::current_runtime_layout;
 
 pub(crate) fn usage() -> String {
+<<<<<<< HEAD
     concat!(
         "usage: cynic-host-exec <",
         "bridge-bundle --output-dir <dir> | bridge-plan [--bundle-dir <dir>] | ",
@@ -30,6 +31,9 @@ pub(crate) fn usage() -> String {
         "[--target <name>] [--registry <path>] [--apply]>"
     )
     .to_string()
+=======
+    "usage: cynic-host-exec <bridge-bundle --output-dir <dir> | bridge-plan [--bundle-dir <dir>] | bridge-install [--bundle-dir <dir>] --apply | bridge-status | host-exec-validate-request [--policy <path>] [--declared-services svc1,svc2] < request.json | transport-matrix | ssh-inspect --host <hostname|ip> | bootstrap-status [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] | bootstrap-plan [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] | bootstrap-chain [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] | bootstrap-evidence [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] | principal-prepare [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] [--apply] | hardware-baseline-enroll --apply | service-reconcile --apply | network-baseline <observe|bundle|plan|apply-report|apply> [--profile <network-node|proxmox-hypervisor> | --node <name> [--registry <path>]] [--dry-run|--apply] | network-actuate --profile <provider-fallback-route|synapse-route|wireguard-mesh|direct-management-link> [--target <name>] [--registry <path>] [--apply]>".to_string()
+>>>>>>> github/main
 }
 
 pub(crate) fn flag_value(args: &[String], flag: &str) -> Option<String> {

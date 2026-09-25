@@ -2,7 +2,12 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
+<<<<<<< HEAD
 pub const DEFAULT_NODE_PUBLIC_KEY: &str = "workload-identity-unavailable";
+=======
+pub const DEFAULT_NODE_PUBLIC_KEY: &str = "stub-public-key-phase-3-4-pending";
+pub const DEFAULT_VERDICT_SIGNATURE: &str = "stub-signature-phase-3-4-pending";
+>>>>>>> github/main
 
 #[derive(Debug, Clone)]
 pub struct RuntimeFederationConfig {
@@ -47,6 +52,7 @@ pub fn default_queue_dir(home: Option<PathBuf>) -> PathBuf {
 pub fn deterministic_fallback_verdict(stimulus_id: &str, now_secs: i64) -> FallbackVerdict {
     FallbackVerdict {
         verdict: serde_json::json!({
+<<<<<<< HEAD
             "schema": "cynic.runtime_federation.blocked_verdict.v1",
             "id": format!("verd_{stimulus_id}"),
             "status": "blocked_unsigned",
@@ -56,6 +62,25 @@ pub fn deterministic_fallback_verdict(stimulus_id: &str, now_secs: i64) -> Fallb
             "timestamp": now_secs
         }),
         signature: String::new(),
+=======
+            "id": format!("verd_{stimulus_id}"),
+            "domain": "unknown",
+            "kind": "DETERMINISTIC_FALLBACK",
+            "q_score": 0.5,
+            "axiom_scores": {
+                "FIDELITY": 0.5,
+                "PHI": 0.5,
+                "VERIFY": 0.5,
+                "CULTURE": 0.5,
+                "BURN": 0.5,
+                "SOVEREIGNTY": 0.5
+            },
+            "dog_id": "deterministic-fallback-phase-3-2",
+            "dog_scores": [0.5],
+            "timestamp": now_secs
+        }),
+        signature: DEFAULT_VERDICT_SIGNATURE.to_string(),
+>>>>>>> github/main
         queued_at: now_secs,
     }
 }
@@ -102,8 +127,12 @@ mod tests {
     fn fallback_verdict_shape_is_stable() {
         let verdict = deterministic_fallback_verdict("stim-1", 42);
         assert_eq!(verdict.verdict["id"], "verd_stim-1");
+<<<<<<< HEAD
         assert_eq!(verdict.verdict["status"], "blocked_unsigned");
         assert_eq!(verdict.verdict["mutates"], false);
+=======
+        assert_eq!(verdict.verdict["kind"], "DETERMINISTIC_FALLBACK");
+>>>>>>> github/main
         assert_eq!(verdict.verdict["timestamp"], 42);
         assert_eq!(verdict.queued_at, 42);
     }

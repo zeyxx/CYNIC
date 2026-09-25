@@ -3,11 +3,17 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use cynic_inference::embedding::{Embedding, EmbeddingError, EmbeddingPort};
 use tokio::sync::RwLock;
 
+<<<<<<<< HEAD:crates/cynic-inference/src/adapters/embedding/auto_recovery.rs
 use crate::domain::embedding::{Embedding, EmbeddingError};
 use crate::ports::embedding_port::EmbeddingPort;
 
+========
+/// Wraps an EmbeddingPort that can be hot-swapped at runtime.
+/// Starts with NullEmbedding, upgrades to real backend when discovered.
+>>>>>>>> github/main:crates/cynic-kernel/src/backends/auto_embed.rs
 pub struct AutoRecoveryEmbedding {
     inner: RwLock<Arc<dyn EmbeddingPort>>,
 }
@@ -47,7 +53,11 @@ impl EmbeddingPort for AutoRecoveryEmbedding {
 #[cfg(test)]
 mod tests {
     use super::*;
+<<<<<<<< HEAD:crates/cynic-inference/src/adapters/embedding/auto_recovery.rs
     use crate::adapters::embedding::null::{FixedEmbedding, NullEmbedding};
+========
+    use cynic_inference::embedding::{FixedEmbedding, NullEmbedding};
+>>>>>>>> github/main:crates/cynic-kernel/src/backends/auto_embed.rs
 
     #[tokio::test]
     async fn starts_null_then_upgrades() {

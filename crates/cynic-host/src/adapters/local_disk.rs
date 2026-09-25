@@ -1,7 +1,10 @@
 //! Local disk space observation and cleanup adapter.
 
+<<<<<<< HEAD
 use crate::fleet_disk_observer::HOST_DISK_REPORT_SCHEMA;
 
+=======
+>>>>>>> github/main
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -9,12 +12,19 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
+<<<<<<< HEAD
 use crate::domain::disk::probe::{
     ROTATED_SYSLOG_FILES, build_cleanup_plan, parse_df_filesystems, parse_lsblk_disks,
 };
 use crate::domain::disk::{
     DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
     DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
+=======
+use crate::domain::disk::probe::build_cleanup_plan;
+use crate::domain::disk::{
+    DiskCacheEntry, DiskCleanupItem, DiskCleanupPlan, DiskCleanupResult, DiskCleanupStepExecution,
+    DiskFileEntry, DiskFilesystem, DiskReport, bytes_to_human,
+>>>>>>> github/main
 };
 use crate::process_observation::capture_command;
 
@@ -30,15 +40,24 @@ impl DiskObservationPort for LocalDiskAdapter {
         let filesystems = observe_filesystems()?;
         let known_caches = observe_known_caches();
         let large_files = observe_large_files();
+<<<<<<< HEAD
         let physical_disks = observe_physical_disks();
 
         Ok(DiskReport {
             schema: HOST_DISK_REPORT_SCHEMA.to_string(),
+=======
+
+        Ok(DiskReport {
+            schema: "cynic.host_disk_report.v1".to_string(),
+>>>>>>> github/main
             timestamp,
             filesystems,
             known_caches,
             large_files,
+<<<<<<< HEAD
             physical_disks,
+=======
+>>>>>>> github/main
         })
     }
 
@@ -47,6 +66,7 @@ impl DiskObservationPort for LocalDiskAdapter {
     }
 }
 
+<<<<<<< HEAD
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,6 +100,8 @@ mod tests {
     }
 }
 
+=======
+>>>>>>> github/main
 impl DiskCleanupExecutionPort for LocalDiskAdapter {
     fn execute_cleanup(&self, plan: &DiskCleanupPlan) -> DiskCleanupResult {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
@@ -140,7 +162,50 @@ fn observe_filesystems() -> Result<Vec<DiskFilesystem>, String> {
         }
     };
 
+<<<<<<< HEAD
     Ok(parse_df_filesystems(&output_str))
+=======
+    let mut list = Vec::new();
+    let mut lines = output_str.lines();
+    // Skip header line
+    let _header = lines.next();
+
+    for line in lines {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 6 {
+            let (source, fstype, size, used, avail, pct, mount) = if parts.len() == 7 {
+                (
+                    parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6],
+                )
+            } else {
+                // If fstype is missing or we used simple df -h
+                (
+                    parts[0],
+                    "unknown",
+                    parts[1],
+                    parts[2],
+                    parts[3],
+                    parts[4],
+                    parts[parts.len() - 1],
+                )
+            };
+
+            // Filter virtual filesystems to keep report clean
+            if source.starts_with("/dev/") || source == "tmpfs" || mount == "/" {
+                list.push(DiskFilesystem {
+                    source: source.to_string(),
+                    fstype: fstype.to_string(),
+                    size_human: size.to_string(),
+                    used_human: used.to_string(),
+                    avail_human: avail.to_string(),
+                    use_pct: pct.to_string(),
+                    mount: mount.to_string(),
+                });
+            }
+        }
+    }
+    Ok(list)
+>>>>>>> github/main
 }
 
 fn get_disk_free_bytes() -> Option<u64> {
@@ -174,10 +239,17 @@ fn get_dir_size(path: &Path) -> u64 {
                 }
                 if path.is_dir() {
                     // Skip noisy caches or recursively scanned sub-trees to keep speed high
+<<<<<<< HEAD
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                         if name == ".git" || name == "node_modules" {
                             continue;
                         }
+=======
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                        && (name == ".git" || name == "node_modules")
+                    {
+                        continue;
+>>>>>>> github/main
                     }
                     stack.push(path);
                 } else if let Ok(metadata) = entry.metadata() {
@@ -198,10 +270,17 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     if let Ok(read_dir) = fs::read_dir("/tmp") {
         for entry in read_dir.flatten() {
             let path = entry.path();
+<<<<<<< HEAD
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                 if name.starts_with("cynic-") {
                     tmp_cynic_size += get_dir_size(&path);
                 }
+=======
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && name.starts_with("cynic-")
+            {
+                tmp_cynic_size += get_dir_size(&path);
+>>>>>>> github/main
             }
         }
     }
@@ -222,9 +301,27 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
         size_bytes: journal_size,
     });
 
+<<<<<<< HEAD
     // 3. rotated syslog logs (canonical set from domain/disk/probe.rs)
     let mut rotated_syslog_size = 0u64;
     for file in ROTATED_SYSLOG_FILES {
+=======
+    // 3. rotated syslog logs
+    let mut rotated_syslog_size = 0u64;
+    let rotated_files = [
+        "/var/log/syslog.1",
+        "/var/log/syslog.2.gz",
+        "/var/log/syslog.3.gz",
+        "/var/log/syslog.4.gz",
+        "/var/log/kern.log.1",
+        "/var/log/kern.log.2.gz",
+        "/var/log/kern.log.3.gz",
+        "/var/log/ufw.log.1",
+        "/var/log/ufw.log.2.gz",
+        "/var/log/ufw.log.3.gz",
+    ];
+    for file in &rotated_files {
+>>>>>>> github/main
         if let Ok(meta) = fs::metadata(file) {
             rotated_syslog_size += meta.len();
         }
@@ -281,6 +378,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     entries
 }
 
+<<<<<<< HEAD
 /// Observe physical disks via `lsblk -b -J` (localhost only). Returns an empty
 /// Vec if `lsblk` is unavailable or yields non-JSON; never panics. This is the
 /// fourth layer of the disk vertical (physical device → volume → filesystem →
@@ -303,6 +401,8 @@ fn observe_physical_disks() -> Vec<PhysicalDisk> {
     parse_lsblk_disks(&stdout)
 }
 
+=======
+>>>>>>> github/main
 fn observe_large_files() -> Vec<DiskFileEntry> {
     let mut large_files = Vec::new();
     let mut search_paths = vec![Path::new("/tmp"), Path::new("/var/lib/cynic")]
@@ -336,6 +436,7 @@ fn observe_large_files() -> Vec<DiskFileEntry> {
                     }
 
                     if path.is_dir() {
+<<<<<<< HEAD
                         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                             if name == ".git"
                                 || name == "node_modules"
@@ -344,6 +445,15 @@ fn observe_large_files() -> Vec<DiskFileEntry> {
                             {
                                 continue;
                             }
+=======
+                        if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                            && (name == ".git"
+                                || name == "node_modules"
+                                || name == "target"
+                                || name == ".cache")
+                        {
+                            continue;
+>>>>>>> github/main
                         }
                         stack.push(path);
                     } else if let Ok(metadata) = entry.metadata() {
@@ -379,6 +489,7 @@ fn execute_cleanup_item(item: &DiskCleanupItem) -> DiskCleanupStepExecution {
             if let Ok(read_dir) = fs::read_dir("/tmp") {
                 for entry in read_dir.flatten() {
                     let path = entry.path();
+<<<<<<< HEAD
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                         if name.starts_with("cynic-") {
                             if path.is_dir() {
@@ -394,10 +505,30 @@ fn execute_cleanup_item(item: &DiskCleanupItem) -> DiskCleanupStepExecution {
                                 success = false;
                                 stderr_tail.push_str(&format!(
                                     "Failed to remove file {}: {}\n",
+=======
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                        && name.starts_with("cynic-")
+                    {
+                        if path.is_dir() {
+                            if let Err(e) = fs::remove_dir_all(&path) {
+                                success = false;
+                                stderr_tail.push_str(&format!(
+                                    "Failed to remove dir {}: {}\n",
+>>>>>>> github/main
                                     path.display(),
                                     e
                                 ));
                             }
+<<<<<<< HEAD
+=======
+                        } else if let Err(e) = fs::remove_file(&path) {
+                            success = false;
+                            stderr_tail.push_str(&format!(
+                                "Failed to remove file {}: {}\n",
+                                path.display(),
+                                e
+                            ));
+>>>>>>> github/main
                         }
                     }
                 }
@@ -407,7 +538,23 @@ fn execute_cleanup_item(item: &DiskCleanupItem) -> DiskCleanupStepExecution {
             }
         }
         "rotated_syslogs_purge" => {
+<<<<<<< HEAD
             for file in ROTATED_SYSLOG_FILES {
+=======
+            let files = [
+                "/var/log/syslog.1",
+                "/var/log/syslog.2.gz",
+                "/var/log/syslog.3.gz",
+                "/var/log/syslog.4.gz",
+                "/var/log/kern.log.1",
+                "/var/log/kern.log.2.gz",
+                "/var/log/kern.log.3.gz",
+                "/var/log/ufw.log.1",
+                "/var/log/ufw.log.2.gz",
+                "/var/log/ufw.log.3.gz",
+            ];
+            for file in &files {
+>>>>>>> github/main
                 let path = Path::new(file);
                 if path.exists() {
                     // Try to remove it. Sudo might be needed since they are in /var/log/

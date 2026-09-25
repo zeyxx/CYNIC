@@ -4,7 +4,11 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+[features]
+legacy_infra_tools = []
+
 [dependencies]
+<<<<<<< HEAD
 cynic-host = { path = "../cynic-host" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-protocol = { path = "../cynic-protocol" }
@@ -15,6 +19,28 @@ tokio = { version = "1", features = ["io-std", "macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["io-std", "macros", "rt-multi-thread"] }
+=======
+cynic-askesis = { path = "../cynic-askesis" }
+cynic-host = { path = "../cynic-host" }
+cynic-inference = { path = "../cynic-inference" }
+cynic-intel = { path = "../cynic-intel" }
+cynic-node = { path = "../cynic-node" }
+cynic-protocol = { path = "../cynic-protocol" }
+rmcp = { version = "1.2", features = ["server", "transport-io", "macros"] }
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1"
+sha3 = "0.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+chrono = "0.4"
+glob = "0.3"
+regex = "1"
+
+>>>>>>> github/main
 
 [lints]
 workspace = true

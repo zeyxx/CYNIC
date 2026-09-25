@@ -13,9 +13,14 @@ pub use admission::{
     AdmittedHostOperation, AdmittedHostOperationPlan, HOST_OPERATION_PLAN_SCHEMA, HostOperationPlan,
 };
 pub(crate) use admission::{
+<<<<<<< HEAD
     admit_host_operation_plan, build_service_operation_plan, digest_json,
     runtime_service_operation_policy_admission, service_operation_policy_admission,
     stderr_with_spawn_error,
+=======
+    admit_host_operation_plan, build_service_operation_plan,
+    runtime_service_operation_policy_admission, service_operation_policy_admission,
+>>>>>>> github/main
 };
 pub use bridge_admission::privilege_bridge_preconditions;
 pub(crate) use bridge_admission::{

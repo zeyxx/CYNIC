@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+<<<<<<< HEAD
 mod causal;
 mod coherence;
 mod index;
@@ -19,6 +20,8 @@ pub use index::{
     CausalEpochKey,
 };
 
+=======
+>>>>>>> github/main
 pub const CONVERGENCE_MATRIX_SCHEMA: &str = "cynic.convergence_matrix.v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +78,7 @@ pub fn assess_convergence_matrix(
     }
     let status = if !blockers.is_empty() {
         ConvergenceStatus::Blocked
+<<<<<<< HEAD
     } else if cells
         .iter()
         .any(|cell| cell.status == ConvergenceStatus::Unknown)
@@ -83,6 +87,11 @@ pub fn assess_convergence_matrix(
     } else if cells
         .iter()
         .all(|cell| cell.status == ConvergenceStatus::Complete)
+=======
+    } else if cells.iter().any(|cell| cell.status == ConvergenceStatus::Unknown) {
+        ConvergenceStatus::Unknown
+    } else if cells.iter().all(|cell| cell.status == ConvergenceStatus::Complete)
+>>>>>>> github/main
         && cells.len() >= expected
     {
         ConvergenceStatus::Complete
@@ -100,7 +109,13 @@ pub fn assess_convergence_matrix(
     }
 }
 
+<<<<<<< HEAD
 pub fn merge_convergence_matrices(matrices: &[ConvergenceMatrixReport]) -> ConvergenceMatrixReport {
+=======
+pub fn merge_convergence_matrices(
+    matrices: &[ConvergenceMatrixReport],
+) -> ConvergenceMatrixReport {
+>>>>>>> github/main
     let mut subjects = BTreeSet::new();
     let mut verticals = BTreeSet::new();
     let mut cells = BTreeMap::new();
@@ -109,12 +124,18 @@ pub fn merge_convergence_matrices(matrices: &[ConvergenceMatrixReport]) -> Conve
     for matrix in matrices {
         subjects.extend(matrix.subjects.iter().cloned());
         verticals.extend(matrix.verticals.iter().cloned());
+<<<<<<< HEAD
         blockers.extend(
             matrix
                 .blockers
                 .iter()
                 .map(|blocker| format!("source_matrix:{}:{blocker}", matrix.schema)),
         );
+=======
+        blockers.extend(matrix.blockers.iter().map(|blocker| {
+            format!("source_matrix:{}:{blocker}", matrix.schema)
+        }));
+>>>>>>> github/main
         for cell in &matrix.cells {
             let key = (cell.subject_id.clone(), cell.vertical_id.clone());
             if cells.insert(key.clone(), cell.clone()).is_some() {
@@ -133,7 +154,14 @@ pub fn merge_convergence_matrices(matrices: &[ConvergenceMatrixReport]) -> Conve
     } else {
         ConvergenceMatrixReport {
             status: ConvergenceStatus::Blocked,
+<<<<<<< HEAD
             blockers: blockers.into_iter().chain(report.blockers).collect(),
+=======
+            blockers: blockers
+                .into_iter()
+                .chain(report.blockers)
+                .collect(),
+>>>>>>> github/main
             ..report
         }
     }
@@ -157,11 +185,15 @@ mod tests {
             }],
         );
         assert_eq!(report.status, ConvergenceStatus::Blocked);
+<<<<<<< HEAD
         assert!(
             report
                 .blockers
                 .contains(&"matrix_cells_missing".to_string())
         );
+=======
+        assert!(report.blockers.contains(&"matrix_cells_missing".to_string()));
+>>>>>>> github/main
     }
 
     #[test]

@@ -2,6 +2,7 @@
   "version": 1,
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+<<<<<<< HEAD
   "peer_genesis": {
     "schema": "cynic.peer_genesis.desired_state.v1",
     "founder": {
@@ -163,28 +164,40 @@
       ]
     }
   },
+=======
+>>>>>>> github/main
   "network_policy": {
     "canonical_service_plane": "synapse",
     "planes": {
       "management": {
+<<<<<<< HEAD
         "cidr": "192.168.100.0/24",
         "canonical": false,
         "purpose": "direct bare-metal management transport"
+=======
+        "cidr": "192.168.0.0/24",
+        "canonical": false,
+        "purpose": "home lan underlay (Freebox)"
+>>>>>>> github/main
       },
       "synapse": {
         "cidr": "10.10.10.0/24",
         "dns_zone": "synapse.cynic",
         "canonical": true
+<<<<<<< HEAD
       },
       "overlay": {
         "cidr": "10.20.0.0/24",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay"
+=======
+>>>>>>> github/main
       }
     },
     "reservations": [
       {
         "name": "cynic-host-proxmox",
+<<<<<<< HEAD
         "management": "192.168.100.1",
         "synapse": "10.10.10.1",
         "dns": [
@@ -325,6 +338,27 @@
         }
       ]
     }
+=======
+        "addresses": {
+          "management": "192.168.0.37",
+          "synapse": "10.10.10.1"
+        }
+      },
+      {
+        "name": "cynic-host-cortex",
+        "addresses": {
+          "management": "192.168.0.12",
+          "synapse": "10.10.10.2"
+        }
+      },
+      {
+        "name": "forgejo",
+        "dns": [
+          "forgejo.synapse.cynic"
+        ]
+      }
+    ]
+>>>>>>> github/main
   },
   "nodes": [
     {
@@ -334,6 +368,7 @@
         "pve"
       ],
       "role": "hypervisor",
+<<<<<<< HEAD
       "host_family": "linux.proxmox.systemd",
       "provider_controls": [
         "proxmox"
@@ -354,18 +389,35 @@
       "energy_profile": {
         "class": "always_on"
       }
+=======
+      "status": "observed",
+      "deploy_target": false,
+      "network": {
+        "management": "192.168.0.37",
+        "synapse": "10.10.10.1"
+      },
+      "services": []
+>>>>>>> github/main
     },
     {
       "id": "cynic-host-cortex",
       "name": "cynic-host-cortex",
+<<<<<<< HEAD
       "aliases": [
         "ubuntu"
       ],
+=======
+      "aliases": [],
+>>>>>>> github/main
       "role": "cortex_host",
       "status": "candidate",
       "deploy_target": false,
       "network": {
+<<<<<<< HEAD
         "management": "192.168.100.2"
+=======
+        "management": "192.168.0.12"
+>>>>>>> github/main
       },
       "network_links": [
         {
@@ -381,14 +433,19 @@
           "default_route": false
         }
       ],
+<<<<<<< HEAD
       "services": [],
       "energy_profile": {
         "class": "always_on"
       }
+=======
+      "services": []
+>>>>>>> github/main
     },
     {
       "id": "local-kernel",
       "name": "local-kernel",
+<<<<<<< HEAD
       "aliases": [
         "cynic-kernel-primary",
         "kernel",
@@ -401,13 +458,24 @@
       },
       "status": "candidate",
       "deploy_target": true,
+=======
+      "role": "kernel_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "network": {
+        "synapse": "127.0.0.1"
+      },
+>>>>>>> github/main
       "services": [
         {
           "name": "cynic-kernel",
           "artifact": "cynic-kernel",
+<<<<<<< HEAD
           "scheme": "http",
           "endpoint_host": "192.168.100.2",
           "network_plane": "management",
+=======
+>>>>>>> github/main
           "port": 3030,
           "unit": "cynic-kernel.service",
           "supervisor": {
@@ -429,8 +497,31 @@
             "kind": "process",
             "process": "cynic-node"
           }
+<<<<<<< HEAD
+=======
+        },
+        {
+          "name": "surrealdb",
+          "unit": "surrealdb.service",
+          "port": 8000,
+          "supervisor": {
+            "provider": "process-port"
+          },
+          "health": {
+            "kind": "tcp",
+            "port": 8000
+          }
+>>>>>>> github/main
         }
+      ]
+    },
+    {
+      "id": "local-builder",
+      "name": "local-builder",
+      "aliases": [
+        "ubuntu"
       ],
+<<<<<<< HEAD
       "energy_profile": {
         "class": "always_on"
       }
@@ -634,6 +725,31 @@
         "local": "10.10.10.101",
         "synapse": "10.10.10.101"
       },
+=======
+      "role": "build_runner",
+      "status": "candidate",
+      "deploy_target": false,
+      "network": {
+        "synapse": "127.0.0.1"
+      },
+      "services": []
+    },
+    {
+      "id": "forgejo",
+      "name": "forgejo",
+      "aliases": [
+        "organ-forgejo",
+        "cynic-lxc-git"
+      ],
+      "role": "forge_primary",
+      "status": "candidate",
+      "deploy_target": true,
+      "proxmox_id": "lxc/101",
+      "network": {
+        "local": "10.10.10.101",
+        "synapse": "10.10.10.101"
+      },
+>>>>>>> github/main
       "services": [
         {
           "name": "ssh",
@@ -644,6 +760,7 @@
           "name": "forgejo-backend",
           "scheme": "http",
           "port": 3000
+<<<<<<< HEAD
         }
       ],
       "energy_profile": {
@@ -682,11 +799,21 @@
       "energy_profile": {
         "class": "always_on"
       }
+=======
+        },
+        {
+          "name": "forgejo-api-tls",
+          "scheme": "https",
+          "port": 443
+        }
+      ]
+>>>>>>> github/main
     }
   ],
   "fleet_desired": {
     "targets": [
       {
+<<<<<<< HEAD
         "id": "cynic-builder",
         "provider": "proxmox",
         "resource_id": "lxc/105",
@@ -694,11 +821,14 @@
         "desired_power": "running"
       },
       {
+=======
+>>>>>>> github/main
         "id": "forgejo-primary",
         "provider": "proxmox",
         "resource_id": "lxc/101",
         "role": "forge_primary",
         "desired_power": "running"
+<<<<<<< HEAD
       },
       {
         "id": "storage-primary",
@@ -706,6 +836,8 @@
         "resource_id": "lxc/103",
         "role": "storage_primary",
         "desired_power": "running"
+=======
+>>>>>>> github/main
       }
     ]
   },
@@ -741,12 +873,16 @@
               "host_identity_observed",
               "host_bootstrap_target_satisfied",
               "cargo_check_observed",
+<<<<<<< HEAD
               "binary_build_observed",
               "build_resource_preflight_read_back",
               "runtime_marker_read_back",
               "node_control_config_read_back",
               "node_service_active_read_back",
               "bootstrap_completion_read_back"
+=======
+              "binary_build_observed"
+>>>>>>> github/main
             ]
           },
           "storage_primary": {
@@ -779,6 +915,7 @@
         }
       },
       "runtime_artifacts": [
+<<<<<<< HEAD
         "cynic",
         "cynic-kernel",
         "cynic-lxc-exec-bridge",
@@ -786,5 +923,29 @@
         "cynic-node"
       ]
     }
+=======
+        "cynic-kernel",
+        "cynic-node",
+        "cynic-mcp",
+        "cynic"
+      ]
+    }
+  },
+  "vertical_contracts": {
+    "schema": "cynic.vertical_contract_registry.v1",
+    "temporal": {
+      "id": "temporal",
+      "desired_state": "consistent logical epoch progression with checkpoint certification across all federated nodes",
+      "observer": "EpochClock probe, WAL epoch markers, federation EpochCertificate gossip",
+      "reconciliation": "admit only EpochCertificates with epoch > observed_epoch; reject divergent epoch views",
+      "bounded_action": "advance local Epoch by EpochCertificate or request rollback from peer with higher certified epoch",
+      "read_back_proof": "WAL epoch marker persisted, RuntimeProof.evidence[].epoch populated, TemporalSnapshot recoverable via replay_from_epoch",
+      "owner": [
+        "cynic-observer",
+        "cynic-protocol"
+      ],
+      "coverage": "partial"
+    }
+>>>>>>> github/main
   }
 }

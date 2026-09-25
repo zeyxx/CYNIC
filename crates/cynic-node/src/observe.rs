@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 use cynic_build::BUILD_RUNNER_OBSERVATION_SCHEMA;
 
+=======
+>>>>>>> github/main
 use crate::adapters::host_observation::{CommandObservation, TcpObservation};
 #[cfg(any(test, kani))]
 use crate::build_attestation::runtime_binary_attestation;
@@ -87,14 +90,31 @@ pub(crate) struct NodeObservation {
     pub(crate) services: ServiceObservation,
 }
 
+<<<<<<< HEAD
+=======
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct RegistryNodeObservation {
+    pub(crate) schema: &'static str,
+    pub(crate) node_id: String,
+    pub(crate) hostname: String,
+    pub(crate) observed_at_unix_ms: u64,
+    pub(crate) registry_path: String,
+    pub(crate) role: Option<String>,
+    pub(crate) evidence: serde_json::Value,
+}
+
+>>>>>>> github/main
 #[cfg(any(test, kani))]
 #[derive(Debug, Clone)]
 pub(crate) struct SyntheticNodeObservationContext {
     pub(crate) wg_quick_unit: String,
     pub(crate) resolved_unit: String,
     pub(crate) ip_bin: String,
+<<<<<<< HEAD
     pub(crate) network_manager_bin: String,
     pub(crate) nft_bin: String,
+=======
+>>>>>>> github/main
     pub(crate) wg_bin: String,
     pub(crate) systemctl_bin: String,
 }
@@ -108,8 +128,11 @@ impl SyntheticNodeObservationContext {
             wg_quick_unit: runtime_layout.wg_quick_unit(),
             resolved_unit: host_capabilities.dns_provider.resolved_unit.clone(),
             ip_bin: host_capabilities.route_tool.command.clone(),
+<<<<<<< HEAD
             network_manager_bin: host_capabilities.network_manager.command.clone(),
             nft_bin: std::env::var("CYNIC_NFT_BIN").unwrap_or_else(|_| "nft".to_string()),
+=======
+>>>>>>> github/main
             wg_bin: host_capabilities.wireguard_tool.command.clone(),
             systemctl_bin: host_capabilities.service_manager.command.clone(),
         }
@@ -117,6 +140,7 @@ impl SyntheticNodeObservationContext {
 }
 
 impl NodeObservation {
+<<<<<<< HEAD
     pub(crate) fn registry_observation(
         &self,
         registry_path: &str,
@@ -151,6 +175,24 @@ impl NodeObservation {
             registry_path: registry_path.to_string(),
             declared_role,
             identity_match,
+=======
+    pub(crate) fn registry_observation(&self, registry_path: &str) -> RegistryNodeObservation {
+        let machine_id_path = std::env::var("CYNIC_MACHINE_ID_PATH")
+            .unwrap_or_else(|_| "/etc/machine-id".to_string());
+        let machine_id = std::fs::read_to_string(machine_id_path)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| format!("hostname:{}", self.hostname));
+        let observed_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        RegistryNodeObservation {
+            schema: "cynic.runtime.node_observation.v1",
+            node_id: machine_id,
+            hostname: self.hostname.clone(),
+            observed_at_unix_ms,
+            registry_path: registry_path.to_string(),
+            role: None,
+>>>>>>> github/main
             evidence: serde_json::json!({
                 "node_status": self.status,
                 "node_severity": self.severity,
@@ -166,10 +208,13 @@ impl NodeObservation {
                 ),
                 "topology": self.topology,
             }),
+<<<<<<< HEAD
             evidence_refs: vec![format!(
                 "node-local-observation:{}:{}",
                 self.hostname, observed_at_unix_ms
             )],
+=======
+>>>>>>> github/main
         }
     }
 
@@ -281,6 +326,7 @@ impl NodeObservation {
             network: NetworkObservation {
                 interfaces: command_observation_for_tests(&context.ip_bin, &["-brief", "addr"]),
                 routes: command_observation_for_tests(&context.ip_bin, &["route"]),
+<<<<<<< HEAD
                 network_manager_connections: command_observation_for_tests(
                     &context.network_manager_bin,
                     &[
@@ -295,6 +341,8 @@ impl NodeObservation {
                 policy_routes: command_observation_for_tests(&context.ip_bin, &["rule"]),
                 namespaces: command_observation_for_tests(&context.ip_bin, &["netns", "list"]),
                 firewall: command_observation_for_tests(&context.nft_bin, &["list", "ruleset"]),
+=======
+>>>>>>> github/main
                 provider_fallback_route: command_observation_for_tests(
                     &context.ip_bin,
                     &["route", "show", "10.10.10.0/24"],
@@ -367,8 +415,11 @@ mod tests {
                 wg_quick_unit: "wg-quick@wg-portable".to_string(),
                 resolved_unit: "portable-resolved".to_string(),
                 ip_bin: "/portable/bin/ip".to_string(),
+<<<<<<< HEAD
                 network_manager_bin: "/portable/bin/nmcli".to_string(),
                 nft_bin: "/portable/bin/nft".to_string(),
+=======
+>>>>>>> github/main
                 wg_bin: "/portable/bin/wg".to_string(),
                 systemctl_bin: "/portable/bin/systemctl".to_string(),
             },

@@ -1,12 +1,21 @@
+<<<<<<< HEAD
+=======
+use std::time::{SystemTime, UNIX_EPOCH};
+
+>>>>>>> github/main
 use serde::Serialize;
 
 use crate::conformance::HostConformanceReport;
 use crate::domain::shared::SurfaceStatus;
 use crate::forgejo_control::current_forgejo_plan;
+<<<<<<< HEAD
 use cynic_protocol::{
     RUNTIME_PROOF_BUNDLE_SCHEMA, ResidualUnknownBudget, RuntimeProofBundle,
     evaluate_residual_unknowns,
 };
+=======
+use cynic_protocol::RuntimeProofBundle;
+>>>>>>> github/main
 
 pub const HOST_RUNTIME_METRICS_SCHEMA: &str = "cynic.host.runtime_metrics.v1";
 const DEFAULT_PROOF_FRESHNESS_MAX_AGE_MS: u128 = 5 * 60 * 1000;
@@ -22,8 +31,11 @@ pub struct HostRuntimeMetricsReport {
     pub measured_percent: u8,
     pub known_coverage_percent: u8,
     pub residual_unknown_percent: u8,
+<<<<<<< HEAD
     pub residual_unknown_budget_acceptable: bool,
     pub max_residual_unknown_percent: u8,
+=======
+>>>>>>> github/main
     pub measured_metric_count: usize,
     pub unknown_metric_count: usize,
     pub total_metric_count: usize,
@@ -85,8 +97,11 @@ fn host_runtime_metrics_with_now(
         sovereign_git_metric(),
         security_posture_metric(report),
         observability_coverage_metric(report),
+<<<<<<< HEAD
         organic_compass_metric(external_proof),
         storage_topology_metric(external_proof),
+=======
+>>>>>>> github/main
     ];
     let total_metric_count = metrics.len();
     let measured = metrics
@@ -95,12 +110,17 @@ fn host_runtime_metrics_with_now(
         .collect::<Vec<_>>();
     let measured_metric_count = measured.len();
     let unknown_metric_count = total_metric_count.saturating_sub(measured_metric_count);
+<<<<<<< HEAD
     let unknown_budget =
         ResidualUnknownBudget::new(100u8.saturating_sub(MIN_KNOWN_COVERAGE_PERCENT), None);
     let unknown_eval =
         evaluate_residual_unknowns(unknown_metric_count, total_metric_count, &unknown_budget);
     let known_coverage_percent = unknown_eval.known_coverage_percent;
     let residual_unknown_percent = unknown_eval.residual_unknown_percent;
+=======
+    let known_coverage_percent = percent(measured_metric_count, total_metric_count);
+    let residual_unknown_percent = 100u8.saturating_sub(known_coverage_percent);
+>>>>>>> github/main
     let measured_percent = if measured.is_empty() {
         0
     } else {
@@ -131,8 +151,11 @@ fn host_runtime_metrics_with_now(
         measured_percent,
         known_coverage_percent,
         residual_unknown_percent,
+<<<<<<< HEAD
         residual_unknown_budget_acceptable: unknown_eval.acceptable,
         max_residual_unknown_percent: unknown_budget.max_residual_unknown_percent,
+=======
+>>>>>>> github/main
         measured_metric_count,
         unknown_metric_count,
         total_metric_count,
@@ -231,7 +254,11 @@ fn proof_freshness_metric(
         label: "Proof freshness",
         numerator,
         denominator,
+<<<<<<< HEAD
         source: RUNTIME_PROOF_BUNDLE_SCHEMA,
+=======
+        source: "cynic.runtime_proof_bundle.v1",
+>>>>>>> github/main
         target_percent: 95,
         critical: true,
         detail: format!("fresh_proofs={numerator}/{denominator}"),
@@ -407,6 +434,7 @@ fn sovereign_git_metric() -> RuntimeMetric {
     }
 }
 
+<<<<<<< HEAD
 fn organic_compass_metric(external_proof: Option<&RuntimeProofBundle>) -> RuntimeMetric {
     proof_gate_metric(
         external_proof,
@@ -437,6 +465,8 @@ fn storage_topology_metric(external_proof: Option<&RuntimeProofBundle>) -> Runti
     )
 }
 
+=======
+>>>>>>> github/main
 #[derive(Debug)]
 struct ProofGateMetricSpec {
     id: &'static str,
@@ -588,7 +618,14 @@ fn bootstrap_stage_index(stage: &str) -> Option<usize> {
 }
 
 fn now_unix_ms() -> u128 {
+<<<<<<< HEAD
     u128::from(crate::clock::now_unix_ms())
+=======
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
+>>>>>>> github/main
 }
 
 #[cfg(test)]
@@ -619,7 +656,10 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
+<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
             }
         }
     }
@@ -642,7 +682,13 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
+<<<<<<< HEAD
             crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
+=======
+            PackageObservedState {
+                installed_packages: policy.bootstrap_packages.clone(),
+            }
+>>>>>>> github/main
         }
     }
 
@@ -724,6 +770,7 @@ mod tests {
         let metrics = host_runtime_metrics_with_now(&report, None, now_unix_ms(), 60_000);
 
         assert_eq!(metrics.schema, HOST_RUNTIME_METRICS_SCHEMA);
+<<<<<<< HEAD
         // Not 100: the package domain is Blocked by design because the profile
         // policy declares unresolved_distribution_authority(), so a fully
         // "ready" observer still cannot make every host contract pass. Asserting
@@ -738,6 +785,11 @@ mod tests {
                 .iter()
                 .map(|gate| (gate.id, gate.status))
                 .collect::<Vec<_>>()
+=======
+        assert_eq!(
+            metric(&metrics, "host_conformance_percent").percent,
+            Some(100)
+>>>>>>> github/main
         );
         assert_eq!(
             metric(&metrics, "host_conformance_percent").target_percent,
@@ -745,8 +797,12 @@ mod tests {
         );
         assert_eq!(
             metric(&metrics, "host_conformance_percent").status,
+<<<<<<< HEAD
             "below_target",
             "66% is under the 95% target and must be reported as such, not as within_target"
+=======
+            "within_target"
+>>>>>>> github/main
         );
         assert!(metrics.known_coverage_percent < 100);
         assert!(metrics.residual_unknown_percent > 0);

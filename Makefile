@@ -4,13 +4,19 @@ SHELL := /bin/bash
 .NOTPARALLEL:
 
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
+<<<<<<< HEAD
 CARGO ?= cargo
+=======
+PATH := $(PROJECT_DIR)/scripts:$(PATH)
+CARGO := $(PROJECT_DIR)/scripts/cargo
+>>>>>>> github/main
 CARGO_NETWORK_MODE ?= offline
 CARGO_SOURCE_MODE ?= registry
 CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
+<<<<<<< HEAD
 CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-inference cynic-mcp
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
@@ -108,6 +114,56 @@ audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ow
 .PHONY: audit-runtime-phases
 audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
+=======
+CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
+LAB_REGISTRY := infra/registries/lab.json
+LOCAL_REGISTRY := infra/registries/single-node.json
+# CYNIC_ALLOW_LOCAL_DEV_BUILD: kernel build.rs blocks Cortex-local compiles by default.
+# The repo check/build gates are intentional local-dev paths and must set the override.
+LOCAL_DEV_BUILD := CYNIC_ALLOW_LOCAL_DEV_BUILD=1
+# Keep a bounded large compiler stack for kernel/CLI monomorphization. The
+# repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
+RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
+
+.PHONY: check
+check: ## Validate the living low-layer Rust runtime baseline
+	@echo "==> checking foundation, runtime authority, and registry"
+	@jq empty contracts/foundation.json
+	@jq empty infra/runtime-authority.json
+	@jq empty infra/registry.json
+	@jq empty infra/agent-exposure.json
+	@jq empty infra/ecosystem-pins.json
+	@echo "==> cargo check core crates"
+	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
+	@$(MAKE) --no-print-directory surface-audit
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+
+.PHONY: check-installed-runtime
+check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)
+	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
+
+.PHONY: check-strict
+check-strict: ## cargo check core crates with -D warnings (signal engineering debt)
+	@echo "==> strict warning check on core crates"
+	@$(RUST_ENV) RUSTFLAGS='-D warnings' $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
+
+.PHONY: surface-audit
+surface-audit: ## Verify canonical CLI surfaces are backed by real modules and mutation policies
+	@echo "==> auditing canonical CLI surfaces"
+	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-audit --json | jq -e '.schema == "cynic.cli.surface_audit.v1" and .status == "ok" and .blocked_count == 0' >/dev/null
+
+.PHONY: audit-surface-matrix
+audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ownership, kernel-audit, runtime phases)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@jq -e '.summary.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
+
+.PHONY: audit-runtime-phases
+audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix >/dev/null
+>>>>>>> github/main
 	@jq '.runtime_phases' target-cynic-ci/cynic-surface-audit-matrix.json
 
 .PHONY: lab-check
@@ -209,15 +265,23 @@ operator-loop: ## Fast operator iteration cycle: install CLI and refresh authori
 .PHONY: operator-reports
 operator-reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics snapshot)
 	@mkdir -p target-cynic-ci
+<<<<<<< HEAD
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime conformance --json > target-cynic-ci/cynic-runtime-conformance.json || true
 	@test -s target-cynic-ci/cynic-runtime-conformance.json
 	@jq -e '.proof_bundle | select(.schema == "cynic.runtime_proof_bundle.v1")' target-cynic-ci/cynic-runtime-conformance.json > target-cynic-ci/cynic-runtime-proof-bundle.json
+=======
+	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
+	@$(PATH := /bin:$(PATH)) ./scripts/runtime-evidence-bundle target-cynic-ci/cynic-runtime-proof-bundle.json
+>>>>>>> github/main
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --proof target-cynic-ci/cynic-runtime-proof-bundle.json > target-cynic-ci/cynic-runtime-metrics.json
 	@echo "==> operator reports:"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
+<<<<<<< HEAD
 	@echo "  - target-cynic-ci/cynic-runtime-conformance.json"
+=======
+>>>>>>> github/main
 	@echo "  - target-cynic-ci/cynic-runtime-proof-bundle.json"
 	@echo "  - target-cynic-ci/cynic-runtime-metrics.json"
 	@jq -r '"  status=\(.status)\n  maturity_percent=\(.maturity_percent)\n  residual_unknown_percent=\(.residual_unknown_percent)"' \
@@ -440,6 +504,7 @@ e2e: ## Execute the local single-node E2E proof chain without pretending blocked
 
 .PHONY: build
 build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+<<<<<<< HEAD
 	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-cli
 
 .PHONY: build-release
@@ -449,6 +514,13 @@ build-release: ## Admitted release build on the registry-selected build runner
 	args=(build --release)
 	for package in "$${packages[@]}"; do args+=(-p "$$package"); done
 	$(RELEASE_RUST_ENV) $(CARGO) "$${args[@]}"
+=======
+	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
+
+.PHONY: build-release
+build-release: ## Experimental release build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
+	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
+>>>>>>> github/main
 
 .PHONY: test
 test: ## Run tests for low-layer core crates
@@ -492,6 +564,7 @@ run-kernel: ## Run the kernel locally
 run-node: ## Run the node locally
 	@$(RUST_ENV) $(CARGO) run -p cynic-node
 
+<<<<<<< HEAD
 .PHONY: install-user-bins
 install-user-bins: build ## Install release binaries into ~/bin
 	@mkdir -p "$$HOME/bin"
@@ -499,6 +572,20 @@ install-user-bins: build ## Install release binaries into ~/bin
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
 
+=======
+.PHONY: run-mcp
+run-mcp: ## Run the MCP proxy locally over stdio
+	@$(RUST_ENV) $(CARGO) run -p cynic-mcp
+
+.PHONY: install-user-bins
+install-user-bins: build ## Install release binaries into ~/bin
+	@mkdir -p "$$HOME/bin"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-kernel" "$$HOME/bin/cynic-kernel"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-mcp" "$$HOME/bin/cynic-mcp"
+	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
+
+>>>>>>> github/main
 .PHONY: systemd-list
 systemd-list: ## List remaining runtime unit templates
 	@find infra/systemd -maxdepth 1 -type f | sort

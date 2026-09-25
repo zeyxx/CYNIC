@@ -117,6 +117,7 @@ impl BatchClaimResult {
             .count()
     }
 }
+<<<<<<< HEAD
 
 pub const HUMAN_SCOPED_FALLBACK_ADMISSION_SCHEMA: &str =
     "cynic.coordination.human_scoped_fallback_admission.v1";
@@ -521,3 +522,5 @@ mod tests {
         assert!(blockers.contains(&"human_scoped_fallback_proposal_paths_invalid".to_string()));
     }
 }
+=======
+>>>>>>> github/main

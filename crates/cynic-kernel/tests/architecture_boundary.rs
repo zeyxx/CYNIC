@@ -18,6 +18,7 @@ fn read_repo_file(relative_path: &str) -> String {
         .unwrap_or_else(|err| panic!("failed to read {relative_path}: {err}"))
 }
 
+<<<<<<< HEAD
 /// Concatenate every `.rs` file under a repo-relative directory, recursively.
 ///
 /// Boundary assertions must not enumerate individual files: when a surface is
@@ -54,6 +55,8 @@ fn read_repo_tree(relative_dir: &str) -> String {
     out
 }
 
+=======
+>>>>>>> github/main
 #[test]
 fn kernel_lib_stays_the_compilation_boundary_surface() {
     let lib_rs = read_repo_file("crates/cynic-kernel/src/lib.rs");
@@ -122,19 +125,29 @@ fn kernel_api_and_infra_surfaces_stay_split_by_role() {
     let api_mod = read_repo_file("crates/cynic-kernel/src/api/mod.rs");
     let rest_mod = read_repo_file("crates/cynic-kernel/src/api/rest/mod.rs");
     let infra_mod = read_repo_file("crates/cynic-kernel/src/infra/mod.rs");
+<<<<<<< HEAD
     let bootstrap_entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
     let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
 
     for expected in ["pub mod rest;", "pub mod websocket;"] {
+=======
+    let mcp_proxy = read_repo_file("crates/cynic-kernel/src/api/mcp/proxy.rs");
+    let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
+
+    for expected in ["pub mod mcp;", "pub mod rest;", "pub mod websocket;"] {
+>>>>>>> github/main
         assert!(
             api_mod.contains(expected),
             "api/mod.rs should contain `{expected}`"
         );
     }
+<<<<<<< HEAD
     assert!(
         !api_mod.contains("pub mod mcp;"),
         "standalone cynic-mcp must remain the single MCP command surface"
     );
+=======
+>>>>>>> github/main
 
     for expected in [
         "pub mod agent_tasks;",
@@ -168,12 +181,26 @@ fn kernel_api_and_infra_surfaces_stay_split_by_role() {
         );
     }
 
+<<<<<<< HEAD
     assert!(
         bootstrap_entry.contains("blocked_deprecated_surface")
             && bootstrap_entry.contains("standalone cynic-mcp")
             && !bootstrap_entry.contains("CYNIC_API_KEY"),
         "deprecated kernel --mcp mode must fail explicitly without API-key fallback"
     );
+=======
+    for expected in [
+        "pub struct CynicMcpProxy",
+        "tool_router()",
+        "async fn get(",
+        "async fn post(",
+    ] {
+        assert!(
+            mcp_proxy.contains(expected),
+            "api/mcp/proxy.rs should contain `{expected}`"
+        );
+    }
+>>>>>>> github/main
 
     for expected in [
         "pub fn spawn_signal_handler",
@@ -210,6 +237,7 @@ fn kernel_fleet_inventory_probe_stays_a_thin_node_adapter() {
 
 #[test]
 fn kernel_lifecycle_surface_stays_host_owned() {
+<<<<<<< HEAD
     // Extraction is complete (4613b710): the kernel facades are gone and the
     // law lives in cynic-host. This guard fails if anyone reintroduces a
     // kernel-owned lifecycle copy, or if the host law disappears.
@@ -243,6 +271,31 @@ fn kernel_lifecycle_surface_stays_host_owned() {
         assert!(
             content.to_lowercase().contains(expected),
             "{host_path} must carry the lifecycle law"
+=======
+    for (path, expected) in [
+        (
+            "crates/cynic-kernel/src/domain/lifecycle_activation_evidence.rs",
+            "pub use cynic_host::lifecycle::activation_evidence::*;",
+        ),
+        (
+            "crates/cynic-kernel/src/domain/lifecycle_activation_requests.rs",
+            "pub use cynic_host::lifecycle::activation_requests::*;",
+        ),
+        (
+            "crates/cynic-kernel/src/domain/lifecycle_diagnostics.rs",
+            "pub use cynic_host::lifecycle::diagnostics::*;",
+        ),
+        (
+            "crates/cynic-kernel/src/domain/lifecycle_workflow_state.rs",
+            "pub use cynic_host::lifecycle::workflow_state::*;",
+        ),
+    ] {
+        let content = read_repo_file(path);
+        assert_eq!(
+            content.trim(),
+            expected,
+            "{path} must stay a compatibility facade over cynic-host"
+>>>>>>> github/main
         );
     }
 }
@@ -250,6 +303,7 @@ fn kernel_lifecycle_surface_stays_host_owned() {
 #[test]
 fn kernel_storage_must_not_own_inference_model_registry() {
     let storage_mod = read_repo_file("crates/cynic-kernel/src/domain/storage/mod.rs");
+<<<<<<< HEAD
     // Walk the whole storage surface instead of listing files: `storage/surreal.rs`
     // and `storage/memory.rs` have all been split into module directories.
     let storage_tree = format!(
@@ -257,6 +311,19 @@ fn kernel_storage_must_not_own_inference_model_registry() {
         read_repo_tree("crates/cynic-kernel/src/domain/storage"),
         read_repo_tree("crates/cynic-kernel/src/storage"),
     );
+=======
+    let storage_tree = [
+        "crates/cynic-kernel/src/domain/storage/mod.rs",
+        "crates/cynic-kernel/src/domain/storage/null.rs",
+        "crates/cynic-kernel/src/storage/memory.rs",
+        "crates/cynic-kernel/src/storage/reconnectable.rs",
+        "crates/cynic-kernel/src/storage/surreal.rs",
+    ]
+    .into_iter()
+    .map(read_repo_file)
+    .collect::<Vec<_>>()
+    .join("\n");
+>>>>>>> github/main
 
     for forbidden in [
         "ModelRegistryStorage",
@@ -307,6 +374,7 @@ fn kernel_storage_must_not_own_inference_model_registry() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn workload_identity_surfaces_fail_closed_and_share_rbac_policy() {
     let middleware = read_repo_file("crates/cynic-kernel/src/api/rest/middleware.rs");
     let websocket = read_repo_file("crates/cynic-kernel/src/api/websocket/mod.rs");
@@ -335,6 +403,8 @@ fn workload_identity_surfaces_fail_closed_and_share_rbac_policy() {
 }
 
 #[test]
+=======
+>>>>>>> github/main
 fn kernel_backends_must_not_own_embedding_adapter() {
     let kernel_embedding_adapter =
         repo_root().join("crates/cynic-kernel/src/backends/embedding.rs");
@@ -703,14 +773,19 @@ fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
     let health_probe = read_repo_file("crates/cynic-kernel/src/backends/health_probe.rs");
     assert!(
         health_probe.contains("cynic_node::verify")
+<<<<<<< HEAD
             // Accept either the plain or the bearer-carrying health helper: what
             // matters is that observation is delegated, not which arity is used.
             && (health_probe.contains("check_health(")
                 || health_probe.contains("check_health_with_bearer("))
+=======
+            && health_probe.contains("check_health(")
+>>>>>>> github/main
             && health_probe.contains("check_identity_with_bearer("),
         "kernel boot health probe must delegate backend verification to cynic-node"
     );
 
+<<<<<<< HEAD
     // A backend config that carries an api_key must present it on the health
     // probe too, otherwise a secured backend is logged UNREACHABLE at boot.
     assert!(
@@ -719,6 +794,8 @@ fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
          misreported as unreachable"
     );
 
+=======
+>>>>>>> github/main
     for forbidden in [
         ".get(health_url).send().await",
         ".get(&models_url).send().await",
@@ -733,6 +810,7 @@ fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn kernel_rug_risk_facade_stays_extracted_to_cynic_intel() {
     // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
     // This guard fails if anyone reintroduces a kernel-owned copy.
@@ -743,6 +821,30 @@ fn kernel_rug_risk_facade_stays_extracted_to_cynic_intel() {
         "kernel rug_risk facade must stay deleted; law lives in cynic-intel::rug_risk"
     );
 
+=======
+fn kernel_rug_risk_delegates_token_intelligence_to_cynic_intel() {
+    let rug_risk = read_repo_file("crates/cynic-kernel/src/domain/rug_risk.rs");
+    assert!(
+        rug_risk.contains("cynic_intel::rug_risk")
+            && rug_risk.contains("impl RugRiskTokenView for TokenData"),
+        "kernel rug_risk must be a compatibility adapter over cynic-intel"
+    );
+
+    for forbidden in [
+        "very_young",
+        "young_low_holders",
+        "mint_authority_active\"",
+        "freeze_authority_active\"",
+        "extreme_concentration",
+        "thin_liquidity",
+    ] {
+        assert!(
+            !rug_risk.contains(forbidden),
+            "kernel rug_risk must not own token intelligence rule: {forbidden}"
+        );
+    }
+
+>>>>>>> github/main
     let intel_rug_risk = read_repo_file("crates/cynic-intel/src/rug_risk.rs");
     for expected in [
         "pub trait RugRiskTokenView",
@@ -841,6 +943,7 @@ fn kernel_kscore_delegates_heuristics_to_cynic_intel() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn kernel_rug_prefilter_facade_stays_extracted_to_cynic_intel() {
     // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
     // This guard fails if anyone reintroduces a kernel-owned copy.
@@ -851,6 +954,31 @@ fn kernel_rug_prefilter_facade_stays_extracted_to_cynic_intel() {
         "kernel rug_prefilter facade must stay deleted; law lives in cynic-intel::rug_prefilter"
     );
 
+=======
+fn kernel_rug_prefilter_delegates_gate_to_cynic_intel() {
+    let rug_prefilter = read_repo_file("crates/cynic-kernel/src/domain/rug_prefilter.rs");
+    assert!(
+        rug_prefilter.contains("cynic_intel::rug_prefilter")
+            && rug_prefilter
+                .contains("impl cynic_intel::rug_prefilter::RugPrefilterTokenView for TokenData")
+            && rug_prefilter.contains("pub fn rug_prefilter(token: &TokenData)"),
+        "kernel rug_prefilter must be a compatibility adapter over cynic-intel"
+    );
+
+    for forbidden in [
+        "holder_count == 0",
+        "liquidity_usd < 100.0",
+        "trajectory_class == Some(\"DEAD\")",
+        "score >= 3",
+        "lp_status != \"burned\"",
+    ] {
+        assert!(
+            !rug_prefilter.contains(forbidden),
+            "kernel rug_prefilter should not own pre-filter logic: {forbidden}"
+        );
+    }
+
+>>>>>>> github/main
     let intel = read_repo_file("crates/cynic-intel/src/rug_prefilter.rs");
     for expected in [
         "pub enum PreFilterResult",
@@ -866,6 +994,7 @@ fn kernel_rug_prefilter_facade_stays_extracted_to_cynic_intel() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn kernel_wallet_judgment_facade_stays_extracted_to_cynic_intel() {
     // Extraction proof: the kernel facade is gone; law lives only in cynic-intel.
     // This guard fails if anyone reintroduces a kernel-owned copy.
@@ -876,6 +1005,30 @@ fn kernel_wallet_judgment_facade_stays_extracted_to_cynic_intel() {
         "kernel wallet_judgment facade must stay deleted; law lives in cynic-intel::wallet_judgment"
     );
 
+=======
+fn kernel_wallet_judgment_delegates_deterministic_logic_to_cynic_intel() {
+    let wallet_judgment = read_repo_file("crates/cynic-kernel/src/domain/wallet_judgment/mod.rs");
+    assert!(
+        wallet_judgment.contains("cynic_intel::wallet_judgment")
+            && wallet_judgment.contains("pub use cynic_intel::wallet_judgment::WalletProfile")
+            && wallet_judgment.contains("pub fn deterministic_dog(profile: &WalletProfile)"),
+        "kernel wallet_judgment must be a compatibility adapter over cynic-intel"
+    );
+
+    for forbidden in [
+        "profile.games_completed < 5",
+        "engine_penalty",
+        "wallet_age_days < 3",
+        "let mut q_score",
+        "suspicious_cluster || profile.replay_risk",
+    ] {
+        assert!(
+            !wallet_judgment.contains(forbidden),
+            "kernel wallet_judgment should not own deterministic logic: {forbidden}"
+        );
+    }
+
+>>>>>>> github/main
     let intel = read_repo_file("crates/cynic-intel/src/wallet_judgment.rs");
     for expected in [
         "pub struct WalletProfile",
@@ -892,6 +1045,7 @@ fn kernel_wallet_judgment_facade_stays_extracted_to_cynic_intel() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn kernel_wallet_enrichment_facade_stays_extracted_to_cynic_intel() {
     // Extraction proof: profile shape, view impl, and scoring law all live in
     // cynic-intel; the kernel facade is gone. This guard fails if anyone
@@ -903,11 +1057,38 @@ fn kernel_wallet_enrichment_facade_stays_extracted_to_cynic_intel() {
         "kernel wallet_enrichment facade must stay deleted; law lives in cynic-intel::wallet_enrichment"
     );
 
+=======
+fn kernel_wallet_enrichment_delegates_behavioral_scoring_to_cynic_intel() {
+    let wallet_enrichment = read_repo_file("crates/cynic-kernel/src/domain/wallet_enrichment.rs");
+    assert!(
+        wallet_enrichment.contains("cynic_intel::wallet_enrichment")
+            && wallet_enrichment.contains("impl WalletBehaviorView for WalletBehavioralProfile")
+            && wallet_enrichment.contains("score_wallet_behavior(profile)"),
+        "kernel wallet enrichment must delegate behavioral scoring to cynic-intel"
+    );
+
+    for forbidden in [
+        "if profile.flip_count",
+        "profile.swaps_per_day > 20.0",
+        "profile.pump_fun_ratio > 0.9",
+        "q_capped",
+        "PHI_INV",
+    ] {
+        assert!(
+            !wallet_enrichment.contains(forbidden),
+            "kernel wallet enrichment must not own behavioral scoring rule: {forbidden}"
+        );
+    }
+
+>>>>>>> github/main
     let intel_wallet = read_repo_file("crates/cynic-intel/src/wallet_enrichment.rs");
     for expected in [
         "pub trait WalletBehaviorView",
         "pub enum BehavioralVerdictKind",
+<<<<<<< HEAD
         "pub struct WalletBehavioralProfile",
+=======
+>>>>>>> github/main
         "pub fn behavioral_dog",
         "profile.swaps_per_day() > 20.0",
         "profile.pump_fun_ratio() > 0.9",
@@ -966,9 +1147,17 @@ fn kernel_fleet_and_mesh_rest_handlers_delegate_runtime_rules_to_node() {
 fn kernel_runtime_project_root_resolution_stays_host_owned() {
     for path in [
         "crates/cynic-kernel/src/api/rest/dispatch.rs",
+<<<<<<< HEAD
         "crates/cynic-kernel/src/bootstrap/services.rs",
         "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/infra/config/mod.rs",
+=======
+        "crates/cynic-kernel/src/api/mcp/proxy.rs",
+        "crates/cynic-kernel/src/bootstrap/services.rs",
+        "crates/cynic-kernel/src/bootstrap/entry.rs",
+        "crates/cynic-kernel/src/infra/config/mod.rs",
+        "crates/cynic-kernel/src/infra/domain_prompts.rs",
+>>>>>>> github/main
     ] {
         let content = read_repo_file(path);
         assert!(

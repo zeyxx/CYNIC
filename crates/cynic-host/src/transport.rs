@@ -1,7 +1,13 @@
 use serde::Serialize;
 
+<<<<<<< HEAD
 use cynic_network::transport_security::{TransportScope, TransportSecurityReport, TransportSecuritySurface};
 use cynic_protocol::SecurityEvidenceState;
+=======
+use cynic_protocol::{
+    SecurityEvidenceState, TransportScope, TransportSecurityReport, TransportSecuritySurface,
+};
+>>>>>>> github/main
 
 use crate::bridge;
 
@@ -47,9 +53,12 @@ pub struct SshTargetInspectionReport {
     pub schema: &'static str,
     pub target: String,
     pub status: String,
+<<<<<<< HEAD
     /// Timestamp from the observer that produced the host-key evidence.
     /// A key match without this temporal boundary cannot authorize a route.
     pub observed_at_unix_ms: u64,
+=======
+>>>>>>> github/main
     pub ssh: ExecutableObservation,
     pub ssh_keyscan: ExecutableObservation,
     pub host_keys: Vec<SshHostKeyObservation>,
@@ -59,6 +68,7 @@ pub struct SshTargetInspectionReport {
     pub detail: Option<String>,
 }
 
+<<<<<<< HEAD
 /// SSH key material present on the operator host and declared in ssh config.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct SshKeyObservation {
@@ -113,6 +123,8 @@ pub struct SshLocalSupervisionReport {
     pub residual_unknowns: Vec<String>,
 }
 
+=======
+>>>>>>> github/main
 /// Explicit read-only boundary for bootstrap SSH target trust evidence.
 pub trait SshTargetInspectionPort {
     fn inspect_ssh_target(&self, target: &str) -> SshTargetInspectionReport;
@@ -122,12 +134,19 @@ pub fn inspect_ssh_target(
     observer: &impl SshTargetInspectionPort,
     target: &str,
 ) -> SshTargetInspectionReport {
+<<<<<<< HEAD
     let Ok(host) = canonical_ssh_host(target) else {
+=======
+    if !valid_ssh_target(target) {
+>>>>>>> github/main
         return SshTargetInspectionReport {
             schema: "cynic.ssh_target_inspection.v1",
             target: target.to_string(),
             status: "invalid_target".to_string(),
+<<<<<<< HEAD
             observed_at_unix_ms: 0,
+=======
+>>>>>>> github/main
             ssh: ExecutableObservation {
                 binary: "ssh".to_string(),
                 status: "unknown".to_string(),
@@ -144,6 +163,7 @@ pub fn inspect_ssh_target(
             next_action: "provide a DNS name or IP literal without shell syntax".to_string(),
             detail: Some("target contains unsupported characters".to_string()),
         };
+<<<<<<< HEAD
     };
     observer.inspect_ssh_target(&host)
 }
@@ -172,6 +192,18 @@ pub fn canonical_ssh_host(target: &str) -> Result<String, String> {
         return Err("invalid_ssh_target".to_string());
     }
     Ok(host.to_string())
+=======
+    }
+    observer.inspect_ssh_target(target)
+}
+
+fn valid_ssh_target(target: &str) -> bool {
+    !target.is_empty()
+        && target.len() <= 253
+        && target
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b':' | b'-'))
+>>>>>>> github/main
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -279,11 +311,21 @@ pub fn build_transport_security_report() -> TransportSecurityReport {
             scope: RemoteNetwork,
             mutates: true,
             confidentiality: Declared,
+<<<<<<< HEAD
             peer_identity: ssh_supervision_peer_identity(),
             mutual_authentication: Unknown,
             authorization_binding: Absent,
             evidence_refs: vec!["cynic.ssh_local_supervision.v1".to_string()],
             residual_risks: ssh_supervision_risks(),
+=======
+            peer_identity: Unknown,
+            mutual_authentication: Unknown,
+            authorization_binding: Absent,
+            evidence_refs: Vec::new(),
+            residual_risks: vec![
+                "breakglass shell is not canonical runtime mutation authority".to_string(),
+            ],
+>>>>>>> github/main
         },
         TransportSecuritySurface {
             id: "mcp_stdio".to_string(),
@@ -429,7 +471,10 @@ pub fn build_transport_matrix_report(
 #[cfg(test)]
 mod tests {
     use super::*;
+<<<<<<< HEAD
     use crate::ssh_config::parse_ssh_config;
+=======
+>>>>>>> github/main
 
     struct FakeObserver;
 
@@ -485,7 +530,10 @@ mod tests {
                 schema: "cynic.ssh_target_inspection.v1",
                 target: target.to_string(),
                 status: "observed".to_string(),
+<<<<<<< HEAD
                 observed_at_unix_ms: 1,
+=======
+>>>>>>> github/main
                 ssh: ExecutableObservation {
                     binary: "ssh".to_string(),
                     status: "available".to_string(),
@@ -542,6 +590,7 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn canonical_host_excludes_the_transport_principal() {
         assert_eq!(
             canonical_ssh_host("cynic@10.10.10.119"),
@@ -551,6 +600,8 @@ mod tests {
     }
 
     #[test]
+=======
+>>>>>>> github/main
     fn ssh_target_inspection_projects_untrusted_host_keys() {
         let report = inspect_ssh_target(&FakeSshTargetInspector, "pve.home");
 
@@ -558,6 +609,7 @@ mod tests {
         assert_eq!(report.trust_state, "untrusted_observed");
         assert!(!report.mutation);
     }
+<<<<<<< HEAD
 
     #[test]
     fn ssh_local_supervision_parses_real_config_structure() {
@@ -836,4 +888,6 @@ fn ssh_supervision_risks() -> Vec<String> {
     }
     risks.push("breakglass shell is not canonical runtime mutation authority".to_string());
     risks
+=======
+>>>>>>> github/main
 }

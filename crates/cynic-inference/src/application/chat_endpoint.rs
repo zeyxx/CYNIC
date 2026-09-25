@@ -16,8 +16,13 @@ use crate::adapters::ods::{ODS_SURFACE, ODS_UPSTREAM, discover_ods_services};
 use crate::config_loader::{
     InferenceConfigError, LoadedInferenceConfig, load_inference_config_from_path_public,
 };
+<<<<<<< HEAD
 use crate::infra::model_layout::default_ods_probe_bases;
 use crate::infra::principal_paths::PrincipalPaths;
+=======
+use crate::domain::model_layout::default_ods_probe_bases;
+use crate::domain::principal_paths::PrincipalPaths;
+>>>>>>> github/main
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -450,7 +455,11 @@ fn all_model_ids_from_body(body: &serde_json::Value) -> Vec<String> {
 /// 3. `CYNIC_BACKEND_<NAME>_API_KEY` when backend name known
 /// 4. principal /etc convention file `llama-api-key` under config_dir
 pub fn resolve_chat_api_key(backend_name: Option<&str>) -> Option<String> {
+<<<<<<< HEAD
     if let Some(k) = cynic_secrets::env_var("chat-api-key", "CYNIC_CHAT_API_KEY") {
+=======
+    if let Ok(k) = std::env::var("CYNIC_CHAT_API_KEY") {
+>>>>>>> github/main
         let k = k.trim().to_string();
         if !k.is_empty() {
             return Some(k);

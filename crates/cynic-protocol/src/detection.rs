@@ -71,11 +71,15 @@ pub enum InstallProvenance {
     UvTool,
     UvVenv,
     GenericVirtualenv,
+<<<<<<< HEAD
     VirtualEnv,
+=======
+>>>>>>> github/main
     Pipx,
     PipUserSite,
     DistroManagedPackage,
     ScriptedLocal,
+<<<<<<< HEAD
     NpmGlobal,
     HomebrewCellar,
     HomebrewCask,
@@ -115,6 +119,11 @@ pub struct ComponentInstallAuthority {
     pub is_canonical: bool,
 }
 
+=======
+    Unknown,
+}
+
+>>>>>>> github/main
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HardwareCapabilities {
     pub cpu_arch: String,
@@ -170,6 +179,7 @@ mod tests {
         assert_eq!(cap.confidence_percent, 0);
         assert!(cap.residual_risk.is_some());
     }
+<<<<<<< HEAD
 
     #[test]
     fn test_component_install_authority_invariants() {
@@ -186,4 +196,6 @@ mod tests {
         assert!(authority.is_canonical);
         assert_eq!(authority.mutator_authority, MutatorAuthority::UvTool);
     }
+=======
+>>>>>>> github/main
 }

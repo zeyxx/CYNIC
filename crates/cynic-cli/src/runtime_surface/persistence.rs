@@ -3,7 +3,11 @@ use std::process::ExitCode;
 use cynic_host::kernel_proof_persistence::{
     CurlKernelProofPersistenceAdapter, KernelProofPersistencePort,
 };
+<<<<<<< HEAD
 use cynic_lifecycle::LocalArgvRunner;
+=======
+use cynic_host::update_lifecycle::LocalArgvRunner;
+>>>>>>> github/main
 use cynic_protocol::RuntimeProofPersistenceRecord;
 
 use crate::cli_json::emit_pretty_json;
@@ -29,7 +33,11 @@ pub(crate) fn execute_persistence(
         .map(str::to_string)
         .or_else(|| std::env::var("CYNIC_KERNEL_URL").ok())
         .unwrap_or_else(|| "http://127.0.0.1:8000".to_string());
+<<<<<<< HEAD
     let token = cynic_secrets::env_var("kernel-api-key", "CYNIC_KERNEL_API_KEY");
+=======
+    let token = std::env::var("CYNIC_KERNEL_API_KEY").ok();
+>>>>>>> github/main
     let runner = LocalArgvRunner;
     let adapter = CurlKernelProofPersistenceAdapter::new(&runner, endpoint, token);
     let report = adapter.persist(&record);

@@ -1,16 +1,25 @@
 use std::{
+<<<<<<< HEAD
     collections::BTreeSet,
     env,
     ffi::{CString, OsStr},
     fs::{self, File},
     io::{Read, Write},
     os::{fd::AsFd, unix::ffi::OsStrExt},
+=======
+    env, fs,
+>>>>>>> github/main
     path::{Path, PathBuf},
     process::exit,
 };
 
+<<<<<<< HEAD
 use rustix::fs::{self as rfs, AtFlags, FileType, Mode, OFlags};
 use serde_json::Value;
+=======
+use serde_json::Value;
+use std::collections::BTreeSet;
+>>>>>>> github/main
 
 const SURFACE_REGISTRY_RELATIVE_MANIFEST: &str = "../../infra/surface-registry/manifest.json";
 const GENERATED_FILE: &str = "surface_registry_fragment_index.rs";
@@ -21,6 +30,7 @@ fn fail(message: &str) -> ! {
     exit(1);
 }
 
+<<<<<<< HEAD
 fn c_name(name: &OsStr, path: &Path) -> CString {
     CString::new(name.as_bytes())
         .unwrap_or_else(|_| fail(&format!("unsafe path: {}", path.display())))
@@ -139,17 +149,33 @@ fn manifest_path(cargo_manifest_dir: &Path) -> PathBuf {
             "manifest is not a regular file: {}",
             path.display()
         ));
+=======
+fn manifest_path(cargo_manifest_dir: &Path) -> PathBuf {
+    let path = cargo_manifest_dir.join(SURFACE_REGISTRY_RELATIVE_MANIFEST);
+    if !path.exists() {
+        fail(&format!("manifest not found at {}", path.display()));
+>>>>>>> github/main
     }
     path
 }
 
 fn parse_manifest(path: &Path) -> Value {
+<<<<<<< HEAD
     let payload = read_regular(path);
+=======
+    let payload = fs::read_to_string(path).unwrap_or_else(|error| {
+        fail(&format!("cannot read manifest {}: {error}", path.display()));
+    });
+>>>>>>> github/main
     serde_json::from_str(&payload).unwrap_or_else(|error| {
         fail(&format!(
             "invalid JSON manifest {}: {error}",
             path.display()
+<<<<<<< HEAD
         ))
+=======
+        ));
+>>>>>>> github/main
     })
 }
 
@@ -175,6 +201,7 @@ fn write_index(manifest: &Value) {
             "manifest schema mismatch: expected {CYNIC_SURFACE_REGISTRY_SCHEMA}, got {schema}"
         ));
     }
+<<<<<<< HEAD
     let surfaces = manifest
         .get("surfaces")
         .and_then(Value::as_array)
@@ -193,10 +220,36 @@ fn write_index(manifest: &Value) {
         "pub(crate) const SURFACE_REGISTRY_FRAGMENT_INDEX: [(&str, &str); {}] = [\n",
         surfaces.len()
     );
+=======
+
+    let surfaces = manifest
+        .get("surfaces")
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| {
+            fail("manifest.surfaces must be a JSON array");
+        });
+    if surfaces.is_empty() {
+        fail("manifest.surfaces must not be empty");
+    }
+
+    let fragments_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("infra")
+        .join("surface-registry");
+    let mut seen_ids = BTreeSet::new();
+
+    let mut out = String::new();
+    out.push_str(&format!(
+        "pub(crate) const SURFACE_REGISTRY_FRAGMENT_INDEX: [(&str, &str); {}] = [\n",
+        surfaces.len()
+    ));
+>>>>>>> github/main
     for surface in surfaces {
         let id = surface
             .get("id")
             .and_then(Value::as_str)
+<<<<<<< HEAD
             .unwrap_or_else(|| fail("manifest surface is missing id"));
         if !seen_ids.insert(id.to_string()) {
             fail(&format!("duplicate surface id in manifest: {id}"));
@@ -217,11 +270,46 @@ fn write_index(manifest: &Value) {
             .get("id")
             .and_then(Value::as_str)
             .unwrap_or_else(|| fail(&format!("fragment {path} is missing an id")));
+=======
+            .unwrap_or_else(|| {
+                fail("manifest surface is missing id");
+            });
+        if !seen_ids.insert(id.to_string()) {
+            fail(&format!("duplicate surface id in manifest: {id}"));
+        }
+        let path = surface
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or_else(|| {
+                fail(&format!("manifest surface {id} is missing path"));
+            });
+        let path = normalize_path(path);
+        let fragment_path = fragments_root.join(path);
+        println!("cargo:rerun-if-changed=../../infra/surface-registry/{path}");
+        if !fragment_path.exists() {
+            fail(&format!(
+                "manifest references missing fragment path {path} for surface {id}"
+            ));
+        }
+        let fragment_payload = fs::read_to_string(&fragment_path).unwrap_or_else(|error| {
+            fail(&format!("cannot read fragment {path}: {error}"));
+        });
+        let fragment: Value = serde_json::from_str(&fragment_payload).unwrap_or_else(|error| {
+            fail(&format!("invalid JSON in fragment {path}: {error}"));
+        });
+        let fragment_id = fragment
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_else(|| {
+                fail(&format!("fragment {path} is missing an id"));
+            });
+>>>>>>> github/main
         if fragment_id != id {
             fail(&format!(
                 "fragment {path} id mismatch: manifest expects {id}, fragment has {fragment_id}"
             ));
         }
+<<<<<<< HEAD
         out.push_str(&format!("    ({id:?}, {fragment_payload:?}),\n\n"));
     }
     out.push_str("];\n");
@@ -421,4 +509,34 @@ mod tests {
         assert!(!cleanup_temporary(true, true));
         assert!(cleanup_temporary(true, false));
     }
+=======
+        out.push_str("    ");
+        out.push_str(&format!(
+            "({id:?}, include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/../../infra/surface-registry/{path}\"))),\n"
+        ));
+        out.push('\n');
+    }
+    out.push_str("];\n");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap_or_else(|_| {
+        fail("OUT_DIR is not set");
+    }))
+    .join(GENERATED_FILE);
+    fs::write(&out_path, out).unwrap_or_else(|error| {
+        fail(&format!("unable to write {}: {error}", out_path.display()));
+    });
+}
+
+fn main() {
+    let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| {
+        fail("CARGO_MANIFEST_DIR is not set");
+    });
+    let manifest_path = manifest_path(Path::new(&cargo_manifest_dir));
+    println!(
+        "cargo:rerun-if-changed={}",
+        SURFACE_REGISTRY_RELATIVE_MANIFEST
+    );
+    let manifest = parse_manifest(&manifest_path);
+    write_index(&manifest);
+>>>>>>> github/main
 }

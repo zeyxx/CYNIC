@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+<<<<<<< HEAD
 pub const RUNTIME_VALIDATION_SCHEMA: &str = "cynic.runtime_validation.v1";
 
 mod campaign;
@@ -11,6 +12,8 @@ pub use campaign::{
     DevelopmentMilestoneProjection, DevelopmentMilestoneStatus, reconcile_development_campaign,
 };
 
+=======
+>>>>>>> github/main
 pub const DEVELOPMENT_SURFACE_MANIFEST_SCHEMA: &str = "cynic.development_surface_manifest.v1";
 
 #[derive(Debug, Clone, Serialize)]
@@ -162,7 +165,11 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 responsibility: "Validate N-case portability against a synthetic lab registry distinct from the real fleet.",
                 mutation_scope: "Read-only and artifact generation under temp dirs",
                 canonical_commands: vec!["make runtime-validate", "make lab-smoke"],
+<<<<<<< HEAD
                 exit_evidence: vec![RUNTIME_VALIDATION_SCHEMA],
+=======
+                exit_evidence: vec!["cynic.runtime_validation.v1"],
+>>>>>>> github/main
                 anti_responsibilities: vec![
                     "prove real fleet health",
                     "replace single-node E2E",

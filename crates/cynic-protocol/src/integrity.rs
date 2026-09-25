@@ -8,12 +8,15 @@ pub fn canonical_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, serde_js
     serde_json::to_vec(&canonicalize(serde_json::to_value(value)?))
 }
 
+<<<<<<< HEAD
 /// Legacy SHA-256 seal over canonical JSON bytes, `sha256:` prefixed.
 ///
 /// Scope: EXTERNAL contracts only (on-chain payloads, third-party APIs).
 /// New INTERNAL seals must use `crate::digest::digest_json` (SHA3-512) via
 /// the qualified path — never this function through the crate-root glob
 /// re-export. See `digest.rs` canonical digest law.
+=======
+>>>>>>> github/main
 pub fn digest_json<T: Serialize>(value: &T) -> Result<String, serde_json::Error> {
     let bytes = canonical_json_bytes(value)?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))

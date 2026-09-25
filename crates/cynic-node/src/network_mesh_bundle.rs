@@ -1,6 +1,10 @@
 use std::path::Path;
 
+<<<<<<< HEAD
 use cynic_network::{NetworkMeshPeer, NetworkMeshPlan};
+=======
+use cynic_protocol::{NetworkMeshPeer, NetworkMeshPlan};
+>>>>>>> github/main
 use serde::Serialize;
 
 use crate::adapters::local_network_mesh_bundle_writer::LocalNetworkMeshBundleWriter;

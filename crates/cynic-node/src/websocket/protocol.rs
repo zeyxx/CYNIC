@@ -39,7 +39,10 @@ pub enum NodeMessage {
         verdict: serde_json::Value,
         signature: String,
         node_public_key: String,
+<<<<<<< HEAD
         timestamp: i64,
+=======
+>>>>>>> github/main
     },
     #[serde(rename = "ack")]
     Ack {

@@ -1,9 +1,12 @@
 use serde::Serialize;
 
+<<<<<<< HEAD
 use crate::capability_responsibility::{
     CapabilityResponsibilityCatalog, capability_responsibility_catalog,
 };
 
+=======
+>>>>>>> github/main
 pub const FRAMEWORK_SPEC_SCHEMA: &str = "cynic.framework_spec.v1";
 
 #[derive(Debug, Clone, Serialize)]
@@ -12,10 +15,15 @@ pub struct FrameworkSpec {
     pub status: &'static str,
     pub identity: FrameworkIdentity,
     pub operating_model: Vec<FrameworkPrinciple>,
+<<<<<<< HEAD
     pub ambition_translation: Vec<FrameworkAmbitionTranslation>,
     pub canonical_layers: Vec<FrameworkLayer>,
     pub vertical_contracts: Vec<FrameworkVerticalContract>,
     pub responsibility_contracts: CapabilityResponsibilityCatalog,
+=======
+    pub canonical_layers: Vec<FrameworkLayer>,
+    pub vertical_contracts: Vec<FrameworkVerticalContract>,
+>>>>>>> github/main
     pub primitive_families: Vec<FrameworkPrimitiveFamily>,
     pub target_use_cases: Vec<FrameworkUseCase>,
     pub agnosticity_rules: Vec<FrameworkRule>,
@@ -36,6 +44,7 @@ pub struct FrameworkPrinciple {
     pub rule: &'static str,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameworkAmbitionClass {
@@ -64,6 +73,8 @@ pub struct FrameworkAmbitionTranslation {
     pub required_proof: Vec<&'static str>,
 }
 
+=======
+>>>>>>> github/main
 #[derive(Debug, Clone, Serialize)]
 pub struct FrameworkLayer {
     pub id: &'static str,
@@ -131,14 +142,18 @@ pub fn framework_spec() -> FrameworkSpec {
                 rule: "Every node may host a recursive agent tree whose child authority and budgets only decrease; cross-node delegation is explicit federation.",
             },
             FrameworkPrinciple {
+<<<<<<< HEAD
                 id: "property_and_domain",
                 rule: "Every capability has one accountable owner for state, lifecycle, recovery, retention, and proof, plus an explicit domain owner for semantics and invariants; delegation grants bounded execution and never transfers ownership.",
             },
             FrameworkPrinciple {
+=======
+>>>>>>> github/main
                 id: "kubernetes_like_not_kubernetes_bound",
                 rule: "CYNIC may use Kubernetes-like semantics, but the domain model must also run on one host, systemd, VMs, LXC, or another substrate.",
             },
         ],
+<<<<<<< HEAD
         ambition_translation: vec![
             FrameworkAmbitionTranslation {
                 id: "sovereign_membrane",
@@ -543,6 +558,8 @@ pub fn framework_spec() -> FrameworkSpec {
                 ],
             },
         ],
+=======
+>>>>>>> github/main
         canonical_layers: vec![
             FrameworkLayer {
                 id: "l0_protocol",
@@ -580,6 +597,7 @@ pub fn framework_spec() -> FrameworkSpec {
             },
         ],
         vertical_contracts: vec![
+<<<<<<< HEAD
             FrameworkVerticalContract {
                 id: "process",
                 desired_state: "principal, executable, capabilities",
@@ -742,6 +760,26 @@ pub fn framework_spec() -> FrameworkSpec {
             },
         ],
         responsibility_contracts: capability_responsibility_catalog(),
+=======
+            FrameworkVerticalContract { id: "process", desired_state: "principal, executable, capabilities", observer: "process and identity probes", reconciliation: "admit only declared principal and capability subset", bounded_action: "start or stop one declared process", read_back_proof: "pid, uid, executable digest, health", owner: vec!["cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "principal", desired_state: "runtime user, groups, secret placement", observer: "OS identity and filesystem probes", reconciliation: "derive ownership and privilege gaps", bounded_action: "create or repair declared principal-owned paths", read_back_proof: "owner, group, mode, secret presence", owner: vec!["cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "filesystem", desired_state: "declared paths, modes, atomicity", observer: "filesystem and mount observer", reconciliation: "classify absent, mismatched, read-only, unknown", bounded_action: "atomic write, install, or rollback of one path", read_back_proof: "stat, digest, fsync/read-back", owner: vec!["cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "source", desired_state: "repository, worktree, lease, revision", observer: "Git and worktree observer", reconciliation: "admit only fenced agent-scoped changes", bounded_action: "staged commit or provider push", read_back_proof: "revision, diff, lease, remote evidence", owner: vec!["cynic-protocol", "cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "build", desired_state: "toolchain, inputs, reproducible command", observer: "build and dependency observer", reconciliation: "block drift or unproven inputs", bounded_action: "run canonical repository gate", read_back_proof: "exit status, input digest, artifact digest", owner: vec!["cynic-host", "cynic-cli"], coverage: "partial" },
+            FrameworkVerticalContract { id: "artifact", desired_state: "versioned runtime basket and activation target", observer: "install layout and manifest observer", reconciliation: "select only attested compatible artifact", bounded_action: "stage, atomically switch, or rollback", read_back_proof: "manifest, checksum, active symlink, version", owner: vec!["cynic-host", "cynic-node"], coverage: "partial" },
+            FrameworkVerticalContract { id: "service", desired_state: "supervisor, unit, health policy", observer: "service supervisor observer", reconciliation: "separate installed, active, healthy, and proven", bounded_action: "bounded start, stop, reload, or repair", read_back_proof: "service state and health probe", owner: vec!["cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "host_os", desired_state: "OS policy and declared root capabilities", observer: "host substrate and privilege observer", reconciliation: "preserve unknown and reject unscoped root work", bounded_action: "root helper argv from allowlisted policy", read_back_proof: "postflight host observation and rollback intent", owner: vec!["cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "network", desired_state: "interfaces, routes, firewall, connectivity", observer: "network surface and root firewall observer", reconciliation: "distinguish management, secondary, and default paths", bounded_action: "one explicit network profile through helper", read_back_proof: "routes, firewall, connectivity, rollback", owner: vec!["cynic-host", "cynic-node"], coverage: "partial" },
+            FrameworkVerticalContract { id: "node", desired_state: "node identity, runtime basket, capabilities", observer: "node-local observation producer", reconciliation: "admit node only from registry plus read-back", bounded_action: "node-local plan or bounded activation", read_back_proof: "node observation and proof bundle", owner: vec!["cynic-node"], coverage: "partial" },
+            FrameworkVerticalContract { id: "provider", desired_state: "provider resource and control capability", observer: "provider API or hypervisor adapter", reconciliation: "use provider truth without leaking provider policy", bounded_action: "one declared provider mutation", read_back_proof: "provider-side resource read-back", owner: vec!["cynic-node", "cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "orchestrator", desired_state: "workload, placement, policy, identity", observer: "orchestrator API and workload observer", reconciliation: "respect orchestrator authority and scope", bounded_action: "namespace/node/workload-scoped action", read_back_proof: "API conditions and workload health", owner: vec!["cynic-node", "cynic-mcp"], coverage: "partial" },
+            FrameworkVerticalContract { id: "temporal", desired_state: "consistent epoch progression, verifiable checkpoints, and bounded rollback windows", observer: "epoch clock probe, checkpoint observer, temporal snapshot producer", reconciliation: "admit only certificate-backed epoch advancement; request rollback on divergence", bounded_action: "accept epoch certificate, request rollback to certified base_epoch, or emit new snapshot", read_back_proof: "epoch certificate, temporal proof bundle, state digest match", owner: vec!["cynic-protocol", "cynic-kernel", "cynic-node"], coverage: "partial" },
+            FrameworkVerticalContract { id: "project", desired_state: "project governance profile and source authority", observer: "project registry and repository observer", reconciliation: "bind generic framework policy to project adapters", bounded_action: "project-scoped change or release", read_back_proof: "project proof bundle and revision", owner: vec!["cynic-protocol", "cynic-host"], coverage: "partial" },
+            FrameworkVerticalContract { id: "fleet", desired_state: "placement, rollout, fencing, residual unknown budget", observer: "fleet inventory and coordination observer", reconciliation: "build node-scoped plans and bounded rollout", bounded_action: "canary or staged node action", read_back_proof: "node proofs, lease events, rollout history", owner: vec!["cynic-kernel", "cynic-node"], coverage: "partial" },
+            FrameworkVerticalContract { id: "federation", desired_state: "peer identity, delegation, transport, completion", observer: "transport and coordination observer", reconciliation: "separate local recursion from node federation", bounded_action: "delegated action within reduced authority", read_back_proof: "peer identity and completion envelope", owner: vec!["cynic-protocol", "cynic-kernel"], coverage: "partial" },
+            FrameworkVerticalContract { id: "human_boundary", desired_state: "consent, bootstrap, breakglass policy", observer: "authorization and audit observer", reconciliation: "keep HumanAdmin out of steady state", bounded_action: "explicit approval or incident breakglass", read_back_proof: "authorization event and resulting proof", owner: vec!["cynic-host", "cynic-mcp"], coverage: "partial" },
+        ],
+>>>>>>> github/main
         primitive_families: vec![
             FrameworkPrimitiveFamily {
                 id: "registry",
@@ -756,7 +794,11 @@ pub fn framework_spec() -> FrameworkSpec {
                 id: "proof_bundle",
                 role: "Carry observed runtime evidence between layers without relying on chat or stale files.",
                 examples: vec![
+<<<<<<< HEAD
                     crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
+=======
+                    "cynic.runtime_proof_bundle.v1",
+>>>>>>> github/main
                     "host_identity_observed",
                     "network_runtime_observed",
                 ],
@@ -765,7 +807,11 @@ pub fn framework_spec() -> FrameworkSpec {
                 id: "planner",
                 role: "Turn desired state and proof bundles into safe read-only, dry-run, and apply boundaries.",
                 examples: vec![
+<<<<<<< HEAD
                     crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
+=======
+                    "cynic.runtime_execution_plan.v1",
+>>>>>>> github/main
                     "can_apply=false until executor exists",
                 ],
             },
@@ -902,16 +948,21 @@ mod tests {
         }
         let mut verticals = BTreeSet::new();
         for vertical in &spec.vertical_contracts {
+<<<<<<< HEAD
             assert!(
                 verticals.insert(vertical.id),
                 "duplicate vertical {}",
                 vertical.id
             );
+=======
+            assert!(verticals.insert(vertical.id), "duplicate vertical {}", vertical.id);
+>>>>>>> github/main
             assert!(!vertical.owner.is_empty(), "vertical owner required");
             assert!(!vertical.desired_state.is_empty());
             assert!(!vertical.observer.is_empty());
             assert!(!vertical.read_back_proof.is_empty());
         }
+<<<<<<< HEAD
         let responsibility_ids = spec
             .responsibility_contracts
             .contracts
@@ -920,6 +971,8 @@ mod tests {
             .collect::<BTreeSet<_>>();
         assert_eq!(verticals, responsibility_ids);
         assert!(spec.responsibility_contracts.validate().is_empty());
+=======
+>>>>>>> github/main
     }
 
     #[test]
@@ -960,6 +1013,7 @@ mod tests {
                 .contains(&"agent_recursion_envelope")
         );
     }
+<<<<<<< HEAD
 
     #[test]
     fn framework_spec_traces_foundational_ambitions_without_false_convergence() {
@@ -1013,4 +1067,6 @@ mod tests {
                 .any(|ambition| { ambition.runtime_status == FrameworkAmbitionStatus::Absent })
         );
     }
+=======
+>>>>>>> github/main
 }

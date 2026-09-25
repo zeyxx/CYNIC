@@ -2,6 +2,7 @@
 
 use std::process::ExitCode;
 
+<<<<<<< HEAD
 use cynic_host::adapters::local_build_cache::LocalBuildCacheAdapter;
 use cynic_host::adapters::local_disk::LocalDiskAdapter;
 use cynic_host::domain::disk::build_runner::{
@@ -10,6 +11,11 @@ use cynic_host::domain::disk::build_runner::{
 use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 use cynic_protocol::disk::bytes_to_human;
+=======
+use cynic_host::adapters::local_disk::LocalDiskAdapter;
+use cynic_host::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
+use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
+>>>>>>> github/main
 
 use crate::emit_json;
 
@@ -31,6 +37,7 @@ pub(crate) fn execute_disk(json: bool) -> ExitCode {
     }
 }
 
+<<<<<<< HEAD
 pub(crate) fn execute_disk_clean(
     json: bool,
     apply: bool,
@@ -42,6 +49,9 @@ pub(crate) fn execute_disk_clean(
     if build_runner {
         return execute_build_runner_cache(json, apply, registry, node, state_root);
     }
+=======
+pub(crate) fn execute_disk_clean(json: bool, apply: bool) -> ExitCode {
+>>>>>>> github/main
     let adapter = LocalDiskAdapter;
     let report = match adapter.observe_disk() {
         Ok(r) => r,
@@ -75,6 +85,7 @@ pub(crate) fn execute_disk_clean(
     }
 }
 
+<<<<<<< HEAD
 fn execute_build_runner_cache(
     json: bool,
     apply: bool,
@@ -130,11 +141,14 @@ fn execute_build_runner_cache(
     }
 }
 
+=======
+>>>>>>> github/main
 fn print_disk_report_human(report: &DiskReport) {
     println!("════════════════════════════════════════════════════════════");
     println!("  CYNIC DISK REPORT — {}", report.timestamp);
     println!("════════════════════════════════════════════════════════════");
     println!();
+<<<<<<< HEAD
     println!("── Physical Disks (lsblk) ─────────────────────────────────");
     if report.physical_disks.is_empty() {
         println!("(none observed)");
@@ -156,6 +170,8 @@ fn print_disk_report_human(report: &DiskReport) {
     }
     println!();
 
+=======
+>>>>>>> github/main
     println!("── Filesystems ──────────────────────────────────────────────");
     println!(
         "{:<25} {:<10} {:<10} {:<10} {:<10} {:<6} MOUNT",

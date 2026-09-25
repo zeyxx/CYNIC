@@ -81,6 +81,7 @@ pub(super) fn reservation_hosts_by_name(
     }
     hosts
 }
+<<<<<<< HEAD
 
 pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<String, String> {
     registry
@@ -100,3 +101,5 @@ pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<Strin
         })
         .collect()
 }
+=======
+>>>>>>> github/main

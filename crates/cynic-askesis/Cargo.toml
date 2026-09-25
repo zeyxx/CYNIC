@@ -5,9 +5,25 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+<<<<<<< HEAD
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
+=======
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10.8"
+tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "process", "fs", "io-util"] }
+thiserror = "2.0"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
+yup-oauth2 = "12"
+async-trait = "0.1"
+tracing = "0.1"
+urlencoding = "2"
+>>>>>>> github/main
 
 [dev-dependencies]
 

@@ -3,13 +3,17 @@ use std::process::ExitCode;
 mod args;
 mod bootstrap;
 mod bridge_commands;
+<<<<<<< HEAD
 mod build_runner_bootstrap;
 mod capability_issue;
+=======
+>>>>>>> github/main
 mod hardware_baseline;
 mod io;
 mod network_actuate;
 mod network_baseline;
 mod profile_selection;
+<<<<<<< HEAD
 mod pve_helper_bundle;
 mod pve_helper_install;
 mod runtime_seed;
@@ -17,6 +21,9 @@ mod service_reconcile;
 mod storage_identity;
 mod storage_schema;
 mod transport_run;
+=======
+mod service_reconcile;
+>>>>>>> github/main
 mod validation;
 
 pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
@@ -29,9 +36,12 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "bridge-plan" => bridge_commands::execute_bridge_plan(&args[1..]),
         "bridge-install" => bridge_commands::execute_bridge_install(&args[1..]),
         "bridge-status" => bridge_commands::execute_bridge_status(),
+<<<<<<< HEAD
         "pve-helper-bundle" => pve_helper_bundle::execute_pve_helper_bundle(&args[1..]),
         "pve-helper-install" => pve_helper_install::execute_pve_helper_install(&args[1..]),
         "transport-run" => transport_run::execute_transport_run(&args[1..]),
+=======
+>>>>>>> github/main
         "host-exec-validate-request" => validation::execute_host_exec_validate_request(&args[1..]),
         "transport-matrix" => {
             let observer =
@@ -46,6 +56,7 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
                 .ok_or_else(|| "ssh-inspect requires --host <hostname|ip>".to_string())?;
             let observer =
                 crate::adapters::local_operator_transport::LocalOperatorTransportObserver;
+<<<<<<< HEAD
             let mut inspection = crate::transport::inspect_ssh_target(&observer, &host);
             let store_path = crate::ssh_trust::default_ssh_trust_store_path();
             let store = crate::ssh_trust::load_ssh_trust_store(&store_path)?;
@@ -96,10 +107,18 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
             }
             io::emit_json(&report, report.status == "blocked")
         }
+=======
+            io::emit_json(
+                &crate::transport::inspect_ssh_target(&observer, &host),
+                false,
+            )
+        }
+>>>>>>> github/main
         "bootstrap-status" => bootstrap::execute_bootstrap_status(&args[1..]),
         "bootstrap-plan" => bootstrap::execute_bootstrap_plan(&args[1..]),
         "bootstrap-chain" => bootstrap::execute_bootstrap_chain(&args[1..]),
         "bootstrap-evidence" => bootstrap::execute_bootstrap_evidence(&args[1..]),
+<<<<<<< HEAD
         "build-runner-bootstrap" => build_runner_bootstrap::execute(&args[1..]),
         "capability-issue" => capability_issue::execute(&args[1..]),
         "principal-prepare" => bootstrap::execute_principal_prepare(&args[1..]),
@@ -107,6 +126,9 @@ pub fn execute(args: Vec<String>) -> Result<ExitCode, String> {
         "runtime-seed-reconcile" => runtime_seed::execute_reconcile(&args[1..]),
         "storage-identity-enroll" => storage_identity::execute(&args[1..]),
         "storage-schema-migrate" => storage_schema::execute(&args[1..]),
+=======
+        "principal-prepare" => bootstrap::execute_principal_prepare(&args[1..]),
+>>>>>>> github/main
         "hardware-baseline-enroll" => hardware_baseline::execute(&args[1..]),
         "service-reconcile" => service_reconcile::execute(&args[1..]),
         "network-baseline" => network_baseline::execute_network_baseline(&args[1..]),

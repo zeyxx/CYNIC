@@ -6,6 +6,7 @@ use crate::digest_json;
 pub const EVIDENCE_ENVELOPE_SCHEMA: &str = "cynic.evidence.envelope.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+<<<<<<< HEAD
 pub struct EvidenceRef {
     pub kind: String,
     pub subject: String,
@@ -48,6 +49,8 @@ pub enum EvidenceDependency {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+=======
+>>>>>>> github/main
 pub struct EvidenceEnvelope {
     pub schema: String,
     pub digest: String,
@@ -56,8 +59,11 @@ pub struct EvidenceEnvelope {
     pub producer: String,
     pub observed_at_unix_ms: u128,
     pub provenance: Vec<String>,
+<<<<<<< HEAD
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lineage: Option<EvidenceLineage>,
+=======
+>>>>>>> github/main
     pub payload: Value,
 }
 
@@ -68,6 +74,7 @@ pub fn build_evidence_envelope<T: Serialize>(
     provenance: Vec<String>,
     payload: &T,
 ) -> Result<EvidenceEnvelope, String> {
+<<<<<<< HEAD
     build_evidence_envelope_with_lineage(
         subject,
         producer,
@@ -86,6 +93,8 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
     lineage: Option<EvidenceLineage>,
     payload: &T,
 ) -> Result<EvidenceEnvelope, String> {
+=======
+>>>>>>> github/main
     if subject.trim().is_empty() {
         return Err("evidence_subject_missing".to_string());
     }
@@ -99,7 +108,11 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
         .map_err(|error| format!("serialize evidence payload: {error}"))?;
     let payload_digest =
         digest_json(&payload).map_err(|error| format!("digest evidence payload: {error}"))?;
+<<<<<<< HEAD
     let mut identity = serde_json::json!({
+=======
+    let identity = serde_json::json!({
+>>>>>>> github/main
         "schema": EVIDENCE_ENVELOPE_SCHEMA,
         "payload_digest": payload_digest,
         "subject": subject.trim(),
@@ -107,6 +120,7 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
         "observed_at_unix_ms": observed_at_unix_ms,
         "provenance": provenance,
     });
+<<<<<<< HEAD
     if let Some(lineage) = &lineage {
         let lineage_value = serde_json::to_value(lineage)
             .map_err(|error| format!("serialize evidence lineage: {error}"))?;
@@ -115,6 +129,8 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
             .ok_or_else(|| "evidence_identity_not_object".to_string())?
             .insert("lineage".to_string(), lineage_value);
     }
+=======
+>>>>>>> github/main
     let digest =
         digest_json(&identity).map_err(|error| format!("digest evidence identity: {error}"))?;
     Ok(EvidenceEnvelope {
@@ -125,11 +141,15 @@ pub fn build_evidence_envelope_with_lineage<T: Serialize>(
         producer: producer.trim().to_string(),
         observed_at_unix_ms,
         provenance,
+<<<<<<< HEAD
         lineage,
+=======
+>>>>>>> github/main
         payload,
     })
 }
 
+<<<<<<< HEAD
 pub fn relate_evidence(left: &EvidenceRef, right: &EvidenceRef) -> EvidenceRelation {
     let invalid_evidence = invalid_evidence_digest("left", left)
         .into_iter()
@@ -299,10 +319,13 @@ pub fn valid_sha256_digest(value: &str) -> bool {
     })
 }
 
+=======
+>>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use super::*;
 
+<<<<<<< HEAD
     fn digest(marker: char) -> String {
         format!("sha256:{}", marker.to_string().repeat(64))
     }
@@ -322,6 +345,8 @@ mod tests {
         }
     }
 
+=======
+>>>>>>> github/main
     #[test]
     fn payload_identity_is_stable_while_observation_identity_changes() {
         let first = build_evidence_envelope("node", "probe", 1, vec!["p".into()], &42).unwrap();
@@ -329,6 +354,7 @@ mod tests {
         assert_eq!(first.payload_digest, second.payload_digest);
         assert_ne!(first.digest, second.digest);
     }
+<<<<<<< HEAD
 
     #[test]
     fn same_origin_is_correlated_across_runtime_producers() {
@@ -365,4 +391,6 @@ mod tests {
         assert_eq!(first.payload_digest, second.payload_digest);
         assert_ne!(first.digest, second.digest);
     }
+=======
+>>>>>>> github/main
 }

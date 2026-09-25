@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 // Unix-only metadata accessors for the bootstrap secret-integrity checks
@@ -5,6 +6,11 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
+=======
+use tokio_util::sync::CancellationToken;
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+
+>>>>>>> github/main
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KernelEntryFlags {
     pub force_reprobe: bool,
@@ -35,7 +41,10 @@ pub fn print_version_and_exit_if_requested(
         return Ok(false);
     }
 
+<<<<<<< HEAD
     // WHY: the explicit --version response is a CLI stdout contract, not runtime logging.
+=======
+>>>>>>> github/main
     #[allow(clippy::print_stdout)]
     {
         println!(
@@ -80,6 +89,7 @@ pub async fn run_mcp_proxy_mode_if_requested(
         return Ok(false);
     }
 
+<<<<<<< HEAD
     Err(std::io::Error::other(
         "blocked_deprecated_surface: kernel --mcp was removed; use the standalone cynic-mcp binary with a kernel-issued local agent session",
     )
@@ -176,4 +186,44 @@ pub async fn main_verify() -> Result<(), Box<dyn std::error::Error>> {
 
     klog!("bootstrap verify PASSED");
     Ok(())
+=======
+    tracing::warn!(
+        "DEPRECATED: --mcp flag will be removed. Use the standalone cynic-mcp binary instead."
+    );
+    use rmcp::ServiceExt;
+
+    let raw_addr =
+        std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| "http://127.0.0.1:3030".into());
+    let rest_addr = if raw_addr.starts_with("http://") || raw_addr.starts_with("https://") {
+        raw_addr
+    } else {
+        format!("http://{raw_addr}")
+    };
+    let api_key = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+    tracing::info!(
+        rest_addr,
+        "MCP proxy mode — forwarding to REST kernel (zero local state)"
+    );
+
+    let mcp_proxy = crate::api::mcp::proxy::CynicMcpProxy::new(rest_addr, api_key);
+
+    let shutdown = CancellationToken::new();
+    crate::infra::tasks::spawn_signal_handler(shutdown.clone());
+
+    let transport = rmcp::transport::io::stdio();
+    let server = mcp_proxy
+        .serve(transport)
+        .await
+        .map_err(|e| format!("MCP proxy error: {e}"))?;
+
+    tokio::select! {
+        _ = server.waiting() => {}
+        _ = shutdown.clone().cancelled_owned() => {
+            tracing::info!("MCP proxy shutting down");
+        }
+    }
+
+    shutdown.cancel();
+    Ok(true)
+>>>>>>> github/main
 }

@@ -56,8 +56,11 @@ pub fn capture_command_in_dir(
     args: &[&str],
     current_dir: Option<&Path>,
 ) -> Result<CommandCapture, String> {
+<<<<<<< HEAD
     use std::io::Read;
 
+=======
+>>>>>>> github/main
     let mut process = Command::new(command);
     process.args(args);
     process.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -67,6 +70,7 @@ pub fn capture_command_in_dir(
 
     let mut child = process.spawn().map_err(|error| error.to_string())?;
     let deadline = Instant::now() + command_timeout();
+<<<<<<< HEAD
 
     let stdout = child.stdout.take().ok_or("stdout pipe missing")?;
     let stderr = child.stderr.take().ok_or("stderr pipe missing")?;
@@ -84,12 +88,15 @@ pub fn capture_command_in_dir(
         buf
     });
 
+=======
+>>>>>>> github/main
     loop {
         if child
             .try_wait()
             .map_err(|error| error.to_string())?
             .is_some()
         {
+<<<<<<< HEAD
             let stdout_bytes = stdout_reader.join().unwrap_or_default();
             let stderr_bytes = stderr_reader.join().unwrap_or_default();
             let output = child.wait_with_output().ok();
@@ -99,10 +106,21 @@ pub fn capture_command_in_dir(
                 exit_code,
                 stdout: String::from_utf8_lossy(&stdout_bytes).trim().to_string(),
                 stderr: String::from_utf8_lossy(&stderr_bytes).trim().to_string(),
+=======
+            let output = child
+                .wait_with_output()
+                .map_err(|error| error.to_string())?;
+            return Ok(CommandCapture {
+                success: output.status.success(),
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+>>>>>>> github/main
             });
         }
         if Instant::now() >= deadline {
             let _ = child.kill();
+<<<<<<< HEAD
             let stdout_bytes = stdout_reader.join().unwrap_or_default();
             let stderr_bytes = stderr_reader.join().unwrap_or_default();
             let _ = child.wait();
@@ -114,6 +132,19 @@ pub fn capture_command_in_dir(
                     "command timed out after {}ms: {}",
                     command_timeout().as_millis(),
                     String::from_utf8_lossy(&stderr_bytes).trim()
+=======
+            let output = child
+                .wait_with_output()
+                .map_err(|error| error.to_string())?;
+            return Ok(CommandCapture {
+                success: false,
+                exit_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                stderr: format!(
+                    "command timed out after {}ms{}",
+                    command_timeout().as_millis(),
+                    timeout_stderr_suffix(&output.stderr)
+>>>>>>> github/main
                 ),
             });
         }
@@ -126,7 +157,11 @@ fn command_timeout() -> Duration {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .map(Duration::from_millis)
+<<<<<<< HEAD
         .unwrap_or_else(|| Duration::from_secs(30))
+=======
+        .unwrap_or_else(|| Duration::from_secs(3))
+>>>>>>> github/main
 }
 
 fn timeout_stderr_suffix(stderr: &[u8]) -> String {

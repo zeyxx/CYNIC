@@ -1,0 +1,706 @@
+//! MCP-to-REST proxy — thin forwarder that replaces the full kernel in MCP mode.
+//!
+//! Instead of spawning Judge+Storage+Dogs+Metrics locally, forwards tool calls
+//! to the running REST kernel via HTTP. Zero local state, zero SurrealDB connection.
+//!
+//! Local tools (validate, git) run in-process (filesystem access required).
+//! All other tools → HTTP to REST kernel.
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use rmcp::{
+    ErrorData as McpError, ServerHandler, handler::server::tool::ToolRouter,
+    handler::server::wrapper::Parameters, model::*, tool, tool_handler, tool_router,
+};
+
+use super::{
+    AuditQueryParams, AuthParams, BatchClaimParams, ClaimAgentTaskParams, ClaimParams,
+    ComplianceParams, CrystalObserveParams, CrystalShatterParams, DispatchAgentTaskParams,
+    FinalizeLeaseParams, JudgeParams, ListParams, ListPendingAgentTasksParams, McpRateLimit,
+    MetabolismParams, ObserveParams, RegisterParams, ReleaseParams, RenewLeaseParams,
+    UpdateAgentTaskResultParams, WhoParams, validate_agent_id, validate_agent_task_content,
+};
+
+// ── Proxy struct ────────────────────────────────────────────
+
+#[derive(Clone)]
+pub struct CynicMcpProxy {
+    client: reqwest::Client,
+    base_url: String,
+    api_key: String,
+    authenticated: Arc<AtomicBool>,
+    rate_limit: Arc<McpRateLimit>,
+    // WHY: K12 — tool_router is used via trait dispatch, compiler misses direct usage
+    #[allow(dead_code)]
+    tool_router: ToolRouter<Self>,
+}
+
+impl std::fmt::Debug for CynicMcpProxy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CynicMcpProxy")
+            .field("base_url", &self.base_url)
+            .finish_non_exhaustive()
+    }
+}
+
+impl CynicMcpProxy {
+    pub fn tool_router() -> ToolRouter<Self> {
+        Self::tool_router_forward() + Self::tool_router_coord() + Self::tool_router_local()
+    }
+
+    pub fn new(base_url: String, api_key: String) -> Self {
+        // WHY: reqwest::Client::builder().build() only fails on TLS init error,
+        // which is unrecoverable. Unwrap is safe here but clippy wants map_err.
+        #[allow(clippy::expect_used)] // WHY: TLS init failure = unrecoverable
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("HTTP client init failed");
+
+        let auto_auth = !api_key.is_empty()
+            || std::env::var("CYNIC_ALLOW_OPEN_API")
+                .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+                .unwrap_or(false);
+
+        Self {
+            client,
+            base_url,
+            api_key,
+            // MCP stdio is a local subprocess; if the wrapper injected the kernel token,
+            // requiring the model to echo it back through cynic_auth adds exposure only.
+            authenticated: Arc::new(AtomicBool::new(auto_auth)),
+            rate_limit: Arc::new(McpRateLimit::new()),
+            tool_router: Self::tool_router(),
+        }
+    }
+
+    fn require_auth(&self) -> Result<(), McpError> {
+        if !self.authenticated.load(Ordering::Relaxed) {
+            return Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "MCP not authenticated: CYNIC_API_KEY was not provided to the MCP process",
+                None,
+            ));
+        }
+        Ok(())
+    }
+
+    // ── HTTP helpers ────────────────────────────────────────
+
+    async fn get(&self, path: &str) -> Result<CallToolResult, McpError> {
+        let resp = self
+            .client
+            .get(format!("{}{}", self.base_url, path))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    async fn get_query(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+    ) -> Result<CallToolResult, McpError> {
+        let mut url = format!("{}{}", self.base_url, path);
+        if !params.is_empty() {
+            url.push('?');
+            for (i, (k, v)) in params.iter().enumerate() {
+                if i > 0 {
+                    url.push('&');
+                }
+                url.push_str(k);
+                url.push('=');
+                url.push_str(v);
+            }
+        }
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    async fn post(&self, path: &str, body: &serde_json::Value) -> Result<CallToolResult, McpError> {
+        let resp = self
+            .client
+            .post(format!("{}{}", self.base_url, path))
+            .bearer_auth(&self.api_key)
+            .json(body)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let text = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        Ok(CallToolResult::success(vec![Content::text(text)]))
+    }
+}
+
+// ── Forwarded tools (REST kernel) ───────────────────────────
+
+#[tool_router(router = tool_router_forward, vis = "pub(super)")]
+impl CynicMcpProxy {
+    #[tool(
+        name = "cynic_judge",
+        description = "Submit content for epistemic evaluation by CYNIC's independent AI validators (Dogs). Returns φ-bounded Q-Score, per-axiom breakdown (FIDELITY/PHI/VERIFY/CULTURE/BURN/SOVEREIGNTY), verdict (HOWL/WAG/GROWL/BARK), and multi-model reasoning. Max confidence: 61.8%."
+    )]
+    async fn cynic_judge(
+        &self,
+        params: Parameters<JudgeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_judge()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+        self.post(
+            "/judge",
+            &serde_json::json!({
+                "content": p.content,
+                "context": p.context,
+                "domain": p.domain,
+                "dogs": p.dogs,
+                "crystals": p.crystals,
+                "priority": p.priority,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_health",
+        description = "Get CYNIC system health: Dog status, quality rates, crystal counts, version. No auth required."
+    )]
+    async fn cynic_health(&self) -> Result<CallToolResult, McpError> {
+        self.rate_limit.check_other()?;
+        self.get("/health").await
+    }
+
+    #[tool(
+        name = "cynic_verdicts",
+        description = "List recent verdicts (limit defaults to 10)."
+    )]
+    async fn cynic_verdicts(
+        &self,
+        params: Parameters<ListParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(10).to_string();
+        self.get_query("/verdicts", &[("limit", limit)]).await
+    }
+
+    #[tool(
+        name = "cynic_crystals",
+        description = "List crystals (coherence patterns learned from verdict history)."
+    )]
+    async fn cynic_crystals(
+        &self,
+        params: Parameters<ListParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(20).to_string();
+        self.get_query("/crystals", &[("limit", limit)]).await
+    }
+
+    #[tool(
+        name = "cynic_crystal_observe",
+        description = "Record a non-verdict observation on a crystal (mycelium hypha path). Creates the crystal if it does not exist (auto-generates ID from content hash)."
+    )]
+    async fn cynic_crystal_observe(
+        &self,
+        params: Parameters<CrystalObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let crystal_id = p.crystal_id.unwrap_or_else(|| {
+            let hash = crate::domain::ccm::content_hash(&crate::domain::ccm::normalize_for_hash(
+                &p.content,
+            ));
+            format!("{hash:x}")
+        });
+        self.post(
+            &format!("/crystals/{crystal_id}/observe"),
+            &serde_json::json!({
+                "content": p.content,
+                "domain": p.domain,
+                "score": p.score,
+                "source": p.source,
+                "sentiment": p.sentiment,
+                "agent_id": p.agent_id,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_crystal_shatter",
+        description = "Instantly dissolve a crystal — transitions it to Dissolved state with a recorded reason. Idempotent on already-dissolved crystals."
+    )]
+    async fn cynic_crystal_shatter(
+        &self,
+        params: Parameters<CrystalShatterParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            &format!("/crystals/{}/shatter", p.crystal_id),
+            &serde_json::json!({
+                "reason": p.reason,
+                "source": p.source,
+                "agent_id": p.agent_id,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_audit_query",
+        description = "Query MCP audit trail (tool calls, agent activity)."
+    )]
+    async fn cynic_audit_query(
+        &self,
+        params: Parameters<AuditQueryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let mut q: Vec<(&str, String)> = Vec::new();
+        if let Some(t) = p.tool {
+            q.push(("tool", t));
+        }
+        if let Some(a) = p.agent_id {
+            q.push(("agent_id", a));
+        }
+        let limit = p.limit.unwrap_or(20).to_string();
+        q.push(("limit", limit));
+        self.get_query("/audit", &q).await
+    }
+
+    #[tool(
+        name = "cynic_metabolism",
+        description = "Get the organism's metabolic state: observation intake, digestion ratio, crystallization rate, backlog, drops, verdict production. Zero-I/O snapshot of data flow health."
+    )]
+    async fn cynic_metabolism(
+        &self,
+        _params: Parameters<MetabolismParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let resp = self
+            .client
+            .get(format!("{}/health", self.base_url))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| McpError::internal_error(format!("REST kernel unreachable: {e}"), None))?;
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| r#"{"error":"response read failed"}"#.into());
+        let extracted = match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(health) => {
+                serde_json::json!({
+                    "metabolism": health.get("metabolism"),
+                    "crystals": health.get("crystals"),
+                    "alerts": health.get("alerts"),
+                    "dogs": health.get("dogs").and_then(|d| d.as_array()).map(|dogs| {
+                        dogs.iter().map(|d| serde_json::json!({
+                            "id": d.get("id"),
+                            "kind": d.get("kind"),
+                            "circuit": d.get("circuit"),
+                        })).collect::<Vec<_>>()
+                    }),
+                    "status": health.get("status"),
+                    "uptime_seconds": health.get("uptime_seconds"),
+                })
+            }
+            Err(_) => serde_json::json!({"raw": body}),
+        };
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&extracted).unwrap_or_default(),
+        )]))
+    }
+
+    #[tool(
+        name = "cynic_compliance",
+        description = "Query session compliance scores. With agent_id: score a specific session. Without: return recent compliance trend."
+    )]
+    async fn cynic_compliance(
+        &self,
+        params: Parameters<ComplianceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        if let Some(agent_id) = p.agent_id {
+            self.get(&format!("/sessions/{agent_id}/compliance")).await
+        } else {
+            let limit = p.limit.unwrap_or(20).to_string();
+            self.get_query("/compliance", &[("limit", limit)]).await
+        }
+    }
+
+    #[tool(
+        name = "cynic_observe",
+        description = "Record a tool observation (Edit, Write, Bash, etc.) for the Crystal Coherence Machine. Fire-and-forget."
+    )]
+    async fn cynic_observe(
+        &self,
+        params: Parameters<ObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/observe",
+            &serde_json::json!({
+                "tool": p.tool,
+                "target": p.target,
+                "domain": p.domain,
+                "status": p.status,
+                "context": p.context,
+                "project": p.project,
+                "agent_id": p.agent_id,
+                "session_id": p.session_id,
+                "tags": p.tags,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_dispatch_agent_task",
+        description = "Dispatch a task for an agent (hermes, nightshift, etc.)."
+    )]
+    async fn cynic_dispatch_agent_task(
+        &self,
+        params: Parameters<DispatchAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_task_content(&p.kind, &p.domain, &p.content)?;
+        self.post(
+            "/agent-tasks",
+            &serde_json::json!({
+                "kind": p.kind,
+                "domain": p.domain,
+                "content": p.content,
+                "agent_id": p.agent_id,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_list_pending_agent_tasks",
+        description = "List pending tasks for a given agent kind."
+    )]
+    async fn cynic_list_pending_agent_tasks(
+        &self,
+        params: Parameters<ListPendingAgentTasksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(10).to_string();
+        let mut query = vec![("kind", p.kind), ("limit", limit)];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks", &query).await
+    }
+
+    #[tool(
+        name = "cynic_watch_pending_agent_tasks",
+        description = "Wait for pending tasks of a given agent kind via the kernel watch surface. Returns immediately when tasks already exist, otherwise waits until timeout."
+    )]
+    async fn cynic_watch_pending_agent_tasks(
+        &self,
+        params: Parameters<ListPendingAgentTasksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let limit = p.limit.unwrap_or(10).to_string();
+        let timeout_secs = "30".to_string();
+        let mut query = vec![
+            ("kind", p.kind),
+            ("limit", limit),
+            ("timeout_secs", timeout_secs),
+        ];
+        if let Some(domain) = p.domain {
+            query.push(("domain", domain));
+        }
+        self.get_query("/agent-tasks/watch", &query).await
+    }
+
+    #[tool(
+        name = "cynic_claim_agent_task",
+        description = "Atomically claim a pending agent task. Returns claimed=false when another agent already owns it."
+    )]
+    async fn cynic_claim_agent_task(
+        &self,
+        params: Parameters<ClaimAgentTaskParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        validate_agent_id(&p.agent_id)?;
+        self.post(
+            &format!("/agent-tasks/{}/claim", p.task_id),
+            &serde_json::json!({
+                "agent_id": p.agent_id.unwrap_or_else(|| "unknown".to_string()),
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_update_agent_task_result",
+        description = "Update an agent task with its result or error."
+    )]
+    async fn cynic_update_agent_task_result(
+        &self,
+        params: Parameters<UpdateAgentTaskResultParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            &format!("/agent-tasks/{}/result", p.task_id),
+            &serde_json::json!({
+                "result": p.result,
+                "error": p.error,
+                "agent_id": p.agent_id,
+                "evidence_refs": p.evidence_refs,
+            }),
+        )
+        .await
+    }
+}
+
+// ── Coord tools (REST kernel) ───────────────────────────────
+
+#[tool_router(router = tool_router_coord, vis = "pub(super)")]
+impl CynicMcpProxy {
+    #[tool(
+        name = "cynic_coord_register",
+        description = "Register this agent with the kernel coordination system."
+    )]
+    async fn cynic_coord_register(
+        &self,
+        params: Parameters<RegisterParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/register",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "intent": p.intent,
+                "agent_type": p.agent_type,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_claim",
+        description = "Claim a file or resource for exclusive editing."
+    )]
+    async fn cynic_coord_claim(
+        &self,
+        params: Parameters<ClaimParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/claim",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "claim_type": p.claim_type,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_claim_batch",
+        description = "Claim multiple files/resources at once."
+    )]
+    async fn cynic_coord_claim_batch(
+        &self,
+        params: Parameters<BatchClaimParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/claim-batch",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "targets": p.targets,
+                "claim_type": p.claim_type,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_renew",
+        description = "Renew an active claim using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_renew(
+        &self,
+        params: Parameters<RenewLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/renew",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_release",
+        description = "Release claimed files/resources using target, lease_id, and fencing_token."
+    )]
+    async fn cynic_coord_release(
+        &self,
+        params: Parameters<ReleaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/release",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_finalize",
+        description = "Finalize an active claim with a proof reference using its exact lease id and fencing token."
+    )]
+    async fn cynic_coord_finalize(
+        &self,
+        params: Parameters<FinalizeLeaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.require_auth()?;
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        self.post(
+            "/coord/finalize",
+            &serde_json::json!({
+                "agent_id": p.agent_id,
+                "target": p.target,
+                "lease_id": p.lease_id,
+                "fencing_token": p.fencing_token,
+                "proof_bundle": p.proof_bundle,
+            }),
+        )
+        .await
+    }
+
+    #[tool(
+        name = "cynic_coord_who",
+        description = "Query active agents and their claims. No auth required (aligns with kernel)."
+    )]
+    async fn cynic_coord_who(
+        &self,
+        params: Parameters<WhoParams>,
+    ) -> Result<CallToolResult, McpError> {
+        // No auth required — matches kernel coord_tools.rs:264
+        self.rate_limit.check_other()?;
+        let p = params.0;
+        let mut q: Vec<(&str, String)> = Vec::new();
+        if let Some(a) = p.agent_id {
+            q.push(("agent_id", a));
+        }
+        self.get_query("/coord/who", &q).await
+    }
+}
+
+// ── Local tools (no REST forwarding) ────────────────────────
+
+#[tool_router(router = tool_router_local, vis = "pub(super)")]
+impl CynicMcpProxy {
+    #[tool(
+        name = "cynic_auth",
+        description = "Fallback manual authentication for MCP sessions missing CYNIC_API_KEY env forwarding. Prefer fixing the MCP wrapper instead of passing secrets through the model."
+    )]
+    async fn cynic_auth(&self, params: Parameters<AuthParams>) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        // Auth is local: compare against env var, don't forward to REST
+        let expected = std::env::var("CYNIC_API_KEY").unwrap_or_default();
+        if expected.is_empty() {
+            return Err(McpError::internal_error(
+                "Kernel has no CYNIC_API_KEY configured",
+                None,
+            ));
+        }
+        if p.api_key != expected {
+            return Err(McpError::new(
+                rmcp::model::ErrorCode(-32000),
+                "Authentication failed — invalid API key",
+                None,
+            ));
+        }
+        self.authenticated.store(true, Ordering::Relaxed);
+        Ok(CallToolResult::success(vec![Content::text(
+            r#"{"authenticated": true}"#,
+        )]))
+    }
+}
+
+// ── MCP ServerHandler ───────────────────────────────────────
+
+#[tool_handler]
+impl ServerHandler for CynicMcpProxy {
+    fn get_info(&self) -> ServerInfo {
+        InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(Implementation::new(
+                "cynic-kernel-proxy",
+                env!("CYNIC_VERSION"),
+            ))
+            .with_instructions("CYNIC MCP proxy — forwards to REST kernel. Zero local state.")
+    }
+}

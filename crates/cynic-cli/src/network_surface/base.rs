@@ -1,5 +1,6 @@
 use std::process::ExitCode;
 
+<<<<<<< HEAD
 use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_host::adapters::local_network::LocalNetworkAdapter;
 use cynic_host::domain::network::freebox::FreeboxProbePort;
@@ -12,6 +13,14 @@ use crate::cli_json::emit_pretty_json;
 use crate::network_surface::NetworkCommand;
 use crate::registry_path;
 use crate::runtime_paths::RuntimePaths;
+=======
+use cynic_node::NetworkCommands;
+
+use crate::network_surface::NetworkCommand;
+use crate::registry_path;
+use crate::runtime_paths::RuntimePaths;
+
+>>>>>>> github/main
 pub(crate) fn try_execute_base(
     command: NetworkCommand,
     runtime: &RuntimePaths,
@@ -74,6 +83,7 @@ pub(crate) fn try_execute_base(
                 registry: registry_path(registry),
             },
         )),
+<<<<<<< HEAD
         NetworkCommand::Observe { json, freebox } => {
             let adapter = LocalNetworkAdapter;
             let report = adapter.observe_network();
@@ -326,6 +336,8 @@ pub(crate) fn try_execute_base(
                 audit,
             },
         )),
+=======
+>>>>>>> github/main
         other => Err(other),
     }
 }

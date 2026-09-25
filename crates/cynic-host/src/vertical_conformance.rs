@@ -3,6 +3,7 @@
 use serde::Serialize;
 
 use cynic_protocol::{
+<<<<<<< HEAD
     ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, FrameworkSpec,
     assess_convergence_matrix, framework_spec,
 };
@@ -12,6 +13,16 @@ use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;
 use crate::runtime_layout::current_runtime_layout;
+=======
+    ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
+    framework_spec,
+};
+
+use crate::conformance::HostConformanceGate;
+use crate::build::BuildProof;
+use crate::repo_access::current_repo_access_status;
+use crate::runtime_harness::RuntimeHarnessContext;
+>>>>>>> github/main
 use crate::source_control::observe_source_worktree;
 
 pub const VERTICAL_CONFORMANCE_SCHEMA: &str = "cynic.vertical_conformance_report.v1";
@@ -33,6 +44,7 @@ pub struct VerticalConformanceEntry {
     pub id: String,
     pub declared_coverage: String,
     pub status: &'static str,
+<<<<<<< HEAD
     pub responsibility_status: &'static str,
     pub accountable_owner: Option<String>,
     pub domain_owner: Option<String>,
@@ -40,6 +52,8 @@ pub struct VerticalConformanceEntry {
     pub execution_owner: Option<String>,
     pub proof_owner: Option<String>,
     pub lifecycle_owner: Option<String>,
+=======
+>>>>>>> github/main
     pub owner: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub blockers: Vec<String>,
@@ -51,6 +65,7 @@ pub struct VerticalEvidenceInput {
     pub source_blockers: Vec<String>,
     pub build_status: &'static str,
     pub build_blockers: Vec<String>,
+<<<<<<< HEAD
     pub network_status: &'static str,
     pub network_blockers: Vec<String>,
 }
@@ -66,6 +81,19 @@ pub fn observe_vertical_evidence(
         ),
         |root| {
             let worktree = observe_source_worktree(std::path::Path::new(root), Some("cynic"));
+=======
+}
+
+pub fn observe_vertical_evidence(build_proof: Option<&BuildProof>) -> VerticalEvidenceInput {
+    let repo_access = current_repo_access_status();
+    let (source_status, source_blockers) = repo_access.canonical_project_root.as_deref().map_or(
+        ("unknown", vec!["canonical_project_root_missing".to_string()]),
+        |root| {
+            let worktree = observe_source_worktree(
+                std::path::Path::new(root),
+                Some("cynic"),
+            );
+>>>>>>> github/main
             if worktree.status == "ready" {
                 ("partial", worktree.blockers)
             } else {
@@ -74,6 +102,7 @@ pub fn observe_vertical_evidence(
         },
     );
     let (build_status, build_blockers) = match build_proof {
+<<<<<<< HEAD
         Some(proof) if proof.status == "proved" || proof.status == "completed" => {
             ("complete", Vec::new())
         }
@@ -109,11 +138,19 @@ pub fn observe_vertical_evidence(
         source_status,
     );
 
+=======
+        Some(proof) if proof.status == "proved" => ("complete", Vec::new()),
+        Some(proof) if proof.status == "failed" => ("blocked", proof.blockers.clone()),
+        Some(proof) => ("unknown", proof.blockers.clone()),
+        None => ("unknown", vec!["build_proof_not_consumed".to_string()]),
+    };
+>>>>>>> github/main
     VerticalEvidenceInput {
         source_status,
         source_blockers,
         build_status,
         build_blockers,
+<<<<<<< HEAD
         network_status,
         network_blockers,
     }
@@ -144,6 +181,11 @@ pub(crate) fn append_heartbeat(
     writeln!(file, "{}", entry.to_string())
 }
 
+=======
+    }
+}
+
+>>>>>>> github/main
 pub fn convergence_matrix_for_subject(
     subject_id: &str,
     report: &VerticalConformanceReport,
@@ -166,11 +208,15 @@ pub fn convergence_matrix_for_subject(
         .collect();
     assess_convergence_matrix(
         vec![subject_id.to_string()],
+<<<<<<< HEAD
         report
             .verticals
             .iter()
             .map(|entry| entry.id.clone())
             .collect(),
+=======
+        report.verticals.iter().map(|entry| entry.id.clone()).collect(),
+>>>>>>> github/main
         cells,
     )
 }
@@ -180,6 +226,7 @@ pub fn evaluate_vertical_conformance(
     gates: &[HostConformanceGate],
     evidence: &VerticalEvidenceInput,
 ) -> VerticalConformanceReport {
+<<<<<<< HEAD
     evaluate_vertical_conformance_with_catalog(context, gates, evidence, framework_spec())
 }
 
@@ -191,6 +238,9 @@ fn evaluate_vertical_conformance_with_catalog(
 ) -> VerticalConformanceReport {
     use std::collections::{BTreeMap, BTreeSet};
 
+=======
+    let catalog = framework_spec();
+>>>>>>> github/main
     let identity = gate_status(gates, "host_identity_observed");
     let services = gate_status(gates, "service_surface_observed");
     let host = gate_status(gates, "harness_is_conformance_gate");
@@ -199,6 +249,7 @@ fn evaluate_vertical_conformance_with_catalog(
     let mut entries = Vec::new();
     let mut unknowns = Vec::new();
     let mut blockers = Vec::new();
+<<<<<<< HEAD
     let responsibility_violations = catalog.responsibility_contracts.validate();
     let violations_by_capability = responsibility_violations.iter().fold(
         BTreeMap::<&str, Vec<&str>>::new(),
@@ -335,10 +386,32 @@ fn evaluate_vertical_conformance_with_catalog(
         if !entry_blockers.is_empty() {
             blockers.extend(entry_blockers.clone());
         }
+=======
+    for contract in catalog.vertical_contracts {
+        let (status, mut entry_blockers, refs) = match contract.id {
+            "process" | "principal" => (identity, vec![], vec!["host_identity_observed".to_string()]),
+            "filesystem" => (bootstrap, vec![], vec!["bootstrap_target_reached".to_string()]),
+            "source" => (evidence.source_status, evidence.source_blockers.clone(), vec!["source_worktree_observation".to_string()]),
+            "build" => (evidence.build_status, evidence.build_blockers.clone(), vec![]),
+            "artifact" => (bootstrap, vec![], vec!["bootstrap_target_reached".to_string()]),
+            "service" => (services, vec![], vec!["service_surface_observed".to_string()]),
+            "host_os" => (host, vec![], vec!["harness_is_conformance_gate".to_string()]),
+            "network" => ("unknown", vec!["network_vertical_not_consumed_by_host_conformance".to_string()], vec![]),
+            "node" => (identity, vec![], vec!["host_identity_observed".to_string()]),
+            "provider" | "orchestrator" | "federation" => ("unknown", vec!["adapter_not_observed".to_string()], vec![]),
+            "project" => (evidence.source_status, evidence.source_blockers.clone(), vec!["source_worktree_observation".to_string()]),
+            "fleet" => ("unknown", vec!["fleet_vertical_requires_multi_node_proof".to_string()], vec![]),
+            "human_boundary" => (hardware, vec![], vec!["hardware_stability_qualified".to_string()]),
+            _ => ("unknown", vec!["catalog_vertical_not_mapped".to_string()], vec![]),
+        };
+        if status == "unknown" { unknowns.push(contract.id.to_string()); }
+        if !entry_blockers.is_empty() { blockers.extend(entry_blockers.clone()); }
+>>>>>>> github/main
         entries.push(VerticalConformanceEntry {
             id: contract.id.to_string(),
             declared_coverage: contract.coverage.to_string(),
             status,
+<<<<<<< HEAD
             responsibility_status,
             accountable_owner: responsibility.map(|item| item.accountable_owner.to_string()),
             domain_owner: responsibility.map(|item| item.domain_owner.to_string()),
@@ -346,6 +419,8 @@ fn evaluate_vertical_conformance_with_catalog(
             execution_owner: responsibility.map(|item| item.execution_owner.to_string()),
             proof_owner: responsibility.map(|item| item.proof_owner.to_string()),
             lifecycle_owner: responsibility.map(|item| item.lifecycle_owner.to_string()),
+=======
+>>>>>>> github/main
             owner: contract.owner.into_iter().map(str::to_string).collect(),
             evidence_refs: refs,
             blockers: std::mem::take(&mut entry_blockers),
@@ -365,7 +440,11 @@ fn evaluate_vertical_conformance_with_catalog(
         status,
         mutates: false,
         harness: context.clone(),
+<<<<<<< HEAD
         catalog_status: if catalog_valid { "consumed" } else { "invalid" },
+=======
+        catalog_status: "consumed",
+>>>>>>> github/main
         verticals: entries,
         residual_unknowns: unknowns,
         blockers,
@@ -373,11 +452,15 @@ fn evaluate_vertical_conformance_with_catalog(
 }
 
 fn gate_status(gates: &[HostConformanceGate], id: &str) -> &'static str {
+<<<<<<< HEAD
     match gates
         .iter()
         .find(|gate| gate.id == id)
         .map(|gate| gate.status)
     {
+=======
+    match gates.iter().find(|gate| gate.id == id).map(|gate| gate.status) {
+>>>>>>> github/main
         Some("satisfied") => "partial",
         Some("blocked") => "blocked",
         _ => "unknown",
@@ -399,12 +482,16 @@ mod tests {
                 source_blockers: vec!["fixture".into()],
                 build_status: "unknown",
                 build_blockers: vec!["build_fixture".into()],
+<<<<<<< HEAD
                 network_status: "complete",
                 network_blockers: vec![],
+=======
+>>>>>>> github/main
             },
         );
         assert_eq!(report.catalog_status, "consumed");
         assert!(report.residual_unknowns.contains(&"provider".to_string()));
+<<<<<<< HEAD
         assert!(
             report
                 .residual_unknowns
@@ -517,5 +604,8 @@ mod tests {
             Some("complete")
         );
         let _ = std::fs::remove_dir_all(&temp);
+=======
+        assert!(report.residual_unknowns.contains(&"orchestrator".to_string()));
+>>>>>>> github/main
     }
 }

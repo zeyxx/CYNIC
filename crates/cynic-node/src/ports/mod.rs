@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pub mod agent_scheduler_port;
 pub mod agent_workload_completion_receipt_port;
 pub mod agent_workload_delivery_lease_port;
@@ -21,12 +22,18 @@ pub(crate) mod harness_target_attestation_port;
 pub(crate) mod harness_target_attestation_reader_port;
 pub mod hypervisor_port;
 pub mod mesh_coordination_port;
+=======
+pub(crate) mod harness_target_attestation_port;
+pub(crate) mod harness_target_attestation_reader_port;
+pub mod hypervisor_port;
+>>>>>>> github/main
 pub mod mesh_port;
 pub(crate) mod network_command_runner_port;
 pub mod network_interfaces_port;
 pub(crate) mod network_mesh_bundle_port;
 pub(crate) mod network_mesh_bundle_writer_port;
 pub(crate) mod network_mesh_registry_port;
+<<<<<<< HEAD
 pub mod node_control_plane_port;
 pub mod node_identity_port;
 pub mod provider_control_port;
@@ -49,3 +56,11 @@ pub mod storage_provider_port;
 pub mod system_probe_port;
 pub mod target_discovery_port;
 pub mod workload_identity_port;
+=======
+pub mod provider_control_port;
+pub mod runtime_federation_port;
+pub mod runtime_federation_queue_store_port;
+pub mod ssot_port;
+pub mod system_probe_port;
+pub mod target_discovery_port;
+>>>>>>> github/main

@@ -20,7 +20,11 @@ tokio-tungstenite = "0.24"
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util.workspace = true
 http = "1.1"
+<<<<<<< HEAD
 reqwest.workspace = true
+=======
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+>>>>>>> github/main
 process-wrap = { version = "9.1", features = ["tokio1"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -33,6 +37,7 @@ chrono.workspace = true
 sysinfo = "0.33"
 tempfile = "3"
 sha2 = "0.10.8"
+<<<<<<< HEAD
 hex.workspace = true
 base64.workspace = true
 ed25519-dalek.workspace = true
@@ -55,6 +60,13 @@ async-trait.workspace = true
 axum.workspace = true
 hmac = "0.12"
 uuid.workspace = true
+=======
+hex = "0.4"
+base64 = "0.22"
+cynic-protocol = { path = "../cynic-protocol" }
+cynic-host = { path = "../cynic-host" }
+cynic-inference = { path = "../cynic-inference" }
+>>>>>>> github/main
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -62,6 +74,10 @@ rustix = { version = "1", features = ["fs"] }
 
 
 [dev-dependencies]
+<<<<<<< HEAD
+=======
+axum = "0.8"
+>>>>>>> github/main
 
 [lints]
 workspace = true

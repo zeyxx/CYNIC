@@ -1,7 +1,11 @@
 use serde::Serialize;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
+<<<<<<< HEAD
 use crate::build::{BuildConformanceEvidence, BuildProof};
+=======
+use crate::build::BuildProof;
+>>>>>>> github/main
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::hardware_baseline::{HardwareBaselinePlan, plan_hardware_baseline};
 use crate::hardware_conformance::{HardwareConformanceReport, observe_hardware_conformance};
@@ -21,9 +25,13 @@ use crate::runtime_proof::{
     host_identity_runtime_proof,
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
+<<<<<<< HEAD
 use crate::vertical_conformance::{
     VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence,
 };
+=======
+use crate::vertical_conformance::{VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence};
+>>>>>>> github/main
 
 #[derive(Debug, Serialize)]
 pub struct HostConformanceReport {
@@ -49,7 +57,11 @@ pub struct HostConformanceReport {
     pub pre_os: cynic_protocol::PreOsPlatformObservation,
     pub proof_bundle: cynic_protocol::RuntimeProofBundle,
     #[serde(skip_serializing_if = "Option::is_none")]
+<<<<<<< HEAD
     pub build_evidence: Option<BuildConformanceEvidence>,
+=======
+    pub build_proof: Option<BuildProof>,
+>>>>>>> github/main
     pub persistence_record: cynic_protocol::RuntimeProofPersistenceRecord,
     pub rules: Vec<&'static str>,
     pub next_actions: Vec<String>,
@@ -66,7 +78,11 @@ pub fn observe_host_conformance(
     profile: HostProfile,
     resolution: Option<HostProfileResolution>,
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
+<<<<<<< HEAD
     observe_host_conformance_with_observer_and_build_evidence(
+=======
+    observe_host_conformance_with_observer_and_build_proof(
+>>>>>>> github/main
         profile,
         resolution,
         &LocalHostObservationAdapter,
@@ -86,7 +102,11 @@ pub fn observe_host_conformance_with_observer(
          + PreOsPlatformObservationPort
      ),
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
+<<<<<<< HEAD
     observe_host_conformance_with_observer_and_build_evidence(
+=======
+    observe_host_conformance_with_observer_and_build_proof(
+>>>>>>> github/main
         profile,
         resolution,
         observed_port,
@@ -99,6 +119,7 @@ pub fn observe_host_conformance_with_build_proof(
     resolution: Option<HostProfileResolution>,
     build_proof: Option<&BuildProof>,
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
+<<<<<<< HEAD
     let build_evidence = build_proof.map(BuildConformanceEvidence::from_build_proof);
     observe_host_conformance_with_observer_and_build_evidence(
         profile,
@@ -122,6 +143,17 @@ pub fn observe_host_conformance_with_build_evidence(
 }
 
 fn observe_host_conformance_with_observer_and_build_evidence(
+=======
+    observe_host_conformance_with_observer_and_build_proof(
+        profile,
+        resolution,
+        &LocalHostObservationAdapter,
+        build_proof,
+    )
+}
+
+fn observe_host_conformance_with_observer_and_build_proof(
+>>>>>>> github/main
     profile: HostProfile,
     resolution: Option<HostProfileResolution>,
     observed_port: &(
@@ -132,7 +164,11 @@ fn observe_host_conformance_with_observer_and_build_evidence(
          + HostHardwareObservationPort
          + PreOsPlatformObservationPort
      ),
+<<<<<<< HEAD
     build_evidence: Option<&BuildConformanceEvidence>,
+=======
+    build_proof: Option<&BuildProof>,
+>>>>>>> github/main
 ) -> Result<HostConformanceReport, Box<dyn std::error::Error>> {
     let observed = observe_host_with_resolution(&profile, observed_port, resolution.clone());
     let bootstrap_evidence =
@@ -164,6 +200,7 @@ fn observe_host_conformance_with_observer_and_build_evidence(
         },
         &hardware,
     );
+<<<<<<< HEAD
     let vertical_evidence = observe_vertical_evidence(build_evidence);
     let verticals = evaluate_vertical_conformance(&context, &gates, &vertical_evidence);
     let subject = identity_proof.subject.clone();
@@ -172,6 +209,18 @@ fn observe_host_conformance_with_observer_and_build_evidence(
     let proof_bundle = assemble_runtime_proof_bundle(identity_proof, &verticals);
     let persistence_record =
         assemble_runtime_proof_persistence_record(&proof_bundle, &verticals, build_evidence);
+=======
+    let vertical_evidence = observe_vertical_evidence(build_proof);
+    let verticals = evaluate_vertical_conformance(&context, &gates, &vertical_evidence);
+    let subject = identity_proof.subject.clone();
+    let convergence = crate::vertical_conformance::convergence_matrix_for_subject(&subject, &verticals);
+    let proof_bundle = assemble_runtime_proof_bundle(identity_proof, &verticals);
+    let persistence_record = assemble_runtime_proof_persistence_record(
+        &proof_bundle,
+        &verticals,
+        build_proof,
+    );
+>>>>>>> github/main
     let status = if gates.iter().all(|gate| gate.status == "satisfied") {
         "qualified"
     } else {
@@ -200,7 +249,11 @@ fn observe_host_conformance_with_observer_and_build_evidence(
         hardware_baseline_plan,
         pre_os,
         proof_bundle,
+<<<<<<< HEAD
         build_evidence: build_evidence.cloned(),
+=======
+        build_proof: build_proof.cloned(),
+>>>>>>> github/main
         persistence_record,
         rules: vec![
             "conformance observes host state and emits proof; it must not apply mutations",
@@ -350,7 +403,10 @@ mod tests {
                 observed_home_dir: Some(policy.home_dir.clone()),
                 present_state_dirs: policy.state_dirs.clone(),
                 owned_paths: policy.managed_paths(),
+<<<<<<< HEAD
                 ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
             }
         }
     }
@@ -373,7 +429,13 @@ mod tests {
             &self,
             policy: &crate::domain::packages::PackagePolicy,
         ) -> PackageObservedState {
+<<<<<<< HEAD
             crate::domain::packages::promoted_package_state(policy.bootstrap_packages.clone())
+=======
+            PackageObservedState {
+                installed_packages: policy.bootstrap_packages.clone(),
+            }
+>>>>>>> github/main
         }
     }
 
@@ -529,6 +591,7 @@ mod tests {
         .expect("conformance");
 
         assert_eq!(report.schema, "cynic.host.conformance.v1");
+<<<<<<< HEAD
         // Not "qualified": the package domain is Blocked by design because the
         // profile policy declares unresolved_distribution_authority(), so even a
         // fully ready observer leaves one host contract unsatisfied. Demanding
@@ -552,6 +615,12 @@ mod tests {
             report.proof_bundle.status, "satisfied",
             "a blocked conformance report must not carry a satisfied proof bundle"
         );
+=======
+        assert_eq!(report.status, "qualified");
+        assert!(!report.mutates);
+        assert!(!report.context.mutates_host_network);
+        assert_eq!(report.proof_bundle.status, "satisfied");
+>>>>>>> github/main
     }
 
     #[test]

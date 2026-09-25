@@ -160,7 +160,34 @@ pub struct HolderIdentity {
     pub entity_type: Option<String>,
 }
 
+<<<<<<< HEAD:crates/cynic-intel/src/domain_enrichment.rs
 pub use crate::kscore::{HolderClass, KScore, WalletBehaviorView};
+=======
+/// Classification of a token holder based on buy/sell behavior.
+/// Derived from retention_ratio = current_balance / total_bought.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HolderClass {
+    /// Bought more since initial purchase (retention >= accumulator_threshold, default 1.5)
+    Accumulator,
+    /// Holding all or most (retention >= holder_threshold, default 1.0)
+    Holder,
+    /// Sold some (retention >= reducer_threshold, default 0.5)
+    Reducer,
+    /// Sold most or all (retention < reducer_threshold)
+    Extractor,
+}
+
+impl std::fmt::Display for HolderClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Accumulator => write!(f, "accumulator"),
+            Self::Holder => write!(f, "holder"),
+            Self::Reducer => write!(f, "reducer"),
+            Self::Extractor => write!(f, "extractor"),
+        }
+    }
+}
+>>>>>>> github/main:crates/cynic-kernel/src/domain/enrichment.rs
 
 /// Per-wallet behavioral analysis from SWAP transaction history.
 #[derive(Debug, Clone, Serialize, Deserialize)]

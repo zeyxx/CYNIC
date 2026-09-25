@@ -3,12 +3,18 @@ pub mod chat_endpoint;
 pub mod chat_service;
 pub mod embedding_runtime;
 pub mod fleet_routing;
+<<<<<<< HEAD
 
+=======
+>>>>>>> github/main
 pub mod hf_discovery;
 pub mod inference_service;
 pub mod local_runtime_service;
 pub mod model_catalog;
+<<<<<<< HEAD
 pub mod model_process_pool;
+=======
+>>>>>>> github/main
 pub mod model_selection;
 pub mod model_store_service;
 pub mod model_sync_pipeline;
@@ -18,6 +24,7 @@ pub mod profile_bootstrap;
 pub mod proxy_routing;
 pub mod routing_policy;
 pub mod runtime_planner;
+<<<<<<< HEAD
 
 pub mod agent_harness;
 pub mod bench_basket_launcher;
@@ -32,3 +39,7 @@ pub mod summarization_service;
 pub mod vault_consolidate;
 pub mod vault_consolidate_capacity;
 pub mod vault_consolidate_storage;
+=======
+pub mod summarization_service;
+pub mod vault_consolidate;
+>>>>>>> github/main

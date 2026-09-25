@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pub mod agent_execution_runtime_observer;
 pub mod dns_renderer;
 pub mod ed25519_build_workload_grant;
@@ -29,12 +30,20 @@ pub mod local_bootstrap_seed_receipt_store;
 pub mod local_build_workload_grant_store;
 pub mod local_build_workspace;
 pub mod local_credential_material_sink;
+=======
+pub mod dns_renderer;
+pub mod headscale;
+pub mod host;
+pub mod host_observation;
+pub(crate) mod libvirt_harness_target_attestor;
+>>>>>>> github/main
 pub(crate) mod local_harness_target_attestation_reader;
 pub(crate) mod local_network_actuation_request_reader;
 pub(crate) mod local_network_command_runner;
 pub(crate) mod local_network_mesh_bundle;
 pub(crate) mod local_network_mesh_bundle_writer;
 pub(crate) mod local_network_mesh_registry;
+<<<<<<< HEAD
 pub mod local_node_control_observer;
 pub mod local_node_enrollment;
 pub mod local_node_identity;
@@ -66,5 +75,15 @@ pub mod ssh_release_basket_signing;
 pub mod surrealdb;
 pub mod tokio_build_execution;
 pub mod verified_credential_broker;
+=======
+pub mod local_runtime_federation_queue_store;
+pub mod local_system_probe;
+pub mod provider_fallback_probe;
+pub mod proxmox;
+pub mod qemu_guest_agent_network_runner;
+pub mod registry;
+pub mod runtime_observation;
+pub mod surrealdb;
+>>>>>>> github/main
 pub mod websocket_federation;
 pub mod wireguard;

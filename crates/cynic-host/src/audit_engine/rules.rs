@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
+=======
+use cynic_protocol::{
+    AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation,
+};
+>>>>>>> github/main
 
 use super::scanner::WorkspaceSourceIndex;
 
@@ -39,6 +45,7 @@ impl AuditRule for PathSanitationRule {
                 continue;
             }
 
+<<<<<<< HEAD
             // Track `#[cfg(test)]` scope by brace depth. Filtering on the file
             // path alone cannot see inline test modules, which is where most
             // machine-local paths in this workspace legitimately live: they are
@@ -106,13 +113,25 @@ impl AuditRule for PathSanitationRule {
                         "Inject runtime path dynamically via layout or deployment context."
                     };
 
+=======
+            for (idx, line) in file.content.lines().enumerate() {
+                if line.contains("/home/")
+                    || line.contains("/Users/")
+                    || line.contains("C:\\Users\\")
+                    || line.contains("C:/Users/")
+                {
+>>>>>>> github/main
                     violations.push(AuditViolation {
                         code: "SEC-001-ABSOLUTE-PATH".to_string(),
                         message: format!(
                             "Machine-local path pattern detected in {}",
                             file.relative_path
                         ),
+<<<<<<< HEAD
                         severity,
+=======
+                        severity: AuditSeverity::Critical,
+>>>>>>> github/main
                         category: AuditCategory::PathSanitation,
                         span: Some(AuditSpan {
                             file_path: file.relative_path.clone(),
@@ -120,7 +139,14 @@ impl AuditRule for PathSanitationRule {
                             line_end: idx + 1,
                             snippet: Some(line.trim().to_string()),
                         }),
+<<<<<<< HEAD
                         remediation: Some(remediation.to_string()),
+=======
+                        remediation: Some(
+                            "Inject runtime path dynamically via layout or deployment context."
+                                .to_string(),
+                        ),
+>>>>>>> github/main
                     });
                 }
             }
@@ -137,9 +163,13 @@ impl AuditRule for HotspotThresholdRule {
         AuditRuleSpec {
             id: "ARCH-001".to_string(),
             name: "hotspot_threshold".to_string(),
+<<<<<<< HEAD
             description:
                 "Domain and surface files must not exceed 400 lines without modular extraction."
                     .to_string(),
+=======
+            description: "Domain and surface files must not exceed 400 lines without modular extraction.".to_string(),
+>>>>>>> github/main
             category: AuditCategory::HotspotThreshold,
             severity: AuditSeverity::Debt,
             automated_remediation_available: true,
@@ -190,8 +220,12 @@ impl AuditRule for LayerBoundaryRule {
         AuditRuleSpec {
             id: "ARCH-002".to_string(),
             name: "layer_boundary".to_string(),
+<<<<<<< HEAD
             description: "Protocol contracts must remain pure and not import runtime I/O adapters."
                 .to_string(),
+=======
+            description: "Protocol contracts must remain pure and not import runtime I/O adapters.".to_string(),
+>>>>>>> github/main
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,
@@ -283,7 +317,13 @@ impl AuditRule for KernelBoundaryRule {
                         line_end: file.line_count,
                         snippet: None,
                     }),
+<<<<<<< HEAD
                     remediation: Some("Extract to crates/cynic-inference/src/".to_string()),
+=======
+                    remediation: Some(
+                        "Extract to crates/cynic-inference/src/".to_string(),
+                    ),
+>>>>>>> github/main
                 });
             }
         }
@@ -299,8 +339,12 @@ impl AuditRule for NodeHostBoundaryRule {
         AuditRuleSpec {
             id: "NODE-001".to_string(),
             name: "node_host_boundary".to_string(),
+<<<<<<< HEAD
             description: "Node runtime must not manage host lifecycle directly without ports."
                 .to_string(),
+=======
+            description: "Node runtime must not manage host lifecycle directly without ports.".to_string(),
+>>>>>>> github/main
             category: AuditCategory::Boundary,
             severity: AuditSeverity::Warning,
             automated_remediation_available: false,
@@ -339,8 +383,12 @@ impl AuditRule for NodeHostBoundaryRule {
                             snippet: Some(trimmed.to_string()),
                         }),
                         remediation: Some(
+<<<<<<< HEAD
                             "Use an injected port trait instead of direct cynic-host coupling."
                                 .to_string(),
+=======
+                            "Use an injected port trait instead of direct cynic-host coupling.".to_string(),
+>>>>>>> github/main
                         ),
                     });
                 }
@@ -358,9 +406,13 @@ impl AuditRule for OwnershipRule {
         AuditRuleSpec {
             id: "OWN-001".to_string(),
             name: "principal_ownership".to_string(),
+<<<<<<< HEAD
             description:
                 "Installed runtime state must belong to cynic principal, not operator home."
                     .to_string(),
+=======
+            description: "Installed runtime state must belong to cynic principal, not operator home.".to_string(),
+>>>>>>> github/main
             category: AuditCategory::MutationContract,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,

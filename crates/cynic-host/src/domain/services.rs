@@ -288,6 +288,7 @@ impl ServicePolicy {
             missing_units,
             disabled_units,
             inactive_units,
+<<<<<<< HEAD
             evidences: {
                 let mut names = Vec::with_capacity(self.units.len());
                 for unit in &self.units {
@@ -299,6 +300,18 @@ impl ServicePolicy {
                     detail: names.join(","),
                 }]
             },
+=======
+            evidences: vec![SubstrateEvidence {
+                id: "service_units_declared".to_string(),
+                status: SurfaceStatus::Planned,
+                detail: self
+                    .units
+                    .iter()
+                    .map(|unit| unit.unit_name.clone())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            }],
+>>>>>>> github/main
         }
     }
 

@@ -59,6 +59,7 @@ struct RegistryLifecycle {
 
 #[derive(Debug, Deserialize)]
 struct KernelRelease {
+<<<<<<< HEAD
     runtime_artifacts: Option<Vec<RuntimeArtifactDeclaration>>,
 }
 
@@ -67,6 +68,9 @@ struct KernelRelease {
 enum RuntimeArtifactDeclaration {
     Id(String),
     Detailed(RuntimeArtifact),
+=======
+    runtime_artifacts: Option<Vec<RuntimeArtifact>>,
+>>>>>>> github/main
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +84,7 @@ struct RuntimePublish {
     path: Option<String>,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Deserialize)]
 struct RuntimeBasket {
     artifacts: Vec<RuntimeBasketArtifact>,
@@ -91,6 +96,8 @@ struct RuntimeBasketArtifact {
     install_path: String,
 }
 
+=======
+>>>>>>> github/main
 pub(crate) fn runtime_binary_attestation(registry_path: Option<&str>) -> BinaryAttestation {
     let executable_path = std::env::current_exe().ok();
     let executable_sha256 = executable_path
@@ -166,7 +173,11 @@ impl BinaryAttestation {
             path_matches_expected: self.path_matches_expected,
             evidence_sources: vec![
                 format!("{DEFAULT_REGISTRY_PATH}:lifecycle.kernel_release.runtime_artifacts"),
+<<<<<<< HEAD
                 "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml".to_string(),
+=======
+                "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node".to_string(),
+>>>>>>> github/main
                 "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
                 "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
             ],
@@ -184,7 +195,11 @@ fn proposed_runtime_artifact() -> RuntimeArtifactProposal {
         publish_path: "/usr/local/bin/cynic-node",
         primary_runtime_role: "all_runtime_nodes",
         rationale_sources: vec![
+<<<<<<< HEAD
             "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
+=======
+            "infra/systemd/cynic-node.service:ExecStart=/usr/local/bin/cynic-node",
+>>>>>>> github/main
             "contracts/foundation.json:constitutional.runtime_authority_order",
             "Cargo.toml:workspace.members includes crates/cynic-node",
         ],
@@ -208,6 +223,7 @@ fn expected_publish_path(registry_path: Option<&str>) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
     let registry: Registry = serde_json::from_str(&raw).ok()?;
     let artifacts = registry.lifecycle?.kernel_release?.runtime_artifacts?;
+<<<<<<< HEAD
     let publish = artifacts.into_iter().find_map(|artifact| match artifact {
         RuntimeArtifactDeclaration::Id(id) if id == "cynic-node" => {
             runtime_basket_install_path(&id)
@@ -230,6 +246,14 @@ fn runtime_basket_install_path(artifact_id: &str) -> Option<String> {
         .into_iter()
         .find(|artifact| artifact.id == artifact_id)
         .map(|artifact| artifact.install_path)
+=======
+    let publish = artifacts
+        .into_iter()
+        .find(|artifact| artifact.name.as_deref() == Some("cynic-node"))?
+        .publish?
+        .path?;
+    Some(expand_home_placeholder(&publish))
+>>>>>>> github/main
 }
 
 fn sha256_file(path: &PathBuf) -> Result<String, String> {
@@ -326,6 +350,7 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn resolves_compact_registry_artifact_through_runtime_basket() {
         let mut file = tempfile::NamedTempFile::new().expect("temp registry");
         write!(
@@ -347,6 +372,8 @@ mod tests {
     }
 
     #[test]
+=======
+>>>>>>> github/main
     fn declaration_drift_status_maps_expected_states() {
         assert_eq!(
             declaration_drift_status(false, None),

@@ -1,5 +1,9 @@
 // Binary crate test exemption — same pattern as cynic-kernel lib.rs
+<<<<<<< HEAD
 #![allow(dead_code)]
+=======
+#![cfg_attr(test, allow(dead_code, clippy::expect_used))]
+>>>>>>> github/main
 #![allow(
     clippy::needless_borrows_for_generic_args,
     clippy::uninlined_format_args,
@@ -17,6 +21,52 @@
     clippy::needless_borrow,
     clippy::print_stdout
 )]
+<<<<<<< HEAD
+=======
+
+mod announce;
+mod build_attestation;
+mod cli;
+mod config;
+mod config_watch;
+mod dns_activation_status;
+mod dns_bundle;
+mod dns_contract;
+mod dns_plan;
+mod network_activation_chain;
+mod network_actuator;
+mod network_actuator_contract;
+mod network_actuator_status;
+mod network_command_surface;
+mod network_diagnostic_surface;
+mod network_evidence;
+mod network_host_substrate;
+mod network_mesh_apply_plan;
+mod network_mesh_bundle;
+mod network_mesh_plan;
+mod network_repair;
+mod network_root_policy;
+mod network_runtime_proof;
+mod network_runtime_status;
+mod network_surface_inventory;
+mod network_shadow_proof;
+mod observe;
+mod provider_fallback_hosts;
+mod provider_fallback_status;
+mod runtime_supervision;
+mod supervise;
+mod system_probe;
+#[allow(dead_code, unreachable_pub)]
+mod verify;
+mod watchdog;
+mod websocket;
+>>>>>>> github/main
+
+// Hexagonal Architecture Modules
+pub mod adapters;
+pub mod domain;
+pub mod ports;
+pub mod usecases;
 
 use std::process::ExitCode;
 use std::time::Duration;
@@ -25,6 +75,7 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
+<<<<<<< HEAD
 use cynic_node::cli::Cli;
 use cynic_node::cli_dispatch;
 use cynic_node::config;
@@ -32,6 +83,49 @@ use cynic_node::node_control_runtime;
 use cynic_node::runtime_supervision;
 use cynic_node::shutdown::install_signal_handler;
 use cynic_node::watchdog;
+=======
+use crate::cli::{Cli, Commands, ReleaseCommands};
+use crate::usecases::network_surfaces_uc;
+use crate::usecases::runtime_artifact_release_uc;
+
+// ── Signal handler ────────────────────────────────────────────────────────────
+
+/// Install OS signal handlers and cancel `shutdown` when a signal arrives.
+///
+/// On Unix: listens for SIGTERM and SIGINT.
+/// On Windows: listens for Ctrl-C.
+fn install_signal_handler(shutdown: CancellationToken) {
+    #[cfg(unix)]
+    tokio::spawn(async move {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Err(e) => {
+                // WHY: If we cannot install SIGTERM, log the failure but continue.
+                // SIGINT (ctrl-c) is still available. The process can still be stopped
+                // via SIGKILL if needed. Aborting here would be worse than degraded mode.
+                tracing::warn!("SIGTERM handler install failed ({e}) — only SIGINT will work");
+                tokio::signal::ctrl_c().await.ok();
+            }
+            Ok(mut sigterm) => {
+                tokio::select! {
+                    _ = sigterm.recv() => tracing::info!("SIGTERM received — shutting down"),
+                    _ = tokio::signal::ctrl_c() => tracing::info!("SIGINT received — shutting down"),
+                }
+            }
+        }
+        shutdown.cancel();
+    });
+
+    #[cfg(windows)]
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        tracing::info!("Ctrl-C received — shutting down");
+        shutdown.cancel();
+    });
+}
+
+// ── main ──────────────────────────────────────────────────────────────────────
+>>>>>>> github/main
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -41,8 +135,49 @@ async fn main() -> ExitCode {
 
     let cli = Cli::parse();
 
+<<<<<<< HEAD
     if let Some(cmd) = cli.command {
         return cli_dispatch::dispatch_command(cmd).await;
+=======
+    match cli.command {
+        Some(Commands::Observe {
+            json: _,
+            registry,
+            fail_on_warning,
+            fail_on_critical,
+        }) => {
+            return network_surfaces_uc::execute_observe(
+                &registry,
+                fail_on_warning,
+                fail_on_critical,
+            );
+        }
+        Some(Commands::RegistryObservation {
+            json: _,
+            registry,
+            output,
+        }) => {
+            return network_surfaces_uc::execute_registry_observation(&registry, output.as_deref());
+        }
+        Some(Commands::Network { command }) => {
+            return network_surfaces_uc::execute_network_command(&command);
+        }
+        Some(Commands::Release { command }) => {
+            return match command {
+                ReleaseCommands::Reconcile {
+                    spec,
+                    lifecycle_state,
+                    yes,
+                    json: _,
+                } => runtime_artifact_release_uc::execute_reconcile(
+                    &spec,
+                    lifecycle_state.as_deref(),
+                    yes,
+                ),
+            };
+        }
+        None => {}
+>>>>>>> github/main
     }
 
     // Automatic Versioning Integration
@@ -63,7 +198,32 @@ async fn main() -> ExitCode {
             tracing::error!("--config is required for --watchdog");
             return ExitCode::FAILURE;
         };
+<<<<<<< HEAD
         return watchdog::execute(config_path).await;
+=======
+        let cfg = match config::load_watchdog(config_path) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("watchdog config error: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let client = match reqwest::Client::builder()
+            .timeout(Duration::from_secs(cfg.watchdog.http_timeout_secs))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("HTTP client init failed: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let shutdown = CancellationToken::new();
+        install_signal_handler(shutdown.clone());
+        return watchdog::run_watchdog(&client, cfg, &shutdown).await;
+>>>>>>> github/main
     }
 
     let Some(config_path) = cli.config.as_deref() else {
@@ -93,6 +253,7 @@ async fn main() -> ExitCode {
     let shutdown = CancellationToken::new();
     install_signal_handler(shutdown.clone());
 
+<<<<<<< HEAD
     let node_tasks = if let Some(control) = cfg.node_control.clone() {
         match node_control_runtime::start_tasks(control, shutdown.clone()).await {
             Ok(tasks) => tasks,
@@ -112,4 +273,7 @@ async fn main() -> ExitCode {
         let _ = task.await;
     }
     exit
+=======
+    runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await
+>>>>>>> github/main
 }

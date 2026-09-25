@@ -1,9 +1,13 @@
 # Rust build artifacts
 /target/
+<<<<<<< HEAD
 /target-*/
 crates/*/target/
 crates/*/target-*/
 /verify_cargo/target/
+=======
+crates/*/target/
+>>>>>>> github/main
 rustc-ice-*.txt
 *.pdb
 *.exe
@@ -15,30 +19,44 @@ rustc-ice-*.txt
 # Local gates and release scratch
 .gate-*
 .gate_marker
+<<<<<<< HEAD
 /verify/
 /verify_cargo/
+=======
+>>>>>>> github/main
 .release-build.json
 
 # Secrets and machine-local configuration
 .env
 *.local
 .askesis/
+<<<<<<< HEAD
+=======
+infra/wireguard/*.conf
+*.key
+>>>>>>> github/main
 
 # Runtime state and generated data
 /data/
 /logs/
 /observations/
 /tmp/
+<<<<<<< HEAD
 /infra/benchmark-results/
 /infra/runtime-checkpoints/BUILDER_ROUTE_CONVERGENCE.md
 /infra/runtime-checkpoints/builder-route-convergence-evidence.json
+=======
+>>>>>>> github/main
 state*.md
 *-state*.md
 message.txt
 history.txt
 
 # Tool and agent local state
+<<<<<<< HEAD
 .hermes/
+=======
+>>>>>>> github/main
 .claude/
 .antigravity/
 .cynic/

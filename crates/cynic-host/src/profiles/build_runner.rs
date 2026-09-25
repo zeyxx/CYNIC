@@ -43,8 +43,11 @@ impl HostPackagePort for BuildRunnerHostProfile {
             policy_dir: base.policy_dir,
             source_projection_path: base.source_projection_path,
             approved_sources: base.approved_sources,
+<<<<<<< HEAD
             provenance: base.provenance,
             promotion_policy: base.promotion_policy,
+=======
+>>>>>>> github/main
             // Build runners do not require mesh packages (coredns/wireguard).
             bootstrap_packages: vec![],
         }
@@ -64,7 +67,11 @@ impl HostServicePort for BuildRunnerHostProfile {
         ServicePolicy {
             manager: ServiceManagerKind::Systemd,
             unit_dir: current_runtime_layout().service_unit_dir,
+<<<<<<< HEAD
             // Empty until the resident node controller owns a supervisor-agnostic lifecycle.
+=======
+            // Empty: registry may still declare process-port services separately.
+>>>>>>> github/main
             units: vec![],
         }
     }

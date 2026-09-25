@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+<<<<<<< HEAD
 //! Cynic Askesis — append-only proof and history log.
 //!
 //! Domain pure: no I/O, no chrono, no FS. Types, hashes, verification.
@@ -87,3 +88,19 @@ mod tests {
         }
     }
 }
+=======
+pub mod agent_loop;
+pub mod anchor;
+pub mod audit;
+pub mod domains;
+pub mod error;
+pub mod eval;
+pub mod experiment;
+pub mod log;
+pub mod memory;
+pub mod reflection;
+
+pub use error::{AskesisError, Result};
+pub use memory::{DEFAULT_HUMAN_KERNEL_LOG, append_human_log_entry, resolve_human_log_path};
+pub use reflection::{Reflection, Verdict};
+>>>>>>> github/main

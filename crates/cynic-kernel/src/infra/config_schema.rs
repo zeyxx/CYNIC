@@ -81,6 +81,7 @@ pub(crate) struct MonitoringEntry {
 #[derive(Deserialize)]
 pub(crate) struct StorageEntry {
     pub url: Option<String>,
+<<<<<<< HEAD
     pub allow_loopback: Option<bool>,
     pub namespace: Option<String>,
     pub database: Option<String>,
@@ -96,6 +97,10 @@ pub(crate) struct StorageEntry {
 #[derive(Deserialize)]
 pub(crate) struct StorageFile {
     pub storage: Option<StorageEntry>,
+=======
+    pub namespace: Option<String>,
+    pub database: Option<String>,
+>>>>>>> github/main
 }
 
 /// Backend remediation block.
@@ -155,6 +160,10 @@ pub(crate) struct ConvergenceEntry {
 #[derive(Deserialize)]
 pub(crate) struct BackendsFile {
     pub backend: std::collections::HashMap<String, BackendEntry>,
+<<<<<<< HEAD
+=======
+    pub storage: Option<StorageEntry>,
+>>>>>>> github/main
     pub defaults: Option<DefaultsEntry>,
     #[serde(default)]
     pub dog: std::collections::HashMap<String, DogEntry>,

@@ -33,7 +33,10 @@ pub struct PrincipalStatusReport {
     pub home_matches: bool,
     pub missing_state_dirs: Vec<String>,
     pub misowned_paths: Vec<String>,
+<<<<<<< HEAD
     pub ownership_unknown_paths: Vec<String>,
+=======
+>>>>>>> github/main
     pub evidences: Vec<SubstrateEvidence>,
 }
 
@@ -68,8 +71,11 @@ pub struct PrincipalObservedState {
     pub present_state_dirs: Vec<String>,
     #[serde(default)]
     pub owned_paths: Vec<String>,
+<<<<<<< HEAD
     #[serde(default)]
     pub ownership_unknown_paths: Vec<String>,
+=======
+>>>>>>> github/main
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -234,18 +240,26 @@ impl PrincipalPolicy {
         let misowned_paths = self
             .managed_paths()
             .into_iter()
+<<<<<<< HEAD
             .filter(|path| {
                 !observed.owned_paths.contains(path)
                     && !observed.ownership_unknown_paths.contains(path)
             })
             .collect::<Vec<_>>();
         let ownership_unknown_paths = observed.ownership_unknown_paths.clone();
+=======
+            .filter(|path| !observed.owned_paths.contains(path))
+            .collect::<Vec<_>>();
+>>>>>>> github/main
         let status = if observed.user_present
             && observed.group_present
             && home_matches
             && missing_state_dirs.is_empty()
             && misowned_paths.is_empty()
+<<<<<<< HEAD
             && ownership_unknown_paths.is_empty()
+=======
+>>>>>>> github/main
         {
             SurfaceStatus::Active
         } else {
@@ -258,8 +272,11 @@ impl PrincipalPolicy {
             LifecycleStatus::Missing
         } else if !home_matches || !misowned_paths.is_empty() {
             LifecycleStatus::PrincipalMismatch
+<<<<<<< HEAD
         } else if !ownership_unknown_paths.is_empty() {
             LifecycleStatus::ConnectionRequired
+=======
+>>>>>>> github/main
         } else {
             LifecycleStatus::Ready
         };
@@ -277,7 +294,11 @@ impl PrincipalPolicy {
             ),
             LifecycleStatus::ConnectionRequired => {
                 LifecycleProjection::connection_required_observe(
+<<<<<<< HEAD
                     "path ownership cannot be proven inside the current identity namespace; observe through a host-authoritative adapter",
+=======
+                    "principal lifecycle does not model a connection boundary",
+>>>>>>> github/main
                 )
             }
         };
@@ -293,7 +314,10 @@ impl PrincipalPolicy {
             home_matches,
             missing_state_dirs,
             misowned_paths,
+<<<<<<< HEAD
             ownership_unknown_paths,
+=======
+>>>>>>> github/main
             evidences: vec![
                 SubstrateEvidence {
                     id: "principal_user_presence".to_string(),
@@ -372,7 +396,11 @@ impl PrincipalPolicy {
 mod tests {
     use super::{PrincipalCommandContext, PrincipalObservedState, PrincipalPolicy};
     use crate::command_surface::render_command;
+<<<<<<< HEAD
     use crate::domain::shared::{LifecycleStatus, SurfaceStatus};
+=======
+    use crate::domain::shared::SurfaceStatus;
+>>>>>>> github/main
     use crate::runtime_authority::default_runtime_principal_layout;
 
     fn context() -> PrincipalCommandContext {
@@ -425,11 +453,15 @@ mod tests {
             observed_home_dir: Some("/wrong".to_string()),
             present_state_dirs: vec!["/var/lib/cynic/state".to_string()],
             owned_paths: policy().managed_paths(),
+<<<<<<< HEAD
             ownership_unknown_paths: Vec::new(),
+=======
+>>>>>>> github/main
         });
 
         assert_eq!(report.status, SurfaceStatus::Blocked);
     }
+<<<<<<< HEAD
 
     #[test]
     fn unknown_namespace_ownership_never_becomes_principal_mismatch() {
@@ -450,4 +482,6 @@ mod tests {
         assert_eq!(report.ownership_unknown_paths, unknown_paths);
         assert!(report.next_command.is_none());
     }
+=======
+>>>>>>> github/main
 }

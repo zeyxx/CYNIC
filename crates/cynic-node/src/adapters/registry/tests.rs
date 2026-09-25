@@ -15,9 +15,14 @@ fn write_registry(root: &std::path::Path) -> PathBuf {
               "proxmox_guest": { "cidr": "10.10.10.0/24", "canonical": false }
             },
             "reservations": [
+<<<<<<< HEAD
               { "name": "host-proxmox", "synapse": "10.20.0.1", "dns": ["pve.synapse.cynic"] },
               { "name": "builder", "synapse": "10.20.0.5", "dns": ["builder.synapse.cynic"] },
               { "name": "kernel", "synapse": "10.20.0.3", "dns": ["cynic-kernel-primary.synapse.cynic"] }
+=======
+              { "name": "builder", "dns": ["builder.synapse.cynic"] },
+              { "name": "kernel", "dns": ["cynic-kernel-primary.synapse.cynic"] }
+>>>>>>> github/main
             ]
           },
           "nodes": [
@@ -116,6 +121,7 @@ fn fetches_provider_fallback_service_checks() {
             && item.host == "cynic-kernel-primary.synapse.cynic"
     }));
 }
+<<<<<<< HEAD
 
 #[test]
 fn resolves_node_with_synapse_or_management_when_local_absent() {
@@ -209,3 +215,5 @@ fn filters_planned_and_optional_services_from_checks() {
     assert!(!checks.iter().any(|item| item.service == "forgejo-api-tls"));
     assert!(!checks.iter().any(|item| item.service == "optional-metrics"));
 }
+=======
+>>>>>>> github/main

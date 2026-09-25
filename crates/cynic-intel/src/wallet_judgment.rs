@@ -1,9 +1,17 @@
+<<<<<<<< HEAD:crates/cynic-intel/src/wallet_judgment.rs
 //! Deterministic wallet authenticity model used by the wallet-judgment dog.
 //!
 //! The kernel owns projection/targets; `cynic-intel` owns the scoring law.
+========
+//! Compatibility adapter for deterministic wallet judgment.
+//!
+//! Cynic-kernel keeps the invocation surface and target projection. The
+//! deterministic scoring law lives in `cynic-intel`.
+>>>>>>>> github/main:crates/cynic-kernel/src/domain/wallet_judgment/mod.rs
 
-use serde::{Deserialize, Serialize};
+use crate::domain::dog::{AxiomScores, VerdictKind};
 
+<<<<<<<< HEAD:crates/cynic-intel/src/wallet_judgment.rs
 const PHI_INV: f64 = 0.618_033_988_749_894_8;
 const PHI_INV2: f64 = 0.381_966_011_250_105;
 
@@ -256,4 +264,30 @@ mod tests {
         assert!(q_avg >= 0.54);
         assert!(kind == DeterministicDogKind::Howl || kind == DeterministicDogKind::Wag);
     }
+========
+pub use cynic_intel::wallet_judgment::WalletProfile;
+
+pub fn deterministic_dog(profile: &WalletProfile) -> (VerdictKind, AxiomScores) {
+    let (kind, scores) = cynic_intel::wallet_judgment::deterministic_dog(profile);
+    let verdict = match kind {
+        cynic_intel::wallet_judgment::DeterministicDogKind::Howl => VerdictKind::Howl,
+        cynic_intel::wallet_judgment::DeterministicDogKind::Wag => VerdictKind::Wag,
+        cynic_intel::wallet_judgment::DeterministicDogKind::Growl => VerdictKind::Growl,
+        cynic_intel::wallet_judgment::DeterministicDogKind::Bark => VerdictKind::Bark,
+    };
+
+    (
+        verdict,
+        AxiomScores {
+            fidelity: scores.fidelity,
+            phi: scores.phi,
+            verify: scores.verify,
+            culture: scores.culture,
+            burn: scores.burn,
+            sovereignty: scores.sovereignty,
+            reasoning: Default::default(),
+            ..Default::default()
+        },
+    )
+>>>>>>>> github/main:crates/cynic-kernel/src/domain/wallet_judgment/mod.rs
 }

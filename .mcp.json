@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cynic": {
+      "command": "target/debug/cynic-mcp",
+      "args": []
+    }
+  }
+}

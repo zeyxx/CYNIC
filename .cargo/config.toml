@@ -3,6 +3,7 @@
 # rust-lang/rust #103767, #122357, #138561.
 # -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
 jobs = 1
+<<<<<<< HEAD
 # Convergence: clippy ICE mitigation for cold link-codegen under rustc 1.96.
 # `--cap-lints=allow` + `-A clippy::all` suppresses workspace clippy denies
 # (cli/src/lib.rs [workspace.lints]) that trigger SIGSEGV on full codegen
@@ -26,3 +27,12 @@ CARGO_INCREMENTAL = "0"
 # A legacy 64 MiB / 8 GiB value in [env] would shadow the Makefile and either
 # SIGSEGV (8M) or OOM-kill runners <=32 GiB (8 GiB on cold link). Override via
 # the Makefile var CYNIC_RUST_MIN_STACK or shell env RUST_MIN_STACK per run.
+=======
+rustflags = ["-C", "debuginfo=0"]
+
+[env]
+# A1 debt: rmcp/serde monomorphization can overflow rustc stack in kernel/MCP builds.
+# Keep this bounded for heterogeneous build runners; 16GiB stack reservations make
+# rustc fail to spawn its control-C handler on smaller VMs.
+RUST_MIN_STACK = "67108864"
+>>>>>>> github/main

@@ -331,6 +331,7 @@ fn remediation_plan(status: &str) -> NetworkRemediationPlan {
     }
 }
 
+<<<<<<< HEAD
 /// Map this DNS preflight report into a kernel Proof-of-History submission.
 ///
 /// The host cannot implement the kernel-side `Provable` trait, so it builds a
@@ -348,6 +349,8 @@ pub fn to_host_proof_submission(
     )
 }
 
+=======
+>>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,6 +420,7 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn to_host_proof_submission_maps_report_event_type_and_payload() {
         let observer = FakeObserver {
             resolver: parse_resolver_baseline("nameserver 1.1.1.1\nsearch synapse.cynic\n"),
@@ -436,6 +440,8 @@ mod tests {
     }
 
     #[test]
+=======
+>>>>>>> github/main
     fn parser_extracts_nameservers_and_search_domains() {
         let baseline = parse_resolver_baseline(
             "# comment\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch synapse.cynic corp\n",

@@ -1,5 +1,6 @@
 //! Sovereign inference configuration loader.
 //!
+<<<<<<< HEAD
 //! ## Lookup order
 //! 1. `CYNIC_INFERENCE_CONFIG` env var (absolute path override)
 //! 2. `$XDG_CONFIG_HOME/cynic/inference.toml` (user/principal SSOT, default `~/.config/cynic`)
@@ -9,6 +10,13 @@
 //! the operator to maintain their own multi-backend routing without
 //! requiring root. Set `CYNIC_INFERENCE_CONFIG` for an explicit breakglass
 //! override (e.g. pointing at a staging config).
+=======
+//! SSOT: `/etc/cynic/inference.toml`
+//!
+//! ## Lookup order
+//! 1. `CYNIC_INFERENCE_CONFIG` env var (absolute path override)
+//! 2. `/etc/cynic/inference.toml`
+>>>>>>> github/main
 //!
 //! ## API-key injection
 //! Secrets are never stored in the TOML file. The loader reads the
@@ -131,6 +139,7 @@ fn load_inference_config_from_path(
     })
 }
 
+<<<<<<< HEAD
 /// System-wide fallback path.
 const SYSTEM_INFERENCE_CONFIG_PATH: &str = "/etc/cynic/inference.toml";
 
@@ -170,6 +179,21 @@ fn resolve_config_path_inner(
 
     // 3. System-wide fallback
     PathBuf::from(SYSTEM_INFERENCE_CONFIG_PATH)
+=======
+/// SSOT: `/etc/cynic/inference.toml`
+const DEFAULT_INFERENCE_CONFIG_PATH: &str = "/etc/cynic/inference.toml";
+
+/// Determine the config path, honouring only an explicit env-var override.
+pub(crate) fn resolve_config_path() -> PathBuf {
+    resolve_config_path_inner(std::env::var("CYNIC_INFERENCE_CONFIG").ok())
+}
+
+fn resolve_config_path_inner(override_path: Option<String>) -> PathBuf {
+    if let Some(override_path) = override_path {
+        return PathBuf::from(override_path);
+    }
+    PathBuf::from(DEFAULT_INFERENCE_CONFIG_PATH)
+>>>>>>> github/main
 }
 
 #[cfg(test)]
@@ -201,22 +225,34 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn default_config_path_falls_back_to_system_when_user_absent() {
         assert_eq!(
             resolve_config_path_inner(None, None, None),
             std::path::PathBuf::from(SYSTEM_INFERENCE_CONFIG_PATH)
+=======
+    fn default_config_path_uses_installed_runtime_ssot() {
+        assert_eq!(
+            resolve_config_path_inner(None),
+            std::path::PathBuf::from(DEFAULT_INFERENCE_CONFIG_PATH)
+>>>>>>> github/main
         );
     }
 
     #[test]
     fn explicit_config_override_is_honored() {
         assert_eq!(
+<<<<<<< HEAD
             resolve_config_path_inner(Some("/tmp/cynic-inference.toml".to_string()), None, None),
+=======
+            resolve_config_path_inner(Some("/tmp/cynic-inference.toml".to_string())),
+>>>>>>> github/main
             std::path::PathBuf::from("/tmp/cynic-inference.toml")
         );
     }
 
     #[test]
+<<<<<<< HEAD
     fn user_xdg_config_takes_precedence_over_system_when_file_exists() {
         // Create a temp file to simulate user config being present
         let tmp = std::env::temp_dir().join(format!("cynic_xdg_test_{}", std::process::id()));
@@ -231,6 +267,8 @@ mod tests {
     }
 
     #[test]
+=======
+>>>>>>> github/main
     fn parses_minimal_sovereign_backend() {
         let toml = r#"
 [[backend]]

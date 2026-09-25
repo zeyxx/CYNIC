@@ -2,6 +2,7 @@
 members = [
     "crates/cynic-cli",
     "crates/cynic-protocol",
+<<<<<<< HEAD
     "crates/cynic-types",
     "crates/cynic-discovery",
     "crates/cynic-discovery-host",
@@ -10,6 +11,9 @@ members = [
     "crates/cynic-agent-bus",
     "crates/cynic-agent-bus-server",
     "crates/cynic-agent-bus-coordinator",
+=======
+    "crates/cynic-inference",
+>>>>>>> github/main
     "crates/cynic-kernel",
     "crates/cynic-node",
     "crates/cynic-host",
@@ -40,11 +44,18 @@ members = [
     "crates/cynic-pkg",
     "crates/cynic-pool",
     "crates/cynic-askesis",
+<<<<<<< HEAD
     "crates/cynic-secrets",
     "crates/cynic-domain-ops",
     "crates/cynic-domain-askesis",
     "crates/cynic-domain-porkbun",
     "crates/cynic-domain-cloudflare",
+=======
+    "crates/cynic-mcp",
+    "crates/cynic-host",
+    "crates/cynic-intel",
+    "crates/cynic-observer",
+>>>>>>> github/main
 ]
 resolver = "2"
 
@@ -158,11 +169,14 @@ incremental = false
 # As of Rust 1.95.0 / LLVM 22.1.2, codegen-units=1 itself triggers non-deterministic
 # SIGSEGV in FastISel::selectInstruction on random crates (yoke-derive, zerovec,
 # regex-syntax, serde_json). codegen-units=16 (default) passes 685 tests reliably.
+<<<<<<< HEAD
 # 
 # PATCH (local ice isolation): clippy-deny groups + codegen-units=16 → MIR overflow
 # SIGSEGV on cynic-protocol serde_json graph (rustc 1.96.0). Drop to 1 for the host
 # axis (protocol/host/node/cli) to avoid parallel-codegen OOM/SIGSEGV locally.
 # cynic-kernel stays on 16 (its own rust-toolchain 1.95 is unaffected).
+=======
+>>>>>>> github/main
 codegen-units = 16
 debug = false
 [profile.dev.package.cynic-protocol]

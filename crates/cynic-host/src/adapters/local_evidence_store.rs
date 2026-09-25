@@ -2,7 +2,11 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
+<<<<<<< HEAD
 use cynic_protocol::{EvidenceEnvelope, build_evidence_envelope_with_lineage};
+=======
+use cynic_protocol::EvidenceEnvelope;
+>>>>>>> github/main
 
 use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
 
@@ -49,6 +53,7 @@ impl ContentAddressedEvidenceStorePort for LocalContentAddressedEvidenceStore {
         }
         Ok(path.display().to_string())
     }
+<<<<<<< HEAD
 
     fn read(&self, digest: &str) -> Result<Option<EvidenceEnvelope>, String> {
         let path = self.record_path(digest)?;
@@ -107,4 +112,6 @@ mod tests {
                 .is_none()
         );
     }
+=======
+>>>>>>> github/main
 }

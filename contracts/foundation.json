@@ -6,9 +6,13 @@
     "scope": [
       "CYNIC is a low-layer Rust runtime organism before it is a product surface.",
       "Runtime truth is proved by executable code, OS services, registry placement, and runtime read-back.",
+<<<<<<< HEAD
       "Dead documentation, deleted organs, and historical Python gates cannot define current authority.",
       "Solana is a piece of engineering: study its solutions and patterns for anything useful to CYNIC.",
       "Canonical internal integrity hashing is SHA3-512 (prefix sha3-512:). SHA-256 remains mandated only where an external contract requires it (on-chain program payloads, third-party APIs); BLAKE3 is permitted for high-throughput non-canonical caches. Every digest string carries its algorithm prefix; unprefixed digests are invalid."
+=======
+      "Dead documentation, deleted organs, and historical Python gates cannot define current authority."
+>>>>>>> github/main
     ],
     "authority_order": [
       "observed runtime state",
@@ -19,7 +23,11 @@
       "canonical Rust crates",
       "infra/agent-exposure.json"
     ],
+<<<<<<< HEAD
       "hard_boundaries": [
+=======
+    "hard_boundaries": [
+>>>>>>> github/main
       {
         "name": "low_layer_first",
         "rule": "Kernel, host, node, protocol, MCP, CLI, storage, and service supervision take precedence over UX and product layers."
@@ -47,6 +55,7 @@
       {
         "name": "fractal_agent_recursion",
         "rule": "Every node may own a local recursive agent tree. Child delegations must preserve node lineage, monotonically reduce authority and budgets, consume content-addressed context, and return proofs or explicit unknowns upward. Cross-node delegation is federation and requires an explicit coordination contract."
+<<<<<<< HEAD
       },
       {
         "name": "sovereign_error_codes",
@@ -71,6 +80,8 @@
       {
         "name": "strict_dag_and_single_responsibility",
         "rule": "Every crate follows the canonical cynic-<family>-<role> taxonomy. Architecture is a strict downward DAG (Layer 4 Projections -> Layer 3 Orchestrators -> Layer 2 Domains -> Layer 1 Host Substrate -> Layer 0 Pure Protocol). Cross-family concrete coupling, upward dependencies, God-object orchestrators exceeding 25k LOC, and domain I/O outside injected ports are constitutional violations."
+=======
+>>>>>>> github/main
       }
     ],
     "deleted_authorities": [
@@ -84,11 +95,19 @@
   },
   "evolutive_policies": {
     "build": {
+<<<<<<< HEAD
       "default_gate": "make check on a build runner holding a signed, workload-derived machine grant bound to the durable record revision, lease fence, cancellation generation, node, commit, canonical action set, and expiry; make authority-check is the read-only local authority gate",
       "build_gate": "blocked until a real registry-selected build runner verifies the machine signature plus the live durable workload and returns argv execution and artifact digest evidence",
       "release_gate": "cynic_validate action=build_release is the canonical release-build request; release remains blocked until its admitted build proof and artifact read-back are satisfied",
       "test_gate": "build-runner only; local Cortex execution is not test proof",
       "check_stack": "make check and the Cargo wrapper must refuse compiling actions unless CYNIC_BUILD_ADMISSION_GRANT names a machine-signed cynic.build.workload_grant.v1 derived from a live claimed workload; the sole seed-only exception is a root-owned, exact node + source commit + registry digest MachineEnrollment receipt consumed by scripts/build-runner-bootstrap before any runtime marker exists, and it becomes invalid as soon as the bootstrap completion read-back is persisted; HumanAdmin may enroll or rotate the machine build authority but may not mint routine build grants; admitted execution uses CARGO_INCREMENTAL=0 and the repository-pinned toolchain",
+=======
+      "default_gate": "make check",
+      "build_gate": "blocked: on Thursday, July 16, 2026, make build still hits rustc 1.96.0 instability in workspace binary compilation",
+      "release_gate": "experimental: on Thursday, July 16, 2026, make build-release still hits rustc 1.96.0 release-profile instability",
+      "test_gate": "experimental: on Thursday, July 16, 2026, make test can still hit a rustc 1.96.0 ICE during workspace test compilation",
+      "check_stack": "make check uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 to avoid known rustc 1.96.0 stack pressure and incremental ICE paths in this workspace",
+>>>>>>> github/main
       "build_stack": "make build uses RUST_MIN_STACK=536870912 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable while linking workspace debug binaries",
       "release_stack": "make build-release uses RUST_MIN_STACK=1073741824 and CARGO_INCREMENTAL=0 because rustc 1.96.0 remains unstable during release/profile compilation",
       "policy": "Build policy may evolve, but it must stay executable from the repository root. A compiler ICE is toolchain debt, not runtime proof, and the canonical local workaround must stay explicit."
@@ -96,13 +115,17 @@
     "runtime": {
       "registry": "infra/registry.json",
       "systemd_projection": "infra/systemd",
+<<<<<<< HEAD
       "runtime_seed": "cynic-host-exec is a separately governed bootstrap root, excluded from ordinary runtime baskets; it admits signed content-addressed baskets bound to an exact source commit and admitted build proof through monotonic release epochs, two-slot atomic activation, postflight read-back, and rollback",
+=======
+>>>>>>> github/main
       "policy": "Runtime placement may evolve through registry and service templates, not through stale narrative docs. Registry nodes are targets until local proof promotes them to observed/locked."
     },
     "agent_exposure": {
       "source": "infra/agent-exposure.json",
       "audit": "cynic dev agent-exposure --json (also folded into cynic dev surface-audit --json)",
       "docs_quarantine": "docs/README.md",
+<<<<<<< HEAD
       "validate_gate": "MCP tool cynic_validate plans or durably submits canonical `make check`, `make build`, or `make build-release` workloads to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
     },
@@ -124,13 +147,22 @@
     },
 
 
+=======
+      "validate_gate": "MCP tool cynic_validate runs `make check` only — no parallel fmt/build/clippy/test stack",
+      "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies are not valid exposure. docs/ prose is historical and not runtime authority. Agent validation must share the same gate as operators (`make check`)."
+    },
+>>>>>>> github/main
     "infra_retention": {
       "keep_rule": "Keep infra files that deploy, secure, configure, or inspect the active low-layer runtime.",
       "delete_rule": "Delete committed runtime snapshots, UX containers, organ remnants, and provider experiments unless they are required by registry or systemd."
     },
     "proof": {
       "minimum_local_proof": [
+<<<<<<< HEAD
         "make check from an explicitly admitted build runner",
+=======
+        "make check",
+>>>>>>> github/main
         "binary build after rustc ICE/toolchain pin is resolved",
         "systemd unit inventory matches infra/registry.json service names"
       ],
@@ -138,10 +170,37 @@
         "schema": "cynic.vertical_contract_catalog.v1",
         "rule": "Every runtime vertical must name desired state, observation, reconciliation, bounded action, read-back proof, owner, and coverage. Unknown coverage is data and cannot be promoted to success.",
         "catalog_owner": "cynic-protocol::FrameworkSpec",
+<<<<<<< HEAD
         "coverage_values": ["partial", "complete", "unknown", "blocked"],
         "required_verticals": [
           "process", "principal", "filesystem", "source", "build", "artifact", "service", "host_os",
           "network", "node", "provider", "orchestrator", "project", "fleet", "federation", "human_boundary"
+=======
+        "coverage_values": [
+          "partial",
+          "complete",
+          "unknown",
+          "blocked"
+        ],
+        "required_verticals": [
+          "process",
+          "principal",
+          "filesystem",
+          "source",
+          "build",
+          "artifact",
+          "service",
+          "host_os",
+          "network",
+          "node",
+          "provider",
+          "orchestrator",
+          "project",
+          "fleet",
+          "federation",
+          "human_boundary",
+          "temporal"
+>>>>>>> github/main
         ]
       },
       "future_distributed_proof": [
@@ -149,8 +208,16 @@
         "node runtime emits host/service proof",
         "kernel stores observations and task read-back",
         "MCP exposes read-only runtime status to agents",
+<<<<<<< HEAD
         "node-owned recursive agent schedulers persist and enforce cynic.agent_workload_envelope.v1, including admitted delegation and policy, idempotency, aggregate budgets, cancellation, lease fencing, recovery, and completion evidence"
       ]
     }
   }
 }
+=======
+        "node-owned recursive agent schedulers admit cynic.agent_delegation_envelope.v1 without authority or budget amplification and persist cynic.agent_completion_envelope.v1"
+      ]
+    }
+  }
+}
+>>>>>>> github/main

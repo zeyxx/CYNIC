@@ -1,11 +1,25 @@
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD
 pub use cynic_protocol::SecretClass;
 
+=======
+>>>>>>> github/main
 use crate::domain::shared::{
     BoundaryKind, LifecycleDisposition, LifecycleProjection, LifecycleStatus, SurfaceStatus,
 };
 
+<<<<<<< HEAD
+=======
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SecretClass {
+    HumanAdmin,
+    MachineEnrollment,
+    RuntimeMachineIdentity,
+    RecoveryBreakglass,
+}
+
+>>>>>>> github/main
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BootstrapFinding {
     pub id: String,

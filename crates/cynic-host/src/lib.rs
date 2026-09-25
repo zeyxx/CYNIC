@@ -1,4 +1,5 @@
 pub mod adapters;
+<<<<<<< HEAD
 pub mod agent;
 pub mod agent_access;
 pub mod agent_host;
@@ -47,10 +48,30 @@ pub mod fleet_network_observer;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
 pub mod git_topology_observer;
+=======
+pub mod agent_matrix;
+pub mod audit_engine;
+pub mod bootstrap_chain;
+pub mod bootstrap_host_plan;
+pub mod bounded_helper;
+pub mod build;
+pub mod build_proof_compressor;
+pub mod command_surface;
+pub mod conformance;
+pub mod coordination_lease_store;
+pub mod detection_engine;
+pub mod domain;
+pub mod endpoint_observation;
+pub mod execution;
+pub mod filesystem_observation;
+pub mod forgejo_control;
+pub mod framework_bootstrap;
+>>>>>>> github/main
 pub mod hardware_baseline;
 pub mod hardware_baseline_apply;
 pub mod hardware_baseline_reconcile;
 pub mod hardware_conformance;
+<<<<<<< HEAD
 pub mod harness_progression;
 pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
@@ -89,6 +110,25 @@ pub mod registry_divergence_probe;
 pub mod registry_observation;
 pub mod repo_access;
 pub mod resilient_runner;
+=======
+pub mod host_bootstrap_evidence;
+pub mod host_exec_cli;
+pub mod host_exec_policy;
+pub mod host_hardening;
+pub mod install_contract;
+pub mod kernel_proof_persistence;
+pub mod lab;
+pub mod lifecycle;
+pub mod network_actuation;
+pub mod ports;
+pub mod pre_os_control;
+pub mod principal_prepare;
+pub mod process_observation;
+pub mod profiles;
+pub mod registry;
+pub mod registry_observation;
+pub mod repo_access;
+>>>>>>> github/main
 pub mod runtime_authority;
 pub mod runtime_context;
 pub mod runtime_execution_context;
@@ -99,6 +139,7 @@ pub mod runtime_network_preflight;
 pub mod runtime_proof;
 pub mod runtime_registry;
 pub mod runtime_resolver_plan;
+<<<<<<< HEAD
 mod runtime_secret_install;
 pub mod runtime_seed;
 pub mod secret_lint;
@@ -134,3 +175,14 @@ pub fn sha256_digest(bytes: &[u8]) -> String {
 pub mod credential_hardening;
 pub mod emergence_runtime;
 pub mod local_autonomy_runtime;
+=======
+pub mod service_catalog;
+pub mod service_supervisor_observation;
+pub mod source_control;
+pub mod source_worktree;
+pub mod vertical_conformance;
+pub mod storage_capabilities;
+pub mod transport;
+pub mod update_lifecycle;
+pub mod usecases;
+>>>>>>> github/main

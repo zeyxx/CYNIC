@@ -2,6 +2,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
+<<<<<<< HEAD
 use crate::rust_source::{
     line_count, relative_to_workspace, rust_files_under, workspace_crate_names, workspace_root,
 };
@@ -10,10 +11,24 @@ use crate::rust_source::{
 /// exist is observed from the workspace — never a hardcoded table.
 const DEFAULT_MAIN_THRESHOLD: usize = 300;
 const DEFAULT_LIB_THRESHOLD: usize = 220;
+=======
+use crate::rust_source::{line_count, relative_to_workspace, rust_files_under, workspace_root};
+
+const CORE_CRATES: &[(&str, usize, usize)] = &[
+    ("cynic-cli", 300, 220),
+    ("cynic-host", 300, 220),
+    ("cynic-node", 300, 220),
+    ("cynic-mcp", 300, 220),
+    ("cynic-kernel", 300, 220),
+    ("cynic-protocol", 300, 220),
+    ("cynic-askesis", 300, 220),
+];
+>>>>>>> github/main
 
 const HOTSPOT_LINE_THRESHOLD: usize = 400;
 
 #[derive(Serialize)]
+<<<<<<< HEAD
 pub struct CrateAuditReport {
     pub schema: &'static str,
     pub status: &'static str,
@@ -62,6 +77,58 @@ pub fn audit_core_crates() -> CrateAuditReport {
     let crates = workspace_crate_names()
         .iter()
         .map(|name| audit_crate(name, DEFAULT_MAIN_THRESHOLD, DEFAULT_LIB_THRESHOLD))
+=======
+pub(crate) struct CrateAuditReport {
+    pub(crate) schema: &'static str,
+    pub(crate) status: &'static str,
+    pub(crate) rule: &'static str,
+    pub(crate) crate_count: usize,
+    pub(crate) ok_count: usize,
+    pub(crate) blocked_count: usize,
+    pub(crate) crates: Vec<CrateAuditEntry>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CrateAuditEntry {
+    pub(crate) crate_name: &'static str,
+    pub(crate) status: &'static str,
+    pub(crate) crate_root: String,
+    pub(crate) rust_file_count: usize,
+    pub(crate) has_architecture_boundary_test: bool,
+    pub(crate) entrypoints: Vec<EntrypointAudit>,
+    pub(crate) hotspots: Vec<FileHotspot>,
+    pub(crate) checks: Vec<CrateAuditCheck>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct EntrypointAudit {
+    pub(crate) file_path: String,
+    pub(crate) line_count: usize,
+    pub(crate) status: &'static str,
+    pub(crate) threshold: usize,
+}
+
+#[derive(Serialize)]
+pub(crate) struct FileHotspot {
+    pub(crate) file_path: String,
+    pub(crate) line_count: usize,
+    pub(crate) status: &'static str,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CrateAuditCheck {
+    pub(crate) name: &'static str,
+    pub(crate) status: &'static str,
+    pub(crate) detail: String,
+}
+
+pub(crate) fn audit_core_crates() -> CrateAuditReport {
+    let crates = CORE_CRATES
+        .iter()
+        .map(|(name, main_threshold, lib_threshold)| {
+            audit_crate(name, *main_threshold, *lib_threshold)
+        })
+>>>>>>> github/main
         .collect::<Vec<_>>();
     let ok_count = crates.iter().filter(|entry| entry.status == "ok").count();
     let blocked_count = crates.len().saturating_sub(ok_count);
@@ -76,7 +143,15 @@ pub fn audit_core_crates() -> CrateAuditReport {
     }
 }
 
+<<<<<<< HEAD
 fn audit_crate(crate_name: &str, main_threshold: usize, lib_threshold: usize) -> CrateAuditEntry {
+=======
+fn audit_crate(
+    crate_name: &'static str,
+    main_threshold: usize,
+    lib_threshold: usize,
+) -> CrateAuditEntry {
+>>>>>>> github/main
     let crate_root = workspace_root().join("crates").join(crate_name);
     let rust_files = rust_files_under(&crate_root);
     let has_architecture_boundary_test = crate_root.join("tests/architecture_boundary.rs").exists();
@@ -145,7 +220,11 @@ fn audit_crate(crate_name: &str, main_threshold: usize, lib_threshold: usize) ->
         "blocked"
     };
     CrateAuditEntry {
+<<<<<<< HEAD
         crate_name: crate_name.to_string(),
+=======
+        crate_name,
+>>>>>>> github/main
         status,
         crate_root: crate_root.display().to_string(),
         rust_file_count: rust_files.len(),
@@ -180,7 +259,11 @@ mod tests {
     fn crate_audit_reports_core_crates() {
         let report = audit_core_crates();
         assert_eq!(report.schema, "cynic.cli.crate_audit.v1");
+<<<<<<< HEAD
         assert!(report.crate_count >= 6);
+=======
+        assert!(report.crate_count >= 7);
+>>>>>>> github/main
         assert!(
             report
                 .crates

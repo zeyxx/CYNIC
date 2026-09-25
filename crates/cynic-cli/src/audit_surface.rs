@@ -1,8 +1,12 @@
+<<<<<<< HEAD
 use std::path::Path;
+=======
+>>>>>>> github/main
 use std::process::ExitCode;
 
 use clap::Subcommand;
 
+<<<<<<< HEAD
 use crate::{crate_audit, emit_json, fail, node_host_audit};
 
 #[derive(Subcommand)]
@@ -18,21 +22,32 @@ pub(crate) enum AuditCommand {
         json: bool,
     },
     /// Audit node-host integration and commit ledger bounds.
+=======
+use crate::node_host_audit;
+use crate::{emit_json, fail};
+
+#[derive(Subcommand)]
+pub(crate) enum AuditCommand {
+>>>>>>> github/main
     NodeHost {
         #[arg(long)]
         json: bool,
         #[arg(long, default_value_t = 80)]
         max_commits: usize,
     },
+<<<<<<< HEAD
     /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
     All {
         #[arg(long)]
         json: bool,
     },
+=======
+>>>>>>> github/main
 }
 
 pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
+<<<<<<< HEAD
         AuditCommand::Crate { json } => {
             let report = crate_audit::audit_core_crates();
             let is_ok = report.blocked_count == 0;
@@ -120,6 +135,15 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 } else {
                     ExitCode::FAILURE
                 }
+=======
+        AuditCommand::NodeHost { json, max_commits } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            match node_host_audit::build_node_host_audit(*max_commits) {
+                Ok(report) => emit_json(&report, false),
+                Err(error) => fail(error),
+>>>>>>> github/main
             }
         }
     }

@@ -23,6 +23,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
         canonical_surfaces: canonical_cli_surfaces(),
         domains: vec![
             CommandDomain {
+<<<<<<< HEAD
                 name: "operator",
                 commands: vec![
                     "cynic status [--json]",
@@ -53,6 +54,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic forensics snapshot [--json]",
                     "cynic forensics diff --a <id> --b <id> [--json]",
                     "cynic forensics watch [--json]",
+=======
+                name: "fleet",
+                commands: vec![
+                    "cynic fleet report --json [--registry <path>] [--proxmox-json <path>] [--proxmox-list-text <path|->] [--watchdog-json <path>]",
+>>>>>>> github/main
                 ],
             },
             CommandDomain {
@@ -64,14 +70,22 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime suite --json [--registry <path>] [--profile <name>]",
                     "cynic runtime plan --json [--registry <path>] [--profile <name>] [--proof <path>]",
                     "cynic runtime harness --json [--kind <closed_local_lab|conformance|staging|canary|production>]",
+<<<<<<< HEAD
                     "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>] [--build-evidence <sha256-digest>]",
                     "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <runtime-proof-bundle.json>]",
                     "cynic runtime proof-persist --json --proof <runtime-proof-persistence.json> [--endpoint <kernel-url>]",
+=======
+                    "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>]",
+                    "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <runtime-proof-bundle.json>]",
+                    "cynic runtime proof-persist --json --proof <runtime-proof-persistence.json> [--endpoint <kernel-url>]",
+                    "cynic runtime build --json --source-snapshot <source-snapshot.json> --artifact <path> [--apply] -- <argv...>",
+>>>>>>> github/main
                     "cynic runtime storage-capabilities --json [--url <surrealdb-url>]",
                     "cynic runtime execution-context --json [--host <name>]...",
                     "cynic runtime network-preflight --json [--host <name>]...",
                     "cynic runtime repo-access --json [--profile <path>]",
                     "cynic runtime report --json [--output <path> | --persist]",
+<<<<<<< HEAD
                     "cynic runtime agent-matrix --json",
                     "cynic runtime agents --json",
                     "cynic runtime hermes-run --json --run-id <id>",
@@ -80,6 +94,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime inference-status --json",
                     "cynic runtime inference-start <alias> --yes --json",
                     "cynic runtime inference-stop [alias] --yes --json",
+=======
+                    "cynic runtime epoch --json [--advance] [--endpoint <kernel-url>]",
+                    "cynic runtime agent-matrix --json",
+                    "cynic runtime inference --json",
+                    "cynic runtime inference-vault --json",
+                    "cynic runtime inference-status --json",
+                    "cynic runtime inference-start <alias> --json",
+                    "cynic runtime inference-stop [alias] --json",
+>>>>>>> github/main
                     "cynic runtime inference-discover --json",
                     "cynic runtime inference-discover --json --apply",
                     "cynic runtime inference-discover --json --apply --open-webui",
@@ -91,10 +114,19 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime inference-hf-suggest --json [--category chat] [--limit N]",
                     "cynic runtime inference-hf-download <repo> --json [--alias NAME] [--include <glob>]... [--no-profile] [--cache-only]",
                     "cynic runtime inference-plan <alias> --json [--apply]",
+<<<<<<< HEAD
                     "cynic runtime deps [--json]  # alias of cynic deps",
                     "cynic runtime deps-plan [--json]  # alias of cynic deps plan",
                     "cynic runtime deps-audit [--json]  # alias of cynic deps audit",
                     "cynic runtime deps-upgrade [--json]  # alias of cynic deps upgrade",
+=======
+                    "cynic deps [--json]",
+                    "cynic deps plan [--json]",
+                    "cynic deps audit [--json]",
+                    "cynic deps upgrade [--yes] [--json] [--apply --confirm <token>] [--only <id>]...",
+                    "cynic runtime deps [--json]  # alias",
+                    "cynic runtime deps-audit [--json]  # alias",
+>>>>>>> github/main
                 ],
             },
             CommandDomain {
@@ -110,6 +142,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic dev surface-audit --json [--output <path>] [--persist]",
                     "cynic dev surface-matrix --json [--output <path>] [--persist]",
                     "cynic dev agent-exposure --json [--output <path>] [--persist]",
+<<<<<<< HEAD
                     "cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]",
                     "cynic dev opportunities [--json] [--frame <id>] [--output <path>]",
                 ],
@@ -121,6 +154,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic discovery nodes [--json]",
                     "cynic discovery events [--watch] [--json]",
                     "cynic discovery discover --kind local|remote [--target <ssh>] [--json]",
+=======
+                    "cynic dev check --json [--architecture-only] [--target-root <path>]",
+>>>>>>> github/main
                 ],
             },
             CommandDomain {
@@ -129,6 +165,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap chain [--profile <name> | --node <name>] [--registry <path>]",
                     "cynic bootstrap constellation --json [--registry <path>]",
                     "cynic bootstrap bridge <bundle|plan|install|rootless-smoke|status> [--output-dir <dir> | --bundle-dir <dir> | --sandbox-root <dir>] [--apply]",
+<<<<<<< HEAD
                     "cynic bootstrap framework bundle --json --output-dir <dir> [--role <role>] [--artifact-dir <dir>] [--registry <path>]",
                     "cynic bootstrap framework propagation-plan --json --bundle-dir <dir> [--registry <path>] [--output <path>]",
                     "cynic bootstrap framework propagate --json --bundle-dir <dir> [--registry <path>] [--output <path>] --yes",
@@ -143,6 +180,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic bootstrap framework runtime-binding-apply --json [--registry <path>] --yes",
                     "cynic bootstrap framework provider-enrollment-plan --json --token-secret-file <path> [--registry <path>] [--ca-file <path>]",
                     "cynic bootstrap framework provider-enrollment-apply --json --token-secret-file <path> [--registry <path>] [--ca-file <path>] --yes",
+=======
+                    "cynic bootstrap framework bundle --json --output-dir <dir>",
+>>>>>>> github/main
                     "cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]",
                     "cynic bootstrap host <observe|bundle|plan|evidence|proof|supervisor|principal|e2e|apply-report|apply> [--profile <name> | --node <name>] [--registry <path>] [--dry-run|--apply]",
                     "cynic bootstrap host e2e [--profile <name> | --node <name>] [--registry <path>] [--runtime-profile <name>] --dry-run",
@@ -151,13 +191,40 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+<<<<<<< HEAD
+=======
+                name: "lab",
+                commands: vec![
+                    "cynic lab plan --json [--registry <path>]",
+                    "cynic lab provision --json [--registry <path>] --apply",
+                    "cynic lab bundle --json [--registry <path>] --output-dir <dir>",
+                    "cynic lab guest-bootstrap bundle --json --output-dir <dir> (alias of cynic bootstrap framework bundle)",
+                    "cynic lab image plan --json [--registry <path>]",
+                    "cynic lab image resolve --json [--registry <path>]",
+                    "cynic lab image fetch --json [--registry <path>] --apply",
+                ],
+            },
+            CommandDomain {
+                name: "transport",
+                commands: vec![
+                    "cynic transport matrix",
+                    "cynic transport security-audit",
+                    "cynic transport ssh-inspect --host <hostname|ip>",
+                ],
+            },
+            CommandDomain {
+>>>>>>> github/main
                 name: "network",
                 commands: vec![
                     "cynic network chain [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
                     "cynic network runtime [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
                     "cynic network proof [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
                     "cynic network evidence [--registry <path>]",
+<<<<<<< HEAD
                     "cynic network dns <status|bundle|plan|activate> [--registry <path>] [--resolve-dns] [--json] [--output-dir <dir> | --bundle-dir <dir> --yes]",
+=======
+                    "cynic network dns <status|bundle|plan> [--registry <path>] [--resolve-dns] [--json] [--output-dir <dir>]",
+>>>>>>> github/main
                     "cynic network mesh plan [--registry <path>] [--provider <wireguard|headscale|tailscale|static>]",
                     "cynic network mesh bundle [--registry <path>] [--provider <wireguard|headscale|tailscale|static>] --output-dir <dir>",
                     "cynic network mesh apply-plan --bundle-dir <dir>",
@@ -165,12 +232,16 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic network mesh apply-target --bundle-dir <dir> --profile <name> --target-attestation <json> --apply [--harness-kind <kind>]",
                     "cynic network mesh apply-profile --bundle-dir <dir> --profile <name> --apply [--closed-environment]",
                     "cynic network mesh status [--registry <path>] [--resolve-dns] [--include-records] [--observe-runtime]",
+<<<<<<< HEAD
                     "cynic network mesh coordination [--registry <path>] [--endpoint <url>] [--api-key <token>] [--check-health]",
+=======
+>>>>>>> github/main
                     "cynic network provider-fallback <status|hosts> [--registry <path>] [--hosts-path <path>] [--check-connectivity] [--output-dir <dir>]",
                     "cynic network actuator <status|bundle|plan|apply> [--registry <path>] [--output-dir <dir> | --bundle-dir <dir>] [--profile <name>] [--apply]",
                 ],
             },
             CommandDomain {
+<<<<<<< HEAD
                 name: "agent",
                 commands: vec![
                     "cynic agent identify --agent-id <id> [--agent-kind <kind>] [--registry <path>] [--kernel-base <url>] [--json]",
@@ -261,6 +332,21 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec!["cynic queue [--json] [--apply]"],
             },
             CommandDomain {
+=======
+                name: "audit",
+                commands: vec!["cynic audit node-host --json [--max-commits <n>]"],
+            },
+            CommandDomain {
+                name: "integrations",
+                commands: vec![
+                    "cynic integrations status [--json]",
+                    "cynic integrations plan [--json]",
+                    "cynic integrations adopt <id> [--json] [--apply]",
+                    "cynic integrations connect <id> [--json] [--apply]",
+                ],
+            },
+            CommandDomain {
+>>>>>>> github/main
                 name: "lifecycle",
                 commands: vec![
                     "cynic lifecycle evidence <operation> [-- <operation-flags>]",
@@ -271,6 +357,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic lifecycle report [--json]   # operational findings (end black box)",
                     "cynic lifecycle repair [--yes] [--json]",
                     "cynic lifecycle apply [--yes] [--json]",
+<<<<<<< HEAD
                     "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json] [--registry <path>]",
                 ],
             },
@@ -284,6 +371,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
                     "cynic build list-proofs [--commit <sha>] [--limit N] [--json]",
+=======
+                    "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json]",
+>>>>>>> github/main
                 ],
             },
             CommandDomain {
@@ -300,6 +390,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
         ],
     }
 }
+<<<<<<< HEAD
 
 #[cfg(test)]
 mod tests {
@@ -345,3 +436,5 @@ mod tests {
         }
     }
 }
+=======
+>>>>>>> github/main

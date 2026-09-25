@@ -91,6 +91,15 @@
       "min_version": null,
       "required": true,
       "notes": "Service manager — distro managed"
+<<<<<<< HEAD
+=======
+    },
+    {
+      "id": "wireguard-tools",
+      "min_version": "1.0.0",
+      "required": true,
+      "notes": "Synapse P2P mesh network actuator (wg, wg-quick) — distro managed"
+>>>>>>> github/main
     }
   ]
 }

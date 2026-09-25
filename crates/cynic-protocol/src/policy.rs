@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 pub const POLICY_ADMISSION_REPORT_SCHEMA: &str = "cynic.policy_admission_report.v1";
+<<<<<<< HEAD
 pub const EVOLUTIVE_POLICY_SCHEMA: &str = "cynic.evolutive_policy.v1";
+=======
+>>>>>>> github/main
 pub const EXECUTION_AUTHORIZATION_SCHEMA: &str = "cynic.execution_authorization.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,6 +145,7 @@ impl PolicyAdmissionReport {
     }
 }
 
+<<<<<<< HEAD
 /// Domains governed by evolutive policies in foundation contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -233,6 +237,8 @@ impl EvolutivePolicy {
     }
 }
 
+=======
+>>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,6 +347,7 @@ mod tests {
             Some("human_admin")
         );
     }
+<<<<<<< HEAD
 
     #[test]
     fn evolutive_policy_hydrates_from_foundation_law() {
@@ -354,4 +361,6 @@ mod tests {
         assert_eq!(storage_policy.domain, EvolutivePolicyDomain::Storage);
         assert!(storage_policy.default_gate.contains("fail-closed"));
     }
+=======
+>>>>>>> github/main
 }

@@ -17,6 +17,7 @@ impl WireguardAdapter {
         }
     }
 
+<<<<<<< HEAD
     /// Build the `wg set` argv for one peer.
     ///
     /// Pure: no spawn, no privilege, no host mutation. Extracted so the argv this
@@ -41,6 +42,8 @@ impl WireguardAdapter {
         args
     }
 
+=======
+>>>>>>> github/main
     fn execute(&self, cmd: &str, args: &[&str]) -> Result<(), Box<dyn Error>> {
         let output = capture_command(cmd, args)?;
         if !output.success {
@@ -136,7 +139,30 @@ impl MeshAdapter for WireguardAdapter {
             .command;
 
         for peer in &topology.peers {
+<<<<<<< HEAD
             let args = self.peer_set_args(peer);
+=======
+            let mut endpoint_args = Vec::new();
+            if let Some(ref ep) = peer.endpoint {
+                if !ep.is_empty() {
+                    endpoint_args.push("endpoint".to_string());
+                    endpoint_args.push(ep.to_string());
+                }
+            }
+
+            let internal_ip_str = peer.internal_ip.to_string();
+
+            let mut args = vec![
+                "set".to_string(),
+                self.interface_name.clone(),
+                "peer".to_string(),
+                peer.public_key.clone(),
+                "allowed-ips".to_string(),
+                internal_ip_str,
+            ];
+            args.extend(endpoint_args);
+
+>>>>>>> github/main
             let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
             self.execute(&wg_bin, &args_ref)?;
         }
@@ -145,6 +171,7 @@ impl MeshAdapter for WireguardAdapter {
     }
 }
 
+<<<<<<< HEAD
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +235,72 @@ mod tests {
     fn wireguard_is_the_canonical_transport_owner() {
         let owner = canonical_provider_for_role(MeshRole::Transport).expect("transport owner");
         assert_eq!(owner.provider, "wireguard");
+=======
+/// Generate a standard WireGuard configuration file content for Synapse mesh
+pub fn generate_wireguard_config(
+    local_private_key: &str,
+    local_ip: &str,
+    listen_port: u16,
+    peers: &[crate::domain::mesh::PeerIdentity],
+) -> String {
+    let mut config = String::new();
+    config.push_str("[Interface]\n");
+    config.push_str(&format!("PrivateKey = {}\n", local_private_key.trim()));
+    config.push_str(&format!("Address = {}/24\n", local_ip.trim()));
+    config.push_str(&format!("ListenPort = {}\n\n", listen_port));
+
+    for peer in peers {
+        config.push_str("[Peer]\n");
+        config.push_str(&format!("PublicKey = {}\n", peer.public_key.trim()));
+        config.push_str(&format!("AllowedIPs = {}/32\n", peer.internal_ip));
+        if let Some(endpoint) = &peer.endpoint {
+            config.push_str(&format!("Endpoint = {}\n", endpoint.trim()));
+        }
+        config.push_str("PersistentKeepalive = 25\n\n");
+    }
+
+    config
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    #[test]
+    fn test_generate_wireguard_config() {
+        let peers = vec![
+            crate::domain::mesh::PeerIdentity {
+                public_key: "pubkey-peer-alpha-123456789=".to_string(),
+                internal_ip: IpAddr::V4(Ipv4Addr::new(10, 10, 10, 101)),
+                endpoint: Some("192.168.1.100:51820".to_string()),
+                node_id: "node-alpha".to_string(),
+            },
+            crate::domain::mesh::PeerIdentity {
+                public_key: "pubkey-peer-beta-987654321=".to_string(),
+                internal_ip: IpAddr::V4(Ipv4Addr::new(10, 10, 10, 102)),
+                endpoint: None,
+                node_id: "node-beta".to_string(),
+            },
+        ];
+
+        let conf = generate_wireguard_config(
+            "privkey-local-0000000000000000000=",
+            "10.10.10.1",
+            51820,
+            &peers,
+        );
+
+        assert!(conf.contains("[Interface]"));
+        assert!(conf.contains("PrivateKey = privkey-local-0000000000000000000="));
+        assert!(conf.contains("Address = 10.10.10.1/24"));
+        assert!(conf.contains("ListenPort = 51820"));
+        assert!(conf.contains("PublicKey = pubkey-peer-alpha-123456789="));
+        assert!(conf.contains("AllowedIPs = 10.10.10.101/32"));
+        assert!(conf.contains("Endpoint = 192.168.1.100:51820"));
+        assert!(conf.contains("PublicKey = pubkey-peer-beta-987654321="));
+        assert!(conf.contains("AllowedIPs = 10.10.10.102/32"));
+        assert!(conf.contains("PersistentKeepalive = 25"));
+>>>>>>> github/main
     }
 }

@@ -24,10 +24,14 @@ pub struct ActiveLease {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedLeaseSnapshot {
+<<<<<<< HEAD
     /// Owned, not `&'static str`: a borrowed field serializes but cannot
     /// deserialize, since there is no input to borrow from. That is what made
     /// `serde_json::from_str(&content)` fail as a lifetime error.
     pub schema: String,
+=======
+    pub schema: &'static str,
+>>>>>>> github/main
     pub token_counter: u64,
     pub saved_at: String,
     pub leases: Vec<ActiveLease>,
@@ -101,7 +105,11 @@ impl CoordinationLeaseStore {
             .collect::<Vec<_>>();
 
         let snapshot = PersistedLeaseSnapshot {
+<<<<<<< HEAD
             schema: LEASE_SNAPSHOT_SCHEMA_V1.to_string(),
+=======
+            schema: LEASE_SNAPSHOT_SCHEMA_V1,
+>>>>>>> github/main
             token_counter: counter,
             saved_at: now.to_rfc3339(),
             leases: unexpired_leases,
@@ -125,7 +133,16 @@ impl CoordinationLeaseStore {
         *counter
     }
 
+<<<<<<< HEAD
     pub fn claim(&self, agent_id: &str, target: &str, ttl_seconds: i64) -> TargetClaimOutcome {
+=======
+    pub fn claim(
+        &self,
+        agent_id: &str,
+        target: &str,
+        ttl_seconds: i64,
+    ) -> TargetClaimOutcome {
+>>>>>>> github/main
         let mut leases = self.leases.write().expect("leases write");
         let now = Utc::now();
 
@@ -267,8 +284,13 @@ mod tests {
 
         // 1. Première instance de store avec persistance
         {
+<<<<<<< HEAD
             let store1 =
                 CoordinationLeaseStore::with_persistence(lease_file.clone()).expect("store1 init");
+=======
+            let store1 = CoordinationLeaseStore::with_persistence(lease_file.clone())
+                .expect("store1 init");
+>>>>>>> github/main
             let claim = store1.claim("agent-codex", "crates/cynic-inference", 3600);
             assert!(matches!(claim, TargetClaimOutcome::Claimed { .. }));
             assert_eq!(store1.who().len(), 1);
@@ -279,8 +301,13 @@ mod tests {
 
         // 2. Deuxième instance de store simulant un redémarrage de processus
         {
+<<<<<<< HEAD
             let store2 =
                 CoordinationLeaseStore::with_persistence(lease_file.clone()).expect("store2 init");
+=======
+            let store2 = CoordinationLeaseStore::with_persistence(lease_file.clone())
+                .expect("store2 init");
+>>>>>>> github/main
             let active = store2.who();
             assert_eq!(active.len(), 1, "Active lease must be restored on restart");
             assert_eq!(active[0].agent_id, "agent-codex");
@@ -289,10 +316,14 @@ mod tests {
             // Le token de fencing suivant doit être incrémenté (> 1001)
             let next_claim = store2.claim("agent-claude", "crates/cynic-intel", 3600);
             if let TargetClaimOutcome::Claimed { grant, .. } = next_claim {
+<<<<<<< HEAD
                 assert!(
                     grant.fencing_token > 1001,
                     "Fencing token counter must be restored"
                 );
+=======
+                assert!(grant.fencing_token > 1001, "Fencing token counter must be restored");
+>>>>>>> github/main
             } else {
                 panic!("Expected claim to succeed");
             }

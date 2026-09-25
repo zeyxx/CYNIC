@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #![allow(unused_imports)]
 pub mod buffer;
 pub mod consensus;
@@ -21,6 +22,20 @@ pub use solana_archive::{FanoutPlanRequest, HeliusPlan, plan_fanout_request};
 pub use source::*;
 
 /// Structure d'un événement capté sur la blockchain (compatibilité Solana).
+=======
+pub mod consensus;
+pub mod dashboard;
+pub mod delegation;
+pub mod federation;
+pub mod parser;
+pub mod signal_mapper;
+pub mod wal;
+pub mod watcher;
+
+use serde::{Deserialize, Serialize};
+
+/// Structure d'un événement capté sur la blockchain.
+>>>>>>> github/main
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ObserverEvent {
     pub signature: String,

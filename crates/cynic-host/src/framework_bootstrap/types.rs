@@ -7,9 +7,12 @@ pub struct FrameworkBootstrapBundleReport {
     pub mutates: bool,
     pub output_dir: String,
     pub files: Vec<String>,
+<<<<<<< HEAD
     pub required_role: String,
     pub missing_artifacts: Vec<String>,
     pub blockers: Vec<String>,
+=======
+>>>>>>> github/main
     pub seed_id: String,
     pub seed_manifest: String,
     pub entrypoint: String,
@@ -40,7 +43,11 @@ pub struct FrameworkSeedArtifact {
 #[derive(Debug, Clone, Serialize)]
 pub struct FrameworkSeedEnrollment {
     pub required: bool,
+<<<<<<< HEAD
     pub target_role: String,
+=======
+    pub target_role: &'static str,
+>>>>>>> github/main
     pub identity_class: &'static str,
     pub token_material: &'static str,
     pub admission_status: &'static str,

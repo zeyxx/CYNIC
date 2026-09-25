@@ -6,17 +6,27 @@
 
 use std::path::{Path, PathBuf};
 
+<<<<<<< HEAD
 use cynic_protocol::SecurityEvidenceState;
 use cynic_vcs::{
     SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
+=======
+use cynic_protocol::{
+    SecurityEvidenceState, SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
+>>>>>>> github/main
     SourceSnapshot, admit_source_change,
 };
 use serde::Serialize;
 
+<<<<<<< HEAD
 use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;
 use crate::source_lease::SourceLeaseVerifier;
 use cynic_lifecycle::{ArgvOutput, ArgvRunner};
+=======
+use crate::update_lifecycle::{ArgvOutput, ArgvRunner};
+use crate::repo_access::current_repo_access_status;
+>>>>>>> github/main
 
 pub const SOURCE_CONTROL_PROOF_SCHEMA: &str = "cynic.host.source_control_proof.v1";
 
@@ -38,10 +48,14 @@ pub struct SourceWorktreeObservation {
     pub blockers: Vec<String>,
 }
 
+<<<<<<< HEAD
 pub fn observe_source_worktree(
     root: &Path,
     expected_owner: Option<&str>,
 ) -> SourceWorktreeObservation {
+=======
+pub fn observe_source_worktree(root: &Path, expected_owner: Option<&str>) -> SourceWorktreeObservation {
+>>>>>>> github/main
     let expected_owner = expected_owner
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string)
@@ -54,12 +68,16 @@ pub fn observe_source_worktree(
     } else {
         std::fs::read_to_string(&git_marker)
             .ok()
+<<<<<<< HEAD
             .and_then(|value| {
                 value
                     .trim()
                     .strip_prefix("gitdir:")
                     .map(|item| item.trim().to_string())
             })
+=======
+            .and_then(|value| value.trim().strip_prefix("gitdir:").map(|item| item.trim().to_string()))
+>>>>>>> github/main
             .map(|value| root.join(value))
     };
     let git_dir_exists = git_dir.as_ref().is_some_and(|path| path.is_dir());
@@ -76,6 +94,7 @@ pub fn observe_source_worktree(
         "unknown"
     };
     let mut blockers = Vec::new();
+<<<<<<< HEAD
     if !root.exists() {
         blockers.push("worktree_missing".to_string());
     }
@@ -88,6 +107,12 @@ pub fn observe_source_worktree(
     if !declared_writable {
         blockers.push("worktree_not_declared_writable".to_string());
     }
+=======
+    if !root.exists() { blockers.push("worktree_missing".to_string()); }
+    if !git_dir_exists { blockers.push("git_dir_missing".to_string()); }
+    if ownership_status != "matched" { blockers.push("runtime_owner_mismatch".to_string()); }
+    if !declared_writable { blockers.push("worktree_not_declared_writable".to_string()); }
+>>>>>>> github/main
     SourceWorktreeObservation {
         schema: "cynic.host.source_worktree_observation.v1",
         root: root.display().to_string(),
@@ -102,11 +127,15 @@ pub fn observe_source_worktree(
         declared_writable,
         // A managed sandbox can reject .git writes despite permissive mode bits.
         write_capability_status: "unknown",
+<<<<<<< HEAD
         status: if blockers.is_empty() {
             "ready"
         } else {
             "blocked"
         },
+=======
+        status: if blockers.is_empty() { "ready" } else { "blocked" },
+>>>>>>> github/main
         blockers,
     }
 }
@@ -116,6 +145,7 @@ fn owner_group_mode(metadata: &std::fs::Metadata) -> (Option<String>, Option<Str
     use std::os::unix::fs::MetadataExt;
     let uid = metadata.uid();
     let gid = metadata.gid();
+<<<<<<< HEAD
     (
         passwd_name(uid),
         group_name(gid),
@@ -127,11 +157,19 @@ fn owner_group_mode(metadata: &std::fs::Metadata) -> (Option<String>, Option<Str
 fn owner_group_mode(
     _metadata: &std::fs::Metadata,
 ) -> (Option<String>, Option<String>, Option<u32>) {
+=======
+    (passwd_name(uid), group_name(gid), Some(metadata.mode() & 0o777))
+}
+
+#[cfg(not(unix))]
+fn owner_group_mode(_metadata: &std::fs::Metadata) -> (Option<String>, Option<String>, Option<u32>) {
+>>>>>>> github/main
     (None, None, None)
 }
 
 #[cfg(unix)]
 fn passwd_name(id: u32) -> Option<String> {
+<<<<<<< HEAD
     std::fs::read_to_string("/etc/passwd")
         .ok()?
         .lines()
@@ -140,10 +178,17 @@ fn passwd_name(id: u32) -> Option<String> {
             (fields.len() > 2 && fields[2].parse::<u32>().ok() == Some(id))
                 .then(|| fields[0].to_string())
         })
+=======
+    std::fs::read_to_string("/etc/passwd").ok()?.lines().find_map(|line| {
+        let fields = line.split(':').collect::<Vec<_>>();
+        (fields.len() > 2 && fields[2].parse::<u32>().ok() == Some(id)).then(|| fields[0].to_string())
+    })
+>>>>>>> github/main
 }
 
 #[cfg(unix)]
 fn group_name(id: u32) -> Option<String> {
+<<<<<<< HEAD
     std::fs::read_to_string("/etc/group")
         .ok()?
         .lines()
@@ -152,6 +197,12 @@ fn group_name(id: u32) -> Option<String> {
             (fields.len() > 2 && fields[2].parse::<u32>().ok() == Some(id))
                 .then(|| fields[0].to_string())
         })
+=======
+    std::fs::read_to_string("/etc/group").ok()?.lines().find_map(|line| {
+        let fields = line.split(':').collect::<Vec<_>>();
+        (fields.len() > 2 && fields[2].parse::<u32>().ok() == Some(id)).then(|| fields[0].to_string())
+    })
+>>>>>>> github/main
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -183,7 +234,14 @@ pub struct SourcePushAuthorization {
     pub remote_commit_matches: SecurityEvidenceState,
 }
 
+<<<<<<< HEAD
 pub fn observe_source_push_target(repository_id: &str, remote: &str) -> SecurityEvidenceState {
+=======
+pub fn observe_source_push_target(
+    repository_id: &str,
+    remote: &str,
+) -> SecurityEvidenceState {
+>>>>>>> github/main
     let report = current_repo_access_status();
     report
         .sovereign_remotes
@@ -210,6 +268,7 @@ pub trait SourceControlPort {
     fn observe(&self) -> SourceSnapshot;
     fn admit(&self, proposal: &SourceChangeProposal) -> SourceChangeAdmission;
     fn commit(&self, proposal: &SourceChangeProposal) -> SourceControlProof;
+<<<<<<< HEAD
     fn push(
         &self,
         proposal: &SourceChangeProposal,
@@ -217,11 +276,16 @@ pub trait SourceControlPort {
         branch: &str,
         authorization: SourcePushAuthorization,
     ) -> SourceControlProof;
+=======
+    fn push(&self, proposal: &SourceChangeProposal, remote: &str, branch: &str, authorization: SourcePushAuthorization)
+        -> SourceControlProof;
+>>>>>>> github/main
 }
 
 pub struct GitSourceControlAdapter<'a, R: ArgvRunner> {
     root: PathBuf,
     runner: &'a R,
+<<<<<<< HEAD
     lease_verifier: &'a dyn SourceLeaseVerifier,
 }
 
@@ -236,6 +300,13 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
             runner,
             lease_verifier,
         }
+=======
+}
+
+impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
+    pub fn new(root: impl Into<PathBuf>, runner: &'a R) -> Self {
+        Self { root: root.into(), runner }
+>>>>>>> github/main
     }
 
     fn git(&self, args: &[&str]) -> (Vec<String>, ArgvOutput) {
@@ -248,12 +319,22 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
 
     fn command_proof(argv: Vec<String>, output: ArgvOutput) -> SourceCommandProof {
         let success = output.success();
+<<<<<<< HEAD
+=======
+        let stderr = output.stderr;
+>>>>>>> github/main
         SourceCommandProof {
             argv,
             success,
             exit_code: output.exit_code,
             stdout: output.stdout,
+<<<<<<< HEAD
             stderr: stderr_with_spawn_error(output.stderr, output.spawn_error),
+=======
+            stderr: output.spawn_error.map_or(stderr.clone(), |error| {
+                if stderr.is_empty() { error } else { format!("{error}: {stderr}") }
+            }),
+>>>>>>> github/main
         }
     }
 
@@ -266,6 +347,7 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
 
     fn git_dir(&self) -> Option<PathBuf> {
         let (_, output) = self.git(&["rev-parse", "--git-dir"]);
+<<<<<<< HEAD
         if !output.success() {
             return None;
         }
@@ -276,6 +358,12 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
         } else {
             self.root.join(path)
         })
+=======
+        if !output.success() { return None; }
+        let value = output.stdout.trim();
+        let path = Path::new(value);
+        Some(if path.is_absolute() { path.to_path_buf() } else { self.root.join(path) })
+>>>>>>> github/main
     }
 }
 
@@ -283,15 +371,23 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
     fn observe(&self) -> SourceSnapshot {
         let (_, branch) = self.git(&["branch", "--show-current"]);
         let (_, head) = self.git(&["rev-parse", "HEAD"]);
+<<<<<<< HEAD
         let (_, upstream) =
             self.git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+=======
+        let (_, upstream) = self.git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+>>>>>>> github/main
         let (_, status) = self.git(&["status", "--porcelain=v1"]);
         parse_snapshot(
             branch.stdout.trim(),
             head.stdout.trim(),
+<<<<<<< HEAD
             upstream
                 .success()
                 .then(|| upstream.stdout.trim().to_string()),
+=======
+            upstream.success().then(|| upstream.stdout.trim().to_string()),
+>>>>>>> github/main
             &status.stdout,
         )
     }
@@ -315,6 +411,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         })
     }
 
+<<<<<<< HEAD
     fn push(
         &self,
         proposal: &SourceChangeProposal,
@@ -322,6 +419,9 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         branch: &str,
         authorization: SourcePushAuthorization,
     ) -> SourceControlProof {
+=======
+    fn push(&self, proposal: &SourceChangeProposal, remote: &str, branch: &str, authorization: SourcePushAuthorization) -> SourceControlProof {
+>>>>>>> github/main
         let before = self.observe();
         let admission = self.admit(proposal);
         let mut blockers = admission.blockers.clone();
@@ -332,6 +432,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
             blockers.push("push_target_incomplete".to_string());
         }
         if !blockers.is_empty() {
+<<<<<<< HEAD
             return SourceControlProof {
                 schema: SOURCE_CONTROL_PROOF_SCHEMA,
                 status: "blocked",
@@ -342,6 +443,9 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
                 commands: Vec::new(),
                 blockers,
             };
+=======
+            return SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: "blocked", operation: "push", admission, before, after: None, commands: Vec::new(), blockers };
+>>>>>>> github/main
         }
 
         let refspec = format!("refs/heads/{branch}");
@@ -350,6 +454,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         let mut commands = vec![probe_command.clone()];
         if !probe_command.success {
             blockers.push("sovereign_transport_or_authentication_unproven".to_string());
+<<<<<<< HEAD
             return SourceControlProof {
                 schema: SOURCE_CONTROL_PROOF_SCHEMA,
                 status: "blocked",
@@ -360,6 +465,9 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
                 commands,
                 blockers,
             };
+=======
+            return SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: "blocked", operation: "push", admission, before, after: None, commands, blockers };
+>>>>>>> github/main
         }
         if proposal.base_commit != before.head_commit.clone().unwrap_or_default() {
             blockers.push("base_commit_mismatch".to_string());
@@ -370,6 +478,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         if proposal.fencing_token == 0 {
             blockers.push("worktree_fencing_token_missing".to_string());
         }
+<<<<<<< HEAD
         if blockers.is_empty() {
             if let Err(blocker) = self.lease_verifier.verify(&proposal.lease_guard()) {
                 blockers.push(blocker);
@@ -380,10 +489,14 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         } else {
             None
         };
+=======
+        let _lock = if blockers.is_empty() { self.lock(&proposal.worktree_id).ok() } else { None };
+>>>>>>> github/main
         if blockers.is_empty() && _lock.is_none() {
             blockers.push("source_lock_unavailable".to_string());
         }
         if !blockers.is_empty() {
+<<<<<<< HEAD
             return SourceControlProof {
                 schema: SOURCE_CONTROL_PROOF_SCHEMA,
                 status: "blocked",
@@ -394,6 +507,9 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
                 commands,
                 blockers,
             };
+=======
+            return SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: "blocked", operation: "push", admission, before, after: None, commands, blockers };
+>>>>>>> github/main
         }
 
         let (push_argv, push_output) = self.git(&["push", remote, &format!("HEAD:{branch}")]);
@@ -401,6 +517,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
         commands.push(push_command.clone());
         if !push_command.success {
             blockers.push("source_command_failed".to_string());
+<<<<<<< HEAD
             return SourceControlProof {
                 schema: SOURCE_CONTROL_PROOF_SCHEMA,
                 status: "failed",
@@ -411,16 +528,23 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
                 commands,
                 blockers,
             };
+=======
+            return SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: "failed", operation: "push", admission, before, after: None, commands, blockers };
+>>>>>>> github/main
         }
 
         let (readback_argv, readback_output) = self.git(&["ls-remote", remote, refspec.as_str()]);
         let readback_command = Self::command_proof(readback_argv, readback_output);
         let remote_head = readback_command.stdout.split_whitespace().next();
         let remote_matches = readback_command.success
+<<<<<<< HEAD
             && before
                 .head_commit
                 .as_deref()
                 .is_some_and(|head| remote_head == Some(head));
+=======
+            && before.head_commit.as_deref().is_some_and(|head| remote_head == Some(head));
+>>>>>>> github/main
         commands.push(readback_command);
         if !remote_matches {
             blockers.push("remote_commit_match_unproven".to_string());
@@ -435,6 +559,7 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
             SecurityEvidenceState::Unknown
         };
         after.evidence_refs.push("git_push_readback".to_string());
+<<<<<<< HEAD
         SourceControlProof {
             schema: SOURCE_CONTROL_PROOF_SCHEMA,
             status: if blockers.is_empty() {
@@ -449,10 +574,14 @@ impl<'a, R: ArgvRunner> SourceControlPort for GitSourceControlAdapter<'a, R> {
             commands,
             blockers,
         }
+=======
+        SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: if blockers.is_empty() { "proved" } else { "failed" }, operation: "push", admission, before, after: Some(after), commands, blockers }
+>>>>>>> github/main
     }
 }
 
 impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
+<<<<<<< HEAD
     fn mutate<F>(
         &self,
         proposal: &SourceChangeProposal,
@@ -462,12 +591,17 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
     where
         F: FnOnce() -> Vec<SourceCommandProof>,
     {
+=======
+    fn mutate<F>(&self, proposal: &SourceChangeProposal, operation: &'static str, action: F) -> SourceControlProof
+    where F: FnOnce() -> Vec<SourceCommandProof> {
+>>>>>>> github/main
         let before = self.observe();
         let admission = self.admit(proposal);
         let mut blockers = admission.blockers.clone();
         if proposal.base_commit != before.head_commit.clone().unwrap_or_default() {
             blockers.push("base_commit_mismatch".to_string());
         }
+<<<<<<< HEAD
         if before.unmerged_paths.len() > 0 {
             blockers.push("unmerged_paths_present".to_string());
         }
@@ -503,10 +637,22 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
                 commands: Vec::new(),
                 blockers,
             };
+=======
+        if before.unmerged_paths.len() > 0 { blockers.push("unmerged_paths_present".to_string()); }
+        if proposal.fencing_token == 0 { blockers.push("worktree_fencing_token_missing".to_string()); }
+        if proposal.matter == SourceMatterClass::Evidence && proposal.paths.iter().any(|p| p.ends_with(".json")) {
+            // Evidence may be versioned, but only after validation; the protocol admission already enforces it.
+        }
+        let _lock = if blockers.is_empty() { self.lock(&proposal.worktree_id).ok() } else { None };
+        if blockers.is_empty() && _lock.is_none() { blockers.push("source_lock_unavailable".to_string()); }
+        if !blockers.is_empty() {
+            return SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: "blocked", operation, admission, before, after: None, commands: Vec::new(), blockers };
+>>>>>>> github/main
         }
         let commands = action();
         let failed = commands.iter().any(|command| !command.success);
         let after = (!failed).then(|| self.observe());
+<<<<<<< HEAD
         if failed {
             blockers.push("source_command_failed".to_string());
         }
@@ -530,10 +676,19 @@ impl<'a, R: ArgvRunner> GitSourceControlAdapter<'a, R> {
 struct SourceLock {
     path: PathBuf,
 }
+=======
+        if failed { blockers.push("source_command_failed".to_string()); }
+        SourceControlProof { schema: SOURCE_CONTROL_PROOF_SCHEMA, status: if blockers.is_empty() { "proved" } else { "failed" }, operation, admission, before, after, commands, blockers }
+    }
+}
+
+struct SourceLock { path: PathBuf }
+>>>>>>> github/main
 
 impl SourceLock {
     fn acquire(path: &Path) -> Result<Self, String> {
         use std::fs::OpenOptions;
+<<<<<<< HEAD
         OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -541,10 +696,15 @@ impl SourceLock {
             .map(|_| Self {
                 path: path.to_path_buf(),
             })
+=======
+        OpenOptions::new().write(true).create_new(true).open(path)
+            .map(|_| Self { path: path.to_path_buf() })
+>>>>>>> github/main
             .map_err(|error| format!("source_lock:{error}"))
     }
 }
 
+<<<<<<< HEAD
 impl Drop for SourceLock {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
@@ -557,11 +717,17 @@ fn parse_snapshot(
     upstream: Option<String>,
     status: &str,
 ) -> SourceSnapshot {
+=======
+impl Drop for SourceLock { fn drop(&mut self) { let _ = std::fs::remove_file(&self.path); } }
+
+fn parse_snapshot(branch: &str, head: &str, upstream: Option<String>, status: &str) -> SourceSnapshot {
+>>>>>>> github/main
     let mut staged = Vec::new();
     let mut unstaged = Vec::new();
     let mut untracked = Vec::new();
     let mut unmerged = Vec::new();
     for line in status.lines() {
+<<<<<<< HEAD
         if line.len() < 3 {
             continue;
         }
@@ -596,6 +762,17 @@ fn parse_snapshot(
         build_input_digest: None,
         evidence_refs: Vec::new(),
     }
+=======
+        if line.len() < 3 { continue; }
+        let code = &line[..2];
+        let path = line[3..].to_string();
+        if code == "??" { untracked.push(path); continue; }
+        if code.chars().next().is_some_and(|value| value != ' ') { staged.push(path.clone()); }
+        if code.chars().nth(1).is_some_and(|value| value != ' ') { unstaged.push(path.clone()); }
+        if code.contains('U') { unmerged.push(path); }
+    }
+    SourceSnapshot { branch: (!branch.is_empty()).then(|| branch.to_string()), head_commit: (!head.is_empty()).then(|| head.to_string()), upstream, staged_paths: staged, unstaged_paths: unstaged, untracked_paths: untracked, unmerged_paths: unmerged, validation: SecurityEvidenceState::Unknown, sovereign_transport_identity: SecurityEvidenceState::Unknown, sovereign_authentication: SecurityEvidenceState::Unknown, remote_commit_matches: SecurityEvidenceState::Unknown, build_input_digest: None, evidence_refs: Vec::new() }
+>>>>>>> github/main
 }
 
 #[cfg(test)]
@@ -603,12 +780,16 @@ mod tests {
     use super::*;
     #[test]
     fn porcelain_snapshot_keeps_staged_and_untracked_distinct() {
+<<<<<<< HEAD
         let snapshot = parse_snapshot(
             "main",
             "abc",
             Some("origin/main".into()),
             "M  staged.rs\n M unstaged.rs\n?? new.rs\nUU conflict.rs\n",
         );
+=======
+        let snapshot = parse_snapshot("main", "abc", Some("origin/main".into()), "M  staged.rs\n M unstaged.rs\n?? new.rs\nUU conflict.rs\n");
+>>>>>>> github/main
         assert_eq!(snapshot.staged_paths, vec!["staged.rs", "conflict.rs"]);
         assert_eq!(snapshot.unstaged_paths, vec!["unstaged.rs", "conflict.rs"]);
         assert_eq!(snapshot.untracked_paths, vec!["new.rs"]);
