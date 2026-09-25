@@ -12,7 +12,7 @@
 //! - `agent_execution_provenance` — execution provenance seals.
 //!
 //! Shared evidence vocabulary (EvidenceEnvelope, AgentEvidenceRef,
-//! AgentBudget, digest_json) stays in the protocol residue — it is
+//! AgentBudget, AGENT_DELEGATION_ENVELOPE_SCHEMA) stay in the protocol residue — it is
 //! cross-family vocabulary consumed by 19 residue modules.
 //!
 //! Extracted from `cynic-protocol` (Session 1 Vague B).
@@ -20,15 +20,19 @@
 pub mod agent_execution_provenance;
 pub mod convergence;
 pub mod emergence_gallery;
+pub mod eval;
 pub mod evidence_journal;
 pub mod evidence_projection;
-pub mod eval;
 pub mod judge_patch;
 pub mod judgment;
 pub mod kyon;
 
+pub use agent_execution_provenance::*;
+pub use convergence::*;
 pub use emergence_gallery::*;
 pub use eval::*;
+pub use evidence_journal::*;
+pub use evidence_projection::*;
 pub use judge_patch::*;
 pub use judgment::*;
 pub use kyon::*;
