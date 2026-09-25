@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+pub const NETWORK_PATH_EVIDENCE_SCHEMA: &str = "cynic.network_path.evidence.v1";
+pub const TRANSPORT_SECURITY_REPORT_SCHEMA: &str = "cynic.transport_security.report.v1";
+
 /// Shared proof-evidence vocabulary used across build, cli, host, node and vcs
 /// surfaces. Kept in the protocol residue because it is cross-family vocabulary,
 /// not transport-specific (40+ consumer sites across 5 crates).
