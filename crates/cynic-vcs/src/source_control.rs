@@ -183,23 +183,7 @@ pub enum SourcePromotionStage {
     ReleaseSource,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceSnapshot {
-    pub branch: Option<String>,
-    pub head_commit: Option<String>,
-    pub upstream: Option<String>,
-    pub staged_paths: Vec<String>,
-    pub unstaged_paths: Vec<String>,
-    pub untracked_paths: Vec<String>,
-    pub unmerged_paths: Vec<String>,
-    pub validation: SecurityEvidenceState,
-    pub sovereign_transport_identity: SecurityEvidenceState,
-    pub sovereign_authentication: SecurityEvidenceState,
-    pub remote_commit_matches: SecurityEvidenceState,
-    pub build_input_digest: Option<String>,
-    #[serde(default)]
-    pub evidence_refs: Vec<String>,
-}
+pub use cynic_protocol::vcs::SourceSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceAdmissionReport {
