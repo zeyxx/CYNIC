@@ -17,10 +17,18 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
     let reg: serde_json::Value =
         serde_json::from_str(&raw).map_err(|e| format!("registry invalid JSON: {e}"))?;
 
-    let ssot = reg
-        .pointer("/nodes/0/source_lifecycle/vcs_provider/sovereign_ssot")
-        .or_else(|| reg.pointer("/source_lifecycle/vcs_provider/sovereign_ssot"))
-        .ok_or("vcs_provider.sovereign_ssot not found in registry")?;
+    let ssot = find_ssot_in_registry(&reg)
+        .ok_or_else(|| {
+            // Emit the actual keys found at /nodes to help diagnose evolution
+            let nodes_len = reg.pointer("/nodes")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            format!(
+                "vcs_provider.sovereign_ssot not found in registry (nodes count: {nodes_len}, \
+                 tried paths: /nodes/4/source_workspace_layout/..., /nodes/0/..., /source_lifecycle/...)"
+            )
+        })?;
 
     let kind = ssot["kind"].as_str().unwrap_or("forgejo");
     let api_url = ssot["api_url"].as_str().unwrap_or("http://forgejo.synapse.cynic:3000");
