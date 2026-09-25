@@ -19,6 +19,70 @@ pub use index::{
     CausalEpochKey,
 };
 
+pub const CONVERGENCE_MATRIX_SCHEMA: &str = "cynic.convergence_matrix.v1";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConvergenceStatus {
+    Complete,
+    Partial,
+    Blocked,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConvergenceCell {
+    pub subject_id: String,
+    pub vertical_id: String,
+    pub status: ConvergenceStatus,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub blockers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConvergenceMatrixReport {
+    pub schema: String,
+    pub status: ConvergenceStatus,
+    pub subjects: Vec<String>,
+    pub verticals: Vec<String>,
+    pub cells: Vec<ConvergenceCell>,
+    pub residual_unknowns: Vec<String>,
+    pub blockers: Vec<String>,
+}
+
+pub fn assess_convergence_matrix(
+    subjects: Vec<String>,
+    verticals: Vec<String>,
+    cells: Vec<ConvergenceCell>,
+) -> ConvergenceMatrixReport {
+    let mut residual_unknowns = Vec::new();
+    let mut blockers = Vec::new();
+    for cell in &cells {
+        let key = format!("{}:{}", cell.subject_id, cell.vertical_id);
+        match cell.status {
+            ConvergenceStatus::Unknown => residual_unknowns.push(key),
+            ConvergenceStatus::Blocked => {
+                blockers.extend(cell.blockers.iter().map(|value| format!("{key}:{value}")))
+            }
+            ConvergenceStatus::Complete | ConvergenceStatus::Partial => {}
+        }
+    }
+    let expected = subjects.len().saturating_mul(verticals.len());
+    if cells.len() < expected {
+        blockers.push("matrix_cells_missing".to_string());
+    }
+    let status = if !blockers.is_empty() {
+        ConvergenceStatus::Blocked
+    } else if cells
+        .iter()
+        .any(|cell| cell.status == ConvergenceStatus::Unknown)
+    {
+        ConvergenceStatus::Unknown
+    } else if cells
+        .iter()
+        .all(|cell| cell.status == ConvergenceStatus::Complete)
         && cells.len() >= expected
     {
         ConvergenceStatus::Complete
