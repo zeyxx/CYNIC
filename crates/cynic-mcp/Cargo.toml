@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-[features]
-legacy_infra_tools = []
-
 [dependencies]
 cynic-host = { path = "../cynic-host" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
