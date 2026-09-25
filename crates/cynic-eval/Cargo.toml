@@ -1,0 +1,14 @@
+[package]
+name = "cynic-eval"
+version = "0.2.0"
+edition = "2024"
+description = "CYNIC evaluation domain — evidence envelopes, dog scoring, judgment, kyon decisions, emergence gallery"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
