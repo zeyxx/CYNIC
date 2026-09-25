@@ -45,12 +45,7 @@ impl HttpOpenAiChatClient {
             .build()
             .map_err(|e| ChatServiceError::Model(format!("http client: {e}")))?;
         let api_key = api_key.filter(|k| !k.trim().is_empty()).or_else(|| {
-<<<<<<< HEAD
             cynic_secrets::env_var("chat-api-key-http", "CYNIC_CHAT_API_KEY")
-=======
-            std::env::var("CYNIC_CHAT_API_KEY")
-                .ok()
->>>>>>> github/main
                 .filter(|k| !k.is_empty())
         });
         Ok(Self {

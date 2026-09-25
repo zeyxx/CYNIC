@@ -32,7 +32,6 @@ pub enum ContextResult {
 /// Returns `true` only if the backend responds with a 2xx status within
 /// `timeout_secs`. Returns `false` on timeout, connection error, or non-2xx.
 pub async fn check_health(client: &Client, health_url: &str, timeout_secs: u64) -> bool {
-<<<<<<< HEAD
     check_health_with_bearer(client, health_url, timeout_secs, None).await
 }
 
@@ -52,9 +51,6 @@ pub async fn check_health_with_bearer(
         None => client.get(health_url),
     };
     let fut = request.send();
-=======
-    let fut = client.get(health_url).send();
->>>>>>> github/main
     match timeout(Duration::from_secs(timeout_secs), fut).await {
         Ok(Ok(resp)) => resp.status().is_success(),
         Ok(Err(_)) | Err(_) => false,
@@ -234,7 +230,6 @@ mod tests {
         Some((base_url, handle))
     }
 
-<<<<<<< HEAD
     /// A backend that demands `Authorization: Bearer <token>` on /health and
     /// answers 401 otherwise. Proves the bearer is actually transmitted.
     async fn mock_secured_backend(token: &str) -> Option<(String, tokio::task::JoinHandle<()>)> {
@@ -290,8 +285,6 @@ mod tests {
         );
     }
 
-=======
->>>>>>> github/main
     #[tokio::test]
     async fn health_check_ok() {
         let Some((base, _handle)) = mock_backend(true, "any-model").await else {

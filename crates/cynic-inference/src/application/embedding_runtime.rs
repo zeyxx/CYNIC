@@ -24,11 +24,7 @@ impl EmbeddingRuntimeConfig {
             .next()
             .unwrap_or("127.0.0.1")
             .to_string();
-<<<<<<< HEAD
         let api_key = cynic_secrets::env_var("sovereign-api-key", "SOVEREIGN_API_KEY");
-=======
-        let api_key = std::env::var("SOVEREIGN_API_KEY").ok();
->>>>>>> github/main
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
 
         Self {

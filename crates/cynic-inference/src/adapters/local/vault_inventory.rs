@@ -1,20 +1,12 @@
 //! Filesystem inventory of operator-declared local model profiles.
 //!
-<<<<<<< HEAD
 //! Paths resolve through [`crate::infra::model_layout::ModelLayout`].
-=======
-//! Paths resolve through [`crate::domain::model_layout::ModelLayout`].
->>>>>>> github/main
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::domain::local_runtime::{LocalModelInventory, LocalModelProfile, LocalModelSource};
-<<<<<<< HEAD
 use crate::infra::model_layout::{DEFAULT_UNIT_TEMPLATE, ModelLayout};
-=======
-use crate::domain::model_layout::{DEFAULT_UNIT_TEMPLATE, ModelLayout};
->>>>>>> github/main
 use crate::ports::local_runtime_port::{LocalModelInventoryPort, LocalRuntimeError};
 
 #[derive(Debug)]
@@ -132,16 +124,12 @@ impl LocalModelInventoryPort for FsLocalModelInventory {
                 .collect();
             entries.sort();
             for path in entries {
-<<<<<<< HEAD
                 match self.parse_profile_file(&path) {
                     Ok(profile) => models.push(profile),
                     Err(e) => {
                         tracing::warn!("skip unreadable model profile {}: {e}", path.display());
                     }
                 }
-=======
-                models.push(self.parse_profile_file(&path)?);
->>>>>>> github/main
             }
         }
 
@@ -165,11 +153,7 @@ impl LocalModelInventoryPort for FsLocalModelInventory {
 }
 
 // Re-export resolvers for callers that imported them from this module.
-<<<<<<< HEAD
 pub use crate::infra::model_layout::{resolve_profiles_dir, resolve_vault_dir};
-=======
-pub use crate::domain::model_layout::{resolve_profiles_dir, resolve_vault_dir};
->>>>>>> github/main
 
 #[cfg(test)]
 mod tests {

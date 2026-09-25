@@ -15,19 +15,10 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::adapters::local::FsModelStore;
-<<<<<<< HEAD
 use crate::domain::local_runtime::LocalModelProfile;
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
 use crate::infra::gguf_meta::preflight_gguf_with_store;
 use crate::infra::model_layout::ModelLayout;
-=======
-use crate::domain::gguf_meta::{
-    default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
-};
-use crate::domain::local_runtime::LocalModelProfile;
-use crate::domain::model_layout::ModelLayout;
-use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
->>>>>>> github/main
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
 
@@ -281,11 +272,7 @@ pub async fn bind_preferred_chat_model(
 
 fn running_process_alias() -> Option<String> {
     // Lightweight: process supervisor pidfile dir
-<<<<<<< HEAD
     let principal = crate::infra::principal_paths::PrincipalPaths::resolve();
-=======
-    let principal = crate::domain::principal_paths::PrincipalPaths::resolve();
->>>>>>> github/main
     let dir = principal
         .home_dir
         .join(".local/state/cynic/inference/process");
@@ -382,13 +369,9 @@ pub fn is_startable_weight_path(path: &str, id_hint: &str) -> bool {
         return false;
     }
     // Must parse as GGUF with architecture known to our engine generation.
-<<<<<<< HEAD
     let store =
         crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
     match preflight_gguf_with_store(p, store.as_ref()) {
-=======
-    match preflight_gguf_for_engine(p, default_supported_arches_for_llama_b9444()) {
->>>>>>> github/main
         Ok(_) => true,
         Err(_) => {
             // Missing architecture (common on secondary shards) or unsupported arch.
@@ -521,7 +504,6 @@ fn unique_alias(layout: &ModelLayout, base: &str) -> String {
     alias
 }
 
-<<<<<<< HEAD
 /// Stable schema id for the forge profile report projection.
 pub const FORGE_PROFILE_SCHEMA: &str = "cynic.inference.forge_profile.v1";
 
@@ -627,8 +609,6 @@ pub fn forge_profile_from_benchmark_report(
     })
 }
 
-=======
->>>>>>> github/main
 pub fn write_loopback_profile(
     layout: &ModelLayout,
     alias: &str,

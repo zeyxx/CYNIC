@@ -5,13 +5,8 @@
 //! Cosine > threshold → return cached verdict (0 API calls, 0 tokens).
 //! Miss → evaluate normally, then store embedding + verdict for future lookups.
 
-<<<<<<< HEAD:crates/cynic-inference/src/verdict_cache.rs
 use crate::embedding::Embedding;
 use cynic_protocol::Verdict;
-=======
-use crate::domain::dog::Verdict;
-use cynic_inference::embedding::Embedding;
->>>>>>> github/main:crates/cynic-kernel/src/domain/verdict_cache.rs
 use std::collections::VecDeque;
 use std::sync::RwLock;
 

@@ -12,13 +12,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::adapters::local::FsModelStore;
-<<<<<<< HEAD
 use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
 use crate::infra::model_layout::ModelLayout;
-=======
-use crate::domain::model_layout::ModelLayout;
-use crate::domain::model_store::{ModelArtifact, ModelLocationKind};
->>>>>>> github/main
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
 

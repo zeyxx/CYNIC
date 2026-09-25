@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
 /// Coarse hardware capability tier used by engine selection policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -16,8 +15,6 @@ pub enum HardwareTier {
     Server,
 }
 
-=======
->>>>>>> github/main
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GpuClass {
@@ -57,7 +54,6 @@ pub struct HardwareProfile {
     pub cpu_governor: Option<String>,
     /// GTT total when exposed by DRM (APU shared graphics aperture).
     pub gtt_total_bytes: Option<u64>,
-<<<<<<< HEAD
     /// Unified GPU memory budget for weight offload (APU shared aperture).
     ///
     /// On APU / integrated GPUs the "VRAM" exposed by `mem_info_vram_total` is
@@ -77,8 +73,6 @@ pub struct HardwareProfile {
     /// than guessing a number. A future discovery path (e.g. dmidecode /
     /// libmemclk) may populate this; until then the operator is the source.
     pub memory_bandwidth_bytes_per_sec_estimate: Option<u64>,
-=======
->>>>>>> github/main
 }
 
 impl HardwareProfile {
@@ -94,7 +88,6 @@ impl HardwareProfile {
         let cpu_governor = read_cpu_governor();
         let (gpu, gtt_total_bytes) = probe_gpu();
 
-<<<<<<< HEAD
         // Unified GPU memory (GTT on APU) is legitimate VRAM for offload.
         // It lives in the same physical pool as the CPU but is allocated by
         // Vulkan for `-ngl`, so it must not be double-counted as CPU RAM.
@@ -106,10 +99,6 @@ impl HardwareProfile {
 
         // Budget: prefer available RAM; leave headroom for OS + other workloads.
         // APU/integrated: weights share system RAM — be stricter on CPU RAM.
-=======
-        // Budget: prefer available RAM; leave headroom for OS + other workloads.
-        // APU/integrated: weights share system RAM — be stricter.
->>>>>>> github/main
         let headroom = match gpu.class {
             GpuClass::Integrated => 0.45,
             GpuClass::Discrete => 0.55,
@@ -118,7 +107,6 @@ impl HardwareProfile {
         let recommended = ((available as f64) * headroom) as u64;
         let absolute = ((available as f64) * 0.75) as u64;
 
-<<<<<<< HEAD
         // GPU offload budget: how much weight `-ngl 99` may place on the
         // device. On APU this is the unified GTT aperture (not the tiny
         // "dedicated" VRAM carve-out). On discrete we currently have no
@@ -134,8 +122,6 @@ impl HardwareProfile {
         let recommended_max = recommended.max(gpu_offload_budget).max(512 * 1024 * 1024);
         let absolute_max = absolute.max(gpu_offload_budget).max(1024 * 1024 * 1024);
 
-=======
->>>>>>> github/main
         let avail_gb = available as f64 / (1024.0 * 1024.0 * 1024.0);
         let tier = if avail_gb < 6.0 {
             "tiny"
@@ -162,7 +148,6 @@ impl HardwareProfile {
             backends.push("cuda".to_string());
         }
 
-<<<<<<< HEAD
         // Roofline decode ceiling needs a sustained memory bandwidth. We do NOT
         // guess it from a host/marketing name (AGENTS.md: no machine-specific
         // hardcoding). The operator may supply it via CYNIC_ESTIMATED_MEM_BW_GBPS
@@ -175,27 +160,19 @@ impl HardwareProfile {
             .filter(|gbps| gbps.is_finite() && *gbps > 0.0)
             .map(|gbps| (gbps * 1_000_000_000.0) as u64);
 
-=======
->>>>>>> github/main
         Self {
             schema: Self::SCHEMA,
             total_ram_bytes: total,
             available_ram_bytes: available,
             cpu_threads,
             gpu,
-<<<<<<< HEAD
             recommended_max_weight_bytes: recommended_max,
             absolute_max_weight_bytes: absolute_max,
-=======
-            recommended_max_weight_bytes: recommended.max(512 * 1024 * 1024),
-            absolute_max_weight_bytes: absolute.max(1024 * 1024 * 1024),
->>>>>>> github/main
             tier,
             backends,
             cpu_flags,
             cpu_governor,
             gtt_total_bytes,
-<<<<<<< HEAD
             unified_gpu_memory_bytes,
             memory_bandwidth_bytes_per_sec_estimate,
         }
@@ -215,11 +192,6 @@ impl HardwareProfile {
             .unwrap_or(0)
     }
 
-=======
-        }
-    }
-
->>>>>>> github/main
     pub fn fits_recommended(&self, size_bytes: u64) -> bool {
         size_bytes <= self.recommended_max_weight_bytes
     }

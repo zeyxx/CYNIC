@@ -1,11 +1,7 @@
 use async_trait::async_trait;
 
 use crate::domain::backend_identity::{BackendHealthSnapshot, BackendIdentity};
-<<<<<<< HEAD
 use crate::infra::model_registry::{ModelBackend, ModelHealth};
-=======
-use crate::domain::model_registry::{ModelBackend, ModelHealth};
->>>>>>> github/main
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ModelRegistryError {

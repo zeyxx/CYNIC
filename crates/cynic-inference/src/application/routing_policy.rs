@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use cynic_workload::DataClassification;
 
 use crate::domain::backend_identity::{BackendHealthSnapshot, BackendIdentity};
@@ -34,10 +33,6 @@ pub fn validate_privacy_admissibility(
     }
     Ok(())
 }
-=======
-use crate::domain::backend_identity::BackendHealthSnapshot;
-use crate::domain::routing::{RoutingConstraint, RoutingDecision, RoutingIntent};
->>>>>>> github/main
 
 pub fn select_backend(
     backends: &[BackendHealthSnapshot],
@@ -46,21 +41,16 @@ pub fn select_backend(
     let requires_sovereign = intent
         .constraints
         .iter()
-<<<<<<< HEAD
         .any(|constraint| match constraint {
             RoutingConstraint::SovereignOnly => true,
             RoutingConstraint::Classification(DataClassification::Private)
             | RoutingConstraint::Classification(DataClassification::Sensitive) => true,
             _ => false,
         });
-=======
-        .any(|constraint| matches!(constraint, RoutingConstraint::SovereignOnly));
->>>>>>> github/main
 
     backends
         .iter()
         .find(|snapshot| {
-<<<<<<< HEAD
             snapshot.status.is_available()
                 && (!requires_sovereign || snapshot.identity.sovereign)
                 && validate_privacy_admissibility(intent, &snapshot.identity).is_ok()
@@ -154,12 +144,3 @@ mod tests {
         ));
     }
 }
-=======
-            snapshot.status.is_available() && (!requires_sovereign || snapshot.identity.sovereign)
-        })
-        .map(|snapshot| RoutingDecision {
-            backend_name: snapshot.identity.backend_name.clone(),
-            reason: "first_available_backend".to_string(),
-        })
-}
->>>>>>> github/main

@@ -6,11 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
 use crate::infra::model_layout::ModelLayout;
-=======
-use crate::domain::model_layout::ModelLayout;
->>>>>>> github/main
 
 #[derive(Debug, thiserror::Error)]
 pub enum HfHubError {

@@ -48,11 +48,7 @@ pub async fn discover_ods_services() -> Vec<DiscoveredService> {
 
     let mut seen_endpoints = std::collections::BTreeSet::<String>::new();
 
-<<<<<<< HEAD
     for base in crate::infra::model_layout::default_ods_probe_bases() {
-=======
-    for base in crate::domain::model_layout::default_ods_probe_bases() {
->>>>>>> github/main
         let base = base.trim_end_matches('/').to_string();
         // Prefer OpenAI-compat /v1/models (ODS llama-server, many peers)
         if let Some(s) = probe_openai_compat(&client, &base).await

@@ -79,7 +79,6 @@ impl LocalRuntimeServiceAny {
         }
     }
 
-<<<<<<< HEAD
     /// Borrow the inner runtime as the [`LocalInferenceRuntimePort`] trait object,
     /// so callers needing `&dyn LocalInferenceRuntimePort` (e.g. `launch_basket`)
     /// can dispatch through the env-selected supervisor without monomorphizing.
@@ -91,8 +90,6 @@ impl LocalRuntimeServiceAny {
         }
     }
 
-=======
->>>>>>> github/main
     pub fn list_inventory(&self) -> Result<LocalModelInventory, LocalRuntimeError> {
         match self {
             Self::Systemd(s) => s.list_inventory(),
@@ -149,14 +146,10 @@ impl LocalRuntimeServiceAny {
         }
     }
 
-<<<<<<< HEAD
     pub fn stop(
         &self,
         alias: Option<&str>,
     ) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
-=======
-    pub fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError> {
->>>>>>> github/main
         match self {
             Self::Systemd(s) => s.runtime.stop(alias),
             Self::Process(s) => s.runtime.stop(alias),

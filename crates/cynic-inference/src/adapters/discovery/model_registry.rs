@@ -10,15 +10,8 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::{
-<<<<<<< HEAD
     domain::backend_identity::{BackendCapability, BackendIdentity},
     infra::model_registry::{ModelBackend, ModelCapability, ModelHealth},
-=======
-    domain::{
-        backend_identity::{BackendCapability, BackendIdentity},
-        model_registry::{ModelBackend, ModelCapability, ModelHealth},
-    },
->>>>>>> github/main
     ports::model_registry_port::{ModelRegistryError, ModelRegistryPort},
 };
 
@@ -136,11 +129,7 @@ fn backend_capability(capability: &ModelCapability) -> Option<BackendCapability>
 #[cfg(test)]
 mod tests {
     use super::*;
-<<<<<<< HEAD
     use crate::infra::model_registry::InferenceEngine;
-=======
-    use crate::domain::model_registry::InferenceEngine;
->>>>>>> github/main
 
     #[tokio::test]
     async fn stores_filters_updates_and_prunes_model_backends() {

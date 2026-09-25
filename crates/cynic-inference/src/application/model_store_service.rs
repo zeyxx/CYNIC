@@ -2,13 +2,8 @@
 
 use crate::adapters::hf::HfCliAdapter;
 use crate::adapters::local::FsModelStore;
-<<<<<<< HEAD
 use crate::domain::model_store::ModelStoreReport;
 use crate::infra::model_layout::ModelLayout;
-=======
-use crate::domain::model_layout::ModelLayout;
-use crate::domain::model_store::ModelStoreReport;
->>>>>>> github/main
 use crate::ports::hf_hub_port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort,
 };

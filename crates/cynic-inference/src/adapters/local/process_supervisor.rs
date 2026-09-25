@@ -9,44 +9,24 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-<<<<<<< HEAD
-=======
-use std::sync::Arc;
->>>>>>> github/main
 use std::thread;
 use std::time::Duration;
 
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
-<<<<<<< HEAD
 use crate::domain::local_runtime::{
     LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
 };
 use crate::infra::principal_paths::PrincipalPaths;
-=======
-use crate::adapters::local::{ProcessControlPort, SystemProcessControl};
-use crate::domain::local_runtime::{
-    LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
-};
-use crate::domain::principal_paths::PrincipalPaths;
-use crate::domain::runtime_plan::RuntimeLaunchPlan;
->>>>>>> github/main
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
 
 const SUPERVISOR_SURFACE: &str = "process";
 
-<<<<<<< HEAD
 #[derive(Debug)]
 pub struct ProcessLocalRuntime {
     inventory: FsLocalModelInventory,
     state_dir: PathBuf,
-=======
-pub struct ProcessLocalRuntime {
-    inventory: FsLocalModelInventory,
-    state_dir: PathBuf,
-    process_control: Arc<dyn ProcessControlPort>,
->>>>>>> github/main
 }
 
 impl ProcessLocalRuntime {
@@ -58,10 +38,6 @@ impl ProcessLocalRuntime {
         Self {
             inventory: FsLocalModelInventory::from_env(),
             state_dir,
-<<<<<<< HEAD
-=======
-            process_control: Arc::new(SystemProcessControl),
->>>>>>> github/main
         }
     }
 
@@ -71,21 +47,6 @@ impl ProcessLocalRuntime {
         s
     }
 
-<<<<<<< HEAD
-=======
-    pub fn with_runtime_parts(
-        inventory: FsLocalModelInventory,
-        state_dir: PathBuf,
-        process_control: Arc<dyn ProcessControlPort>,
-    ) -> Self {
-        Self {
-            inventory,
-            state_dir,
-            process_control,
-        }
-    }
-
->>>>>>> github/main
     fn ensure_state_dir(&self) -> Result<(), LocalRuntimeError> {
         fs::create_dir_all(&self.state_dir).map_err(|e| {
             LocalRuntimeError::Control(format!("mkdir {}: {e}", self.state_dir.display()))
@@ -106,11 +67,7 @@ impl ProcessLocalRuntime {
         if pid == 0 {
             return None;
         }
-<<<<<<< HEAD
         if Path::new(&format!("/proc/{pid}")).is_dir() {
-=======
-        if self.process_control.is_running(pid) {
->>>>>>> github/main
             Some(pid)
         } else {
             let _ = fs::remove_file(self.pid_path(alias));
@@ -125,7 +82,6 @@ impl ProcessLocalRuntime {
         })
     }
 
-<<<<<<< HEAD
     fn kill_pid(pid: u32) {
         let _ = Command::new("kill")
             .args(["-TERM", &pid.to_string()])
@@ -136,10 +92,6 @@ impl ProcessLocalRuntime {
                 .args(["-KILL", &pid.to_string()])
                 .status();
         }
-=======
-    fn terminate_pid(&self, pid: u32) -> Result<(), LocalRuntimeError> {
-        self.process_control.terminate(pid)
->>>>>>> github/main
     }
 
     fn list_running_aliases(&self) -> Vec<String> {
@@ -179,7 +131,6 @@ impl ProcessLocalRuntime {
         }
     }
 
-<<<<<<< HEAD
     fn build_argv(
         profile: &LocalModelProfile,
     ) -> Result<(PathBuf, Vec<String>), LocalRuntimeError> {
@@ -244,39 +195,14 @@ impl ProcessLocalRuntime {
             principal.config_dir.join("llama-api-key"),
             PathBuf::from("/etc/cynic/llama-api-key"),
         ] {
-=======
-    fn build_argv(plan: &RuntimeLaunchPlan) -> (PathBuf, Vec<String>) {
-        let bin = PathBuf::from(&plan.plugins.llama_server_bin);
-        let mut argv = vec![
-            "-m".into(),
-            plan.model_path.clone(),
-            "--host".into(),
-            plan.host.clone(),
-            "--port".into(),
-            plan.port.to_string(),
-            "--ctx-size".into(),
-            plan.ctx_size.to_string(),
-        ];
-        argv.extend(plan.engine_args.iter().cloned());
-        // API key file convention when present (principal membrane).
-        let principal = PrincipalPaths::resolve();
-        let mut key_paths = vec![principal.config_dir.join("llama-api-key")];
-        #[cfg(unix)]
-        key_paths.push(PathBuf::from("/etc/cynic/llama-api-key"));
-        for key_path in key_paths {
->>>>>>> github/main
             if key_path.is_file() {
                 argv.push("--api-key-file".into());
                 argv.push(key_path.display().to_string());
                 break;
             }
         }
-<<<<<<< HEAD
         let _ = profile;
         Ok((bin, argv))
-=======
-        (bin, argv)
->>>>>>> github/main
     }
 
     fn expected_model_ids(profile: &LocalModelProfile) -> Vec<String> {
@@ -378,11 +304,7 @@ impl ProcessLocalRuntime {
         }
 
         let code = Command::new("curl")
-<<<<<<< HEAD
             .args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}"])
-=======
-            .args(["-sS", "-m", "2", "-o", null_device(), "-w", "%{http_code}"])
->>>>>>> github/main
             .arg(url)
             .output()
             .ok()
@@ -526,19 +448,11 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
 
         crate::progress::progress("preflight", format!("gguf {}", profile.model_path));
         let model_path = Path::new(&profile.model_path);
-<<<<<<< HEAD
         let store =
             crate::adapters::local::engine_capability_store::EngineCapabilityStore::load_default();
         let gguf_meta =
             crate::infra::gguf_meta::preflight_gguf_with_store(model_path, store.as_ref())
                 .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
-=======
-        let gguf_meta = crate::domain::gguf_meta::preflight_gguf_for_engine(
-            model_path,
-            crate::domain::gguf_meta::default_supported_arches_for_llama_b9444(),
-        )
-        .map_err(|e| LocalRuntimeError::Rejected(e.to_string()))?;
->>>>>>> github/main
         crate::progress::progress(
             "preflight",
             format!("arch={}", gguf_meta.architecture.as_deref().unwrap_or("?")),
@@ -548,11 +462,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         crate::progress::progress("plan", "probe hardware + materialize runtime env");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
-<<<<<<< HEAD
         let materialize = planner.materialize(&plan)?;
-=======
-        let materialize = planner.materialize_runtime_env(&plan)?;
->>>>>>> github/main
         crate::progress::progress("plan", format!("env={}", materialize.runtime_env));
 
         // Stop others on same port policy (one local engine)
@@ -560,29 +470,17 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             if other != alias {
                 crate::progress::progress("stop", format!("previous instance {other}"));
                 if let Some(pid) = self.read_pid(&other) {
-<<<<<<< HEAD
                     Self::kill_pid(pid);
-=======
-                    self.terminate_pid(pid)?;
->>>>>>> github/main
                     let _ = fs::remove_file(self.pid_path(&other));
                 }
             }
         }
         if let Some(pid) = self.read_pid(alias) {
-<<<<<<< HEAD
             Self::kill_pid(pid);
             let _ = fs::remove_file(self.pid_path(alias));
         }
 
         let (bin, argv) = Self::build_argv(&profile)?;
-=======
-            self.terminate_pid(pid)?;
-            let _ = fs::remove_file(self.pid_path(alias));
-        }
-
-        let (bin, argv) = Self::build_argv(&plan);
->>>>>>> github/main
         self.ensure_state_dir()?;
         let log = fs::File::create(self.log_path(alias)).map_err(|e| {
             LocalRuntimeError::Control(format!("log {}: {e}", self.log_path(alias).display()))
@@ -591,25 +489,15 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             .try_clone()
             .map_err(|e| LocalRuntimeError::Control(format!("log clone: {e}")))?;
 
-<<<<<<< HEAD
         // llama-server loads ggml plugins relative to CWD (see systemd unit WorkingDirectory).
         let plugin_cwd = PathBuf::from("/usr/local/lib/llama");
-=======
->>>>>>> github/main
         let mut cmd = Command::new(&bin);
         cmd.args(&argv)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log_err));
-<<<<<<< HEAD
         if plugin_cwd.is_dir() {
             cmd.current_dir(&plugin_cwd);
-=======
-        if let Some(plugin_cwd) = plan.plugins.plugin_dir.as_deref().map(Path::new)
-            && plugin_cwd.is_dir()
-        {
-            cmd.current_dir(plugin_cwd);
->>>>>>> github/main
         }
         crate::progress::progress(
             "spawn",
@@ -643,11 +531,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         let log_hint = self.log_path(alias).display().to_string();
         if !ok {
             if let Some(p) = self.read_pid(alias) {
-<<<<<<< HEAD
                 Self::kill_pid(p);
-=======
-                self.terminate_pid(p)?;
->>>>>>> github/main
             }
             let _ = fs::remove_file(self.pid_path(alias));
         }
@@ -710,11 +594,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         };
         let profile = self.inventory.get_profile(&alias).ok();
         if let Some(pid) = self.read_pid(&alias) {
-<<<<<<< HEAD
             Self::kill_pid(pid);
-=======
-            self.terminate_pid(pid)?;
->>>>>>> github/main
         }
         let _ = fs::remove_file(self.pid_path(&alias));
         Ok(LocalRuntimeMutationReport {
@@ -733,19 +613,6 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
     }
 }
 
-<<<<<<< HEAD
-=======
-#[cfg(windows)]
-fn null_device() -> &'static str {
-    "NUL"
-}
-
-#[cfg(not(windows))]
-fn null_device() -> &'static str {
-    "/dev/null"
-}
-
->>>>>>> github/main
 /// Which process supervisor backend to use for native local inference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InferenceSupervisorKind {
@@ -778,92 +645,3 @@ impl InferenceSupervisorKind {
         }
     }
 }
-<<<<<<< HEAD
-=======
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::domain::hardware_profile::{GpuClass, GpuInfo, HardwareProfile};
-    use crate::domain::runtime_plan::{EnginePlugins, ProfileOverrides, plan_launch};
-
-    struct FixedProcessControl {
-        running_pid: u32,
-    }
-
-    impl ProcessControlPort for FixedProcessControl {
-        fn is_running(&self, pid: u32) -> bool {
-            pid == self.running_pid
-        }
-
-        fn terminate(&self, _pid: u32) -> Result<(), LocalRuntimeError> {
-            Ok(())
-        }
-    }
-
-    fn portable_plan() -> RuntimeLaunchPlan {
-        let gib = 1024 * 1024 * 1024;
-        let hardware = HardwareProfile {
-            schema: HardwareProfile::SCHEMA,
-            total_ram_bytes: 16 * gib,
-            available_ram_bytes: 10 * gib,
-            cpu_threads: 4,
-            gpu: GpuInfo {
-                class: GpuClass::Integrated,
-                vendor_id: None,
-                vendor_name: Some("injected".into()),
-                notes: vec![],
-            },
-            recommended_max_weight_bytes: 4 * gib,
-            absolute_max_weight_bytes: 8 * gib,
-            tier: "conformance".into(),
-            backends: vec!["cpu".into()],
-            cpu_flags: vec!["avx2".into()],
-            cpu_governor: None,
-            gtt_total_bytes: None,
-        };
-        let plugins = EnginePlugins {
-            llama_server_bin: r"C:\runtime\llama-server.exe".into(),
-            plugin_dir: Some(r"C:\runtime".into()),
-            cpu_backends: vec!["avx2".into()],
-            has_vulkan: false,
-            has_cuda: false,
-            has_metal: false,
-            likely_cpu_backend_class: "avx2".into(),
-        };
-        plan_launch(
-            "lfm-local",
-            r"D:\models\LFM2.5-2.6B-Q4_K_M.gguf",
-            Some(1_674_454_848),
-            &hardware,
-            &plugins,
-            &ProfileOverrides::default(),
-        )
-    }
-
-    #[test]
-    fn process_launch_argv_preserves_injected_windows_artifact_and_engine() {
-        let plan = portable_plan();
-        let (program, argv) = ProcessLocalRuntime::build_argv(&plan);
-        assert_eq!(program, PathBuf::from(r"C:\runtime\llama-server.exe"));
-        assert_eq!(argv[0..2], ["-m", r"D:\models\LFM2.5-2.6B-Q4_K_M.gguf"]);
-        assert!(argv.windows(2).any(|pair| pair == ["--host", "127.0.0.1"]));
-    }
-
-    #[test]
-    fn pid_liveness_comes_from_injected_adapter_not_procfs() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let inventory = FsLocalModelInventory::with_dirs(
-            temp.path().join("models"),
-            temp.path().join("profiles"),
-        );
-        let runtime = ProcessLocalRuntime::with_runtime_parts(
-            inventory,
-            temp.path().join("state"),
-            Arc::new(FixedProcessControl { running_pid: 77 }),
-        );
-        runtime.write_pid("lfm-local", 77).expect("pid evidence");
-        assert_eq!(runtime.read_pid("lfm-local"), Some(77));
-    }
-}
->>>>>>> github/main
