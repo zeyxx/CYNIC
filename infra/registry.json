@@ -538,7 +538,25 @@
             "relative_path": "CYNIC",
             "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
           }
-        ]
+        ],
+        "vcs_provider": {
+          "schema": "cynic.source_lifecycle.v1",
+          "sovereign_ssot": {
+            "kind": "forgejo",
+            "api_url": "http://forgejo.synapse.cynic:3000",
+            "owner": "jeanterre13",
+            "repo": "CYNIC",
+            "token_env": "FORGEJO_TOKEN",
+            "token_file": "/etc/cynic/secrets/forgejo-token"
+          },
+          "relay": {
+            "kind": "github",
+            "api_url": "https://api.github.com",
+            "owner": "zeyxx",
+            "repo": "CYNIC",
+            "token_env": "GITHUB_TOKEN"
+          }
+        }
       },
       "build_lifecycle": {
         "schema": "cynic.build_runner.resource_policy.v1",

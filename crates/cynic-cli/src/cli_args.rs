@@ -12,7 +12,7 @@ use crate::network_surface::NetworkCommand;
 use crate::node_activation_surface::NodeActivationCommand;
 use crate::runtime_surface::OperatorModelsCommand;
 use crate::session_surface::SessionCommand;
-use crate::source_surface::SourceCommand;
+use crate::source_surface::{PrCommand, SourceCommand};
 use crate::task_surface::TaskCommand;
 
 #[derive(Parser)]

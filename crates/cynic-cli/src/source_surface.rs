@@ -4,6 +4,49 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
+use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
+use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
+
+/// Read vcs_provider.sovereign_ssot from infra/registry.json and return
+/// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
+/// provider kind is unknown.
+fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
+    let reg_path = root.join("infra/registry.json");
+    let raw = std::fs::read_to_string(&reg_path)
+        .map_err(|e| format!("registry unreadable at {}: {e}", reg_path.display()))?;
+    let reg: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|e| format!("registry invalid JSON: {e}"))?;
+
+    let ssot = reg
+        .pointer("/nodes/0/source_lifecycle/vcs_provider/sovereign_ssot")
+        .or_else(|| reg.pointer("/source_lifecycle/vcs_provider/sovereign_ssot"))
+        .ok_or("vcs_provider.sovereign_ssot not found in registry")?;
+
+    let kind = ssot["kind"].as_str().unwrap_or("forgejo");
+    let api_url = ssot["api_url"].as_str().unwrap_or("http://forgejo.synapse.cynic:3000");
+    let owner = ssot["owner"].as_str().unwrap_or("jeanterre13");
+    let repo = ssot["repo"].as_str().unwrap_or("CYNIC");
+    let token_env = ssot["token_env"].as_str().unwrap_or("FORGEJO_TOKEN");
+    let token_file = ssot["token_file"].as_str().unwrap_or("/etc/cynic/secrets/forgejo-token");
+
+    let token = std::env::var(token_env).ok().filter(|v| !v.is_empty()).or_else(|| {
+        std::fs::read_to_string(token_file)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    });
+
+    match kind {
+        "forgejo" => Ok(Box::new(ForgejoPrAdapter::new(
+            api_url.to_string(),
+            owner.to_string(),
+            repo.to_string(),
+            token,
+        ))),
+        other => Err(format!("unknown vcs_provider kind '{other}' — only 'forgejo' is implemented")),
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub(crate) enum SourceCommand {
     /// Observe source layer convergence status (Cortex, Forgejo, GitHub).
@@ -43,6 +86,11 @@ pub(crate) enum SourceCommand {
         apply: bool,
         #[arg(long)]
         json: bool,
+    },
+    /// Manage Pull Requests on the sovereign VCS provider (read from infra/registry.json).
+    Pr {
+        #[command(subcommand)]
+        command: PrCommand,
     },
 }
 
@@ -138,6 +186,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             apply,
             json,
         } => execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json),
+        SourceCommand::Pr { command } => execute_pr(Path::new("."), command),
     }
 }
 
@@ -435,6 +484,164 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
                 println!("No safe pruning actions pending.");
             }
             ExitCode::SUCCESS
+        }
+    }
+}
+
+/// Lookup the JSON pointer for the vcs_provider block,
+/// trying multiple paths to be resilient to registry schema evolution.
+fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
+    // Try the node-scoped path first, then bare top-level paths
+    let candidates = [
+        "/nodes/0/source_lifecycle/vcs_provider/sovereign_ssot",
+        "/source_lifecycle/vcs_provider/sovereign_ssot",
+        "/vcs_provider/sovereign_ssot",
+    ];
+    candidates.iter().find_map(|ptr| reg.pointer(ptr))
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum PrCommand {
+    /// List open pull requests from the sovereign VCS provider.
+    List {
+        #[arg(long, default_value = "open")]
+        state: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Open a new pull request on the sovereign VCS provider.
+    Open {
+        #[arg(long)]
+        title: String,
+        #[arg(long)]
+        head: String,
+        #[arg(long, default_value = "main")]
+        base: String,
+        #[arg(long, default_value = "")]
+        body: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Merge an open pull request after passing all admission gates.
+    Merge {
+        #[arg(long)]
+        number: u64,
+        #[arg(long, default_value = "merge")]
+        style: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
+    let port = match pr_port_from_registry(root) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("blocked: registry error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    match command {
+        PrCommand::List { state, json } => {
+            match port.list(&state) {
+                Ok(prs) => {
+                    if json {
+                        emit_pretty_json(&prs)
+                    } else {
+                        if prs.is_empty() {
+                            println!("No {state} pull requests.");
+                        }
+                        for pr in &prs {
+                            println!(
+                                "  #{} [{}] {} -> {}: {}",
+                                pr.number, state, pr.head_ref, pr.base_ref, pr.title
+                            );
+                            println!("      {}", pr.html_url);
+                        }
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(e) => {
+                    eprintln!("blocked: pr list failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        PrCommand::Open { title, head, base, body, json } => {
+            match port.open(&title, &head, &base, &body) {
+                Ok(proof) => {
+                    if json {
+                        emit_pretty_json(&proof)
+                    } else {
+                        println!("PR #{} opened: {}", proof.pr_number, proof.html_url);
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(e) => {
+                    eprintln!("blocked: pr open failed: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        PrCommand::Merge { number, style, json } => {
+            // Observe the PR, run admission gates, then actuate.
+            let prs = match port.list("open") {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("blocked: cannot observe PRs before merge: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let pr = match prs.iter().find(|p| p.number == number) {
+                Some(p) => p,
+                None => {
+                    eprintln!("blocked: PR #{number} not found among open PRs");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            // Gate evaluation — builder check proxied via cynic audit
+            let builder_ok = {
+                let audit_output = std::process::Command::new(
+                    std::env::current_exe().unwrap_or_else(|_| "cynic".into()),
+                )
+                .args(["audit", "crates", "--json"])
+                .output();
+                match audit_output {
+                    Ok(o) => o.status.success(),
+                    Err(_) => false,
+                }
+            };
+
+            let admission = evaluate_pr_admission(pr, builder_ok, true);
+
+            if !admission.admitted {
+                if json {
+                    emit_pretty_json(&admission)
+                } else {
+                    eprintln!("blocked: PR #{number} failed admission gates:");
+                    for b in &admission.blockers {
+                        eprintln!("  - {b}");
+                    }
+                    ExitCode::FAILURE
+                }
+            } else {
+                match port.merge(number, &style) {
+                    Ok(proof) => {
+                        if json {
+                            emit_pretty_json(&proof)
+                        } else {
+                            println!("{}", proof.message);
+                            ExitCode::SUCCESS
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("blocked: merge failed: {e}");
+                        ExitCode::FAILURE
+                    }
+                }
+            }
         }
     }
 }
