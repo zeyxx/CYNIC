@@ -8,7 +8,6 @@ pub use crate::agent_coordination_continuity::*;
 pub use crate::agent_host_sandbox::*;
 pub use crate::agent_isolation::*;
 pub use crate::agent_mutation_gates::*;
-pub use crate::agent_recursion::*;
 pub use crate::agent_review::*;
 pub use crate::agent_session::{
     AGENT_ROOT_LAUNCH_PLAN_SCHEMA, AGENT_ROOT_LAUNCH_REQUEST_SCHEMA,
@@ -23,6 +22,8 @@ pub use crate::agent_session::{
     validate_agent_session_rotation,
 };
 pub use crate::agentic_tool_call::*;
+pub use crate::agent_recursion::*;
+pub use crate::agent_recursion::*;
 pub use crate::allowance::*;
 
 pub use crate::artifact_release::*;
@@ -33,7 +34,6 @@ pub use crate::breakglass::*;
 pub use crate::capability_budget::*;
 pub use crate::capability_responsibility::*;
 pub use crate::constitutional_law::*;
-pub use crate::convergence::*;
 pub use crate::coord::{
     LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_finalize_path,
     coord_register_path, coord_release_path, coord_verify_path, coord_who_path,
@@ -48,12 +48,9 @@ pub use crate::detection::*;
 pub use crate::development::*;
 pub use crate::discovery::*;
 pub use crate::disk::*;
-pub use crate::dog::*;
-pub use crate::dog_health::*;
 pub use crate::domain_tasks::*;
 pub use crate::endpoint::*;
 pub use crate::error_catalog::*;
-pub use crate::evidence::*;
 pub use crate::federation_envelopes::*;
 pub use crate::federation_membership::*;
 pub use crate::fleet_discovery::*;
@@ -63,9 +60,6 @@ pub use crate::freshness::*;
 pub use crate::health_signal::reconcile_health_signal;
 pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;
-pub use crate::integrity::*;
-pub use crate::judgment::*;
-pub use crate::kyon::*;
 pub use crate::machine_enrollment::*;
 pub use crate::machine_identity::*;
 pub use crate::mcp_projection::*;
@@ -82,6 +76,7 @@ pub use crate::one_shot_capability::{
     OneShotCapabilityOutcome, OneShotCapabilityOutcomeStatus, authority_class,
 };
 pub use crate::organic_opportunity::*;
+pub use crate::phi::*;
 pub use crate::outcomes::*;
 pub use crate::policy::*;
 pub use crate::pre_os::*;
@@ -105,3 +100,5 @@ pub use crate::tasks::*;
 pub use crate::temporal::*;
 pub use crate::transport_security::*;
 pub use crate::workload_identity::*;
+pub use crate::evidence::*;
+pub use crate::integrity::*;
