@@ -30,8 +30,6 @@ pub struct RuntimeProofEvidence {
     pub id: String,
     pub status: String,
     pub detail: String,
-    #[serde(default)]
-    pub epoch: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
