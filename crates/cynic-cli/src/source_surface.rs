@@ -493,6 +493,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
     // Try the node-scoped path first, then bare top-level paths
     let candidates = [
+        "/nodes/4/source_workspace_layout/vcs_provider/sovereign_ssot",
+        "/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot",
         "/nodes/0/source_lifecycle/vcs_provider/sovereign_ssot",
         "/source_lifecycle/vcs_provider/sovereign_ssot",
         "/vcs_provider/sovereign_ssot",
