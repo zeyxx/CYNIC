@@ -119,6 +119,7 @@ pub mod sanitize;
 pub mod sbom;
 pub mod secret_reference;
 pub mod sensory;
+pub mod source_control;
 pub mod supervision;
 pub mod surface_registry;
 pub mod task_admission;
