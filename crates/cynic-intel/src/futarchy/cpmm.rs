@@ -1,11 +1,6 @@
 use super::types::{
-<<<<<<< HEAD
     ConditionalMarket, FUTARCHY_MARKET_SCHEMA_V1, MarketDecision, MarketResolution, PredictionBet,
     ProposalStatus,
-=======
-    ConditionalMarket, FUTARCHY_MARKET_SCHEMA_V1, MarketDecision, MarketResolution,
-    PredictionBet, ProposalStatus,
->>>>>>> github/main
 };
 
 pub fn create_market(
@@ -17,11 +12,7 @@ pub fn create_market(
 ) -> ConditionalMarket {
     let half_pool = initial_liquidity_units / 2;
     ConditionalMarket {
-<<<<<<< HEAD
         schema: FUTARCHY_MARKET_SCHEMA_V1.to_string(),
-=======
-        schema: FUTARCHY_MARKET_SCHEMA_V1,
->>>>>>> github/main
         market_id: market_id.to_string(),
         proposal_id: proposal_id.to_string(),
         question: question.to_string(),
@@ -131,17 +122,12 @@ mod tests {
         let shares = execute_bet(&mut market, bet_yes).expect("bet execution");
         assert!(shares > 0);
 
-<<<<<<< HEAD
         let (new_p_yes, new_p_no) =
             calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
         assert!(
             new_p_yes > 5000,
             "Price of YES should increase after YES bet"
         );
-=======
-        let (new_p_yes, new_p_no) = calculate_prices_bps(market.yes_pool_units, market.no_pool_units);
-        assert!(new_p_yes > 5000, "Price of YES should increase after YES bet");
->>>>>>> github/main
         assert_eq!(new_p_yes + new_p_no, 10_000);
 
         // Resolve market

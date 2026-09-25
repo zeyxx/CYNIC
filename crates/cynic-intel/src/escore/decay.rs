@@ -187,7 +187,6 @@ mod tests {
     fn epoch_decay_no_decay_when_signal_in_future_or_same_epoch() {
         // Signal dans le futur par rapport à l'epoch actuel
         let future = calculate_epoch_decay(from_points(100), 5, 3, 9_000);
-<<<<<<< HEAD
         assert_eq!(
             future,
             from_points(100),
@@ -201,13 +200,6 @@ mod tests {
             from_points(100),
             "Pas de decay si le signal est à l'epoch actuel"
         );
-=======
-        assert_eq!(future, from_points(100), "Pas de decay si le signal est dans le futur");
-
-        // Signal au même epoch
-        let same = calculate_epoch_decay(from_points(100), 7, 7, 9_000);
-        assert_eq!(same, from_points(100), "Pas de decay si le signal est à l'epoch actuel");
->>>>>>> github/main
     }
 
     #[test]

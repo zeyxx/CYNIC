@@ -1,27 +1,15 @@
 use super::types::{
-<<<<<<< HEAD
     CRYSTAL_SCHEMA_V1, CrystalKnowledge, CrystalState, PHI_INV_BPS, PHI_INV_CUBE_BPS,
-=======
-    CrystalKnowledge, CrystalState, CRYSTAL_SCHEMA_V1, PHI_INV_BPS, PHI_INV_CUBE_BPS,
->>>>>>> github/main
     PHI_INV_SQ_BPS,
 };
 
 pub const FIBONACCI_CRYSTALLIZE_THRESHOLD: u32 = 21; // F8
-<<<<<<< HEAD
 pub const FIBONACCI_CANONICAL_THRESHOLD: u32 = 233; // F13
-=======
-pub const FIBONACCI_CANONICAL_THRESHOLD: u32 = 233;   // F13
->>>>>>> github/main
 
 impl CrystalKnowledge {
     pub fn new(crystal_id: &str, domain: &str, pattern_digest: &str, now: i64) -> Self {
         Self {
-<<<<<<< HEAD
             schema: CRYSTAL_SCHEMA_V1.to_string(),
-=======
-            schema: CRYSTAL_SCHEMA_V1,
->>>>>>> github/main
             crystal_id: crystal_id.to_string(),
             domain: domain.to_string(),
             pattern_digest: pattern_digest.to_string(),
@@ -41,19 +29,14 @@ impl CrystalKnowledge {
         if self.confidence_bps == 0 {
             self.confidence_bps = q_score_bps;
         } else {
-<<<<<<< HEAD
             self.confidence_bps =
                 ((self.confidence_bps as u64 * 8 + q_score_bps as u64 * 2) / 10) as u32;
-=======
-            self.confidence_bps = ((self.confidence_bps as u64 * 8 + q_score_bps as u64 * 2) / 10) as u32;
->>>>>>> github/main
         }
 
         self.update_state();
     }
 
     fn update_state(&mut self) {
-<<<<<<< HEAD
         if self.confidence_bps < PHI_INV_CUBE_BPS
             && self.observation_count >= FIBONACCI_CRYSTALLIZE_THRESHOLD
         {
@@ -67,15 +50,6 @@ impl CrystalKnowledge {
         } else if self.observation_count >= FIBONACCI_CRYSTALLIZE_THRESHOLD
             && self.confidence_bps >= PHI_INV_BPS
         {
-=======
-        if self.confidence_bps < PHI_INV_CUBE_BPS && self.observation_count >= FIBONACCI_CRYSTALLIZE_THRESHOLD {
-            self.state = CrystalState::Dissolved;
-        } else if self.confidence_bps < PHI_INV_SQ_BPS {
-            self.state = CrystalState::Decaying;
-        } else if self.observation_count >= FIBONACCI_CANONICAL_THRESHOLD && self.confidence_bps >= PHI_INV_BPS {
-            self.state = CrystalState::Canonical;
-        } else if self.observation_count >= FIBONACCI_CRYSTALLIZE_THRESHOLD && self.confidence_bps >= PHI_INV_BPS {
->>>>>>> github/main
             self.state = CrystalState::Crystallized;
         } else {
             self.state = CrystalState::Observation;
@@ -89,12 +63,8 @@ mod tests {
 
     #[test]
     fn test_crystal_fibonacci_lifecycle_transitions() {
-<<<<<<< HEAD
         let mut crystal =
             CrystalKnowledge::new("cst-001", "chess", "hash-sicilian-dragon", 1_720_000_000);
-=======
-        let mut crystal = CrystalKnowledge::new("cst-001", "chess", "hash-sicilian-dragon", 1_720_000_000);
->>>>>>> github/main
         assert_eq!(crystal.state, CrystalState::Observation);
 
         // 20 observations parfaites (6180 bps) -> Toujours en Observation

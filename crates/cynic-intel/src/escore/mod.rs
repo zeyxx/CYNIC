@@ -1,8 +1,5 @@
 pub mod aggregator;
-<<<<<<< HEAD
 pub mod contribution;
-=======
->>>>>>> github/main
 pub mod decay;
 pub mod merkle;
 pub mod metrics;

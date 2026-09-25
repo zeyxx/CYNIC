@@ -1,11 +1,6 @@
 use super::types::{
-<<<<<<< HEAD
     AxiomScoresBps, EPISTEMIC_VERDICT_SCHEMA_V1, EpistemicVerdict, HOWL_THRESHOLD_BPS, PHI_INV_BPS,
     PHI_INV_CUBE_BPS, PHI_INV_SQ_BPS, ValidatorDogScore, VerdictRating,
-=======
-    AxiomScoresBps, EpistemicVerdict, EPISTEMIC_VERDICT_SCHEMA_V1, HOWL_THRESHOLD_BPS,
-    PHI_INV_BPS, PHI_INV_CUBE_BPS, PHI_INV_SQ_BPS, ValidatorDogScore, VerdictRating,
->>>>>>> github/main
 };
 
 /// Calcul de la moyenne tronquée (Trimmed Mean) pour une série de scores en BPS.
@@ -109,11 +104,7 @@ pub fn evaluate_epistemic_consensus(
     };
 
     Ok(EpistemicVerdict {
-<<<<<<< HEAD
         schema: EPISTEMIC_VERDICT_SCHEMA_V1.to_string(),
-=======
-        schema: EPISTEMIC_VERDICT_SCHEMA_V1,
->>>>>>> github/main
         verdict_id: verdict_id.to_string(),
         stimulus_id: stimulus_id.to_string(),
         domain: domain.to_string(),
@@ -204,13 +195,9 @@ mod tests {
         )
         .expect("consensus");
 
-<<<<<<< HEAD
         assert!(
             verdict.anomaly_detected,
             "Anomaly must be flagged when divergence > phi^-2"
         );
-=======
-        assert!(verdict.anomaly_detected, "Anomaly must be flagged when divergence > phi^-2");
->>>>>>> github/main
     }
 }

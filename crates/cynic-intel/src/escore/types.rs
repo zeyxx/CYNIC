@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
 // Re-export Epoch depuis cynic-protocol pour conserver la compatibilité
 // des imports existants dans aggregator.rs (CYNIC §6 single source of truth).
 pub use cynic_protocol::Epoch;
 
-=======
->>>>>>> github/main
 /// L'unité atomique du E-Score. 1 point = 1_000_000 ScoreUnits.
 /// Utiliser des entiers évite toute non-associativité des floats IEEE 754.
 /// Deux nœuds Argo calculant la même séquence obtiennent EXACTEMENT le même résultat.

@@ -38,11 +38,7 @@ pub struct MarketResolution {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConditionalMarket {
-<<<<<<< HEAD
     pub schema: String,
-=======
-    pub schema: &'static str,
->>>>>>> github/main
     pub market_id: String,
     pub proposal_id: String,
     pub question: String,

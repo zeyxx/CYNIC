@@ -139,7 +139,6 @@ pub fn behavioral_dog(
     )
 }
 
-<<<<<<< HEAD
 /// Behavioral profile assembled from on-chain history (Helius enrichment).
 /// Canonical owner: `cynic-intel` (SoC foundation §481). Consumers import it
 /// from here, never from a kernel-local copy.
@@ -194,8 +193,6 @@ impl WalletBehaviorView for WalletBehavioralProfile {
     }
 }
 
-=======
->>>>>>> github/main
 #[cfg(test)]
 mod tests {
     use super::*;
