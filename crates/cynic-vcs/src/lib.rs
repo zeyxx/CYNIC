@@ -1,5 +1,10 @@
 //! cynic-vcs — Sovereign Version Control System domain and runners for CYNIC.
 
+pub use cynic_protocol::vcs::{
+    SOURCE_MATERIALIZATION_FORMAT, SourceSnapshot, source_worktree_lease_target,
+};
+
+// Internal modules
 pub mod development_genesis;
 pub mod entry;
 pub mod forgejo;

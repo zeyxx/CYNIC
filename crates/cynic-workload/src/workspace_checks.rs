@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use cynic_protocol::digest_json;
-use cynic_vcs::source_worktree_lease_target;
+use cynic_protocol::vcs::source_worktree_lease_target;
 
 use super::workspace_types::{
     AGENT_WORKSPACE_REQUEST_SCHEMA, AgentWorkspaceChange, AgentWorkspaceClaimObservation,

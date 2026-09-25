@@ -127,6 +127,7 @@ pub mod task_pipeline;
 pub mod tasks;
 pub mod temporal;
 pub mod transport_security;
+pub mod vcs;
 pub mod window_journal;
 pub use eval::wisdom;
 pub mod workload_identity;

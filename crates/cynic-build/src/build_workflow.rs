@@ -18,7 +18,7 @@ use crate::build::{
     compose_build_runner_envelope, plan_build_runner, validate_build_recipe,
 };
 use cynic_protocol::LeaseVerification;
-use cynic_vcs::source_control::SourceSnapshot;
+use cynic_protocol::vcs::SourceSnapshot;
 
 /// Pure build workflow decision — no IO, no process spawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -197,7 +197,7 @@ mod tests {
         BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
     };
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
-    use cynic_vcs::SourceSnapshot;
+    use cynic_protocol::vcs::SourceSnapshot;
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {

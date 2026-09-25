@@ -8,7 +8,6 @@ description = "Sovereign agent workload lifecycle: admission, claims, delivery, 
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-vcs = { path = "../cynic-vcs" }
 cynic-consensus = { path = "../cynic-consensus" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

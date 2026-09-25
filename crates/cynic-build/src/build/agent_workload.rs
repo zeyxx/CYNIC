@@ -109,7 +109,7 @@ pub fn build_source_reference_from_workload(
                 // build_source_snapshot_recovery_source_invalid.
                 schema: BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
                 digest: snapshot.subject.clone(),
-                format: cynic_vcs::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+                format: cynic_protocol::vcs::SOURCE_MATERIALIZATION_FORMAT.to_string(),
                 authority_ref: snapshot
                     .lineage
                     .as_ref()
@@ -423,7 +423,7 @@ mod tests {
         let snapshot = crate::BuildSourceSnapshotReference {
             schema: crate::BUILD_SOURCE_SNAPSHOT_REFERENCE_SCHEMA.to_string(),
             digest: format!("sha256:{}", "c".repeat(64)),
-            format: cynic_vcs::SOURCE_MATERIALIZATION_FORMAT.to_string(),
+            format: cynic_protocol::vcs::SOURCE_MATERIALIZATION_FORMAT.to_string(),
             authority_ref: "source-release:release-abc".to_string(),
             source: Some(cynic_protocol::RuntimeArtifactSource {
                 transport: cynic_protocol::RuntimeArtifactTransportKind::Https,
