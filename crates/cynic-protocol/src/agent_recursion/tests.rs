@@ -29,39 +29,7 @@ fn parent() -> AgentDelegationEnvelope {
             actions: 10,
             children: 4,
             wall_time_ms: 60_000,
-<<<<<<< HEAD
             cpu_ms: None,
-=======
->>>>>>> github/main
-        },
-        expected_proofs: vec!["runtime_report".to_string()],
-    }
-}
-
-fn child() -> AgentDelegationEnvelope {
-    AgentDelegationEnvelope {
-        schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
-        delegation_id: "child-task".to_string(),
-        node_id: "node-a".to_string(),
-        agent_id: "agent-child".to_string(),
-        parent_agent_id: Some("agent-root".to_string()),
-        depth: 1,
-        objective: "observe one local capability".to_string(),
-        authority_snapshot: evidence("foundation"),
-        context_refs: vec![evidence("node-observation")],
-        capabilities: vec![AgentCapabilityGrant {
-            id: "runtime.observe".to_string(),
-            mutates: false,
-        }],
-        budget: AgentBudget {
-            context_tokens: 20_000,
-            actions: 2,
-            children: 0,
-            wall_time_ms: 10_000,
-<<<<<<< HEAD
-            cpu_ms: None,
-=======
->>>>>>> github/main
         },
         expected_proofs: vec!["capability_observation".to_string()],
     }
@@ -122,10 +90,7 @@ fn completion_returns_proof_upward_within_budget() {
             actions: 1,
             children: 0,
             wall_time_ms: 4_000,
-<<<<<<< HEAD
             cpu_ms: None,
-=======
->>>>>>> github/main
         },
     };
     assert!(admit_completion(&child, &completion).admitted());

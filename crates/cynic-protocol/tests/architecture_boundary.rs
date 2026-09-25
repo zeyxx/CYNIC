@@ -55,11 +55,7 @@ fn protocol_lib_stays_a_contract_focused_entrypoint() {
     let line_count = lib_rs.lines().count();
 
     assert!(
-<<<<<<< HEAD
         line_count <= 240,
-=======
-        line_count <= 220,
->>>>>>> github/main
         "protocol lib.rs should stay compact, got {line_count} lines"
     );
 
@@ -165,7 +161,6 @@ fn protocol_keeps_runtime_and_development_contracts_explicit() {
         );
     }
 }
-<<<<<<< HEAD
 
 /// Every Rust source in the crate must be reachable from `lib.rs`.
 ///
@@ -202,5 +197,3 @@ fn orphan_detection_is_owned_by_the_shared_ratchet() {
          every crate ratchet includes it by path"
     );
 }
-=======
->>>>>>> github/main

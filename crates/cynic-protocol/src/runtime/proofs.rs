@@ -3,12 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 use super::types::{
-<<<<<<< HEAD
     INFERENCE_STATUS_PROOF_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_PERSISTENCE_SCHEMA,
     RUNTIME_PROOF_SCHEMA,
-=======
-    RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA,
->>>>>>> github/main
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,13 +30,8 @@ pub struct RuntimeProofEvidence {
     pub id: String,
     pub status: String,
     pub detail: String,
-<<<<<<< HEAD
-=======
-    /// L'epoch logique associé à cette preuve, si applicable.
-    /// Ce champ est optionnel pour maintenir la compatibilité avec les preuves existantes.
     #[serde(default)]
     pub epoch: Option<u64>,
->>>>>>> github/main
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,7 +76,6 @@ impl RuntimeProof {
     }
 }
 
-<<<<<<< HEAD
 /// Read-back proof of the local inference runtime status.
 ///
 /// Schema: `cynic.inference.status.v1`
@@ -148,8 +138,6 @@ impl HostProofSubmission {
     }
 }
 
-=======
->>>>>>> github/main
 impl RuntimeProofBundle {
     pub fn observed_gates(&self) -> Vec<String> {
         let mut gates = self

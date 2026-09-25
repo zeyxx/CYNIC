@@ -1,14 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-<<<<<<< HEAD
 /// Shared proof-evidence vocabulary used across build, cli, host, node and vcs
 /// surfaces. Kept in the protocol residue because it is cross-family vocabulary,
 /// not transport-specific (40+ consumer sites across 5 crates).
-=======
-pub const TRANSPORT_SECURITY_REPORT_SCHEMA: &str = "cynic.transport_security.report.v1";
-pub const NETWORK_PATH_EVIDENCE_SCHEMA: &str = "cynic.network_path.evidence.v1";
-
->>>>>>> github/main
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityEvidenceState {
@@ -19,8 +13,6 @@ pub enum SecurityEvidenceState {
     Unknown,
     NotApplicable,
 }
-<<<<<<< HEAD
-=======
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -182,4 +174,3 @@ mod tests {
         assert!(!path.admits_authenticated_application());
     }
 }
->>>>>>> github/main

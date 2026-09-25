@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use serde::{Deserialize, Serialize};
 
 use crate::LeaseGuard;
@@ -46,31 +45,3 @@ impl LeaseVerification {
     }
 }
 
-=======
->>>>>>> github/main
-pub fn coord_register_path() -> &'static str {
-    "/coord/register"
-}
-
-pub fn coord_who_path() -> &'static str {
-    "/coord/who"
-}
-
-pub fn coord_claim_path() -> &'static str {
-    "/coord/claim"
-}
-
-pub fn coord_release_path() -> &'static str {
-    "/coord/release"
-}
-<<<<<<< HEAD
-
-pub fn coord_verify_path() -> &'static str {
-    "/coord/verify"
-}
-
-pub fn coord_finalize_path() -> &'static str {
-    "/coord/finalize"
-}
-=======
->>>>>>> github/main

@@ -8,7 +8,6 @@ pub use planner::{
     build_runtime_execution_plan_from_gates, runtime_initial_observed_gates, runtime_missing_gates,
 };
 pub use proofs::{
-<<<<<<< HEAD
     HostProofSubmission, InferenceStatusProof, RuntimeProof, RuntimeProofBundle,
     RuntimeProofEvidence, RuntimeProofPersistenceRecord, runtime_proof_persistence_record,
 };
@@ -18,16 +17,6 @@ pub use types::{
     RuntimeExecutionLayer, RuntimeExecutionPlan, RuntimeExecutionSuite,
     RuntimePlannedExecutionLayer, RuntimeRegistrySummary, RuntimeSharedResponsibility,
     runtime_shared_responsibility,
-=======
-    RuntimeProof, RuntimeProofBundle, RuntimeProofEvidence, RuntimeProofPersistenceRecord,
-    runtime_proof_persistence_record,
-};
-pub use types::{
-    RUNTIME_EXECUTION_PLAN_SCHEMA, RUNTIME_EXECUTION_SUITE_SCHEMA, RUNTIME_PROOF_BUNDLE_SCHEMA,
-    RUNTIME_PROOF_PERSISTENCE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeExecutionCommand, RuntimeExecutionLayer, RuntimeExecutionPlan,
-    RuntimeExecutionSuite, RuntimePlannedExecutionLayer, RuntimeRegistrySummary,
-    RuntimeSharedResponsibility, runtime_shared_responsibility,
->>>>>>> github/main
 };
 
 #[cfg(test)]

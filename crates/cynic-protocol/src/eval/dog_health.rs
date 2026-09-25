@@ -94,15 +94,11 @@ impl DogStats {
     pub fn record_success(&mut self) {
         self.total_calls += 1;
         self.success_count += 1;
-<<<<<<< HEAD:crates/cynic-protocol/src/eval/dog_health.rs
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
         self.last_success = Some(now_ms);
-=======
-        self.last_success = Some(chrono::Utc::now().timestamp_millis());
->>>>>>> github/main:crates/cynic-kernel/src/domain/dog_health.rs
     }
 
     pub fn record_success_with_latency(&mut self, elapsed_ms: u64) {

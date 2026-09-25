@@ -18,7 +18,6 @@ pub struct CanonicalCliSurface {
     pub owner_modules: Vec<String>,
     pub owner_call_markers: Vec<String>,
     pub responsibility: String,
-<<<<<<< HEAD
     pub mutation_policy: SurfaceMutationPolicy,
     pub canonical_entrypoints: Vec<String>,
     pub evidence: Vec<String>,
@@ -171,10 +170,4 @@ mod tests {
         assert!(dimensions.requires_signature_digest_epoch_node_slot_preflight);
         assert!(!dimensions.human_admin_stdin);
     }
-=======
-    pub mutation_policy: String,
-    pub canonical_entrypoints: Vec<String>,
-    pub evidence: Vec<String>,
-    pub anti_responsibilities: Vec<String>,
->>>>>>> github/main
 }

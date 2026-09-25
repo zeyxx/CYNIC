@@ -214,7 +214,6 @@ impl TemporalContract {
     ///
     /// Ce contrat est conçu pour unifier les notions d'epoch, de snapshot,
     /// et de rollback à travers l'ensemble des verticales du runtime.
-<<<<<<< HEAD
     ///
     /// NOTE: pas de `const` ici — `Vec` n'est pas const-constructible.
     /// `vec!` macro inside const déclenche ICE rustc 1.95 (box_assume_init
@@ -232,19 +231,6 @@ impl TemporalContract {
             coverage: "partial",
         }
     }
-=======
-    pub const CONTRACT: TemporalContract = TemporalContract {
-        schema: Self::TEMPORAL_CONTRACT_SCHEMA,
-        id: "temporal",
-        desired_state: "consistent epoch progression, verifiable checkpoints, and bounded rollback windows",
-        observer: "epoch clock probe, checkpoint observer, temporal snapshot producer",
-        reconciliation: "admit only certificate-backed epoch advancement; request rollback on divergence",
-        bounded_action: "accept epoch certificate, request rollback to certified base_epoch, or emit new snapshot",
-        read_back_proof: "epoch certificate, temporal proof bundle, state digest match",
-        owner: vec!["cynic-protocol", "cynic-kernel", "cynic-node"],
-        coverage: "partial",
-    };
->>>>>>> github/main
 }
 
 #[cfg(test)]
@@ -298,16 +284,7 @@ mod tests {
 
     #[test]
     fn epoch_certificate_has_valid_base_epochs() {
-<<<<<<< HEAD
         let cert = EpochCertificate::new(Epoch::new(5), "node-1", "sig-xyz", "sha256:snap5");
-=======
-        let cert = EpochCertificate::new(
-            Epoch::new(5),
-            "node-1",
-            "sig-xyz",
-            "sha256:snap5",
-        );
->>>>>>> github/main
 
         assert_eq!(cert.epoch, Epoch::new(5));
         assert_eq!(cert.base_epochs, vec![Epoch::new(4)]); // Parent par défaut
@@ -315,11 +292,7 @@ mod tests {
 
     #[test]
     fn temporal_contract_declares_coverage_and_owner() {
-<<<<<<< HEAD
         let contract = TemporalContract::contract();
-=======
-        let contract = TemporalContract::CONTRACT;
->>>>>>> github/main
         assert_eq!(contract.id, "temporal");
         assert!(contract.coverage == "partial" || contract.coverage == "complete");
         assert!(!contract.owner.is_empty());
