@@ -4,11 +4,7 @@ pub const RUNTIME_ARTIFACT_RELEASE_SPEC_SCHEMA: &str = "cynic.runtime_artifact_r
 pub const RUNTIME_ARTIFACT_RELEASE_REPORT_SCHEMA: &str = "cynic.runtime_artifact_release.report.v1";
 pub const RUNTIME_ARTIFACT_RELEASE_EVENT_SCHEMA: &str = "cynic.runtime_artifact_release.event.v1";
 
-<<<<<<< HEAD
 #[derive(Debug, Clone, Serialize, Deserialize)]
-=======
-#[derive(Debug, Clone, Deserialize)]
->>>>>>> github/main
 pub struct RuntimeArtifactReleaseSpec {
     pub schema: String,
     pub node_id: String,
@@ -21,7 +17,6 @@ pub struct RuntimeArtifactReleaseSpec {
     pub restart_argv: Vec<String>,
     #[serde(default)]
     pub requires_privilege: bool,
-<<<<<<< HEAD
     /// Optional remote publication target. When present, the CLI publishes
     /// the staged artifact to this target after a successful local
     /// activation (provenance: artifact sha256 + git_sha). Absent means
@@ -47,11 +42,6 @@ fn default_publication_protocol() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-=======
-}
-
-#[derive(Debug, Clone, Deserialize)]
->>>>>>> github/main
 pub struct RuntimeArtifactSpec {
     pub id: String,
     pub path: String,
@@ -128,7 +118,6 @@ pub struct RuntimeArtifactReleaseEvent {
     pub prev_hash: String,
     pub hash: String,
 }
-<<<<<<< HEAD
 
 #[cfg(test)]
 mod tests {
@@ -169,5 +158,3 @@ mod tests {
         assert_eq!(target.protocol, "http_put");
     }
 }
-=======
->>>>>>> github/main
