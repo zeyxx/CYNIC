@@ -12,7 +12,6 @@ default = []
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-protocol = { path = "../cynic-protocol" }
-<<<<<<< HEAD
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-build = { path = "../cynic-build" }
@@ -22,10 +21,6 @@ cynic-askesis = { path = "../cynic-askesis" }
 cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-forensics = { path = "../cynic-forensics" }
-=======
-cynic-intel = { path = "../cynic-intel" }
-cynic-node = { path = "../cynic-node" }
->>>>>>> github/main
 dotenvy = "0.15"
 chrono.workspace = true
 reqwest.workspace = true
@@ -53,11 +48,7 @@ thiserror = "2.0.18"
 arc-swap.workspace = true
 sha2 = "0.11.0"
 sha3 = "0.10.8"
-<<<<<<< HEAD
 hex.workspace = true
-=======
-hex = "0.4"
->>>>>>> github/main
 rusqlite = { version = "0.34", features = ["bundled"] }
 which.workspace = true
 ed25519-dalek.workspace = true

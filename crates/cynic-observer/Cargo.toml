@@ -1,27 +1,17 @@
 [package]
 name = "cynic-observer"
-<<<<<<< HEAD
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 tokio = { version = "1.32", features = ["full"] }
 futures-util.workspace = true
-=======
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-tokio = { version = "1.32", features = ["full"] }
-futures-util = "0.3"
->>>>>>> github/main
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
 env_logger = "0.11.11"
 rustls = { version = "0.23.42", features = ["ring"] }
-<<<<<<< HEAD
 async-trait.workspace = true
 # Optionnel pour la fédération P2P plus tard:
 # libp2p = { version = "0.52", features = ["tokio", "gossipsub", "tcp", "noise", "yamux"] }
@@ -35,17 +25,6 @@ cynic-secrets = { path = "../cynic-secrets" }
 
 [dev-dependencies]
 tempfile = "3"
-=======
-# Optionnel pour la fédération P2P plus tard:
-# libp2p = { version = "0.52", features = ["tokio", "gossipsub", "tcp", "noise", "yamux"] }
-cynic-host = { path = "../cynic-host" }
-blake3 = "1.8.5"
-libp2p = { version = "0.56.0", features = ["tokio", "gossipsub", "tcp", "noise", "yamux", "mdns", "macros", "kad"] }
-cynic-kernel = { version = "26.6.12", path = "../cynic-kernel" }
-cynic-intel = { path = "../cynic-intel" }
-reqwest = { version = "0.13.4", features = ["json"] }
-cynic-protocol = { version = "0.1.0", path = "../cynic-protocol" }
->>>>>>> github/main
 
 [lints]
 workspace = true
