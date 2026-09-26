@@ -129,10 +129,15 @@ fn main() -> ExitCode {
     let request_id = format!("enroll:{}", hex::encode(&now_unix_s.to_be_bytes()));
     let nonce = format!("nonce:{}", hex::encode(&now_unix_s.to_be_bytes()));
 
+    let seed_id = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(args.node_id.as_bytes()))
+    );
+
     let request = NodeEnrollmentRequest {
         schema: NODE_ENROLLMENT_REQUEST_SCHEMA.to_string(),
         request_id: request_id.clone(),
-        seed_id: args.node_id.clone(),
+        seed_id: seed_id.clone(),
         node_id: args.node_id.clone(),
         role: args.role.clone(),
         machine_identity_digest: machine_identity_digest.clone(),
@@ -148,7 +153,7 @@ fn main() -> ExitCode {
         grant_id: format!("grant:{}", hex::encode(&now_unix_s.to_be_bytes())),
         authority_id: "cynic-runtime-machine-enrollment".to_string(),
         request_id,
-        seed_id: args.node_id.clone(),
+        seed_id,
         node_id: args.node_id.clone(),
         role: args.role.clone(),
         machine_identity_digest,
