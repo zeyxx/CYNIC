@@ -7,7 +7,7 @@ use crate::ports::build_scheduler_port::{
     BuildExecutionError, BuildExecutionPort, BuildExecutionReadBack, BuildExecutionRequest,
     BuildSandboxMode,
 };
-use cynic_host::sandbox::cargo::build_cargo_sandbox_argv;
+use cynic_sandbox::cargo::build_cargo_sandbox_argv;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TokioBuildExecution;
@@ -177,7 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn sandboxed_execution_fails_closed_when_helper_is_missing() {
-        use cynic_host::sandbox::cargo::CargoSandboxSpec;
+        use cynic_sandbox::cargo::CargoSandboxSpec;
         let request = BuildExecutionRequest {
             argv: vec!["cargo".into(), "--version".into()],
             working_directory: std::path::PathBuf::from("/tmp"),
@@ -208,7 +208,7 @@ mod tests {
     /// `CYNIC_BWRAP_BIN=/tmp/bwrap-pkg/root/usr/bin/bwrap cargo test ...`.
     #[tokio::test]
     async fn sandboxed_cargo_check_converges_without_network() {
-        use cynic_host::sandbox::cargo::CargoSandboxSpec;
+        use cynic_sandbox::cargo::CargoSandboxSpec;
         let bwrap_bin = std::env::var("CYNIC_BWRAP_BIN").unwrap_or_default();
         if bwrap_bin.trim().is_empty() || !std::path::Path::new(&bwrap_bin).is_file() {
             eprintln!("SKIPPED sandboxed_cargo_check: CYNIC_BWRAP_BIN is not a file");

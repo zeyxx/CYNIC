@@ -170,7 +170,7 @@ fn sandbox_mode_for(
     workspace_root: &std::path::Path,
 ) -> Result<crate::ports::build_scheduler_port::BuildSandboxMode, String> {
     use crate::ports::build_scheduler_port::BuildSandboxMode;
-    use cynic_host::sandbox::cargo::CargoSandboxSpec;
+    use cynic_sandbox::cargo::CargoSandboxSpec;
     if !scheduler.sandbox_bwrap {
         return Ok(BuildSandboxMode::Off);
     }

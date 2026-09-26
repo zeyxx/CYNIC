@@ -7,8 +7,8 @@
 
 use std::path::Path;
 
-use cynic_host::autoresearch::reflection::OfflineReflection;
-use cynic_host::autoresearch::trace_fs::{TraceFsAdapter, TraceSource};
+use cynic_intel::autoresearch::reflection::OfflineReflection;
+use cynic_intel::autoresearch::trace_fs::{TraceFsAdapter, TraceSource};
 use cynic_protocol::autoresearch::AutoresearchProgram;
 use cynic_protocol::autoresearch_port::AutoresearchPort;
 

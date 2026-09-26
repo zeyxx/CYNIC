@@ -56,7 +56,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     let request =
-        match serde_json::from_str::<cynic_host::lxc_exec_bridge::LxcBridgeRequest>(&input) {
+        match serde_json::from_str::<cynic_lxc::LxcBridgeRequest>(&input) {
             Ok(request) => request,
             Err(error) => {
                 eprintln!("request parse failed: {error}");
@@ -67,10 +67,10 @@ fn main() -> ExitCode {
     let authority_config = std::env::var_os("CYNIC_BREAKGLASS_AUTHORITY_CONFIG")
         .unwrap_or_else(|| "/etc/cynic/lxc-breakglass-authority.toml".into());
     let authority_config_path = Path::new(&authority_config);
-    let report = match cynic_host::lxc_exec_bridge::LocalIncidentAuthority::from_config_file(
+    let report = match cynic_lxc::LocalIncidentAuthority::from_config_file(
         authority_config_path,
     ) {
-        Ok(authority) => cynic_host::lxc_exec_bridge::execute_with_incident_authority(
+        Ok(authority) => cynic_lxc::execute_with_incident_authority(
             &request, &pct_bin, &authority,
         ),
         Err(error) => {
@@ -81,7 +81,7 @@ fn main() -> ExitCode {
                     error
                 );
             }
-            cynic_host::lxc_exec_bridge::execute(&request, &pct_bin)
+            cynic_lxc::execute(&request, &pct_bin)
         }
     };
     let success = report.status == "completed";

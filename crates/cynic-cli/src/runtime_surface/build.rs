@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_host::build::{BuildRequest, run_build};
+use cynic_build::{BuildRequest, run_build};
 use cynic_host::update_lifecycle::LocalArgvRunner;
 use cynic_protocol::{SourceSnapshot, admit_build_input};
 

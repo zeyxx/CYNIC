@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
 use tokio_util::sync::CancellationToken;
 
-pub use cynic_host::sandbox::cargo::BuildSandboxMode;
+pub use cynic_sandbox::cargo::BuildSandboxMode;
 
 use crate::ports::agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspacePortError};
 
