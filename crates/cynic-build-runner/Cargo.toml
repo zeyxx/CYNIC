@@ -1,0 +1,12 @@
+[package]
+name = "cynic-build-runner"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+assert-json-diff = { workspace = true }
