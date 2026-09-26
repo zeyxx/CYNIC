@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest, SecurityEvidenceState,
     reconcile_runtime_seed, validate_runtime_seed_request,
 };
