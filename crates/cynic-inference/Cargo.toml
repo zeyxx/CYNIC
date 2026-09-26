@@ -10,6 +10,7 @@ axum.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-workload = { path = "../cynic-workload" }
+cynic-eval = { path = "../cynic-eval" }
 futures-util.workspace = true
 reqwest.workspace = true
 serde.workspace = true

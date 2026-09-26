@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use crate::organ::backend_handle::{BackendEntry, BackendHandle};
 use crate::organ::registry::{Backend, BackendHealth, BackendId};
-use cynic_protocol::{DogStats, ScoreOutcome};
+use cynic_eval::eval::dog_health::{DogStats, ScoreOutcome};
 
 /// InferenceOrgan — owns the registry of Dog backends and tracks their health.
 #[derive(Debug)]

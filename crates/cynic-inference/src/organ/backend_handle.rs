@@ -7,7 +7,7 @@ use std::time::Instant;
 use crate::organ::health::ParseFailureGate;
 use crate::organ::inference_organ::InferenceOrgan;
 use crate::organ::registry::{Backend, BackendHealth};
-use cynic_protocol::{DogStats, ScoreFailureKind, ScoreOutcome};
+use cynic_eval::eval::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 
 /// Per-backend health tracking entry (private — exposed only via BackendHandle).
 #[derive(Debug)]
