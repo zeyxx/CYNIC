@@ -9,7 +9,7 @@ use cynic_vcs::{
     SourceRepositoryBootstrapRequest, plan_source_materialization,
     reconcile_source_repository_bootstrap,
 };
-use cynic_protocol::digest_json;
+use cynic_node_protocol::digest_json;
 
 use crate::{
     adapters::{

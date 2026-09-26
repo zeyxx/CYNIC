@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-use cynic_protocol::digest_json;
+use cynic_node_protocol::digest_json;
 
 use super::{LocalRegistryAdapter, model::RegistrySourceWorkspaceLayout, node_name};
 use crate::ports::agent_workspace_port::{

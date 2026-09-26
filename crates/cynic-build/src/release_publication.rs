@@ -179,7 +179,7 @@ pub fn validate_signed_release_basket_read_back(
             blockers.push(format!("signed_release_{kind}_digest_invalid"));
         }
     }
-    if cynic_protocol::digest_json(manifest).ok().as_deref()
+    if cynic_node_protocol::digest_json(manifest).ok().as_deref()
         != Some(read_back.manifest_digest.as_str())
     {
         blockers.push("signed_release_manifest_digest_mismatch".to_string());
@@ -344,7 +344,7 @@ mod tests {
             schema: SIGNED_RELEASE_BASKET_READ_BACK_SCHEMA.to_string(),
             node_id: "builder-a".to_string(),
             workload_id: "build-a".to_string(),
-            manifest_digest: cynic_protocol::digest_json(&manifest).unwrap(),
+            manifest_digest: cynic_node_protocol::digest_json(&manifest).unwrap(),
             manifest,
             manifest_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
@@ -412,8 +412,8 @@ mod tests {
             serde_json::from_value(legacy).expect("legacy manifest parses");
         assert!(parsed.residual_unknowns.is_empty());
         // Unknowns are digest-covered: mutating them breaks the manifest digest.
-        let before = cynic_protocol::digest_json(&manifest).unwrap();
+        let before = cynic_node_protocol::digest_json(&manifest).unwrap();
         manifest.residual_unknowns.push("release_extra".to_string());
-        assert_ne!(cynic_protocol::digest_json(&manifest).unwrap(), before);
+        assert_ne!(cynic_node_protocol::digest_json(&manifest).unwrap(), before);
     }
 }

@@ -259,7 +259,7 @@ mod tests {
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
-            schema: cynic_protocol::NODE_DESIRED_STATE_SCHEMA.to_string(),
+            schema: cynic_node_protocol::NODE_DESIRED_STATE_SCHEMA.to_string(),
             node_id: "node-a".to_string(),
             role: "runtime".to_string(),
             generation: 1,

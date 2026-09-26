@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
-use cynic_protocol::digest_json;
+use cynic_node_protocol::digest_json;
 
 use crate::hardware_baseline_apply::{
     HardwareBaselineBundle, HardwareBaselineBundleProof, HardwareBaselineBundleStorePort,

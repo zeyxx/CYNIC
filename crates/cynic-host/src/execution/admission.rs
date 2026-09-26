@@ -315,7 +315,7 @@ fn check(condition: bool, blocker: &str, blockers: &mut Vec<String>) {
 }
 
 pub(crate) fn digest_json<T: Serialize>(value: &T) -> String {
-    cynic_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
+    cynic_node_protocol::digest_json(value).unwrap_or_else(|_| "sha256:unavailable".to_string())
 }
 
 pub(crate) fn stderr_with_spawn_error(mut stderr: String, spawn_error: Option<String>) -> String {

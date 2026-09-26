@@ -6,7 +6,7 @@ use rmcp::{
 
 use crate::domain::storage::AgentTask;
 use cynic_protocol::AgentEvidenceRef;
-use cynic_protocol::validate_evidence_refs;
+use cynic_node_protocol::validate_evidence_refs;
 
 use super::{
     ClaimAgentTaskParams, CynicMcp, DispatchAgentTaskParams, ListPendingAgentTasksParams,

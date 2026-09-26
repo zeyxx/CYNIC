@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use std::path::Path;
 
 pub(super) trait TakeoverWatchStore {
-    fn latest(&self) -> Result<Option<cynic_protocol::RuntimeTakeoverWatchRecord>, String>;
+    fn latest(&self) -> Result<Option<cynic_node_protocol::RuntimeTakeoverWatchRecord>, String>;
     fn acknowledged(&self, admission_proof_ref: &str) -> Result<bool, String>;
-    fn acknowledge(&self, ack: &cynic_protocol::RuntimeTakeoverActivationAck)
+    fn acknowledge(&self, ack: &cynic_node_protocol::RuntimeTakeoverActivationAck)
     -> Result<(), String>;
 }
 
@@ -32,7 +32,7 @@ impl JsonlTakeoverWatchStore {
 }
 
 impl TakeoverWatchStore for JsonlTakeoverWatchStore {
-    fn latest(&self) -> Result<Option<cynic_protocol::RuntimeTakeoverWatchRecord>, String> {
+    fn latest(&self) -> Result<Option<cynic_node_protocol::RuntimeTakeoverWatchRecord>, String> {
         let content = fs::read_to_string(&self.watch_path)
             .map_err(|error| format!("read takeover watch: {error}"))?;
         content
@@ -50,13 +50,13 @@ impl TakeoverWatchStore for JsonlTakeoverWatchStore {
         if !self.ack_path.is_file() {
             return Ok(false);
         }
-        let ack: cynic_protocol::RuntimeTakeoverActivationAck = serde_json::from_str(
+        let ack: cynic_node_protocol::RuntimeTakeoverActivationAck = serde_json::from_str(
             &fs::read_to_string(&self.ack_path)
                 .map_err(|error| format!("read takeover ack: {error}"))?,
         )
         .map_err(|error| format!("decode takeover ack: {error}"))?;
         Ok(
-            ack.schema == cynic_protocol::RUNTIME_TAKEOVER_ACTIVATION_ACK_SCHEMA
+            ack.schema == cynic_node_protocol::RUNTIME_TAKEOVER_ACTIVATION_ACK_SCHEMA
                 && ack.admission_proof_ref == admission_proof_ref
                 && ack.status == "activated_proved",
         )
@@ -64,7 +64,7 @@ impl TakeoverWatchStore for JsonlTakeoverWatchStore {
 
     fn acknowledge(
         &self,
-        ack: &cynic_protocol::RuntimeTakeoverActivationAck,
+        ack: &cynic_node_protocol::RuntimeTakeoverActivationAck,
     ) -> Result<(), String> {
         let parent = self
             .ack_path

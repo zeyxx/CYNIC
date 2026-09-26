@@ -156,7 +156,7 @@ mod tests {
     fn stale_observation_does_not_advance_epoch() {
         let plan = plan_framework_epoch("commit-1", "sha256:desired", "fleet", 1).unwrap();
         let observation = DeploymentPhaseObservation {
-            schema: cynic_protocol::DEPLOYMENT_TRANSITION_SCHEMA.to_string(),
+            schema: cynic_node_protocol::DEPLOYMENT_TRANSITION_SCHEMA.to_string(),
             epoch_id: plan.epoch.epoch_id.clone(),
             phase: DeploymentPhase::Proposed,
             ready: true,

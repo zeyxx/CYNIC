@@ -98,7 +98,7 @@ impl AutoresearchObserver {
 
         for entry in &report.entries {
             if entry.status == KeepDiscard::Keep {
-                let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
+                let digest = cynic_node_protocol::digest::digest_json(&serde_json::json!({
                     "skill_id": entry.skill_id,
                     "domain": entry.domain,
                     "gain": entry.gain,

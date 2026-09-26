@@ -78,7 +78,7 @@ pub fn local_transport_binding_sha256(
     user_id: u32,
     group_id: u32,
 ) -> Result<String, serde_json::Error> {
-    cynic_protocol::digest_json(&serde_json::json!({
+    cynic_node_protocol::digest_json(&serde_json::json!({
         "schema": "cynic.local_peer_transport_binding.v1",
         "node_id": node_id,
         "boot_id": boot_id,

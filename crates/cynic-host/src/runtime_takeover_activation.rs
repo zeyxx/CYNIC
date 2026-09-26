@@ -11,7 +11,7 @@ use cynic_lifecycle::ArgvRunner;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeTakeoverActivationPlan {
-    pub request: cynic_protocol::RuntimeTakeoverActivationRequest,
+    pub request: cynic_node_protocol::RuntimeTakeoverActivationRequest,
     pub stop_standby_argv: Vec<String>,
     pub start_active_argv: Vec<String>,
     pub status_active_argv: Vec<String>,
@@ -25,16 +25,16 @@ pub struct RuntimeTakeoverActivationReport {
     pub schema: &'static str,
     pub status: &'static str,
     pub plan: RuntimeTakeoverActivationPlan,
-    pub observation: Option<cynic_protocol::RuntimeTakeoverActivationObservation>,
-    pub decision: Option<cynic_protocol::RuntimeTakeoverActivationDecision>,
+    pub observation: Option<cynic_node_protocol::RuntimeTakeoverActivationObservation>,
+    pub decision: Option<cynic_node_protocol::RuntimeTakeoverActivationDecision>,
     pub blockers: Vec<String>,
 }
 
 pub fn plan_runtime_takeover_activation(
-    request: cynic_protocol::RuntimeTakeoverActivationRequest,
+    request: cynic_node_protocol::RuntimeTakeoverActivationRequest,
     admission: &cynic_protocol::RuntimeTakeoverDecision,
 ) -> Result<RuntimeTakeoverActivationPlan, String> {
-    if request.schema != cynic_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA {
+    if request.schema != cynic_node_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA {
         return Err("takeover activation request schema is invalid".to_string());
     }
     let fields = [
@@ -133,8 +133,8 @@ pub fn apply_runtime_takeover_activation(
     if !identity_output.success() || !identity_verified {
         blockers.push("active_identity_read_back_failed".to_string());
     }
-    let observation = cynic_protocol::RuntimeTakeoverActivationObservation {
-        schema: cynic_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA.to_string(),
+    let observation = cynic_node_protocol::RuntimeTakeoverActivationObservation {
+        schema: cynic_node_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA.to_string(),
         node_id: identity
             .as_ref()
             .and_then(|value| value.get("node_id"))
@@ -151,7 +151,7 @@ pub fn apply_runtime_takeover_activation(
             plan.request.identity_endpoint.clone(),
         ],
     };
-    let decision = cynic_protocol::reconcile_takeover_activation(&plan.request, &observation);
+    let decision = cynic_node_protocol::reconcile_takeover_activation(&plan.request, &observation);
     blockers.extend(decision.blockers.clone());
     blockers.sort();
     blockers.dedup();
@@ -181,9 +181,9 @@ fn argv_refs(argv: &[String]) -> Vec<&str> {
 mod tests {
     use super::*;
 
-    fn request() -> cynic_protocol::RuntimeTakeoverActivationRequest {
-        cynic_protocol::RuntimeTakeoverActivationRequest {
-            schema: cynic_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA.to_string(),
+    fn request() -> cynic_node_protocol::RuntimeTakeoverActivationRequest {
+        cynic_node_protocol::RuntimeTakeoverActivationRequest {
+            schema: cynic_node_protocol::RUNTIME_TAKEOVER_ACTIVATION_SCHEMA.to_string(),
             node_id: "node-a".to_string(),
             fencing_token: 4,
             prior_fencing_token: 3,

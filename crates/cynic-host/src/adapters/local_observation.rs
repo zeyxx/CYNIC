@@ -22,7 +22,7 @@ use crate::service_supervisor_observation::observe_service_supervisor;
 pub struct LocalHostObservationAdapter;
 
 impl PreOsPlatformObservationPort for LocalHostObservationAdapter {
-    fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
+    fn observe_pre_os_platform(&self) -> cynic_node_protocol::PreOsPlatformObservation {
         crate::adapters::local_pre_os::LocalPreOsAdapter.observe_pre_os_platform()
     }
 }

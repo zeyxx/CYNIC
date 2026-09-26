@@ -405,9 +405,9 @@ fn invalid_windows_component(value: &str) -> bool {
 }
 
 fn valid_canonical_digest(value: &str) -> bool {
-    cynic_protocol::digest::validate_digest(value, false).is_ok()
+    cynic_node_protocol::digest::validate_digest(value, false).is_ok()
         && value
-            .strip_prefix(cynic_protocol::digest::SHA3_PREFIX)
+            .strip_prefix(cynic_node_protocol::digest::SHA3_PREFIX)
             .is_some_and(|body| {
                 body.len() == 128
                     && body

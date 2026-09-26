@@ -339,7 +339,7 @@ fn e2e_step4_runtime_release_declaration_constructs() {
         ],
     };
 
-    let mut desired = cynic_protocol::NodeDesiredState {
+    let mut desired = cynic_node_protocol::NodeDesiredState {
         schema: NODE_DESIRED_STATE_SCHEMA.to_string(),
         node_id: "node-a".to_string(),
         role: "runtime".to_string(),
@@ -359,7 +359,7 @@ fn e2e_step4_runtime_release_declaration_constructs() {
         desired_state: desired,
     };
 
-    let digest = cynic_protocol::digest_json(&declaration).unwrap();
+    let digest = cynic_node_protocol::digest_json(&declaration).unwrap();
     assert!(!digest.is_empty());
 
     let policy_digest =

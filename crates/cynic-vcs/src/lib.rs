@@ -86,7 +86,7 @@ pub fn observe_source_worktree_inventory(
                 repository_id,
                 node_id,
                 observed_at_ms,
-                cynic_protocol::digest::digest_bytes(error.as_bytes()),
+                cynic_node_protocol::digest::digest_bytes(error.as_bytes()),
             );
         }
     };

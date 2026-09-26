@@ -3,7 +3,7 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::digest_json;
+use cynic_node_protocol::digest_json;
 
 use crate::hardware_baseline_apply::{
     HardwareBaselineInstallPort, HardwareBaselineInstallProof, HardwareBaselineInstallSpec,

@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use cynic_protocol::digest_json;
+use cynic_node_protocol::digest_json;
 use cynic_protocol::vcs::source_worktree_lease_target;
 
 use super::workspace_types::{

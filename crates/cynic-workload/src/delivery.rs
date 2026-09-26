@@ -289,7 +289,7 @@ pub fn accept_agent_workload_delivery(
     let lease_id = if renewing {
         prior.map_or_else(String::new, |lease| lease.lease_id.clone())
     } else {
-        cynic_protocol::digest_json(&serde_json::json!({
+        cynic_node_protocol::digest_json(&serde_json::json!({
             "workload_id": delivery.envelope.workload_id,
             "consumer_instance_id": acceptance.consumer_instance_id,
             "fencing_token": fencing_token,

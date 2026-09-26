@@ -201,7 +201,7 @@ pub async fn orchestrate_build_submission(
         schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
         revision: 1,
         previous_record_digest: None,
-        record_digest: cynic_protocol::digest_json(&grant_record)
+        record_digest: cynic_node_protocol::digest_json(&grant_record)
             .map_err(|_| "grant_record_digest_failed".to_string())?,
         record: grant_record,
         committed_at_ms: now_ms,

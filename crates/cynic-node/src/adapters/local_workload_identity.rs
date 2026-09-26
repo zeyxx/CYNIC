@@ -33,7 +33,7 @@ impl WorkloadIdentityPort for LocalWorkloadIdentityAdapter {
         _now_unix_seconds: u64,
     ) -> WorkloadIdentityObservation {
         let node_desired = NodeIdentityDesiredState {
-            schema: cynic_protocol::NODE_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
+            schema: cynic_node_protocol::NODE_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
             node_id: self.node_id.clone(),
             signing_key_path: self.signing_key_path.clone(),
         };

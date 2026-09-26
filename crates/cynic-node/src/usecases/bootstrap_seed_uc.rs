@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn bootstrap_seed_executes_only_a_ready_plan_in_bootstrap_seed_mode() {
         let decision = decide_bootstrap_seed_execution(
-            cynic_protocol::NodeExecutionMode::BootstrapSeed,
+            cynic_node_protocol::NodeExecutionMode::BootstrapSeed,
             plan(
                 "ready",
                 vec![vec!["make".to_string(), "check".to_string()]],
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn bootstrap_seed_refuses_unknown_or_blocked_plans_before_any_executor_port() {
         let decision = decide_bootstrap_seed_execution(
-            cynic_protocol::NodeExecutionMode::BootstrapSeed,
+            cynic_node_protocol::NodeExecutionMode::BootstrapSeed,
             plan(
                 "unknown",
                 Vec::new(),
@@ -317,7 +317,7 @@ mod tests {
         );
         let requests = bootstrap_seed_execution_requests(
             &decide_bootstrap_seed_execution(
-                cynic_protocol::NodeExecutionMode::BootstrapSeed,
+                cynic_node_protocol::NodeExecutionMode::BootstrapSeed,
                 seed_plan.clone(),
             ),
             std::path::Path::new("/var/lib/cynic/bootstrap/seed-1/source"),

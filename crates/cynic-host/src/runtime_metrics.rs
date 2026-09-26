@@ -684,7 +684,7 @@ mod tests {
                 ..Default::default()
             };
             crate::hardware_conformance::HardwareObservation {
-                baseline_digest: cynic_protocol::digest_json(&inventory).ok(),
+                baseline_digest: cynic_node_protocol::digest_json(&inventory).ok(),
                 inventory,
                 firmware_version: Some("test-firmware".to_string()),
                 max_temperature_millicelsius: Some(40_000),
@@ -699,11 +699,11 @@ mod tests {
     }
 
     impl crate::ports::PreOsPlatformObservationPort for ReadyObserver {
-        fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
-            cynic_protocol::PreOsPlatformObservation {
-                schema: cynic_protocol::PRE_OS_PLATFORM_OBSERVATION_SCHEMA.to_string(),
+        fn observe_pre_os_platform(&self) -> cynic_node_protocol::PreOsPlatformObservation {
+            cynic_node_protocol::PreOsPlatformObservation {
+                schema: cynic_node_protocol::PRE_OS_PLATFORM_OBSERVATION_SCHEMA.to_string(),
                 platform: "test".to_string(),
-                controls: vec![cynic_protocol::PreOsControlKind::Hypervisor],
+                controls: vec![cynic_node_protocol::PreOsControlKind::Hypervisor],
                 boot_once: cynic_protocol::SecurityEvidenceState::Proven,
                 artifact_discovery: cynic_protocol::SecurityEvidenceState::Proven,
                 attestation_sink: cynic_protocol::SecurityEvidenceState::Proven,

@@ -118,7 +118,7 @@ mod tests {
                 .summary
                 .contains("[CRITICAL] Network alert on 'wireguard_mesh'")
         );
-        assert!(cynic_protocol::validate_notification_outbox_entry(&outbox[0]).is_empty());
+        assert!(cynic_node_protocol::validate_notification_outbox_entry(&outbox[0]).is_empty());
     }
 
     #[test]

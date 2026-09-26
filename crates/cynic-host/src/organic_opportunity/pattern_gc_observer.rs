@@ -70,7 +70,7 @@ impl PatternGcObserver {
                 PatternClass::Unknown => continue,
             };
 
-            let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
+            let digest = cynic_node_protocol::digest::digest_json(&serde_json::json!({
                 "key": assessment.key,
                 "class": assessment.class,
                 "reasons": assessment.reasons,

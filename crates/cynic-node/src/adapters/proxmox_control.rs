@@ -243,7 +243,7 @@ impl ProxmoxControlAdapter {
         let metadata_blockers = metadata.as_ref().map_or_else(
             || vec!["credential_lease_metadata_unreadable".to_string()],
             |value| {
-                cynic_protocol::validate_credential_lease_metadata(
+                cynic_node_protocol::validate_credential_lease_metadata(
                     value,
                     "proxmox",
                     material_digest.as_deref(),

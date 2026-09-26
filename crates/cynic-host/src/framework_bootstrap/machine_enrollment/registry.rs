@@ -93,7 +93,7 @@ pub fn resolve_machine_enrollment_authority_spec(
         return Err("machine_enrollment_role_not_allowed".to_string());
     }
     let requested_capabilities =
-        cynic_protocol::required_node_enrollment_capabilities(&seed.enrollment.target_role);
+        cynic_node_protocol::required_node_enrollment_capabilities(&seed.enrollment.target_role);
     if !requested_capabilities.iter().all(|capability| {
         registry
             .node_enrollment
