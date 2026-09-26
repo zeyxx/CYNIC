@@ -13,7 +13,7 @@ use crate::peer_resolver_mesh::MeshPeerResolver;
 use cynic_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_score_from_os};
 use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
-use cynic_protocol::node_control::NodeControlPlan;
+use cynic_node_protocol::node_control::NodeControlPlan;
 use cynic_protocol::peer_resolver::PeerResolver;
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 
@@ -395,7 +395,7 @@ impl FederationRuntime {
 mod tests {
     use super::*;
     use cynic_protocol::local_autonomy::AutonomyMode;
-    use cynic_protocol::node_control::{NodeControlConnectionState, NodeControlDecision};
+    use cynic_node_protocol::node_control::{NodeControlConnectionState, NodeControlDecision};
 
     struct FakeKernel {
         reachable: bool,

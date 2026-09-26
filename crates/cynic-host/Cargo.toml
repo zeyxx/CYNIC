@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-vcs = { path = "../cynic-vcs" }

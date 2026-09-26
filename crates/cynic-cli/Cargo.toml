@@ -17,6 +17,7 @@ cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-node = { path = "../cynic-node" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }

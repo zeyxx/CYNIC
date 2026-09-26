@@ -10,7 +10,7 @@ use std::sync::Arc;
 use cynic_protocol::fleet_heartbeat::{
     FleetHeartbeat, HeartbeatValidationResult, SignedFleetHeartbeat,
 };
-use cynic_protocol::node_identity::NodeEnrollmentCertificate;
+use cynic_node_protocol::node_identity::NodeEnrollmentCertificate;
 
 use crate::crypto::{CryptoError, CryptoProvider, Ed25519Provider};
 
@@ -207,7 +207,7 @@ impl PeerValidator {
 mod tests {
     use super::*;
     use cynic_protocol::fleet_discovery::FleetNodeStatus;
-    use cynic_protocol::node_identity::NODE_ENROLLMENT_CERTIFICATE_SCHEMA;
+    use cynic_node_protocol::node_identity::NODE_ENROLLMENT_CERTIFICATE_SCHEMA;
     use sha2::{Digest, Sha256};
 
     fn make_cert(

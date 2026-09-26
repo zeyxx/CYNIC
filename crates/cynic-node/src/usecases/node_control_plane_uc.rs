@@ -12,7 +12,7 @@ use crate::ports::node_control_plane_port::{
 use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
 use crate::ports::runtime_seed_actuation_port::RuntimeSeedActuationPort;
 use cynic_host::plan_verifier::PlanVerifier;
-use cynic_protocol::node_control::ControlPlanVerificationStatus;
+use cynic_node_protocol::node_control::ControlPlanVerificationStatus;
 
 use super::runtime_artifact_deployment_uc::{
     RuntimeArtifactDeploymentReport, reconcile_runtime_artifact_deployment,

@@ -150,7 +150,7 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
             } else {
                 match &report.result {
                     Some(Ok(proof)) => match proof {
-                        cynic_protocol::node_activation::ActivationProof::Activated {
+                        cynic_node_protocol::node_activation::ActivationProof::Activated {
                             evidence_refs,
                             ..
                         } => {
@@ -160,14 +160,14 @@ pub(crate) fn execute_node_activation(command: NodeActivationCommand) -> ExitCod
                                 evidence_refs.join(", ")
                             );
                         }
-                        cynic_protocol::node_activation::ActivationProof::Failed {
+                        cynic_node_protocol::node_activation::ActivationProof::Failed {
                             blockers,
                             ..
                         } => {
                             println!("FAILED: {} (blockers: {})", node_id, blockers.join(", "));
                             return ExitCode::FAILURE;
                         }
-                        cynic_protocol::node_activation::ActivationProof::RolledBack {
+                        cynic_node_protocol::node_activation::ActivationProof::RolledBack {
                             rollback_evidence_refs,
                             ..
                         } => {

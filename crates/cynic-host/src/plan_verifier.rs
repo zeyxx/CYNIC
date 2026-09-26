@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use cynic_protocol::node_control::{
+use cynic_node_protocol::node_control::{
     ControlPlanVerificationStatus, NodeDesiredState, SignedNodeControlPlan,
     verify_control_plan_preconditions,
 };
@@ -136,7 +136,7 @@ impl PlanVerifier {
 mod tests {
     use super::*;
     use cynic_protocol::RuntimeSeedRequest;
-    use cynic_protocol::node_control::NODE_DESIRED_STATE_SCHEMA;
+    use cynic_node_protocol::node_control::NODE_DESIRED_STATE_SCHEMA;
 
     fn fixture_desired(generation: u64) -> NodeDesiredState {
         NodeDesiredState {

@@ -18,7 +18,7 @@ use cynic_protocol::fleet_discovery::FleetNodeStatus;
 use cynic_protocol::fleet_heartbeat::{
     FleetHeartbeat, HeartbeatValidationResult, aggregate_authenticated_fleet_health,
 };
-use cynic_protocol::node_control::{
+use cynic_node_protocol::node_control::{
     ControlPlanVerificationStatus, NODE_DESIRED_STATE_SCHEMA, NodeDesiredState,
 };
 use tempfile::tempdir;

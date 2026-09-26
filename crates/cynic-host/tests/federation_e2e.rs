@@ -36,7 +36,7 @@ fn production_runtime() -> FederationRuntime {
 struct FakeNodeControl;
 
 impl cynic_host::federation_runtime::NodeControlPort for FakeNodeControl {
-    fn node_control_plan(&self) -> Option<cynic_protocol::node_control::NodeControlPlan> {
+    fn node_control_plan(&self) -> Option<cynic_node_protocol::node_control::NodeControlPlan> {
         None
     }
 }

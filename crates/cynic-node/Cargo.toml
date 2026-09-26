@@ -43,6 +43,7 @@ ed25519-dalek.workspace = true
 rusqlite = { version = "0.34", features = ["bundled"] }
 zeroize.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-vcs = { path = "../cynic-vcs" }
