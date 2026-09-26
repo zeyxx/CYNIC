@@ -106,7 +106,7 @@ pub fn required_node_enrollment_capabilities(role: &str) -> Vec<String> {
     let mut capabilities = vec!["node_control".to_string(), role.to_string()];
     if role == "build_runner" {
         capabilities.extend(
-            cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+            crate::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
                 .iter()
                 .map(|capability| (*capability).to_string()),
         );
