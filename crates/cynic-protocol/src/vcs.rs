@@ -2,9 +2,6 @@
 //!
 //! Layer 0 pure contracts: zero dependencies on host I/O or git processes.
 
-use serde::{Deserialize, Serialize};
-use crate::SecurityEvidenceState;
-
 pub const SOURCE_MATERIALIZATION_FORMAT: &str = "git_bundle_v1";
 
 /// Format canonical lease target identifier for an isolated source worktree.
