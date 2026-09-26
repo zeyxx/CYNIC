@@ -1,7 +1,6 @@
 mod io;
 
 use io::read_json_file;
-pub(crate) use io::{check, write};
 use serde_json::{Map, Value};
 use std::collections::BTreeSet;
 use std::fs::{self, File, OpenOptions};
