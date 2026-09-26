@@ -3,7 +3,7 @@
 //! Pure shapes only — no I/O here. The runner produces these, the render
 //! layer formats them.
 
-use cynic_protocol::judgment::CynicJudgment;
+use cynic_eval::judgment::CynicJudgment;
 
 /// Summary of an autoresearch run (pure shape for projection).
 #[derive(Debug, Clone, serde::Serialize)]

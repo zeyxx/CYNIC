@@ -100,8 +100,7 @@ fn project_judgment(
     report: &cynic_protocol::autoresearch::AutoresearchReport,
     subject: Option<&str>,
 ) -> CynicJudgment {
-    use cynic_protocol::judgment::{CynefinDomain, DijkwLayer, SagePhase};
-    use cynic_protocol::CynicJudgment;
+    use cynic_eval::judgment::{CynefinDomain, DijkwLayer, SagePhase, CynicJudgment};
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -148,8 +147,7 @@ fn project_judgment(
 }
 
 fn error_judgment(reason: &str) -> CynicJudgment {
-    use cynic_protocol::judgment::{CynefinDomain, DijkwLayer, SagePhase};
-    use cynic_protocol::CynicJudgment;
+    use cynic_eval::judgment::{CynefinDomain, DijkwLayer, SagePhase, CynicJudgment};
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

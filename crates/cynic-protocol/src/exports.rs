@@ -33,7 +33,6 @@ pub use crate::breakglass::*;
 pub use crate::capability_budget::*;
 pub use crate::capability_responsibility::*;
 pub use crate::constitutional_law::*;
-pub use crate::convergence::*;
 pub use crate::coord::{
     LEASE_VERIFICATION_SCHEMA, LeaseVerification, coord_claim_path, coord_finalize_path,
     coord_register_path, coord_release_path, coord_verify_path, coord_who_path,
@@ -64,8 +63,6 @@ pub use crate::health_signal::reconcile_health_signal;
 pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;
 pub use crate::integrity::*;
-pub use crate::judgment::*;
-pub use crate::kyon::*;
 pub use crate::machine_enrollment::*;
 pub use crate::machine_identity::*;
 pub use crate::mcp_projection::*;

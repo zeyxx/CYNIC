@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::judge_patch::{JUDGE_PATCH_SCHEMA, PatchObservation};
+use cynic_eval::judge_patch::{JUDGE_PATCH_SCHEMA, PatchObservation};
 use sha2::{Digest, Sha256};
 
 fn run_git(root: &Path, args: &[&str]) -> Option<String> {

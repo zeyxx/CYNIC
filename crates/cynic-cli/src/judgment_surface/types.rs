@@ -3,7 +3,7 @@
 //! Pure shapes only — no I/O here. The scan layer produces these, the render
 //! layer formats them.
 
-use cynic_protocol::CynicJudgment;
+use cynic_eval::judgment::CynicJudgment;
 
 /// The judgment surface report. Currently a single judgment with metadata
 /// about how it was produced.

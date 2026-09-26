@@ -41,16 +41,16 @@ pub(crate) fn execute_judge(command: JudgeCommand) -> ExitCode {
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
-            let input = cynic_protocol::judge_patch::PatchJudgmentInput {
+            let input = cynic_eval::judge_patch::PatchJudgmentInput {
                 observation: obs.clone(),
                 judged_at_unix_s: now,
             };
-            let judgment = cynic_protocol::judge_patch::judge_patch(&input);
+            let judgment = cynic_eval::judge_patch::judge_patch(&input);
             if json {
                 #[derive(serde::Serialize)]
                 struct Out<'a> {
-                    observation: &'a cynic_protocol::judge_patch::PatchObservation,
-                    judgment: &'a cynic_protocol::judgment::CynicJudgment,
+                    observation: &'a cynic_eval::judge_patch::PatchObservation,
+                    judgment: &'a cynic_eval::judgment::CynicJudgment,
                 }
                 emit_pretty_json(&Out {
                     observation: &obs,
