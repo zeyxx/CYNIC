@@ -83,6 +83,20 @@ audit: ## Native unified audit of all crates, architecture boundaries, and secre
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
 	fi
 
+.PHONY: converge
+converge: ## Native automated convergence of worktrees, branches, and unified audit
+	@echo "==> Reconciling agent worktrees and branches"
+	@CYNIC_BIN=$$(if [ -x target/release/cynic ]; then echo "target/release/cynic"; elif [ -x target/debug/cynic ]; then echo "target/debug/cynic"; elif [ -x /var/lib/cynic/bin/cynic ]; then echo "/var/lib/cynic/bin/cynic"; else echo ""; fi); \
+	if [ -n "$$CYNIC_BIN" ]; then \
+		$$CYNIC_BIN source worktree --apply --json; \
+		echo "==> Verifying workspace convergence audit"; \
+		$$CYNIC_BIN audit all --json; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source worktree --apply --json; \
+		echo "==> Verifying workspace convergence audit"; \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
+	fi
+
 # Layered, per-layer validation. Dependency order: protocol -> host -> node ->
 # kernel -> mcp -> cli. Each layer gets an isolated target dir and a
 # fail-closed cargo check + test pass. Cache integrity is observed first
