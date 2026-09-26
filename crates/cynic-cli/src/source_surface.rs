@@ -7,6 +7,9 @@ use std::process::ExitCode;
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
 use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
 
+mod worktree_allocation;
+use worktree_allocation::execute_allocate_worktree;
+
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
 /// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
 /// provider kind is unknown.
@@ -94,6 +97,15 @@ pub(crate) enum SourceCommand {
         apply: bool,
         #[arg(long)]
         json: bool,
+        /// Allocate an isolated agent worktree for the given branch name
+        #[arg(long)]
+        allocate: Option<String>,
+        /// Base ref for isolated worktree allocation (defaults to origin/main)
+        #[arg(long)]
+        base: Option<String>,
+        /// Explicit target path for allocation (defaults to ~/.cynic/worktrees/<branch>)
+        #[arg(long)]
+        path: Option<String>,
     },
     /// Manage Pull Requests on the sovereign VCS provider (read from infra/registry.json).
     Pr {
@@ -193,7 +205,23 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             workspace_store,
             apply,
             json,
-        } => execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json),
+            allocate,
+            base,
+            path,
+        } => {
+            if let Some(branch) = allocate {
+                execute_allocate_worktree(
+                    Path::new(&root),
+                    Path::new(&workspace_store),
+                    &branch,
+                    base.as_deref(),
+                    path.as_deref().map(Path::new),
+                    json,
+                )
+            } else {
+                execute_worktree(Path::new(&root), Path::new(&workspace_store), apply, json)
+            }
+        }
         SourceCommand::Pr { command } => execute_pr(Path::new("."), command),
     }
 }
