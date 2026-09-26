@@ -65,9 +65,23 @@ secret-literal-check: ## Reject high-confidence literal credentials in Git-track
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- secret lint
 
 .PHONY: check
-check: ## Native validation via cynic dev check (no make recursion, no jq; exit code is the gate)
-	@echo "==> cynic dev check (native, no make, no jq)"
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev check --json > /dev/null
+check: ## Native validation via cynic audit crate (no make recursion, exit code is the gate)
+	@echo "==> cynic audit crate (native, 100% Rust)"
+	@CYNIC_BIN=$$(if [ -x target/release/cynic ]; then echo "target/release/cynic"; elif [ -x target/debug/cynic ]; then echo "target/debug/cynic"; elif [ -x /var/lib/cynic/bin/cynic ]; then echo "/var/lib/cynic/bin/cynic"; else echo ""; fi); \
+	if [ -n "$$CYNIC_BIN" ]; then \
+		$$CYNIC_BIN audit crate --json > /dev/null; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit crate --json > /dev/null; \
+	fi
+
+.PHONY: audit
+audit: ## Native unified audit of all crates, architecture boundaries, and secrets
+	@CYNIC_BIN=$$(if [ -x target/release/cynic ]; then echo "target/release/cynic"; elif [ -x target/debug/cynic ]; then echo "target/debug/cynic"; elif [ -x /var/lib/cynic/bin/cynic ]; then echo "/var/lib/cynic/bin/cynic"; else echo ""; fi); \
+	if [ -n "$$CYNIC_BIN" ]; then \
+		$$CYNIC_BIN audit all --json; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
+	fi
 
 # Layered, per-layer validation. Dependency order: protocol -> host -> node ->
 # kernel -> mcp -> cli. Each layer gets an isolated target dir and a
