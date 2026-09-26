@@ -7,10 +7,11 @@ use crate::build::{
 use crate::release_publication::{
     SignedReleaseBasketReadBack, validate_signed_release_basket_read_back,
 };
-use cynic_protocol::{
-    AgentCompletionStatus, NodeDesiredState, digest_json, validate_node_desired_state,
+use cynic_node_protocol::{
+    NodeDesiredState, validate_node_desired_state,
 };
-use cynic_protocol::{DeploymentEpoch, derive_deployment_epoch};
+use cynic_node_protocol::{DeploymentEpoch, derive_deployment_epoch};
+use cynic_protocol::{AgentCompletionStatus, digest_json};
 use cynic_workload::{
     AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
 };
