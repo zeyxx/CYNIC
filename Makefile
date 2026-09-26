@@ -4,19 +4,13 @@ SHELL := /bin/bash
 .NOTPARALLEL:
 
 PROJECT_DIR := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
-<<<<<<< HEAD
 CARGO ?= cargo
-=======
-PATH := $(PROJECT_DIR)/scripts:$(PATH)
-CARGO := $(PROJECT_DIR)/scripts/cargo
->>>>>>> github/main
 CARGO_NETWORK_MODE ?= offline
 CARGO_SOURCE_MODE ?= registry
 CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
-<<<<<<< HEAD
 CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-cli cynic-inference cynic-mcp
 LAB_REGISTRY := infra/registries/lab.json
 LOCAL_REGISTRY := infra/registries/single-node.json
@@ -114,56 +108,6 @@ audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ow
 .PHONY: audit-runtime-phases
 audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
-=======
-CORE_CRATES := cynic-protocol cynic-host cynic-node cynic-kernel cynic-mcp cynic-cli cynic-askesis
-LAB_REGISTRY := infra/registries/lab.json
-LOCAL_REGISTRY := infra/registries/single-node.json
-# CYNIC_ALLOW_LOCAL_DEV_BUILD: kernel build.rs blocks Cortex-local compiles by default.
-# The repo check/build gates are intentional local-dev paths and must set the override.
-LOCAL_DEV_BUILD := CYNIC_ALLOW_LOCAL_DEV_BUILD=1
-# Keep a bounded large compiler stack for kernel/CLI monomorphization. The
-# repository toolchain is pinned because rustc 1.96 exhibited ICE/SIGSEGV here.
-RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-BUILD_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-RELEASE_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-TEST_RUST_ENV := $(LOCAL_DEV_BUILD) RUST_MIN_STACK=2147483648 CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS) CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) CYNIC_CARGO_NETWORK_MODE=$(CARGO_NETWORK_MODE) CYNIC_CARGO_SOURCE_MODE=$(CARGO_SOURCE_MODE)
-
-.PHONY: check
-check: ## Validate the living low-layer Rust runtime baseline
-	@echo "==> checking foundation, runtime authority, and registry"
-	@jq empty contracts/foundation.json
-	@jq empty infra/runtime-authority.json
-	@jq empty infra/registry.json
-	@jq empty infra/agent-exposure.json
-	@jq empty infra/ecosystem-pins.json
-	@echo "==> cargo check core crates"
-	@$(RUST_ENV) $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
-	@$(MAKE) --no-print-directory surface-audit
-	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
-
-.PHONY: check-installed-runtime
-check-installed-runtime: ## Validate installed-runtime portability invariants (`CYNIC_PROJECT_ROOT` absent, runtime mode persistence)
-	@$(RUST_ENV) $(CARGO) test -q -p cynic-cli --test installed_runtime
-
-.PHONY: check-strict
-check-strict: ## cargo check core crates with -D warnings (signal engineering debt)
-	@echo "==> strict warning check on core crates"
-	@$(RUST_ENV) RUSTFLAGS='-D warnings' $(CARGO) check $(foreach crate,$(CORE_CRATES),-p $(crate))
-
-.PHONY: surface-audit
-surface-audit: ## Verify canonical CLI surfaces are backed by real modules and mutation policies
-	@echo "==> auditing canonical CLI surfaces"
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-audit --json | jq -e '.schema == "cynic.cli.surface_audit.v1" and .status == "ok" and .blocked_count == 0' >/dev/null
-
-.PHONY: audit-surface-matrix
-audit-surface-matrix: ## Emit reusable JSON+Markdown surface matrix (surface, ownership, kernel-audit, runtime phases)
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
-	@jq -e '.summary.status == "ok" and .summary.blocked_count == 0' target-cynic-ci/cynic-surface-audit-matrix.json >/dev/null
-
-.PHONY: audit-runtime-phases
-audit-runtime-phases: ## Emit and print machine-readable runtime phase statuses (harness/conformance/metrics)
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix >/dev/null
->>>>>>> github/main
 	@jq '.runtime_phases' target-cynic-ci/cynic-surface-audit-matrix.json
 
 .PHONY: lab-check
@@ -246,6 +190,10 @@ operator-day: ## Morning loop via native cynic deps
 	@echo
 	@echo "One-click scripted upgrades:  cynic deps upgrade --yes"
 
+.PHONY: release-deploy
+release-deploy: ## Build release binaries and atomically deploy to /var/lib/cynic/releases/<version>
+	@bash scripts/deploy-release.sh
+
 .PHONY: install-cli
 install-cli: install-cli-auto ## Default install with preferred system-like target, with controlled fallback when unavailable
 
@@ -265,262 +213,15 @@ operator-loop: ## Fast operator iteration cycle: install CLI and refresh authori
 .PHONY: operator-reports
 operator-reports: ## Emit operator-consumable report artifacts (surface matrix + proof bundle + metrics snapshot)
 	@mkdir -p target-cynic-ci
-<<<<<<< HEAD
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- dev surface-matrix --json --output target-cynic-ci >/dev/null
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime conformance --json > target-cynic-ci/cynic-runtime-conformance.json || true
 	@test -s target-cynic-ci/cynic-runtime-conformance.json
 	@jq -e '.proof_bundle | select(.schema == "cynic.runtime_proof_bundle.v1")' target-cynic-ci/cynic-runtime-conformance.json > target-cynic-ci/cynic-runtime-proof-bundle.json
-=======
-	@$(PATH := /bin:$(PATH)) ./scripts/surface-audit-matrix
-	@$(PATH := /bin:$(PATH)) ./scripts/runtime-evidence-bundle target-cynic-ci/cynic-runtime-proof-bundle.json
->>>>>>> github/main
 	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --proof target-cynic-ci/cynic-runtime-proof-bundle.json > target-cynic-ci/cynic-runtime-metrics.json
 	@echo "==> operator reports:"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.json"
 	@echo "  - target-cynic-ci/cynic-surface-audit-matrix.md"
-<<<<<<< HEAD
 	@echo "  - target-cynic-ci/cynic-runtime-conformance.json"
-=======
->>>>>>> github/main
-	@echo "  - target-cynic-ci/cynic-runtime-proof-bundle.json"
-	@echo "  - target-cynic-ci/cynic-runtime-metrics.json"
-	@jq -r '"  status=\(.status)\n  maturity_percent=\(.maturity_percent)\n  residual_unknown_percent=\(.residual_unknown_percent)"' \
-		target-cynic-ci/cynic-runtime-metrics.json
-
-.PHONY: install-cli-auto
-install-cli-auto:
-	@if [ -w "$$(dirname "$(CLI_USER_TARGET)")" ] && [ -x "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
-		$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_TARGET)"; \
-	else \
-		echo "==> user cli target not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
-		if mkdir -p "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" 2>/dev/null \
-			&& [ -w "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ] \
-			&& [ -x "$$(dirname "$(CLI_USER_FALLBACK_TARGET)")" ]; then \
-			echo "==> using writable fallback user target: $(CLI_USER_FALLBACK_TARGET)"; \
-			$(MAKE) --no-print-directory install-cli-user CLI_USER_TARGET="$(CLI_USER_FALLBACK_TARGET)"; \
-		elif [ "$(CYNIC_CLI_AUTO_SYSTEM)" = "1" ]; then \
-			echo "==> falling back to system install surface (requires sudo)"; \
-			$(MAKE) --no-print-directory install-cli-system; \
-		else \
-			echo "==> blocked: set CLI_USER_TARGET to a writable path, set CLI_USER_FALLBACK_TARGET, or run CYNIC_CLI_AUTO_SYSTEM=1 make install-cli"; \
-			exit 1; \
-		fi; \
-	fi
-
-.PHONY: install-cli-user
-$(CLI_USER_TARGET): $(CYNIC_CLI_INSTALL_SOURCE)
-	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
-		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
-		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
-		exit 1; \
-	fi
-	@if ! mkdir -p "$$(dirname "$(CLI_USER_TARGET)")" 2>/dev/null; then \
-		echo "==> blocked: cannot create user target directory: $$(dirname "$(CLI_USER_TARGET)")"; \
-		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
-		exit 1; \
-	fi
-	@if [ -f "$(CLI_USER_TARGET)" ] && cmp -s "$(CLI_USER_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
-		echo "==> user target already matches source ($(CLI_USER_TARGET)); skipping install"; \
-		exit 0; \
-	fi
-	@if [ ! -w "$$(dirname "$(CLI_USER_TARGET)")" ]; then \
-		echo "==> blocked: user install target directory is not writable: $$(dirname "$(CLI_USER_TARGET)")"; \
-		echo "    set CLI_USER_TARGET to a writable path, or run install-cli-system"; \
-		exit 1; \
-	fi
-	@echo "==> installing to $(CLI_USER_TARGET)"
-	@"$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
-		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
-		--target "$(CLI_USER_TARGET)"
-
-install-cli-user: $(CLI_USER_TARGET) ## Build and install cynic to the chosen target path (no sudo; preferred for dev)
-	@echo "==> which installed cynic target => $(CLI_USER_TARGET)"
-	@command -v "$(CLI_USER_TARGET)" >/dev/null && "$(CLI_USER_TARGET)" runtime --help 2>/dev/null | grep -q inference-start \
-		&& echo "==> ok: inference-start present" \
-		|| echo "==> warn: runtime entrypoint probe unavailable (PATH may still point to older cynic)"
-	@if [ "$$(dirname "$(CLI_USER_TARGET)")" = "/tmp/cynic/bin" ]; then \
-		echo "==> if needed, expose this binary with: export PATH=$$PATH:/tmp/cynic/bin"; \
-	fi
-
-.PHONY: install-cli-system-refresh
-install-cli-system-refresh: ## Rebuild from artifact and force a CLI refresh with explicit source declaration
-	@$(MAKE) --no-print-directory install-cli-system \
-		CYNIC_CLI_INSTALL_SOURCE="$(CYNIC_CLI_ARTIFACT)"
-
-.PHONY: install-cli-system
-install-cli-system: $(CYNIC_CLI_INSTALL_SOURCE)
-	@if [ ! -x "$(CYNIC_CLI_INSTALL_SOURCE)" ]; then \
-		echo "==> blocked: source binary is not executable: $(CYNIC_CLI_INSTALL_SOURCE)"; \
-		echo "    set CYNIC_CLI_INSTALL_SOURCE explicitly to a valid cynic artifact, or rebuild default target"; \
-		exit 1; \
-	fi
-	@if [ -f "$(CLI_SYSTEM_TARGET)" ] && cmp -s "$(CLI_SYSTEM_TARGET)" "$(CYNIC_CLI_INSTALL_SOURCE)"; then \
-		echo "==> system target already matches source ($(CLI_SYSTEM_TARGET)); skipping install"; \
-		exit 0; \
-	fi
-	@echo "==> installing to $(CLI_SYSTEM_TARGET) (root)"
-	@sudo "$(CYNIC_CLI_INSTALL_SOURCE)" bootstrap framework install-cli --json --apply \
-		--source "$(CYNIC_CLI_INSTALL_SOURCE)" \
-		--target "$(CLI_SYSTEM_TARGET)"
-	@if [ ! -x "$(CLI_SYSTEM_TARGET)" ]; then echo "==> warning: installed file not yet executable"; fi
-	@echo "==> which cynic => $$(command -v cynic)"
-
-$(CYNIC_CLI_ARTIFACT): $(WORKSPACE_RUST_SOURCES) $(WORKSPACE_CARGO_MANIFESTS) Cargo.toml Cargo.lock
-	@echo "==> building cynic-cli"
-	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-cli --bin cynic
-
-.PHONY: lab-guest-bootstrap-bundle
-lab-guest-bootstrap-bundle: framework-bootstrap-bundle ## Compatibility alias for the closed lab bootstrap usecase
-
-.PHONY: lab-image-plan
-lab-image-plan: ## Emit base image download/checksum preflight without downloading
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image plan --json --registry $(LAB_REGISTRY)
-
-.PHONY: lab-image-resolve
-lab-image-resolve: ## Resolve expected base image sha256 from upstream SHA256SUMS without editing registry
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image resolve --json --registry $(LAB_REGISTRY)
-
-.PHONY: lab-image-fetch
-lab-image-fetch: ## Refuse image fetch until registry has a pinned sha256
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- lab image fetch --json --registry $(LAB_REGISTRY) --apply || test "$$?" = "1"
-
-.PHONY: runtime-validate
-runtime-validate: ## Execute read-only CLI runtime validation against fleet + portable lab registries
-	@$(MAKE) --no-print-directory lab-check >&2
-	@echo "==> executing runtime validation" >&2
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime validate --json --registry infra/registry.json --lab-registry $(LAB_REGISTRY)
-
-.PHONY: runtime-suite
-runtime-suite: ## Emit the stable IaC execution suite for the portable lab registry
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime suite --json --registry $(LAB_REGISTRY) --profile lab
-
-.PHONY: runtime-plan
-runtime-plan: ## Emit the current non-mutating execution plan for the portable lab registry
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LAB_REGISTRY) --profile lab
-
-.PHONY: runtime-harness
-runtime-harness: ## Emit the canonical runtime harness progression and execution membranes
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime harness --json
-
-.PHONY: runtime-conformance
-runtime-conformance: ## Observe host conformance for this node without mutating host/network state
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime conformance --json --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
-
-.PHONY: runtime-metrics
-runtime-metrics: ## Emit percent-based runtime metrics; unknown metrics remain null
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --registry $(LOCAL_REGISTRY)
-
-.PHONY: runtime-metrics-architecture
-runtime-metrics-architecture: ## Run architecture boundary tests and consume their proof in runtime metrics
-	@tmpdir="$$(mktemp -d)"
-	@$(TEST_RUST_ENV) $(CARGO) test -q -p cynic-cli --test architecture_boundary >&2
-	@jq -n '{schema:"cynic.runtime_proof_bundle.v1",status:"satisfied",proofs:[{schema:"cynic.runtime_proof.v1",gate:"architecture_boundary_verified",status:"satisfied",producer:"cargo-test",subject:"cynic-cli/tests/architecture_boundary.rs",observed_at_unix_ms:1,evidence:[{id:"architecture_boundary",status:"active",detail:"cargo test -p cynic-cli --test architecture_boundary passed"}]}]}' > "$$tmpdir/architecture-proof.json"
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime metrics --json --registry $(LOCAL_REGISTRY) --proof "$$tmpdir/architecture-proof.json"
-
-.PHONY: local-plan
-local-plan: ## Emit the current non-mutating execution plan for this single machine
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node
-
-.PHONY: local-host-proof
-local-host-proof: ## Observe this host and emit host_identity_observed proof bundle
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
-
-.PHONY: local-host-plan
-local-host-plan: ## Emit the local host bootstrap plan without mutating this machine
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host plan --node local-kernel --registry $(LOCAL_REGISTRY)
-
-.PHONY: host-bridge-bundle
-host-bridge-bundle: ## Build the bounded host-exec bridge bundle under /tmp
-	@$(RUST_ENV) $(CARGO) build -q -p cynic-host --bin cynic-host-exec
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge bundle --output-dir /tmp/cynic-host-exec
-
-.PHONY: host-bridge-plan
-host-bridge-plan: ## Emit the explicit bounded host-exec bridge activation plan
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge plan --bundle-dir /tmp/cynic-host-exec
-
-.PHONY: host-bridge-install
-host-bridge-install: ## Apply the bounded host-exec bridge install plan; requires root privileges
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge install --bundle-dir /tmp/cynic-host-exec --apply || test "$$?" = "1"
-
-.PHONY: host-bridge-rootless-smoke
-host-bridge-rootless-smoke: ## Execute the bounded host-exec bridge install chain in /tmp without root
-	@$(RUST_ENV) $(CARGO) build -q -p cynic-host --bin cynic-host-exec
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge rootless-smoke --sandbox-root /tmp/cynic-host-exec-rootless --apply
-
-.PHONY: host-bridge-status
-host-bridge-status: ## Observe whether the bounded host-exec bridge is active
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap bridge status || test "$$?" = "1"
-
-.PHONY: local-host-principal-plan
-local-host-principal-plan: ## Emit explicit runtime principal preparation plan
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host principal --node local-kernel --registry $(LOCAL_REGISTRY)
-
-.PHONY: local-host-principal-apply
-local-host-principal-apply: ## Apply explicit runtime principal preparation; requires root privileges
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host principal --node local-kernel --registry $(LOCAL_REGISTRY) --apply || test "$$?" = "1"
-
-.PHONY: local-host-apply-report
-local-host-apply-report: ## Emit the local host dry-run apply report without mutating this machine
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host apply-report --node local-kernel --registry $(LOCAL_REGISTRY)
-
-.PHONY: local-host-e2e
-local-host-e2e: ## Execute the non-mutating local host substrate chain and report honest blockers
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host e2e --node local-kernel --registry $(LOCAL_REGISTRY) --runtime-profile single-node --dry-run || test "$$?" = "1"
-
-.PHONY: local-network-proof
-local-network-proof: ## Observe local network runtime and emit network_runtime_observed proof bundle
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) || test "$$?" = "1"
-
-.PHONY: local-proof-plan
-local-proof-plan: ## Generate local proofs under /tmp and feed them into runtime plan
-	@tmpdir="$$(mktemp -d)"
-	@echo "==> writing local proof bundles to $$tmpdir" >&2
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) > "$$tmpdir/host-proof.json" || test "$$?" = "1"
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) > "$$tmpdir/network-proof.json" || test "$$?" = "1"
-	@jq -s '{schema:"cynic.runtime_proof_bundle.v1", status: (if all(.[]; .status == "satisfied") then "satisfied" else "blocked" end), proofs: (map(.proofs) | add)}' "$$tmpdir/host-proof.json" "$$tmpdir/network-proof.json" > "$$tmpdir/proofs.json"
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node --proof "$$tmpdir/proofs.json"
-
-.PHONY: e2e
-e2e: ## Execute the local single-node E2E proof chain without pretending blocked runtime is healthy
-	@$(MAKE) --no-print-directory local-check >&2
-	@tmpdir="$$(mktemp -d)"
-	@echo "==> local single-node e2e artifacts: $$tmpdir" >&2
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node > "$$tmpdir/plan.initial.json"
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- bootstrap host proof --node local-kernel --registry $(LOCAL_REGISTRY) > "$$tmpdir/host-proof.json" || test "$$?" = "1"
-	@CYNIC_HOST_PROBE_TIMEOUT_MS=200 $(RUST_ENV) $(CARGO) run -q -p cynic-cli -- network proof --registry $(LOCAL_REGISTRY) > "$$tmpdir/network-proof.json" || test "$$?" = "1"
-	@jq -s '{schema:"cynic.runtime_proof_bundle.v1", status: (if all(.[]; .status == "satisfied") then "satisfied" else "blocked" end), proofs: (map(.proofs) | add)}' "$$tmpdir/host-proof.json" "$$tmpdir/network-proof.json" > "$$tmpdir/proofs.json"
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- runtime plan --json --registry $(LOCAL_REGISTRY) --profile single-node --proof "$$tmpdir/proofs.json" > "$$tmpdir/plan.with-proofs.json"
-	@jq -e '.schema == "cynic.runtime_execution_plan.v1" and .profile == "single-node"' "$$tmpdir/plan.initial.json" >/dev/null
-	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 1) and any(.proofs[]; .gate == "host_identity_observed")' "$$tmpdir/host-proof.json" >/dev/null
-	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 1) and any(.proofs[]; .gate == "network_runtime_observed")' "$$tmpdir/network-proof.json" >/dev/null
-	@jq -e '.schema == "cynic.runtime_proof_bundle.v1" and (.proofs | length >= 2)' "$$tmpdir/proofs.json" >/dev/null
-	@jq -e '.schema == "cynic.runtime_execution_plan.v1" and .profile == "single-node"' "$$tmpdir/plan.with-proofs.json" >/dev/null
-	@jq -n \
-		--arg artifacts "$$tmpdir" \
-		--slurpfile host "$$tmpdir/host-proof.json" \
-		--slurpfile network "$$tmpdir/network-proof.json" \
-		--slurpfile plan "$$tmpdir/plan.with-proofs.json" \
-		'{schema:"cynic.local_e2e.v1", status:"ok", artifacts:$$artifacts, host_proof_status:$$host[0].status, network_proof_status:$$network[0].status, plan_status:$$plan[0].status, observed_gates:$$plan[0].observed_gates, first_blocked_layer: ($$plan[0].layers | map(select(.status == "blocked")) | first // null)}'
-
-.PHONY: build
-build: ## Experimental binary build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
-<<<<<<< HEAD
-	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-cli
-
-.PHONY: build-release
-build-release: ## Admitted release build on the registry-selected build runner
-	@packages="$$(jq -er '[.artifacts[].crate] | if length > 0 and all(.[]; type == "string" and test("^[A-Za-z0-9_-]+$$")) then unique[] else error("invalid runtime basket packages") end' infra/runtime-basket.json)"
-	mapfile -t packages <<< "$$packages"
-	args=(build --release)
-	for package in "$${packages[@]}"; do args+=(-p "$$package"); done
-	$(RELEASE_RUST_ENV) $(CARGO) "$${args[@]}"
-=======
-	@$(BUILD_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli
-
-.PHONY: build-release
-build-release: ## Experimental release build; on 2026-07-16 rustc 1.96.0 still shows workspace instability here
-	@$(RELEASE_RUST_ENV) $(CARGO) build -p cynic-kernel -p cynic-node -p cynic-mcp -p cynic-cli --release
->>>>>>> github/main
 
 .PHONY: test
 test: ## Run tests for low-layer core crates
@@ -564,7 +265,6 @@ run-kernel: ## Run the kernel locally
 run-node: ## Run the node locally
 	@$(RUST_ENV) $(CARGO) run -p cynic-node
 
-<<<<<<< HEAD
 .PHONY: install-user-bins
 install-user-bins: build ## Install release binaries into ~/bin
 	@mkdir -p "$$HOME/bin"
@@ -572,20 +272,6 @@ install-user-bins: build ## Install release binaries into ~/bin
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
 	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
 
-=======
-.PHONY: run-mcp
-run-mcp: ## Run the MCP proxy locally over stdio
-	@$(RUST_ENV) $(CARGO) run -p cynic-mcp
-
-.PHONY: install-user-bins
-install-user-bins: build ## Install release binaries into ~/bin
-	@mkdir -p "$$HOME/bin"
-	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-kernel" "$$HOME/bin/cynic-kernel"
-	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-node" "$$HOME/bin/cynic-node"
-	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic-mcp" "$$HOME/bin/cynic-mcp"
-	@install -m 0755 "$(CARGO_TARGET_DIR)/debug/cynic" "$$HOME/bin/cynic"
-
->>>>>>> github/main
 .PHONY: systemd-list
 systemd-list: ## List remaining runtime unit templates
 	@find infra/systemd -maxdepth 1 -type f | sort
