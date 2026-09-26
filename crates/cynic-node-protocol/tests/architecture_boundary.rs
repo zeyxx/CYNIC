@@ -13,15 +13,21 @@ fn manifest_dir() -> PathBuf {
 #[test]
 fn no_orchestrator_dependencies() {
     let cargo = std::fs::read_to_string(manifest_dir().join("Cargo.toml")).unwrap();
+    let deps_section = cargo.split("[dependencies]").nth(1).unwrap_or("");
     for forbidden in [
-        "cynic-host",
-        "cynic-node",
-        "cynic-kernel",
-        "cynic-cli",
-        "cynic-mcp",
+        "\"cynic-host\"",
+        "\"cynic-node\"",
+        "\"cynic-kernel\"",
+        "\"cynic-cli\"",
+        "\"cynic-mcp\"",
+        "cynic-host =",
+        "cynic-node =",
+        "cynic-kernel =",
+        "cynic-cli =",
+        "cynic-mcp =",
     ] {
         assert!(
-            !cargo.contains(forbidden),
+            !deps_section.contains(forbidden),
             "boundary violation: cynic-node-protocol must not depend on {forbidden}"
         );
     }
