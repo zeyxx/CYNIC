@@ -13,11 +13,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
-use cynic_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
+use crate::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
+use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
 use cynic_protocol::error_catalog::CynicErrorCode;
 use cynic_protocol::health_signal::HealthSignalPayload;
-use cynic_protocol::runtime_takeover_activation::{
+use crate::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
 
