@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use cynic_protocol::{NodeControlPlan, NodeDesiredState};
+use cynic_node_protocol::{NodeControlPlan, NodeDesiredState};
 
 #[derive(Debug, thiserror::Error)]
 pub enum NodeControlStoreError {

@@ -14,9 +14,8 @@ use cynic_build::build::{
     build_runner_bootstrap_action_digest, build_runner_bootstrap_input_digest,
     validate_build_runner_bootstrap_capability_binding,
 };
-use cynic_protocol::{
-    MachineEnrollment, ONE_SHOT_CAPABILITY_SCHEMA, one_shot_capability::OneShotCapability,
-};
+use cynic_protocol::{ONE_SHOT_CAPABILITY_SCHEMA, one_shot_capability::OneShotCapability};
+use cynic_node_protocol::{MachineEnrollment};
 use sha2::{Digest, Sha256};
 
 use crate::host_exec_cli::{args, io};

@@ -1,8 +1,6 @@
 use cynic_host::runtime_seed::{SshRuntimeSeedSignatureVerifier, observe_runtime_seed};
-use cynic_protocol::{
-    NODE_CONTROL_OBSERVATION_SCHEMA, NodeControlConnectionState, NodeControlObservation,
-    NodeDesiredState, SecurityEvidenceState,
-};
+use cynic_protocol::{SecurityEvidenceState};
+use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NodeControlConnectionState, NodeControlObservation, NodeDesiredState};
 
 use crate::adapters::local_node_enrollment::LocalNodeEnrollmentReader;
 use crate::ports::node_control_plane_port::NodeControlObservationPort;

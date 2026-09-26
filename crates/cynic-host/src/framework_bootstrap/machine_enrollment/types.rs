@@ -1,4 +1,4 @@
-use cynic_protocol::{MachineEnrollmentAuthority, MachineEnrollmentAuthorityPolicy};
+use cynic_node_protocol::{MachineEnrollmentAuthority, MachineEnrollmentAuthorityPolicy};
 use serde::Serialize;
 
 pub const MACHINE_ENROLLMENT_AUTHORITY_PLAN_SCHEMA: &str =

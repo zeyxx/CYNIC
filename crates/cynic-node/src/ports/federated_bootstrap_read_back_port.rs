@@ -1,4 +1,4 @@
-use cynic_protocol::{FederatedBootstrapBinding, FederatedBootstrapReadBack};
+use cynic_node_protocol::{FederatedBootstrapBinding, FederatedBootstrapReadBack};
 
 /// Read-only boundary for a node-owned bootstrap proof.
 ///

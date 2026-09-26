@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cynic_protocol::{NodeEnrollmentDesiredState, validate_node_enrollment_desired_state};
+use cynic_node_protocol::{NodeEnrollmentDesiredState, validate_node_enrollment_desired_state};
 use serde::Deserialize;
 
 use super::types::MachineEnrollmentAuthoritySpec;

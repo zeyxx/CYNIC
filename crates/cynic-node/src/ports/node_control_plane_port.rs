@@ -1,6 +1,4 @@
-use cynic_protocol::{
-    NodeControlObservation, NodeControlPlan, NodeDesiredState, SignedNodeControlPlan,
-};
+use cynic_node_protocol::{NodeControlObservation, NodeControlPlan, NodeDesiredState, SignedNodeControlPlan};
 
 pub trait NodeDesiredStatePullPort {
     async fn pull_desired_state(&self, node_id: &str) -> Result<Option<NodeDesiredState>, String>;

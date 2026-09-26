@@ -297,10 +297,8 @@ fn e2e_step3_harness_allowed_with_proofs() {
 #[test]
 fn e2e_step4_runtime_release_declaration_constructs() {
     use cynic_build::RUNTIME_RELEASE_DECLARATION_SCHEMA;
-    use cynic_protocol::{
-        NODE_DESIRED_STATE_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource,
-        RuntimeArtifactTransportKind, RuntimeSeedRequest,
-    };
+    use cynic_protocol::{RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedRequest};
+use cynic_node_protocol::{NODE_DESIRED_STATE_SCHEMA};
 
     let source_commit = valid_sha40();
     let proof_digest = format!("sha256:{}", "b".repeat(64));

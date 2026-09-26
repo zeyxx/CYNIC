@@ -6,11 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{
-    DeploymentEpoch, DeploymentExecutionClass, DeploymentPhase, DeploymentPhaseObservation,
-    DeploymentTransition, derive_deployment_epoch, phase_execution_class,
-    plan_deployment_transition,
-};
+use cynic_node_protocol::{DeploymentEpoch, DeploymentExecutionClass, DeploymentPhase, DeploymentPhaseObservation, DeploymentTransition, derive_deployment_epoch, phase_execution_class, plan_deployment_transition};
 
 pub const FRAMEWORK_EPOCH_PLAN_SCHEMA: &str = "cynic.framework_bootstrap.epoch_plan.v1";
 

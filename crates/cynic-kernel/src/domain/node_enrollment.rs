@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use cynic_protocol::{MachineEnrollmentAuthority, SignedNodeEnrollmentGrant};
+use cynic_node_protocol::{MachineEnrollmentAuthority, SignedNodeEnrollmentGrant};
 
 #[derive(Debug, thiserror::Error)]
 pub enum NodeEnrollmentStoreError {

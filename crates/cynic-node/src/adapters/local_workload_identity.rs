@@ -1,7 +1,5 @@
-use cynic_protocol::{
-    NodeIdentityDesiredState, SecurityEvidenceState, WORKLOAD_IDENTITY_OBSERVATION_SCHEMA,
-    WorkloadIdentityDesiredState, WorkloadIdentityObservation,
-};
+use cynic_protocol::{SecurityEvidenceState, WORKLOAD_IDENTITY_OBSERVATION_SCHEMA, WorkloadIdentityDesiredState, WorkloadIdentityObservation};
+use cynic_node_protocol::{NodeIdentityDesiredState};
 
 use crate::adapters::local_node_identity::LocalNodeIdentity;
 use crate::ports::node_identity_port::NodeIdentityPort;
