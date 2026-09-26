@@ -8,6 +8,7 @@ use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
 use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
 
 mod release_deployment_cli;
+mod sync_coherence;
 mod worktree_allocation;
 
 use release_deployment_cli::execute_deploy;
@@ -174,29 +175,46 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                         path, &decision,
                     );
                 if !admission.admitted {
+                    let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
+                    let report = sync_coherence::SourceSyncReport {
+                        schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
+                        coherence,
+                        plan: Some(plan),
+                        proof: None,
+                    };
                     if json {
-                        emit_pretty_json(&admission)
+                        emit_pretty_json(&report)
                     } else {
                         println!("Source sync BLOCKED by admission gate.");
-                        println!("Admission schema: {}", admission.schema);
-                        if !admission.gates_failed.is_empty() {
-                            println!("Failed gates: {:?}", admission.gates_failed);
-                        }
-                        for blocker in &admission.blockers {
-                            println!("  blocker: {blocker}");
-                        }
+                        println!("Status:   {:?}", report.coherence.status);
+                        println!("Compass:  {}", report.coherence.compass.desired_state_digest);
+                        println!("Blockers: {:?}", report.coherence.blockers);
                         ExitCode::FAILURE
                     }
                 } else {
                     let proof = cynic_host::source_sync::execute_plan(path, &plan);
+                    let read_back = if proof.success {
+                        observation.cortex.head_sha.as_deref()
+                    } else {
+                        None
+                    };
+                    let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, read_back);
+                    let report = sync_coherence::SourceSyncReport {
+                        schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
+                        coherence,
+                        plan: Some(plan),
+                        proof: Some(proof.clone()),
+                    };
                     if json {
-                        emit_pretty_json(&proof)
+                        emit_pretty_json(&report)
                     } else {
                         println!(
                             "Sync execution: {} steps, success={}",
                             proof.steps_completed.len(),
                             proof.success
                         );
+                        println!("Status:   {:?}", report.coherence.status);
+                        println!("Compass:  {}", report.coherence.compass.desired_state_digest);
                         for result in &proof.steps_completed {
                             let status_sym = if result.success { "PASS" } else { "FAIL" };
                             println!("  [{status_sym}] {:?}", result.step);
@@ -209,11 +227,33 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     }
                 }
             } else {
+                let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
+                let report = sync_coherence::SourceSyncReport {
+                    schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
+                    coherence,
+                    plan: Some(plan.clone()),
+                    proof: None,
+                };
                 if json {
-                    emit_pretty_json(&plan)
+                    emit_pretty_json(&report)
                 } else {
+                    println!("=== CYNIC Source Coherence Vector ===");
+                    println!("  Subject:    {}", report.coherence.compass.subject_id);
+                    println!("  Vertical:   {}", report.coherence.compass.vertical_id);
+                    println!("  Status:     {:?}", report.coherence.status);
+                    println!("  Compass:    {}", report.coherence.compass.desired_state_digest);
+                    println!("  Decision:   {}", report.coherence.vector.decision);
+                    if let Some(act) = &report.coherence.vector.action {
+                        println!("  Action:     {}", act);
+                    }
+                    if !report.coherence.blockers.is_empty() {
+                        println!("  Blockers:   {:?}", report.coherence.blockers);
+                    }
+                    if !report.coherence.residual_unknowns.is_empty() {
+                        println!("  Unknowns:   {:?}", report.coherence.residual_unknowns);
+                    }
                     println!(
-                        "Sync plan: {} steps (dry-run, pass --apply to execute)",
+                        "\nSync plan: {} steps (dry-run, pass --apply to execute)",
                         plan.steps.len()
                     );
                     ExitCode::SUCCESS
