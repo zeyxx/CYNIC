@@ -106,8 +106,11 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
                 let wt_out = runner.run(&[
                     "git", "-C", &root_str, "worktree", "remove", "--force", &ws_str,
                 ]);
+                let prune_out = runner.run(&["git", "-C", &root_str, "worktree", "prune"]);
                 let success = wt_out.success()
+                    || prune_out.success()
                     || wt_out.stderr.contains("is not a working tree")
+                    || wt_out.stderr.contains("n'est pas une copie de travail")
                     || wt_out.stderr.contains("No such file or directory");
 
                 if !success {
