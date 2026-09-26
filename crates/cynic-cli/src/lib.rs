@@ -75,7 +75,7 @@ pub mod version_surface;
 pub mod workload_observation;
 
 pub use cli_args::Cli;
-pub(crate) use cli_args::{Command, StatusCommand};
+pub(crate) use cli_args::Command;
 
 use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
