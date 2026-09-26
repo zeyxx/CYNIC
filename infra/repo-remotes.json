@@ -1,19 +1,13 @@
 {
   "schema": "cynic.repo_remotes.v1",
   "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
-<<<<<<< HEAD
   "updated_at": "2026-07-24",
-=======
-  "updated_at": "2026-08-14",
-  "operator_context": "remote_offsite_github_relay_active",
->>>>>>> github/main
   "remotes": [
     {
       "id": "forgejo",
       "role": "sovereign_candidate",
       "owner": "jeanterre13",
       "repository": "CYNIC",
-<<<<<<< HEAD
       "git_user": "forgejo",
       "canonical_host": "forgejo.synapse.cynic",
       "canonical_url": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
@@ -21,8 +15,6 @@
       "fallback_note": "10.10.10.119 is the BUILDER (LXC) that only mirrors the SSOT, not the Forgejo SSOT itself. Resolve the sovereign remote by observed URL against canonical_host, never by local remote name.",
       "machine_principal": "cynic-cortex",
       "repository_permission": "write",
-=======
->>>>>>> github/main
       "backend_service_ref": {
         "node": "forgejo",
         "service": "forgejo-backend"
@@ -37,7 +29,6 @@
       },
       "ssh_host_key_fingerprint": "SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88",
       "machine_key_fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
-<<<<<<< HEAD
       "status_observed": "machine_rbac_enrolled_ssh_authenticated",
       "notes": [
         "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
@@ -49,40 +40,18 @@
         "Observed SSH host fingerprint: SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88 (ED25519); the IP host key is already present in Cortex known_hosts.",
         "Cortex machine key fingerprint SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU is enrolled under cynic-cortex.",
         "Observed RBAC read-back: restricted=true, admin=false, repository permission=write, bootstrap tokens remaining=0.",
-=======
-      "status_observed": "remote_unreachable_offsite_github_relay_active",
-      "notes": [
-        "Observed 2026-08-14: Operator working off-site outside Proxmox LAN; Forgejo endpoint unroutable from WAN without active VPN tunnel.",
-        "Public relay GitHub (origin) active, synchronized, and PR #327 merged.",
-        "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
-        "User jeanterre13 exists (active=false until first login).",
-        "Push requires token or SSH key; empty public repo search returned no CYNIC clone.",
-        "Observed 2026-07-22: HTTP UI returns 200; unauthenticated git ls-remote cannot acquire credentials non-interactively.",
-        "Canonical service identity is forgejo.synapse.cynic; host_ip is observed topology evidence and must not become the desired transport identity.",
-        "Administrative API authority is HTTPS on the service DNS identity; port 3000 HTTP is backend reachability only and must never carry a HumanAdmin token.",
-        "Current sovereign candidate transport is plaintext HTTP and is blocked for trusted source promotion until TLS/SSH host identity is proven.",
-        "Observed SSH host fingerprint: SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88 (ED25519); the IP host key is already present in Cortex known_hosts.",
-        "Cortex machine key fingerprint is SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU and still requires Forgejo enrollment.",
->>>>>>> github/main
         "Resolver/bootstrap must prove forgejo.synapse.cynic dynamically; static /etc/hosts may only be an explicitly bounded bootstrap adapter."
       ]
     },
     {
       "id": "origin",
       "role": "public_relay",
-<<<<<<< HEAD
       "url": "git@github.com:zeyxx/CYNIC.git",
       "credential_ref": "/etc/cynic/secrets/github-deploy-key",
       "notes": [
         "SSH deploy key stored in /etc/cynic/secrets/github-deploy-key (mode 0600, root:cynic).",
         "Not runtime authority and not a substitute for cynic proof surfaces.",
         "Uses SecretMaterial::read_file() — key is never logged, never in env."
-=======
-      "url": "https://github.com/zeyxx/CYNIC.git",
-      "notes": [
-        "Temporary collab/mirror while Forgejo is unrepaired.",
-        "Not runtime authority and not a substitute for cynic proof surfaces."
->>>>>>> github/main
       ]
     }
   ],

@@ -4,12 +4,8 @@ After=network.target
 
 [Service]
 # projection_class: operator_projection
-<<<<<<< HEAD
 # Non-secret runtime configuration belongs in the registry/TOML projections.
 # The credential path is only a reference; the value is never an env file.
-=======
-# This unit is a runtime-authority projection; adjust paths in /etc/cynic/env.
->>>>>>> github/main
 Type=simple
 WorkingDirectory=/var/lib/cynic
 ExecStart=/usr/local/bin/cynic-kernel
@@ -25,15 +21,9 @@ KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
 RestartSec=5
-<<<<<<< HEAD
 EnvironmentFile=/etc/cynic/env
 Environment="SURREALDB_PASS_FILE=/etc/cynic/secrets/storage-runtime-password"
 Environment="CYNIC_STORAGE_CONFIG=/etc/cynic/storage.toml"
-=======
-# Generated from /etc/cynic/env
-# systemd does NOT support `export` prefix — Rule 12 maintained via generation.
-EnvironmentFile=/etc/cynic/env
->>>>>>> github/main
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 LimitNOFILE=65535
 MemoryMax=2G

@@ -2,7 +2,6 @@
   "schema": "cynic.runtime_basket.v1",
   "status": "normative",
   "purpose": "Canonical versioned artifact basket projected into role-specific runtime bundles.",
-<<<<<<< HEAD
   "runtime_seed": {
     "id": "cynic-host-exec",
     "crate": "cynic-host",
@@ -20,8 +19,6 @@
       "postflight-triggered rollback"
     ]
   },
-=======
->>>>>>> github/main
   "artifacts": [
     {
       "id": "cynic",
@@ -35,11 +32,7 @@
       "crate": "cynic-node",
       "binary": "cynic-node",
       "install_path": "/usr/local/bin/cynic-node",
-<<<<<<< HEAD
       "roles": ["cortex_host", "hypervisor", "kernel_primary", "build_runner"]
-=======
-      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
->>>>>>> github/main
     },
     {
       "id": "cynic-kernel",
@@ -56,19 +49,11 @@
       "roles": ["cortex_host", "operator"]
     },
     {
-<<<<<<< HEAD
       "id": "cynic-lxc-exec-bridge",
       "crate": "cynic-host",
       "binary": "cynic-lxc-exec-bridge",
       "install_path": "/usr/local/libexec/cynic-lxc-exec-bridge",
       "roles": ["hypervisor"]
-=======
-      "id": "cynic-host-exec",
-      "crate": "cynic-host",
-      "binary": "cynic-host-exec",
-      "install_path": "/usr/local/libexec/cynic-host-exec",
-      "roles": ["cortex_host", "hypervisor", "kernel_primary"]
->>>>>>> github/main
     }
   ],
   "bundle_rules": {
@@ -76,7 +61,6 @@
     "unknown_role": "blocked",
     "missing_required_artifact": "blocked",
     "activation": "versioned_install_then_atomic_current_switch",
-<<<<<<< HEAD
     "activation_authority": "runtime_seed",
     "release_epoch": "strictly monotonic",
     "proofs": [
@@ -84,11 +68,6 @@
       "runtime_artifact_hashes_verified",
       "runtime_source_commit_verified",
       "runtime_build_proof_digest_verified",
-=======
-    "proofs": [
-      "runtime_basket_manifest_verified",
-      "runtime_artifact_hashes_verified",
->>>>>>> github/main
       "runtime_role_projection_verified",
       "runtime_postflight_observed"
     ],

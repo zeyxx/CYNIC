@@ -107,10 +107,6 @@
       "runtime_artifacts": [
         "cynic-kernel",
         "cynic-node",
-<<<<<<< HEAD
-=======
-        "cynic-mcp",
->>>>>>> github/main
         "cynic"
       ]
     }

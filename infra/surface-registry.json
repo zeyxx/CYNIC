@@ -141,7 +141,6 @@
     {
       "adapter_module": "bootstrap_surface::framework",
       "anti_responsibilities": [
-<<<<<<< HEAD
         "invent provider resource identity when the registry omits it",
         "require checked-out repo to bootstrap a fresh node",
         "silently mutate /usr/local/bin without explicit apply",
@@ -164,20 +163,10 @@
         "cynic bootstrap framework runtime-binding-apply --json [--registry <path>] --yes",
         "cynic bootstrap framework provider-enrollment-plan --json --token-secret-file <path> [--registry <path>] [--ca-file <path>]",
         "cynic bootstrap framework provider-enrollment-apply --json --token-secret-file <path> [--registry <path>] [--ca-file <path>] --yes",
-=======
-        "require checked-out repo to bootstrap a fresh node",
-        "silently mutate /usr/local/bin without explicit apply",
-        "treat bundle generation as host installation proof"
-      ],
-      "canonical_entrypoints": [
-        "cynic bootstrap framework bundle --json [--output-dir <path>]",
-        "cynic bootstrap framework install-status --json",
->>>>>>> github/main
         "cynic bootstrap framework install-cli --json [--apply]"
       ],
       "domain_owner": "cynic-host::framework_bootstrap",
       "evidence": [
-<<<<<<< HEAD
         "cynic.node_substrate.assessment.v1",
         "cynic.node_substrate.apply_report.v1",
         "cynic.framework_bootstrap.bundle.v2",
@@ -196,10 +185,6 @@
         "cynic.provider_control.enrollment_observation.v1",
         "cynic.provider_control.enrollment_plan.v1",
         "cynic.provider_control.enrollment_report.v1",
-=======
-        "cynic.framework_bootstrap_bundle.v1",
-        "cynic.framework_install_status.v1",
->>>>>>> github/main
         "cynic.framework_install_apply.v1"
       ],
       "id": "framework_bootstrap",
@@ -207,7 +192,6 @@
       "mutation_policy": "explicit_apply_only",
       "owner_call_markers": [
         "write_framework_bootstrap_bundle",
-<<<<<<< HEAD
         "plan_framework_propagation",
         "apply_framework_propagation",
         "plan_source_snapshot",
@@ -316,16 +300,6 @@
         "framework_bootstrap::epoch"
       ],
       "responsibility": "Bind one deployment epoch to the existing bootstrap proof owners and advance exactly one phase only after matching read-back observation."
-=======
-        "install_standalone_cli",
-        "build_framework_enrollment_request"
-      ],
-      "owner_crate": "cynic-host",
-      "owner_modules": [
-        "framework_bootstrap"
-      ],
-      "responsibility": "Write, observe, and apply standalone framework bootstrap artifacts for fresh-node installation."
->>>>>>> github/main
     },
     {
       "adapter_module": "chat_surface",
@@ -384,11 +358,8 @@
         "cynic dev surface-audit --json [--output <path>] [--persist]",
         "cynic dev surface-matrix --json [--output <path>] [--persist]",
         "cynic dev agent-exposure --json [--output <path>] [--persist]",
-<<<<<<< HEAD
         "cynic dev policy-formality-audit --json [--output <path>] [--persist]",
         "cynic dev schema-registry-audit --json [--output <path>] [--persist]",
-=======
->>>>>>> github/main
         "cynic dev check --json [--architecture-only] [--target-root <path>]"
       ],
       "domain_owner": "cynic-cli audits and manifests",
@@ -399,11 +370,8 @@
         "cynic.cli.crate_audit.v1",
         "cynic.cli.kernel_boundary_audit.v1",
         "cynic.cli.ownership_audit.v1",
-<<<<<<< HEAD
         "cynic.cli.policy_formality_audit.v1",
         "cynic.cli.schema_registry_audit.v1",
-=======
->>>>>>> github/main
         "cynic.cli.surface_audit.v1",
         "cynic.cli.surface_audit_matrix.v1",
         "cynic.cli.agent_exposure_audit.v1",
@@ -416,11 +384,8 @@
         "audit_core_crates",
         "audit_kernel_surfaces",
         "audit_ownership_surfaces",
-<<<<<<< HEAD
         "audit_policy_formality",
         "audit_schema_registry",
-=======
->>>>>>> github/main
         "audit_canonical_surfaces",
         "audit_agent_exposure",
         "run_dev_check",
@@ -431,11 +396,8 @@
         "crate_audit",
         "kernel_boundary_audit",
         "ownership_audit",
-<<<<<<< HEAD
         "policy_formality_audit",
         "schema_registry_audit",
-=======
->>>>>>> github/main
         "surface_audit",
         "agent_exposure_audit",
         "dev_surface::check",
@@ -443,7 +405,6 @@
         "dev_surface::manifest",
         "dev_surface::audit_persist"
       ],
-<<<<<<< HEAD
       "responsibility": "Project architecture, ownership, exposure, policy formality, schema-registry fragmentation, crate, and validation audits as machine-readable governance proof."
     },
     {
@@ -643,9 +604,6 @@
         "usecases::node_identity_uc"
       ],
       "responsibility": "Generate a node-local Ed25519 machine identity exactly once, observe only its public commitment and private-file safety, and require post-generation read-back before enrollment may continue."
-=======
-      "responsibility": "Project architecture, ownership, exposure, crate, and validation audits as machine-readable governance proof."
->>>>>>> github/main
     },
     {
       "adapter_module": "deps_surface",
@@ -867,7 +825,6 @@
       "responsibility": "Observe declared hosts, runtime path projections, and fleet status without mutation."
     },
     {
-<<<<<<< HEAD
       "adapter_module": "cynic-cli::bootstrap_surface::framework::substrate",
       "anti_responsibilities": [
         "let CLI or MCP own provider credentials",
@@ -927,29 +884,20 @@
       "responsibility": "Observe and reconcile provider-owned node substrate through canonical ports while CLI and MCP remain projections."
     },
     {
-=======
->>>>>>> github/main
       "adapter_module": "network_surface",
       "anti_responsibilities": [
         "hide node mutation behind implicit status commands",
         "recompute runtime paths locally outside runtime_paths",
-<<<<<<< HEAD
         "treat provider fallback as sovereign authority",
         "install an unproved DNS provider or unverified bundle"
-=======
-        "treat provider fallback as sovereign authority"
->>>>>>> github/main
       ],
       "canonical_entrypoints": [
         "cynic network chain [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
         "cynic network runtime [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
         "cynic network proof [--registry <path>] [--resolve-dns] [--check-provider-connectivity]",
-<<<<<<< HEAD
         "cynic network proof --peer <base_url> [--json]",
         "cynic network dns bundle --registry <path> --output-dir <dir>",
         "cynic network dns activate --registry <path> --bundle-dir <dir> --yes",
-=======
->>>>>>> github/main
         "cynic network mesh plan [--registry <path>] [--provider <name>]",
         "cynic network mesh bundle [--registry <path>] [--provider <name>] --output-dir <path>",
         "cynic network mesh apply-target --bundle-dir <path> --profile <name> [--apply]",
@@ -960,13 +908,9 @@
         "cynic.network.activation_chain.v1",
         "cynic.network.runtime_status.v1",
         "cynic.network.runtime_proof.v1",
-<<<<<<< HEAD
         "cynic.infrastructure_mcp.network_mesh_status.v1",
         "cynic.dns_activation.plan.v1",
         "cynic.dns_activation.apply_report.v1"
-=======
-        "cynic.infrastructure_mcp.network_mesh_status.v1"
->>>>>>> github/main
       ],
       "id": "network_runtime",
       "layer": "l1_to_l2_node_network",
@@ -982,12 +926,8 @@
         "network_mesh_plan",
         "network_mesh_bundle",
         "network_actuator",
-<<<<<<< HEAD
         "network_evidence",
         "dns_activation"
-=======
-        "network_evidence"
->>>>>>> github/main
       ],
       "responsibility": "Project and apply node/network control-plane commands through cynic-node under explicit plan/apply boundaries."
     },
@@ -1018,7 +958,6 @@
       "responsibility": "Classify which runtime/bootstrap surfaces are safe for bounded agent autonomy now versus later."
     },
     {
-<<<<<<< HEAD
       "adapter_module": "runtime_surface::agents",
       "anti_responsibilities": [
         "treat an installed binary as execution authority",
@@ -1082,40 +1021,27 @@
       "responsibility": "Read an existing Hermes run only after the CYNIC-owned Hermes supervisor proves its declared gateway ready."
     },
     {
-=======
->>>>>>> github/main
       "adapter_module": "runtime_surface::disk",
       "anti_responsibilities": [
         "silent auto-cleanup without --apply",
         "delete user-created repositories or non-cache home files",
-<<<<<<< HEAD
         "reclaim a cache profile not declared by registry policy",
         "follow symlinks or escape the injected state root",
-=======
->>>>>>> github/main
         "mutate host networking or service configuration"
       ],
       "canonical_entrypoints": [
         "cynic runtime disk [--json]",
-<<<<<<< HEAD
         "cynic runtime disk-clean [--json] [--apply]",
         "cynic runtime disk-clean --build-runner [--registry <path>] [--node <id>] [--state-root <path>] [--json] [--apply]"
-=======
-        "cynic runtime disk-clean [--json] [--apply]"
->>>>>>> github/main
       ],
       "domain_owner": "cynic-host::domain::disk",
       "evidence": [
         "cynic.host_disk_report.v1",
         "cynic.host_disk_cleanup_plan.v1",
-<<<<<<< HEAD
         "cynic.host_disk_cleanup_result.v1",
         "cynic.build_runner.cache_observation.v1",
         "cynic.build_runner.cache_plan.v1",
         "cynic.build_runner.cache_report.v1"
-=======
-        "cynic.host_disk_cleanup_result.v1"
->>>>>>> github/main
       ],
       "id": "runtime_disk_management",
       "layer": "l1_host_apply_boundary",
@@ -1123,30 +1049,20 @@
       "owner_call_markers": [
         "LocalDiskAdapter",
         "DiskObservationPort",
-<<<<<<< HEAD
         "DiskCleanupExecutionPort",
         "load_build_cache_desired_state",
         "reconcile_build_cache",
         "reconcile_build_cache_resources",
         "LocalBuildCacheAdapter"
-=======
-        "DiskCleanupExecutionPort"
->>>>>>> github/main
       ],
       "owner_crate": "cynic-host",
       "owner_modules": [
         "domain::disk",
-<<<<<<< HEAD
         "domain::disk::build_runner",
         "adapters::local_disk",
         "adapters::local_build_cache"
       ],
       "responsibility": "Observe host storage and registry-declared build-runner caches, select cleanup through pure policy, execute only bounded reproducible-cache pruning under explicit --apply, and prove the result by read-back."
-=======
-        "adapters::local_disk"
-      ],
-      "responsibility": "Observe host storage filesystems, caches, and large files, plan disk cleanup, and execute bounded storage pruning under explicit --apply."
->>>>>>> github/main
     },
     {
       "adapter_module": "runtime_surface::execution_context",
@@ -1175,7 +1091,6 @@
       "responsibility": "Project bounded execution membranes, principal constraints, and target-scope runtime context before mutating work."
     },
     {
-<<<<<<< HEAD
       "adapter_module": "cynic-host::host_exec_cli::runtime_seed",
       "anti_responsibilities": [
         "include the runtime seed in the mutable runtime basket",
@@ -1226,8 +1141,6 @@
       "responsibility": "Keep a separately governed bootstrap root capable of admitting signed content-addressed runtime baskets bound to an exact source commit and admitted build proof through monotonic epochs, two-slot activation, postflight read-back, and rollback without depending on the MCP version being replaced."
     },
     {
-=======
->>>>>>> github/main
       "adapter_module": "runtime_surface::suite",
       "anti_responsibilities": [
         "execute host mutation",
@@ -1265,11 +1178,7 @@
       ],
       "canonical_entrypoints": [
         "cynic runtime harness --json [--kind <kind>]",
-<<<<<<< HEAD
         "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>] [--build-evidence <sha256-digest>]",
-=======
-        "cynic runtime conformance --json [--profile <name> | --node <name>] [--registry <path>]",
->>>>>>> github/main
         "cynic runtime metrics --json [--profile <name> | --node <name>] [--registry <path>] [--proof <path>]",
         "cynic runtime repo-access --json [--profile <path>]",
         "cynic runtime storage-capabilities --json [--url <surrealdb-url>]"
@@ -1279,12 +1188,8 @@
         "cynic.runtime_harness.catalog.v1",
         "cynic.host_conformance.v1",
         "cynic.host_runtime_metrics.v1",
-<<<<<<< HEAD
         "cynic.host.storage_capabilities.v1",
         "cynic.build.canonical_gate_read_back.v1"
-=======
-        "cynic.host.storage_capabilities.v1"
->>>>>>> github/main
       ],
       "id": "runtime_host_checks",
       "layer": "l1_host_readonly",
@@ -1363,11 +1268,7 @@
       "layer": "l1_host_readonly",
       "mutation_policy": "read_only",
       "owner_call_markers": [
-<<<<<<< HEAD
         "observe_runtime_network_preflight"
-=======
-        "cynic_host::runtime_network_preflight::observe_runtime_network_preflight"
->>>>>>> github/main
       ],
       "owner_crate": "cynic-host",
       "owner_modules": [
@@ -1433,7 +1334,6 @@
       "responsibility": "Aggregate runtime phases, evidence commands, inference SSOT state, and sovereign git readiness into a machine-readable runtime index."
     },
     {
-<<<<<<< HEAD
       "adapter_module": "cynic-node::main",
       "anti_responsibilities": [
         "copy source through scp",
@@ -1511,8 +1411,6 @@
       "responsibility": "Observe one node-local storage service, select a pure next action, enforce a durable restart budget, execute at most one explicit restart, and retain post-action health read-back."
     },
     {
-=======
->>>>>>> github/main
       "adapter_module": "runtime_surface::resolver_plan",
       "anti_responsibilities": [
         "write /etc/hosts directly",
@@ -1649,7 +1547,6 @@
         "lifecycle_surface_execute"
       ],
       "responsibility": "Executable update lifecycle over harness phases (lab→conformance→staging→canary→production) with gates, promote, ops report, repair, and phase apply under human --yes."
-<<<<<<< HEAD
     },
     {
       "adapter_module": "runtime_surface::forgejo_token_cli",
@@ -1685,8 +1582,6 @@
         "cynic-host::forgejo_token"
       ],
       "responsibility": "Observe the Forgejo runtime token and expose a fail-closed provision surface; SSH-local Exec or HTTP selection remains unavailable/unproven until runtime transport and credential injection are established, with read-back proof and explicit apply consent."
-=======
->>>>>>> github/main
     }
   ]
 }
