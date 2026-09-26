@@ -15,6 +15,7 @@ pub mod providers;
 pub mod python_cli_policy;
 pub mod python_tooling;
 pub mod registry;
+pub mod release_deployment;
 pub mod tooling_authority;
 pub mod types;
 pub mod upstream_probe;
@@ -40,7 +41,12 @@ pub use providers::{
 };
 pub use python_cli_policy::{PythonCliPolicy, python_cli_policy};
 pub use python_tooling::observe_python_tooling;
-pub use registry::{EcosystemProviderSpec, ecosystem_provider_specs, provider_spec};
+pub use registry::{ecosystem_provider_specs, provider_spec};
+pub use release_deployment::{
+    apply_release_deployment, plan_release_deployment, DeployBinarySpec,
+    LocalReleaseDeployExecutor, ReleaseDeployExecutorPort, ReleaseDeployPlan, ReleaseDeployReport,
+    ReleaseDeploySpec, RELEASE_DEPLOY_REPORT_SCHEMA,
+};
 pub use tooling_authority::{
     observe_python_install_authority, observe_tooling_authority, tooling_authority_status,
     tooling_provenance_from_python,
