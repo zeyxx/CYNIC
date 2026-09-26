@@ -191,8 +191,9 @@ operator-day: ## Morning loop via native cynic deps
 	@echo "One-click scripted upgrades:  cynic deps upgrade --yes"
 
 .PHONY: release-deploy
-release-deploy: ## Build release binaries and atomically deploy to /var/lib/cynic/releases/<version>
-	@bash scripts/deploy-release.sh
+release-deploy: ## Build release binaries and atomically deploy via native cynic source deploy
+	@$(RUST_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
+	@./target/release/cynic source deploy --apply
 
 .PHONY: install-cli
 install-cli: install-cli-auto ## Default install with preferred system-like target, with controlled fallback when unavailable

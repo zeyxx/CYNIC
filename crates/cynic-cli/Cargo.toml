@@ -26,6 +26,7 @@ cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-release = { path = "../cynic-release" }
+cynic-pkg = { path = "../cynic-pkg" }
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
 cynic-domain-porkbun = { path = "../cynic-domain-porkbun" }

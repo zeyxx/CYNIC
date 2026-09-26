@@ -7,7 +7,10 @@ use std::process::ExitCode;
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
 use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
 
+mod release_deployment_cli;
 mod worktree_allocation;
+
+use release_deployment_cli::execute_deploy;
 use worktree_allocation::execute_allocate_worktree;
 
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
@@ -111,6 +114,23 @@ pub(crate) enum SourceCommand {
     Pr {
         #[command(subcommand)]
         command: PrCommand,
+    },
+    /// Deploy built release binaries atomically to /var/lib/cynic/releases/<version>.
+    Deploy {
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Target workspace directory (defaults to current dir)
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Explicit version override (defaults to Cargo.toml package version)
+        #[arg(long)]
+        version: Option<String>,
+        /// Actually perform deployment (otherwise dry-run / planned)
+        #[arg(long)]
+        apply: bool,
+        /// Emit JSON report
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -223,6 +243,19 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             }
         }
         SourceCommand::Pr { command } => execute_pr(Path::new("."), command),
+        SourceCommand::Deploy {
+            state_root,
+            root,
+            version,
+            apply,
+            json,
+        } => execute_deploy(
+            Path::new(&root),
+            Path::new(&state_root),
+            version.as_deref(),
+            apply,
+            json,
+        ),
     }
 }
 
