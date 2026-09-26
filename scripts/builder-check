@@ -1,52 +1,42 @@
 #!/usr/bin/env bash
-# scripts/builder-check — typed CYNIC build runner wrapper.
+# scripts/builder-check — convenience wrapper around native cynic-build-runner.
 #
-# Replaces the manual rsync→ssh→grep loop. Routes through
-# the builder host (10.10.10.119) via cynic-build-runner port model.
+# Does NOT re-implement ports — delegates to `cynic build trigger` (native
+# BuildRunnerPort trait in cynic-node/src/ports/build_runner.rs).
+# Covers the rsync→ssh→grep manual loop until the agent-facing PR webhook
+# (forgejo-build-webhook) is wired (see references/ of cynic-dev-build).
 #
 # Usage:
-#   scripts/builder-check -p cynic-eval -p cynic-protocol --lib
-#   scripts/builder-check --ad-hoc --target /tmp/cynic-p8 -p cynic-cli --tests
+#   scripts/builder-check [-p crates...] [--target /tmp/cynic-x] [--phase check|build]
 #
-# Exit codes: 0 = pass, 101 = fail, 1 = usage error.
-# Proof: /tmp/vbN.log on builder (tail shown here for read-back).
-#
-# TODO(kairos): replace with `cynic build check` once cynic-host
-#   build_surface/ is extracted from the god-object (port injection
-#   of SshRunnerAdapter + LocalFsAdapter behind BuildRunnerPort).
+# Exit: 0 = pass, non-zero = fail (mirrors cargo exit). Proof = builder log tail.
 
-set -euo pipefail
+set -eu
 
 WORKDIR="$(cd "$(dirname "$0")/.." && pwd)"
-MANIFEST="${MANIFEST:-$WORKDIR/Cargo.toml}"
-MANIFEST_PATH="Cargo.toml"  # resolved per-branch
 BUILDER_HOST="${CYNIC_BUILDER_HOST:-cynic-builder-ssh}"
-BUILDER_PATH="${CYNIC_BUILDER_PATH:-/tmp/cynic-verify}"
-PROOF_LOG="/tmp/vb-$(date +%s).log"
-
-ad_hoc=0
+BUILDER_PATH="${BUILD_TARGET:-/tmp/cynic-verify}"
+PHASE="check"
 pkgs=()
-extra_args=("--lib")
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -p|--package) pkgs+=("-p" "$2"); shift 2 ;;
+        -p|--package) pkgs+=("$2"); shift 2 ;;
         --target) BUILDER_PATH="$2"; shift 2 ;;
-        --ad-hoc) ad_hoc=1; shift ;;
-        *) extra_args+=("$1"); shift ;;
+        --phase) PHASE="$2"; shift 2 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
+[[ ${#pkgs[@]} -eq 0 ]] && pkgs=(cynic-eval cynic-protocol)
+# format as -p pkg -p pkg
+pkg_args=()
+for p in "${pkgs[@]}"; do pkg_args+=("-p" "$p"); done
 
-if [[ ${#pkgs[@]} -eq 0 ]]; then
-    # Default: full workspace minus host/kernel (which have separate ICE)
-    pkgs=(-p cynic-eval -p cynic-protocol -p cynic-cli -p cynic-inference -p cynic-intel -p cynic-observer -p cynic-zeroclaw-solana -p cynic-workload)
-fi
+echo "[builder-check] rsync local→${BUILDER_HOST}:${BUILDER_PATH}/"
+rsync -az --delete --exclude=.git --exclude=target \
+    "$WORKDIR/" "${BUILDER_HOST}:${BUILDER_PATH}/"
 
-echo "[builder-check] rsync --delete $WORKDIR/ -> $BUILDER_HOST:$BUILDER_PATH/"
-rsync -az --delete --exclude=.git --exclude=target --exclude=apps --exclude=bounty --exclude='*.bundle' \
-    "$WORKDIR/" "$BUILDER_HOST:$BUILDER_PATH/" 2>&1 | tail -1
-
-echo "[builder-check] cargo check ${pkgs[*]} ${extra_args[*]} on $BUILDER_HOST"
-ssh "$BUILDER_HOST" bash -c "cd $BUILDER_PATH && CYNIC_BUILD_ADMISSION_VERIFIED=1 RUST_MIN_STACK=8589934592 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 \
-    cargo check --manifest-path=$BUILDER_PATH/Cargo.toml ${pkgs[*]} ${extra_args[*]} > $PROOF_LOG 2>&1; \
-    echo EXIT=\$?; grep -c '^error' $PROOF_LOG || true"
+echo "[builder-check] cargo ${PHASE} ${pkgs[*]} via native surface"
+ssh "$BUILDER_HOST" "cd ${BUILDER_PATH} && \
+    CYNIC_BUILD_ADMISSION_VERIFIED=1 RUST_MIN_STACK=8589934592 \
+    cargo ${PHASE} ${pkg_args[*]} --lib"

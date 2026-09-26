@@ -1,0 +1,267 @@
+{
+  "version": "0.1",
+  "description": "Ouroboros nightly landscape corpus — 20 starred repos selected to benchmark agent systems, sovereign inference, context retrieval, orchestration, and market execution.",
+  "created": "2026-04-15",
+  "source": {
+    "github_user": "zeyxx",
+    "star_snapshot_date": "2026-04-15",
+    "selection_rule": "5 tracks x 4 repos each; one repo per track per night; full cycle in 4 nights."
+  },
+  "rotation_policy": {
+    "repos_per_nightly": 5,
+    "selection": "one_per_track_round_robin",
+    "full_cycle_nights": 4,
+    "mutation_budget": {
+      "max_internal_patches": 1,
+      "external_repo_writes": false
+    }
+  },
+  "tracks": [
+    {
+      "id": "agent-runtimes",
+      "goal": "Study agent loop design, tool surfaces, autonomy boundaries, and failure handling."
+    },
+    {
+      "id": "context-retrieval",
+      "goal": "Study ingestion, code search, memory, and retrieval quality under real repo scale."
+    },
+    {
+      "id": "sovereign-inference",
+      "goal": "Study local-model serving, compression, cache layers, and deployment efficiency."
+    },
+    {
+      "id": "orchestration-sandbox",
+      "goal": "Study skills, hooks, multi-agent orchestration, and safe execution sandboxes."
+    },
+    {
+      "id": "market-execution",
+      "goal": "Study forecasting, trading-agent structure, signing, and market-facing runtime constraints."
+    }
+  ],
+  "task_profiles": [
+    {
+      "id": "repo-fingerprint",
+      "goal": "Establish source-of-truth on what the repo actually does.",
+      "deliverables": [
+        "One-sentence description grounded in primary files",
+        "Primary language and runtime assumptions",
+        "Main extension points or operator surfaces"
+      ]
+    },
+    {
+      "id": "transferable-mechanism",
+      "goal": "Extract one mechanism CYNIC should consider and one CYNIC should reject.",
+      "deliverables": [
+        "One adopt candidate with exact evidence",
+        "One reject candidate with exact evidence",
+        "Why the difference matters for CYNIC"
+      ]
+    },
+    {
+      "id": "cynic-mapping",
+      "goal": "Map the external mechanism onto a concrete CYNIC surface.",
+      "deliverables": [
+        "Target subsystem in CYNIC",
+        "Expected gain",
+        "Risk or tradeoff",
+        "Estimated effort: S, M, or L"
+      ]
+    },
+    {
+      "id": "actionable-followup",
+      "goal": "Produce at most one bounded internal follow-up task from the repo analysis.",
+      "deliverables": [
+        "Single follow-up task title",
+        "Files or modules likely affected",
+        "Verification method",
+        "Adopt, build, or skip decision"
+      ]
+    }
+  ],
+  "repos": [
+    {
+      "id": "hermes-agent",
+      "full_name": "NousResearch/hermes-agent",
+      "track": "agent-runtimes",
+      "language": "Python",
+      "role": "Upstream runtime for Hermes-based autonomy",
+      "why_it_matters": "Directly relevant to Ouroboros because Hermes is the current external mutation engine.",
+      "nightly_question": "Which Hermes extension points should remain upstream-owned versus mirrored in CYNIC?"
+    },
+    {
+      "id": "opencode",
+      "full_name": "anomalyco/opencode",
+      "track": "agent-runtimes",
+      "language": "TypeScript",
+      "role": "Open coding agent runtime",
+      "why_it_matters": "Representative of fast-moving open coding-agent ergonomics and operator expectations.",
+      "nightly_question": "What operator affordances make open coding agents feel faster without sacrificing auditability?"
+    },
+    {
+      "id": "aider",
+      "full_name": "Aider-AI/aider",
+      "track": "agent-runtimes",
+      "language": "Python",
+      "role": "Terminal pair-programming agent",
+      "why_it_matters": "Strong baseline for edit loop reliability and repo comprehension under CLI constraints.",
+      "nightly_question": "Which parts of aider's edit loop are robust enough to emulate in Ouroboros?"
+    },
+    {
+      "id": "pi-mono",
+      "full_name": "badlogic/pi-mono",
+      "track": "agent-runtimes",
+      "language": "TypeScript",
+      "role": "Agent toolkit and unified runtime stack",
+      "why_it_matters": "Good reference for multi-surface agent productization beyond a single CLI.",
+      "nightly_question": "Which runtime primitives deserve first-class treatment in CYNIC instead of living in scripts?"
+    },
+
+    {
+      "id": "firecrawl",
+      "full_name": "firecrawl/firecrawl",
+      "track": "context-retrieval",
+      "language": "TypeScript",
+      "role": "Web search and scraping substrate for agents",
+      "why_it_matters": "Useful benchmark for external retrieval quality and operator-friendly web ingestion.",
+      "nightly_question": "What should CYNIC learn from Firecrawl's evidence collection pattern without becoming a SaaS wrapper?"
+    },
+    {
+      "id": "markitdown",
+      "full_name": "microsoft/markitdown",
+      "track": "context-retrieval",
+      "language": "Python",
+      "role": "Document to Markdown conversion",
+      "why_it_matters": "Relevant to clean ingestion of PDFs, docs, and office files into agent-readable context.",
+      "nightly_question": "Where does CYNIC need stronger document normalization before retrieval or judgment?"
+    },
+    {
+      "id": "pageindex",
+      "full_name": "VectifyAI/PageIndex",
+      "track": "context-retrieval",
+      "language": "Python",
+      "role": "Vectorless document indexing",
+      "why_it_matters": "Challenges the assumption that every retrieval problem needs embeddings first.",
+      "nightly_question": "Which parts of CYNIC retrieval should remain embedding-based and which should become structural?"
+    },
+    {
+      "id": "contextplus",
+      "full_name": "ForLoopCodes/contextplus",
+      "track": "context-retrieval",
+      "language": "TypeScript",
+      "role": "Code intelligence and MCP context server",
+      "why_it_matters": "Direct comparator for large-repo context serving and feature-graph search.",
+      "nightly_question": "What retrieval guarantees are missing from CYNIC MCP when navigating large codebases?"
+    },
+
+    {
+      "id": "localai",
+      "full_name": "mudler/LocalAI",
+      "track": "sovereign-inference",
+      "language": "Go",
+      "role": "Local model serving engine",
+      "why_it_matters": "Reference point for sovereign serving breadth and operational packaging.",
+      "nightly_question": "What serving or deployment decisions should stay outside the kernel versus be abstracted behind Dogs?"
+    },
+    {
+      "id": "unsloth",
+      "full_name": "unslothai/unsloth",
+      "track": "sovereign-inference",
+      "language": "Python",
+      "role": "Training and local model operation stack",
+      "why_it_matters": "Relevant to future fine-tuning or specialization of Dogs.",
+      "nightly_question": "What data or evaluation pipeline would CYNIC need before any Dog fine-tuning is justified?"
+    },
+    {
+      "id": "llm-compressor",
+      "full_name": "vllm-project/llm-compressor",
+      "track": "sovereign-inference",
+      "language": "Python",
+      "role": "Model compression for deployment",
+      "why_it_matters": "Compression is directly tied to local inference feasibility and latency budgets.",
+      "nightly_question": "Which compression gains would matter enough to change CYNIC routing or Dog roster composition?"
+    },
+    {
+      "id": "lmcache",
+      "full_name": "LMCache/LMCache",
+      "track": "sovereign-inference",
+      "language": "Python",
+      "role": "KV cache layer",
+      "why_it_matters": "Cache design is central to efficiency and repeated agent workflows.",
+      "nightly_question": "Where would cache layers actually reduce repeated work in CYNIC versus add opaque complexity?"
+    },
+
+    {
+      "id": "oh-my-codex",
+      "full_name": "Yeachan-Heo/oh-my-codex",
+      "track": "orchestration-sandbox",
+      "language": "TypeScript",
+      "role": "Codex hook and team harness",
+      "why_it_matters": "Reference for agent HUDs, hooks, and teams-first augmentation.",
+      "nightly_question": "Which hook surfaces should Ouroboros expose explicitly instead of burying behavior in prompts?"
+    },
+    {
+      "id": "agent-skills",
+      "full_name": "vercel-labs/agent-skills",
+      "track": "orchestration-sandbox",
+      "language": "JavaScript",
+      "role": "Curated skill pack",
+      "why_it_matters": "Useful benchmark for reusable operational playbooks rather than single prompts.",
+      "nightly_question": "What makes a skill operationally reusable instead of becoming prompt ornament?"
+    },
+    {
+      "id": "agent-orchestrator",
+      "full_name": "ComposioHQ/agent-orchestrator",
+      "track": "orchestration-sandbox",
+      "language": "TypeScript",
+      "role": "Parallel coding-agent orchestrator",
+      "why_it_matters": "Direct comparator for multi-agent task decomposition and merge discipline.",
+      "nightly_question": "What should CYNIC measure before allowing broader sub-agent parallelism?"
+    },
+    {
+      "id": "opensandbox",
+      "full_name": "alibaba/OpenSandbox",
+      "track": "orchestration-sandbox",
+      "language": "Python",
+      "role": "Sandbox runtime for agents",
+      "why_it_matters": "Safety and bounded execution are critical to trustworthy nightly autonomy.",
+      "nightly_question": "Which boundaries should CYNIC enforce at runtime rather than rely on policy text alone?"
+    },
+
+    {
+      "id": "timesfm",
+      "full_name": "google-research/timesfm",
+      "track": "market-execution",
+      "language": "Python",
+      "role": "Time-series forecasting foundation model",
+      "why_it_matters": "Represents forecasting-heavy work that is tempting but must be justified empirically.",
+      "nightly_question": "What evidence would be required before CYNIC adopts forecasting models instead of heuristics?"
+    },
+    {
+      "id": "ai-hedge-fund",
+      "full_name": "virattt/ai-hedge-fund",
+      "track": "market-execution",
+      "language": "Python",
+      "role": "Trading-agent team",
+      "why_it_matters": "Good reference for role decomposition, strategy plurality, and market-facing evaluation.",
+      "nightly_question": "What parts of multi-strategy agent design survive contact with real verification requirements?"
+    },
+    {
+      "id": "solana-keychain",
+      "full_name": "solana-foundation/solana-keychain",
+      "track": "market-execution",
+      "language": "TypeScript",
+      "role": "Transaction signing substrate",
+      "why_it_matters": "Signing and auth are where agent systems become real systems with blast radius.",
+      "nightly_question": "How should CYNIC separate judgment, authorization, and transaction execution?"
+    },
+    {
+      "id": "percolator",
+      "full_name": "aeyakovenko/percolator",
+      "track": "market-execution",
+      "language": "Rust",
+      "role": "Solana market infrastructure experiment",
+      "why_it_matters": "Useful stress case for low-latency, risk-bearing, execution-adjacent design.",
+      "nightly_question": "Which CYNIC abstractions break first in low-latency market infrastructure contexts?"
+    }
+  ]
+}

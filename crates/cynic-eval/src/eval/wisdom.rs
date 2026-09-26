@@ -2,7 +2,7 @@
 //!
 //! Canonical domain owner: `cynic-askesis` (SoC foundation §481).
 //! These types live in `cynic-protocol` because they are pure serde contracts
-//! consumed by both `cynic-kernel` (runtime) and `cynic-askesis` (domain logic).
+//! consumed by both `cynic-core` (runtime) and `cynic-askesis` (domain logic).
 
 use serde::{Deserialize, Serialize};
 

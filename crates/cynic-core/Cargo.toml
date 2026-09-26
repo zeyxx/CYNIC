@@ -1,0 +1,71 @@
+[package]
+name = "cynic-core"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+
+[features]
+default = []
+
+[dependencies]
+cynic-host = { path = "../cynic-host" }
+cynic-inference = { path = "../cynic-inference" }
+cynic-protocol = { path = "../cynic-protocol" }
+cynic-core-domains = { path = "../cynic-core-domains" }
+cynic-secrets = { path = "../cynic-secrets" }
+cynic-workload = { path = "../cynic-workload" }
+cynic-build = { path = "../cynic-build" }
+cynic-intel = { path = "../cynic-intel" }
+cynic-intel-soc = { path = "../cynic-intel-soc" }
+cynic-askesis = { path = "../cynic-askesis" }
+cynic-node = { path = "../cynic-node" }
+cynic-storage = { path = "../cynic-storage" }
+cynic-forensics = { path = "../cynic-forensics" }
+dotenvy = "0.15"
+chrono.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sysinfo = "0.37"
+tokio.workspace = true
+tokio-util = { version = "0.7", features = ["rt"] }
+base64.workspace = true
+# surrealdb crate removed — using reqwest HTTP adapter (storage_http.rs) for SurrealDB 3.x
+toml.workspace = true
+walkdir.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+rand = "0.9.0"
+futures-util.workspace = true
+tokio-tungstenite = "0.24"
+dirs.workspace = true
+blake3.workspace = true
+bitflags.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror = "2.0.18"
+arc-swap.workspace = true
+sha2 = "0.11.0"
+sha3 = "0.10.8"
+hex.workspace = true
+rusqlite = { version = "0.34", features = ["bundled"] }
+which.workspace = true
+ed25519-dalek.workspace = true
+http-body-util.workspace = true
+bytes.workspace = true
+hyper-util = { version = "0.1.20", features = ["server-auto", "tokio"] }
+hyper = { version = "1.10.1", features = ["http1", "http2", "server"] }
+tower.workspace = true
+zeroize.workspace = true
+getrandom = "0.2"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+tempfile = "3.27.0"
+regex = "1"
