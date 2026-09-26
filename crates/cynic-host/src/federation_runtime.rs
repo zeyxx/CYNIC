@@ -1,6 +1,6 @@
 //! Federation runtime wiring — composes the four autonomy models via injectable ports.
 //!
-//! The pure decision lives in `cynic_protocol::federation::reconcile_federation`.
+//! The pure decision lives in `cynic_node_protocol::federation::reconcile_federation`.
 //! This module wires it to impure observation sources (kernel reachability,
 //! mesh peers, OS health, lease status). Every port is injectable so the
 //! composition is unit-testable without real infrastructure.
@@ -10,11 +10,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
 use crate::peer_resolver_mesh::MeshPeerResolver;
-use cynic_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_score_from_os};
-use cynic_protocol::federation::{FederationReconciliation, reconcile_federation};
-use cynic_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
+use cynic_node_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_score_from_os};
+use cynic_node_protocol::federation::{FederationReconciliation, reconcile_federation};
+use cynic_node_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_node_protocol::node_control::NodeControlPlan;
-use cynic_protocol::peer_resolver::PeerResolver;
+use cynic_node_protocol::peer_resolver::PeerResolver;
 use cynic_protocol::runtime_takeover::RuntimeTakeoverObservation;
 
 /// Port: observe kernel reachability and lease status.
@@ -115,12 +115,12 @@ impl FederationRuntime {
         let autonomy = decide_autonomy(&autonomy_obs);
 
         let emergence_decisions: Vec<_> =
-            if autonomy.mode == cynic_protocol::local_autonomy::AutonomyMode::Autonomous {
+            if autonomy.mode == cynic_node_protocol::local_autonomy::AutonomyMode::Autonomous {
                 if let Some(state) = &mesh.emergence_state {
                     let roles = vec!["build_runner", "storage", "forge", "kernel"];
                     roles
                         .iter()
-                        .map(|r| cynic_protocol::emergence::elect_for_role(state, r))
+                        .map(|r| cynic_node_protocol::emergence::elect_for_role(state, r))
                         .collect()
                 } else {
                     vec![]
@@ -130,7 +130,7 @@ impl FederationRuntime {
             };
 
         let takeover_decision =
-            if autonomy.mode == cynic_protocol::local_autonomy::AutonomyMode::Autonomous {
+            if autonomy.mode == cynic_node_protocol::local_autonomy::AutonomyMode::Autonomous {
                 Some(cynic_protocol::runtime_takeover::decide_runtime_takeover(
                     takeover_obs,
                 ))
@@ -139,7 +139,7 @@ impl FederationRuntime {
             };
 
         let node_control_plan =
-            if autonomy.mode == cynic_protocol::local_autonomy::AutonomyMode::Coordinated {
+            if autonomy.mode == cynic_node_protocol::local_autonomy::AutonomyMode::Coordinated {
                 self.node_control.node_control_plan()
             } else {
                 None
@@ -278,7 +278,7 @@ impl MeshObserver for MeshPeerObserver {
         });
 
         let emergence_state = EmergenceState {
-            schema: cynic_protocol::emergence::EMERGENCE_STATE_SCHEMA.to_string(),
+            schema: cynic_node_protocol::emergence::EMERGENCE_STATE_SCHEMA.to_string(),
             observed_at_unix_s: now,
             local_node_id: self.local_node_id.clone(),
             peers: peer_states,
@@ -394,7 +394,7 @@ impl FederationRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::local_autonomy::AutonomyMode;
+    use cynic_node_protocol::local_autonomy::AutonomyMode;
     use cynic_node_protocol::node_control::{NodeControlConnectionState, NodeControlDecision};
 
     struct FakeKernel {

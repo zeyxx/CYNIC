@@ -1,7 +1,7 @@
 //! Node activation runtime — observes deployment_epoch, bootstrap_federation,
 //! and takeover state to produce an activation verdict.
 
-use cynic_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
+use cynic_node_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
 use cynic_node_protocol::node_activation::{NodeActivationVerdict, decide_node_activation};
 use serde::Serialize;
 

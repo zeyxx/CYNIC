@@ -15,8 +15,8 @@ use cynic_host::federation_runtime::{
     KernelReachabilityObserver, MeshObserver, MeshPeerObserver, NodeControlPort, OsHealthObserver,
     OsHealthObserverAdapter, TakeoverObserverAdapter,
 };
-use cynic_protocol::federation::FederationReconciliation;
-use cynic_protocol::local_autonomy::AutonomyMode;
+use cynic_node_protocol::federation::FederationReconciliation;
+use cynic_node_protocol::local_autonomy::AutonomyMode;
 
 /// Build a federation runtime with production adapters.
 fn production_runtime() -> FederationRuntime {

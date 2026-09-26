@@ -179,7 +179,7 @@ impl FederatedTaskDispatcher {
 
 fn select_canonical_node_for_domain(
     domain: TaskDomain,
-) -> cynic_protocol::peer_resolver::PeerEndpoint {
+) -> cynic_node_protocol::peer_resolver::PeerEndpoint {
     let resolver =
         super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
             super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
