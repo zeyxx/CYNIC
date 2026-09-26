@@ -166,7 +166,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
         copy_registry(Path::new(registry), output_dir, &mut files)?;
     }
     if role == "hypervisor" {
-        let report = crate::lxc_exec_bridge::bundle(
+        let report = cynic_lxc::bundle(
             output_dir.join("lxc-exec-bridge-bundle"),
             output_dir.join("bin/cynic-lxc-exec-bridge"),
         );

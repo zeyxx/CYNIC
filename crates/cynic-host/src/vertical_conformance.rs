@@ -7,7 +7,7 @@ use cynic_protocol::{
     assess_convergence_matrix, framework_spec,
 };
 
-use crate::build::BuildConformanceEvidence;
+use cynic_build::BuildConformanceEvidence;
 use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;

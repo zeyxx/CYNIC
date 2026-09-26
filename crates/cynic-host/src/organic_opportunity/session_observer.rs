@@ -133,7 +133,7 @@ impl SessionPatternObserver {
                     use std::io::{BufRead, BufReader};
                     let reader = BufReader::new(file);
                     for line in reader.lines().map_while(Result::ok) {
-                        for bucket in crate::bucket_signatures::matching_buckets(&line) {
+                        for bucket in cynic_intel::autoresearch::bucket_signatures::matching_buckets(&line) {
                             hits.push((session_id.clone(), bucket.to_string()));
                         }
                     }

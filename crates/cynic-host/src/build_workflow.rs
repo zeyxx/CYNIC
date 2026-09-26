@@ -13,7 +13,7 @@ use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::LeaseGuard;
 use cynic_vcs::source_control::SourceSnapshot;
 
-use crate::build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
+use cynic_build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_lifecycle::ArgvRunner;
 

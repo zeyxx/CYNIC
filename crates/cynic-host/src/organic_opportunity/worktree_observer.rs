@@ -15,9 +15,8 @@ use cynic_vcs::{
 };
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
-use crate::source_worktree_inventory::{
-    LocalSourceWorktreeInventoryRunner, SourceWorktreeInventoryRunner,
-};
+use crate::adapters::vcs_runner::LocalVcsRunner;
+use cynic_vcs::{VcsRunner, parse_porcelain};
 
 /// Configuration for source worktree observation.
 #[derive(Debug, Clone)]
@@ -41,11 +40,11 @@ pub struct SourceWorktreeObserver<R: SourceWorktreeInventoryRunner> {
     runner: R,
 }
 
-impl SourceWorktreeObserver<LocalSourceWorktreeInventoryRunner> {
+impl SourceWorktreeObserver<LocalVcsRunner> {
     pub fn new(config: WorktreeObserverConfig) -> Self {
         Self {
             config,
-            runner: LocalSourceWorktreeInventoryRunner,
+            runner: LocalVcsRunner,
         }
     }
 }
@@ -184,7 +183,7 @@ impl<R: SourceWorktreeInventoryRunner> OrganicOpportunityObserver for SourceWork
             }
         };
 
-        let (entries, _exceeded, _malformed) = crate::source_worktree_inventory::parse_porcelain(
+        let (entries, _exceeded, _malformed) = parse_porcelain(
             raw_text,
             &self.config.repository_root,
             &self.config.workspace_store,
@@ -247,7 +246,7 @@ mod tests {
             Some("CYNIC-agent-v1"),
         );
 
-        let opps = SourceWorktreeObserver::<LocalSourceWorktreeInventoryRunner>::analyze_entries(
+        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(
             &[entry],
             0,
         );
@@ -267,7 +266,7 @@ mod tests {
             None,
         );
 
-        let opps = SourceWorktreeObserver::<LocalSourceWorktreeInventoryRunner>::analyze_entries(
+        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(
             &[entry],
             0,
         );

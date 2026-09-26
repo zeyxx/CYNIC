@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
-use crate::build::{BuildConformanceEvidence, BuildProof};
+use cynic_build::{BuildConformanceEvidence, BuildProof};
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::hardware_baseline::{HardwareBaselinePlan, plan_hardware_baseline};
 use crate::hardware_conformance::{HardwareConformanceReport, observe_hardware_conformance};
