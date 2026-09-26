@@ -1,4 +1,5 @@
 //! TOML schema models for kernel runtime configuration files.
+#![allow(dead_code)]
 
 use serde::Deserialize;
 
