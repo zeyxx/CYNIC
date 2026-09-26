@@ -1,7 +1,10 @@
+use cynic_eval::convergence::{
+    CausalConvergenceEpochInput, CausalEvidenceRefs, TrustAssessment, TrustDimensionStatus,
+    TrustRequirements, assess_causal_convergence_epoch,
+};
 use cynic_protocol::{
-    CausalConvergenceEpochInput, CausalEvidenceRefs, EvidenceEnvelope, EvidenceRef,
-    EvidenceRelation, ServiceSupervisorObservation, TrustAssessment, TrustDimensionStatus,
-    TrustRequirements, assess_causal_convergence_epoch, build_evidence_envelope,
+    EvidenceEnvelope, EvidenceRef, EvidenceRelation, ServiceSupervisorObservation,
+    build_evidence_envelope,
 };
 
 use super::decision::decide_process_convergence;

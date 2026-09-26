@@ -1,4 +1,4 @@
-use cynic_protocol::{
+use cynic_eval::convergence::{
     CAUSAL_CONVERGENCE_EPOCH_SCHEMA, CausalConvergenceEpoch, CausalEpochIndexEntry,
     ConvergenceStatus,
 };

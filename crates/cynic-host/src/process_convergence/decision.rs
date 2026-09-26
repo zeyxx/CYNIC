@@ -1,6 +1,5 @@
-use cynic_protocol::{
-    ConvergenceStatus, ServiceSupervisorObservation, ServiceSupervisorUnitObservation,
-};
+use cynic_eval::convergence::ConvergenceStatus;
+use cynic_protocol::{ServiceSupervisorObservation, ServiceSupervisorUnitObservation};
 
 use super::types::{
     PROCESS_CONVERGENCE_DECISION_SCHEMA, ProcessConvergenceDecision, ProcessConvergenceRequest,

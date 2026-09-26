@@ -41,7 +41,7 @@ pub struct HostConformanceReport {
     pub next_command: Option<String>,
     pub gates: Vec<HostConformanceGate>,
     pub verticals: VerticalConformanceReport,
-    pub convergence: cynic_protocol::ConvergenceMatrixReport,
+    pub convergence: cynic_eval::convergence::ConvergenceMatrixReport,
     pub observed: HostObservationReports,
     pub bootstrap_evidence: HostBootstrapEvidenceReport,
     pub hardware: HardwareConformanceReport,

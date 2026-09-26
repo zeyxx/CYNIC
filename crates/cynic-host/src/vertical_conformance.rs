@@ -2,10 +2,10 @@
 
 use serde::Serialize;
 
-use cynic_protocol::{
-    ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, FrameworkSpec,
-    assess_convergence_matrix, framework_spec,
+use cynic_eval::convergence::{
+    ConvergenceCell, ConvergenceMatrixReport, ConvergenceStatus, assess_convergence_matrix,
 };
+use cynic_protocol::{FrameworkSpec, framework_spec};
 
 use cynic_build::BuildConformanceEvidence;
 use crate::conformance::HostConformanceGate;
