@@ -47,8 +47,6 @@ pub use crate::detection::*;
 pub use crate::development::*;
 pub use crate::discovery::*;
 pub use crate::disk::*;
-pub use crate::dog::*;
-pub use crate::dog_health::*;
 pub use crate::domain_tasks::*;
 pub use crate::endpoint::*;
 pub use crate::error_catalog::*;
