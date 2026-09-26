@@ -404,7 +404,7 @@ pub fn append_dog_metrics(
 /// Append organ quality metrics from DogStats snapshots.
 pub fn append_organ_metrics(
     out: &mut String,
-    snapshots: &[(String, cynic_protocol::dog_health::DogStats)],
+    snapshots: &[(String, cynic_eval::eval::dog_health::DogStats)],
 ) {
     use std::fmt::Write;
 

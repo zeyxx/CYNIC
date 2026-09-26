@@ -2,7 +2,6 @@
 //! Full orchestration (storage, API, agents) will be re-enabled as separate crates.
 
 use crate::bootstrap::entry::KernelEntryFlags;
-use crate::klog;
 
 pub async fn run_runtime(_flags: KernelEntryFlags) -> Result<(), Box<dyn std::error::Error>> {
     klog!("[Kernel] Runtime supervisor starting (minimal mode)");
