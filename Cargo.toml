@@ -12,6 +12,7 @@ members = [
     "crates/cynic-agent-bus-coordinator",
     "crates/cynic-kernel",
     "crates/cynic-node",
+    "crates/cynic-node-protocol",
     "crates/cynic-host",
     "crates/cynic-intel",
     "crates/cynic-intel-escore",
