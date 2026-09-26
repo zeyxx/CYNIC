@@ -110,7 +110,7 @@ pub async fn execute_agent_source_change(
     if success {
         let evidence_refs = result.proof_ref.clone().into_iter().collect::<Vec<_>>();
         let evidence_refs = if evidence_refs.is_empty() {
-            cynic_node_protocol::digest_json(&result)
+            cynic_protocol::digest_json(&result)
                 .map(|digest| vec![format!("source-change-transaction:{digest}")])
                 .unwrap_or_default()
         } else {

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cynic_node_protocol::validate_evidence_refs;
+use cynic_protocol::validate_evidence_refs;
 
 use super::{
     admit_agent_workload,

@@ -473,7 +473,7 @@ mod tests {
         assert_eq!(input.schema, crate::AGENT_WORKLOAD_INPUT_SCHEMA);
         assert_eq!(input.kind, "agent_skill_delivery");
         assert_eq!(
-            cynic_node_protocol::digest_json(&input.payload).unwrap(),
+            cynic_protocol::digest_json(&input.payload).unwrap(),
             input.digest
         );
         assert!(validate_agent_skill_delivery_input(&input, &delegation(&bundle)).is_empty());

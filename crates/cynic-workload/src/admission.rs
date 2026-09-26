@@ -36,7 +36,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
             "plan_digest must be a sha256 content digest",
         ));
     }
-    match cynic_node_protocol::digest_json(&envelope.action) {
+    match cynic_protocol::digest_json(&envelope.action) {
         Ok(digest) if digest == envelope.plan_digest => {}
         Ok(_) => violations.push(violation(
             "action_plan_digest_mismatch",
@@ -54,7 +54,7 @@ pub fn admit_agent_workload(envelope: &AgentWorkloadEnvelope) -> AgentWorkloadAd
                 "workload input requires the canonical schema and a typed kind",
             ));
         }
-        match cynic_node_protocol::digest_json(&input.payload) {
+        match cynic_protocol::digest_json(&input.payload) {
             Ok(digest) if digest == input.digest && valid_sha256_digest(&input.digest) => {}
             _ => violations.push(violation(
                 "workload_input_digest_mismatch",
@@ -306,7 +306,7 @@ pub fn admit_workload_mandate_binding(
             "workload binding fencing token must equal the observed mandate",
         ));
     }
-    if cynic_node_protocol::digest_json(mandate).ok().as_deref()
+    if cynic_protocol::digest_json(mandate).ok().as_deref()
         != Some(binding.snapshot_digest.as_str())
     {
         violations.push(violation(

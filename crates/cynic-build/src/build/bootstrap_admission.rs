@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_node_protocol::digest_json;
+use cynic_protocol::digest_json;
 use cynic_protocol::one_shot_capability::{ONE_SHOT_CAPABILITY_SCHEMA, OneShotCapability};
 
 pub const BUILD_RUNNER_BOOTSTRAP_PREFLIGHT_SCHEMA: &str =

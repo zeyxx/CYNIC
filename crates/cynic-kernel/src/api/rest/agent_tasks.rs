@@ -3,7 +3,7 @@
 
 use axum::{extract::State, http::StatusCode, response::Json};
 use cynic_protocol::agent_recursion::AgentEvidenceRef;
-use cynic_node_protocol::validate_evidence_refs;
+use cynic_protocol::validate_evidence_refs;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;

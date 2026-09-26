@@ -393,7 +393,7 @@ fn persist_renewal_proof(
         "fencing_token": guard.fencing_token,
         "successful_renewals": renewal_count,
     });
-    let evidence_ref = cynic_node_protocol::digest_json(&proof)
+    let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-claim-renewal:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-claim-renewal:{workload_id}"));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
@@ -410,7 +410,7 @@ fn persist_cancellation_proof(workload_id: &str, revision: u64) {
         "store_revision": revision,
         "transition": "cancel_requested_to_terminal_acknowledged",
     });
-    let evidence_ref = cynic_node_protocol::digest_json(&proof)
+    let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-cancellation-delivery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-cancellation-delivery:{workload_id}"));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
@@ -428,7 +428,7 @@ fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: 
         "new_store_revision": new_revision,
         "transition": "expired_claim_reclaimed_with_new_fence",
     });
-    let evidence_ref = cynic_node_protocol::digest_json(&proof)
+    let evidence_ref = cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-crash-recovery:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-crash-recovery:{workload_id}"));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(

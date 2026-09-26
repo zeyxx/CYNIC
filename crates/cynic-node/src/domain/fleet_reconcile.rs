@@ -28,7 +28,7 @@ pub struct FleetReconcilePlan {
 }
 
 pub fn plan_digest(plan: &FleetReconcilePlan) -> String {
-    cynic_node_protocol::digest_json(plan).expect("fleet reconcile plan is serializable")
+    cynic_protocol::digest_json(plan).expect("fleet reconcile plan is serializable")
 }
 
 pub fn admit_plan(plan: &FleetReconcilePlan, actor: String) -> PolicyAdmissionReport {
@@ -69,7 +69,7 @@ pub fn admit_plan(plan: &FleetReconcilePlan, actor: String) -> PolicyAdmissionRe
         PolicySetRef {
             id: "cynic.fleet.power_reconcile".to_string(),
             version: "v2".to_string(),
-            digest: cynic_node_protocol::digest_json(&mutation).expect("mutation is serializable"),
+            digest: cynic_protocol::digest_json(&mutation).expect("mutation is serializable"),
         },
         PolicyIntentRef {
             id: format!("fleet.reconcile:{}", plan.desired_target),

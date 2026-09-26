@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use cynic_eval::convergence::{
     CausalEpochIndex, CausalEpochIndexAppend, CausalEpochIndexEntry,
 };
-use cynic_node_protocol::digest_json;
+use cynic_protocol::digest_json;
 
 use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
 

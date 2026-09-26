@@ -357,7 +357,7 @@ use cynic_node_protocol::{NODE_DESIRED_STATE_SCHEMA};
         desired_state: desired,
     };
 
-    let digest = cynic_node_protocol::digest_json(&declaration).unwrap();
+    let digest = cynic_protocol::digest_json(&declaration).unwrap();
     assert!(!digest.is_empty());
 
     let policy_digest =

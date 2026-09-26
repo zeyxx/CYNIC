@@ -230,7 +230,7 @@ impl CynicJudgment {
 
     /// Computes the content-addressed digest for this judgment.
     pub fn digest(&self) -> Result<String, serde_json::Error> {
-        cynic_node_protocol::digest_json(self)
+        cynic_protocol::digest_json(self)
     }
     pub fn is_actionable(&self) -> bool {
         self.actionable

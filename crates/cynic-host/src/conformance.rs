@@ -401,7 +401,7 @@ mod tests {
         fn observe_hardware(&self) -> crate::hardware_conformance::HardwareObservation {
             let inventory = ready_hardware_inventory();
             crate::hardware_conformance::HardwareObservation {
-                baseline_digest: cynic_node_protocol::digest_json(&inventory).ok(),
+                baseline_digest: cynic_protocol::digest_json(&inventory).ok(),
                 inventory,
                 firmware_version: Some("test-firmware".to_string()),
                 max_temperature_millicelsius: Some(40_000),
