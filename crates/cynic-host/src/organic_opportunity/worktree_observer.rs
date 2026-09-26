@@ -35,7 +35,7 @@ impl Default for WorktreeObserverConfig {
 }
 
 /// Host adapter observing repository worktrees.
-pub struct SourceWorktreeObserver<R: SourceWorktreeInventoryRunner> {
+pub struct SourceWorktreeObserver<R: VcsRunner> {
     config: WorktreeObserverConfig,
     runner: R,
 }
@@ -49,7 +49,7 @@ impl SourceWorktreeObserver<LocalVcsRunner> {
     }
 }
 
-impl<R: SourceWorktreeInventoryRunner> SourceWorktreeObserver<R> {
+impl<R: VcsRunner> SourceWorktreeObserver<R> {
     pub fn with_runner(config: WorktreeObserverConfig, runner: R) -> Self {
         Self { config, runner }
     }
@@ -144,7 +144,7 @@ impl<R: SourceWorktreeInventoryRunner> SourceWorktreeObserver<R> {
     }
 }
 
-impl<R: SourceWorktreeInventoryRunner> OrganicOpportunityObserver for SourceWorktreeObserver<R> {
+impl<R: VcsRunner> OrganicOpportunityObserver for SourceWorktreeObserver<R> {
     fn observer_name(&self) -> &'static str {
         "source_worktree_observer"
     }
