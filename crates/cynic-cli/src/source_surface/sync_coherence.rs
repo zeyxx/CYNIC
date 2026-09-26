@@ -79,7 +79,7 @@ pub(crate) fn project_sync_coherence_vector(
             .map(|a| format!("{a:?}"))
             .collect::<Vec<_>>()
             .join(", ");
-        (ConvergenceStatus::Planned, "planned", Some(action_str))
+        (ConvergenceStatus::Partial, "planned", Some(action_str))
     } else if !residual_unknowns.is_empty()
         && (!observation.forgejo.reachable || !observation.cortex.reachable)
     {
@@ -89,7 +89,7 @@ pub(crate) fn project_sync_coherence_vector(
             Some("Essential source planes unreachable".to_string()),
         )
     } else {
-        (ConvergenceStatus::Converged, "converged", None)
+        (ConvergenceStatus::Complete, "converged", None)
     };
 
     let vector = Vector {
