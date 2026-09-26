@@ -567,17 +567,23 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 }
 
 /// Lookup the JSON pointer for the vcs_provider block,
-/// trying multiple paths to be resilient to registry schema evolution.
+/// dynamically scanning across nodes to be resilient to registry schema evolution.
 fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
-    // Try the node-scoped path first, then bare top-level paths
-    let candidates = [
-        "/nodes/4/source_workspace_layout/vcs_provider/sovereign_ssot",
-        "/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot",
-        "/nodes/0/source_lifecycle/vcs_provider/sovereign_ssot",
+    if let Some(nodes) = reg.get("nodes").and_then(|n| n.as_array()) {
+        for node in nodes {
+            if let Some(ssot) = node.pointer("/source_workspace_layout/vcs_provider/sovereign_ssot") {
+                return Some(ssot);
+            }
+            if let Some(ssot) = node.pointer("/source_lifecycle/vcs_provider/sovereign_ssot") {
+                return Some(ssot);
+            }
+        }
+    }
+    let top_candidates = [
         "/source_lifecycle/vcs_provider/sovereign_ssot",
         "/vcs_provider/sovereign_ssot",
     ];
-    candidates.iter().find_map(|ptr| reg.pointer(ptr))
+    top_candidates.iter().find_map(|ptr| reg.pointer(ptr))
 }
 
 #[derive(Debug, Subcommand)]
