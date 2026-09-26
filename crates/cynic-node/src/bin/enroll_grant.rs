@@ -3,7 +3,8 @@
 //! Generates or reads authority keys, binds machine identity,
 //! signs a canonical SignedNodeEnrollmentGrant, and updates identity files.
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,7 +15,7 @@ use cynic_protocol::node_enrollment::{
     SignedNodeEnrollmentGrant, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
     NODE_ENROLLMENT_SIGNATURE_NAMESPACE, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
 };
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
 #[derive(Parser, Debug)]
@@ -55,8 +56,12 @@ fn read_or_create_hex_signing_key(path: &Path) -> Result<SigningKey, String> {
             .map_err(|_| format!("key {} is not 32 bytes", path.display()))?;
         Ok(SigningKey::from_bytes(&bytes))
     } else {
-        let mut rng = rand::rngs::OsRng;
-        let key = SigningKey::generate(&mut rng);
+        let mut f = File::open("/dev/urandom")
+            .map_err(|e| format!("open /dev/urandom: {e}"))?;
+        let mut bytes = [0u8; 32];
+        f.read_exact(&mut bytes)
+            .map_err(|e| format!("read /dev/urandom: {e}"))?;
+        let key = SigningKey::from_bytes(&bytes);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
@@ -77,13 +82,14 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let machine_public_key_hex = hex::encode(node_key.verifying_key().to_bytes());
+    let machine_public_key_bytes = node_key.verifying_key().to_bytes();
+    let machine_public_key_hex = hex::encode(machine_public_key_bytes);
     let machine_identity_digest = format!(
         "sha256:{}",
-        hex::encode(Sha256::digest(node_key.verifying_key().to_bytes()))
+        hex::encode(Sha256::digest(machine_public_key_bytes))
     );
 
-    // Authority signing key (stored securely in identity_dir/enrollment-authority.key)
+    // Authority signing key (stored in identity_dir/enrollment-authority.key)
     let authority_key_path = args.identity_dir.join("enrollment-authority.key");
     let authority_key = match read_or_create_hex_signing_key(&authority_key_path) {
         Ok(k) => k,
@@ -130,7 +136,7 @@ fn main() -> ExitCode {
         node_id: args.node_id.clone(),
         role: args.role.clone(),
         machine_identity_digest: machine_identity_digest.clone(),
-        machine_public_key_hex: machine_public_key_hex.clone(),
+        machine_public_key_hex,
         nonce,
         issued_at_unix_s: now_unix_s,
         expires_at_unix_s,
@@ -145,12 +151,11 @@ fn main() -> ExitCode {
         seed_id: args.node_id.clone(),
         node_id: args.node_id.clone(),
         role: args.role.clone(),
-        machine_identity_digest: machine_identity_digest.clone(),
-        machine_public_key_hex,
-        granted_capabilities: capabilities,
+        machine_identity_digest,
         generation: 2,
         issued_at_unix_s: now_unix_s,
         expires_at_unix_s,
+        granted_capabilities: capabilities,
         evidence_refs: vec![
             authority_key_id.clone(),
             format!("sha256:{}", hex::encode(Sha256::digest(args.node_id.as_bytes()))),
