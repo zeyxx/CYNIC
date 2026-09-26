@@ -89,28 +89,25 @@ Defines the compilation order, boundary enforcement, and code topology across wo
 
 ---
 
-## 3. Emerging Domain Families (Multi-Agent Traces & Local Intelligence)
+## 3. Cohesive Domain Architecture & The Solana/Agave Precedent
 
-Operational activity (multi-agent trace harvesting, DPO dataset generation, local model execution) has crystallized three distinct functional families that belong horizontally in **Layer 2**:
+CYNIC rejects the dogmatic anti-pattern of artificial "micro-crating" (creating 5 tiny crates for one cohesive feature).
+Following the architectural precedent of **Solana / Agave** (`solana-runtime`, `solana-ledger`), domain features are consolidated into **cohesive bounded-context crates** using internal modules and Cargo feature flags, rather than fragmented across dozens of micro-crates.
 
-### Family 1: `cynic-trace` (Multi-Agent Trace Ingestion & Sanitization)
-- **Problem**: Ingestion logs from heterogeneous agents (Hermes SQLite, Codex JSONL, Claude Code, OMP sessions) pollute kernel coordination and askesis history.
-- **Constellation**:
-  - `cynic-trace-types` (Layer 0): Pure unified schema `cynic.agent_turn.v1` (Prompt, ToolCalls, Observations, Verdict, Disposition).
-  - `cynic-trace-parser` (Layer 2): Zero-I/O parsers converting SQLite, JSONL, and LevelDB raw formats into canonical turn structures.
-  - `cynic-trace-scrubber` (Layer 2): Deterministic redaction of API keys, authentication tokens, passwords, and private identifiers prior to training export.
+### The 4 Pragmatic Extraction Criteria (No Dogma)
 
-### Family 2: `cynic-eval` / `cynic-dog` (Epistemic Evaluation & Preference Learning)
-- **Problem**: Dog epistemic evaluators and validation loops were historically tangled inside `cynic-kernel/src/domain/dog*.rs`.
-- **Constellation**:
-  - `cynic-eval-axioms` (Layer 2): Pure evaluation logic testing turns against the core axioms (Fidelity, Sovereignty, Burn, Culture, Q-Score).
-  - `cynic-eval-dataset` (Layer 2): Generation of Direct Preference Optimization (DPO) training pairs (accepted turn vs operator-corrected turn).
+Before extracting or creating a new crate, answer these four systems engineering criteria:
 
-### Family 3: `cynic-inference` (Model Execution & Resource Scheduling)
-- **Problem**: Inference coordination was split between `cynic-kernel/src/backends/` and CLI surfaces.
-- **Constellation**:
-  - `cynic-inference-engine` (Layer 2): Engine management (local llama-server, Ryzen 5700G iGPU/CPU backends, remote OpenAI-compatible endpoints).
-  - `cynic-inference-slots` (Layer 2): Concurrency queuing, VRAM budgeting, and KV-cache slot allocation.
+1. **Dependency Firewall**: Does this code introduce heavy or toxic dependencies (e.g. RocksDB, SQLite, LibGit2, heavy HTTP stacks) that must not pollute the rest of the workspace?
+2. **Autonomous Deployment Scope**: Does this component need to be embedded in a standalone daemon/tool (e.g. `cynic-pkg` installer, `cynic-node` supervisor) without pulling the full kernel?
+3. **High Cohesion vs Coupling**: If two components change together and communicate thousands of times per second in-process, they MUST remain in the same crate partitioned via internal submodules (`mod types;`, `mod parse;`).
+4. **Sandboxing & Blast Radius**: Does this code execute untrusted guest workloads requiring strict capability and OS isolation (e.g. `cynic-sandbox`)?
+
+### Cohesive Domain Families (Layer 2)
+
+- **`cynic-trace`**: Consolidated multi-agent trace harvesting, zero-I/O parsing (SQLite, JSONL), and deterministic token scrubbing in internal modules (`mod types; mod parse; mod scrub;`), NOT fragmented into separate crates.
+- **`cynic-eval`**: Epistemic evaluation engine, axiom verification, and DPO pair generation in internal modules.
+- **`cynic-inference`**: Engine management and slot scheduling managed within a single cohesive crate using feature flags (`features = ["local-llama", "remote-api"]`).
 
 ---
 
