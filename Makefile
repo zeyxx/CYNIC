@@ -192,7 +192,7 @@ operator-day: ## Morning loop via native cynic deps
 
 .PHONY: release-deploy
 release-deploy: ## Build release binaries and atomically deploy via native cynic source deploy
-	@$(RUST_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
+	@RUST_MIN_STACK=8589934592 CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
 	@./target/release/cynic source deploy --apply
 
 .PHONY: install-cli
