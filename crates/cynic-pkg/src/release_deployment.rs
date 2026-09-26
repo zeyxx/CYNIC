@@ -98,7 +98,16 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
     }
 
     fn copy_file(&self, from: &Path, to: &Path) -> std::io::Result<u64> {
-        fs::copy(from, to)
+        let parent = to.parent().unwrap_or_else(|| Path::new("."));
+        let temp_target = parent.join(format!(
+            ".tmp-bin-{}-{}",
+            std::process::id(),
+            to.file_name().and_then(|n| n.to_str()).unwrap_or("bin")
+        ));
+        let _ = fs::remove_file(&temp_target);
+        let bytes = fs::copy(from, &temp_target)?;
+        fs::rename(&temp_target, to)?;
+        Ok(bytes)
     }
 
     fn atomic_symlink(&self, target: &Path, link_path: &Path) -> std::io::Result<()> {
