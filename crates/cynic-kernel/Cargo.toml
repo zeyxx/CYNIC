@@ -22,6 +22,7 @@ cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-forensics = { path = "../cynic-forensics" }
 cynic-eval = { path = "../cynic-eval" }
+cynic-node-protocol = { path = "../cynic-node-protocol" }
 dotenvy = "0.15"
 chrono.workspace = true
 reqwest.workspace = true
