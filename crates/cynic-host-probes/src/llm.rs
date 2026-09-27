@@ -8,7 +8,7 @@ use super::types::*;
 // LLM RESOURCE PROBE (Exhaustive — all tiers always run)
 // ============================================================
 
-pub(super) async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) -> LlmConfig {
+pub async fn probe_llm_resources(env: &EnvInfo, compute: &ComputeInfo) -> LlmConfig {
     let models_dir = ensure_models_dir();
 
     // Model discovery (heavy FS scan) in spawn_blocking, server probe async — concurrent.

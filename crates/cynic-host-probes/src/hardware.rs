@@ -7,7 +7,7 @@ use super::types::*;
 // HARDWARE PROBE
 // ============================================================
 
-pub(super) async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinError> {
+pub async fn probe_hardware() -> Result<HardwareInfo, tokio::task::JoinError> {
     let hw = tokio::task::spawn_blocking(|| {
         // 1. Try pure Linux /proc parsers via cynic-host (0 allocation /proc parsing)
         let cpu_info = std::fs::read_to_string("/proc/cpuinfo").ok();
@@ -77,7 +77,7 @@ enum SyncDetection {
     CpuFallback(ComputeInfo),
 }
 
-pub(super) async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinError> {
+pub async fn probe_compute() -> Result<ComputeInfo, tokio::task::JoinError> {
     // Phase 1: Sync detection (sysfs, nvidia-smi) — runs in spawn_blocking.
     let detection = tokio::task::spawn_blocking(|| {
         // 1. NVIDIA via nvidia-smi
@@ -309,7 +309,7 @@ fn read_sysfs_string(path: PathBuf) -> Option<String> {
         .map(|s| s.trim().to_string())
 }
 
-pub(super) fn detect_cpu_info() -> ComputeInfo {
+pub fn detect_cpu_info() -> ComputeInfo {
     let threads = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4);
