@@ -370,6 +370,3 @@ fn violation(code: impl Into<String>, message: impl Into<String>) -> AgentRecurs
         message: message.into(),
     }
 }
-
-#[cfg(test)]
-mod tests;

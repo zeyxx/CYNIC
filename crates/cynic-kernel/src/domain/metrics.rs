@@ -577,7 +577,7 @@ mod tests {
 
     #[test]
     fn observation_metrics_renders_correctly() {
-        let stats = cynic_protocol::dog_health::DogStats::new();
+        let stats = cynic_eval::eval::dog_health::DogStats::new();
         let snapshots = vec![("test-dog".to_string(), stats)];
         let mut out = String::new();
         append_observation_metrics(&mut out, &snapshots);

@@ -610,19 +610,19 @@ impl StoragePort for ReconnectableStorage {
     }
     async fn flush_dog_stats(
         &self,
-        stats: &[(String, crate::domain::dog_health::DogStats)],
+        stats: &[(String, cynic_eval::eval::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         self.current().flush_dog_stats(stats).await
     }
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, cynic_eval::eval::dog_health::DogStats)>, StorageError> {
         self.current().load_dog_stats().await
     }
     async fn load_dog_stat(
         &self,
         dog_id: &str,
-    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+    ) -> Result<Option<cynic_eval::eval::dog_health::DogStats>, StorageError> {
         self.current().load_dog_stat(dog_id).await
     }
     async fn cleanup_ttl(&self) -> Result<(), StorageError> {

@@ -603,7 +603,7 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn flush_dog_stats(
         &self,
-        stats: &[(String, crate::domain::dog_health::DogStats)],
+        stats: &[(String, cynic_eval::eval::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         ops::flush_dog_stats(self, stats).await
     }
@@ -611,7 +611,7 @@ impl StoragePort for SurrealHttpStorage {
     #[tracing::instrument(skip(self), err)]
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, cynic_eval::eval::dog_health::DogStats)>, StorageError> {
         ops::load_dog_stats(self).await
     }
 
@@ -619,7 +619,7 @@ impl StoragePort for SurrealHttpStorage {
     async fn load_dog_stat(
         &self,
         dog_id: &str,
-    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+    ) -> Result<Option<cynic_eval::eval::dog_health::DogStats>, StorageError> {
         ops::load_dog_stat(self, dog_id).await
     }
 

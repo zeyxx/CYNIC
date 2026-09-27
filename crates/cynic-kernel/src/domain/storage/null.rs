@@ -547,7 +547,7 @@ impl StoragePort for NullStorage {
     }
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, cynic_eval::eval::dog_health::DogStats)>, StorageError> {
         Ok(vec![])
     }
 }

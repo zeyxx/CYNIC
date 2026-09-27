@@ -35,6 +35,32 @@ fn parent() -> AgentDelegationEnvelope {
     }
 }
 
+fn child() -> AgentDelegationEnvelope {
+    AgentDelegationEnvelope {
+        schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),
+        delegation_id: "child-task".to_string(),
+        node_id: "node-a".to_string(),
+        agent_id: "agent-child-1".to_string(),
+        parent_agent_id: Some("agent-root".to_string()),
+        depth: 1,
+        objective: "reconcile delegated subtree".to_string(),
+        authority_snapshot: evidence("foundation"),
+        context_refs: vec![evidence("parent-observation")],
+        capabilities: vec![AgentCapabilityGrant {
+            id: "runtime.observe".to_string(),
+            mutates: false,
+        }],
+        budget: AgentBudget {
+            context_tokens: 50_000,
+            actions: 5,
+            children: 2,
+            wall_time_ms: 30_000,
+            cpu_ms: None,
+        },
+        expected_proofs: vec!["capability_observation".to_string()],
+    }
+}
+
 #[test]
 fn admits_bounded_same_node_child() {
     assert!(admit_child_delegation(&parent(), &child()).admitted());

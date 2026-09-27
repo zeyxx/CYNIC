@@ -501,7 +501,7 @@ pub trait StoragePort:
     #[allow(clippy::too_many_arguments)]
     async fn flush_dog_stats(
         &self,
-        _stats: &[(String, crate::domain::dog_health::DogStats)],
+        _stats: &[(String, cynic_eval::eval::dog_health::DogStats)],
     ) -> Result<(), StorageError> {
         Ok(())
     }
@@ -511,7 +511,7 @@ pub trait StoragePort:
     #[allow(clippy::too_many_arguments)]
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, cynic_eval::eval::dog_health::DogStats)>, StorageError> {
         Ok(vec![])
     }
 
@@ -519,7 +519,7 @@ pub trait StoragePort:
     async fn load_dog_stat(
         &self,
         _dog_id: &str,
-    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+    ) -> Result<Option<cynic_eval::eval::dog_health::DogStats>, StorageError> {
         Ok(None)
     }
 

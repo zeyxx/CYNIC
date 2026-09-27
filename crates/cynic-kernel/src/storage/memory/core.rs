@@ -53,7 +53,7 @@ impl StoragePort for InMemoryStorage {
 
     async fn load_dog_stats(
         &self,
-    ) -> Result<Vec<(String, crate::domain::dog_health::DogStats)>, StorageError> {
+    ) -> Result<Vec<(String, cynic_eval::eval::dog_health::DogStats)>, StorageError> {
         let s = self.state.lock().await;
         Ok(s.dog_stats
             .iter()
@@ -64,7 +64,7 @@ impl StoragePort for InMemoryStorage {
     async fn load_dog_stat(
         &self,
         dog_id: &str,
-    ) -> Result<Option<crate::domain::dog_health::DogStats>, StorageError> {
+    ) -> Result<Option<cynic_eval::eval::dog_health::DogStats>, StorageError> {
         let s = self.state.lock().await;
         Ok(s.dog_stats.get(dog_id).cloned())
     }

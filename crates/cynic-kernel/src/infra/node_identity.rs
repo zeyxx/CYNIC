@@ -93,19 +93,23 @@ pub fn crypto_node_id() -> String {
 
 /// Best-effort stable node_id — crypto primary, env override for dev/test.
 pub fn stable_node_id() -> String {
-    // If CYNIC_NODE_ID override is set, use it (test/dev only).
-    if let Ok(override_id) = std::env::var("CYNIC_NODE_ID") {
-        let trimmed = override_id.trim().to_string();
+    resolve_node_id(std::env::var("CYNIC_NODE_ID").ok().as_deref())
+}
+
+/// Pure decision: a non-empty env override wins (test/dev only), otherwise the
+/// crypto fingerprint from the persistent ed25519 keypair is used.
+fn resolve_node_id(override_id: Option<&str>) -> String {
+    if let Some(raw) = override_id {
+        let trimmed = raw.trim();
         if !trimmed.is_empty() {
             tracing::warn!(
                 "CYNIC_NODE_ID override active — node_id is NOT cryptographically bound. \
                  Use only in dev/test."
             );
-            return trimmed;
+            return trimmed.to_string();
         }
     }
 
-    // Crypto fingerprint from ed25519 keypair.
     crypto_node_id()
 }
 
@@ -129,8 +133,19 @@ mod tests {
 
     #[test]
     fn override_takes_precedence() {
-        unsafe { std::env::set_var("CYNIC_NODE_ID", "test-node-override") };
-        assert_eq!(stable_node_id(), "test-node-override");
-        unsafe { std::env::remove_var("CYNIC_NODE_ID") };
+        assert_eq!(resolve_node_id(Some("test-node-override")), "test-node-override");
+    }
+
+    #[test]
+    fn empty_override_falls_back_to_crypto() {
+        let crypto = crypto_node_id();
+        assert_eq!(resolve_node_id(None), crypto);
+        assert_eq!(resolve_node_id(Some("")), crypto);
+        assert_eq!(resolve_node_id(Some("   ")), crypto);
+    }
+
+    #[test]
+    fn override_is_trimmed() {
+        assert_eq!(resolve_node_id(Some("  padded  ")), "padded");
     }
 }

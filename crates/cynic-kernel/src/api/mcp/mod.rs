@@ -23,7 +23,6 @@ use serde::Deserialize;
 
 mod agent_tools;
 mod coord_tools;
-mod observe_tools;
 pub mod proxy;
 
 use crate::api::forge_task_contract::validate_repo_affecting_hermes_task;
@@ -344,7 +343,7 @@ impl std::fmt::Debug for CynicMcp {
 
 impl CynicMcp {
     pub fn tool_router() -> ToolRouter<Self> {
-        Self::tool_router_coord() + Self::tool_router_observe() + Self::tool_router_agent()
+        Self::tool_router_coord() + Self::tool_router_agent()
     }
 
     #[allow(clippy::too_many_arguments)]

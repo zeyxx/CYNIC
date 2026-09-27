@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 
 use crate::domain::ccm::{Crystal, CrystalState, SessionSummary};
 use crate::domain::dog::{MIN_QUORUM, Verdict};
-use crate::domain::dog_health::DogStats;
+use cynic_eval::eval::dog_health::DogStats;
 use crate::domain::sanitize::sanitize_crystal_content;
 use crate::domain::storage::{
     ActivityStorage, AgentDispatch, AgentTask, CrystalStorage, DispatchStorage, Event, MeshNode,

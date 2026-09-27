@@ -9,7 +9,7 @@
 pub mod health;
 pub mod registry;
 
-use crate::domain::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
+use cynic_eval::eval::dog_health::{DogStats, ScoreFailureKind, ScoreOutcome};
 use crate::organ::health::ParseFailureGate;
 use crate::organ::registry::{Backend, BackendHealth, BackendId};
 use std::collections::HashMap;
