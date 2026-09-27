@@ -4,7 +4,7 @@
 #
 # Evidence sources:
 #   - architecture_boundary tests (host + cli) when cargo available
-#   - make lab-smoke when requested
+#   - make lab.smoke when requested
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,11 +38,11 @@ else
 fi
 
 if [[ "${CYNIC_EVIDENCE_LAB_SMOKE:-0}" == "1" ]]; then
-  if make lab-smoke >/tmp/cynic-ev-lab.log 2>&1; then
+  if make lab.smoke >/tmp/cynic-ev-lab.log 2>&1; then
     LAB_OK=1
-    LAB_DETAIL="make lab-smoke ok"
+    LAB_DETAIL="make lab.smoke ok"
   else
-    LAB_DETAIL="make lab-smoke failed (see /tmp/cynic-ev-lab.log)"
+    LAB_DETAIL="make lab.smoke failed (see /tmp/cynic-ev-lab.log)"
   fi
 else
   LAB_DETAIL="skipped (set CYNIC_EVIDENCE_LAB_SMOKE=1)"

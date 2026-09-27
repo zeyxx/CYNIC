@@ -8,7 +8,7 @@ Canonical validation gate (admitted build runner only):
 
 make check
 make audit
-make release-deploy
+make release.deploy
 
 Same gate through other projections: MCP `cynic_validate`, `cynic audit all --json`.
 
@@ -21,7 +21,7 @@ cynic audit all --json
 cynic source worktree --json
 cynic source deploy --json
 
-Compiler and build policy: `infra/RUST_COMPILER_ALPHAS.md`. `make test`, `make build`, and `make build-release` are not canonical gates while the pinned rustc ICE paths persist.
+Compiler and build policy: `infra/RUST_COMPILER_ALPHAS.md`. `make test` exists but is not a canonical gate while the pinned rustc ICE paths persist. `make build` and `make build-release` **do not exist** — they were named here for longer than they were implemented, and a target depended on one of them.
 
 ## Structure
 

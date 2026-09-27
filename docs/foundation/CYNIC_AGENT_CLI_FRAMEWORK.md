@@ -162,7 +162,7 @@ Before introducing or renaming an agent surface:
 
 This framework is enforced at two levels:
 
-- build admission (`make check` / `make check-strict`) — proves compile safety
+- build admission (`make check` / `make check.strict`) — proves compile safety
   and surface conformance.
 - exposure freshness (`cynic dev agent-exposure --json`) — proves agent surfaces
   are declared and live in `infra/agent-exposure.json`.
