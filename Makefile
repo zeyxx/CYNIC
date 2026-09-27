@@ -85,8 +85,57 @@ help: ## List targets
 
 .PHONY: secret.literals
 secret.literals: ## Reject high-confidence literal credentials in Git-tracked source
-	$(call require_surface,secret)
-	@$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- secret lint
+	@echo "==> cynic audit secret"
+	@if [ -x "$(CYNIC_BIN)" ]; then \
+		$(CYNIC_BIN) audit secret --json; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit secret --json; \
+	fi
+
+# What each target delegates to the CLI, declared rather than parsed.
+#
+# Documentation, not enforcement: a target that calls a surface must list it
+# here, and this table is the answer to "is a capability duplicated between
+# make and the CLI" in one command. Enforcing it would need a parser over the
+# recipes, which broke the first time it was attempted, so the table stays
+# declarative on purpose.
+#
+# Deliberately NOT delegated to the CLI, with the reason:
+#   check.layers       `cynic build proof` describes itself as replacing ad-hoc
+#                      SSH+shell sequences, but it needs a runner and a commit.
+#                      The runner cannot create a checkout: its mirror
+#                      /var/lib/cynic/repos/CYNIC.git is root-owned, so no commit
+#                      after 2026-08-23 can be proven there. See G4 in
+#                      infra/GOVERNANCE_AUDIT.md.
+#   check.ratchets     no CLI surface runs cargo test; these are the workspace
+#                      ratchets.
+#   CORE_CRATES        `cynic build discover` should own this list, but it
+#                      returns {"crates": [], "residual_unknowns":
+#                      ["no_workspace_crates"]} against a real workspace.
+define CYNIC_SURFACES
+authority.check       dev
+secret.literals       audit secret
+check                 audit crate
+audit                 audit all
+converge              source worktree, audit all
+audit.surfaces        dev
+audit.matrix          dev
+audit.phases          dev
+operator.reports      dev, runtime
+lab.smoke             lab, bootstrap, network
+lab.plan              lab
+lab.provision         lab
+lab.bundle            lab
+framework.bootstrap   bootstrap
+deps                  deps
+operator.day          deps, runtime
+release.deploy        source release, source deploy
+endef
+
+.PHONY: surfaces
+surfaces: ## Report which CLI surfaces each target delegates to
+	@printf '%-22s %s\n' TARGET 'CYNIC SURFACES'
+	@printf '%s\n' '$(CYNIC_SURFACES)' | grep -v '^$$' | sort
 
 .PHONY: authority.check
 authority.check: secret.literals ## Read-only local validation of machine-readable authorities
@@ -284,9 +333,21 @@ operator.day: ## Morning loop via native cynic deps
 	@echo "One-click scripted upgrades:  cynic deps upgrade --yes"
 
 .PHONY: release.deploy
-release.deploy: ## Build release binaries and atomically deploy via native cynic source deploy
+release.deploy: ## Run the release gate, then build and atomically deploy via native cynic source deploy
+	@echo "==> release gate"
+	@if [ -x "$(CYNIC_BIN)" ]; then \
+		$(CYNIC_BIN) source release; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source release; \
+	fi
+	@echo "==> building release binaries"
 	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
-	@"$(CARGO_TARGET_DIR)/release/cynic" source deploy --apply
+	@echo "==> deploying"
+	@if [ -x "$(CYNIC_BIN)" ]; then \
+		$(CYNIC_BIN) source deploy --apply; \
+	else \
+		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source deploy --apply; \
+	fi
 
 .PHONY: operator.loop
 operator.loop: ## Fast operator iteration: install CLI and refresh authoritative reports
