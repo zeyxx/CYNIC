@@ -101,6 +101,34 @@
         "allow_shrink": false,
         "minimum_bytes": 10737418240,
         "maximum_bytes": 1099511627776
+      },
+      {
+        "schema": "cynic.storage_class.v1",
+        "id": "model_vault",
+        "provider": "local",
+        "management_policy": [
+          "observe",
+          "update"
+        ],
+        "reclaim_policy": "retain",
+        "allow_expansion": true,
+        "allow_shrink": false,
+        "minimum_bytes": 10737418240,
+        "maximum_bytes": 1099511627776
+      },
+      {
+        "schema": "cynic.storage_class.v1",
+        "id": "archive_cold",
+        "provider": "local",
+        "management_policy": [
+          "observe",
+          "update"
+        ],
+        "reclaim_policy": "retain",
+        "allow_expansion": true,
+        "allow_shrink": false,
+        "minimum_bytes": 10737418240,
+        "maximum_bytes": 549755813888
       }
     ],
     "volumes": [
@@ -110,6 +138,20 @@
         "class_id": "artifact_store",
         "provider_resource_id": "lxc/103:mp0",
         "owner": "runtime-artifact-store"
+      },
+      {
+        "schema": "cynic.storage_volume.v1",
+        "id": "host_local_model_vault",
+        "class_id": "model_vault",
+        "provider_resource_id": "host-local:/var/lib/cynic/vault/models",
+        "owner": "cynic-inference"
+      },
+      {
+        "schema": "cynic.storage_volume.v1",
+        "id": "host_local_archive_cold",
+        "class_id": "archive_cold",
+        "provider_resource_id": "host-local:/var/lib/cynic/vault/archive",
+        "owner": "cynic-host"
       }
     ],
     "claims": [
@@ -119,6 +161,24 @@
         "owner": "runtime-artifact-store",
         "class_id": "artifact_store",
         "requested_bytes": 8589934592,
+        "mode": "permanent",
+        "expires_at_ms": null
+      },
+      {
+        "schema": "cynic.storage_claim.v1",
+        "id": "model_vault_claim",
+        "owner": "cynic-inference",
+        "class_id": "model_vault",
+        "requested_bytes": 171798691840,
+        "mode": "permanent",
+        "expires_at_ms": null
+      },
+      {
+        "schema": "cynic.storage_claim.v1",
+        "id": "archive_cold_claim",
+        "owner": "cynic-host",
+        "class_id": "archive_cold",
+        "requested_bytes": 34359738368,
         "mode": "permanent",
         "expires_at_ms": null
       }
@@ -131,6 +191,22 @@
         "claim_id": "runtime_artifact_store_claim",
         "mount_path": "/data",
         "service": "runtime-artifact-store"
+      },
+      {
+        "schema": "cynic.storage_binding.v1",
+        "id": "model_vault_binding",
+        "volume_id": "host_local_model_vault",
+        "claim_id": "model_vault_claim",
+        "mount_path": "/var/lib/cynic/vault/models",
+        "service": "cynic-inference"
+      },
+      {
+        "schema": "cynic.storage_binding.v1",
+        "id": "archive_cold_binding",
+        "volume_id": "host_local_archive_cold",
+        "claim_id": "archive_cold_claim",
+        "mount_path": "/var/lib/cynic/vault/archive",
+        "service": "cynic-host"
       }
     ]
   },
