@@ -109,7 +109,7 @@ pub(crate) fn flush(
     unknowns.push(SourceWorktreeInventoryUnknown::PathSymlink);
     unknowns.push(SourceWorktreeInventoryUnknown::Cleanliness);
 
-    let evidence_digest = cynic_node_protocol::digest::digest_json(&serde_json::json!({
+    let evidence_digest = cynic_protocol::digest::digest_json(&serde_json::json!({
         "path": path,
         "head": head,
         "branch": branch,

@@ -66,7 +66,7 @@ impl AuditValidationObserver {
                 OpportunityClass::Dependency
             };
 
-            let digest = cynic_node_protocol::digest::digest_json(&serde_json::json!({
+            let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
                 "debt_id": finding.debt_id,
                 "file_line": finding.file_line,
             }))

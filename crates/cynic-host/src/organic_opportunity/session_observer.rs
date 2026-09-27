@@ -64,7 +64,7 @@ impl SessionPatternObserver {
 
         for (bucket, sessions) in bucket_sessions {
             if sessions.len() >= min_recurring_sessions {
-                let digest = cynic_node_protocol::digest::digest_json(&serde_json::json!({
+                let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
                     "bucket": bucket,
                     "session_count": sessions.len(),
                 }))

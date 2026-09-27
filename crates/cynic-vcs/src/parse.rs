@@ -24,7 +24,7 @@ pub fn parse_porcelain(
         return (
             Vec::new(),
             false,
-            vec![cynic_node_protocol::digest::digest_bytes(text.as_bytes())],
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
         );
     }
     let (complete_text, trailing_evidence) = if text.is_empty() || text.ends_with("\0\0") {
@@ -33,7 +33,7 @@ pub fn parse_porcelain(
         let complete_end = boundary + 2;
         (
             &text[..complete_end],
-            vec![cynic_node_protocol::digest::digest_bytes(
+            vec![cynic_protocol::digest::digest_bytes(
                 text[complete_end..].as_bytes(),
             )],
         )
@@ -41,7 +41,7 @@ pub fn parse_porcelain(
         return (
             Vec::new(),
             false,
-            vec![cynic_node_protocol::digest::digest_bytes(text.as_bytes())],
+            vec![cynic_protocol::digest::digest_bytes(text.as_bytes())],
         );
     };
     let mut entries = Vec::new();
@@ -309,7 +309,7 @@ pub fn parse_porcelain(
     let mut malformed_record_evidence = trailing_evidence;
     if !malformed_record_attributes.is_empty() {
         malformed_record_evidence.push(
-            cynic_node_protocol::digest::digest_json(&malformed_record_attributes).unwrap_or_default(),
+            cynic_protocol::digest::digest_json(&malformed_record_attributes).unwrap_or_default(),
         );
     }
 
