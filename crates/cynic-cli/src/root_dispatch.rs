@@ -13,7 +13,7 @@ use crate::node_activation_surface::execute_node_activation;
 use crate::operator_doctor::execute_operator_doctor;
 use crate::operator_errors::execute_operator_errors;
 use crate::operator_help::execute_advanced_help;
-use crate::runtime_surface::execute_operator_models;
+use crate::runtime_surface::{execute_operator_models, execute_runtime};
 use crate::session_surface::execute_session;
 
 pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
@@ -33,6 +33,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Network { command } => execute_network(command),
         Command::Node { command } => execute_node_activation(command),
         Command::Advanced => execute_advanced_help(),
+        Command::Runtime { command } => execute_runtime(command),
         Command::Update { target, json } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
             deps_surface::execute_deps_upgrade(json, false, true, None, &only)

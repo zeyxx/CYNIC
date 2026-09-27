@@ -10,7 +10,7 @@ use crate::judge_surface::JudgeCommand;
 use crate::mask_surface::MaskCommand;
 use crate::network_surface::NetworkCommand;
 use crate::node_activation_surface::NodeActivationCommand;
-use crate::runtime_surface::OperatorModelsCommand;
+use crate::runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use crate::session_surface::SessionCommand;
 use crate::source_surface::SourceCommand;
 use crate::task_surface::TaskCommand;
@@ -60,6 +60,11 @@ pub(crate) enum Command {
     },
     /// Explain and list the advanced runtime surfaces.
     Advanced,
+    /// Runtime surfaces: path resolution, evidence, conformance, disk, and local inference.
+    Runtime {
+        #[command(subcommand)]
+        command: RuntimeCommand,
+    },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
         #[command(subcommand)]
