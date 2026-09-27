@@ -41,6 +41,7 @@ Defines how physical and virtual nodes interact across the network without a cen
 
 #### Pragmatic Baseline & Risk/Reward (ROI/RR) Decision
 - **Operational Reality**: The current active cluster consists of 3 dedicated physical machines (Cortex, Proxmox, Builder) connected via high-bandwidth low-latency (0.2 ms) links over WireGuard.
+- **Registry Truth (2026-09-28)**: `infra/registry.json` declares **8 node targets** — 1 observed (hypervisor), 6 candidate (cortex_host, kernel_primary, storage_primary, build_runner, forge_primary, mesh_coordinator), 1 stub (no role/status). One fleet target is an empty object `{}` — recorded drift, not a working node. Registry nodes stay targets until local proof promotes them to observed.
 - **Strategic Freeze**: Developing complex cryptographic state channels (HTLCs) and multi-hop onion routing for a 3-node LAN introduces high debugging overhead with low near-term ROI.
 - **Active Production SSOT**: **Level 0 (Hardware/WireGuard) and Level 1 (Git/Consensus/SurrealDB) constitute the active production baseline**. Inter-node task dispatch runs via direct Unix domain sockets, authenticated local HTTP/2, and WireGuard transport. Levels 2, 3, and 4 remain dormant future protocol specifications until wide-area multi-party federation demands them.
 
@@ -58,8 +59,8 @@ Defines the compilation order, boundary enforcement, and code topology across wo
              │
              ▼
 [Layer 2: Autonomous Domains]           cynic-storage, cynic-inference, cynic-build,
-                                        cynic-vcs, cynic-intel, cynic-askesis,
-                                        Emerging: cynic-trace-*, cynic-eval-*
+                                         cynic-vcs, cynic-intel, cynic-askesis,
+                                         cynic-eval (created), cynic-trace (planned)
              │
              ▼
 [Layer 1: Host Substrate]               cynic-host, cynic-network, cynic-lxc,
@@ -77,8 +78,8 @@ Defines the compilation order, boundary enforcement, and code topology across wo
   - Concrete operating system interfaces (Linux systemd, Proxmox VE, SSH, nftables, sockets) exposed exclusively through portable ports (`ObservationPort`, `ProcessPort`, `NetworkPort`).
 - **Layer 2 — Autonomous Business Domains**:
   - Independent hexagonal modules handling specific functional capabilities behind typed traits.
-  - Core: `cynic-storage`, `cynic-vcs`, `cynic-build`, `cynic-release`, `cynic-askesis`, `cynic-domain-ops`, `cynic-intel`.
-  - Emerging families: `cynic-trace`, `cynic-eval`, `cynic-inference` (see §3).
+   - Core: `cynic-storage`, `cynic-vcs`, `cynic-build`, `cynic-release`, `cynic-askesis`, `cynic-domain-ops`, `cynic-intel`.
+   - Families: `cynic-trace` (planned, one consolidated crate), `cynic-eval` (created 2026-09-26, consolidated per R7), `cynic-inference` (extracting) (see §3).
 - **Layer 3 — Orchestration & Supervision**:
   - `cynic-kernel`, `cynic-node`.
   - In-memory event routing, lease coordination, supervision trees, and scheduler loops.
@@ -105,9 +106,9 @@ Before extracting or creating a new crate, answer these four systems engineering
 
 ### Cohesive Domain Families (Layer 2)
 
-- **`cynic-trace`**: Consolidated multi-agent trace harvesting, zero-I/O parsing (SQLite, JSONL), and deterministic token scrubbing in internal modules (`mod types; mod parse; mod scrub;`), NOT fragmented into separate crates.
-- **`cynic-eval`**: Epistemic evaluation engine, axiom verification, and DPO pair generation in internal modules.
-- **`cynic-inference`**: Engine management and slot scheduling managed within a single cohesive crate using feature flags (`features = ["local-llama", "remote-api"]`).
+- **`cynic-trace`** (planned): Consolidated multi-agent trace harvesting, zero-I/O parsing (SQLite, JSONL), and deterministic token scrubbing in internal modules (`mod types; mod parse; mod scrub;`), NOT fragmented into separate crates (R7).
+- **`cynic-eval`** (created 2026-09-26, wave B): Consolidated epistemic evaluation engine, axiom verification, and DPO pair generation in internal modules. No `cynic-eval-*` split — operator vetoes 2026-09-25, confirmed 2026-09-28.
+- **`cynic-inference`** (extracting): Engine management and slot scheduling managed within a single cohesive crate using feature flags (`features = ["local-llama", "remote-api"]`). 25.3K LOC — under the reduction ratchet (§5 rule 5).
 
 ---
 
@@ -119,7 +120,7 @@ CYNIC is engineered for high local throughput on bare metal (AMD Ryzen 7 5700G w
    - Micro-state channels and onion routing across local nodes add serializations, heap allocations, and context switching.
    - For vertical scaling, data flows through zero-copy in-memory buffers (`bytes::Bytes`), contiguous slices, and memory-mapped files (`mmap`) directly from NVMe to inference memory.
 2. **Compiler Throughput & Monolith Deconstruction**:
-   - Oversized crates (`cynic-host` ~89k LOC, `cynic-node` ~58k LOC, `cynic-protocol` ~54k LOC) degrade `rustc` compilation performance and trigger LLVM/libc internal compiler errors (ICE) on complex macro expansions.
+   - Oversized crates (measured 2026-09-28: `cynic-host` 93K LOC, `cynic-node` 58K LOC, `cynic-kernel` 40K LOC, `cynic-protocol` 35K LOC, `cynic-cli` 35K LOC, `cynic-inference` 25.3K LOC) degrade `rustc` compilation performance and trigger LLVM/libc internal compiler errors (ICE) on complex macro expansions.
    - Clean-room extraction into focused domain crates allows Cargo to leverage all 16 Ryzen threads concurrently during `cargo check` and `cargo build`, achieving incremental sub-second build times.
 3. **Decoupled Local Transport**:
    - Communication between `cynic-kernel`, `cynic-node`, and local inference servers uses direct Unix domain sockets (`/run/cynic/*.sock`) or HTTP/2 over WireGuard, preserving sub-millisecond latencies.
@@ -153,7 +154,7 @@ Every crate specification is documented as:
 - Side effects are confined to adapters implementing explicit ports in `runner.rs` or `adapters/`.
 
 ### Rule 5: Monolith Ratchet (< 25,000 LOC Ceiling)
-- Crates exceeding 25,000 LOC (`cynic-host`, `cynic-node`, `cynic-protocol`, `cynic-cli`) are under an active reduction ratchet.
+- Crates exceeding 25,000 LOC are under an active reduction ratchet. Measured 2026-09-28, six crates breach: `cynic-host` (93K), `cynic-node` (58K), `cynic-kernel` (40K — grew from 6.3K via organ/senses/probe modules), `cynic-protocol` (35K), `cynic-cli` (35K), `cynic-inference` (25.3K).
 - Net line-of-code growth in monolith crates is blocked. New features must be placed in extracted domain crates.
 
 ### Rule 6: Executable Boundary Verification
@@ -202,11 +203,13 @@ inference ──ports──► host  (host consumes inference via traits ✓)
 | `cynic-vcs` | L2 | Source control management & locks | Worktree gating, commit proof creation | Git CLI / SSH → `cynic-host` | Direct dirty working tree mutation |
 | `cynic-vcs-forgejo` | L1 | Forgejo VCS transport & webhook adapter | API tokens, webhooks, forgejo notifications | Types & ports → `cynic-vcs` | Autonomous policy decisions |
 | `cynic-askesis` | L2 | Epistemic reflection & audit log | Append-only proof bundles, history queries | Storage persistence → `cynic-storage` | In-flight coordination |
-| `cynic-intel` | L2 | Epistemic scoring & reasoning | E-Score calculation, futarchy algorithms | Trace parsing → `cynic-trace` | Raw host access |
+| `cynic-intel` | L2 | Epistemic scoring & reasoning | E-Score calculation, futarchy algorithms | Trace parsing → `cynic-trace` (planned) | Raw host access |
 | `cynic-kernel` | L3 | Coordination bus & memory authority | Leases, fencing tokens, federation membrane | Host observation → `cynic-host` (ports) | Concrete domain imports, CLI rendering |
 | `cynic-node` | L3 | Node-local supervision & watchdog | Node agent tree, local build submission | Coordination → `cynic-kernel` (ports) | Global cluster state ownership |
 | `cynic-cli` | L4 | Thin operator CLI facade | CLI parsing, port injection, output formats | All domain logic → L2/L3 | Business logic, state persistence |
 | `cynic-mcp` | L4 | Thin MCP protocol projection | JSON-RPC tool endpoints, schema translation | Coordination → `cynic-kernel` (ports) | Bootstrap authority, scheduling |
+
+> **Coverage note (2026-09-28)**: this grid lists the architecturally load-bearing crates only. The exhaustive 47-crate inventory, LOC census, and per-family verdicts live in `infra/CANONICAL_CRATE_MAP.md` v3, which this document references as the taxonomy SSOT.
 
 ---
 
@@ -226,6 +229,7 @@ To prevent regression while deconstructing monoliths, extractions follow a zero-
 4. **Slice 3 (Host Authority Inversion)**: Expose `RuntimeRegistryPort` and `RuntimeAuthorityPort` from `cynic-host` to eliminate kernel concrete imports.
 5. **Slice 4 (Node Observability Inversion)**: Expose `FleetObservabilityPort` and `MeshRegistryPort` from `cynic-node`.
 6. **Slice 5 (Materialize Trace & Eval Families)**:
-   - Extract agent log ingestion into `cynic-trace-types`, `cynic-trace-parser`, `cynic-trace-scrubber`.
-   - Extract validation loops into `cynic-eval-axioms` and `cynic-eval-dataset`.
+   - Create `cynic-trace` as ONE consolidated crate: agent log ingestion, zero-I/O parsing (SQLite, JSONL), and deterministic token scrubbing in internal modules (`mod types; mod parse; mod scrub;`).
+   - Create `cynic-eval` as ONE consolidated crate: validation loops, axiom verification, and DPO pair generation in internal modules (DONE 2026-09-26, wave B).
+   - No micro-crate splits (`cynic-trace-types`, `cynic-trace-parser`, `cynic-trace-scrubber`, `cynic-eval-axioms`, `cynic-eval-dataset`) — R7 consolidation per `CANONICAL_CRATE_MAP.md` v3, operator vetoes 2026-09-25, confirmed 2026-09-28. The 4 extraction criteria of §3 (dependency firewall, autonomous deployment, cohesion, sandboxing) remain the admission test for any future split.
 7. **Slice 6 (Ratchet Enforcement)**: Lock crate boundaries with `tests/architecture_boundary.rs` and verify via `cynic dev check --json`.
