@@ -2418,14 +2418,38 @@
         "kind": "file",
         "path": "infra/CLI_SURFACE_AUDIT.md"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790542031,
+        "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 8,
+        "wall_seconds": 5400
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790542116",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/tests/architecture_boundary.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790542116,
         "ttl_seconds": 1800
       }
     }
   ],
   "merge_queue": [],
-  "revision": 189,
+  "revision": 191,
   "schema": "cynic.agent_claims.v2"
 }

@@ -13,6 +13,12 @@ fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
+/// Module declarations live in `lib.rs` since the library-first facade moved
+/// them out of `main.rs`, which is 10 lines and declares no module.
+fn lib_rs() -> String {
+    fs::read_to_string(crate_root().join("src/lib.rs")).expect("read lib.rs")
+}
+
 #[test]
 fn cli_main_is_a_thin_facade() {
     let main_rs = fs::read_to_string(crate_root().join("src/main.rs")).expect("read main.rs");
@@ -252,7 +258,6 @@ fn cli_delegates_runtime_agent_matrix_to_cynic_host() {
 #[test]
 fn deps_surface_is_split_into_thin_cli_modules() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     let deps_surface =
         fs::read_to_string(root.join("src/deps_surface.rs")).expect("read deps_surface.rs");
     let deps_model = fs::read_to_string(root.join("src/deps_surface_model.rs"))
@@ -271,17 +276,18 @@ fn deps_surface_is_split_into_thin_cli_modules() {
         .expect("read deps_surface_report.rs");
     let deps_upgrade = fs::read_to_string(root.join("src/deps_surface_upgrade.rs"))
         .expect("read deps_surface_upgrade.rs");
+    let lib_rs = lib_rs();
 
     assert!(
-        main_rs.contains("mod deps_surface_model;")
-            && main_rs.contains("mod deps_surface_specs;")
-            && main_rs.contains("mod deps_surface_plan;")
-            && main_rs.contains("mod deps_surface_pins;")
-            && main_rs.contains("mod deps_surface_probe;")
-            && main_rs.contains("mod deps_surface_report;")
-            && main_rs.contains("mod deps_surface_render;")
-            && main_rs.contains("mod deps_surface_upgrade;"),
-        "deps surface must be split into explicit model/specs/plan/pins/probe/report/render/upgrade modules"
+        lib_rs.contains("mod deps_surface_model;")
+            && lib_rs.contains("mod deps_surface_specs;")
+            && lib_rs.contains("mod deps_surface_plan;")
+            && lib_rs.contains("mod deps_surface_pins;")
+            && lib_rs.contains("mod deps_surface_probe;")
+            && lib_rs.contains("mod deps_surface_report;")
+            && lib_rs.contains("mod deps_surface_render;")
+            && lib_rs.contains("mod deps_surface_upgrade;"),
+        "deps surface must be split into explicit model/specs/plan/pins/probe/report/render/upgrade modules declared in lib.rs"
     );
     assert!(
         deps_surface.contains("use crate::deps_surface_plan::build_plan;")
@@ -367,8 +373,8 @@ fn cli_runtime_surface_is_split_out_of_main() {
     let root = crate_root();
     let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     assert!(
-        main_rs.contains("mod runtime_surface;"),
-        "main.rs must delegate runtime command handling to runtime_surface"
+        lib_rs().contains("mod runtime_surface;"),
+        "lib.rs must declare runtime_surface so main.rs stays a thin facade"
     );
     assert!(
         !main_rs.contains("enum RuntimeCommand"),
@@ -394,8 +400,8 @@ fn cli_runtime_surface_is_split_out_of_main() {
         "CLI command manifest must live outside main.rs"
     );
     assert!(
-        main_rs.contains("mod dev_surface;") && !main_rs.contains("enum DevCommand"),
-        "dev command handling must live in dev_surface, not main.rs"
+        lib_rs().contains("mod dev_surface;") && !main_rs.contains("enum DevCommand"),
+        "lib.rs must declare dev_surface so dev command handling does not live in main.rs"
     );
     assert!(
         root.join("src/dev_surface/check.rs").exists(),
@@ -502,7 +508,6 @@ fn lifecycle_surface_delegates_human_rendering() {
 #[test]
 fn deps_and_lifecycle_use_shared_json_emitter() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     let cli_json = fs::read_to_string(root.join("src/cli_json.rs")).expect("read cli_json.rs");
     let deps_surface =
         fs::read_to_string(root.join("src/deps_surface.rs")).expect("read deps_surface.rs");
@@ -510,12 +515,12 @@ fn deps_and_lifecycle_use_shared_json_emitter() {
         .expect("read lifecycle_surface.rs");
 
     assert!(
-        main_rs.contains("mod cli_json;"),
-        "main.rs must register the shared cli_json module"
+        lib_rs().contains("mod cli_json;"),
+        "lib.rs must register the shared cli_json module"
     );
     assert!(
-        main_rs.contains("mod fs_json;"),
-        "main.rs must register the shared fs_json module"
+        lib_rs().contains("mod fs_json;"),
+        "lib.rs must register the shared fs_json module"
     );
     assert!(
         cli_json.contains("pub(crate) fn emit_pretty_json"),
@@ -531,7 +536,6 @@ fn deps_and_lifecycle_use_shared_json_emitter() {
 #[test]
 fn runtime_and_dev_surfaces_share_file_json_writer() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     let fs_json = fs::read_to_string(root.join("src/fs_json.rs")).expect("read fs_json.rs");
     let runtime_report = fs::read_to_string(root.join("src/runtime_surface/report.rs"))
         .expect("read runtime report");
@@ -541,8 +545,8 @@ fn runtime_and_dev_surfaces_share_file_json_writer() {
         .expect("read dev_surface/surface_matrix.rs");
 
     assert!(
-        main_rs.contains("mod fs_json;"),
-        "main.rs must register the shared fs_json module"
+        lib_rs().contains("mod fs_json;"),
+        "lib.rs must register the shared fs_json module"
     );
     assert!(
         fs_json.contains("pub(crate) fn write_pretty_json_file"),
@@ -559,7 +563,6 @@ fn runtime_and_dev_surfaces_share_file_json_writer() {
 #[test]
 fn audits_share_rust_source_discovery_helpers() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     let rust_source =
         fs::read_to_string(root.join("src/rust_source.rs")).expect("read rust_source.rs");
     let crate_audit =
@@ -572,8 +575,8 @@ fn audits_share_rust_source_discovery_helpers() {
         .expect("read agent_exposure_audit/source_scan.rs");
 
     assert!(
-        main_rs.contains("mod rust_source;"),
-        "main.rs must register the shared rust_source module"
+        lib_rs().contains("mod rust_source;"),
+        "lib.rs must register the shared rust_source module"
     );
     assert!(
         rust_source.contains("pub(crate) fn workspace_root")
@@ -583,11 +586,47 @@ fn audits_share_rust_source_discovery_helpers() {
             && rust_source.contains("pub(crate) fn line_count"),
         "rust_source must own shared workspace-relative path and Rust file discovery helpers"
     );
+    // Match the imported helper names, not the formatted import statement:
+    // rustfmt wraps `use crate::rust_source::{...}` across lines, so a
+    // single-line string comparison reports a false violation. The helper
+    // must appear in the import list, not merely somewhere in the file.
+    // Both the braced and the single-path form are accepted.
+    let imports = |src: &str, helpers: &[&str]| {
+        let Some(start) = src.find("use crate::rust_source::") else {
+            return false;
+        };
+        let list = &src[start + "use crate::rust_source::".len()..];
+        let Some(end) = list.find(';') else {
+            return false;
+        };
+        let list = list[..end].trim().trim_start_matches('{');
+        let entries = list
+            .split(',')
+            .map(|entry| entry.trim().trim_end_matches('}'))
+            .collect::<Vec<_>>();
+        helpers
+            .iter()
+            .all(|helper| entries.iter().any(|entry| entry == helper))
+    };
     assert!(
-        crate_audit.contains("use crate::rust_source::{line_count, relative_to_workspace, rust_files_under, workspace_root};")
-            && kernel_audit.contains("use crate::rust_source::{line_count, relative_to_workspace, rust_files_under, workspace_root};")
-            && ownership_audit.contains("use crate::rust_source::{relative_path, rust_files_under, workspace_root};")
-            && source_scan.contains("use crate::rust_source::rust_files_under;"),
+        imports(
+            &crate_audit,
+            &[
+                "line_count",
+                "relative_to_workspace",
+                "rust_files_under",
+                "workspace_root"
+            ]
+        ) && imports(
+            &kernel_audit,
+            &[
+                "line_count",
+                "relative_to_workspace",
+                "rust_files_under",
+                "workspace_root"
+            ]
+        ) && imports(&ownership_audit, &["relative_path", "rust_files_under", "workspace_root"])
+            && imports(&source_scan, &["rust_files_under"]),
         "audits and source scans must share the common rust_source helpers instead of reimplementing file discovery"
     );
 }
@@ -595,14 +634,13 @@ fn audits_share_rust_source_discovery_helpers() {
 #[test]
 fn lifecycle_surface_uses_shared_exit_policy() {
     let root = crate_root();
-    let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
     let cli_exit = fs::read_to_string(root.join("src/cli_exit.rs")).expect("read cli_exit.rs");
     let lifecycle_surface = fs::read_to_string(root.join("src/lifecycle_surface.rs"))
         .expect("read lifecycle_surface.rs");
 
     assert!(
-        main_rs.contains("mod cli_exit;"),
-        "main.rs must register the shared cli_exit module"
+        lib_rs().contains("mod cli_exit;"),
+        "lib.rs must register the shared cli_exit module"
     );
     assert!(
         cli_exit.contains("pub(crate) fn success_if_status")
@@ -1258,10 +1296,17 @@ fn cli_audit_crate_verification_passes() {
         "Architecture Violation: {} crates failed architecture audit!",
         report.blocked_count
     );
+    let on_disk = fs::read_dir(crate_root().join("../../crates"))
+        .expect("read crates/")
+        .flatten()
+        .filter(|entry| entry.path().join("Cargo.toml").is_file())
+        .count();
     assert_eq!(
-        report.crate_count, 45,
-        "Expected 45 crates in architecture audit, found {}",
-        report.crate_count
+        report.crate_count, on_disk,
+        "crate audit must measure every crate present in crates/, not a pinned list; \
+         audit saw {} but {} crate manifests exist on disk",
+        report.crate_count,
+        on_disk
     );
 }
 
