@@ -153,7 +153,7 @@ impl AgentSessionStorePort for SqliteAgentSessionStore {
                     "session fencing generation changed".to_string(),
                 ));
             }
-            let violations = cynic_node_protocol::validate_agent_session_rotation(
+            let violations = cynic_protocol::validate_agent_session_rotation(
                 &previous,
                 &replacement,
                 rotated_at_unix_ms,

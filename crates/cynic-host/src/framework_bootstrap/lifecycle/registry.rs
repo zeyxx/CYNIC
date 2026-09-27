@@ -111,7 +111,7 @@ impl<'a> LifecycleRegistry<'a> {
         else {
             return vec!["node_substrate_provisioning_spec_invalid".to_string()];
         };
-        cynic_node_protocol::validate_node_substrate_provisioning(&provisioning)
+        cynic_protocol::validate_node_substrate_provisioning(&provisioning)
     }
 
     pub(super) fn workload_delivery_blockers(&self) -> Vec<String> {
@@ -506,7 +506,7 @@ impl<'a> LifecycleRegistry<'a> {
         else {
             return vec!["provider_control_desired_state_invalid".to_string()];
         };
-        cynic_node_protocol::validate_provider_control_desired_state(&desired)
+        cynic_protocol::validate_provider_control_desired_state(&desired)
     }
 
     pub(super) fn enrollment_blockers(&self) -> Vec<String> {
