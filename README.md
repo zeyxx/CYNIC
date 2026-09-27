@@ -4,7 +4,7 @@ A low-layer sovereign runtime for multi-agent systems.
 
 CYNIC coordinates human intent, operating systems, source matter, builds, artifacts, agents, inference, hosts, and fleets without collapsing their authorities into one controller. Every mutation needs read-back proof.
 
-The operational core is:
+The runtime spans 47 workspace crates in 16 families (L0 pure types -> L1 host substrate -> L2 domains -> L3 orchestration -> L4 projections). The canonical taxonomy and LOC census live in `infra/CANONICAL_CRATE_MAP.md` v3; the operational core is:
 
 - `crates/cynic-kernel`: coordination bus, observations, health, runtime read-back.
 - `crates/cynic-host`: portable host and OS substrate primitives.

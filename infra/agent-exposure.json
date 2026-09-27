@@ -21,10 +21,10 @@
     "honesty": "This projection is source-of-truth for the desired cynic runtime surface; an installed artifact must prove compatibility and freshness before it is treated as active. Tier labels mark product/legacy surfaces that are not low-layer runtime baseline."
   },
   "runtime_protocol_profile": {
-    "target_revision": "2026-07-28",
+    "target_revision": "2026-09-28",
     "rust_sdk": "tokio-1",
     "supported_versions": [
-      "2026-07-28"
+      "2026-09-28"
     ],
     "transport": "stdio",
     "stateless_core": true,
