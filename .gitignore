@@ -29,9 +29,12 @@ rustc-ice-*.txt
 .claude/
 .antigravity/
 .cynic/
+.hermes/
 .playwright-mcp/
 .worktrees/
 .agents/
+# Runtime artifacts
+/infra/directory-tree.json
 
 # Dependency and language caches
 /node_modules/
