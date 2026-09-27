@@ -7,10 +7,11 @@ use crate::build::{
 use crate::release_publication::{
     SignedReleaseBasketReadBack, validate_signed_release_basket_read_back,
 };
-use cynic_protocol::{
-    AgentCompletionStatus, NodeDesiredState, digest_json, validate_node_desired_state,
+use cynic_node_protocol::{
+    NodeDesiredState, validate_node_desired_state,
 };
-use cynic_protocol::{DeploymentEpoch, derive_deployment_epoch};
+use cynic_node_protocol::{DeploymentEpoch, derive_deployment_epoch};
+use cynic_protocol::{AgentCompletionStatus, digest_json};
 use cynic_workload::{
     AgentWorkloadDelivery, AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,
 };
@@ -258,7 +259,7 @@ mod tests {
 
     fn desired(source_commit: String, proof_digest: String) -> NodeDesiredState {
         let mut desired = NodeDesiredState {
-            schema: cynic_protocol::NODE_DESIRED_STATE_SCHEMA.to_string(),
+            schema: cynic_node_protocol::NODE_DESIRED_STATE_SCHEMA.to_string(),
             node_id: "node-a".to_string(),
             role: "runtime".to_string(),
             generation: 1,

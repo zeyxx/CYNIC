@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
-use cynic_protocol::node_enrollment::{
+use cynic_node_protocol::node_enrollment::{
     node_enrollment_grant_signing_bytes, NodeEnrollmentGrant, NodeEnrollmentRequest,
     SignedNodeEnrollmentGrant, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
     NODE_ENROLLMENT_SIGNATURE_NAMESPACE, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,

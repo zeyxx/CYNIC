@@ -57,7 +57,7 @@ fn maybe_apply_from_store(
         );
     }
     let decision = decide_runtime_takeover(record.observation.clone());
-    if record.schema != cynic_protocol::RUNTIME_TAKEOVER_WATCH_SCHEMA
+    if record.schema != cynic_node_protocol::RUNTIME_TAKEOVER_WATCH_SCHEMA
         || !record.decision.promote
         || !decision.promote
     {
@@ -68,8 +68,8 @@ fn maybe_apply_from_store(
     }
     let plan = plan_runtime_takeover_activation(request.clone(), &decision)?;
     let report = apply_runtime_takeover_activation(&plan, &LocalArgvRunner);
-    let ack = cynic_protocol::RuntimeTakeoverActivationAck {
-        schema: cynic_protocol::RUNTIME_TAKEOVER_ACTIVATION_ACK_SCHEMA.to_string(),
+    let ack = cynic_node_protocol::RuntimeTakeoverActivationAck {
+        schema: cynic_node_protocol::RUNTIME_TAKEOVER_ACTIVATION_ACK_SCHEMA.to_string(),
         admission_proof_ref: request.admission_proof_ref,
         node_id: request.node_id,
         fencing_token: request.fencing_token,

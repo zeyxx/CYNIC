@@ -1,6 +1,6 @@
 use std::os::unix::fs::MetadataExt;
 
-use cynic_protocol::MachineEnrollmentAuthorityPolicy;
+use cynic_node_protocol::MachineEnrollmentAuthorityPolicy;
 
 use super::{
     apply_machine_enrollment_authority, observe_machine_enrollment_authority,
@@ -81,7 +81,7 @@ fn authority_issuance_is_bound_to_the_registry_placed_runtime_host() {
     let directory = tempfile::tempdir().expect("tempdir");
     let registry_path = directory.path().join("registry.json");
     let seed_path = directory.path().join("seed.json");
-    let capabilities = cynic_protocol::required_node_enrollment_capabilities("build_runner");
+    let capabilities = cynic_node_protocol::required_node_enrollment_capabilities("build_runner");
     std::fs::write(
         &registry_path,
         serde_json::to_vec(&serde_json::json!({

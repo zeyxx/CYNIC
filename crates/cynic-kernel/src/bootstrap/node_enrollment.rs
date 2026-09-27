@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use crate::domain::node_enrollment::{
     NodeEnrollmentRuntime, NodeEnrollmentSignerPort, NodeEnrollmentStorePort,
 };
-use cynic_protocol::MachineEnrollmentAuthority;
+use cynic_node_protocol::MachineEnrollmentAuthority;
 
 pub fn load_node_enrollment_runtime(
     store: Option<Arc<dyn NodeEnrollmentStorePort>>,

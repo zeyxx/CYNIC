@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     MutationContract, PolicyAuthority, PolicyScope, RequiredProof, SecurityEvidenceState,
     digest_json,
 };

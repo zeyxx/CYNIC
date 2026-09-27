@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use cynic_protocol::SecurityEvidenceState;
 
 pub const NODE_ENROLLMENT_REQUEST_SCHEMA: &str = "cynic.node_enrollment_request.v1";
 pub const NODE_ENROLLMENT_GRANT_SCHEMA: &str = "cynic.node_enrollment_grant.v1";
@@ -329,7 +329,7 @@ pub struct SignedNodeEnrollmentGrant {
 pub fn node_enrollment_grant_signing_bytes(
     signed: &SignedNodeEnrollmentGrant,
 ) -> Result<Vec<u8>, serde_json::Error> {
-    crate::canonical_json_bytes(&serde_json::json!({
+    cynic_protocol::canonical_json_bytes(&serde_json::json!({
         "schema": signed.schema,
         "authority_key_id": signed.authority_key_id,
         "signature_namespace": signed.signature_namespace,

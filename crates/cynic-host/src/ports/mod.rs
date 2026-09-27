@@ -17,7 +17,7 @@ use crate::domain::services::ServicePolicy;
 use crate::domain::shared::SubstrateDomainContract;
 use crate::execution::AdmittedHostOperation;
 use crate::hardware_conformance::HardwareObservation;
-use cynic_protocol::PreOsPlatformObservation;
+use cynic_node_protocol::PreOsPlatformObservation;
 pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
 pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 pub use remote_execution::RemoteExecutionPort;

@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
 use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
-use crate::error_catalog::CynicErrorCode;
-use crate::health_signal::HealthSignalPayload;
+use cynic_protocol::error_catalog::CynicErrorCode;
+use cynic_protocol::health_signal::HealthSignalPayload;
 use crate::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
@@ -543,7 +543,7 @@ fn next_deployment_phase(current: DeploymentPhase) -> DeploymentPhase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::deployment_epoch::derive_deployment_epoch;
+    use cynic_protocol::deployment_epoch::derive_deployment_epoch;
 
     #[test]
     fn active_when_deployment_completed() {
@@ -621,7 +621,7 @@ mod tests {
             schema: "cynic.federated_bootstrap.v1".into(),
             node_id: "node-a".into(),
             epoch_id: epoch.epoch_id.clone(),
-            binding: crate::bootstrap_federation::FederatedBootstrapBinding {
+            binding: cynic_protocol::bootstrap_federation::FederatedBootstrapBinding {
                 source_commit: "a".repeat(40),
                 deployment_epoch_id: epoch.epoch_id.clone(),
                 observed_at_unix_ms: 1,

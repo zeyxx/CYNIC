@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::emergence::RolePriority;
-use crate::health_signal::NodeHealthView;
+use cynic_protocol::health_signal::NodeHealthView;
 
 /// Transport used to reach a peer endpoint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

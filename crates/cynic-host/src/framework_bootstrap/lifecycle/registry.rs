@@ -126,7 +126,7 @@ impl<'a> LifecycleRegistry<'a> {
             .flatten()
             .filter_map(Value::as_str)
             .collect::<std::collections::BTreeSet<_>>();
-        cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+        cynic_node_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
             .iter()
             .filter(|capability| !capabilities.contains(**capability))
             .map(|capability| format!("build_scheduler_capability_missing:{capability}"))
@@ -441,7 +441,7 @@ impl<'a> LifecycleRegistry<'a> {
             .get("node_enrollment")
             .cloned()
             .and_then(|desired| {
-                serde_json::from_value::<cynic_protocol::NodeEnrollmentDesiredState>(desired).ok()
+                serde_json::from_value::<cynic_node_protocol::NodeEnrollmentDesiredState>(desired).ok()
             });
         let authority_role = desired
             .as_ref()
@@ -529,12 +529,12 @@ impl<'a> LifecycleRegistry<'a> {
             return blockers;
         };
         let Ok(desired) =
-            serde_json::from_value::<cynic_protocol::NodeEnrollmentDesiredState>(desired)
+            serde_json::from_value::<cynic_node_protocol::NodeEnrollmentDesiredState>(desired)
         else {
             blockers.push("node_enrollment_desired_state_invalid".to_string());
             return blockers;
         };
-        blockers.extend(cynic_protocol::validate_node_enrollment_desired_state(
+        blockers.extend(cynic_node_protocol::validate_node_enrollment_desired_state(
             &desired,
         ));
         blockers

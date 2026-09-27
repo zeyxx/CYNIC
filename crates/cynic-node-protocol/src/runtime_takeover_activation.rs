@@ -21,7 +21,7 @@ pub struct RuntimeTakeoverAdmissionProof {
     pub proof_ref: String,
     pub node_id: String,
     pub observed_at_unix_ms: u128,
-    pub observation: crate::RuntimeTakeoverObservation,
+    pub observation: cynic_protocol::RuntimeTakeoverObservation,
     pub decision: RuntimeTakeoverWatchDecision,
 }
 
@@ -32,7 +32,7 @@ pub struct RuntimeTakeoverAdmissionProof {
 pub struct RuntimeTakeoverWatchRecord {
     pub schema: String,
     pub observed_at_unix_ms: u128,
-    pub observation: crate::RuntimeTakeoverObservation,
+    pub observation: cynic_protocol::RuntimeTakeoverObservation,
     pub decision: RuntimeTakeoverWatchDecision,
     pub activation_request: Option<RuntimeTakeoverActivationRequest>,
 }

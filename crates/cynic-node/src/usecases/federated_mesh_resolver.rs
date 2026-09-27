@@ -22,7 +22,7 @@ use ed25519_dalek::{Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 use cynic_build::build_node::NodeHealthView;
-use cynic_protocol::peer_resolver::{
+use cynic_node_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
 
@@ -297,13 +297,13 @@ impl LocalRegistryMeshResolver {
 pub fn select_peer_for_role(
     resolver: &LocalRegistryMeshResolver,
     role: &str,
-) -> Option<cynic_protocol::peer_resolver::SignedPeerEndpoint> {
-    cynic_protocol::peer_resolver::select_signed_peer(&resolver.fallback_peers(role), role)
+) -> Option<cynic_node_protocol::peer_resolver::SignedPeerEndpoint> {
+    cynic_node_protocol::peer_resolver::select_signed_peer(&resolver.fallback_peers(role), role)
 }
 
 /// Helper: all reachable, healthy seed peers, ordered by role priority.
 pub fn select_all_healthy(resolver: &LocalRegistryMeshResolver) -> Vec<PeerEndpoint> {
-    cynic_protocol::peer_resolver::select_all_peers(&resolver.resolve_all_peers())
+    cynic_node_protocol::peer_resolver::select_all_peers(&resolver.resolve_all_peers())
 }
 
 /// Read the declared seed from `infra/synapse-nodes.seed.json`.

@@ -11,7 +11,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use cynic_protocol::{NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NodeCsr, NodeEnrollmentCertificate};
+use cynic_node_protocol::{NODE_ENROLLMENT_CERTIFICATE_SCHEMA, NodeCsr, NodeEnrollmentCertificate};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 

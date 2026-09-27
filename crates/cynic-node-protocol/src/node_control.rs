@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use cynic_protocol::{
     RuntimeSeedObservation, RuntimeSeedPlan, RuntimeSeedRequest, SecurityEvidenceState,
     reconcile_runtime_seed, validate_runtime_seed_request,
 };
@@ -88,7 +88,7 @@ impl SignedNodeControlPlan {
             issued_at_unix_s: self.issued_at_unix_s,
             expires_at_unix_s: self.expires_at_unix_s,
         };
-        crate::canonical_json_bytes(&payload).expect("canonicalize signed control plan payload")
+        cynic_protocol::canonical_json_bytes(&payload).expect("canonicalize signed control plan payload")
     }
 
     pub fn is_valid_at(&self, now_unix_s: u64) -> bool {
@@ -275,7 +275,7 @@ pub fn validate_node_desired_state(desired: &NodeDesiredState) -> Vec<String> {
         &mut violations,
     );
     check(
-        desired.release.schema == crate::RUNTIME_SEED_REQUEST_SCHEMA,
+        desired.release.schema == cynic_protocol::RUNTIME_SEED_REQUEST_SCHEMA,
         "node_desired_state_release_schema_mismatch",
         &mut violations,
     );
@@ -482,7 +482,7 @@ mod tests {
 
     fn release_request() -> RuntimeSeedRequest {
         RuntimeSeedRequest {
-            schema: crate::RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
+            schema: cynic_protocol::RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
             node_id: "node-a".to_string(),
             release_id: "release-2".to_string(),
             release_epoch: 2,
@@ -521,7 +521,7 @@ mod tests {
     fn release_observation(converged: bool) -> RuntimeSeedObservation {
         let request = release_request();
         RuntimeSeedObservation {
-            schema: crate::RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
+            schema: cynic_protocol::RUNTIME_SEED_OBSERVATION_SCHEMA.to_string(),
             observed_at_unix_ms: 10,
             node_id: "node-a".to_string(),
             seed_contract_revision: Some(4),

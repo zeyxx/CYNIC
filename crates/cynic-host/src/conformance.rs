@@ -46,7 +46,7 @@ pub struct HostConformanceReport {
     pub bootstrap_evidence: HostBootstrapEvidenceReport,
     pub hardware: HardwareConformanceReport,
     pub hardware_baseline_plan: HardwareBaselinePlan,
-    pub pre_os: cynic_protocol::PreOsPlatformObservation,
+    pub pre_os: cynic_node_protocol::PreOsPlatformObservation,
     pub proof_bundle: cynic_protocol::RuntimeProofBundle,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub build_evidence: Option<BuildConformanceEvidence>,
@@ -434,11 +434,11 @@ mod tests {
     }
 
     impl PreOsPlatformObservationPort for ReadyObserver {
-        fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
-            cynic_protocol::PreOsPlatformObservation {
-                schema: cynic_protocol::PRE_OS_PLATFORM_OBSERVATION_SCHEMA.to_string(),
+        fn observe_pre_os_platform(&self) -> cynic_node_protocol::PreOsPlatformObservation {
+            cynic_node_protocol::PreOsPlatformObservation {
+                schema: cynic_node_protocol::PRE_OS_PLATFORM_OBSERVATION_SCHEMA.to_string(),
                 platform: "test".to_string(),
-                controls: vec![cynic_protocol::PreOsControlKind::Hypervisor],
+                controls: vec![cynic_node_protocol::PreOsControlKind::Hypervisor],
                 boot_once: cynic_protocol::SecurityEvidenceState::Proven,
                 artifact_discovery: cynic_protocol::SecurityEvidenceState::Proven,
                 attestation_sink: cynic_protocol::SecurityEvidenceState::Proven,
@@ -503,7 +503,7 @@ mod tests {
     }
 
     impl PreOsPlatformObservationPort for MissingServiceObserver {
-        fn observe_pre_os_platform(&self) -> cynic_protocol::PreOsPlatformObservation {
+        fn observe_pre_os_platform(&self) -> cynic_node_protocol::PreOsPlatformObservation {
             ReadyObserver.observe_pre_os_platform()
         }
     }

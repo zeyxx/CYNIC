@@ -1,7 +1,7 @@
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use clap::Parser;
 use clap::Subcommand;
-use cynic_protocol::federation::FederationReconciliation;
+use cynic_node_protocol::federation::FederationReconciliation;
 use std::process::ExitCode;
 
 /// Federation CLI command — subcommands for federation operations.
@@ -117,7 +117,7 @@ impl FederationStatusCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::local_autonomy::{AutonomyDecision, AutonomyMode, RetainedCapabilities};
+    use cynic_node_protocol::local_autonomy::{AutonomyDecision, AutonomyMode, RetainedCapabilities};
 
     fn autonomy_decision(mode: AutonomyMode) -> AutonomyDecision {
         AutonomyDecision {
@@ -132,15 +132,15 @@ mod tests {
     #[test]
     fn human_renders_coordinated() {
         let reconciliation = FederationReconciliation::Coordinated {
-            node_control_plan: cynic_protocol::node_control::NodeControlPlan {
+            node_control_plan: cynic_node_protocol::node_control::NodeControlPlan {
                 schema: "cynic.node_control_plan.v2".to_string(),
                 status: "converged".to_string(),
                 node_id: "node-a".to_string(),
                 role: "build_runner".to_string(),
                 desired_generation: 1,
                 observed_generation: Some(1),
-                connection: cynic_protocol::node_control::NodeControlConnectionState::Connected,
-                decision: cynic_protocol::node_control::NodeControlDecision::Converged,
+                connection: cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
+                decision: cynic_node_protocol::node_control::NodeControlDecision::Converged,
                 execution: None,
                 evidence_refs: vec![],
                 unknowns: vec![],
@@ -155,15 +155,15 @@ mod tests {
     fn json_renders_all_status_variants() {
         let cases = vec![
             FederationReconciliation::Coordinated {
-                node_control_plan: cynic_protocol::node_control::NodeControlPlan {
+                node_control_plan: cynic_node_protocol::node_control::NodeControlPlan {
                     schema: "cynic.node_control_plan.v2".to_string(),
                     status: "converged".to_string(),
                     node_id: "node-a".to_string(),
                     role: "build_runner".to_string(),
                     desired_generation: 1,
                     observed_generation: Some(1),
-                    connection: cynic_protocol::node_control::NodeControlConnectionState::Connected,
-                    decision: cynic_protocol::node_control::NodeControlDecision::Converged,
+                    connection: cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
+                    decision: cynic_node_protocol::node_control::NodeControlDecision::Converged,
                     execution: None,
                     evidence_refs: vec![],
                     unknowns: vec![],

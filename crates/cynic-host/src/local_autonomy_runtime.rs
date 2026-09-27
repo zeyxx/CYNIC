@@ -7,10 +7,10 @@
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::local_autonomy::{
+use cynic_node_protocol::local_autonomy::{
     AutonomyDecision, AutonomyObservation, LOCAL_AUTONOMY_STATE_SCHEMA, decide_autonomy,
 };
-use cynic_protocol::peer_resolver::PeerResolver;
+use cynic_node_protocol::peer_resolver::PeerResolver;
 
 use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};
 use crate::peer_resolver_mesh::MeshPeerResolver;
@@ -125,7 +125,7 @@ impl LocalAutonomyRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::local_autonomy::AutonomyMode;
+    use cynic_node_protocol::local_autonomy::AutonomyMode;
 
     #[test]
     fn tick_returns_decision() {

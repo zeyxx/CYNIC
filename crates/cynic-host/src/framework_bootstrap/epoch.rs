@@ -6,11 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{
-    DeploymentEpoch, DeploymentExecutionClass, DeploymentPhase, DeploymentPhaseObservation,
-    DeploymentTransition, derive_deployment_epoch, phase_execution_class,
-    plan_deployment_transition,
-};
+use cynic_node_protocol::{DeploymentEpoch, DeploymentExecutionClass, DeploymentPhase, DeploymentPhaseObservation, DeploymentTransition, derive_deployment_epoch, phase_execution_class, plan_deployment_transition};
 
 pub const FRAMEWORK_EPOCH_PLAN_SCHEMA: &str = "cynic.framework_bootstrap.epoch_plan.v1";
 
@@ -156,7 +152,7 @@ mod tests {
     fn stale_observation_does_not_advance_epoch() {
         let plan = plan_framework_epoch("commit-1", "sha256:desired", "fleet", 1).unwrap();
         let observation = DeploymentPhaseObservation {
-            schema: cynic_protocol::DEPLOYMENT_TRANSITION_SCHEMA.to_string(),
+            schema: cynic_node_protocol::DEPLOYMENT_TRANSITION_SCHEMA.to_string(),
             epoch_id: plan.epoch.epoch_id.clone(),
             phase: DeploymentPhase::Proposed,
             ready: true,

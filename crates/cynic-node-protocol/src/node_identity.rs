@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SecurityEvidenceState;
+use cynic_protocol::SecurityEvidenceState;
 
 pub const NODE_IDENTITY_DESIRED_STATE_SCHEMA: &str = "cynic.node_identity.desired_state.v1";
 pub const NODE_IDENTITY_OBSERVATION_SCHEMA: &str = "cynic.node_identity.observation.v1";
@@ -202,7 +202,7 @@ impl NodeCsr {
             created_at_unix_s: self.created_at_unix_s,
             hardware_capabilities: &self.hardware_capabilities,
         };
-        crate::canonical_json_bytes(&payload).expect("serialize csr payload")
+        cynic_protocol::canonical_json_bytes(&payload).expect("serialize csr payload")
     }
 
     /// Pure structural validation of the CSR.
@@ -296,7 +296,7 @@ impl NodeEnrollmentCertificate {
             issued_at_unix_s: self.issued_at_unix_s,
             expires_at_unix_s: self.expires_at_unix_s,
         };
-        crate::canonical_json_bytes(&payload).expect("serialize cert payload")
+        cynic_protocol::canonical_json_bytes(&payload).expect("serialize cert payload")
     }
 
     /// Check whether the certificate is active at a given unix timestamp.

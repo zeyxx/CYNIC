@@ -1,7 +1,4 @@
-use cynic_protocol::{
-    federated_bootstrap_observation, FederatedBootstrapBinding, FederatedBootstrapObservation,
-    FederatedBootstrapReadBack,
-};
+use cynic_node_protocol::{FederatedBootstrapBinding, FederatedBootstrapObservation, FederatedBootstrapReadBack, federated_bootstrap_observation};
 
 use crate::ports::federated_bootstrap_read_back_port::FederatedBootstrapReadBackPort;
 

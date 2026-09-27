@@ -34,7 +34,7 @@ use serde::Serialize;
 use crate::emergence::EmergenceDecision;
 use crate::local_autonomy::{AutonomyDecision, AutonomyMode};
 use crate::node_control::NodeControlPlan;
-use crate::runtime_takeover::RuntimeTakeoverDecision;
+use cynic_protocol::runtime_takeover::RuntimeTakeoverDecision;
 
 /// The authoritative reconciliation output for a federation node.
 ///
@@ -229,7 +229,7 @@ pub fn reconcile_federation(
 mod tests {
     use super::*;
     use crate::local_autonomy::RetainedCapabilities;
-    use crate::runtime_takeover::StandbyMode;
+    use cynic_protocol::runtime_takeover::StandbyMode;
 
     fn autonomy_decision(mode: AutonomyMode) -> AutonomyDecision {
         AutonomyDecision {

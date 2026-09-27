@@ -1,4 +1,4 @@
-use cynic_protocol::{NodeIdentityDesiredState, NodeIdentityObservation};
+use cynic_node_protocol::{NodeIdentityDesiredState, NodeIdentityObservation};
 
 pub trait NodeIdentityPort: Send + Sync {
     fn observe(&self, desired: &NodeIdentityDesiredState) -> NodeIdentityObservation;

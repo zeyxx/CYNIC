@@ -1,6 +1,4 @@
-use cynic_protocol::{
-    NodeControlDecision, NodeControlExecutionEvidence, NodeControlPlan, reconcile_node_control,
-};
+use cynic_node_protocol::{NodeControlDecision, NodeControlExecutionEvidence, NodeControlPlan, reconcile_node_control};
 use serde::Serialize;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
@@ -12,7 +10,7 @@ use crate::ports::node_control_plane_port::{
 use crate::ports::runtime_artifact_transport_port::RuntimeArtifactTransportPort;
 use crate::ports::runtime_seed_actuation_port::RuntimeSeedActuationPort;
 use cynic_host::plan_verifier::PlanVerifier;
-use cynic_protocol::node_control::ControlPlanVerificationStatus;
+use cynic_node_protocol::node_control::ControlPlanVerificationStatus;
 
 use super::runtime_artifact_deployment_uc::{
     RuntimeArtifactDeploymentReport, reconcile_runtime_artifact_deployment,
@@ -470,12 +468,8 @@ mod tests {
     };
 
     use cynic_host::runtime_seed::RuntimeSeedApplyReport;
-    use cynic_protocol::{
-        NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState,
-        NodeControlObservation, NodeDesiredState, RUNTIME_SEED_OBSERVATION_SCHEMA,
-        RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
-        RuntimeSeedObservation, RuntimeSeedRequest, SecurityEvidenceState,
-    };
+    use cynic_protocol::{RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedObservation, RuntimeSeedRequest, SecurityEvidenceState};
+use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState, NodeControlObservation, NodeDesiredState};
 
     use super::*;
 

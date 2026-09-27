@@ -3,7 +3,7 @@ use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
-use cynic_protocol::MachineEnrollmentAuthority;
+use cynic_node_protocol::MachineEnrollmentAuthority;
 use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;

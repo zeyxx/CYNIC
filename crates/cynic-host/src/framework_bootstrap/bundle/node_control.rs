@@ -33,7 +33,7 @@ pub(super) fn render_node_control_config(
         .filter_map(|service| service.get("name").and_then(serde_json::Value::as_str))
         .map(ToString::to_string)
         .collect::<Vec<String>>();
-    let capabilities = cynic_protocol::required_node_enrollment_capabilities(target_role);
+    let capabilities = cynic_node_protocol::required_node_enrollment_capabilities(target_role);
     let build_scheduler_enabled = target_role == "build_runner";
     let node_id = toml_string(node_id)?;
     let target_role = toml_string(target_role)?;

@@ -4,11 +4,8 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use cynic_protocol::{
-    NODE_ENROLLMENT_OBSERVATION_SCHEMA, NodeEnrollmentObservation, NodeEnrollmentRequest,
-    SecurityEvidenceState, SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes,
-    reconcile_node_enrollment, validate_signed_node_enrollment_grant,
-};
+use cynic_protocol::{SecurityEvidenceState};
+use cynic_node_protocol::{NODE_ENROLLMENT_OBSERVATION_SCHEMA, NodeEnrollmentObservation, NodeEnrollmentRequest, SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes, reconcile_node_enrollment, validate_signed_node_enrollment_grant};
 
 #[derive(Debug, Clone)]
 pub struct LocalNodeEnrollmentReader {

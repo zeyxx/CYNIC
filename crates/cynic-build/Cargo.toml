@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

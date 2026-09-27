@@ -15,8 +15,8 @@ use cynic_host::federation_runtime::{
     KernelReachabilityObserver, MeshObserver, MeshPeerObserver, NodeControlPort, OsHealthObserver,
     OsHealthObserverAdapter, TakeoverObserverAdapter,
 };
-use cynic_protocol::federation::FederationReconciliation;
-use cynic_protocol::local_autonomy::AutonomyMode;
+use cynic_node_protocol::federation::FederationReconciliation;
+use cynic_node_protocol::local_autonomy::AutonomyMode;
 
 /// Build a federation runtime with production adapters.
 fn production_runtime() -> FederationRuntime {
@@ -36,7 +36,7 @@ fn production_runtime() -> FederationRuntime {
 struct FakeNodeControl;
 
 impl cynic_host::federation_runtime::NodeControlPort for FakeNodeControl {
-    fn node_control_plan(&self) -> Option<cynic_protocol::node_control::NodeControlPlan> {
+    fn node_control_plan(&self) -> Option<cynic_node_protocol::node_control::NodeControlPlan> {
         None
     }
 }

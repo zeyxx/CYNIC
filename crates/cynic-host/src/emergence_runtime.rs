@@ -8,12 +8,12 @@
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::emergence::{
+use cynic_node_protocol::emergence::{
     EMERGENCE_STATE_SCHEMA, EmergenceDecision, EmergenceState, PeerState, elect_for_role,
     health_score_from_os,
 };
-use cynic_protocol::local_autonomy::AutonomyMode;
-use cynic_protocol::peer_resolver::PeerResolver;
+use cynic_node_protocol::local_autonomy::AutonomyMode;
+use cynic_node_protocol::peer_resolver::PeerResolver;
 
 use crate::local_autonomy_runtime::LocalAutonomyRuntime;
 use crate::os_health::{LocalOsHealthObserver, OsHealthObserver};

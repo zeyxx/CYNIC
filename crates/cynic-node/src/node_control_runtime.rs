@@ -18,8 +18,8 @@ use crate::{config, shutdown::install_signal_handler, usecases};
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 
 fn load_or_create_incarnation(control: &config::NodeControlConfig) -> Result<String, String> {
-    let desired = cynic_protocol::NodeIdentityDesiredState {
-        schema: cynic_protocol::NODE_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
+    let desired = cynic_node_protocol::NodeIdentityDesiredState {
+        schema: cynic_node_protocol::NODE_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
         node_id: format!("{}-incarnation", control.node_id),
         signing_key_path: control
             .agent_workload_state_root
@@ -104,7 +104,7 @@ pub async fn start_tasks(
     );
     let enrollment_proven = enrollment.state == cynic_protocol::SecurityEvidenceState::Proven;
     let build_scheduler_authorized = enrollment_proven
-        && cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+        && cynic_node_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
             .iter()
             .all(|capability| {
                 enrollment
@@ -130,7 +130,7 @@ pub async fn start_tasks(
             signing_key_present: control.signing_key_path.is_file(),
             durable_grant_present: durable_enrollment_grant_present,
             runtime_registry_present: build_scheduler_runtime_registry_present,
-            execution_mode: cynic_protocol::NodeExecutionMode::Runtime,
+            execution_mode: cynic_node_protocol::NodeExecutionMode::Runtime,
         },
     );
     let artifact_transport = HttpRuntimeArtifactTransport::new(
@@ -336,7 +336,7 @@ pub async fn run(config_path: &str, check: bool) -> ExitCode {
         .read_back(&node_id);
         let enrollment_proven = enrollment.state == cynic_protocol::SecurityEvidenceState::Proven;
         let scheduler_capabilities_proven = enrollment_proven
-            && cynic_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
+            && cynic_node_protocol::BUILD_SCHEDULER_RUNTIME_CAPABILITIES
                 .iter()
                 .all(|capability| {
                     enrollment

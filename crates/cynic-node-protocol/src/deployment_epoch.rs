@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::digest_json;
+use cynic_protocol::digest_json;
 
 pub const DEPLOYMENT_EPOCH_SCHEMA: &str = "cynic.deployment_epoch.v1";
 pub const DEPLOYMENT_TRANSITION_SCHEMA: &str = "cynic.deployment_transition.v1";

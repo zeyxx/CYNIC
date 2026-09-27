@@ -9,7 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use cynic_build::build_node::NodeHealthView;
 use cynic_protocol::error_catalog::CynicErrorCode;
 use cynic_protocol::health_signal::OsHealthAnomaly;
-use cynic_protocol::peer_resolver::{
+use cynic_node_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
 

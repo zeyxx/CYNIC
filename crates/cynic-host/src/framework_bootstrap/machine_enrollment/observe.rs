@@ -1,7 +1,7 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 
-use cynic_protocol::MachineEnrollmentAuthority;
+use cynic_node_protocol::MachineEnrollmentAuthority;
 use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
 

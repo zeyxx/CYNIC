@@ -10,7 +10,7 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::digest_json;
+use cynic_protocol::digest_json;
 
 pub const MACHINE_ENROLLMENT_SCHEMA: &str = "cynic.machine_enrollment.v1";
 pub const MACHINE_ENROLLMENT_AUTHORITY_CLASS: &str = "MachineEnrollment";

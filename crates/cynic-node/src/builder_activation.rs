@@ -1,4 +1,4 @@
-use cynic_protocol::{NodeExecutionMode, NodeExecutionSurface, node_execution_mode_allows};
+use cynic_node_protocol::{NodeExecutionMode, NodeExecutionSurface, node_execution_mode_allows};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BuilderActivationInput {

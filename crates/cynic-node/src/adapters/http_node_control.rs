@@ -10,11 +10,7 @@ use crate::ports::{
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
 };
-use cynic_protocol::{
-    NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan,
-    NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest,
-    SignedNodeEnrollmentGrant, validate_node_control_plan, validate_node_desired_state,
-};
+use cynic_node_protocol::{NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA, NodeControlPlan, NodeDesiredState, NodeEnrollmentRenewalRequest, NodeEnrollmentRequest, SignedNodeEnrollmentGrant, validate_node_control_plan, validate_node_desired_state};
 use cynic_workload::{
     AgentWorkloadCompletionPublication, AgentWorkloadDelivery, AgentWorkloadDeliveryAcceptance,
     AgentWorkloadDeliveryStatus, validate_agent_workload_delivery,

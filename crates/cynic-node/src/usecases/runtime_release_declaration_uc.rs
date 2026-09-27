@@ -19,7 +19,7 @@ pub struct RuntimeReleaseDeclarationReport {
 pub fn prepare_runtime_release_declaration(
     requested_by: String,
     workload_id: String,
-    mut desired_state: cynic_protocol::NodeDesiredState,
+    mut desired_state: cynic_node_protocol::NodeDesiredState,
 ) -> Result<cynic_build::RuntimeReleaseDeclaration, String> {
     desired_state.policy_digest = cynic_build::runtime_release_policy_digest(&desired_state)?;
     Ok(cynic_build::RuntimeReleaseDeclaration {
@@ -51,7 +51,7 @@ pub async fn apply_runtime_release_declaration(
 ) -> Result<RuntimeReleaseDeclarationReport, String> {
     let read_back = port.declare_runtime_release(&declaration).await?;
     let read_back_violations = if (200..300).contains(&read_back.http_status) {
-        cynic_protocol::validate_runtime_release_declaration_read_back(
+        cynic_node_protocol::validate_runtime_release_declaration_read_back(
             &declaration,
             &read_back.body,
         )

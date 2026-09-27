@@ -1,8 +1,8 @@
 //! Node activation runtime — observes deployment_epoch, bootstrap_federation,
 //! and takeover state to produce an activation verdict.
 
-use cynic_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
-use cynic_protocol::node_activation::{NodeActivationVerdict, decide_node_activation};
+use cynic_node_protocol::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
+use cynic_node_protocol::node_activation::{NodeActivationVerdict, decide_node_activation};
 use serde::Serialize;
 
 /// Port for observing node activation state.
@@ -112,7 +112,7 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
 pub struct ActivationReport {
     pub node_id: String,
     pub status: String,
-    pub result: Option<Result<cynic_protocol::node_activation::ActivationProof, String>>,
+    pub result: Option<Result<cynic_node_protocol::node_activation::ActivationProof, String>>,
     pub evidence_refs: Vec<String>,
 }
 
@@ -123,7 +123,7 @@ impl NodeActivationAdapter {
         let verdict = self.observe(node_id);
 
         // 2. Plan the bounded action.
-        let plan = match cynic_protocol::node_activation::plan_activation_action(&verdict) {
+        let plan = match cynic_node_protocol::node_activation::plan_activation_action(&verdict) {
             Ok(p) => p,
             Err(_e) => {
                 return ActivationReport {
@@ -167,7 +167,7 @@ impl NodeActivationAdapter {
         };
 
         // 6. Evaluate proof.
-        let proof = cynic_protocol::node_activation::evaluate_activation_proof(
+        let proof = cynic_node_protocol::node_activation::evaluate_activation_proof(
             &plan,
             apply_success,
             &read_back_output,
@@ -176,9 +176,9 @@ impl NodeActivationAdapter {
         );
 
         let status = match &proof {
-            cynic_protocol::node_activation::ActivationProof::Activated { .. } => "activated",
-            cynic_protocol::node_activation::ActivationProof::Failed { .. } => "failed",
-            cynic_protocol::node_activation::ActivationProof::RolledBack { .. } => "rolled_back",
+            cynic_node_protocol::node_activation::ActivationProof::Activated { .. } => "activated",
+            cynic_node_protocol::node_activation::ActivationProof::Failed { .. } => "failed",
+            cynic_node_protocol::node_activation::ActivationProof::RolledBack { .. } => "rolled_back",
         };
 
         ActivationReport {
