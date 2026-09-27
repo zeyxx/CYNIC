@@ -1,262 +1,283 @@
-# CYNIC — CANONICAL CRATE MAP v2
+# CYNIC — CANONICAL CRATE MAP v3
 
-> **Supersède** : CYNIC_EXTRACTION_GLOBALE.md, CYNIC_CONSTELLATIONS_HEXAGONALES.md
-> **Autorité** : ce document est la source de vérité pour la taxonomie des crates.
-> **Pattern** : `cynic-<famille>-<rôle>` — sans exception.
-> **Validé par** : audit workspace Agave/Solana (117 crates), Bevy (60 crates), Substrate (500+ crates).
-
----
-
-## 1. PRINCIPE DIRECTEUR
-
-```
-cynic-<famille>              → singleton légitime (cross-cutting ou isolé)
-cynic-<famille>-<rôle>      → membre d'une constellation
-
-Règles :
-  R1. Tout crate avec au moins un sibling dans sa famille DOIT suivre le pattern.
-  R2. Le rôle nomme CE QUE LA CRATE FAIT, pas sa couche technique.
-  R3. Pas de préfixes de couche (-domain, -ports, -adapter, -application).
-      Rôles conventionnels admis (pattern Agave) :
-        -types     → types purs seulement (ex: cynic-rpc-types)
-        -callback  → traits/callbacks seulement (ex: cynic-svm-callback)
-        -interface → définition protocole seulement
-  R4. Domaine pur d'abord — types + ports avant adapters.
-  R5. DAG strict descendant. Jamais de cycle. kernel ne dépend pas de node.
-  R6. no_std + alloc pour toute crate dont les deps le permettent.
-      La frontière no_std/std IS la frontière domain/adapter.
-      Enforcement : compilateur (pas un test, pas une convention).
-  R7. Une crate par DOMAINE fonctionnel cohésif — pas de cascade de micro-crates.
-      La sous-structure (types, parser, scrubber, slots...) vit en MODULES
-      INTERNES de la crate domaine, pas en crates séparées. Modèle SOTA :
-      solana-runtime, tokio+feature-flags — PAS 12 sous-crates par module.
-      Limite pratique : ~5-15k LOC par crate, 40k = god-object.
-```
+> **Supersedes** : CANONICAL_CRATE_MAP v2 (2026-09-23), CYNIC_EXTRACTION_GLOBALE.md, CYNIC_CONSTELLATIONS_HEXAGONALES.md
+> **Authority** : canonical taxonomy source for workspace crates. Referenced by `AGENTS.md` (protocol), `README.md`, and `contracts/foundation.json` (hard boundary `strict_dag_and_single_responsibility`).
+> **Pattern** : `cynic-<family>-<role>` — no exceptions.
+> **External validation** : Agave/Solana workspace (117 crates), Bevy (60 crates), Substrate (500+ crates).
+> **God-object ceiling** : 25,000 LOC — `contracts/foundation.json` hard boundary and `infra/ARCHITECTURE_CONSTELLATIONS.md` rule 5. Supersedes the 40k figure recorded in v2.
+> **Measured** : 2026-09-28 from `cargo metadata` (47 workspace crates) and `src/` LOC census. Total: 388,257 LOC.
 
 ---
 
-## 2. ÉTAT ACTUEL — LOC RÉELS (2026-09-23)
+## 1. GUIDING PRINCIPLES
 
 ```
-cynic-host          89 754    MONOLITHE
-cynic-node          58 087    MONOLITHE
-cynic-protocol      54 687    GOD OBJECT (feuille zéro dep)
-cynic-cli           37 050    MONOLITHE
-cynic-inference     26 846    MONOLITHE
-cynic-intel         10 864    constellation partielle ✓
-cynic-observer       8 558    ORPHELIN (famille inconnue)
-cynic-build          7 836    OK
-cynic-workload       6 193    cross-cutting
-cynic-kernel         6 290    OK (inversions à corriger)
-cynic-lifecycle      3 091    mauvais nom (→ cynic-host-lifecycle)
-cynic-domain-ops     2 892    constellation ✓
-cynic-pkg            2 920    mauvais nom (→ cynic-host-pkg)
-cynic-storage        2 481    cross-cutting
-cynic-network        2 201    cross-cutting
-cynic-vcs            1 654    cross-cutting
-cynic-lxc            1 175    mauvais nom (→ cynic-host-lxc)
-cynic-host-probes    1 129    ✓ pattern OK
-cynic-market         1 059    ORPHELIN (→ fusion cynic-intel-futarchy)
-cynic-sandbox        1 013    mauvais nom (→ cynic-host-sandbox)
-cynic-intel-escore     945    constellation ✓
-cynic-forensics        802    mauvais nom (→ cynic-host-forensics)
-cynic-agent-bus        789    constellation ✓
-cynic-secrets          783    cross-cutting
-cynic-pool             744    ORPHELIN (→ cynic-agent-pool)
-cynic-mcp              776    singleton projection ✓
-cynic-intel-soc        597    constellation ✓
-cynic-release          595    mauvais nom (→ cynic-host-release)
-cynic-domain-cloudflare 555   constellation ✓
-cynic-agent-bus-coordinator 449  constellation ✓
-cynic-domain-porkbun   432    constellation ✓
-cynic-zeroclaw-solana  401    mauvais nom (→ cynic-solana-zeroclaw)
-cynic-discovery        352    mauvais nom (→ cynic-node-discovery)
-cynic-askesis          303    mauvais nom (→ cynic-kernel-askesis)
-cynic-channel          283    ORPHELIN (→ cynic-agent-channel)
-cynic-consensus        251    mauvais nom (→ cynic-node-consensus)
-cynic-discovery-host   220    mauvais nom (→ cynic-host-discovery)
-cynic-intel-futarchy   213    constellation ✓
-cynic-identity         159    singleton ✓ (feuille pure)
-cynic-agent-bus-server  104   constellation ✓
-cynic-domain-askesis    67    constellation ✓
+cynic-<family>              → legitimate singleton (cross-cutting or isolated)
+cynic-<family>-<role>      → member of a constellation
+
+R1. Every crate with at least one sibling in its family MUST follow the pattern.
+R2. The role names WHAT THE CRATE DOES, not its technical layer.
+R3. No layer prefixes (-domain, -ports, -adapter, -application).
+    Conventional role patterns (Agave):
+      -types     → pure types only (e.g. cynic-rpc-types)
+      -callback  → traits/callbacks only
+      -interface → protocol definition only
+R4. Pure domain first — types + ports before adapters.
+R5. Strict downward DAG. No cycles. kernel does not depend on node.
+R6. no_std + alloc wherever deps allow.
+    The no_std/std boundary IS the domain/adapter boundary.
+    Enforcement: the compiler (not a test, not a convention).
+R7. One crate per cohesive functional domain — no micro-crate cascades.
+    Sub-structure (types, parser, scrubber, slots...) lives in INTERNAL
+    MODULES of the domain crate, not in separate crates. SOTA model:
+    solana-runtime, tokio+feature-flags — NOT 12 sub-crates per module.
+    Practical band: ~5-15k LOC per crate; 25k = god-object ceiling.
+R8. Vertical extraction only. Extraction proceeds bottom-up by tier
+    (see section 5), never horizontally by technical layer. Special
+    decomposition proposals in `infra/ARCHITECTURE_CONSTELLATIONS.md`
+    (e.g. Slice 5 cynic-trace-* / cynic-eval-* splits) are bounded
+    operator-veto items under R7 — they never create micro-crates by
+    default. Confirmed by operator decision 2026-09-28.
 ```
 
 ---
 
-## 3. TAXONOMIE CIBLE — PAR FAMILLE
+## 2. CURRENT STATE — MEASURED LOC (2026-09-28)
 
-### FAMILLE : agent
-*Coordination multi-agent, économie, transport.*
 ```
-cynic-agent-bus              ✓ existant — types, ports, ledger, claim
-cynic-agent-bus-server       ✓ existant — projection REST
-cynic-agent-bus-coordinator  ✓ existant — orchestrateur fleet
-cynic-agent-channel          ← renommer cynic-channel (économie bilatérale HTLC)
-cynic-agent-pool             ← renommer cynic-pool (PoUW, PPLNS, récompenses)
-cynic-agent-coordination     → CRÉER — UNE crate consolidée (R7) :
-                                        coordination_lease + registry_claim_audit +
-                                        agent_session/ + agent_coordination
-                                        (de protocol). Modules internes.
-```
-
-### FAMILLE : eval
-*Scoring, jugement, verdict, crystals.*
-```
-cynic-eval                   → CRÉER — UNE crate consolidée (R7) :
-                                        evidence + eval/ + judgment + kyon +
-                                        emergence_gallery (de protocol, ~2.8k LOC).
-                                        Modules internes : evidence.rs, dog.rs,
-                                        judgment.rs, kyon/, gallery.rs.
-```
-
-### FAMILLE : kernel
-*Orchestrateur souverain, bus de coordination.*
-```
-cynic-kernel                 ✓ existant — résidu ~5K après corrections
-cynic-kernel-askesis         ← renommer cynic-askesis
-```
-
-### FAMILLE : host
-*Substrat OS, hyperviseur, adapters système.*
-```
-cynic-host                   ✓ existant — résidu orchestrateur host
-cynic-host-probes            ✓ existant — hardware probes
-cynic-host-lxc               ← renommer cynic-lxc
-cynic-host-pkg               ← renommer cynic-pkg
-cynic-host-sandbox           ← renommer cynic-sandbox
-cynic-host-lifecycle         ← renommer cynic-lifecycle
-cynic-host-release           ← renommer cynic-release
-cynic-host-forensics         ← renommer cynic-forensics
-cynic-host-discovery         ← renommer cynic-discovery-host
-cynic-host-substrate         → CRÉER — host_substrate/ cpu/disk/memory/hypervisor
-                                        (extraire de cynic-protocol)
-```
-
-### FAMILLE : node
-*Nœud unique, supervision, autonomie.*
-```
-cynic-node                   ✓ existant — résidu supervisor
-cynic-node-consensus         ← renommer cynic-consensus
-cynic-node-discovery         ← renommer cynic-discovery
-cynic-node-protocol          → CRÉER — node_activation, node_enrollment, node_control,
-                                        node_identity, machine_enrollment, pre_os
-                                        (extraire de cynic-protocol)
-cynic-node-autonomy          → CRÉER — emergence, local_autonomy
-                                        (extraire de cynic-protocol)
+cynic-host           93 206    GOD OBJECT (extraction session 3 pending)
+cynic-node           58 327    GOD OBJECT (extraction session 4 pending)
+cynic-kernel         40 434    GOD OBJECT (grew from 6.3K — organ/senses/probe/introspection modules)
+cynic-protocol       34 779    GOD OBJECT (extraction sessions 1-2 partial)
+cynic-cli            34 735    GOD OBJECT (extraction session 6 pending)
+cynic-inference      25 317    GOD OBJECT (borderline; runtime-authority status: extracting)
+cynic-mcp            13 588    ok (5-15k band; projection singleton)
+cynic-intel          10 844    ok (absorbs cynic-market per v3 verdict)
+cynic-build           8 737    ok
+cynic-observer        8 558    ok (rename target: cynic-solana-observer)
+cynic-vcs             6 343    ok
+cynic-workload        6 195    cross-cutting
+cynic-node-protocol   5 658    ok (created from protocol, 2026-09-26)
+cynic-eval            4 347    ok (consolidated per R7, created wave B)
+cynic-storage         4 024    cross-cutting
+cynic-network         3 464    cross-cutting
+cynic-pkg             3 213    bad name (→ cynic-host-pkg)
+cynic-lifecycle       3 091    bad name (→ cynic-host-lifecycle)
+cynic-domain-ops      2 892    constellation ✓
+cynic-askesis         2 373    bad name (→ cynic-kernel-askesis)
+cynic-consensus       2 332    bad name (→ cynic-node-consensus)
+cynic-vcs-forgejo     1 757    constellation ✓
+cynic-forensics       1 221    bad name (→ cynic-host-forensics)
+cynic-lxc             1 175    bad name (→ cynic-host-lxc)
+cynic-host-probes     1 129    ✓ pattern OK
+cynic-market          1 059    ORPHAN (merge into cynic-intel-futarchy)
+cynic-sandbox         1 013    bad name (→ cynic-host-sandbox)
+cynic-intel-escore      944    constellation ✓
+cynic-secrets           783    cross-cutting ✓
+cynic-pool              744    ORPHAN (rename: cynic-agent-pool)
+cynic-agent-bus         729    constellation ✓
+cynic-intel-soc         597    constellation ✓
+cynic-release           595    bad name (→ cynic-host-release)
+cynic-domain-cloudflare 555    constellation ✓
+cynic-solana-pay        471    created 2026-09-24 ✓ (payment vocabulary, not anchor)
+cynic-agent-bus-coordinator 457 constellation ✓
+cynic-domain-porkbun    431    constellation ✓
+cynic-zeroclaw-solana   402    bad name (→ cynic-solana-zeroclaw)
+cynic-discovery         352    bad name (→ cynic-node-discovery)
+cynic-types             321    pure leaf — DAG root (new in v3; zero-dep primitives)
+cynic-channel           283    ORPHAN (rename: cynic-agent-channel)
+cynic-discovery-host    220    bad name (→ cynic-host-discovery)
+cynic-intel-futarchy    213    constellation ✓
+cynic-identity          185    pure leaf ✓ (ed25519, blake3, NodeId)
+cynic-agent-bus-server   91    constellation ✓ (projection REST)
+cynic-domain-askesis     67    constellation ✓
+cynic-inference-runtime   6    composition shell (new in v3; stub over cynic-inference)
 ```
 
-### FAMILLE : runtime
-*Placement, graine, takeover.*
+Ceiling references: GOD OBJECT > 25,000 LOC; MONOLITH band 15-25k; ok band 5-15k; small < 5k.
+Six crates exceed the 25k ceiling: host, node, kernel, protocol, cli, inference.
+
+---
+
+## 3. TARGET TAXONOMY — BY FAMILY
+
+### FAMILY: agent
+*Multi-agent coordination, economy, transport.*
 ```
-cynic-runtime                → CRÉER — UNE crate consolidée (R7) :
-                                        runtime + runtime_placement + runtime_seed +
-                                        runtime_takeover + runtime_takeover_activation
-                                        (de protocol, ~3.2k LOC). Modules internes.
+cynic-agent-bus              ✓ exists — types, ports, ledger, claim
+cynic-agent-bus-server       ✓ exists — REST projection
+cynic-agent-bus-coordinator  ✓ exists — fleet orchestrator
+cynic-agent-channel          ← rename cynic-channel (bilateral HTLC economy)
+cynic-agent-pool             ← rename cynic-pool (PoUW, PPLNS, rewards)
+cynic-agent-coordination     → CREATE — ONE consolidated crate (R7):
+                                         coordination_lease + registry_claim_audit +
+                                         agent_session/ + agent_coordination
+                                         (from protocol). Internal modules.
 ```
 
-### FAMILLE : fleet
-*Multi-nœuds, heartbeat.*
+### FAMILY: eval
+*Scoring, judgment, verdict, crystals.*
 ```
-cynic-fleet-heartbeat        → CRÉER — fleet_heartbeat, fleet_discovery (de protocol)
-```
-
-### FAMILLE : federation
-*Multi-organisation, bootstrap fédéré.*
-```
-cynic-federation            → CRÉER — UNE crate consolidée (R7) :
-                                        federation_membership + federation_authz +
-                                        federation_envelopes + bootstrap_federation
-                                        (de protocol). Modules internes.
+cynic-eval                   → CREATE — ONE consolidated crate (R7):
+                                         evidence + eval/ + judgment + kyon +
+                                         emergence_gallery (from protocol, ~2.8k LOC).
+                                         Internal modules: evidence.rs, dog.rs,
+                                         judgment.rs, kyon/, gallery.rs.
 ```
 
-### FAMILLE : inference
-*LLM souverain, routing, verdict cache.*
+### FAMILY: kernel
+*Sovereign orchestrator, coordination bus.*
 ```
-cynic-inference              ✓ existant — résidu router
-cynic-inference-llm          → CRÉER — llm_port, fleet_inference/ (de protocol)
+cynic-kernel                 ✓ exists — residue ~5K after corrections (plan);
+                                         measured 40.4K — organ/senses/probe growth
+                                         must be reversed (session 5)
+cynic-kernel-askesis         ← rename cynic-askesis
 ```
 
-### FAMILLE : vcs
+### FAMILY: host
+*OS substrate, hypervisor, system adapters.*
+```
+cynic-host                   ✓ exists — host orchestrator residue
+cynic-host-probes            ✓ exists — hardware probes
+cynic-host-lxc               ← rename cynic-lxc
+cynic-host-pkg               ← rename cynic-pkg
+cynic-host-sandbox           ← rename cynic-sandbox
+cynic-host-lifecycle         ← rename cynic-lifecycle
+cynic-host-release           ← rename cynic-release
+cynic-host-forensics         ← rename cynic-forensics
+cynic-host-discovery         ← rename cynic-discovery-host
+cynic-host-substrate         → CREATE — host_substrate/ cpu/disk/memory/hypervisor
+                                         (extract from cynic-protocol)
+```
+
+### FAMILY: node
+*Single node, supervision, autonomy.*
+```
+cynic-node                   ✓ exists — supervisor residue
+cynic-node-consensus         ← rename cynic-consensus
+cynic-node-discovery         ← rename cynic-discovery
+cynic-node-protocol          ✓ created 2026-09-26 — node_activation, node_enrollment,
+                                         node_control, node_identity,
+                                         machine_enrollment, pre_os (from protocol)
+cynic-node-autonomy          → CREATE — emergence, local_autonomy
+                                         (extract from cynic-protocol)
+```
+
+### FAMILY: runtime
+*Placement, seed, takeover.*
+```
+cynic-runtime                → CREATE — ONE consolidated crate (R7):
+                                         runtime + runtime_placement + runtime_seed +
+                                         runtime_takeover + runtime_takeover_activation
+                                         (from protocol, ~3.2k LOC). Internal modules.
+```
+
+### FAMILY: fleet
+*Multi-node, heartbeat.*
+```
+cynic-fleet-heartbeat        → CREATE — fleet_heartbeat, fleet_discovery (from protocol)
+```
+
+### FAMILY: federation
+*Multi-organization, federated bootstrap.*
+```
+cynic-federation             → CREATE — ONE consolidated crate (R7):
+                                         federation_membership + federation_authz +
+                                         federation_envelopes + bootstrap_federation
+                                         (from protocol). Internal modules.
+```
+
+### FAMILY: inference
+*Sovereign LLM, routing, verdict cache.*
+```
+cynic-inference              ✓ exists — router residue (25.3K, extracting)
+cynic-inference-runtime      ✓ new — composition shell over domain contracts (stub, 6 LOC)
+cynic-inference-llm          → CREATE — llm_port, fleet_inference/ (from protocol)
+```
+
+### FAMILY: vcs
 *Source control, Git, Forgejo.*
 ```
-cynic-vcs                    ✓ existant — absorbe git_topology, git_hygiene,
-                                        source_control, source_worktree* comme
-                                        MODULES INTERNES (R7, Vague B)
-cynic-vcs-forgejo            ✓ créé — vcs/forgejo, forgejo_token (adaptateurs + transport)
+cynic-vcs                    ✓ exists — absorbs git_topology, git_hygiene,
+                                         source_control, source_worktree* as
+                                         INTERNAL MODULES (R7, wave B)
+cynic-vcs-forgejo            ✓ created — vcs/forgejo, forgejo_token (adapters + transport)
 ```
 
-### FAMILLE : storage
-*Persistance, ports.*
+### FAMILY: storage
+*Persistence, ports.*
 ```
-cynic-storage                ✓ existant — résidu ports + absorbe storage/ de protocol
+cynic-storage                ✓ exists — ports residue + absorbs storage/ from protocol
 ```
 
-### FAMILLE : network
+### FAMILY: network
 *Mesh, transport.*
 ```
-cynic-network                ✓ existant — absorbe network.rs, transport_* de protocol
+cynic-network                ✓ exists — absorbs network.rs, transport_* from protocol
 ```
 
-### FAMILLE : build
-*CI/CD, harness de test.*
+### FAMILY: build
+*CI/CD, test harness.*
 ```
-cynic-build                  ✓ existant — a absorbé harness.rs + harness_authority
-                                        (2026-09-24, Vague A)
-```
-
-### FAMILLE : intel
-*Intelligence, scoring, marchés.*
-```
-cynic-intel                  ✓ existant — absorbe cynic-market
-cynic-intel-escore           ✓ existant
-cynic-intel-futarchy         ✓ existant — absorbe cynic-market
-cynic-intel-soc              ✓ existant
+cynic-build                  ✓ exists — absorbed harness.rs + harness_authority
+                                         (2026-09-24, wave A)
 ```
 
-### FAMILLE : solana
-*Intégration Solana, observer, plugins.*
+### FAMILY: intel
+*Intelligence, scoring, markets.*
 ```
-cynic-solana-observer        ← renommer cynic-observer (solana_archive = 80%)
-cynic-solana-zeroclaw        ← renommer cynic-zeroclaw-solana
+cynic-intel                  ✓ exists — absorbs cynic-market
+cynic-intel-escore           ✓ exists
+cynic-intel-futarchy         ✓ exists — absorbs cynic-market
+cynic-intel-soc              ✓ exists
+```
+
+### FAMILY: solana
+*Solana integration, observer, plugins.*
+```
+cynic-solana-observer        ← rename cynic-observer (solana_archive = 80%)
+cynic-solana-zeroclaw        ← rename cynic-zeroclaw-solana
 cynic-solana-anchor          → DEFERRED — anchor_client.rs purged 2026-09-24
-                                        (251 LOC, 10/10 symbols zero external
-                                        consumers). Recreate only when an
-                                        on-chain branch is actually wired.
-cynic-solana-pay             ✓ CRÉÉ 2026-09-24 (ex-solana/ de protocol:
-                                        constants + ops — payment/SOP
-                                        vocabulary, not anchor). AllowanceGrant
-                                        stays in protocol residue (shared
-                                        vocabulary via agentic_tool_call);
-                                        payment behavior lives here as
-                                        AllowanceGrantPaymentExt.
+                                         (251 LOC, 10/10 symbols zero external
+                                         consumers). Recreate only when an
+                                         on-chain branch is actually wired.
+cynic-solana-pay             ✓ CREATED 2026-09-24 (ex-solana/ from protocol:
+                                         constants + ops — payment/SOP
+                                         vocabulary, not anchor). AllowanceGrant
+                                         stays in protocol residue (shared
+                                         vocabulary via agentic_tool_call);
+                                         payment behavior lives here as
+                                         AllowanceGrantPaymentExt.
 ```
 
-### FAMILLE : domain
-*Opérations DNS, providers.*
+### FAMILY: domain
+*DNS operations, providers.*
 ```
-cynic-domain-ops             ✓ existant
-cynic-domain-cloudflare      ✓ existant
-cynic-domain-porkbun         ✓ existant
-cynic-domain-askesis         ✓ existant
+cynic-domain-ops             ✓ exists
+cynic-domain-cloudflare      ✓ exists
+cynic-domain-porkbun         ✓ exists
+cynic-domain-askesis         ✓ exists
 ```
 
-### SINGLETONS CROSS-CUTTING
-*Légitimes sans famille. Pas de split prévu.*
+### CROSS-CUTTING SINGLETONS
+*Legitimate without a family. No split planned.*
 ```
-cynic-protocol               → résidu types atomiques ~3K (après toutes extractions)
-cynic-identity               ✓ feuille pure (ed25519, blake3, NodeId)
-cynic-secrets                ✓ cross-cutting (6 consommateurs, pas de famille claire)
-cynic-workload               ✓ cross-cutting (6 consommateurs)
-cynic-mcp                    ✓ projection agent, singleton
-cynic-cli                    → résidu thin ~3K (après extractions)
-cynic-pool                   → cynic-agent-pool (voir famille agent)
+cynic-types                  ✓ pure leaf — AgentId, Hash32, Budget, Scope,
+                                         TaskId, Timestamp (zero-dep DAG root)
+cynic-protocol               → residue of atomic types ~3K (after all extractions)
+cynic-identity               ✓ pure leaf (ed25519, blake3, NodeId)
+cynic-secrets                ✓ cross-cutting (6 consumers, no clear family)
+cynic-workload               ✓ cross-cutting (6 consumers)
+cynic-mcp                    ✓ agent projection, singleton
+cynic-cli                    → thin residue ~3K (after extractions)
+cynic-pool                   → cynic-agent-pool (see agent family)
 ```
 
 ---
 
-## 4. VERDICTS PAR ACTION
+## 4. ACTION VERDICTS
 
-### RENOMMER (Cargo.toml + tous les consommateurs)
+### RENAME (Cargo.toml + all consumers)
 ```
 cynic-askesis          → cynic-kernel-askesis
 cynic-consensus        → cynic-node-consensus
@@ -274,121 +295,125 @@ cynic-observer         → cynic-solana-observer
 cynic-zeroclaw-solana  → cynic-solana-zeroclaw
 ```
 
-### FUSIONNER (absorber puis supprimer la source)
+### MERGE (absorb then delete the source)
 ```
-cynic-market           → dans cynic-intel-futarchy (marché futarchique = extension)
+cynic-market           → into cynic-intel-futarchy (futarchic market = extension)
 ```
 
-### CRÉER — extraire de cynic-protocol (voir §5 ordre d'extraction)
+### CREATE — extract from cynic-protocol (see section 5 extraction order)
 ```
-cynic-eval (consolidée: evidence+dog+judgment+kyon+gallery)
-cynic-agent-coordination (consolidée: coord+session)
-cynic-node-protocol
+cynic-eval (consolidated: evidence+dog+judgment+kyon+gallery)
+cynic-agent-coordination (consolidated: coord+session)
+cynic-node-protocol            ✓ done 2026-09-26
 cynic-node-autonomy
 cynic-host-substrate
-cynic-runtime (consolidée: placement+seed+takeover)
+cynic-runtime (consolidated: placement+seed+takeover)
 cynic-fleet-heartbeat
-cynic-federation (consolidée)
+cynic-federation (consolidated)
 cynic-inference-llm
 ```
 
-### CRÉER — extraire de cynic-host
+### CREATE — extract from cynic-host
 ```
-(dépend des renommages ci-dessus — les crates cynic-host-* existent déjà
- comme destinations ; le code qui les concerne est encore dans cynic-host/src/)
+(depends on the renames above — the cynic-host-* destination crates
+already exist; their code is still inside cynic-host/src/)
 ```
 
 ---
 
-## 5. ORDRE D'EXTRACTION — BOTTOM-UP PAR TIER
+## 5. EXTRACTION ORDER — BOTTOM-UP BY TIER
 
 ```
-RÈGLE : ne jamais extraire B avant que toutes ses dépendances soient propres.
+RULE: never extract B until all of its dependencies are clean.
 
-TIER 0 — Feuilles absolues (zero dep workspace)
-  cynic-protocol, cynic-identity, cynic-kernel-askesis (post-rename)
+TIER 0 — absolute leaves (zero-dep workspace)
+  cynic-types  cynic-identity  cynic-protocol  cynic-kernel-askesis (post-rename)
 
-SESSION 1 : Éclater cynic-protocol
-─────────────────────────────────────────────────────────
-  VAGUE A — modules sans import intra-protocol (feuilles internes)
-    vcs/         → cynic-vcs (absorber) + cynic-vcs-forgejo (créé; git modules → cynic-vcs interne, R7)
-    storage/     → cynic-storage (absorber)
-    forensics.rs → cynic-host-forensics (absorber)
-    peer/        → cynic-node-consensus (absorber)
-    network.rs + transport_* → cynic-network (absorber)
-    harness.rs   → cynic-build (absorbé 2026-09-24 avec harness_authority.rs;
-                   schemas cynic.build.harness_*)
-    solana/ + anchor_client.rs → cynic-solana-pay (créé 2026-09-24);
-                   anchor_client purged (dead code, DEFERRED)
-    ✅ VAGUE A TERMINÉE 2026-09-24 (commit 06c19797
-      Preuve: cargo check -p 11 crates EXIT=0, 697✓/3 détenue par autre agent)
-    Leçons: (1) SecurityEvidenceState reste au résidu — vocabulaire de preuve
-    partagé 40 fichiers/5 crates; (2) AllowanceGrant = vocabulaire cross-family
-    (agentic_tool_call) → résidu, behavior en extension trait dans la crate
-    domaine (orphan rule); (3) coordination_{fault,scaling}_harness purgés
-    (0 consommateur externe).
+SESSION 1 : Explode cynic-protocol
+──────────────────────────────────────────────────────────
+  WAVE A — modules without intra-protocol imports (internal leaves)
+    vcs/         → cynic-vcs (absorb) + cynic-vcs-forgejo (created; git modules → cynic-vcs internal, R7)
+    storage/     → cynic-storage (absorb)
+    forensics.rs → cynic-host-forensics (absorb)
+    peer/        → cynic-node-consensus (absorb)
+    network.rs + transport_* → cynic-network (absorb)
+    harness.rs   → cynic-build (absorbed 2026-09-24 with harness_authority.rs;
+                    schemas cynic.build.harness_*)
+    solana/ + anchor_client.rs → cynic-solana-pay (created 2026-09-24);
+                    anchor_client purged (dead code, DEFERRED)
+    ✅ WAVE A COMPLETE 2026-09-24 (commit 06c19797
+       Proof: cargo check -p 11 crates EXIT=0, 697✓/3 held by other agent)
+    Lessons: (1) SecurityEvidenceState stays in residue — shared proof
+    vocabulary 40 files/5 crates; (2) AllowanceGrant = cross-family
+    vocabulary (agentic_tool_call) → residue, behavior as extension trait
+    in the domain crate (orphan rule); (3) coordination_{fault,scaling}_harness
+    purged (0 external consumers).
 
-  VAGUE B — importent uniquement des feuilles-A
-    evidence.rs (→ digest_json)           → cynic-eval (CONSOMMÉ, shared vocab réside dans protocol)
-    eval/ + judgment + kyon +              → cynic-eval (CRÉÉ, Vague B)
+  WAVE B — import A-leaves only
+    evidence.rs (→ digest_json)           → cynic-eval (CONSUMED, shared vocab resides in protocol)
+    eval/ + judgment + kyon +              → cynic-eval (CREATED, wave B)
     convergence/ + evidence_journal +       evidence_projection +
     judge_patch + emergence_gallery        emergence_gallery + agent_execution_provenance
-    (= R7 consolidation, PAS cynic-eval-<X> split — user vetoes 2026-09-25)
-    convergence/ (→ evidence)             → cynic-node-consensus (absorber)
-    node_identity/enrollment/control/activation → cynic-node-protocol (créer)
-    runtime_placement/seed/takeover        → cynic-runtime-* (créer)
-    local_autonomy + emergence             → cynic-node-autonomy (créer)
-    host_substrate/ (cpu/disk/memory)      → cynic-host-substrate (créer)
+    (= R7 consolidation, NOT cynic-eval-<X> split — user vetoes 2026-09-25)
+    convergence/ (→ evidence)             → cynic-node-consensus (absorb)
+    node_identity/enrollment/control/activation → cynic-node-protocol (created 2026-09-26)
+    runtime_placement/seed/takeover        → cynic-runtime-* (to create)
+    local_autonomy + emergence             → cynic-node-autonomy (to create)
+    host_substrate/ (cpu/disk/memory)      → cynic-host-substrate (to create)
+    ⚠ WAVE B PARTIAL — cynic-eval ✓, cynic-node-protocol ✓, rest pending
 
-  VAGUE C — importent B
-    (eval/judgment/kyon déjà extractés dans cynic-eval Vague B)
+  WAVE C — import B
+    (eval/judgment/kyon already extracted into cynic-eval wave B)
     agent_session/ + agent_coordination   → cynic-agent-coord + cynic-agent-session
     fleet_heartbeat/discovery             → cynic-fleet-heartbeat
     llm_port + fleet_inference/           → cynic-inference-llm
 
-  VAGUE D — importent C (plus couplés)
-    federation_* + bootstrap_federation   → cynic-federation-* (créer)
-    organic_opportunity + framework       → cynic-cli (absorber, projections)
+  WAVE D — import C (plus coupled)
+    federation_* + bootstrap_federation   → cynic-federation-* (to create)
+    organic_opportunity + framework       → cynic-cli (absorb, projections)
 
-  RÉSIDU cynic-protocol : ~3K LOC
+  PROTOCOL RESIDUE : ~3K LOC
     error_catalog, digest_json, sanitize, integrity, residual_unknown,
     phi, secret_reference, freshness, sbom, temporal, convergence types
 
-SESSION 2 : Renommages (Cargo.toml workspace + consommateurs)
-─────────────────────────────────────────────────────────────
-  14 renommages listés au §4. Mécaniques, sans déplacement de code.
-  Valider : cargo check --workspace après chaque rename.
+SESSION 2 : Renames (Cargo.toml workspace + consumers)
+──────────────────────────────────────────────────────────
+  14 renames listed in section 4. Mechanical, no code movement.
+  Validate: cargo check --workspace after each rename.
 
-SESSION 3 : Éclater cynic-host (89K → ~10 crates)
-─────────────────────────────────────────────────────────────
-  Après protocol propre. Les crates-destinations existent déjà (post-rename).
-  Déplacer les modules host/src/ vers leurs crates cynic-host-* respectives.
+SESSION 3 : Explode cynic-host (93K → ~10 crates)
+──────────────────────────────────────────────────────────
+  After clean protocol. Destination crates exist (post-rename).
+  Move host/src/ modules to their respective cynic-host-* crates.
 
-SESSION 4 : Éclater cynic-node (58K → ~4 crates)
-─────────────────────────────────────────────────────────────
-  Après host propre.
-  cynic-node-protocol, cynic-node-autonomy, cynic-node-consensus absorbent.
+SESSION 4 : Explode cynic-node (58K → ~4 crates)
+──────────────────────────────────────────────────────────
+  After clean host.
+  cynic-node-protocol, cynic-node-autonomy, cynic-node-consensus absorb.
 
-SESSION 5 : Corriger les inversions kernel
-─────────────────────────────────────────────────────────────
-  kernel → node  : SUPPRIMER (inversion architecturale)
-  kernel → host  : REMPLACER par traits HostPort dans cynic-protocol résidu
-  Résidu cynic-kernel : ~5K LOC, orchestrateur pur.
+SESSION 5 : Fix kernel inversions
+──────────────────────────────────────────────────────────
+  kernel → node  : DELETE (architectural inversion)
+  kernel → host  : REPLACE with HostPort traits in cynic-protocol residue
+  Kernel residue : ~5K LOC, pure orchestrator.
+  ⚠ Measured reality (2026-09-28): kernel at 40.4K — organ/senses/probe/
+  introspection/pipeline modules must be extracted or purged before the
+  ~5K residue target is reachable.
 
-SESSION 6 : Éclater cynic-inference + cynic-cli
-─────────────────────────────────────────────────────────────
-  En dernier — ces crates dépendent de tout le reste.
+SESSION 6 : Explode cynic-inference + cynic-cli
+──────────────────────────────────────────────────────────
+  Last — these crates depend on everything else.
 ```
 
 ---
 
-## 6. DAG CIBLE (simplifié)
+## 6. TARGET DAG (simplified)
 
 ```
-Feuilles (zero dep) :
-  cynic-protocol  cynic-identity  cynic-kernel-askesis
+Leaves (zero-dep workspace) :
+  cynic-types  cynic-identity  cynic-protocol  cynic-kernel-askesis
 
-Tier 1 (→ protocol only) :
+Tier 1 (→ protocol/leaves only) :
   cynic-workload  cynic-secrets  cynic-network  cynic-storage
   cynic-vcs  cynic-host-forensics  cynic-host-lifecycle  cynic-host-release
   cynic-host-lxc  cynic-host-pkg  cynic-host-sandbox  cynic-agent-bus
@@ -409,102 +434,107 @@ Tier 3b (→ intel) :
   cynic-solana-observer  cynic-solana-zeroclaw  cynic-solana-anchor
 
 Tier 4 (→ T1-T3) :
-  cynic-host (résidu)  cynic-federation-*
+  cynic-host (residue)  cynic-federation-*
 
 Tier 5 (→ T4) :
-  cynic-node (résidu)
-  cynic-kernel (résidu, sans dep sur node post-correction)
+  cynic-node (residue)
+  cynic-kernel (residue, no dep on node post-correction)
 
-Tier 6 (→ tout) :
-  cynic-cli (résidu)  cynic-mcp
+Tier 6 (→ everything) :
+  cynic-cli (residue)  cynic-mcp
 ```
 
 ---
 
-## 7b. no_std — STRATIFICATION PAR DESTINATION
+## 7b. no_std — STRATIFICATION BY DESTINATION
 
 ```
 TIER no_std + alloc  (on-chain Solana, sandboxes, WASM)
-  Deps compatibles : ed25519-dalek ✓  blake3 ✓  serde ✓  sha2 ✓  hex ✓  thiserror v2 ✓
+  Compatible deps : ed25519-dalek ✓  blake3 ✓  serde ✓  sha2 ✓  hex ✓  thiserror v2 ✓
 
-  AUJOURD'HUI (zéro changement de logique) :
-    cynic-identity        → #![no_std] prêt immédiatement
-    cynic-agent-channel   → #![no_std] prêt (sha2 + serde)
-    cynic-agent-pool      → #![no_std] prêt (serde + sha2)
+  TODAY (zero logic change) :
+    cynic-identity        → #![no_std] ready immediately
+    cynic-types           → #![no_std] ready (pure primitives)
+    cynic-agent-channel   → #![no_std] ready (sha2 + serde)
+    cynic-agent-pool      → #![no_std] ready (serde + sha2)
 
-  À LA CRÉATION (extraction Session 1) :
-    cynic-protocol résidu
-    cynic-eval            (déjà #![no_std] ready — eval/dog/judgment/kyon)
-    cynic-agent-types     (types purs extraits de cynic-agent-bus)
+  AT CREATION (session 1 extraction) :
+    cynic-protocol residue
+    cynic-eval            (already #![no_std] ready — eval/dog/judgment/kyon)
+    cynic-agent-types     (pure types extracted from cynic-agent-bus)
 
-  À VÉRIFIER (peuvent avoir des deps std cachées) :
-    cynic-workload        (serde_json nécessite alloc → ok)
-    cynic-node-protocol   (async_trait → bloque no_std, à isoler)
-    cynic-runtime-*       (à vérifier module par module)
+  TO VERIFY (may hide std deps) :
+    cynic-workload        (serde_json requires alloc → ok)
+    cynic-node-protocol   (async_trait → blocks no_std, to isolate)
+    cynic-runtime-*       (verify module by module)
 
-TIER std + feature-gated  (off-chain pur, accès contrôlé)
-  Pattern Agave : feature "cynic-internal" pour items privés aux tests
+TIER std + feature-gated  (pure off-chain, controlled access)
+  Agave pattern : feature "cynic-internal" for test-private items
   #[cfg_attr(feature = "cynic-internal", pub)]
   Crates : cynic-agent-coord, cynic-agent-session, cynic-node-protocol
 
-TIER std complet  (adapters, applications, I/O)
+TIER full std  (adapters, applications, I/O)
   cynic-host-*  cynic-vcs-git  cynic-vcs-forgejo  cynic-kernel
   cynic-inference  cynic-storage  cynic-network  cynic-mcp  cynic-cli
-  cynic-node (résidu)
+  cynic-node (residue)
 ```
 
 ```toml
-# Cargo.toml workspace — ajouter après extraction Session 1
+# Cargo.toml workspace — add after session 1 extraction
 [[bans.deny]]
 name = "cynic-protocol"
-# Interdit d'importer le god object résiduel directement
-# depuis les crates std. Forcer l'import via les crates extraites.
-wrappers = ["cynic-protocol"]  # seul le résidu autorisé en interne
+# Forbid importing the residual god object directly from std crates.
+# Force imports through the extracted crates.
+wrappers = ["cynic-protocol"]  # only the residue allowed internally
 ```
 
-## 7. RÈGLES D'ENFORCEMENT
+## 7. ENFORCEMENT RULES
 
 ```
-E1. Pattern naming
-    Tout nouveau crate DOIT suivre cynic-<famille>-<rôle>.
-    Violation → PR bloquée.
+E1. Naming pattern
+    Every new crate MUST follow cynic-<family>-<role>.
+    Violation → PR blocked.
 
-E2. DAG acyclique
-    Toute arête montante (kernel→node, host→kernel) → cargo deny.
-    Chaque crate a tests/architecture_boundary.rs.
+E2. Acyclic DAG
+    Any upward edge (kernel→node, host→kernel) → cargo deny.
+    Every crate has tests/architecture_boundary.rs.
 
-E3. Ratchet LOC
-    Tout crate > 40K LOC → WARN dans cynic dev crate-audit.
-    Pas de nouveau code dans les monolithes en cours d'extraction.
+E3. LOC ratchet (25k ceiling — foundation.json hard boundary)
+    Any crate > 25k LOC → WARN in cynic dev crate-audit.
+    2026-09-28 measurement: six crates breach (host 93K, node 58K,
+    kernel 40K, protocol 35K, cli 35K, inference 25.3K).
+    No new code in monoliths under extraction.
 
-E4. Orphelin
-    Tout crate sans consommateur workspace → WARN.
-    Exception : binaires (main.rs), crates de projection finale (cli, mcp).
+E4. Orphan
+    Any crate without a workspace consumer → WARN.
+    Exception : binaries (main.rs), final projection crates (cli, mcp).
 
-E5. Module mal placé
-    Tout module dont le langage ubiquitaire appartient à une autre famille
-    → issue ouverte, extraction planifiée dans ce doc.
+E5. Misplaced module
+    Any module whose ubiquitous language belongs to another family
+    → open issue, extraction planned in this doc.
 
-E6. Zéro re-export global
-    lib.rs ne fait pas pub use autre_crate::*.
-    Les imports sont explicites.
+E6. Zero global re-export
+    lib.rs does not do pub use other_crate::*.
+    Imports are explicit.
 ```
 
 ---
 
-## 8. MODULES AMBIGUS — DÉCISIONS PRISES
+## 8. AMBIGUOUS MODULES — DECISIONS TAKEN
 
-| Module (dans protocol) | Appartient à | Raison |
-|------------------------|--------------|--------|
-| `harness.rs` | cynic-build | schémas `cynic.build.*`, scénarios de test CI |
-| `organic_opportunity` | cynic-cli | read-only, "no I/O", projection opérateur |
-| `framework.rs` | cynic-cli | auto-description machine, sortante |
-| `emergence.rs` | cynic-node-autonomy | coordination sans kernel, domaine NODE |
-| `local_autonomy.rs` | cynic-node-autonomy | couplé à emergence (re-export mutuel) |
-| `emergence_gallery.rs` | cynic-eval | importe EvidenceEnvelope + CynicErrorCodeCode |
-| `sensory.rs` | cynic-host-probes | SensoryPort trait, captures snapshot |
+| Module (in protocol) | Belongs to | Reason |
+|----------------------|------------|--------|
+| `harness.rs` | cynic-build | `cynic.build.*` schemas, CI test scenarios |
+| `organic_opportunity` | cynic-cli | read-only, "no I/O", operator projection |
+| `framework.rs` | cynic-cli | machine self-description, output artifact |
+| `emergence.rs` | cynic-node-autonomy | coordination without kernel, NODE domain |
+| `local_autonomy.rs` | cynic-node-autonomy | coupled to emergence (mutual re-export) |
+| `emergence_gallery.rs` | cynic-eval | imports EvidenceEnvelope + CynicErrorCodeCode |
+| `sensory.rs` | cynic-host-probes | SensoryPort trait, snapshot captures |
 
 ---
 
-*v2 — 2026-09-23. Ajout : no_std stratification, feature-gating pattern Agave,*
-*cargo-deny sur monolithe résiduel. Validé par benchmark Agave/Bevy/Substrate.*
+*v3 — 2026-09-28. English-only invariant restored; 47-crate census; 25k god-object*
+*ceiling aligned with foundation.json; R8 vertical-extraction policy; kernel growth*
+*(6.3K → 40.4K) recorded as a god-object breach; cynic-types and*
+*cynic-inference-runtime added to the inventory; referenced from AGENTS.md.*
