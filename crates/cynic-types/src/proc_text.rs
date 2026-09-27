@@ -47,6 +47,20 @@ pub fn parse_governor(raw: &str) -> Option<String> {
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
+/// Parse one `<Field>:` line of procfs text as kilobytes (`None` when absent).
+///
+/// Generic primitive for `/proc/meminfo` and `/proc/self/status` alike —
+/// host adapters read the files, every crate parses through this one function.
+pub fn parse_proc_field_kb(raw: &str, field: &str) -> Option<u64> {
+    raw.lines().find_map(|line| {
+        line.strip_prefix(field)?
+            .split_whitespace()
+            .next()?
+            .parse()
+            .ok()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,5 +86,12 @@ mod tests {
     fn governor_trims_and_rejects_blank() {
         assert_eq!(parse_governor("schedutil\n"), Some("schedutil".into()));
         assert_eq!(parse_governor("  \n"), None);
+    }
+
+    #[test]
+    fn proc_field_kb_reads_any_prefixed_line() {
+        let raw = "Name:\tcynic\nVmRSS:\t   16384 kB\nThreads:\t8\n";
+        assert_eq!(parse_proc_field_kb(raw, "VmRSS:"), Some(16384));
+        assert_eq!(parse_proc_field_kb(raw, "Missing:"), None);
     }
 }

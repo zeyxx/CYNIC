@@ -1161,6 +1161,7 @@ dependencies = [
  "cynic-release",
  "cynic-sandbox",
  "cynic-storage",
+ "cynic-types",
  "cynic-vcs",
  "cynic-vcs-forgejo",
  "cynic-workload",

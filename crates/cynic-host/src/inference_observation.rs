@@ -1,6 +1,7 @@
 //! Live resource observation for bounded inference workloads.
 //! No policy or inference knowledge belongs here; this is substrate evidence.
 
+use cynic_types::proc_text::parse_proc_field_kb;
 use serde::Serialize;
 use std::path::Path;
 
@@ -19,10 +20,15 @@ pub struct InferenceResourceObservation {
 }
 
 /// Observe the current process and host memory without mutation or shelling out.
+///
+/// Field parsing is shared (`cynic_types::proc_text`); only the file reads
+/// stay here — host substrate owns I/O.
 pub fn observe_inference_resources() -> InferenceResourceObservation {
-    let total_memory_bytes = read_meminfo_kib("MemTotal:").map(|v| v * 1024);
-    let available_memory_bytes = read_meminfo_kib("MemAvailable:").map(|v| v * 1024);
-    let rss_bytes = read_status_kib("VmRSS:").map(|v| v * 1024);
+    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let total_memory_bytes = parse_proc_field_kb(&meminfo, "MemTotal:").map(|v| v * 1024);
+    let available_memory_bytes = parse_proc_field_kb(&meminfo, "MemAvailable:").map(|v| v * 1024);
+    let rss_bytes = parse_proc_field_kb(&status, "VmRSS:").map(|v| v * 1024);
     InferenceResourceObservation {
         schema: INFERENCE_OBSERVATION_SCHEMA,
         rss_bytes,
@@ -39,32 +45,6 @@ fn percent(value: Option<u64>, total: Option<u64>) -> Option<f32> {
     value
         .zip(total)
         .and_then(|(value, total)| (total > 0).then(|| value as f32 * 100.0 / total as f32))
-}
-
-fn read_status_kib(field: &str) -> Option<u64> {
-    std::fs::read_to_string("/proc/self/status")
-        .ok()?
-        .lines()
-        .find_map(|line| {
-            line.strip_prefix(field)?
-                .split_whitespace()
-                .next()?
-                .parse()
-                .ok()
-        })
-}
-
-fn read_meminfo_kib(field: &str) -> Option<u64> {
-    std::fs::read_to_string("/proc/meminfo")
-        .ok()?
-        .lines()
-        .find_map(|line| {
-            line.strip_prefix(field)?
-                .split_whitespace()
-                .next()?
-                .parse()
-                .ok()
-        })
 }
 
 fn drm_total(name: &str) -> Option<u64> {
