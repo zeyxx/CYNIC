@@ -2322,7 +2322,7 @@
         "kind": "file",
         "path": "crates/cynic-cli/tests/architecture_boundary.rs"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790541507,
         "ttl_seconds": 1800
@@ -2375,9 +2375,57 @@
         "started_at_unix_s": 1790541507,
         "ttl_seconds": 1800
       }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 10,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790541890",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "/var/lib/cynic/vault/models"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790541890,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 1,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790542031",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/CLI_SURFACE_AUDIT.md"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790542031,
+        "ttl_seconds": 1800
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 186,
+  "revision": 189,
   "schema": "cynic.agent_claims.v2"
 }
