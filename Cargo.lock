@@ -969,6 +969,7 @@ name = "cynic-build"
 version = "0.8.0"
 dependencies = [
  "chrono",
+ "cynic-node-protocol",
  "cynic-protocol",
  "cynic-workload",
  "hex",
@@ -1017,6 +1018,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-network",
  "cynic-node",
+ "cynic-node-protocol",
  "cynic-pkg",
  "cynic-protocol",
  "cynic-release",
@@ -1153,6 +1155,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
+ "cynic-node-protocol",
  "cynic-pkg",
  "cynic-protocol",
  "cynic-release",
@@ -1335,6 +1338,7 @@ dependencies = [
  "cynic-intel",
  "cynic-intel-soc",
  "cynic-node",
+ "cynic-node-protocol",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-storage",
@@ -1460,6 +1464,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
+ "cynic-node-protocol",
  "cynic-protocol",
  "cynic-release",
  "cynic-sandbox",
@@ -1492,6 +1497,20 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "cynic-node-protocol"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sha3",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
