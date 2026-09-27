@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use cynic_inference::{
-    HardwareProfile, HfDiscoveryService, HfDownloadCommand, ModelStoreService, category_catalog,
+    HfDiscoveryService, HfDownloadCommand, ModelStoreService, category_catalog,
 };
 
 use super::emit_json;
@@ -96,7 +96,7 @@ pub(crate) fn execute_inference_hf_categories(json: bool) -> ExitCode {
 }
 
 pub(crate) fn execute_inference_hardware(json: bool) -> ExitCode {
-    let probe = HardwareProfile::probe();
+    let probe = cynic_inference::probe_hardware();
     if json {
         emit_json(&probe)
     } else {

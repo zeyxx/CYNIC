@@ -124,7 +124,7 @@ pub(crate) fn execute_matrix(
     hermes_endpoint: &str,
     json: bool,
 ) -> ExitCode {
-    let hw = HardwareProfile::probe();
+    let hw = cynic_inference::probe_hardware();
     let plan = match load_plan(plan_path) {
         Ok(plan) => plan,
         Err(error) => return fail(json, error),

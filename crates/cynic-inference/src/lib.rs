@@ -18,8 +18,8 @@ pub use adapters::hf::HfCliAdapter;
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
-    FsChatSessionStore, FsLocalModelInventory, FsModelStore, InferenceSupervisorKind,
-    ProcessLocalRuntime, SystemdUserLocalRuntime,
+    FsChatSessionStore, FsHardwareProbe, FsLocalModelInventory, FsModelStore,
+    InferenceSupervisorKind, ProcessLocalRuntime, SystemdUserLocalRuntime, probe_hardware,
 };
 pub use adapters::ods::{
     DiscoveredService, DiscoveryReport, ODS_DISCOVERY_SCHEMA, ODS_SURFACE, ODS_UPSTREAM,

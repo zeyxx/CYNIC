@@ -20,27 +20,28 @@ fn inference_domain_is_pure_zero_io() {
 }
 
 /// Domain layer MUST NOT depend on std::fs, tokio, reqwest, axum,
-/// futures_util, or crate::adapters::.
+/// futures_util, or crate::adapters:: — neither via `use` lines nor via
+/// fully-qualified paths in bodies (the latter bypassed the old check).
 #[test]
 fn domain_is_pure_no_io_or_async_deps() {
     let domain_dir = inference_crate_root().join("src/domain");
+    let mut files = Vec::new();
+    collect_rs_recursive(&domain_dir, &mut files);
     let mut violations = Vec::new();
 
-    for entry in fs::read_dir(&domain_dir).unwrap() {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-            continue;
-        }
+    for path in &files {
         if path.file_name().unwrap() == "mod.rs" {
             continue;
         }
-
-        let content = fs::read_to_string(&path).unwrap();
+        let content = fs::read_to_string(path).unwrap();
+        let display = path
+            .strip_prefix(&domain_dir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
         for (lineno, line) in content.lines().enumerate() {
             let trimmed = line.trim();
-            if !trimmed.starts_with("use ") {
-                continue;
-            }
             // Allow std::collections (pure data structures)
             if trimmed.starts_with("use std::collections::") {
                 continue;
@@ -53,12 +54,24 @@ fn domain_is_pure_no_io_or_async_deps() {
                 || trimmed.contains("use crate::adapters::")
                 || trimmed.contains("use crate::infra::")
             {
-                violations.push(format!(
-                    "{}:{}: {}",
-                    path.file_name().unwrap().to_str().unwrap(),
-                    lineno + 1,
-                    trimmed
-                ));
+                violations.push(format!("{display}:{}: {trimmed}", lineno + 1));
+                continue;
+            }
+            // Fully-qualified I/O paths in executable code (skip comments).
+            if trimmed.starts_with("//") || trimmed.starts_with("//!") {
+                continue;
+            }
+            let code = line.split("//").next().unwrap_or("");
+            if code.contains("std::fs::")
+                || code.contains("std::process")
+                || code.contains("std::net::")
+                || code.contains("std::env::")
+                || code.contains("std::thread::")
+                || code.contains("std::os::")
+                || code.contains("tokio::")
+                || code.contains("reqwest::")
+            {
+                violations.push(format!("{display}:{}: {trimmed}", lineno + 1));
             }
         }
     }
@@ -68,6 +81,17 @@ fn domain_is_pure_no_io_or_async_deps() {
         "domain/ purity violations:\n{}",
         violations.join("\n")
     );
+}
+
+fn collect_rs_recursive(dir: &Path, out: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            collect_rs_recursive(&path, out);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+            out.push(path);
+        }
+    }
 }
 
 /// Ports layer MUST contain trait definitions. Associated Error/DTO types are

@@ -70,7 +70,7 @@ impl HfDiscoveryService {
     }
 
     pub fn hardware(&self) -> HardwareProfile {
-        HardwareProfile::probe()
+        crate::adapters::local::host_probe::probe_hardware()
     }
 
     pub fn search(
@@ -80,7 +80,7 @@ impl HfDiscoveryService {
         limit: u32,
         author: Option<&str>,
     ) -> Result<HfSearchReport, HfHubError> {
-        let hw = HardwareProfile::probe();
+        let hw = crate::adapters::local::host_probe::probe_hardware();
         let cat = category.and_then(ModelCategory::parse);
         let search_q = match (cat, query) {
             (Some(c), q) => c.search_query(q),

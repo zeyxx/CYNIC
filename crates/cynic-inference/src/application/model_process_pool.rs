@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex};
 
 use crate::adapters::local::ProcessLocalRuntime;
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
-use crate::domain::hardware_profile::HardwareProfile;
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
@@ -77,7 +76,7 @@ impl ModelProcessPool {
             .find(|p| p.alias == alias)
             .ok_or_else(|| LocalRuntimeError::UnknownProfile(alias.to_string()))?;
 
-        let hw = HardwareProfile::probe();
+        let hw = crate::adapters::local::host_probe::probe_hardware();
         let current_report = self.pool_status()?;
 
         // Memory preflight check
@@ -131,7 +130,7 @@ impl ModelProcessPool {
     /// Report overall pool status and active model slots.
     pub fn pool_status(&self) -> Result<ModelPoolReport, LocalRuntimeError> {
         let inv = self.inventory.list_profiles()?;
-        let hw = HardwareProfile::probe();
+        let hw = crate::adapters::local::host_probe::probe_hardware();
 
         let mut active_slots = Vec::new();
         let mut total_active_weight_bytes = 0u64;

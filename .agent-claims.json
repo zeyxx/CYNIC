@@ -2586,14 +2586,182 @@
         "kind": "file",
         "path": "crates/cynic-inference/src/vector_memory.rs"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790548553,
         "ttl_seconds": 1200
       }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790548766",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "contracts/foundation.json"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548766,
+        "ttl_seconds": 86400
+      }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790548774",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/runtime-authority.json"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548774,
+        "ttl_seconds": 86400
+      }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790548776",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/directory-tree.json"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548776,
+        "ttl_seconds": 86400
+      }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790548777",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "docs/README.md"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548777,
+        "ttl_seconds": 86400
+      }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790548779",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-protocol/src/constitutional_law.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548779,
+        "ttl_seconds": 86400
+      }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 10,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790548877",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-inference/src/domain"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548877,
+        "ttl_seconds": 1200
+      }
+    },
+    {
+      "agent_id": "opencode-gov",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodegov_1790549290",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/CANONICAL_CRATE_MAP.md"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790549290,
+        "ttl_seconds": 86400
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 202,
+  "revision": 210,
   "schema": "cynic.agent_claims.v2"
 }

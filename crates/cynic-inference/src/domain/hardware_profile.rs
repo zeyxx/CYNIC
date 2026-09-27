@@ -78,15 +78,22 @@ pub struct HardwareProfile {
 impl HardwareProfile {
     pub const SCHEMA: &'static str = "cynic.inference.hardware_profile.v1";
 
-    /// Probe the current host (always live — never cached here).
-    pub fn probe() -> Self {
-        let (total, available) = read_meminfo();
-        let cpu_threads = std::thread::available_parallelism()
-            .map(|n| n.get() as u32)
-            .unwrap_or(1);
-        let cpu_flags = read_cpu_flags();
-        let cpu_governor = read_cpu_governor();
-        let (gpu, gtt_total_bytes) = probe_gpu();
+    /// Assemble a profile from already-observed inputs (pure — no I/O, no env).
+    ///
+    /// All host reads (meminfo, cpuinfo, DRM sysfs, thread count, bandwidth
+    /// override) are performed by the `HardwareProbePort` adapter; this
+    /// function only decides budgets, tiers, and backends from data.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_observed(
+        total: u64,
+        available: u64,
+        cpu_threads: u32,
+        cpu_flags: Vec<String>,
+        cpu_governor: Option<String>,
+        gpu: GpuInfo,
+        gtt_total_bytes: Option<u64>,
+        mem_bw_gbps: Option<f64>,
+    ) -> Self {
 
         // Unified GPU memory (GTT on APU) is legitimate VRAM for offload.
         // It lives in the same physical pool as the CPU but is allocated by
@@ -148,15 +155,9 @@ impl HardwareProfile {
             backends.push("cuda".to_string());
         }
 
-        // Roofline decode ceiling needs a sustained memory bandwidth. We do NOT
-        // guess it from a host/marketing name (AGENTS.md: no machine-specific
-        // hardcoding). The operator may supply it via CYNIC_ESTIMATED_MEM_BW_GBPS
-        // (e.g. DDR4-3200 dual-channel => ~51 GB/s theoretical). Until a
-        // discovery path (dmidecode/libmemclk) populates this, leave it None and
-        // let the planner omit the roofline warning instead of inventing a number.
-        let memory_bandwidth_bytes_per_sec_estimate = std::env::var("CYNIC_ESTIMATED_MEM_BW_GBPS")
-            .ok()
-            .and_then(|v| v.trim().parse::<f64>().ok())
+        // Roofline decode ceiling needs a sustained memory bandwidth, supplied
+        // by the operator through the probe adapter (never guessed here).
+        let memory_bandwidth_bytes_per_sec_estimate = mem_bw_gbps
             .filter(|gbps| gbps.is_finite() && *gbps > 0.0)
             .map(|gbps| (gbps * 1_000_000_000.0) as u64);
 
@@ -216,10 +217,8 @@ impl HardwareProfile {
     }
 }
 
-fn read_meminfo() -> (u64, u64) {
-    let Ok(raw) = std::fs::read_to_string("/proc/meminfo") else {
-        return (8 * 1024 * 1024 * 1024, 4 * 1024 * 1024 * 1024);
-    };
+/// Pure parser over `/proc/meminfo` text (returns bytes).
+pub fn parse_meminfo(raw: &str) -> (u64, u64) {
     let mut total_kb = 0u64;
     let mut avail_kb = 0u64;
     for line in raw.lines() {
@@ -239,10 +238,8 @@ fn parse_kb(s: &str) -> u64 {
         .unwrap_or(0)
 }
 
-fn read_cpu_flags() -> Vec<String> {
-    let Ok(raw) = std::fs::read_to_string("/proc/cpuinfo") else {
-        return Vec::new();
-    };
+/// Pure parser over `/proc/cpuinfo` text.
+pub fn parse_cpu_flags(raw: &str) -> Vec<String> {
     for line in raw.lines() {
         if let Some(rest) = line.strip_prefix("flags")
             && let Some(flags) = rest.split(':').nth(1)
@@ -253,41 +250,43 @@ fn read_cpu_flags() -> Vec<String> {
     Vec::new()
 }
 
-fn read_cpu_governor() -> Option<String> {
-    std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
-        .ok()
-        .map(|s| s.trim().to_string())
+/// Pure parser over a cpufreq governor string.
+pub fn parse_cpu_governor(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
-fn probe_gpu() -> (GpuInfo, Option<u64>) {
+/// One DRM card's pre-read sysfs values (collected by the probe adapter).
+#[derive(Debug, Clone, Default)]
+pub struct DrmCardReadings {
+    pub card_name: String,
+    pub vendor: Option<String>,
+    pub gtt_total: Option<u64>,
+    pub vram_total: Option<u64>,
+}
+
+/// Pure classifier over pre-read DRM card values.
+pub fn classify_gpu(cards: &[DrmCardReadings]) -> (GpuInfo, Option<u64>) {
     let mut vendor_id = None;
     let mut notes = Vec::new();
     let mut gtt_total = None;
     let mut vram_total = None;
 
-    if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
-        for e in entries.flatten() {
-            let name = e.file_name().to_string_lossy().to_string();
-            if !name.starts_with("card") || name.contains('-') {
-                continue;
-            }
-            let base = e.path().join("device");
-            if let Ok(v) = std::fs::read_to_string(base.join("vendor")) {
-                vendor_id = Some(v.trim().to_string());
-                notes.push(format!("drm:{name} vendor={}", v.trim()));
-            }
-            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_gtt_total"))
-                && let Ok(n) = v.trim().parse::<u64>()
-            {
-                gtt_total = Some(n);
-                notes.push(format!("gtt_total={n}"));
-            }
-            if let Ok(v) = std::fs::read_to_string(base.join("mem_info_vram_total"))
-                && let Ok(n) = v.trim().parse::<u64>()
-            {
-                vram_total = Some(n);
-                notes.push(format!("vram_total={n}"));
-            }
+    for card in cards {
+        if !card.card_name.starts_with("card") || card.card_name.contains('-') {
+            continue;
+        }
+        if let Some(v) = &card.vendor {
+            vendor_id = Some(v.clone());
+            notes.push(format!("drm:{} vendor={v}", card.card_name));
+        }
+        if let Some(n) = card.gtt_total {
+            gtt_total = Some(n);
+            notes.push(format!("gtt_total={n}"));
+        }
+        if let Some(n) = card.vram_total {
+            vram_total = Some(n);
+            notes.push(format!("vram_total={n}"));
         }
     }
 
@@ -328,9 +327,27 @@ fn probe_gpu() -> (GpuInfo, Option<u64>) {
 mod tests {
     use super::*;
 
+    fn synthetic_hw() -> HardwareProfile {
+        HardwareProfile::from_observed(
+            32 * 1024 * 1024 * 1024,
+            24 * 1024 * 1024 * 1024,
+            16,
+            vec!["avx".into(), "avx2".into(), "fma".into()],
+            Some("schedutil".into()),
+            GpuInfo {
+                class: GpuClass::Integrated,
+                vendor_id: Some("0x1002".into()),
+                vendor_name: Some("AMD".into()),
+                notes: Vec::new(),
+            },
+            Some(8 * 1024 * 1024 * 1024),
+            None,
+        )
+    }
+
     #[test]
-    fn probe_returns_positive_ram() {
-        let hw = HardwareProfile::probe();
+    fn assembled_profile_has_positive_ram() {
+        let hw = synthetic_hw();
         assert!(hw.total_ram_bytes > 0);
         assert!(!hw.tier.is_empty());
         assert!(!hw.backends.is_empty());
@@ -338,8 +355,28 @@ mod tests {
 
     #[test]
     fn feature_class_from_flags() {
-        let mut hw = HardwareProfile::probe();
-        hw.cpu_flags = vec!["avx".into(), "avx2".into(), "fma".into()];
+        let hw = synthetic_hw();
         assert_eq!(hw.cpu_feature_class(), "avx2");
+    }
+
+    #[test]
+    fn meminfo_parser_reads_kb_lines() {
+        let raw = "MemTotal:       16384000 kB\nMemAvailable:    8192000 kB\n";
+        let (total, avail) = parse_meminfo(raw);
+        assert_eq!(total, 16384000 * 1024);
+        assert_eq!(avail, 8192000 * 1024);
+    }
+
+    #[test]
+    fn classifier_marks_amd_apu_integrated() {
+        let cards = vec![DrmCardReadings {
+            card_name: "card0".into(),
+            vendor: Some("0x1002".into()),
+            gtt_total: Some(8 * 1024 * 1024 * 1024),
+            vram_total: Some(512 * 1024 * 1024),
+        }];
+        let (gpu, gtt) = classify_gpu(&cards);
+        assert_eq!(gpu.class, GpuClass::Integrated);
+        assert_eq!(gtt, Some(8 * 1024 * 1024 * 1024));
     }
 }

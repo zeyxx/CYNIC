@@ -128,7 +128,7 @@ impl LocalRuntimeServiceAny {
             let size = model_size
                 .unwrap_or_else(|| std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0));
             if size > 0 {
-                let hw = crate::domain::hardware_profile::HardwareProfile::probe();
+                let hw = crate::adapters::local::host_probe::probe_hardware();
                 if hw.absolute_max_weight_bytes > 0 && size > hw.absolute_max_weight_bytes {
                     return Err(LocalRuntimeError::Rejected(format!(
                         "Model weight size ({:.2} GB) exceeds absolute memory budget of the host ({:.2} GB). Start rejected to prevent OOM crash.",

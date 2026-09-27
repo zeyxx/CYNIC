@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 use crate::adapters::local::engine_probe::probe_engine_plugins;
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
-use crate::domain::hardware_profile::HardwareProfile;
 use crate::infra::runtime_plan::{ProfileOverrides, RuntimeLaunchPlan, plan_launch};
 use crate::ports::local_runtime_port::{LocalModelInventoryPort, LocalRuntimeError};
 
@@ -27,7 +26,7 @@ impl RuntimePlanner {
         let size = profile
             .size_bytes
             .or_else(|| fs::metadata(&profile.model_path).ok().map(|m| m.len()));
-        let hw = HardwareProfile::probe();
+        let hw = crate::adapters::local::host_probe::probe_hardware();
         let plugins = probe_engine_plugins(&hw);
 
         // Profile fields are optional overrides only — not frozen world model.

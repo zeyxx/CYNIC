@@ -143,7 +143,7 @@ impl VerdictCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::*;
+    use cynic_eval::eval::dog::{AxiomReasoning, QScore, VerdictKind};
 
     fn make_embedding(vals: Vec<f32>) -> Embedding {
         let dims = vals.len();

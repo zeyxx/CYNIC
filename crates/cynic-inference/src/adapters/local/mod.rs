@@ -8,6 +8,7 @@
 pub mod docker_supervisor;
 pub mod engine_capability_store;
 pub mod engine_probe;
+pub mod host_probe;
 pub mod model_store;
 pub mod process_supervisor;
 pub mod session_store;
@@ -18,6 +19,7 @@ pub use docker_supervisor::DockerLocalRuntime;
 pub use engine_capability_store::{
     EngineCapabilities, EngineCapabilityStore, Observation, PreflightDecision,
 };
+pub use host_probe::{FsHardwareProbe, probe_hardware};
 pub use model_store::FsModelStore;
 pub use process_supervisor::{InferenceSupervisorKind, ProcessLocalRuntime};
 pub use session_store::FsChatSessionStore;
