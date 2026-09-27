@@ -1,0 +1,232 @@
+{
+  "schema": "cynic.directory_tree.v1",
+  "status": "normative",
+  "purpose": "Canonical filesystem arborescence for CYNIC — Single Source of Truth for all filesystem paths. Every path in the codebase MUST reference this document; no hardcoded paths outside it are permitted.",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "infra/runtime-authority.json",
+    "infra/directory-tree.json",
+    "infra/registry.json",
+    "Cargo.toml workspace",
+    "canonical Rust crates",
+    "infra/agent-exposure.json"
+  ],
+  "layers": {
+    "git_sources": {
+      "description": "Versioned declarative desired-state. Git is their engine. Never duplicated into databases.",
+      "rule": "These live in the git repository, never on the runtime filesystem.",
+      "tree": {
+        "root": "${GIT_WORKING_TREE}",
+        "key_files": {
+          "infra/registry.json": "Primary runtime placement registry. SSOT for node topology, transport URIs, credential references, lifecycle.",
+          "infra/runtime-authority.json": "Operational authority map: surfaces, installed state paths, service projections, canonical capabilities.",
+          "infra/directory-tree.json": "THIS FILE — canonical filesystem arborescence. SSOT for all paths.",
+          "infra/agent-source-protocol.json": "Source governance: remotes, commit convention, branch policy, PR flow, worktree isolation.",
+          "infra/storage-taxonomy.json": "Data classification K1-K8 with storage homes and retention stories.",
+          "infra/surface-registry/": "Surface registry: which crate owns which CLI surface, commands, entrypoints, evidence schemas.",
+          "contracts/": "Constitutional and evolutive policy contracts."
+        }
+      }
+    },
+    "installed_system": {
+      "description": "K6/K8 boundary — installed runtime state owned by cynic principal. Not under operator home. Materialized from git at deploy time.",
+      "tree": {
+        "root": "/etc/cynic",
+        "owner": "root:cynic",
+        "mode": "0755",
+        "key_paths": {
+          "registry.json": "Materialized copy of infra/registry.json for installed runtime. Authored by git, consumed by runtime.",
+          "secrets/": "K8 secrets — never in git. 0640 cynic:cynic. Contains forgejo-token, github-deploy-key, proxmox-token, etc.",
+          "identity/": "Machine identity material. node-identity.key, node-identity.cert, node-signing.key, artifact-store-token, release-signing-key, enrollment-*.json, proxmox-credential-*.json",
+          "allowed-signers": "Allowed signers for release verification.",
+          "runtime-allowed-signers": "Allowed signers for runtime seed verification.",
+          "runtime-seed-allowed-signers": "Allowed signers for runtime seed verification.",
+          "dns/": "DNS configuration: dnsmasq.conf, synapse.hosts.",
+          "backends.toml": "Backend configuration.",
+          "hardware-baseline.json": "Hardware baseline reference.",
+          "node-control-plan.json": "Node control plan.",
+          "node-control.toml": "Node control configuration.",
+          "zones.json": "DNS zones configuration.",
+          "trust/ssh-hosts.json": "SSH host trust mappings.",
+          "storage_topology.json": "Storage topology.",
+          "repo-access-profile.json": "Repository access profile.",
+          "package-sources.json": "Package sources.",
+          "proxmox-ca.pem": "Proxmox CA certificate.",
+          "enrollment-authority.json": "Enrollment authority configuration.",
+          "enrollment-authority.pub": "Enrollment authority public key.",
+          "inference.toml": "Inference configuration."
+        }
+      }
+    },
+    "runtime_state": {
+      "description": "K2/K3/K5 — operational state, evidence, artifacts. Owned by cynic principal.",
+      "tree": {
+        "root": "/var/lib/cynic",
+        "owner": "cynic:cynic",
+        "mode": "0755",
+        "key_paths": {
+          "runtime/": "Installed runtime binaries and current symlink.",
+          "runtime/current/": "Symlink to current runtime version.",
+          "runtime/current/bin/cynic": "Current cynic binary.",
+          "runtime/current/.cynic-runtime-release.json": "Runtime release marker.",
+          "runtime/evidence/": "Runtime evidence: release-*.json.",
+          "source/": "Source checkout and workspaces for agent workloads.",
+          "source/repositories/CYNIC": "CYNIC repository checkout (canonical working tree for builds).",
+          "source/snapshots/": "Source snapshots.",
+          "source/workspaces/": "Isolated agent workspaces.",
+          "identity/": "Machine identity and credential material.",
+          "identity/node-signing.key": "Node signing key.",
+          "identity/artifact-store-token": "Artifact store bearer token.",
+          "identity/release-signing-key": "Release signing key.",
+          "identity/enrollment-grant.json": "Enrollment grant.",
+          "identity/enrollment-request.json": "Enrollment request.",
+          "identity/enrollment-token": "Enrollment token.",
+          "inbox/": "Incoming release baskets (pending activation).",
+          "incoming/": "Incoming release baskets with {release_id} pattern.",
+          "evidence/": "K1 — immutable evidence. Append-only signed journals.",
+          "evidence/domain_tasks.jsonl": "Domain tasks evidence.",
+          "evidence/inference_profiles.jsonl": "Inference profiles evidence.",
+          "evidence/release-*.json": "Release evidence.",
+          "evidence/artifact_manifest.json": "Artifact manifest.",
+          "memory/": "K2 — agent memory and logs.",
+          "memory/logs/human-kernel.jsonl": "Human-kernel interaction log.",
+          "checkouts/": "Ephemeral checkouts (cleanup target). Pattern: /var/lib/cynic/checkouts/{name}.",
+          "sandboxes/": "Agent sandbox worktrees. Pattern: /var/lib/cynic/sandboxes/workload-{id}/repo.git and workspace.",
+          "reports/": "Audit and diagnostic reports (derived, not authority).",
+          "reports/build-proof.json": "Build proof report.",
+          "reports/runtime-report.json": "Runtime report.",
+          "lifecycle/": "Lifecycle state.",
+          "lifecycle/update-state.json": "Lifecycle update state.",
+          "lifecycle/window-journal.jsonl": "Window journal.",
+          "lab/": "Lab infrastructure.",
+          "lab/disks/{}.qcow2": "Lab VM disks.",
+          "lab/images/ubuntu-24.04-server-cloudimg-amd64.img": "Lab base image.",
+          "lab/seeds/{}-seed.iso": "Lab seed images.",
+          "vault/": "K5 — model vault (GGUF weights, etc.). CAS sha256 manifest.",
+          "vault/models/": "Model files (GGUF).",
+          "vault/db_scratch/": "Vault database scratch.",
+          "build-targets/": "Build targets.",
+          ".cargo/": "Cargo home for runtime.",
+          ".local/bin/": "User-local binaries (hf, sccache, etc.).",
+          ".local/share/cynic/": "User-local share directory.",
+          ".local/share/cynic/src/": "Source directory.",
+          ".local/share/cynic/bootstrap/": "Bootstrap scripts.",
+          ".local/share/cynic/bootstrap/hf-cli-install.sh": "HF CLI install script.",
+          ".rustup/": "Rustup installation.",
+          ".ssh/": "SSH configuration for runtime.",
+          "state/": "State directory.",
+          "staging/": "Staging directories for deployment.",
+          "staging/dns/": "DNS staging.",
+          "staging/host-exec/": "Host exec staging.",
+          "staging/network/": "Network staging.",
+          "staging/network-actuator/": "Network actuator staging.",
+          "staging/provider/": "Provider staging.",
+          "agent-scheduler/": "Agent scheduler state.",
+          "agent-scheduler/runtime-proof.json": "Runtime proof.",
+          "agent-sessions.sqlite": "Agent sessions database.",
+          "backends.toml": "Backends configuration (runtime).",
+          "bootstrap/": "Bootstrap state.",
+          "bootstrap/node-registry-observation.json": "Node registry observation.",
+          "bootstrap/seed-1/source": "Bootstrap seed source.",
+          "releases/": "Release artifacts.",
+          "releases/v0.8.0/": "Specific release version.",
+          "repo/": "Repository (alternate).",
+          "peer/": "Peer state.",
+          "storage-lifecycle/": "Storage lifecycle.",
+          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}."
+        }
+      }
+    },
+    "logs": {
+      "description": "K3 — raw telemetry logs.",
+      "tree": {
+        "root": "/var/log/cynic",
+        "owner": "cynic:cynic",
+        "mode": "0755"
+      }
+    },
+    "cache": {
+      "description": "Discordable cache.",
+      "tree": {
+        "root": "/var/cache/cynic",
+        "owner": "cynic:cynic",
+        "mode": "0755"
+      }
+    }
+  },
+  "operator_user": {
+    "description": "User-space operator data. NOT runtime authority. Projections and convenience only.",
+    "tree": {
+      "root": "${HOME}/.cynic",
+      "owner": "${USER}",
+      "mode": "0755",
+      "key_paths": {
+        "worktrees/": "Worktree management.",
+        "organs/hermes/x/": "Hermes organ data (historical)."
+      }
+    },
+    "home_cynic_principal": {
+      "description": "Service principal home for cynic user.",
+      "tree": {
+        "root": "/home/cynic",
+        "owner": "cynic:cynic",
+        "key_paths": {
+          ".local/bin/": "Local binaries.",
+          ".local/share/cynic/": "Local share.",
+          ".local/share/cynic/src/": "Source.",
+          ".local/share/cynic/models/": "Local models."
+        }
+      }
+    }
+  },
+  "path_resolution": {
+    "description": "How paths are resolved at runtime. Follows runtime_paths.rs logic.",
+    "precedence": [
+      "1. Explicit flag (--registry, --state-root, etc.)",
+      "2. Environment variable (CYNIC_REGISTRY, CYNIC_STATE_ROOT, etc.)",
+      "3. Installed system (/etc/cynic, /var/lib/cynic) when cynic principal exists",
+      "4. Dev worktree fallback (infra/registry.json in current git tree)",
+      "5. Unresolved fallback to /etc/cynic defaults"
+    ],
+    "expansions": {
+      "${GIT_WORKING_TREE}": "Current git working tree root (resolved by finding infra/registry.json ancestor).",
+      "${HOME}": "Operator home directory.",
+      "${USER}": "Current operator username.",
+      "${CYNIC_PROJECT_SLUG}": "Project slug, defaults to CYNIC.",
+      "%h": "Shorthand for ${HOME} in runtime_paths expansion."
+    }
+  },
+  "data_classification_ref": {
+    "description": "Cross-reference to storage-taxonomy.json data kinds. Every path MUST map to exactly one K-kind.",
+    "mapping": {
+      "git_sources.*": "K6 — contracts_registries",
+      "installed_system.secrets.*": "K8 — secrets_identity",
+      "installed_system.identity.*": "K8 — secrets_identity (machine)",
+      "runtime_state.identity.*": "K8 — secrets_identity (machine)",
+      "runtime_state.evidence.*": "K1 — immutable_evidence",
+      "runtime_state.memory.*": "K2 — operational_state",
+      "runtime_state.reports.*": "K4 — distilled_analytics (derived)",
+      "runtime_state.archive.*": "K4/K5 — distilled_analytics/artifacts",
+      "runtime_state.vault.*": "K5 — artifacts_blobs",
+      "logs.*": "K3 — raw_telemetry",
+      "operator_user.*": "K8-lite — non-secret identity (architect profiles)"
+    }
+  },
+  "anti_rules": [
+    "No path hardcoding outside this document — use runtime_paths resolution.",
+    "No secrets in git (K8 never in git/db).",
+    "No operator home as runtime authority when principal is resolvable.",
+    "No duplication of git sources into databases (K6 lives in git).",
+    "No conflating installed system paths with operator user paths."
+  ],
+  "related_documents": [
+    "infra/runtime-authority.json",
+    "infra/registry.json",
+    "infra/storage-taxonomy.json",
+    "infra/agent-source-protocol.json",
+    "infra/surface-registry/fragments/runtime_paths.json",
+    "crates/cynic-host/src/lifecycle/runtime_paths.rs",
+    "crates/cynic-cli/src/runtime_paths.rs"
+  ]
+}

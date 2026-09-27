@@ -4,7 +4,7 @@
 //! prose into typed, refutable Rust contracts.
 //!
 //! Laws codified:
-//! 1. Authority Hierarchy (§Authority): 7-tier strict ordering for conflict resolution.
+//! 1. Authority Hierarchy (§Authority): 8-level strict ordering for conflict resolution.
 //! 2. CYNIC Coherence Pattern (§Coherence): desired -> observe -> reconcile -> bounded action -> proof.
 //! 3. Design Gate (§Design gate): 6 mandatory questions before code/contract addition.
 //! 4. Hard Constitutional Boundaries (foundation.json §hard_boundaries): 11 inviolable invariants.
@@ -20,8 +20,10 @@ pub const DESIGN_GATE_SCHEMA: &str = "cynic.design_gate.v1";
 // 1. AUTHORITY HIERARCHY (§Authority / foundation.json)
 // ===========================================================================
 
-/// Strict 7-level authority hierarchy for resolving disagreements across artifacts.
+/// Strict 8-level authority hierarchy for resolving disagreements across artifacts.
 /// Lower integer value = higher authority.
+/// Mirrors the canonical authority_order shared by contracts/foundation.json,
+/// infra/runtime-authority.json, and infra/directory-tree.json.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityLevel {
@@ -31,14 +33,16 @@ pub enum AuthorityLevel {
     FoundationContract = 2,
     /// 3. infra/runtime-authority.json (installed runtime authority spec).
     RuntimeAuthority = 3,
-    /// 4. infra/registry.json (topology and desired node roles).
-    InfraRegistry = 4,
-    /// 5. Cargo.toml workspace (canonical dependency graph).
-    WorkspaceManifest = 5,
-    /// 6. canonical Rust crates under crates/ (domain types and implementations).
-    CanonicalRustCrates = 6,
-    /// 7. infra/agent-exposure.json (agent projection surface).
-    AgentExposure = 7,
+    /// 4. infra/directory-tree.json (canonical filesystem arborescence and path SSOT).
+    DirectoryTree = 4,
+    /// 5. infra/registry.json (topology and desired node roles).
+    InfraRegistry = 5,
+    /// 6. Cargo.toml workspace (canonical dependency graph).
+    WorkspaceManifest = 6,
+    /// 7. canonical Rust crates under crates/ (domain types and implementations).
+    CanonicalRustCrates = 7,
+    /// 8. infra/agent-exposure.json (agent projection surface).
+    AgentExposure = 8,
 }
 
 impl AuthorityLevel {
