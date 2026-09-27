@@ -2135,9 +2135,81 @@
         "started_at_unix_s": 1789991995,
         "ttl_seconds": 1800
       }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 1,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790537605",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/INFERENCE_SURFACE_AUDIT.md"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790537605,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 3,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790537817",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/cli_args.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790537817,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 3,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790537817",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/root_dispatch.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790537817,
+        "ttl_seconds": 3600
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 170,
+  "revision": 174,
   "schema": "cynic.agent_claims.v2"
 }
