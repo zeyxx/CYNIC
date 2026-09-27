@@ -44,6 +44,63 @@ pub fn workspace_root() -> PathBuf {
     }
 }
 
+/// Every workspace crate name, from the `crates/` directory.
+pub fn crate_names() -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(workspace_root().join("crates"))
+        .expect("read crates/")
+        .flatten()
+        .filter(|entry| entry.path().join("Cargo.toml").is_file())
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .collect();
+    names.sort();
+    names
+}
+
+/// Per-crate size census, measured with the SAME reachability rules the orphan
+/// ratchet uses, so the two can never disagree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CrateLocCensus {
+    /// LOC in every `.rs` under `src/`.
+    pub on_disk: usize,
+    /// LOC in the files a compilation root can actually name.
+    pub compiled: usize,
+}
+
+impl CrateLocCensus {
+    /// LOC that exists on disk but that no compilation root names.
+    ///
+    /// This is the legacy-debt axis: mass the compiler never sees, that no
+    /// warning reports, and that the god-object ceiling alone does not catch.
+    pub fn gap(&self) -> usize {
+        self.on_disk.saturating_sub(self.compiled)
+    }
+}
+
+/// Measure a crate. Panics when the crate has no `src/`.
+pub fn crate_loc_census(crate_name: &str) -> CrateLocCensus {
+    let crate_dir = workspace_root().join("crates").join(crate_name);
+    let src_root = crate_dir.join("src");
+    assert!(
+        src_root.is_dir(),
+        "{crate_name}: no src/ directory at {}",
+        src_root.display()
+    );
+    let lines = |rel: &str| -> usize {
+        fs::read_to_string(src_root.join(rel))
+            .map(|text| text.lines().count())
+            .unwrap_or(0)
+    };
+    let on_disk: usize = all_sources(&src_root).iter().map(|rel| lines(rel)).sum();
+    // `reachable` includes lib.rs and main.rs, which are compilation roots in
+    // their own right. Excluding them here would count the crate's own roots as
+    // dead mass and put a floor under every gap.
+    let compiled: usize = reachable(&crate_dir, &src_root)
+        .iter()
+        .map(|rel| lines(rel))
+        .sum();
+    CrateLocCensus { on_disk, compiled }
+}
+
 /// Every `.rs` file under `src_root`, relative to it, sorted.
 fn all_sources(src_root: &Path) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
