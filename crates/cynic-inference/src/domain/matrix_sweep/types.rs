@@ -35,49 +35,21 @@ impl HardwareBudget {
     /// `/proc/meminfo` text and the `CYNIC_GPU_VRAM_BYTES` override are read
     /// by the probe adapter and passed in.
     pub fn from_observed(meminfo_text: &str, gpu_vram_bytes: u64) -> Self {
-        let (total, available) = parse_meminfo_kb(meminfo_text);
+        let (mut total, mut available) =
+            cynic_types::proc_text::parse_meminfo_bytes(meminfo_text);
+        // Fallback: assume 16 GiB if meminfo text carries no usable lines.
+        if total == 0 {
+            total = 16 * 1024 * 1024 * 1024;
+        }
+        if available == 0 {
+            available = total / 2;
+        }
         Self {
             total_ram_bytes: total,
             available_ram_bytes: available,
             gpu_vram_bytes,
         }
     }
-}
-
-/// Pure parser over `/proc/meminfo` text (returns bytes).
-fn parse_meminfo_kb(content: &str) -> (u64, u64) {
-    let mut total = 0u64;
-    let mut available = 0u64;
-    for line in content.lines() {
-        if let Some(rest) = line.strip_prefix("MemTotal:") {
-            if let Some(kb) = rest
-                .trim()
-                .split_whitespace()
-                .next()
-                .and_then(|s| s.parse::<u64>().ok())
-            {
-                total = kb * 1024;
-            }
-        }
-        if let Some(rest) = line.strip_prefix("MemAvailable:") {
-            if let Some(kb) = rest
-                .trim()
-                .split_whitespace()
-                .next()
-                .and_then(|s| s.parse::<u64>().ok())
-            {
-                available = kb * 1024;
-            }
-        }
-    }
-    // Fallback: assume 16 GiB if meminfo text carries no usable lines.
-    if total == 0 {
-        total = 16 * 1024 * 1024 * 1024;
-    }
-    if available == 0 {
-        available = total / 2;
-    }
-    (total, available)
 }
 
 /// A comprehensive test scenario executed against a running model configuration.

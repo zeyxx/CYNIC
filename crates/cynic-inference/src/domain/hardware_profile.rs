@@ -217,45 +217,6 @@ impl HardwareProfile {
     }
 }
 
-/// Pure parser over `/proc/meminfo` text (returns bytes).
-pub fn parse_meminfo(raw: &str) -> (u64, u64) {
-    let mut total_kb = 0u64;
-    let mut avail_kb = 0u64;
-    for line in raw.lines() {
-        if let Some(v) = line.strip_prefix("MemTotal:") {
-            total_kb = parse_kb(v);
-        } else if let Some(v) = line.strip_prefix("MemAvailable:") {
-            avail_kb = parse_kb(v);
-        }
-    }
-    (total_kb * 1024, avail_kb * 1024)
-}
-
-fn parse_kb(s: &str) -> u64 {
-    s.split_whitespace()
-        .next()
-        .and_then(|n| n.parse().ok())
-        .unwrap_or(0)
-}
-
-/// Pure parser over `/proc/cpuinfo` text.
-pub fn parse_cpu_flags(raw: &str) -> Vec<String> {
-    for line in raw.lines() {
-        if let Some(rest) = line.strip_prefix("flags")
-            && let Some(flags) = rest.split(':').nth(1)
-        {
-            return flags.split_whitespace().map(|s| s.to_string()).collect();
-        }
-    }
-    Vec::new()
-}
-
-/// Pure parser over a cpufreq governor string.
-pub fn parse_cpu_governor(raw: &str) -> Option<String> {
-    let trimmed = raw.trim();
-    (!trimmed.is_empty()).then(|| trimmed.to_string())
-}
-
 /// One DRM card's pre-read sysfs values (collected by the probe adapter).
 #[derive(Debug, Clone, Default)]
 pub struct DrmCardReadings {
@@ -361,8 +322,10 @@ mod tests {
 
     #[test]
     fn meminfo_parser_reads_kb_lines() {
+        use cynic_types::proc_text::parse_meminfo_bytes;
+
         let raw = "MemTotal:       16384000 kB\nMemAvailable:    8192000 kB\n";
-        let (total, avail) = parse_meminfo(raw);
+        let (total, avail) = parse_meminfo_bytes(raw);
         assert_eq!(total, 16384000 * 1024);
         assert_eq!(avail, 8192000 * 1024);
     }

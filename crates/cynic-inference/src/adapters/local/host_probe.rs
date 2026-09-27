@@ -3,10 +3,9 @@
 //! Impure reads live here; all parsing and budget decisions stay pure in
 //! `domain::hardware_profile` and are unit-tested without touching the host.
 
-use crate::domain::hardware_profile::{
-    DrmCardReadings, HardwareProfile, classify_gpu, parse_cpu_flags, parse_cpu_governor,
-    parse_meminfo,
-};
+use cynic_types::proc_text::{parse_cpu_flags, parse_governor, parse_meminfo_bytes};
+
+use crate::domain::hardware_profile::{DrmCardReadings, HardwareProfile, classify_gpu};
 use crate::ports::hardware_probe_port::HardwareProbePort;
 
 /// `/proc` + sysfs probe with conservative fallbacks when unreadable.
@@ -19,7 +18,7 @@ const FALLBACK_AVAIL_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 impl HardwareProbePort for FsHardwareProbe {
     fn probe_hardware(&self) -> HardwareProfile {
         let (total, available) = std::fs::read_to_string("/proc/meminfo")
-            .map(|raw| parse_meminfo(&raw))
+            .map(|raw| parse_meminfo_bytes(&raw))
             .unwrap_or((FALLBACK_TOTAL_BYTES, FALLBACK_AVAIL_BYTES));
         let cpu_threads = std::thread::available_parallelism()
             .map(|n| n.get() as u32)
@@ -30,7 +29,7 @@ impl HardwareProbePort for FsHardwareProbe {
         let cpu_governor =
             std::fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
                 .ok()
-                .and_then(|raw| parse_cpu_governor(&raw));
+                .and_then(|raw| parse_governor(&raw));
         let cards = read_drm_cards();
         let (gpu, gtt_total_bytes) = classify_gpu(&cards);
         let mem_bw_gbps = std::env::var("CYNIC_ESTIMATED_MEM_BW_GBPS")

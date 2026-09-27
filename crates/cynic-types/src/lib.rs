@@ -20,6 +20,7 @@
 pub mod agent;
 pub mod budget;
 pub mod hash;
+pub mod proc_text;
 pub mod scope;
 pub mod task;
 pub mod timestamp;
