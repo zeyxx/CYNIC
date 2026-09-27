@@ -1,33 +1,17 @@
 #![allow(clippy::expect_used)]
 
-<<<<<<< HEAD
-use std::fs;
-use std::path::PathBuf;
-
-use clap::CommandFactory;
-=======
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
 use serde_json::Value;
->>>>>>> github/main
 
 fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
 #[test]
-<<<<<<< HEAD
-fn cli_main_is_a_thin_facade() {
-    let main_rs = fs::read_to_string(crate_root().join("src/main.rs")).expect("read main.rs");
-    let line_count = main_rs.lines().count();
-    assert!(
-        line_count <= 50,
-        "Architecture Violation: cynic-cli/src/main.rs must remain a thin facade (<= 50 lines), found {}",
-        line_count
-=======
 fn cli_delegates_lab_runtime_to_cynic_host() {
     let root = crate_root();
     assert!(
@@ -53,20 +37,10 @@ fn cli_delegates_lab_runtime_to_cynic_host() {
     assert!(
         main_rs.contains("mod crate_audit;"),
         "crate audit support must live outside main.rs"
->>>>>>> github/main
     );
 }
 
 #[test]
-<<<<<<< HEAD
-fn cli_has_no_hidden_commands() {
-    let cmd = cynic_cli::Cli::command();
-    for sub in cmd.get_subcommands() {
-        assert!(
-            !sub.is_hide_set(),
-            "Architecture Violation: Hidden CLI command `{}` detected! All commands must be visible and properly nested under an owning family.",
-            sub.get_name()
-=======
 fn cli_exposes_framework_bootstrap_as_canonical_surface() {
     let root = crate_root();
     let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
@@ -1249,25 +1223,11 @@ fn commands_manifest_exposes_canonical_surface_boundaries() {
         assert!(
             ids.contains(required),
             "missing canonical surface {required}"
->>>>>>> github/main
         );
     }
 }
 
 #[test]
-<<<<<<< HEAD
-fn cli_audit_crate_verification_passes() {
-    let report = cynic_cli::crate_audit::audit_core_crates();
-    assert_eq!(
-        report.blocked_count, 0,
-        "Architecture Violation: {} crates failed architecture audit!",
-        report.blocked_count
-    );
-    assert_eq!(
-        report.crate_count, 45,
-        "Expected 45 crates in architecture audit, found {}",
-        report.crate_count
-=======
 fn canonical_surface_audit_executes_against_real_modules() {
     let source = PathBuf::from(env!("CARGO_BIN_EXE_cynic"));
     let output = Command::new(&source)
@@ -1524,6 +1484,5 @@ fn surface_registry_is_split_into_catalog_and_types() {
     assert_eq!(
         manifest_ids, assembled_ids,
         "surface ids in manifest must match ids in assembled surface registry"
->>>>>>> github/main
     );
 }
