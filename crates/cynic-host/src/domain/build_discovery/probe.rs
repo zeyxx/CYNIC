@@ -34,6 +34,63 @@ struct MetadataTarget {
     kind: Vec<String>,
 }
 
+/// The path a workspace-member PackageId points at.
+///
+/// A member id is a PackageId, not a name. This cargo emits
+/// `path+file:///abs/path/crates/cynic-cli#0.8.0` — the fragment is the
+/// *version*, the name is the last path segment, and there is no `name@`
+/// component. Older cargo emitted `cynic-host 0.1.0 (path+file:///…)`. A bare
+/// name is passed through.
+fn member_path(id: &str) -> &str {
+    let url = id.split('#').next().unwrap_or(id);
+    let url = match (url.find('('), url.rfind(')')) {
+        (Some(open), Some(close)) if close > open => &url[open + 1..close],
+        _ => url,
+    };
+    let path = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
+    path.trim_end_matches('/')
+}
+
+/// Package directories referenced by workspace-member ids.
+fn member_dirs(ids: &[String]) -> std::collections::HashSet<String> {
+    ids.iter()
+        .map(|id| member_path(id).to_string())
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
+/// Names, derived from the last path segment. Best-effort fallback only: the
+/// manifest-path join is authoritative. Deriving from the id fragment instead
+/// would put versions like `0.8.0` into the name set, and stripping anything
+/// after a dot would mangle legitimate names such as `crates.io-index`.
+fn workspace_member_names(ids: &[String]) -> std::collections::HashSet<String> {
+    ids.iter()
+        .filter_map(|id| {
+            let path = member_path(id);
+            let name = if path.contains('/') {
+                path.rsplit('/').next()?
+            } else {
+                path
+            };
+            (!name.is_empty()).then(|| name.to_string())
+        })
+        .collect()
+}
+
+fn is_workspace_member(pkg: &MetadataPackage, dirs: &std::collections::HashSet<String>, names: &std::collections::HashSet<String>) -> bool {
+    if dirs.is_empty() && names.is_empty() {
+        return true;
+    }
+    if let Some(manifest) = &pkg.manifest_path {
+        if let Some(parent) = std::path::Path::new(manifest).parent() {
+            if dirs.contains(parent.to_string_lossy().as_ref()) {
+                return true;
+            }
+        }
+    }
+    names.contains(&pkg.name)
+}
+
 /// Parse `cargo metadata --format-version=1 --no-deps` JSON into a report.
 /// Pure, no FS/process touch.
 pub fn parse_cargo_metadata(
@@ -53,25 +110,18 @@ pub fn parse_cargo_metadata(
         residual_unknowns.push("workspace_members_unknown".to_string());
     }
 
-    let ws_set: std::collections::HashSet<String> =
-        meta.workspace_members.iter().cloned().collect();
+    let ws_dirs = member_dirs(&meta.workspace_members);
+    let ws_names = workspace_member_names(&meta.workspace_members);
 
     let mut crates = Vec::new();
+    let mut packages_seen = 0usize;
     for pkg in &meta.packages {
-        // Only include workspace members if list non-empty; else include all.
-        let is_member = if ws_set.is_empty() {
-            true
-        } else {
-            // workspace_members are PackageId like "cynic-host 0.1.0 (path+file://...)"
-            // match by prefix "name "
-            ws_set
-                .iter()
-                .any(|m| m.starts_with(&format!("{} ", pkg.name)))
-                || ws_set.contains(&pkg.name)
-        };
-        if !is_member {
+        // With no member list there is nothing to filter against, so report
+        // every package and let the caller see an honest superset.
+        if !is_workspace_member(pkg, &ws_dirs, &ws_names) {
             continue;
         }
+        packages_seen += 1;
         let edition = pkg.edition.clone().unwrap_or_else(|| "unknown".to_string());
         let mut bins = Vec::new();
         let mut libs = Vec::new();
@@ -115,8 +165,18 @@ pub fn parse_cargo_metadata(
     // targets: single host triple as observed target
     let targets = vec![host_triple.clone()];
 
-    if crates.is_empty() && !residual_unknowns.contains(&"no_workspace_crates".to_string()) {
+    if crates.is_empty()
+        && meta.packages.is_empty()
+        && !residual_unknowns.contains(&"no_workspace_crates".to_string())
+    {
         residual_unknowns.push("no_workspace_crates".to_string());
+    }
+
+    if crates.is_empty() && !meta.packages.is_empty() && packages_seen == 0 {
+        // Naming the cause matters: the previous symptom-only check reported
+        // `no_workspace_crates` here, which sent the reader looking for an
+        // empty workspace instead of at the member-id matching below.
+        residual_unknowns.push("workspace_member_ids_unmatched".to_string());
     }
 
     Ok(BuildDiscoveryReport {
@@ -266,6 +326,92 @@ mod tests {
         assert!(r.crates.iter().any(|c| c.name == "cynic-host"));
         assert_eq!(r.observed_at_unix_s, 123);
         assert_eq!(r.targets, vec!["x86_64-unknown-linux-gnu"]);
+    }
+
+    /// The fixture above uses the legacy PackageId shape, which is why the test
+    /// passed while real `cargo metadata` output produced zero crates: cargo
+    /// stopped emitting that shape and the matching was never exercised against
+    /// the one it now emits.
+    #[test]
+    fn parse_handles_every_current_package_id_shape() {
+        let json = r#"{
+            "packages": [
+                {"name":"cynic-cli","edition":"2024","manifest_path":"/w/crates/cynic-cli/Cargo.toml","targets":[{"name":"cynic","kind":["bin"]}]},
+                {"name":"cynic-host","edition":"2024","manifest_path":"/w/crates/cynic-host/Cargo.toml","targets":[{"name":"cynic-host","kind":["lib"]}]},
+                {"name":"serde","edition":"2021","manifest_path":"/h/serde/Cargo.toml","targets":[{"name":"serde","kind":["lib"]}]}
+            ],
+                "workspace_members":[
+                "path+file:///w/crates/cynic-cli#0.8.0",
+                "path+file:///w/crates/cynic-host#0.8.0"
+            ],
+            "version":1
+        }"#;
+        let r = parse_cargo_metadata(json, 1, "1.95.0".into(), "x86_64-unknown-linux-gnu".into())
+            .unwrap();
+        assert_eq!(
+            r.crates.len(),
+            2,
+            "both members must be found in the id shape cargo emits today"
+        );
+        assert!(r.crates.iter().any(|c| c.name == "cynic-cli"));
+        assert!(r.crates.iter().any(|c| c.name == "cynic-host"));
+        assert!(
+            !r.crates.iter().any(|c| c.name == "serde"),
+            "a non-member package must stay excluded"
+        );
+        assert!(r.residual_unknowns.is_empty(), "{:?}", r.residual_unknowns);
+    }
+
+    #[test]
+    fn member_dirs_and_names_cover_every_known_id_shape() {
+        let ids = vec![
+            "path+file:///w/crates/cynic-cli#0.8.0".to_string(),
+            "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.197".to_string(),
+            "cynic-host 0.1.0 (path+file:///w/crates/cynic-host)".to_string(),
+            "cynic-kernel".to_string(),
+        ];
+        let dirs = member_dirs(&ids);
+        assert!(dirs.contains("/w/crates/cynic-cli"), "current path id yields its dir");
+        assert!(
+            dirs.contains("/w/crates/cynic-host"),
+            "legacy parenthesised id yields its dir"
+        );
+        let names = workspace_member_names(&ids);
+        assert!(names.contains("cynic-cli"), "current path id yields its name");
+        assert!(names.contains("cynic-host"), "legacy id yields its name");
+        assert!(names.contains("cynic-kernel"), "bare id yields its name");
+        assert!(
+            names.contains("crates.io-index"),
+            "a dotted segment is not truncated"
+        );
+        assert!(
+            !names.contains("0.8.0") && !names.contains("1.0.197"),
+            "a version is never offered as a name"
+        );
+    }
+
+    #[test]
+    fn unmatched_member_ids_are_named_rather_than_reported_as_no_crates() {
+        let json = r#"{
+            "packages": [
+                {"name":"cynic-cli","edition":"2024","targets":[{"name":"cynic","kind":["bin"]}]}
+            ],
+            "workspace_members":["a-shape-nobody-emits"],
+            "version":1
+        }"#;
+        let r = parse_cargo_metadata(json, 1, "1.95.0".into(), "x86_64-unknown-linux-gnu".into())
+            .unwrap();
+        assert!(r.crates.is_empty());
+        assert!(
+            r.residual_unknowns.contains(&"workspace_member_ids_unmatched".to_string()),
+            "the cause must be named: {:?}",
+            r.residual_unknowns
+        );
+        assert!(
+            !r.residual_unknowns.contains(&"no_workspace_crates".to_string()),
+            "packages were present, so the workspace was not empty: {:?}",
+            r.residual_unknowns
+        );
     }
 
     #[test]
