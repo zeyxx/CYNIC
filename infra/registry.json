@@ -342,12 +342,15 @@
     {
       "id": "local-builder",
       "name": "local-builder",
+      "role": null,
+      "status": "stub",
       "aliases": [
         "ubuntu"
       ],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned."
     },
     {
       "id": "cynic-lxc-surrealdb",
@@ -606,8 +609,7 @@
         "resource_id": "lxc/105",
         "role": "build_runner",
         "desired_power": "running"
-      },
-      {}
+      }
     ]
   },
   "lifecycle": {
