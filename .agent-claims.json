@@ -2543,9 +2543,33 @@
         "started_at_unix_s": 1790544690,
         "ttl_seconds": 600
       }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 1,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790547751",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/GOVERNANCE_AUDIT.md"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790547751,
+        "ttl_seconds": 1800
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 199,
+  "revision": 200,
   "schema": "cynic.agent_claims.v2"
 }
