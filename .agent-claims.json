@@ -2394,7 +2394,7 @@
         "kind": "file",
         "path": "/var/lib/cynic/vault/models"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790541890,
         "ttl_seconds": 3600
@@ -2447,9 +2447,81 @@
         "started_at_unix_s": 1790542116,
         "ttl_seconds": 1800
       }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 4,
+        "wall_seconds": 5400
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790542467",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/lib.rs"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790542467,
+        "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 4,
+        "wall_seconds": 5400
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790542467",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/runtime_surface.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790542467,
+        "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 1,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790544490",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/WORKSPACE_ORPHAN_DECISIONS.md"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790544490,
+        "ttl_seconds": 1800
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 191,
+  "revision": 196,
   "schema": "cynic.agent_claims.v2"
 }
