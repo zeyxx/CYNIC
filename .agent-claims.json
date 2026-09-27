@@ -2178,7 +2178,7 @@
         "kind": "file",
         "path": "crates/cynic-cli/src/cli_args.rs"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790537817,
         "ttl_seconds": 3600
@@ -2207,9 +2207,177 @@
         "started_at_unix_s": 1790537817,
         "ttl_seconds": 3600
       }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 5,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790540466",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "/home/user/dream-server/data"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790540466,
+        "ttl_seconds": 600
+      }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 10,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790540869",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "/home/user/.rustup"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790540869,
+        "ttl_seconds": 600
+      }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 5,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790541098",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "infra/registry.json"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790541098,
+        "ttl_seconds": 600
+      }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 10,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790541342",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "/var/lib/cynic/archive"
+      },
+      "status": "released",
+      "temporal": {
+        "started_at_unix_s": 1790541342,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 3,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790541507",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/tests/architecture_boundary.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790541507,
+        "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 3,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790541507",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/source_surface.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790541507,
+        "ttl_seconds": 1800
+      }
+    },
+    {
+      "agent_id": "opencode-inference-audit",
+      "budget": {
+        "actions": 3,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeinferenceaudit_1790541507",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-cli/src/surface_registry/assembler/tests.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790541507,
+        "ttl_seconds": 1800
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 174,
+  "revision": 186,
   "schema": "cynic.agent_claims.v2"
 }

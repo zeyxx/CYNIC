@@ -776,7 +776,7 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
 mod tests {
     #[test]
     fn cli_source_surface_builds() {
-        let cmd = crate::SourceCommand::Status {
+        let cmd = super::SourceCommand::Status {
             root: ".".into(),
             json: false,
         };

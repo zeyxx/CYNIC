@@ -1,3 +1,4 @@
+use super::io::{check, write};
 use super::*;
 use std::os::unix::fs::{MetadataExt, symlink};
 use std::time::{SystemTime, UNIX_EPOCH};
