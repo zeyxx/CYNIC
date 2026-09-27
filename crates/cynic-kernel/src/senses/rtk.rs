@@ -1,8 +1,8 @@
 //! RtkReader — reads RTK's history.db (SQLite) in read-only mode.
 //! All SQLite operations run inside spawn_blocking to avoid stalling tokio.
 
-use crate::domain::organ::{
-    Metric, MetricKind, MetricValue, OrganError, OrganHealth, OrganPort, OrganSnapshot,
+use crate::domain::observation::{
+    Metric, MetricKind, MetricValue, ObservationError, ObservationHealth, ObservationPort, ObservationSnapshot,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -25,38 +25,38 @@ impl RtkReader {
     }
 
     /// Open DB read-only. Called inside spawn_blocking only.
-    fn open_db(path: &PathBuf) -> Result<Connection, OrganError> {
+    fn open_db(path: &PathBuf) -> Result<Connection, ObservationError> {
         let conn = Connection::open_with_flags(
             path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
-        .map_err(|e| OrganError::ReadFailed(format!("sqlite open: {e}")))?;
+        .map_err(|e| ObservationError::ReadFailed(format!("sqlite open: {e}")))?;
 
         conn.busy_timeout(Duration::from_secs(1))
-            .map_err(|e| OrganError::ReadFailed(format!("busy_timeout: {e}")))?;
+            .map_err(|e| ObservationError::ReadFailed(format!("busy_timeout: {e}")))?;
 
         Ok(conn)
     }
 }
 
 #[async_trait]
-impl OrganPort for RtkReader {
+impl ObservationPort for RtkReader {
     fn name(&self) -> &str {
         "rtk"
     }
 
-    async fn health(&self) -> OrganHealth {
+    async fn health(&self) -> ObservationHealth {
         let path = self.db_path.clone();
         let result = tokio::task::spawn_blocking(move || {
             if !path.exists() {
-                return OrganHealth::Dead {
+                return ObservationHealth::Dead {
                     reason: "history.db not found".to_string(),
                 };
             }
             match Self::open_db(&path) {
-                Ok(_) => OrganHealth::Alive,
-                Err(OrganError::ReadFailed(reason)) => OrganHealth::Degraded { reason },
-                Err(OrganError::Unavailable(reason)) => OrganHealth::Dead { reason },
+                Ok(_) => ObservationHealth::Alive,
+                Err(ObservationError::ReadFailed(reason)) => ObservationHealth::Degraded { reason },
+                Err(ObservationError::Unavailable(reason)) => ObservationHealth::Dead { reason },
             }
         })
         .await;
@@ -64,22 +64,22 @@ impl OrganPort for RtkReader {
         // K14: spawn failure = assume degraded (safe default, never optimistic)
         match result {
             Ok(h) => h,
-            Err(_) => OrganHealth::Degraded {
+            Err(_) => ObservationHealth::Degraded {
                 reason: "spawn_blocking panicked".to_string(),
             },
         }
     }
 
-    async fn freshness(&self) -> Result<Duration, OrganError> {
+    async fn freshness(&self) -> Result<Duration, ObservationError> {
         let path = self.db_path.clone();
         tokio::task::spawn_blocking(move || {
             let conn = Self::open_db(&path)?;
             let ts: i64 = conn
                 .query_row("SELECT MAX(timestamp) FROM commands", [], |row| row.get(0))
-                .map_err(|e| OrganError::ReadFailed(format!("freshness query: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("freshness query: {e}")))?;
 
             let parsed = chrono::DateTime::from_timestamp_millis(ts)
-                .ok_or_else(|| OrganError::ReadFailed("bad timestamp".to_string()))?;
+                .ok_or_else(|| ObservationError::ReadFailed("bad timestamp".to_string()))?;
 
             let age = Utc::now()
                 .signed_duration_since(parsed)
@@ -90,10 +90,10 @@ impl OrganPort for RtkReader {
             Ok(age)
         })
         .await
-        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+        .map_err(|e| ObservationError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 
-    async fn snapshot(&self) -> Result<OrganSnapshot, OrganError> {
+    async fn snapshot(&self) -> Result<ObservationSnapshot, ObservationError> {
         let path = self.db_path.clone();
         let command_project_scope = self.command_project_scope.clone();
 
@@ -144,13 +144,13 @@ impl OrganPort for RtkReader {
                 }
                 None => conn.query_row(command_metrics_query, [], command_metrics_mapper),
             }
-            .map_err(|e| OrganError::ReadFailed(format!("snapshot query: {e}")))?;
+            .map_err(|e| ObservationError::ReadFailed(format!("snapshot query: {e}")))?;
 
             let parse_failures: i64 = conn
                 .query_row("SELECT COUNT(*) FROM parse_failures", [], |row| row.get(0))
-                .map_err(|e| OrganError::ReadFailed(format!("parse_failures query: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("parse_failures query: {e}")))?;
 
-            Ok(OrganSnapshot {
+            Ok(ObservationSnapshot {
                 taken_at: Utc::now(),
                 metrics: vec![
                     Metric {
@@ -199,7 +199,7 @@ impl OrganPort for RtkReader {
             })
         })
         .await
-        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+        .map_err(|e| ObservationError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 }
 
@@ -210,7 +210,7 @@ mod tests {
     #[tokio::test]
     async fn health_dead_when_db_missing() {
         let reader = RtkReader::new(PathBuf::from("/tmp/nonexistent_rtk_test.db"), None);
-        assert!(matches!(reader.health().await, OrganHealth::Dead { .. }));
+        assert!(matches!(reader.health().await, ObservationHealth::Dead { .. }));
     }
 
     #[tokio::test]

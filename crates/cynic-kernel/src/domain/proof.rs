@@ -31,8 +31,8 @@ pub fn kernel_identity() -> &'static SigningKey {
 
 /// Universal interface for any domain entity that generates a Proof of History.
 pub trait Provable {
-    /// The unique identifier of the event source (e.g. "cynic-kernel", "organ-forge")
-    fn source_organ(&self) -> String;
+    /// The unique identifier of the event source (e.g. "cynic-kernel", "cynic-host")
+    fn source(&self) -> String;
 
     /// The type of the event (e.g. "agent_task_resolved", "dispatch_completed")
     fn event_type(&self) -> String;
@@ -48,7 +48,7 @@ pub trait Provable {
         let mut hasher = sha3::Sha3_512::new();
         sha3::Digest::update(&mut hasher, self.event_type().as_bytes());
         sha3::Digest::update(&mut hasher, b"|");
-        sha3::Digest::update(&mut hasher, self.source_organ().as_bytes());
+        sha3::Digest::update(&mut hasher, self.source().as_bytes());
         sha3::Digest::update(&mut hasher, b"|");
         sha3::Digest::update(&mut hasher, payload.to_string().as_bytes());
 
@@ -57,7 +57,7 @@ pub trait Provable {
         super::storage::ProofOfHistory {
             id: String::new(),
             timestamp: chrono::Utc::now().timestamp_millis(),
-            source_organ: self.source_organ(),
+            source: self.source(),
             event_type: self.event_type(),
             payload,
             cryptographic_hash: hash_hex,

@@ -17,7 +17,7 @@ L'incident OpenAI-Hugging Face (juillet 2026) prouve que des agents de recherche
 ### 1.2 La menace CYNIC
 Les agents CYNIC ont accès à :
 - Capacités de mutation CLI (`--yes` démarre des processus)
-- Accès filesystem (`/var/cynic/vault` contient les modèles GGUF)
+- Accès filesystem (`/var/lib/cynic/vault/models` contient les modèles GGUF)
 - Accès réseau (builder SSH, RPC Solana, APIs externes)
 
 **Conséquence** : Un agent compromis par injection indirecte peut escalader, exfiltrer, et attaquer des tiers. L'isolation n'est pas optionnelle — c'est la condition de survie du framework.
@@ -60,7 +60,7 @@ Parce qu'une allowlist de domaines est :
 ### 3.3 Le principe
 Le agent local n'a **aucun** besoin légitime de réseau sortant :
 - Inférence = locale (UDS vers llama-server)
-- Modèles = locaux (GGUF dans `/var/cynic/vault`)
+- Modèles = locaux (GGUF dans `/var/lib/cynic/vault/models`)
 - Coordination = locale (SurrealDB, cynic_coord)
 
 **Exception** : les outils externes (web search, git fetch) doivent sortir. Ils passent par un proxy capability-aware qui valide le token et filtre les requêtes.

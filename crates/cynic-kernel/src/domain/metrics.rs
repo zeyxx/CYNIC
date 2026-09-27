@@ -401,8 +401,8 @@ pub fn append_dog_metrics(
     }
 }
 
-/// Append organ quality metrics from DogStats snapshots.
-pub fn append_organ_metrics(
+/// Append observation quality metrics from DogStats snapshots.
+pub fn append_observation_metrics(
     out: &mut String,
     snapshots: &[(String, cynic_eval::eval::dog_health::DogStats)],
 ) {
@@ -439,13 +439,13 @@ pub fn append_organ_metrics(
     // Total calls per Dog (counter)
     let _ = writeln!(
         out,
-        "# HELP cynic_dog_organ_total Total organ-tracked evaluations per Dog"
+        "# HELP cynic_dog_total Total evaluations per Dog"
     );
-    let _ = writeln!(out, "# TYPE cynic_dog_organ_total counter");
+    let _ = writeln!(out, "# TYPE cynic_dog_total counter");
     for (id, stats) in snapshots {
         let _ = writeln!(
             out,
-            "cynic_dog_organ_total{{dog=\"{id}\"}} {}",
+            "cynic_dog_total{{dog=\"{id}\"}} {}",
             stats.total_calls
         );
     }
@@ -576,14 +576,14 @@ mod tests {
     }
 
     #[test]
-    fn organ_metrics_renders_correctly() {
+    fn observation_metrics_renders_correctly() {
         let stats = cynic_protocol::dog_health::DogStats::new();
         let snapshots = vec![("test-dog".to_string(), stats)];
         let mut out = String::new();
-        append_organ_metrics(&mut out, &snapshots);
+        append_observation_metrics(&mut out, &snapshots);
         assert!(out.contains("cynic_dog_json_valid_rate{dog=\"test-dog\"}"));
         assert!(out.contains("cynic_dog_capability_limit_rate{dog=\"test-dog\"}"));
-        assert!(out.contains("cynic_dog_organ_total{dog=\"test-dog\"}"));
+        assert!(out.contains("cynic_dog_total{dog=\"test-dog\"}"));
         assert!(out.contains("cynic_dog_quality_failures{dog=\"test-dog\",mode=\"zero_flood\"}"));
         assert!(out.contains("cynic_dog_mean_latency_ms{dog=\"test-dog\"}"));
     }

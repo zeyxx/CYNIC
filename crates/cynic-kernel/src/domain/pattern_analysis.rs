@@ -8,7 +8,7 @@ use serde::Serialize;
 /// A healable pattern detected from health signals.
 #[derive(Debug, Clone)]
 pub struct DetectedPattern {
-    pub kind: String,               // embedding_crash_loop, organ_silence, etc.
+    pub kind: String,               // embedding_crash_loop, service_silence, etc.
     pub severity: String,           // critical, warning, info
     pub signal: String,             // what was detected (e.g., "failure_rate=100%")
     pub reasoning: String,          // why this matters
@@ -58,13 +58,13 @@ pub fn detect_patterns(health_alerts: Vec<(String, String, String)>) -> Vec<Dete
                     is_actionable: true,
                 });
             }
-            "organ_silence" if message.contains("silent for") && message.contains("h") => {
+            "service_silence" if message.contains("silent for") && message.contains("h") => {
                 patterns.push(DetectedPattern {
-                    kind: "organ_silence".to_string(),
+                    kind: "service_silence".to_string(),
                     severity: "warning".to_string(),
                     signal: message.clone(),
-                    reasoning: "Organ stopped emitting observations — either crashed or observation pipeline blocked".to_string(),
-                    recommended_action: "Check organ health: verify cron jobs running, check network connectivity, review organ logs".to_string(),
+                    reasoning: "Service stopped emitting observations — either crashed or observation pipeline blocked".to_string(),
+                    recommended_action: "Check service health: verify cron jobs running, check network connectivity, review service logs".to_string(),
                     is_actionable: false,
                 });
             }

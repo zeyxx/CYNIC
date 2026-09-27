@@ -362,7 +362,7 @@ pub fn spawn_introspection(
     introspection_alerts: Arc<std::sync::RwLock<Vec<crate::introspection::Alert>>>,
     event_tx: tokio::sync::broadcast::Sender<KernelEvent>,
     task_health: Arc<TaskHealth>,
-    senses: Vec<Arc<dyn crate::domain::organ::OrganPort>>,
+    senses: Vec<Arc<dyn crate::domain::observation::ObservationPort>>,
     producer_heartbeats: Arc<
         std::sync::RwLock<HashMap<String, crate::api::rest::types::ProducerHeartbeat>>,
     >,

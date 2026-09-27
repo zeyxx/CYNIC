@@ -11,7 +11,7 @@ use crate::domain::coord::CoordPort;
 use crate::domain::events::KernelEvent;
 use crate::domain::mail::MailPort;
 use crate::domain::metrics::Metrics;
-use crate::domain::organ::OrganPort;
+use crate::domain::observation::ObservationPort;
 use crate::domain::storage::StoragePort;
 use crate::domain::usage::DogUsageTracker;
 use crate::domain::verdict_cache::VerdictCache;
@@ -256,7 +256,7 @@ const CANONICAL_DOG_ID: &str = "antigravity-cli";
 // ── PUSH-PRODUCER HEARTBEAT ────────────────────────────────
 
 /// Tracks the last /observe POST from a push-based producer.
-/// Pull senses have OrganPort::freshness(). This covers push producers.
+/// Pull senses have ObservationPort::freshness(). This covers push producers.
 /// K15 consumer: introspection alerts on silent permanent producers.
 #[derive(Debug, Clone)]
 pub struct ProducerHeartbeat {
@@ -324,7 +324,7 @@ pub struct AppState {
     pub enricher: Option<Arc<dyn crate::domain::enrichment::TokenEnricherPort>>,
     /// Sensory organ readers — organism perceiving external data stores.
     /// K15 deferred-consumer: deadline 2026-05-26. If no consumer by then, remove.
-    pub senses: Vec<Arc<dyn OrganPort>>,
+    pub senses: Vec<Arc<dyn ObservationPort>>,
     /// Curated domain signals (D1-D6) loaded at boot for wisdom enrichment.
     /// K15 consumer: dogs fetch matching patterns from curations to enrich stimulus.
     pub domain_curations: Arc<DomainCurations>,

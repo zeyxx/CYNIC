@@ -7,7 +7,6 @@ pub mod inference;
 pub mod infra;
 pub mod math;
 pub mod ods_discovery;
-pub mod organ;
 pub mod ports;
 pub mod progress;
 pub mod routing_calc;

@@ -191,11 +191,11 @@ pub async fn health_handler(
     for sense in &state.senses {
         let health = tokio::time::timeout(HEALTH_SENSE_TIMEOUT, sense.health()).await;
         let (health_str, reason) = match &health {
-            Ok(crate::domain::organ::OrganHealth::Alive) => ("alive", None),
-            Ok(crate::domain::organ::OrganHealth::Degraded { reason }) => {
+            Ok(crate::domain::observation::ObservationHealth::Alive) => ("alive", None),
+            Ok(crate::domain::observation::ObservationHealth::Degraded { reason }) => {
                 ("degraded", Some(reason.as_str()))
             }
-            Ok(crate::domain::organ::OrganHealth::Dead { reason }) => {
+            Ok(crate::domain::observation::ObservationHealth::Dead { reason }) => {
                 ("dead", Some(reason.as_str()))
             }
             Err(_) => ("degraded", Some("health_timeout")),

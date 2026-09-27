@@ -126,7 +126,7 @@ pub(super) async fn latest_state_blocks(
 
 fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageError> {
     use crate::domain::state_log::{
-        DogSnapshot, OrganAuditSnapshot, OrganSnapshot, ResourceSnapshot, SystemSnapshot,
+        DogSnapshot, ObservationAuditSnapshot, ObservationSnapshot, ResourceSnapshot, SystemSnapshot,
     };
 
     let dogs: Vec<DogSnapshot> = row
@@ -158,7 +158,7 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
         uptime_secs: row["resource_uptime_secs"].as_u64().unwrap_or(0),
     };
 
-    let organs: Vec<OrganSnapshot> = row
+    let organs: Vec<ObservationSnapshot> = row
         .get("organs")
         .and_then(|v| {
             serde_json::from_value(v.clone())
@@ -167,7 +167,7 @@ fn row_to_state_block(row: &serde_json::Value) -> Result<StateBlock, StorageErro
         })
         .unwrap_or_default();
 
-    let organ_audits: Vec<OrganAuditSnapshot> = row
+    let organ_audits: Vec<ObservationAuditSnapshot> = row
         .get("organ_audits")
         .and_then(|v| {
             serde_json::from_value(v.clone())

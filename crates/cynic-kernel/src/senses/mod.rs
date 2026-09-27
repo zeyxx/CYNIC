@@ -6,12 +6,12 @@
 pub mod hermes_x;
 pub mod rtk;
 
-use crate::domain::organ::OrganPort;
+use crate::domain::observation::ObservationPort;
 use std::sync::Arc;
 
 /// Build the sense registry at startup. Best-effort: missing organs are skipped.
-pub fn build_sense_registry() -> Vec<Arc<dyn OrganPort>> {
-    let mut senses: Vec<Arc<dyn OrganPort>> = Vec::new();
+pub fn build_sense_registry() -> Vec<Arc<dyn ObservationPort>> {
+    let mut senses: Vec<Arc<dyn ObservationPort>> = Vec::new();
 
     // RTK — token metabolism (SQLite)
     let rtk_db = dirs::data_local_dir()

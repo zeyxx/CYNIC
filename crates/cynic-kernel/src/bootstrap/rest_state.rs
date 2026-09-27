@@ -24,7 +24,7 @@ pub struct RestStateInputs {
     pub environment: Arc<std::sync::RwLock<Option<domain::probe::EnvironmentSnapshot>>>,
     pub system_contract: Arc<std::sync::RwLock<domain::contract::SystemContract>>,
     pub backend_configs: Vec<infra::config::BackendConfig>,
-    pub senses: Vec<Arc<dyn domain::organ::OrganPort>>,
+    pub senses: Vec<Arc<dyn domain::observation::ObservationPort>>,
     pub routing_calc: Arc<infra::routing_calc::RoutingCalculator>,
     pub slot_semaphores: Arc<SlotSemaphoreMap>,
     pub slot_tracker: Arc<SlotTracker>,

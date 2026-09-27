@@ -1,13 +1,3 @@
 [mcp_servers.cynic]
-<<<<<<< HEAD
 command = "cynic-mcp"
 args = []
-=======
-command = "target/debug/cynic-mcp"
-args = []
-
-[mcp_servers.cynic.env]
-CYNIC_ALLOW_LOCAL_KERNEL = "1"
-# Project root is resolved by cynic-mcp from the worktree / CYNIC_PROJECT_ROOT env.
-# Do not commit machine-local absolute paths here.
->>>>>>> github/main

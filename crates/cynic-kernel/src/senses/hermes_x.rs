@@ -1,9 +1,9 @@
 //! HermesXReader — reads Hermes X organ dataset (JSONL + filesystem).
-//! Second OrganPort impl. Validates the generic bag pattern holds for N>1.
+//! Second ObservationPort impl. Validates the generic bag pattern holds for N>1.
 //! All filesystem I/O runs inside spawn_blocking to avoid stalling tokio.
 
-use crate::domain::organ::{
-    Metric, MetricKind, MetricValue, OrganError, OrganHealth, OrganPort, OrganSnapshot,
+use crate::domain::observation::{
+    Metric, MetricKind, MetricValue, ObservationError, ObservationHealth, ObservationPort, ObservationSnapshot,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -63,16 +63,16 @@ impl HermesXReader {
 }
 
 #[async_trait]
-impl OrganPort for HermesXReader {
+impl ObservationPort for HermesXReader {
     fn name(&self) -> &str {
         "hermes-x"
     }
 
-    async fn health(&self) -> OrganHealth {
+    async fn health(&self) -> ObservationHealth {
         let organ_dir = self.organ_dir.clone();
         let result = tokio::task::spawn_blocking(move || {
             if !organ_dir.exists() {
-                return OrganHealth::Dead {
+                return ObservationHealth::Dead {
                     reason: "organ dir not found".to_string(),
                 };
             }
@@ -109,14 +109,14 @@ impl OrganPort for HermesXReader {
 
             // Check account datasets (L0 structure)
             if !accounts.is_empty() {
-                let mut worst_health = OrganHealth::Alive;
+                let mut worst_health = ObservationHealth::Alive;
                 let mut statuses = Vec::new();
 
                 for account in accounts {
                     let dataset = datasets_dir.join(&account).join("dataset.jsonl");
                     let Ok(latest_ts) = Self::extract_latest_ts(&dataset) else {
                         statuses.push(format!("{account}: missing"));
-                        worst_health = OrganHealth::Degraded {
+                        worst_health = ObservationHealth::Degraded {
                             reason: format!("account {account} dataset missing"),
                         };
                         continue;
@@ -129,7 +129,7 @@ impl OrganPort for HermesXReader {
                             let age_hrs = age_secs / 3600;
                             if age_secs > 8 * 3600 {
                                 statuses.push(format!("{account}: {age_hrs}h stale"));
-                                worst_health = OrganHealth::Degraded {
+                                worst_health = ObservationHealth::Degraded {
                                     reason: format!("account {account} stale ({age_hrs}h)"),
                                 };
                             } else if age_secs > 4 * 3600 {
@@ -140,7 +140,7 @@ impl OrganPort for HermesXReader {
                         }
                         Err(_) => {
                             statuses.push(format!("{account}: parse error"));
-                            worst_health = OrganHealth::Degraded {
+                            worst_health = ObservationHealth::Degraded {
                                 reason: format!("account {account} timestamp parse error"),
                             };
                         }
@@ -150,7 +150,7 @@ impl OrganPort for HermesXReader {
                 // If any account is alive (not old), consider organ alive with per-account status
                 let has_alive = statuses.iter().any(|s| s.contains("alive"));
                 if has_alive {
-                    return OrganHealth::Alive; // Return alive even if some accounts stale
+                    return ObservationHealth::Alive; // Return alive even if some accounts stale
                 }
 
                 return worst_health;
@@ -158,7 +158,7 @@ impl OrganPort for HermesXReader {
 
             // Fallback: check legacy single dataset for backward compatibility
             if !legacy_dataset.exists() {
-                return OrganHealth::Degraded {
+                return ObservationHealth::Degraded {
                     reason: "dataset.jsonl missing".to_string(),
                 };
             }
@@ -166,7 +166,7 @@ impl OrganPort for HermesXReader {
             let latest_ts = match Self::extract_latest_ts(&legacy_dataset) {
                 Ok(ts) => ts,
                 Err(e) => {
-                    return OrganHealth::Degraded {
+                    return ObservationHealth::Degraded {
                         reason: format!("extract_latest_ts: {e}"),
                     };
                 }
@@ -177,14 +177,14 @@ impl OrganPort for HermesXReader {
                     let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
                     let age_secs = age.num_seconds().max(0) as u64;
                     if age_secs > 8 * 3600 {
-                        OrganHealth::Degraded {
+                        ObservationHealth::Degraded {
                             reason: format!("dataset production stale ({}h old)", age_secs / 3600),
                         }
                     } else {
-                        OrganHealth::Alive
+                        ObservationHealth::Alive
                     }
                 }
-                Err(e) => OrganHealth::Degraded {
+                Err(e) => ObservationHealth::Degraded {
                     reason: format!("parse latest_ts: {e}"),
                 },
             }
@@ -192,28 +192,28 @@ impl OrganPort for HermesXReader {
         .await;
 
         // K14: spawn failure = assume degraded
-        result.unwrap_or(OrganHealth::Degraded {
+        result.unwrap_or(ObservationHealth::Degraded {
             reason: "spawn_blocking panicked".to_string(),
         })
     }
 
-    async fn freshness(&self) -> Result<Duration, OrganError> {
+    async fn freshness(&self) -> Result<Duration, ObservationError> {
         let dataset = self.dataset_path();
         tokio::task::spawn_blocking(move || {
             let latest_ts = Self::extract_latest_ts(&dataset)
-                .map_err(|e| OrganError::Unavailable(format!("extract_latest_ts: {e}")))?;
+                .map_err(|e| ObservationError::Unavailable(format!("extract_latest_ts: {e}")))?;
 
             let dt = chrono::DateTime::parse_from_rfc3339(&latest_ts)
-                .map_err(|e| OrganError::ReadFailed(format!("bad timestamp: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("bad timestamp: {e}")))?;
 
             let age = Utc::now().signed_duration_since(dt.with_timezone(&Utc));
             Ok(Duration::from_secs(age.num_seconds().max(0) as u64))
         })
         .await
-        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+        .map_err(|e| ObservationError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 
-    async fn snapshot(&self) -> Result<OrganSnapshot, OrganError> {
+    async fn snapshot(&self) -> Result<ObservationSnapshot, ObservationError> {
         let organ_dir = self.organ_dir.clone();
         let dataset = self.dataset_path();
         let captures_dir = self.captures_dir();
@@ -255,7 +255,7 @@ impl OrganPort for HermesXReader {
 
             // Parse dataset.jsonl — line-by-line, extract aggregate metrics
             let file = std::fs::File::open(&dataset)
-                .map_err(|e| OrganError::Unavailable(format!("dataset.jsonl: {e}")))?;
+                .map_err(|e| ObservationError::Unavailable(format!("dataset.jsonl: {e}")))?;
             let reader = BufReader::new(file);
 
             let mut tweets_total: i64 = 0;
@@ -265,7 +265,7 @@ impl OrganPort for HermesXReader {
             let mut latest_ts = String::new();
 
             for line in reader.lines() {
-                let line = line.map_err(|e| OrganError::ReadFailed(format!("read line: {e}")))?;
+                let line = line.map_err(|e| ObservationError::ReadFailed(format!("read line: {e}")))?;
                 if line.is_empty() {
                     continue;
                 }
@@ -345,25 +345,25 @@ impl OrganPort for HermesXReader {
                 },
             ]);
 
-            Ok(OrganSnapshot {
+            Ok(ObservationSnapshot {
                 taken_at: Utc::now(),
                 metrics,
             })
         })
         .await
-        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+        .map_err(|e| ObservationError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 
     async fn store_observation(
         &self,
         obs: crate::domain::storage::Observation,
-    ) -> Result<(), OrganError> {
+    ) -> Result<(), ObservationError> {
         let observations_dir = self.organ_dir.join("observations");
 
         tokio::task::spawn_blocking(move || {
             // Create observations dir if needed
             std::fs::create_dir_all(&observations_dir)
-                .map_err(|e| OrganError::ReadFailed(format!("create_dir: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("create_dir: {e}")))?;
 
             // Write observation as JSON file (timestamp + tool as filename for uniqueness)
             let safe_tool = obs.tool.to_lowercase().replace(' ', "_");
@@ -371,15 +371,15 @@ impl OrganPort for HermesXReader {
             let filepath = observations_dir.join(filename);
 
             let json = serde_json::to_string_pretty(&obs)
-                .map_err(|e| OrganError::ReadFailed(format!("json_serialize: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("json_serialize: {e}")))?;
 
             std::fs::write(&filepath, json)
-                .map_err(|e| OrganError::ReadFailed(format!("write_file: {e}")))?;
+                .map_err(|e| ObservationError::ReadFailed(format!("write_file: {e}")))?;
 
             Ok(())
         })
         .await
-        .map_err(|e| OrganError::ReadFailed(format!("spawn_blocking: {e}")))?
+        .map_err(|e| ObservationError::ReadFailed(format!("spawn_blocking: {e}")))?
     }
 }
 
@@ -390,7 +390,7 @@ mod tests {
     #[tokio::test]
     async fn health_dead_when_dir_missing() {
         let reader = HermesXReader::new(PathBuf::from("/tmp/nonexistent_hermes_x_test"));
-        assert!(matches!(reader.health().await, OrganHealth::Dead { .. }));
+        assert!(matches!(reader.health().await, ObservationHealth::Dead { .. }));
     }
 
     #[tokio::test]
@@ -426,7 +426,7 @@ mod tests {
 
         // Should be Degraded with stale message
         match health {
-            OrganHealth::Degraded { reason } => {
+            ObservationHealth::Degraded { reason } => {
                 assert!(
                     reason.contains("stale"),
                     "Reason should mention stale: {reason}"
