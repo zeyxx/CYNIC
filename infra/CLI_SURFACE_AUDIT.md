@@ -222,22 +222,134 @@ The same pattern explains the other five unroutable manifest domains — `dev`, 
 `lifecycle`, `fleet`, `deps` — with one difference: for four of them the implementing code is
 also not compiled. Fixing argv alone is insufficient and would be a false repair.
 
+## 6.2 Root cause: one commit, `1fa6ec3d`
+
+The 62 orphans are not accumulated drift. They have a single author and a single date.
+
+`1fa6ec3d "fix(workspace): restore clean verified baseline from 24c9769d"` (2026-09-26) is a
+189-file commit with **7 532 deletions and 0 `.rs` files removed**. Under `crates/cynic-cli/`
+alone it deleted **70 `mod X;` declarations and added 0**.
+
+It did this by resolving merge conflicts by keeping one side and deleting the other. The
+pre-image of `crates/cynic-cli/src/chat_tui/mod.rs` at `1fa6ec3d^` still carries the markers:
+
+```
+<<<<<<< HEAD
+    ...17-line stub, returns FAILURE...
+=======
+    //! Interactive chat TUI — thin presentation over cynic-inference.
+    mod actions;
+    mod draw;
+    mod input;
+    mod state;
+    mod theme;
+    ...170-line facade...
+>>>>>>> github/main
+```
+
+`1fa6ec3d` removed the `<<<<<<< HEAD` line and deleted everything from `=======` onward. The
+losing side's five `mod` declarations went with it, orphaning 3 387 LOC that were never deleted
+as files.
+
+`crates/cynic-cli/src/main.rs` is the clearest case. It declared **45 modules**; the binary
+crate compiled a **second, duplicate module tree** alongside `lib.rs`'s 64. Removing those 45 was
+correct in direction. But 30 of the 45 were already in `lib.rs`, and **15 were not**, and those 15
+were simply dropped:
+
+| module | LOC | module | LOC |
+|---|---|---|---|
+| `kernel_boundary_audit` | 621 | `lifecycle_surface` | 163 |
+| `fleet_observation` | 258 | `lifecycle_surface_render` | 234 |
+| `dev_surface` | 216 | `integrations_surface_render` | 149 |
+| `lab_surface` | 170 | `integrations_surface` | 114 |
+| `bootstrap_surface` | 66 | `fleet_report` | 96 |
+| `surface_audit` | 57 | `fleet_surface` | 45 |
+| `lifecycle_surface_execute` | 143 | `integrations_readonly_surface` | 29 |
+| `lifecycle_surface_context` | 13 | | |
+
+A further 7 declarations were removed from `runtime_surface.rs` (`build`, `epoch`) and 5 from
+`chat_tui/mod.rs`. Total recoverable: **22 declarations**, all still present as files.
+
+### 6.2.1 The blast radius is workspace-wide, not CLI-wide
+
+`1fa6ec3d` also deleted `pub mod update_lifecycle;` from `crates/cynic-host/src/lib.rs`. The
+directory `crates/cynic-host/src/update_lifecycle/` and its `mod.rs` are still on disk, still
+export `default_state_path` and `LocalArgvRunner`, and are still imported by 6 call sites in
+`cynic-cli` — the same orphan disease, one crate away.
+
+Measuring every workspace member with the same resolver:
+
+| crate | .rs files | compiled | orphans | orphan LOC |
+|---|---|---|---|---|
+| `cynic-kernel` | 190 | 40 | 150 | 34 452 |
+| `cynic-mcp` | 43 | **1** | 42 | 12 812 |
+| `cynic-host` | 496 | 422 | 74 | 10 700 |
+| `cynic-cli` | 194 | 132 | 62 | 11 044 |
+| `cynic-node` | 338 | 296 | 42 | 5 631 |
+| `cynic-inference` | 152 | 142 | 10 | 2 696 |
+| `cynic-askesis` | 22 | 3 | 19 | 2 070 |
+| `cynic-protocol` | 145 | 131 | 14 | 2 026 |
+| `cynic-workload` | 20 | 19 | 1 | 560 |
+| `cynic-intel` | 51 | 50 | 1 | 360 |
+| `cynic-observer` | 42 | 40 | 2 | 300 |
+| `cynic-zeroclaw-solana` | 3 | 2 | 1 | 148 |
+| `cynic-vcs` | 27 | 26 | 1 | 131 |
+| `cynic-lifecycle` | 22 | 21 | 1 | 118 |
+| `cynic-build` | 33 | 32 | 1 | 97 |
+| `cynic-lxc` | 6 | 5 | 1 | 89 |
+| `cynic-channel` | 4 | 3 | 1 | 55 |
+| **total** | **1 973** | **1 581** | **392** | **78 174** |
+
+`cynic-mcp` at 1 compiled file of 43 independently confirms `INFERENCE_SURFACE_AUDIT.md` §X2
+from a different direction: `src/lib.rs` declares only `pub mod server;`.
+`cynic-kernel` at 40 of 190 is the same shape as §X3.
+
+**§0's figure of 62 files was scoped to `cynic-cli` and is a lower bound.** The workspace figure
+is 392 files and 78 174 LOC.
+
+### 6.2.2 Why the 22 recoverable declarations are not simply restored
+
+Restoring all 22 was attempted. It moves `cynic-cli` from 132 to 163 compiled files and reduces
+its orphans from 62 to 31, then produces **14 compile errors**, all of them API drift in code
+that predates the current crate surfaces:
+
+- `cynic_host::update_lifecycle` unresolved at 6 sites — the facade shim was deleted on purpose
+  by `9e7ad3e7 "refactor(host): delete update_lifecycle facade shim, import cynic-lifecycle
+  directly"`, part of a clean-room extraction of `cynic-lifecycle` (−3 000 LOC from `cynic-host`).
+- `cynic_protocol::admit_build_input`, `cynic_host::framework_bootstrap::{FrameworkRole,
+  build_framework_enrollment_request}` — all three **exist**, at `cynic-protocol/src/build.rs`
+  and `cynic-host/src/framework_bootstrap/enrollment.rs`. They are no longer re-exported at the
+  path the restored code expects.
+- `BuildRequest` gained the fields `install_path`, `runner_admission`, `runner_envelope`.
+- `surface_audit/checks.rs` at `:73`, `:299` type mismatches and `:118` needs `Display` on
+  `SurfaceMutationPolicy`.
+
+None of this is missing capability. But restoring the declarations in `cynic-host` would
+resurrect a shim that a deliberate refactor deleted, in a crate that `AGENTS.md` places under a
+strict no-net-growth ratchet with a clean-room extraction policy. That is an owner decision, not
+an audit finding, so the 22 declarations were **not** committed. `crates/cynic-cli/src/lib.rs`
+and `runtime_surface.rs` were restored to their committed state and the shared worktree was
+verified back to `25 passed, 9 failed`.
+
 ## 7. Execution order
 
 Each step produces the proof the next one consumes.
 
-| # | step | proof | why here |
-|---|---|---|---|
-| **A1** | Retarget the 6 stale tests to `lib.rs` | those 6 go green with no production change | free, and separates stale from real before anything is wired |
-| **A2** | Derive the crate-count ratchet from the workspace | `cli_audit_crate_verification_passes` green without a pinned literal | removes the only count that must be hand-edited |
-| **A3** | Wire `surface_audit` (649 LOC) | `canonical_surface_audit_executes_against_real_modules` can run `cynic dev surface-audit --json` | the auditor must exist before the rest is wired, or the wiring is unobserved |
+| # | step | state | proof | why here |
+|---|---|---|---|---|
+| **A1** | Retarget the 6 stale tests to `lib.rs` | **done** `1bf96b3b` | 6 assertions retargeted, 5 `main_rs` bindings removed | separates stale from real before anything is wired |
+| **A2** | Derive the crate-count ratchet from the workspace | **done** `1bf96b3b` | test re-derives 47 from `crates/*/Cargo.toml` | removes the only count that must be hand-edited |
+| **A0** | Owner decision on the 22 recoverable declarations and the 78 174 workspace orphans | **blocked on decision** | §6.2.2 | spans `cynic-host` ratchet and clean-room extraction policy; not an audit call |
+| **A3** | Wire `surface_audit` (649 LOC) | pending A0 | `canonical_surface_audit_executes_against_real_modules` can run `cynic dev surface-audit --json` | the auditor must exist before the rest is wired, or the wiring is unobserved |
 | **A4** | Wire `dev`, `bootstrap`, `lifecycle`, `fleet`; declare the 4 lifecycle helpers in `lib.rs` | 4 domain tests green; `--help` lists the domains | the 5 real-drift tests turn green as a side effect |
 | **A5** | Reduce the `portable_lab` assembler disagreement | `commands_manifest_exposes_canonical_surface_boundaries` green | assembled registry must equal on-disk registry |
 | **A6** | Decide `chat_tui`: rewire the 3 387 LOC, or delete them and say so in the help text | `cynic chat` either works or refuses honestly | 3 387 LOC cannot stay silently orphaned |
 | **A7** | Add the build-graph check itself | a test fails when a `src/**/*.rs` file is unreachable from `lib.rs` | converts this audit from a document into a gate |
 | **A8** | Only then: argv registry + `cynic audit surface-registry --json` | non-zero on a planted violation | enforcement is worthless before the sets it compares are true |
 
-A1 and A2 are safe and independently provable. A3 is the load-bearing one.
+A1 and A2 are done. A0 is now the gating item and it is a decision, not a task: the 22
+recoverable declarations span a crate under an explicit extraction policy (§6.2.2). A3 is the
+load-bearing one once A0 is answered.
 
 ## 8. Explicit unknowns
 
