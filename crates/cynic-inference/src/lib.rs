@@ -10,7 +10,6 @@ pub mod ods_discovery;
 pub mod ports;
 pub mod progress;
 pub mod routing_calc;
-pub mod vector_memory;
 pub mod verdict_cache;
 
 // Convenience re-exports
@@ -125,7 +124,6 @@ pub use ports::model_store_port::ModelStorePort;
 // Misc
 pub use math::roofline::assess_roofline;
 pub use routing_calc::RoutingCalculator;
-pub use vector_memory::*;
 
 // Adapter re-exports
 pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};

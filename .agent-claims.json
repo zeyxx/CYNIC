@@ -2562,14 +2562,38 @@
         "kind": "file",
         "path": "infra/GOVERNANCE_AUDIT.md"
       },
-      "status": "active",
+      "status": "released",
       "temporal": {
         "started_at_unix_s": 1790547751,
         "ttl_seconds": 1800
       }
+    },
+    {
+      "agent_id": "opencode-audit",
+      "budget": {
+        "actions": 10,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_opencodeaudit_1790548553",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "file",
+        "path": "crates/cynic-inference/src/vector_memory.rs"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1790548553,
+        "ttl_seconds": 1200
+      }
     }
   ],
   "merge_queue": [],
-  "revision": 200,
+  "revision": 202,
   "schema": "cynic.agent_claims.v2"
 }
