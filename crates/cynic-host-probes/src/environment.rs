@@ -6,7 +6,7 @@ use super::types::*;
 // ENVIRONMENT PROBE
 // ============================================================
 
-pub(super) async fn probe_environment() -> Result<EnvInfo, tokio::task::JoinError> {
+pub async fn probe_environment() -> Result<EnvInfo, tokio::task::JoinError> {
     // All filesystem probes run in spawn_blocking — never stall the tokio runtime.
     let (os, is_wsl2, is_docker, is_proxmox_lxc, wsl2_windows_host, models_dir) =
         tokio::task::spawn_blocking(|| {
@@ -74,7 +74,7 @@ pub(super) async fn probe_environment() -> Result<EnvInfo, tokio::task::JoinErro
     })
 }
 
-pub(super) async fn benchmark_io(path: &Path) -> f64 {
+pub async fn benchmark_io(path: &Path) -> f64 {
     let path_display = path.display().to_string();
     let path = path.to_path_buf();
     let mbps = tokio::task::spawn_blocking(move || {
@@ -110,7 +110,7 @@ pub(super) async fn benchmark_io(path: &Path) -> f64 {
 }
 
 /// Convert a Windows path like "D:\Models" to WSL2 path "/mnt/d/Models"
-pub(super) fn windows_to_wsl_path(win_path: &str) -> PathBuf {
+pub fn windows_to_wsl_path(win_path: &str) -> PathBuf {
     let normalized = win_path.replace('\\', "/");
     if let Some(rest) = normalized.strip_prefix("//") {
         // \\server\share → skip for now
@@ -125,7 +125,7 @@ pub(super) fn windows_to_wsl_path(win_path: &str) -> PathBuf {
     PathBuf::from(normalized)
 }
 
-pub(super) fn ensure_models_dir() -> PathBuf {
+pub fn ensure_models_dir() -> PathBuf {
     // Priority: 1. CYNIC_MODELS_DIR env var, 2. ~/.cynic/models
     let dir = if let Ok(env_path) = std::env::var("CYNIC_MODELS_DIR") {
         PathBuf::from(env_path)
