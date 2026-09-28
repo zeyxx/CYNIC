@@ -643,8 +643,15 @@ fn execute_release_local(
     let mut doc = load_claims_doc()?;
     let now_ms = now_unix_ms();
     let mut matched_lease = String::new();
-    let mut already_released = false;
+    let mut released_record_seen = false;
     if let Some(list) = doc.get_mut("claims").and_then(|v| v.as_array_mut()) {
+        // Two defects, one loop. (1) A `released` record must not shadow a live
+        // one on the same path: matching either kind and breaking on the first
+        // made every later release of that scope a silent no-op. (2) claim_id
+        // is NOT unique — it is `{agent-slug}_{unix-second}`, so an agent that
+        // claims several scopes in the same second produces several entries
+        // sharing one lease id, and a lease match then hit whichever came
+        // first. Therefore: only an entry that is still held may be flipped.
         for claim in list.iter_mut() {
             let cid = claim
                 .get("claim_id")
@@ -664,28 +671,38 @@ fn execute_release_local(
                 .to_string();
             let by_lease = !lease_id.is_empty() && cid == lease_id;
             let by_target = path == target && (holder == agent_id || agent_id == "*");
-            if by_lease || by_target {
-                if holder != agent_id && agent_id != "*" {
-                    return Err(format!("release failed: claim {cid} is held by {holder}"));
-                }
-                matched_lease = cid;
-                if claim.get("status").and_then(|v| v.as_str()) == Some("released") {
-                    already_released = true;
-                } else {
-                    claim["status"] = serde_json::json!("released");
-                }
-                break;
+            if !by_lease && !by_target {
+                continue;
             }
+            if claim.get("status").and_then(|v| v.as_str()) != Some("active") {
+                released_record_seen = true;
+                continue;
+            }
+            if holder != agent_id && agent_id != "*" {
+                return Err(format!("release failed: claim {cid} is held by {holder}"));
+            }
+            claim["status"] = serde_json::json!("released");
+            matched_lease = cid;
+            break;
         }
     }
     if matched_lease.is_empty() {
+        if released_record_seen {
+            return Ok(AgentReleaseReport {
+                schema: AGENT_RELEASE_REPORT_SCHEMA,
+                status: "released",
+                agent_id: agent_id.to_string(),
+                target: target.to_string(),
+                lease_id: lease_id.to_string(),
+                proof_refs,
+                released_at_unix_ms: now_ms,
+            });
+        }
         return Err(format!(
             "release failed: no local claim for target {target}"
         ));
     }
-    if !already_released {
-        store_claims_doc(&mut doc)?;
-    }
+    store_claims_doc(&mut doc)?;
     Ok(AgentReleaseReport {
         schema: AGENT_RELEASE_REPORT_SCHEMA,
         status: "released",
