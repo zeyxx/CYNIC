@@ -304,7 +304,6 @@ fn issuance_blockers(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sha2::Digest as _;
 
     fn test_pair() -> (NodeEnrollmentRequest, SignedNodeEnrollmentGrant) {
         let machine_public_key_hex = "b".repeat(64);
