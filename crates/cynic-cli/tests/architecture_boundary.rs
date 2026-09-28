@@ -1568,3 +1568,49 @@ fn surface_registry_is_split_into_catalog_and_types() {
         "surface ids in manifest must match ids in assembled surface registry"
     );
 }
+
+/// `contracts/foundation.json → constitutional.hard_boundaries.no_hyphen_in_cli_commands`.
+///
+/// This boundary has been prose since it was written, and the workspace has been
+/// non-compliant with it the whole time: 37 of 180 rendered subcommands carry a
+/// hyphen. The contract's own diagnosis is that a hyphenated name encodes a taxonomy
+/// the argument parser cannot see, and the bill for that has already come due — a `dev`
+/// surface unreachable from the binary, and two Makefile targets that name a subcommand
+/// that does not exist.
+///
+/// It is also the cheapest of the fourteen boundaries to execute: the name clap renders
+/// is the whole judgement. No threshold, no interpretation, no shared convention needed.
+/// The assertion reads the reflected command tree rather than the source, because a
+/// renamed variant is renamed whether or not the rename was noticed.
+#[test]
+fn no_cli_command_carries_a_hyphen() {
+    fn walk(cmd: &clap::Command, path: &str, offenders: &mut Vec<String>) {
+        for sub in cmd.get_subcommands() {
+            let name = sub.get_name();
+            let here = if path.is_empty() {
+                name.to_string()
+            } else {
+                format!("{path} {name}")
+            };
+            if name.contains('-') {
+                offenders.push(here.clone());
+            }
+            walk(sub, &here, offenders);
+        }
+    }
+
+    let mut offenders = Vec::new();
+    walk(&cynic_cli::Cli::command(), "", &mut offenders);
+    offenders.sort();
+
+    assert!(
+        offenders.is_empty(),
+        "Constitutional Violation: {} CLI command(s) carry a hyphen, which \
+         contracts/foundation.json forbids.\n  {}\n\n\
+         The contract's prescribed fix is not a shorter name: promote the missing noun \
+         into its own level. `cynic audit branch-audit` becomes `cynic audit branch`. \
+         A surface that seems to need two words is a missing noun level, not a longer name.",
+        offenders.len(),
+        offenders.join("\n  ")
+    );
+}

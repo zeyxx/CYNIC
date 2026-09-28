@@ -20,7 +20,7 @@
       "canonical Rust crates",
       "infra/agent-exposure.json"
     ],
-      "hard_boundaries": [
+    "hard_boundaries": [
       {
         "name": "low_layer_first",
         "rule": "Kernel, host, node, protocol, MCP, CLI, storage, and service supervision take precedence over UX and product layers."
@@ -85,7 +85,103 @@
       "Python lifecycle gates",
       "UX surfaces as low-layer proof",
       "agent-specific prose backlogs"
-    ]
+    ],
+    "boundary_coverage": {
+      "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
+      "measured_at": "2026-09-28",
+      "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
+      "statuses": {
+        "covered_green": "an executable check exists and passes.",
+        "covered_red": "an executable check exists and currently fails. The violation is real and the check is the point.",
+        "partial": "an executable check covers part of the boundary.",
+        "uncovered": "no executable check. The boundary is documentation.",
+        "by_design_unenforceable": "converting it to code would replace a doctrine with an assertion and guarantee nothing. This is a decision, recorded so it is not reopened by mistake."
+      },
+      "totals": {
+        "boundaries": 14,
+        "covered": 1,
+        "partial": 3,
+        "uncovered": 8,
+        "by_design_unenforceable": 2
+      },
+      "coverage": [
+        {
+          "boundary": "low_layer_first",
+          "status": "uncovered",
+          "note": "no executable check. Its meaning is a priority order between layers, which the DAG tests already enforce structurally; a separate check would restate them."
+        },
+        {
+          "boundary": "rust_runtime_authority",
+          "status": "uncovered",
+          "note": "mechanical, not yet written: no normative rule may live only in a .md file."
+        },
+        {
+          "boundary": "provider_agnostic_domain",
+          "status": "uncovered",
+          "note": "semantic. Requires a shared naming convention, not an assertion. Best expressed as a reviewed rule, not a test that passes by accident."
+        },
+        {
+          "boundary": "portable_host_contract",
+          "status": "partial",
+          "note": "portable_host_contract is checked only where a crate declares an adapter boundary; no workspace-wide check exists."
+        },
+        {
+          "boundary": "runtime_proof_over_prose",
+          "status": "by_design_unenforceable",
+          "note": "A boundary about what counts as evidence. Automating it would substitute an assertion for a doctrine and feel equally reassuring while guaranteeing nothing. Do not convert."
+        },
+        {
+          "boundary": "no_contract_forest",
+          "status": "uncovered",
+          "note": "semantic. Mechanically checkable only as a count of contract files, which would forbid legitimate contracts."
+        },
+        {
+          "boundary": "fractal_agent_recursion",
+          "status": "partial",
+          "note": "monotonic budget and authority reduction are modelled in types; no test asserts the decrease."
+        },
+        {
+          "boundary": "sovereign_error_codes",
+          "status": "uncovered",
+          "note": "mechanical: no free-form error string on a contract violation path. Not yet written."
+        },
+        {
+          "boundary": "no_manual_blocker_bypass",
+          "status": "uncovered",
+          "note": "semantic. Converting it to a test would require guessing what counts as manual."
+        },
+        {
+          "boundary": "organic_opportunities_inform_priority",
+          "status": "by_design_unenforceable",
+          "note": "A process doctrine, not a property of code. Same reasoning as runtime_proof_over_prose. Do not convert."
+        },
+        {
+          "boundary": "mcp_is_projection_not_bootstrap",
+          "status": "uncovered",
+          "note": "mechanical: no bootstrap path may depend on the MCP artifact. Not yet written."
+        },
+        {
+          "boundary": "no_hyphen_in_cli_commands",
+          "status": "covered_red",
+          "note": "no_cli_command_carries_a_hyphen in crates/cynic-cli/tests/architecture_boundary.rs. Red on first execution: 37 of 180 rendered subcommands carry a hyphen."
+        },
+        {
+          "boundary": "explicit_over_implicit",
+          "status": "uncovered",
+          "note": "semantic, and the widest of the fourteen. It is a review discipline, not a predicate."
+        },
+        {
+          "boundary": "strict_dag_and_single_responsibility",
+          "status": "partial",
+          "note": "33 assertions forbid upward dependencies. Single responsibility is not checked and is not mechanically checkable."
+        }
+      ],
+      "rules": [
+        "A row may only move from uncovered to covered by adding an executable check, never by editing the note.",
+        "covered_red is not a defect in the check. It is a defect in the tree, and the check is what makes it visible.",
+        "by_design_unenforceable is a decision. Do not reopen it to satisfy a coverage number."
+      ]
+    }
   },
   "evolutive_policies": {
     "build": {
@@ -111,7 +207,6 @@
       "validate_gate": "MCP tool cynic_validate plans or durably submits canonical `make check`, `make build`, or `make build-release` workloads to the registry-selected build_runner and never compiles in the agent worktree; the target node must persist the exact admitted envelope before acknowledging delivery; after durable claim the node-owned scheduler derives and signs the machine grant without HumanAdmin input; execution remains blocked until signer, verifier, executor transport, cancellation, recovery, and completion read-back are wired",
       "policy": "Expose every currently implemented Rust MCP tool with domain and tier labels. Keep projections portable (no committed machine-local absolute paths). Legacy Python proxies and the legacy AgentTask queue are not mutation execution authority. docs/ prose is historical and not runtime authority. Agent and operator validation share `make check`, but only an admitted build runner may execute it."
     },
-
     "organic_opportunities": {
       "schema": "cynic.organic_opportunity.policy.v1",
       "policy": "The local read-only compass observes attributed session-derived friction and source-state evidence, then proposes contestable opportunities ranked within an explicit contextual value frame. Every proposal retains sources, freshness, estimated energy, expected unlock value, confidence, and residual unknowns. It never creates work, changes priority, writes skills, publishes telemetry, or mutates source/runtime without a separate human-admitted action and read-back proof.",
@@ -127,8 +222,6 @@
         "MCP availability as a prerequisite for local observation"
       ]
     },
-
-
     "infra_retention": {
       "keep_rule": "Keep infra files that deploy, secure, configure, or inspect the active low-layer runtime.",
       "delete_rule": "Delete committed runtime snapshots, UX containers, organ remnants, and provider experiments unless they are required by registry or systemd."
@@ -143,10 +236,29 @@
         "schema": "cynic.vertical_contract_catalog.v1",
         "rule": "Every runtime vertical must name desired state, observation, reconciliation, bounded action, read-back proof, owner, and coverage. Unknown coverage is data and cannot be promoted to success.",
         "catalog_owner": "cynic-protocol::FrameworkSpec",
-        "coverage_values": ["partial", "complete", "unknown", "blocked"],
+        "coverage_values": [
+          "partial",
+          "complete",
+          "unknown",
+          "blocked"
+        ],
         "required_verticals": [
-          "process", "principal", "filesystem", "source", "build", "artifact", "service", "host_os",
-          "network", "node", "provider", "orchestrator", "project", "fleet", "federation", "human_boundary"
+          "process",
+          "principal",
+          "filesystem",
+          "source",
+          "build",
+          "artifact",
+          "service",
+          "host_os",
+          "network",
+          "node",
+          "provider",
+          "orchestrator",
+          "project",
+          "fleet",
+          "federation",
+          "human_boundary"
         ]
       },
       "future_distributed_proof": [
