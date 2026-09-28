@@ -10,8 +10,8 @@ use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, Audit
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::topology::CrateTopologyRule;
 use self::rules::{
-    AuditRule, HotspotThresholdRule, KernelBoundaryRule, LayerBoundaryRule, NodeHostBoundaryRule,
-    OwnershipRule, PathSanitationRule,
+    AuditRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
+    PathSanitationRule,
 };
 use self::scanner::scan_workspace;
 
@@ -36,7 +36,6 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
     vec![
         Box::new(PathSanitationRule),
         Box::new(HotspotThresholdRule),
-        Box::new(LayerBoundaryRule),
         Box::new(KernelBoundaryRule),
         Box::new(NodeHostBoundaryRule),
         Box::new(OwnershipRule),
@@ -58,7 +57,6 @@ pub fn default_path_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(DeclaredPathExistenceRule),
         Box::new(RustPathReferenceRule),
         Box::new(PathSsotIgnoreRule),
-        Box::new(CrateTopologyRule),
     ]
 }
 

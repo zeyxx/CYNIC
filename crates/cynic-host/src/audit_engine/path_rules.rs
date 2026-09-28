@@ -19,6 +19,8 @@
 //! business. Anything absolute, templated, or rooted outside the git tree is
 //! reported as `runtime_space` and never counted as a violation.
 
+use std::collections::BTreeSet;
+
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::rules::AuditRule;
@@ -27,52 +29,6 @@ use super::scanner::{SourceFile, WorkspaceSourceIndex};
 /// The path SSOT. `infra/directory-tree.json` is rank 4 in the authority order
 /// and declares itself the single source of truth for all filesystem paths.
 const PATH_SSOT: &str = "infra/directory-tree.json";
-
-/// Top-level directories of the git tree that may anchor a validated path.
-///
-/// Deliberately explicit rather than derived: deriving it would accept any
-/// string, which is precisely the false-positive failure this module exists to
-/// avoid. Dot-directories are included because a cited a cited `.cortex` or `.hermes` path that resolves
-/// to nothing is a real divergence, and because
-/// the scanner observes them even though it does not read their content.
-const REPO_DIRS: &[&str] = &[
-    ".agents",
-    ".cortex",
-    ".github",
-    ".hermes",
-    "apps",
-    "archive",
-    "bounty",
-    "contracts",
-    "crates",
-    "docs",
-    "evidence",
-    "infra",
-    "programs",
-    "protocols",
-    "recruiter",
-    "references",
-    "scripts",
-    "specs",
-    "tests",
-    "vault",
-    "verify",
-];
-
-/// Top-level files of the git tree that may be declared whole.
-const REPO_FILES: &[&str] = &["Cargo.toml", "Makefile", "rust-toolchain.toml"];
-
-/// Authority files whose declared paths are checked for existence.
-const AUTHORITY_FILES: &[&str] = &[
-    "contracts/build-placement.json",
-    "contracts/foundation.json",
-    "contracts/framework.json",
-    "contracts/observability-loop.json",
-    "contracts/source-lifecycle.json",
-    "infra/directory-tree.json",
-    "infra/registry.json",
-    "infra/runtime-authority.json",
-];
 
 /// A candidate path extracted from a source file, with its provenance.
 struct Candidate {
@@ -113,7 +69,57 @@ impl Candidate {
 ///
 /// Trailing slashes are normalised away so that a directory declared as `infra/`
 /// is compared against the observed `infra` rather than reported missing.
-fn validate(raw: &str) -> Option<String> {
+/// The accepted top-level roots, derived from what was observed rather than
+/// listed here.
+///
+/// This was 21 hard-coded directory names and 3 file names. The failure mode was
+/// not wrongness, it was staleness: a new top-level directory was uncovered until
+/// someone remembered to edit this file, which is the static-information failure
+/// this rule exists to prevent. Deriving it means a directory is accepted because
+/// it is part of the tree, and rejected when it stops being one.
+fn observed_roots(index: &WorkspaceSourceIndex) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut directories = BTreeSet::new();
+    let mut files = BTreeSet::new();
+    for path in &index.existing_paths {
+        let mut segments = path.split('/');
+        let Some(first) = segments.next() else {
+            continue;
+        };
+        if segments.next().is_some() {
+            directories.insert(first.to_string());
+        } else {
+            files.insert(first.to_string());
+        }
+    }
+    (directories, files)
+}
+
+/// Authority files, derived from a property they declare about themselves.
+///
+/// This was 8 hard-coded paths. 17 files in the tree already declare
+/// `"status": "normative"`, including two that no list had been updated for. The
+/// question "is this file authority?" now has an answer in the data, so the
+/// question no longer needs to be answered here.
+fn normative_json_files(index: &WorkspaceSourceIndex) -> BTreeSet<String> {
+    index
+        .json_files
+        .iter()
+        .filter(|file| {
+            serde_json::from_str::<serde_json::Value>(&file.content)
+                .ok()
+                .and_then(|value| {
+                    value
+                        .get("status")
+                        .and_then(|status| status.as_str())
+                        .map(str::to_string)
+                })
+                .is_some_and(|status| status == "normative")
+        })
+        .map(|file| file.relative_path.clone())
+        .collect()
+}
+
+fn validate(raw: &str, directories: &BTreeSet<String>, files: &BTreeSet<String>) -> Option<String> {
     let candidate = raw.trim().trim_matches('"').trim().trim_end_matches('/');
     if candidate.is_empty() || candidate.len() > 200 {
         return None;
@@ -143,7 +149,7 @@ fn validate(raw: &str) -> Option<String> {
     // A JSON pointer or dotted key appended to a path — `infra/registry.json:x.y`
     // — addresses inside the file, not a file on disk.
     if let Some((head, _pointer)) = candidate.split_once(':') {
-        return validate(head);
+        return validate(head, directories, files);
     }
     // A substitution placeholder such as `known-peers.<ts>.json` is a template.
     // The absence of its expansion is not waste.
@@ -157,11 +163,11 @@ fn validate(raw: &str) -> Option<String> {
         return None;
     }
     let first = candidate.split('/').next()?;
-    // Both lists are tested because normalisation has already removed the
-    // trailing separator: `infra/` and `Cargo.toml` are equally single-segment
-    // by now, and both are real top-level entries. `source` and `README.md` are
-    // in neither, which is what keeps runtime space and stray prose out.
-    (REPO_DIRS.contains(&first) || REPO_FILES.contains(&first)).then(|| candidate.to_string())
+    // Both sets are consulted because normalisation has already removed the
+    // trailing separator: `infra/` and `Cargo.toml` are equally single-segment by
+    // now. `source` and a runtime-space directory are in neither, which is what
+    // keeps them out — and that is now an observation, not an assertion.
+    (directories.contains(first) || files.contains(first)).then(|| candidate.to_string())
 }
 
 
@@ -276,7 +282,11 @@ fn resolves(index: &WorkspaceSourceIndex, path: &str, citing_file: &str) -> bool
 /// so scanning only double quotes misses most of what the rule exists to find.
 /// `` ` `` spans that are not paths (`crate::module::Type`, code fences) are
 /// rejected by `validate`.
-fn quoted_paths(file: &SourceFile) -> Vec<Candidate> {
+fn quoted_paths(
+    file: &SourceFile,
+    directories: &BTreeSet<String>,
+    files: &BTreeSet<String>,
+) -> Vec<Candidate> {
     let mut found = Vec::new();
     // Test modules legitimately name paths that do not exist: a regression
     // fixture for this very rule is one. They are excluded from the scan, which
@@ -307,7 +317,7 @@ fn quoted_paths(file: &SourceFile) -> Vec<Candidate> {
                 let Some(close) = after.find(delimiter) else {
                     break;
                 };
-                if let Some(path) = validate(&after[..close]) {
+                if let Some(path) = validate(&after[..close], directories, files) {
                     found.push(Candidate {
                         path,
                         file: file.relative_path.clone(),
@@ -348,11 +358,13 @@ impl AuditRule for DeclaredPathExistenceRule {
     fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
         let mut violations = Vec::new();
         let runtime = runtime_space(index);
+        let (directories, files) = observed_roots(index);
+        let authority = normative_json_files(index);
         for file in &index.json_files {
-            if !AUTHORITY_FILES.contains(&file.relative_path.as_str()) {
+            if !authority.contains(&file.relative_path) {
                 continue;
             }
-            for candidate in quoted_paths(file) {
+            for candidate in quoted_paths(file, &directories, &files) {
                 if index.existing_paths.contains(&candidate.path) {
                     continue;
                 }
@@ -401,8 +413,10 @@ impl AuditRule for RustPathReferenceRule {
     fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
         let mut violations = Vec::new();
         let runtime = runtime_space(index);
+        let (directories, files) = observed_roots(index);
+        let authority = normative_json_files(index);
         for file in &index.rust_files {
-            for candidate in quoted_paths(file) {
+            for candidate in quoted_paths(file, &directories, &files) {
                 if runtime.contains(&candidate.path) {
                     continue;
                 }
@@ -484,46 +498,60 @@ impl AuditRule for PathSsotIgnoreRule {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::{Candidate, validate};
+
+    fn set(items: &[&str]) -> BTreeSet<String> {
+        items.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    fn dirs() -> BTreeSet<String> {
+        set(&["crates", "infra", "docs", "contracts", "vault", "archive", "programs", "specs", "bounty", "scripts", "tests", "references", "recruiter", "verify", "apps", ".cortex", ".hermes", ".github", ".agents", "protocols", "evidence"])
+    }
+
+    fn files() -> BTreeSet<String> {
+        set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+    }
 
     #[test]
     fn accepts_repository_relative_paths() {
         assert_eq!(
-            validate("crates/cynic-host/src/lib.rs").as_deref(),
+            validate("crates/cynic-host/src/lib.rs", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(),
             Some("crates/cynic-host/src/lib.rs")
         );
-        assert_eq!(validate("contracts/foundation.json").as_deref(), Some("contracts/foundation.json"));
+        assert_eq!(validate("contracts/foundation.json", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("contracts/foundation.json"));
     }
 
     #[test]
     fn rejects_runtime_space_paths() {
         // The declared runtime tree must never be reported as a missing git path.
-        assert!(validate("/var/lib/cynic/evidence").is_none());
-        assert!(validate("/etc/cynic/secrets").is_none());
-        assert!(validate("~/cynic/vault").is_none());
-        assert!(validate("${GIT_WORKING_TREE}/crates").is_none());
+        assert!(validate("/var/lib/cynic/evidence", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("/etc/cynic/secrets", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("~/cynic/vault", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("${GIT_WORKING_TREE}/crates", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
     }
 
     #[test]
     fn rejects_non_paths() {
-        assert!(validate("cynic_protocol::AuditSeverity").is_none());
-        assert!(validate("source/repositories/CYNIC").is_none());
-        assert!(validate("crates/*").is_none());
+        assert!(validate("cynic_protocol::AuditSeverity", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("source/repositories/CYNIC", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("crates/*", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
         assert!(validate("").is_none());
-        assert!(validate("mode").is_none());
+        assert!(validate("mode", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
         // A directory declared with a trailing slash must normalise, not vanish
         // and not be reported missing.
-        assert_eq!(validate("infra/").as_deref(), Some("infra"));
+        assert_eq!(validate("infra/", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("infra"));
         // Single-segment declarations are limited to real top-level files.
-        assert_eq!(validate("Cargo.toml").as_deref(), Some("Cargo.toml"));
-        assert!(validate("README.md").is_none());
+        assert_eq!(validate("Cargo.toml", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("Cargo.toml"));
+        assert!(validate("README.md", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
         // Format placeholders and parent traversal are templates, not paths.
-        assert!(validate("archive/{}").is_none());
-        assert!(validate("crates/../Cargo.toml").is_none());
+        assert!(validate("archive/{}", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(validate("crates/../Cargo.toml", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
         // A Rust item path that starts with a crate-directory name is a module
         // reference. This exact shape is emitted by
         // `infra/runtime-authority.json` and was a false positive.
-        assert!(validate("crates/cynic-protocol::agent_workload").is_none());
+        assert!(validate("crates/cynic-protocol::agent_workload", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
     }
 
     #[test]

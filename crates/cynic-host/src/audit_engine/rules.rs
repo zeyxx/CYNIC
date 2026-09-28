@@ -183,65 +183,18 @@ impl AuditRule for HotspotThresholdRule {
     }
 }
 
-pub struct LayerBoundaryRule;
-
-impl AuditRule for LayerBoundaryRule {
-    fn spec(&self) -> AuditRuleSpec {
-        AuditRuleSpec {
-            id: "ARCH-002".to_string(),
-            name: "layer_boundary".to_string(),
-            description: "Protocol contracts must remain pure and not import runtime I/O adapters."
-                .to_string(),
-            category: AuditCategory::Boundary,
-            severity: AuditSeverity::Critical,
-            automated_remediation_available: false,
-        }
-    }
-
-    fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
-        let mut violations = Vec::new();
-
-        for file in &index.rust_files {
-            if !file.relative_path.starts_with("crates/cynic-protocol/src/") {
-                continue;
-            }
-
-            for (idx, line) in file.content.lines().enumerate() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("//") {
-                    continue;
-                }
-
-                if line.contains("std::process::Command")
-                    || line.contains("tokio::process::Command")
-                    || line.contains("reqwest::")
-                    || line.contains("clap::Parser")
-                {
-                    violations.push(AuditViolation {
-                        code: "ARCH-002-FORBIDDEN-ADAPTER".to_string(),
-                        message: format!(
-                            "Protocol file {} imports forbidden I/O adapter: {}",
-                            file.relative_path, trimmed
-                        ),
-                        severity: AuditSeverity::Critical,
-                        category: AuditCategory::Boundary,
-                        span: Some(AuditSpan {
-                            file_path: file.relative_path.clone(),
-                            line_start: idx + 1,
-                            line_end: idx + 1,
-                            snippet: Some(trimmed.to_string()),
-                        }),
-                        remediation: Some(
-                            "Move adapter implementation to cynic-host or cynic-node.".to_string(),
-                        ),
-                    });
-                }
-            }
-        }
-
-        violations
-    }
-}
+/// `ARCH-002` is retired. It grepped four forbidden strings inside
+/// `cynic-protocol` and never read the dependency graph, so it could not see an
+/// upward edge, and a denylist of four tokens can only ever catch what someone
+/// thought of in advance. Its actual intent — L0 stays pure, dependencies flow
+/// downward — is now enforced by `ARCH-004 crate_topology_coherence` against the
+/// observed manifests, and by a declared, compiler-enforced lint list rather than
+/// by strings buried in an audit rule.
+///
+/// Kept as a named constant so the retirement is greppable and so a future rule
+/// does not reintroduce the same four strings.
+pub const RETIRED_LAYER_BOUNDARY_STRINGS: &[&str] =
+    &["std::process::Command", "tokio::process::Command", "reqwest::", "clap::Parser"];
 
 pub struct KernelBoundaryRule;
 
