@@ -117,17 +117,32 @@ fn kernel_main_remains_the_runtime_composition_root() {
 }
 
 #[test]
-fn kernel_runtime_orchestrator_hosts_bootstrap_composition_logic() {
+fn kernel_runtime_orchestrator_stays_an_honest_minimal_supervisor() {
+    // NOTE (2026-09-28): the old test asserted bootstrap::server::run_rest_servers
+    // + storage wiring inside the orchestrator. bootstrap::server was an orphan
+    // (deleted), and the orchestrator has always been a deliberate minimal
+    // supervisor: "Full orchestration (storage, API, agents) will be re-enabled
+    // as separate crates." The test asserted vapor; the live file is honest.
     let bootstrap_rs = read_repo_file("crates/cynic-kernel/src/bootstrap/runtime_orchestrator.rs");
 
     for expected in [
-        "bootstrap::server::run_rest_servers(bootstrap::server::RestServeInputs",
-        "load_kernel_config_bundle()",
-        "connect_storage_runtime(&storage_config).await",
+        "pub async fn run_runtime",
+        "Runtime supervisor starting (minimal mode)",
+        "will be re-enabled as separate crates",
     ] {
         assert!(
             bootstrap_rs.contains(expected),
-            "bootstrap runtime orchestrator should contain `{expected}`"
+            "kernel runtime orchestrator should contain `{expected}`"
+        );
+    }
+
+    for forbidden in [
+        "bootstrap::server::run_rest_servers",
+        "connect_storage_runtime",
+    ] {
+        assert!(
+            !bootstrap_rs.contains(forbidden),
+            "kernel runtime orchestrator must not resurrect dead wiring: {forbidden}"
         );
     }
 }
@@ -143,17 +158,37 @@ fn kernel_infra_surfaces_stay_split_by_role() {
     let bootstrap_entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
     let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
 
+    // NOTE (2026-09-28): the old list demanded `boot;` `health_loop;`
+    // `probes;` `tasks;` — none were ever declared by infra/mod.rs, and
+    // their directories are now purged. Assert the LIVE manifest exactly,
+    // and lock the purged names out.
     for expected in [
-        "pub mod boot;",
         "pub mod config;",
-        "pub mod health_loop;",
-        "pub mod probes;",
+        "pub mod config_loader;",
+        "pub mod config_schema;",
+        "pub mod config_storage;",
+        "pub mod config_types;",
+        "pub mod crypto;",
+        "pub mod evidence_journal_file;",
+        "pub mod node_identity;",
+        "pub mod runtime_secret;",
         "pub mod task_health;",
-        "pub mod tasks;",
     ] {
         assert!(
             infra_mod.contains(expected),
             "infra/mod.rs should contain `{expected}`"
+        );
+    }
+
+    for forbidden in [
+        "pub mod boot;",
+        "pub mod health_loop;",
+        "pub mod probes;",
+        "pub mod tasks;",
+    ] {
+        assert!(
+            !infra_mod.contains(forbidden),
+            "infra/mod.rs must not re-declare purged surface `{forbidden}`"
         );
     }
 
@@ -265,7 +300,9 @@ fn kernel_storage_must_not_own_inference_model_registry() {
         );
     }
 
-    let inference_domain = read_repo_file("crates/cynic-inference/src/domain/model_registry.rs");
+    // NOTE (2026-09-28): registry types moved domain/model_registry.rs ->
+    // infra/model_registry.rs in cynic-inference. Pointer follows the owner.
+    let inference_domain = read_repo_file("crates/cynic-inference/src/infra/model_registry.rs");
     let inference_port = read_repo_file("crates/cynic-inference/src/ports/model_registry_port.rs");
     let inference_memory_adapter =
         read_repo_file("crates/cynic-inference/src/adapters/discovery/model_registry.rs");
@@ -660,26 +697,15 @@ fn kernel_token_postprocessor_delegates_heuristics_to_cynic_intel() {
 
 #[test]
 fn kernel_kscore_delegates_heuristics_to_cynic_intel() {
-    let kscore = read_repo_file("crates/cynic-kernel/src/domain/kscore.rs");
+    // NOTE (2026-09-28): the kernel kscore facade is gone (it was an orphan
+    // purging target). Extraction proof is now ABSENCE + live owner, the
+    // pattern the rug/wallet facades already use.
     assert!(
-        kscore.contains("cynic_intel::kscore")
-            && kscore.contains("WalletBehaviorAdapter")
-            && kscore.contains("map_holder_class_to_intel"),
-        "kernel kscore module must be a compatibility adapter over cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/kscore.rs")
+            .exists(),
+        "kernel kscore facade must stay deleted; law lives in cynic-intel::kscore"
     );
-
-    for forbidden in [
-        "(acc / ext.max(1.0) / 2.0).tanh()",
-        "holder_norm =",
-        "accumulators = acc as u32",
-        "powf(config.weight_diamond_hands)",
-        "median_hold_hours: Option<f64>",
-    ] {
-        assert!(
-            !kscore.contains(forbidden),
-            "kernel kscore should not own K-Score math: {forbidden}"
-        );
-    }
 
     let intel_kscore = read_repo_file("crates/cynic-intel/src/kscore.rs");
     for expected in [
