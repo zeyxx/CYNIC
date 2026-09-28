@@ -140,6 +140,16 @@ fn validate(raw: &str) -> Option<String> {
     if candidate.contains("::") {
         return None;
     }
+    // A JSON pointer or dotted key appended to a path — `infra/registry.json:x.y`
+    // — addresses inside the file, not a file on disk.
+    if let Some((head, _pointer)) = candidate.split_once(':') {
+        return validate(head);
+    }
+    // A substitution placeholder such as `known-peers.<ts>.json` is a template.
+    // The absence of its expansion is not waste.
+    if candidate.contains('<') || candidate.contains('>') {
+        return None;
+    }
     // Parent traversal cannot be resolved against the observed set without
     // normalisation this rule deliberately does not perform, so it is rejected
     // rather than guessed at.
@@ -152,6 +162,106 @@ fn validate(raw: &str) -> Option<String> {
     // by now, and both are real top-level entries. `source` and `README.md` are
     // in neither, which is what keeps runtime space and stray prose out.
     (REPO_DIRS.contains(&first) || REPO_FILES.contains(&first)).then(|| candidate.to_string())
+}
+
+
+/// Paths the authority places outside the git tree.
+///
+/// `infra/directory-tree.json` is explicit about this: the `git_sources` layer
+/// "live[s] in the git repository, never on the runtime filesystem", while
+/// `installed_system` and the runtime layers do not. A path declared in a
+/// non-git layer is *supposed* to be absent here, so its absence is not waste —
+/// it is the contract working. Reading this from the SSOT rather than from a
+/// hardcoded list is the whole point: the answer changes when the contract does.
+fn runtime_space(index: &WorkspaceSourceIndex) -> std::collections::BTreeSet<String> {
+    let mut found = std::collections::BTreeSet::new();
+    let Some(ssot) = index
+        .json_files
+        .iter()
+        .find(|file| file.relative_path == PATH_SSOT)
+    else {
+        return found;
+    };
+    let Ok(document) = serde_json::from_str::<serde_json::Value>(&ssot.content) else {
+        return found;
+    };
+    let Some(layers) = document.get("layers").and_then(|v| v.as_object()) else {
+        return found;
+    };
+    for (layer, body) in layers {
+        if layer == "git_sources" {
+            continue;
+        }
+        collect_relative_paths(body, &mut found);
+    }
+    found
+}
+
+/// Recursively collect every relative path-like string in a JSON value.
+fn collect_relative_paths(value: &serde_json::Value, found: &mut std::collections::BTreeSet<String>) {
+    match value {
+        serde_json::Value::String(text) => {
+            let candidate = text.trim().trim_end_matches('/');
+            if candidate.contains('/')
+                && !candidate.starts_with('/')
+                && !candidate.contains(' ')
+                && !candidate.contains('*')
+                && !candidate.contains('<')
+            {
+                found.insert(candidate.to_string());
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_relative_paths(item, found);
+            }
+        }
+        serde_json::Value::Object(fields) => {
+            for (key, item) in fields {
+                // Keys declare paths too, exactly as in the git layer, and they
+                // carry the same trailing-slash convention as the values:
+                // `"vault/models/"` and `"vault/models"` are one path.
+                let key = key.trim_end_matches('/');
+                if key.contains('/') && !key.contains(' ') && !key.contains('<') {
+                    found.insert(key.to_string());
+                }
+                collect_relative_paths(item, found);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Does a cited path resolve, allowing for the three ways a real citation differs
+/// from a bare repo-relative string?
+///
+/// 1. The declaring contract places it in runtime space.
+/// 2. It omits a crate and/or `src/` prefix, as a crate-internal reference does.
+/// 3. It names a module directory where the build expects `mod.rs`.
+fn resolves(index: &WorkspaceSourceIndex, path: &str, citing_file: &str) -> bool {
+    if index.existing_paths.contains(path) {
+        return true;
+    }
+    // 3. `crates/cynic-kernel/src/infra/tasks` is the directory; the build
+    //    expects the module file beside it.
+    if let Some(stem) = path.strip_suffix(".rs") {
+        let as_module = format!("{stem}/mod.rs");
+        if index.existing_paths.contains(&as_module) || index.existing_paths.contains(stem) {
+            return true;
+        }
+    } else if index.existing_paths.contains(&format!("{path}/mod.rs")) {
+        return true;
+    }
+    // 2. The citation omits a crate and/or `src/` prefix. A repo-internal
+    //    reference may be written relative to its crate, so a suffix match on
+    //    any observed path counts as a resolution. This is what separates
+    //    `infra/tasks` (a real module) from `infra/reconnectable_storage.rs`
+    //    (gone from every crate in the tree).
+    let needle = format!("/{path}");
+    index
+        .existing_paths
+        .iter()
+        .any(|existing| existing.ends_with(&needle))
 }
 
 /// Every delimited span on a line, with its line number, that validates as a path.
@@ -174,6 +284,12 @@ fn quoted_paths(file: &SourceFile) -> Vec<Candidate> {
     // Integration tests are excluded for the same reason, and this matches the
     // convention `HotspotThresholdRule` already uses for the same file class.
     if file.relative_path.contains("/tests/") {
+        return found;
+    }
+    // This file documents the rule with deliberately absent example paths, so it
+    // reports itself unless excluded. A detector that flags its own fixtures
+    // cannot converge, and a gate that cannot converge gets switched off.
+    if file.relative_path.ends_with("audit_engine/path_rules.rs") {
         return found;
     }
     let mut in_test_module = false;
@@ -231,12 +347,17 @@ impl AuditRule for DeclaredPathExistenceRule {
 
     fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
         let mut violations = Vec::new();
+        let runtime = runtime_space(index);
         for file in &index.json_files {
             if !AUTHORITY_FILES.contains(&file.relative_path.as_str()) {
                 continue;
             }
             for candidate in quoted_paths(file) {
                 if index.existing_paths.contains(&candidate.path) {
+                    continue;
+                }
+                // Declared outside the git tree on purpose: not waste.
+                if runtime.contains(&candidate.path) {
                     continue;
                 }
                 violations.push(candidate.violation(
@@ -279,9 +400,13 @@ impl AuditRule for RustPathReferenceRule {
 
     fn evaluate(&self, index: &WorkspaceSourceIndex) -> Vec<AuditViolation> {
         let mut violations = Vec::new();
+        let runtime = runtime_space(index);
         for file in &index.rust_files {
             for candidate in quoted_paths(file) {
-                if index.existing_paths.contains(&candidate.path) {
+                if runtime.contains(&candidate.path) {
+                    continue;
+                }
+                if resolves(index, &candidate.path, &file.relative_path) {
                     continue;
                 }
                 violations.push(candidate.violation(
