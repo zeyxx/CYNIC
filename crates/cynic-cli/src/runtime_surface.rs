@@ -117,40 +117,17 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         proof: Option<String>,
     },
-    /// Discover the active SurrealDB runtime, engine, transport, and capability proof levels.
-    StorageCapabilities {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        url: Option<String>,
+    /// Active storage runtime, engine, transport and capability proof levels.
+    Storage {
+        #[command(subcommand)]
+        command: RuntimeStorageCommand,
     },
     /// Evaluate storage credential sync status.
-    StorageCredential {
-        #[arg(long, default_value_t = false)]
-        json: bool,
-        #[arg(long)]
-        endpoint: Option<String>,
-    },
-    /// Bounded storage client-policy mutation with exact read-back proof; requires --apply.
-    StorageClientPolicySet {
-        #[arg(long)]
-        policy_path: String,
-        #[arg(long = "endpoint", required = true)]
-        endpoints: Vec<String>,
-        #[arg(long, default_value_t = 5000)]
-        timeout_ms: u64,
-        #[arg(long, default_value_t = 1)]
-        write_quorum: u32,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    ExecutionContext {
-        #[arg(long)]
-        json: bool,
-        #[arg(long = "host")]
-        hosts: Vec<String>,
+    /// Set a bounded storage client policy; requires --apply and read-back proof.
+    /// The enrolled machine principal; usable only after adapter selection is proven.
+    Execution {
+        #[command(subcommand)]
+        command: RuntimeExecutionCommand,
     },
     NetworkPreflight {
         #[arg(long)]
@@ -162,26 +139,20 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         endpoint: Option<String>,
     },
-    ResolverPlan {
-        #[arg(long)]
-        json: bool,
-        #[arg(long = "host")]
-        hosts: Vec<String>,
+    /// Resolver resolution plan.
+    Resolver {
+        #[command(subcommand)]
+        command: RuntimeResolverCommand,
     },
-    RepoAccess {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        profile: Option<String>,
+    /// Check repository access for the declared hosts.
+    Repo {
+        #[command(subcommand)]
+        command: RuntimeRepoCommand,
     },
-    /// Persist an existing runtime proof record through the kernel and require read-back.
-    ProofPersist {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        proof: String,
-        #[arg(long)]
-        endpoint: Option<String>,
+    /// Persist a runtime proof record and require read-back.
+    Proof {
+        #[command(subcommand)]
+        command: RuntimeProofCommand,
     },
     /// Aggregate runtime phase, report, and inference SSOT status.
     Report {
@@ -192,10 +163,10 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         persist: bool,
     },
-    /// Report which runtime/bootstrap surfaces are safe to expose to bounded agent autonomy now vs later.
-    AgentMatrix {
-        #[arg(long)]
-        json: bool,
+    /// Which runtime surfaces are safe for bounded agent autonomy now vs later.
+    Agent {
+        #[command(subcommand)]
+        command: RuntimeAgentCommand,
     },
     /// Probe host storage capacity, filesystems, caches and large files.
     Disk {
@@ -235,11 +206,128 @@ pub(crate) enum RuntimeCommand {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
     },
-    /// Observe or provision the Forgejo runtime token (adapter unavailable/unproven until
-    /// runtime transport and credential injection are established).
-    /// `status` (default) probes file + API validity; `create`/`rotate` mutates via --yes.
-    /// The enrolled machine principal is usable only after adapter selection is proven.
-    ForgejoToken {
+    /// Observe or provision the Forgejo runtime token.
+    Forgejo {
+        #[command(subcommand)]
+        command: RuntimeForgejoCommand,
+    },
+    /// 4-layer build artefact observation and GC (checkouts pressure).
+    Build {
+        #[command(subcommand)]
+        command: RuntimeBuildCommand,
+    },
+    /// Queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
+    Queue {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        apply: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeStorageCommand {
+    /// Active storage runtime, engine, transport and capability proof levels.
+    Capabilities {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        url: Option<String>,
+    },
+    /// Evaluate storage credential sync status.
+    Credential {
+        #[arg(long, default_value_t = false)]
+        json: bool,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
+    /// Set a bounded storage client policy; requires --apply and read-back proof.
+    ClientPolicy {
+        #[arg(long)]
+        policy_path: String,
+        #[arg(long = "endpoint", required = true)]
+        endpoints: Vec<String>,
+        #[arg(long, default_value_t = 5000)]
+        timeout_ms: u64,
+        #[arg(long, default_value_t = 1)]
+        write_quorum: u32,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeResolverCommand {
+    /// Resolver resolution plan.
+    Plan {
+        #[arg(long)]
+        json: bool,
+        #[arg(long = "host")]
+        hosts: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeRepoCommand {
+    /// Check repository access for the declared hosts.
+    Access {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        profile: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeProofCommand {
+    /// Persist a runtime proof record and require read-back.
+    Persist {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        proof: String,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeExecutionCommand {
+    /// The enrolled machine principal; usable only after adapter selection is proven.
+    Context {
+        #[arg(long)]
+        json: bool,
+        #[arg(long = "host")]
+        hosts: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeAgentCommand {
+    /// Which runtime surfaces are safe for bounded agent autonomy now vs later.
+    Matrix {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeBuildCommand {
+    /// 4-layer build artefact observation and GC (checkouts pressure).
+    Artefact {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        apply: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeForgejoCommand {
+    /// Observe or provision the Forgejo runtime token.
+    Token {
         #[arg(long, value_enum, default_value = "status")]
         mode: ForgejoTokenMode,
         #[arg(long)]
@@ -250,20 +338,6 @@ pub(crate) enum RuntimeCommand {
         /// Override the canonical token secret path (default /etc/cynic/secrets/forgejo-token).
         #[arg(long)]
         token_path: Option<String>,
-    },
-    /// 4-layer build artefact observation + GC (checkouts pressure). Pure probe + local adapter.
-    BuildArtefact {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        apply: bool,
-    },
-    /// Queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
-    Queue {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        apply: bool,
     },
 }
 
@@ -386,33 +460,35 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             let json = profile.json;
             host_checks::execute_metrics(json, &profile, proof.as_deref())
         }
-        RuntimeCommand::StorageCapabilities { json, url } => {
-            host_checks::execute_storage_capabilities(json, url.as_deref())
-        }
-        RuntimeCommand::StorageCredential { json, endpoint } => {
-            match execute_storage_credential_sync(json, endpoint.as_deref()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(e) => fail(e),
+        RuntimeCommand::Storage { command } => match command {
+            RuntimeStorageCommand::Capabilities { json, url } => {
+                host_checks::execute_storage_capabilities(json, url.as_deref())
             }
-        }
-        RuntimeCommand::StorageClientPolicySet {
-            policy_path,
-            endpoints,
-            timeout_ms,
-            write_quorum,
-            apply,
-            json,
-        } => storage_topology::execute_client_policy_set(
-            &policy_path,
-            &endpoints,
-            timeout_ms,
-            write_quorum,
-            apply,
-            json,
-        ),
-        RuntimeCommand::ExecutionContext { json, hosts } => {
-            execution_context::execute_execution_context(json, &hosts)
-        }
+            RuntimeStorageCommand::Credential { json, endpoint } => {
+                match execute_storage_credential_sync(json, endpoint.as_deref()) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => fail(e),
+                }
+            }
+            RuntimeStorageCommand::ClientPolicy {
+                policy_path,
+                endpoints,
+                timeout_ms,
+                write_quorum,
+                apply,
+                json,
+            } => storage_topology::execute_client_policy_set(
+                &policy_path,
+                &endpoints,
+                timeout_ms,
+                write_quorum,
+                apply,
+                json,
+            ),
+        },
+        RuntimeCommand::Execution {
+            command: RuntimeExecutionCommand::Context { json, hosts },
+        } => execution_context::execute_execution_context(json, &hosts),
         RuntimeCommand::NetworkPreflight {
             json,
             hosts,
@@ -421,36 +497,44 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         } => {
             network_preflight::execute_network_preflight(json, &hosts, persist, endpoint.as_deref())
         }
-        RuntimeCommand::ResolverPlan { json, hosts } => {
-            resolver_plan::execute_resolver_plan(json, &hosts)
-        }
-        RuntimeCommand::RepoAccess { json, profile } => {
-            host_checks::execute_repo_access(json, profile)
-        }
-        RuntimeCommand::ProofPersist {
-            json,
-            proof,
-            endpoint,
+        RuntimeCommand::Resolver {
+            command: RuntimeResolverCommand::Plan { json, hosts },
+        } => resolver_plan::execute_resolver_plan(json, &hosts),
+        RuntimeCommand::Repo {
+            command: RuntimeRepoCommand::Access { json, profile },
+        } => host_checks::execute_repo_access(json, profile),
+        RuntimeCommand::Proof {
+            command:
+                RuntimeProofCommand::Persist {
+                    json,
+                    proof,
+                    endpoint,
+                },
         } => persistence::execute_persistence(json, &proof, endpoint.as_deref()),
         RuntimeCommand::Report {
             json,
             output,
             persist,
         } => report::execute_report(json, output.as_deref(), persist),
-        RuntimeCommand::AgentMatrix { json } => agent_matrix::execute_agent_matrix(json),
+        RuntimeCommand::Agent {
+            command: RuntimeAgentCommand::Matrix { json },
+        } => agent_matrix::execute_agent_matrix(json),
         RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
         RuntimeCommand::Memory { json } => memory::execute_memory(json),
         RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
         RuntimeCommand::Network { json } => network::execute_network(json),
-        RuntimeCommand::ForgejoToken {
-            mode,
-            json,
-            yes,
-            token_path,
+        RuntimeCommand::Forgejo {
+            command:
+                RuntimeForgejoCommand::Token {
+                    mode,
+                    json,
+                    yes,
+                    token_path,
+                },
         } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path.clone()),
-        RuntimeCommand::BuildArtefact { json, apply } => {
-            build_artefact::execute_build_artefact(json, apply)
-        }
+        RuntimeCommand::Build {
+            command: RuntimeBuildCommand::Artefact { json, apply },
+        } => build_artefact::execute_build_artefact(json, apply),
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
         RuntimeCommand::Disk { .. } | RuntimeCommand::DiskClean { .. } => {
             unreachable!("pre-dispatched runtime command")
