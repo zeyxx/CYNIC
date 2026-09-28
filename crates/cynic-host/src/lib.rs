@@ -17,7 +17,7 @@ pub mod build_workflow;
 pub mod clock;
 pub mod command_surface;
 pub mod conformance;
-pub mod pattern_gc_scan;
+pub mod rate_classify_scan;
 // The store two integration tests already import. It was never declared, so the
 // coordination lease enforcement it implements has been inert: nothing compiled
 // it, and both test suites failed at E0432 rather than exercising it.

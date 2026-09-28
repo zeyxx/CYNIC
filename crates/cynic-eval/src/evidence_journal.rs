@@ -12,7 +12,13 @@
 use serde::{Deserialize, Serialize};
 
 pub const EVIDENCE_JOURNAL_SCHEMA: &str = "cynic.evidence.journal_entry.v1";
-pub const EVIDENCE_EVENT_MODEL_SEALED: &str = "pattern_gc.model.sealed";
+/// Event type discriminator for a sealed cold-evidence entry.
+///
+/// The previous value was `pattern_gc.model.sealed`, whose only producer was
+/// `pattern_gc::poh_anchor`, deleted with the rest of that module's dead half.
+/// Nothing can emit that event any more, so a token no code produces is a token
+/// that cannot prove the journal handles a real one.
+pub const EVIDENCE_EVENT_ENTRY_SEALED: &str = "evidence.entry.sealed";
 
 /// One sealed cold-evidence event.
 ///
@@ -27,7 +33,7 @@ pub struct EvidenceJournalEntry {
     pub sequence: u64,
     /// Node identity fingerprint (multi-node merge sorts by this then seq).
     pub node_id: String,
-    /// Event type discriminator (`pattern_gc.model.sealed`, ...).
+    /// Event type discriminator (`evidence.entry.sealed`, ...).
     pub event_type: String,
     /// Content digest of the referenced evidence (prefixed, canonical law).
     pub payload_digest: String,
@@ -159,7 +165,7 @@ mod tests {
             schema: EVIDENCE_JOURNAL_SCHEMA.to_string(),
             sequence: seq,
             node_id: "node-lab".to_string(),
-            event_type: EVIDENCE_EVENT_MODEL_SEALED.to_string(),
+            event_type: EVIDENCE_EVENT_ENTRY_SEALED.to_string(),
             payload_digest: payload,
             entry_hash: hash,
             prev_hash: prev.to_string(),

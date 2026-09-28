@@ -7,13 +7,13 @@
 //! eviction itself.
 
 use super::types::{
-    PatternClass, PatternGcAssessment, PatternObservation, PatternWindows, RetentionPolicy,
+    RateTrend, RateVerdict, WindowedCount, CountWindows, Thresholds,
 };
 
 /// Classify one observed pattern from its windowed counts and spans.
 ///
 /// Decision order is deliberate:
-/// 1. no signal on either window -> [`PatternClass::Unknown`];
+/// 1. no signal on either window -> [`RateTrend::Unknown`];
 /// 2. historical mass below the recurrence threshold -> the only possible
 ///    claim is emergence (floor + rate ratio beyond epsilon), otherwise
 ///    unknown;
@@ -25,19 +25,19 @@ use super::types::{
 /// verdicts are invariant to window-length choices. Zero or negative spans
 /// make rates undefined: the observation is reported unknown rather than
 /// guessed.
-pub fn classify(observation: &PatternObservation, policy: &RetentionPolicy) -> PatternGcAssessment {
+pub fn classify(observation: &WindowedCount, policy: &Thresholds) -> RateVerdict {
     let windows = &observation.windows;
     let mut reasons: Vec<String> = Vec::new();
 
     let class = match rates(windows) {
         None => {
             reasons.push("window spans missing or non-positive; rates undefined".to_string());
-            PatternClass::Unknown
+            RateTrend::Unknown
         }
         Some((historical_rate, recent_rate)) => {
             if windows.historical == 0 && windows.recent == 0 {
                 reasons.push("no observations in either window".to_string());
-                PatternClass::Unknown
+                RateTrend::Unknown
             } else if windows.historical < policy.recurring_threshold_abs {
                 if windows.recent >= policy.emergence_floor_abs
                     && recent_rate > historical_rate * (1.0 + policy.emergence_ratio_epsilon)
@@ -46,37 +46,37 @@ pub fn classify(observation: &PatternObservation, policy: &RetentionPolicy) -> P
                         "recent count {} exceeds floor {} with rate rise beyond epsilon",
                         windows.recent, policy.emergence_floor_abs
                     ));
-                    PatternClass::Emerging
+                    RateTrend::Emerging
                 } else {
                     reasons.push(format!(
                         "historical {} below recurring threshold {}; insufficient emergence signal",
                         windows.historical, policy.recurring_threshold_abs
                     ));
-                    PatternClass::Unknown
+                    RateTrend::Unknown
                 }
             } else if recent_rate > historical_rate * (1.0 + policy.emergence_ratio_epsilon) {
                 reasons.push(format!(
                     "recurring mass {} with recent rate surge beyond epsilon",
                     windows.historical
                 ));
-                PatternClass::Emerging
+                RateTrend::Emerging
             } else if recent_rate < historical_rate * policy.fading_ratio_ceiling {
                 reasons.push(format!(
                     "former recurring pattern ({}) whose recent rate collapsed",
                     windows.historical
                 ));
-                PatternClass::Fading
+                RateTrend::Fading
             } else {
                 reasons.push(format!(
                     "absolute recurrence {} with stable recent rate",
                     windows.historical
                 ));
-                PatternClass::Recurring
+                RateTrend::Recurring
             }
         }
     };
 
-    PatternGcAssessment {
+    RateVerdict {
         schema: SCHEMA.to_string(),
         key: observation.key.clone(),
         class,
@@ -86,9 +86,9 @@ pub fn classify(observation: &PatternObservation, policy: &RetentionPolicy) -> P
 
 /// Classify a batch, preserving observation order.
 pub fn classify_all(
-    observations: &[PatternObservation],
-    policy: &RetentionPolicy,
-) -> Vec<PatternGcAssessment> {
+    observations: &[WindowedCount],
+    policy: &Thresholds,
+) -> Vec<RateVerdict> {
     observations
         .iter()
         .map(|observation| classify(observation, policy))
@@ -96,14 +96,14 @@ pub fn classify_all(
 }
 
 /// Schema of every assessment produced by this contract.
-pub const SCHEMA: &str = "cynic.pattern_gc.assessment.v1";
+pub const SCHEMA: &str = "cynic.rate_classify.assessment.v1";
 
 /// Per-unit rates for both windows.
 ///
 /// A *nonzero* count with a zero span is contradictory input -> `None`
 /// (explicit unknown). A zero count means zero rate regardless of span: a
 /// key with no cold history is young, not undefined.
-fn rates(windows: &PatternWindows) -> Option<(f64, f64)> {
+fn rates(windows: &CountWindows) -> Option<(f64, f64)> {
     if windows.historical > 0 && windows.historical_span == 0 {
         return None;
     }
@@ -127,15 +127,15 @@ fn rates(windows: &PatternWindows) -> Option<(f64, f64)> {
 mod tests {
     use super::*;
 
-    fn obs(key: &str, historical: u64, recent: u64) -> PatternObservation {
-        PatternObservation {
+    fn obs(key: &str, historical: u64, recent: u64) -> WindowedCount {
+        WindowedCount {
             key: key.to_string(),
-            windows: PatternWindows::comparable(historical, recent),
+            windows: CountWindows::comparable(historical, recent),
         }
     }
 
-    fn policy() -> RetentionPolicy {
-        RetentionPolicy::observed_default()
+    fn policy() -> Thresholds {
+        Thresholds::observed_default()
     }
 
     #[test]
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn empty_windows_are_unknown_not_recurring() {
         let a = classify(&obs("x", 0, 0), &policy());
-        assert_eq!(a.class, PatternClass::Unknown);
+        assert_eq!(a.class, RateTrend::Unknown);
     }
 
     #[test]
@@ -158,7 +158,7 @@ mod tests {
         let mut o = obs("k", 100, 10);
         o.windows.recent_span = 0;
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Unknown);
+        assert_eq!(a.class, RateTrend::Unknown);
         assert!(a.reasons[0].contains("spans"));
     }
 
@@ -167,9 +167,9 @@ mod tests {
         // A key with NO cold history is young, not undefined: zero events
         // on any span means zero cold rate. Regression proof for the
         // scan-adapter integration catch (2026-08-24).
-        let o = PatternObservation {
+        let o = WindowedCount {
             key: "tool.brand_new".to_string(),
-            windows: PatternWindows {
+            windows: CountWindows {
                 historical: 0,
                 recent: 60,
                 historical_span: 0,
@@ -177,11 +177,11 @@ mod tests {
             },
         };
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Emerging);
+        assert_eq!(a.class, RateTrend::Emerging);
         // Contradictory input stays rejected: nonzero count, zero span.
         let mut bad = obs("k", 100, 10);
         bad.windows.historical_span = 0;
-        assert_eq!(classify(&bad, &policy()).class, PatternClass::Unknown);
+        assert_eq!(classify(&bad, &policy()).class, RateTrend::Unknown);
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod tests {
         o.windows.historical_span = 300;
         o.windows.recent_span = 60;
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Recurring);
+        assert_eq!(a.class, RateTrend::Recurring);
     }
 
     #[test]
@@ -201,21 +201,21 @@ mod tests {
         o.windows.historical_span = 60;
         o.windows.recent_span = 15;
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Emerging);
+        assert_eq!(a.class, RateTrend::Emerging);
     }
 
     #[test]
     fn low_mass_without_floor_or_ratio_stays_unknown() {
         let o = obs("tool.rare", 40, 3);
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Unknown);
+        assert_eq!(a.class, RateTrend::Unknown);
     }
 
     #[test]
     fn recent_only_history_with_floor_is_emerging() {
         let o = obs("tool.brand_new", 0, 300);
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Emerging);
+        assert_eq!(a.class, RateTrend::Emerging);
     }
 
     #[test]
@@ -225,7 +225,7 @@ mod tests {
         o.windows.historical_span = 500;
         o.windows.recent_span = 50;
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Fading);
+        assert_eq!(a.class, RateTrend::Fading);
     }
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
         o.windows.historical_span = 365;
         o.windows.recent_span = 30;
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Recurring);
+        assert_eq!(a.class, RateTrend::Recurring);
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
         // collapse, and the contract must say so instead of flattering us.
         let o = obs("error.network", 1983, 180);
         let a = classify(&o, &policy());
-        assert_eq!(a.class, PatternClass::Fading);
+        assert_eq!(a.class, RateTrend::Fading);
     }
 
     #[test]

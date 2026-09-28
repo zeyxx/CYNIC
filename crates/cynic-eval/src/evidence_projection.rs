@@ -95,7 +95,7 @@ pub fn replay_plan(entries: &[EvidenceJournalEntry], existing_event_ids: &[Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evidence_journal::{EVIDENCE_EVENT_MODEL_SEALED, compute_entry_hash};
+    use crate::evidence_journal::{EVIDENCE_EVENT_ENTRY_SEALED, compute_entry_hash};
 
     fn make_entry(node: &str, seq: u64, prev: &str, ts: i64) -> EvidenceJournalEntry {
         let payload = format!("sha3-512:{node}-{seq}");
@@ -103,7 +103,7 @@ mod tests {
             schema: crate::evidence_journal::EVIDENCE_JOURNAL_SCHEMA.to_string(),
             sequence: seq,
             node_id: node.to_string(),
-            event_type: EVIDENCE_EVENT_MODEL_SEALED.to_string(),
+            event_type: EVIDENCE_EVENT_ENTRY_SEALED.to_string(),
             entry_hash: compute_entry_hash(&payload, prev, seq, ts),
             payload_digest: payload,
             prev_hash: prev.to_string(),

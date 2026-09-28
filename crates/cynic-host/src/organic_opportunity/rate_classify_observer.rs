@@ -1,6 +1,6 @@
 //! Pattern GC opportunity observer.
 //!
-//! Interconnects generational pattern garbage collection (`cynic_protocol::pattern_gc`)
+//! Interconnects generational pattern garbage collection (`cynic_protocol::rate_classify`)
 //! with the organic opportunities compass.
 
 use std::path::PathBuf;
@@ -9,65 +9,65 @@ use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::pattern_gc::{
-    PatternClass, PatternObservation, PatternWindows, RetentionPolicy,
+use cynic_protocol::rate_classify::{
+    RateTrend, WindowedCount, CountWindows, Thresholds,
 };
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 
 /// Configuration for Pattern GC opportunity observation.
 #[derive(Debug, Clone)]
-pub struct PatternGcObserverConfig {
+pub struct RateTrendObserverConfig {
     pub pattern_report_path: PathBuf,
-    pub retention_policy: RetentionPolicy,
+    pub retention_policy: Thresholds,
 }
 
-impl Default for PatternGcObserverConfig {
+impl Default for RateTrendObserverConfig {
     fn default() -> Self {
         Self {
-            pattern_report_path: PathBuf::from("infra/pattern_gc_report.json"),
-            retention_policy: RetentionPolicy::default(),
+            pattern_report_path: PathBuf::from("infra/rate_classify_report.json"),
+            retention_policy: Thresholds::default(),
         }
     }
 }
 
 /// Host adapter observing generational pattern assessments.
-pub struct PatternGcObserver {
-    config: PatternGcObserverConfig,
+pub struct RateTrendObserver {
+    config: RateTrendObserverConfig,
 }
 
-impl PatternGcObserver {
-    pub fn new(config: PatternGcObserverConfig) -> Self {
+impl RateTrendObserver {
+    pub fn new(config: RateTrendObserverConfig) -> Self {
         Self { config }
     }
 
     /// Pure analyzer: turns classified pattern assessments into organic opportunities.
     pub fn analyze_observations(
-        observations: &[PatternObservation],
-        policy: &RetentionPolicy,
+        observations: &[WindowedCount],
+        policy: &Thresholds,
         _now_unix_s: u64,
     ) -> Vec<OrganicOpportunity> {
         let mut opportunities = Vec::new();
 
         for observation in observations {
-            let assessment = cynic_protocol::pattern_gc::classify(observation, policy);
+            let assessment = cynic_protocol::rate_classify::classify(observation, policy);
             let (class, step, unlock_prefix) = match assessment.class {
-                PatternClass::Emerging => (
+                RateTrend::Emerging => (
                     OpportunityClass::Emerging,
                     SmallestNextStep::Plan,
                     "Investigate emerging pattern",
                 ),
-                PatternClass::Recurring => (
+                RateTrend::Recurring => (
                     OpportunityClass::RecurringFriction,
                     SmallestNextStep::ProposeRepair,
                     "Distill & repair recurring pattern",
                 ),
-                PatternClass::Fading => (
+                RateTrend::Fading => (
                     OpportunityClass::Plumbing,
                     SmallestNextStep::Consolidate,
                     "Consolidate fading pattern into durable artifact",
                 ),
-                PatternClass::Unknown => continue,
+                RateTrend::Unknown => continue,
             };
 
             let digest = cynic_protocol::digest::digest_json(&serde_json::json!({
@@ -78,18 +78,18 @@ impl PatternGcObserver {
             .unwrap_or_else(|_| format!("sha3-512:{}", assessment.key));
 
             let confidence = match assessment.class {
-                PatternClass::Recurring => 0.90,
-                PatternClass::Emerging => 0.75,
-                PatternClass::Fading => 0.80,
-                PatternClass::Unknown => 0.50,
+                RateTrend::Recurring => 0.90,
+                RateTrend::Emerging => 0.75,
+                RateTrend::Fading => 0.80,
+                RateTrend::Unknown => 0.50,
             };
 
             let opp = OrganicOpportunity {
                 schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
-                opportunity_id: format!("opp:pattern_gc:{}", &digest[..16.min(digest.len())]),
+                opportunity_id: format!("opp:rate_classify:{}", &digest[..16.min(digest.len())]),
                 scope: format!("pattern/{}", assessment.key),
                 sources: vec![OpportunitySource {
-                    kind: OpportunitySourceKind::PatternGc,
+                    kind: OpportunitySourceKind::RateTrend,
                     ref_id: format!("pattern_key:{}", assessment.key),
                     label: Some(format!("class: {:?}", assessment.class)),
                 }],
@@ -114,20 +114,20 @@ impl PatternGcObserver {
     }
 }
 
-impl OrganicOpportunityObserver for PatternGcObserver {
+impl OrganicOpportunityObserver for RateTrendObserver {
     fn observer_name(&self) -> &'static str {
-        "pattern_gc_observer"
+        "rate_classify_observer"
     }
 
     fn source_kind(&self) -> OpportunitySourceKind {
-        OpportunitySourceKind::PatternGc
+        OpportunitySourceKind::RateTrend
     }
 
     fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
         let path = &self.config.pattern_report_path;
         if !path.exists() {
             return SourceObservationStatus::Unavailable {
-                kind: OpportunitySourceKind::PatternGc,
+                kind: OpportunitySourceKind::RateTrend,
                 reason: format!("pattern report file not found: {}", path.display()),
             };
         }
@@ -136,17 +136,17 @@ impl OrganicOpportunityObserver for PatternGcObserver {
             Ok(c) => c,
             Err(e) => {
                 return SourceObservationStatus::Unavailable {
-                    kind: OpportunitySourceKind::PatternGc,
+                    kind: OpportunitySourceKind::RateTrend,
                     reason: format!("failed to read pattern report {}: {}", path.display(), e),
                 };
             }
         };
 
-        let observations: Vec<PatternObservation> = match serde_json::from_str(&content) {
+        let observations: Vec<WindowedCount> = match serde_json::from_str(&content) {
             Ok(obs) => obs,
             Err(e) => {
                 return SourceObservationStatus::Unavailable {
-                    kind: OpportunitySourceKind::PatternGc,
+                    kind: OpportunitySourceKind::RateTrend,
                     reason: format!("failed to parse pattern report JSON: {}", e),
                 };
             }
@@ -172,16 +172,16 @@ mod tests {
 
     #[test]
     fn emerging_pattern_generates_emerging_opportunity() {
-        let policy = RetentionPolicy {
+        let policy = Thresholds {
             recurring_threshold_abs: 100,
             emergence_floor_abs: 10,
             emergence_ratio_epsilon: 0.1,
             fading_ratio_ceiling: 0.2,
         };
 
-        let obs = PatternObservation {
+        let obs = WindowedCount {
             key: "toolchain_ice_new_variant".to_string(),
-            windows: PatternWindows {
+            windows: CountWindows {
                 historical: 2,
                 recent: 20,
                 historical_span: 10,
@@ -189,29 +189,29 @@ mod tests {
             },
         };
 
-        let opps = PatternGcObserver::analyze_observations(&[obs], &policy, 0);
+        let opps = RateTrendObserver::analyze_observations(&[obs], &policy, 0);
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::Emerging);
         assert_eq!(opps[0].smallest_next_step, SmallestNextStep::Plan);
         assert_eq!(opps[0].scope, "pattern/toolchain_ice_new_variant");
-        assert_eq!(opps[0].sources[0].kind, OpportunitySourceKind::PatternGc);
+        assert_eq!(opps[0].sources[0].kind, OpportunitySourceKind::RateTrend);
     }
 
     #[test]
     fn recurring_pattern_generates_repair_opportunity() {
-        let policy = RetentionPolicy {
+        let policy = Thresholds {
             recurring_threshold_abs: 50,
             emergence_floor_abs: 10,
             emergence_ratio_epsilon: 0.1,
             fading_ratio_ceiling: 0.2,
         };
 
-        let obs = PatternObservation {
+        let obs = WindowedCount {
             key: "docker_socket_stale".to_string(),
-            windows: PatternWindows::comparable(80, 75),
+            windows: CountWindows::comparable(80, 75),
         };
 
-        let opps = PatternGcObserver::analyze_observations(&[obs], &policy, 0);
+        let opps = RateTrendObserver::analyze_observations(&[obs], &policy, 0);
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::RecurringFriction);
         assert_eq!(opps[0].smallest_next_step, SmallestNextStep::ProposeRepair);

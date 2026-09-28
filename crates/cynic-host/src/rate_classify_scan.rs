@@ -1,12 +1,12 @@
-//! JSONL pattern scanner feeding `cynic_protocol::pattern_gc`.
+//! JSONL pattern scanner feeding `cynic_protocol::rate_classify`.
 //!
 //! Streaming observation half of the pattern GC: walks session JSONL files,
 //! extracts top-level RFC3339 timestamps and error-bucket signatures, then
-//! windows events through the pure `pattern_gc::scan` contract. Decision
+//! windows events through the pure `rate_classify::scan` contract. Decision
 //! logic stays in `cynic-protocol`; this adapter only observes.
 //!
 //! Counting rule mirrors `trace_miner.py` (the source of the calibrated
-//! `RetentionPolicy::observed_default`): every matching bucket increments —
+//! `Thresholds::observed_default`): every matching bucket increments —
 //! one line can feed several `error_buckets.*` keys.
 
 use std::collections::BTreeMap;
@@ -15,21 +15,21 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use chrono::DateTime;
-use cynic_protocol::pattern_gc::{
-    PatternGcReport, PatternObservation, RetentionPolicy, build_report, window_events,
+use cynic_protocol::rate_classify::{
+    RateReport, WindowedCount, Thresholds, build_report, window_events,
 };
 
 use cynic_intel::autoresearch::bucket_signatures;
 use cynic_protocol::autoresearch_port::AutoresearchPortError;
 
 /// Schema of the scan projection emitted by this adapter.
-pub const SCAN_SCHEMA: &str = "cynic.pattern_gc.scan.v1";
+pub const SCAN_SCHEMA: &str = "cynic.rate_classify.scan.v1";
 
 /// One streamed scan result: windowed observations plus honesty counters.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PatternScanOutcome {
     /// Windowed observations, keys sorted alphabetically (deterministic).
-    pub observations: Vec<PatternObservation>,
+    pub observations: Vec<WindowedCount>,
     /// Boundary passed to the scan (unix seconds).
     pub boundary_s: i64,
     /// Recent-window span passed to the scan (seconds).
@@ -44,8 +44,8 @@ pub struct PatternScanOutcome {
 
 impl PatternScanOutcome {
     /// Seal the outcome into a self-digesting report under `policy`.
-    pub fn seal(&self, policy: &RetentionPolicy) -> PatternGcReport {
-        let assessments = cynic_protocol::pattern_gc::classify_all(&self.observations, policy);
+    pub fn seal(&self, policy: &Thresholds) -> RateReport {
+        let assessments = cynic_protocol::rate_classify::classify_all(&self.observations, policy);
         build_report(
             &assessments,
             policy,
@@ -132,7 +132,7 @@ pub fn scan_reader<R: BufRead>(
             ));
         };
         out_of_order_total += outcome.out_of_order;
-        observations.push(PatternObservation {
+        observations.push(WindowedCount {
             key: key.clone(),
             windows: outcome.windows,
         });
@@ -314,7 +314,7 @@ mod tests {
         assert_eq!(keys, raw_keys);
 
         // The sealed report classifies the surge as emerging.
-        let report = outcome.seal(&RetentionPolicy::observed_default());
+        let report = outcome.seal(&Thresholds::observed_default());
         assert_eq!(report.tally.emerging, 1);
         assert_eq!(report.content_sha256.len(), 64);
     }
@@ -329,13 +329,13 @@ mod tests {
         let a = scan_reader(Cursor::new(corpus.clone()), BOUNDARY, SPAN_30D).unwrap();
         let b = scan_reader(Cursor::new(corpus), BOUNDARY, SPAN_30D).unwrap();
         assert_eq!(
-            a.seal(&RetentionPolicy::observed_default()).content_sha256,
+            a.seal(&Thresholds::observed_default()).content_sha256,
             b.seal(&RetPolicyAlias::observed_default()).content_sha256
         );
     }
 
     // Local alias only to keep the determinism test line readable.
-    use RetentionPolicy as RetPolicyAlias;
+    use Thresholds as RetPolicyAlias;
 
     #[test]
     fn zero_span_request_fails_explicitly() {

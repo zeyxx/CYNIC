@@ -159,7 +159,7 @@
     {
       "id": "D1",
       "status": "DECIDED_pending_operator_confirmation",
-      "decision": "hybride journal-first: /var/lib/cynic/evidence/evidence-*.journal (JSONL signe Ed25519, SHA3-512 chainé, rotation mensuelle avec continuation prev_hash) = AUTORITE; projection surrealdb evidence_projection SCHEMAFULL = derivee reconstructible par replay, jamais autorite; ancrage PoH pattern_gc.model.sealed conserve; index side-car sqlite purement reconstructible",
+      "decision": "hybride journal-first: /var/lib/cynic/evidence/evidence-*.journal (JSONL signe Ed25519, SHA3-512 chainé, rotation mensuelle avec continuation prev_hash) = AUTORITE; projection surrealdb evidence_projection SCHEMAFULL = derivee reconstructible par replay, jamais autorite; ancrage PoH conserve (l'evenement pattern_gc.model.sealed, sans producteur depuis la suppression de pattern_gc::poh_anchor, n'est plus cite); index side-car sqlite purement reconstructible",
       "evidence": "docs/foundation/D1-cold-evidence-storage.md (6 precedents: Solana/Agave prune, Firedancer, RFC9162/CT, Trillian, QLDB journal-first, FoundationDB TLog; fait mesure: serveur SurrealDB unreachable aujourd'hui alors qu'il porte PoH non-rebuildable)",
       "challenge_note": "inclination pre-enregistree (journal pur) AMELIOREE par l'agent: la projection SQL derivee sert le requetable sans compromettre l'autorite - forme QLDB que je n'avais pas envisagee. Fait decisif verifie: coordination_journal.rs existe deja dans le repo (l'option B n'introduit pas de second moteur)"
     }

@@ -191,10 +191,10 @@ mod tests {
     fn append_then_verify_holds_offline() {
         let (store, dir) = tmp_store("append");
         let a = store
-            .append("pattern_gc.model.sealed", "sha3-512:aa11", 1_700_000_000)
+            .append("evidence.entry.sealed", "sha3-512:aa11", 1_700_000_000)
             .unwrap();
         let b = store
-            .append("pattern_gc.model.sealed", "sha3-512:bb22", 1_700_000_100)
+            .append("evidence.entry.sealed", "sha3-512:bb22", 1_700_000_100)
             .unwrap();
         assert_eq!(a.sequence, 1);
         assert_eq!(b.sequence, 2);
@@ -212,10 +212,10 @@ mod tests {
     fn tampering_a_written_line_is_detected_on_disk() {
         let (store, dir) = tmp_store("tamper");
         store
-            .append("pattern_gc.model.sealed", "sha3-512:cc33", 1_700_000_000)
+            .append("evidence.entry.sealed", "sha3-512:cc33", 1_700_000_000)
             .unwrap();
         store
-            .append("pattern_gc.model.sealed", "sha3-512:dd44", 1_700_000_100)
+            .append("evidence.entry.sealed", "sha3-512:dd44", 1_700_000_100)
             .unwrap();
 
         // Corrupt the FIRST line on disk (simulated bitrot/attacker).

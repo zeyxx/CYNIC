@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn gated_loop_skips_fading_and_unknown_domains_before_evaluation() {
         use crate::autoresearch::{FadingPolicy, emergence_directive};
-        use crate::pattern_gc::PatternClass;
+        use crate::rate_classify::RateTrend;
         use std::collections::BTreeMap;
 
         let p = AutoresearchProgram::default();
@@ -309,11 +309,11 @@ mod tests {
         let mut directives = BTreeMap::new();
         directives.insert(
             "toolchain_ice".to_string(),
-            emergence_directive(PatternClass::Fading, &FadingPolicy::default()),
+            emergence_directive(RateTrend::Fading, &FadingPolicy::default()),
         );
         directives.insert(
             "tailscale".to_string(),
-            emergence_directive(PatternClass::Emerging, &FadingPolicy::default()),
+            emergence_directive(RateTrend::Emerging, &FadingPolicy::default()),
         );
 
         let outcome = run_loop_gated(&p, &fake_port(), &directives).unwrap();

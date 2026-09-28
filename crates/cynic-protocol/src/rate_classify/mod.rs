@@ -43,8 +43,8 @@ pub mod scan;
 pub mod types;
 
 pub use policy::{SCHEMA, classify, classify_all};
-pub use report::{ClassTally, PatternGcReport, REPORT_SCHEMA, build_report};
+pub use report::{ClassTally, RateReport, REPORT_SCHEMA, build_report};
 pub use scan::{WindowOutcome, window_events};
 pub use types::{
-    PatternClass, PatternGcAssessment, PatternObservation, PatternWindows, RetentionPolicy,
+    RateTrend, RateVerdict, WindowedCount, CountWindows, Thresholds,
 };

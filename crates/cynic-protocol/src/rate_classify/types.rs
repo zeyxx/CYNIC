@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// successfully distilled into a durable artifact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PatternClass {
+pub enum RateTrend {
     /// Absolute recurrence proven over the full window.
     Recurring,
     /// Recent rate exceeds historical rate beyond epsilon with enough mass.
@@ -30,7 +30,7 @@ pub enum PatternClass {
 /// in the same unit (seconds recommended); the unit itself stays
 /// adapter-owned because classification only consumes ratios.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PatternWindows {
+pub struct CountWindows {
     /// Count over the long (cold) window.
     pub historical: u64,
     /// Count over the short (hot) window immediately following it.
@@ -41,7 +41,7 @@ pub struct PatternWindows {
     pub recent_span: u64,
 }
 
-impl PatternWindows {
+impl CountWindows {
     /// Comparable windows of equal length (span `1` in the unit-agnostic
     /// sense). Useful when an adapter can only guarantee equal slices.
     pub fn comparable(historical: u64, recent: u64) -> Self {
@@ -57,21 +57,21 @@ impl PatternWindows {
 /// One observed pattern keyed by its canonical bucket name
 /// (e.g. `error_buckets.toolchain_ice`, `tool_bigram.Bash->Read`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PatternObservation {
+pub struct WindowedCount {
     /// Canonical, dot-separated pattern key.
     pub key: String,
     /// Windowed counts observed for this key.
-    pub windows: PatternWindows,
+    pub windows: CountWindows,
 }
 
 /// Typed retention policy driving the classification decision.
 ///
 /// Defaults are calibrated against the mined corpus
 /// (`trace_report.json`, 2026-08-18): `toolchain_ice=5025` and
-/// `network=1983` must clear [`RetentionPolicy::recurring_threshold_abs`]
+/// `network=1983` must clear [`Thresholds::recurring_threshold_abs`]
 /// while `oom=224` must remain below it and therefore stay unproven.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RetentionPolicy {
+pub struct Thresholds {
     /// Absolute historical count above which a pattern is proven recurring.
     pub recurring_threshold_abs: u64,
     /// Minimum recent count required before an emerging claim is allowed.
@@ -83,13 +83,13 @@ pub struct RetentionPolicy {
     /// below this fraction of its historical rate.
     pub fading_ratio_ceiling: f64,
 }
-impl Default for RetentionPolicy {
+impl Default for Thresholds {
     fn default() -> Self {
         Self::observed_default()
     }
 }
 
-impl RetentionPolicy {
+impl Thresholds {
     /// Policy calibrated on the observed trace corpus (see module docs).
     pub fn observed_default() -> Self {
         Self {
@@ -108,11 +108,11 @@ impl RetentionPolicy {
 /// property without being able to violate one — and a field that is always
 /// false is indistinguishable from a field that is missing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PatternGcAssessment {
+pub struct RateVerdict {
     pub schema: String,
     /// Canonical pattern key that was classified.
     pub key: String,
-    pub class: PatternClass,
+    pub class: RateTrend,
     /// Explicit human-readable grounds citing observed counts.
     pub reasons: Vec<String>,
 }

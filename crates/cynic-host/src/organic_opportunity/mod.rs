@@ -6,7 +6,7 @@
 pub mod audit_observer;
 pub mod autoresearch_observer;
 pub mod decision_store;
-pub mod pattern_gc_observer;
+pub mod rate_classify_observer;
 pub mod port;
 pub mod session_observer;
 pub mod worktree_observer;
@@ -18,7 +18,7 @@ use cynic_protocol::organic_opportunity::{
     OrganicOpportunityReport, ValueFrame, rank_in_value_frame,
 };
 pub use decision_store::OpportunityDecisionStore;
-pub use pattern_gc_observer::{PatternGcObserver, PatternGcObserverConfig};
+pub use rate_classify_observer::{RateTrendObserver, RateTrendObserverConfig};
 pub use port::{OrganicOpportunityObserver, SourceObservationStatus};
 pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
 pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
@@ -110,8 +110,8 @@ pub fn collect_default_organic_opportunities(
         debt_file_path: workspace_root.join("infra").join("DEBT_TAXONOMY.md"),
     });
 
-    let pattern_obs = PatternGcObserver::new(PatternGcObserverConfig {
-        pattern_report_path: workspace_root.join("infra").join("pattern_gc_report.json"),
+    let pattern_obs = RateTrendObserver::new(RateTrendObserverConfig {
+        pattern_report_path: workspace_root.join("infra").join("rate_classify_report.json"),
         retention_policy: Default::default(),
     });
 

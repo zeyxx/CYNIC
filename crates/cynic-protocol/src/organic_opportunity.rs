@@ -54,8 +54,8 @@ pub enum OpportunitySourceKind {
     TaskReceipt,
     /// Manual operator note with a typed digest.
     OperatorNote,
-    /// Observed in generational pattern garbage collection (pattern_gc).
-    PatternGc,
+    /// Observed in generational pattern garbage collection (rate_classify).
+    RateTrend,
     /// Observed in autonomous skill research (autoresearch).
     Autoresearch,
 }

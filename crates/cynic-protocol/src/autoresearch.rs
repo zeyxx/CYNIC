@@ -303,7 +303,7 @@ pub fn build_report(
 }
 
 // ---------------------------------------------------------------------------
-// EMERGENCE GATE — connects pattern_gc classes to skill generation.
+// EMERGENCE GATE — connects rate_classify classes to skill generation.
 // A Fading domain asks for CONSOLIDATION of existing knowledge, not a new
 // skill; an Emerging domain deserves priority. Pure, no IO.
 // ---------------------------------------------------------------------------
@@ -346,22 +346,22 @@ pub enum GateVerdict {
     Skip { reason: String },
 }
 
-/// Map a `PatternClass` (see `crate::pattern_gc`) to a loop directive.
+/// Map a `RateTrend` (see `crate::rate_classify`) to a loop directive.
 pub fn emergence_directive(
-    class: crate::pattern_gc::PatternClass,
+    class: crate::rate_classify::RateTrend,
     policy: &FadingPolicy,
 ) -> EmergenceDirective {
     match class {
-        crate::pattern_gc::PatternClass::Emerging => EmergenceDirective::Prioritize,
-        crate::pattern_gc::PatternClass::Recurring => EmergenceDirective::Allow,
-        crate::pattern_gc::PatternClass::Fading => {
+        crate::rate_classify::RateTrend::Emerging => EmergenceDirective::Prioritize,
+        crate::rate_classify::RateTrend::Recurring => EmergenceDirective::Allow,
+        crate::rate_classify::RateTrend::Fading => {
             if policy.consolidation_required {
                 EmergenceDirective::Consolidate
             } else {
                 EmergenceDirective::NoSignal
             }
         }
-        crate::pattern_gc::PatternClass::Unknown => EmergenceDirective::NoSignal,
+        crate::rate_classify::RateTrend::Unknown => EmergenceDirective::NoSignal,
     }
 }
 
@@ -382,25 +382,25 @@ pub fn gate_hypothesis(directive: EmergenceDirective) -> GateVerdict {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pattern_gc::PatternClass;
+    use crate::rate_classify::RateTrend;
 
     #[test]
     fn directives_map_from_classes() {
         let p = FadingPolicy::default();
         assert_eq!(
-            emergence_directive(PatternClass::Emerging, &p),
+            emergence_directive(RateTrend::Emerging, &p),
             EmergenceDirective::Prioritize
         );
         assert_eq!(
-            emergence_directive(PatternClass::Recurring, &p),
+            emergence_directive(RateTrend::Recurring, &p),
             EmergenceDirective::Allow
         );
         assert_eq!(
-            emergence_directive(PatternClass::Fading, &p),
+            emergence_directive(RateTrend::Fading, &p),
             EmergenceDirective::Consolidate
         );
         assert_eq!(
-            emergence_directive(PatternClass::Unknown, &p),
+            emergence_directive(RateTrend::Unknown, &p),
             EmergenceDirective::NoSignal
         );
     }
@@ -411,7 +411,7 @@ mod tests {
             consolidation_required: false,
         };
         assert_eq!(
-            emergence_directive(PatternClass::Fading, &p),
+            emergence_directive(RateTrend::Fading, &p),
             EmergenceDirective::NoSignal
         );
     }
@@ -420,10 +420,10 @@ mod tests {
     fn gate_skips_fading_and_unknown_with_reasons() {
         let p = FadingPolicy::default();
         assert_eq!(
-            gate_hypothesis(emergence_directive(PatternClass::Emerging, &p)),
+            gate_hypothesis(emergence_directive(RateTrend::Emerging, &p)),
             GateVerdict::Evaluate
         );
-        match gate_hypothesis(emergence_directive(PatternClass::Fading, &p)) {
+        match gate_hypothesis(emergence_directive(RateTrend::Fading, &p)) {
             GateVerdict::Skip { reason } => assert!(reason.contains("consolidate")),
             other => panic!("expected Skip, got {other:?}"),
         }

@@ -1,11 +1,11 @@
-//! Pure windowing of timestamped pattern events into [`PatternWindows`].
+//! Pure windowing of timestamped pattern events into [`CountWindows`].
 //!
 //! This is the pure half of the future scan surface: it turns ordered event
 //! timestamps plus an explicit boundary into the windowed counts consumed by
 //! `policy::classify`. File access, JSONL parsing, and key extraction stay
 //! adapter-owned; nothing here touches the filesystem.
 
-use super::types::PatternWindows;
+use super::types::CountWindows;
 
 /// Windowed counts plus an explicit residue for events stamped after the
 /// declared boundary.
@@ -15,7 +15,7 @@ use super::types::PatternWindows;
 /// drop the source, or re-run with a later boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowOutcome {
-    pub windows: PatternWindows,
+    pub windows: CountWindows,
     /// Events whose timestamp lies beyond `boundary_s`.
     pub out_of_order: u64,
 }
@@ -56,7 +56,7 @@ pub fn window_events(
     let historical_span = oldest.map_or(0, |oldest| (hot_start - oldest).max(0) as u64);
 
     Some(WindowOutcome {
-        windows: PatternWindows {
+        windows: CountWindows {
             historical,
             recent,
             historical_span,

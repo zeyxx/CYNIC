@@ -203,7 +203,7 @@ inachevés, frictions récurrentes, émergences, plomberie, dépendances).
 
 **Briques existantes** :
 - `cynic-protocol/src/organic_opportunity.rs` — contrat pur (685 lignes)
-- `cynic-protocol/src/autoresearch.rs` — emergence gate, pattern_gc mapping
+- `cynic-protocol/src/autoresearch.rs` — emergence gate, rate_classify mapping
 - `cynic-host/src/autoresearch/trace_fs.rs` — streaming trace observer
 - `cynic-host/src/autoresearch/reflection.rs` — LLM hypothesis generation
 - `infra/storage-layering.json` — L2 telemetry veins identifiées
@@ -745,7 +745,7 @@ Un acteur précis mais volatile (σ² élevé) score moins qu'un acteur légère
 | Preuves | `Proof of History` | Réutiliser tel quel |
 | Décision | `CynicJudgment` | Étendre avec prediction_ref |
 | Observation a posteriori | `engine_capability_store` | Premier cas de market_resolution |
-| Pattern classification | `pattern_gc` (Emerging/Recurring/Fading) | Alimenter le marché |
+| Rate classification | `rate_classify` (Emerging/Recurring/Fading) | Alimenter le marché |
 | Trace mining | `autoresearch/trace_fs` | Alimenter les prédictions |
 | Storage layering | `storage-layering.json` (L0-L4) | Market Memory = L0+L1+L2 |
 | Intention humaine | `cynic-askesis` | Prédicteur d'intention opérateur |
@@ -757,7 +757,7 @@ Un acteur précis mais volatile (σ² élevé) score moins qu'un acteur légère
 | Réputation propagation | `escore/aggregator.rs` | EigenTrust |
 | Topologie | `emergence.rs` | Expander graphs |
 | Observation a posteriori | `engine_capability_store` | Premier cas de market_resolution |
-| Pattern classification | `pattern_gc` (Emerging/Recurring/Fading) | Alimenter le marché |
+| Rate classification | `rate_classify` (Emerging/Recurring/Fading) | Alimenter le marché |
 | Trace mining | `autoresearch/trace_fs` | Alimenter les prédictions |
 | Storage layering | `storage-layering.json` (L0-L4) | Market Memory = L0+L1+L2 |
 | Intention humaine | `cynic-askesis` | Prédicteur d'intention opérateur |
