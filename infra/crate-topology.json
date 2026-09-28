@@ -805,5 +805,11 @@
   "corrections": [
     "cynic-pool declares [[bin]] src/main.rs behind required-features=[cli]; it is a binary, not an unjustified library.",
     "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
-  ]
+  ],
+  "ratification": {
+    "date": "2026-09-28",
+    "status": "normative",
+    "why": "Single source of truth for the crate DAG, the layer assignment and crate justification. It supersedes the prose taxonomy in AGENTS.md, which is not executable and can drift from the build graph. ARCH-004 makes it falsifiable: every crate declared, every edge real, no undeclared edge, no upward edge, acyclic, and every crate justified or listed in pending_disposition.",
+    "not_yet_propagated": "AGENTS.md still carries the prose taxonomy and does not point here. It is claimed by another agent, so the pointer is deferred. Two statements of the taxonomy therefore coexist today; on the authority_order this file declares, this one wins."
+  }
 }

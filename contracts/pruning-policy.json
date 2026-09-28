@@ -1,10 +1,16 @@
 {
   "schema": "cynic.pruning-policy.v1",
-  "status": "draft",
+  "status": "normative",
   "purpose": "Formal pruning and debloat policy for CYNIC crates, modules, and dependency boundaries. Behavior-driven, auditable, revocable.",
   "scope": {
-    "applies_to": ["all workspace crates", "internal module organization", "dependency decisions"],
-    "excludes": ["isolated experimental fragments unless promoted into the workspace"]
+    "applies_to": [
+      "all workspace crates",
+      "internal module organization",
+      "dependency decisions"
+    ],
+    "excludes": [
+      "isolated experimental fragments unless promoted into the workspace"
+    ]
   },
   "split_criteria": {
     "module_sufficient": {
@@ -63,5 +69,12 @@
   "known_exclusions": [
     "This policy does not replace verification of code, tests, dependencies, build, and real impact.",
     "This policy does not decide automatically; it produces signals and decision rules."
-  ]
+  ],
+  "ratification": {
+    "date": "2026-09-28",
+    "previous_status": "draft",
+    "ratified_by": "operator",
+    "why": "This policy was used as the decision rule for the whole crate fusion programme — infra/CRATE_FUSION_DISPOSITIONS.md applies crate_justified and suspect_over_splitting to 10 candidates, and those dispositions are only proposals rather than opinions because the rule they were derived from is now authority. A contract left in draft while being used to rule is the same failure as a denylist nobody compares: it looks like a policy and decides nothing.",
+    "applies_to_the_agent": "This policy is the authority for whether a crate may be created, fused, or removed. It is machine-checked in part by ARCH-004 in cynic-host::audit_engine, which enforces the justification clause against the observed manifests, and the remainder is carried by infra/CRATE_FUSION_DISPOSITIONS.md, whose lists may only shrink."
+  }
 }
