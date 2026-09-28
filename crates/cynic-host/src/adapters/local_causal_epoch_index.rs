@@ -146,7 +146,7 @@ impl CausalEpochIndexStorePort for LocalCausalEpochIndexStore {
 mod tests {
     use super::*;
     use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
-    use cynic_protocol::CausalEpochKey;
+    use cynic_eval::convergence::CausalEpochKey;
 
     fn entry(epoch_id: &str, marker: char, observed_at_unix_ms: u128) -> CausalEpochIndexEntry {
         CausalEpochIndexEntry {

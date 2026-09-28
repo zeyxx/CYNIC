@@ -17,8 +17,10 @@ use cynic_build::build::BuildRunnerObservation;
 use cynic_build::runtime_release::RuntimeReleaseDeclaration;
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_host::forgejo_webhook::{ForgejoHandlerConfig, ForgejoPayload, handle_forgejo_payload};
-use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
+use cynic_vcs_forgejo::forgejo_webhook::{
+    ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
+};
+use cynic_vcs_forgejo::{WebhookServerConfig, spawn_webhook_server};
 use cynic_host::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
@@ -133,7 +135,7 @@ fn e2e_step1_webhook_parses_valid_push() {
     let handler_result = handle_forgejo_payload(&payload, &ForgejoHandlerConfig::default());
 
     match handler_result {
-        cynic_host::forgejo_webhook::ForgejoHandlerResult::Triggered {
+        ForgejoHandlerResult::Triggered {
             source_commit,
             workload_id,
         } => {
@@ -156,7 +158,7 @@ fn e2e_step1_webhook_skips_wrong_branch() {
     let result = handle_forgejo_payload(&payload, &ForgejoHandlerConfig::default());
 
     match result {
-        cynic_host::forgejo_webhook::ForgejoHandlerResult::Skipped { reason } => {
+        ForgejoHandlerResult::Skipped { reason } => {
             assert!(reason.contains("branch_mismatch"));
         }
         _ => panic!("expected Skipped"),

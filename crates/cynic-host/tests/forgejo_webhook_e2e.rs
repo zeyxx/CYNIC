@@ -5,7 +5,7 @@
 //! Verifies: HTTP parsing → HMAC verification → commit validation →
 //! forward to node → workload_id read-back structure.
 
-use cynic_host::forgejo_webhook_server::{WebhookServerConfig, spawn_webhook_server};
+use cynic_vcs_forgejo::{WebhookServerConfig, spawn_webhook_server};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::net::TcpStream;

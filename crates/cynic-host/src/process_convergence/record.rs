@@ -242,9 +242,10 @@ mod tests {
     use super::*;
     use crate::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
     use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
+    use cynic_eval::convergence::ConvergenceStatus;
     use cynic_protocol::{
-        ConvergenceStatus, SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID,
-        SERVICE_SUPERVISOR_OBSERVATION_SCHEMA, ServiceSupervisorUnitObservation,
+        SERVICE_SUPERVISOR_OBSERVATION_EVIDENCE_ID, SERVICE_SUPERVISOR_OBSERVATION_SCHEMA,
+        ServiceSupervisorUnitObservation,
     };
 
     fn request() -> ProcessConvergenceRequest {

@@ -172,10 +172,10 @@ mod tests {
         let broken_policy = LoadPolicy {
             schema: cynic_protocol::capacity::LOAD_POLICY_SCHEMA.to_string(),
             policy_id: String::new(), // invalid: violations non-empty
-            survival_cpu_pct: 85.0,
-            survival_mem_pct: 90.0,
-            standard_cpu_pct: 40.0,
-            standard_mem_pct: 60.0,
+            saturation_cpu_pct: 85.0,
+            saturation_mem_pct: 90.0,
+            normal_cpu_pct: 40.0,
+            normal_mem_pct: 60.0,
         };
         let port =
             LocalTaskAdmission::new(broken_policy, FreshnessPolicy::with_defaults(), envelope(1));

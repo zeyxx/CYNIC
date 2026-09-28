@@ -115,10 +115,11 @@ mod tests {
     use crate::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
     use crate::ports::causal_epoch_index::CausalEpochIndexStorePort;
     use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
-    use cynic_protocol::{
-        CausalConvergenceEpoch, CausalEvidenceRefs, ConvergenceCell, EvidenceRef, TrustAssessment,
-        TrustDimensionStatus, TrustRequirements, build_evidence_envelope,
+    use cynic_eval::convergence::{
+        CausalConvergenceEpoch, CausalEvidenceRefs, ConvergenceCell, TrustAssessment,
+        TrustDimensionStatus, TrustRequirements,
     };
+    use cynic_protocol::{EvidenceRef, build_evidence_envelope};
 
     /// A syntactically valid sha256 digest, distinguished by `marker`.
     ///
@@ -202,8 +203,8 @@ mod tests {
         .unwrap();
         evidence_store.persist(&envelope).unwrap();
         index_store
-            .append(&cynic_protocol::CausalEpochIndexEntry {
-                key: cynic_protocol::CausalEpochKey {
+            .append(&cynic_eval::convergence::CausalEpochIndexEntry {
+                key: cynic_eval::convergence::CausalEpochKey {
                     subject_id: "local-kernel/process".to_string(),
                     vertical_id: "process".to_string(),
                     epoch_id: epoch.epoch_id.clone(),
@@ -246,8 +247,8 @@ mod tests {
         let evidence_store = LocalContentAddressedEvidenceStore::new(evidence_root.path());
         persist_epoch(&epoch("epoch-1", 1, 'a'), &index_store, &evidence_store);
         index_store
-            .append(&cynic_protocol::CausalEpochIndexEntry {
-                key: cynic_protocol::CausalEpochKey {
+            .append(&cynic_eval::convergence::CausalEpochIndexEntry {
+                key: cynic_eval::convergence::CausalEpochKey {
                     subject_id: "local-kernel/process".to_string(),
                     vertical_id: "process".to_string(),
                     epoch_id: "epoch-2".to_string(),
