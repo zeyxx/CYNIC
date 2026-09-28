@@ -92,9 +92,9 @@ pub async fn run_server(
                 crate::watcher::WSS_RECONNECTIONS.load(std::sync::atomic::Ordering::Relaxed);
 
             // 4. Dimension Métabolisme Système
-            use crate::metabolism::{LoadProbe, OsLoadProbe};
+            use crate::metabolism::{LoadProbe, OsLoadProbe, declared_load_policy};
             let mut metabolism = OsLoadProbe::new();
-            let load_tier = format!("{:?}", metabolism.current_load());
+            let load_tier = format!("{:?}", metabolism.current_load(&declared_load_policy()));
 
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

@@ -11,7 +11,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::metabolism::{LoadProbe, OsLoadProbe};
+use crate::metabolism::{LoadProbe, OsLoadProbe, declared_load_policy};
 use async_trait::async_trait;
 
 use crate::domain::UniversalObserverEvent;
@@ -62,7 +62,7 @@ impl EventSourcePort for SystemMetabolismSource {
     }
 
     async fn poll_events(&mut self) -> Result<Vec<UniversalObserverEvent>, String> {
-        let state = self.metabolism.current_load();
+        let state = self.metabolism.current_load(&declared_load_policy());
         let payload = serde_json::json!({
             "load_tier": format!("{state:?}"),
             "status": "observed",

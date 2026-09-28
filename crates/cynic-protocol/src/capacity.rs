@@ -83,6 +83,28 @@ impl LoadPolicy {
         }
     }
 
+    /// Pure selection: declared policy if it parses and validates, else defaults.
+    ///
+    /// The rule lives here so every adapter resolves identically. The file read is
+    /// an I/O concern and stays in the caller; only the decision is shared, which
+    /// is what stops two measurement paths from drifting apart silently.
+    ///
+    /// A declared policy that is present but invalid is an error, not a silent
+    /// fallback: falling back would make an operator's threshold change a no-op
+    /// and report success.
+    pub fn resolve(declared_json: Option<&str>, default_policy_id: &str) -> Result<Self, String> {
+        let Some(raw) = declared_json else {
+            return Ok(Self::with_legacy_defaults(default_policy_id));
+        };
+        let parsed: Self = serde_json::from_str(raw).map_err(|e| format!("load policy unparseable: {e}"))?;
+        let violations = parsed.violations();
+        if violations.is_empty() {
+            Ok(parsed)
+        } else {
+            Err(format!("load policy invalid: {violations:?}"))
+        }
+    }
+
     /// Pure validation: saturation thresholds must sit strictly above normal ones.
     pub fn violations(&self) -> Vec<String> {
         let mut v = Vec::new();
