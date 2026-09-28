@@ -28,6 +28,7 @@ pub(crate) mod network_mesh_bundle_port;
 pub(crate) mod network_mesh_bundle_writer_port;
 pub(crate) mod network_mesh_registry_port;
 pub mod node_control_plane_port;
+pub mod node_control_store_port;
 pub mod node_enrollment_signer_port;
 pub mod node_enrollment_store_port;
 pub mod node_identity_port;
