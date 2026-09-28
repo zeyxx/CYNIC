@@ -37,6 +37,7 @@ pub(crate) mod local_network_mesh_bundle_writer;
 pub(crate) mod local_network_mesh_registry;
 pub mod local_node_control_observer;
 pub mod local_node_enrollment;
+pub mod local_node_enrollment_signer;
 pub mod local_node_identity;
 pub mod local_release_basket_packaging;
 pub mod local_runtime_federation_queue_store;
