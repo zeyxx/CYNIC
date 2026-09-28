@@ -484,37 +484,48 @@ fn execute_claim_local(
             .and_then(|v| v.as_str())
             .unwrap_or("");
         if holder == agent_id && existing_kind == kind && existing_path == target {
-            let granted_s = existing_claim
-                .get("temporal")
-                .and_then(|t| t.get("started_at_unix_s"))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(now_s);
             let granted_ttl = existing_claim
                 .get("temporal")
                 .and_then(|t| t.get("ttl_seconds"))
                 .and_then(|v| v.as_u64())
                 .unwrap_or(ttl);
+            let budget_actions_v = existing_claim
+                .get("budget")
+                .and_then(|b| b.get("actions"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(actions);
+            let budget_wall_v = existing_claim
+                .get("budget")
+                .and_then(|b| b.get("wall_seconds"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(wall);
+            let holder_id_owned = holder_id.to_string();
+            // Heartbeat-by-reclaim (2026-09-28): same holder re-claiming the
+            // same live scope refreshes started_at instead of stacking a
+            // duplicate. Local claims have no heartbeat command; without this
+            // every TTL window orphaned its entry and the active set only
+            // grew. Dead holders never reclaim, so they decay by TTL.
+            if let Some(list) = doc.get_mut("claims").and_then(|v| v.as_array_mut()) {
+                if let Some(entry) = list.iter_mut().find(|e| {
+                    e.get("claim_id").and_then(|v| v.as_str()) == Some(holder_id_owned.as_str())
+                }) {
+                    entry["temporal"]["started_at_unix_s"] = serde_json::json!(now_s);
+                }
+            }
+            let revision = store_claims_doc(&mut doc)?;
             return Ok(AgentClaimReport {
                 schema: AGENT_CLAIM_REPORT_SCHEMA,
                 status: "claimed",
                 agent_id: agent_id.to_string(),
                 target: target.to_string(),
                 claim_type: kind.to_string(),
-                lease_id: holder_id.to_string(),
-                fencing_token: doc.get("revision").and_then(|v| v.as_u64()).unwrap_or(0),
+                lease_id: holder_id_owned,
+                fencing_token: revision,
                 ttl_seconds: granted_ttl,
-                budget_actions: existing_claim
-                    .get("budget")
-                    .and_then(|b| b.get("actions"))
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(actions),
-                budget_wall_seconds: existing_claim
-                    .get("budget")
-                    .and_then(|b| b.get("wall_seconds"))
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(wall),
-                granted_at_unix_ms: granted_s * 1000,
-                expires_at_unix_ms: granted_s * 1000 + granted_ttl * 1000,
+                budget_actions: budget_actions_v,
+                budget_wall_seconds: budget_wall_v,
+                granted_at_unix_ms: now_ms,
+                expires_at_unix_ms: now_ms + granted_ttl * 1000,
             });
         }
         if coord_predicates::scopes_overlap(
@@ -546,7 +557,17 @@ fn execute_claim_local(
         "status": "active",
     });
     match doc.get_mut("claims").and_then(|v| v.as_array_mut()) {
-        Some(list) => list.push(entry),
+        Some(list) => {
+            // Compaction on success path only (2026-09-28): silently expired
+            // entries are void for conflicts already; drop them here so the
+            // file stops growing with ghosts. Explicit `released` entries are
+            // audit trail and stay. A failed claim below must not mutate.
+            list.retain(|e| {
+                e.get("status").and_then(|v| v.as_str()) == Some("released")
+                    || local_claim_active(e, now_s)
+            });
+            list.push(entry);
+        }
         None => doc["claims"] = serde_json::json!([entry]),
     }
     let revision = store_claims_doc(&mut doc)?;
@@ -684,6 +705,12 @@ pub(crate) fn execute_status(
                 .get("expires_at_unix_ms")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
+            // Display honesty (2026-09-28): a claim past its expiry is not
+            // active, even if nothing flipped its status string. Listing it
+            // with remaining 0 inflated totals and faked liveness.
+            if expires <= now_unix_ms() {
+                return None;
+            };
             let remaining = if expires > now_unix_ms() {
                 ((expires - now_unix_ms()) / 1000) as i64
             } else {
@@ -752,8 +779,11 @@ fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, 
         .filter_map(|c| {
             let cid = c.get("claim_id")?.as_str()?.to_string();
             let aid = c.get("agent_id")?.as_str()?;
-            let status = c.get("status").and_then(|v| v.as_str()).unwrap_or("active");
-            if status != "active" {
+            // Display honesty (2026-09-28): same liveness rule as the
+            // conflict path (local_claim_active) — status string alone is
+            // not liveness. Expired entries are data for the audit trail,
+            // not members of the active set.
+            if !local_claim_active(c, now_ms / 1000) {
                 return None;
             }
             if !agent_id.is_empty() && aid != agent_id && agent_id != "*" {
@@ -876,5 +906,47 @@ mod tests {
     #[test]
     fn git_remote_never_empty() {
         assert!(!resolve_git_remote().is_empty());
+    }
+
+    fn claim_entry(status: &str, started_at_unix_s: u64, ttl_seconds: u64) -> serde_json::Value {
+        serde_json::json!({
+            "claim_id": "claim_test_1",
+            "agent_id": "tester",
+            "scope": {"kind": "file", "path": "a/b.rs"},
+            "temporal": {"started_at_unix_s": started_at_unix_s, "ttl_seconds": ttl_seconds},
+            "status": status,
+        })
+    }
+
+    #[test]
+    fn liveness_requires_active_status_and_unexpired_ttl() {
+        let now = 1_790_600_000u64;
+        assert!(local_claim_active(
+            &claim_entry("active", now - 100, 1800),
+            now
+        ));
+        // Past TTL with status still "active" is NOT live (the ghost case:
+        // status string alone faked liveness across 69 entries).
+        assert!(!local_claim_active(
+            &claim_entry("active", now - 2000, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("released", now - 100, 1800),
+            now
+        ));
+        assert!(!local_claim_active(
+            &claim_entry("expired", now - 100, 1800),
+            now
+        ));
+        // Boundary: exactly at expiry is dead (now < started + ttl is strict).
+        assert!(!local_claim_active(
+            &claim_entry("active", now - 1800, 1800),
+            now
+        ));
+        assert!(local_claim_active(
+            &claim_entry("active", now - 1799, 1800),
+            now
+        ));
     }
 }

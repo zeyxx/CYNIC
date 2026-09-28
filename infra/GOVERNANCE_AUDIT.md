@@ -190,3 +190,32 @@ disposition and are not in this slice.
   G5 is implemented it should be written into `contracts/foundation.json`, because a taxonomy rule
   that lives only in chat cannot be enforced by a test. `unknown` whether the owner wants it
   constitutional.
+
+## 7. Coordination liveness — the active-set lie (2026-09-28, observed + fixed)
+
+- **Method**: store-level census of `.agent-claims.json` (240 entries: 143 `active`, 92
+  `released`, 5 `expired`), TTL evaluation per entry, process table, fs mtimes,
+  kernel reachability (`:8080` → 000, unreachable).
+- **Finding 1**: 69 of 143 `active` claims were past TTL. Status display filtered
+  on the status *string* only, so ghosts listed with `remaining 0` and inflated
+  totals. Conflict path already filtered expiry (`local_claim_active`) — reads
+  lied while writes told the truth.
+- **Finding 2**: kernel-first/local-fallback dual-write (300 ms timeout) with no
+  sync (`merge_queue` wired to nothing). A `released` ack from one side left the
+  other stale. 13 own releases acked-but-unflipped this way.
+- **Finding 3**: local claims had no heartbeat (no CLI subcommand, no TTL refresh
+  on re-claim — re-claim returned the aging entry). Every TTL window orphaned
+  entries; the active set could only grow (revision 367 and counting, no
+  compaction, no reaping).
+- **Fix applied** (`crates/cynic-cli/src/agent_surface/coordination.rs`): status
+  display (both kernel and file paths) evaluates liveness; same-holder re-claim
+  refreshes `started_at` (heartbeat-by-reclaim); claim success path compacts
+  silently-expired entries (explicit `released` kept as audit trail); unit tests
+  pin the liveness boundary (`local_claim_active`).
+- **Residual**: kernel-path display trusts kernel expiry fields; `merge_queue`
+  still unwired (no drain protocol); `released` entries compact never (audit
+  trail by default — needs an explicit retention rule); claims on deleted paths
+  accepted (explicit unknown, not refused).
+- **Live-holder nuance**: long-TTL actives are not all stale — e.g. gov holds
+  with heartbeated windows. Staleness is decided per entry by (status, TTL,
+  holder process, fs recency), never by age alone.
