@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::SystemTime;
 
-use cynic_release::GateProofRecord;
+use crate::types::GateProofRecord;
 
 /// Collect raw host gate proofs (compilation, secret scan, git cleanliness).
 pub fn collect_host_gate_proofs(root: &Path) -> Vec<GateProofRecord> {
@@ -69,7 +69,7 @@ fn run_cargo_check(root: &Path) -> bool {
 }
 
 fn run_secret_lint(root: &Path) -> bool {
-    let observation = crate::secret_lint::scan_for_secrets(root);
+    let observation = super::secret_lint::scan_for_secrets(root);
     !observation.has_findings()
 }
 

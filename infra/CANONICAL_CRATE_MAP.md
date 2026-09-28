@@ -5,7 +5,7 @@
 > **Pattern** : `cynic-<family>-<role>` — no exceptions.
 > **External validation** : Agave/Solana workspace (117 crates), Bevy (60 crates), Substrate (500+ crates).
 > **God-object ceiling** : 25,000 LOC — `contracts/foundation.json` hard boundary and `infra/ARCHITECTURE_CONSTELLATIONS.md` rule 5. Supersedes the 40k figure recorded in v2.
-> **Measured** : 2026-09-28 from `cargo metadata` (47 workspace crates) and `src/` LOC census. Total: 388,257 LOC.
+> **Measured** : 2026-09-28 from `cargo metadata` (47 workspace crates) and `src/` LOC census. Total: 388,393 LOC.
 
 ---
 
@@ -45,7 +45,7 @@ R8. Vertical extraction only. Extraction proceeds bottom-up by tier
 ## 2. CURRENT STATE — MEASURED LOC (2026-09-28)
 
 ```
-cynic-host           93 206    GOD OBJECT (extraction session 3 pending)
+cynic-host           92 917    GOD OBJECT (extraction session 3 in progress)
 cynic-node           58 327    GOD OBJECT (extraction session 4 pending)
 cynic-kernel         40 434    GOD OBJECT (grew from 6.3K — organ/senses/probe/introspection modules)
 cynic-protocol       34 779    GOD OBJECT (extraction sessions 1-2 partial)
@@ -77,7 +77,7 @@ cynic-secrets           783    cross-cutting ✓
 cynic-pool              744    ORPHAN (rename: cynic-agent-pool)
 cynic-agent-bus         729    constellation ✓
 cynic-intel-soc         597    constellation ✓
-cynic-release           595    bad name (→ cynic-host-release)
+cynic-release         1 020    ok (absorbed release_gate_adapter + release_relay_adapter + secret_lint from cynic-host, 2026-09-28)
 cynic-domain-cloudflare 555    constellation ✓
 cynic-solana-pay        471    created 2026-09-24 ✓ (payment vocabulary, not anchor)
 cynic-agent-bus-coordinator 457 constellation ✓
@@ -381,7 +381,7 @@ SESSION 2 : Renames (Cargo.toml workspace + consumers)
   14 renames listed in section 4. Mechanical, no code movement.
   Validate: cargo check --workspace after each rename.
 
-SESSION 3 : Explode cynic-host (93K → ~10 crates)
+SESSION 3 : Explode cynic-host (92.9K → ~10 crates) — IN PROGRESS: release adapters extracted to cynic-release (2026-09-28)
 ──────────────────────────────────────────────────────────
   After clean protocol. Destination crates exist (post-rename).
   Move host/src/ modules to their respective cynic-host-* crates.

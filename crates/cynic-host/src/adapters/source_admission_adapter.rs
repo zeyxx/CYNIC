@@ -5,7 +5,7 @@ use std::path::Path;
 
 use cynic_vcs::sync::{SourceAdmissionReport, SyncDecision};
 
-use crate::adapters::release_gate_adapter::collect_host_gate_proofs;
+use cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs;
 
 /// Collect gate proofs from the host and admit the sync decision.
 ///

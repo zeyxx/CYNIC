@@ -6,12 +6,14 @@
 //! - evaluator: pure business evaluation (zero I/O)
 //! - ports: driven interfaces for execution layers
 
+pub mod adapters;
 pub mod contracts;
 pub mod error;
 pub mod evaluator;
 pub mod ports;
 pub mod types;
 
+pub use adapters::*;
 pub use contracts::*;
 pub use error::*;
 pub use evaluator::*;
