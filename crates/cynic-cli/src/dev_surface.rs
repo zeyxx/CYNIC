@@ -2,6 +2,7 @@ use clap::Subcommand;
 use std::process::ExitCode;
 
 use crate::agent_exposure_audit::audit_agent_exposure;
+use crate::branch_audit::audit_branches;
 use crate::crate_audit::audit_core_crates;
 use crate::emit_json;
 use crate::kernel_boundary_audit::audit_kernel_surfaces;
@@ -39,6 +40,19 @@ pub(crate) enum DevCommand {
         json: bool,
     },
     CrateAudit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+        #[arg(long)]
+        persist: bool,
+    },
+    /// Triage branches by measurement: does this branch still describe a world
+    /// that exists, and does it carry patches `main` has never seen?
+    BranchAudit {
+        /// Base ref the branches are compared against.
+        #[arg(long, default_value = "main")]
+        base: String,
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -121,6 +135,23 @@ pub(crate) fn execute_dev(command: DevCommand) -> ExitCode {
             let report = audit_core_crates();
             if let Err(error) =
                 maybe_persist_dev_audit_report(&report, output, persist, "crate-audit.json")
+            {
+                return crate::fail(error);
+            }
+            emit_json(&report, report.status != "ok")
+        }
+        DevCommand::BranchAudit {
+            base,
+            json,
+            output,
+            persist,
+        } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            let report = audit_branches(&base);
+            if let Err(error) =
+                maybe_persist_dev_audit_report(&report, output, persist, "branch-audit.json")
             {
                 return crate::fail(error);
             }

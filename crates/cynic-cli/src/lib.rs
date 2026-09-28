@@ -22,6 +22,7 @@ pub mod chat_tui;
 pub mod cli_args;
 pub mod cli_exit;
 pub mod cli_json;
+pub mod branch_audit;
 pub mod command_manifest;
 pub mod constitutional_court_b;
 pub mod constitutional_court_surface;
