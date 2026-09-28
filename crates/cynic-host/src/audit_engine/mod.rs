@@ -1,4 +1,5 @@
 pub mod path_rules;
+pub mod topology;
 pub mod rules;
 pub mod scanner;
 
@@ -7,6 +8,7 @@ use std::path::Path;
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
+use self::topology::CrateTopologyRule;
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, LayerBoundaryRule, NodeHostBoundaryRule,
     OwnershipRule, PathSanitationRule,
@@ -41,6 +43,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(DeclaredPathExistenceRule),
         Box::new(RustPathReferenceRule),
         Box::new(PathSsotIgnoreRule),
+        Box::new(CrateTopologyRule),
     ]
 }
 
@@ -55,6 +58,7 @@ pub fn default_path_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(DeclaredPathExistenceRule),
         Box::new(RustPathReferenceRule),
         Box::new(PathSsotIgnoreRule),
+        Box::new(CrateTopologyRule),
     ]
 }
 
