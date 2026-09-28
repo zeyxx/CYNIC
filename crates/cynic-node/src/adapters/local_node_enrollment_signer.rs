@@ -18,7 +18,7 @@ use std::sync::Arc;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
-use cynic_node_protocol::MachineEnrollmentAuthority;
+use cynic_node_protocol::{MachineEnrollmentAuthority, validate_machine_enrollment_authority};
 
 use super::local_hex_key_file::read_hex_key_bytes;
 use crate::ports::node_enrollment_signer_port::NodeEnrollmentSignerPort;
@@ -105,16 +105,11 @@ impl NodeEnrollmentSignerPort for FileEnrollmentSigner {
 }
 
 fn validate_authority(authority: &MachineEnrollmentAuthority) -> Result<(), String> {
-    if authority.authority_id.trim().is_empty()
-        || authority.seed_id.trim().is_empty()
-        || authority.token_digest.trim().is_empty()
-        || authority.max_grant_ttl_s == 0
-        || authority.renewal_authority_expires_at_unix_s == 0
-        || authority.allowed_roles.is_empty()
-    {
-        return Err("machine enrollment authority is incomplete".to_string());
+    if validate_machine_enrollment_authority(authority).is_empty() {
+        Ok(())
+    } else {
+        Err("machine enrollment authority is incomplete".to_string())
     }
-    Ok(())
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {

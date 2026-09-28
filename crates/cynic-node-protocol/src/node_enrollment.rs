@@ -144,6 +144,55 @@ pub struct MachineEnrollmentAuthority {
     pub allowed_capabilities: Vec<String>,
 }
 
+/// Completeness blockers for a machine enrollment authority record.
+///
+/// Pure shape check (no clock, no request): every field the admission and
+/// renewal paths dereference must be present and non-degenerate. Sorted and
+/// deduped like every other blocker list in this module.
+///
+/// Canonical home since 2026-09-28; moved up from the node authority loader,
+/// which collapsed all six cases into one message. The loader keeps its
+/// single message (behavior-preserving delegation); the per-field codes
+/// below exist for M3 admission composition and diagnostics.
+pub fn validate_machine_enrollment_authority(
+    authority: &MachineEnrollmentAuthority,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    check(
+        !authority.authority_id.trim().is_empty(),
+        "node_enrollment_authority_id_missing",
+        &mut blockers,
+    );
+    check(
+        !authority.seed_id.trim().is_empty(),
+        "node_enrollment_authority_seed_missing",
+        &mut blockers,
+    );
+    check(
+        !authority.token_digest.trim().is_empty(),
+        "node_enrollment_authority_token_missing",
+        &mut blockers,
+    );
+    check(
+        authority.max_grant_ttl_s > 0,
+        "node_enrollment_grant_ttl_invalid",
+        &mut blockers,
+    );
+    check(
+        authority.renewal_authority_expires_at_unix_s > 0,
+        "node_enrollment_renewal_authority_invalid",
+        &mut blockers,
+    );
+    check(
+        !authority.allowed_roles.is_empty(),
+        "node_enrollment_allowed_roles_missing",
+        &mut blockers,
+    );
+    blockers.sort();
+    blockers.dedup();
+    blockers
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NodeEnrollmentAdmission {
     pub status: String,
@@ -792,5 +841,46 @@ mod tests {
             plan.blockers
                 .contains(&"machine_identity_invalid".to_string())
         );
+    }
+
+    #[test]
+    fn authority_completeness_names_each_missing_field() {
+        assert!(validate_machine_enrollment_authority(&authority()).is_empty());
+        for (mutate, code) in [
+            (
+                (|authority: &mut MachineEnrollmentAuthority| authority.authority_id.clear())
+                    as fn(&mut _),
+                "node_enrollment_authority_id_missing",
+            ),
+            (
+                (|authority: &mut MachineEnrollmentAuthority| authority.seed_id.clear()),
+                "node_enrollment_authority_seed_missing",
+            ),
+            (
+                (|authority: &mut MachineEnrollmentAuthority| authority.token_digest.clear()),
+                "node_enrollment_authority_token_missing",
+            ),
+            (
+                (|authority: &mut MachineEnrollmentAuthority| authority.max_grant_ttl_s = 0),
+                "node_enrollment_grant_ttl_invalid",
+            ),
+            (
+                (|authority: &mut MachineEnrollmentAuthority| {
+                    authority.renewal_authority_expires_at_unix_s = 0
+                }),
+                "node_enrollment_renewal_authority_invalid",
+            ),
+            (
+                (|authority: &mut MachineEnrollmentAuthority| authority.allowed_roles.clear()),
+                "node_enrollment_allowed_roles_missing",
+            ),
+        ] {
+            let mut broken = authority();
+            mutate(&mut broken);
+            assert_eq!(
+                validate_machine_enrollment_authority(&broken),
+                vec![code.to_string()]
+            );
+        }
     }
 }
