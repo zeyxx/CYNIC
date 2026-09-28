@@ -41,15 +41,10 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         registry: Option<String>,
     },
-    RegistryObservation {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long)]
-        observation: String,
-        #[arg(long)]
-        apply: bool,
+    /// Declared and observed registry state.
+    Registry {
+        #[command(subcommand)]
+        command: RuntimeRegistryCommand,
     },
     Validate {
         #[arg(long)]
@@ -241,8 +236,41 @@ pub(crate) enum RuntimeStorageCommand {
         #[arg(long)]
         endpoint: Option<String>,
     },
-    /// Set a bounded storage client policy; requires --apply and read-back proof.
-    ClientPolicy {
+    /// Storage clients and the policy they are bound to.
+    Client {
+        #[command(subcommand)]
+        command: RuntimeStorageClientCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeRegistryCommand {
+    /// Discover the active runtime, engine, transport and capability proof levels.
+    Observe {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        observation: String,
+        #[arg(long)]
+        apply: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeStorageClientCommand {
+    /// The client policy itself.
+    Policy {
+        #[command(subcommand)]
+        command: RuntimeStorageClientPolicyCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeStorageClientPolicyCommand {
+    /// Set a bounded client policy; requires --apply and read-back proof.
+    Set {
         #[arg(long)]
         policy_path: String,
         #[arg(long = "endpoint", required = true)]
@@ -410,11 +438,14 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
     };
     match command {
         RuntimeCommand::Paths { json, registry } => paths::execute_paths(json, registry),
-        RuntimeCommand::RegistryObservation {
-            json,
-            registry,
-            observation,
-            apply,
+        RuntimeCommand::Registry {
+            command:
+                RuntimeRegistryCommand::Observe {
+                    json,
+                    registry,
+                    observation,
+                    apply,
+                },
         } => {
             registry_observation::execute_registry_observation(json, registry, &observation, apply)
         }
@@ -470,13 +501,19 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                     Err(e) => fail(e),
                 }
             }
-            RuntimeStorageCommand::ClientPolicy {
-                policy_path,
-                endpoints,
-                timeout_ms,
-                write_quorum,
-                apply,
-                json,
+            RuntimeStorageCommand::Client {
+                command:
+                    RuntimeStorageClientCommand::Policy {
+                        command:
+                            RuntimeStorageClientPolicyCommand::Set {
+                                policy_path,
+                                endpoints,
+                                timeout_ms,
+                                write_quorum,
+                                apply,
+                                json,
+                            },
+                    },
             } => storage_topology::execute_client_policy_set(
                 &policy_path,
                 &endpoints,
