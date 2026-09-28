@@ -12,11 +12,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::Parser;
 use cynic_node::adapters::local_hex_key_file::read_hex_key_bytes;
 use cynic_node_protocol::node_enrollment::{
-    NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
-    NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentGrant, NodeEnrollmentRequest,
-    SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA, SignedNodeEnrollmentGrant,
-    node_enrollment_grant_signing_bytes,
+    NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_OBSERVATION_SCHEMA,
+    NODE_ENROLLMENT_REQUEST_SCHEMA, NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentGrant,
+    NodeEnrollmentObservation, NodeEnrollmentRequest, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
+    SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes, reconcile_node_enrollment,
+    validate_signed_node_enrollment_grant,
 };
+use cynic_protocol::SecurityEvidenceState;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
@@ -192,6 +194,33 @@ fn main() -> ExitCode {
     let signature = authority_key.sign(&signing_bytes);
     signed.signature_hex = hex::encode(signature.to_bytes());
 
+    // M4 issuance self-gate: never persist a malformed or internally
+    // inconsistent grant. `admit_*` cannot run here (bootstrap paradox: this
+    // tool IS the root authority, nobody presents it a token); admission
+    // lives on the consumer side. What local data allows: (1) signed-envelope
+    // shape, (2) request<->grant binding coherence via reconcile.
+    let blockers = issuance_blockers(&request, &signed, now_unix_s);
+    if !blockers.is_empty() {
+        if args.json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "status": "blocked",
+                    "schema": "cynic.node_enrollment.renewal_report.v1",
+                    "node_id": args.node_id,
+                    "role": args.role,
+                    "blockers": blockers,
+                })
+            );
+        } else {
+            eprintln!(
+                "blocked: issuance self-check failed: {}",
+                blockers.join(",")
+            );
+        }
+        return ExitCode::FAILURE;
+    }
+
     // Write out artifacts
     let req_path = args.identity_dir.join("enrollment-request.json");
     let grant_path = args.identity_dir.join("enrollment-grant.json");
@@ -238,4 +267,114 @@ fn main() -> ExitCode {
     }
 
     ExitCode::SUCCESS
+}
+
+/// Issuance self-check: shape of the signed envelope, then request<->grant
+/// binding coherence. Returns blockers (empty = converged). The observation
+/// is issuer-side self-attestation (all locally generated material Proven,
+/// no prior enrollment): it catches construction divergence, not external
+/// truth — external proof happens at read-back.
+fn issuance_blockers(
+    request: &NodeEnrollmentRequest,
+    signed: &SignedNodeEnrollmentGrant,
+    now_unix_s: u64,
+) -> Vec<String> {
+    let shape = validate_signed_node_enrollment_grant(signed);
+    if !shape.is_empty() {
+        return shape;
+    }
+    let observation = NodeEnrollmentObservation {
+        schema: NODE_ENROLLMENT_OBSERVATION_SCHEMA.to_string(),
+        observed_at_unix_s: now_unix_s,
+        node_id: request.node_id.clone(),
+        machine_identity_digest: request.machine_identity_digest.clone(),
+        machine_identity: SecurityEvidenceState::Proven,
+        authority_signature: SecurityEvidenceState::Proven,
+        prior_enrollment: SecurityEvidenceState::Absent,
+        evidence_refs: vec![
+            signed.authority_key_id.clone(),
+            signed.grant.grant_id.clone(),
+        ],
+        unknowns: Vec::new(),
+    };
+    let plan = reconcile_node_enrollment(request, &signed.grant, &observation);
+    plan.blockers.into_iter().chain(plan.unknowns).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::Digest as _;
+
+    fn test_pair() -> (NodeEnrollmentRequest, SignedNodeEnrollmentGrant) {
+        let machine_public_key_hex = "b".repeat(64);
+        let machine_identity_digest = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(
+                hex::decode(&machine_public_key_hex).unwrap()
+            ))
+        );
+        let request = NodeEnrollmentRequest {
+            schema: NODE_ENROLLMENT_REQUEST_SCHEMA.to_string(),
+            request_id: "request-1".to_string(),
+            seed_id: format!("sha256:{}", "a".repeat(64)),
+            node_id: "node-a".to_string(),
+            role: "build_runner".to_string(),
+            machine_identity_digest: machine_identity_digest.clone(),
+            machine_public_key_hex,
+            nonce: "nonce-1".to_string(),
+            issued_at_unix_s: 100,
+            expires_at_unix_s: 200,
+            requested_capabilities: vec!["proof.publish".to_string()],
+        };
+        let grant = NodeEnrollmentGrant {
+            schema: NODE_ENROLLMENT_GRANT_SCHEMA.to_string(),
+            grant_id: "grant-1".to_string(),
+            authority_id: "runtime-authority".to_string(),
+            request_id: request.request_id.clone(),
+            seed_id: request.seed_id.clone(),
+            node_id: request.node_id.clone(),
+            role: request.role.clone(),
+            machine_identity_digest,
+            generation: 1,
+            issued_at_unix_s: 110,
+            expires_at_unix_s: 190,
+            granted_capabilities: vec!["proof.publish".to_string()],
+            evidence_refs: vec!["sha256:grant-proof".to_string()],
+        };
+        let signed = SignedNodeEnrollmentGrant {
+            schema: SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA.to_string(),
+            authority_key_id: format!("sha256:{}", "c".repeat(64)),
+            signature_namespace: NODE_ENROLLMENT_SIGNATURE_NAMESPACE.to_string(),
+            grant,
+            signature_hex: "d".repeat(128),
+        };
+        (request, signed)
+    }
+
+    #[test]
+    fn coherent_pair_passes_issuance_gate() {
+        let (request, signed) = test_pair();
+        assert!(issuance_blockers(&request, &signed, 120).is_empty());
+    }
+
+    #[test]
+    fn malformed_signature_shape_blocks_issuance() {
+        let (request, mut signed) = test_pair();
+        signed.signature_hex = "zz".to_string();
+        assert!(
+            issuance_blockers(&request, &signed, 120)
+                .contains(&"signed_enrollment_signature_invalid".to_string())
+        );
+    }
+
+    #[test]
+    fn request_grant_identity_divergence_blocks_issuance() {
+        let (mut request, signed) = test_pair();
+        request.node_id = "node-b".to_string();
+        assert!(
+            issuance_blockers(&request, &signed, 120)
+                .contains(&"enrollment_node_binding_mismatch".to_string())
+        );
+    }
 }
