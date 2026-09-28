@@ -18,38 +18,26 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
+///
+/// 2026-09-28: 30 entries -> 2, after the causal audit recorded in
+/// `infra/WORKSPACE_ORPHAN_DECISIONS.md` §6. Twenty-eight were deleted because
+/// they were second paths to capabilities a live crate already owns
+/// (takeover activation -> cynic-node-protocol, mcp observation -> cynic-host,
+/// local agent session -> cynic-kernel, source change -> cynic-workload,
+/// runtime release -> cynic-build, federated bootstrap -> cynic-node-protocol,
+/// runtime proof -> cynic-host + cynic-protocol) or because nothing demanded
+/// them at all. The two below are the only pair a LIVE surface names as
+/// missing: `runtime_federation.rs` and `websocket/domain_dispatch.rs` both
+/// report the blocker `runtime_federation_workload_signer_unavailable`.
+///
+/// That pair is kept, not deleted, and the reason is the rule §6 states: what
+/// has value is a capability a live surface demands. Deleting the only
+/// candidate implementation of a gap the code reports by name would close no
+/// gap and would erase the lead. It stays quarantined, visible and shrink-only:
+/// wire it or delete it, do not leave it invisible.
 const QUARANTINED: &[&str] = &[
-    "adapters/local_node_attestation.rs",
-    "adapters/local_observation_journal.rs",
     "adapters/local_workload_signer.rs",
-    "adapters/registry_mesh_state_provider.rs",
-    "adapters/runtime_proof_http_fetcher.rs",
-    "fleet_inventory/kubernetes.rs",
-    "fleet_inventory/power.rs",
-    "fleet_inventory/providers.rs",
-    "fleet_inventory/proxmox.rs",
-    "fleet_inventory_tests.rs",
-    "fleet_placement.rs",
-    "lifecycle.rs",
-    "local_agent_session.rs",
-    "mcp_runtime_observation.rs",
-    "network_mesh_apply_plan/canary_admission.rs",
-    "ports/agent_workload_submission_port.rs",
-    "ports/federated_bootstrap_read_back_port.rs",
-    "ports/node_attestation_port.rs",
-    "ports/observation_journal_port.rs",
-    "ports/runtime_proof_fetcher_port.rs",
-    "ports/runtime_release_declaration_port.rs",
-    "ports/solana_pay_port.rs",
     "ports/workload_signer_port.rs",
-    "takeover_activation.rs",
-    "takeover_activation/store.rs",
-    "usecases/build_scheduler/conformance.rs",
-    "usecases/federated_bootstrap_uc.rs",
-    "usecases/runtime_release_declaration_uc.rs",
-    "usecases/source_change_scheduler.rs",
-    "usecases/source_change_submission_uc.rs",
-    "usecases/zeroclaw_allowance_uc.rs",
 ];
 
 #[test]
