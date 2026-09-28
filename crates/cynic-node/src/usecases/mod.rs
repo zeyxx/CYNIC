@@ -17,7 +17,6 @@ pub mod builder_http;
 pub mod builder_runtime;
 pub mod coordination_observation_bridge;
 pub mod coordination_posture_uc;
-pub mod homeostasis_uc;
 pub mod mesh_sync_uc;
 pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
