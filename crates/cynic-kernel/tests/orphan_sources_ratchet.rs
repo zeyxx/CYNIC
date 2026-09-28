@@ -18,22 +18,13 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
-const QUARANTINED: &[&str] = &[
-    "api/rest/temporal.rs",
-    "domain/resource_guard.rs",
-    "infra/coordination_authority.rs",
-    "infra/coordination_journal.rs",
-    "infra/local_spool.rs",
-    "infra/runtime_takeover.rs",
-    "infra/tasks/runtime_loops/events.rs",
-    "infra/tasks/runtime_loops/healing.rs",
-    "infra/tasks/runtime_loops/heartbeats.rs",
-    "infra/tasks/runtime_loops/metrics.rs",
-    "infra/tasks/runtime_loops/perf.rs",
-    "infra/tasks/runtime_loops/probes.rs",
-    "infra/tasks/takeover.rs",
-    "temporal_clock.rs",
-];
+///
+/// 2026-09-28 purge (opencode:purge-morte): 8 confirmed-dead orphans deleted
+/// (582 LOC: api/rest/temporal.rs, temporal_clock.rs, 6x runtime_loops/*);
+/// 5 stale entries removed (already gone from disk); local_spool.rs removed
+/// (live: declared by infra/mod.rs, reachable). List emptied; residual
+/// under-quarantined orphans elsewhere in the crate remain explicit unknown.
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
