@@ -1,0 +1,102 @@
+{
+  "schema": "cynic.publication.v1",
+  "status": "normative",
+  "purpose": "The public repository is a generated artifact of this contract and of the private tree. It is never pushed to directly.",
+  "authority": {
+    "conflict_order": [
+      "observed private tree state",
+      "this contract",
+      "infra/registry.json",
+      "Cargo.toml",
+      "canonical Rust crates"
+    ],
+    "refusal": "Any file present in the public repository but absent from this contract, or any file whose rendered content differs from its rule, refuses publication. There is no warn mode."
+  },
+  "design_note": "Visibility and redaction are orthogonal. A path is visible or not; published content is then transformed. Modelling redaction as a status was wrong: 76 of the 105 files holding a private hostname live under crates/, which must be published, and contracts/relay-policy.json is a normative contract that must be published. One status could not express both facts.",
+  "path_statuses": {
+    "public": "Published after the redactions below are applied.",
+    "exclude": "Not present in the public repository. Requires a reason.",
+    "temporary": "Published for now, after redactions. Requires an explicit removal condition."
+  },
+  "path_rules": [
+    { "path": "crates/**", "status": "public" },
+    { "path": "contracts/**", "status": "public" },
+    { "path": "specs/**", "status": "public" },
+    { "path": "protocols/**", "status": "public" },
+    { "path": "tests/**", "status": "public" },
+    { "path": "programs/**", "status": "public" },
+    { "path": ".cargo/**", "status": "public" },
+    { "path": ".github/workflows/ci.yml", "status": "public" },
+    { "path": ".github/CODEOWNERS", "status": "public" },
+    { "path": ".github/pull_request_template.md", "status": "public" },
+    { "path": ".mcp.json", "status": "public" },
+    { "path": ".mcp.cynic-gpu.json", "status": "public" },
+    { "path": "Cargo.toml", "status": "public" },
+    { "path": "Cargo.lock", "status": "public" },
+    { "path": "rust-toolchain.toml", "status": "public" },
+    { "path": "rustfmt.toml", "status": "public" },
+    { "path": "clippy.toml", "status": "public" },
+    { "path": ".gitleaks.toml", "status": "public" },
+    { "path": ".gitattributes", "status": "public" },
+    { "path": ".gitignore", "status": "public" },
+    { "path": "env.example", "status": "public" },
+    { "path": "LICENSE", "status": "public" },
+    { "path": "README.md", "status": "public" },
+    { "path": "WHITEPAPER.md", "status": "public" },
+    { "path": "MANIFESTO.md", "status": "public" },
+    { "path": "AGENTS.md", "status": "public" },
+    { "path": "CODEX.md", "status": "public" },
+    { "path": "CONSTITUTION.md", "status": "public" },
+
+    { "path": "infra/**", "status": "public" },
+    { "path": "tools/publish.py", "status": "temporary", "until": "a native `cynic dev publish` surface renders the contract and runs the read-back; this bootstrap exists so the contract is not a document nothing executes" },
+    { "path": "Makefile", "status": "temporary", "until": "build prove-workspace and audit ratchets exist as native surfaces; the public README must not name a gate the public CI does not run" },
+    { "path": "scripts/cargo", "status": "temporary", "until": "a build runner surface replaces the cargo wrapper" },
+    { "path": "scripts/**", "status": "exclude", "reason": "shell and python crutches, superseded by native surfaces; the residue is inventoried in CRUTCH_INVENTORY_cynic.md" },
+
+    { "path": "docs/**", "status": "exclude", "reason": "session notes and third-party coursework unrelated to the runtime" },
+    { "path": "vault/**", "status": "exclude", "reason": "personal philosophical work in French prose, plus an Obsidian editor configuration" },
+    { "path": "bounty/**", "status": "exclude", "reason": "a public bounty target: contains a mainnet program address and a submission template" },
+    { "path": "apps/**", "status": "exclude", "reason": "a separate Kotlin product, not one of the runtime crates" },
+    { "path": "archive/**", "status": "exclude", "reason": "superseded architecture, kept privately for provenance" },
+    { "path": ".cortex/**", "status": "exclude", "reason": "agent session scratch, not a runtime artefact" },
+    { "path": ".codex/**", "status": "exclude", "reason": "agent session scratch" },
+    { "path": ".hermes/**", "status": "exclude", "reason": "agent observation journal" },
+    { "path": ".agent-claims.json", "status": "exclude", "reason": "live coordination state, changes on every claim" },
+    { "path": ".antigravityignore", "status": "exclude", "reason": "editor and agent tooling configuration, names tools that are not part of the runtime" },
+    { "path": "evidence/**", "status": "exclude", "reason": "local forensic evidence" },
+    { "path": "references/**", "status": "exclude", "reason": "working notes and audit scratch, superseded by the contracts and rewritten when the underlying finding changes" },
+    { "path": "recruiter/**", "status": "exclude", "reason": "personal career material, unrelated to the runtime and not part of any technical claim" }
+  ],
+  "redactions": {
+    "infra_identities": {
+      "kind": "literal_substitution",
+      "applies_to": "every published path, without exception",
+      "must_preserve_compilation": true,
+      "note": "example.invalid is reserved by RFC 2606 and never resolves, so a test aimed at real infrastructure fails loudly instead of silently.",
+      "substitutions": [
+        { "match": "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?", "replace": "<node>.example.invalid" },
+        { "match": "cynic\\.local", "replace": "node.example.invalid" },
+        { "match": "@cynic\\b", "replace": "@example.invalid" }
+      ],
+      "measured_occurrences": { "files": 105, "domain_literals": 28, "hardcoded": 84, "note": "76 under crates/, 17 under infra/, the rest in Makefile, contracts/relay-policy.json and protocols/*.md" }
+    }
+  },
+  "read_back": {
+    "execution_policy": {
+      "local_content_steps": ["no_forbidden_literal", "no_undeclared_path", "secrets_clean", "canonical_gate_runs"],
+      "runner_only_steps": ["workspace_compiles", "tests_green"],
+      "rule": "Execution steps are never run locally. AGENTS.md declares the canonical gate an 'admitted build runner only', and rustc 1.95.0 ICEs on this host asking for more stack than it has. A local attempt is not a weaker proof, it is a wrong one. A runner-only step with no supplied evidence is UNKNOWN, which neither refuses nor grants publication.",
+      "runner_evidence_schema": "{\"steps\": {\"<step_id>\": {\"status\": \"pass\"|\"fail\", \"proof_ref\": \"<commit or report>\", \"detail\": \"<string>\"}}}"
+    },
+    "steps": [
+      { "id": "no_forbidden_literal", "expect": "zero matches" },
+      { "id": "no_undeclared_path", "expect": "empty diff" },
+      { "id": "secrets_clean", "expect": "zero findings" },
+      { "id": "workspace_compiles", "expect": "exit 0" },
+      { "id": "tests_green", "expect": "exit 0" },
+      { "id": "canonical_gate_runs", "expect": "the gate named in the public README is the gate the public CI executes" }
+    ],
+    "on_any_failure": "Publication is refused and the public repository is left at its previous state."
+  }
+}
