@@ -34,6 +34,9 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Node { command } => execute_node_activation(command),
         Command::Advanced => execute_advanced_help(),
         Command::Runtime { command } => execute_runtime(command),
+        Command::Inference { command } => {
+            crate::inference_surface::execute_inference_command(command)
+        }
         Command::Update { target, json } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
             deps_surface::execute_deps_upgrade(json, false, true, None, &only)

@@ -17,8 +17,7 @@ use clap::Subcommand;
 use crate::cli_json::emit_pretty_json;
 use cynic_protocol::AGENT_CITIZENSHIP_SCHEMA;
 
-use crate::runtime_surface::RuntimeCommand;
-use crate::runtime_surface::execute_runtime;
+use crate::inference_surface::{InferenceCommand, execute_inference_command};
 
 /// Agent citizenship record projected through the mask.
 /// Thin re-declaration so the CLI can serialize its intent; the canonical
@@ -77,7 +76,7 @@ pub(crate) fn execute_mask(command: MaskCommand) -> ExitCode {
 }
 
 fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bool) -> ExitCode {
-    let exit = execute_runtime(RuntimeCommand::InferenceForge {
+    let exit = execute_inference_command(InferenceCommand::Forge {
         report: report_path.to_string(),
         alias: "auto".to_string(),
         json,
@@ -88,7 +87,7 @@ fn execute_mask_forge(report_path: &str, _source_note: &str, json: bool, yes: bo
     }
     // Hand-off to harness start if consent was given.
     if yes {
-        let _ = execute_runtime(RuntimeCommand::InferenceStart {
+        let _ = execute_inference_command(InferenceCommand::Start {
             alias: "auto".to_string(),
             json,
             no_wait: false,
@@ -140,7 +139,7 @@ fn execute_mask_start(alias: &str, json: bool, yes: bool) -> ExitCode {
             citizenship.agent_id, citizenship.scope
         );
     }
-    execute_runtime(RuntimeCommand::InferenceStart {
+    execute_inference_command(InferenceCommand::Start {
         alias: alias.to_string(),
         json,
         no_wait: false,

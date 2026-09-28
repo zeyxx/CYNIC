@@ -4,8 +4,8 @@ use clap::Subcommand;
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
-use crate::host_profile_selection::ProfileArgs;
 use crate::fail;
+use crate::host_profile_selection::ProfileArgs;
 
 mod agent_matrix;
 mod capacity;
@@ -15,8 +15,7 @@ mod disk;
 mod execution_context;
 mod forgejo_token_cli;
 mod host_checks;
-mod inference_dispatch;
-mod inference_surface;
+pub(crate) mod inference_surface;
 mod memory;
 mod network;
 mod operator_models;
@@ -198,175 +197,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Report the sovereign inference configuration as machine-readable JSON.
-    /// Native surface: declared routing SSOT (not a live probe).
-    /// SSOT path: CYNIC_INFERENCE_CONFIG or /etc/cynic/inference.toml
-    Inference {
-        #[arg(long)]
-        json: bool,
-    },
-    /// List declared local model profiles in the CYNIC vault (native system).
-    /// Not ODS install state — see `inference-discover` to attach a running ODS stack.
-    InferenceVault {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Status of the native on-demand local inference unit (llama-server@).
-    InferenceStatus {
-        #[arg(long)]
-        json: bool,
-        /// Show the last N log lines for the running local process (requires process supervisor).
-        #[arg(long, default_value_t = 0)]
-        tail: usize,
-    },
-    /// Start a native local model profile (process|systemd supervisor).
-    /// Omit alias / pass `auto` to ensure vault profiles and start the preferred model.
-    InferenceStart {
-        /// Profile alias, or `auto` (default) for frictionless inventory pick.
-        #[arg(default_value = "auto")]
-        alias: String,
-        #[arg(long)]
-        json: bool,
-        /// Return immediately after process spawn, and keep probing for readiness async.
-        /// Useful when models are large and you want to keep the TUI responsive.
-        #[arg(long)]
-        no_wait: bool,
-        #[arg(long)]
-        yes: bool,
-    },
-    /// Stop the native local inference unit (optional alias; default = running).
-    InferenceStop {
-        alias: Option<String>,
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        yes: bool,
-    },
-    /// Forge a vault profile from a BenchmarkReport, write it, then launch.
-    InferenceForge {
-        #[arg(long)]
-        report: String,
-        #[arg(long, default_value = "auto")]
-        alias: String,
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        yes: bool,
-    },
-    /// Peer / optional ODS attach plane (loose coupling).
-    ///
-    /// Default: **probe-only** status (`cynic.inference.ods_discovery.v1`).
-    /// `--apply` publishes peers into inference.toml (mutation).
-    /// `--open-webui` (with `--apply`) also tries Open WebUI publisher.
-    ///
-    /// Does **not** install ODS — use `cynic deps upgrade --yes --only ods`.
-    /// Native vault remains independent: `inference-start`.
-    InferenceDiscover {
-        #[arg(long)]
-        json: bool,
-        /// Publish discovered peers into routing SSOT (inference.toml).
-        #[arg(long)]
-        apply: bool,
-        /// With `--apply`, also attempt Open WebUI connection publish (opt-in).
-        #[arg(long = "open-webui")]
-        open_webui: bool,
-    },
-    /// Centralized model store: layout + vault artifacts + profiles (+ optional registry write).
-    InferenceModels {
-        #[arg(long)]
-        json: bool,
-        /// Persist scan to CYNIC_MODEL_REGISTRY (default: principal model-registry.json).
-        #[arg(long)]
-        persist: bool,
-        /// Auto-create loopback profiles for vault GGUFs that have none (frictionless).
-        #[arg(long = "ensure-profiles")]
-        ensure_profiles: bool,
-    },
-    /// Move stray GGUF weights into the principal vault and rewrite profile paths.
-    /// Default is plan-only; pass `--yes` to apply physical moves.
-    InferenceModelsConsolidate {
-        #[arg(long)]
-        json: bool,
-        /// Apply moves (default: plan only).
-        #[arg(long)]
-        yes: bool,
-    },
-    /// Hugging Face CLI status (binary, version, auth) relative to model layout.
-    InferenceHfStatus {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Download a Hub repo into the CYNIC model vault via official `hf` CLI.
-    InferenceHfDownload {
-        /// Hugging Face repo id, e.g. `org/model` (use search/suggest for short aliases).
-        repo: String,
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        revision: Option<String>,
-        /// Glob include (repeatable), e.g. `*.gguf` (default `*.gguf` when registering).
-        #[arg(long = "include")]
-        include: Vec<String>,
-        #[arg(long = "exclude")]
-        exclude: Vec<String>,
-        /// Repo type: model|dataset|space (default model).
-        #[arg(long = "type")]
-        repo_type: Option<String>,
-        /// Download into hub cache only (default: into CYNIC vault).
-        #[arg(long)]
-        cache_only: bool,
-        /// Short local alias for profile (default: derived from repo name).
-        #[arg(long)]
-        alias: Option<String>,
-        /// Write native llama-server@ profile after download (default: true unless --no-profile).
-        #[arg(long, default_value_t = true)]
-        register_profile: bool,
-        #[arg(long, conflicts_with = "register_profile")]
-        no_profile: bool,
-    },
-    /// List HF discovery categories (chat, code, embed, …).
-    InferenceHfCategories {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Probe host hardware for model sizing recommendations.
-    InferenceHardware {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Search Hub models by category/query; returns short aliases + hardware fit.
-    InferenceHfSearch {
-        #[arg(long)]
-        json: bool,
-        /// Category: chat|code|embedding|reasoning|vision|small|multilingual|uncensored|gguf
-        #[arg(long)]
-        category: Option<String>,
-        /// Free-text search (optional; combined with category).
-        #[arg(long)]
-        query: Option<String>,
-        #[arg(long)]
-        author: Option<String>,
-        #[arg(long, default_value_t = 15)]
-        limit: u32,
-    },
-    /// Suggest models for this host (category default: chat), ranked by hardware fit.
-    InferenceHfSuggest {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value = "chat")]
-        category: String,
-        #[arg(long, default_value_t = 10)]
-        limit: u32,
-    },
-    /// Probe-driven launch plan for a native profile (agnostic flags — not frozen EXTRA_ARGS).
-    InferencePlan {
-        alias: String,
-        #[arg(long)]
-        json: bool,
-        /// Write runtime env + systemd drop-in from the plan.
-        #[arg(long)]
-        apply: bool,
-    },
     /// Compatibility alias → `cynic deps` (prefer top-level).
     Deps {
         #[arg(long)]
@@ -475,8 +305,7 @@ pub(crate) enum ForgejoTokenMode {
 /// Select an adapter only after a future capability resolver proves both
 /// transport reachability and credential injection. Until then this surface is
 /// deliberately fail-closed rather than pretending local-only is dynamic.
-pub(crate) fn forgejo_token_adapter_selector()
--> Box<dyn cynic_vcs_forgejo::ForgejoTokenApiPort> {
+pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_forgejo::ForgejoTokenApiPort> {
     let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
         .or_else(|_| std::env::var("FORGEJO_API_URL"))
         .or_else(|_| std::env::var("FORGEJO_URL"))
@@ -519,18 +348,16 @@ pub(crate) fn forgejo_token_adapter_selector()
             "http://127.0.0.1:3000".to_string()
         });
 
-    Box::new(cynic_vcs_forgejo::forgejo_token::HttpForgejoTokenApiAdapter {
-        api_base: api_url,
-        principal: "jeanterre13".to_string(),
-        authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),
-    })
+    Box::new(
+        cynic_vcs_forgejo::forgejo_token::HttpForgejoTokenApiAdapter {
+            api_base: api_url,
+            principal: "jeanterre13".to_string(),
+            authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),
+        },
+    )
 }
 
 pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
-    let command = match inference_dispatch::try_execute_inference(command) {
-        Ok(exit) => return exit,
-        Err(command) => command,
-    };
     let command = match compat_aliases::try_execute_compat_alias(command) {
         Ok(exit) => return exit,
         Err(command) => command,
@@ -653,23 +480,7 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             build_artefact::execute_build_artefact(json, apply)
         }
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
-        RuntimeCommand::Inference { .. }
-        | RuntimeCommand::InferenceVault { .. }
-        | RuntimeCommand::InferenceStatus { .. }
-        | RuntimeCommand::InferenceStart { .. }
-        | RuntimeCommand::InferenceStop { .. }
-        | RuntimeCommand::InferenceDiscover { .. }
-        | RuntimeCommand::InferenceModels { .. }
-        | RuntimeCommand::InferenceModelsConsolidate { .. }
-        | RuntimeCommand::InferenceHfStatus { .. }
-        | RuntimeCommand::InferenceHfDownload { .. }
-        | RuntimeCommand::InferenceHfCategories { .. }
-        | RuntimeCommand::InferenceHardware { .. }
-        | RuntimeCommand::InferenceHfSearch { .. }
-        | RuntimeCommand::InferenceHfSuggest { .. }
-        | RuntimeCommand::InferencePlan { .. }
-        | RuntimeCommand::InferenceForge { .. }
-        | RuntimeCommand::Deps { .. }
+        RuntimeCommand::Deps { .. }
         | RuntimeCommand::DepsPlan { .. }
         | RuntimeCommand::DepsAudit { .. }
         | RuntimeCommand::DepsUpgrade { .. }

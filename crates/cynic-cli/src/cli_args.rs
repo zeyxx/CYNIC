@@ -65,6 +65,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: RuntimeCommand,
     },
+    /// Local inference plane: vault, unit lifecycle, model store, and Hub access.
+    Inference {
+        #[command(subcommand)]
+        command: crate::inference_surface::InferenceCommand,
+    },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
         #[command(subcommand)]
