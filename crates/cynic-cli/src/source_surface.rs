@@ -301,7 +301,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
 
 fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> ExitCode {
     let observation = cynic_host::source_sync::observe_all_layers(root);
-    let proofs = cynic_host::adapters::release_gate_adapter::collect_host_gate_proofs(root);
+    let proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(root);
     let report = cynic_release::evaluate_gate_records(proofs);
 
     if !report.all_passed {
@@ -324,8 +324,8 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     if apply {
         let remote = "github";
         let branch = "main";
-        let push_result = cynic_host::adapters::release_relay_adapter::push_branch_to_remote(root, remote, branch);
-        let readback = cynic_host::adapters::release_relay_adapter::verify_branch_readback(root, remote, branch);
+        let push_result = cynic_release::adapters::release_relay_adapter::push_branch_to_remote(root, remote, branch);
+        let readback = cynic_release::adapters::release_relay_adapter::verify_branch_readback(root, remote, branch);
 
         if json {
             emit_pretty_json(&serde_json::json!({

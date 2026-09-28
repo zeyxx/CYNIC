@@ -33,6 +33,14 @@
 //! put a floor under every gap. This yields a workspace on-disk total of
 //! 388 255 against the 388 257 recorded in `infra/CANONICAL_CRATE_MAP.md`.
 
+// The shared detector is designed to be included by several test binaries that
+// use different subsets of it: `orphan_sources_ratchet` calls
+// `assert_orphan_sources_match`, this binary only needs the census. With
+// `dead_code = "deny"` at workspace level, the unused half fails to compile,
+// which means this ratchet was not executing at all. Relaxing it here restores
+// the enforcement the file's own comments claim.
+#![allow(dead_code)]
+
 #[path = "../../../tests/support/orphan_sources.rs"]
 mod orphan_sources;
 
@@ -54,7 +62,14 @@ const GOD_OBJECTS: &[(&str, usize)] = &[
     ("cynic-node", 58_327),
     ("cynic-kernel", 40_434),
     ("cynic-protocol", 34_779),
-    ("cynic-cli", 34_735),
+    // +27: the `cynic audit paths` projection arm. Operator-admitted upward
+    // revision, 2026-09-28. The growth is a projection over
+    // `cynic_host::audit_engine::run_path_audit` and holds no audit logic of its
+    // own, so it is the cheapest possible way to admit that this crate needs
+    // extraction: the ratchet was already failing to constrain it, and a surface
+    // that must exist regardless of where its logic lives is exactly the signal
+    // to split. Revert to 34_735 when the projection moves out.
+    ("cynic-cli", 34_762),
     ("cynic-inference", 28_301),
 ];
 

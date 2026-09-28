@@ -37,6 +37,14 @@ const PROBES: &[Probe] = &[
         argv: &["transport", "ssh-supervision", "--json"],
         allowed_exits: &[0, 1],
     },
+    // `audit paths` reports Critical violations on the current tree by design —
+    // the declared arborescence genuinely diverges from the observed one. Exit 1
+    // is therefore a truthful verdict here, not a crash. See
+    // `infra/DIRECTORY_STRUCTURE_AUDIT.md` §4.
+    Probe {
+        argv: &["audit", "paths", "--json"],
+        allowed_exits: &[0, 1],
+    },
 ];
 
 #[test]

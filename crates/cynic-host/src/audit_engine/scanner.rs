@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -14,11 +15,42 @@ pub struct WorkspaceSourceIndex {
     pub rust_files: Vec<SourceFile>,
     pub json_files: Vec<SourceFile>,
     pub manifests: Vec<SourceFile>,
+    /// Every repository-relative file and directory, observed.
+    ///
+    /// Dot-directories are included (`.cortex`, `.hermes`, `.gitignore`) because
+    /// their absence is itself a finding; `.git` is excluded as pure engine
+    /// residue. This set is the observation that lets path rules answer "does
+    /// this declared path exist" without any rule performing I/O.
+    pub existing_paths: BTreeSet<String>,
+    /// Non-comment, non-blank lines of the root `.gitignore`.
+    ///
+    /// Read explicitly because the walk above skips dot-files, and because a
+    /// tracked authority file listed as ignored is a silent divergence between
+    /// what git holds and what the working tree claims.
+    pub gitignore_patterns: Vec<String>,
+}
+
+fn relative_of(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .display()
+        .to_string()
+        .replace('\\', "/")
 }
 
 pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
     let mut index = WorkspaceSourceIndex::default();
     let mut stack = vec![root.to_path_buf()];
+
+    index.gitignore_patterns = fs::read_to_string(root.join(".gitignore"))
+        .map(|text| {
+            text.lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
 
     while let Some(current) = stack.pop() {
         let Ok(entries) = fs::read_dir(&current) else {
@@ -32,7 +64,19 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
                 .and_then(|n| n.to_str())
                 .unwrap_or_default();
 
-            if file_name.starts_with('.') || file_name == "target" || file_name == "vendor" {
+            if file_name == ".git" || file_name == "target" || file_name == "vendor" {
+                continue;
+            }
+
+            index
+                .existing_paths
+                .insert(relative_of(root, &path).trim_end_matches('/').to_string());
+
+            // Dot-directories and dot-files are observed but never traversed or
+            // read. `.cargo-home/` alone holds a vendored crates.io registry
+            // whose sources would otherwise contribute thousands of findings
+            // about a dependency tree this repository does not own.
+            if file_name.starts_with('.') {
                 continue;
             }
 
@@ -41,12 +85,7 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
                 continue;
             }
 
-            let relative_path = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .display()
-                .to_string()
-                .replace('\\', "/");
+            let relative_path = relative_of(root, &path);
 
             let Ok(content) = fs::read_to_string(&path) else {
                 continue;

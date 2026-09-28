@@ -1,3 +1,4 @@
+pub mod path_rules;
 pub mod rules;
 pub mod scanner;
 
@@ -5,11 +6,29 @@ use std::path::Path;
 
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
+use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, LayerBoundaryRule, NodeHostBoundaryRule,
     OwnershipRule, PathSanitationRule,
 };
 use self::scanner::scan_workspace;
+
+/// Recover the rule id that produced a violation code.
+///
+/// Codes are `<RULE_ID>-<DETAIL>` where the rule id is itself two dash-separated
+/// segments (`SEC-001-ABSOLUTE-PATH` → `SEC-001`). Matching pass/fail on
+/// `category` instead of rule id is wrong: several rules legitimately share a
+/// category, so one critical finding would mark every sibling rule as failed and
+/// silently deflate the maturity score.
+fn rule_id_of(code: &str) -> &str {
+    let mut segments = code.splitn(3, '-');
+    let scope = segments.next().unwrap_or_default();
+    let number = segments.next().unwrap_or_default();
+    if scope.is_empty() || number.is_empty() {
+        return code;
+    }
+    code.get(..scope.len() + 1 + number.len()).unwrap_or(code)
+}
 
 pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
     vec![
@@ -19,12 +38,29 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(KernelBoundaryRule),
         Box::new(NodeHostBoundaryRule),
         Box::new(OwnershipRule),
+        Box::new(DeclaredPathExistenceRule),
+        Box::new(RustPathReferenceRule),
+        Box::new(PathSsotIgnoreRule),
     ]
 }
 
-pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
+/// The path rules alone, for a focused `cynic audit paths` projection.
+///
+/// A surface that reports the whole workspace report would answer a question the
+/// operator did not ask, and would make the path verdict unreadable inside
+/// unrelated debt. The rules still run in `default_rules`, so this is a narrower
+/// lens on the same evaluation, never a weaker one.
+pub fn default_path_rules() -> Vec<Box<dyn AuditRule>> {
+    vec![
+        Box::new(DeclaredPathExistenceRule),
+        Box::new(RustPathReferenceRule),
+        Box::new(PathSsotIgnoreRule),
+    ]
+}
+
+/// Evaluate an explicit rule set against an explicit workspace root.
+fn run_rules(root: &Path, rules: Vec<Box<dyn AuditRule>>) -> AuditReportV2 {
     let index = scan_workspace(root);
-    let rules = default_rules();
 
     let mut evaluated_specs = Vec::new();
     let mut all_violations = Vec::new();
@@ -54,7 +90,7 @@ pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
             let spec = r.spec();
             !all_violations
                 .iter()
-                .any(|v| v.severity == AuditSeverity::Critical && v.category == spec.category)
+                .any(|v| v.severity == AuditSeverity::Critical && rule_id_of(&v.code) == spec.id)
         })
         .count();
 
@@ -91,4 +127,14 @@ pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
         evaluated_rules: evaluated_specs,
         residual_unknowns: Vec::new(),
     }
+}
+
+/// Full workspace audit: every default rule, including the path rules.
+pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
+    run_rules(root, default_rules())
+}
+
+/// Path reference audit only: declared paths, cited paths, and SSOT ignore state.
+pub fn run_path_audit(root: &Path) -> AuditReportV2 {
+    run_rules(root, default_path_rules())
 }
