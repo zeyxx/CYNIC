@@ -38,7 +38,6 @@ const QUARANTINED: &[&str] = &[
     "host_hardening/observe.rs",
     "host_hardening/reconcile.rs",
     "host_hardening/types.rs",
-    "local_agent_session.rs",
     "runtime_takeover_activation.rs",
     "signed_heartbeat.rs",
     "source_control/commit_scope.rs",
