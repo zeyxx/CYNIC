@@ -279,6 +279,23 @@ fn reachable(crate_dir: &Path, src_root: &Path) -> BTreeSet<String> {
 /// - a new orphan means someone added a file nothing compiles;
 /// - a stale entry means a file was repaired or deleted but left listed, which
 ///   would let the quarantine become permanent cover instead of shrinking.
+/// The orphan sources this rule currently measures for one crate.
+///
+/// Exposed so a caller can REPORT as well as assert. A detector that can only
+/// fail cannot be used to build a quarantine list, which is how five crates came
+/// to carry 51 000 LOC with no gate at all: there was no way to ask the rule what
+/// it saw.
+pub fn orphan_sources(crate_name: &str) -> Vec<String> {
+    let crate_dir = workspace_root().join("crates").join(crate_name);
+    let src_root = crate_dir.join("src");
+    if !src_root.is_dir() {
+        return Vec::new();
+    }
+    let all = all_sources(&src_root);
+    let reached = reachable(&crate_dir, &src_root);
+    all.difference(&reached).cloned().collect()
+}
+
 pub fn assert_orphan_sources_match(crate_name: &str, quarantined: &[&str]) {
     let crate_dir = workspace_root().join("crates").join(crate_name);
     let src_root = crate_dir.join("src");
