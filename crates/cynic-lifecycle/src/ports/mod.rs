@@ -2,3 +2,6 @@
 //! and injected with adapters (http/ssh) at runtime.
 
 pub mod artifact_publisher_port;
+pub mod lifecycle_port;
+
+pub use lifecycle_port::{LifecyclePort, LocalLifecycleAdapter};

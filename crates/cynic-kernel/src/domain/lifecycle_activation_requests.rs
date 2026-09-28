@@ -1,1 +1,1 @@
-pub use cynic_host::lifecycle::activation_requests::*;
+pub use cynic_lifecycle::activation_requests::*;

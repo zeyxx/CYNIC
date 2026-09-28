@@ -102,7 +102,7 @@ pub async fn handle_release_webhook(
 
     // 4. Run gate via host adapter and evaluate via cynic-release domain engine
     let root = std::env::current_dir().unwrap_or_default();
-    let proofs = cynic_host::adapters::release_gate_adapter::collect_host_gate_proofs(&root);
+    let proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(&root);
     let report = cynic_release::evaluate_gate_records(proofs);
 
     if !report.all_passed {
@@ -196,20 +196,20 @@ pub async fn handle_release_webhook(
         let push_success = match &relay_decision {
             RelayDecisionProof::Authorized { action_kind, .. } => match *action_kind {
                 RelayActionKind::TagPush => {
-                    cynic_host::adapters::release_relay_adapter::push_tag_to_remote(
+                    cynic_release::adapters::release_relay_adapter::push_tag_to_remote(
                         &root,
                         &config.github_remote,
                         &tag_name,
                     )
                 }
                 RelayActionKind::MainForcedPromotion => {
-                    cynic_host::adapters::release_relay_adapter::force_push_tag_to_remote(
+                    cynic_release::adapters::release_relay_adapter::force_push_tag_to_remote(
                         &root,
                         &config.github_remote,
                         &tag_name,
                     )
                 }
-                _ => cynic_host::adapters::release_relay_adapter::push_tag_to_remote(
+                _ => cynic_release::adapters::release_relay_adapter::push_tag_to_remote(
                     &root,
                     &config.github_remote,
                     &tag_name,
@@ -232,7 +232,7 @@ pub async fn handle_release_webhook(
         }
 
         // 7. Read-back proof: verify SHA match after push
-        let readback = cynic_host::adapters::release_relay_adapter::verify_relay_readback(
+        let readback = cynic_release::adapters::release_relay_adapter::verify_relay_readback(
             &root,
             &config.github_remote,
             &tag_name,

@@ -155,7 +155,7 @@ pub fn validate_agent_task_content(
     domain: &str,
     content: &str,
 ) -> Result<(), McpError> {
-    cynic_host::lifecycle::forge_task_contract::validate_repo_affecting_hermes_task(
+    cynic_lifecycle::forge_task_contract::validate_repo_affecting_hermes_task(
         kind,
         domain,
         content,
@@ -377,7 +377,7 @@ mod tests {
             "coord_targets": ["infra/registry.json"]
         });
 
-        let result = cynic_host::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
+        let result = cynic_lifecycle::forge_task_contract::validate_forge_lifecycle_contract(
             &content,
             Some(&registry),
         );

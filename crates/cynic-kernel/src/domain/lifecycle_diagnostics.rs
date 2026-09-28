@@ -1,1 +1,1 @@
-pub use cynic_host::lifecycle::diagnostics::*;
+pub use cynic_lifecycle::diagnostics::*;

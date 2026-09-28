@@ -58,7 +58,7 @@ pub mod kernel_proof_persistence;
 pub mod kernel_tunnel;
 pub mod lab;
 pub mod lease_manager;
-pub mod lifecycle;
+pub use cynic_lifecycle::forge_task_contract::{validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task};
 pub mod mcp_runtime;
 pub mod mcp_tool;
 pub mod network_actuation;

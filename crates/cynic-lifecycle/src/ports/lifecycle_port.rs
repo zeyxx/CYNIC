@@ -44,11 +44,11 @@ pub struct LocalLifecycleAdapter;
 
 impl LifecyclePort for LocalLifecycleAdapter {
     fn validate_workflow_layers(&self, workflow: &Value, orchestrator_organ: &str) -> Vec<String> {
-        crate::lifecycle::workflow_state::validate_workflow_layers(workflow, orchestrator_organ)
+        crate::workflow_state::validate_workflow_layers(workflow, orchestrator_organ)
     }
 
     fn validate_transition_contract(&self, workflow: &Value) -> Vec<String> {
-        crate::lifecycle::workflow_state::validate_transition_contract(workflow)
+        crate::workflow_state::validate_transition_contract(workflow)
     }
 
     fn validate_forge_lifecycle_contract(
@@ -56,7 +56,7 @@ impl LifecyclePort for LocalLifecycleAdapter {
         content: &Value,
         registry: Option<&Value>,
     ) -> Result<(), String> {
-        crate::lifecycle::forge_task_contract::validate_forge_lifecycle_contract(content, registry)
+        crate::forge_task_contract::validate_forge_lifecycle_contract(content, registry)
     }
 
     fn lifecycle_blockers(
@@ -66,7 +66,7 @@ impl LifecyclePort for LocalLifecycleAdapter {
         fleet_inventory_probe: Option<&Value>,
         env: Option<&Map<String, Value>>,
     ) -> Result<Value, String> {
-        crate::lifecycle::diagnostics::lifecycle_blockers(
+        crate::diagnostics::lifecycle_blockers(
             registry,
             fleet_probe,
             fleet_inventory_probe,
@@ -79,7 +79,7 @@ impl LifecyclePort for LocalLifecycleAdapter {
         registry: &Value,
         env: Option<&Map<String, Value>>,
     ) -> Result<Value, String> {
-        crate::lifecycle::diagnostics::activation_evidence_gaps(registry, env)
+        crate::diagnostics::activation_evidence_gaps(registry, env)
     }
 }
 

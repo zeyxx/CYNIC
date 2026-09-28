@@ -45,7 +45,7 @@ R8. Vertical extraction only. Extraction proceeds bottom-up by tier
 ## 2. CURRENT STATE — MEASURED LOC (2026-09-28)
 
 ```
-cynic-host           92 917    GOD OBJECT (extraction session 3 in progress)
+cynic-host           89 945    GOD OBJECT (extraction session 3 in progress)
 cynic-node           58 327    GOD OBJECT (extraction session 4 pending)
 cynic-kernel         40 434    GOD OBJECT (grew from 6.3K — organ/senses/probe/introspection modules)
 cynic-protocol       34 779    GOD OBJECT (extraction sessions 1-2 partial)
@@ -62,7 +62,7 @@ cynic-eval            4 347    ok (consolidated per R7, created wave B)
 cynic-storage         4 024    cross-cutting
 cynic-network         3 464    cross-cutting
 cynic-pkg             3 213    bad name (→ cynic-host-pkg)
-cynic-lifecycle       3 091    bad name (→ cynic-host-lifecycle)
+cynic-lifecycle      6 072    ok (absorbed activation/evidence/diagnostics/workflow/forge-task/runtime-paths modules from cynic-host, 2026-09-28)
 cynic-domain-ops      2 892    constellation ✓
 cynic-askesis         2 373    bad name (→ cynic-kernel-askesis)
 cynic-consensus       2 332    bad name (→ cynic-node-consensus)

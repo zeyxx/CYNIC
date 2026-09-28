@@ -14,7 +14,12 @@
 //! CLI injects [`LocalArgvRunner`]; tests inject [`MapArgvRunner`].
 
 mod apply;
+pub mod activation_evidence;
+pub mod activation_requests;
+pub mod diagnostics;
 pub mod domain;
+pub mod evidence_cli;
+pub mod forge_task_contract;
 pub mod gate;
 pub mod harness_context;
 pub mod kernel_release;
@@ -25,11 +30,19 @@ mod port;
 pub mod ports;
 mod promote;
 mod repair;
+mod runtime_paths;
 mod state_store;
 mod time;
 mod types;
+pub mod workflow_state;
 
 pub use apply::apply_phase;
+pub use diagnostics::{
+    activation_evidence_gaps, build_activation_evidence_gap_details, lifecycle_blockers,
+};
+pub use forge_task_contract::{
+    validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task,
+};
 pub use gate::run_gates;
 pub use kernel_release::{
     KernelReleaseReport, KernelReleaseSpec, reconcile_kernel_release,
@@ -43,6 +56,9 @@ pub use promote::promote;
 pub use repair::{repair_apply, repair_plan};
 pub use state_store::{default_state_path, load_state, save_state};
 pub use types::*;
+pub use workflow_state::{
+    build_workflow_state, validate_transition_contract, validate_workflow_layers,
+};
 
 use std::path::Path;
 
