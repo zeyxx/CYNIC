@@ -13,9 +13,19 @@
 //! 2. `#[path = "x.rs"] mod foo;` -> explicit path
 //! 3. `include!("x.rs")`          -> textual inclusion
 //!
-//! `cynic-mcp` alone has 78 `include!` sites, and its `handler.rs` (2221 lines
-//! implementing `ServerHandler`) is reached only that way. Removing it breaks
-//! the build, which is how the omission was caught.
+//! `cynic-mcp` was the reason this detector exists: 36 `include!` sites spread
+//! over `handlers.rs`, `types.rs` and `proxy.rs`, which quarantine grew to 43
+//! entries. Those 43 were a closed island — every one of them was included only
+//! by a file that no `mod` declaration ever named, because `lib.rs` declared
+//! exactly one module. `handler.rs` was the loudest of them: 2221 lines
+//! implementing `ServerHandler` for `CynicMcpProxy`, a proxy generation the
+//! `#[tool_router]`-based `server.rs` had already superseded.
+//!
+//! The note that used to sit here claimed that removing them "breaks the
+//! build, which is how the omission was caught". It does not break the build,
+//! and the omission was never caught, because the build cannot see a file the
+//! compiler never reads. The island was deleted on 2026-09-28 after a forced
+//! rebuild of both `--lib` and the binary; the quarantine list is now empty.
 //!
 //! Each consuming crate keeps its own quarantine list and asserts the list is
 //! exact: it may not grow (new orphans are rejected) and it may not go stale
