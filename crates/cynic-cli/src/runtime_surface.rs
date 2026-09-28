@@ -78,23 +78,10 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Host harness: observed state, and transition progress.
     Harness {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        kind: Option<String>,
-    },
-    HarnessProgress {
-        #[arg(long, value_enum)]
-        current_kind: RuntimeHarnessKindArg,
-        #[arg(long, value_enum)]
-        target_kind: RuntimeHarnessKindArg,
-        #[arg(long, value_enum)]
-        satisfied: Vec<ProofCategoryArg>,
-        #[arg(long, value_enum)]
-        unknown: Vec<ProofCategoryArg>,
-        #[arg(long, default_value_t = false)]
-        json: bool,
+        #[command(subcommand)]
+        command: RuntimeHarnessCommand,
     },
     Conformance {
         // No local `json` here: ProfileArgs (bootstrap_surface/selection.rs:22)
@@ -123,16 +110,6 @@ pub(crate) enum RuntimeCommand {
     Execution {
         #[command(subcommand)]
         command: RuntimeExecutionCommand,
-    },
-    NetworkPreflight {
-        #[arg(long)]
-        json: bool,
-        #[arg(long = "host")]
-        hosts: Vec<String>,
-        #[arg(long)]
-        persist: bool,
-        #[arg(long)]
-        endpoint: Option<String>,
     },
     /// Resolver resolution plan.
     Resolver {
@@ -164,9 +141,10 @@ pub(crate) enum RuntimeCommand {
         command: RuntimeAgentCommand,
     },
     /// Probe host storage capacity, filesystems, caches and large files.
+    /// Host disk: observed state, and cleanup.
     Disk {
-        #[arg(long)]
-        json: bool,
+        #[command(subcommand)]
+        command: RuntimeDiskCommand,
     },
     /// Probe host memory capacity, swap, hugepages, and pressure stalls.
     Memory {
@@ -179,27 +157,10 @@ pub(crate) enum RuntimeCommand {
         json: bool,
     },
     /// Probe host network interfaces, addresses, routes, usage, and drops.
+    /// Host network: observed state, and preflight before a fleet change.
     Network {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Plan or execute host disk space cleanup.
-    DiskClean {
-        #[arg(long)]
-        json: bool,
-        /// Apply the cleanup plan (mutation).
-        #[arg(long)]
-        apply: bool,
-        /// Reconcile only the registry-declared build-runner cache profile.
-        #[arg(long)]
-        build_runner: bool,
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: String,
-        /// Build-runner node id; defaults to the observed hostname.
-        #[arg(long)]
-        node: Option<String>,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
+        #[command(subcommand)]
+        command: RuntimeNetworkCommand,
     },
     /// Observe or provision the Forgejo runtime token.
     Forgejo {
@@ -240,6 +201,77 @@ pub(crate) enum RuntimeStorageCommand {
     Client {
         #[command(subcommand)]
         command: RuntimeStorageClientCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeHarnessCommand {
+    /// Observed harness state for one kind.
+    Status {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        kind: Option<String>,
+    },
+    /// Progress between harness kinds, per proof category.
+    Progress {
+        #[arg(long, value_enum)]
+        current_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        target_kind: RuntimeHarnessKindArg,
+        #[arg(long, value_enum)]
+        satisfied: Vec<ProofCategoryArg>,
+        #[arg(long, value_enum)]
+        unknown: Vec<ProofCategoryArg>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeNetworkCommand {
+    /// Observed host network state.
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Preflight the network before a fleet change.
+    Preflight {
+        #[arg(long)]
+        json: bool,
+        #[arg(long = "host")]
+        hosts: Vec<String>,
+        #[arg(long)]
+        persist: bool,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeDiskCommand {
+    /// Observed host disk capacity, filesystems, caches and large files.
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan or execute host disk space cleanup.
+    Clean {
+        #[arg(long)]
+        json: bool,
+        /// Apply the cleanup plan (mutation).
+        #[arg(long)]
+        apply: bool,
+        /// Reconcile only the registry-declared build-runner cache profile.
+        #[arg(long)]
+        build_runner: bool,
+        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        registry: String,
+        /// Build-runner node id; defaults to the observed hostname.
+        #[arg(long)]
+        node: Option<String>,
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
     },
 }
 
@@ -465,12 +497,18 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             profile,
             proof,
         } => suite::execute_plan(json, registry.as_deref(), &profile, proof.as_deref()),
-        RuntimeCommand::HarnessProgress {
-            current_kind,
-            target_kind,
-            satisfied,
-            unknown,
-            json,
+        RuntimeCommand::Harness {
+            command: RuntimeHarnessCommand::Status { json, kind },
+        } => host_checks::execute_harness(json, kind.as_deref()),
+        RuntimeCommand::Harness {
+            command:
+                RuntimeHarnessCommand::Progress {
+                    current_kind,
+                    target_kind,
+                    satisfied,
+                    unknown,
+                    json,
+                },
         } => {
             match execute_harness_progress(
                 current_kind.clone(),
@@ -526,14 +564,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Execution {
             command: RuntimeExecutionCommand::Context { json, hosts },
         } => execution_context::execute_execution_context(json, &hosts),
-        RuntimeCommand::NetworkPreflight {
-            json,
-            hosts,
-            persist,
-            endpoint,
-        } => {
-            network_preflight::execute_network_preflight(json, &hosts, persist, endpoint.as_deref())
-        }
         RuntimeCommand::Resolver {
             command: RuntimeResolverCommand::Plan { json, hosts },
         } => resolver_plan::execute_resolver_plan(json, &hosts),
@@ -559,7 +589,6 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
         RuntimeCommand::Memory { json } => memory::execute_memory(json),
         RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
-        RuntimeCommand::Network { json } => network::execute_network(json),
         RuntimeCommand::Forgejo {
             command:
                 RuntimeForgejoCommand::Token {
@@ -573,21 +602,11 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             command: RuntimeBuildCommand::Artefact { json, apply },
         } => build_artefact::execute_build_artefact(json, apply),
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
-        RuntimeCommand::Disk { .. } | RuntimeCommand::DiskClean { .. } => {
+        // Disk and Network are pre-dispatched in compat_aliases: that module
+        // already owned their handlers, and moving them here would have split
+        // one object across two dispatch chains for no gain.
+        RuntimeCommand::Disk { .. } | RuntimeCommand::Network { .. } => {
             unreachable!("pre-dispatched runtime command")
-        }
-        RuntimeCommand::Harness { json, kind } => {
-            // This arm used to sit in the `unreachable!("pre-dispatched runtime
-            // command")` group, but nothing ever pre-dispatched it: no early
-            // return in execute_runtime, inference_dispatch, or compat_aliases
-            // claims Harness, so `cynic runtime harness --json` panicked on the
-            // documented happy path.
-            //
-            // The handler already existed in host_checks.rs — a module carrying
-            // `#![allow(dead_code)]` because none of its three functions had a
-            // caller. Calling it is the repair; reimplementing it here would
-            // have duplicated the projection and left the fossil in place.
-            host_checks::execute_harness(json, kind.as_deref())
         }
     }
 }
