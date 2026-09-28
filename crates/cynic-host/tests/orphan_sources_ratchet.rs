@@ -18,37 +18,7 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
-const QUARANTINED: &[&str] = &[
-    "adapters/host_exec_disk.rs",
-    "container_runtime/local.rs",
-    "container_runtime/mod.rs",
-    "container_runtime/normalize.rs",
-    "container_runtime/policy.rs",
-    "container_runtime/port.rs",
-    "container_runtime/types.rs",
-    "detection_engine/hardware.rs",
-    "detection_engine/mod.rs",
-    "detection_engine/provenance.rs",
-    "detection_engine/supervisor.rs",
-    "framework_bootstrap/activation.rs",
-    "framework_bootstrap/admission.rs",
-    "framework_bootstrap/enrollment.rs",
-    "host_hardening/apply.rs",
-    "host_hardening/mod.rs",
-    "host_hardening/observe.rs",
-    "host_hardening/reconcile.rs",
-    "host_hardening/types.rs",
-    "runtime_takeover_activation.rs",
-    "signed_heartbeat.rs",
-    "source_control/commit_scope.rs",
-    "storage_census/growth.rs",
-    "storage_census/local.rs",
-    "storage_census/mod.rs",
-    "storage_census/policy.rs",
-    "storage_census/port.rs",
-    "storage_census/process.rs",
-    "storage_census/types.rs",
-];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
