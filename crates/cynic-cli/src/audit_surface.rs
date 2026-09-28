@@ -29,6 +29,21 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Triage branches by measurement: does a ref still describe a world that
+    /// exists, and does it carry patches the base has never seen?
+    ///
+    /// Named `branch`, not `branch-audit`: no CLI command carries a hyphen
+    /// (operator rule, 2026-09-28). It lives here rather than under `dev`
+    /// because `cynic audit` is the entry point `make check` runs, and `dev`
+    /// is not declared in the crate graph at all — a command the binary cannot
+    /// reach is a rule nobody can apply.
+    Branch {
+        /// Base ref the refs are compared against.
+        #[arg(long, default_value = "main")]
+        base: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
     All {
         #[arg(long)]
@@ -56,7 +71,8 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             }
         }
         AuditCommand::Secret { json } => {
-            let observation = cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));
+            let observation =
+                cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));
             let is_ok = !observation.has_findings();
             if *json {
                 emit_json(&observation, !is_ok)
@@ -82,11 +98,27 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 Err(error) => fail(error),
             }
         }
+        AuditCommand::Branch { base, json } => {
+            if !json {
+                return ExitCode::FAILURE;
+            }
+            // Deliberately NOT part of `audit all`: a branch being parked is a
+            // normal repository state, not a defect of the build. Folding it
+            // into the gate would make `make check` red for the wrong reason.
+            let report = crate::branch_audit::audit_branches(base);
+            let blocked = report.status != "ok";
+            emit_json(&report, blocked);
+            if blocked {
+                return ExitCode::FAILURE;
+            }
+            ExitCode::SUCCESS
+        }
         AuditCommand::Paths { json } => {
             // Projection only. The rule set, the extraction, and the existence
             // observation belong to cynic-host::audit_engine, which MCP and the
             // workspace audit already consume. A surface projects; it does not own.
-            let report = cynic_host::audit_engine::run_path_audit(&crate::rust_source::workspace_root());
+            let report =
+                cynic_host::audit_engine::run_path_audit(&crate::rust_source::workspace_root());
             let blocked = report.summary.status == "blocked";
             if *json {
                 emit_json(&report, blocked)

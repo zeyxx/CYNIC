@@ -66,6 +66,10 @@
         "rule": "MCP is a replaceable projection of stable contracts and local CLI/read-back surfaces. A missing, removed, unavailable, or incompatible MCP artifact must be retained as an explicit unknown but cannot be a bootstrap prerequisite for local read-only observation or a human-admitted bounded local source slice. MCP rebuild begins only after the projected contracts and local proof are stable; it must not own policy, scheduling, or coordination authority."
       },
       {
+        "name": "no_hyphen_in_cli_commands",
+        "rule": "No CLI command may carry a hyphen. A command is a noun or a verb, not a compound: `cynic audit branch`, never `cynic audit branch-audit` or `branchaudit`. A surface that seems to need two words is a missing noun level, not a longer name: promote the noun into its own command rather than joining words with a hyphen. A guard that names itself with a hyphen is a guard nobody will type. Rationale: a hyphenated name encodes a taxonomy the argument parser cannot see, and the workspace already paid for it with a dev surface unreachable from the binary."
+      },
+      {
         "name": "explicit_over_implicit",
         "rule": "The implicit is debt. Every intent, decision, gap, budget, recipient, schema version, and migration step must be explicit, typed, and machine-readable, or recorded as an owned explicit unknown with due scale. Nothing is back-filled by guess: a missing observer, adapter, proof, budget, or address is reported as unknown or blocked, never fabricated into a successful-looking report. Guessing where a type, test, contract, or proof could answer is a constitutional violation."
       },
