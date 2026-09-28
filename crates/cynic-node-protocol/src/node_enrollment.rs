@@ -170,7 +170,7 @@ pub fn validate_machine_enrollment_authority(
     );
     check(
         !authority.token_digest.trim().is_empty(),
-        "node_enrollment_authority_token_missing",
+        NODE_ENROLLMENT_AUTHORITY_TOKEN_MISSING,
         &mut blockers,
     );
     check(
@@ -204,13 +204,25 @@ pub struct NodeEnrollmentAdmission {
     pub blockers: Vec<String>,
 }
 
+/// Blocker code for a missing single-use issuance token in an authority record.
+/// Shared between the completeness validator and the renewal path, which
+/// consumes the token at issuance and must not require it back.
+pub const NODE_ENROLLMENT_AUTHORITY_TOKEN_MISSING: &str = "node_enrollment_authority_token_missing";
+
 pub fn admit_node_enrollment(
     request: &NodeEnrollmentRequest,
     authority: &MachineEnrollmentAuthority,
     presented_token_digest: &str,
     now_unix_s: u64,
+    require_token: bool,
 ) -> NodeEnrollmentAdmission {
-    let mut blockers = Vec::new();
+    // M3 composition: completeness first, so a degenerate authority record
+    // blocks before any relational check dereferences its fields. Issuance
+    // requires the single-use token; renewal consumed it and passes false.
+    let mut blockers: Vec<String> = validate_machine_enrollment_authority(authority)
+        .into_iter()
+        .filter(|blocker| require_token || blocker != NODE_ENROLLMENT_AUTHORITY_TOKEN_MISSING)
+        .collect();
     check(
         request.schema == NODE_ENROLLMENT_REQUEST_SCHEMA,
         "node_enrollment_request_schema_mismatch",
@@ -294,7 +306,8 @@ pub fn admit_node_enrollment_renewal(
     let mut authority_without_token = authority.clone();
     authority_without_token.token_digest.clear();
     authority_without_token.expires_at_unix_s = authority.renewal_authority_expires_at_unix_s;
-    let mut admission = admit_node_enrollment(request, &authority_without_token, "", now_unix_s);
+    let mut admission =
+        admit_node_enrollment(request, &authority_without_token, "", now_unix_s, false);
     for (condition, blocker) in [
         (
             renewal.schema == NODE_ENROLLMENT_RENEWAL_REQUEST_SCHEMA,
@@ -738,7 +751,8 @@ mod tests {
     fn bootstrap_token_admits_only_bounded_role_and_capabilities() {
         let request = request();
         let authority = authority();
-        let admission = admit_node_enrollment(&request, &authority, &authority.token_digest, 110);
+        let admission =
+            admit_node_enrollment(&request, &authority, &authority.token_digest, 110, true);
         assert_eq!(admission.status, "admitted");
         assert_eq!(admission.grant_expires_at_unix_s, Some(135));
         assert_eq!(
@@ -754,12 +768,41 @@ mod tests {
             .requested_capabilities
             .push("runtime.admin".to_string());
         let authority = authority();
-        let admission = admit_node_enrollment(&request, &authority, &authority.token_digest, 110);
+        let admission =
+            admit_node_enrollment(&request, &authority, &authority.token_digest, 110, true);
         assert_eq!(admission.status, "blocked");
         assert!(
             admission
                 .blockers
                 .contains(&"node_enrollment_capability_not_allowed".to_string())
+        );
+    }
+
+    #[test]
+    fn degenerate_authority_blocks_before_relational_checks() {
+        let request = request();
+        let mut authority = authority();
+        authority.authority_id.clear();
+        let admission =
+            admit_node_enrollment(&request, &authority, &authority.token_digest, 110, true);
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"node_enrollment_authority_id_missing".to_string())
+        );
+    }
+
+    #[test]
+    fn issuance_without_presented_token_is_refused() {
+        let request = request();
+        let authority = authority();
+        let admission = admit_node_enrollment(&request, &authority, "", 110, true);
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"node_enrollment_token_invalid".to_string())
         );
     }
 
