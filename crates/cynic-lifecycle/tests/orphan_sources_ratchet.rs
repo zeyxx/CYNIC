@@ -14,8 +14,7 @@
 mod orphan_sources;
 
 /// Sources currently unreachable from this crate's compilation roots.
-const QUARANTINED: &[&str] = &[
-    "repair_loop.rs",];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {

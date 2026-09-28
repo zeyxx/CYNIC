@@ -18,10 +18,7 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
-const QUARANTINED: &[&str] = &[
-    "solana_archive/probe_executor.rs",
-    "solana_archive/probe_runner.rs",
-];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
