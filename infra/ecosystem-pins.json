@@ -22,6 +22,17 @@
       "notes": "Scripted provider under principal cynic: git+cmake → /var/lib/cynic/.local/bin/llama-server. desired_build for newer GGUF arches (dspark)."
     },
     {
+      "id": "llama.cpp-prism",
+      "repo": "PrismML-Eng/llama.cpp",
+      "tag": "prism-b10743-adfffbe",
+      "commit": "adfffbe41b2cabcd51fff326ab045662265062bb",
+      "min_build": 10658,
+      "asset": "llama-prism-b10743-adfffbe-bin-ubuntu-vulkan-x64.tar.gz",
+      "asset_sha256": "95a3d082629643642842bc2195e0730880273005171517cf857804702f693edc",
+      "binary_path": "/var/lib/cynic/vault/llama-bin/prism/llama-prism-b10743-adfffbe/llama-server",
+      "notes": "Ternary/dspark kernels (PTQ1_0/PQ2_0) for Bonsai-2-27B; stock refuses these quants. Measured LFM2.6B pp512 vulkan 228 vs cpu 159, tg128 16.3 vs 15.6 — vulkan wins prefill on Cezanne APU. Evidence: /var/lib/cynic/evidence/hw_backend_bench.jsonl."
+    },
+    {
       "id": "huggingface-cli",
       "min_version": "1.17.0",
       "notes": "External channel: hf update"
