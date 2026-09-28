@@ -18,28 +18,7 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
-const QUARANTINED: &[&str] = &[
-    "agent_harness_adapter.rs",
-    "autoresearch_surface/runner.rs",
-    "bootstrap_surface/framework/framework_epoch.rs",
-    "bootstrap_surface/host_os_health_surface.rs",
-    "fleet_build_runner.rs",
-    "hermes_kanban_adapter.rs",
-    "hermes_runtime_surface.rs",
-    "inference_benchmark.rs",
-    "lifecycle_surface/workload.rs",
-    "runtime_surface/adoption.rs",
-    "runtime_surface/agents.rs",
-    "runtime_surface/epoch.rs",
-    "runtime_surface/harness_matrix.rs",
-    "runtime_surface/hermes_run.rs",
-    "runtime_surface/inference_surface/fleet.rs",
-    "runtime_surface/inference_surface/host_disk_capacity.rs",
-    "runtime_surface/mcp.rs",
-    "runtime_surface/process_convergence.rs",
-    "runtime_surface/storage_capabilities.rs",
-    "runtime_surface/storage_census.rs",
-];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
