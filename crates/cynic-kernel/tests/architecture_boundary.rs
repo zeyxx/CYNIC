@@ -67,19 +67,33 @@ fn kernel_lib_stays_the_compilation_boundary_surface() {
     for expected in [
         "pub static MCP_MODE: AtomicBool = AtomicBool::new(false);",
         "macro_rules! klog",
-        "pub mod api;",
-        "pub mod backends;",
+        "pub mod bootstrap;",
         "pub mod domain;",
         "pub mod infra;",
         "pub mod introspection;",
+        "pub mod json;",
+    ] {
+        assert!(
+            lib_rs.contains(expected),
+            "kernel lib.rs should contain `{expected}`"
+        );
+    }
+
+    // NOTE (2026-09-28 api/ purge): the god-object surface below was removed
+    // (api/ 36 files uncompiled, backends/organ/probe/senses/storage gone
+    // from the manifest). The old test asserted their PRESENCE against a
+    // lib.rs that never declared them — aspirational fiction. Lock absence.
+    for forbidden in [
+        "pub mod api;",
+        "pub mod backends;",
         "pub mod organ;",
         "pub mod probe;",
         "pub mod senses;",
         "pub mod storage;",
     ] {
         assert!(
-            lib_rs.contains(expected),
-            "kernel lib.rs should contain `{expected}`"
+            !lib_rs.contains(forbidden),
+            "kernel lib.rs must not re-declare removed god-object surface `{forbidden}`"
         );
     }
 }
@@ -118,41 +132,15 @@ fn kernel_runtime_orchestrator_hosts_bootstrap_composition_logic() {
 }
 
 #[test]
-fn kernel_api_and_infra_surfaces_stay_split_by_role() {
-    let api_mod = read_repo_file("crates/cynic-kernel/src/api/mod.rs");
-    let rest_mod = read_repo_file("crates/cynic-kernel/src/api/rest/mod.rs");
+fn kernel_infra_surfaces_stay_split_by_role() {
+    // NOTE (2026-09-28 api/ purge): the api/ + restmod structure blocks died
+    // with the 32-file purge of the uncompiled REST surface. What remains
+    // pins the live side: infra split, MCP-mode failure closure, task spawns.
+    // A standalone cynic-mcp remains the single MCP command surface (no api/
+    // left to contradict it).
     let infra_mod = read_repo_file("crates/cynic-kernel/src/infra/mod.rs");
     let bootstrap_entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
     let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
-
-    for expected in ["pub mod rest;", "pub mod websocket;"] {
-        assert!(
-            api_mod.contains(expected),
-            "api/mod.rs should contain `{expected}`"
-        );
-    }
-    assert!(
-        !api_mod.contains("pub mod mcp;"),
-        "standalone cynic-mcp must remain the single MCP command surface"
-    );
-
-    for expected in [
-        "pub mod agent_tasks;",
-        "pub mod coord;",
-        "pub mod data;",
-        "pub mod health;",
-        "pub mod inference_router;",
-        "pub mod middleware;",
-        "pub mod observe;",
-        "pub mod response;",
-        "pub mod services;",
-        "pub mod types;",
-    ] {
-        assert!(
-            rest_mod.contains(expected),
-            "api/rest/mod.rs should contain `{expected}`"
-        );
-    }
 
     for expected in [
         "pub mod boot;",
@@ -307,17 +295,14 @@ fn kernel_storage_must_not_own_inference_model_registry() {
 }
 
 #[test]
-fn workload_identity_surfaces_fail_closed_and_share_rbac_policy() {
-    let middleware = read_repo_file("crates/cynic-kernel/src/api/rest/middleware.rs");
-    let websocket = read_repo_file("crates/cynic-kernel/src/api/websocket/mod.rs");
+fn workload_identity_stays_fail_closed_in_node_dispatch() {
+    // NOTE (2026-09-28 api/ purge): the kernel RBAC middleware
+    // (authorize_role_request/resolve_signer) died with the uncompiled REST
+    // surface and has NO live successor anywhere — recorded as REST-rebuild
+    // backlog, not silently dropped. What remains pins the live side: node
+    // dispatch must never regress to unsigned acknowledgment.
     let node_dispatch = read_repo_file("crates/cynic-node/src/websocket/domain_dispatch.rs");
-    let types = read_repo_file("crates/cynic-kernel/src/api/rest/types.rs");
 
-    assert!(types.contains("pub fn authorize_role_request("));
-    assert!(middleware.contains("authorize_role_request(principal.role"));
-    assert!(middleware.contains("resolve_signer(&pk)"));
-    assert!(websocket.contains("resolve_signer(&public_key)"));
-    assert!(websocket.contains("verify_signature("));
     for forbidden in [
         "Default to Cortex for signed requests",
         "TODO: Implement Ed25519 signature verification",
@@ -326,9 +311,7 @@ fn workload_identity_surfaces_fail_closed_and_share_rbac_policy() {
         "NATIVE_ADAPTER_UNSIGNED_YET",
     ] {
         assert!(
-            !middleware.contains(forbidden)
-                && !websocket.contains(forbidden)
-                && !node_dispatch.contains(forbidden),
+            !node_dispatch.contains(forbidden),
             "workload identity must not regress to `{forbidden}`"
         );
     }
@@ -445,28 +428,8 @@ fn kernel_domain_must_not_reexport_inference_or_embedding_law() {
 
 #[test]
 fn kernel_inference_router_delegates_model_catalog_rules_to_inference() {
-    let router = read_repo_file("crates/cynic-kernel/src/api/rest/inference_router.rs");
-    assert!(
-        router.contains("cynic_inference::application::model_catalog")
-            && router.contains("deterministic_model_info()")
-            && router.contains("project_model_info(")
-            && router.contains("should_probe_model("),
-        "kernel inference router must delegate model catalog projection to cynic-inference"
-    );
-
-    for forbidden in [
-        "\"context_size\": cfg.context_size",
-        "\"thinking_mode\": !cfg.disable_thinking",
-        "\"json_mode\": cfg.json_mode",
-        "\"success_count\": 0",
-        "actual_model != \"parse_error\"",
-    ] {
-        assert!(
-            !router.contains(forbidden),
-            "kernel inference router must not own model catalog rule: {forbidden}"
-        );
-    }
-
+    // NOTE (2026-09-28 api/ purge): the kernel router side died with the
+    // uncompiled REST surface. What remains pins the live owner contract.
     let model_catalog = read_repo_file("crates/cynic-inference/src/application/model_catalog.rs");
     for expected in [
         "pub struct ModelInfo",
@@ -483,62 +446,9 @@ fn kernel_inference_router_delegates_model_catalog_rules_to_inference() {
 }
 
 #[test]
-fn kernel_inference_router_delegates_observation_persistence() {
-    let router = read_repo_file("crates/cynic-kernel/src/api/rest/inference_router.rs");
-    assert!(
-        router.contains("store_recovery_observation") && router.contains("store_probe_observation"),
-        "kernel inference router must delegate observation persistence"
-    );
-
-    for forbidden in [
-        "let obs = Observation {",
-        "use crate::domain::storage::Observation",
-        "store_observation(",
-        "agent_id: \"kernel-probe\"",
-    ] {
-        assert!(
-            !router.contains(forbidden),
-            "kernel inference router must not construct storage observations inline: {forbidden}"
-        );
-    }
-
-    let observation = read_repo_file("crates/cynic-kernel/src/api/rest/inference_observation.rs");
-    for expected in [
-        "pub async fn store_recovery_observation",
-        "pub async fn store_probe_observation",
-        "Observation {",
-        "store_observation(&obs).await",
-    ] {
-        assert!(
-            observation.contains(expected),
-            "inference_observation adapter must contain `{expected}`"
-        );
-    }
-}
-
-#[test]
 fn kernel_inference_router_delegates_node_operations_to_cynic_inference_application() {
-    let router = read_repo_file("crates/cynic-kernel/src/api/rest/inference_router.rs");
-    assert!(
-        router.contains("cynic_inference::application::node_runtime_ops")
-            && router.contains("start_dog_runtime")
-            && router.contains("remediate_dog_runtime")
-            && router.contains("probe_model_runtime"),
-        "kernel inference router must call cynic-inference node runtime operations"
-    );
-
-    for forbidden in [
-        "cynic_node::inference_node_ops",
-        "attempt_node_start",
-        "attempt_node_recovery",
-        "probe_node_model",
-    ] {
-        assert!(
-            !router.contains(forbidden),
-            "kernel inference router must not call low-level node ops directly: {forbidden}"
-        );
-    }
-
+    // NOTE (2026-09-28 api/ purge): kernel router side dead with the REST
+    // surface. Live owner contract below.
     let node_ops = read_repo_file("crates/cynic-node/src/inference_node_ops.rs");
     let node_lib = read_repo_file("crates/cynic-node/src/lib.rs");
     let inference_ops =
@@ -558,26 +468,8 @@ fn kernel_inference_router_delegates_node_operations_to_cynic_inference_applicat
 
 #[test]
 fn kernel_inference_router_delegates_routing_projection_to_inference() {
-    let router = read_repo_file("crates/cynic-kernel/src/api/rest/inference_router.rs");
-    assert!(
-        router.contains("project_route_response")
-            && router.contains("project_candidate_views")
-            && router.contains("storage_fleet_stats_to_domain"),
-        "kernel inference router must delegate route/candidate projection to cynic-inference"
-    );
-
-    for forbidden in [
-        "select_best_candidate",
-        "rank_healthy_candidates",
-        "pub struct InferenceRouteResponse",
-        "\"success_rate\": candidate.success_rate",
-    ] {
-        assert!(
-            !router.contains(forbidden),
-            "kernel inference router must not own routing projection rule: {forbidden}"
-        );
-    }
-
+    // NOTE (2026-09-28 api/ purge): kernel router side dead with the REST
+    // surface. Live owner contract below.
     let routing = read_repo_file("crates/cynic-inference/src/application/fleet_routing.rs");
     for expected in [
         "pub struct InferenceRouteDecisionView",
@@ -594,27 +486,8 @@ fn kernel_inference_router_delegates_routing_projection_to_inference() {
 
 #[test]
 fn kernel_inference_proxy_delegates_backend_selection_to_inference() {
-    let proxy = read_repo_file("crates/cynic-kernel/src/api/rest/inference_proxy.rs");
-    assert!(
-        proxy.contains("cynic_inference::application::proxy_routing")
-            && proxy.contains("proxy.select("),
-        "kernel inference proxy must delegate backend selection to cynic-inference"
-    );
-
-    for forbidden in [
-        "pub struct ProxyTargets",
-        "struct ProxyTarget",
-        "BTreeMap",
-        "from_fleet_meta",
-        "first_with_tools",
-        "fn first(",
-    ] {
-        assert!(
-            !proxy.contains(forbidden),
-            "kernel inference proxy must not own proxy routing rule: {forbidden}"
-        );
-    }
-
+    // NOTE (2026-09-28 api/ purge): kernel proxy side dead with the REST
+    // surface. Live owner contract below.
     let proxy_routing = read_repo_file("crates/cynic-inference/src/application/proxy_routing.rs");
     for expected in [
         "pub struct ProxyTargets",
@@ -920,52 +793,9 @@ fn kernel_wallet_enrichment_facade_stays_extracted_to_cynic_intel() {
 }
 
 #[test]
-fn kernel_fleet_and_mesh_rest_handlers_delegate_runtime_rules_to_node() {
-    let event = read_repo_file("crates/cynic-kernel/src/api/rest/event.rs");
-    let mesh = read_repo_file("crates/cynic-kernel/src/api/rest/mesh.rs");
-
-    assert!(
-        event.contains("cynic_node::fleet_observability")
-            && event.contains("validate_event_identity")
-            && event.contains("project_fleet_stats"),
-        "kernel event REST handler must delegate fleet rules to cynic-node"
-    );
-    for forbidden in [
-        "tool.is_empty()",
-        "tool.len() > 64",
-        "node.is_empty()",
-        "node.len() > 64",
-        "success_rate) {",
-        "failure_reason.as_str()",
-        ".map(|(node, avg_latency",
-    ] {
-        assert!(
-            !event.contains(forbidden),
-            "kernel event REST handler must not re-own fleet runtime rules: {forbidden}"
-        );
-    }
-
-    assert!(
-        mesh.contains("cynic_node::mesh_registry::validate_mesh_key_publication"),
-        "kernel mesh REST handler must delegate mesh publication validation to cynic-node"
-    );
-    for forbidden in [
-        "mesh_ip.is_empty()",
-        "mesh_ip.len() > 20",
-        "public_key.is_empty()",
-        "public_key.len() > 128",
-    ] {
-        assert!(
-            !mesh.contains(forbidden),
-            "kernel mesh REST handler must not re-own mesh validation rules: {forbidden}"
-        );
-    }
-}
-
-#[test]
 fn kernel_runtime_project_root_resolution_stays_host_owned() {
+    // NOTE (2026-09-28 api/ purge): dispatch.rs died with the REST surface.
     for path in [
-        "crates/cynic-kernel/src/api/rest/dispatch.rs",
         "crates/cynic-kernel/src/bootstrap/services.rs",
         "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/infra/config/mod.rs",
