@@ -156,7 +156,16 @@ fn kernel_infra_surfaces_stay_split_by_role() {
     // left to contradict it).
     let infra_mod = read_repo_file("crates/cynic-kernel/src/infra/mod.rs");
     let bootstrap_entry = read_repo_file("crates/cynic-kernel/src/bootstrap/entry.rs");
-    let tasks_mod = read_repo_file("crates/cynic-kernel/src/infra/tasks/mod.rs");
+    // `infra/tasks/mod.rs` was never declared by `infra/mod.rs`, so the task
+    // spawns it declared were never compiled and the guard that read it enforced
+    // nothing. The kernel does not spawn tasks; the file is deleted rather than
+    // reinstated. Assert the absence so it cannot come back as a second truth.
+    assert!(
+        !repo_root()
+            .join("crates/cynic-kernel/src/infra/tasks/mod.rs")
+            .exists(),
+        "kernel task spawning must stay deleted; it was never compiled"
+    );
 
     // NOTE (2026-09-28): the old list demanded `boot;` `health_loop;`
     // `probes;` `tasks;` — none were ever declared by infra/mod.rs, and
@@ -198,27 +207,20 @@ fn kernel_infra_surfaces_stay_split_by_role() {
             && !bootstrap_entry.contains("CYNIC_API_KEY"),
         "deprecated kernel --mcp mode must fail explicitly without API-key fallback"
     );
-
-    for expected in [
-        "pub fn spawn_signal_handler",
-        "spawn_remediation_watcher",
-        "spawn_organ_remediation",
-    ] {
-        assert!(
-            tasks_mod.contains(expected),
-            "infra/tasks/mod.rs should contain `{expected}`"
-        );
-    }
 }
 
 #[test]
 fn kernel_fleet_inventory_probe_stays_a_thin_node_adapter() {
-    let probe = read_repo_file("crates/cynic-kernel/src/infra/probes/fleet_inventory.rs");
-
+    // The kernel probe was never declared, so the thinness it was checked for
+    // was never exercised. Provider-facing collection lives in cynic-node; the
+    // kernel owns no copy, and must not grow one.
     assert!(
-        probe.contains("cynic_node::fleet_inventory::build_fleet_inventory_details"),
-        "kernel fleet inventory probe must delegate provider-facing collection to cynic-node"
+        !repo_root()
+            .join("crates/cynic-kernel/src/infra/probes/fleet_inventory.rs")
+            .exists(),
+        "kernel fleet inventory probe must stay deleted; collection lives in cynic-node"
     );
+    let probes_tree = read_repo_tree("crates/cynic-kernel/src/infra/probes");
     for forbidden in [
         "struct ProxmoxInventoryProvider",
         "struct KubernetesInventoryProvider",
@@ -226,8 +228,8 @@ fn kernel_fleet_inventory_probe_stays_a_thin_node_adapter() {
         "request_json(",
     ] {
         assert!(
-            !probe.contains(forbidden),
-            "kernel fleet inventory probe must not re-own provider inventory logic: {forbidden}"
+            !probes_tree.contains(forbidden),
+            "kernel probes must not re-own provider inventory logic: {forbidden}"
         );
     }
 }
@@ -273,14 +275,23 @@ fn kernel_lifecycle_surface_stays_host_owned() {
 
 #[test]
 fn kernel_storage_must_not_own_inference_model_registry() {
-    let storage_mod = read_repo_file("crates/cynic-kernel/src/domain/storage/mod.rs");
-    // Walk the whole storage surface instead of listing files: `storage/surreal.rs`
-    // and `storage/memory.rs` have all been split into module directories.
-    let storage_tree = format!(
-        "{}\n{}",
-        read_repo_tree("crates/cynic-kernel/src/domain/storage"),
-        read_repo_tree("crates/cynic-kernel/src/storage"),
-    );
+    // `domain/storage/` and every adapter under `storage/` were quarantined
+    // orphans: no declaration ever named them, so the symbols this guard
+    // policed were never compiled. The guard now walks the live tree only, and
+    // the deleted directories are asserted absent so they cannot return.
+    for purged in [
+        "crates/cynic-kernel/src/domain/storage",
+        "crates/cynic-kernel/src/storage/surreal.rs",
+        "crates/cynic-kernel/src/storage/surreal",
+        "crates/cynic-kernel/src/storage/memory.rs",
+        "crates/cynic-kernel/src/storage/reconnectable.rs",
+    ] {
+        assert!(
+            !repo_root().join(purged).exists(),
+            "{purged} must stay deleted; it was never compiled"
+        );
+    }
+    let storage_tree = read_repo_tree("crates/cynic-kernel/src/storage");
 
     for forbidden in [
         "ModelRegistryStorage",
@@ -291,12 +302,8 @@ fn kernel_storage_must_not_own_inference_model_registry() {
         "model_backend",
     ] {
         assert!(
-            !storage_mod.contains(forbidden),
-            "kernel domain storage must not own inference model registry symbol: {forbidden}"
-        );
-        assert!(
             !storage_tree.contains(forbidden),
-            "kernel storage adapters must not own inference model registry symbol: {forbidden}"
+            "kernel storage must not own inference model registry symbol: {forbidden}"
         );
     }
 
@@ -547,21 +554,24 @@ fn kernel_inference_proxy_delegates_backend_selection_to_inference() {
 
 #[test]
 fn kernel_fleet_probe_delegates_model_identity_verification_to_node() {
-    let fleet_probe = read_repo_file("crates/cynic-kernel/src/infra/probes/fleet.rs");
+    // `infra/probes/fleet.rs` was a quarantined orphan, so its "delegation" was
+    // never compiled. Absence plus the live owner is the real proof, the form
+    // the kscore/rug/wallet guards already use.
     assert!(
-        fleet_probe.contains("cynic_node::verify")
-            && fleet_probe.contains("check_identity_with_bearer"),
-        "kernel fleet probe must delegate model identity observation to cynic-node"
+        !repo_root()
+            .join("crates/cynic-kernel/src/infra/probes/fleet.rs")
+            .exists(),
+        "kernel fleet probe must stay deleted; model identity law lives in cynic-node::verify"
     );
-
+    let probes_tree = read_repo_tree("crates/cynic-kernel/src/infra/probes");
     for forbidden in [
         ".pointer(\"/data/0/id\")",
         "actual_lower.contains",
         "expected_lower.contains",
     ] {
         assert!(
-            !fleet_probe.contains(forbidden),
-            "kernel fleet probe must not re-own model identity verification rule: {forbidden}"
+            !probes_tree.contains(forbidden),
+            "kernel probes must not re-own model identity verification rule: {forbidden}"
         );
     }
 
@@ -581,20 +591,22 @@ fn kernel_fleet_probe_delegates_model_identity_verification_to_node() {
 
 #[test]
 fn kernel_fleet_probe_delegates_context_observation_to_node() {
-    let fleet_probe = read_repo_file("crates/cynic-kernel/src/infra/probes/fleet.rs");
+    // Same orphan as the identity guard above: the delegation it asserted was
+    // never compiled. The live owner assertions below are the real proof.
     assert!(
-        fleet_probe.contains("check_context_with_bearer")
-            && fleet_probe.contains("ContextResult::Observed"),
-        "kernel fleet probe must delegate backend context observation to cynic-node"
+        !repo_root()
+            .join("crates/cynic-kernel/src/infra/probes/fleet.rs")
+            .exists(),
+        "kernel fleet probe must stay deleted; context observation law lives in cynic-node::verify"
     );
-
+    let probes_tree = read_repo_tree("crates/cynic-kernel/src/infra/probes");
     for forbidden in [
         ".pointer(\"/default_generation_settings/n_ctx\")",
         "resp.json::<serde_json::Value>().await",
     ] {
         assert!(
-            !fleet_probe.contains(forbidden),
-            "kernel fleet probe must not re-own backend context observation: {forbidden}"
+            !probes_tree.contains(forbidden),
+            "kernel probes must not re-own backend context observation: {forbidden}"
         );
     }
 
@@ -655,14 +667,15 @@ fn kernel_rug_risk_facade_stays_extracted_to_cynic_intel() {
 
 #[test]
 fn kernel_token_postprocessor_delegates_heuristics_to_cynic_intel() {
-    let postprocessor = read_repo_file("crates/cynic-kernel/src/domain/token_postprocessor.rs");
+    // The kernel facade was a quarantined orphan, so "must delegate" was a rule
+    // about a file no compiler read. Absence plus the live owner, again.
     assert!(
-        postprocessor.contains("cynic_intel::token_postprocessor")
-            && postprocessor.contains("postprocess_token_scores")
-            && postprocessor.contains("infer_token_metadata_from_context"),
-        "kernel token postprocessor must delegate heuristics to cynic-intel"
+        !repo_root()
+            .join("crates/cynic-kernel/src/domain/token_postprocessor.rs")
+            .exists(),
+        "kernel token postprocessor facade must stay deleted; law lives in cynic-intel::token_postprocessor"
     );
-
+    let kernel_domain_tree = read_repo_tree("crates/cynic-kernel/src/domain");
     for forbidden in [
         "fn apply_age_caps",
         "fn invert_inverted_signals",
@@ -673,8 +686,8 @@ fn kernel_token_postprocessor_delegates_heuristics_to_cynic_intel() {
         "fn parse_metric",
     ] {
         assert!(
-            !postprocessor.contains(forbidden),
-            "kernel token postprocessor must not own heuristic rule: {forbidden}"
+            !kernel_domain_tree.contains(forbidden),
+            "kernel domain must not own heuristic rule: {forbidden}"
         );
     }
 
@@ -805,8 +818,16 @@ fn kernel_wallet_enrichment_facade_stays_extracted_to_cynic_intel() {
 #[test]
 fn kernel_runtime_project_root_resolution_stays_host_owned() {
     // NOTE (2026-09-28 api/ purge): dispatch.rs died with the REST surface.
+    // `bootstrap/services.rs` was a quarantined orphan: the guard read it, so
+    // the rule it enforced was inert. Assert the absence and police the two
+    // live files that remain.
+    assert!(
+        !repo_root()
+            .join("crates/cynic-kernel/src/bootstrap/services.rs")
+            .exists(),
+        "kernel bootstrap services must stay deleted; it was never compiled"
+    );
     for path in [
-        "crates/cynic-kernel/src/bootstrap/services.rs",
         "crates/cynic-kernel/src/bootstrap/entry.rs",
         "crates/cynic-kernel/src/infra/config/mod.rs",
     ] {

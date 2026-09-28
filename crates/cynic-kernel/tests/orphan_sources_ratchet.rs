@@ -19,25 +19,7 @@
 mod orphan_sources;
 
 /// Sources currently unreachable from this crate's compilation roots.
-const QUARANTINED: &[&str] = &[
-    "api/mcp/mod.rs",
-    "bootstrap/services.rs",
-    "domain/lifecycle_activation_evidence.rs",
-    "domain/lifecycle_activation_requests.rs",
-    "domain/lifecycle_diagnostics.rs",
-    "domain/storage/mod.rs",
-    "domain/storage/null.rs",
-    "domain/token_postprocessor.rs",
-    "infra/probes/fleet.rs",
-    "infra/probes/fleet_inventory.rs",
-    "infra/tasks/mod.rs",
-    "organ/mod.rs",
-    "storage/memory.rs",
-    "storage/memory/core.rs",
-    "storage/reconnectable.rs",
-    "storage/surreal.rs",
-    "storage/surreal/ops.rs",
-];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
