@@ -10,16 +10,21 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
+use cynic_node::adapters::local_hex_key_file::read_hex_key_bytes;
 use cynic_node_protocol::node_enrollment::{
-    node_enrollment_grant_signing_bytes, NodeEnrollmentGrant, NodeEnrollmentRequest,
-    SignedNodeEnrollmentGrant, NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
-    NODE_ENROLLMENT_SIGNATURE_NAMESPACE, SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA,
+    NODE_ENROLLMENT_GRANT_SCHEMA, NODE_ENROLLMENT_REQUEST_SCHEMA,
+    NODE_ENROLLMENT_SIGNATURE_NAMESPACE, NodeEnrollmentGrant, NodeEnrollmentRequest,
+    SIGNED_NODE_ENROLLMENT_GRANT_SCHEMA, SignedNodeEnrollmentGrant,
+    node_enrollment_grant_signing_bytes,
 };
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
 #[derive(Parser, Debug)]
-#[command(name = "cynic-node-enroll", about = "Renew or issue CYNIC node enrollment grants")]
+#[command(
+    name = "cynic-node-enroll",
+    about = "Renew or issue CYNIC node enrollment grants"
+)]
 struct Args {
     /// Node identifier
     #[arg(long, default_value = "cynic-builder")]
@@ -46,18 +51,12 @@ struct Args {
     json: bool,
 }
 
-fn read_or_create_hex_signing_key(path: &Path) -> Result<SigningKey, String> {
+fn read_or_create_hex_signing_key(path: &Path, label: &str) -> Result<SigningKey, String> {
     if path.exists() {
-        let content = fs::read_to_string(path)
-            .map_err(|e| format!("read {}: {e}", path.display()))?;
-        let bytes: [u8; 32] = hex::decode(content.trim())
-            .map_err(|e| format!("decode hex {}: {e}", path.display()))?
-            .try_into()
-            .map_err(|_| format!("key {} is not 32 bytes", path.display()))?;
+        let bytes = read_hex_key_bytes(path, label, false)?;
         Ok(SigningKey::from_bytes(&bytes))
     } else {
-        let mut f = File::open("/dev/urandom")
-            .map_err(|e| format!("open /dev/urandom: {e}"))?;
+        let mut f = File::open("/dev/urandom").map_err(|e| format!("open /dev/urandom: {e}"))?;
         let mut bytes = [0u8; 32];
         f.read_exact(&mut bytes)
             .map_err(|e| format!("read /dev/urandom: {e}"))?;
@@ -75,7 +74,8 @@ fn main() -> ExitCode {
     let args = Args::parse();
 
     let node_signing_key_path = args.identity_dir.join("node-signing.key");
-    let node_key = match read_or_create_hex_signing_key(&node_signing_key_path) {
+    let node_key = match read_or_create_hex_signing_key(&node_signing_key_path, "node signing key")
+    {
         Ok(k) => k,
         Err(e) => {
             eprintln!("blocked: node signing key error: {e}");
@@ -91,16 +91,20 @@ fn main() -> ExitCode {
 
     // Authority signing key (stored in identity_dir/enrollment-authority.key)
     let authority_key_path = args.identity_dir.join("enrollment-authority.key");
-    let authority_key = match read_or_create_hex_signing_key(&authority_key_path) {
-        Ok(k) => k,
-        Err(e) => {
-            eprintln!("blocked: authority key error: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let authority_key =
+        match read_or_create_hex_signing_key(&authority_key_path, "authority signing key") {
+            Ok(k) => k,
+            Err(e) => {
+                eprintln!("blocked: authority key error: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
     let authority_pub_bytes = authority_key.verifying_key().to_bytes();
     let authority_pub_hex = hex::encode(authority_pub_bytes);
-    let authority_key_id = format!("sha256:{}", hex::encode(Sha256::digest(authority_pub_bytes)));
+    let authority_key_id = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(authority_pub_bytes))
+    );
 
     let now_unix_s = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -163,7 +167,10 @@ fn main() -> ExitCode {
         granted_capabilities: capabilities,
         evidence_refs: vec![
             authority_key_id.clone(),
-            format!("sha256:{}", hex::encode(Sha256::digest(args.node_id.as_bytes()))),
+            format!(
+                "sha256:{}",
+                hex::encode(Sha256::digest(args.node_id.as_bytes()))
+            ),
         ],
     };
 
@@ -222,7 +229,10 @@ fn main() -> ExitCode {
         println!("{}", serde_json::to_string_pretty(&report).unwrap());
     } else {
         println!("Enrollment grant successfully renewed for {}", args.node_id);
-        println!("  Expires at:    {expires_at_unix_s} (in {} days)", args.ttl_days);
+        println!(
+            "  Expires at:    {expires_at_unix_s} (in {} days)",
+            args.ttl_days
+        );
         println!("  Authority ID:  {authority_key_id}");
         println!("  Grant Path:    {}", grant_path.display());
     }

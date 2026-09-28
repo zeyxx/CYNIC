@@ -4,8 +4,14 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use cynic_protocol::{SecurityEvidenceState};
-use cynic_node_protocol::{NODE_ENROLLMENT_OBSERVATION_SCHEMA, NodeEnrollmentObservation, NodeEnrollmentRequest, SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes, reconcile_node_enrollment, validate_signed_node_enrollment_grant};
+use cynic_node_protocol::{
+    NODE_ENROLLMENT_OBSERVATION_SCHEMA, NodeEnrollmentObservation, NodeEnrollmentRequest,
+    SignedNodeEnrollmentGrant, node_enrollment_grant_signing_bytes, reconcile_node_enrollment,
+    validate_signed_node_enrollment_grant,
+};
+use cynic_protocol::SecurityEvidenceState;
+
+use super::local_hex_key_file::read_hex_key_bytes;
 
 #[derive(Debug, Clone)]
 pub struct LocalNodeEnrollmentReader {
@@ -155,9 +161,5 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path, label: &str) -> Result
 }
 
 fn read_hex_32(path: &Path, label: &str) -> Result<[u8; 32], String> {
-    let raw = std::fs::read_to_string(path).map_err(|error| format!("read {label}: {error}"))?;
-    hex::decode(raw.trim())
-        .map_err(|_| format!("{label} must be hex encoded"))?
-        .try_into()
-        .map_err(|_| format!("{label} must contain 32 bytes"))
+    read_hex_key_bytes(path, label, false)
 }

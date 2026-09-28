@@ -20,6 +20,7 @@ use sha2::{Digest, Sha256};
 
 use cynic_node_protocol::MachineEnrollmentAuthority;
 
+use super::local_hex_key_file::read_hex_key_bytes;
 use crate::ports::node_enrollment_signer_port::NodeEnrollmentSignerPort;
 use crate::ports::node_enrollment_store_port::{NodeEnrollmentRuntime, NodeEnrollmentStorePort};
 
@@ -68,26 +69,7 @@ impl std::fmt::Debug for FileEnrollmentSigner {
 
 impl FileEnrollmentSigner {
     fn load(path: &Path) -> Result<Self, String> {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            let mode = std::fs::metadata(path)
-                .map_err(|error| format!("inspect enrollment signing key: {error}"))?
-                .mode()
-                & 0o777;
-            if mode & 0o027 != 0 {
-                return Err(
-                    "enrollment signing key must not be group-writable or accessible by others"
-                        .to_string(),
-                );
-            }
-        }
-        let raw = std::fs::read_to_string(path)
-            .map_err(|error| format!("read enrollment signing key {}: {error}", path.display()))?;
-        let bytes: [u8; 32] = hex::decode(raw.trim())
-            .map_err(|_| "enrollment signing key must be hex".to_string())?
-            .try_into()
-            .map_err(|_| "enrollment signing key must contain 32 bytes".to_string())?;
+        let bytes = read_hex_key_bytes(path, "enrollment signing key", true)?;
         Ok(Self {
             key: SigningKey::from_bytes(&bytes),
         })
