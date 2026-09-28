@@ -31,7 +31,7 @@
 //! exact: it may not grow (new orphans are rejected) and it may not go stale
 //! (a repaired file must leave the list). The debt is bounded, not tolerated.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -112,7 +112,7 @@ pub fn crate_loc_census(crate_name: &str) -> CrateLocCensus {
 }
 
 /// Every `.rs` file under `src_root`, relative to it, sorted.
-fn all_sources(src_root: &Path) -> BTreeSet<String> {
+pub fn all_sources(src_root: &Path) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
     let mut stack = vec![src_root.to_path_buf()];
     while let Some(current) = stack.pop() {
@@ -218,7 +218,7 @@ fn manifest_roots(crate_dir: &Path, src_root: &Path) -> Vec<PathBuf> {
 }
 
 /// Transitively collect sources reachable from the crate roots.
-fn reachable(crate_dir: &Path, src_root: &Path) -> BTreeSet<String> {
+pub fn reachable(crate_dir: &Path, src_root: &Path) -> BTreeSet<String> {
     let mut reached: BTreeSet<String> = BTreeSet::new();
     let mut stack: Vec<PathBuf> = Vec::new();
 
@@ -283,18 +283,62 @@ fn reachable(crate_dir: &Path, src_root: &Path) -> BTreeSet<String> {
     reached
 }
 
-/// Assert the crate's orphan set exactly equals `quarantined`.
+/// Textual attachment edges: `include!("x.rs")` and `#[path = "x.rs"]`.
 ///
-/// Fails in BOTH directions on purpose:
-/// - a new orphan means someone added a file nothing compiles;
-/// - a stale entry means a file was repaired or deleted but left listed, which
-///   would let the quarantine become permanent cover instead of shrinking.
-/// The orphan sources this rule currently measures for one crate.
+/// This is the third reachability mechanism, isolated here because the closed-island
+/// gate (`tests/support/source_island.rs`, rule `SRC-001`) reasons about it on its
+/// own: a file that is only ever *attached* to a file the compiler never reads is
+/// a closed island, not a plain orphan.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TextualAttachments {
+    /// Every file that some file attaches textually, whether or not the including
+    /// file is itself reachable.
+    pub targeted: BTreeSet<String>,
+    /// Including file -> attached files, both relative to `src/`.
+    pub edges: BTreeMap<String, BTreeSet<String>>,
+    /// Reverse index: attached file -> including files.
+    pub attached_by: BTreeMap<String, BTreeSet<String>>,
+}
+
+/// Textual attachment edges of one crate, with both parameters explicit so a
+/// synthetic workspace can be measured without touching the real tree.
+pub fn attachments_at(_crate_dir: &Path, src_root: &Path) -> TextualAttachments {
+    let mut out = TextualAttachments::default();
+    for rel in all_sources(src_root) {
+        let Ok(text) = fs::read_to_string(src_root.join(&rel)) else {
+            continue;
+        };
+        let dir = src_root.join(&rel).parent().unwrap_or(src_root).to_path_buf();
+        for target in referenced_paths(&text) {
+            let candidate = dir.join(&target);
+            if !candidate.is_file() {
+                continue;
+            }
+            let Ok(target_rel) = candidate.strip_prefix(src_root) else {
+                continue;
+            };
+            let target_rel = target_rel.display().to_string();
+            out.targeted.insert(target_rel.clone());
+            out.edges.entry(rel.clone()).or_default().insert(target_rel.clone());
+            out.attached_by
+                .entry(target_rel)
+                .or_default()
+                .insert(rel.clone());
+        }
+    }
+    out
+}
+
+/// The orphan sources this rule currently measures for one crate: `all - reachable`.
 ///
 /// Exposed so a caller can REPORT as well as assert. A detector that can only
 /// fail cannot be used to build a quarantine list, which is how five crates came
 /// to carry 51 000 LOC with no gate at all: there was no way to ask the rule what
 /// it saw.
+///
+/// The island closure over these orphans is `SRC-001`
+/// (`tests/support/source_island.rs`): an orphan that some other orphan attaches
+/// textually is a closed island, and is a different defect from a loose orphan.
 pub fn orphan_sources(crate_name: &str) -> Vec<String> {
     let crate_dir = workspace_root().join("crates").join(crate_name);
     let src_root = crate_dir.join("src");
@@ -306,6 +350,17 @@ pub fn orphan_sources(crate_name: &str) -> Vec<String> {
     all.difference(&reached).cloned().collect()
 }
 
+/// Assert the crate's orphan set exactly equals `quarantined`.
+///
+/// Fails in BOTH directions on purpose:
+/// - a new orphan means someone added a file nothing compiles;
+/// - a stale entry means a file was repaired or deleted but left listed.
+///
+/// A per-crate `&[&str]` is a *bounded* list with no owner and no date, so it can
+/// sit unchanged for as long as nobody re-derives it. It is a ratchet, not a
+/// policy. The closed-island half of this defect class is gated separately and
+/// workspace-wide by `SRC-001` (`tests/support/source_island.rs`), whose
+/// quarantine carries an owner, a reason, and a hard expiry.
 pub fn assert_orphan_sources_match(crate_name: &str, quarantined: &[&str]) {
     let crate_dir = workspace_root().join("crates").join(crate_name);
     let src_root = crate_dir.join("src");
@@ -343,4 +398,40 @@ pub fn assert_orphan_sources_match(crate_name: &str, quarantined: &[&str]) {
         stale.len(),
         stale
     );
+}
+
+/// `crates/<crate_name>/src`, or `None` when the crate has no `src/`.
+pub fn crate_src_root(crate_name: &str) -> Option<PathBuf> {
+    let src_root = workspace_root().join("crates").join(crate_name).join("src");
+    src_root.is_dir().then_some(src_root)
+}
+
+/// Every `.rs` file under a crate's `src/`, relative to it.
+pub fn crate_source_files(crate_name: &str) -> BTreeSet<String> {
+    crate_src_root(crate_name).map(|src| all_sources(&src)).unwrap_or_default()
+}
+
+/// Sources a compilation root of this crate can actually name.
+pub fn reachable_sources(crate_name: &str) -> BTreeSet<String> {
+    let crate_dir = workspace_root().join("crates").join(crate_name);
+    crate_src_root(crate_name)
+        .map(|src| reachable(&crate_dir, &src))
+        .unwrap_or_default()
+}
+
+/// Textual attachment edges of this crate: `include!` and `#[path]`.
+pub fn crate_attachments(crate_name: &str) -> TextualAttachments {
+    let crate_dir = workspace_root().join("crates").join(crate_name);
+    crate_src_root(crate_name)
+        .map(|src| attachments_at(&crate_dir, &src))
+        .unwrap_or_default()
+}
+
+/// Lines in a crate source file, 0 when unreadable. Never `expect`s: a missing
+/// file is measured as zero mass, not as a panic inside a policy gate.
+pub fn source_loc(crate_name: &str, rel: &str) -> usize {
+    crate_src_root(crate_name)
+        .and_then(|src| fs::read_to_string(src.join(rel)).ok())
+        .map(|text| text.lines().count())
+        .unwrap_or(0)
 }

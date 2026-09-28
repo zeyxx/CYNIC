@@ -89,7 +89,7 @@ Derived, not planned: each step's proof is the next step's input.
    Proof: `cynic_mcp_surface` reports a served count that matches the declaration, or the
    declaration is corrected to match.
 3. **`cynic-cli`**, the 17 known-good declarations. The list is derived from `1fa6ec3d^`, and
-   the 14 compile errors are enumerated in `CLI_SURFACE_AUDIT.md` §6.2.2.
+   the 14 `rustc` type errors are enumerated in `CLI_SURFACE_AUDIT.md` §6.2.2.
 4. **`cynic-kernel`** last of the restores. Largest, and the crate does not currently build
    its test targets because `api/mcp/mod.rs:26` declares a module whose file is absent — a
    second, independent defect that must be fixed in the same slice.

@@ -85,7 +85,7 @@ Orphaned files grouped by owning domain. "entry" is the file that would have to 
 | `lab_surface` | 1 | 170 | `lab_surface.rs` | complete |
 | `integrations_surface` + `_render` + `_readonly` | 3 | 292 | `integrations_surface.rs` | complete |
 | `proxmox` | 2 | 149 | `proxmox/mod.rs` | complete |
-| `surface_registry/assembler/tests.rs` | 1 | 291 | `surface_registry.rs` (compiled) | `#[cfg(test)]`, reached only when the parent is |
+| `surface_registry/assembler/tests.rs` | 1 | 291 | `surface_registry.rs` (compiled) | `#[cfg(test)]`: read by `cargo test`, absent from `cargo build` |
 | `chat_surface/tests.rs` | 1 | 45 | `chat_surface.rs` (compiled) | `#[cfg(test)]` |
 | `agent_harness_adapter` | 1 | 33 | — | orphan adapter |
 
@@ -310,8 +310,8 @@ is 392 files and 78 174 LOC.
 ### 6.2.2 Why the 22 recoverable declarations are not simply restored
 
 Restoring all 22 was attempted. It moves `cynic-cli` from 132 to 163 compiled files and reduces
-its orphans from 62 to 31, then produces **14 compile errors**, all of them API drift in code
-that predates the current crate surfaces:
+its orphans from 62 to 31, then makes `rustc` report **14 type errors**, all of them API drift in
+code that predates the current crate surfaces:
 
 - `cynic_host::update_lifecycle` unresolved at 6 sites — the facade shim was deleted on purpose
   by `9e7ad3e7 "refactor(host): delete update_lifecycle facade shim, import cynic-lifecycle
