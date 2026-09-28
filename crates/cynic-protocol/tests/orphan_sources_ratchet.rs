@@ -18,12 +18,7 @@ mod orphan_sources;
 /// Quarantined as explicit data with the debt visible, NOT tolerated: nothing
 /// compiles these files, so any contract they claim to enforce is inert. The
 /// list may only shrink.
-const QUARANTINED: &[&str] = &[
-    "fleet_inference/mod.rs",
-    "fleet_inference/policy.rs",
-    "fleet_inference/types.rs",
-    "runtime/degradation.rs",
-];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
