@@ -115,20 +115,10 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// List retained trigger proofs from the operator proof log.
-    ListProofs {
-        /// Keep only proofs for this exact source commit.
-        #[arg(long)]
-        commit: Option<String>,
-        /// Keep at most N newest proofs (0 = no limit).
-        #[arg(long, default_value = "20")]
-        limit: usize,
-        /// Proof log path. Defaults to the operator log under $HOME.
-        #[arg(long)]
-        proof_log: Option<String>,
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
+    /// List pipeline proofs, most recent first.
+    Proofs {
+        #[command(subcommand)]
+        command: BuildProofsCommand,
     },
     /// Aggregate pipeline proofs for one commit into a metabolic invoice.
     Invoice {
@@ -172,7 +162,60 @@ pub(crate) enum BuildCommand {
         json: bool,
     },
     /// Observe one workload by id across the federation (local store + SSH).
-    ObserveWorkload {
+    Workload {
+        #[command(subcommand)]
+        command: BuildWorkloadCommand,
+    },
+    /// Serve the Forgejo push webhook receiver.
+    Webhook {
+        #[command(subcommand)]
+        command: BuildWebhookCommand,
+    },
+    /// Provision SSH credentials for all machine_enrollment transports in the registry.
+    Credentials {
+        #[command(subcommand)]
+        command: BuildCredentialsCommand,
+    },
+    /// Discover workspace crates/toolchain/targets (thin: Local/Remote adapter -> JSON).
+    Discover {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Discovery kind: local (default) or remote (requires --target).
+        #[arg(long, default_value = "local", value_parser = ["local","remote"])]
+        kind: String,
+        /// SSH target for remote kind (e.g. cynic@10.0.0.1).
+        #[arg(long)]
+        target: Option<String>,
+    },
+}
+
+/// Proof collection. `proof` (singular) produces one proof for one commit;
+/// this lists the ones already produced.
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildProofsCommand {
+    /// List pipeline proofs, most recent first.
+    List {
+        /// Keep only proofs for this exact source commit.
+        #[arg(long)]
+        commit: Option<String>,
+        /// Keep at most N newest proofs (0 = no limit).
+        #[arg(long, default_value = "20")]
+        limit: usize,
+        /// Proof log path. Defaults to the operator log under $HOME.
+        #[arg(long)]
+        proof_log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// One workload across the federation.
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildWorkloadCommand {
+    /// Observe one workload by id (local store + SSH).
+    Observe {
         /// Workload id to observe.
         #[arg(long)]
         workload_id: String,
@@ -192,8 +235,8 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// List all durable workloads across the federation (local store + SSH).
-    ListWorkloads {
+    /// List workloads known to the federation.
+    List {
         /// Node state root on remote nodes.
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
@@ -210,8 +253,13 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Serve HTTP webhook receiver for Forgejo push events.
-    ServeWebhook {
+}
+
+/// Forgejo push webhook receiver.
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildWebhookCommand {
+    /// Serve the Forgejo push webhook receiver.
+    Serve {
         /// Address to bind (e.g. 127.0.0.1:9147).
         #[arg(long, default_value = "127.0.0.1:9147")]
         bind: String,
@@ -223,8 +271,13 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Provision SSH credentials for all machine_enrollment transports in the registry.
-    ProvisionCredentials {
+}
+
+/// Machine credentials derived from the registry.
+#[derive(Subcommand, Debug)]
+pub(crate) enum BuildCredentialsCommand {
+    /// Provision SSH credentials for all machine_enrollment transports.
+    Provision {
         /// Path to the registry JSON.
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -237,18 +290,6 @@ pub(crate) enum BuildCommand {
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
-    },
-    /// Discover workspace crates/toolchain/targets (thin: Local/Remote adapter -> JSON).
-    Discover {
-        /// Emit machine-readable JSON.
-        #[arg(long)]
-        json: bool,
-        /// Discovery kind: local (default) or remote (requires --target).
-        #[arg(long, default_value = "local", value_parser = ["local","remote"])]
-        kind: String,
-        /// SSH target for remote kind (e.g. cynic@10.0.0.1).
-        #[arg(long)]
-        target: Option<String>,
     },
 }
 
@@ -324,44 +365,52 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             proof_log.as_deref(),
             json,
         ),
-        BuildCommand::ListProofs {
-            commit,
-            limit,
-            proof_log,
-            json,
-        } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
         BuildCommand::Invoice {
             commit,
             proof_log,
             invoice_log,
             json,
         } => invoice_for_commit(&commit, proof_log.as_deref(), invoice_log.as_deref(), json),
-        BuildCommand::ObserveWorkload {
-            workload_id,
-            state_root,
-            local,
-            registry,
-            user,
-            json,
-        } => execute_observe_workload(&workload_id, &state_root, local, &registry, &user, json),
-        BuildCommand::ListWorkloads {
-            state_root,
-            local,
-            registry,
-            user,
-            json,
-        } => execute_list_workloads(&state_root, local, &registry, &user, json),
-        BuildCommand::ServeWebhook {
-            bind,
-            node_webhook_url,
-            json,
-        } => serve_webhook(&bind, &node_webhook_url, json),
-        BuildCommand::ProvisionCredentials {
-            registry,
-            secrets_dir,
-            apply,
-            json,
-        } => provision_credentials(&registry, &secrets_dir, apply, json),
+        BuildCommand::Proofs { command } => match command {
+            BuildProofsCommand::List {
+                commit,
+                limit,
+                proof_log,
+                json,
+            } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        },
+        BuildCommand::Workload { command } => match command {
+            BuildWorkloadCommand::Observe {
+                workload_id,
+                state_root,
+                local,
+                registry,
+                user,
+                json,
+            } => execute_observe_workload(&workload_id, &state_root, local, &registry, &user, json),
+            BuildWorkloadCommand::List {
+                state_root,
+                local,
+                registry,
+                user,
+                json,
+            } => execute_list_workloads(&state_root, local, &registry, &user, json),
+        },
+        BuildCommand::Webhook { command } => match command {
+            BuildWebhookCommand::Serve {
+                bind,
+                node_webhook_url,
+                json,
+            } => serve_webhook(&bind, &node_webhook_url, json),
+        },
+        BuildCommand::Credentials { command } => match command {
+            BuildCredentialsCommand::Provision {
+                registry,
+                secrets_dir,
+                apply,
+                json,
+            } => provision_credentials(&registry, &secrets_dir, apply, json),
+        },
         BuildCommand::Discover { json, kind, target } => {
             let code = crate::build_discovery_surface::execute_build_discover(
                 json,
