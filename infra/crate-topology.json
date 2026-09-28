@@ -7,12 +7,12 @@
     "contracts/foundation.json",
     "infra/runtime-authority.json",
     "infra/directory-tree.json",
-    "this file",
     "infra/registry.json",
     "workspace Cargo.toml",
-    "canonical crates"
+    "canonical crates",
+    "infra/crate-topology.json"
   ],
-  "layer_rule": "A crate may depend only on a strictly lower layer. L0 is pure: no I/O, no adapter. cross_cutting is unlayered and may be depended on from any layer. Equal-layer edges are legal and are the normal case inside L2; they are listed explicitly so a new one is a deliberate act.",
+  "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it inside L2 and L3. Equal-layer edges are the observed normal case inside L2 and are listed explicitly so that a new one is a deliberate act. An edge is illegal when layer(B) is higher than layer(A): ascending edges are forbidden, they invert the DAG the layers describe, and they are not a recognised pattern. L0 is pure: no I/O, no adapter. cross_cutting is unlayered and may be depended on from any layer. The layer field is currently DECLARED, NOT ENFORCED: no audit rule validates it, and ARCH-004 compares depends_on and kind against the real manifests only, never layer. Measured on the 47-crate graph: 86 descending edges, 27 lateral edges (almost all L2 -> L2), and 12 ascending edges, all L1 -> L2. Those 12 are known, counted and unfixed, and they are debt, not licence: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-forgejo; cynic-discovery-host -> cynic-build, cynic-discovery; cynic-lifecycle -> cynic-build, cynic-storage. The rule above is the target state; until an enforcing rule exists, the layer field is a declared intent and the build graph remains the truth.",
   "justification_rule": "Every member must be a binary, have at least one dependent, or appear in pending_disposition with a written reason. A crate that is none of these is a node with in-degree zero: it cannot take part in a runtime loop, and every layer that names it is describing a boundary nothing crosses. pending_disposition may only shrink.",
   "layers": {
     "L0": [
