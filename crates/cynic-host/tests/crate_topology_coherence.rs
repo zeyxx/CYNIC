@@ -98,7 +98,7 @@ fn the_graph_is_acyclic() {
     assert!(cycles.is_empty(), "cycle reported: {cycles:#?}");
 }
 
-/// The ten unjustified crates are DECLARED, so the rule is green today, and a new
+/// The eight unjustified crates are DECLARED, so the rule is green today, and a new
 /// unjustified crate cannot appear without the gate going red. That is the point
 /// of `pending_disposition`: the debt is named and counted, not tolerated
 /// silently and not hidden by listing more crates.
@@ -125,7 +125,7 @@ fn unjustified_crates_are_declared_and_no_undisclosed_one_can_appear() {
         .map(|entries| entries.len())
         .unwrap_or_default();
     assert_eq!(
-        declared, 10,
+        declared, 8,
         "pending_disposition changed size. A crate was fused or deleted: remove its entry. \
          A crate was added without justification: that is the failure this gate exists to stop."
     );

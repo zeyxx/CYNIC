@@ -793,14 +793,6 @@
     "cynic-market": {
       "reason": "measured 0 runtime, 0 dev dependents, not a binary",
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md"
-    },
-    "cynic-pool": {
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary",
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md"
-    },
-    "cynic-zeroclaw-solana": {
-      "reason": "measured 0 runtime, 0 dev dependents, not a binary",
-      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md"
     }
   },
   "measured": {
@@ -808,6 +800,10 @@
     "runtime_edges": 142,
     "binaries": 5,
     "acyclic": true,
-    "unjustified": 10
-  }
+    "unjustified": 8
+  },
+  "corrections": [
+    "cynic-pool declares [[bin]] src/main.rs behind required-features=[cli]; it is a binary, not an unjustified library.",
+    "cynic-zeroclaw-solana declares [[bin]] zeroclaw-solana-demo at src/bin/demo.rs, an autodiscovered target; it is a binary, not an unjustified library."
+  ]
 }

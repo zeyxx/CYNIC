@@ -147,10 +147,40 @@ pub(crate) fn observe(index: &WorkspaceSourceIndex) -> Topology {
     topology
 }
 
+/// Does this crate produce a binary artifact?
+///
+/// Read from the manifest's own `[[bin]]` declarations plus the two paths cargo
+/// autodiscovers, not from whether one filename happens to exist. The previous
+/// version tested `src/main.rs` alone and was wrong twice in the same direction:
+/// it missed `cynic-zeroclaw-solana`, whose only target is the autodiscovered
+/// `src/bin/demo.rs`, and it would have kept flagging `cynic-pool`, whose `[[bin]]`
+/// is gated behind `required-features = ["cli"]`. A check that guesses instead of
+/// reading reports confidence it has not earned — the same defect this rule exists
+/// to remove, one layer down.
 fn is_binary(index: &WorkspaceSourceIndex, name: &str) -> bool {
-    index.rust_files.iter().any(|file| {
-        file.relative_path == format!("crates/{name}/src/main.rs")
-    })
+    let Some(manifest) = index
+        .manifests
+        .iter()
+        .find(|file| crate_of(&file.relative_path).as_deref() == Some(name))
+    else {
+        return false;
+    };
+    let bodies = sections(&manifest.content);
+    if let Some(bin) = bodies.get("bin") {
+        // `[[bin]]` present without a `path` still means the default target.
+        if bin.contains("name") || bin.contains("path") {
+            return true;
+        }
+    }
+    let has_main = index
+        .rust_files
+        .iter()
+        .any(|file| file.relative_path == format!("crates/{name}/src/main.rs"));
+    let has_autodiscovered_bin = index.rust_files.iter().any(|file| {
+        file.relative_path
+            .starts_with(&format!("crates/{name}/src/bin/"))
+    });
+    has_main || has_autodiscovered_bin
 }
 
 /// Topological order over the internal edge set, or the nodes stuck in a cycle.
