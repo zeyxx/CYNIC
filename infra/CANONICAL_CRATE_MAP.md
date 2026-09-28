@@ -45,7 +45,7 @@ R8. Vertical extraction only. Extraction proceeds bottom-up by tier
 ## 2. CURRENT STATE — MEASURED LOC (2026-09-28)
 
 ```
-cynic-host           89 945    GOD OBJECT (extraction session 3 in progress)
+cynic-host           89 851    GOD OBJECT (extraction session 3 in progress)
 cynic-node           58 327    GOD OBJECT (extraction session 4 pending)
 cynic-kernel         40 434    GOD OBJECT (grew from 6.3K — organ/senses/probe/introspection modules)
 cynic-protocol       34 779    GOD OBJECT (extraction sessions 1-2 partial)
