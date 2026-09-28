@@ -335,7 +335,8 @@
           "artifact": "cynic-kernel",
           "scheme": "http",
           "endpoint_host": "192.168.100.2",
-          "network_plane": "management"
+          "network_plane": "management",
+          "port": 3030
         }
       ]
     },
@@ -350,7 +351,7 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned."
+      "note": "Placeholder node \u2014 role and placement pending operator definition. Not a deployment target until a role is assigned."
     },
     {
       "id": "cynic-lxc-surrealdb",

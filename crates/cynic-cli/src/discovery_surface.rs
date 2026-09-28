@@ -218,7 +218,9 @@ fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // No `use super::*`: these two assertions reference nothing from the parent,
+    // and `unused_imports` is denied at workspace level, so the glob failed the
+    // test target. Pre-existing — `cargo test -p cynic-cli --lib` did not build.
 
     #[test]
     fn discover_kind_local_valid() {

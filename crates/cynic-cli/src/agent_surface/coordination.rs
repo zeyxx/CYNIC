@@ -881,10 +881,29 @@ mod tests {
     }
 
     #[test]
-    fn kernel_base_resolves_from_registry() {
-        let path = fixture_registry();
-        let base = resolve_kernel_base(path.to_str().unwrap(), None).expect("base");
-        assert_eq!(base, "http://192.168.100.2:3030");
+    /// The REAL registry must resolve, not a fixture that agrees with it.
+    ///
+    /// WHY: the previous version of this test built its own registry document and
+    /// included `"port": 3030` in the kernel service. The real `infra/registry.json`
+    /// declared `endpoint_host` and no `port` at all, so `resolve_kernel_base`
+    /// returned `None` on the default path and every `cynic agent *` command took
+    /// the local file fallback WITHOUT ever attempting HTTP. The route was not dead;
+    /// it was never reached. A test that invents the field the production document
+    /// lacks is worse than no test, because it reports green about a broken lookup.
+    ///
+    /// HOW: point at the real registry and assert the base resolves. If the port is
+    /// removed from the contract again, this goes red instead of the workspace
+    /// silently degrading to file mode.
+    #[test]
+    fn kernel_base_resolves_from_the_real_registry() {
+        let registry = crate::rust_source::workspace_root().join("infra/registry.json");
+        let base = resolve_kernel_base(&registry.to_string_lossy(), None);
+        assert!(
+            base.is_some(),
+            "infra/registry.json does not resolve a kernel base: the cynic-kernel service \
+             needs both endpoint_host and port, or every `cynic agent` command silently \
+             falls back to the local claims file. Resolved: {base:?}"
+        );
     }
 
     #[test]
