@@ -339,11 +339,11 @@ Each step produces the proof the next one consumes.
 |---|---|---|---|---|
 | **A1** | Retarget the 6 stale tests to `lib.rs` | **done** `1bf96b3b` | 6 assertions retargeted, 5 `main_rs` bindings removed | separates stale from real before anything is wired |
 | **A2** | Derive the crate-count ratchet from the workspace | **done** `1bf96b3b` | test re-derives 47 from `crates/*/Cargo.toml` | removes the only count that must be hand-edited |
-| **A0** | Owner decision on the 22 recoverable declarations and the 78 174 workspace orphans | **blocked on decision** | §6.2.2 | spans `cynic-host` ratchet and clean-room extraction policy; not an audit call |
+| **A0** | Owner decision on the 22 recoverable declarations and the 78 174 workspace orphans | **answered 2026-09-28: delete**, see `WORKSPACE_ORPHAN_DECISIONS.md` §8 | the 14 type errors of §6.2.2 were re-measured per declaration, not per set | restoring would have required resurrecting a shim `9e7ad3e7` deleted on purpose |
 | **A3** | Wire `surface_audit` (649 LOC) | pending A0 | `canonical_surface_audit_executes_against_real_modules` can run `cynic dev surface-audit --json` | the auditor must exist before the rest is wired, or the wiring is unobserved |
 | **A4** | Wire `dev`, `bootstrap`, `lifecycle`, `fleet`; declare the 4 lifecycle helpers in `lib.rs` | 4 domain tests green; `--help` lists the domains | the 5 real-drift tests turn green as a side effect |
 | **A5** | Reduce the `portable_lab` assembler disagreement | `commands_manifest_exposes_canonical_surface_boundaries` green | assembled registry must equal on-disk registry |
-| **A6** | Decide `chat_tui`: rewire the 3 387 LOC, or delete them and say so in the help text | `cynic chat` either works or refuses honestly | 3 387 LOC cannot stay silently orphaned |
+| **A6** | ~~Decide `chat_tui`~~ **done 2026-09-28: deleted** | measured: 53 errors, and `ChatRuntime` / `resolve_selector_to_alias` / `rebind_chat_service` are absent from the whole workspace | the 3 387 LOC are a rewrite, not a repoint; §6.2.2/A0 no longer gates it |
 | **A7** | Add the build-graph check itself | a test fails when a `src/**/*.rs` file is unreachable from `lib.rs` | converts this audit from a document into a gate |
 | **A8** | Only then: argv registry + `cynic audit surface-registry --json` | non-zero on a planted violation | enforcement is worthless before the sets it compares are true |
 
@@ -358,10 +358,13 @@ load-bearing one once A0 is answered.
 - `surface_registry_is_split_into_catalog_and_types`: not reduced to a single cause. `unknown`.
 - The exact cause of the `portable_lab` omission in the assembler is not established; only that
   the fragment and the manifest entry both exist and the compiled assembler omits it. `unknown`.
-- `chat_tui`: whether the 11 orphaned files still compile against the current
-  `cynic-inference` and `chat_surface` APIs is **untested**. They have never been in a build
-  graph together with their present dependencies. Assuming they are rewireable is an
-  assumption, not a finding.
+- `chat_tui`: **RESOLVED 2026-09-28, measured, not assumed.** The 11 files were compiled
+  together with their present dependencies in a detached worktree at `027b50be`: 6 declarations
+  plus the removal of the stale `chat_tui/state.rs` yield **53 errors**. The dominant cause is not
+  drift but a deleted generation: `ChatRuntime`, `resolve_selector_to_alias` and
+  `rebind_chat_service` exist in no crate in the workspace. `PrincipalPaths` and
+  `LocalRuntimeStatus` do still exist (`cynic-inference`), so 2 of the failures are repoints and
+  the rest is not. A rewrite was never proposed by anyone, so the files were deleted.
 - Whether the 3 387 LOC TUI was set aside deliberately for a reason recorded outside the
   repository. `1fa6ec3d` restores a baseline; the reason is not in the message.
 - The resolver is text-based. A `#[cfg]`-gated `mod` declaration, or a module reachable only

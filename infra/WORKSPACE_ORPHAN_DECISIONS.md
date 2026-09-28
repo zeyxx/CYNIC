@@ -142,3 +142,54 @@ shared worktree verified back to `25 passed, 9 failed`; nothing from this attemp
 - Whether the 32 626 orphaned LOC in `cynic-kernel` even compile against the current
   `cynic-kernel` dependencies is untested. Assuming recoverability is an assumption, not a
   finding — this caveat applies to every restore in §3.
+
+## 6. Decision — 2026-09-28, operator-ruled, and what it superseded
+
+- **schema**: `cynic.audit.orphan_decisions.v1` (decision record, appended — the §1 measurement
+  above is unchanged and remains correct)
+- **rule applied**: restore-versus-delete-for-good is an **arbitrage between risk/return and
+  return/investment**. It is not settled by asking which document is older, and the test of
+  "it still compiles" is not a reason to keep code: compilability prices a *revival*, and git
+  already prices it better than a live orphan does. What has value is a capability some live
+  surface demands. None of these did.
+- **method**: detached worktree at `027b50be` (the commit before any deletion), each candidate
+  declaration added **individually**, `cargo check` per crate, shared target dir. The shared
+  worktree was not mutated, so the other agents' in-flight breakage could not pollute the result.
+
+| crate | §3 proposal | measured | decision |
+|---|---|---|---|
+| `cynic-askesis` | restore, 3 declarations, 2 070 LOC | **1 of 6 compiles.** `agent_loop.rs` 0 errors. `error.rs` 15 (no `thiserror` dependency), `memory.rs` 6 (imports `log::{jsonl, LogStore, ObservationEvent}`, absent from the live `log.rs`), `audit/` 11, `eval/` 16, `experiment/` 4 | delete (2 070 LOC) |
+| `cynic-cli` | restore, 17 known-good | `chat_tui` 3 403 LOC: 53 errors, `ChatRuntime` / `resolve_selector_to_alias` / `rebind_chat_service` absent from the workspace. Remaining 7 305 LOC: 14 errors already measured in `CLI_SURFACE_AUDIT.md` §6.2.2, whose fix would resurrect a shim `9e7ad3e7` deleted on purpose | delete (10 708 LOC) |
+| `cynic-kernel` | restore, 2 declarations | not re-measured; its own `api/mcp/mod.rs:26` declared a module whose file was absent, so the crate did not build its test targets — the §3 caveat, confirmed | delete (5 137 LOC) |
+| `cynic-lifecycle` | **owner decision** — `repair_loop.rs`, target of the `9c99c3f1` extraction | **compiles, 0 errors.** 0 importers, 0 tests, never declared | delete (118 LOC) |
+| `cynic-observer`, `cynic-build` | delete or wire | not re-measured; no root-level orphan, so wiring was never a 1-line proposition | delete (397 LOC) |
+| `cynic-protocol` | investigate, 11 orphans | 4 deleted as pre-extraction copies with live owners (`cynic-build`, `cynic-network`, `cynic-vcs`); `anchor_client` declared instead, which repaired a red test | partial |
+| `cynic-node` | investigate, "do not restore blind" | not touched. 30 orphans, 3 605 LOC, of which 24 define unique symbols: 8 ports with no adapter, 5 use-cases with no caller | **open, next arbitration** |
+| `cynic-inference` | investigate, parents orphaned | not touched | open |
+
+### 6.1 Two findings that decided it, and one cost
+
+1. **The matrix's own step-1 proof was already false before any restore.** §3.1 requires "the
+   crate's tests compile and run" for `cynic-askesis`. `cargo test -p cynic-askesis` fails at
+   `027b50be` on `tests/log_roundtrip.rs`: 3 errors, a dead `log` API plus `chrono` and
+   `tempfile` missing from `[dev-dependencies]`. The live crate is already inconsistent with
+   itself; the orphans are not the cause.
+2. **Most of this mass is not drift, it is a deleted generation.** The dominant error class is a
+   symbol that exists in no crate at all. Rewriting 3 387 LOC of TUI against a `chat_surface`
+   that no longer has `ChatRuntime` was never on anyone's plan, so "restore" was not a real
+   option for it — only a cheaper-looking way to not decide.
+3. **The cost, stated plainly:** `cynic-lifecycle/repair_loop.rs` and
+   `cynic-askesis/agent_loop.rs` — 540 LOC — *do* compile and were deleted anyway, on the
+   arbitration above: 0 callers, 0 tests, no surface demanding them, and both remain in git.
+   Restoring them would have put 540 LOC of uncalled, untested public API back into two live
+   crates, which is the cognitive debt this programme exists to remove.
+
+### 6.2 Not decided here
+
+- `cynic-node`'s 8 adapter-less ports and 5 caller-less use-cases are a **wiring project, not a
+  restore**: the question is not whether the code compiles but whether the capability has an
+  owner. Owner decision, same frame.
+- 16 guards in `crates/cynic-cli/tests/architecture_boundary.rs` read files that no longer exist
+  and must be rewritten in the absence form. That file is held by another claim; untouched.
+- `crates/cynic-protocol/src/plane.rs` is an untracked in-flight file from a concurrent agent.
+  Reported, never touched.
