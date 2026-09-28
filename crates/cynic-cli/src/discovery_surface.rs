@@ -9,6 +9,7 @@
 //!   events       — SSE subscription to discovery events (real-time)
 //!   discover     — trigger a build-discovery scan (local/remote)
 
+use crate::registry_path;
 use std::io::BufRead;
 use std::process::ExitCode;
 
@@ -35,9 +36,13 @@ pub(crate) enum DiscoveryCommand {
         /// Machine-readable JSON.
         #[arg(long)]
         json: bool,
-        /// Registry file path.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
+        /// Registry file path. Omit to use the resolved runtime registry:
+        /// explicit, then `CYNIC_REGISTRY`, then the installed
+        /// `/etc/cynic/registry.json`, then the repository copy. The previous
+        /// hardcoded default pinned this command to a repository-relative path,
+        /// so on a deployed node it read a file that is not there.
+        #[arg(long)]
+        registry: Option<String>,
     },
     /// Subscribe to discovery events (SSE stream from kernel).
     Events {
@@ -65,7 +70,7 @@ pub(crate) enum DiscoveryCommand {
 pub(crate) fn execute_discovery(command: DiscoveryCommand) -> ExitCode {
     match command {
         DiscoveryCommand::Capabilities { json, endpoint } => execute_capabilities(json, &endpoint),
-        DiscoveryCommand::Nodes { json, registry } => execute_nodes(json, &registry),
+        DiscoveryCommand::Nodes { json, registry } => execute_nodes(json, &registry_path(registry)),
         DiscoveryCommand::Events { endpoint, node } => execute_events(&endpoint, node.as_deref()),
         DiscoveryCommand::Discover { kind, target, json } => {
             execute_discover(&kind, target.as_deref(), json)

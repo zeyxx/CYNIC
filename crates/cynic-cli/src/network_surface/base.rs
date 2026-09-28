@@ -272,7 +272,11 @@ pub(crate) fn try_execute_base(
             }
         }
         NetworkCommand::Audit { json, registry } => {
-            let registry_path = registry.unwrap_or_else(|| "infra/registry.json".to_string());
+            // One resolution, not a second default. The hardcoded
+            // "infra/registry.json" ignored CYNIC_REGISTRY and the installed
+            // /etc/cynic/registry.json, so on a deployed node this command read a
+            // repository-relative path that does not exist there.
+            let registry_path = crate::registry_path(registry);
             let report = crate::network_audit::build_network_audit(&registry_path);
             if json {
                 crate::cli_json::emit_pretty_json(&report);
