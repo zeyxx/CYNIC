@@ -184,6 +184,14 @@ pub(crate) fn execute_register(
         .map_err(|e| format!("kernel unreachable: {}", e))?;
 
     let status = resp.status();
+    if is_kernel_auth_refusal(status.as_u16()) {
+        warn_kernel_auth_refusal("register");
+        return Err(
+            "register is a kernel-hosted operation, not a node-local arbitration: the kernel \
+             refused credentials and there is no local projection for it (explicit unknown)."
+                .to_string(),
+        );
+    }
     if !status.is_success() {
         let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
         let error = body
@@ -239,6 +247,19 @@ pub(crate) fn execute_claim(
     };
 
     let status = resp.status();
+    // PROTOCOL EXCEPTION (2026-09-28, operator-admitted): a node-local
+    // arbitration call must not be abandoned because the kernel refuses
+    // credentials. The kernel authenticates PEERS (federation); it does not
+    // authenticate its own local mutations. A 401/403 on `/coord/*` is an
+    // explicit unknown about the kernel surface, not a verdict — so it falls
+    // back to the local arbiter instead of failing the whole command. Before
+    // this, `cynic agent claim|release|status` failed outright, which made the
+    // session protocol ("mutate only inside a claimed scope") unexecutable
+    // and stranded every live claim.
+    if is_kernel_auth_refusal(status.as_u16()) {
+        warn_kernel_auth_refusal("claim");
+        return claim_local();
+    }
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
 
     if !status.is_success() {
@@ -319,6 +340,10 @@ pub(crate) fn execute_release(
     };
 
     let status = resp.status();
+    if is_kernel_auth_refusal(status.as_u16()) {
+        warn_kernel_auth_refusal("release");
+        return execute_release_local(agent_id, target, lease_id, proof_refs);
+    }
     if !status.is_success() {
         let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
         let error = body
@@ -349,6 +374,22 @@ fn kernel_client() -> reqwest::blocking::Client {
         .timeout(std::time::Duration::from_millis(300))
         .build()
         .unwrap_or_default()
+}
+
+/// The kernel guards PEER surfaces with credentials. Node-local arbitration —
+/// claim, release, status on this node — is not a peer surface, so an auth
+/// refusal there is a boundary defect, not a verdict on the caller.
+fn is_kernel_auth_refusal(status: u16) -> bool {
+    status == 401 || status == 403
+}
+
+/// Say it out loud. A fallback nobody announces is a silent downgrade, which is
+/// the same defect class as a silent `None`.
+fn warn_kernel_auth_refusal(operation: &str) {
+    eprintln!(
+        "cynic: kernel refused credentials for /coord/{operation} (401/403) — continuing on the \
+         node-local arbiter. The kernel did not rule on this call."
+    );
 }
 
 fn now_unix_s() -> u64 {
@@ -682,6 +723,10 @@ pub(crate) fn execute_status(
     let resp = resp.map_err(|e| format!("kernel unreachable: {}", e))?;
 
     let status = resp.status();
+    if is_kernel_auth_refusal(status.as_u16()) {
+        warn_kernel_auth_refusal("status");
+        return execute_status_from_claims_file(agent_id);
+    }
     let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
 
     if !status.is_success() {
