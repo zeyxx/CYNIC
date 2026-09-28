@@ -69,7 +69,7 @@ impl StorageMeter for HostStorageMeter {
         let mut total_bytes = 0u64;
         let mut found = false;
 
-        for disk in mounts {
+        for disk in mounts.list() {
             if disk.mount_point().to_string_lossy() == self.root_path {
                 total_bytes += disk.total_space();
                 found = true;
