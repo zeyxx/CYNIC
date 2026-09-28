@@ -3,6 +3,7 @@ use std::process::ExitCode;
 use clap::Subcommand;
 use cynic_node::NetworkCommands;
 
+use crate::registry_path;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
 mod actuator;
@@ -50,9 +51,10 @@ pub(crate) enum NetworkCommand {
         #[command(subcommand)]
         command: NetworkMeshCommand,
     },
-    ProviderFallback {
+    /// Provider selection, including multi-provider fallback.
+    Provider {
         #[command(subcommand)]
-        command: NetworkProviderFallbackCommand,
+        command: NetworkProviderCommand,
     },
     Actuator {
         #[command(subcommand)]
@@ -105,24 +107,16 @@ pub(crate) enum NetworkCommand {
         apply: bool,
     },
     /// Network SOC security audit (rogue listening ports, WireGuard handshake decay)
-    SecurityAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 180)]
-        max_handshake_age_secs: u64,
-        #[arg(long)]
-        registry: Option<String>,
+    /// Transport and mesh security posture.
+    Security {
+        #[command(subcommand)]
+        command: NetworkSecurityCommand,
     },
     /// Reconcile discovered cluster network observations into registry.json observed section
-    ReconcileObserved {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long, default_value_t = 500)]
-        timeout_ms: u64,
-        #[arg(long)]
-        apply: bool,
+    /// Fold observed cluster state back into the registry.
+    Reconcile {
+        #[command(subcommand)]
+        command: NetworkReconcileCommand,
     },
     /// Declarative Zero-Trust nftables firewall policy and audit
     Firewall {
@@ -161,53 +155,15 @@ pub(crate) enum NetworkMeshCommand {
         #[arg(long)]
         output_dir: String,
     },
-    ApplyPlan {
-        #[arg(long)]
-        bundle_dir: String,
+    /// Mutating mesh intents: plan, target, or a stored profile.
+    Apply {
+        #[command(subcommand)]
+        command: NetworkMeshApplyCommand,
     },
-    TargetAttestation {
-        #[arg(long, default_value = "closed_local_lab")]
-        harness_kind: String,
-        #[arg(long)]
-        target_id: String,
-        #[arg(long, default_value = "qemu-guest-agent")]
-        transport: String,
-        #[arg(long)]
-        transport_target: String,
-        #[arg(long)]
-        expected_network_boundary: String,
-        #[arg(long, default_value = "virsh")]
-        virsh_bin: String,
-        #[arg(long)]
-        ip_bin: Option<String>,
-    },
-    ApplyTarget {
-        #[arg(long)]
-        bundle_dir: String,
-        #[arg(long)]
-        profile: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long, default_value = "closed_local_lab")]
-        harness_kind: String,
-        #[arg(long)]
-        target_attestation: String,
-        #[arg(long, default_value = "virsh")]
-        virsh_bin: String,
-        #[arg(long, default_value_t = 10)]
-        qga_timeout_seconds: u64,
-        #[arg(long, default_value_t = 20)]
-        qga_max_status_polls: usize,
-    },
-    ApplyProfile {
-        #[arg(long)]
-        bundle_dir: String,
-        #[arg(long)]
-        profile: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        closed_environment: bool,
+    /// Attest a target before any mutation reaches it.
+    Target {
+        #[command(subcommand)]
+        command: NetworkMeshTargetCommand,
     },
     Status {
         #[arg(long)]
@@ -233,6 +189,103 @@ pub(crate) enum NetworkMeshCommand {
         /// Probe coordination health only.
         #[arg(long)]
         check_health: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkMeshApplyCommand {
+    /// Materialize the plan.
+    Plan {
+        #[arg(long)]
+        bundle_dir: String,
+    },
+    /// Apply a plan to an attested target.
+    Target {
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long, default_value = "closed_local_lab")]
+        harness_kind: String,
+        #[arg(long)]
+        target_attestation: String,
+        #[arg(long, default_value = "virsh")]
+        virsh_bin: String,
+        #[arg(long, default_value_t = 10)]
+        qga_timeout_seconds: u64,
+        #[arg(long, default_value_t = 20)]
+        qga_max_status_polls: usize,
+    },
+    /// Apply a stored profile to a target.
+    Profile {
+        #[arg(long)]
+        bundle_dir: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        apply: bool,
+        #[arg(long)]
+        closed_environment: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkMeshTargetCommand {
+    /// Capture and verify target attestation.
+    Attestation {
+        #[arg(long, default_value = "closed_local_lab")]
+        harness_kind: String,
+        #[arg(long)]
+        target_id: String,
+        #[arg(long, default_value = "qemu-guest-agent")]
+        transport: String,
+        #[arg(long)]
+        transport_target: String,
+        #[arg(long)]
+        expected_network_boundary: String,
+        #[arg(long, default_value = "virsh")]
+        virsh_bin: String,
+        #[arg(long)]
+        ip_bin: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkProviderCommand {
+    /// Resilient provider chain.
+    Fallback {
+        #[command(subcommand)]
+        command: NetworkProviderFallbackCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkSecurityCommand {
+    /// WireGuard handshake and topology audit.
+    Audit {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_t = 180)]
+        max_handshake_age_secs: u64,
+        #[arg(long)]
+        registry: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkReconcileCommand {
+    /// Reconcile discovered observations into registry.json.
+    Observed {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long, default_value_t = 500)]
+        timeout_ms: u64,
+        #[arg(long)]
+        apply: bool,
     },
 }
 
@@ -291,8 +344,52 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
         .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
         .or_else(|cmd| domain::try_execute_domain(cmd, &runtime))
-        .unwrap_or_else(|cmd| match actuator::try_execute_actuator(cmd) {
-            Ok(code) => code,
-            Err(_) => unreachable!("all network commands must be handled"),
-        })
+        .map_or_else(
+            |cmd| match actuator::try_execute_actuator(cmd) {
+                Ok(code) => return code,
+                Err(cmd) => match cmd {
+                    NetworkCommand::Security { command } => execute_network_security(command),
+                    NetworkCommand::Reconcile { command } => execute_network_reconcile(command),
+                    other => unreachable!(
+                        "all network commands must be handled, leaked: {}",
+                        std::any::type_name_of_val(&other)
+                    ),
+                },
+            },
+            |code| code,
+        )
+}
+
+fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
+    match command {
+        NetworkSecurityCommand::Audit {
+            json: _,
+            max_handshake_age_secs,
+            registry,
+        } => {
+            cynic_node::execute_network_command(&cynic_node::cli::NetworkCommands::SecurityAudit {
+                json: true,
+                max_handshake_age_secs,
+                registry: registry_path(registry),
+            })
+        }
+    }
+}
+
+fn execute_network_reconcile(command: NetworkReconcileCommand) -> ExitCode {
+    match command {
+        NetworkReconcileCommand::Observed {
+            json: _,
+            registry,
+            timeout_ms,
+            apply,
+        } => cynic_node::execute_network_command(
+            &cynic_node::cli::NetworkCommands::ReconcileObserved {
+                json: true,
+                registry: registry_path(registry),
+                timeout_ms,
+                apply,
+            },
+        ),
+    }
 }

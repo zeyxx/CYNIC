@@ -3,7 +3,9 @@ use std::process::ExitCode;
 use cynic_node::NetworkCommands;
 use serde_json::json;
 
-use crate::network_surface::{NetworkCommand, NetworkMeshCommand};
+use crate::network_surface::{
+    NetworkCommand, NetworkMeshApplyCommand, NetworkMeshCommand, NetworkMeshTargetCommand,
+};
 use crate::runtime_paths::{self, RuntimePaths};
 use crate::{emit_json, fail, registry_path};
 
@@ -16,6 +18,71 @@ pub(crate) fn try_execute_mesh(
     };
 
     let exit = match command {
+        NetworkMeshCommand::Apply { command } => match command {
+            NetworkMeshApplyCommand::Plan { bundle_dir } => {
+                cynic_node::execute_network_command(&NetworkCommands::MeshApplyPlan {
+                    json: true,
+                    bundle_dir,
+                })
+            }
+            NetworkMeshApplyCommand::Target {
+                bundle_dir,
+                profile,
+                apply,
+                harness_kind,
+                target_attestation,
+                virsh_bin,
+                qga_timeout_seconds,
+                qga_max_status_polls,
+            } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyTarget {
+                json: true,
+                bundle_dir,
+                profile,
+                apply,
+                harness_kind,
+                target_attestation,
+                virsh_bin,
+                qga_timeout_seconds,
+                qga_max_status_polls,
+            }),
+            NetworkMeshApplyCommand::Profile {
+                bundle_dir,
+                profile,
+                apply,
+                closed_environment,
+            } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyProfile {
+                json: true,
+                bundle_dir,
+                profile,
+                apply,
+                closed_environment,
+            }),
+        },
+        NetworkMeshCommand::Target { command } => match command {
+            NetworkMeshTargetCommand::Attestation {
+                harness_kind,
+                target_id,
+                transport,
+                transport_target,
+                expected_network_boundary,
+                virsh_bin,
+                ip_bin,
+            } => cynic_node::execute_network_command(&NetworkCommands::MeshTargetAttestation {
+                json: true,
+                harness_kind,
+                target_id,
+                transport,
+                transport_target,
+                expected_network_boundary,
+                virsh_bin,
+                ip_bin: ip_bin.unwrap_or_else(|| {
+                    cynic_host::runtime_layout::current_runtime_layout()
+                        .capabilities()
+                        .route_tool
+                        .command
+                }),
+            }),
+        },
         NetworkMeshCommand::Plan { registry, provider } => {
             cynic_node::execute_network_command(&NetworkCommands::MeshPlan {
                 json: true,
@@ -33,67 +100,7 @@ pub(crate) fn try_execute_mesh(
             provider,
             output_dir,
         }),
-        NetworkMeshCommand::ApplyPlan { bundle_dir } => {
-            cynic_node::execute_network_command(&NetworkCommands::MeshApplyPlan {
-                json: true,
-                bundle_dir,
-            })
-        }
-        NetworkMeshCommand::TargetAttestation {
-            harness_kind,
-            target_id,
-            transport,
-            transport_target,
-            expected_network_boundary,
-            virsh_bin,
-            ip_bin,
-        } => cynic_node::execute_network_command(&NetworkCommands::MeshTargetAttestation {
-            json: true,
-            harness_kind,
-            target_id,
-            transport,
-            transport_target,
-            expected_network_boundary,
-            virsh_bin,
-            ip_bin: ip_bin.unwrap_or_else(|| {
-                cynic_host::runtime_layout::current_runtime_layout()
-                    .capabilities()
-                    .route_tool
-                    .command
-            }),
-        }),
-        NetworkMeshCommand::ApplyProfile {
-            bundle_dir,
-            profile,
-            apply,
-            closed_environment,
-        } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyProfile {
-            json: true,
-            bundle_dir,
-            profile,
-            apply,
-            closed_environment,
-        }),
-        NetworkMeshCommand::ApplyTarget {
-            bundle_dir,
-            profile,
-            apply,
-            harness_kind,
-            target_attestation,
-            virsh_bin,
-            qga_timeout_seconds,
-            qga_max_status_polls,
-        } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyTarget {
-            json: true,
-            bundle_dir,
-            profile,
-            apply,
-            harness_kind,
-            target_attestation,
-            virsh_bin,
-            qga_timeout_seconds,
-            qga_max_status_polls,
-        }),
+
         NetworkMeshCommand::Status {
             registry,
             resolve_dns,

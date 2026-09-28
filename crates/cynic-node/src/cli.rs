@@ -778,8 +778,17 @@ pub enum PeerCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Submit work to the peer. The peer is the SMR; `submit` is the verb.
+    Submit {
+        #[command(subcommand)]
+        command: PeerSubmitCommand,
+    },
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum PeerSubmitCommand {
     /// Submit a signed ledger transaction JSON file to the peer SMR.
-    SubmitTx {
+    Tx {
         /// Storage directory containing cynic-peer.wal and cynic-peer.db.
         #[arg(long, default_value = "/var/lib/cynic/peer")]
         dir: String,

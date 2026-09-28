@@ -147,7 +147,9 @@ pub fn execute_peer_command(command: &crate::cli::PeerCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        crate::cli::PeerCommands::SubmitTx { dir, file, json: _ } => {
+        crate::cli::PeerCommands::Submit {
+            command: crate::cli::PeerSubmitCommand::Tx { dir, file, json: _ },
+        } => {
             let raw = match std::fs::read_to_string(file) {
                 Ok(s) => s,
                 Err(e) => {

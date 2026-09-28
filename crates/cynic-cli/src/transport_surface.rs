@@ -9,15 +9,34 @@ use crate::emit_json;
 #[derive(Subcommand)]
 pub(crate) enum TransportCommand {
     Matrix,
-    SecurityAudit,
-    SshInspect {
+    /// Transport security posture.
+    Security {
+        #[command(subcommand)]
+        command: TransportSecurityCommand,
+    },
+    /// SSH to a declared host, or supervise the local SSH configuration.
+    Ssh {
+        #[command(subcommand)]
+        command: TransportSshCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum TransportSecurityCommand {
+    /// WireGuard and transport layer audit.
+    Audit,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum TransportSshCommand {
+    Inspect {
         #[arg(long)]
         host: String,
     },
     /// Full SSH configuration supervision: parse ~/.ssh/config, correlate
     /// with declared policy aliases, check key presence/permissions,
     /// and report connectivity state.
-    SshSupervision {
+    Supervision {
         /// Explicit ssh config path (default: ~/.ssh/config)
         #[arg(long)]
         config: Option<String>,
@@ -33,14 +52,18 @@ pub(crate) fn execute_transport(command: &TransportCommand) -> ExitCode {
             let observer = LocalOperatorTransportObserver;
             emit_json(&transport::build_transport_matrix_report(&observer), false)
         }
-        TransportCommand::SecurityAudit => {
-            emit_json(&transport::build_transport_security_report(), false)
-        }
-        TransportCommand::SshInspect { host } => {
+        TransportCommand::Security {
+            command: TransportSecurityCommand::Audit,
+        } => emit_json(&transport::build_transport_security_report(), false),
+        TransportCommand::Ssh {
+            command: TransportSshCommand::Inspect { host },
+        } => {
             let observer = LocalOperatorTransportObserver;
             emit_json(&transport::inspect_ssh_target(&observer, host), false)
         }
-        TransportCommand::SshSupervision { config, json: _ } => {
+        TransportCommand::Ssh {
+            command: TransportSshCommand::Supervision { config, json: _ },
+        } => {
             let report = match config {
                 Some(path) => {
                     transport::build_ssh_local_supervision_report_from(std::path::Path::new(path))

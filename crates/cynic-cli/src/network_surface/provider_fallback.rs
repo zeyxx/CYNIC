@@ -2,7 +2,9 @@ use std::process::ExitCode;
 
 use cynic_node::NetworkCommands;
 
-use crate::network_surface::{NetworkCommand, NetworkProviderFallbackCommand};
+use crate::network_surface::{
+    NetworkCommand, NetworkProviderCommand, NetworkProviderFallbackCommand,
+};
 use crate::registry_path;
 use crate::runtime_paths::RuntimePaths;
 
@@ -10,7 +12,10 @@ pub(crate) fn try_execute_provider_fallback(
     command: NetworkCommand,
     runtime: &RuntimePaths,
 ) -> Result<ExitCode, NetworkCommand> {
-    let NetworkCommand::ProviderFallback { command } = command else {
+    let NetworkCommand::Provider {
+        command: NetworkProviderCommand::Fallback { command },
+    } = command
+    else {
         return Err(command);
     };
 

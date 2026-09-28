@@ -293,30 +293,6 @@ pub(crate) fn try_execute_base(
         NetworkCommand::Transport { command } => {
             Ok(crate::transport_surface::execute_transport(&command))
         }
-        NetworkCommand::SecurityAudit {
-            json: _,
-            max_handshake_age_secs,
-            registry,
-        } => Ok(cynic_node::execute_network_command(
-            &NetworkCommands::SecurityAudit {
-                json: true,
-                max_handshake_age_secs,
-                registry: registry_path(registry),
-            },
-        )),
-        NetworkCommand::ReconcileObserved {
-            json: _,
-            registry,
-            timeout_ms,
-            apply,
-        } => Ok(cynic_node::execute_network_command(
-            &NetworkCommands::ReconcileObserved {
-                json: true,
-                registry: registry_path(registry),
-                timeout_ms,
-                apply,
-            },
-        )),
         NetworkCommand::Firewall {
             json: _,
             registry,
@@ -331,5 +307,43 @@ pub(crate) fn try_execute_base(
             },
         )),
         other => Err(other),
+    }
+}
+
+fn execute_network_security(
+    command: crate::network_surface::NetworkSecurityCommand,
+) -> Result<std::process::ExitCode, String> {
+    use crate::network_surface::NetworkSecurityCommand;
+    match command {
+        NetworkSecurityCommand::Audit {
+            json: _,
+            max_handshake_age_secs,
+            registry,
+        } => Ok(cynic_node::execute_network_command(
+            &NetworkCommands::SecurityAudit {
+                json: true,
+                max_handshake_age_secs,
+                registry: registry_path(registry),
+            },
+        )),
+    }
+}
+
+fn execute_network_reconcile(
+    command: crate::network_surface::NetworkReconcileCommand,
+) -> std::process::ExitCode {
+    use crate::network_surface::NetworkReconcileCommand;
+    match command {
+        NetworkReconcileCommand::Observed {
+            json: _,
+            registry,
+            timeout_ms,
+            apply,
+        } => cynic_node::execute_network_command(&NetworkCommands::ReconcileObserved {
+            json: true,
+            registry: registry_path(registry),
+            timeout_ms,
+            apply,
+        }),
     }
 }
