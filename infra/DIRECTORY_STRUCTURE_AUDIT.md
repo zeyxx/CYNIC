@@ -29,19 +29,57 @@ spots are. The premise is **partly wrong and importantly right**, and the distin
 - The **enforcement is fragmented.** No existing gate validates that a *declared path exists* or
   that a *cited path resolves*. Every finding in §3 comes from that single missing capability.
 
-### 0.1 Git object-store corruption (precondition, not a finding)
+### 0.1 Git object-store corruption — root cause, and why it was self-perpetuating
 
-`.git/objects/73/7c34ee2f027e6256a478eea331d6589d902460` is **0 bytes**, and it is the value of
-`refs/heads/agent/opencode-inference-audit/runtime-surface-wiring`, the checked-out branch.
+**Symptom.** 16 loose objects in `.git/objects` were **0 bytes**. One of them,
+`737c34ee2f027e6256a478eea331d6589d902460`, was the value of
+`refs/heads/agent/opencode-inference-audit/runtime-surface-wiring` — the checked-out branch — so
+`git status`, `git diff` and `git commit` all failed with `fatal: bad object HEAD`. The
+`AGENTS.md` git-isolation protocol was structurally inapplicable.
 
-Consequence on that branch: `git status`, `git diff`, `git commit`, `git add` all fail with
-`fatal: bad object HEAD`. The `AGENTS.md` git-isolation protocol — stage explicit paths, verify
-`git diff --cached --stat`, read back `git show --stat HEAD` — is **structurally inapplicable**
-while the ref points at an empty object. 16 loose objects are empty in total.
+**Why it is worse than it looks.** Git's `write_loose_object()` begins with
+`if (freshen_packed_object(oid) == 0) return 0;` — if a loose object file *exists at that path*,
+git concludes the object is present and **skips the write without verifying content or size**. A
+0-byte file is therefore a *stuck cache entry*: once it exists, no future `write-tree`,
+`hash-object -w` or `commit` will ever repair it. The corruption is self-perpetuating, and every
+retry makes it look unchanged.
 
-`main` (`2e6f7210`) and the packed history are intact. Recovery of the branch tip is possible from
-its reflog; see §6. Recorded here because it invalidates any audit method that depends on commit
-dates, authorship, or `git log` on the active branch.
+**Second-order failure, and the dangerous one.** A poisoned object short-circuits silently rather
+than erroring. `git diff-index HEAD` returned **rc=0 with empty output** while `HEAD:crates`
+— the largest subtree, ~2 200 files — was unreadable. `git status` reported a clean tree. Git
+was asserting "no changes" about a tree it could not read. Any audit that trusts `git status`
+output on this repository was reading a lie.
+
+**Composition of the 16:** 9 tree objects plus 7 blobs, all belonging to one aborted write — a
+`cynic-inference` chat-trace slice (`chat_trace_sink.rs`, `chat_trace.rs`, `trace_sink_port.rs`,
+`chat_service.rs`, and 4 `mod.rs`). The aborted commit's own object was among them. The
+`19b80535` and `2e6f7210` trees are fully intact; `git ls-tree -r` reads 2 856 and 2 865 files
+respectively with zero errors.
+
+**Repair performed** (all steps reversible; nothing lost):
+
+1. Branch ref moved off the 0-byte tip to the last reflog-valid commit. The reflog preserved the
+   bad SHA, so the lost commit object itself is unrecoverable but its *content* survives in the
+   worktree.
+2. All 16 zero-byte files moved to a quarantine directory rather than deleted — they are not valid
+   objects, so nothing can legitimately depend on their content, and keeping them preserves
+   evidence of the incident.
+3. The 7 lost blobs were regenerated from the worktree. This required `touch` first: the index
+   entries were *racily clean* (stat data matched), so `git add` skipped re-hashing and therefore
+   never rewrote the objects. All 7 came back under **byte-identical hashes**, which is the proof
+   that the previous session's staged work survived intact.
+4. `git write-tree` then produced a fully readable 2 860-file tree.
+5. `git fsck` reports only dangling objects — no corruption, no missing objects.
+
+**The lesson worth carrying.** The trigger was an aborted write (a full disk, a killed process, or
+a filesystem-level interruption) at 12:04. Git has no self-healing for a truncated loose object
+and no diagnostic that distinguishes "object exists" from "object is empty". A 0-byte object is
+indistinguishable from a legitimately-written one to every git command that short-circuits on
+existence. **A single `find .git/objects -type f -empty` is the only detector, and nothing in the
+`AGENTS.md` protocol, the Makefile, or CI runs it.**
+
+That check is cheap, has no dependencies, and belongs in `make check`. It is listed in §8 as a
+prerequisite, not as an optional hardening.
 
 ---
 
@@ -585,8 +623,10 @@ validates.
 
 Ordered by dependency, not by severity. Steps 0-2 are prerequisites; 3-5 are the durable repairs.
 
-0. **Repair the branch ref** (§0.1). Until `git status` works, no commit-isolated slice is possible
-   and the `AGENTS.md` protocol cannot be followed. Recovery point exists in the branch reflog.
+0. **Repair the branch ref** (§0.1) — **DONE**. Root cause identified, 0-byte objects quarantined,
+   7 blobs regenerated under identical hashes, `git fsck` clean. Residual: add
+   `find .git/objects -type f -empty` to `make check`, because nothing else detects this class and
+   it silently produces false "no changes" verdicts.
 1. **Close the missing capability** (§6.2): a path-existence audit surface reading the three
    authority files plus path literals from Rust and JSON. It retires seven findings mechanically
    and is the only step that prevents recurrence of the whole class.
