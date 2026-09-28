@@ -197,34 +197,6 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Compatibility alias → `cynic deps` (prefer top-level).
-    Deps {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Compatibility alias → `cynic deps plan`.
-    DepsPlan {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Compatibility alias → `cynic deps audit`.
-    DepsAudit {
-        #[arg(long)]
-        json: bool,
-    },
-    /// Compatibility alias → `cynic deps upgrade`.
-    DepsUpgrade {
-        #[arg(long)]
-        json: bool,
-        #[arg(long)]
-        yes: bool,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        confirm: Option<String>,
-        #[arg(long = "only")]
-        only: Vec<String>,
-    },
     /// Probe host storage capacity, filesystems, caches and large files.
     Disk {
         #[arg(long)]
@@ -480,12 +452,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             build_artefact::execute_build_artefact(json, apply)
         }
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
-        RuntimeCommand::Deps { .. }
-        | RuntimeCommand::DepsPlan { .. }
-        | RuntimeCommand::DepsAudit { .. }
-        | RuntimeCommand::DepsUpgrade { .. }
-        | RuntimeCommand::Disk { .. }
-        | RuntimeCommand::DiskClean { .. } => unreachable!("pre-dispatched runtime command"),
+        RuntimeCommand::Disk { .. } | RuntimeCommand::DiskClean { .. } => {
+            unreachable!("pre-dispatched runtime command")
+        }
         RuntimeCommand::Harness { json, kind } => {
             // This arm used to sit in the `unreachable!("pre-dispatched runtime
             // command")` group, but nothing ever pre-dispatched it: no early

@@ -100,6 +100,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: JudgeCommand,
     },
+    /// The workspace's own dependencies: state, plan, audit, upgrade.
+    Dependency {
+        #[command(subcommand)]
+        command: crate::dependency_surface::DependencyCommand,
+    },
     /// One-word frictionless update for ecosystem components (hermes-agent, llama.cpp, cynic, etc.).
     Update {
         /// Optional target component id (e.g. hermes-agent). Omit to upgrade all stale components.
