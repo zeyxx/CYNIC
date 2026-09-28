@@ -64,7 +64,9 @@ fn protocol_lib_stays_a_contract_focused_entrypoint() {
         "pub mod development;",
         "pub mod endpoint;",
         "pub mod framework;",
-        "pub mod network;",
+        // `network` is NOT expected here: 3faa1e45 extracted it to `cynic-network`
+        // and 7a0bd2c1 dropped the declaration. The leftover `src/network.rs` was
+        // never compiled and was deleted with the rest of the pre-extraction copies.
         "pub mod observe;",
         "pub mod outcomes;",
         "pub mod runtime;",

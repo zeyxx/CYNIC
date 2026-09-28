@@ -1,4 +1,5 @@
 pub mod agent_citizenship;
+pub mod anchor_client;
 pub mod agent_connection;
 pub mod agent_coordination;
 pub mod agent_coordination_continuity;
