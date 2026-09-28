@@ -236,13 +236,13 @@ mod tests {
         std::fs::write(&key_path, "not-hex!!").expect("write");
         restrict_to_owner(&key_path);
         assert_eq!(
-            FileEnrollmentSigner::load(&key_path),
-            Err("enrollment signing key must be hex".to_string())
+            FileEnrollmentSigner::load(&key_path).unwrap_err(),
+            "enrollment signing key must be hex".to_string()
         );
         std::fs::write(&key_path, "ab".repeat(8)).expect("write");
         assert_eq!(
-            FileEnrollmentSigner::load(&key_path),
-            Err("enrollment signing key must contain 32 bytes".to_string())
+            FileEnrollmentSigner::load(&key_path).unwrap_err(),
+            "enrollment signing key must contain 32 bytes".to_string()
         );
         std::fs::write(&key_path, "07".repeat(32)).expect("write");
         assert!(FileEnrollmentSigner::load(&key_path).is_ok());
@@ -257,11 +257,8 @@ mod tests {
         std::fs::write(&key_path, "07".repeat(32)).expect("write");
         std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o644)).expect("chmod");
         assert_eq!(
-            FileEnrollmentSigner::load(&key_path),
-            Err(
-                "enrollment signing key must not be group-writable or accessible by others"
-                    .to_string()
-            )
+            FileEnrollmentSigner::load(&key_path).unwrap_err(),
+            "enrollment signing key must not be group-writable or accessible by others".to_string()
         );
     }
 
