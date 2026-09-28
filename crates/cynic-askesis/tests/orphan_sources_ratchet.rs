@@ -19,26 +19,7 @@
 mod orphan_sources;
 
 /// Sources currently unreachable from this crate's compilation roots.
-const QUARANTINED: &[&str] = &[
-    "agent_loop.rs",
-    "audit/kernel_rest.rs",
-    "audit/mod.rs",
-    "error.rs",
-    "eval/dataset.rs",
-    "eval/mod.rs",
-    "eval/openai.rs",
-    "eval/oracle.rs",
-    "eval/policy.rs",
-    "eval/port.rs",
-    "eval/runner.rs",
-    "eval/types.rs",
-    "experiment/mod.rs",
-    "experiment/plan.rs",
-    "experiment/port.rs",
-    "experiment/runner.rs",
-    "experiment/simulator.rs",
-    "experiment/types.rs",
-    "memory.rs",];
+const QUARANTINED: &[&str] = &[];
 
 #[test]
 fn orphan_sources_match_quarantine() {
