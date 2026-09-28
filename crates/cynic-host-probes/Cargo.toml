@@ -5,6 +5,7 @@ edition = "2024"
 description = "Hardware probes for CYNIC host substrate"
 
 [dependencies]
+cynic-finance = { path = "../cynic-finance" }
 tokio = { version = "1", features = ["full"] }
 serde.workspace = true
 serde_json.workspace = true

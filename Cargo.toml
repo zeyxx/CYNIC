@@ -46,7 +46,9 @@ members = [
     "crates/cynic-domain-ops",
     "crates/cynic-domain-askesis",
     "crates/cynic-domain-porkbun",
-    "crates/cynic-domain-cloudflare",]
+    "crates/cynic-domain-cloudflare",
+    "crates/cynic-finance",
+]
 resolver = "2"
 
 [workspace.dependencies]

@@ -8,6 +8,7 @@ publish = false
 async-trait.workspace = true
 axum.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-finance = { path = "../cynic-finance" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }
 cynic-workload = { path = "../cynic-workload" }

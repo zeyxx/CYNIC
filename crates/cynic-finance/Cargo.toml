@@ -1,0 +1,20 @@
+[package]
+name = "cynic-finance"
+version.workspace = true
+edition.workspace = true
+description = "CYNIC Finance — multi-resource accounting, ledgers, and exchange rates for sovereign agent coordination"
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
