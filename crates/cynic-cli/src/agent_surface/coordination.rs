@@ -414,7 +414,11 @@ fn local_scope_of(kind: &str, target: &str) -> ClaimScope {
     }
 }
 
-fn local_claim_active(claim: &serde_json::Value, now_s: u64) -> bool {
+/// Liveness: a claim is active only if its status says so AND its lease has
+/// not expired. Single definition, reused by every reader (status display,
+/// conflict detection, and the worktree cross-check in `branch_audit`): a
+/// second copy of this rule is how the active set started lying.
+pub(crate) fn local_claim_active(claim: &serde_json::Value, now_s: u64) -> bool {
     if claim.get("status").and_then(|v| v.as_str()).unwrap_or("") != "active" {
         return false;
     }

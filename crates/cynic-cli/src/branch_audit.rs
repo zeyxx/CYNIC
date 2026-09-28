@@ -62,6 +62,7 @@ pub struct BranchAuditReport {
     pub blocked_count: usize,
     pub archived_count: usize,
     pub branches: Vec<BranchAuditEntry>,
+    pub worktree: WorktreeObservation,
 }
 
 #[derive(Serialize)]
@@ -82,6 +83,34 @@ pub struct BranchAuditCheck {
     pub name: &'static str,
     pub status: &'static str,
     pub detail: String,
+}
+
+/// What this machine is actually doing, cross-checked against what it claimed.
+///
+/// A shared worktree makes one specific failure cheap and invisible: a claim
+/// is a *statement of intent*, and intent does not change files. Observed on
+/// this repository: 143 claims were marked active, 69 of them past their own
+/// TTL, while the set of paths anyone had actually touched was a different
+/// question nobody was asking. The converse is the constitutional one — a
+/// mutated path with no live claim is mutation without a mandate
+/// (`contracts/foundation.json` → `explicit_over_implicit`, AGENTS.md session
+/// protocol: claim before mutation).
+///
+/// This is an observation surface, not a gate: it reports `unowned` and
+/// `uncorroborated`, and decides nothing.
+#[derive(Serialize)]
+pub struct WorktreeObservation {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub rule: &'static str,
+    pub current_branch: String,
+    pub head: String,
+    pub dirty_path_count: usize,
+    pub untracked_count: usize,
+    pub live_claim_count: usize,
+    pub unowned_paths: Vec<String>,
+    pub uncorroborated_claims: Vec<String>,
+    pub checks: Vec<BranchAuditCheck>,
 }
 
 /// Refuse to guess: an unreadable git surface is an unknown, never "ok".
@@ -109,7 +138,123 @@ pub fn audit_branches(base_ref: &str) -> BranchAuditReport {
         blocked_count: blocked,
         archived_count: archived,
         branches,
+        worktree: observe_worktree(),
     }
+}
+
+/// Read the local machine's real activity: what the worktree changed, and
+/// whether a live claim covers each change.
+fn observe_worktree() -> WorktreeObservation {
+    let now_s = now_unix_s();
+    let status = git(&["status", "--porcelain"]);
+    let mut dirty: Vec<(String, bool)> = Vec::new(); // (path, untracked)
+    for line in status.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let (code, path) = line.split_at(2);
+        let path = path.trim();
+        if path.is_empty() {
+            continue;
+        }
+        dirty.push((path.to_string(), code.starts_with("??")));
+    }
+    let untracked_count = dirty.iter().filter(|(_, untracked)| *untracked).count();
+
+    let claims = live_claim_paths(now_s);
+    // A path counts as covered when the claim's scope is the path itself or a
+    // directory containing it: `crates/cynic-kernel` covers
+    // `crates/cynic-kernel/src/lib.rs`. Containment, not string equality.
+    let unowned: Vec<String> = dirty
+        .iter()
+        .map(|(path, _)| path.clone())
+        .filter(|path| !claims.iter().any(|claim| claim_covers(claim, path)))
+        .collect();
+
+    let uncorroborated: Vec<String> = claims
+        .iter()
+        .filter(|claim| !dirty.iter().any(|(path, _)| claim_covers(claim, path)))
+        .cloned()
+        .collect();
+
+    let mut checks = Vec::new();
+    checks.push(BranchAuditCheck {
+        name: "mutation_has_mandate",
+        status: if unowned.is_empty() { "ok" } else { "blocked" },
+        detail: format!(
+            "{} dirty path(s), {} not covered by any live claim: {:?}",
+            dirty.len(),
+            unowned.len(),
+            unowned
+        ),
+    });
+    checks.push(BranchAuditCheck {
+        name: "claim_is_corroborated",
+        status: if uncorroborated.is_empty() {
+            "ok"
+        } else {
+            "observe"
+        },
+        detail: format!(
+            "{} live claim(s) hold a scope no local change touches — a claim may precede work, so this is an observation, not a fault",
+            uncorroborated.len()
+        ),
+    });
+
+    let status = if unowned.is_empty() { "ok" } else { "blocked" };
+    WorktreeObservation {
+        schema: "cynic.cli.worktree_observation.v1",
+        status,
+        rule: "a session at work is proven by what it changed, not by what it claimed; a mutated path with no live claim is mutation without a mandate",
+        current_branch: git(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .trim()
+            .to_string(),
+        head: git(&["rev-parse", "--short", "HEAD"]).trim().to_string(),
+        dirty_path_count: dirty.len(),
+        untracked_count,
+        live_claim_count: claims.len(),
+        unowned_paths: unowned,
+        uncorroborated_claims: uncorroborated,
+        checks,
+    }
+}
+
+/// Scopes of claims that are actually live, using the one liveness predicate.
+fn live_claim_paths(now_s: u64) -> Vec<String> {
+    let Ok(raw) = std::fs::read_to_string(workspace_root().join(".agent-claims.json")) else {
+        return Vec::new();
+    };
+    let Ok(doc) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return Vec::new();
+    };
+    doc.get("claims")
+        .and_then(|claims| claims.as_array())
+        .map(|claims| {
+            claims
+                .iter()
+                .filter(|claim| {
+                    crate::agent_surface::coordination::local_claim_active(claim, now_s)
+                })
+                .filter_map(|claim| {
+                    claim
+                        .get("scope")
+                        .and_then(|scope| scope.get("path"))
+                        .and_then(|path| path.as_str())
+                        .map(str::to_string)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Does a claim scope cover a concrete path? Containment, so a crate- or
+/// module-scoped claim covers the files beneath it.
+fn claim_covers(claim_scope: &str, path: &str) -> bool {
+    claim_scope == path || path.starts_with(&format!("{claim_scope}/"))
+}
+
+fn now_unix_s() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 fn audit_branch(base_ref: &str, branch: &str) -> BranchAuditEntry {
