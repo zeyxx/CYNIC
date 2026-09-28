@@ -79,10 +79,11 @@ fn kernel_lib_stays_the_compilation_boundary_surface() {
         );
     }
 
-    // NOTE (2026-09-28 api/ purge): the god-object surface below was removed
-    // (api/ 36 files uncompiled, backends/organ/probe/senses/storage gone
-    // from the manifest). The old test asserted their PRESENCE against a
-    // lib.rs that never declared them — aspirational fiction. Lock absence.
+    // NOTE (2026-09-28 purges): api/ (36 files) and backends/ (3 files)
+    // deleted as 0% compiled; none were ever declared below. organ/probe/
+    // senses/storage still exist on disk as undeclared orphans (known debt,
+    // next purges) — but must never re-enter this manifest. The old test
+    // asserted their PRESENCE — aspirational fiction. Lock absence.
     for forbidden in [
         "pub mod api;",
         "pub mod backends;",
@@ -345,10 +346,14 @@ fn kernel_backends_must_not_own_filesystem_model_discovery() {
         "filesystem model discovery belongs in cynic-inference, not cynic-kernel backends"
     );
 
-    let kernel_backends_mod = read_repo_file("crates/cynic-kernel/src/backends/mod.rs");
+    // NOTE (2026-09-28 backends/ purge): backends/ dir deleted (3 orphan
+    // files, 0% compiled). Absence of the dir subsumes the old mod-graph
+    // assertion; the live owner contract below is unchanged.
     assert!(
-        !kernel_backends_mod.contains("model_discovery"),
-        "kernel backends module graph must not expose model discovery"
+        !repo_root()
+            .join("crates/cynic-kernel/src/backends")
+            .exists(),
+        "kernel backends/ must stay deleted; adapters live in domain crates"
     );
 
     let inference_model_store =
@@ -374,10 +379,9 @@ fn kernel_must_not_own_summarization_adapter_or_domain() {
         );
     }
 
-    let kernel_backends_mod = read_repo_file("crates/cynic-kernel/src/backends/mod.rs");
     let kernel_domain_mod = read_repo_file("crates/cynic-kernel/src/domain/mod.rs");
     assert!(
-        !kernel_backends_mod.contains("summarizer") && !kernel_domain_mod.contains("summarization"),
+        !kernel_domain_mod.contains("summarization"),
         "kernel module graph must not expose summarization-owned inference surfaces"
     );
 
@@ -573,36 +577,16 @@ fn kernel_fleet_probe_delegates_context_observation_to_node() {
 
 #[test]
 fn kernel_boot_health_probe_delegates_backend_verification_to_node() {
-    let health_probe = read_repo_file("crates/cynic-kernel/src/backends/health_probe.rs");
+    // NOTE (2026-09-28 backends/ purge): health_probe.rs died with the
+    // uncompiled backends/ dir (it also failed its own api_key assertion).
+    // Backend verification lives in cynic-node::verify (asserted below);
+    // the api_key-forwarding gap is REST-rebuild backlog.
     assert!(
-        health_probe.contains("cynic_node::verify")
-            // Accept either the plain or the bearer-carrying health helper: what
-            // matters is that observation is delegated, not which arity is used.
-            && (health_probe.contains("check_health(")
-                || health_probe.contains("check_health_with_bearer("))
-            && health_probe.contains("check_identity_with_bearer("),
-        "kernel boot health probe must delegate backend verification to cynic-node"
+        !repo_root()
+            .join("crates/cynic-kernel/src/backends/health_probe.rs")
+            .exists(),
+        "kernel health probe must stay deleted; verification lives in cynic-node::verify"
     );
-
-    // A backend config that carries an api_key must present it on the health
-    // probe too, otherwise a secured backend is logged UNREACHABLE at boot.
-    assert!(
-        health_probe.contains("check_health_with_bearer(&client, health_url, 5, cfg.api_key"),
-        "boot health probe must forward cfg.api_key so a secured backend is not \
-         misreported as unreachable"
-    );
-
-    for forbidden in [
-        ".get(health_url).send().await",
-        ".get(&models_url).send().await",
-        "resp.text().await",
-        "body.contains(&cfg.model)",
-    ] {
-        assert!(
-            !health_probe.contains(forbidden),
-            "kernel boot health probe must not re-own backend verification: {forbidden}"
-        );
-    }
 }
 
 #[test]
