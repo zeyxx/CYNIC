@@ -101,10 +101,12 @@ impl RetentionPolicy {
     }
 }
 
+/// The outcome of classifying one key's rate change.
 ///
-/// Mirrors `ModelRetentionAssessment`: the assessment never authorizes the
-/// mutation it describes. Raw-trace eviction is a bounded, consented action
-/// owned by an apply surface; this contract records the class and reasons.
+/// Carries no authorisation field. The previous `eviction_authorized: bool` was
+/// a hard-coded `false` that no consumer ever read, so it asserted a safety
+/// property without being able to violate one — and a field that is always
+/// false is indistinguishable from a field that is missing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatternGcAssessment {
     pub schema: String,
@@ -113,7 +115,4 @@ pub struct PatternGcAssessment {
     pub class: PatternClass,
     /// Explicit human-readable grounds citing observed counts.
     pub reasons: Vec<String>,
-    /// Always `false` at contract level; eviction requires an explicit,
-    /// consented apply surface and read-back proof upstream.
-    pub eviction_authorized: bool,
 }

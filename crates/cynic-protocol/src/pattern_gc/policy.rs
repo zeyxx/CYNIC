@@ -81,7 +81,6 @@ pub fn classify(observation: &PatternObservation, policy: &RetentionPolicy) -> P
         key: observation.key.clone(),
         class,
         reasons,
-        eviction_authorized: false,
     }
 }
 
@@ -152,7 +151,6 @@ mod tests {
     fn empty_windows_are_unknown_not_recurring() {
         let a = classify(&obs("x", 0, 0), &policy());
         assert_eq!(a.class, PatternClass::Unknown);
-        assert!(!a.eviction_authorized);
     }
 
     #[test]
@@ -270,6 +268,5 @@ mod tests {
         assert_eq!(assessments.len(), 2);
         assert_eq!(assessments[0].key, "a");
         assert!(assessments.iter().all(|a| a.schema == SCHEMA));
-        assert!(assessments.iter().all(|a| !a.eviction_authorized));
     }
 }
