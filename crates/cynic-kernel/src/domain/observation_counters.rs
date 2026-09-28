@@ -1,8 +1,8 @@
 //! Metabolism — the organism sensing its own data flow.
 //!
-//! MetabolicState is computed from Metrics counters (no SQL per tick).
+//! ObservationCounters is computed from Metrics counters (no SQL per tick).
 //! It measures intake, digestion, crystallization, and producer health.
-//! Gates: introspection uses MetabolicState to disable dead producers
+//! Gates: introspection uses ObservationCounters to disable dead producers
 //! and alert on digestion starvation.
 
 use std::sync::atomic::Ordering;
@@ -12,9 +12,9 @@ use crate::domain::metrics::Metrics;
 /// φ⁻² — drop rate critical threshold.
 const PHI_INV2: f64 = 0.381_966_011_250_105;
 
-/// Point-in-time snapshot of the organism's data metabolism.
+/// Point-in-time counters for the observation funnel.
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct MetabolicState {
+pub struct ObservationCounters {
     /// Observations accepted by /observe since boot (hydrated from DB).
     pub ingested: u64,
     /// Observations dropped (503 semaphore exhaustion).
@@ -50,8 +50,8 @@ pub struct MetabolicState {
     pub backlog: u64,
 }
 
-/// Compute MetabolicState from atomic counters — zero I/O, zero allocation.
-pub fn snapshot(metrics: &Metrics) -> MetabolicState {
+/// Compute ObservationCounters from atomic counters — zero I/O, zero allocation.
+pub fn snapshot(metrics: &Metrics) -> ObservationCounters {
     let ingested = metrics.observations_ingested_total.load(Ordering::Relaxed);
     let dropped = metrics.observations_dropped_total.load(Ordering::Relaxed);
     let digested = metrics.nightshift_digested_total.load(Ordering::Relaxed);
@@ -87,7 +87,7 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
 
     let backlog = ingested.saturating_sub(digested);
 
-    MetabolicState {
+    ObservationCounters {
         ingested,
         dropped,
         digested,
@@ -104,17 +104,17 @@ pub fn snapshot(metrics: &Metrics) -> MetabolicState {
     }
 }
 
-/// Metabolic alert — emitted by introspection when vital signs are abnormal.
+/// Alert emitted by introspection when the funnel's ratios are abnormal.
 #[derive(Debug)]
-pub struct MetabolicAlert {
+pub struct ObservationCounterAlert {
     pub kind: &'static str,
     pub message: String,
     pub severity: &'static str,
 }
 
-/// Diagnose metabolic state → zero or more alerts.
+/// Diagnose the counters into zero or more alerts.
 /// Called by `introspection::analyze()` each tick.
-pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
+pub fn diagnose(state: &ObservationCounters) -> Vec<ObservationCounterAlert> {
     let mut alerts = Vec::new();
 
     // Digestion starvation: organism accumulates faster than it processes
@@ -124,7 +124,7 @@ pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
             .is_some_and(|ratio| ratio < 0.10)
     {
         let ratio = state.observation_digestion_ratio.unwrap_or_default();
-        alerts.push(MetabolicAlert {
+        alerts.push(ObservationCounterAlert {
             kind: "digestion_starvation",
             message: format!(
                 "Digestion ratio {:.1}% — organism accumulates {:.0}x faster than it digests (backlog: {})",
@@ -138,7 +138,7 @@ pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
 
     // Observation drops: capacity exceeded
     if state.dropped > 0 {
-        alerts.push(MetabolicAlert {
+        alerts.push(ObservationCounterAlert {
             kind: "observation_drops",
             message: format!(
                 "{} observations dropped ({:.1}% drop rate) — /observe semaphore exhausted",
@@ -155,7 +155,7 @@ pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
 
     // Low crystallization: verdicts aren't producing wisdom
     if state.verdicts > 50 && state.crystallization_rate < 0.005 {
-        alerts.push(MetabolicAlert {
+        alerts.push(ObservationCounterAlert {
             kind: "low_crystallization",
             message: format!(
                 "Crystallization rate {:.2}% ({} crystals from {} verdicts) — wisdom extraction stalled",
@@ -169,7 +169,7 @@ pub fn diagnose(state: &MetabolicState) -> Vec<MetabolicAlert> {
 
     // Domain gate filtering too aggressively
     if state.verdicts > 50 && state.domain_gate_skipped > state.crystal_observations * 10 {
-        alerts.push(MetabolicAlert {
+        alerts.push(ObservationCounterAlert {
             kind: "domain_gate_aggressive",
             message: format!(
                 "{} crystal observations skipped by domain gate vs {} recorded — most verdicts produce 'general' domain",

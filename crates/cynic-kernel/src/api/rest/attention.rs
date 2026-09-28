@@ -77,7 +77,7 @@ pub async fn attention_handler(
         .ok()
         .and_then(|guard| guard.clone())
         .and_then(|snapshot| serde_json::to_value(snapshot).ok());
-    let metabolism = crate::domain::metabolism::snapshot(&state.metrics);
+    let metabolism = crate::domain::observation_counters::snapshot(&state.metrics);
 
     let readiness_val = serde_json::json!({
         "healthy": readiness.healthy,

@@ -1,7 +1,7 @@
-//! Universal capacity contract — CYNIC metabolic state + freshness policy.
+//! Universal capacity contract — CYNIC host load tier + freshness policy.
 //!
 //! Implémente `.hermes/plans/2026-08-24_universal-time-energy-task-roi-plan.md`
-//! §6 étape 2 : le métabolisme (`MetabolicState`, jusqu'ici port host-only dans
+//! §6 étape 2 : le métabolisme (`LoadTier`, jusqu'ici port host-only dans
 //! `cynic-host/src/ports/metabolism.rs`) devient un CONTRAT protocol, et les
 //! seuils deviennent une policy déclarée par nœud (décision HITL Q3 :
 //! « policy déclarée par nœud, seuils = données »).
@@ -10,7 +10,7 @@
 //! - les observations canoniques existantes `CpuReport`/`MemoryReport`
 //!   (`cynic_protocol::cpu`, `cynic_protocol::memory`) en une
 //!   `CapacityObservationV1` référençable ;
-//! - la décision pure `assess_metabolic_state(observation, policy)` qui
+//! - la décision pure `assess_load_tier(observation, policy)` qui
 //!   remplace les constantes 85/90/40/60 codées en dur de l'ancien port.
 //!
 //! Horloge (gap 2) : les timestamps des reports restent des annotations ; la
@@ -21,67 +21,82 @@ use serde::{Deserialize, Serialize};
 use crate::cpu::CpuReport;
 use crate::memory::MemoryReport;
 
-pub const METABOLIC_POLICY_SCHEMA: &str = "cynic.metabolic_policy.v1";
+pub const LOAD_POLICY_SCHEMA: &str = "cynic.load_policy.v1";
 pub const CAPACITY_ASSESSMENT_SCHEMA: &str = "cynic.capacity_assessment.v1";
 
-/// État métabolique de l'hôte — vocabulaire canonique (déplacé du port host).
+/// Classified load tier of a host, from measured CPU and memory utilisation.
+///
+/// The variants name what was measured, not what to do about it. The previous
+/// `Survival` asserted a remedy — this node is barely alive — while the only
+/// underlying fact is "CPU above 85%, or memory above 90%". The same reading
+/// admits two opposite actions: decline promotion, or correct the accounting.
+/// A name that silently picks one is a defect, not a description.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MetabolicState {
-    /// Ressources abondantes : tâches lourdes admises.
-    HighPerformance,
-    /// Charge normale : participation limitée.
-    Standard,
-    /// Souffrance (CPU/RAM saturés) : mode passif, refuse d'être Leader.
-    Survival,
+pub enum LoadTier {
+    /// Utilisation low: headroom for heavy work.
+    Headroom,
+    /// Utilisation moderate.
+    Normal,
+    /// CPU or memory above the configured saturation threshold. Gates placement
+    /// admissibility: a saturated host is not a leader candidate.
+    Saturated,
 }
 
-/// Seuils déclarés par nœud (décision Q3). Toutes les valeurs sont des données
-/// observées/déclarées — plus aucune constante dans le code d'exécution.
-/// Sémantique identique à l'ancien port host (85/90 → Survival,
-/// 40/60 → Standard), désormais explicite et overridable.
+/// Per-node declared thresholds. Every value is observed/declared data rather than
+/// a constant in execution code. Defaults preserve the semantics of the former
+/// host port (85/90 -> Saturated, 40/60 -> Normal), now explicit and overridable.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MetabolicPolicy {
+pub struct LoadPolicy {
     pub schema: String,
     pub policy_id: String,
-    /// CPU % au-delà duquel l'hôte passe en Survival.
-    pub survival_cpu_pct: f64,
-    /// RAM % utilisée au-delà duquel l'hôte passe en Survival.
-    pub survival_mem_pct: f64,
-    /// CPU % au-delà duquel l'hôte passe en Standard.
-    pub standard_cpu_pct: f64,
-    /// RAM % utilisée au-delà duquel l'hôte passe en Standard.
-    pub standard_mem_pct: f64,
+    /// CPU % above which the host is classified `Saturated`.
+    ///
+    /// The wire name stays `survival_cpu_pct`. This struct is a deployed config
+    /// format: `CYNIC_LOAD_POLICY` points at a JSON file on every node, so
+    /// renaming the serialised key would invalidate all of them at once. The Rust
+    /// name is the honest one; the wire name is frozen on purpose.
+    #[serde(rename = "survival_cpu_pct")]
+    pub saturation_cpu_pct: f64,
+    /// RAM usage % above which the host is classified `Saturated`.
+    #[serde(rename = "survival_mem_pct")]
+    pub saturation_mem_pct: f64,
+    /// CPU % above which the host is classified at least `Normal`.
+    #[serde(rename = "standard_cpu_pct")]
+    pub normal_cpu_pct: f64,
+    /// RAM usage % above which the host is classified at least `Normal`.
+    #[serde(rename = "standard_mem_pct")]
+    pub normal_mem_pct: f64,
 }
 
-impl MetabolicPolicy {
-    /// Valeurs initiales = celles observées dans l'ancien port host
-    /// (continuité sémantique), portées comme DONNÉES par la policy nœud.
+impl LoadPolicy {
+    /// Initial values are those observed in the former host port (semantic
+    /// continuity), now carried as data by the node policy.
     pub fn with_legacy_defaults(policy_id: impl Into<String>) -> Self {
         Self {
-            schema: METABOLIC_POLICY_SCHEMA.to_string(),
+            schema: LOAD_POLICY_SCHEMA.to_string(),
             policy_id: policy_id.into(),
-            survival_cpu_pct: 85.0,
-            survival_mem_pct: 90.0,
-            standard_cpu_pct: 40.0,
-            standard_mem_pct: 60.0,
+            saturation_cpu_pct: 85.0,
+            saturation_mem_pct: 90.0,
+            normal_cpu_pct: 40.0,
+            normal_mem_pct: 60.0,
         }
     }
 
-    /// Validation pure : Survival doit être strictement au-dessus de Standard.
+    /// Pure validation: saturation thresholds must sit strictly above normal ones.
     pub fn violations(&self) -> Vec<String> {
         let mut v = Vec::new();
-        if self.survival_cpu_pct <= self.standard_cpu_pct {
+        if self.saturation_cpu_pct <= self.normal_cpu_pct {
             v.push("survival_cpu_must_exceed_standard_cpu".to_string());
         }
-        if self.survival_mem_pct <= self.standard_mem_pct {
+        if self.saturation_mem_pct <= self.normal_mem_pct {
             v.push("survival_mem_must_exceed_standard_mem".to_string());
         }
         for (name, value) in [
-            ("survival_cpu_pct", self.survival_cpu_pct),
-            ("survival_mem_pct", self.survival_mem_pct),
-            ("standard_cpu_pct", self.standard_cpu_pct),
-            ("standard_mem_pct", self.standard_mem_pct),
+            ("survival_cpu_pct", self.saturation_cpu_pct),
+            ("survival_mem_pct", self.saturation_mem_pct),
+            ("standard_cpu_pct", self.normal_cpu_pct),
+            ("standard_mem_pct", self.normal_mem_pct),
         ] {
             if !(0.0..=100.0).contains(&value) || !value.is_finite() {
                 v.push(format!("{name}_out_of_range"));
@@ -99,7 +114,7 @@ impl MetabolicPolicy {
 #[derive(Debug, Clone, Serialize)]
 pub struct CapacityAssessmentV1 {
     pub schema: &'static str,
-    pub state: MetabolicState,
+    pub state: LoadTier,
     /// CPU % utilisé (depuis CpuUsage.util_pct si mesuré).
     pub cpu_util_pct: Option<f64>,
     /// RAM % utilisée (calculée depuis MemoryReport.usage physical).
@@ -118,13 +133,13 @@ pub struct CapacityAssessmentV1 {
 /// avec unknowns explicites ? NON — un état non mesurable ne peut pas être
 /// affirmé : on retourne `Survival` ? NON PLUS. On retourne l'état le plus
 /// PRUDENT justifiable : sans aucune donnée, l'hôte ne peut pas prétendre à
-/// HighPerformance ; mais Survival déclencherait des refus non fondés.
+/// Headroom; but Saturated would trigger unfounded refusals.
 /// Décision : `Standard` + residual_unknowns listant ce qui manque (l'état
 /// intermédiaire est celui qui ne promet ni capacité ni panne).
-pub fn assess_metabolic_state(
+pub fn assess_load_tier(
     cpu: Option<&CpuReport>,
     memory: Option<&MemoryReport>,
-    policy: &MetabolicPolicy,
+    policy: &LoadPolicy,
 ) -> CapacityAssessmentV1 {
     let mut residual_unknowns = Vec::new();
 
@@ -159,18 +174,18 @@ pub fn assess_metabolic_state(
 
     let state = match (cpu_util_pct, mem_used_pct) {
         (Some(cpu_pct), Some(mem_pct)) => {
-            if cpu_pct > policy.survival_cpu_pct || mem_pct > policy.survival_mem_pct {
-                MetabolicState::Survival
-            } else if cpu_pct > policy.standard_cpu_pct || mem_pct > policy.standard_mem_pct {
-                MetabolicState::Standard
+            if cpu_pct > policy.saturation_cpu_pct || mem_pct > policy.saturation_mem_pct {
+                LoadTier::Saturated
+            } else if cpu_pct > policy.normal_cpu_pct || mem_pct > policy.normal_mem_pct {
+                LoadTier::Normal
             } else {
-                MetabolicState::HighPerformance
+                LoadTier::Headroom
             }
         }
         _ => {
             // Données insuffisantes : état intermédiaire prudent + unknowns
-            // explicites (jamais HighPerformance sans preuve).
-            MetabolicState::Standard
+            // explicit (never Headroom without evidence).
+            LoadTier::Normal
         }
     };
 
@@ -253,21 +268,21 @@ mod tests {
 
     #[test]
     fn legacy_defaults_match_old_host_port_semantics() {
-        let p = MetabolicPolicy::with_legacy_defaults("node-a");
+        let p = LoadPolicy::with_legacy_defaults("node-a");
         assert!(p.violations().is_empty());
-        assert_eq!(p.survival_cpu_pct, 85.0);
-        assert_eq!(p.standard_mem_pct, 60.0);
+        assert_eq!(p.saturation_cpu_pct, 85.0);
+        assert_eq!(p.normal_mem_pct, 60.0);
     }
 
     #[test]
     fn inverted_thresholds_are_violations() {
-        let p = MetabolicPolicy {
-            schema: METABOLIC_POLICY_SCHEMA.to_string(),
+        let p = LoadPolicy {
+            schema: LOAD_POLICY_SCHEMA.to_string(),
             policy_id: "broken".to_string(),
-            survival_cpu_pct: 30.0,
-            survival_mem_pct: 90.0,
-            standard_cpu_pct: 40.0,
-            standard_mem_pct: 60.0,
+            saturation_cpu_pct: 30.0,
+            saturation_mem_pct: 90.0,
+            normal_cpu_pct: 40.0,
+            normal_mem_pct: 60.0,
         };
         assert!(
             p.violations()
@@ -277,36 +292,36 @@ mod tests {
 
     #[test]
     fn high_performance_under_standard_thresholds() {
-        let p = MetabolicPolicy::with_legacy_defaults("n");
-        let a = assess_metabolic_state(Some(&cpu_report(10.0)), Some(&mem_report(28, 8)), &p);
-        assert_eq!(a.state, MetabolicState::HighPerformance);
+        let p = LoadPolicy::with_legacy_defaults("n");
+        let a = assess_load_tier(Some(&cpu_report(10.0)), Some(&mem_report(28, 8)), &p);
+        assert_eq!(a.state, LoadTier::Headroom);
         assert!(a.residual_unknowns.is_empty());
         assert_eq!(a.available_ram_bytes, 20 * 1024 * 1024 * 1024);
     }
 
     #[test]
     fn standard_between_thresholds() {
-        let p = MetabolicPolicy::with_legacy_defaults("n");
-        let a = assess_metabolic_state(Some(&cpu_report(50.0)), Some(&mem_report(28, 10)), &p);
-        assert_eq!(a.state, MetabolicState::Standard);
+        let p = LoadPolicy::with_legacy_defaults("n");
+        let a = assess_load_tier(Some(&cpu_report(50.0)), Some(&mem_report(28, 10)), &p);
+        assert_eq!(a.state, LoadTier::Normal);
     }
 
     #[test]
     fn survival_above_survival_thresholds() {
-        let p = MetabolicPolicy::with_legacy_defaults("n");
-        let a = assess_metabolic_state(Some(&cpu_report(86.0)), Some(&mem_report(28, 10)), &p);
-        assert_eq!(a.state, MetabolicState::Survival);
+        let p = LoadPolicy::with_legacy_defaults("n");
+        let a = assess_load_tier(Some(&cpu_report(86.0)), Some(&mem_report(28, 10)), &p);
+        assert_eq!(a.state, LoadTier::Saturated);
 
         // Mémoire seule peut suffoquer aussi.
-        let a2 = assess_metabolic_state(Some(&cpu_report(10.0)), Some(&mem_report(28, 26)), &p);
-        assert_eq!(a2.state, MetabolicState::Survival);
+        let a2 = assess_load_tier(Some(&cpu_report(10.0)), Some(&mem_report(28, 26)), &p);
+        assert_eq!(a2.state, LoadTier::Saturated);
     }
 
     #[test]
     fn missing_reports_yield_prudent_standard_with_unknowns_never_high_performance() {
-        let p = MetabolicPolicy::with_legacy_defaults("n");
-        let a = assess_metabolic_state(None, None, &p);
-        assert_eq!(a.state, MetabolicState::Standard);
+        let p = LoadPolicy::with_legacy_defaults("n");
+        let a = assess_load_tier(None, None, &p);
+        assert_eq!(a.state, LoadTier::Normal);
         assert!(
             a.residual_unknowns
                 .contains(&"cpu_report_missing".to_string())
@@ -323,8 +338,8 @@ mod tests {
         // CPU présent mais utilisation non mesurée → toujours prudent.
         let mut cpu_no_util = cpu_report(0.0);
         cpu_no_util.usage.util_pct = None;
-        let b = assess_metabolic_state(Some(&cpu_no_util), Some(&mem_report(28, 8)), &p);
-        assert_eq!(b.state, MetabolicState::Standard);
+        let b = assess_load_tier(Some(&cpu_no_util), Some(&mem_report(28, 8)), &p);
+        assert_eq!(b.state, LoadTier::Normal);
         assert!(
             b.residual_unknowns
                 .contains(&"cpu_utilization_not_measured".to_string())
@@ -334,22 +349,22 @@ mod tests {
     #[test]
     fn custom_policy_is_honored_data_not_constants() {
         // Un nœud contraint (ex: lab partagé) déclare des seuils serrés.
-        let p = MetabolicPolicy {
-            schema: METABOLIC_POLICY_SCHEMA.to_string(),
+        let p = LoadPolicy {
+            schema: LOAD_POLICY_SCHEMA.to_string(),
             policy_id: "lab-strict".to_string(),
-            survival_cpu_pct: 70.0,
-            survival_mem_pct: 80.0,
-            standard_cpu_pct: 20.0,
-            standard_mem_pct: 40.0,
+            saturation_cpu_pct: 70.0,
+            saturation_mem_pct: 80.0,
+            normal_cpu_pct: 20.0,
+            normal_mem_pct: 40.0,
         };
         assert!(p.violations().is_empty());
         // CPU 50% dépasse le seuil standard strict (20%) mais pas survival (70%)
         // ; RAM 15/28 = 53.6% > standard 40%, < survival 80%. État attendu :
         // Standard (au-dessus de Standard, sous Survival).
-        let a = assess_metabolic_state(Some(&cpu_report(50.0)), Some(&mem_report(28, 15)), &p);
-        assert_eq!(a.state, MetabolicState::Standard);
+        let a = assess_load_tier(Some(&cpu_report(50.0)), Some(&mem_report(28, 15)), &p);
+        assert_eq!(a.state, LoadTier::Normal);
         // Une seule dimension au-delà du seuil Survival suffit.
-        let b = assess_metabolic_state(Some(&cpu_report(75.0)), Some(&mem_report(28, 15)), &p);
-        assert_eq!(b.state, MetabolicState::Survival);
+        let b = assess_load_tier(Some(&cpu_report(75.0)), Some(&mem_report(28, 15)), &p);
+        assert_eq!(b.state, LoadTier::Saturated);
     }
 }

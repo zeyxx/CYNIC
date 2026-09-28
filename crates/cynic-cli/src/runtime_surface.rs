@@ -78,7 +78,7 @@ pub(crate) enum RuntimeCommand {
         #[arg(long)]
         proof: Option<String>,
     },
-    /// Assess local capacity: metabolic state + RAM/CPU headroom (read-only).
+    /// Assess local capacity: load tier + RAM/CPU headroom (read-only).
     /// Policy provenance: CYNIC_METABOLIC_POLICY (JSON file) or legacy defaults.
     Capacity {
         #[arg(long)]

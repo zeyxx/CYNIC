@@ -4,7 +4,7 @@
 //! bound their in-memory buffers and measure every drop or eviction with
 //! atomic counters (no uncounted drops / amnesia).
 //!
-//! Adapts to metabolic pressure: supports `DropOldest`, `RejectNew`, and batch draining.
+//! Adapts to host load: supports `DropOldest`, `RejectNew`, and batch draining.
 
 use std::collections::VecDeque;
 use std::sync::Mutex;

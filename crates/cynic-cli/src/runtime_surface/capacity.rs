@@ -1,18 +1,18 @@
-//! CLI adapter for host capacity observation (metabolic state + headroom).
+//! CLI adapter for host capacity observation (load tier + headroom).
 //!
 //! Thin projection surface — delegates to `LocalCapacityAdapter` in `cynic-host`
 //! and the pure `cynic_protocol::capacity` decision. Read-only.
 //!
-//! Policy provenance: the metabolic policy is node-declared data (HITL Q3).
+//! Policy provenance: the load policy is node-declared data (HITL Q3).
 //! Default resolution order:
-//!   1. `CYNIC_METABOLIC_POLICY` env var — path to a JSON MetabolicPolicy file
+//!   1. `CYNIC_LOAD_POLICY` env var — path to a JSON LoadPolicy file
 //!   2. legacy defaults (85/90/40/60, same semantics as the former host port)
 //! Secrets are never read; thresholds are not secrets.
 
 use std::process::ExitCode;
 
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
-use cynic_protocol::capacity::MetabolicPolicy;
+use cynic_protocol::capacity::LoadPolicy;
 
 use crate::emit_json;
 
@@ -20,7 +20,7 @@ pub(crate) fn execute_capacity(json: bool) -> ExitCode {
     let policy = match load_policy() {
         Ok(policy) => policy,
         Err(error) => {
-            eprintln!("Metabolic policy error: {error}");
+            eprintln!("Load policy error: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -42,15 +42,15 @@ pub(crate) fn execute_capacity(json: bool) -> ExitCode {
     }
 }
 
-fn load_policy() -> Result<MetabolicPolicy, String> {
-    match std::env::var("CYNIC_METABOLIC_POLICY") {
+fn load_policy() -> Result<LoadPolicy, String> {
+    match std::env::var("CYNIC_LOAD_POLICY") {
         Ok(path) => {
             let raw = std::fs::read_to_string(&path)
                 .map_err(|error| format!("policy file {path} unreadable: {error}"))?;
             serde_json::from_str(&raw)
                 .map_err(|error| format!("policy file {path} invalid: {error}"))
         }
-        Err(_) => Ok(MetabolicPolicy::with_legacy_defaults("node-default")),
+        Err(_) => Ok(LoadPolicy::with_legacy_defaults("node-default")),
     }
 }
 

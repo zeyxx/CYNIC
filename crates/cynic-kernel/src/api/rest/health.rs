@@ -340,7 +340,10 @@ pub async fn health_handler(
                 },
             },
             "slot_utilization": state.slot_tracker.health_summary(),
-            "metabolism": crate::domain::metabolism::snapshot(&state.metrics),
+            // The key stays "metabolism": it is a published REST field read by dashboards.
+            // What it carries is now ObservationCounters, which is what it has always
+            // measured — the observation funnel, not the host's resource load.
+            "metabolism": crate::domain::observation_counters::snapshot(&state.metrics),
             "senses": senses_report,
             "producers": producer_report,
         })),

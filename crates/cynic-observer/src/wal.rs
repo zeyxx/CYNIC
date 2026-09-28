@@ -40,7 +40,7 @@ impl WriteAheadLog {
     pub fn append(
         &mut self,
         record: &WalRecord,
-        metabolic_state: &cynic_protocol::capacity::MetabolicState,
+        load_tier: &cynic_protocol::capacity::LoadTier,
     ) -> io::Result<()> {
         let mut json = serde_json::to_string(record)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
@@ -49,12 +49,12 @@ impl WriteAheadLog {
         self.file.write_all(json.as_bytes())?;
 
         // Logique adaptative: fsync si ressources suffisantes, asynchrone si survie
-        use cynic_protocol::capacity::MetabolicState;
-        match metabolic_state {
-            MetabolicState::HighPerformance | MetabolicState::Standard => {
+        use cynic_protocol::capacity::LoadTier;
+        match load_tier {
+            LoadTier::Headroom | LoadTier::Normal => {
                 self.file.sync_data()?;
             }
-            MetabolicState::Survival => {
+            LoadTier::Saturated => {
                 // Pas de sync_data immédiat pour épargner le disque et l'énergie
             }
         }
@@ -92,7 +92,7 @@ impl WriteAheadLog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::capacity::MetabolicState;
+    use cynic_protocol::capacity::LoadTier;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -109,7 +109,7 @@ mod tests {
         );
         let record = WalRecord::UniversalEventReceived(event.clone());
 
-        wal.append(&record, &MetabolicState::Standard)
+        wal.append(&record, &LoadTier::Normal)
             .expect("append");
 
         let replayed = WriteAheadLog::replay(path).expect("replay");

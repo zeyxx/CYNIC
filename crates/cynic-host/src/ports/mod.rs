@@ -1,7 +1,6 @@
 pub mod argv_execution;
 pub mod causal_epoch_index;
 pub mod evidence_store;
-pub mod metabolism;
 pub mod provider_substrate;
 pub mod remote_execution;
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
@@ -18,7 +17,6 @@ use crate::domain::shared::SubstrateDomainContract;
 use crate::execution::AdmittedHostOperation;
 use crate::hardware_conformance::HardwareObservation;
 use cynic_node_protocol::PreOsPlatformObservation;
-pub use metabolism::{MetabolicState, MetabolismProvider, OsMetabolism};
 pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 pub use remote_execution::RemoteExecutionPort;
 use serde::Serialize;

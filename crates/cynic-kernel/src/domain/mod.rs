@@ -1,7 +1,7 @@
 pub mod agent_session;
 pub mod constants;
 pub mod events;
-pub mod metabolism;
+pub mod observation_counters;
 pub mod metrics;
 pub mod pattern_analysis;
 pub mod probe;

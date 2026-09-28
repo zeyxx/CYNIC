@@ -13,7 +13,7 @@
 use std::time::Instant;
 
 use cynic_inference::infra::task_admission_port::TaskAdmissionPort;
-use cynic_protocol::capacity::{CapacityAssessmentV1, MetabolicPolicy};
+use cynic_protocol::capacity::{CapacityAssessmentV1, LoadPolicy};
 use cynic_protocol::task_pipeline::{EnergyBudget, FreshnessPolicy};
 
 use crate::adapters::fs_window_journal::FsWindowJournal;
@@ -21,7 +21,7 @@ use crate::adapters::local_capacity::LocalCapacityAdapter;
 
 pub struct LocalTaskAdmission {
     capacity: LocalCapacityAdapter,
-    metabolic_policy: MetabolicPolicy,
+    load_policy: LoadPolicy,
     _freshness: FreshnessPolicy,
     /// Node-declared concurrent ceilings. None dim = unbounded.
     envelope: EnergyBudget,
@@ -33,13 +33,13 @@ pub struct LocalTaskAdmission {
 
 impl LocalTaskAdmission {
     pub fn new(
-        metabolic_policy: MetabolicPolicy,
+        load_policy: LoadPolicy,
         freshness: FreshnessPolicy,
         envelope: EnergyBudget,
     ) -> Self {
         Self {
             capacity: LocalCapacityAdapter::new(),
-            metabolic_policy,
+            load_policy,
             _freshness: freshness,
             envelope,
             _monotone_start: Instant::now(),
@@ -59,7 +59,7 @@ impl LocalTaskAdmission {
     /// time. A probe failure yields `fresh = false` with an empty
     /// observation (the caller treats it as Unknown, never as zeroed data).
     fn observe_fresh(&self) -> (CapacityObservationView, bool) {
-        let Ok(assessment) = self.capacity.assess_capacity(&self.metabolic_policy) else {
+        let Ok(assessment) = self.capacity.assess_capacity(&self.load_policy) else {
             return (
                 CapacityObservationView {
                     available_ram_bytes: 0,
@@ -120,11 +120,11 @@ impl TaskAdmissionPort for LocalTaskAdmission {
 // the full tuple of node-declared policies in one import.
 pub use cynic_protocol::task_pipeline::DEFAULT_DYNAMIC_FRESHNESS_MS;
 
-/// Convenience constructor using legacy metabolic defaults and the default
+/// Convenience constructor using the legacy default thresholds and the default
 /// dynamic freshness (60 s). Envelope stays explicit — it is desired state.
 pub fn local_task_admission_with_defaults(envelope: EnergyBudget) -> LocalTaskAdmission {
     LocalTaskAdmission::new(
-        MetabolicPolicy::with_legacy_defaults("node-default"),
+        LoadPolicy::with_legacy_defaults("node-default"),
         FreshnessPolicy::with_defaults(),
         envelope,
     )
@@ -169,8 +169,8 @@ mod tests {
     fn probe_failure_is_never_fresh() {
         // A policy that cannot validate (empty id) makes assess_capacity fail
         // -> the adapter must report not-fresh rather than guessing.
-        let broken_policy = MetabolicPolicy {
-            schema: cynic_protocol::capacity::METABOLIC_POLICY_SCHEMA.to_string(),
+        let broken_policy = LoadPolicy {
+            schema: cynic_protocol::capacity::LOAD_POLICY_SCHEMA.to_string(),
             policy_id: String::new(), // invalid: violations non-empty
             survival_cpu_pct: 85.0,
             survival_mem_pct: 90.0,
@@ -252,7 +252,7 @@ mod tests {
         // Survival state saturates memory; headroom near zero must read as
         // not-fresh so tasks get Unknown instead of a fabricated admit.
         let port = LocalTaskAdmission::new(
-            MetabolicPolicy::with_legacy_defaults("n"),
+            LoadPolicy::with_legacy_defaults("n"),
             FreshnessPolicy::with_defaults(),
             envelope(1),
         );

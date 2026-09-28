@@ -484,16 +484,16 @@ pub fn plan_runtime_placement_promotion(
     }
 }
 
-/// Pure rule: validates whether a candidate node's metabolic state permits promotion.
+/// Pure rule: validates whether a candidate node's load tier permits promotion.
 /// A node in `Survival` state (saturated CPU/RAM or pressure) cannot be promoted
 /// to an active runtime role (such as `kernel_primary` or `build_runner`).
-pub fn validate_candidate_metabolic_admissibility(
+pub fn validate_candidate_admissibility(
     candidate_node_id: &str,
-    metabolic_state: crate::capacity::MetabolicState,
+    load_tier: crate::capacity::LoadTier,
 ) -> Result<(), String> {
-    if metabolic_state == crate::capacity::MetabolicState::Survival {
+    if load_tier == crate::capacity::LoadTier::Saturated {
         Err(format!(
-            "candidate_{}_in_metabolic_survival_state",
+            "candidate_{}_host_saturated",
             candidate_node_id
         ))
     } else {
@@ -501,19 +501,19 @@ pub fn validate_candidate_metabolic_admissibility(
     }
 }
 
-/// Reconciles observed provider candidates and their metabolic capacity with the registry.
-/// Rejects candidates currently in `MetabolicState::Survival`.
+/// Reconciles observed provider candidates and their load tier with the registry.
+/// Rejects candidates currently in `LoadTier::Saturated`.
 pub fn plan_runtime_placement_promotion_with_capacity(
     registry: &Value,
     report: &crate::FleetKernelDiscoveryReport,
     now_unix_ms: u64,
-    candidate_metabolic_states: &[(&str, crate::capacity::MetabolicState)],
+    candidate_load_tiers: &[(&str, crate::capacity::LoadTier)],
 ) -> RuntimePlacementPromotionPlan {
     let mut plan = plan_runtime_placement_promotion(registry, report, now_unix_ms);
     if let Some(candidate_id) = &plan.candidate_node_id {
-        for (node_id, state) in candidate_metabolic_states {
+        for (node_id, state) in candidate_load_tiers {
             if node_id == candidate_id {
-                if let Err(blocker) = validate_candidate_metabolic_admissibility(node_id, *state) {
+                if let Err(blocker) = validate_candidate_admissibility(node_id, *state) {
                     plan.blockers.push(blocker);
                     plan.blockers = normalized_blockers(plan.blockers);
                     plan.status = "blocked".to_string();
@@ -825,7 +825,7 @@ mod tests {
     }
 
     #[test]
-    fn metabolic_survival_state_blocks_candidate_promotion() {
+    fn saturated_host_blocks_candidate_promotion() {
         let registry = serde_json::json!({"schema": crate::RUNTIME_REGISTRY_SCHEMA});
         let report = derive_kernel_candidates(
             &registry,
@@ -851,7 +851,7 @@ mod tests {
             &registry,
             &report,
             100,
-            &[("qemu/120", crate::capacity::MetabolicState::HighPerformance)],
+            &[("qemu/120", crate::capacity::LoadTier::Headroom)],
         );
         assert_eq!(plan.status, "ready");
 
@@ -860,13 +860,13 @@ mod tests {
             &registry,
             &report,
             100,
-            &[("qemu/120", crate::capacity::MetabolicState::Survival)],
+            &[("qemu/120", crate::capacity::LoadTier::Saturated)],
         );
         assert_eq!(blocked_plan.status, "blocked");
         assert!(
             blocked_plan
                 .blockers
-                .contains(&"candidate_qemu/120_in_metabolic_survival_state".to_string())
+                .contains(&"candidate_qemu/120_host_saturated".to_string())
         );
     }
 }

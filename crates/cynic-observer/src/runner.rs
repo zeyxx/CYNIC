@@ -9,7 +9,7 @@ use crate::consensus::COMPARATOR;
 use crate::dashboard::run_server;
 use crate::domain::UniversalObserverEvent;
 use crate::federation::FederationNode;
-use crate::metabolism::{MetabolismProvider, OsMetabolism};
+use crate::metabolism::{LoadProbe, OsLoadProbe};
 use crate::parser::{PumpFunAction, PumpFunParser};
 use crate::signal_mapper::map_action;
 use crate::wal::{WalRecord, WriteAheadLog};
@@ -54,9 +54,9 @@ pub async fn run_argo_node() -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
     }
 
-    let mut metabolism = OsMetabolism::new();
-    let current_state = metabolism.current_state();
-    info!("Node metabolic state at startup: {:?}", current_state);
+    let mut metabolism = OsLoadProbe::new();
+    let current_load = metabolism.current_load();
+    info!("Host load tier at startup: {:?}", current_load);
 
     let mut wal = WriteAheadLog::new("argo_node.wal").map_err(|e| {
         error!("Unable to initialize WAL: {}", e);
@@ -258,7 +258,7 @@ pub async fn run_argo_node() -> Result<(), Box<dyn std::error::Error + Send + Sy
             None => continue,
         };
 
-        let current_metabolism = metabolism.current_state();
+        let current_metabolism = metabolism.current_load();
         let record = WalRecord::EventReceived(raw_event.clone());
         if let Err(e) = wal.append(&record, &current_metabolism) {
             error!("WAL append failure: {}", e);

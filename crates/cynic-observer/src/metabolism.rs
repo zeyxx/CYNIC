@@ -4,25 +4,25 @@
 //! metabolic operating state (HighPerformance, Standard, Survival) without
 //! depending on host orchestrator crates.
 
-use cynic_protocol::capacity::MetabolicState;
+use cynic_protocol::capacity::LoadTier;
 
-pub trait MetabolismProvider: Send + Sync {
-    /// Returns the current metabolic state of the host system.
-    fn current_state(&mut self) -> MetabolicState;
+pub trait LoadProbe: Send + Sync {
+    /// Returns the host's current load tier.
+    fn current_load(&mut self) -> LoadTier;
 }
 
-/// OS-backed metabolism probe using sysinfo.
-pub struct OsMetabolism {
+/// OS-backed load probe using `sysinfo`.
+pub struct OsLoadProbe {
     system: sysinfo::System,
 }
 
-impl std::fmt::Debug for OsMetabolism {
+impl std::fmt::Debug for OsLoadProbe {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("OsMetabolism").finish()
+        f.debug_struct("OsLoadProbe").finish()
     }
 }
 
-impl OsMetabolism {
+impl OsLoadProbe {
     pub fn new() -> Self {
         let mut system = sysinfo::System::new_all();
         system.refresh_all();
@@ -30,14 +30,14 @@ impl OsMetabolism {
     }
 }
 
-impl Default for OsMetabolism {
+impl Default for OsLoadProbe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MetabolismProvider for OsMetabolism {
-    fn current_state(&mut self) -> MetabolicState {
+impl LoadProbe for OsLoadProbe {
+    fn current_load(&mut self) -> LoadTier {
         self.system.refresh_cpu_usage();
         self.system.refresh_memory();
 
@@ -51,11 +51,11 @@ impl MetabolismProvider for OsMetabolism {
         };
 
         if global_cpu > 85.0 || mem_usage_percent > 90.0 {
-            MetabolicState::Survival
+            LoadTier::Saturated
         } else if global_cpu > 40.0 || mem_usage_percent > 60.0 {
-            MetabolicState::Standard
+            LoadTier::Normal
         } else {
-            MetabolicState::HighPerformance
+            LoadTier::Headroom
         }
     }
 }

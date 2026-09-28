@@ -11,7 +11,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::metabolism::{MetabolismProvider, OsMetabolism};
+use crate::metabolism::{LoadProbe, OsLoadProbe};
 use async_trait::async_trait;
 
 use crate::domain::UniversalObserverEvent;
@@ -31,7 +31,7 @@ pub trait EventSourcePort: Send + Sync {
 
 pub struct SystemMetabolismSource {
     host_name: String,
-    metabolism: OsMetabolism,
+    metabolism: OsLoadProbe,
 }
 
 impl std::fmt::Debug for SystemMetabolismSource {
@@ -46,7 +46,7 @@ impl SystemMetabolismSource {
     pub fn new(host_name: impl Into<String>) -> Self {
         Self {
             host_name: host_name.into(),
-            metabolism: OsMetabolism::new(),
+            metabolism: OsLoadProbe::new(),
         }
     }
 }
@@ -62,9 +62,9 @@ impl EventSourcePort for SystemMetabolismSource {
     }
 
     async fn poll_events(&mut self) -> Result<Vec<UniversalObserverEvent>, String> {
-        let state = self.metabolism.current_state();
+        let state = self.metabolism.current_load();
         let payload = serde_json::json!({
-            "metabolic_state": format!("{state:?}"),
+            "load_tier": format!("{state:?}"),
             "status": "observed",
         });
 

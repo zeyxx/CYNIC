@@ -572,8 +572,8 @@ impl CynicMcp {
         self.require_auth()?;
         self.rate_limit.check_other()?;
 
-        let metabolism = crate::domain::metabolism::snapshot(&self.metrics);
-        let alerts = crate::domain::metabolism::diagnose(&metabolism);
+        let metabolism = crate::domain::observation_counters::snapshot(&self.metrics);
+        let alerts = crate::domain::observation_counters::diagnose(&metabolism);
 
         let crystal_summary = {
             let crystals = self.storage.list_crystals(100).await.unwrap_or_default();
