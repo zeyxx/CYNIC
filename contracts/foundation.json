@@ -88,7 +88,7 @@
     ],
     "boundary_coverage": {
       "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
-      "measured_at": "2026-09-28, second measurement",
+      "measured_at": "2026-09-28, third measurement",
       "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
       "statuses": {
         "covered_green": "an executable check exists and passes.",
@@ -98,11 +98,11 @@
         "by_design_unenforceable": "converting it to code would replace a doctrine with an assertion and guarantee nothing. This is a decision, recorded so it is not reopened by mistake."
       },
       "totals": {
-        "boundaries": 14,
         "covered": 4,
-        "partial": 3,
-        "uncovered": 5,
-        "by_design_unenforceable": 2
+        "partial": 4,
+        "uncovered": 4,
+        "by_design_unenforceable": 2,
+        "boundaries": 14
       },
       "coverage": [
         {
@@ -123,12 +123,12 @@
         {
           "boundary": "portable_host_contract",
           "status": "partial",
-          "note": "checked only where a crate declares an adapter boundary; no workspace-wide check."
+          "note": "checked where a crate declares an adapter boundary. observe_runner() exists on BuildRunnerPort and has no consumer, so runner liveness is never established before it is used."
         },
         {
           "boundary": "runtime_proof_over_prose",
           "status": "by_design_unenforceable",
-          "note": "A boundary about what counts as evidence. Automating it would substitute an assertion for a doctrine and guarantee nothing. Do not convert."
+          "note": "A boundary about what counts as evidence. Automating it substitutes an assertion for a doctrine and guarantees nothing. Do not convert."
         },
         {
           "boundary": "no_contract_forest",
@@ -143,7 +143,7 @@
         {
           "boundary": "sovereign_error_codes",
           "status": "covered_red",
-          "note": "domain_ports_do_not_return_free_form_strings. Red on first execution: 17 domain files still return Result<..., String> instead of a typed CynicErrorCode."
+          "note": "domain_ports_do_not_return_free_form_strings. Red: 17 domain files still return Result<..., String> instead of a typed CynicErrorCode."
         },
         {
           "boundary": "no_manual_blocker_bypass",
@@ -158,7 +158,7 @@
         {
           "boundary": "mcp_is_projection_not_bootstrap",
           "status": "covered_green",
-          "note": "mcp_is_not_a_dependency_of_anything in crates/cynic-cli/tests/architecture_boundary.rs. Green: no crate manifest depends on cynic-mcp."
+          "note": "mcp_is_not_a_dependency_of_anything. Green: no crate manifest depends on cynic-mcp."
         },
         {
           "boundary": "no_hyphen_in_cli_commands",
@@ -167,8 +167,8 @@
         },
         {
           "boundary": "explicit_over_implicit",
-          "status": "uncovered",
-          "note": "semantic, and the widest of the fourteen. A review discipline, not a predicate."
+          "status": "partial",
+          "note": "no_ssh_argv_hardcodes_a_host_the_registry_already_knows. Red: 11 sites resolve a host the registry already declares. The boundary is mechanically decidable only where an authority already exists for the fact; where none exists it stays a review discipline."
         },
         {
           "boundary": "strict_dag_and_single_responsibility",
@@ -180,7 +180,8 @@
         "A row may only move from uncovered to covered by adding an executable check, never by editing the note.",
         "covered_red is not a defect in the check. It is a defect in the tree, and the check is what makes it visible.",
         "by_design_unenforceable is a decision. Do not reopen it to satisfy a coverage number.",
-        "A mechanical boundary is one where the whole judgement is a predicate over data the tree already holds. Three were converted in this pass; the remaining five uncovered boundaries are semantic and need a convention before they need a test."
+        "A mechanical boundary is one where the whole judgement is a predicate over data the tree already holds. Three were converted in this pass; the remaining five uncovered boundaries are semantic and need a convention before they need a test.",
+        "A boundary is mechanically decidable only in the half where an authority already exists for the fact. explicit_over_implicit is undecidable in general and decidable where a registry is already correct — which is the whole of what was converted, and the reason the conversion is cheap."
       ]
     }
   },

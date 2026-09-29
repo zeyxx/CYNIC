@@ -1734,3 +1734,89 @@ fn domain_ports_do_not_return_free_form_strings() {
         offenders.join("\n  ")
     );
 }
+
+/// `explicit_over_implicit`, in its mechanically decidable half.
+///
+/// The boundary says the implicit is debt: every recipient must be explicit and
+/// machine-readable. For the build runner, the data was already explicit and correct —
+/// `infra/registry.json` declares `cynic-builder` with both `transports.ssh.target` and
+/// `network.synapse`. Nothing read it. Resolution was duplicated as a hardcoded default in
+/// `build_surface.rs` and as literal `["ssh", "cynic-builder-ssh", …]` argv in
+/// `cynic-host/src/agent/cleanup.rs`, and the real authority became `~/.ssh/config`, which
+/// is outside the repository, outside every contract, and outside every audit.
+///
+/// So this is not a missing-data boundary. It is a missing-consumer one, which is why it
+/// can be checked: an argv that names a host as a string literal has bypassed the registry
+/// that already knows its address.
+///
+/// Expected red. Thirteen sites today. The fix is not to declare a third copy of the
+/// resolution; it is to delete the copies and read the one that is already correct.
+#[test]
+fn no_ssh_argv_hardcodes_a_host_the_registry_already_knows() {
+    let registry =
+        std::fs::read_to_string(workspace().join("infra/registry.json")).expect("registry");
+
+    // Every ssh target the registry declares, in any node block.
+    let declared: std::collections::BTreeSet<String> = registry
+        .lines()
+        .filter_map(|l| l.split('"').nth(1))
+        .filter(|v| v.contains("cynic-") || v.ends_with(".example"))
+        .filter(|v| {
+            registry.contains(&format!("\"target\": \"{v}\""))
+        })
+        .map(str::to_string)
+        .collect();
+
+    assert!(
+        !declared.is_empty(),
+        "no ssh target parsed out of the registry; the check would pass vacuously"
+    );
+
+    let mut offenders: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(workspace().join("crates")).expect("read crates/") {
+        let dir = match entry {
+            Ok(e) if e.path().is_dir() => e.path(),
+            _ => continue,
+        };
+        let mut stack = vec![dir];
+        while let Some(d) = stack.pop() {
+            for f in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+                let p = f.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p.extension().is_some_and(|x| x == "rs") {
+                    let text = std::fs::read_to_string(&p).unwrap_or_default();
+                    for line in text.lines() {
+                        let t = line.trim();
+                        if !t.contains("\"ssh\"") && !t.contains("default_value = \"cynic-") {
+                            continue;
+                        }
+                        for target in &declared {
+                            if t.contains(target.as_str()) {
+                                let rel = p.strip_prefix(workspace()).unwrap_or(&p);
+                                offenders.push(format!("{}: {}", rel.display(), t));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    offenders.sort();
+    offenders.dedup();
+
+    assert!(
+        offenders.is_empty(),
+        "Constitutional Violation: {} ssh site(s) name a host that infra/registry.json \
+         already declares, so they resolve through a copy instead of the authority.\n  {}\n\n\
+         The registry is not missing this data and no rule needs adding. The copies are \
+         the debt: delete them and read the address the registry already carries.",
+        offenders.len(),
+        offenders
+            .iter()
+            .take(20)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n  ")
+    );
+}
