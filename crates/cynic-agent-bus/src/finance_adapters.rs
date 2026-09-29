@@ -18,7 +18,7 @@ impl BusActionMeter {
 
 impl ActionMeter for BusActionMeter {
     fn measure_actions(&self, agent_id: &str) -> Result<u64, MeterError> {
-        if self.claim.agent.0 == agent_id {
+        if self.claim.agent.to_string() == agent_id {
             Ok(self.claim.consumed_actions as u64)
         } else {
             Err(MeterError::Unknown(format!(
