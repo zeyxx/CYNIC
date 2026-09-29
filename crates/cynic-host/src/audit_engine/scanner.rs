@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -28,6 +28,32 @@ pub struct WorkspaceSourceIndex {
     /// tracked authority file listed as ignored is a silent divergence between
     /// what git holds and what the working tree claims.
     pub gitignore_patterns: Vec<String>,
+    /// What the live system says, observed once so no rule performs I/O.
+    ///
+    /// Empty on any host that is not the declared node: a rule that read the
+    /// host itself would be a test that lies everywhere else, and an audit that
+    /// silently skips its own domain is how the domain stops being checked.
+    /// `None` means "not observed here", which is an explicit unknown rather
+    /// than a pass.
+    pub host: Option<HostObservation>,
+}
+
+/// The four divergences that only a live system can settle, read once.
+#[derive(Debug, Clone, Default)]
+pub struct HostObservation {
+    /// systemd unit files present on the host, absolute paths.
+    pub unit_files: Vec<PathBuf>,
+    /// Unit file text, keyed by the unit file's path.
+    ///
+    /// Held so a rule can report the FILE and the VARIABLE NAME of a credential
+    /// without ever putting a value into a report, which is the whole point of
+    /// reading it here instead of printing it.
+    pub unit_contents: BTreeMap<PathBuf, String>,
+    /// Resolved ExecStart targets of the units, with the unit that declared it.
+    pub exec_starts: Vec<(String, PathBuf)>,
+    /// The claim store, parsed. Kept as text because a host is not a Rust
+    /// project and this module must not depend on the coordination crate.
+    pub claim_store: Option<String>,
 }
 
 fn relative_of(root: &Path, path: &Path) -> String {
@@ -119,5 +145,83 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
         .manifests
         .sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
 
+    index.host = observe_host();
+
     index
+}
+
+/// Observe the live system. `None` when this is not a host with systemd.
+///
+/// A unit directory that exists but cannot be read is reported as `None` too:
+/// an audit that cannot see the host must not claim the host is clean.
+fn observe_host() -> Option<HostObservation> {
+    // The unit directories are overridable so this rule can be proven against a
+    // fixture instead of only against whichever machine happens to run it. A
+    // security check that can only be exercised by breaking the real host is a
+    // check nobody runs.
+    let unit_dirs: Vec<String> = match std::env::var("CYNIC_AUDIT_UNIT_DIRS") {
+        Ok(value) if !value.trim().is_empty() => value
+            .split(':')
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+            .map(str::to_string)
+            .collect(),
+        _ => vec![
+            "/etc/systemd/system".to_string(),
+            "/usr/lib/systemd/system".to_string(),
+        ],
+    };
+    let mut observation = HostObservation::default();
+    let mut found_any = false;
+
+    for dir in unit_dirs {
+        let dir = PathBuf::from(dir);
+        let dir = dir.as_path();
+        if !dir.is_dir() {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(dir) else {
+            return None;
+        };
+        found_any = true;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if !(name.ends_with(".service") || name.ends_with(".timer")) {
+                continue;
+            }
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            for exec in text.lines() {
+                let Some(rest) = exec.trim().strip_prefix("ExecStart=") else {
+                    continue;
+                };
+                let mut words = rest
+                    .split_whitespace()
+                    .filter(|word| !word.starts_with('-') && *word != "sudo");
+                if let Some(program) = words.next() {
+                    if program.starts_with('/') {
+                        observation.exec_starts.push((name.to_string(), PathBuf::from(program)));
+                    }
+                }
+            }
+            observation.unit_contents.insert(path.clone(), text);
+            observation.unit_files.push(path);
+        }
+    }
+
+    if !found_any {
+        return None;
+    }
+
+    observation.unit_files.sort();
+    observation.exec_starts.sort();
+    observation.claim_store = fs::read_to_string("/var/lib/cynic/.agent-claims.json")
+        .ok()
+        .or_else(|| fs::read_to_string(".agent-claims.json").ok());
+
+    Some(observation)
 }

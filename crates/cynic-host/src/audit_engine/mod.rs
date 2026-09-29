@@ -1,6 +1,7 @@
 pub mod path_rules;
 pub mod topology;
 pub mod rules;
+mod runtime_divergence;
 pub mod scanner;
 
 use std::path::Path;
@@ -13,7 +14,22 @@ use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
     PathSanitationRule,
 };
+use self::runtime_divergence::RuntimeDivergenceRule;
 use self::scanner::scan_workspace;
+pub use self::scanner::{HostObservation, WorkspaceSourceIndex};
+
+/// The RUN-001 body, callable from a fixture.
+///
+/// Exposed so the runtime-divergence checks can be proven against a constructed
+/// observation instead of against whichever host happens to run the test. A
+/// security check that can only be exercised by breaking the real machine is one
+/// nobody exercises.
+pub fn evaluate_runtime_divergence(
+    index: &WorkspaceSourceIndex,
+) -> Vec<cynic_protocol::AuditViolation> {
+    use self::runtime_divergence::AuditRule as _;
+    self::runtime_divergence::RuntimeDivergenceRule.evaluate(index)
+}
 
 /// Recover the rule id that produced a violation code.
 ///
@@ -43,6 +59,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(RustPathReferenceRule),
         Box::new(PathSsotIgnoreRule),
         Box::new(CrateTopologyRule),
+        Box::new(RuntimeDivergenceRule),
     ]
 }
 
