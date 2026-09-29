@@ -1480,6 +1480,7 @@ dependencies = [
  "clap",
  "cynic-build",
  "cynic-consensus",
+ "cynic-finance",
  "cynic-host",
  "cynic-inference",
  "cynic-intel-soc",
