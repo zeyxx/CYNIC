@@ -1,8 +1,9 @@
 # cynic-finance — Design Doc
 
-> **Status**: Proposal (not yet validated)
+> **Status**: Phase 1 complete, Phase 2 in progress (A1-A2 done, A3-A4 remaining)
 > **Authority**: Subordinate to `contracts/foundation.json` and observed runtime state
 > **Date**: 2026-09-28
+> **Last updated**: 2026-09-29
 
 ---
 
@@ -30,7 +31,7 @@ No unified ledger records all resource flows. No canonical unit of value. No exc
 `cynic-finance` is a **pure L2 domain crate** that:
 
 1. **Owns canonical resource types** — `ResourceLedger`, `ResourceUnit`, `ResourceTransaction`, `ExchangeRate`, `ExchangeRateTable`
-2. **Defines typed ports** for each resource meter — `ComputeMeter`, `StorageMeter`, `NetworkMeter`, `EnergyMeter`, `TokenMeter`, `ContextMeter`, `TimeMeter`, `ActionMeter`
+2. **Defines typed ports** for each resource meter — `ComputeMeter`, `GpuMeter`, `StorageMeter`, `NetworkMeter`, `EnergyMeter`, `TokenMeter`, `ContextMeter`, `TimeMeter`, `ActionMeter`
 3. **Enforces invariants** — append-only, monotone consumption, idempotent transactions, double-entry semantics (every debit has a credit)
 4. **Provides exchange rate mechanism** — measured rates, not hardcoded; rates emerge from observed usage
 5. **Serves as settlement layer** — other crates (consensus, channel, pool) consume `cynic-finance` types for cross-domain value flows
@@ -93,14 +94,14 @@ Each variant is measured independently. No implicit conversion.
 
 ```rust
 pub struct ResourceTransaction {
-    pub schema: &'static str,           // "cynic.finance.resource_transaction.v1"
+    pub schema: String,                  // "cynic.finance.resource_transaction.v1"
     pub transaction_id: String,
-    pub timestamp: u64,                 // unix ms
-    pub subject: String,                // agent_id or node_id
+    pub timestamp: u64,                  // unix ms
+    pub subject: String,                 // agent_id or node_id
     pub resource: ResourceUnit,
     pub direction: TransactionDirection, // Debit | Credit
-    pub counterparty: String,           // destination account
-    pub proof: String,                  // hash of evidence
+    pub counterparty: String,            // destination account
+    pub proof: String,                   // SHA-256 hash of evidence
     pub metadata: ResourceMetadata,
 }
 
@@ -131,13 +132,13 @@ Invariants:
 
 ```rust
 pub struct ExchangeRate {
-    pub schema: &'static str,           // "cynic.finance.exchange_rate.v1"
+    pub schema: String,                  // "cynic.finance.exchange_rate.v1"
     pub from: ResourceUnit,
     pub to: ResourceUnit,
-    pub rate: f64,                      // 1 from = rate to
-    pub measured_at: u64,               // unix ms
-    pub sample_count: u64,              // how many observations
-    pub confidence: f64,                // 0.0 - 1.0
+    pub rate: f64,                       // 1 from = rate to
+    pub measured_at: u64,                // unix ms
+    pub sample_count: u64,               // how many observations
+    pub confidence: f64,                 // 0.0 - 1.0
 }
 ```
 
@@ -147,7 +148,7 @@ Rates are **measured**, not hardcoded. They emerge from observed usage patterns.
 
 ```rust
 pub struct ExchangeRateTable {
-    pub schema: &'static str,           // "cynic.finance.exchange_rate_table.v1"
+    pub schema: String,                  // "cynic.finance.exchange_rate_table.v1"
     pub rates: Vec<ExchangeRate>,
     pub last_updated: u64,
 }
@@ -200,7 +201,7 @@ pub trait ActionMeter {
 }
 ```
 
-Ports are implemented by adapters in `cynic-host` (L1) or `cynic-node` (L3). The domain crate stays pure.
+Ports are implemented by adapters in `cynic-host` (L1), `cynic-host-probes` (L1), `cynic-storage` (L2), `cynic-network` (L2), `cynic-inference` (L2), `cynic-consensus` (L2), `cynic-agent-bus` (L2), `cynic-node` (L3). The domain crate stays pure.
 
 ---
 
@@ -243,32 +244,81 @@ Initial rates are `ExchangeRate::Unknown` until sufficient samples exist.
 
 ---
 
-## 9. Implementation Plan
+## 9. Implementation Progress
 
-### Phase 1 — Skeleton (this session)
-- [ ] Create `crates/cynic-finance/` with `Cargo.toml`
-- [ ] Define core types in `src/types.rs`
-- [ ] Define ports in `src/ports.rs`
-- [ ] Add `tests/architecture_boundary.rs`
-- [ ] Add unit tests for invariants
+### Phase 1 — Skeleton ✅ COMPLETE
 
-### Phase 2 — Instrumentation (next)
-- [ ] Implement `ComputeMeter` adapter in `cynic-host`
-- [ ] Implement `GpuMeter` adapter in `cynic-host-probes` (Vulkan, ROCm, CUDA)
-- [ ] Implement `StorageMeter` adapter in `cynic-storage`
-- [ ] Implement `NetworkMeter` adapter in `cynic-network`
-- [ ] Implement `EnergyMeter` adapter in `cynic-host`
-- [ ] Collect baseline measurements
+- [x] Create `crates/cynic-finance/` with `Cargo.toml`
+- [x] Define core types in `src/types.rs`
+- [x] Define ports in `src/ports.rs`
+- [x] Add `tests/architecture_boundary.rs`
+- [x] Add unit tests for invariants
+- [x] Builder validation: 14/14 tests pass
 
-### Phase 3 — Integration (future)
-- [ ] Migrate `cynic-consensus` TreasuryAccount to use `ResourceLedger`
-- [ ] Migrate `cynic-channel` settlements to use `ResourceTransaction`
-- [ ] Migrate `cynic-pool` rewards to use `ResourceTransaction`
-- [ ] Build `ExchangeRateTable` from observed data
+### Phase 2 — Instrumentation (in progress)
+
+#### A. Adapters
+
+| ID | Adapter | Port | Crate | Source | Status |
+|---|---|---|---|---|---|
+| A1 | `BusActionMeter` | `ActionMeter` | `cynic-agent-bus` | `Claim.consumed_actions` | ✅ CONVERGED |
+| A2 | `NodeTimeMeter` | `TimeMeter` | `cynic-node` | `Instant::elapsed()` | ✅ CONVERGED |
+| A3 | `HostEnergyMeter` (RAPL) | `EnergyMeter` | `cynic-host` | `/sys/class/powercap/intel-rapl` | ⏳ TODO |
+| A4 | `InferenceContextMeter` | `ContextMeter` | `cynic-inference` | Chat session JSONL | ⏳ TODO |
+
+Already implemented (basic):
+- `HostComputeMeter` — `ComputeMeter` — `/proc/<pid>/stat`
+- `HostStorageMeter` — `StorageMeter` — `sysinfo::Disks`
+- `HostNetworkMeter` — `NetworkMeter` — `/proc/net/dev`
+- `HostEnergyMeter` — `EnergyMeter` — RAPL stub (needs real implementation)
+- `HostTimeMeter` — `TimeMeter` — `Instant::now()`
+- `HostActionMeter` — `ActionMeter` — in-memory counter
+- `ProbesGpuMeter` — `GpuMeter` — Vulkan/ROCm/CUDA stubs
+- `StorageFinanceMeter` — `StorageMeter` — `fs::read_dir`
+- `NetworkFinanceMeter` — `NetworkMeter` — `/proc/net/dev`
+- `ConsensusTokenMeter` — `TokenMeter` — `TreasuryAccount`
+
+#### B. Integration
+
+| ID | Migration | Crate | Status |
+|---|---|---|---|
+| B1 | `TreasuryAccount → ResourceLedger<TokenCyd>` | `cynic-consensus` | ⏳ TODO |
+| B2 | `AgentChannel` settlements → `ResourceTransaction` | `cynic-channel` | ⏳ TODO |
+| B3 | Build `ExchangeRateTable` from observed data | `cynic-finance` | ⏳ TODO |
+
+### Phase 3 — Future
+
+- [ ] Persist ledgers to `cynic-storage` WAL
+- [ ] Fleet consensus on ledger entries
+- [ ] CLI surface `cynic finance` for read-back
+- [ ] Real GPU metrics (Vulkan/ROCm/CUDA)
+- [ ] Real energy metrics (RAPL/AMD hwmon)
 
 ---
 
-## 10. Open Questions
+## 10. Builder Proof
+
+All crates validated on Builder (`10.10.10.119`) at commit `ece717e1e5eb5ae07d48c4586a64a7581b80ecd4`:
+
+| Crate | Duration | CPU | Status |
+|---|---|---|---|
+| `cynic-finance` | 15.3s | 15.5s | CONVERGED |
+| `cynic-host-probes` | 25.6s | 26.3s | CONVERGED |
+| `cynic-host` | 81.3s | 77.7s | CONVERGED |
+| `cynic-inference` | 39.1s | 37.2s | CONVERGED |
+| `cynic-storage` | 16.7s | 16.5s | CONVERGED |
+| `cynic-network` | 1.7s | 1.8s | CONVERGED |
+| `cynic-consensus` | 1.5s | 1.6s | CONVERGED |
+| `cynic-agent-bus` | 14.9s | 14.4s | CONVERGED |
+| `cynic-node` | 83.7s | 78.7s | CONVERGED |
+
+Tests (`cynic-finance`):
+- 11 unit tests: PASS
+- 3 architecture boundary tests: PASS
+
+---
+
+## 11. Open Questions
 
 1. **Granularity**: Per-agent ledger or per-node ledger? (Proposal: per-agent, aggregated to node)
 2. **Persistence**: Where are ledgers stored? (Proposal: `cynic-storage` WAL)
@@ -278,7 +328,7 @@ Initial rates are `ExchangeRate::Unknown` until sufficient samples exist.
 
 ---
 
-## 11. References
+## 12. References
 
 - `contracts/foundation.json` — constitutional invariants
 - `infra/ARCHITECTURE_CONSTELLATIONS.md` — crate taxonomy
