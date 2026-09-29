@@ -478,7 +478,7 @@ fn valid_sha256(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{RuntimeArtifactSource, RuntimeArtifactTransportKind};
+    use cynic_protocol::runtime_seed::{RuntimeArtifactSource, RuntimeArtifactTransportKind};
 
     fn release_request() -> RuntimeSeedRequest {
         RuntimeSeedRequest {

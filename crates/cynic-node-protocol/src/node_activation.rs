@@ -543,7 +543,7 @@ fn next_deployment_phase(current: DeploymentPhase) -> DeploymentPhase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::deployment_epoch::derive_deployment_epoch;
+    use crate::deployment_epoch::derive_deployment_epoch;
 
     #[test]
     fn active_when_deployment_completed() {
@@ -621,7 +621,7 @@ mod tests {
             schema: "cynic.federated_bootstrap.v1".into(),
             node_id: "node-a".into(),
             epoch_id: epoch.epoch_id.clone(),
-            binding: cynic_protocol::bootstrap_federation::FederatedBootstrapBinding {
+            binding: crate::bootstrap_federation::FederatedBootstrapBinding {
                 source_commit: "a".repeat(40),
                 deployment_epoch_id: epoch.epoch_id.clone(),
                 observed_at_unix_ms: 1,

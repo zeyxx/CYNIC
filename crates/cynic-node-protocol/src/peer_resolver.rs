@@ -37,12 +37,55 @@ pub struct PeerEndpoint {
 }
 
 /// A peer endpoint wrapped with an ed25519 signature from the rolling fallback bundle.
+///
+/// The signature field is private: the wrapper is the evidence, so the only
+/// way to obtain one is to have a signature to put in it. Struct-literal
+/// construction is deliberately impossible, which is what makes
+/// `PeerResolver::fallback_peers` enforceable rather than merely documented.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignedPeerEndpoint {
     pub endpoint: PeerEndpoint,
-    pub signature_ed25519: String,
+    signature_ed25519: String,
     pub generated_at_unix_s: u64,
     pub version: u8,
+}
+
+/// Why a signed endpoint could not be admitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignatureRejection {
+    /// The bundle carried no signature. Fail-closed: no proof, no peer.
+    Missing,
+}
+
+impl SignedPeerEndpoint {
+    /// Admit an endpoint only when a non-empty ed25519 signature is present.
+    ///
+    /// This does not cryptographically verify the signature — that is the
+    /// caller's job, and it is why the rejection is a data value rather than a
+    /// silent empty. What it guarantees is that no `SignedPeerEndpoint` can
+    /// exist without a signature, so a peer selected out of a fallback set is
+    /// never an unverified seed wearing the proof of one.
+    pub fn from_verified(
+        endpoint: PeerEndpoint,
+        signature_ed25519: String,
+        generated_at_unix_s: u64,
+        version: u8,
+    ) -> Result<Self, SignatureRejection> {
+        if signature_ed25519.is_empty() {
+            return Err(SignatureRejection::Missing);
+        }
+        Ok(Self {
+            endpoint,
+            signature_ed25519,
+            generated_at_unix_s,
+            version,
+        })
+    }
+
+    /// The verified signature this endpoint was admitted with.
+    pub fn signature(&self) -> &str {
+        &self.signature_ed25519
+    }
 }
 
 /// Resolver port: yields desired peers for a role, or all declared peers.
@@ -53,6 +96,20 @@ pub trait PeerResolver {
     fn resolve_all_peers(&self) -> Vec<PeerEndpoint>;
     /// Signed rolling-fallback peers for a role (fail-closed: empty when the
     /// bundle is missing or its signature does not verify).
+    ///
+    /// The fail-closed rule is load-bearing and was previously held only by
+    /// comments in each implementor: `MeshPeerResolver` returns `vec![]`
+    /// unconditionally because the registry carries no signatures, while
+    /// `LocalRegistryMeshResolver` reads a `known-peers.<ts>.json` bundle.
+    /// Two opposite reasons, same obligation, nothing enforced it. An adapter
+    /// that returned unsigned endpoints under partition would present itself
+    /// as a verified fallback peer — precisely the distinction the signed
+    /// bundle exists to preserve.
+    ///
+    /// So the obligation moves to the type: an implementor must construct
+    /// `SignedPeerEndpoint` through [`SignedPeerEndpoint::from_verified`],
+    /// which admits only a non-empty signature. An endpoint that cannot be
+    /// proven verified cannot be given the wrapper that means it was.
     fn fallback_peers(&self, role: &str) -> Vec<SignedPeerEndpoint>;
 }
 
@@ -141,5 +198,35 @@ mod tests {
         let got = select_all_peers(&peers);
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].role, "a");
+    }
+
+    fn signed(role: &str, reachable: bool, signature: &str) -> SignedPeerEndpoint {
+        SignedPeerEndpoint::from_verified(ep(role, reachable), signature.to_string(), 1, 1)
+            .expect("a non-empty signature is admitted")
+    }
+
+    #[test]
+    fn from_verified_rejects_an_absent_signature() {
+        // The fail-closed obligation of `PeerResolver::fallback_peers`, pinned
+        // where it can be checked: an unproven peer must not be able to take
+        // the shape of a proven one.
+        let got = SignedPeerEndpoint::from_verified(ep("a", true), String::new(), 1, 1);
+        assert_eq!(got.err(), Some(SignatureRejection::Missing));
+    }
+
+    #[test]
+    fn select_signed_peer_keeps_the_signature_it_selected_on() {
+        // The file's own doc warns that unwrapping before selecting "would
+        // silently discard that proof". This is that divergence, as a test.
+        let peers = vec![signed("cortex_primary", true, "sig-abc")];
+        let got = select_signed_peer(&peers, "cortex_primary").expect("one signed peer");
+        assert_eq!(got.signature(), "sig-abc");
+        assert_eq!(got, peers[0]);
+    }
+
+    #[test]
+    fn select_signed_peer_is_none_when_nothing_is_reachable() {
+        let peers = vec![signed("cortex_primary", false, "sig-abc")];
+        assert!(select_signed_peer(&peers, "cortex_primary").is_none());
     }
 }
