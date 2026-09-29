@@ -240,14 +240,19 @@
     }
   },
   "network_policy": {
-    "canonical_service_plane": "synapse",
+    "canonical_service_plane": "service",
     "planes": {
-      "synapse": {
+      "service": {
         "cidr": "10.10.10.0/24",
-        "dns_zone": "synapse.cynic",
+        "dns_zone": "service.cynic",
         "canonical": true
       },
-      "overlay": {
+      "admin": {
+        "cidr": "192.168.100.0/24",
+        "canonical": false,
+        "purpose": "bare-metal management and hypervisor control"
+      },
+      "mesh": {
         "cidr": "10.20.0.0/24",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay"
@@ -351,7 +356,7 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "Placeholder node \u2014 role and placement pending operator definition. Not a deployment target until a role is assigned."
+      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned."
     },
     {
       "id": "cynic-lxc-surrealdb",
@@ -554,11 +559,6 @@
       },
       "services": [
         {
-          "name": "ssh",
-          "scheme": "ssh",
-          "port": 22
-        },
-        {
           "name": "forgejo-backend",
           "scheme": "http",
           "port": 3000
@@ -566,6 +566,20 @@
       ],
       "energy_profile": {
         "class": "always_on"
+      },
+      "transports": {
+        "ssh": {
+          "target": "forgejo.synapse.cynic",
+          "port": 22,
+          "principal": "forgejo",
+          "trust": "ssh_trust_anchor",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "forgejo",
+            "credential_ref": "registry-machine-ssh-identity"
+          },
+          "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.synapse.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, …); this target is the canonical one and the aliases are deliberately not copied here."
+        }
       }
     },
     {
