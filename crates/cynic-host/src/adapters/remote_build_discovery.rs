@@ -111,7 +111,11 @@ mod tests {
                         "cynic@10.0.0.1".to_string(),
                     ]
                     .into_iter()
-                    .chain(cynic_protocol::cargo_metadata::cargo_metadata_argv())
+                    .chain(
+                        cynic_protocol::cargo_metadata::cargo_metadata_argv()
+                            .iter()
+                            .map(|arg| arg.to_string()),
+                    )
                     .collect::<Vec<_>>(),
                     ok_out(meta_json),
                 ),
