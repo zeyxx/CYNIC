@@ -1820,3 +1820,80 @@ fn no_ssh_argv_hardcodes_a_host_the_registry_already_knows() {
             .join("\n  ")
     );
 }
+
+/// The crate list must have one owner, and the invocation that produces it must too.
+///
+/// `Makefile:19` carries `CORE_CRATES` because the comment at `Makefile:112` says
+/// `cynic build discover` cannot be trusted to own it. That comment is now suspect:
+/// `parse_cargo_metadata` matches 48 of 48 real workspace members by manifest directory,
+/// and `probe.rs` already tests the current `path+file://…#version` id shape. So the
+/// parser is correct and the "it returns nothing" claim is prose that nobody re-verified —
+/// which is the same failure this workspace keeps producing.
+///
+/// What is measurably true is the duplication around it: six call sites invoke
+/// `cargo metadata` in three different argument spellings, one of which adds `--frozen`
+/// and the rest do not. A discovery that behaves differently depending on which adapter
+/// answered is not a single authority, whatever the parser returns.
+#[test]
+fn cargo_metadata_is_invoked_with_one_argument_vector() {
+    let mut sites: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(workspace().join("crates")).expect("read crates/") {
+        let dir = match entry {
+            Ok(e) if e.path().is_dir() => e.path(),
+            _ => continue,
+        };
+        let mut stack = vec![dir];
+        while let Some(d) = stack.pop() {
+            for f in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+                let p = f.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p.extension().is_some_and(|x| x == "rs") {
+                    let text = std::fs::read_to_string(&p).unwrap_or_default();
+                    if !text.contains("format-version") || !text.contains("metadata") {
+                        continue;
+                    }
+                    for (i, line) in text.lines().enumerate() {
+                        if line.contains("format-version") && !line.contains("///") {
+                            let rel = p.strip_prefix(workspace()).unwrap_or(&p);
+                            sites.push(format!("{}:{}: {}", rel.display(), i + 1, line.trim()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    sites.sort();
+
+    assert!(
+        !sites.is_empty(),
+        "no cargo metadata invocation found; the check would pass vacuously"
+    );
+
+    // Normalise spelling so this measures the question, not the formatting: one fact,
+    // written three ways, is still three call sites until they are unified.
+    let mut distinct: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for s in &sites {
+        let flat = s
+            .replace("--format-version=1", "--format-version 1")
+            .replace("\"", "");
+        let head = flat.split(':').last().unwrap_or_default().trim();
+        distinct.insert(Box::leak(head.to_string().into_boxed_str()));
+    }
+
+    assert!(
+        distinct.len() <= 1,
+        "Constitutional Violation: {} cargo-metadata call sites in {} distinct spellings.\n{}\n\n\
+         The parser is not the problem and no parser change is proposed: \
+         `parse_cargo_metadata` matches all 48 real workspace members by manifest directory, \
+         and `probe.rs` already tests the current `path+file://...#version` id shape. The \
+         problem is that six adapters each spell the same command, one adding `--frozen` and \
+         five not, so discovery can disagree with itself. One argument vector, owned by the \
+         port, and only then can `CORE_CRATES` in the Makefile be deleted rather than \
+         maintained. The claim at Makefile:112 that discover is broken is prose nobody has \
+         re-verified, and this is what it should be replaced with.",
+        sites.len(),
+        distinct.len(),
+        sites.iter().take(8).cloned().collect::<Vec<_>>().join("\n")
+    );
+}
