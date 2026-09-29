@@ -130,3 +130,16 @@ fn unjustified_crates_are_declared_and_no_undisclosed_one_can_appear() {
          A crate was added without justification: that is the failure this gate exists to stop."
     );
 }
+
+#[test]
+fn no_upward_edges_violate_the_layer_rule() {
+    let reported = topology_violations();
+    let upward: Vec<&String> = reported
+        .iter()
+        .filter(|line| line.starts_with("ARCH-004-UPWARD-EDGE"))
+        .collect();
+    assert!(
+        upward.is_empty(),
+        "upward edges violate the layer rule (dependencies must flow downward):\n{upward:#?}"
+    );
+}

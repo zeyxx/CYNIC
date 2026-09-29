@@ -19,7 +19,7 @@ use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_network::{FLEET_NETWORK_SCHEMA, FleetNetworkNode, FleetNetworkReport};
 
 use cynic_network::{
-    DnsSynapseAssessment, FLEET_WATCHDOG_REPORT_SCHEMA, FleetWatchdogReport, FreeboxLanObservation,
+    DnsServiceAssessment, FLEET_WATCHDOG_REPORT_SCHEMA, FleetWatchdogReport, FreeboxLanObservation,
     NetworkAlert, NetworkAlertLevel, ServicePortAssessment, WireguardMeshAssessment,
 };
 fn poll_budget_ms() -> u64 {
@@ -197,7 +197,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
     pub fn observe(
         &self,
         wireguard: WireguardMeshAssessment,
-        dns: DnsSynapseAssessment,
+        dns: DnsServiceAssessment,
         services: Vec<ServicePortAssessment>,
         freebox: Option<FreeboxLanObservation>,
     ) -> FleetWatchdogReport {
@@ -245,7 +245,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
         if dns.failed_records > 0 {
             alerts.push(NetworkAlert {
                 level: NetworkAlertLevel::Critical,
-                component: "dns_synapse".to_string(),
+                component: "dns_service".to_string(),
                 message: format!("Synapse DNS failed for {} record(s)", dns.failed_records),
                 recovery_hint: "Inspect CoreDNS/dnsmasq on cynic-host-proxmox (10.10.10.1)"
                     .to_string(),
@@ -290,7 +290,7 @@ impl<R: ArgvRunner + Clone> FleetWatchdogObserver<R> {
             failed_nodes,
             fleet_network,
             wireguard_mesh: wireguard,
-            dns_synapse: dns,
+            dns_service: dns,
             service_ports: services,
             freebox_lan: freebox,
             alerts,

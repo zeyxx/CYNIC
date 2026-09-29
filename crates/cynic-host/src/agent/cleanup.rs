@@ -29,7 +29,7 @@ impl<R: ArgvRunner> CleanupAgent<R> {
     pub fn observe(&self) -> Result<CleanupObservation, String> {
         let df_output = self
             .runner
-            .run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
+            .run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, "df", "-B1", "/"]);
         let parts: Vec<&str> = df_output.stdout.split_whitespace().collect();
         if parts.len() < 10 {
             return Err(format!("unexpected df output: {}", df_output.stdout));
@@ -47,7 +47,7 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
         let du_output = self.runner.run(&[
             "ssh",
-            "cynic-builder-ssh",
+            cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
             "du",
             "-sh",
             "/var/lib/cynic/checkouts/*",
@@ -90,7 +90,7 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
         for item in &decision.safe_to_delete {
             let rm_cmd = format!("rm -rf {}", item.path);
-            let output = self.runner.run(&["ssh", "cynic-builder-ssh", &rm_cmd]);
+            let output = self.runner.run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, &rm_cmd]);
             if output.exit_code == Some(0) {
                 deleted.push(item.path.clone());
             } else {
@@ -100,7 +100,7 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
         let df_after = self
             .runner
-            .run(&["ssh", "cynic-builder-ssh", "df", "-B1", "/"]);
+            .run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, "df", "-B1", "/"]);
         let parts: Vec<&str> = df_after.stdout.split_whitespace().collect();
         let disk_used_percent_after = if parts.len() >= 10 {
             let total: u64 = parts[8].parse().unwrap_or(1);
@@ -163,14 +163,14 @@ mod tests {
     fn fake_runner() -> MapArgvRunner {
         MapArgvRunner {
             responses: vec![
-                (vec!["ssh".to_string(), "cynic-builder-ssh".to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
+                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
                  cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "Filesystem                        Size  Used  Avail Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   40G   38G     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,
                  }),
-                (vec!["ssh".to_string(), "cynic-builder-ssh".to_string(), "du".to_string(), "-sh".to_string(), "/var/lib/cynic/checkouts/*".to_string()],
+                (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "du".to_string(), "-sh".to_string(), "/var/lib/cynic/checkouts/*".to_string()],
                  cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "2.5G\t/var/lib/cynic/checkouts/abc123\n402M\t/var/lib/cynic/checkouts/def456".to_string(),

@@ -12,6 +12,7 @@ pub mod client_policy;
 pub mod controller;
 pub mod credential_sync;
 pub mod error;
+pub mod finance_adapters;
 pub mod identity;
 pub mod lifecycle;
 pub mod ports;

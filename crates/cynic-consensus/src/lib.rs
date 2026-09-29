@@ -3,8 +3,9 @@
 //! and strictly monotonic epoch sequencing without wall-clock trust.
 
 pub mod evaluator;
-pub mod types;
+pub mod finance_adapters;
 pub mod peer;
+pub mod types;
 pub use peer::*;
 
 pub use evaluator::{compute_epoch_fingerprint, evaluate_fleet_consensus};

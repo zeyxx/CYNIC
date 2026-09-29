@@ -72,13 +72,13 @@ impl EncryptedFileSecretProvider {
     }
 
     fn secret_path(&self, reference: &SecretReference) -> PathBuf {
-        // The locator can be a path (if starting with / or ~) or a simple id.
+        // Security: reject absolute paths and home-relative paths to prevent
+        // path traversal. Only simple IDs are allowed; they are joined to base_dir.
         let locator = &reference.locator;
-        if locator.starts_with('/') || locator.starts_with("~") {
-            PathBuf::from(locator)
-        } else {
-            self.base_dir.join(&reference.id)
+        if locator.starts_with('/') || locator.starts_with('~') || locator.contains("..") {
+            return self.base_dir.join(&reference.id);
         }
+        self.base_dir.join(&reference.id)
     }
 
     fn file_mtime_secs(&self, path: &std::path::Path) -> Option<u64> {
