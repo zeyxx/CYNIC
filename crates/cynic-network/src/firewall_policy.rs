@@ -11,7 +11,9 @@ pub const DYNAMIC_FIREWALL_POLICY_SCHEMA: &str = "cynic.network.firewall_policy.
 pub enum NetworkPlaneScope {
     LoopbackOnly,
     SynapseOnly,
+    ServiceOnly,
     WireguardOnly,
+    AdminOnly,
     DirectManagementOnly,
     ClusterMesh, // Synapse + WireGuard + Management
     PublicWan,
@@ -27,17 +29,17 @@ pub struct DynamicPortBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DynamicFirewallPlanes {
-    pub synapse_cidr: String,
-    pub management_cidr: String,
-    pub wireguard_interface: String,
+    pub service_cidr: String,
+    pub admin_cidr: String,
+    pub mesh_interface: String,
 }
 
 impl Default for DynamicFirewallPlanes {
     fn default() -> Self {
         Self {
-            synapse_cidr: "10.10.10.0/24".to_string(),
-            management_cidr: "192.168.100.0/24".to_string(),
-            wireguard_interface: "wg0".to_string(),
+            service_cidr: "10.10.10.0/24".to_string(),
+            admin_cidr: "192.168.100.0/24".to_string(),
+            mesh_interface: "wg0".to_string(),
         }
     }
 }
@@ -76,32 +78,35 @@ impl DynamicFirewallPolicy {
                 NetworkPlaneScope::LoopbackOnly => {
                     // Already covered by iifname lo
                 }
-                NetworkPlaneScope::SynapseOnly => {
+                NetworkPlaneScope::ServiceOnly => {
                     rules.push(format!(
                         "        ip saddr {} {} dport {} accept comment \"cynic: {} synapse-only\"",
-                        self.planes.synapse_cidr, b.protocol, b.port, b.service_name
+                        self.planes.service_cidr, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::WireguardOnly => {
                     rules.push(format!(
                         "        iifname \"{}\" {} dport {} accept comment \"cynic: {} wireguard-only\"",
-                        self.planes.wireguard_interface, b.protocol, b.port, b.service_name
+                        self.planes.mesh_interface, b.protocol, b.port, b.service_name
                     ));
                 }
-                NetworkPlaneScope::DirectManagementOnly => {
+                NetworkPlaneScope::AdminOnly => {
                     rules.push(format!(
                         "        ip saddr {} {} dport {} accept comment \"cynic: {} management-only\"",
-                        self.planes.management_cidr, b.protocol, b.port, b.service_name
+                        self.planes.admin_cidr, b.protocol, b.port, b.service_name
                     ));
+                }
+                NetworkPlaneScope::SynapseOnly | NetworkPlaneScope::DirectManagementOnly => {
+                    // Covered by service and admin scopes respectively
                 }
                 NetworkPlaneScope::ClusterMesh => {
                     rules.push(format!(
                         "        ip saddr {{ {}, {} }} {} dport {} accept comment \"cynic: {} cluster-synapse-mgmt\"",
-                        self.planes.synapse_cidr, self.planes.management_cidr, b.protocol, b.port, b.service_name
+                        self.planes.service_cidr, self.planes.admin_cidr, b.protocol, b.port, b.service_name
                     ));
                     rules.push(format!(
                         "        iifname \"{}\" {} dport {} accept comment \"cynic: {} cluster-wireguard\"",
-                        self.planes.wireguard_interface, b.protocol, b.port, b.service_name
+                        self.planes.mesh_interface, b.protocol, b.port, b.service_name
                     ));
                 }
                 NetworkPlaneScope::PublicWan => {
@@ -143,23 +148,23 @@ pub fn derive_firewall_policy_from_registry(
         .and_then(|v| v.as_str())
         .unwrap_or("synapse");
     let service_cidr_pointer = format!("/network_policy/planes/{}/cidr", canonical_service_plane);
-    let synapse_cidr = registry
+    let service_cidr = registry
         .pointer(&service_cidr_pointer)
         .or_else(|| registry.pointer("/network_policy/planes/synapse/cidr"))
         .and_then(|v| v.as_str())
         .unwrap_or("10.10.10.0/24")
         .to_string();
-    let management_cidr = registry
+    let admin_cidr = registry
         .pointer("/network_policy/planes/management/cidr")
         .and_then(|v| v.as_str())
         .unwrap_or("192.168.100.0/24")
         .to_string();
-    let wireguard_interface = "wg0".to_string();
+    let mesh_interface = "wg0".to_string();
 
     let planes = DynamicFirewallPlanes {
-        synapse_cidr,
-        management_cidr,
-        wireguard_interface,
+        service_cidr,
+        admin_cidr,
+        mesh_interface,
     };
 
     let nodes = registry
@@ -197,7 +202,7 @@ pub fn derive_firewall_policy_from_registry(
         service_name: "sshd".to_string(),
         port: 22,
         protocol: "tcp".to_string(),
-        allowed_scope: NetworkPlaneScope::DirectManagementOnly,
+        allowed_scope: NetworkPlaneScope::AdminOnly,
     });
 
     // Check WireGuard listen port for this node
@@ -240,13 +245,13 @@ pub fn derive_firewall_policy_from_registry(
                 .unwrap_or("synapse");
 
             let allowed_scope = match plane_str {
-                "synapse" => NetworkPlaneScope::SynapseOnly,
-                "management" => NetworkPlaneScope::DirectManagementOnly,
+                "service" => NetworkPlaneScope::ServiceOnly,
+                "admin" => NetworkPlaneScope::AdminOnly,
                 "wireguard" | "overlay" => NetworkPlaneScope::WireguardOnly,
                 "cluster" | "mesh" | "all" => NetworkPlaneScope::ClusterMesh,
                 "loopback" => NetworkPlaneScope::LoopbackOnly,
                 "public" | "wan" => NetworkPlaneScope::PublicWan,
-                _ => NetworkPlaneScope::SynapseOnly,
+                _ => NetworkPlaneScope::ServiceOnly,
             };
 
             bindings.push(DynamicPortBinding {
@@ -386,7 +391,7 @@ mod tests {
                     service_name: "cynic-kernel".to_string(),
                     port: 3030,
                     protocol: "tcp".to_string(),
-                    allowed_scope: NetworkPlaneScope::SynapseOnly,
+                    allowed_scope: NetworkPlaneScope::ServiceOnly,
                 },
                 DynamicPortBinding {
                     service_name: "wireguard".to_string(),

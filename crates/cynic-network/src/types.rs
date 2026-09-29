@@ -392,9 +392,9 @@ pub struct WireguardMeshAssessment {
     pub never_seen_peers: usize,
 }
 
-/// Assessment of Synapse DNS resolution.
+/// Assessment of Service DNS resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DnsSynapseAssessment {
+pub struct DnsServiceAssessment {
     pub zone: String,
     pub total_records: usize,
     pub resolved_records: usize,
@@ -419,7 +419,7 @@ pub struct NetworkWatchdogAssessment {
     pub status: String,
     pub level: NetworkAlertLevel,
     pub wireguard_mesh: WireguardMeshAssessment,
-    pub dns_synapse: DnsSynapseAssessment,
+    pub dns_service: DnsServiceAssessment,
     pub service_ports: Vec<ServicePortAssessment>,
     pub pressure: Vec<InterfacePressure>,
     pub freebox_lan: Option<FreeboxLanObservation>,
@@ -438,7 +438,7 @@ pub struct FleetWatchdogReport {
     pub failed_nodes: usize,
     pub fleet_network: FleetNetworkReport,
     pub wireguard_mesh: WireguardMeshAssessment,
-    pub dns_synapse: DnsSynapseAssessment,
+    pub dns_service: DnsServiceAssessment,
     pub service_ports: Vec<ServicePortAssessment>,
     pub freebox_lan: Option<FreeboxLanObservation>,
     pub alerts: Vec<NetworkAlert>,
@@ -448,7 +448,7 @@ pub struct FleetWatchdogReport {
 /// Pure evaluation function compiling raw observations into a watchdog assessment with alerts.
 pub fn evaluate_network_watchdog(
     wireguard: WireguardMeshAssessment,
-    dns: DnsSynapseAssessment,
+    dns: DnsServiceAssessment,
     services: Vec<ServicePortAssessment>,
     pressure: Vec<InterfacePressure>,
     freebox: Option<FreeboxLanObservation>,
@@ -486,11 +486,11 @@ pub fn evaluate_network_watchdog(
         }
     }
 
-    // 2. Check Synapse DNS
+    // 2. Check Service DNS
     if dns.failed_records > 0 {
         alerts.push(NetworkAlert {
             level: NetworkAlertLevel::Critical,
-            component: "dns_synapse".to_string(),
+            component: "dns_service".to_string(),
             message: format!(
                 "DNS resolution failed for {} record(s) in zone '{}'",
                 dns.failed_records, dns.zone
@@ -548,7 +548,7 @@ pub fn evaluate_network_watchdog(
         status,
         level: max_level,
         wireguard_mesh: wireguard,
-        dns_synapse: dns,
+        dns_service: dns,
         service_ports: services,
         pressure,
         freebox_lan: freebox,
@@ -655,8 +655,8 @@ mod tests {
                 dead_peers: 0,
                 never_seen_peers: 0,
             },
-            DnsSynapseAssessment {
-                zone: "synapse.cynic".to_string(),
+            DnsServiceAssessment {
+                zone: "service.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
                 failed_records: 0,
@@ -689,8 +689,8 @@ mod tests {
                 dead_peers: 1,
                 never_seen_peers: 0,
             },
-            DnsSynapseAssessment {
-                zone: "synapse.cynic".to_string(),
+            DnsServiceAssessment {
+                zone: "service.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
                 failed_records: 0,
@@ -718,8 +718,8 @@ mod tests {
                 dead_peers: 0,
                 never_seen_peers: 0,
             },
-            DnsSynapseAssessment {
-                zone: "synapse.cynic".to_string(),
+            DnsServiceAssessment {
+                zone: "service.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
                 failed_records: 0,

@@ -6,6 +6,7 @@
 pub mod actuator;
 pub mod discovery;
 pub mod dns;
+pub mod finance_adapters;
 pub mod firewall_policy;
 pub mod freebox;
 pub mod mesh_plan;
