@@ -99,7 +99,7 @@ fn observe_branch_graph_local() -> Result<BranchGraph, String> {
 }
 
 fn observe_discovery_local() -> Result<BuildDiscoveryReport, String> {
-    let json = capture_command("cargo", &["metadata", "--format-version=1", "--no-deps"])
+    let json = capture_command("cargo", cynic_protocol::cargo_metadata::CARGO_METADATA_ARGS)
         .ok()
         .filter(|c| c.success)
         .map(|c| c.stdout)

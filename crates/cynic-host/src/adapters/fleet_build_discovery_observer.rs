@@ -155,7 +155,7 @@ fn observe_local_discovery() -> Result<BuildDiscoveryReport, String> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let json = capture_command("cargo", &["metadata", "--format-version=1", "--no-deps"])
+    let json = capture_command("cargo", cynic_protocol::cargo_metadata::CARGO_METADATA_ARGS)
         .ok()
         .filter(|c| c.success)
         .map(|c| c.stdout)
@@ -206,7 +206,7 @@ fn observe_remote_discovery<R: ArgvRunner>(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let json = run(&["cargo", "metadata", "--format-version=1", "--no-deps"])?;
+    let json = run(&cynic_protocol::cargo_metadata::cargo_metadata_argv())?;
     let tc = run(&["rustc", "--version"])
         .unwrap_or_else(|_| "stable".into())
         .trim()

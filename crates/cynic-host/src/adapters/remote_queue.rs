@@ -96,7 +96,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         ))
     }
     fn observe_discovery(&self) -> Result<BuildDiscoveryReport, String> {
-        let json = self.ssh(&["cargo", "metadata", "--format-version=1", "--no-deps"])?;
+        let json = self.ssh(&cynic_protocol::cargo_metadata::cargo_metadata_argv())?;
         let toolchain = self
             .ssh(&["rustc", "--version"])
             .unwrap_or_else(|_| "stable".into())

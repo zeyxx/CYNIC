@@ -45,7 +45,7 @@ impl BuildDiscoveryObservationPort for LocalBuildDiscoveryAdapter {
         let meta = run(
             &root,
             "cargo",
-            &["metadata", "--format-version", "1", "--no-deps", "--frozen"],
+            cynic_protocol::cargo_metadata::CARGO_METADATA_ARGS,
         )?;
         if !meta.success {
             return Err(format!(

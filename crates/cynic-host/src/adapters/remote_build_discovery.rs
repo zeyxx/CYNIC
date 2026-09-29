@@ -55,7 +55,7 @@ impl<R: ArgvRunner> BuildDiscoveryObservationPort for RemoteBuildDiscoveryAdapte
             .as_secs();
 
         let meta_stdout =
-            self.ssh_run(&["cargo", "metadata", "--format-version", "1", "--no-deps"])?;
+            self.ssh_run(&cynic_protocol::cargo_metadata::cargo_metadata_argv())?;
 
         let toolchain = self
             .ssh_run(&["rustc", "--version", "--verbose"])
@@ -109,12 +109,10 @@ mod tests {
                         "-o".to_string(),
                         "StrictHostKeyChecking=yes".to_string(),
                         "cynic@10.0.0.1".to_string(),
-                        "cargo".to_string(),
-                        "metadata".to_string(),
-                        "--format-version".to_string(),
-                        "1".to_string(),
-                        "--no-deps".to_string(),
-                    ],
+                    ]
+                    .into_iter()
+                    .chain(cynic_protocol::cargo_metadata::cargo_metadata_argv())
+                    .collect::<Vec<_>>(),
                     ok_out(meta_json),
                 ),
                 (
