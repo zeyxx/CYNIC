@@ -38,14 +38,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "fleet",
-                commands: vec![
-                    "cynic fleet report --json [--registry <path>] [--proxmox-json <path>] [--proxmox-list-text <path|->] [--watchdog-json <path>]",
-                    "cynic fleet discover --json [--registry <path>]",
-                    "cynic fleet inventory --json [--registry <path>]",
-                ],
-            },
-            CommandDomain {
                 name: "forensics",
                 commands: vec![
                     "cynic forensics collect [--json]",
@@ -95,23 +87,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic runtime deps-plan [--json]  # alias of cynic deps plan",
                     "cynic runtime deps-audit [--json]  # alias of cynic deps audit",
                     "cynic runtime deps-upgrade [--json]  # alias of cynic deps upgrade",
-                ],
-            },
-            CommandDomain {
-                name: "dev",
-                commands: vec![
-                    "cynic dev surfaces --json",
-                    "cynic dev outcomes --json",
-                    "cynic dev kpi-score --json",
-                    "cynic dev framework --json",
-                    "cynic dev crate-audit --json [--output <path>] [--persist]",
-                    "cynic dev kernel-audit --json [--output <path>] [--persist]",
-                    "cynic dev ownership-audit --json [--output <path>] [--persist]",
-                    "cynic dev surface-audit --json [--output <path>] [--persist]",
-                    "cynic dev surface-matrix --json [--output <path>] [--persist]",
-                    "cynic dev agent-exposure --json [--output <path>] [--persist]",
-                    "cynic dev check --json [--architecture-only] [--source-root <path>] [--target-root <path>]",
-                    "cynic dev opportunities [--json] [--frame <id>] [--output <path>]",
                 ],
             },
             CommandDomain {
@@ -220,11 +195,12 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
-                name: "deps",
+                name: "dependency",
                 commands: vec![
-                    "cynic deps plan",
-                    "cynic deps audit",
-                    "cynic deps upgrade [--yes] [--apply --confirm <token>] [--only <id>]...",
+                    "cynic dependency status",
+                    "cynic dependency plan",
+                    "cynic dependency audit",
+                    "cynic dependency upgrade [--yes] [--apply --confirm <token>] [--only <id>]...",
                 ],
             },
             CommandDomain {
