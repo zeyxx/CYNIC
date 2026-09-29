@@ -177,6 +177,14 @@ audit: ## Native unified audit of all crates, architecture boundaries, and secre
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
 	fi
 
+# The host-observed half of the audit, as a binary that links. `cynic` does not
+# build on the pinned toolchain, so the gate named by AGENTS.md and by `make
+# audit` above cannot run at all; this depends on cynic-host only, links in
+# seconds, and runs the SAME rules — not a second implementation. Exits non-zero
+# on any Critical finding, so a CI step is one line.
+audit.runtime: ## Runtime divergence: units, binaries, credentials, claim store (JSON, exit-code gated)
+	@$(CARGO) run -q -p cynic-host --bin cynic-audit
+
 .PHONY: converge
 converge: ## Native automated convergence of worktrees, branches, and unified audit
 	@echo "==> Reconciling agent worktrees and branches"
