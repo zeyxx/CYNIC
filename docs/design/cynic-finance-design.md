@@ -1,6 +1,6 @@
 # cynic-finance — Design Doc
 
-> **Status**: Phase 1 complete, Phase 2 in progress (A1-A2 done, A3-A4 remaining)
+> **Status**: Phase 1 + Phase 2 complete (A1-A4, B1-B3 all converged on Builder)
 > **Authority**: Subordinate to `contracts/foundation.json` and observed runtime state
 > **Date**: 2026-09-28
 > **Last updated**: 2026-09-29
@@ -263,8 +263,8 @@ Initial rates are `ExchangeRate::Unknown` until sufficient samples exist.
 |---|---|---|---|---|---|
 | A1 | `BusActionMeter` | `ActionMeter` | `cynic-agent-bus` | `Claim.consumed_actions` | ✅ CONVERGED |
 | A2 | `NodeTimeMeter` | `TimeMeter` | `cynic-node` | `Instant::elapsed()` | ✅ CONVERGED |
-| A3 | `HostEnergyMeter` (RAPL) | `EnergyMeter` | `cynic-host` | `/sys/class/powercap/intel-rapl` | ⏳ TODO |
-| A4 | `InferenceContextMeter` | `ContextMeter` | `cynic-inference` | Chat session JSONL | ⏳ TODO |
+| A3 | `HostEnergyMeter` (RAPL) | `EnergyMeter` | `cynic-host` | `/sys/class/powercap/intel-rapl` | ✅ CONVERGED |
+| A4 | `InferenceContextMeter` | `ContextMeter` | `cynic-inference` | ChatTrace JSONL | ✅ CONVERGED |
 
 Already implemented (basic):
 - `HostComputeMeter` — `ComputeMeter` — `/proc/<pid>/stat`
