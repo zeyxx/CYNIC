@@ -6,8 +6,8 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_pkg::{
-    apply_release_deployment, plan_release_deployment, DeployBinarySpec,
-    LocalReleaseDeployExecutor, ReleaseDeploySpec,
+    DeployBinarySpec, LocalReleaseDeployExecutor, ReleaseDeploySpec, apply_release_deployment,
+    plan_release_deployment,
 };
 
 use crate::cli_json::emit_pretty_json;
@@ -39,7 +39,10 @@ pub(crate) fn execute_deploy(
                 match ver {
                     Some(v) => v,
                     None => {
-                        eprintln!("blocked: could not parse version from {}", manifest_path.display());
+                        eprintln!(
+                            "blocked: could not parse version from {}",
+                            manifest_path.display()
+                        );
                         return ExitCode::FAILURE;
                     }
                 }
@@ -87,7 +90,11 @@ pub(crate) fn execute_deploy(
         } else {
             println!("Planned deployment for {}:", plan.release_tag);
             println!("  Release Dir:   {}", plan.release_dir.display());
-            println!("  Current Link:  {} -> {}", plan.current_link.display(), plan.release_dir.display());
+            println!(
+                "  Current Link:  {} -> {}",
+                plan.current_link.display(),
+                plan.release_dir.display()
+            );
             println!("  Bin Dir:       {}", plan.bin_dir.display());
             for (name, target) in &plan.binary_targets {
                 println!("    {} -> {}", name, target.display());
@@ -107,9 +114,15 @@ pub(crate) fn execute_deploy(
                 if json {
                     emit_pretty_json(&report)
                 } else {
-                    println!("Successfully deployed {} (status: {})", report.release_tag, report.status);
+                    println!(
+                        "Successfully deployed {} (status: {})",
+                        report.release_tag, report.status
+                    );
                     println!("  Release Dir:  {}", report.release_dir.display());
-                    println!("  Current Target: {}", report.active_current_target.display());
+                    println!(
+                        "  Current Target: {}",
+                        report.active_current_target.display()
+                    );
                     println!("  Binaries:     {:?}", report.deployed_binaries);
                     ExitCode::SUCCESS
                 }

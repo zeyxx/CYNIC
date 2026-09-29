@@ -6,7 +6,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use cynic_eval::judgment::{CynicJudgment, CynefinDomain, DijkwLayer, SagePhase};
+use cynic_eval::judgment::{CynefinDomain, CynicJudgment, DijkwLayer, SagePhase};
 
 use crate::judgment_surface::types::JudgmentReport;
 

@@ -2,7 +2,7 @@
 //!
 //! Text projection of a CynicJudgment. No domain logic here — only formatting.
 
-use cynic_eval::judgment::{CynicJudgment, CynefinDomain, DijkwLayer, SagePhase};
+use cynic_eval::judgment::{CynefinDomain, CynicJudgment, DijkwLayer, SagePhase};
 
 /// Render a human-readable summary of the judgment.
 pub(super) fn render_judgment(j: &CynicJudgment) -> String {

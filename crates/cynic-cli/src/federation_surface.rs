@@ -117,7 +117,9 @@ impl FederationStatusCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_node_protocol::local_autonomy::{AutonomyDecision, AutonomyMode, RetainedCapabilities};
+    use cynic_node_protocol::local_autonomy::{
+        AutonomyDecision, AutonomyMode, RetainedCapabilities,
+    };
 
     fn autonomy_decision(mode: AutonomyMode) -> AutonomyDecision {
         AutonomyDecision {
@@ -139,7 +141,8 @@ mod tests {
                 role: "build_runner".to_string(),
                 desired_generation: 1,
                 observed_generation: Some(1),
-                connection: cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
+                connection:
+                    cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
                 decision: cynic_node_protocol::node_control::NodeControlDecision::Converged,
                 execution: None,
                 evidence_refs: vec![],
@@ -162,7 +165,8 @@ mod tests {
                     role: "build_runner".to_string(),
                     desired_generation: 1,
                     observed_generation: Some(1),
-                    connection: cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
+                    connection:
+                        cynic_node_protocol::node_control::NodeControlConnectionState::Connected,
                     decision: cynic_node_protocol::node_control::NodeControlDecision::Converged,
                     execution: None,
                     evidence_refs: vec![],

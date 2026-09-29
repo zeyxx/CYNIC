@@ -1,8 +1,8 @@
 //! Helper to allocate an isolated worktree for an agent.
 
+use crate::cli_json::emit_pretty_json;
 use std::path::Path;
 use std::process::ExitCode;
-use crate::cli_json::emit_pretty_json;
 
 pub(crate) fn execute_allocate_worktree(
     root: &Path,
@@ -18,13 +18,14 @@ pub(crate) fn execute_allocate_worktree(
         target_path: explicit_path.map(|p| p.to_path_buf()),
     };
 
-    let plan = match cynic_vcs::isolated_worktree::plan_worktree_allocation(root, workspace_store, &req) {
-        Ok(p) => p,
-        Err(err) => {
-            eprintln!("blocked: worktree allocation plan failed: {err}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let plan =
+        match cynic_vcs::isolated_worktree::plan_worktree_allocation(root, workspace_store, &req) {
+            Ok(p) => p,
+            Err(err) => {
+                eprintln!("blocked: worktree allocation plan failed: {err}");
+                return ExitCode::FAILURE;
+            }
+        };
 
     // Ensure parent directory exists
     if let Some(parent) = plan.target_path.parent() {
@@ -54,7 +55,10 @@ pub(crate) fn execute_allocate_worktree(
         println!("Branch:      {}", plan.branch);
         println!("Base Ref:    {}", plan.base_ref);
         println!("Target Path: {}", plan.target_path.display());
-        println!("\nWork in isolation with: cd {}", plan.target_path.display());
+        println!(
+            "\nWork in isolation with: cd {}",
+            plan.target_path.display()
+        );
         ExitCode::SUCCESS
     }
 }

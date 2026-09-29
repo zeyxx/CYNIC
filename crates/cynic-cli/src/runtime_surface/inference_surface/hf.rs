@@ -1,8 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_inference::{
-    HfDiscoveryService, HfDownloadCommand, ModelStoreService, category_catalog,
-};
+use cynic_inference::{HfDiscoveryService, HfDownloadCommand, ModelStoreService, category_catalog};
 
 use super::emit_json;
 

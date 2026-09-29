@@ -38,18 +38,25 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
         })?;
 
     let kind = ssot["kind"].as_str().unwrap_or("forgejo");
-    let api_url = ssot["api_url"].as_str().unwrap_or("http://forgejo.synapse.cynic:3000");
+    let api_url = ssot["api_url"]
+        .as_str()
+        .unwrap_or("http://forgejo.synapse.cynic:3000");
     let owner = ssot["owner"].as_str().unwrap_or("jeanterre13");
     let repo = ssot["repo"].as_str().unwrap_or("CYNIC");
     let token_env = ssot["token_env"].as_str().unwrap_or("FORGEJO_TOKEN");
-    let token_file = ssot["token_file"].as_str().unwrap_or("/etc/cynic/secrets/forgejo-token");
+    let token_file = ssot["token_file"]
+        .as_str()
+        .unwrap_or("/etc/cynic/secrets/forgejo-token");
 
-    let token = std::env::var(token_env).ok().filter(|v| !v.is_empty()).or_else(|| {
-        std::fs::read_to_string(token_file)
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-    });
+    let token = std::env::var(token_env)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| {
+            std::fs::read_to_string(token_file)
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        });
 
     match kind {
         "forgejo" => Ok(Box::new(ForgejoPrAdapter::new(
@@ -58,7 +65,9 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
             repo.to_string(),
             token,
         ))),
-        other => Err(format!("unknown vcs_provider kind '{other}' — only 'forgejo' is implemented")),
+        other => Err(format!(
+            "unknown vcs_provider kind '{other}' — only 'forgejo' is implemented"
+        )),
     }
 }
 
@@ -170,12 +179,15 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             let decision = cynic_host::source_sync::reconcile(&observation);
             let plan = cynic_host::source_sync::plan(&decision);
             if apply {
-                let admission =
-                    cynic_host::adapters::source_admission_adapter::admit_source_sync(
-                        path, &decision,
-                    );
+                let admission = cynic_host::adapters::source_admission_adapter::admit_source_sync(
+                    path, &decision,
+                );
                 if !admission.admitted {
-                    let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
+                    let coherence = sync_coherence::project_sync_coherence_vector(
+                        &observation,
+                        &decision,
+                        None,
+                    );
                     let report = sync_coherence::SourceSyncReport {
                         schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
                         coherence,
@@ -187,7 +199,10 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     } else {
                         println!("Source sync BLOCKED by admission gate.");
                         println!("Status:   {:?}", report.coherence.status);
-                        println!("Compass:  {}", report.coherence.compass.desired_state_digest);
+                        println!(
+                            "Compass:  {}",
+                            report.coherence.compass.desired_state_digest
+                        );
                         println!("Blockers: {:?}", report.coherence.blockers);
                         ExitCode::FAILURE
                     }
@@ -198,7 +213,11 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     } else {
                         None
                     };
-                    let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, read_back);
+                    let coherence = sync_coherence::project_sync_coherence_vector(
+                        &observation,
+                        &decision,
+                        read_back,
+                    );
                     let report = sync_coherence::SourceSyncReport {
                         schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
                         coherence,
@@ -214,7 +233,10 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                             proof.success
                         );
                         println!("Status:   {:?}", report.coherence.status);
-                        println!("Compass:  {}", report.coherence.compass.desired_state_digest);
+                        println!(
+                            "Compass:  {}",
+                            report.coherence.compass.desired_state_digest
+                        );
                         for result in &proof.steps_completed {
                             let status_sym = if result.success { "PASS" } else { "FAIL" };
                             println!("  [{status_sym}] {:?}", result.step);
@@ -227,7 +249,8 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     }
                 }
             } else {
-                let coherence = sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
+                let coherence =
+                    sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
                 let report = sync_coherence::SourceSyncReport {
                     schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
                     coherence,
@@ -241,7 +264,10 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
                     println!("  Subject:    {}", report.coherence.compass.subject_id);
                     println!("  Vertical:   {}", report.coherence.compass.vertical_id);
                     println!("  Status:     {:?}", report.coherence.status);
-                    println!("  Compass:    {}", report.coherence.compass.desired_state_digest);
+                    println!(
+                        "  Compass:    {}",
+                        report.coherence.compass.desired_state_digest
+                    );
                     println!("  Decision:   {}", report.coherence.vector.decision);
                     if let Some(act) = &report.coherence.vector.action {
                         println!("  Action:     {}", act);
@@ -324,8 +350,12 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     if apply {
         let remote = "github";
         let branch = "main";
-        let push_result = cynic_release::adapters::release_relay_adapter::push_branch_to_remote(root, remote, branch);
-        let readback = cynic_release::adapters::release_relay_adapter::verify_branch_readback(root, remote, branch);
+        let push_result = cynic_release::adapters::release_relay_adapter::push_branch_to_remote(
+            root, remote, branch,
+        );
+        let readback = cynic_release::adapters::release_relay_adapter::verify_branch_readback(
+            root, remote, branch,
+        );
 
         if json {
             emit_pretty_json(&serde_json::json!({
@@ -611,7 +641,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
 fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
     if let Some(nodes) = reg.get("nodes").and_then(|n| n.as_array()) {
         for node in nodes {
-            if let Some(ssot) = node.pointer("/source_workspace_layout/vcs_provider/sovereign_ssot") {
+            if let Some(ssot) = node.pointer("/source_workspace_layout/vcs_provider/sovereign_ssot")
+            {
                 return Some(ssot);
             }
             if let Some(ssot) = node.pointer("/source_lifecycle/vcs_provider/sovereign_ssot") {
@@ -669,48 +700,54 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
     };
 
     match command {
-        PrCommand::List { state, json } => {
-            match port.list(&state) {
-                Ok(prs) => {
-                    if json {
-                        emit_pretty_json(&prs)
-                    } else {
-                        if prs.is_empty() {
-                            println!("No {state} pull requests.");
-                        }
-                        for pr in &prs {
-                            println!(
-                                "  #{} [{}] {} -> {}: {}",
-                                pr.number, state, pr.head_ref, pr.base_ref, pr.title
-                            );
-                            println!("      {}", pr.html_url);
-                        }
-                        ExitCode::SUCCESS
+        PrCommand::List { state, json } => match port.list(&state) {
+            Ok(prs) => {
+                if json {
+                    emit_pretty_json(&prs)
+                } else {
+                    if prs.is_empty() {
+                        println!("No {state} pull requests.");
                     }
-                }
-                Err(e) => {
-                    eprintln!("blocked: pr list failed: {e}");
-                    ExitCode::FAILURE
+                    for pr in &prs {
+                        println!(
+                            "  #{} [{}] {} -> {}: {}",
+                            pr.number, state, pr.head_ref, pr.base_ref, pr.title
+                        );
+                        println!("      {}", pr.html_url);
+                    }
+                    ExitCode::SUCCESS
                 }
             }
-        }
-        PrCommand::Open { title, head, base, body, json } => {
-            match port.open(&title, &head, &base, &body) {
-                Ok(proof) => {
-                    if json {
-                        emit_pretty_json(&proof)
-                    } else {
-                        println!("PR #{} opened: {}", proof.pr_number, proof.html_url);
-                        ExitCode::SUCCESS
-                    }
-                }
-                Err(e) => {
-                    eprintln!("blocked: pr open failed: {e}");
-                    ExitCode::FAILURE
+            Err(e) => {
+                eprintln!("blocked: pr list failed: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        PrCommand::Open {
+            title,
+            head,
+            base,
+            body,
+            json,
+        } => match port.open(&title, &head, &base, &body) {
+            Ok(proof) => {
+                if json {
+                    emit_pretty_json(&proof)
+                } else {
+                    println!("PR #{} opened: {}", proof.pr_number, proof.html_url);
+                    ExitCode::SUCCESS
                 }
             }
-        }
-        PrCommand::Merge { number, style, json } => {
+            Err(e) => {
+                eprintln!("blocked: pr open failed: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        PrCommand::Merge {
+            number,
+            style,
+            json,
+        } => {
             // Observe the PR, run admission gates, then actuate.
             let prs = match port.list("open") {
                 Ok(p) => p,

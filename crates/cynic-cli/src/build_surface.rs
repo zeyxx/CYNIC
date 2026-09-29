@@ -152,7 +152,7 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         filter: Option<String>,
         /// Runner host resolved from the fleet registry.
-        #[arg(long, default_value = "cynic-builder-ssh")]
+        #[arg(long, default_value = cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET)]
         host: String,
         /// Runner SSH user.
         #[arg(long, default_value = "cynic")]
