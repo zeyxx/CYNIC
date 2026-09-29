@@ -238,7 +238,7 @@ gateway has two live RFCs.
 `infra/storage-taxonomy.json:149` → `docs/notes/d2-vault-integrity-scan-strategy.md`
 `infra/storage-taxonomy.json:163` → `docs/foundation/D1-cold-evidence-storage.md`
 
-Both targets are in `docs/`, which `contracts/foundation.json:106,108` declares "historical and not
+Both targets are in `docs/`, which `contracts/foundation.json → constitutional.hard_boundaries.deleted_authorities` declares "historical and not
 runtime authority" and which is machine-enforced as a quarantine by
 `crates/cynic-cli/src/agent_exposure_audit.rs:22,72` →
 `crates/cynic-cli/src/agent_exposure_audit/checks.rs:375-389` (emits a **critical**
@@ -409,7 +409,7 @@ orphaned relative to its own content.
 | `crates/cynic-protocol/src/task_pipeline.rs:3` → `.hermes/plans/2026-08-24_….md` | NO |
 | `crates/cynic-protocol/src/agent_host_sandbox.rs:3` → `.hermes/plans/2026-09-01_….md` | NO |
 | `crates/cynic-host/src/organic_opportunity/session_observer.rs:32` → `.hermes/sessions` (**live default**, gitignored) | NO |
-| `contracts/foundation.json:107`, `CODEX.md:13`, `.codex/CODEX-PROTOCOL.md` → `make build`, `make build-release` | NO (targets) |
+| `contracts/foundation.json → constitutional.hard_boundaries.low_layer_first`, `CODEX.md:13`, `.codex/CODEX-PROTOCOL.md` → `make build`, `make build-release` | NO (targets) |
 
 > **Grep trap**: the abundant `agent/hermes/…` hits across `crates/cynic-vcs/`,
 > `crates/cynic-host/src/domain/git/`, and `worktree_observer.rs:243` are **git branch names**, not
@@ -424,7 +424,7 @@ orphaned relative to its own content.
 
 ### 5.1 God-object ceiling: 6 of 47 in constitutional violation
 
-Ceiling is **25 000 LOC** (`contracts/foundation.json:74`,
+Ceiling is **25 000 LOC** (`contracts/foundation.json → constitutional.hard_boundaries.strict_dag_and_single_responsibility`,
 `strict_dag_and_single_responsibility`; superseded 40k figure in
 `CANONICAL_CRATE_MAP.md` header). `AGENTS.md` still cites the stale 40k number.
 
@@ -541,7 +541,7 @@ workspace-root marker), from `Makefile:143` (`jq empty`), and from
    `programs/`, `verify/`, `scripts/`, or `tests/support`. None of §4 can fail that gate. The CI
    also tests *more* than the sanctioned gate — `AGENTS.md` declares `make test` non-canonical, and
    it delegates to `check.layers`, not `--workspace` — while relaxing
-   `CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"` an admission check `contracts/foundation.json:92` says must
+   `CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"` an admission check `contracts/foundation.json → constitutional.hard_boundaries.explicit_over_implicit` says must
    "refuse compiling actions".
 5. **Contamination in the tracked tree.** `scripts/__pycache__/` (tracked `.pyc`),
    `apps/kyon-mobile/.gradle/8.11.1/` (tracked daemon state),

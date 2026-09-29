@@ -1992,3 +1992,123 @@ fn the_manifest_advertises_only_routable_domains() {
     );
 }
 
+
+/// A reference to a contract must name a rule, never a line.
+///
+/// Ten live files cited `contracts/foundation.json:74` for the 25 000 LOC ceiling. Line
+/// 74 is `no_hyphen_in_cli_commands`; the ceiling is inside
+/// `strict_dag_and_single_responsibility`. Nine of the ten pointed somewhere else, and
+/// nothing reported it, because a line number is not self-verifying: it looks exactly as
+/// authoritative after the contract has been edited as before.
+///
+/// A rule name survives reordering, which is the only reason to anchor on it. So the
+/// references were converted, and this keeps them honest. The check is the whole judgement
+/// — a name either resolves to a declared rule or it does not.
+#[test]
+fn contract_references_name_a_rule_and_not_a_line() {
+    let foundation =
+        std::fs::read_to_string(workspace().join("contracts/foundation.json")).expect("read");
+    let parsed: Value = serde_json::from_str(&foundation).expect("foundation parses");
+    let constitutional = &parsed["constitutional"];
+
+    let mut known: std::collections::BTreeSet<String> =
+        constitutional["hard_boundaries"]
+            .as_array()
+            .expect("hard_boundaries")
+            .iter()
+            .filter_map(|r| r["name"].as_str().map(str::to_string))
+            .collect();
+    if let Some(obj) = constitutional.as_object() {
+        known.extend(obj.keys().filter_map(|k| {
+            // Only the structural keys are addressable as anchors.
+            (k != "hard_boundaries").then(|| k.to_string())
+        }));
+    }
+
+    // Line-number citations are the failure this removes. Any surviving one is a
+    // reference that will drift again the next time the contract is edited.
+    let mut line_citations: Vec<String> = Vec::new();
+    let mut unresolved: Vec<String> = Vec::new();
+    let mut anchored = 0usize;
+
+    for entry in std::fs::read_dir(workspace()).expect("read workspace") {
+        let path = match entry {
+            Ok(e) => e.path(),
+            Err(_) => continue,
+        };
+        let rel = path
+            .strip_prefix(workspace())
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .into_owned();
+        // Archives and quarantine are deliberately out of scope: they record what was
+        // true at a date, and holding them to today's line numbers would be wrong.
+        if rel.starts_with("archive/")
+            || rel.starts_with("docs/archive")
+            || rel.starts_with("docs/quarantine")
+            || rel.starts_with("docs/history")
+        {
+            continue;
+        }
+        if !matches!(
+            path.extension().and_then(|e| e.to_str()),
+            Some("md") | Some("rs")
+        ) {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+
+        for (i, line) in text.lines().enumerate() {
+            if line.contains("foundation.json:") {
+                line_citations.push(format!("{rel}:{}", i + 1));
+            }
+            // `… → constitutional.hard_boundaries.<name>` or `…deleted_authorities`.
+            for part in line
+                .split("foundation.json")
+                .skip(1)
+                .map(|r| r.split(['`', ' ', ',', ')', ']']).next().unwrap_or("").trim())
+            {
+                let anchor = part.trim_start_matches("→ ").trim_start_matches('.');
+                if anchor.is_empty() || !anchor.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+                    continue;
+                }
+                if anchor == "constitutional" {
+                    anchored += 1;
+                    continue;
+                }
+                if let Some(rule) = anchor.strip_prefix("constitutional.hard_boundaries.") {
+                    if known.contains(rule) {
+                        anchored += 1;
+                    } else {
+                        unresolved.push(format!("{rel}:{} → {rule}", i + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(
+        anchored > 5,
+        "only {anchored} named anchors parsed; the parser is wrong, not the references"
+    );
+    assert!(
+        unresolved.is_empty(),
+        "Constitutional Violation: {} contract reference(s) name a rule that does not exist:\n  {}",
+        unresolved.len(),
+        unresolved.join("\n  ")
+    );
+    assert!(
+        line_citations.is_empty(),
+        "Constitutional Violation: {} reference(s) still cite a contract by line number:\n  {}\n\n\
+         A line number looks authoritative before and after the contract is edited, which is \
+         why nine of the ten ceiling references had drifted without anything reporting it. \
+         Cite the rule name.",
+        line_citations.len(),
+        line_citations
+            .iter()
+            .take(10)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n  ")
+    );
+}

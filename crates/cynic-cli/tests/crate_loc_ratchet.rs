@@ -1,6 +1,6 @@
 //! God-object ceiling and legacy-debt ratchets, measured workspace-wide.
 //!
-//! `contracts/foundation.json:74` makes it a constitutional violation to have a
+//! `contracts/foundation.json → constitutional.hard_boundaries.strict_dag_and_single_responsibility` makes it a constitutional violation to have a
 //! "God-object orchestrator exceeding 25k LOC". `infra/CANONICAL_CRATE_MAP.md`
 //! records the census. Neither was executable: the only two files in the
 //! workspace matching `25_000` were a token count and a float ratio in
@@ -46,7 +46,7 @@ mod orphan_sources;
 
 use orphan_sources::{CrateLocCensus, crate_loc_census, crate_names};
 
-/// `contracts/foundation.json:74`. Constitutional, not a preference.
+/// `contracts/foundation.json → constitutional.hard_boundaries.strict_dag_and_single_responsibility`. Constitutional, not a preference.
 const GOD_OBJECT_CEILING: usize = 25_000;
 
 /// A gap below this is noise. Above it, the crate holds dead mass worth naming.

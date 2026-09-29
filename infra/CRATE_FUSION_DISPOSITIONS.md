@@ -28,7 +28,7 @@ crate. The distribution is not Gaussian — it is a heavy tail over a small, den
 | **0–7 LOC** | 1 | a crate that contains no code |
 | **< 500 LOC** | 7 more | below any compilation, reuse, or cycle reason |
 | **500–3 000 LOC** | ~19 | the healthy body, and where most work should live |
-| **> 25 000 LOC** | 6 | constitutional violations under `contracts/foundation.json:74` |
+| **> 25 000 LOC** | 6 | constitutional violations under `contracts/foundation.json → constitutional.hard_boundaries.strict_dag_and_single_responsibility` |
 | **> 50 000 LOC** | 2 of those 6 | `cynic-host` 89 851, `cynic-node` 58 327 |
 
 Two failures are happening **simultaneously and in opposite directions**. The workspace is being

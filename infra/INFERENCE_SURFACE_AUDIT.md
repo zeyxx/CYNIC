@@ -365,7 +365,7 @@ existing `infra/surface-registry/manifest.json` + fragment + `build.rs` pipeline
 ### 7.5 Gaps in the authority itself
 
 - `infra/surface-registry.json` **is not ranked in any `authority_order`**. Neither
-  `contracts/foundation.json:13-21` nor `infra/runtime-authority.json:5-14` mentions it — yet it
+  `contracts/foundation.json → constitutional.hard_boundaries.authority_order` nor `infra/runtime-authority.json:5-14` mentions it — yet it
   is where the real ownership decision for disk management lives.
 - `infra/runtime-authority.json` contains **no** capacity, cleanup, retention, GC, quota, or
   cache entry. `host_substrate` (`:28-38`) says only `"filesystem projection"`.
@@ -424,7 +424,7 @@ cleanup, or retention concept — a grep for
 That crate (1 151 LOC) does not probe disk — its only disk reference is prose, and it holds no
 surface in `infra/runtime-authority.json`. `infra/CANONICAL_CRATE_MAP.md:341` reserves
 `host_substrate/ (cpu/disk/memory)` for a future `cynic-host-substrate` built from
-`cynic-protocol`. `contracts/foundation.json:36-38` requires host capabilities to be portable
+`cynic-protocol`. `contracts/foundation.json → constitutional.hard_boundaries.portable_host_contract` requires host capabilities to be portable
 ports before concrete adapters; `cynic-host-probes` has no port layer.
 
 ### 8.3 The capability is duplicated 16 times
@@ -481,7 +481,7 @@ which **relocates** weights and already carries a capacity guard
 **Reclaiming vault space is currently unimplementable without a new authority decision.** That
 decision belongs in `infra/registry.json` (a retention field on a `storage_class`, alongside the
 existing `minimum_bytes`/`maximum_bytes`/`reclaim_policy`), per `no_contract_forest`
-(`contracts/foundation.json:43-46`).
+(`contracts/foundation.json → constitutional.hard_boundaries.provider_agnostic_domain`).
 
 ## 10. Bottom-up execution order
 
