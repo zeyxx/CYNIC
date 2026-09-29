@@ -88,7 +88,7 @@
     ],
     "boundary_coverage": {
       "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
-      "measured_at": "2026-09-28",
+      "measured_at": "2026-09-28, second measurement",
       "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
       "statuses": {
         "covered_green": "an executable check exists and passes.",
@@ -99,9 +99,9 @@
       },
       "totals": {
         "boundaries": 14,
-        "covered": 1,
+        "covered": 4,
         "partial": 3,
-        "uncovered": 8,
+        "uncovered": 5,
         "by_design_unenforceable": 2
       },
       "coverage": [
@@ -112,28 +112,28 @@
         },
         {
           "boundary": "rust_runtime_authority",
-          "status": "uncovered",
-          "note": "mechanical, not yet written: no normative rule may live only in a .md file."
+          "status": "covered_green",
+          "note": "authority_order_names_only_files_that_exist. Green: the five path-shaped entries of authority_order all resolve."
         },
         {
           "boundary": "provider_agnostic_domain",
           "status": "uncovered",
-          "note": "semantic. Requires a shared naming convention, not an assertion. Best expressed as a reviewed rule, not a test that passes by accident."
+          "note": "semantic. Requires a shared naming convention, not an assertion."
         },
         {
           "boundary": "portable_host_contract",
           "status": "partial",
-          "note": "portable_host_contract is checked only where a crate declares an adapter boundary; no workspace-wide check exists."
+          "note": "checked only where a crate declares an adapter boundary; no workspace-wide check."
         },
         {
           "boundary": "runtime_proof_over_prose",
           "status": "by_design_unenforceable",
-          "note": "A boundary about what counts as evidence. Automating it would substitute an assertion for a doctrine and feel equally reassuring while guaranteeing nothing. Do not convert."
+          "note": "A boundary about what counts as evidence. Automating it would substitute an assertion for a doctrine and guarantee nothing. Do not convert."
         },
         {
           "boundary": "no_contract_forest",
           "status": "uncovered",
-          "note": "semantic. Mechanically checkable only as a count of contract files, which would forbid legitimate contracts."
+          "note": "semantic. Mechanically checkable only as a file count, which would forbid legitimate contracts."
         },
         {
           "boundary": "fractal_agent_recursion",
@@ -142,44 +142,45 @@
         },
         {
           "boundary": "sovereign_error_codes",
-          "status": "uncovered",
-          "note": "mechanical: no free-form error string on a contract violation path. Not yet written."
+          "status": "covered_red",
+          "note": "domain_ports_do_not_return_free_form_strings. Red on first execution: 17 domain files still return Result<..., String> instead of a typed CynicErrorCode."
         },
         {
           "boundary": "no_manual_blocker_bypass",
           "status": "uncovered",
-          "note": "semantic. Converting it to a test would require guessing what counts as manual."
+          "note": "semantic. Converting it would require guessing what counts as manual."
         },
         {
           "boundary": "organic_opportunities_inform_priority",
           "status": "by_design_unenforceable",
-          "note": "A process doctrine, not a property of code. Same reasoning as runtime_proof_over_prose. Do not convert."
+          "note": "A process doctrine, not a property of code. Do not convert."
         },
         {
           "boundary": "mcp_is_projection_not_bootstrap",
-          "status": "uncovered",
-          "note": "mechanical: no bootstrap path may depend on the MCP artifact. Not yet written."
+          "status": "covered_green",
+          "note": "mcp_is_not_a_dependency_of_anything in crates/cynic-cli/tests/architecture_boundary.rs. Green: no crate manifest depends on cynic-mcp."
         },
         {
           "boundary": "no_hyphen_in_cli_commands",
           "status": "covered_red",
-          "note": "no_cli_command_carries_a_hyphen in crates/cynic-cli/tests/architecture_boundary.rs. Red on first execution: 37 of 180 rendered subcommands carry a hyphen."
+          "note": "no_cli_command_carries_a_hyphen. Red: 37 of 180 rendered subcommands carry a hyphen."
         },
         {
           "boundary": "explicit_over_implicit",
           "status": "uncovered",
-          "note": "semantic, and the widest of the fourteen. It is a review discipline, not a predicate."
+          "note": "semantic, and the widest of the fourteen. A review discipline, not a predicate."
         },
         {
           "boundary": "strict_dag_and_single_responsibility",
           "status": "partial",
-          "note": "33 assertions forbid upward dependencies. Single responsibility is not checked and is not mechanically checkable."
+          "note": "forbids upward dependencies in every crate boundary test. Single responsibility is not checked and is not mechanically checkable."
         }
       ],
       "rules": [
         "A row may only move from uncovered to covered by adding an executable check, never by editing the note.",
         "covered_red is not a defect in the check. It is a defect in the tree, and the check is what makes it visible.",
-        "by_design_unenforceable is a decision. Do not reopen it to satisfy a coverage number."
+        "by_design_unenforceable is a decision. Do not reopen it to satisfy a coverage number.",
+        "A mechanical boundary is one where the whole judgement is a predicate over data the tree already holds. Three were converted in this pass; the remaining five uncovered boundaries are semantic and need a convention before they need a test."
       ]
     }
   },

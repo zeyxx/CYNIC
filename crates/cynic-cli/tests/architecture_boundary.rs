@@ -1614,3 +1614,123 @@ fn no_cli_command_carries_a_hyphen() {
         offenders.join("\n  ")
     );
 }
+
+/// `no_hyphen_in_cli_commands`'s sibling: the three mechanical boundaries that were
+/// documentation and needed no judgement to execute.
+///
+/// Each was prose in `contracts/foundation.json` and had no guardian. A boundary nobody
+/// checks reads exactly like a boundary that holds, which is why the coverage table
+/// exists; these three are the ones where the check is unambiguous, so they were the
+/// cheapest way to move a row from `uncovered` to a real status.
+
+/// The workspace root, derived from this crate's manifest directory the same way
+/// `crate_root` already is. `crate_root()` is `<workspace>/crates/cynic-cli`.
+fn workspace() -> PathBuf {
+    crate_root()
+        .parent()
+        .and_then(Path::parent)
+        .expect("cynic-cli sits two levels below the workspace root")
+        .to_path_buf()
+}
+
+/// `mcp_is_projection_not_bootstrap`: MCP is a replaceable projection, so no crate may
+/// depend on `cynic-mcp` to reach it. Structurally true today and worth pinning, because
+/// the failure this boundary guards against — MCP wired into the bootstrap path — is
+/// exactly the kind of change that looks like an improvement at the time.
+#[test]
+fn mcp_is_not_a_dependency_of_anything() {
+    let offenders: Vec<String> = std::fs::read_dir(workspace().join("crates"))
+        .expect("read crates/")
+        .filter_map(Result::ok)
+        .filter(|e| e.path().is_dir())
+        .filter(|e| e.file_name() != "cynic-mcp")
+        .filter_map(|e| {
+            let manifest = e.path().join("Cargo.toml");
+            let text = std::fs::read_to_string(manifest).ok()?;
+            text.lines()
+                .any(|l| l.trim_start().starts_with("cynic-mcp"))
+                .then(|| e.file_name().to_string_lossy().into_owned())
+        })
+        .collect();
+
+    assert!(
+        offenders.is_empty(),
+        "Constitutional Violation: {offenders:?} depend on cynic-mcp. \
+         contracts/foundation.json forbids MCP as a bootstrap prerequisite: it is a \
+         replaceable projection and must not become a path to anything."
+    );
+}
+
+/// `rust_runtime_authority`: durable authority lives in Rust, infra placement, or a
+/// machine-readable contract — never in prose. The executable form of that is the
+/// authority order itself: every entry that names a file must name a file that exists.
+#[test]
+fn authority_order_names_only_files_that_exist() {
+    let foundation = std::fs::read_to_string(workspace().join("contracts/foundation.json"))
+        .expect("contracts/foundation.json is readable");
+    let parsed: Value = serde_json::from_str(&foundation).expect("foundation.json parses");
+    let order = parsed["constitutional"]["authority_order"]
+        .as_array()
+        .expect("authority_order is an array");
+
+    let missing: Vec<&str> = order
+        .iter()
+        .filter_map(Value::as_str)
+        // Three entries are deliberately descriptive rather than paths: observed runtime
+        // state, the Cargo.toml workspace, and the canonical crates. A path-shaped entry
+        // that does not resolve is a different thing entirely.
+        .filter(|e| e.contains('/') || e.contains(".json"))
+        .filter(|e| !workspace().join(e).exists())
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "Constitutional Violation: authority_order names {missing:?}, which do not exist. \
+         An authority that points at a file which is not there resolves to nothing, and \
+         a reader cannot tell it apart from one that does."
+    );
+}
+
+/// `sovereign_error_codes`: a contract violation surfaces as a typed code, never a
+/// free-form string. Currently violated in the domain layer, which is why this is
+/// expected to be red on its first execution.
+#[test]
+fn domain_ports_do_not_return_free_form_strings() {
+    let offenders: Vec<String> = std::fs::read_dir(workspace().join("crates"))
+        .expect("read crates/")
+        .filter_map(Result::ok)
+        .filter(|e| e.path().join("src/domain").is_dir())
+        .filter_map(|e| {
+            let dir = e.path().join("src/domain");
+            let mut hits = Vec::new();
+            let mut stack = vec![dir];
+            while let Some(d) = stack.pop() {
+                for entry in std::fs::read_dir(&d).ok()? {
+                    let entry = entry.ok()?;
+                    let p = entry.path();
+                    if p.is_dir() {
+                        stack.push(p);
+                    } else if p.extension().is_some_and(|x| x == "rs") {
+                        let text = std::fs::read_to_string(&p).ok()?;
+                        if text.contains("Result<") && text.contains("String>") {
+                            let rel = p.strip_prefix(workspace()).ok()?.to_string_lossy();
+                            hits.push(rel.into_owned());
+                        }
+                    }
+                }
+            }
+            (!hits.is_empty()).then(|| hits.join(", "))
+        })
+        .collect();
+
+    assert!(
+        offenders.is_empty(),
+        "Constitutional Violation: {} domain file(s) still return a free-form String instead \
+         of a typed CynicErrorCode:\n  {}\n\n\
+         A string error cannot be enumerated, cannot be counted, and cannot fail closed. \
+         cynic-protocol::error_catalog already defines the domain axis and the derived \
+         operator code, so the replacement is mechanical.",
+        offenders.len(),
+        offenders.join("\n  ")
+    );
+}
