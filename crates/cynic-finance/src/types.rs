@@ -16,7 +16,7 @@ pub const EXCHANGE_RATE_SCHEMA: &str = "cynic.finance.exchange_rate.v1";
 pub const EXCHANGE_RATE_TABLE_SCHEMA: &str = "cynic.finance.exchange_rate_table.v1";
 
 /// Resource categories for ledger grouping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
     Compute,
     Gpu,

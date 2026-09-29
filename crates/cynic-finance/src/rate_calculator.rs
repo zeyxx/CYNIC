@@ -42,7 +42,7 @@ pub fn compute_exchange_rates(samples: &[RateSample]) -> ExchangeRateTable {
     );
 
     // Group samples by resource type
-    let mut groups: HashMap<ResourceType, Vec<&RateSample>> = HashMap::new();
+    let mut groups: HashMap<crate::types::ResourceType, Vec<&RateSample>> = HashMap::new();
     for sample in samples {
         groups
             .entry(sample.resource.resource_type())
@@ -111,15 +111,7 @@ pub fn compute_exchange_rates(samples: &[RateSample]) -> ExchangeRateTable {
     table
 }
 
-/// Resource type key for grouping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ResourceType(pub crate::types::ResourceType);
 
-impl From<crate::types::ResourceType> for ResourceType {
-    fn from(rt: crate::types::ResourceType) -> Self {
-        Self(rt)
-    }
-}
 
 #[cfg(test)]
 mod tests {
