@@ -359,7 +359,7 @@ fn error(code: impl Into<String>, message: impl Into<String>) -> SourceMateriali
 #[cfg(test)]
 mod tests {
     use cynic_lifecycle::MapArgvRunner;
-    use cynic_protocol::{SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA};
+    use cynic_vcs::{SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_REQUEST_SCHEMA};
 
     use super::*;
 

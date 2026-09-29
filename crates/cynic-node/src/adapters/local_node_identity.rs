@@ -7,8 +7,10 @@ use ed25519_dalek::SigningKey;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
-use cynic_protocol::{SecurityEvidenceState};
-use cynic_node_protocol::{NODE_IDENTITY_OBSERVATION_SCHEMA, NodeIdentityDesiredState, NodeIdentityObservation};
+use cynic_node_protocol::{
+    NODE_IDENTITY_OBSERVATION_SCHEMA, NodeIdentityDesiredState, NodeIdentityObservation,
+};
+use cynic_protocol::SecurityEvidenceState;
 
 use crate::ports::node_identity_port::NodeIdentityPort;
 
@@ -208,7 +210,9 @@ fn observation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_node_protocol::{NODE_IDENTITY_DESIRED_STATE_SCHEMA, NodeIdentityDecision, reconcile_node_identity};
+    use cynic_node_protocol::{
+        NODE_IDENTITY_DESIRED_STATE_SCHEMA, NodeIdentityDecision, reconcile_node_identity,
+    };
 
     #[test]
     fn generation_is_create_once_and_read_back_proven() {
