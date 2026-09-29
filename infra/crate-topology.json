@@ -839,5 +839,27 @@
   "status": "normative",
   "why": "Single source of truth for the crate DAG, the layer assignment and crate justification. It supersedes the prose taxonomy in AGENTS.md, which is not executable and can drift from the build graph. ARCH-004 makes it falsifiable: every crate declared, every edge real, no undeclared edge, no upward edge, acyclic, and every crate justified or listed in pending_disposition.",
   "not_yet_propagated": "AGENTS.md still carries the prose taxonomy and does not point here. It is claimed by another agent, so the pointer is deferred. Two statements of the taxonomy therefore coexist today; on the authority_order this file declares, this one wins."
+ },
+ "layer_debt": {
+  "schema": "cynic.crate_topology.layer_debt.v1",
+  "rule": "Ascending edges the workspace currently tolerates, as reported by ARCH-004. Recorded as data so the debt is measurable instead of prose: `layer_rule` counted these in words, and a number written in a sentence cannot fail, so it cannot be paid. The debt grew from 12 to 15 while the sentence still said 12, the two extra being a domain landing in two substrate crates. This field and the observed report must agree exactly, and the set may only shrink. Paying an edge means removing it from BOTH this list and the baseline in crates/cynic-host/tests/layer_debt_ratchet.rs, which is what makes the reduction visible in a diff. Adding one without a written reason fails the gate.",
+  "edges": [
+   "ARCH-004-UPWARD-EDGE cynic-discovery-host (L1) depends on cynic-build (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-discovery-host (L1) depends on cynic-discovery (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-finance (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-inference (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-intel (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-storage (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs-forgejo (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-host-probes (L1) depends on cynic-finance (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-storage (L2)",
+   "ARCH-004-UPWARD-EDGE cynic-network (L1) depends on cynic-finance (L2)"
+  ],
+  "count": 15
  }
 }
