@@ -216,7 +216,10 @@ fn crate_taxonomy_ownership_is_measured_and_shrink_only() {
     let baseline: Vec<&str> = BASELINE.to_vec();
 
     let new: Vec<&String> = observed.iter().filter(|v| !baseline.contains(&v.as_str())).collect();
-    let stale: Vec<&&str> = baseline.iter().filter(|b| !observed.iter().any(|o| &o.as_str() == b)).collect();
+    let stale: Vec<&&str> = baseline
+        .iter()
+        .filter(|b| !observed.iter().any(|o| o.as_str() == **b))
+        .collect();
 
     assert!(
         new.is_empty(),
