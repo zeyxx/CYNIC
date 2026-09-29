@@ -1897,3 +1897,98 @@ fn cargo_metadata_is_invoked_with_one_argument_vector() {
         sites.iter().take(8).cloned().collect::<Vec<_>>().join("\n")
     );
 }
+
+/// The manifest may not advertise what the binary cannot route.
+///
+/// `crates/cynic-cli/src/command_manifest.rs` is the surface shown in help. It declared
+/// `dev` with twelve commands for a group deleted in `b21b39af`, and declared four more
+/// domains that the argument parser cannot reach either. Every one of those entries is a
+/// line of help describing a capability nobody can invoke — the CLI lying, which is worse
+/// than a missing feature because it is discovered at the moment of use.
+///
+/// The test reads the reflected clap tree rather than the source, for the same reason
+/// `no_cli_command_carries_a_hyphen` does: a surface is reachable or it is not, and
+/// reading the source cannot tell you.
+///
+/// The fix is not deletion. Those domains are implemented and unrouted, which is an
+/// inventory worth keeping until someone decides to route or remove them. So this asserts
+/// the size of the discrepancy and names it, rather than pretending it away.
+#[test]
+fn the_manifest_advertises_only_routable_domains() {
+    fn walk(cmd: &clap::Command, prefix: &str, out: &mut std::collections::BTreeSet<String>) {
+        for sub in cmd.get_subcommands() {
+            let name = sub.get_name();
+            if name == "help" {
+                continue;
+            }
+            let path = if prefix.is_empty() {
+                name.to_string()
+            } else {
+                format!("{prefix} {name}")
+            };
+            out.insert(path.clone());
+            walk(sub, &path, out);
+        }
+    }
+
+    let mut routable = std::collections::BTreeSet::new();
+    walk(&cynic_cli::Cli::command(), "", &mut routable);
+    assert!(
+        routable.len() > 40,
+        "only {} routable surfaces found; the walk is wrong, not the manifest",
+        routable.len()
+    );
+
+    let manifest = std::fs::read_to_string(workspace().join("crates/cynic-cli/src/command_manifest.rs"))
+        .expect("read command_manifest.rs");
+
+    // Each entry looks like `name: "dev",` followed by a `commands: vec![ … ]` block of
+    // `"cynic <domain> <verb> …"` strings. The domain is what must be routable.
+    // Parse the manifest without a regex crate: adding a dependency for this would be a
+    // larger decision than the check deserves, and the shape is three lines deep at most.
+    // A domain entry is `name: "<x>",` followed by a `commands: vec![ … ]` block; the
+    // count of `"cynic ` inside that block is how much help text it advertises.
+    let mut advertised: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut cursor = 0usize;
+    while let Some(rel) = manifest[cursor..].find("name: \"") {
+        let at = cursor + rel + "name: \"".len();
+        let Some(end_quote) = manifest[at..].find('"') else {
+            break;
+        };
+        let domain = manifest[at..at + end_quote].to_string();
+        let block_start = at + end_quote;
+        let Some(block_end) = manifest[block_start..].find("\n                ],") else {
+            break;
+        };
+        let block = &manifest[block_start..block_start + block_end];
+        if block.contains("commands: vec![") {
+            advertised.insert(domain, block.matches("\"cynic ").count());
+        }
+        cursor = block_start + block_end;
+    }
+    assert!(
+        advertised.len() > 10,
+        "parsed only {} manifest domains; the parser is wrong, not the manifest",
+        advertised.len()
+    );
+
+    let unroutable: Vec<String> = advertised
+        .iter()
+        .filter(|(domain, _)| !routable.contains(domain.as_str()))
+        .map(|(d, n)| format!("{d} ({n} commands)"))
+        .collect();
+
+    assert!(
+        unroutable.is_empty(),
+        "Constitutional Violation: the manifest advertises {} domain(s) the argument parser \
+         cannot reach:\n  {}\n\n\
+         {} advertised command lines describe a capability that fails when invoked. \
+         Each domain is implemented and unrouted rather than absent, so the fix is a \
+         decision per domain — route it, or delete it and its manifest entry with it — not \
+         a bulk edit. Until that decision is taken, this number is the honest measure.",
+        unroutable.len(),
+        unroutable.join("\n  "),
+        advertised.values().sum::<usize>()
+    );
+}
+
