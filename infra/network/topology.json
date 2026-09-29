@@ -40,16 +40,16 @@
   },
   "planes": [
     {
-      "id": "synapse",
+      "id": "service",
       "cidr": "10.10.10.0/24",
       "federation_scope": "canonical_service_plane",
-      "dns_zone": "synapse.cynic",
+      "dns_zone": "service.cynic",
       "dns_provider": "unresolved",
       "realization": "proxmox_bridge_and_lxc_veth for CTs; host_interface_or_route for cortex",
       "state": "declared"
     },
     {
-      "id": "management",
+      "id": "admin",
       "cidr": "192.168.100.0/24",
       "federation_scope": "administration_only",
       "purpose": "bare-metal management and hypervisor control",
@@ -105,7 +105,7 @@
         { "role_id": "substrate_host", "weight": "primary", "depends_on": [] }
       ],
       "addresses": {
-        "management": { "ip": "192.168.100.2", "state": "observed" },
+        "admin": { "ip": "192.168.100.2", "state": "observed" },
         "overlay": { "ip": "10.20.0.3", "state": "observed" }
       },
       "hosts": ["local-kernel"],
@@ -119,12 +119,12 @@
         { "role_id": "kernel_primary", "weight": "primary", "depends_on": [] }
       ],
       "observed_endpoint_bindings": [
-        { "plane": "management", "ip": "192.168.100.2", "port": 3030, "state": "observed" },
+        { "plane": "admin", "ip": "192.168.100.2", "port": 3030, "state": "observed" },
         { "plane": "overlay", "ip": "10.20.0.3", "port": 3030, "state": "observed" }
       ],
       "unresolved_claims": [
         {
-          "plane": "synapse",
+          "plane": "service",
           "ip": "10.10.10.100",
           "reason": "declared in legacy registry but absent from all observed cortex interfaces and unreachable from three peer nodes",
           "state": "disputed"
@@ -138,8 +138,8 @@
         { "role_id": "hypervisor", "weight": "primary", "depends_on": [] }
       ],
       "addresses": {
-        "management": { "ip": "192.168.100.1", "state": "observed" },
-        "synapse": { "ip": "10.10.10.1", "dns": ["pve.synapse.cynic"], "state": "observed" },
+        "admin": { "ip": "192.168.100.1", "state": "observed" },
+        "service": { "ip": "10.10.10.1", "dns": ["pve.service.cynic"], "state": "observed" },
         "overlay": { "ip": "10.20.0.1", "state": "observed" }
       },
       "wireguard_peer": true
@@ -151,7 +151,7 @@
         { "role_id": "build_runner", "weight": "primary", "depends_on": [] }
       ],
       "addresses": {
-        "synapse": { "ip": "10.10.10.119", "dns": ["cynic-builder.synapse.cynic"], "state": "observed" },
+        "service": { "ip": "10.10.10.119", "dns": ["cynic-builder.service.cynic"], "state": "observed" },
         "overlay": { "ip": "10.20.0.5", "state": "observed" }
       },
       "wireguard_peer": true
@@ -163,7 +163,7 @@
         { "role_id": "forge_primary", "weight": "primary", "depends_on": [] }
       ],
       "addresses": {
-        "synapse": { "ip": "10.10.10.101", "dns": ["forgejo.synapse.cynic", "organ-forgejo.synapse.cynic"], "state": "observed" },
+        "service": { "ip": "10.10.10.101", "dns": ["forgejo.service.cynic", "organ-forgejo.service.cynic"], "state": "observed" },
         "overlay": { "ip": "10.20.0.2", "state": "observed" }
       },
       "wireguard_peer": true
@@ -175,7 +175,7 @@
         { "role_id": "storage_primary", "weight": "primary", "depends_on": [] }
       ],
       "addresses": {
-        "synapse": { "ip": "10.10.10.103", "dns": ["cynic-storage-primary.synapse.cynic", "organ-surrealdb.synapse.cynic"], "state": "observed" },
+        "service": { "ip": "10.10.10.103", "dns": ["cynic-storage-primary.service.cynic", "organ-surrealdb.service.cynic"], "state": "observed" },
         "overlay": { "ip": "10.20.0.4", "state": "observed" }
       },
       "wireguard_peer": true
