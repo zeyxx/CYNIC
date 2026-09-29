@@ -986,6 +986,7 @@ dependencies = [
 name = "cynic-channel"
 version = "0.8.0"
 dependencies = [
+ "cynic-finance",
  "cynic-protocol",
  "hex",
  "serde",
