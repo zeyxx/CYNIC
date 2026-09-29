@@ -74,7 +74,7 @@ pub fn reconcile_network_watchdog_outbox(
 mod tests {
     use super::*;
     use crate::types::{
-        DnsSynapseAssessment, NETWORK_WATCHDOG_ASSESSMENT_SCHEMA, NetworkAlert,
+        DnsServiceAssessment, NETWORK_WATCHDOG_ASSESSMENT_SCHEMA, NetworkAlert,
         NetworkAlertLevel, NetworkWatchdogAssessment, WireguardMeshAssessment,
     };
 
@@ -91,7 +91,7 @@ mod tests {
                 dead_peers: 1,
                 never_seen_peers: 0,
             },
-            dns_synapse: DnsSynapseAssessment {
+            dns_service: DnsServiceAssessment {
                 zone: "synapse.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
@@ -134,7 +134,7 @@ mod tests {
                 dead_peers: 0,
                 never_seen_peers: 0,
             },
-            dns_synapse: DnsSynapseAssessment {
+            dns_service: DnsServiceAssessment {
                 zone: "synapse.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,

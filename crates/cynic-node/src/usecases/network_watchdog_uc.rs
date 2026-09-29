@@ -10,7 +10,7 @@ use std::time::Duration;
 use cynic_host::domain::network::freebox::FreeboxProbePort;
 use cynic_host::domain::network::reconcile_network_watchdog_outbox;
 use cynic_network::{
-    DnsSynapseAssessment, InterfacePressure, NetworkAlertLevel, NetworkWatchdogAssessment,
+    DnsServiceAssessment, InterfacePressure, NetworkAlertLevel, NetworkWatchdogAssessment,
     ServicePortAssessment, WireguardMeshAssessment, evaluate_network_watchdog,
 };
 use serde::{Deserialize, Serialize};
@@ -85,7 +85,7 @@ pub fn execute_network_watchdog(
     };
 
     // 2. Observe DNS
-    let dns = DnsSynapseAssessment {
+    let dns = DnsServiceAssessment {
         zone: "synapse.cynic".to_string(),
         total_records: 4,
         resolved_records: 4,

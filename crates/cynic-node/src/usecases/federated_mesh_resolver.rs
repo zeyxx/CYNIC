@@ -184,7 +184,7 @@ impl PeerResolver for LocalRegistryMeshResolver {
             })
             .collect();
         bundles.sort_by_key(|(ts, _)| *ts);
-        let Some((_, path)) = bundles.into_iter().last() else {
+        let Some((ts, path)) = bundles.into_iter().last() else {
             return vec![];
         };
 
@@ -240,8 +240,8 @@ impl PeerResolver for LocalRegistryMeshResolver {
             .nodes
             .into_iter()
             .filter(|n| n.role == role)
-            .map(|n| SignedPeerEndpoint {
-                endpoint: PeerEndpoint {
+            .map(|n| {
+                let endpoint = PeerEndpoint {
                     node_id: n.id.clone(),
                     role: n.role.clone(),
                     transport: transport_for(&n.role, &n.ip),
@@ -254,12 +254,21 @@ impl PeerResolver for LocalRegistryMeshResolver {
                         active_osha_codes: vec![],
                         available_mem_mib: 0,
                     },
-                },
-                signature_ed25519: bundle.signature.clone(),
-                generated_at_unix_s: 0,
-                version: 1,
+                };
+                // The signature verified above, so admitting the wrapper is
+                // justified. `generated_at_unix_s` is the bundle timestamp we
+                // already sorted on; it used to be hardcoded to 0, which threw
+                // away the only freshness datum a fallback peer carries and left
+                // no way to tell a rolling bundle from a stale one.
+                SignedPeerEndpoint::from_verified(
+                    endpoint,
+                    bundle.signature.clone(),
+                    ts,
+                    1,
+                )
             })
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_default()
     }
 }
 
