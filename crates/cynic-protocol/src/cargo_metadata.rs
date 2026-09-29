@@ -19,10 +19,27 @@
 pub const CARGO_METADATA_ARGS: &[&str] = &["metadata", "--format-version", "1", "--no-deps", "--frozen"];
 
 /// The full argv, including the program, for adapters that want one slice.
-pub fn cargo_metadata_argv() -> Vec<String> {
-    std::iter::once("cargo".to_string())
-        .chain(CARGO_METADATA_ARGS.iter().map(|a| a.to_string()))
-        .collect()
+///
+/// Static by design: the arguments are a `const`, so handing the slice to an
+/// adapter costs no allocation and borrows nothing.
+///
+/// The signature was `-> Vec<String>` until 2026-09-29. That contradicted the
+/// line above it, allocated on every call for data that never outlived the call
+/// (all four call sites immediately re-borrowed it into a `Vec<&str>`), and
+/// broke four borrow-typed adapters. Owned argv, where an adapter genuinely
+/// needs it, stays an adapter concern.
+pub const CARGO_METADATA_ARGV: &[&str] = &[
+    "cargo",
+    "metadata",
+    "--format-version",
+    "1",
+    "--no-deps",
+    "--frozen",
+];
+
+/// The full argv, including the program, as one borrowable slice.
+pub fn cargo_metadata_argv() -> &'static [&'static str] {
+    CARGO_METADATA_ARGV
 }
 
 #[cfg(test)]
@@ -49,5 +66,14 @@ mod tests {
         let argv = cargo_metadata_argv();
         assert_eq!(argv[0], "cargo");
         assert_eq!(argv.len(), CARGO_METADATA_ARGS.len() + 1);
+    }
+
+    /// The two constants are the same fact written twice; a drift between them
+    /// would make the three `capture_command("cargo", ARGS)` adapters and the
+    /// four `cargo_metadata_argv()` adapters disagree about the same command,
+    /// which is exactly the failure this file was written to prevent.
+    #[test]
+    fn the_two_argv_forms_cannot_drift() {
+        assert_eq!(&CARGO_METADATA_ARGV[1..], CARGO_METADATA_ARGS);
     }
 }
