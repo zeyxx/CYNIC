@@ -10,6 +10,7 @@
 //! and cryptographic commitment verification. Zero sockets, zero disk I/O.
 
 pub mod channel;
+pub mod finance_adapters;
 pub mod htlc;
 pub mod types;
 
