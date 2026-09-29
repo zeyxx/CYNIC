@@ -5,7 +5,8 @@
 //!
 //! No I/O — samples are collected by adapters and passed in.
 
-use crate::types::{ExchangeRate, ExchangeRateTable, ResourceUnit};
+use crate::exchange::{ExchangeRate, ExchangeRateTable};
+use crate::types::ResourceUnit;
 use std::collections::HashMap;
 
 /// A single observed sample: resource consumed and tokens charged.
