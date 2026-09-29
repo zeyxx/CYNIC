@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::chat_session::{
     ChatEvent, ChatMessage, StreamChunk, ToolSpec, messages_from_events,
 };
+use crate::domain::chat_trace::{ChatTrace, TraceStatus};
 use crate::ports::chat_session_port::{ChatSessionStore, SessionStoreError};
+use crate::ports::trace_sink_port::TraceSinkPort;
 
 /// How the chat client obtains model completions (injectable for tests).
 #[async_trait::async_trait]
@@ -108,6 +110,8 @@ pub struct ChatService {
     temperature: Option<f32>,
     top_p: Option<f32>,
     reasoning_profile: Option<String>,
+    /// Best-effort per-turn trace sink (`None` = no ledger). Never fails turns.
+    tracer: Option<Arc<dyn TraceSinkPort>>,
 }
 
 #[derive(Debug, Clone)]
@@ -209,7 +213,40 @@ impl ChatService {
             temperature: config.temperature,
             top_p: config.top_p,
             reasoning_profile: config.reasoning_profile,
+            tracer: None,
         }
+    }
+
+    /// Attach a best-effort trace sink (builder — `new()` stays compatible).
+    pub fn with_tracer(mut self, sink: Arc<dyn TraceSinkPort>) -> Self {
+        self.tracer = Some(sink);
+        self
+    }
+
+    /// Best-effort ledger append. No sink configured = no-op.
+    fn record_trace(
+        &self,
+        session_id: &str,
+        status: TraceStatus,
+        tool_turns: u32,
+        prompt_chars: usize,
+        content_chars: usize,
+        started_ms: u64,
+    ) {
+        let Some(tracer) = &self.tracer else {
+            return;
+        };
+        tracer.record(&ChatTrace::new(
+            now_ms(),
+            session_id,
+            self.model.clone(),
+            self.endpoint.clone(),
+            status,
+            tool_turns,
+            prompt_chars,
+            content_chars,
+            now_ms().saturating_sub(started_ms),
+        ));
     }
 
     pub fn ready_report(&self) -> InferenceReadyReport {
@@ -266,9 +303,11 @@ impl ChatService {
         user_prompt: &str,
         stream: bool,
     ) -> ChatTurnReport {
+        let started_ms = now_ms();
+        let prompt_chars = user_prompt.chars().count();
         let ready = self.ready_report();
         if !ready.ready {
-            return ChatTurnReport {
+            let report = ChatTurnReport {
                 schema: "cynic.chat.turn.v1",
                 status: "blocked".into(),
                 session_id: session_id.unwrap_or("").into(),
@@ -283,6 +322,8 @@ impl ChatService {
                 message: ready.message,
                 blocked_reason: ready.blocked_reason,
             };
+            self.record_trace(&report.session_id, TraceStatus::Blocked, 0, prompt_chars, 0, started_ms);
+            return report;
         }
 
         let sid = session_id
@@ -296,19 +337,19 @@ impl ChatService {
             self.model.as_deref(),
             self.endpoint.as_deref(),
         ) {
-            return self.err_report(&sid, e.to_string());
+            return self.err_report(&sid, e.to_string(), prompt_chars, started_ms);
         }
 
         let mut appended = 0u64;
         let now = now_ms();
         let events = match self.store.load_events(&sid) {
             Ok(e) => e,
-            Err(e) => return self.err_report(&sid, e.to_string()),
+            Err(e) => return self.err_report(&sid, e.to_string(), prompt_chars, started_ms),
         };
         let next_seq = events.iter().map(|e| e.seq).max().unwrap_or(0) + 1;
         let user_ev = ChatEvent::user(next_seq, user_prompt, now);
         if let Err(e) = self.store.append(&sid, user_ev) {
-            return self.err_report(&sid, e.to_string());
+            return self.err_report(&sid, e.to_string(), prompt_chars, started_ms);
         }
         appended += 1;
 
@@ -320,7 +361,7 @@ impl ChatService {
         for _ in 0..self.max_tool_turns {
             let history = match self.store.load_events(&sid) {
                 Ok(e) => e,
-                Err(e) => return self.err_report(&sid, e.to_string()),
+                Err(e) => return self.err_report(&sid, e.to_string(), prompt_chars, started_ms),
             };
             let messages =
                 messages_with_runtime_context(&self.context_turns, messages_from_events(&history));
@@ -330,7 +371,7 @@ impl ChatService {
                 .await
             {
                 Ok(o) => o,
-                Err(e) => return self.err_report(&sid, e.to_string()),
+                Err(e) => return self.err_report(&sid, e.to_string(), prompt_chars, started_ms),
             };
             all_chunks.extend(outcome.stream_chunks);
 
@@ -340,7 +381,7 @@ impl ChatService {
                         ChatEvent::tool_call(seq, &tc.id, &tc.name, &tc.arguments_json, now_ms());
                     seq += 1;
                     if let Err(e) = self.store.append(&sid, call_ev) {
-                        return self.err_report(&sid, e.to_string());
+                        return self.err_report(&sid, e.to_string(), prompt_chars, started_ms);
                     }
                     appended += 1;
 
@@ -351,7 +392,7 @@ impl ChatService {
                     let res_ev = ChatEvent::tool_result(seq, &tc.id, &tc.name, &result, now_ms());
                     seq += 1;
                     if let Err(e) = self.store.append(&sid, res_ev) {
-                        return self.err_report(&sid, e.to_string());
+                        return self.err_report(&sid, e.to_string(), prompt_chars, started_ms);
                     }
                     appended += 1;
                     tool_turns += 1;
@@ -362,7 +403,7 @@ impl ChatService {
             if let Some(content) = outcome.content {
                 let asst = ChatEvent::assistant(seq, &content, now_ms());
                 if let Err(e) = self.store.append(&sid, asst) {
-                    return self.err_report(&sid, e.to_string());
+                    return self.err_report(&sid, e.to_string(), prompt_chars, started_ms);
                 }
                 appended += 1;
                 final_content = Some(content);
@@ -370,7 +411,8 @@ impl ChatService {
             break;
         }
 
-        ChatTurnReport {
+        let content_chars = final_content.as_ref().map(|c| c.chars().count()).unwrap_or(0);
+        let report = ChatTurnReport {
             schema: "cynic.chat.turn.v1",
             status: "ok".into(),
             session_id: sid,
@@ -384,10 +426,26 @@ impl ChatService {
             session_root: self.store.root_dir().display().to_string(),
             message: "turn complete".into(),
             blocked_reason: None,
-        }
+        };
+        self.record_trace(
+            &report.session_id,
+            TraceStatus::Ok,
+            tool_turns,
+            prompt_chars,
+            content_chars,
+            started_ms,
+        );
+        report
     }
 
-    fn err_report(&self, sid: &str, msg: String) -> ChatTurnReport {
+    fn err_report(
+        &self,
+        sid: &str,
+        msg: String,
+        prompt_chars: usize,
+        started_ms: u64,
+    ) -> ChatTurnReport {
+        self.record_trace(sid, TraceStatus::Error, 0, prompt_chars, 0, started_ms);
         ChatTurnReport {
             schema: "cynic.chat.turn.v1",
             status: "error".into(),
@@ -733,9 +791,65 @@ mod tests {
         assert!(report.content.is_none());
     }
 
+    struct StubSink {
+        traces: std::sync::Mutex<Vec<crate::domain::chat_trace::ChatTrace>>,
+    }
+
+    impl crate::ports::trace_sink_port::TraceSinkPort for StubSink {
+        fn record(&self, trace: &crate::domain::chat_trace::ChatTrace) {
+            self.traces.lock().unwrap().push(trace.clone());
+        }
+    }
+
     #[tokio::test]
-    async fn resume_appends_to_existing_session() {
+    async fn tracer_records_ok_and_blocked_turns() {
+        use crate::domain::chat_trace::TraceStatus;
+
         let dir = tempdir().unwrap();
+        let store = Arc::new(FsChatSessionStore::new(dir.path()).unwrap());
+        let client = Arc::new(MockChatClient::plain("hello back"));
+        let tools = Arc::new(BuiltinToolInvoker);
+        let sink = Arc::new(StubSink {
+            traces: std::sync::Mutex::new(Vec::new()),
+        });
+        let svc = ChatService::new(
+            store,
+            client,
+            tools,
+            vec![],
+            ChatServiceConfig::new(Some("mock://local".into()), Some("mock-model".into()), 2, true),
+        )
+        .with_tracer(sink.clone());
+        let report = svc.turn(Some("s-trace"), "hello", false).await;
+        assert_eq!(report.status, "ok");
+        {
+            let traces = sink.traces.lock().unwrap();
+            assert_eq!(traces.len(), 1);
+            assert_eq!(traces[0].status, TraceStatus::Ok);
+            assert_eq!(traces[0].session_id, "s-trace");
+            assert_eq!(traces[0].model_alias.as_deref(), Some("mock-model"));
+            assert_eq!(traces[0].prompt_chars, "hello".chars().count());
+        }
+
+        let dir2 = tempdir().unwrap();
+        let store2 = Arc::new(FsChatSessionStore::new(dir2.path()).unwrap());
+        let svc2 = ChatService::new(
+            store2,
+            Arc::new(MockChatClient::plain("never")),
+            Arc::new(BuiltinToolInvoker),
+            vec![],
+            ChatServiceConfig::new(None, None, 2, false),
+        )
+        .with_tracer(sink.clone());
+        let blocked = svc2.turn(None, "hi", false).await;
+        assert_eq!(blocked.status, "blocked");
+        let traces = sink.traces.lock().unwrap();
+        assert_eq!(traces.len(), 2);
+        assert_eq!(traces[1].status, TraceStatus::Blocked);
+    }
+
+    #[tokio::test]
+    async fn resume_appends_to_existing_session() {        let dir = tempdir().unwrap();
         let store = Arc::new(FsChatSessionStore::new(dir.path()).unwrap());
         let client = Arc::new(MockChatClient::plain("second"));
         let tools = Arc::new(BuiltinToolInvoker);

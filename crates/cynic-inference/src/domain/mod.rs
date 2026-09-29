@@ -2,6 +2,7 @@ pub mod backend_config;
 pub mod backend_identity;
 pub mod chat;
 pub mod chat_session;
+pub mod chat_trace;
 pub mod embedding;
 pub mod engine_caps;
 pub mod hardware_profile;

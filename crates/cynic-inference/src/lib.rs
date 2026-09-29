@@ -3,6 +3,7 @@ pub mod application;
 pub mod config_loader;
 pub mod domain;
 pub mod embedding;
+pub mod finance_adapters;
 pub mod inference;
 pub mod infra;
 pub mod math;
