@@ -35,7 +35,11 @@
     "clear_owner": "Each crate/module must have an identifiable perimeter and a clear contract for what it exposes vs hides.",
     "public_surface_contract": "Public surface is a commitment; it does not expand without reason.",
     "one_way_dependency": "Dependency direction must be readable; obscure, implicit, or bidirectional dependencies are avoided without an abstraction.",
-    "domain_no_infrastructure_by_default": "Domain logic must not depend on adapters, infrastructure, framework, driver, or runtime-specific concerns unless it is explicitly that kind of layer."
+    "domain_no_infrastructure_by_default": "Domain logic must not depend on adapters, infrastructure, framework, driver, or runtime-specific concerns unless it is explicitly that kind of layer.",
+    "name_states_responsibility": "A crate name states ONE responsibility in functional English. It never states a layer (a name may not encode L0-L4, which lives in infra/crate-topology.json and is checked against the real dependency graph), never a vendor or provider prefix used as a category, and never a metaphor. Agave/solana-runtime is the reference: capability names, the layer is declared in Cargo.toml, and the DAG is enforced by the dependency graph rather than by the name.",
+    "one_responsibility_one_crate": "A responsibility has exactly one owning crate. Two crates that both claim it, or that re-export the same surface under a second name, are CONTESTED: the canonical owner wins and the copy is deleted or repointed. Enforced by crates/cynic-host/tests/crate_taxonomy_ownership.rs, which fails when two declared crates share a responsibility or carry an empty one.",
+    "family_prefix_is_optional_and_not_normative": "A family prefix (cynic-host-*, cynic-intel-*, cynic-domain-*) is neither required nor privileged. A crate without a prefix is not in violation; a crate with one does not gain a layer, a purity guarantee, or an exemption. The 'domain' prefix in particular asserts a purity that adapter-bearing crates do not have (cynic-domain-cloudflare and cynic-domain-porkbun both contain adapter.rs and reqwest), so it is retired as a category rather than extended.",
+    "metaphor_banned_from_crate_names": "A metaphor (askesis, kyon, zen) is vocabulary, not a crate name. It may name a concept or a type; it may not name a crate, because a metaphor is what gets used exactly where the responsibility has no functional name, and it then multiplies into collisions (cynic-askesis / cynic-domain-askesis). Renaming a crate that is anchored in a normative contract is a contract change and requires operator admission."
   },
   "visibility_rules": {
     "tightest_usable": "Use the narrowest visibility that communicates intent. Private by default, pub(crate) for internal shared detail, pub only where it is a real public API.",
@@ -60,7 +64,9 @@
     "god_module": "One module or crate accumulating unrelated responsibilities with no clear boundary is a violation signal, not yet a verdict.",
     "dumping_ground": "A module that becomes a catch-all without a coherent responsibility is a violation signal.",
     "framework_in_domain": "Domain code importing framework, driver, runtime, or infrastructure-specific types without an explicit adapter role is a violation signal.",
-    "broad_pub_by_convenience": "Permanent over-broad visibility used to avoid a real boundary is a violation signal."
+    "broad_pub_by_convenience": "Permanent over-broad visibility used to avoid a real boundary is a violation signal.",
+    "name_encodes_layer_or_vendor": "A crate name that asserts a layer, a purity, or a vendor as its category. The DAG is machine readable in infra/crate-topology.json and in the Cargo graph; duplicating it in a name creates collisions the graph cannot see.",
+    "responsibility_has_two_owners": "Two crates declaring or implementing the same responsibility. This is the defect that produced five homes for Claim, Scope and Budget; it is now a gate, not a comment."
   },
   "known_ambiguities": {
     "suspect_to_small_crate_threshold": "The exact threshold for 'too small a crate' is contextual; the rule gives a signal, not an automatic verdict.",
@@ -74,7 +80,8 @@
     "date": "2026-09-28",
     "previous_status": "draft",
     "ratified_by": "operator",
-    "why": "This policy was used as the decision rule for the whole crate fusion programme — infra/CRATE_FUSION_DISPOSITIONS.md applies crate_justified and suspect_over_splitting to 10 candidates, and those dispositions are only proposals rather than opinions because the rule they were derived from is now authority. A contract left in draft while being used to rule is the same failure as a denylist nobody compares: it looks like a policy and decides nothing.",
-    "applies_to_the_agent": "This policy is the authority for whether a crate may be created, fused, or removed. It is machine-checked in part by ARCH-004 in cynic-host::audit_engine, which enforces the justification clause against the observed manifests, and the remainder is carried by infra/CRATE_FUSION_DISPOSITIONS.md, whose lists may only shrink."
+    "why": "This policy was used as the decision rule for the whole crate fusion programme \u2014 infra/CRATE_FUSION_DISPOSITIONS.md applies crate_justified and suspect_over_splitting to 10 candidates, and those dispositions are only proposals rather than opinions because the rule they were derived from is now authority. A contract left in draft while being used to rule is the same failure as a denylist nobody compares: it looks like a policy and decides nothing.",
+    "applies_to_the_agent": "This policy is the authority for whether a crate may be created, fused, or removed. It is machine-checked in part by ARCH-004 in cynic-host::audit_engine, which enforces the justification clause against the observed manifests, and the remainder is carried by infra/CRATE_FUSION_DISPOSITIONS.md, whose lists may only shrink.",
+    "amendment_2026_09_29": "Added name_states_responsibility, one_responsibility_one_crate, family_prefix_is_optional_and_not_normative and metaphor_banned_from_crate_names, plus two entries under violations. Ratified by the operator on 2026-09-29 after re-studying the Agave model. Basis: Agave keeps a single Cargo workspace with root-level shared lints, names crates by capability, puts the layer in Cargo.toml rather than in the name, and gates unstable surfaces behind a feature flag. Its own counter-example is documented in this amendment: the solana-* to agave-* rename broke automations, which is what happens when a prefix encodes provenance rather than responsibility. Enforcement: crates/cynic-host/tests/crate_taxonomy_ownership.rs."
   }
 }

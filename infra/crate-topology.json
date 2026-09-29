@@ -278,6 +278,23 @@
    ],
    "justified": true
   },
+  "cynic-finance": {
+   "layer": "L2",
+   "kind": "library",
+   "depends_on": [
+    "cynic-protocol"
+   ],
+   "consumers": [
+    "cynic-agent-bus",
+    "cynic-consensus",
+    "cynic-host",
+    "cynic-host-probes",
+    "cynic-inference",
+    "cynic-network",
+    "cynic-storage"
+   ],
+   "justified": true
+  },
   "cynic-forensics": {
    "layer": "L1",
    "kind": "library",
