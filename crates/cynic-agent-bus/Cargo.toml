@@ -8,6 +8,7 @@ description = "CYNIC sovereign agent bus — coordination, claims, proofs"
 # Domain types
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
+cynic-finance = { path = "../cynic-finance" }
 
 # Crypto
 ed25519-dalek.workspace = true

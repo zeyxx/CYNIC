@@ -1,4 +1,5 @@
 pub mod claim;
+pub mod finance_adapters;
 pub mod identity;
 pub mod ledger;
 pub mod ports;
