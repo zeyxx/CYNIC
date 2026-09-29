@@ -1,5 +1,6 @@
 pub mod agent_citizenship;
 pub mod cargo_metadata;
+pub mod fleet_target;
 pub mod anchor_client;
 pub mod agent_connection;
 pub mod agent_coordination;
