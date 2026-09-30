@@ -31,7 +31,8 @@ use std::process::ExitCode;
 
 use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::{
-    HttpTelegramNotificationTransport, InMemoryNotificationOutboxStore, process_notification_outbox,
+    HttpTelegramNotificationTransport, InMemoryNotificationOutboxStore,
+    NotificationOutboxStorePort as _, process_notification_outbox,
 };
 use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 use serde::Serialize;
