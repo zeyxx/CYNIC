@@ -1,5 +1,6 @@
 pub mod path_rules;
 pub mod topology;
+pub mod topology_generate;
 pub mod rules;
 mod runtime_divergence;
 pub mod scanner;

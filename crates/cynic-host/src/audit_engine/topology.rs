@@ -31,11 +31,11 @@ const EDGE_SECTIONS: &[&str] = &["dependencies", "build-dependencies"];
 const DEV_SECTIONS: &[&str] = &["dev-dependencies"];
 
 #[derive(Debug, Default)]
-struct Topology {
-    edges: BTreeMap<String, BTreeSet<String>>,
-    dev_edges: BTreeMap<String, BTreeSet<String>>,
-    binaries: BTreeSet<String>,
-    consumers: BTreeMap<String, BTreeSet<String>>,
+pub(crate) struct Topology {
+    pub(crate) edges: BTreeMap<String, BTreeSet<String>>,
+    pub(crate) dev_edges: BTreeMap<String, BTreeSet<String>>,
+    pub(crate) binaries: BTreeSet<String>,
+    pub(crate) consumers: BTreeMap<String, BTreeSet<String>>,
 }
 
 fn crate_of(manifest_relative_path: &str) -> Option<String> {
@@ -157,7 +157,7 @@ pub(crate) fn observe(index: &WorkspaceSourceIndex) -> Topology {
 /// is gated behind `required-features = ["cli"]`. A check that guesses instead of
 /// reading reports confidence it has not earned — the same defect this rule exists
 /// to remove, one layer down.
-fn is_binary(index: &WorkspaceSourceIndex, name: &str) -> bool {
+pub(crate) fn is_binary(index: &WorkspaceSourceIndex, name: &str) -> bool {
     let Some(manifest) = index
         .manifests
         .iter()
