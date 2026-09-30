@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde_json::Value;
@@ -30,6 +30,7 @@ fn cli_main_is_a_thin_facade() {
     );
 }
 
+#[test]
 fn cli_delegates_lab_runtime_to_cynic_host() {
     let root = crate_root();
     assert!(
@@ -70,6 +71,7 @@ fn cli_has_no_hidden_commands() {
     }
 }
 
+#[test]
 fn cli_exposes_framework_bootstrap_as_canonical_surface() {
     let root = crate_root();
     let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
@@ -1310,6 +1312,7 @@ fn cli_audit_crate_verification_passes() {
     );
 }
 
+#[test]
 fn canonical_surface_audit_executes_against_real_modules() {
     let source = PathBuf::from(env!("CARGO_BIN_EXE_cynic"));
     let output = Command::new(&source)
@@ -2110,5 +2113,185 @@ fn contract_references_name_a_rule_and_not_a_line() {
             .cloned()
             .collect::<Vec<_>>()
             .join("\n  ")
+    );
+}
+
+/// A contract may not overstate its own enforcement.
+///
+/// This is the Eliza Labs failure encoded as a check. The project was represented as
+/// autonomously governed while insiders retained actual control; the divergence between
+/// the stated rule and the enforced rule was the entire case, and nothing in the
+/// organisation reported it. A contract that declares coverage it does not have is the
+/// same defect at smaller scale, and it is the defect that makes a governance claim
+/// unfalsifiable.
+///
+/// So: a discriminator with no executable check must say so, and must refuse promotion.
+/// `contracts/ownership.json → discriminator` currently declares `executable_check: null`
+/// and `coverage: partial`, and `ratification.promotion_requires` names the missing check
+/// as a blocker. That is the honest shape, and this asserts it stays honest.
+///
+/// Expected green: a contract that hid a null check behind an "enforced" status would fail.
+#[test]
+fn a_contract_may_not_overstate_its_own_enforcement() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/ownership.json"))
+        .expect("contracts/ownership.json is readable");
+    let parsed: Value = serde_json::from_str(&raw).expect("ownership.json parses");
+
+    let discriminator = &parsed["discriminator"];
+    let coverage = discriminator["coverage"].as_str().unwrap_or("absent");
+
+    // The key must be present and explicitly null. An omitted key reads as an oversight; an
+    // explicit null reads as a recorded absence. The difference is the whole point.
+    let declares_absence = matches!(discriminator.get("executable_check"), Some(Value::Null));
+    assert!(
+        declares_absence,
+        "ownership.json does not record executable_check as an explicit null. Either the check \
+         exists and must be wired, or the contract must state its absence. A governance rule \
+         that is silent about its own enforcement is precisely the charge that destroyed \
+         ELIZA Labs: the divergence between the stated rule and the enforced one."
+    );
+    assert_eq!(
+        coverage, "partial",
+        "ownership.json discriminator coverage is {coverage:?} with no executable check. A rule \
+         with no check is partial or unknown. It is never covered."
+    );
+
+    let promotion = parsed["ratification"]["promotion_requires"]
+        .as_array()
+        .expect("ownership.json declares ratification.promotion_requires");
+    assert!(
+        promotion
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|r| r.contains("DISC-01") || r.contains("executable check")),
+        "The unenforced discriminator must appear in ratification.promotion_requires, otherwise \
+         the contract can be promoted to normative while the rule that holds it is unbacked."
+    );
+}
+
+/// Every claim a contract rests on exists in the claim index, and every load-bearing
+/// claim names a falsifier.
+///
+/// The failure this removes: 378 markdown files died while 48 executable test files
+/// survived, and five mutually exclusive definitions of CYNIC were readable with no
+/// marker of which one was the reference. Documentation does not prevent that. An
+/// index plus a check does, because it makes an unindexed assertion visible instead of
+/// merely unregistered.
+///
+/// `falsifier` is mandatory and load-bearing claims are the ones that matter: a rule with
+/// no way to be refuted is a belief, and a belief that a runtime depends on is a defect
+/// scheduled to be discovered in production.
+#[test]
+fn ownership_claims_are_indexed_and_load_bearing_claims_are_falsifiable() {
+    let claims_raw = std::fs::read_to_string(workspace().join("contracts/claims.json"))
+        .expect("contracts/claims.json is readable");
+    let claims: Value = serde_json::from_str(&claims_raw).expect("claims.json parses");
+
+    let entries = claims["claims"].as_array().expect("claims is an array");
+    let mut indexed: BTreeSet<String> = BTreeSet::new();
+    for entry in entries {
+        let id = entry["claim_id"].as_str().expect("every claim carries a claim_id");
+        assert!(
+            indexed.insert(id.to_string()),
+            "Duplicate claim_id {id}. An index with two entries under one key resolves to \
+             whichever was read last."
+        );
+    }
+
+    // Every claim the ownership contract rests on must resolve.
+    let ownership_raw = std::fs::read_to_string(workspace().join("contracts/ownership.json"))
+        .expect("contracts/ownership.json is readable");
+    let ownership: Value = serde_json::from_str(&ownership_raw).expect("ownership.json parses");
+    let referenced: Vec<&str> = ownership["claims"]
+        .as_array()
+        .expect("ownership.json declares its claims")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+
+    let unresolved: Vec<&str> = referenced
+        .iter()
+        .copied()
+        .filter(|c| !indexed.contains(*c))
+        .collect();
+    assert!(
+        unresolved.is_empty(),
+        "contracts/ownership.json rests on {unresolved:?}, which are absent from \
+         contracts/claims.json. A contract whose foundations are not indexed is a contract \
+         whose foundations can change without anything reporting it."
+    );
+
+    // A load-bearing claim must be refutable.
+    let unfalsifiable: Vec<&str> = entries
+        .iter()
+        .filter(|e| e["load_bearing"].as_bool() == Some(true))
+        .filter(|e| {
+            e["falsifier"]
+                .as_str()
+                .map(str::trim)
+                .filter(|f| !f.is_empty())
+                .is_none()
+        })
+        .filter_map(|e| e["claim_id"].as_str())
+        .collect();
+    assert!(
+        unfalsifiable.is_empty(),
+        "Load-bearing claim(s) {unfalsifiable:?} name no falsifier. A rule the runtime \
+         depends on, which nothing can refute, is a belief. Either give it a check or \
+         demote it to load_bearing: false."
+    );
+}
+
+/// A specification may not declare itself normative without an invariant and a falsifier.
+///
+/// `specs/TEMPLATE.md` already required `REQ-XXX` and `INV-01`, and prescribed a
+/// read-back probe. The template was never enforced, and the result is visible: three
+/// specs are marked Implemented, Verified, or Ratified and Hardened, and none of them
+/// names a way to be refuted. `SPEC-CYNIC-STORAGE-V1` is declared sealed while being
+/// unfalsifiable.
+///
+/// Expected RED. `RFC-001-MAGNETIC-COORDINATION` (Implemented & Verified) and
+/// `SPEC-CYNIC-STORAGE-V1` (Ratified, Hardened & Sealed) carry invariants but no
+/// falsifier. `TEMPLATE.md` is excluded as a template. The red is the finding: a spec
+/// that cannot be refuted is a belief the word "Verified" is doing the work of.
+///
+/// A row in `boundary_coverage` may only move from uncovered to covered by adding an
+/// executable check, never by editing the note. This is that check.
+#[test]
+fn no_normative_spec_without_invariant_and_falsifier() {
+    let specs_dir = workspace().join("specs");
+    let mut missing_invariant: Vec<String> = Vec::new();
+    let mut missing_falsifier: Vec<String> = Vec::new();
+
+    for entry in std::fs::read_dir(&specs_dir).expect("read specs/") {
+        let path = match entry {
+            Ok(e) => e.path(),
+            Err(_) => continue,
+        };
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        if !name.ends_with(".md") || name == "TEMPLATE.md" {
+            continue;
+        }
+        let body = std::fs::read_to_string(&path).expect("read spec");
+        if !body.contains("INV-") {
+            missing_invariant.push(name.to_string());
+        }
+        let falsifiable = body.to_lowercase().contains("falsif");
+        if !falsifiable {
+            missing_falsifier.push(name.to_string());
+        }
+    }
+
+    assert!(
+        missing_invariant.is_empty(),
+        "Spec(s) {missing_invariant:?} declare no invariant. A specification without an \
+         invariant states an intention; a contract states a rule. specs/TEMPLATE.md requires \
+         INV-01 and the requirement was never enforced."
+    );
+    assert!(
+        missing_falsifier.is_empty(),
+        "Spec(s) {missing_falsifier:?} declare no falsifier. A ratified, sealed or verified \
+         specification that names no way to be refuted is not verified. The status word is \
+         doing the work the check should do."
     );
 }

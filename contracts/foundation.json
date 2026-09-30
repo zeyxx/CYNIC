@@ -76,6 +76,10 @@
       {
         "name": "strict_dag_and_single_responsibility",
         "rule": "Every crate follows the canonical cynic-<family>-<role> taxonomy. Architecture is a strict downward DAG (Layer 4 Projections -> Layer 3 Orchestrators -> Layer 2 Domains -> Layer 1 Host Substrate -> Layer 0 Pure Protocol). Cross-family concrete coupling, upward dependencies, God-object orchestrators exceeding 25k LOC, and domain I/O outside injected ports are constitutional violations."
+      },
+      {
+        "name": "governance_ownership_split",
+        "rule": "Material claim and the right of exit are inviolable: no aggregate of governance weight may extinguish, dilute, or transfer them, and no treasury is the sole legal defense of a permissionless system. Governance weight is derived from observed contribution, never stored, never purchasable with material ownership."
       }
     ],
     "deleted_authorities": [
@@ -88,7 +92,7 @@
     ],
     "boundary_coverage": {
       "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
-      "measured_at": "2026-09-28, third measurement",
+      "measured_at": "2026-09-30, fourth measurement (ownership boundary added)",
       "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
       "statuses": {
         "covered_green": "an executable check exists and passes.",
@@ -99,10 +103,10 @@
       },
       "totals": {
         "covered": 4,
-        "partial": 4,
+        "partial": 5,
         "uncovered": 4,
         "by_design_unenforceable": 2,
-        "boundaries": 14
+        "boundaries": 15
       },
       "coverage": [
         {
@@ -174,6 +178,11 @@
           "boundary": "strict_dag_and_single_responsibility",
           "status": "partial",
           "note": "forbids upward dependencies in every crate boundary test. Single responsibility is not checked and is not mechanically checkable."
+        },
+        {
+          "boundary": "governance_ownership_split",
+          "status": "partial",
+          "note": "contracts/ownership.json declares R-A..R-D, INV-01..07, asymmetries A1/A2 and the discriminator DISC-01. Two checks pass (a_contract_may_not_overstate_its_own_enforcement, ownership_claims_are_indexed_and_load_bearing_claims_are_falsifiable). DISC-01 itself has no executable check: the rule that a majority supply holder must hold no vote over another's claim is declared, not enforced. Weight derives to unknown in practice because ChatTrace token counts are Option<u64> = None with no production TraceSink wired."
         }
       ],
       "rules": [

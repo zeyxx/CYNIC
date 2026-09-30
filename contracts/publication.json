@@ -156,9 +156,9 @@
       "reason": "session notes and third-party coursework unrelated to the runtime"
     },
     {
-      "path": "vault/**",
+      "path": "spaces/**",
       "status": "exclude",
-      "reason": "personal philosophical work in French prose, plus an Obsidian editor configuration"
+      "reason": "operator sovereign space: personal philosophical work in French prose, plus an Obsidian editor configuration. Pre-legislative per spaces/operator/README.md, and deliberately unindexed in contracts/claims.json so it carries no runtime standing."
     },
     {
       "path": "bounty/**",
