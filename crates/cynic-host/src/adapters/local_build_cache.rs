@@ -94,6 +94,129 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
         }
         Ok(format!("removed_reproducible_cache:{}", profile.display()))
     }
+
+
+    /// Remove the non-canonical build caches the registry declares.
+    ///
+    /// Each path was built by `load_build_cache_desired_state` from the registry
+    /// (`base: state_root | temporary_directory` + `relative_path`), so the
+    /// boundary check here is the same one, applied to the same strings — not a
+    /// second derivation.
+    ///
+    /// Fail-closed on anything ambiguous: a path outside its declared base, a
+    /// symlinked ancestor, or a read-back that cannot prove absence all abort
+    /// before the next path is touched. A cache removal that cannot be proven is
+    /// a cache removal that did not happen.
+    fn reclaim_noncanonical_caches(
+        &self,
+        desired: &BuildCacheDesiredState,
+    ) -> Result<String, String> {
+        let state_root = Path::new(&desired.state_root);
+        let temporary_root = Path::new(&desired.temporary_root);
+        let mut removed = Vec::new();
+        let mut skipped = Vec::new();
+
+        for raw in &desired.noncanonical_cache_paths {
+            let path = Path::new(raw);
+            if !path.is_absolute() {
+                return Err(format!(
+                    "build_cache_noncanonical_path_not_absolute:{raw}"
+                ));
+            }
+            // The path must live under one of the two roots the loader used.
+            // Either root is accepted because the loader accepted either; the
+            // check is that it is under A root, never that it is under a
+            // particular one.
+            let under_state = path.strip_prefix(state_root).is_ok();
+            let under_temporary = path.strip_prefix(temporary_root).is_ok();
+            if !under_state && !under_temporary {
+                return Err(format!(
+                    "build_cache_noncanonical_path_outside_declared_base:{raw}"
+                ));
+            }
+            if path == state_root || path == temporary_root {
+                return Err(format!(
+                    "build_cache_noncanonical_path_is_a_root:{raw}"
+                ));
+            }
+
+            let mut unknowns = Vec::new();
+            match fs::symlink_metadata(path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    skipped.push(raw.clone());
+                    continue;
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "build_cache_noncanonical_path_unobservable:{raw}:{error}"
+                    ));
+                }
+                Ok(metadata) => {
+                    if metadata.file_type().is_symlink() {
+                        return Err(format!(
+                            "build_cache_noncanonical_path_is_symlink:{raw}"
+                        ));
+                    }
+                    if !metadata.is_dir() {
+                        return Err(format!(
+                            "build_cache_noncanonical_path_not_a_directory:{raw}"
+                        ));
+                    }
+                }
+            }
+
+            // Every ancestor between the root and the path must be a real
+            // directory, so a symlinked intermediate cannot redirect the removal.
+            let boundary = if under_state { state_root } else { temporary_root };
+            if directory_chain_state(boundary, path, &mut unknowns)
+                != BuildCachePathState::SafeDirectory
+            {
+                return Err(format!(
+                    "build_cache_noncanonical_path_rejected:{raw}"
+                ));
+            }
+            if !unknowns.is_empty() {
+                return Err(format!(
+                    "build_cache_noncanonical_path_unknown:{raw}:{}",
+                    unknowns.join(",")
+                ));
+            }
+
+            fs::remove_dir_all(path)
+                .map_err(|error| format!("build_cache_noncanonical_remove_failed:{raw}:{error}"))?;
+
+            // Read back: absence is the only accepted proof.
+            match fs::symlink_metadata(path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    removed.push(raw.clone());
+                }
+                Ok(_) => {
+                    return Err(format!(
+                        "build_cache_noncanonical_read_back_failed:{raw}"
+                    ));
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "build_cache_noncanonical_read_back_unknown:{raw}:{error}"
+                    ));
+                }
+            }
+        }
+
+        Ok(format!(
+            "removed_noncanonical_caches:{}:skipped_absent:{}",
+            if removed.is_empty() {
+                "none".to_string()
+            } else {
+                removed.join("|")
+            },
+            if skipped.is_empty() {
+                "none".to_string()
+            } else {
+                skipped.join("|")
+            }
+        ))
+    }
 }
 
 fn directory_chain_state(
@@ -157,6 +280,7 @@ mod tests {
         let desired = BuildCacheDesiredState {
             node_id: "builder-a".to_string(),
             state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
             canonical_target: target.display().to_string(),
             minimum_available_bytes: 1,
             reclaim_profile: "debug".to_string(),
@@ -173,6 +297,123 @@ mod tests {
     }
 
     #[test]
+    fn noncanonical_reclaim_removes_declared_caches_and_reads_back_absence() {
+        let root = tempfile::tempdir().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let state_cache = root.path().join("source/repositories/CYNIC/target");
+        let temp_cache = tmp.path().join("cynic-cargo-targets");
+        fs::create_dir_all(state_cache.join("debug/deps")).unwrap();
+        fs::create_dir_all(temp_cache.join("debug/deps")).unwrap();
+        fs::write(state_cache.join("debug/deps/cache"), b"cache").unwrap();
+        fs::write(temp_cache.join("debug/deps/cache"), b"cache").unwrap();
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: tmp.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![
+                state_cache.display().to_string(),
+                temp_cache.display().to_string(),
+            ],
+        };
+
+        let evidence = LocalBuildCacheAdapter
+            .reclaim_noncanonical_caches(&desired)
+            .expect("both declared caches are within their bases");
+
+        assert!(!state_cache.exists(), "state-root cache must be gone");
+        assert!(!temp_cache.exists(), "temporary-root cache must be gone");
+        assert!(evidence.starts_with("removed_noncanonical_caches:"));
+        assert!(evidence.contains("cynic-cargo-targets"));
+    }
+
+    #[test]
+    fn noncanonical_reclaim_skips_an_absent_cache_without_failing() {
+        let root = tempfile::tempdir().unwrap();
+        let absent = root.path().join("never-created");
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![absent.display().to_string()],
+        };
+
+        let evidence = LocalBuildCacheAdapter
+            .reclaim_noncanonical_caches(&desired)
+            .expect("an absent cache is the desired state, not a failure");
+
+        assert!(evidence.contains("removed_noncanonical_caches:none"));
+        assert!(evidence.contains("skipped_absent:"));
+    }
+
+    #[test]
+    fn noncanonical_reclaim_rejects_a_path_outside_its_declared_base() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir_all(outside.path().join("not-mine")).unwrap();
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![outside
+                .path()
+                .join("not-mine")
+                .display()
+                .to_string()],
+        };
+
+        let error = LocalBuildCacheAdapter
+            .reclaim_noncanonical_caches(&desired)
+            .expect_err("a path under neither root must be refused");
+
+        assert!(error.contains("outside_declared_base"), "got: {error}");
+        assert!(
+            outside.path().join("not-mine").is_dir(),
+            "the refused path must be untouched"
+        );
+    }
+
+    #[test]
+    fn noncanonical_reclaim_rejects_a_symlinked_cache() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir_all(outside.path().join("real")).unwrap();
+        let link = root.path().join("linked-cache");
+        symlink(outside.path().join("real"), &link).unwrap();
+        let desired = BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
+            canonical_target: root.path().join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: vec![link.display().to_string()],
+        };
+
+        let error = LocalBuildCacheAdapter
+            .reclaim_noncanonical_caches(&desired)
+            .expect_err("a symlinked cache must be refused, not followed");
+
+        assert!(error.contains("is_symlink"), "got: {error}");
+        assert!(
+            outside.path().join("real").is_dir(),
+            "the symlink target must be untouched"
+        );
+    }
+
+    #[test]
     fn mutation_rejects_a_symlinked_target_ancestor() {
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
@@ -181,6 +422,7 @@ mod tests {
         let desired = BuildCacheDesiredState {
             node_id: "builder-a".to_string(),
             state_root: root.path().display().to_string(),
+            temporary_root: root.path().display().to_string(),
             canonical_target: root.path().join("linked/targets").display().to_string(),
             minimum_available_bytes: 1,
             reclaim_profile: "debug".to_string(),

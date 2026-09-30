@@ -21,6 +21,7 @@ mod tests {
         let desired = BuildCacheDesiredState {
             node_id: "builder-a".to_string(),
             state_root: "/state".to_string(),
+            temporary_root: "/tmp".to_string(),
             canonical_target: "/state/targets".to_string(),
             minimum_available_bytes: 100,
             reclaim_profile: "debug".to_string(),

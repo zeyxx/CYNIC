@@ -81,6 +81,7 @@ pub fn load_build_cache_desired_state(
     Ok(BuildCacheDesiredState {
         node_id: node_id.to_string(),
         state_root: path_string(state_root)?,
+        temporary_root: path_string(temporary_root)?,
         canonical_target: path_string(&canonical_target)?,
         minimum_available_bytes: policy.minimum_available_bytes,
         reclaim_profile: policy.canonical_cache_reclaim.target_profile,

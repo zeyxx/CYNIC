@@ -8,6 +8,13 @@ pub const BUILD_CACHE_REPORT_SCHEMA: &str = "cynic.build_runner.cache_report.v1"
 pub struct BuildCacheDesiredState {
     pub node_id: String,
     pub state_root: String,
+    /// The temporary root the registry may place non-canonical caches under.
+    ///
+    /// Carried because the mutation that removes those caches must enforce the
+    /// same boundary the loader used to build their paths. Re-deriving it at
+    /// removal time would be a second reading of the same policy, and the two
+    /// readings could disagree.
+    pub temporary_root: String,
     pub canonical_target: String,
     pub minimum_available_bytes: u64,
     pub reclaim_profile: String,
