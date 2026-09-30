@@ -7,6 +7,12 @@
   **the audit wins**. A stale sentence here is a bug to fix, not a rule.
 - **written**: 2026-09-28, from measurements taken that day. Every number below
   was measured on this repository; none is estimated.
+- **amended**: 2026-09-30 — §9 added. External evidence from seven large Rust
+  workspaces (agave, rust-analyzer, tokio, wasmtime, deno, polkadot-sdk, servo),
+  read from their root `Cargo.toml`, declared contribution rules, and the CI
+  scripts that execute them. Added because the taxonomy question was being
+  re-litigated from prose instead of from what other projects actually do.
+  §9 does not add a rule; it records which existing rule the evidence supports.
 - **Why this file exists**: the workspace has ~14 `contracts/*.json`, 29
   `infra/*.json` and a pile of prose, all claiming to describe the rules, none
   of them explaining *why* the rules are shaped this way. An agent reading
@@ -237,3 +243,129 @@ The dependency order is not by size or by count. It is by what unblocks the rest
   rejected. The question is open because the answer changes what `cynic-cli` is.
 - Whether line counts are ever restored as a guard. Recommended: keep the ceiling
   as blast-radius only, never as a design rule, because `SURCHARGE = 0`.
+
+## 9. External evidence: what the large Rust workspaces actually do
+
+Measured 2026-09-30 from each project's root `Cargo.toml`, its declared
+contribution rules, and the CI scripts that execute them. Raw sources are named
+per claim; nothing below is inferred from reputation.
+
+### 9.1 The four layouts, and where CYNIC sits
+
+| project | crates | layout | name prefix | depth |
+|---|---|---|---|---|
+| **tokio** | 10 | flat, repo root | **mandatory** (`tokio-*`) | 0 |
+| **rust-analyzer** | 34 | flat, `crates/` | **none** (`base-db`, `hir-def`, `vfs`) | 0 |
+| **agave** | 126 | flat, **repo root** | **two coexist** (`solana-*`, `agave-*`) | 0 (113) / 2 (13) |
+| **wasmtime** | 34 | nested | `cranelift-*`, `wasmtime-*` | 3 |
+| **deno** | 77 | nested | `deno_*` (underscore) | 3 |
+| **polkadot-sdk** | 597 | nested | `*-pallet`, `*-primitives` | **7** |
+| **servo** | 6 | nested (`components/`, `ports/`, `ffi/`) | none | 2 |
+
+**Three findings that contradict the current CYNIC pattern.**
+
+1. **`crates/` is a minority convention.** Agave — the project CYNIC names as its
+   reference — does **not** use a `crates/` directory. Its crates sit at the repo
+   root, one directory per crate, 113 of 126 at depth 0.
+2. **A mandatory family prefix is a minority convention.** Of the seven projects,
+   only **tokio** enforces one. Tokio can, because it is one product with one
+   owner. rust-analyzer has 34 crates and **zero** prefixes: `base-db`,
+   `hir-def`, `hir-ty`, `vfs`, `syntax`, `parser`, `ide`, `mbe`, `span`, `stdx`.
+3. **Nesting is not a smell — it is what the biggest workspaces do.**
+   polkadot-sdk is 597 crates at depth 7; deno 77 at depth 3; wasmtime 34 at
+   depth 3. rust-analyzer and servo use globs (`lib/*`, `crates/*`,
+   `tests/unit/*`) rather than enumerating members.
+
+### 9.2 Agave's own rule contradicts "the name states the family"
+
+`agave/AGENTS.md`, verbatim, entire file:
+
+> This workspace contains both `agave-*` and `solana-*` packages. Do not infer a
+> package name from its directory. The authoritative Cargo package name is the
+> `name` field in the crate's `[package]` table.
+
+Verified against the manifests:
+
+```
+directory accounts-db   → package solana-accounts-db
+directory wake-channel  → package agave-wake-channel
+directory runtime       → package solana-runtime
+directory bucket_map    → package solana-bucket-map
+```
+
+The directory name and the package name **deliberately diverge**, and the
+project wrote a rule telling agents not to expect otherwise. This is the exact
+inverse of `cynic-<family>-<role> — no exceptions`, and it is the reference
+model CYNIC cites.
+
+### 9.3 What is actually enforced (and it is never the name)
+
+| project | executor | checks |
+|---|---|---|
+| agave | `ci/check-crates.sh` | `license`, `description`, `homepage`, `repository` non-null on every changed `Cargo.toml`; crates.io ownership |
+| rust-analyzer | `xtask/src/tidy.rs` | no comments in `[section]` lines; internal deps **must** carry `version`, internal dev-deps **must not**; exact license set |
+| agave | `deny.toml` | bans `solana-sdk`; `multiple-versions = "allow"` |
+
+**Neither project has a rule about crate names.** Both have rules about
+*metadata completeness* and *dependency shape*. The name is left to the author;
+the responsibility is enforced through `description` being non-empty — which is
+precisely `name_states_responsibility` in `contracts/pruning-policy.json`,
+already ratified here.
+
+### 9.4 rust-analyzer's "Architecture Invariant"
+
+rust-analyzer documents each crate with an explicit **Architecture Invariant**
+section, and the invariants describe *what the crate knows*, not where it sits:
+
+> **Architecture Invariant:** `syntax` crate is completely independent from the
+> rest of rust-analyzer. It knows nothing about salsa or LSP.
+> **Architecture Invariant:** `base-db` doesn't know about file system and file
+> paths. Files are represented with opaque `FileId`.
+
+This is the same shape as CYNIC's `Zero-I/O Domain Core` and
+`domain_no_infrastructure_by_default`, written as a per-crate declaration rather
+than a global rule. It is the closest external analogue to `architecture_boundary.rs`.
+
+### 9.5 Consequence for the taxonomy decision
+
+The four questions the study was asked to settle, answered from the evidence:
+
+1. **Does a new crate need a family prefix?** No. Five of seven major workspaces
+   do not require one, and the ratified `pruning-policy.json` already says
+   `family_prefix_is_optional_and_not_normative`. The map's
+   `cynic-<family>-<role> — no exceptions` is the outlier.
+2. **Must the directory name equal the package name?** No. Agave separates them
+   on purpose and documents it. The invariant that survives is *one directory,
+   one crate* — which every project here holds.
+3. **Is flat-in-`crates/` correct?** It is one valid choice, not the canonical
+   one. Agave (the cited reference) is flat at the repo root. CYNIC may keep
+   `crates/`; it may not claim the layout is derived from Agave.
+4. **What should be enforced?** Metadata and dependency shape, never the name —
+   matching both executors found. CYNIC's equivalent executor already exists:
+   `crates/cynic-host/tests/crate_taxonomy_ownership.rs`, which fails on an
+   empty `description` and on two crates claiming one responsibility.
+
+**The named responsibility is the load-bearing rule.** Agave enforces
+`description` non-null. rust-analyzer enforces the per-crate invariant in prose.
+CYNIC enforces both, in `crate_taxonomy_ownership.rs` and
+`architecture_boundary.rs`. The prefix enforces nothing anywhere.
+
+### 9.6 Sources
+
+```
+https://raw.githubusercontent.com/anza-xyz/agave/master/AGENTS.md
+https://raw.githubusercontent.com/anza-xyz/agave/master/Cargo.toml
+https://raw.githubusercontent.com/anza-xyz/agave/master/deny.toml
+https://raw.githubusercontent.com/anza-xyz/agave/master/ci/check-crates.sh
+https://raw.githubusercontent.com/rust-lang/rust-analyzer/master/Cargo.toml
+https://raw.githubusercontent.com/rust-lang/rust-analyzer/master/xtask/src/tidy.rs
+https://raw.githubusercontent.com/rust-lang/rust-analyzer/master/docs/book/src/contributing/architecture.md
+https://raw.githubusercontent.com/tokio-rs/tokio/master/Cargo.toml
+https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/Cargo.toml
+https://raw.githubusercontent.com/denoland/deno/main/Cargo.toml
+https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/Cargo.toml
+https://raw.githubusercontent.com/servo/servo/main/Cargo.toml
+https://raw.githubusercontent.com/bevyengine/bevy/main/Cargo.toml
+https://microsoft.github.io/rust-guidelines/guidelines/project/index.html
+https://matklad.github.io/2021/08/22/large-rust-workspaces.html
+```
