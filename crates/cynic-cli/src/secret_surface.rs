@@ -57,6 +57,48 @@ pub(crate) enum SecretCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Authorize a secret use under a declared role, and optionally run argv
+    /// with the value injected. The value never enters this process's output.
+    Use {
+        /// The declared role the agent acts under. Checked against
+        /// `infra/agent-roles.json`; an undeclared role is denied.
+        #[arg(long)]
+        role: String,
+        /// Agent identity, for attribution in the audit trail.
+        #[arg(long)]
+        agent: String,
+        /// Secret identifier (e.g. forgejo, proxmox_control).
+        #[arg(long)]
+        id: String,
+        /// Secret class: human_admin | machine_enrollment | runtime_machine_identity | recovery_breakglass.
+        #[arg(long)]
+        class: String,
+        /// Purpose: observe_posture | inject_process | rotate | install | delete.
+        #[arg(long)]
+        purpose: String,
+        /// Optional CYNIC claim lease id, required when the grant demands one.
+        #[arg(long)]
+        claim: Option<String>,
+        /// Optional justification, recorded in the audit trail.
+        #[arg(long)]
+        why: Option<String>,
+        /// Environment variable name the child receives. Required with `--argv`.
+        #[arg(long = "env-var")]
+        env_var: Option<String>,
+        /// Command to execute with the secret injected. Everything after `--`.
+        #[arg(last = true)]
+        argv: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read back the append-only secret-use audit trail.
+    Audit {
+        /// Number of trailing entries to show.
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -101,6 +143,23 @@ pub(crate) fn execute_secret_command(command: SecretCommand) -> ExitCode {
             yes,
             json,
         } => execute_install(&id, from_env, file, stdin, yes, json),
+        SecretCommand::Use {
+            role,
+            agent,
+            id,
+            class,
+            purpose,
+            claim,
+            why,
+            env_var,
+            argv,
+            json,
+        } => crate::secret_use_surface::execute_use(
+            &role, &agent, &id, &class, &purpose, claim, why, env_var, argv, json,
+        ),
+        SecretCommand::Audit { limit, json } => {
+            crate::secret_use_surface::execute_audit(limit, json)
+        }
     }
 }
 
