@@ -96,6 +96,7 @@ pub mod runtime_takeover;
 pub mod sanitize;
 pub mod sbom;
 pub mod secret_reference;
+pub mod secret_use;
 pub mod sensory;
 pub mod source_control;
 pub mod supervision;
