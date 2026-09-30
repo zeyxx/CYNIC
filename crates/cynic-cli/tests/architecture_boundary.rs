@@ -2137,36 +2137,63 @@ fn a_contract_may_not_overstate_its_own_enforcement() {
         .expect("contracts/ownership.json is readable");
     let parsed: Value = serde_json::from_str(&raw).expect("ownership.json parses");
 
-    let discriminator = &parsed["discriminator"];
+let discriminator = &parsed["discriminator"];
     let coverage = discriminator["coverage"].as_str().unwrap_or("absent");
 
-    // The key must be present and explicitly null. An omitted key reads as an oversight; an
-    // explicit null reads as a recorded absence. The difference is the whole point.
-    let declares_absence = matches!(discriminator.get("executable_check"), Some(Value::Null));
+    // The key must be present either way. An omitted key reads as an oversight; an explicit
+    // null reads as a recorded absence.
+    let check = discriminator.get("executable_check");
     assert!(
-        declares_absence,
-        "ownership.json does not record executable_check as an explicit null. Either the check \
-         exists and must be wired, or the contract must state its absence. A governance rule \
-         that is silent about its own enforcement is precisely the charge that destroyed \
-         ELIZA Labs: the divergence between the stated rule and the enforced one."
-    );
-    assert_eq!(
-        coverage, "partial",
-        "ownership.json discriminator coverage is {coverage:?} with no executable check. A rule \
-         with no check is partial or unknown. It is never covered."
+        check.is_some(),
+        "ownership.json does not record executable_check at all. Either the check exists and \
+         must be named, or the contract must state its absence. A governance rule that is \
+         silent about its own enforcement is the charge that destroyed ELIZA Labs: the \
+         divergence between the stated rule and the enforced one."
     );
 
-    let promotion = parsed["ratification"]["promotion_requires"]
-        .as_array()
-        .expect("ownership.json declares ratification.promotion_requires");
-    assert!(
-        promotion
-            .iter()
-            .filter_map(Value::as_str)
-            .any(|r| r.contains("DISC-01") || r.contains("executable check")),
-        "The unenforced discriminator must appear in ratification.promotion_requires, otherwise \
-         the contract can be promoted to normative while the rule that holds it is unbacked."
-    );
+    let check = check.expect("checked above");
+    let names_something = check.as_array().map(|a| !a.is_empty()).unwrap_or(false);
+
+    // Bidirectional, and that is the whole point. A null check requires non-covering
+    // coverage; a named check requires covering coverage. Pinning either value would make
+    // the test decorative — it would pass whatever the contract said, which is the exact
+    // failure being guarded against.
+    //
+    // This test previously pinned `coverage: partial` against `executable_check: null`,
+    // because that was the honest state while DISC-01 was declared and unchecked. It is
+    // covered_green now, with four forbidden operations compile-probed. The test changed
+    // shape when the truth changed, rather than being edited to keep passing.
+    if check.is_null() {
+        assert_ne!(
+            coverage, "covered_green",
+            "ownership.json declares coverage covered_green with no executable check. A rule \
+             with no check is partial or unknown. It is never covered — and claiming otherwise \
+             is the entire ELIZA Labs case."
+        );
+        let promotion = parsed["ratification"]["promotion_requires"]
+            .as_array()
+            .expect("ownership.json declares ratification.promotion_requires");
+        assert!(
+            promotion
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|r| r.contains("DISC-01") || r.contains("executable check")),
+            "An unenforced discriminator must appear in ratification.promotion_requires, \
+             otherwise the contract can be promoted to normative while the rule that holds it \
+             is unbacked."
+        );
+    } else {
+        assert!(
+            names_something,
+            "executable_check is present but names nothing, so nothing is enforced."
+        );
+        assert_eq!(
+            coverage, "covered_green",
+            "ownership.json names an executable check and declares coverage {coverage:?}. A \
+             backed rule is green or it is not backed; naming a check while reporting partial \
+             hides a working check as a missing one."
+        );
+    }
 }
 
 /// Every claim a contract rests on exists in the claim index, and every load-bearing

@@ -96,7 +96,7 @@
     ],
     "boundary_coverage": {
       "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
-      "measured_at": "2026-09-30, fifth measurement (measure arbitration added)",
+      "measured_at": "2026-09-30, sixth measurement (DISC-01 made unrepresentable)",
       "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
       "statuses": {
         "covered_green": "an executable check exists and passes.",
@@ -106,8 +106,8 @@
         "by_design_unenforceable": "converting it to code would replace a doctrine with an assertion and guarantee nothing. This is a decision, recorded so it is not reopened by mistake."
       },
       "totals": {
-        "covered": 5,
-        "partial": 5,
+        "covered": 6,
+        "partial": 4,
         "uncovered": 4,
         "by_design_unenforceable": 2,
         "boundaries": 16
@@ -185,8 +185,8 @@
         },
         {
           "boundary": "governance_ownership_split",
-          "status": "partial",
-          "note": "contracts/ownership.json declares R-A..R-D, INV-01..07, asymmetries A1/A2 and the discriminator DISC-01. Two checks pass (a_contract_may_not_overstate_its_own_enforcement, ownership_claims_are_indexed_and_load_bearing_claims_are_falsifiable). DISC-01 itself has no executable check: the rule that a majority supply holder must hold no vote over another's claim is declared, not enforced. Weight derives to unknown in practice because ChatTrace token counts are Option<u64> = None with no production TraceSink wired."
+          "status": "covered_green",
+          "note": "contracts/ownership.json declares R-A..R-D, INV-01..07, asymmetries A1/A2 and the discriminator DISC-01. DISC-01 is now unrepresentable rather than declared: cynic-protocol/src/ownership.rs gives GovernanceDecision only GovernedPower, and MaterialClaim and ExitRight are separate types no governance method accepts. Four forbidden operations were compile-probed and all four fail with E0599. Six checks pass across the ownership and measure-arbitration slices. Weight still derives to unknown in practice: ChatTrace token counts are Option<u64> = None with no production TraceSink wired, which is a calibration gap and not an authority gap."
         },
         {
           "boundary": "measure_arbitration",

@@ -3,28 +3,38 @@
   "status": "draft",
   "purpose": "Declare who owns what in a CYNIC-governed system, and the boundary governance may never cross. Exists because two reference systems died at exactly this boundary: ELIZA Labs, where governance power was not provable to participants and a class action consumed the treasury; Steem, where capital's veto was removed and a fork replaced settlement.",
   "spec": "specs/SPEC-CYNIC-OWNERSHIP.md",
-  "claims": ["CLM-0001", "CLM-0002", "CLM-0003"],
-
+  "claims": [
+    "CLM-0001",
+    "CLM-0002",
+    "CLM-0003"
+  ],
   "primitives": {
     "P1_incorruptible_claim": {
       "description": "Claims that no aggregate of governance weight may extinguish, dilute, or transfer. Recognised, not earned.",
       "revocable": "never",
-      "rights": ["R-A", "R-B"]
+      "rights": [
+        "R-A",
+        "R-B"
+      ]
     },
     "P2_delegated_authority": {
       "description": "Authority derived from observed contribution. Recomputed, never stored. Forfeited on defection.",
       "revocable": "on ceasing contribution, or on defection",
-      "rights": ["R-C", "R-D"]
+      "rights": [
+        "R-C",
+        "R-D"
+      ]
     }
   },
-
   "rights": [
     {
       "id": "R-A",
       "name": "material_claim",
       "primitive": "P1_incorruptible_claim",
       "source": "possession",
-      "invariants": ["INV-01"],
+      "invariants": [
+        "INV-01"
+      ],
       "revocable": false,
       "transferable": true,
       "note": "Steem and ELIZA both overwrote this. A supply expansion of 1.1B to 11B and a 23.6M token seizure are the two measured forms of the same violation."
@@ -34,7 +44,9 @@
       "name": "right_of_exit",
       "primitive": "P1_incorruptible_claim",
       "source": "existence",
-      "invariants": ["INV-02"],
+      "invariants": [
+        "INV-02"
+      ],
       "revocable": false,
       "transferable": false,
       "counterparty": "none",
@@ -45,7 +57,12 @@
       "name": "governance_weight",
       "primitive": "P2_delegated_authority",
       "source": "observed_contribution",
-      "invariants": ["INV-03", "INV-05", "INV-06", "INV-07"],
+      "invariants": [
+        "INV-03",
+        "INV-05",
+        "INV-06",
+        "INV-07"
+      ],
       "revocable": true,
       "transferable": false,
       "stored": false,
@@ -57,23 +74,52 @@
       "name": "obligation_attached",
       "primitive": "P2_delegated_authority",
       "source": "grant of authority",
-      "invariants": ["INV-04", "INV-06"],
+      "invariants": [
+        "INV-04",
+        "INV-06"
+      ],
       "revocable": true,
       "revocation_effect": "transfers",
       "note": "Tenure and stake live here, not in R-C. Seniority raises the cost of defection and never the vote count; conflating the two produces a gerontocracy."
     }
   ],
-
   "invariants": [
-    { "id": "INV-01", "statement": "No aggregate of governance weight may extinguish, dilute, or transfer a material claim R-A. There is no weight at which this becomes permissible.", "class": "inviolable" },
-    { "id": "INV-02", "statement": "Any actor may exit and remove its own material claim without admission, without cause, and without any other actor's cooperation.", "class": "inviolable" },
-    { "id": "INV-03", "statement": "Governance weight is a pure function of observed contribution. No actor may assign, grant, sell, or inherit it. It is recomputed, never read from a field.", "class": "structural" },
-    { "id": "INV-04", "statement": "Revocation transfers an obligation to a named successor that accepts it with observable proof. Revocation may never extinguish an obligation.", "class": "structural" },
-    { "id": "INV-05", "statement": "No quantity of material claim is convertible into governance weight. The two are not commensurable.", "class": "inviolable" },
-    { "id": "INV-06", "statement": "Tenure may modify obligation R-D. Tenure is never an input to governance weight R-C.", "class": "structural" },
-    { "id": "INV-07", "statement": "Contribution with no observable consumption by a third party has zero weight. Activity is not value.", "class": "structural" }
+    {
+      "id": "INV-01",
+      "statement": "No aggregate of governance weight may extinguish, dilute, or transfer a material claim R-A. There is no weight at which this becomes permissible.",
+      "class": "inviolable"
+    },
+    {
+      "id": "INV-02",
+      "statement": "Any actor may exit and remove its own material claim without admission, without cause, and without any other actor's cooperation.",
+      "class": "inviolable"
+    },
+    {
+      "id": "INV-03",
+      "statement": "Governance weight is a pure function of observed contribution. No actor may assign, grant, sell, or inherit it. It is recomputed, never read from a field.",
+      "class": "structural"
+    },
+    {
+      "id": "INV-04",
+      "statement": "Revocation transfers an obligation to a named successor that accepts it with observable proof. Revocation may never extinguish an obligation.",
+      "class": "structural"
+    },
+    {
+      "id": "INV-05",
+      "statement": "No quantity of material claim is convertible into governance weight. The two are not commensurable.",
+      "class": "inviolable"
+    },
+    {
+      "id": "INV-06",
+      "statement": "Tenure may modify obligation R-D. Tenure is never an input to governance weight R-C.",
+      "class": "structural"
+    },
+    {
+      "id": "INV-07",
+      "statement": "Contribution with no observable consumption by a third party has zero weight. Activity is not value.",
+      "class": "structural"
+    }
   ],
-
   "asymmetries": [
     {
       "id": "A1",
@@ -88,30 +134,54 @@
       "reference_failure": "Steem hard fork 0.23, 2020-03: 23.6M STEEM seized from 64 accounts under a contribution-justified mechanism"
     }
   ],
-
   "discriminator": {
     "id": "DISC-01",
     "question": "Does the holder of the largest material share hold a vote over a decision that affects another actor's material claim?",
     "if_yes": "elizaos_failure_mode",
     "if_no": "coherent",
     "third_case": "none",
-    "enforced_by": ["INV-01", "INV-05"],
-    "executable_check": null,
-    "coverage": "partial",
-    "coverage_note": "The rule is declared and the check is missing. governance_ownership_declares_its_unenforced_checks asserts this null is honestly null rather than absent."
+    "enforced_by": [
+      "INV-01",
+      "INV-05"
+    ],
+    "executable_check": [
+      "cynic-protocol/src/ownership.rs — GovernanceDecision accepts only GovernedPower; MaterialClaim and ExitRight are separate types with no governance-reachable method",
+      "cynic-protocol/tests/ownership_boundary.rs — governed_power_enumerates_only_governable_subjects"
+    ],
+    "coverage": "covered_green",
+    "coverage_note": "Four forbidden operations were probed by writing code that attempts them, and all four fail to compile with E0599 rather than returning an error at runtime: GovernanceDecision::applies_to(MaterialClaim), MaterialClaim::revoke, MaterialClaim::dilute, GovernanceDecision::weight_from(MaterialClaim). The question 'does this decision override a material claim' does not typecheck, because no method accepts the type that could answer it. INV-04 is likewise unrepresentable: Revocation cannot be constructed without a SuccessorAcceptance carrying observable proof."
   },
-
   "weight_model": {
     "status": "uncalibrated",
     "formula": "weight(i, Δ) = Σ_Δ retention(i, Δ) / cost(i, Δ) · exp(-λ·(now - Δ)), capped at saturation s_i",
-    "retention": { "definition": "share of consumers of the output over Δ, over lifetime consumers", "kind": "revealed_preference", "declared": false },
-    "cost": { "dimensions": ["cpu_ms", "ram_bytes_s", "vram_bytes", "joules", "wall_ms"], "kind": "sensor_observed", "declared": false, "consensus_required": false },
-    "decay": { "lambda": null, "reason_null": "no measured corpus exists; an uncalibrated constant is a belief and this contract does not ship beliefs as numbers" },
-    "saturation": { "value": null, "reason_null": "same as decay" },
+    "retention": {
+      "definition": "share of consumers of the output over Δ, over lifetime consumers",
+      "kind": "revealed_preference",
+      "declared": false
+    },
+    "cost": {
+      "dimensions": [
+        "cpu_ms",
+        "ram_bytes_s",
+        "vram_bytes",
+        "joules",
+        "wall_ms"
+      ],
+      "kind": "sensor_observed",
+      "declared": false,
+      "consensus_required": false
+    },
+    "decay": {
+      "lambda": null,
+      "reason_null": "no measured corpus exists; an uncalibrated constant is a belief and this contract does not ship beliefs as numbers"
+    },
+    "saturation": {
+      "value": null,
+      "reason_null": "same as decay"
+    },
     "separation_rule": "Flow and stock of the same quantity must never govern the same power. A single scalar mixing capital and contribution, or mixing retention and tenure, is forbidden.",
     "falsifier": "A working system with stored, self-assignable weight that does not fall to capture."
   },
-
   "provenance_carries_capacity": {
     "rule": "A created artifact carries a verifiable, non-transferable authorship claim, and authority over that artifact follows its author.",
     "consequence": "Identity enters the system through work. No KYC is required for entry.",
@@ -122,28 +192,24 @@
       "crates/cynic-node-protocol/src/machine_enrollment.rs"
     ]
   },
-
   "treasury_constraint": {
     "rule": "No treasury may be the sole legal defense of a permissionless system.",
     "reasoning": "A public balance sheet is a legal target. The mitigation is structural bounding, not a promise.",
     "precedent": "Futard.io — escrowed treasuries with monthly spending limits; MetaDAO is the only futarchy observed operating at scale",
     "class": "unbound"
   },
-
   "explicit_non_goals": [
     "naming any token, community, market, or economic instrument",
     "any on-chain settlement — append-only PoH yields contradiction, not falsification",
     "calibration of lambda or saturation",
     "the economic policy split between buyback, community proposals, and infrastructure maintenance"
   ],
-
   "forbidden_interactions": [
     "a vote count mixing retention and tenure",
     "a vote count mixing capital and contribution in one scalar",
     "any revocation path that extinguishes rather than transfers",
     "any schema where governance weight is a stored field"
   ],
-
   "violations": [
     {
       "id": "OWN-001",
@@ -164,18 +230,15 @@
       "remediation": "Exit must be a local action."
     }
   ],
-
   "known_exclusions": [
     "DISC-01 has no executable check. The constitutional side is declared, not enforced.",
     "R-C derives to unknown in practice: ChatTrace.prompt_tokens and gen_tokens are Option<u64> = None because no production TraceSink is wired. Until that is connected, no weight is derivable and the honest state is unknown, not zero.",
     "BusClaimStore.consume_action has no caller, so recorded consumed budgets are uniformly zero across active claims. A field that is always one value is indistinguishable from a field that does not exist."
   ],
-
   "ratification": {
-    "status": "draft",
+    "status": "implemented_uncalibrated",
     "declared_by": "the constituent, 2026-09-30",
     "promotion_requires": [
-      "DISC-01 enforced by an executable check, not by declaration",
       "weight derived from a live observation rather than null",
       "OWN-001..003 either impossible or covered by a red test that is deliberately kept red"
     ]

@@ -76,6 +76,7 @@ pub mod observe;
 pub mod one_shot_capability;
 pub mod organic_opportunity;
 pub mod outcomes;
+pub mod ownership;
 pub mod rate_classify;
 pub mod phi;
 pub mod policy;
