@@ -44,6 +44,7 @@ pub mod remote_execution;
 pub mod remote_memory;
 pub mod remote_network;
 pub mod remote_queue;
+pub mod secret_use_policy_loader;
 pub mod source_admission_adapter;
 pub mod vcs_runner;
 pub mod window_runner;

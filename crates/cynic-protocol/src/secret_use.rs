@@ -1,16 +1,27 @@
 //! Pure secret-use governance: capability-based authorization for secret resolution.
 //!
-//! An agent NEVER receives secret material directly. It receives a `SecretUseRequest`
-//! naming the secret, the purpose, and its own agent identity. A pure decision
-//! function rules `Allowed` or `Denied` against a declared policy. The gatekeeper
-//! (host layer) is the only code allowed to call `resolve()` after an `Allowed`
-//! verdict, and it records an append-only audit entry — never the value.
+//! An agent NEVER receives secret material directly. It submits a `SecretUseRequest`
+//! naming the secret, the purpose, its own identity, and the ROLE it acts under.
+//! A pure decision function rules `Allowed` or `Denied` against a policy that is
+//! DERIVED from the declarative RBAC in `infra/agent-roles.json`.
 //!
-//! Authority: AGENTS.md secret classes table; `contracts/foundation.json`
-//! (HumanAdmin = bootstrap only, RuntimeMachineIdentity = steady state).
+//! Authority model — every rule restates a declaration, none is invented:
+//! - `roles.<role>.secret_source_class` names the secret CLASS a role may consume.
+//!   A role declaring `"None"` consumes nothing.
+//! - `domains.secrets.mutation_policy` (`read_only`) gates mutation purposes.
+//! - `agent_governance_rule[0]`: "An agent must refuse any action whose capability
+//!   is absent from its declared role in infra/agent-roles.json".
+//! - `roles.human_admin.cannot[2]`: "never touches RuntimeMachineIdentity secrets
+//!   post-bootstrap" — the constituent power is not an agent role.
 //!
 //! This module is 100% pure — no I/O, no clock, no randomness. Callers pass
 //! `now_unix_ms` explicitly so decisions are reproducible and testable.
+//!
+//! KNOWN UNKNOWN: no declared mapping from `agent_id` to `role` exists today.
+//! A claim carries `agent_id` and `session_id`, not a role. The role must come
+//! from an admitted claim or an enrollment record, never from the agent's own
+//! assertion. Until that binding is declared, the role is a caller-supplied
+//! claim that is audited, not authenticated.
 
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +32,7 @@ use crate::secret_reference::{SecretClass, SecretReference};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecretUsePurpose {
-    /// Inject into a short-lived child process argv/environment.
+    /// Inject into a short-lived child process environment.
     InjectProcess,
     /// Read presence/posture metadata only — never the value.
     ObservePosture,
@@ -43,16 +54,91 @@ impl SecretUsePurpose {
     pub fn mutates_material(self) -> bool {
         matches!(self, Self::Rotate | Self::Install | Self::Delete)
     }
+
+    /// The purpose set a role may exercise when it declares a secret class:
+    /// observe the posture, and consume the value through a bounded injection.
+    pub fn consumption_set() -> Vec<Self> {
+        vec![Self::ObservePosture, Self::InjectProcess]
+    }
 }
+
+/// Domain-level mutation policy, as declared in `domains.<name>.mutation_policy`.
+/// The `secrets` domain declares `read_only`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecretMutationPolicy {
+    /// No mutation of stored secret material is permitted.
+    ReadOnly,
+    /// Mutation requires an explicit `--apply` gesture.
+    ExplicitApplyOnly,
+    /// Mutation requires an admitted dispatch or explicit apply.
+    AdmittedDispatchOrExplicitApplyOnly,
+    /// Policy string present but unrecognised. Fail closed: treated as ReadOnly.
+    Unrecognised,
+}
+
+impl SecretMutationPolicy {
+    /// Parse the declarative spelling. Unknown values fail closed to `Unrecognised`,
+    /// which denies mutation — never silently permits.
+    pub fn parse(raw: &str) -> Self {
+        match raw.trim() {
+            "read_only" => Self::ReadOnly,
+            "explicit_apply_only" => Self::ExplicitApplyOnly,
+            "admitted_dispatch_or_explicit_apply_only" => Self::AdmittedDispatchOrExplicitApplyOnly,
+            _ => Self::Unrecognised,
+        }
+    }
+
+    /// Whether this policy permits a purpose that mutates stored material.
+    pub fn permits_mutation(self) -> bool {
+        matches!(
+            self,
+            Self::ExplicitApplyOnly | Self::AdmittedDispatchOrExplicitApplyOnly
+        )
+    }
+}
+
+/// Parse a `secret_source_class` declaration into the classes it names.
+///
+/// Accepts the declarative spellings in `infra/agent-roles.json`: `"None"`,
+/// `"HumanAdmin"`, `"MachineEnrollment"`, `"RuntimeMachineIdentity"`,
+/// `"RecoveryBreakglass"`, and pipe-separated unions such as
+/// `"HumanAdmin | RuntimeMachineIdentity"`.
+///
+/// Unknown tokens are dropped and never widened into a permission.
+pub fn parse_secret_source_class(raw: &str) -> Vec<SecretClass> {
+    let mut out = Vec::new();
+    for token in raw.split('|') {
+        let class = match token.trim() {
+            "HumanAdmin" => Some(SecretClass::HumanAdmin),
+            "MachineEnrollment" => Some(SecretClass::MachineEnrollment),
+            "RuntimeMachineIdentity" => Some(SecretClass::RuntimeMachineIdentity),
+            "RecoveryBreakglass" => Some(SecretClass::RecoveryBreakglass),
+            _ => None,
+        };
+        if let Some(class) = class {
+            if !out.contains(&class) {
+                out.push(class);
+            }
+        }
+    }
+    out
+}
+
+/// The role name reserved for the constituent power. Agents never act as it.
+pub const HUMAN_ADMIN_ROLE: &str = "human_admin";
 
 /// A request from an agent identity to use a secret.
 ///
-/// The agent supplies its identity, the secret reference, the purpose, and an
-/// optional CYNIC claim lease id. It never supplies the value.
+/// The agent supplies its identity, the role it acts under, the secret reference,
+/// the purpose, and an optional CYNIC claim lease id. It never supplies the value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretUseRequest {
     /// Identity of the requesting agent (e.g. `agent-code-ssh-extractor`).
     pub agent_id: String,
+    /// The declared role the agent acts under. Must come from an admitted claim
+    /// or enrollment record — never from the agent's own assertion.
+    pub role: String,
     /// The secret being requested.
     pub reference: SecretReference,
     /// What the agent intends to do with it.
@@ -66,11 +152,13 @@ pub struct SecretUseRequest {
 impl SecretUseRequest {
     pub fn new(
         agent_id: impl Into<String>,
+        role: impl Into<String>,
         reference: SecretReference,
         purpose: SecretUsePurpose,
     ) -> Self {
         Self {
             agent_id: agent_id.into(),
+            role: role.into(),
             reference,
             purpose,
             claim_lease_id: None,
@@ -89,71 +177,68 @@ impl SecretUseRequest {
     }
 }
 
-/// A declared rule permitting an agent identity to use a secret class/purpose.
+/// A declared rule permitting a ROLE to consume a set of secret CLASSES for a
+/// set of purposes. Derived from `roles.<role>` in `infra/agent-roles.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretUseGrant {
-    /// Agent identity pattern. `*` matches any agent; otherwise exact match.
-    pub agent_pattern: String,
-    /// Secret ids this grant applies to. Empty = all ids.
-    pub secret_ids: Vec<String>,
-    /// Purposes allowed by this grant. Empty = all purposes.
+    /// The declared role this grant applies to. Exact match — no wildcards,
+    /// because authority is a named capability, not a pattern.
+    pub role: String,
+    /// Secret classes this role may consume. Empty means the role declares no
+    /// secret source and may consume nothing.
+    pub secret_classes: Vec<SecretClass>,
+    /// Purposes this role may exercise. Empty means no purpose is permitted.
     pub purposes: Vec<SecretUsePurpose>,
-    /// Whether the requester must present a CYNIC claim lease id.
+    /// Whether a CYNIC claim lease id is required for value-exposing purposes.
     pub requires_claim: bool,
 }
 
 impl SecretUseGrant {
-    pub fn matches_agent(&self, agent_id: &str) -> bool {
-        self.agent_pattern == "*" || self.agent_pattern == agent_id
+    pub fn matches_role(&self, role: &str) -> bool {
+        self.role == role
     }
 
-    pub fn matches_secret(&self, secret_id: &str) -> bool {
-        self.secret_ids.is_empty() || self.secret_ids.iter().any(|s| s == secret_id)
+    pub fn permits_class(&self, class: SecretClass) -> bool {
+        self.secret_classes.contains(&class)
     }
 
-    pub fn matches_purpose(&self, purpose: SecretUsePurpose) -> bool {
-        self.purposes.is_empty() || self.purposes.contains(&purpose)
+    pub fn permits_purpose(&self, purpose: SecretUsePurpose) -> bool {
+        self.purposes.contains(&purpose)
     }
 }
 
-/// The declared policy: an ordered list of grants. Deny by default.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+/// The declared policy: role grants plus the domain mutation policy.
+/// Deny by default — an empty grant list denies everything.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretUsePolicy {
     pub grants: Vec<SecretUseGrant>,
+    pub mutation_policy: SecretMutationPolicy,
+}
+
+impl Default for SecretUsePolicy {
+    fn default() -> Self {
+        Self::deny_all()
+    }
 }
 
 impl SecretUsePolicy {
-    pub fn new(grants: Vec<SecretUseGrant>) -> Self {
-        Self { grants }
+    pub fn new(grants: Vec<SecretUseGrant>, mutation_policy: SecretMutationPolicy) -> Self {
+        Self {
+            grants,
+            mutation_policy,
+        }
     }
 
     /// The empty policy denies everything — fail-closed.
     pub fn deny_all() -> Self {
-        Self { grants: Vec::new() }
-    }
-
-    /// The default runtime policy: agents may only observe posture.
-    /// Value-exposing and mutating purposes require an explicit grant.
-    pub fn observe_only() -> Self {
         Self {
-            grants: vec![SecretUseGrant {
-                agent_pattern: "*".to_string(),
-                secret_ids: Vec::new(),
-                purposes: vec![SecretUsePurpose::ObservePosture],
-                requires_claim: false,
-            }],
+            grants: Vec::new(),
+            mutation_policy: SecretMutationPolicy::ReadOnly,
         }
     }
 
-    fn matching_grants(&self, request: &SecretUseRequest) -> Vec<&SecretUseGrant> {
-        self.grants
-            .iter()
-            .filter(|g| {
-                g.matches_agent(&request.agent_id)
-                    && g.matches_secret(&request.reference.id)
-                    && g.matches_purpose(request.purpose)
-            })
-            .collect()
+    fn grant_for(&self, role: &str) -> Option<&SecretUseGrant> {
+        self.grants.iter().find(|g| g.matches_role(role))
     }
 }
 
@@ -163,8 +248,8 @@ impl SecretUsePolicy {
 pub enum SecretUseDecision {
     /// The request is permitted; the gatekeeper may resolve and inject.
     Allowed {
-        /// The grant that permitted it (for the audit trail).
-        matched_agent_pattern: String,
+        /// The role that permitted it (for the audit trail).
+        matched_role: String,
     },
     /// The request is refused, with a machine-readable reason.
     Denied { reason: SecretUseDenialReason },
@@ -174,24 +259,33 @@ pub enum SecretUseDecision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecretUseDenialReason {
-    /// No grant matched agent + secret + purpose.
-    NoMatchingGrant,
-    /// A grant matched but demands a claim lease the request lacks.
-    ClaimLeaseRequired,
-    /// `HumanAdmin` secrets cannot be used by agents at all.
-    HumanAdminNotDelegable,
-    /// An agent identity was empty — unattributable use is refused.
+    /// An agent identity or role was empty — unattributable use is refused.
     UnattributableRequester,
+    /// The constituent-power role cannot be assumed by an agent.
+    HumanAdminRoleNotAssumable,
+    /// The purpose mutates material but the domain policy is read-only.
+    MutationPolicyReadOnly,
+    /// The role is absent from the declared policy.
+    RoleNotDeclared,
+    /// The role does not declare this secret class in its `secret_source_class`.
+    SecretClassNotDeclaredForRole,
+    /// The role does not declare this purpose.
+    PurposeNotPermittedForRole,
+    /// The grant demands a claim lease the request lacks.
+    ClaimLeaseRequired,
 }
 
-/// Pure decision function: evaluate a request against a policy.
+/// Pure decision function: evaluate a request against a derived policy.
 ///
-/// Rules, in order:
-/// 1. An empty `agent_id` is denied — unattributable use is never allowed.
-/// 2. `HumanAdmin` secrets are denied for agent use regardless of grants.
-/// 3. A matching grant that `requires_claim` needs a non-empty `claim_lease_id`.
-/// 4. Any matching grant that does not require a claim permits the request.
-/// 5. No matching grant denies.
+/// Rules, in order. Every rule restates a declaration; none is invented:
+/// 1. Empty `agent_id` or `role` is denied — unattributable use is never allowed.
+/// 2. The `human_admin` role is denied — the constituent power is not an agent.
+/// 3. A mutating purpose under a read-only policy is denied.
+/// 4. A role with no grant is denied.
+/// 5. A class the role does not declare is denied.
+/// 6. A purpose the role does not declare is denied.
+/// 7. A claim-requiring value-exposing purpose without a claim is denied.
+/// 8. Otherwise allowed.
 ///
 /// Pure: no I/O, no clock. `now_unix_ms` is accepted for audit correlation
 /// but does not influence the verdict today — reserved for time-bounded grants.
@@ -200,22 +294,39 @@ pub fn decide_secret_use(
     policy: &SecretUsePolicy,
     _now_unix_ms: u64,
 ) -> SecretUseDecision {
-    if request.agent_id.trim().is_empty() {
+    if request.agent_id.trim().is_empty() || request.role.trim().is_empty() {
         return SecretUseDecision::Denied {
             reason: SecretUseDenialReason::UnattributableRequester,
         };
     }
 
-    if request.reference.class == SecretClass::HumanAdmin {
+    if request.role == HUMAN_ADMIN_ROLE {
         return SecretUseDecision::Denied {
-            reason: SecretUseDenialReason::HumanAdminNotDelegable,
+            reason: SecretUseDenialReason::HumanAdminRoleNotAssumable,
         };
     }
 
-    let matching = policy.matching_grants(request);
-    if matching.is_empty() {
+    if request.purpose.mutates_material() && !policy.mutation_policy.permits_mutation() {
         return SecretUseDecision::Denied {
-            reason: SecretUseDenialReason::NoMatchingGrant,
+            reason: SecretUseDenialReason::MutationPolicyReadOnly,
+        };
+    }
+
+    let Some(grant) = policy.grant_for(&request.role) else {
+        return SecretUseDecision::Denied {
+            reason: SecretUseDenialReason::RoleNotDeclared,
+        };
+    };
+
+    if !grant.permits_class(request.reference.class) {
+        return SecretUseDecision::Denied {
+            reason: SecretUseDenialReason::SecretClassNotDeclaredForRole,
+        };
+    }
+
+    if !grant.permits_purpose(request.purpose) {
+        return SecretUseDecision::Denied {
+            reason: SecretUseDenialReason::PurposeNotPermittedForRole,
         };
     }
 
@@ -224,26 +335,14 @@ pub fn decide_secret_use(
         .as_ref()
         .is_some_and(|c| !c.trim().is_empty());
 
-    // A claim-satisfying grant wins; a claim-free grant permits outright.
-    let mut claim_blocked = false;
-    for grant in &matching {
-        if grant.requires_claim && !has_claim {
-            claim_blocked = true;
-            continue;
-        }
-        return SecretUseDecision::Allowed {
-            matched_agent_pattern: grant.agent_pattern.clone(),
-        };
-    }
-
-    if claim_blocked {
+    if request.purpose.exposes_value() && grant.requires_claim && !has_claim {
         return SecretUseDecision::Denied {
             reason: SecretUseDenialReason::ClaimLeaseRequired,
         };
     }
 
-    SecretUseDecision::Denied {
-        reason: SecretUseDenialReason::NoMatchingGrant,
+    SecretUseDecision::Allowed {
+        matched_role: grant.role.clone(),
     }
 }
 
@@ -254,6 +353,7 @@ pub struct SecretUseAuditEntry {
     pub schema: &'static str,
     pub at_unix_ms: u64,
     pub agent_id: String,
+    pub role: String,
     pub secret_id: String,
     pub secret_class: SecretClass,
     pub purpose: SecretUsePurpose,
@@ -276,6 +376,7 @@ impl SecretUseAuditEntry {
             schema: SECRET_USE_AUDIT_SCHEMA,
             at_unix_ms,
             agent_id: request.agent_id.clone(),
+            role: request.role.clone(),
             secret_id: request.reference.id.clone(),
             secret_class: request.reference.class,
             purpose: request.purpose,
@@ -291,119 +392,181 @@ mod tests {
     use super::*;
     use crate::secret_reference::SecretProvider;
 
-    fn ref_runtime(id: &str) -> SecretReference {
+    fn ref_of(id: &str, class: SecretClass) -> SecretReference {
         SecretReference {
             id: id.to_string(),
-            class: SecretClass::RuntimeMachineIdentity,
+            class,
             provider: SecretProvider::PrincipalOwnedFile,
             locator: id.to_string(),
         }
     }
 
-    fn ref_human(id: &str) -> SecretReference {
-        SecretReference {
-            id: id.to_string(),
-            class: SecretClass::HumanAdmin,
-            provider: SecretProvider::PrincipalOwnedFile,
-            locator: id.to_string(),
-        }
+    fn runtime_ref(id: &str) -> SecretReference {
+        ref_of(id, SecretClass::RuntimeMachineIdentity)
     }
 
-    fn inject_grant(agent: &str, ids: &[&str]) -> SecretUseGrant {
-        SecretUseGrant {
-            agent_pattern: agent.to_string(),
-            secret_ids: ids.iter().map(|s| s.to_string()).collect(),
-            purposes: vec![SecretUsePurpose::InjectProcess],
-            requires_claim: true,
+    /// Derive the policy the way the loader does from `infra/agent-roles.json`:
+    /// one grant per role, classes from `secret_source_class`, purposes from the
+    /// consumption set, claim required for value exposure.
+    fn derived_policy() -> SecretUsePolicy {
+        let mut grants = Vec::new();
+        for (role, source_class) in [
+            ("human_admin", "HumanAdmin"),
+            ("build_runner", "MachineEnrollment"),
+            ("fleet_coordinator", "RuntimeMachineIdentity"),
+            ("scheduler_agent", "RuntimeMachineIdentity"),
+            ("runtime_publisher", "RuntimeMachineIdentity"),
+            ("schema_warden", "None"),
+            ("surface_inspector", "None"),
+            ("metabolic_auditor", "None"),
+        ] {
+            grants.push(SecretUseGrant {
+                role: role.to_string(),
+                secret_classes: parse_secret_source_class(source_class),
+                purposes: SecretUsePurpose::consumption_set(),
+                requires_claim: true,
+            });
         }
+        SecretUsePolicy::new(grants, SecretMutationPolicy::ReadOnly)
+    }
+
+    fn request(role: &str, class: SecretClass) -> SecretUseRequest {
+        SecretUseRequest::new(
+            "agent-code",
+            role,
+            ref_of("proxmox-token", class),
+            SecretUsePurpose::InjectProcess,
+        )
+        .with_claim("claim_test_1")
     }
 
     #[test]
-    fn empty_agent_is_denied() {
-        let req = SecretUseRequest::new(
+    fn empty_agent_or_role_is_denied() {
+        let policy = derived_policy();
+        let no_agent = SecretUseRequest::new(
             "",
-            ref_runtime("proxmox-token"),
+            "scheduler_agent",
+            runtime_ref("proxmox-token"),
             SecretUsePurpose::InjectProcess,
         );
-        let policy = SecretUsePolicy::new(vec![inject_grant("*", &[])]);
+        let no_role = SecretUseRequest::new(
+            "agent-code",
+            "",
+            runtime_ref("proxmox-token"),
+            SecretUsePurpose::InjectProcess,
+        );
+        for req in [no_agent, no_role] {
+            assert_eq!(
+                decide_secret_use(&req, &policy, 0),
+                SecretUseDecision::Denied {
+                    reason: SecretUseDenialReason::UnattributableRequester
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn human_admin_role_is_never_assumable_by_an_agent() {
+        let policy = derived_policy();
+        let req = request(HUMAN_ADMIN_ROLE, SecretClass::HumanAdmin);
         assert_eq!(
             decide_secret_use(&req, &policy, 0),
             SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::UnattributableRequester
+                reason: SecretUseDenialReason::HumanAdminRoleNotAssumable
             }
         );
     }
 
     #[test]
-    fn human_admin_is_never_delegable() {
-        let req = SecretUseRequest::new(
-            "agent-x",
-            ref_human("root-password"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-        let policy = SecretUsePolicy::new(vec![SecretUseGrant {
-            agent_pattern: "*".to_string(),
-            secret_ids: Vec::new(),
-            purposes: Vec::new(),
-            requires_claim: false,
-        }]);
-        assert_eq!(
-            decide_secret_use(&req, &policy, 0),
-            SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::HumanAdminNotDelegable
-            }
-        );
-    }
-
-    #[test]
-    fn deny_all_policy_refuses_everything() {
-        let req = SecretUseRequest::new(
-            "agent-x",
-            ref_runtime("forgejo-token"),
-            SecretUsePurpose::ObservePosture,
-        );
-        assert_eq!(
-            decide_secret_use(&req, &SecretUsePolicy::deny_all(), 0),
-            SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::NoMatchingGrant
-            }
-        );
-    }
-
-    #[test]
-    fn observe_only_permits_posture_and_refuses_injection() {
-        let policy = SecretUsePolicy::observe_only();
-        let observe = SecretUseRequest::new(
-            "agent-x",
-            ref_runtime("forgejo-token"),
-            SecretUsePurpose::ObservePosture,
-        );
-        let inject = SecretUseRequest::new(
-            "agent-x",
-            ref_runtime("forgejo-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-
+    fn role_may_consume_only_its_declared_class() {
+        let policy = derived_policy();
+        // scheduler_agent declares RuntimeMachineIdentity only.
+        let allowed = request("scheduler_agent", SecretClass::RuntimeMachineIdentity);
         assert!(matches!(
-            decide_secret_use(&observe, &policy, 0),
+            decide_secret_use(&allowed, &policy, 0),
             SecretUseDecision::Allowed { .. }
         ));
+
+        let wrong_class = request("scheduler_agent", SecretClass::MachineEnrollment);
         assert_eq!(
-            decide_secret_use(&inject, &policy, 0),
+            decide_secret_use(&wrong_class, &policy, 0),
             SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::NoMatchingGrant
+                reason: SecretUseDenialReason::SecretClassNotDeclaredForRole
             }
         );
     }
 
     #[test]
-    fn claim_requiring_grant_denies_without_claim() {
-        let policy = SecretUsePolicy::new(vec![inject_grant("agent-code", &["proxmox-token"])]);
+    fn role_declaring_none_consumes_nothing() {
+        let policy = derived_policy();
+        let req = request("schema_warden", SecretClass::RuntimeMachineIdentity);
+        assert_eq!(
+            decide_secret_use(&req, &policy, 0),
+            SecretUseDecision::Denied {
+                reason: SecretUseDenialReason::SecretClassNotDeclaredForRole
+            }
+        );
+    }
+
+    #[test]
+    fn undeclared_role_is_denied() {
+        let policy = derived_policy();
+        let req = request("agent-rogue", SecretClass::RuntimeMachineIdentity);
+        assert_eq!(
+            decide_secret_use(&req, &policy, 0),
+            SecretUseDecision::Denied {
+                reason: SecretUseDenialReason::RoleNotDeclared
+            }
+        );
+    }
+
+    #[test]
+    fn read_only_policy_denies_mutation() {
+        let policy = derived_policy();
+        for purpose in [
+            SecretUsePurpose::Rotate,
+            SecretUsePurpose::Install,
+            SecretUsePurpose::Delete,
+        ] {
+            let req = SecretUseRequest::new(
+                "agent-code",
+                "scheduler_agent",
+                runtime_ref("proxmox-token"),
+                purpose,
+            )
+            .with_claim("claim_1");
+            assert_eq!(
+                decide_secret_use(&req, &policy, 0),
+                SecretUseDecision::Denied {
+                    reason: SecretUseDenialReason::MutationPolicyReadOnly
+                },
+                "purpose {purpose:?} must be denied under read_only"
+            );
+        }
+    }
+
+    #[test]
+    fn observe_posture_never_requires_a_claim() {
+        let policy = derived_policy();
+        let req = SecretUseRequest::new(
+            "agent-code",
+            "scheduler_agent",
+            runtime_ref("proxmox-token"),
+            SecretUsePurpose::ObservePosture,
+        );
+        assert!(matches!(
+            decide_secret_use(&req, &policy, 0),
+            SecretUseDecision::Allowed { .. }
+        ));
+    }
+
+    #[test]
+    fn value_exposure_requires_a_claim() {
+        let policy = derived_policy();
         let no_claim = SecretUseRequest::new(
             "agent-code",
-            ref_runtime("proxmox-token"),
+            "scheduler_agent",
+            runtime_ref("proxmox-token"),
             SecretUsePurpose::InjectProcess,
         );
         assert_eq!(
@@ -412,85 +575,96 @@ mod tests {
                 reason: SecretUseDenialReason::ClaimLeaseRequired
             }
         );
-    }
 
-    #[test]
-    fn claim_requiring_grant_permits_with_claim() {
-        let policy = SecretUsePolicy::new(vec![inject_grant("agent-code", &["proxmox-token"])]);
-        let with_claim = SecretUseRequest::new(
-            "agent-code",
-            ref_runtime("proxmox-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_agentcodesshextractor_1790778389");
+        let with_claim = no_claim.with_claim("claim_agentcodesshextractor_1790778389");
         assert_eq!(
             decide_secret_use(&with_claim, &policy, 0),
             SecretUseDecision::Allowed {
-                matched_agent_pattern: "agent-code".to_string()
+                matched_role: "scheduler_agent".to_string()
             }
         );
     }
 
     #[test]
-    fn wrong_agent_is_denied() {
-        let policy = SecretUsePolicy::new(vec![inject_grant("agent-code", &["proxmox-token"])]);
-        let other = SecretUseRequest::new(
-            "agent-rogue",
-            ref_runtime("proxmox-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-        assert_eq!(
-            decide_secret_use(&other, &policy, 0),
-            SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::NoMatchingGrant
-            }
+    fn undeclared_purpose_is_denied() {
+        let policy = SecretUsePolicy::new(
+            vec![SecretUseGrant {
+                role: "auditor".to_string(),
+                secret_classes: vec![SecretClass::RuntimeMachineIdentity],
+                purposes: vec![SecretUsePurpose::ObservePosture],
+                requires_claim: false,
+            }],
+            SecretMutationPolicy::ReadOnly,
         );
-    }
-
-    #[test]
-    fn wrong_secret_is_denied() {
-        let policy = SecretUsePolicy::new(vec![inject_grant("agent-code", &["proxmox-token"])]);
-        let other = SecretUseRequest::new(
-            "agent-code",
-            ref_runtime("cloudflare-api-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
-        assert_eq!(
-            decide_secret_use(&other, &policy, 0),
-            SecretUseDecision::Denied {
-                reason: SecretUseDenialReason::NoMatchingGrant
-            }
-        );
-    }
-
-    #[test]
-    fn mutation_purposes_are_classified() {
-        assert!(SecretUsePurpose::InjectProcess.exposes_value());
-        assert!(!SecretUsePurpose::ObservePosture.exposes_value());
-        assert!(SecretUsePurpose::Rotate.mutates_material());
-        assert!(SecretUsePurpose::Delete.mutates_material());
-        assert!(!SecretUsePurpose::ObservePosture.mutates_material());
-    }
-
-    #[test]
-    fn audit_entry_carries_no_secret_material() {
         let req = SecretUseRequest::new(
             "agent-code",
-            ref_runtime("proxmox-token"),
+            "auditor",
+            runtime_ref("proxmox-token"),
             SecretUsePurpose::InjectProcess,
         )
-        .with_claim("claim_1")
-        .with_justification("provision ephemeral LXC");
+        .with_claim("claim_1");
+        assert_eq!(
+            decide_secret_use(&req, &policy, 0),
+            SecretUseDecision::Denied {
+                reason: SecretUseDenialReason::PurposeNotPermittedForRole
+            }
+        );
+    }
+
+    #[test]
+    fn deny_all_policy_refuses_everything() {
+        let req = request("scheduler_agent", SecretClass::RuntimeMachineIdentity);
+        assert_eq!(
+            decide_secret_use(&req, &SecretUsePolicy::deny_all(), 0),
+            SecretUseDecision::Denied {
+                reason: SecretUseDenialReason::RoleNotDeclared
+            }
+        );
+    }
+
+    #[test]
+    fn source_class_parsing_is_declarative() {
+        assert_eq!(parse_secret_source_class("None"), Vec::new());
+        assert_eq!(
+            parse_secret_source_class("HumanAdmin"),
+            vec![SecretClass::HumanAdmin]
+        );
+        assert_eq!(
+            parse_secret_source_class("HumanAdmin | RuntimeMachineIdentity"),
+            vec![SecretClass::HumanAdmin, SecretClass::RuntimeMachineIdentity]
+        );
+        // Unknown tokens never widen into a permission.
+        assert_eq!(
+            parse_secret_source_class("Bogus | HumanAdmin"),
+            vec![SecretClass::HumanAdmin]
+        );
+        assert_eq!(parse_secret_source_class("Bogus"), Vec::new());
+    }
+
+    #[test]
+    fn mutation_policy_parsing_fails_closed() {
+        assert_eq!(
+            SecretMutationPolicy::parse("read_only"),
+            SecretMutationPolicy::ReadOnly
+        );
+        assert!(!SecretMutationPolicy::parse("read_only").permits_mutation());
+        assert!(!SecretMutationPolicy::parse("something_unknown").permits_mutation());
+        assert!(SecretMutationPolicy::parse("explicit_apply_only").permits_mutation());
+    }
+
+    #[test]
+    fn audit_entry_carries_no_secret_material_and_records_role() {
+        let req = request("scheduler_agent", SecretClass::RuntimeMachineIdentity)
+            .with_justification("provision ephemeral LXC");
         let decision = SecretUseDecision::Allowed {
-            matched_agent_pattern: "agent-code".to_string(),
+            matched_role: "scheduler_agent".to_string(),
         };
         let entry = SecretUseAuditEntry::from_decision(&req, decision, 1790778389000);
         let json = serde_json::to_string(&entry).expect("serialize audit entry");
 
         assert!(json.contains("cynic.secret_use_audit.v1"));
         assert!(json.contains("proxmox-token"));
+        assert!(json.contains("scheduler_agent"));
         assert!(!json.contains("value"));
         assert!(!json.contains("length"));
         assert!(!json.contains("shape"));
@@ -499,13 +673,8 @@ mod tests {
 
     #[test]
     fn decision_is_deterministic() {
-        let policy = SecretUsePolicy::new(vec![inject_grant("agent-code", &["proxmox-token"])]);
-        let req = SecretUseRequest::new(
-            "agent-code",
-            ref_runtime("proxmox-token"),
-            SecretUsePurpose::InjectProcess,
-        )
-        .with_claim("claim_1");
+        let policy = derived_policy();
+        let req = request("scheduler_agent", SecretClass::RuntimeMachineIdentity);
         let a = decide_secret_use(&req, &policy, 111);
         let b = decide_secret_use(&req, &policy, 999);
         assert_eq!(a, b, "verdict must not depend on the clock today");

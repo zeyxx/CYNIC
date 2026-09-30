@@ -293,12 +293,15 @@ mod tests {
     }
 
     fn gate_with_secret(secret_id: &str, value: &str) -> LocalSecretUseGate {
-        let policy = SecretUsePolicy::new(vec![SecretUseGrant {
-            agent_pattern: "agent-code".to_string(),
-            secret_ids: vec![secret_id.to_string()],
-            purposes: vec![SecretUsePurpose::InjectProcess],
-            requires_claim: true,
-        }]);
+        let policy = SecretUsePolicy::new(
+            vec![SecretUseGrant {
+                role: "scheduler_agent".to_string(),
+                secret_classes: vec![SecretClass::RuntimeMachineIdentity],
+                purposes: vec![SecretUsePurpose::InjectProcess],
+                requires_claim: true,
+            }],
+            cynic_protocol::secret_use::SecretMutationPolicy::ReadOnly,
+        );
         let owned = secret_id.to_string();
         let owned_value = value.to_string();
         LocalSecretUseGate::new(policy, move |id: &str| {
@@ -313,6 +316,7 @@ mod tests {
     fn request(secret_id: &str) -> SecretUseRequest {
         SecretUseRequest::new(
             "agent-code",
+            "scheduler_agent",
             runtime_ref(secret_id),
             SecretUsePurpose::InjectProcess,
         )
@@ -436,6 +440,7 @@ mod tests {
         let _ = gate.authorize(&request("proxmox-token"));
         let denied = SecretUseRequest::new(
             "agent-rogue",
+            "scheduler_agent",
             runtime_ref("proxmox-token"),
             SecretUsePurpose::InjectProcess,
         );
@@ -463,17 +468,73 @@ mod tests {
 
     #[test]
     fn unresolvable_secret_fails_after_authorization() {
-        let policy = SecretUsePolicy::new(vec![SecretUseGrant {
-            agent_pattern: "agent-code".to_string(),
-            secret_ids: vec!["absent".to_string()],
-            purposes: vec![SecretUsePurpose::InjectProcess],
-            requires_claim: true,
-        }]);
+        let policy = SecretUsePolicy::new(
+            vec![SecretUseGrant {
+                role: "scheduler_agent".to_string(),
+                secret_classes: vec![SecretClass::RuntimeMachineIdentity],
+                purposes: vec![SecretUsePurpose::InjectProcess],
+                requires_claim: true,
+            }],
+            cynic_protocol::secret_use::SecretMutationPolicy::ReadOnly,
+        );
         let gate = LocalSecretUseGate::new(policy, |_| None);
         let SecretUseOutcome::Allowed { handle } = gate.authorize(&request("absent")) else {
             panic!("expected allowed");
         };
         let argv = vec!["true".to_string()];
         assert!(gate.execute_with_secret(&handle, "X", &argv).is_err());
+    }
+
+    #[test]
+    fn role_absent_from_policy_is_denied_by_the_gate() {
+        let gate = gate_with_secret("proxmox-token", "v");
+        let rogue = SecretUseRequest::new(
+            "agent-rogue",
+            "fleet_coordinator",
+            runtime_ref("proxmox-token"),
+            SecretUsePurpose::InjectProcess,
+        )
+        .with_claim("claim_1");
+        let outcome = gate.authorize(&rogue);
+        assert!(matches!(outcome, SecretUseOutcome::Denied { .. }));
+    }
+
+    #[test]
+    fn gate_accepts_a_policy_derived_from_the_declaration() {
+        use crate::adapters::secret_use_policy_loader::derive_policy_from_declaration;
+
+        let declaration = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/agent-roles.json"),
+        )
+        .expect("read agent-roles.json");
+
+        let policy = derive_policy_from_declaration(&declaration);
+        let gate = LocalSecretUseGate::new(policy, |_| Some("value".to_string()));
+
+        // scheduler_agent declares RuntimeMachineIdentity: allowed with a claim.
+        let allowed = SecretUseRequest::new(
+            "agent-code",
+            "scheduler_agent",
+            runtime_ref("proxmox-token"),
+            SecretUsePurpose::InjectProcess,
+        )
+        .with_claim("claim_1");
+        assert!(matches!(
+            gate.authorize(&allowed),
+            SecretUseOutcome::Allowed { .. }
+        ));
+
+        // schema_warden declares None: nothing may be consumed.
+        let denied = SecretUseRequest::new(
+            "agent-code",
+            "schema_warden",
+            runtime_ref("proxmox-token"),
+            SecretUsePurpose::InjectProcess,
+        )
+        .with_claim("claim_1");
+        assert!(matches!(
+            gate.authorize(&denied),
+            SecretUseOutcome::Denied { .. }
+        ));
     }
 }
