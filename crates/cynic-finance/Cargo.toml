@@ -3,6 +3,7 @@ name = "cynic-finance"
 version.workspace = true
 edition.workspace = true
 description = "CYNIC Finance — multi-resource accounting, ledgers, and exchange rates for sovereign agent coordination"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

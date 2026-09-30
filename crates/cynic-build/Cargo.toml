@@ -5,6 +5,7 @@ edition.workspace = true
 authors = ["CYNIC Team"]
 description = "Sovereign build runner, compiler fault classification, and deterministic build proof pipeline for CYNIC"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

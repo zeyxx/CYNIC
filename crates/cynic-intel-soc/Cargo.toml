@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Host, hardware, kernel, and network threat telemetry SOC analysis engine for CYNIC"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

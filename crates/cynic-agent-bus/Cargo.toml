@@ -3,6 +3,7 @@ name = "cynic-agent-bus"
 version = "0.1.0"
 edition = "2024"
 description = "CYNIC sovereign agent bus — coordination, claims, proofs"
+publish = false
 
 [dependencies]
 # Domain types

@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2024"
 authors = ["CYNIC Sovereign Collective"]
 description = "Contribution pool protocol, types, difficulty adjustment, merkle proofs, and reward distribution for CYNIC"
+publish = false
 
 [dependencies]
 serde.workspace = true

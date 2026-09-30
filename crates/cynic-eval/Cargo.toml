@@ -3,6 +3,7 @@ name = "cynic-eval"
 version = "0.2.0"
 edition = "2024"
 description = "CYNIC evaluation domain — evidence envelopes, dog scoring, judgment, kyon decisions, emergence gallery"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

@@ -3,6 +3,7 @@ name = "cynic-solana-pay"
 version = "0.2.0"
 edition = "2024"
 description = "CYNIC Solana Pay vocabulary — payment requests, SOP sanitization, program constants"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

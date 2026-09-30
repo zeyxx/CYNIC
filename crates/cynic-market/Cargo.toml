@@ -3,6 +3,7 @@ name = "cynic-market"
 version.workspace = true
 edition.workspace = true
 description = "CYNIC Market — futarchic prediction market for sovereign agent coordination"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

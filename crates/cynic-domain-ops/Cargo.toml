@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Pure domain models and reconciliation for external registrar/DNS provider operations"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Pure Layer 2 Bilateral State Channels & Task HTLC Execution for CYNIC agents"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

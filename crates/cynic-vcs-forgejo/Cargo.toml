@@ -5,6 +5,7 @@ edition.workspace = true
 authors = ["CYNIC Sovereign Collective"]
 description = "Forgejo API adapters and runtime for CYNIC sovereign VCS"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 cynic-vcs = { path = "../cynic-vcs" }

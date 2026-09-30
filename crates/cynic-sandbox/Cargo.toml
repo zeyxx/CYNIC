@@ -5,6 +5,7 @@ edition.workspace = true
 authors = ["CYNIC Sovereign Collective"]
 description = "Deterministic execution sandboxing and confinement domain for CYNIC"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

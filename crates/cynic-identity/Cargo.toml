@@ -3,6 +3,7 @@ name = "cynic-identity"
 version = "0.1.0"
 edition = "2021"
 description = "Cryptographic node identity for CYNIC — no_std + alloc compatible"
+publish = false
 
 # Feature `std` (default) enables key generation via OS entropy (OsRng).
 # Without `std`: pure verification + derivation only — Solana/WASM/sandbox safe.

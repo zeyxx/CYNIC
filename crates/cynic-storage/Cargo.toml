@@ -3,6 +3,7 @@ name = "cynic-storage"
 version.workspace = true
 edition.workspace = true
 description = "CYNIC Storage — sovereign SMR event-sourced WAL and embedded state projections"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

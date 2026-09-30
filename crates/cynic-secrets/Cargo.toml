@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["CYNIC Sovereign Collective"]
 license = "MIT OR Apache-2.0"
 description = "Horizontal secret management layer for all CYNIC crates — resolution, storage, rotation, audit."
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

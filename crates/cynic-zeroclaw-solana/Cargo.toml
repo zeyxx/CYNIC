@@ -3,6 +3,7 @@ name = "cynic-zeroclaw-solana"
 version.workspace = true
 edition.workspace = true
 description = "Sovereign Solana-native plugin and threat firewall for ZeroClaw agents"
+publish = false
 
 [dependencies]
 cynic-intel = { path = "../cynic-intel" }

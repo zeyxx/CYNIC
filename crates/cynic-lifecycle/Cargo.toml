@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Deterministic runtime lifecycle, blue-green deployment, binary reconciliation and repair"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

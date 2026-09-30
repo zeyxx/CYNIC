@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Pure domain models, routing topologies, WireGuard actuation, and network probes for CYNIC"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

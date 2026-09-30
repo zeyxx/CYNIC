@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Fleet consensus, temporal monotonic synchronization, and DeploymentEpoch sequencer for CYNIC"
+publish = false
 
 [dependencies]
 cynic-finance = { path = "../cynic-finance" }

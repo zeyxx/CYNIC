@@ -3,6 +3,7 @@ name = "cynic-agent-bus-server"
 version = "0.1.0"
 edition = "2024"
 description = "CYNIC agent bus REST projection (Axum)"
+publish = false
 
 [dependencies]
 cynic-agent-bus = { path = "../cynic-agent-bus" }

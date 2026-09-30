@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 description = "Sovereign agent workload lifecycle: admission, claims, delivery, durability, settlement, and workspace reconciliation for CYNIC"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

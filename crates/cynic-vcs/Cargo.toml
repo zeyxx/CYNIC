@@ -5,6 +5,7 @@ edition.workspace = true
 authors = ["CYNIC Team"]
 description = "Version Control System (VCS) domain and host adapters for CYNIC sovereign runtimes"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

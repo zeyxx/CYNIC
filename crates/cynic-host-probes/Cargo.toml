@@ -3,6 +3,7 @@ name = "cynic-host-probes"
 version = "0.1.0"
 edition = "2024"
 description = "Hardware probes for CYNIC host substrate"
+publish = false
 
 [dependencies]
 cynic-finance = { path = "../cynic-finance" }
