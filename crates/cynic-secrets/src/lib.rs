@@ -21,11 +21,16 @@ pub mod protocol;
 pub use cynic_protocol::secret_reference::{
     SecretClass, SecretProvider as SecretProviderKind, SecretReference,
 };
+// Re-export the secret-use governance types from cynic-protocol.
+pub use cynic_protocol::secret_use as secret_use;
 // Re-export the port traits and concrete providers from this crate.
 pub use adapters::{EncryptedFileSecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider};
 pub use composite::CompositeSecretProvider;
-pub use ports::{SecretProviderPort, SecretStorePort};
-pub use protocol::{SecretEntry, SecretError, SecretStatus};
+pub use ports::{SecretProviderPort, SecretStorePort, SecretUseGatePort};
+pub use protocol::{
+    SecretEntry, SecretError, SecretStatus, SecretUseExecutionReport, SecretUseHandle,
+    SecretUseOutcome, SECRET_USE_EXECUTION_SCHEMA,
+};
 
 /// V1 resolution helper — resolves an env var through the standard provider.
 ///

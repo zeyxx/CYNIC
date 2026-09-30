@@ -51,3 +51,36 @@ pub trait SecretStorePort: SecretProviderPort {
     /// Enumerate all secret entries (metadata only, never values).
     fn list(&self) -> Vec<crate::SecretEntry>;
 }
+
+/// Gatekeeper port: authorize secret use and execute a child process with the
+/// secret injected, without ever returning the value to the caller.
+///
+/// This is the ONLY path by which an agent-facing surface may cause a secret to
+/// be used. Implementations must:
+/// 1. Evaluate the request against a declared policy via the pure
+///    `decide_secret_use` function — never their own ad-hoc logic.
+/// 2. Append one `SecretUseAuditEntry` to the audit sink for EVERY request,
+///    allowed or denied.
+/// 3. On `Allowed`, resolve the material internally and inject it into a
+///    short-lived child process; the value must never cross this boundary.
+pub trait SecretUseGatePort {
+    /// Authorize a secret-use request. Returns a handle on success, a reason
+    /// on refusal. Never returns secret material.
+    fn authorize(
+        &self,
+        request: &crate::secret_use::SecretUseRequest,
+    ) -> crate::protocol::SecretUseOutcome;
+
+    /// Execute `argv` in a child process with the authorized secret injected as
+    /// the environment variable named by `env_var`. The value is resolved
+    /// internally and never returned.
+    ///
+    /// `handle` must be one previously returned by `authorize`; an expired or
+    /// unknown handle fails closed.
+    fn execute_with_secret(
+        &self,
+        handle: &crate::protocol::SecretUseHandle,
+        env_var: &str,
+        argv: &[String],
+    ) -> Result<crate::protocol::SecretUseExecutionReport, SecretError>;
+}

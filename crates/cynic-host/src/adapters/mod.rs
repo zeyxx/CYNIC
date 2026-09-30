@@ -26,6 +26,7 @@ pub mod local_observation;
 pub mod local_operator_transport;
 pub mod local_pre_os;
 pub mod local_queue;
+pub mod local_secret_use_gate;
 pub mod local_task_admission;
 pub mod principal_manager;
 pub mod privilege_bridge;
