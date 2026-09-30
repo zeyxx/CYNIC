@@ -1178,6 +1178,7 @@ dependencies = [
  "cynic-protocol",
  "cynic-release",
  "cynic-sandbox",
+ "cynic-secrets",
  "cynic-storage",
  "cynic-types",
  "cynic-vcs",
