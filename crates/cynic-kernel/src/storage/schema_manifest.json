@@ -370,7 +370,7 @@
       ]
     },
     {
-      "store": "~/.local/share/rtk/history.db (+ /home/cynic variant)",
+      "store": "~/.local/share/rtk/history.db",
       "owner": "EXTERNAL: RTK process",
       "engine": "sqlite read-only sensor",
       "tables": [

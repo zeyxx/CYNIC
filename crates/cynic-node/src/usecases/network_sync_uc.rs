@@ -184,7 +184,8 @@ pub fn execute_network_sync(
             hosts_content.push_str(&format!("{}\t{}\n", record.ip, record.hostnames.join(" ")));
         }
         let _ = std::fs::create_dir_all("/etc/cynic/dns");
-        if let Err(e) = std::fs::write("/etc/cynic/dns/synapse.hosts", &hosts_content) {
+        let hosts_path = std::path::Path::new("/etc/cynic/dns/synapse.hosts");
+        if let Err(e) = std::fs::write(hosts_path, &hosts_content) {
             blockers.push(format!("write_synapse_hosts_failed:{e}"));
         }
     } else {

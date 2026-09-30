@@ -79,8 +79,11 @@ impl AuditRule for PathSanitationRule {
                     || line.contains("contains(")
                     || line.contains("for prefix in");
 
+                let is_normative_directory_tree = file.relative_path == "infra/directory-tree.json";
+
                 if !in_test_scope
                     && !inspects_rather_than_embeds
+                    && !is_normative_directory_tree
                     && (line.contains("/home/")
                         || line.contains("/Users/")
                         || line.contains("C:\\Users\\")

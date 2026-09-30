@@ -360,7 +360,6 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
 
     // Shared git admin detection (reject shared checkout paths)
     let shared_markers = [
-        "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC",
         "/var/lib/cynic/source/repositories/CYNIC",
         "/.git",
     ];
@@ -368,6 +367,11 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
         if git_dir.starts_with(marker) || workspace.starts_with(marker) {
             violations.push("blocked_shared_git_admin".to_string());
             break;
+        }
+    }
+    if let Ok(shared_root) = std::env::var("CYNIC_WORKSPACE_ROOT") {
+        if !shared_root.is_empty() && (git_dir.starts_with(&shared_root) || workspace.starts_with(&shared_root)) {
+            violations.push("blocked_shared_git_admin".to_string());
         }
     }
 

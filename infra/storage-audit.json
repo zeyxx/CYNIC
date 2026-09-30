@@ -21,7 +21,7 @@
     },
     {
       "id": "windows_archive",
-      "path": "/home/user/ml_training_logs/windows_sessions_2026",
+      "path": "~/ml_training_logs/windows_sessions_2026",
       "volume": "4.0 GB",
       "count": 3436,
       "format": "JSONL (Claude Code traces)",
@@ -36,7 +36,7 @@
     },
     {
       "id": "hermes_state_db",
-      "path": "/home/user/.hermes/state.db",
+      "path": "~/.hermes/state.db",
       "volume": "1.6 GB",
       "rows": {"sessions": 2085, "messages": 161630},
       "format": "sqlite (WAL?)",
@@ -115,7 +115,7 @@
   "structural_findings": [
     "F1: 96% of cynic byte volume is re-downloadable GGUF weights managed with zero integrity tooling, while the 41 MiB of actual irreplaceable proof/code has full tooling — effort inverted vs risk",
     "F2: kernel SurrealDB mixes two incompatible data natures (mutable ops state vs immutable evidence) with one backup/retention story",
-    "F3: distilled knowledge (pattern models, reports) lands in operator /home/user — non-authoritative path per AGENTS.md — instead of principal-owned signed storage",
+    "F3: distilled knowledge (pattern models, reports) lands in operator home directory — non-authoritative path per AGENTS.md — instead of principal-owned signed storage",
     "F4: no content-addressing anywhere outside git; bitrot undetectable on models/artifacts",
     "F5: three sqlite islands (hermes, agent-sessions, node-control) with three ownership regimes and no common archival policy"
   ]
