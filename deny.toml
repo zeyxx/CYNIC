@@ -1,0 +1,131 @@
+# cargo-deny configuration — dependency and license policy.
+#
+# WHY THIS FILE EXISTS. Nothing checked the dependency graph for licences,
+# advisories, duplicate versions or wildcard requirements. A wildcard
+# requirement (`foo = "*"`) means "any version", which means a dependency can
+# change under a commit that did not touch it, and a duplicate version means
+# two copies of a crate are compiled and shipped where one would do. Both are
+# supply-chain and maintenance facts, and neither was visible.
+#
+# WHAT IS ENFORCED STRICTLY. Wildcards and unknown registries: there are no
+# wildcard requirements in this workspace today, so denying them costs nothing
+# and catches the day one is added. Unknown registries and git sources are
+# denied because a dependency that does not come from the canonical index is a
+# dependency whose provenance nobody checked.
+#
+# WHAT IS WARNED. Multiple versions of the same crate. There is one direct
+# duplication today — `axum` 0.7.9 in cynic-agent-bus-server against 0.8.9
+# everywhere else — and denying it would make the gate red on arrival. The
+# duplication is real and should be paid, but a gate that is red on the day it
+# is introduced is a gate that gets switched off.
+#
+# ADVISORIES — measured 2026-09-30, and the measurement is the honest part.
+# Six advisories were reported on introduction. Two were paid immediately by
+# lockfile updates the workspace already permitted:
+#
+#   RUSTSEC-2026-0258  h2 0.4.15 -> 0.4.19       (unbounded empty DATA frames)
+#   RUSTSEC-2026-0285  rustls 0.23.43 -> 0.23.45 (TLS 1.3 encryption level)
+#
+# Four remain, and every one is blocked upstream by a version we do not control.
+# They are listed here rather than in an `ignore` list, because an ignore entry
+# reads as "decided, do not care" while these are "known, and the fix is a major
+# bump we have not taken":
+#
+#   RUSTSEC-2026-0118 / RUSTSEC-2026-0119  hickory-proto 0.25.2
+#     Reached only through libp2p-mdns 0.48 -> libp2p 0.56, pulled by
+#     cynic-observer. No compatible release exists: `cargo update -p
+#     hickory-proto` locks zero packages. Both are DNS-message parsing flaws in
+#     an mDNS discovery path.
+#   RUSTSEC-2024-0384  instant 0.1.13 (unmaintained)
+#     Reached through notify-types -> notify 7 -> cynic-node.
+#   RUSTSEC-2024-0436  paste 1.0.15 (unmaintained, proc-macro)
+#     Reached through netlink-packet-core -> if-watch -> libp2p 0.56. A
+#     build-time proc-macro, not shipped code.
+#
+# The gate therefore FAILS on advisories today, and that is reported rather than
+# hidden. Paying it means bumping libp2p and notify — a dependency migration
+# with its own proof, not a policy commit.
+#
+# Run: cargo deny check
+
+# This section is considered when running `cargo deny check advisories`.
+[advisories]
+# The RustSec advisory database. `cargo-audit` is already installed on this
+# host, so the database is available locally.
+db-path = "$CARGO_HOME/advisory-dbs"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Advisory IDs to ignore. An ignored advisory is still reported as a note, so
+# ignoring is a recorded decision rather than a silent one.
+ignore = []
+
+# This section is considered when running `cargo deny check licenses`.
+[licenses]
+# The workspace is MIT OR Apache-2.0. A dependency is acceptable when its
+# licence is compatible with that, which is the set below. MPL-2.0 is allowed
+# because it is file-level copyleft: a change to an MPL file must be published,
+# but linking against it does not affect the rest of the workspace.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "OpenSSL",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    # webpki-root-certs, a transitive dependency of the rustls stack. It is
+    # permissive and compatible with MIT OR Apache-2.0; it is not OSI-approved,
+    # which is why it is named here rather than assumed.
+    "CDLA-Permissive-2.0",
+]
+# The confidence threshold for detecting a licence from licence text.
+confidence-threshold = 0.8
+
+[licenses.private]
+# Workspace crates are `publish = false` and are not distributed, so their
+# licences are a workspace decision, not a registry one.
+ignore = true
+registries = []
+
+# This section is considered when running `cargo deny check bans`.
+[bans]
+# See the header: one direct duplication exists, so this warns rather than denies.
+multiple-versions = "warn"
+# No wildcard requirements exist today, so this is free to deny.
+wildcards = "deny"
+# Path dependencies carry a `*` version requirement because they are not
+# resolved from a registry, so they look like wildcards. They are not: a path
+# dependency points at a specific directory in this workspace, and its version is
+# whatever that directory says. Denying them would deny the workspace's own
+# crates, which are the majority of the graph.
+allow-wildcard-paths = true
+# How the graph highlights crates with multiple versions.
+highlight = "all"
+# Workspace members are allowed to use default features without a per-crate note.
+workspace-default-features = "allow"
+external-default-features = "allow"
+# Crates that are allowed despite a ban. Empty: nothing is banned yet.
+allow = []
+# If true, workspace members are automatically allowed even when using
+# deny-by-default. False, because the workspace has no deny-by-default policy.
+allow-workspace = false
+# Crates to deny. Empty: the policy is "no wildcards, no unknown sources", not
+# "these specific crates are forbidden".
+deny = []
+
+# Crates skipped during duplicate detection. Empty: every duplication is
+# reported, so none can be silently excused.
+skip = []
+skip-tree = []
+
+# This section is considered when running `cargo deny check sources`.
+[sources]
+# Every dependency must come from the canonical index.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
