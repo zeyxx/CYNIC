@@ -80,6 +80,10 @@
       {
         "name": "governance_ownership_split",
         "rule": "Material claim and the right of exit are inviolable: no aggregate of governance weight may extinguish, dilute, or transfer them, and no treasury is the sole legal defense of a permissionless system. Governance weight is derived from observed contribution, never stored, never purchasable with material ownership."
+      },
+      {
+        "name": "measure_arbitration",
+        "rule": "Each governance power is governed by exactly one measurement, no power is governed by a measurement its beneficiary can move, a quantity's flow and its stock never govern one power, and the treasury is allocated by cap rather than by score."
       }
     ],
     "deleted_authorities": [
@@ -92,7 +96,7 @@
     ],
     "boundary_coverage": {
       "purpose": "Coverage of the fourteen constitutional hard boundaries. A boundary in prose reads like a guarantee; this table says which ones are executed, which are read, and which must not be automated at all.",
-      "measured_at": "2026-09-30, fourth measurement (ownership boundary added)",
+      "measured_at": "2026-09-30, fifth measurement (measure arbitration added)",
       "measurement": "fn names across the 47 crates/*/tests/architecture_boundary.rs, plus the ratchet families in crates/*/tests/.",
       "statuses": {
         "covered_green": "an executable check exists and passes.",
@@ -102,11 +106,11 @@
         "by_design_unenforceable": "converting it to code would replace a doctrine with an assertion and guarantee nothing. This is a decision, recorded so it is not reopened by mistake."
       },
       "totals": {
-        "covered": 4,
+        "covered": 5,
         "partial": 5,
         "uncovered": 4,
         "by_design_unenforceable": 2,
-        "boundaries": 15
+        "boundaries": 16
       },
       "coverage": [
         {
@@ -183,6 +187,11 @@
           "boundary": "governance_ownership_split",
           "status": "partial",
           "note": "contracts/ownership.json declares R-A..R-D, INV-01..07, asymmetries A1/A2 and the discriminator DISC-01. Two checks pass (a_contract_may_not_overstate_its_own_enforcement, ownership_claims_are_indexed_and_load_bearing_claims_are_falsifiable). DISC-01 itself has no executable check: the rule that a majority supply holder must hold no vote over another's claim is declared, not enforced. Weight derives to unknown in practice because ChatTrace token counts are Option<u64> = None with no production TraceSink wired."
+        },
+        {
+          "boundary": "measure_arbitration",
+          "status": "covered_green",
+          "note": "contracts/measure-arbitration.json allocates five powers to five distinct measures across four classes. Six checks pass: measure_arbitration_allocates_one_measure_per_power, no_power_is_governed_by_a_self_reported_measure, flow_and_stock_never_govern_the_same_power, treasury_is_capped_and_never_weighted, no_calibrated_constant_without_a_measured_corpus, every_measure_names_a_falsifier. Each was negative-controlled: a mutated contract turns the corresponding check red. INV-17, which constrains the arbiter rather than a structure, has no check and is declared unbacked."
         }
       ],
       "rules": [

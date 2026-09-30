@@ -2295,3 +2295,276 @@ fn no_normative_spec_without_invariant_and_falsifier() {
          doing the work the check should do."
     );
 }
+
+/// `measure_arbitration` / INV-08: a measurement governs at most one power.
+///
+/// The failure this removes is arithmetic, not intent. One scalar mixing capital,
+/// contribution and tenure was asked three different questions — who deserves
+/// authority, how much infrastructure to buy, how long an actor has been present —
+/// and the repository's own audit shows what that yields: the anti-whale modifier
+/// multiplied the stake ratio from 100 to 1 000 000
+/// (`docs/archive/reports/2026-09-02-mathematics-geometry-audit.md:183-192`).
+///
+/// Two measures that fail differently need two instruments. Sharing one instrument
+/// means every failure mode of one is a failure mode of both.
+#[test]
+fn measure_arbitration_allocates_one_measure_per_power() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("contracts/measure-arbitration.json is readable");
+    let parsed: Value = serde_json::from_str(&raw).expect("measure-arbitration.json parses");
+    let allocation = parsed["allocation"]
+        .as_array()
+        .expect("allocation is an array");
+
+    let mut owner: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    let mut collisions: Vec<String> = Vec::new();
+
+    for entry in allocation {
+        let power = entry["power"].as_str().expect("every allocation names a power");
+        let measure = entry["measure"].as_str().expect("every allocation names a measure");
+        match owner.get(measure) {
+            Some(first) => collisions.push(format!("{measure} -> {first} and {power}")),
+            None => {
+                owner.insert(measure.to_string(), power.to_string());
+            }
+        }
+    }
+
+    assert!(
+        collisions.is_empty(),
+        "INV-08: measure(s) allocated to more than one power: {}. A measurement asked to \
+         answer two questions answers neither, and its failure modes become shared.",
+        collisions.join(", ")
+    );
+    assert!(
+        owner.len() >= 5,
+        "INV-08 is only meaningful across the full allocation; found {} distinct measures for {} \
+         powers. A table that has shrunk is not the table the invariant was written for.",
+        owner.len(),
+        allocation.len()
+    );
+}
+
+/// `measure_arbitration` / INV-09: no power is governed by a measure its beneficiary can move.
+///
+/// Stated preference is listed as a class so the prohibition is total rather than
+/// partial. The interesting case is one remove out: GitHub Stars are not self-reported
+/// by the person being scored — the buyer manufactures a measurement that someone else
+/// then consumes. It still fails INV-09, one step removed. Only whether *this* actor is
+/// consumed resists capture, which is why the allocation uses third-party consumption
+/// and never a popularity proxy.
+#[test]
+fn no_power_is_governed_by_a_self_reported_measure() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("read");
+    let parsed: Value = serde_json::from_str(&raw).expect("parses");
+    let allocation = parsed["allocation"].as_array().expect("allocation");
+
+    let offenders: Vec<String> = allocation
+        .iter()
+        .filter(|e| e["measure_class"].as_str() == Some("stated"))
+        .map(|e| {
+            format!(
+                "{} governed by {}",
+                e["power"].as_str().unwrap_or("?"),
+                e["measure"].as_str().unwrap_or("?")
+            )
+        })
+        .collect();
+
+    assert!(
+        offenders.is_empty(),
+        "INV-09: {}. A power whose beneficiary can move its own measurement is decided by \
+         assertion. Replace with third-party consumption, or accept that the decision cannot \
+         be made from evidence.",
+        offenders.join(", ")
+    );
+}
+
+/// `measure_arbitration` / INV-10: a quantity's flow and its stock never govern one power.
+///
+/// This is the gerontocracy guard. An actor who arrived first accumulates more of
+/// everything, so a measure that mixes tenure with current performance converts age
+/// into authority. It is the same error as conflating flow and stock in the electricity
+/// analogy, arriving from governance rather than physics.
+#[test]
+fn flow_and_stock_never_govern_the_same_power() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("read");
+    let parsed: Value = serde_json::from_str(&raw).expect("parses");
+    let allocation = parsed["allocation"].as_array().expect("allocation");
+
+    let mut by_quantity: std::collections::BTreeMap<String, Vec<(String, String)>> =
+        std::collections::BTreeMap::new();
+    for entry in allocation {
+        let quantity = match entry["quantity"].as_str() {
+            Some(q) => q.to_string(),
+            None => continue,
+        };
+        let variant = entry["variant"].as_str().unwrap_or("unspecified").to_string();
+        let power = entry["power"].as_str().unwrap_or("?").to_string();
+        by_quantity
+            .entry(quantity)
+            .or_default()
+            .push((variant, power));
+    }
+
+    let mut violations: Vec<String> = Vec::new();
+    for (quantity, entries) in &by_quantity {
+        let flows: Vec<&String> = entries
+            .iter()
+            .filter(|(v, _)| v == "flow")
+            .map(|(_, p)| p)
+            .collect();
+        let stocks: Vec<&String> = entries
+            .iter()
+            .filter(|(v, _)| v == "stock")
+            .map(|(_, p)| p)
+            .collect();
+
+        // Both variants must exist, exactly once each, on different powers.
+        //
+        // The naive form of this check only asks whether one power carries both, and it is
+        // vacuous: flipping P-next from flow to stock leaves a quantity with one variant and
+        // the loop finds nothing to compare. That mutation is a real regression — it retires
+        // the decaying window, so a burst of attention would outrank a sustained audience,
+        // and two powers would then read the same stock. So the absence of a variant is a
+        // violation, not a pass.
+        if flows.len() != 1 {
+            violations.push(format!(
+                "{quantity}: expected exactly one flow power, found {} ({})",
+                flows.len(),
+                flows.iter().map(|p| p.as_str()).collect::<Vec<_>>().join(", ")
+            ));
+        }
+        if stocks.len() != 1 {
+            violations.push(format!(
+                "{quantity}: expected exactly one stock power, found {} ({})",
+                stocks.len(),
+                stocks.iter().map(|p| p.as_str()).collect::<Vec<_>>().join(", ")
+            ));
+        }
+        for flow_power in &flows {
+            for stock_power in stocks.iter() {
+                if flow_power == stock_power {
+                    violations.push(format!(
+                        "{quantity}: {flow_power} governs both flow and stock"
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "INV-10: {}. An actor who arrived first accumulates more of every quantity, so a \
+         measure mixing tenure with current performance converts age into authority.",
+        violations.join(", ")
+    );
+    assert!(
+        by_quantity.values().any(|e| e.len() >= 2),
+        "INV-10 has nothing to say while every quantity has a single variant. The allocation \
+         declares {} quantities; at least one must carry both a flow and a stock, assigned to \
+         different powers, or the invariant is vacuous.",
+        by_quantity.len()
+    );
+}
+
+/// `measure_arbitration` / INV-11: the treasury is capped, never weighted.
+///
+/// Where confiscation risk lives. A score in a treasury decision converts a budget into a
+/// claim, and the reference failure is the one where 23.6M STEEM were seized from 64
+/// accounts under a contribution-justified mechanism. A treasury that can be scored is a
+/// treasury that can be argued for.
+#[test]
+fn treasury_is_capped_and_never_weighted() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("read");
+    let parsed: Value = serde_json::from_str(&raw).expect("parses");
+    let allocation = parsed["allocation"].as_array().expect("allocation");
+
+    let treasury = allocation
+        .iter()
+        .find(|e| e["power"].as_str() == Some("P-treasury"))
+        .expect("P-treasury is allocated");
+
+    assert_eq!(
+        treasury["measure_class"].as_str(),
+        Some("capped"),
+        "INV-11: P-treasury measure_class is {:?}, expected capped. A scored treasury is a \
+         claim on the treasury rather than an allocation from it.",
+        treasury["measure_class"].as_str()
+    );
+    assert_eq!(
+        treasury["scoring_admissible"].as_bool(),
+        Some(false),
+        "INV-11: P-treasury must declare scoring_admissible false. Its absence leaves the \
+         decision ambiguous, and ambiguity in a treasury is where confiscation enters."
+    );
+}
+
+/// `measure_arbitration` / INV-16 and INV-14: no calibration constant without a corpus.
+///
+/// 0.618 was refuted in this repository as *structurally aesthetic choices, not
+/// demonstrated epistemic laws*. The electricity metaphor is newer and more seductive, so
+/// the same discipline applies with less excuse. A null is the honest value and stays
+/// null until a corpus, a tolerance and a falsifier exist.
+#[test]
+fn no_calibrated_constant_without_a_measured_corpus() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("read");
+    let parsed: Value = serde_json::from_str(&raw).expect("parses");
+    let calibration = &parsed["calibration"];
+
+    assert_eq!(
+        calibration["status"].as_str(),
+        Some("uncalibrated"),
+        "measure-arbitration.json declares calibration status {:?}. Status and values must \
+         agree; a calibrated status with null values is a contradiction a reader cannot resolve.",
+        calibration["status"].as_str()
+    );
+
+    let corpus = calibration["corpus"].as_str();
+    for constant in ["lambda", "saturation"] {
+        let value = &calibration[constant];
+        if !value.is_null() {
+            assert!(
+                corpus.is_some(),
+                "INV-16: {constant} is {value} with no named corpus. A constant without a \
+                 measured corpus is a belief, and this contract does not ship beliefs as numbers."
+            );
+        }
+    }
+}
+
+/// Every allocated power names a falsifier.
+///
+/// A claim that cannot be refuted is a belief, and INV-13 in particular rests on a claim
+/// that is easy to agree with and hard to test: that unconsumed activity predicts nothing.
+/// Without a falsifier per power, the table documents a preference rather than committing
+/// to anything.
+#[test]
+fn every_measure_names_a_falsifier() {
+    let raw = std::fs::read_to_string(workspace().join("contracts/measure-arbitration.json"))
+        .expect("read");
+    let parsed: Value = serde_json::from_str(&raw).expect("parses");
+    let allocation = parsed["allocation"].as_array().expect("allocation");
+
+    let missing: Vec<String> = allocation
+        .iter()
+        .filter(|e| {
+            e["falsifier"]
+                .as_str()
+                .map(str::trim)
+                .filter(|f| !f.is_empty())
+                .is_none()
+        })
+        .map(|e| e["power"].as_str().unwrap_or("?").to_string())
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "Power(s) {missing:?} name no falsifier. The allocation then documents a preference \
+         rather than committing to a measurement that could be refuted."
+    );
+}
