@@ -1,3 +1,8 @@
+// The shared detector is designed to be included by binaries that use different
+// halves of it. `dead_code = "deny"` at workspace level otherwise fails the build
+// for the unused half, which means this ratchet would not execute at all.
+#![allow(dead_code)]
+
 //! Orphan-source ratchet for `cynic-zeroclaw-solana`.
 //!
 //! Shares one detector with every other crate (`tests/support/orphan_sources.rs`)
