@@ -83,10 +83,7 @@ pub(crate) fn execute_network_notify(
     let freebox_probe = cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter::default();
     let services = declared_service_probe_specs();
     let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter;
-    let pressure = {
-        use cynic_host::ports::network::NetworkObservationPort as _;
-        adapter.observe_network().pressure
-    };
+    let pressure = adapter.observe_network().pressure;
 
     let now_unix_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

@@ -13,7 +13,6 @@ mod domain;
 mod mesh;
 mod provider_fallback;
 
-#[derive(Subcommand)]
 /// The service probe specs declared in `infra/registry.json`.
 ///
 /// Extracted so `network watchdog` and `network notify` evaluate the SAME
@@ -64,6 +63,7 @@ pub(crate) fn declared_service_probe_specs()
     services
 }
 
+#[derive(Subcommand)]
 pub(crate) enum NetworkCommand {
     Chain {
         #[arg(long)]
