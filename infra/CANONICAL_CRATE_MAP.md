@@ -1,11 +1,12 @@
 # CYNIC — CANONICAL CRATE MAP v3
 
 > **Supersedes** : CANONICAL_CRATE_MAP v2 (2026-09-23), CYNIC_EXTRACTION_GLOBALE.md, CYNIC_CONSTELLATIONS_HEXAGONALES.md
-> **Authority** : canonical taxonomy source for workspace crates. Referenced by `AGENTS.md` (protocol), `README.md`, and `contracts/foundation.json` (hard boundary `strict_dag_and_single_responsibility`).
-> **Pattern** : `cynic-<family>-<role>` — no exceptions.
-> **External validation** : Agave/Solana workspace (117 crates), Bevy (60 crates), Substrate (500+ crates).
+> **Status** : census and extraction tracking. This document is **NOT the taxonomy authority**.
+> **Authority** : `contracts/pruning-policy.json` (normative, ratified 2026-09-28, amended 2026-09-29) owns the crate rules, and `infra/crate-topology.json` owns the machine-readable DAG and layer assignment. Both are executable; this file is not. Where this file and an executable surface disagree, **the executable surface wins** — a stale sentence here is a bug to fix, not a rule.
+> **Naming** : `cynic-<family>-<role>` is the dominant shape in this workspace, not a requirement. See `pruning-policy.json` → `family_prefix_is_optional_and_not_normative`. External evidence for that position: `infra/CRATE_RULES.md` §9.
+> **External validation** : Agave/Solana workspace (126 crates), Bevy (60 crates), Substrate (500+ crates).
 > **God-object ceiling** : 25,000 LOC — `contracts/foundation.json` hard boundary and `infra/ARCHITECTURE_CONSTELLATIONS.md` rule 5. Supersedes the 40k figure recorded in v2.
-> **Measured** : 2026-09-28 from `cargo metadata` (47 workspace crates) and `src/` LOC census. Total: 388,393 LOC.
+> **Measured** : 2026-09-30 from `cargo metadata` (48 workspace crates) and `src/` LOC census. Total: 324,047 LOC.
 
 ---
 
@@ -92,6 +93,7 @@ cynic-identity          185    pure leaf ✓ (ed25519, blake3, NodeId)
 cynic-agent-bus-server   91    constellation ✓ (projection REST)
 cynic-domain-askesis     67    constellation ✓
 cynic-inference-runtime   6    composition shell (new in v3; stub over cynic-inference)
+cynic-finance            1 049    cross-cutting ✓ (multi-resource accounting, ledgers, exchange rates)
 ```
 
 Ceiling references: GOD OBJECT > 25,000 LOC; MONOLITH band 15-25k; ok band 5-15k; small < 5k.

@@ -41,6 +41,48 @@
     "family_prefix_is_optional_and_not_normative": "A family prefix (cynic-host-*, cynic-intel-*, cynic-domain-*) is neither required nor privileged. A crate without a prefix is not in violation; a crate with one does not gain a layer, a purity guarantee, or an exemption. The 'domain' prefix in particular asserts a purity that adapter-bearing crates do not have (cynic-domain-cloudflare and cynic-domain-porkbun both contain adapter.rs and reqwest), so it is retired as a category rather than extended.",
     "metaphor_banned_from_crate_names": "A metaphor (askesis, kyon, zen) is vocabulary, not a crate name. It may name a concept or a type; it may not name a crate, because a metaphor is what gets used exactly where the responsibility has no functional name, and it then multiplies into collisions (cynic-askesis / cynic-domain-askesis). Renaming a crate that is anchored in a normative contract is a contract change and requires operator admission."
   },
+  "taxonomy": {
+    "purpose": "The executable statement of what a crate IS in this workspace, so the question is answered once rather than re-litigated per agent. Every clause below restates a rule already ratified above or in contracts/foundation.json; none is new. Each names the executor that makes it falsifiable.",
+    "crate_is": {
+      "definition": "A crate is one named responsibility, and the unit of compilation, visibility and versioning. It is NOT by itself an architectural boundary: a crate without a minimal `pub` surface and without an architecture test is a directory with a Cargo.toml. The boundary is made by the DAG check, the visibility, and the boundary test together.",
+      "responsibility": "One named responsibility, stated in the crate's Cargo.toml `description`.",
+      "visibility": "`pub` is the only encapsulation Rust provides. A crate whose public surface is broad by convenience has no boundary.",
+      "versioning": "version.workspace = true — one version for the whole workspace.",
+      "tests": "tests/ compiles separately, so it can only exercise the public API."
+    },
+    "enforced_by": {
+      "responsibility": "crates/cynic-host/tests/crate_taxonomy_ownership.rs",
+      "god_object_ceiling": "crates/cynic-cli/tests/crate_loc_ratchet.rs",
+      "reachability_and_dead_mass": "crates/*/tests/orphan_sources_ratchet.rs + tests/support/orphan_sources.rs",
+      "layer_direction": "crates/cynic-host/src/audit_engine/topology.rs (ARCH-004) + infra/crate-topology.json",
+      "domain_purity_zero_io": "crates/*/tests/architecture_boundary.rs",
+      "authority_rank": "crates/cynic-host/tests/authority_ladder_coherence.rs",
+      "naming": "crates/cynic-host/tests/crate_taxonomy_ownership.rs (empty description, metaphor, layer token, purity prefix)"
+    },
+    "hexagonal_and_ddd": {
+      "policy": "The architecture policy in force is hexagonal (ports and adapters) with domain-driven design. Domain logic holds no infrastructure; dependencies point inward; a port is a trait and an adapter implements it; one concept has one home.",
+      "status": "partially_enforced",
+      "verified": {
+        "domain_purity_no_io": "crates/*/tests/architecture_boundary.rs asserts the absence of reqwest, std::process and tokio::spawn in domain modules (24 of 48 crates assert at least one of the three).",
+        "dependency_direction": "26 of 48 crates assert no dependency on a higher layer; ARCH-004 checks the whole declared graph against the built one.",
+        "ports_are_traits": "1 crate asserts that its ports module holds traits only."
+      },
+      "known_gap": {
+        "statement": "The structural half of the policy is NOT verified. Recorded here rather than left implicit, because an unrecorded gap reads as a guarantee.",
+        "unverified": [
+          "that every adapter implements a declared port",
+          "that a concept named in two crates has one canonical home (measured 2026-09-30: 10 of 18 sampled concepts have two or more homes; ClaimStatus exists in both cynic-protocol and cynic-agent-bus)",
+          "that an application layer is distinct from the domain and the infrastructure",
+          "aggregate boundaries and invariants"
+        ],
+        "executor": "none yet. Closing this gap is the work of the hexagonal/DDD verifier slice, not of this contract."
+      }
+    },
+    "known_unknown": {
+      "layer_of_cynic_host": "cynic-host declares L1 and depends on eight L2 domain crates (11 ascending edges). It is declared as tolerated layer debt in infra/crate-topology.json. Whether it is an L1 substrate crate or an L2 composition crate is not decided by this contract; the ascending edges are the evidence that the current label is wrong.",
+      "responsibility_bound": "CRATE_RULES.md §5 leaves the 'responsibilities <= N' threshold to the operator. Not decided here."
+    }
+  },
   "visibility_rules": {
     "tightest_usable": "Use the narrowest visibility that communicates intent. Private by default, pub(crate) for internal shared detail, pub only where it is a real public API.",
     "no_permanent_broadening": "Do not keep a module or item permanently over-opened for a temporary convenience. If opened, document why and close it again when possible."
