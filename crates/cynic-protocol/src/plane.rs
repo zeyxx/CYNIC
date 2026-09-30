@@ -46,18 +46,6 @@ impl Plane {
         }
     }
 
-    /// Default CIDR for this plane.
-    ///
-    /// These are defaults only. Runtime configuration MUST come from
-    /// `infra/registry.json` or `infra/network/topology.json`.
-    pub fn default_cidr(&self) -> &'static str {
-        match self {
-            Plane::Service => "10.10.10.0/24",
-            Plane::Admin => "192.168.100.0/24",
-            Plane::Mesh => "10.20.0.0/24",
-        }
-    }
-
     /// DNS zone for this plane, if any.
     pub fn dns_zone(&self) -> Option<&'static str> {
         match self {
@@ -110,13 +98,6 @@ mod tests {
         assert_eq!(Plane::from_name("management"), None);
         assert_eq!(Plane::from_name("overlay"), None);
         assert_eq!(Plane::from_name(""), None);
-    }
-
-    #[test]
-    fn plane_default_cidrs_are_canonical() {
-        assert_eq!(Plane::Service.default_cidr(), "10.10.10.0/24");
-        assert_eq!(Plane::Admin.default_cidr(), "192.168.100.0/24");
-        assert_eq!(Plane::Mesh.default_cidr(), "10.20.0.0/24");
     }
 
     #[test]
