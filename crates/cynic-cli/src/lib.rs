@@ -54,6 +54,7 @@ pub mod mask_surface;
 pub mod mcp_call_proof_index;
 
 pub mod network_audit;
+pub mod network_notify_surface;
 pub mod network_surface;
 pub mod node_activation_surface;
 pub mod node_host_audit;

@@ -140,44 +140,7 @@ pub(crate) fn try_execute_base(
             let freebox_probe = HttpFreeboxProbeAdapter::default();
             let outbox_store = InMemoryNotificationOutboxStore::default();
 
-            let reg_path = crate::registry_path(None);
-            let mut services = Vec::new();
-            if let Ok(content) = std::fs::read_to_string(&reg_path) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    let canonical_plane = val
-                        .pointer("/network_policy/canonical_service_plane")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("synapse");
-                    if let Some(nodes) = val.get("nodes").and_then(|n| n.as_array()) {
-                        for node in nodes {
-                            let node_id =
-                                node.get("id").and_then(|v| v.as_str()).unwrap_or_default();
-                            let ip = node
-                                .get("network")
-                                .and_then(|n| n.get(canonical_plane).or_else(|| n.get("synapse")))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("127.0.0.1");
-                            if let Some(svcs) = node.get("services").and_then(|s| s.as_array()) {
-                                for svc in svcs {
-                                    let svc_name = svc
-                                        .get("name")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or_default();
-                                    let port =
-                                        svc.get("port").and_then(|p| p.as_u64()).unwrap_or(0);
-                                    if port > 0 {
-                                        services.push(ServiceProbeSpec {
-                                            service: svc_name.to_string(),
-                                            node: node_id.to_string(),
-                                            endpoint: format!("{ip}:{port}"),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            let services = super::declared_service_probe_specs();
 
             let adapter = LocalNetworkAdapter;
             let pressure = adapter.observe_network().pressure;
@@ -229,6 +192,13 @@ pub(crate) fn try_execute_base(
                 Ok(ExitCode::SUCCESS)
             }
         }
+        NetworkCommand::Notify {
+            json,
+            interface,
+            dry_run,
+        } => Ok(crate::network_notify_surface::execute_network_notify(
+            &interface, dry_run, json,
+        )),
         NetworkCommand::Sync {
             json,
             registry,
