@@ -52,6 +52,7 @@ pub struct InferRequest {
 pub struct InferResponse {
     pub text: String,
     pub model: String,
-    pub prompt_tokens: u64,
-    pub completion_tokens: u64,
+    /// Backend-reported. `None` means unreported, which is not a measured zero.
+    pub prompt_tokens: Option<u64>,
+    pub completion_tokens: Option<u64>,
 }

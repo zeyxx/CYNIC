@@ -32,7 +32,7 @@ impl EmbeddingPort for FixedEmbedding {
         Ok(Embedding {
             vector: self.vector.clone(),
             dimensions: self.vector.len(),
-            prompt_tokens: 0,
+            prompt_tokens: None,
         })
     }
 }

@@ -145,7 +145,7 @@ struct EmbeddingData {
 #[derive(Deserialize)]
 struct EmbeddingUsage {
     #[serde(default)]
-    prompt_tokens: u32,
+    prompt_tokens: Option<u32>,
 }
 
 #[async_trait]
@@ -193,7 +193,10 @@ impl EmbeddingPort for EmbeddingBackend {
             .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))?;
 
         let dimensions = data.embedding.len();
-        let prompt_tokens = parsed.usage.map(|usage| usage.prompt_tokens).unwrap_or(0);
+        // `#[serde(default)]` on an Option is None, so an absent counter is None. It was
+        // `u32` with the same attribute, which made a missing field indistinguishable from a
+        // backend that legitimately reported zero.
+        let prompt_tokens = parsed.usage.and_then(|usage| usage.prompt_tokens);
 
         Ok(Embedding {
             vector: data.embedding,

@@ -4,7 +4,9 @@
 pub struct Embedding {
     pub vector: Vec<f32>,
     pub dimensions: usize,
-    pub prompt_tokens: u32,
+    /// Reported by the backend. `None` means unreported. The field had no reader, so the
+    /// only effect of its type was to force the one writer to fabricate a zero.
+    pub prompt_tokens: Option<u32>,
 }
 
 impl Embedding {
@@ -56,12 +58,12 @@ mod tests {
         let a = Embedding {
             vector: vec![1.0, 0.0, 0.0],
             dimensions: 3,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         let b = Embedding {
             vector: vec![1.0, 0.0, 0.0],
             dimensions: 3,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         assert!((a.cosine_similarity(&b) - 1.0).abs() < 1e-6);
     }
@@ -71,12 +73,12 @@ mod tests {
         let a = Embedding {
             vector: vec![1.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         let b = Embedding {
             vector: vec![0.0, 1.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         assert!(a.cosine_similarity(&b).abs() < 1e-6);
     }
@@ -86,12 +88,12 @@ mod tests {
         let a = Embedding {
             vector: vec![1.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         let b = Embedding {
             vector: vec![-1.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         assert!((a.cosine_similarity(&b) + 1.0).abs() < 1e-6);
     }
@@ -101,12 +103,12 @@ mod tests {
         let a = Embedding {
             vector: vec![1.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         let b = Embedding {
             vector: vec![1.0, 0.0, 0.0],
             dimensions: 3,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         assert_eq!(a.cosine_similarity(&b), 0.0);
     }
@@ -116,12 +118,12 @@ mod tests {
         let a = Embedding {
             vector: vec![0.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         let b = Embedding {
             vector: vec![1.0, 0.0],
             dimensions: 2,
-            prompt_tokens: 0,
+            prompt_tokens: None,
         };
         assert_eq!(a.cosine_similarity(&b), 0.0);
     }

@@ -62,14 +62,21 @@ impl InferenceProfile {
     }
 }
 
-/// Response from a chat completion — text + token usage.
+/// Response from a chat completion — text plus whatever the backend reported.
+///
+/// Usage is `Option`, not `u32`. A plain integer cannot express "the backend reported no
+/// usage block", so every producer filled in a zero and every consumer read that zero as a
+/// measured zero. That is the fabrication `references/llms-101-mapping.md` records as a
+/// direct violation of "unknown is data": a matrix sweep ranking models by zero-filled
+/// token counts produces a decision-relevant ordering out of numbers nobody measured.
 #[derive(Debug, Clone)]
 pub struct ChatResponse {
     pub text: String,
     pub reasoning: Option<String>,
-    pub prompt_tokens: u32,
-    pub completion_tokens: u32,
-    pub thinking_tokens: u32,
+    /// Reported by the backend. `None` means unreported, which is not the same as zero.
+    pub prompt_tokens: Option<u32>,
+    /// Reported by the backend. `None` means unreported, which is not the same as zero.
+    pub completion_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
