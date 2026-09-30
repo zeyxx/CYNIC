@@ -146,18 +146,19 @@ pub fn derive_firewall_policy_from_registry(
     let canonical_service_plane = registry
         .pointer("/network_policy/canonical_service_plane")
         .and_then(|v| v.as_str())
-        .unwrap_or("synapse");
+        .unwrap_or("service");
     let service_cidr_pointer = format!("/network_policy/planes/{}/cidr", canonical_service_plane);
     let service_cidr = registry
         .pointer(&service_cidr_pointer)
-        .or_else(|| registry.pointer("/network_policy/planes/synapse/cidr"))
+        .or_else(|| registry.pointer("/network_policy/planes/service/cidr"))
         .and_then(|v| v.as_str())
-        .unwrap_or("10.10.10.0/24")
+        .ok_or_else(|| "missing service plane cidr in registry (/network_policy/planes)".to_string())?
         .to_string();
     let admin_cidr = registry
-        .pointer("/network_policy/planes/management/cidr")
+        .pointer("/network_policy/planes/admin/cidr")
+        .or_else(|| registry.pointer("/network_policy/planes/management/cidr"))
         .and_then(|v| v.as_str())
-        .unwrap_or("192.168.100.0/24")
+        .ok_or_else(|| "missing admin plane cidr in registry (/network_policy/planes)".to_string())?
         .to_string();
     let mesh_interface = "wg0".to_string();
 

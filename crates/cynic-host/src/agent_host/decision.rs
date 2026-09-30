@@ -75,10 +75,16 @@ pub fn plan_agent_host_vm(
         .unwrap_or("local:iso/noble-server-cloudimg-amd64.img");
     let disk_gib = desired.disk_bytes / (1024 * 1024 * 1024);
     let ram_mib = desired.memory_bytes / (1024 * 1024);
-    let ip_config = desired
-        .network_ip
-        .as_deref()
-        .unwrap_or("10.10.10.102/24,gw=10.10.10.1");
+    let (ip_param, nameserver) = if let Some(ip_spec) = desired.network_ip.as_deref() {
+        let ns = if let Some(gw_idx) = ip_spec.find("gw=") {
+            ip_spec[gw_idx + 3..].split(',').next().unwrap_or("127.0.0.1")
+        } else {
+            "127.0.0.1"
+        };
+        (format!("ip={ip_spec}"), ns.to_string())
+    } else {
+        ("ip=dhcp".to_string(), "127.0.0.1".to_string())
+    };
 
     let actions = if blockers.is_empty() {
         vec![
@@ -158,15 +164,15 @@ pub fn plan_agent_host_vm(
             AgentHostVmAction {
                 step: 5,
                 kind: "configure_network_and_user".to_string(),
-                purpose: format!("configure IP {} and user {}", ip_config, desired.principal),
+                purpose: format!("configure IP {} and user {}", ip_param, desired.principal),
                 argv: vec![
                     "qm".to_string(),
                     "set".to_string(),
                     vmid.to_string(),
                     "--ipconfig0".to_string(),
-                    format!("ip={}", ip_config),
+                    ip_param,
                     "--nameserver".to_string(),
-                    "10.10.10.1".to_string(),
+                    nameserver,
                     "--searchdomain".to_string(),
                     "synapse.cynic".to_string(),
                     "--ciuser".to_string(),
