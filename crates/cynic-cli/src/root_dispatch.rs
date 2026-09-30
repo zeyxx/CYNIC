@@ -100,6 +100,7 @@ pub(crate) fn execute_root_command(command: Command) -> ExitCode {
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Discovery { command } => crate::discovery_surface::execute_discovery(command),
+        Command::Secret { command } => crate::secret_surface::execute_secret_command(command),
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS

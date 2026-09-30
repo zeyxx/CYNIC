@@ -203,6 +203,11 @@ pub(crate) enum Command {
         #[arg(long)]
         json: bool,
     },
+    /// Sovereign runtime secret posture and observation.
+    Secret {
+        #[command(subcommand)]
+        command: crate::secret_surface::SecretCommand,
+    },
 }
 
 #[derive(Subcommand)]
