@@ -10,54 +10,23 @@ use cynic_protocol::{
     FEDERATED_MESH_PROBE_SCHEMA, FederatedMeshNodeStatus, FederatedMeshProbeReport,
 };
 
-/// Declared Synapse Node entry.
-#[derive(Debug, Clone)]
-pub struct DeclaredSynapseNode {
-    pub id: &'static str,
-    pub role: &'static str,
-    pub ip: &'static str,
-    pub probe_ports: &'static [u16],
-}
-
-pub const CANONICAL_SYNAPSE_NODES: &[DeclaredSynapseNode] = &[
-    DeclaredSynapseNode {
-        id: "local-kernel",
-        role: "cortex_primary",
-        ip: "127.0.0.1",
-        probe_ports: &[8000, 1053],
-    },
-    DeclaredSynapseNode {
-        id: "cynic-host-proxmox",
-        role: "hypervisor",
-        ip: "10.10.10.1",
-        probe_ports: &[22, 8006],
-    },
-    DeclaredSynapseNode {
-        id: "forgejo",
-        role: "forge_primary",
-        ip: "10.10.10.101",
-        probe_ports: &[22, 3000],
-    },
-    DeclaredSynapseNode {
-        id: "cynic-lxc-surrealdb",
-        role: "storage_primary",
-        ip: "10.10.10.103",
-        probe_ports: &[22, 8000],
-    },
-    DeclaredSynapseNode {
-        id: "cynic-builder",
-        role: "build_runner",
-        ip: "10.10.10.119",
-        probe_ports: &[22],
-    },
-];
-
 /// Probes all declared Synapse nodes and generates a read-back proof report.
+///
+/// The declared topology comes from `infra/synapse-nodes.seed.json`, read by the
+/// resolver. This function carried its own `CANONICAL_SYNAPSE_NODES` const until
+/// 2026-09-30 — a second copy of the same five addresses and ports, kept as the
+/// resolver's fallback when the seed file was missing. The seed file's own note
+/// already said it "Replaces the hardcoded CANONICAL_SYNAPSE_NODES const as the
+/// seed source"; the note was true about the intent and false about the code.
+///
+/// Two copies of a registry is the defect, not the fallback: the const could
+/// drift from the seed and nothing compared them. An absent seed now yields zero
+/// declared nodes and a report of `isolated` — an explicit unknown, which is
+/// what a missing lower layer should produce, rather than a second copy of the
+/// answer that no test can keep honest.
 pub fn probe_federated_synapse_mesh(local_node_id: &str) -> FederatedMeshProbeReport {
     let resolver =
-        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-            CANONICAL_SYNAPSE_NODES,
-        );
+        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default();
     let seed_peers = resolver.resolve_all_peers();
     let timeout = Duration::from_millis(350);
     let mut node_statuses = Vec::new();

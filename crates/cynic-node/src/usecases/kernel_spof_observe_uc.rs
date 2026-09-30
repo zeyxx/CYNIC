@@ -10,10 +10,9 @@
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cynic_protocol::health_signal::KernelSpofSignal;
 use cynic_node_protocol::peer_resolver::PeerResolver;
+use cynic_protocol::health_signal::KernelSpofSignal;
 
-use super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES;
 use super::federated_mesh_resolver::LocalRegistryMeshResolver;
 
 pub const KERNEL_HEARTBEAT_TIMEOUT_MS: u64 = 800;
@@ -26,7 +25,7 @@ pub const KERNEL_HEARTBEAT_TIMEOUT_MS: u64 = 800;
 /// as unreachable and record the residual risk — degraded autonomy is the safe
 /// default, not a crash.
 pub fn observe_kernel_spof() -> KernelSpofSignal {
-    let resolver = LocalRegistryMeshResolver::from_repo_infra_default(CANONICAL_SYNAPSE_NODES);
+    let resolver = LocalRegistryMeshResolver::from_repo_infra_default();
     let primary_peers = resolver.resolve_peers("cortex_primary");
     let standby_peers = resolver.resolve_peers("cortex_standby");
 

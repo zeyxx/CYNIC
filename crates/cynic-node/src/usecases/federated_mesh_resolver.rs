@@ -1,13 +1,15 @@
 //! Local registry-backed mesh resolver.
 //!
-//! Replaces direct reads of the hardcoded `CANONICAL_SYNAPSE_NODES` const with
-//! a `PeerResolver` port implementation. The desired topology comes from a
-//! declared registry seed — today `infra/synapse-nodes.seed.json` (a versioned,
-//! signed artifact), falling back to the prior const when the file is absent.
+//! The desired topology comes from a declared registry seed — today
+//! `infra/synapse-nodes.seed.json` (a versioned, signed artifact). Until
+//! 2026-09-30 this module degraded to a code-side `CANONICAL_SYNAPSE_NODES`
+//! const when the seed was absent; that const was a second copy of the same
+//! topology and was deleted, so an absent seed now yields an empty topology.
 //!
 //! Resilience (design B: dynamic mesh + signed fallback):
 //!   * `from_repo_infra` reads the seed file; if it is missing/unparseable the
-//!     resolver degrades to the declared const (fail-soft, not fail-crash).
+//!     resolver yields zero declared nodes (the caller reports `isolated` —
+//!     an explicit unknown, not a duplicated answer).
 //!   * `fallback_peers` reads the rolling signed `known-peers.vN.<ts>.json`
 //!     bundle and verifies its ed25519 signature against the machine-peer
 //!     public key before trusting it. Invalid/missing signature => empty
@@ -79,39 +81,18 @@ impl LocalRegistryMeshResolver {
         }
     }
 
-    pub fn from_declared(
-        nodes: &[crate::usecases::federated_mesh_probe_uc::DeclaredSynapseNode],
-    ) -> Self {
-        let seed = nodes
-            .iter()
-            .map(|n| SeedSynapseNode {
-                id: n.id.to_string(),
-                role: n.role.to_string(),
-                ip: n.ip.to_string(),
-                probe_ports: n.probe_ports.to_vec(),
-            })
-            .collect();
-        Self::from_seed(seed)
-    }
-
-    /// Build the resolver from `infra/`: read `synapse-nodes.seed.json`; if it
-    /// is missing or unparseable, degrade to the declared const. The fallback
-    /// directory is set so `fallback_peers` can load the signed bundle.
-    pub fn from_repo_infra(
-        infra_dir: &Path,
-        declared: &[crate::usecases::federated_mesh_probe_uc::DeclaredSynapseNode],
-    ) -> Self {
-        let seed = read_seed_file(infra_dir).unwrap_or_else(|| {
-            declared
-                .iter()
-                .map(|n| SeedSynapseNode {
-                    id: n.id.to_string(),
-                    role: n.role.to_string(),
-                    ip: n.ip.to_string(),
-                    probe_ports: n.probe_ports.to_vec(),
-                })
-                .collect()
-        });
+    /// Build the resolver from `infra/`: read `synapse-nodes.seed.json`.
+    ///
+    /// Until 2026-09-30 this took a `declared` slice and degraded to it when the
+    /// seed was missing. That fallback was a second copy of the same topology,
+    /// which could drift from the seed with nothing comparing them. A missing
+    /// seed now yields an empty topology and the caller reports `isolated` — an
+    /// explicit unknown, not a duplicated answer.
+    ///
+    /// The fallback directory is set so `fallback_peers` can load the signed
+    /// rolling bundle.
+    pub fn from_repo_infra(infra_dir: &Path) -> Self {
+        let seed = read_seed_file(infra_dir).unwrap_or_default();
         let fallback_dir = if infra_dir.exists() {
             Some(infra_dir.to_path_buf())
         } else {
@@ -122,10 +103,8 @@ impl LocalRegistryMeshResolver {
 
     /// Convenience: resolve `infra/` via `repo_infra_dir()` and build the
     /// resolver. Callers that just want the repo-default topology use this.
-    pub fn from_repo_infra_default(
-        declared: &[crate::usecases::federated_mesh_probe_uc::DeclaredSynapseNode],
-    ) -> Self {
-        Self::from_repo_infra(&Self::repo_infra_dir(), declared)
+    pub fn from_repo_infra_default() -> Self {
+        Self::from_repo_infra(&Self::repo_infra_dir())
     }
 
     fn to_endpoint(&self, node: &SeedSynapseNode) -> PeerEndpoint {
@@ -260,12 +239,7 @@ impl PeerResolver for LocalRegistryMeshResolver {
                 // already sorted on; it used to be hardcoded to 0, which threw
                 // away the only freshness datum a fallback peer carries and left
                 // no way to tell a rolling bundle from a stale one.
-                SignedPeerEndpoint::from_verified(
-                    endpoint,
-                    bundle.signature.clone(),
-                    ts,
-                    1,
-                )
+                SignedPeerEndpoint::from_verified(endpoint, bundle.signature.clone(), ts, 1)
             })
             .collect::<Result<Vec<_>, _>>()
             .unwrap_or_default()

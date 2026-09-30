@@ -22,10 +22,9 @@ pub mod network_actuation_target_uc;
 pub mod network_surfaces_uc;
 pub mod network_sync_uc;
 pub mod network_watchdog_uc;
-// The federated mesh cluster declares together or not at all: probe_uc owns
-// DeclaredSynapseNode/CANONICAL_SYNAPSE_NODES, resolver calls back into
-// probe_uc, and spof_observe/task_dispatch both consume probe_uc. Declaring one
-// member alone produced E0433 for a module that does exist.
+// The federated mesh cluster declares together or not at all: resolver reads the
+// declared seed, and spof_observe/task_dispatch both consume the resolver.
+// Declaring one member alone produced E0433 for a module that does exist.
 pub mod build_scheduler;
 pub mod federated_mesh_probe_uc;
 pub mod federated_mesh_resolver;

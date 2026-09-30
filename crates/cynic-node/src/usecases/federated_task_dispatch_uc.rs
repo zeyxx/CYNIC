@@ -69,9 +69,7 @@ impl FederatedTaskDispatcher {
 
         // 1. Select target node based on domain role or explicit override
         let resolver =
-            super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-                super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
-            );
+            super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default();
         let target_node = match target_override {
             Some(node_id) => resolver
                 .resolve_all_peers()
@@ -181,9 +179,7 @@ fn select_canonical_node_for_domain(
     domain: TaskDomain,
 ) -> cynic_node_protocol::peer_resolver::PeerEndpoint {
     let resolver =
-        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default(
-            super::federated_mesh_probe_uc::CANONICAL_SYNAPSE_NODES,
-        );
+        super::federated_mesh_resolver::LocalRegistryMeshResolver::from_repo_infra_default();
     let (primary_role, fallback_role) = match domain {
         TaskDomain::CodeAudit | TaskDomain::Infra => ("build_runner", Some("hypervisor")),
         TaskDomain::Governance => ("storage_primary", None),
