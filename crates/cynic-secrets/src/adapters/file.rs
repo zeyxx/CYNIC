@@ -92,33 +92,60 @@ impl EncryptedFileSecretProvider {
 
 impl SecretProviderPort for EncryptedFileSecretProvider {
     fn resolve(&self, reference: &SecretReference) -> Option<String> {
-        if reference.provider != SecretProviderKind::PrincipalOwnedFile {
-            return None;
-        }
         let path = self.secret_path(reference);
-        let data = std::fs::read(&path).ok()?;
-        if data.len() < 12 {
-            return None;
+        let candidate_paths = [
+            path,
+            PathBuf::from("/etc/cynic/secrets").join(&reference.id),
+        ];
+        for p in candidate_paths {
+            if let Some(val) = self.try_read_file(&p, &reference.id) {
+                return Some(val);
+            }
         }
-        let key = self.derive_key(&reference.id);
-        let cipher = Aes256Gcm::new(&key);
-        let (nonce_bytes, ciphertext) = data.split_at(12);
-        let nonce = Nonce::from_slice(nonce_bytes);
-        let plaintext = cipher.decrypt(nonce, ciphertext).ok()?;
-        String::from_utf8(plaintext).ok()
+        None
     }
 
     fn status(&self, reference: &SecretReference) -> SecretStatus {
         let path = self.secret_path(reference);
-        let exists = path.exists();
+        let etc_path = PathBuf::from("/etc/cynic/secrets").join(&reference.id);
+        let (exists, mtime) = if path.exists() {
+            (true, self.file_mtime_secs(&path))
+        } else if etc_path.exists() {
+            (true, self.file_mtime_secs(&etc_path))
+        } else {
+            (false, None)
+        };
         SecretStatus {
             id: reference.id.clone(),
             class: reference.class,
             provider: reference.provider,
             locator: reference.locator.clone(),
             present: exists,
-            last_rotated_secs: self.file_mtime_secs(&path),
+            last_rotated_secs: mtime,
         }
+    }
+}
+
+impl EncryptedFileSecretProvider {
+    fn try_read_file(&self, path: &std::path::Path, id: &str) -> Option<String> {
+        let data = std::fs::read(path).ok()?;
+        if data.is_empty() {
+            return None;
+        }
+        // Try AES-GCM decryption first if payload looks like nonce + ciphertext
+        if data.len() >= 28 {
+            let key = self.derive_key(id);
+            let cipher = Aes256Gcm::new(&key);
+            let (nonce_bytes, ciphertext) = data.split_at(12);
+            let nonce = Nonce::from_slice(nonce_bytes);
+            if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
+                if let Ok(s) = String::from_utf8(plaintext) {
+                    return Some(s.trim().to_string());
+                }
+            }
+        }
+        // Fallback: plain text secret file (chmod 0600 or 0640)
+        String::from_utf8(data).ok().map(|s| s.trim().to_string())
     }
 }
 

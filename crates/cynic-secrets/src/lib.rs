@@ -48,3 +48,13 @@ pub fn env_var_present(id: &str, var: &str) -> bool {
         .status(&SecretReference::env(id, var))
         .present
 }
+
+/// Universal resolution helper — resolves a secret through the full composite
+/// hierarchy: `ProcessEnvironment` -> `PrincipalOwnedFile` (~/.config/cynic/secrets
+/// and /etc/cynic/secrets) -> `OsCredentialStore`.
+///
+/// Use this everywhere secret material is needed without coupling to a specific storage backend.
+pub fn resolve_secret(id: &str, env_var_name: &str) -> Option<String> {
+    let reference = SecretReference::env(id, env_var_name);
+    CompositeSecretProvider::default().resolve(&reference)
+}

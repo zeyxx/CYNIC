@@ -602,29 +602,24 @@ impl ProxmoxControlAdapter {
 }
 
 fn resolve_credential(path: &std::path::Path) -> Result<String, String> {
-    for key in ["CYNIC_PROXMOX_TOKEN_SECRET", "CYNIC_PROXMOX_SECRET"] {
-        if let Some(value) = optional_env(key) {
-            return Ok(value);
+    if let Some(value) = cynic_secrets::resolve_secret("proxmox-token", "CYNIC_PROXMOX_TOKEN_SECRET") {
+        return Ok(value);
+    }
+    if let Some(value) = cynic_secrets::resolve_secret("proxmox-token", "CYNIC_PROXMOX_SECRET") {
+        return Ok(value);
+    }
+    if path.exists() {
+        if let Ok(value) = std::fs::read_to_string(path) {
+            let trimmed = value.trim().to_string();
+            if !trimmed.is_empty() {
+                return Ok(trimmed);
+            }
         }
     }
-    std::fs::read_to_string(path)
-        .map(|value| value.trim().to_string())
-        .map_err(|error| {
-            format!(
-                "Proxmox credential unavailable at {}: {error}",
-                path.display()
-            )
-        })
-        .and_then(|value| {
-            if value.is_empty() {
-                Err(format!(
-                    "Proxmox credential file {} is empty",
-                    path.display()
-                ))
-            } else {
-                Ok(value)
-            }
-        })
+    Err(format!(
+        "Proxmox credential unavailable (resolved via cynic-secrets hierarchy and fallback at {})",
+        path.display()
+    ))
 }
 
 fn observe_configuration() -> ProxmoxControlConfiguration {
@@ -694,7 +689,7 @@ fn resolve_control_configuration() -> ResolvedProxmoxControl {
             })
             .or_else(|| {
                 std::env::var("HOME").ok().and_then(|home| {
-                    let p = PathBuf::from(home).join(".config/cynic/secrets/proxm-token");
+                    let p = PathBuf::from(home).join(".config/cynic/secrets/proxmox-token");
                     if p.exists() {
                         eprintln!(
                             "WARN: Using dev fallback for Proxmox token at {}. \
