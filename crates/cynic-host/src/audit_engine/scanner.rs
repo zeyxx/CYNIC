@@ -99,10 +99,11 @@ pub fn scan_workspace(root: &Path) -> WorkspaceSourceIndex {
                 .insert(relative_of(root, &path).trim_end_matches('/').to_string());
 
             // Dot-directories and dot-files are observed but never traversed or
-            // read. `.cargo-home/` alone holds a vendored crates.io registry
+            // read (except .github which contains tracked repository config).
+            // `.cargo-home/` alone holds a vendored crates.io registry
             // whose sources would otherwise contribute thousands of findings
             // about a dependency tree this repository does not own.
-            if file_name.starts_with('.') {
+            if file_name.starts_with('.') && file_name != ".github" {
                 continue;
             }
 

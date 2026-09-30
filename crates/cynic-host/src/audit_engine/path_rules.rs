@@ -81,6 +81,11 @@ fn observed_roots(index: &WorkspaceSourceIndex) -> (BTreeSet<String>, BTreeSet<S
     let mut directories = BTreeSet::new();
     let mut files = BTreeSet::new();
     for path in &index.existing_paths {
+        // Dot-directories (except .github which carries repo config) are agent/local
+        // state, not repository roots. They must not seed path validation.
+        if path.starts_with('.') && !path.starts_with(".github") {
+            continue;
+        }
         let mut segments = path.split('/');
         let Some(first) = segments.next() else {
             continue;
@@ -146,9 +151,12 @@ fn validate(raw: &str, directories: &BTreeSet<String>, files: &BTreeSet<String>)
     if candidate.contains("::") {
         return None;
     }
-    // A JSON pointer or dotted key appended to a path — `infra/registry.json:x.y`
+    // A JSON pointer or dotted key appended to a path — `infra/registry.json:x.y` or `#x`
     // — addresses inside the file, not a file on disk.
     if let Some((head, _pointer)) = candidate.split_once(':') {
+        return validate(head, directories, files);
+    }
+    if let Some((head, _fragment)) = candidate.split_once('#') {
         return validate(head, directories, files);
     }
     // A substitution placeholder such as `known-peers.<ts>.json` is a template.
@@ -293,7 +301,7 @@ fn quoted_paths(
     // is why the rule can converge to zero rather than reporting itself forever.
     // Integration tests are excluded for the same reason, and this matches the
     // convention `HotspotThresholdRule` already uses for the same file class.
-    if file.relative_path.contains("/tests/") {
+    if file.relative_path.starts_with("tests/") || file.relative_path.contains("/tests/") {
         return found;
     }
     // This file documents the rule with deliberately absent example paths, so it
