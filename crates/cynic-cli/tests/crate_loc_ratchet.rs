@@ -58,38 +58,40 @@ const MATERIAL_GAP: usize = 500;
 /// is a known constitutional violation. The list may only shrink, and an entry
 /// that no longer breaches must be removed so it cannot become cover.
 const GOD_OBJECTS: &[(&str, usize)] = &[
-    ("cynic-host", 93_206),
-    ("cynic-node", 58_327),
-    ("cynic-kernel", 40_434),
-    ("cynic-protocol", 34_779),
-    // +27: the `cynic audit paths` projection arm. Operator-admitted upward
-    // revision, 2026-09-28. The growth is a projection over
-    // `cynic_host::audit_engine::run_path_audit` and holds no audit logic of its
-    // own, so it is the cheapest possible way to admit that this crate needs
-    // extraction: the ratchet was already failing to constrain it, and a surface
-    // that must exist regardless of where its logic lives is exactly the signal
-    // to split. Revert to 34_735 when the projection moves out.
-    ("cynic-cli", 34_762),
-    ("cynic-inference", 28_301),
+    ("cynic-host", 85_687),
+    ("cynic-node", 55_472),
+    ("cynic-protocol", 33_761),
+    ("cynic-cli", 25_713),
+    ("cynic-inference", 25_739),
+    // `cynic-kernel` was recorded at 40_434 and is now 5_899 — under the ceiling,
+    // so it is no longer a god object at all. The 2026-09-28 purge removed the
+    // quarantined orphans (54 files, then 31 more, then the 16 remaining), and
+    // the recorded figure was never lowered with it. A stale entry is cover: the
+    // ratchet asserts an entry at or under the ceiling must be REMOVED, which is
+    // why this is a deletion and not a rewrite to 5_899.
 ];
 
 /// Crates whose uncompiled mass is material, with that mass in LOC.
 ///
 /// Same discipline: measured, visible, and shrink-only.
-const LEGACY_DEBT: &[(&str, usize)] = &[
-    ("cynic-kernel", 34_328),
-    ("cynic-mcp", 12_812),
-    ("cynic-cli", 10_708),
-    ("cynic-host", 8_202),
-    ("cynic-node", 3_995),
-    ("cynic-inference", 2_988),
-    ("cynic-askesis", 2_070),
-    ("cynic-protocol", 1_481),
-];
+///
+/// EMPTY as of 2026-09-30. It recorded eight crates when the orphan purges began
+/// (cynic-kernel 34_328, cynic-mcp 12_812, cynic-cli 10_708, cynic-host 8_202,
+/// cynic-node 3_995, cynic-inference 2_988, cynic-askesis 2_070,
+/// cynic-protocol 1_481). The purges deleted the orphans those figures counted,
+/// and the list was never lowered with them. Measured now: only two crates carry
+/// any gap at all — cynic-node 402 and cynic-protocol 155 — and both are under
+/// the 500 `MATERIAL_GAP` threshold, so neither is listable. An entry here whose
+/// crate is under the threshold is cover, and the ratchet rejects it.
+const LEGACY_DEBT: &[(&str, usize)] = &[];
 
 /// Workspace-wide uncompiled mass. Bounds the total, so moving debt between
 /// crates without reducing it still fails.
-const WORKSPACE_GAP: usize = 77_099;
+///
+/// Measured 2026-09-30: 557 LOC across 48 crates, down from 77_099 when this
+/// bound was set. The recorded figure is the measurement, not a margin — a
+/// tolerance above it would hide exactly the growth the bound exists to catch.
+const WORKSPACE_GAP: usize = 557;
 
 fn census_all() -> Vec<(String, CrateLocCensus)> {
     crate_names()
