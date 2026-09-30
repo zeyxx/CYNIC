@@ -22,8 +22,10 @@ pub struct ModelComparisonResult {
     pub response: String,
     pub ttft_ms: u64,
     pub gen_tok_s: f64,
-    pub prompt_tokens: u64,
-    pub output_tokens: u64,
+    /// Backend-reported. `None` means the harness did not report it. Collapsing this to a
+    /// zero made the comparative matrix rank models on numbers nobody measured.
+    pub prompt_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
     pub wall_ms: u64,
     pub status: String,
 }
@@ -72,8 +74,8 @@ impl MultiAgentService {
                     response: String::new(),
                     ttft_ms: 0,
                     gen_tok_s: 0.0,
-                    prompt_tokens: 0,
-                    output_tokens: 0,
+                    prompt_tokens: None,
+                    output_tokens: None,
                     wall_ms: 0,
                     status: format!("executor_init_error: {err}"),
                 };
@@ -140,8 +142,8 @@ impl MultiAgentService {
         let status = reply.error.as_deref().unwrap_or("ok").to_string();
         let ttft_ms = reply.wall_time_ms.unwrap_or(wall_ms);
         let gen_tok_s = reply.output_tokens_per_second.unwrap_or(0.0) as f64;
-        let prompt_tokens = reply.prompt_tokens.unwrap_or(0);
-        let output_tokens = reply.output_tokens.unwrap_or(0);
+        let prompt_tokens = reply.prompt_tokens;
+        let output_tokens = reply.output_tokens;
 
         ModelComparisonResult {
             model_alias: model_alias.to_string(),

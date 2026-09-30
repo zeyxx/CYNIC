@@ -64,9 +64,8 @@ impl ChatPort for MockChatBackend {
         Ok(ChatResponse {
             text: self.response.clone(),
             reasoning: self.reasoning.clone(),
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            thinking_tokens: 0,
+            prompt_tokens: None,
+            completion_tokens: None,
         })
     }
 }

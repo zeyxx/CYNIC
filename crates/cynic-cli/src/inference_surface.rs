@@ -106,6 +106,27 @@ pub(crate) enum InferenceCommand {
         #[command(subcommand)]
         command: HfCommand,
     },
+    /// Inspect ChatTrace prompt+generation tokens, context meter observation, and JSONL log.
+    Trace {
+        #[command(subcommand)]
+        command: TraceCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum TraceCommand {
+    /// Status of the ChatTrace JSONL sink and cumulative tokens observed.
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Tail the most recent ChatTrace records.
+    Tail {
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -285,5 +306,128 @@ pub(crate) fn execute_inference_command(command: InferenceCommand) -> ExitCode {
                 limit,
             } => inference_surface::execute_inference_hf_suggest(json, &category, limit),
         },
+        InferenceCommand::Trace { command } => execute_trace_command(command),
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+struct TracePostureReport {
+    schema: &'static str,
+    status: &'static str,
+    ledger_path: String,
+    total_turns: usize,
+    ok_rate: f64,
+    mean_elapsed_ms: f64,
+    total_prompt_tokens: u64,
+    total_gen_tokens: u64,
+    total_tokens: u64,
+}
+
+fn execute_trace_command(command: TraceCommand) -> ExitCode {
+    let ledger_path = std::env::var(cynic_inference::adapters::chat_trace_sink::LEDGER_ENV_KEY)
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let local_evidence = std::path::PathBuf::from("evidence/inference_traces.jsonl");
+            if local_evidence.exists() {
+                local_evidence
+            } else {
+                std::path::PathBuf::from(cynic_inference::adapters::chat_trace_sink::DEFAULT_LEDGER_PATH)
+            }
+        });
+
+    let records: Vec<cynic_inference::domain::chat_trace::ChatTrace> = if ledger_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&ledger_path) {
+            content
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|l| serde_json::from_str(l).ok())
+                .collect()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    match command {
+        TraceCommand::Status { json } => {
+            let summary = cynic_inference::domain::chat_trace::summarize_traces(&records);
+            let mut total_prompt = 0u64;
+            let mut total_gen = 0u64;
+            for r in &records {
+                if let Some(p) = r.prompt_tokens {
+                    total_prompt += p;
+                }
+                if let Some(g) = r.gen_tokens {
+                    total_gen += g;
+                }
+            }
+
+            let report = TracePostureReport {
+                schema: "cynic.inference.trace_posture.v1",
+                status: if records.is_empty() { "empty_ledger" } else { "active" },
+                ledger_path: ledger_path.display().to_string(),
+                total_turns: summary.turns,
+                ok_rate: summary.ok_rate,
+                mean_elapsed_ms: summary.mean_elapsed_ms,
+                total_prompt_tokens: total_prompt,
+                total_gen_tokens: total_gen,
+                total_tokens: total_prompt + total_gen,
+            };
+
+            if json {
+                crate::emit_json(&report, false)
+            } else {
+                println!("CYNIC Inference ChatTrace Posture");
+                println!("===============================");
+                println!("Ledger:  {}", report.ledger_path);
+                println!("Status:  {}", report.status);
+                println!(
+                    "Turns:   {} total (ok_rate={:.1}%, mean_elapsed={:.1}ms)",
+                    report.total_turns,
+                    report.ok_rate * 100.0,
+                    report.mean_elapsed_ms
+                );
+                println!(
+                    "Tokens:  {} total (prompt={}, gen={})",
+                    report.total_tokens, report.total_prompt_tokens, report.total_gen_tokens
+                );
+                ExitCode::SUCCESS
+            }
+        }
+        TraceCommand::Tail { limit, json } => {
+            let start = records.len().saturating_sub(limit);
+            let slice = &records[start..];
+
+            if json {
+                crate::emit_json(&slice, false)
+            } else if slice.is_empty() {
+                println!("No inference traces recorded in {}.", ledger_path.display());
+                ExitCode::SUCCESS
+            } else {
+                println!("Last {} inference trace(s) from {}:", slice.len(), ledger_path.display());
+                for (idx, trace) in slice.iter().enumerate() {
+                    let status_str = match trace.status {
+                        cynic_inference::domain::chat_trace::TraceStatus::Ok => "OK",
+                        cynic_inference::domain::chat_trace::TraceStatus::Blocked => "BLOCKED",
+                        cynic_inference::domain::chat_trace::TraceStatus::Error => "ERROR",
+                    };
+                    println!(
+                        "  [{}] status={:<9} session={:<20} elapsed={}ms tokens={}+{}",
+                        idx + 1,
+                        status_str,
+                        trace.session_id,
+                        trace.elapsed_ms,
+                        trace
+                            .prompt_tokens
+                            .map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+                        trace
+                            .gen_tokens
+                            .map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+                    );
+                }
+                ExitCode::SUCCESS
+            }
+        }
     }
 }

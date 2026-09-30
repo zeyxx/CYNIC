@@ -324,12 +324,17 @@ impl ChatPort for OpenAiCompatBackend {
             )
             .await?;
 
+        // A backend that reports no usage block reports nothing, not zero. Filling in zero
+        // here made every consumer read an unmeasured turn as a free one.
         let (prompt_tokens, completion_tokens) = resp
             .usage
-            .map(|usage| (usage.prompt_tokens, usage.completion_tokens))
-            .unwrap_or((0, 0));
+            .as_ref()
+            .map(|usage| (Some(usage.prompt_tokens), Some(usage.completion_tokens)))
+            .unwrap_or((None, None));
 
-        let (text, reasoning, thinking_chars) = resp
+        // The measured thinking_chars is logged inside the closure; the outer binding was
+        // only consumed by the removed chars/4 token estimate.
+        let (text, reasoning, _) = resp
             .choices
             .into_iter()
             .next()
@@ -389,14 +394,11 @@ impl ChatPort for OpenAiCompatBackend {
             })
             .ok_or_else(|| ChatError::Protocol(format!("{}: empty response", self.config.name)))?;
 
-        let thinking_tokens = (thinking_chars as u32) / 4;
-
         Ok(ChatResponse {
             text,
             reasoning,
             prompt_tokens,
             completion_tokens,
-            thinking_tokens,
         })
     }
 }
@@ -437,10 +439,12 @@ impl InferPort for OpenAiCompatBackend {
             .await
             .map_err(|error| chat_error_to_backend_error(&self.config.name, error))?;
 
+        // Second completion path, same rule: a missing usage block is not a zero-turn.
         let (prompt_tokens, completion_tokens) = response
             .usage
-            .map(|usage| (usage.prompt_tokens.into(), usage.completion_tokens.into()))
-            .unwrap_or((0, 0));
+            .as_ref()
+            .map(|usage| (Some(usage.prompt_tokens), Some(usage.completion_tokens)))
+            .unwrap_or((None, None));
         let text = response
             .choices
             .into_iter()
@@ -465,8 +469,8 @@ impl InferPort for OpenAiCompatBackend {
         Ok(InferResponse {
             text,
             model: response.model,
-            prompt_tokens,
-            completion_tokens,
+            prompt_tokens: prompt_tokens.map(u64::from),
+            completion_tokens: completion_tokens.map(u64::from),
         })
     }
 }

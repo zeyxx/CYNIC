@@ -160,44 +160,42 @@ impl ChatPort for CliBackend {
                         .and_then(|reasoning| reasoning.as_str())
                         .map(|reasoning| reasoning.to_string());
 
-                    let (prompt_tokens, completion_tokens, thinking_tokens) = value
+                    // Absent counters stay absent. This executor reads counters that the
+                    // harness writes when it writes them, and a missing counter is a
+                    // missing measurement rather than a zero-token turn.
+                    let (prompt_tokens, completion_tokens) = value
                         .get("stats")
                         .and_then(|stats| stats.get("models"))
                         .and_then(|models| models.as_object())
                         .and_then(|models| models.values().next())
                         .and_then(|model| model.get("tokens"))
                         .map(|tokens| {
-                            let input = tokens
-                                .get("input")
-                                .and_then(|entry| entry.as_u64())
-                                .unwrap_or(0);
-                            let candidates = tokens
-                                .get("candidates")
-                                .and_then(|entry| entry.as_u64())
-                                .unwrap_or(0);
-                            let thoughts = tokens
-                                .get("thoughts")
-                                .and_then(|entry| entry.as_u64())
-                                .unwrap_or(0);
-                            (input as u32, candidates as u32, thoughts as u32)
+                            (
+                                tokens
+                                    .get("input")
+                                    .and_then(|entry| entry.as_u64())
+                                    .map(|v| v as u32),
+                                tokens
+                                    .get("candidates")
+                                    .and_then(|entry| entry.as_u64())
+                                    .map(|v| v as u32),
+                            )
                         })
-                        .unwrap_or((0, 0, 0));
+                        .unwrap_or((None, None));
 
                     return Ok(ChatResponse {
                         text,
                         reasoning,
                         prompt_tokens,
                         completion_tokens,
-                        thinking_tokens,
                     });
                 }
 
                 Ok(ChatResponse {
                     text: raw,
                     reasoning: None,
-                    prompt_tokens: 0,
-                    completion_tokens: 0,
-                    thinking_tokens: 0,
+                    prompt_tokens: None,
+                    completion_tokens: None,
                 })
             }
         }

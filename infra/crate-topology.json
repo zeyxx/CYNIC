@@ -75,7 +75,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9645
+      "loc": 9639
     },
     "cynic-channel": {
       "consumers": [],
@@ -123,7 +123,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 30064
+      "loc": 30615
     },
     "cynic-consensus": {
       "consumers": [
@@ -299,6 +299,7 @@
         "cynic-protocol",
         "cynic-release",
         "cynic-sandbox",
+        "cynic-secrets",
         "cynic-storage",
         "cynic-types",
         "cynic-vcs",
@@ -309,7 +310,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 89708
+      "loc": 89761
     },
     "cynic-host-probes": {
       "consumers": [],
@@ -352,7 +353,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 25958
+      "loc": 25974
     },
     "cynic-inference-runtime": {
       "consumers": [],
@@ -558,7 +559,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 56917
+      "loc": 56918
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -657,7 +658,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 33172
+      "loc": 33515
     },
     "cynic-release": {
       "consumers": [
@@ -693,6 +694,7 @@
         "cynic-cli",
         "cynic-domain-ops",
         "cynic-domain-porkbun",
+        "cynic-host",
         "cynic-inference",
         "cynic-intel",
         "cynic-kernel",
@@ -1101,9 +1103,9 @@
     "crates": 48,
     "dev_edges": 1,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 339206,
+    "loc_total": 340164,
     "pending_disposition": 8,
-    "runtime_edges": 152,
+    "runtime_edges": 153,
     "unjustified": 8,
     "upward_edges": 15
   },
