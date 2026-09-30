@@ -25,7 +25,9 @@
           "infra/agent-source-protocol.json": "Source governance: remotes, commit convention, branch policy, PR flow, worktree isolation.",
           "infra/storage-taxonomy.json": "Data classification K1-K8 with storage homes and retention stories.",
           "infra/surface-registry/": "Surface registry: which crate owns which CLI surface, commands, entrypoints, evidence schemas.",
-          "contracts/": "Constitutional and evolutive policy contracts."
+          "contracts/": "Constitutional and evolutive policy contracts.",
+          "tests/support/": "Shared architectural and reachability test support.",
+          "spaces/operator/": "Operator exploratory workspace, concepts, and research corpus."
         }
       }
     },
@@ -226,7 +228,7 @@
     "infra/storage-taxonomy.json",
     "infra/agent-source-protocol.json",
     "infra/surface-registry/fragments/runtime_paths.json",
-    "crates/cynic-host/src/lifecycle/runtime_paths.rs",
+    "crates/cynic-lifecycle/src/runtime_paths.rs",
     "crates/cynic-cli/src/runtime_paths.rs"
   ]
 }

@@ -34,7 +34,7 @@ rustc-ice-*.txt
 .worktrees/
 .agents/
 # Runtime artifacts
-/infra/directory-tree.json
+# Note: /infra/directory-tree.json is normative authority (rank 4), NOT a runtime artifact.
 
 # Dependency and language caches
 /node_modules/
