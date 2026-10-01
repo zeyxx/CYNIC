@@ -49,6 +49,8 @@ fn vcs_domain_modules_are_pure_zero_io() {
         "src/source_repository_bootstrap.rs",
         "src/source_worktree.rs",
         "src/source_worktree_inventory.rs",
+        "src/source_lease.rs",
+        "src/stack.rs",
         "src/development_genesis.rs",
     ];
     for rel_path in &domain_files {
