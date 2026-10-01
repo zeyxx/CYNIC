@@ -4,7 +4,7 @@ use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_host::adapters::local_network::LocalNetworkAdapter;
 use cynic_host::domain::network::freebox::FreeboxProbePort;
 use cynic_node::NetworkCommands;
-use cynic_node::usecases::network_watchdog_uc::{ServiceProbeSpec, execute_network_watchdog};
+use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 
