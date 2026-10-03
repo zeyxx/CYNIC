@@ -7,6 +7,7 @@
 //! - ports: driven interfaces for execution layers
 
 pub mod adapters;
+pub mod build_proof;
 pub mod contracts;
 pub mod error;
 pub mod evaluator;
