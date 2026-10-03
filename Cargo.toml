@@ -2,6 +2,7 @@
 members = [
     "crates/cynic-cli",
     "crates/cynic-protocol",
+    "crates/cynic-core",
     "crates/cynic-types",
     "crates/cynic-discovery",
     "crates/cynic-discovery-host",
