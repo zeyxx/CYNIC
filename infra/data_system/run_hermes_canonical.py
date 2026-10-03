@@ -42,7 +42,7 @@ def main() -> int:
     ids = hermes_session_ids(HERMES_DB)
     print(f"[canonical] hermes sessions to normalize: {len(ids)}")
 
-    store = SqliteCanonicalStore(OUT_DB)
+    store = SqliteCanonicalStore(OUT_DB, blob_root=OUT_DB + ".blobs", bulk_load=True)
     t0 = time.time()
     report = normalize_many(HermesNormalizer(HERMES_DB), store, ids, progress_every=500)
     elapsed = time.time() - t0

@@ -97,4 +97,12 @@ CREATE TABLE IF NOT EXISTS human_signals (
 );
 CREATE INDEX IF NOT EXISTS idx_human_session ON human_signals(session_uid);
 CREATE INDEX IF NOT EXISTS idx_human_kind ON human_signals(kind);
+
+-- Large payloads (>1 GiB) live here, content-addressed. The base stores only
+-- the hash; the blob store holds the bytes. Nothing is lost.
+CREATE TABLE IF NOT EXISTS blobs (
+    content_hash  TEXT PRIMARY KEY,
+    size_bytes    INTEGER NOT NULL,
+    created_at_iso TEXT
+);
 """
