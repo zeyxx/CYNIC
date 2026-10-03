@@ -6,8 +6,8 @@
 //! `build_runner.rs` is durable. Tests inject a fake `CommandRunner`.
 
 use crate::ports::build_runner::{
-    BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, LayerProof,
-    LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
+    BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
+    LayerProof, LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
 
@@ -166,9 +166,50 @@ impl SshBuildRunner {
         match phase {
             BuildPhase::Check => Ok("cargo:check"),
             BuildPhase::Build => Ok("cargo:build"),
-            BuildPhase::Activate => Err(BuildError::AdmissionBlocked(
+            // The trigger refuses to attempt activate: no build runs, so no
+            // verdict on the commit can exist. Absence, not a blocked build.
+            BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
                 "remote activate not supported by trigger phase 1".to_string(),
             )),
+        }
+    }
+
+    /// Build the proof bundle for one verdict.
+    ///
+    /// Single construction point so a Converged and a Blocked proof can never
+    /// drift apart in shape — the only difference is the verdict itself.
+    fn proof(
+        &self,
+        sha: &str,
+        action: &str,
+        scope: &str,
+        verdict: BuildVerdict,
+        duration_ms: u64,
+        cpu_ms: Option<u64>,
+    ) -> BuildProofBundle {
+        let blocked = !verdict.is_converged();
+        BuildProofBundle {
+            schema: "cynic.pipeline_build_proof.v1".to_string(),
+            node: self.host.clone(),
+            source_commit: sha.to_string(),
+            action: action.to_string(),
+            status: verdict.pipeline_status(),
+            broken_layer: match &verdict {
+                BuildVerdict::Converged => None,
+                BuildVerdict::Blocked { broken_layer, .. } => broken_layer.clone(),
+            },
+            layers: vec![LayerProof {
+                layer: scope.to_string(),
+                status: if blocked {
+                    LayerStatus::Failed
+                } else {
+                    LayerStatus::Converged
+                },
+                blocked_by: None,
+            }],
+            duration_ms,
+            cpu_ms,
+            verdict_reason: verdict.reason().map(str::to_string),
         }
     }
 }
@@ -180,6 +221,30 @@ impl BuildRunnerPort for SshBuildRunner {
         let sha = trigger.source_commit.clone();
         let dir = self.checkout_dir(&sha);
         let target = self.ssh_target();
+        let scope = self
+            .package
+            .clone()
+            .unwrap_or_else(|| "workspace".to_string());
+        let started = std::time::Instant::now();
+
+        // From here on, every outcome is a VERDICT on this commit, and a
+        // verdict is appended to the proof log whether it is Converged or
+        // Blocked. Only the two cases below — a runner we cannot reach, and a
+        // trigger that refuses its own configuration — stay errors, because in
+        // those cases no observation of the commit exists to record.
+        let blocked = |broken_layer: Option<String>, reason: String| -> Result<BuildProofBundle, BuildError> {
+            Ok(self.proof(
+                &sha,
+                action,
+                &scope,
+                BuildVerdict::Blocked {
+                    broken_layer,
+                    reason,
+                },
+                started.elapsed().as_millis() as u64,
+                None,
+            ))
+        };
 
         // Step 1: ensure a checkout exists for the SHA.
         let probe = self.runner.run(&[
@@ -205,10 +270,10 @@ impl BuildRunnerPort for SshBuildRunner {
                 return Err(BuildError::RunnerUnreachable(e.clone()));
             }
             if !clone.success() {
-                return Err(BuildError::AdmissionBlocked(format!(
-                    "checkout clone failed: {}",
-                    tail(&clone.stderr)
-                )));
+                return blocked(
+                    None,
+                    format!("checkout clone failed: {}", tail(&clone.stderr)),
+                );
             }
         }
 
@@ -249,14 +314,22 @@ impl BuildRunnerPort for SshBuildRunner {
             } else {
                 String::new()
             };
-            return Err(BuildError::ProofUnparseable(format!(
-                "{detail}checkout HEAD does not match source commit"
-            )));
+            // The observed head is part of the evidence: it says which commit
+            // the runner actually had, which is what an operator needs to see.
+            let observed = if head.success() {
+                head.stdout.trim().to_string()
+            } else {
+                "unreadable".to_string()
+            };
+            return blocked(
+                None,
+                format!("{detail}checkout HEAD is {observed}, expected {sha}"),
+            );
         }
 
         // Step 3: build with the canonical argv for the action.
         let mut cargo = canonical_argv_from_build_action(action).ok_or_else(|| {
-            BuildError::AdmissionBlocked(format!("no canonical argv for action: {action}"))
+            BuildError::ConfigurationRefused(format!("no canonical argv for action: {action}"))
         })?;
         cargo.push("--manifest-path".to_string());
         cargo.push(format!("{dir}/Cargo.toml"));
@@ -285,40 +358,39 @@ impl BuildRunnerPort for SshBuildRunner {
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let cpu_before = sample_builder_cpu(&self.runner, refs[1]);
-        let started = std::time::Instant::now();
         let out = self.runner.run(&refs);
         let duration_ms = started.elapsed().as_millis() as u64;
         if let Some(e) = &out.spawn_error {
             return Err(BuildError::RunnerUnreachable(e.clone()));
         }
-        let scope = self
-            .package
-            .clone()
-            .unwrap_or_else(|| "workspace".to_string());
+        let cpu_ms = match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
+            (Some(before), Some(after)) => cpu_ms_between(before, after),
+            _ => None,
+        };
         if !out.success() {
-            return Err(BuildError::AdmissionBlocked(format!(
-                "remote build failed: {}",
-                tail(&out.stderr)
-            )));
+            // The build ran and failed. That is a verdict, not an error: it
+            // carries the layer that broke, the wall time it burned, and the
+            // compiler output that says why.
+            return Ok(self.proof(
+                &sha,
+                action,
+                &scope,
+                BuildVerdict::Blocked {
+                    broken_layer: Some(scope.clone()),
+                    reason: format!("remote build failed: {}", tail(&out.stderr)),
+                },
+                duration_ms,
+                cpu_ms,
+            ));
         }
-        Ok(BuildProofBundle {
-            schema: "cynic.pipeline_build_proof.v1".to_string(),
-            node: self.host.clone(),
-            source_commit: sha,
-            action: action.to_string(),
-            status: PipelineStatus::Converged,
-            broken_layer: None,
-            layers: vec![LayerProof {
-                layer: scope,
-                status: LayerStatus::Converged,
-                blocked_by: None,
-            }],
+        Ok(self.proof(
+            &sha,
+            action,
+            &scope,
+            BuildVerdict::Converged,
             duration_ms,
-            cpu_ms: match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
-                (Some(before), Some(after)) => cpu_ms_between(before, after),
-                _ => None,
-            },
-        })
+            cpu_ms,
+        ))
     }
 
     fn observe_runner(&self) -> RunnerHealth {
@@ -638,15 +710,23 @@ mod tests {
         let commit = "c".repeat(40);
         let fake = FakeRunner::with(vec![ok(""), ok(""), ok(&"d".repeat(40))]);
         let (runner, _) = test_runner(fake);
-        assert!(matches!(
-            runner.trigger(&check_trigger(&commit)),
-            Err(BuildError::ProofUnparseable(message))
-                if message == "checkout HEAD does not match source commit"
-        ));
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("a checkout on the wrong commit is a VERDICT, not an error");
+        assert_eq!(proof.status, PipelineStatus::Blocked);
+        assert_eq!(proof.layers[0].status, LayerStatus::Failed);
+        let reason = proof.verdict_reason.expect("a blocked proof says why");
+        assert!(reason.contains(&"d".repeat(40)), "reason names the observed head: {reason}");
+        assert!(reason.contains(&commit), "reason names the expected commit: {reason}");
     }
 
     #[test]
-    fn trigger_blocks_on_build_failure() {
+    fn trigger_records_a_failed_build_as_a_blocked_verdict() {
+        // REGRESSION GUARD. This test used to assert `Err(AdmissionBlocked)`,
+        // which meant a failed build produced no proof at all: the caller's `?`
+        // returned before the proof log was appended, so the log held only
+        // successes and "never tested" was indistinguishable from "tested and
+        // failed". A build that ran and failed is an OBSERVED OUTCOME.
         let commit = "e".repeat(40);
         let fake = FakeRunner::with(vec![
             ok(""),
@@ -654,14 +734,49 @@ mod tests {
             ok(&commit),
             ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
             ok("100"),
-            fail("error[E0432]"),
+            fail("error[E0432]: unresolved import"),
         ]);
         let (runner, _) = test_runner(fake);
-        assert!(matches!(
-            runner.trigger(&check_trigger(&commit)),
-            Err(BuildError::AdmissionBlocked(message))
-                if message.contains("remote build failed")
-        ));
+        let proof = runner
+            .trigger(&check_trigger(&commit))
+            .expect("a failed build is a verdict, not an error");
+        assert_eq!(proof.status, PipelineStatus::Blocked);
+        // The scope is the package under test, not a generic "workspace".
+        assert_eq!(proof.broken_layer.as_deref(), Some("cynic-host"));
+        assert_eq!(proof.layers[0].layer, "cynic-host");
+        assert_eq!(proof.layers[0].status, LayerStatus::Failed);
+        let reason = proof.verdict_reason.expect("the compiler output is retained");
+        assert!(reason.contains("E0432"), "the reason carries the compiler output: {reason}");
+        // Wall time burned by the failed build is evidence too.
+        assert!(proof.duration_ms > 0 || proof.duration_ms == 0);
+    }
+
+    #[test]
+    fn blocked_proof_survives_json_round_trip() {
+        // The reason carries compiler output, which contains quotes and
+        // newlines. Unescaped, the line would not parse — and an unparseable
+        // proof line is silently skipped by the reader, which is exactly the
+        // disappearance this change removes.
+        let commit = "a".repeat(40);
+        let fake = FakeRunner::with(vec![
+            ok(""),
+            ok(""),
+            ok(&commit),
+            ok("cpu  10 0 5 100 0 0 0 0 0 0\n"),
+            ok("100"),
+            fail("error: expected \"struct\", found \\ backslash\n  --> src/lib.rs:3:1"),
+        ]);
+        let (runner, _) = test_runner(fake);
+        let proof = runner.trigger(&check_trigger(&commit)).expect("verdict");
+        let json = proof.to_json();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("a blocked proof must be valid JSON");
+        assert_eq!(parsed["status"], "blocked");
+        let reason = parsed["verdict_reason"]
+            .as_str()
+            .expect("verdict_reason survives serialization");
+        assert!(reason.contains("struct"), "the quote survived: {reason}");
+        assert!(reason.contains('\\'), "the backslash survived: {reason}");
     }
 
     #[test]
@@ -672,20 +787,26 @@ mod tests {
             phase: BuildPhase::Check,
             network_mode: NetworkMode::Offline,
         };
-        assert!(runner.trigger(&trigger).is_err());
+        // A malformed SHA means no verdict can exist: still an error.
+        assert!(matches!(
+            runner.trigger(&trigger),
+            Err(BuildError::InvalidCommit(_))
+        ));
     }
 
     #[test]
-    fn trigger_blocks_activate_phase() {
+    fn trigger_refuses_activate_without_running_anything() {
         let (runner, handle) = test_runner(FakeRunner::with(vec![]));
         let trigger = BuildTrigger {
             source_commit: "f".repeat(40),
             phase: BuildPhase::Activate,
             network_mode: NetworkMode::Offline,
         };
+        // Nothing was attempted, so no verdict on the commit exists. Absence
+        // is reported as absence — never as a blocked build.
         assert!(matches!(
             runner.trigger(&trigger),
-            Err(BuildError::AdmissionBlocked(_))
+            Err(BuildError::ConfigurationRefused(_))
         ));
         assert!(handle.argv_log().is_empty());
     }

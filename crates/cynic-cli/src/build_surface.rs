@@ -674,6 +674,12 @@ fn trigger_build(
     if !health.reachable {
         return Err(format!("build runner unreachable: {}", health.node_id));
     }
+    // Resolve the log path before triggering: the proof must be retained on
+    // every verdict, and resolving afterwards would let a path error drop it.
+    let log_path = match proof_log {
+        Some(explicit) => explicit.to_string(),
+        None => crate::build_proof_log::default_proof_log_path()?,
+    };
     let proof = runner
         .trigger(&BuildTrigger {
             source_commit: commit.to_string(),
@@ -681,18 +687,41 @@ fn trigger_build(
             network_mode,
         })
         .map_err(|error| error.to_string())?;
+
+    // APPEND ON EVERY VERDICT, converged or blocked. Previously the `?` above
+    // returned before this point on a failed build, so the log retained only
+    // successes and "never tested" was indistinguishable from "tested and
+    // failed". A retained proof that cannot say no is not evidence.
     let rendered = proof.to_json();
+    if let Err(error) = crate::build_proof_log::append_proof(&log_path, &rendered) {
+        eprintln!("warning: proof retained in stdout only: {error}");
+    }
+
     if json {
         println!("{rendered}");
     } else {
-        println!("build runner {}: {:?}", proof.node, proof.status);
+        println!(
+            "build runner {}: {}",
+            proof.node,
+            match proof.status {
+                cynic_node::ports::build_runner::PipelineStatus::Converged => "converged",
+                cynic_node::ports::build_runner::PipelineStatus::Blocked => "blocked",
+            }
+        );
+        if let Some(reason) = proof.verdict_reason.as_deref() {
+            println!("  broken_layer: {}", proof.broken_layer.as_deref().unwrap_or("pipeline"));
+            println!("  reason: {reason}");
+        }
     }
-    let log_path = match proof_log {
-        Some(explicit) => explicit.to_string(),
-        None => crate::build_proof_log::default_proof_log_path()?,
-    };
-    if let Err(error) = crate::build_proof_log::append_proof(&log_path, &rendered) {
-        eprintln!("warning: proof retained in stdout only: {error}");
+
+    // The exit code reflects the verdict, not the fact that we managed to ask.
+    // A blocked build that exited 0 would be read as success by every script
+    // and CI gate downstream — the proof is retained either way.
+    if proof.status != cynic_node::ports::build_runner::PipelineStatus::Converged {
+        return Err(format!(
+            "build blocked for {commit}: {}",
+            proof.verdict_reason.as_deref().unwrap_or("no reason recorded")
+        ));
     }
     Ok(())
 }
