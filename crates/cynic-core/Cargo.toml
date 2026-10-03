@@ -1,0 +1,10 @@
+[package]
+name = "cynic-core"
+version.workspace = true
+edition.workspace = true
+description = "Pure domain types and ports for CYNIC — Zero-I/O, leaf of the DAG"
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+cynic-pkg = { path = "../cynic-pkg" }
