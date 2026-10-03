@@ -333,6 +333,7 @@ mod tests {
                 explicit_apply: true,
                 satisfied_preconditions: vec!["workspace_claim_observed".to_string()],
             },
+            resource_budget: None,
         };
         workload
     }

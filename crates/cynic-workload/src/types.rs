@@ -42,7 +42,7 @@ pub struct WorkloadMandateBinding {
     pub requested_wall_seconds: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentWorkloadEnvelope {
     pub schema: String,
     pub workload_id: String,
@@ -60,6 +60,8 @@ pub struct AgentWorkloadEnvelope {
     pub parent_delegation: Option<AgentDelegationEnvelope>,
     pub policy_admission: PolicyAdmissionReport,
     pub execution_authorization: ExecutionAuthorization,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_budget: Option<cynic_protocol::resource_budget::ResourceBudget>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,7 +102,7 @@ pub struct AgentWorkloadClaim {
     pub granted_at_ms: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentWorkloadRecord {
     pub schema: String,
     pub envelope: AgentWorkloadEnvelope,

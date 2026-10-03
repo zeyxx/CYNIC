@@ -120,6 +120,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
             explicit_apply: true,
             satisfied_preconditions: vec!["source_commit_observed".to_string()],
         },
+        resource_budget: None,
     }
 }
 

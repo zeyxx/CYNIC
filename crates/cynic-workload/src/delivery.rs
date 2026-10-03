@@ -46,7 +46,7 @@ pub enum AgentWorkloadDeliveryStatus {
     Terminal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentWorkloadCompletionPublication {
     pub schema: String,
     pub node_id: String,
@@ -58,7 +58,7 @@ pub struct AgentWorkloadCompletionPublication {
     pub evidence: Vec<EvidenceEnvelope>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentWorkloadDelivery {
     pub schema: String,
     pub envelope: AgentWorkloadEnvelope,
@@ -432,7 +432,7 @@ fn valid_sha256(value: &str) -> bool {
 /// (`schema`/`status`/`value`), never a bare delivery. Read-back parsers
 /// must unwrap the envelope; parsing the body as a raw delivery always
 /// fails and masks persisted successes as blocked.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KernelDeliveryEnvelope {
     pub schema: String,
     pub status: String,
