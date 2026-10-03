@@ -524,13 +524,15 @@ fn build_evidence(stderr: &str) -> String {
             if line.starts_with("error: could not compile") {
                 break;
             }
+            // Check BEFORE appending, so the result is bounded by construction
+            // rather than by one line of luck.
+            if !out.is_empty() && out.len() + line.len() + 1 > LIMIT {
+                break;
+            }
             if !out.is_empty() {
                 out.push('\n');
             }
             out.push_str(line);
-            if out.len() >= LIMIT {
-                break;
-            }
         }
         if !out.is_empty() {
             return out;
@@ -538,7 +540,11 @@ fn build_evidence(stderr: &str) -> String {
     }
     // No cargo error block (git failure, linker abort, empty stderr): the tail
     // is the best available evidence.
-    trimmed[trimmed.len() - LIMIT..].trim().to_string()
+    let cut = trimmed.len() - LIMIT;
+    let cut = (cut..trimmed.len())
+        .find(|i| trimmed.is_char_boundary(*i))
+        .unwrap_or(trimmed.len());
+    trimmed[cut..].trim().to_string()
 }
 
 #[cfg(test)]
@@ -900,10 +906,19 @@ mod tests {
 
     #[test]
     fn build_evidence_falls_back_to_tail_without_a_cargo_error() {
-        let stderr = format!("fatal: reference is not a tree: {}\n", "a".repeat(3000));
+        // A git failure: no cargo error block exists, so the tail is the only
+        // evidence available. The fatal line is at the END, as git emits it.
+        let mut stderr = String::from("Cloning into '/var/lib/cynic/checkouts/x'...\n");
+        for _ in 0..60 {
+            stderr.push_str("remote: enumerating objects: 10% (100/1000)\n");
+        }
+        stderr.push_str("fatal: reference is not a tree\n");
         let evidence = build_evidence(&stderr);
-        assert!(evidence.contains("reference is not a tree"));
-        assert!(evidence.len() <= 2048);
+        assert!(
+            evidence.contains("reference is not a tree"),
+            "the git fatal survives: {evidence}"
+        );
+        assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
     }
 
     #[test]
