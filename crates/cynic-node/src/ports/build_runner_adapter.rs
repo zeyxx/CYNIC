@@ -272,7 +272,7 @@ impl BuildRunnerPort for SshBuildRunner {
             if !clone.success() {
                 return blocked(
                     None,
-                    format!("checkout clone failed: {}", tail(&clone.stderr)),
+                    format!("checkout clone failed: {}", build_evidence(&clone.stderr)),
                 );
             }
         }
@@ -295,7 +295,7 @@ impl BuildRunnerPort for SshBuildRunner {
         // output). The authoritative result is the independent read-back below:
         // accept only `rev-parse HEAD == requested SHA`, never stderr text.
         let checkout_failed = !checkout.success();
-        let checkout_stderr = tail(&checkout.stderr);
+        let checkout_stderr = build_evidence(&checkout.stderr);
         let head = self.runner.run(&[
             "ssh",
             target.as_str(),
@@ -377,7 +377,7 @@ impl BuildRunnerPort for SshBuildRunner {
                 &scope,
                 BuildVerdict::Blocked {
                     broken_layer: Some(scope.clone()),
-                    reason: format!("remote build failed: {}", tail(&out.stderr)),
+                    reason: format!("remote build failed: {}", build_evidence(&out.stderr)),
                 },
                 duration_ms,
                 cpu_ms,
@@ -494,13 +494,51 @@ fn parse_binary_sha(stdout: &str) -> Option<String> {
     }
 }
 
-/// Last 2 KiB of stderr for error reports — full logs stay on the runner.
-fn tail(stderr: &str) -> String {
+/// The actionable part of a failed build's stderr.
+///
+/// WHY NOT A TAIL. `cargo` prints its errors FIRST and its summary LAST, with
+/// warnings interleaved. Keeping the last 2 KiB therefore retains the summary
+/// line ("could not compile ... due to 1 previous error") and the warnings, and
+/// drops the actual error — which is the one thing an operator needs. A proof
+/// that names the failure but not the cause still forces a re-run.
+///
+/// So: take the error blocks when there are any, and fall back to the tail only
+/// when there are none (a non-cargo failure, a git error, a linker abort).
+fn build_evidence(stderr: &str) -> String {
     const LIMIT: usize = 2048;
-    if stderr.len() <= LIMIT {
-        return stderr.trim().to_string();
+    let trimmed = stderr.trim();
+    if trimmed.len() <= LIMIT {
+        return trimmed.to_string();
     }
-    stderr[stderr.len() - LIMIT..].trim().to_string()
+    let lines: Vec<&str> = trimmed.lines().collect();
+    // A cargo error block starts at `error` and runs until the next blank
+    // separator or the next top-level `error`/`warning`. Keep the first block:
+    // one real error is what an operator acts on.
+    let start = lines.iter().position(|l| {
+        l.starts_with("error") && !l.starts_with("error: could not compile")
+    });
+    if let Some(start) = start {
+        let mut out = String::new();
+        for line in lines.iter().skip(start) {
+            // Stop at the summary: it repeats what we already know.
+            if line.starts_with("error: could not compile") {
+                break;
+            }
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(line);
+            if out.len() >= LIMIT {
+                break;
+            }
+        }
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    // No cargo error block (git failure, linker abort, empty stderr): the tail
+    // is the best available evidence.
+    trimmed[trimmed.len() - LIMIT..].trim().to_string()
 }
 
 #[cfg(test)]
@@ -828,6 +866,44 @@ mod tests {
         assert_eq!(parse_stat_busy_jiffies(text), Some(170));
         assert_eq!(parse_stat_busy_jiffies("garbage\n"), None);
         assert_eq!(parse_stat_busy_jiffies("cpu  1 2\n"), None);
+    }
+
+    #[test]
+    fn build_evidence_keeps_the_error_not_the_summary() {
+        // cargo prints errors FIRST and the summary LAST. A plain tail keeps
+        // the summary and the warnings, and drops the error — the one thing an
+        // operator acts on.
+        let mut stderr = String::from("error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n");
+        // Pad with warnings so the error is pushed out of a 2 KiB tail.
+        for i in 0..80 {
+            stderr.push_str(&format!(
+                "warning: type does not implement `Debug`; consider adding `#[derive(Debug)]`\n  --> src/w{i}.rs:1:1\n\n"
+            ));
+        }
+        stderr.push_str("error: could not compile `cynic-cli` (lib) due to 1 previous error\n");
+
+        let evidence = build_evidence(&stderr);
+        assert!(
+            evidence.contains("E0432"),
+            "the error survives: {evidence}"
+        );
+        assert!(
+            evidence.contains("no `foo` in the root"),
+            "the explanation survives: {evidence}"
+        );
+        assert!(
+            !evidence.contains("could not compile"),
+            "the summary is not the evidence: {evidence}"
+        );
+        assert!(evidence.len() <= 2048, "bounded: {}", evidence.len());
+    }
+
+    #[test]
+    fn build_evidence_falls_back_to_tail_without_a_cargo_error() {
+        let stderr = format!("fatal: reference is not a tree: {}\n", "a".repeat(3000));
+        let evidence = build_evidence(&stderr);
+        assert!(evidence.contains("reference is not a tree"));
+        assert!(evidence.len() <= 2048);
     }
 
     #[test]
