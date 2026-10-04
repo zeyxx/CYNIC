@@ -123,7 +123,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 31399
+      "loc": 31443
     },
     "cynic-consensus": {
       "consumers": [
@@ -190,7 +190,7 @@
       "justified": false,
       "kind": "library",
       "layer": "L2",
-      "loc": 124
+      "loc": 123
     },
     "cynic-domain-cloudflare": {
       "consumers": [
@@ -204,7 +204,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 621
+      "loc": 620
     },
     "cynic-domain-ops": {
       "consumers": [
@@ -235,7 +235,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 498
+      "loc": 497
     },
     "cynic-eval": {
       "consumers": [
@@ -321,7 +321,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 91294
+      "loc": 91864
     },
     "cynic-host-probes": {
       "consumers": [],
@@ -386,7 +386,6 @@
         "cynic-intel-futarchy",
         "cynic-kernel",
         "cynic-market",
-        "cynic-observer",
         "cynic-zeroclaw-solana"
       ],
       "depends_on": [
@@ -591,19 +590,6 @@
       "layer": "L2",
       "loc": 5934
     },
-    "cynic-observer": {
-      "consumers": [],
-      "depends_on": [
-        "cynic-intel",
-        "cynic-protocol",
-        "cynic-secrets"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "binary",
-      "layer": "L2",
-      "loc": 8565
-    },
     "cynic-pkg": {
       "consumers": [
         "cynic-cli",
@@ -655,7 +641,6 @@
         "cynic-network",
         "cynic-node",
         "cynic-node-protocol",
-        "cynic-observer",
         "cynic-pkg",
         "cynic-release",
         "cynic-sandbox",
@@ -671,7 +656,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 34207
+      "loc": 34389
     },
     "cynic-release": {
       "consumers": [
@@ -712,8 +697,7 @@
         "cynic-intel",
         "cynic-kernel",
         "cynic-network",
-        "cynic-node",
-        "cynic-observer"
+        "cynic-node"
       ],
       "depends_on": [
         "cynic-protocol"
@@ -768,7 +752,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 518
+      "loc": 517
     },
     "cynic-vcs": {
       "consumers": [
@@ -877,7 +861,6 @@
     "cynic-intel-escore",
     "cynic-intel-futarchy",
     "cynic-market",
-    "cynic-observer",
     "cynic-zeroclaw-solana",
     "cynic-discovery-host",
     "cynic-mcp",
@@ -1115,13 +1098,13 @@
   },
   "measured": {
     "acyclic": true,
-    "binaries": 9,
-    "crates": 49,
+    "binaries": 8,
+    "crates": 48,
     "dev_edges": 1,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 343696,
+    "loc_total": 335923,
     "pending_disposition": 8,
-    "runtime_edges": 155,
+    "runtime_edges": 152,
     "unjustified": 8,
     "upward_edges": 15
   },

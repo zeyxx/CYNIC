@@ -25,11 +25,11 @@ Compiler and build policy: `infra/RUST_COMPILER_ALPHAS.md`. `make test` exists b
 
 ## Structure
 
-47 workspace crates in 16 families. Canonical taxonomy, LOC census, and extraction verdicts: `infra/CANONICAL_CRATE_MAP.md` v3. God-object ceiling: 25k LOC (`contracts/foundation.json` hard boundary).
+48 workspace crates in 16 families. Canonical taxonomy, LOC census, and extraction verdicts: `infra/CANONICAL_CRATE_MAP.md` v3. God-object ceiling: 25k LOC (`contracts/foundation.json` hard boundary).
 
 - L0 pure: `cynic-protocol`, `cynic-types`, `cynic-identity`.
 - L1 host substrate: `cynic-host`, `cynic-host-probes`, `cynic-network`, `cynic-lxc`, `cynic-sandbox`, `cynic-pkg`, `cynic-forensics`, `cynic-lifecycle`, `cynic-release`, `cynic-discovery-host`.
-- L2 domains: `cynic-storage`, `cynic-inference`, `cynic-inference-runtime`, `cynic-build`, `cynic-vcs`, `cynic-vcs-forgejo`, `cynic-eval`, `cynic-askesis`, `cynic-domain-ops`, `cynic-domain-cloudflare`, `cynic-domain-porkbun`, `cynic-domain-askesis`, `cynic-intel`, `cynic-intel-escore`, `cynic-intel-futarchy`, `cynic-intel-soc`, `cynic-solana-pay`, `cynic-zeroclaw-solana`, `cynic-observer`, `cynic-consensus`, `cynic-discovery`, `cynic-node-protocol`, `cynic-agent-bus`, `cynic-agent-bus-server`, `cynic-agent-bus-coordinator`, `cynic-channel`, `cynic-pool`, `cynic-market`.
+- L2 domains: `cynic-storage`, `cynic-inference`, `cynic-inference-runtime`, `cynic-build`, `cynic-vcs`, `cynic-vcs-forgejo`, `cynic-eval`, `cynic-askesis`, `cynic-domain-ops`, `cynic-domain-cloudflare`, `cynic-domain-porkbun`, `cynic-domain-askesis`, `cynic-intel`, `cynic-intel-escore`, `cynic-intel-futarchy`, `cynic-intel-soc`, `cynic-solana-pay`, `cynic-zeroclaw-solana`, `cynic-consensus`, `cynic-discovery`, `cynic-node-protocol`, `cynic-agent-bus`, `cynic-agent-bus-server`, `cynic-agent-bus-coordinator`, `cynic-channel`, `cynic-pool`, `cynic-market`.
 - L3 orchestration: `cynic-kernel`, `cynic-node`.
 - L4 projections: `cynic-cli`, `cynic-mcp` (replaceable agent-facing projection, never a bootstrap prerequisite).
 - Cross-cutting: `cynic-secrets`, `cynic-workload`.

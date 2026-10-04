@@ -193,20 +193,11 @@
     "cynic-inference": {
       "owner": "crates/cynic-inference",
       "status": "extracting",
-      "role": "CYNIC native model adapters, routing, embeddings, and local vault lifecycle. Peer attach plane (OpenAI-compat) optionally consumes Osmantic ODS (https://github.com/Osmantic/ODS) as an external bootstrap product — not reimplemented. Install via host ecosystem pin `ods`; attach via inference-discover probe/apply.",
+      "role": "CYNIC native model adapters, routing, embeddings, and local vault lifecycle. Peer attach plane (OpenAI-compat) optionally consumes Osmantic ODS (https://github.com/Osmantic/ODS) as an external bootstrap product \u2014 not reimplemented. Install via host ecosystem pin `ods`; attach via inference-discover probe/apply.",
       "not_yet": [
         "canonical runtime authority surface",
         "make check core package gate",
         "agent exposure domain ownership"
-      ]
-    },
-    "cynic-observer": {
-      "owner": "crates/cynic-observer",
-      "status": "experimental",
-      "role": "Observation/WAL helpers outside the minimal authority map until proof of runtime use.",
-      "not_yet": [
-        "canonical runtime authority surface",
-        "make check core package gate"
       ]
     }
   },

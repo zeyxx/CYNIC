@@ -31,16 +31,16 @@
 # reads as "decided, do not care" while these are "known, and the fix is a major
 # bump we have not taken":
 #
-#   RUSTSEC-2026-0118 / RUSTSEC-2026-0119  hickory-proto 0.25.2
-#     Reached only through libp2p-mdns 0.48 -> libp2p 0.56, pulled by
-#     cynic-observer. No compatible release exists: `cargo update -p
-#     hickory-proto` locks zero packages. Both are DNS-message parsing flaws in
-#     an mDNS discovery path.
+#   RUSTSEC-2026-0118 / RUSTSEC-2026-0119  hickory-proto 0.25.2 -- RESOLVED
+#     Were reached only through libp2p-mdns 0.48 -> libp2p 0.56, pulled by
+#     cynic-observer. That crate is deleted, and it was the only one in the
+#     workspace depending on libp2p, so both advisories left the tree with it.
+#     Kept here as a record: the removal was a side effect, not the motive.
 #   RUSTSEC-2024-0384  instant 0.1.13 (unmaintained)
 #     Reached through notify-types -> notify 7 -> cynic-node.
-#   RUSTSEC-2024-0436  paste 1.0.15 (unmaintained, proc-macro)
-#     Reached through netlink-packet-core -> if-watch -> libp2p 0.56. A
-#     build-time proc-macro, not shipped code.
+#   RUSTSEC-2024-0436  paste 1.0.15 (unmaintained, proc-macro) -- RESOLVED
+#     Was reached through netlink-packet-core -> if-watch -> libp2p 0.56, i.e.
+#     through cynic-observer. Deleted with it.
 #
 # The gate therefore FAILS on advisories today, and that is reported rather than
 # hidden. Paying it means bumping libp2p and notify — a dependency migration
