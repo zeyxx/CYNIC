@@ -1,3 +1,4 @@
+pub mod debt_ledger;
 mod artefact_rule;
 pub mod path_rules;
 pub mod topology;
@@ -153,9 +154,22 @@ fn run_rules(root: &Path, rules: Vec<Box<dyn AuditRule>>) -> AuditReportV2 {
     }
 }
 
-/// Full workspace audit: every default rule, including the path rules.
+/// Full workspace audit: every default rule, including the path rules, with the
+/// declared debt ledger applied.
+///
+/// The ledger is applied HERE, at the single entry point every consumer already
+/// calls, rather than at each call site. A comparator wired per call site is a
+/// comparator that one call site forgets.
+///
+/// After the ledger pass the report holds only what requires action now:
+/// undeclared debt, debt that grew, stale ledger entries, and an unreadable
+/// ledger. The declared violations are removed because their record is the
+/// ledger itself. See the `debt_ledger` module for why a threshold is not the
+/// alternative.
 pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
-    run_rules(root, default_rules())
+    let mut report = run_rules(root, default_rules());
+    debt_ledger::apply_debt_ledger(&mut report, root);
+    report
 }
 
 /// Path reference audit only: declared paths, cited paths, and SSOT ignore state.
