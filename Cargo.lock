@@ -1057,6 +1057,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-core"
+version = "0.8.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cynic-discovery"
 version = "0.8.0"
 dependencies = [
@@ -1463,8 +1471,11 @@ name = "cynic-network"
 version = "0.8.0"
 dependencies = [
  "chrono",
+ "cynic-core",
  "cynic-finance",
  "cynic-protocol",
+ "cynic-secrets",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "tempfile",
