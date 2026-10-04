@@ -1,3 +1,29 @@
+//! Ports: the domain's own interface.
+//!
+//! ARCHITECTURE INVARIANT — `domain <-> ports` is INTRA-LAYER, not a cycle.
+//!
+//! This module and `domain` are one layer, not two. `domain/shared.rs` declares
+//! `SubstrateDomainContract`; `domain/{services,privilege,packages,principal}.rs`
+//! implement it. A module cannot implement a trait without the trait in scope, so
+//! the imports necessarily run both ways:
+//!
+//!   ports/mod.rs            imports `domain` (this file, 10 times)
+//!   domain/services.rs:10   imports `ports::HostOperation`
+//!   domain/privilege.rs:12  imports `ports::HostOperation`
+//!   domain/packages.rs:14   imports `ports::HostOperation`
+//!   domain/principal.rs:11  imports `ports::{HostOperation, PrincipalLoginShell}`
+//!
+//! No file layout removes this, and it is not a defect to remove. Many Rust
+//! hexagonal codebases carry it. It is recorded here because a module-level
+//! cycle analysis will report `domain <-> ports` as an entanglement, and without
+//! this note the next reader spends a day trying to fix a language constraint.
+//!
+//! What IS a defect, and is fixed rather than documented:
+//!   ports -> adapters   a port naming an implementation (ports depend on
+//!                       abstractions, never the reverse)
+//!   domain -> adapters  the domain knowing which client it uses
+//! Both were present in this crate and are being removed.
+
 pub mod argv_execution;
 pub mod causal_epoch_index;
 pub mod evidence_store;
