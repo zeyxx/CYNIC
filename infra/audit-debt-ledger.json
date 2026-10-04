@@ -19,13 +19,13 @@
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate.",
-    "total": 221,
+    "total": 220,
     "critical": 23,
-    "debt": 196,
+    "debt": 195,
     "warning": 2,
-    "identities": 221,
+    "identities": 220,
     "by_rule": {
-      "ARCH-001": 196,
+      "ARCH-001": 195,
       "ARCH-004": 15,
       "PATH-002": 3,
       "RUN-001": 5,
@@ -165,12 +165,7 @@
       "rule": "ARCH-001",
       "severity": "debt"
     },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/ownership_audit.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
+
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_paths.rs",
       "count": 1,
