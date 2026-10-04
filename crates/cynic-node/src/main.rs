@@ -25,7 +25,7 @@ use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use cynic_node::cli::Cli;
+use cynic_node::cli::{Cli, Commands};
 use cynic_node::cli_dispatch;
 use cynic_node::config;
 use cynic_node::node_control_runtime;
@@ -42,6 +42,16 @@ async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     if let Some(cmd) = cli.command {
+        // The daemon owns exactly one subcommand: `control`. Every other
+        // subcommand is a CLI surface that belongs in `cynic`, not in a daemon.
+        // Returning an explicit error here is the contract: an operator who runs
+        // `cynic-node network ...` is told to run `cynic network ...` instead.
+        if !matches!(cmd, Commands::Control { .. }) {
+            eprintln!(
+                "cynic-node is a daemon and only owns `control`.                  Use `cynic <command>` for CLI surfaces."
+            );
+            return ExitCode::FAILURE;
+        }
         return cli_dispatch::dispatch_command(cmd).await;
     }
 

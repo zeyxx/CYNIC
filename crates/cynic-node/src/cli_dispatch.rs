@@ -19,6 +19,23 @@ use crate::usecases::storage_lifecycle_uc;
 
 pub async fn dispatch_command(command: Commands) -> ExitCode {
     match command {
+        Commands::Control { config, check } => node_control_runtime::run(&config, check).await,
+        // Every other arm is a CLI surface that belongs in `cynic`, not in a
+        // daemon. They are moved in slice 2b. Until then they return an explicit
+        // error rather than silently doing nothing.
+        _ => {
+            eprintln!(
+                "cynic-node is a daemon and only owns `control`. \
+                 Use `cynic <command>` for CLI surfaces."
+            );
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[allow(dead_code)]
+async fn _unused_dispatch(command: Commands) -> ExitCode {
+    match command {
         Commands::NodeIdentity {
             node_id,
             signing_key_path,
