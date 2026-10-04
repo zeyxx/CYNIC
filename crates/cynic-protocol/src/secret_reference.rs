@@ -16,6 +16,7 @@ pub enum SecretClass {
     MachineEnrollment,
     RuntimeMachineIdentity,
     RecoveryBreakglass,
+    HeadscaleApiKey,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +50,23 @@ impl SecretReference {
             id: id.to_string(),
             class: SecretClass::RuntimeMachineIdentity,
             provider: SecretProvider::ProcessEnvironment,
+            locator: locator.to_string(),
+        }
+    }
+
+    /// V1 migration helper: construct a SecretReference with an explicit class.
+    ///
+    /// Usage: 
+    pub fn with_class(
+        id: &str,
+        locator: &str,
+        class: SecretClass,
+        provider: SecretProvider,
+    ) -> Self {
+        Self {
+            id: id.to_string(),
+            class,
+            provider,
             locator: locator.to_string(),
         }
     }

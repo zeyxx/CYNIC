@@ -4,3 +4,4 @@
 //! This crate is the leaf of the DAG — nothing depends on it except higher layers.
 
 pub mod domain;
+pub mod fleet_mesh;
