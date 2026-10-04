@@ -26,6 +26,7 @@ use serde::Serialize;
 use cynic_inference::{InferenceConfigError, load_inference_config};
 
 mod hf;
+mod local_runtime;
 
 /// One backend entry in the JSON output.
 #[derive(Serialize)]
@@ -165,6 +166,11 @@ pub(crate) use hf::{
     execute_inference_hf_suggest,
 };
 
+pub(crate) use local_runtime::{
+    execute_inference_discover, execute_inference_forge, execute_inference_models,
+    execute_inference_models_consolidate, execute_inference_plan, execute_inference_start,
+    execute_inference_status, execute_inference_stop, execute_inference_vault,
+};
 
 fn emit_json(value: &impl serde::Serialize) -> ExitCode {
     match serde_json::to_string_pretty(value) {
