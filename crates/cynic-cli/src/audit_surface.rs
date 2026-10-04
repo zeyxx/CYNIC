@@ -141,7 +141,20 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             let secret_obs = cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));
             let node_audit = node_host_audit::build_node_host_audit(80).ok();
 
-            let all_passed = crate_report.blocked_count == 0 && !secret_obs.has_findings();
+            // The audit engine is the workspace-wide rule set: every default
+            // rule over every crate, with the declared debt ledger applied.
+            //
+            // It runs HERE because `audit all` is `make audit`, the canonical
+            // gate named by AGENTS.md. Until this call existed the engine
+            // executed only through the cynic-audit binary and the tests --
+            // comparators that exist, run, and are never consulted by the gate.
+            // The three checks below answer different questions and stay.
+            let engine =
+                cynic_host::audit_engine::run_workspace_audit(&crate::rust_source::workspace_root());
+
+            let all_passed = crate_report.blocked_count == 0
+                && !secret_obs.has_findings()
+                && engine.summary.critical_count == 0;
 
             let unified = serde_json::json!({
                 "schema": "cynic.cli.audit_unified.v1",
@@ -157,6 +170,25 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 },
                 "node_host": {
                     "available": node_audit.is_some(),
+                },
+                "engine": {
+                    "rules_evaluated": engine.summary.total_rules_evaluated,
+                    "passed_rules": engine.summary.passed_rules_count,
+                    "critical": engine.summary.critical_count,
+                    "warning": engine.summary.warning_count,
+                    "debt": engine.summary.debt_count,
+                    "maturity_score_percent": engine.summary.maturity_score_percent,
+                    "status": engine.summary.status,
+                    "violations": engine
+                        .violations
+                        .iter()
+                        .map(|v| serde_json::json!({
+                            "code": v.code,
+                            "severity": v.severity,
+                            "message": v.message,
+                            "remediation": v.remediation,
+                        }))
+                        .collect::<Vec<_>>(),
                 }
             });
 
@@ -174,6 +206,18 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     secret_obs.findings.len(),
                     secret_obs.files_scanned
                 );
+                println!(
+                    "Engine: {}/{} rules passed, {} critical, {} warning, {} debt, maturity {}%",
+                    engine.summary.passed_rules_count,
+                    engine.summary.total_rules_evaluated,
+                    engine.summary.critical_count,
+                    engine.summary.warning_count,
+                    engine.summary.debt_count,
+                    engine.summary.maturity_score_percent
+                );
+                for violation in &engine.violations {
+                    println!("  [{}] {}", violation.code, violation.message);
+                }
                 if all_passed {
                     ExitCode::SUCCESS
                 } else {
