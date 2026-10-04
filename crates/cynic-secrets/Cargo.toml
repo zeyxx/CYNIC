@@ -1,4 +1,6 @@
 [package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
 name = "cynic-secrets"
 version = "0.2.0"
 edition = "2024"
