@@ -145,7 +145,6 @@ const BASELINE: &[&str] = &[
     "NO-RESPONSIBILITY: cynic-mcp",
     "NO-RESPONSIBILITY: cynic-node",
     "NO-RESPONSIBILITY: cynic-node-protocol",
-    "NO-RESPONSIBILITY: cynic-observer",
     "NO-RESPONSIBILITY: cynic-pkg",
     "NO-RESPONSIBILITY: cynic-protocol",
     // 3. the purity prefix lies about two crates that ship an HTTP client

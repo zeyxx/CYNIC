@@ -13,7 +13,6 @@ const FORBIDDEN_DEPS: &[&str] = &[
     "cynic-network",
     "cynic-inference",
     "cynic-market",
-    "cynic-observer",
     "cynic-storage",
     "cynic-zeroclaw-solana",
     "cynic-release",
