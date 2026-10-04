@@ -1,3 +1,6 @@
+pub mod debt_ledger;
+mod module_inversion_rule;
+mod artefact_rule;
 pub mod path_rules;
 pub mod topology;
 pub mod topology_generate;
@@ -9,6 +12,8 @@ use std::path::Path;
 
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
+use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
+use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::topology::CrateTopologyRule;
 use self::rules::{
@@ -61,6 +66,10 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(PathSsotIgnoreRule),
         Box::new(CrateTopologyRule),
         Box::new(RuntimeDivergenceRule),
+        Box::new(ArtefactContractRule),
+        Box::new(AutobinsFrozenRule),
+        Box::new(ModuleInversionRule),
+        Box::new(LayerModelDeclaredRule),
     ]
 }
 
@@ -149,9 +158,22 @@ fn run_rules(root: &Path, rules: Vec<Box<dyn AuditRule>>) -> AuditReportV2 {
     }
 }
 
-/// Full workspace audit: every default rule, including the path rules.
+/// Full workspace audit: every default rule, including the path rules, with the
+/// declared debt ledger applied.
+///
+/// The ledger is applied HERE, at the single entry point every consumer already
+/// calls, rather than at each call site. A comparator wired per call site is a
+/// comparator that one call site forgets.
+///
+/// After the ledger pass the report holds only what requires action now:
+/// undeclared debt, debt that grew, stale ledger entries, and an unreadable
+/// ledger. The declared violations are removed because their record is the
+/// ledger itself. See the `debt_ledger` module for why a threshold is not the
+/// alternative.
 pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
-    run_rules(root, default_rules())
+    let mut report = run_rules(root, default_rules());
+    debt_ledger::apply_debt_ledger(&mut report, root);
+    report
 }
 
 /// Path reference audit only: declared paths, cited paths, and SSOT ignore state.

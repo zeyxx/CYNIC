@@ -177,11 +177,21 @@ audit: ## Native unified audit of all crates, architecture boundaries, and secre
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
 	fi
 
-# The host-observed half of the audit, as a binary that links. `cynic` does not
-# build on the pinned toolchain, so the gate named by AGENTS.md and by `make
-# audit` above cannot run at all; this depends on cynic-host only, links in
-# seconds, and runs the SAME rules — not a second implementation. Exits non-zero
-# on any Critical finding, so a CI step is one line.
+# The fast lens on the audit, as a binary that links. This depends on cynic-host
+# only and links in seconds, which is why it stays a separate target. It is NOT a
+# second implementation: both this and `make audit` call
+# audit_engine::run_workspace_audit.
+#
+# CORRECTED 2026-10-04. This comment used to read: cynic does not build on the
+# pinned toolchain, so the gate named by AGENTS.md and by `make audit` above
+# cannot run at all. Both halves were false, and the falsehood excused the
+# absence of the gate it described:
+#   cargo build -p cynic-cli --bin cynic  -> 70 MB binary, exit 0
+#   make audit                            -> runs, and since 40e4f49b it
+#                                            includes the engine
+# A comment that excuses a missing gate is worth verifying before trusting it.
+#
+# Exits non-zero on any Critical finding, so a CI step is one line.
 audit.runtime: ## Runtime divergence: units, binaries, credentials, claim store (JSON, exit-code gated)
 	@$(CARGO) run -q -p cynic-host --bin cynic-audit
 

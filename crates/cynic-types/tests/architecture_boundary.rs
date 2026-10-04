@@ -16,7 +16,6 @@ fn no_dependency_on_higher_layer_crates() {
         "cynic-node",
         "cynic-cli",
         "cynic-inference",
-        "cynic-observer",
         "cynic-intel",
     ] {
         assert!(

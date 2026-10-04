@@ -3,8 +3,14 @@
 //! This port abstracts the fleet mesh (Headscale, WireGuard, or any
 //! future implementation) behind a single trait. Adapters live in
 //! `cynic-network` (I/O), never here.
+//!
+//! Types are canonical: `cynic-network` re-exports them from here,
+//! it does NOT define its own mesh types.
 
 use serde::{Deserialize, Serialize};
+
+// FleetNetworkNode and FleetNetworkReport remain in cynic-network —
+// they reference NetworkReport (I/O observation type).
 
 /// A node in the fleet mesh.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,6 +65,87 @@ pub trait FleetMeshPort {
     fn disable_route(&self, route_id: &str) -> Result<(), MeshError>;
 }
 
+/// Canonical mesh plan — desired state of the fleet mesh.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshPlan {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub provider: String,
+    pub registry_path: String,
+    pub service_plane: String,
+    pub cidr: Option<String>,
+    pub dns_zone: Option<String>,
+    pub desired_peer_count: usize,
+    pub desired_peers: Vec<NetworkMeshPeer>,
+    pub routes: Vec<NetworkMeshRoute>,
+    pub dns: Vec<NetworkMeshDnsRecord>,
+    pub acl: Vec<NetworkMeshAclRule>,
+    pub actuator_required: bool,
+    pub can_apply: bool,
+    pub apply_requires: Vec<&'static str>,
+}
+
+/// A peer in the fleet mesh.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshPeer {
+    pub id: String,
+    pub role: Option<String>,
+    pub status: Option<String>,
+    pub address: String,
+    pub local_address: Option<String>,
+    pub dns_names: Vec<String>,
+    pub services: Vec<NetworkMeshService>,
+}
+
+/// A service exposed by a mesh peer.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshService {
+    pub name: String,
+    pub port: Option<u16>,
+    pub protocol: String,
+}
+
+/// A route in the fleet mesh.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshRoute {
+    pub destination: String,
+    pub via_peer: String,
+    pub provider: String,
+}
+
+/// A DNS record in the fleet mesh.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshDnsRecord {
+    pub name: String,
+    pub address: String,
+}
+
+/// An ACL rule in the fleet mesh.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkMeshAclRule {
+    pub id: String,
+    pub source: String,
+    pub destination: String,
+    pub port: Option<u16>,
+    pub protocol: String,
+    pub action: String,
+}
+
+/// Assessment of WireGuard mesh peer status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireguardMeshAssessment {
+    pub total_peers: usize,
+    pub ok_peers: usize,
+    pub stale_peers: usize,
+    pub dead_peers: usize,
+    pub never_seen_peers: usize,
+}
+
+// TODO: Fleet mesh is NOT a HostSubstrateDomain (principal/privilege/packages/
+// filesystem/services). The mesh is a fleet-level concern, not a host substrate
+// concern. A proper FleetSubstrateDomain variant must be added to shared.rs
+// before mesh_contract() can be implemented. Not faking it with Services.
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,4 +193,42 @@ mod tests {
         let err = MeshError::NetworkUnreachable;
         assert_eq!(err, MeshError::NetworkUnreachable);
     }
+
+    #[test]
+    fn network_mesh_plan_is_pure_data() {
+        let plan = NetworkMeshPlan {
+            schema: "cynic.network_mesh_plan.v1",
+            status: "planned",
+            provider: "headscale".to_string(),
+            registry_path: "/etc/cynic/registry.json".to_string(),
+            service_plane: "service".to_string(),
+            cidr: Some("100.64.0.0/10".to_string()),
+            dns_zone: Some("cynic.ts".to_string()),
+            desired_peer_count: 3,
+            desired_peers: vec![],
+            routes: vec![],
+            dns: vec![],
+            acl: vec![],
+            actuator_required: false,
+            can_apply: true,
+            apply_requires: vec![],
+        };
+        assert_eq!(plan.desired_peer_count, 3);
+        assert_eq!(plan.provider, "headscale");
+    }
+
+    #[test]
+    fn wireguard_mesh_assessment_is_pure_data() {
+        let assessment = WireguardMeshAssessment {
+            total_peers: 3,
+            ok_peers: 2,
+            stale_peers: 1,
+            dead_peers: 0,
+            never_seen_peers: 0,
+        };
+        assert_eq!(assessment.total_peers, 3);
+        assert_eq!(assessment.ok_peers, 2);
+    }
+
+    // TODO: mesh_contract() test deferred until FleetSubstrateDomain is added
 }
