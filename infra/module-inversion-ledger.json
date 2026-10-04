@@ -1,0 +1,314 @@
+{
+  "schema": "cynic.module_inversion_ledger.v1",
+  "status": "normative",
+  "purpose": "Declared, counted, shrink-only list of module-level hexagonal inversions. Read by audit_engine::module_inversion_rule (ARCH-005). A new inversion fails the gate; an entry with no observed edge also fails, because paid debt left in the list hides that the list is stale.",
+  "rule": {
+    "inversion": "domain|ports|usecases -> anything outside domain+ports",
+    "not_an_inversion": "domain <-> ports. In hexagonal architecture the ports ARE the domain's interface: domain/shared.rs declares SubstrateDomainContract and domain/{services,privilege,packages,principal}.rs implement it. A Rust trait and its implementations cannot live in separate modules without mutual imports, so this is a language artifact, documented as permitted in crates/cynic-host/src/ports/mod.rs.",
+    "growth": "blocked -- a new identity, or a count above the recorded one, fails",
+    "shrink": "required -- an entry with no observed edge must be deleted"
+  },
+  "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
+  "measured": {
+    "note": "Observation at ratification. Regenerated only by deliberate act.",
+    "identities": 57,
+    "edges": 132,
+    "by_crate": {
+      "cynic-agent-bus": 1,
+      "cynic-host": 13,
+      "cynic-inference": 7,
+      "cynic-intel": 2,
+      "cynic-intel-soc": 3,
+      "cynic-node": 28,
+      "cynic-release": 1,
+      "cynic-storage": 2
+    }
+  },
+  "entries": [
+    {
+      "identity": "cynic-agent-bus|ports -> types",
+      "count": 1,
+      "evidence": "crates/cynic-agent-bus/src/ports.rs:3"
+    },
+    {
+      "identity": "cynic-host|domain -> command_surface",
+      "count": 7,
+      "evidence": "crates/cynic-host/src/domain/services.rs:3"
+    },
+    {
+      "identity": "cynic-host|domain -> execution",
+      "count": 4,
+      "evidence": "crates/cynic-host/src/domain/ecosystem_package/integration_apply.rs:2"
+    },
+    {
+      "identity": "cynic-host|domain -> fleet_discovery",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/domain/storage/fleet_observer.rs:9"
+    },
+    {
+      "identity": "cynic-host|domain -> install_contract",
+      "count": 4,
+      "evidence": "crates/cynic-host/src/domain/services.rs:9"
+    },
+    {
+      "identity": "cynic-host|domain -> runtime_layout",
+      "count": 5,
+      "evidence": "crates/cynic-host/src/domain/services.rs:11"
+    },
+    {
+      "identity": "cynic-host|ports -> bridge",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/ports/mod.rs:32"
+    },
+    {
+      "identity": "cynic-host|ports -> execution",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/ports/mod.rs:43"
+    },
+    {
+      "identity": "cynic-host|ports -> hardware_conformance",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/ports/mod.rs:44"
+    },
+    {
+      "identity": "cynic-host|usecases -> command_surface",
+      "count": 3,
+      "evidence": "crates/cynic-host/src/usecases/tests.rs:9"
+    },
+    {
+      "identity": "cynic-host|usecases -> execution",
+      "count": 2,
+      "evidence": "crates/cynic-host/src/usecases/tests.rs:22"
+    },
+    {
+      "identity": "cynic-host|usecases -> registry",
+      "count": 3,
+      "evidence": "crates/cynic-host/src/usecases/planning.rs:3"
+    },
+    {
+      "identity": "cynic-host|usecases -> runtime_authority",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/usecases/tests.rs:28"
+    },
+    {
+      "identity": "cynic-host|usecases -> runtime_layout",
+      "count": 1,
+      "evidence": "crates/cynic-host/src/usecases/tests.rs:29"
+    },
+    {
+      "identity": "cynic-inference|application -> adapters",
+      "count": 18,
+      "evidence": "crates/cynic-inference/src/application/hf_discovery.rs:6"
+    },
+    {
+      "identity": "cynic-inference|application -> config_loader",
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/application/chat_endpoint.rs:16"
+    },
+    {
+      "identity": "cynic-inference|application -> infra",
+      "count": 14,
+      "evidence": "crates/cynic-inference/src/application/hf_discovery.rs:12"
+    },
+    {
+      "identity": "cynic-inference|application -> ods_discovery",
+      "count": 2,
+      "evidence": "crates/cynic-inference/src/application/peer_attach.rs:27"
+    },
+    {
+      "identity": "cynic-inference|domain -> math",
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/domain/matrix_sweep/empirical_store.rs:17"
+    },
+    {
+      "identity": "cynic-inference|ports -> infra",
+      "count": 2,
+      "evidence": "crates/cynic-inference/src/ports/model_registry_port.rs:4"
+    },
+    {
+      "identity": "cynic-inference|ports -> ods_discovery",
+      "count": 1,
+      "evidence": "crates/cynic-inference/src/ports/model_publisher_port.rs:12"
+    },
+    {
+      "identity": "cynic-intel-soc|ports -> rules",
+      "count": 2,
+      "evidence": "crates/cynic-intel-soc/src/ports.rs:5"
+    },
+    {
+      "identity": "cynic-intel-soc|ports -> soc",
+      "count": 2,
+      "evidence": "crates/cynic-intel-soc/src/ports.rs:7"
+    },
+    {
+      "identity": "cynic-intel-soc|ports -> types",
+      "count": 1,
+      "evidence": "crates/cynic-intel-soc/src/ports.rs:9"
+    },
+    {
+      "identity": "cynic-intel|ports -> domain_enrichment",
+      "count": 1,
+      "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:3"
+    },
+    {
+      "identity": "cynic-intel|ports -> solana_safety_dog",
+      "count": 1,
+      "evidence": "crates/cynic-intel/src/ports/solana_ports.rs:4"
+    },
+    {
+      "identity": "cynic-node|domain -> adapters",
+      "count": 2,
+      "evidence": "crates/cynic-node/src/domain/observation_runtime.rs:4"
+    },
+    {
+      "identity": "cynic-node|ports -> network_actuator",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/network_command_runner_port.rs:2"
+    },
+    {
+      "identity": "cynic-node|ports -> network_command_surface",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/network_command_runner_port.rs:3"
+    },
+    {
+      "identity": "cynic-node|ports -> network_mesh_plan",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/network_mesh_registry_port.rs:3"
+    },
+    {
+      "identity": "cynic-node|ports -> websocket",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/ports/runtime_federation_queue_store_port.rs:3"
+    },
+    {
+      "identity": "cynic-node|usecases -> adapters",
+      "count": 15,
+      "evidence": "crates/cynic-node/src/usecases/storage_controller_uc.rs:6"
+    },
+    {
+      "identity": "cynic-node|usecases -> build_attestation",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/observe_node_uc.rs:9"
+    },
+    {
+      "identity": "cynic-node|usecases -> cli",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:9"
+    },
+    {
+      "identity": "cynic-node|usecases -> config",
+      "count": 2,
+      "evidence": "crates/cynic-node/src/usecases/node_enrollment_lifecycle_uc.rs:7"
+    },
+    {
+      "identity": "cynic-node|usecases -> dns_activation_status",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:10"
+    },
+    {
+      "identity": "cynic-node|usecases -> dns_bundle",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:11"
+    },
+    {
+      "identity": "cynic-node|usecases -> dns_plan",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:12"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_activation_chain",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:14"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_actuator",
+      "count": 2,
+      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:19"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_actuator_status",
+      "count": 2,
+      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:20"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_command_surface",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:21"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_evidence",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:17"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_mesh_apply_plan",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:18"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_mesh_bundle",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:19"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_mesh_plan",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:20"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_repair",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:21"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_root_policy",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:22"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_runtime_status",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:23"
+    },
+    {
+      "identity": "cynic-node|usecases -> network_shadow_proof",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:24"
+    },
+    {
+      "identity": "cynic-node|usecases -> observe",
+      "count": 3,
+      "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:22"
+    },
+    {
+      "identity": "cynic-node|usecases -> provider_fallback_hosts",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:30"
+    },
+    {
+      "identity": "cynic-node|usecases -> provider_fallback_status",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:31"
+    },
+    {
+      "identity": "cynic-node|usecases -> watchdog",
+      "count": 1,
+      "evidence": "crates/cynic-node/src/usecases/network_watchdog_uc.rs:19"
+    },
+    {
+      "identity": "cynic-release|ports -> types",
+      "count": 1,
+      "evidence": "crates/cynic-release/src/ports.rs:3"
+    },
+    {
+      "identity": "cynic-storage|ports -> error",
+      "count": 1,
+      "evidence": "crates/cynic-storage/src/ports.rs:3"
+    },
+    {
+      "identity": "cynic-storage|ports -> types",
+      "count": 1,
+      "evidence": "crates/cynic-storage/src/ports.rs:4"
+    }
+  ]
+}
