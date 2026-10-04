@@ -121,65 +121,13 @@ pub fn canonical_provider_for_role(role: MeshRole) -> Option<MeshProviderBinding
         .find(|b| b.role == role && b.canonical_for_role)
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshPlan {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub provider: String,
-    pub registry_path: String,
-    pub service_plane: String,
-    pub cidr: Option<String>,
-    pub dns_zone: Option<String>,
-    pub desired_peer_count: usize,
-    pub desired_peers: Vec<NetworkMeshPeer>,
-    pub routes: Vec<NetworkMeshRoute>,
-    pub dns: Vec<NetworkMeshDnsRecord>,
-    pub acl: Vec<NetworkMeshAclRule>,
-    pub actuator_required: bool,
-    pub can_apply: bool,
-    pub apply_requires: Vec<&'static str>,
-}
+// Canonical mesh types are defined in cynic-core (domain layer).
+// cynic-network re-exports them for backward compatibility.
+pub use cynic_core::fleet_mesh::{
+    NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan,
+    NetworkMeshRoute, NetworkMeshService, WireguardMeshAssessment,
+};
 
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshPeer {
-    pub id: String,
-    pub role: Option<String>,
-    pub status: Option<String>,
-    pub address: String,
-    pub local_address: Option<String>,
-    pub dns_names: Vec<String>,
-    pub services: Vec<NetworkMeshService>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshService {
-    pub name: String,
-    pub port: Option<u16>,
-    pub protocol: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshRoute {
-    pub destination: String,
-    pub via_peer: String,
-    pub provider: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshDnsRecord {
-    pub name: String,
-    pub address: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NetworkMeshAclRule {
-    pub id: String,
-    pub source: String,
-    pub destination: String,
-    pub port: Option<u16>,
-    pub protocol: String,
-    pub action: String,
-}
 
 /// Observation result for network substrate, following the 4-layer model
 /// (physical / volume / usage / pressure) that disk+memory reuse.
@@ -382,15 +330,7 @@ pub struct NetworkAlert {
     pub recovery_hint: String,
 }
 
-/// Assessment of WireGuard mesh peer status.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WireguardMeshAssessment {
-    pub total_peers: usize,
-    pub ok_peers: usize,
-    pub stale_peers: usize,
-    pub dead_peers: usize,
-    pub never_seen_peers: usize,
-}
+
 
 /// Assessment of Service DNS resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
