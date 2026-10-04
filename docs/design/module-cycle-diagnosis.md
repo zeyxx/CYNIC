@@ -73,7 +73,114 @@ provider_fallback_status, usecases, watchdog, websocket
 
 ---
 
-## 2. The inversion hypothesis, tested and falsified
+## 2. A correction to my own layer model
+
+Before the falsification result is meaningful, the model it used has to be
+right — and it was not.
+
+**What I assumed.** `domain` is layer 0, `ports` is layer 1, so every
+`domain -> ports` edge is a lower layer depending on a higher one: an inversion.
+
+**What is actually true.** In hexagonal architecture the ports *are* the
+domain's own interface. In this crate `domain/shared.rs` declares
+`SubstrateDomainContract`, and `domain/{services,privilege,packages,principal}.rs`
+implement it. A module cannot implement a trait without the trait in scope, so
+`domain -> ports` is **intra-layer**. Confirming the direction:
+`ports/mod.rs` imports `domain` **10 times** — ports depend on domain, which is
+correct, and it means they belong to the same layer.
+
+**Consequence.** 4 of the 12 edges I called inversions were not:
+
+| Edge | Verdict |
+|---|---|
+| `domain -> ports` (4 files: `services.rs:10`, `privilege.rs:12`, `packages.rs:14`, `principal.rs:11`) | **intra-layer, legal** — `use crate::ports::HostOperation` to implement the contract |
+
+And the residual `domain <-> ports` cycle that survives every repair is a **Rust
+language artifact**: a trait and its implementations cannot live in separate
+modules without mutual imports. Many Rust hexagonal codebases carry it. The
+correct treatment is to declare it permitted intra-layer, not to fight it.
+
+**Corrected model, used for the rest of this document:**
+
+```
+inside  : domain + ports     the hexagon's interior and its own interface
+app     : usecases           the application layer
+outside : adapters + every infrastructure module
+```
+
+An inversion is **inside -> outside** or **app -> outside**. Nothing else.
+
+---
+
+## 2b. The inversion hypothesis, re-tested with the corrected model
+
+Re-running the falsification with the right model gives a different and sharper
+answer.
+
+### `cynic-host` — 7 real inversions
+
+| Edge | Evidence |
+|---|---|
+| `domain -> adapters` | `domain/network.rs:3` — re-exports `HttpFreeboxProbeAdapter`. **Dead: 0 consumers of the re-export.** |
+| `domain -> execution` | `domain/ecosystem_package/integration_apply.rs:2`, `integration_connect.rs:1`, `integration_apply_types.rs:3` |
+| `domain -> runtime_layout` | `domain/services.rs:11`, `domain/privilege.rs:13`, `domain/packages.rs:15` |
+| `ports -> bridge` | `ports/mod.rs:6` — `PrivilegeBridgeInstallSpec`, `PrivilegeBridgeObservedState` |
+| `ports -> execution` | `ports/mod.rs:17` — `AdmittedHostOperation` |
+| `usecases -> execution` | `usecases/execution.rs:6`, `usecases/tests.rs:22` |
+| `usecases -> runtime_layout` | `usecases/tests.rs:29` |
+
+Removing them: **1 SCC -> 4 SCCs.** Residual: `domain <-> ports` (the language
+artifact), `process_observation <-> runtime_layout`, `bridge <-> execution`,
+`adapters <-> agent_access <-> fleet_disk_observer`.
+
+### `cynic-node` — 23 real inversions, and 18 of them are one file
+
+| Edge group | Count | Evidence |
+|---|---|---|
+| `usecases -> network_*` | **15** | **`usecases/network_surfaces_uc.rs:10-25`** imports `dns_activation_status`, `dns_bundle`, `network_activation_chain`, `network_actuator`, `network_actuator_status`, `network_evidence`, `network_mesh_apply_plan`, `network_mesh_bundle`, `network_mesh_plan`, `network_repair`, `network_root_policy`, `network_runtime_status`, `network_shadow_proof`, `provider_fallback_hosts`, `provider_fallback_status` — **directly** |
+| `usecases -> observe` | 3 | `node_network_recovery_uc.rs:22`, `network_surfaces_uc.rs:25`, `observe_node_uc.rs:19` |
+| `usecases -> adapters` | 3 | `storage_controller_uc.rs:6`, `build_workload_grant_uc.rs:10`, `node_enrollment_lifecycle_uc.rs:5` |
+| `usecases -> config` | 2 | `node_enrollment_lifecycle_uc.rs:7`, `builder_runtime.rs:5` |
+| `usecases -> watchdog` | 1 | `network_watchdog_uc.rs:19` |
+| `ports -> network_actuator` | 1 | `network_command_runner_port.rs:2` |
+| `ports -> network_mesh_plan` | 1 | `network_mesh_registry_port.rs:3` |
+| `ports -> websocket` | 1 | `runtime_federation_queue_store_port.rs:3` |
+| `domain -> adapters` | 2 | `observation_runtime.rs:4`, `observation_plan.rs:4` |
+
+**18 of 23 inversions are the application layer reaching directly into 15
+infrastructure modules, and most of them are in ONE file:**
+`usecases/network_surfaces_uc.rs`.
+
+That is not 18 mistakes. It is one missing port. The application layer has no
+`NetworkSurfacePort` to call, so it calls the infrastructure modules themselves.
+
+Removing them: **1 SCC -> 2 SCCs.** Residual: `domain <-> ports` (the language
+artifact) and a 6-member infrastructure tangle
+(`adapters <-> network_actuator <-> network_mesh_plan <-> network_root_policy
+<-> observe <-> websocket`).
+
+---
+
+## 2c. What the falsification actually proved
+
+The first run said "removing the inversions does not dissolve the SCCs" and I
+read that as "the inversions are not the cause". That reading was too strong.
+
+With the corrected model the accurate statement is:
+
+| Claim | Verdict |
+|---|---|
+| The SCCs are caused by a few type misplacements | **false** |
+| The inversions are irrelevant | **false** — removing them splits the tangles |
+| One SCC is one missing port plus one unextracted subsystem | **true** |
+| `domain <-> ports` is a defect | **false** — a Rust language artifact |
+
+The repair target is therefore not "move 12 types". It is:
+1. **one port** (`NetworkSurfacePort`) replacing 15 direct imports in one file
+2. **one extraction** (the network subsystem) removing the 6-member tangle
+3. **one declaration** that `domain <-> ports` is permitted intra-layer
+
+
 
 **Hypothesis.** The SCCs are caused by a small number of type misplacements: a
 `domain` module importing its own `ports`, a `ports` module importing an adapter.
