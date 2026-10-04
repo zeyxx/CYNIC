@@ -75,7 +75,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9639
+      "loc": 9644
     },
     "cynic-channel": {
       "consumers": [],
@@ -123,7 +123,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 30615
+      "loc": 31399
     },
     "cynic-consensus": {
       "consumers": [
@@ -139,6 +139,17 @@
       "kind": "library",
       "layer": "L2",
       "loc": 2598
+    },
+    "cynic-core": {
+      "consumers": [
+        "cynic-network"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L0",
+      "loc": 377
     },
     "cynic-discovery": {
       "consumers": [
@@ -310,7 +321,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 89767
+      "loc": 91294
     },
     "cynic-host-probes": {
       "consumers": [],
@@ -353,7 +364,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 25974
+      "loc": 25971
     },
     "cynic-inference-runtime": {
       "consumers": [],
@@ -472,7 +483,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6333
+      "loc": 6338
     },
     "cynic-lxc": {
       "consumers": [
@@ -522,14 +533,16 @@
         "cynic-vcs"
       ],
       "depends_on": [
+        "cynic-core",
         "cynic-finance",
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-secrets"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3591
+      "loc": 3738
     },
     "cynic-node": {
       "consumers": [
@@ -559,7 +572,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 56940
+      "loc": 56882
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -589,7 +602,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L2",
-      "loc": 8560
+      "loc": 8565
     },
     "cynic-pkg": {
       "consumers": [
@@ -658,7 +671,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 33515
+      "loc": 34207
     },
     "cynic-release": {
       "consumers": [
@@ -673,7 +686,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1148
+      "loc": 1072
     },
     "cynic-sandbox": {
       "consumers": [
@@ -698,6 +711,7 @@
         "cynic-inference",
         "cynic-intel",
         "cynic-kernel",
+        "cynic-network",
         "cynic-node",
         "cynic-observer"
       ],
@@ -708,7 +722,7 @@
       "justified": true,
       "kind": "library",
       "layer": "cross_cutting",
-      "loc": 1085
+      "loc": 1178
     },
     "cynic-solana-pay": {
       "consumers": [
@@ -817,11 +831,12 @@
       "justified": true,
       "kind": "binary",
       "layer": "L2",
-      "loc": 443
+      "loc": 448
     }
   },
   "extraction_order": [
     "cynic-askesis",
+    "cynic-core",
     "cynic-forensics",
     "cynic-identity",
     "cynic-pool",
@@ -1037,6 +1052,7 @@
   "layer_rule": "An edge from crate A to crate B is legal when layer(B) is lower than layer(A), or equal to it. Same-layer edges are legal and common, especially inside L2. An edge is illegal when layer(B) is higher than layer(A): dependencies flow downward. L0 is pure: no I/O, no adapter. cross_cutting is unlayered (rank -1) and may be depended on from any layer, and its own outgoing edges are not checked. This rule IS enforced: ARCH-004 in cynic-host/src/audit_engine/topology.rs emits ARCH-004-UPWARD-EDGE at Critical severity, which maps to audit status blocked. Measured on the 47-crate graph, ARCH-004 currently reports 12 ascending edges, all L1 -> L2: cynic-host -> cynic-build, cynic-eval, cynic-inference, cynic-intel, cynic-node-protocol, cynic-storage, cynic-vcs, cynic-vcs-forgejo; cynic-discovery-host -> cynic-build, cynic-discovery; cynic-lifecycle -> cynic-build, cynic-storage. KNOWN GAP: crates/cynic-host/tests/crate_topology_coherence.rs asserts emptiness for the other ARCH-004 violation classes but has NO assertion for ARCH-004-UPWARD-EDGE, so the rule runs under `cynic audit` and is invisible to the test gate. The 12 edges are counted, documented and unfixed; adding the missing assertion would turn the gate red on them, which is the point.",
   "layers": {
     "L0": [
+      "cynic-core",
       "cynic-identity",
       "cynic-protocol",
       "cynic-types"
@@ -1100,12 +1116,12 @@
   "measured": {
     "acyclic": true,
     "binaries": 9,
-    "crates": 48,
+    "crates": 49,
     "dev_edges": 1,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 340193,
+    "loc_total": 343696,
     "pending_disposition": 8,
-    "runtime_edges": 153,
+    "runtime_edges": 155,
     "unjustified": 8,
     "upward_edges": 15
   },
