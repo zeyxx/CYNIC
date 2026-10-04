@@ -1,3 +1,4 @@
+mod artefact_rule;
 pub mod path_rules;
 pub mod topology;
 pub mod topology_generate;
@@ -9,6 +10,7 @@ use std::path::Path;
 
 use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, AuditSummary};
 
+use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::topology::CrateTopologyRule;
 use self::rules::{
@@ -61,6 +63,8 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(PathSsotIgnoreRule),
         Box::new(CrateTopologyRule),
         Box::new(RuntimeDivergenceRule),
+        Box::new(ArtefactContractRule),
+        Box::new(AutobinsFrozenRule),
     ]
 }
 
