@@ -8,11 +8,24 @@ use cynic_eval::convergence::{
 use cynic_protocol::{FrameworkSpec, framework_spec};
 
 use cynic_build::BuildConformanceEvidence;
-use crate::conformance::HostConformanceGate;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;
 use crate::runtime_layout::current_runtime_layout;
 use crate::source_control::observe_source_worktree;
+
+/// A single conformance gate and its observed outcome.
+///
+/// Lives here rather than in `conformance` because it is a leaf: no
+/// dependencies, consumed as a parameter by `evaluate_vertical_conformance`,
+/// constructed by `observe_host_conformance`. Housing it in the higher module
+/// forced `vertical_conformance` to import upward, which closed the cycle
+/// `conformance <-> vertical_conformance`.
+#[derive(Debug, Serialize)]
+pub struct HostConformanceGate {
+    pub id: &'static str,
+    pub status: &'static str,
+    pub detail: String,
+}
 
 pub const VERTICAL_CONFORMANCE_SCHEMA: &str = "cynic.vertical_conformance_report.v1";
 
