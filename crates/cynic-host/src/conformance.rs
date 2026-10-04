@@ -22,6 +22,7 @@ use crate::runtime_proof::{
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
 use crate::vertical_conformance::{
+    HostConformanceGate,
     VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence,
 };
 
@@ -53,13 +54,6 @@ pub struct HostConformanceReport {
     pub persistence_record: cynic_protocol::RuntimeProofPersistenceRecord,
     pub rules: Vec<&'static str>,
     pub next_actions: Vec<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct HostConformanceGate {
-    pub id: &'static str,
-    pub status: &'static str,
-    pub detail: String,
 }
 
 pub fn observe_host_conformance(
