@@ -254,3 +254,32 @@ mod tests {
         assert_eq!(report.severity, "warning");
     }
 }
+
+
+/// Network runtime status as a serializable value.
+///
+/// Moved here from `facade.rs`, which was a flat bag of cross-crate helpers. The
+/// function belongs to the module that owns the report type: it calls
+/// `build_network_runtime_status` and serializes the result, nothing more.
+pub fn build_network_runtime_status_value(
+    registry: &str,
+    resolve_dns: bool,
+    check_provider_connectivity: bool,
+    provider_hosts_path: &str,
+    hosts_path: &str,
+    corefile_path: &str,
+    service_path: &str,
+    resolved_dropin_path: &str,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let report = build_network_runtime_status(
+        registry,
+        resolve_dns,
+        check_provider_connectivity,
+        provider_hosts_path,
+        hosts_path,
+        corefile_path,
+        service_path,
+        resolved_dropin_path,
+    )?;
+    Ok(serde_json::to_value(report)?)
+}

@@ -322,7 +322,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             bundle_dir,
             yes,
-        } => match crate::apply_dns_activation_value(registry, bundle_dir, *yes) {
+        } => match crate::dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes) {
             Ok(report) => {
                 let should_fail = report["status"].as_str() != Some("proved")
                     && report["status"].as_str() != Some("converged");

@@ -32,7 +32,6 @@ mod dns_bundle;
 mod dns_contract;
 mod dns_plan;
 pub mod domain;
-pub mod facade;
 pub mod fleet_inventory;
 pub mod fleet_observability;
 pub mod inference_node_ops;
@@ -52,7 +51,7 @@ mod network_mesh_plan;
 mod network_repair;
 mod network_root_policy;
 mod network_runtime_proof;
-mod network_runtime_status;
+pub mod network_runtime_status;
 mod network_shadow_proof;
 mod network_surface_inventory;
 pub mod node_control_runtime;
@@ -71,4 +70,17 @@ pub mod watchdog;
 pub mod websocket;
 
 pub use cli::NetworkCommands;
-pub use facade::*;
+
+// Cross-crate surface, explicit.
+//
+// These replace `pub use facade::*;`. A glob exported 13 functions; 8 had zero
+// consumers anywhere, and a glob cannot tell a used name from a dead one, so the
+// dead ones were indistinguishable from the API. Each name below has a measured
+// consumer, and the two that are already reachable through `pub mod usecases` /
+// `pub mod adapters` are re-exported rather than duplicated.
+//
+// The CLI needs these because cynic-node's network modules are `mod`, not
+// `pub mod`. Widening those is slice 2, where the surfaces move out.
+pub use adapters::peer_storage::ingress::execute_peer_command;
+pub use network_runtime_status::build_network_runtime_status_value;
+pub use usecases::network_surfaces_uc::execute_network_command;
