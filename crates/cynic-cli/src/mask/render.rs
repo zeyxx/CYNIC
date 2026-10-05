@@ -1,4 +1,4 @@
-//! Render layer for the judgment surface.
+//! Render layer for the mask surface.
 //!
 //! Text projection of a CynicJudgment. No domain logic here — only formatting.
 

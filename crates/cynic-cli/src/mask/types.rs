@@ -1,9 +1,28 @@
-//! Types for the judgment surface.
+//! Pure data types for the mask surface.
 //!
-//! Pure shapes only — no I/O here. The scan layer produces these, the render
+//! No I/O here — only shapes. The scan layer produces these, the render
 //! layer formats them.
 
 use cynic_eval::judgment::CynicJudgment;
+
+/// Agent citizenship record projected through the mask.
+/// Thin re-declaration so the CLI can serialize its intent; the canonical
+/// trait lives in `cynic-protocol::agent_citizenship::Citoyenneté`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct AgentCitizenship {
+    pub schema: &'static str,
+    pub agent_id: String,
+    pub scope: String,
+    pub mode: String,
+    pub budgets: AgentBudgets,
+    pub residual_risk: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct AgentBudgets {
+    pub actions: u64,
+    pub wall_seconds: u64,
+}
 
 /// The judgment surface report. Currently a single judgment with metadata
 /// about how it was produced.
