@@ -541,7 +541,7 @@ mod tests {
             target: NetworkActuationTarget {
                 provider_fallback_cidr: "192.0.2.0/24".to_string(),
                 provider_fallback_gateway: Some("192.0.2.1".to_string()),
-                synapse_cidr: "10.10.10.0/24".to_string(),
+                service_cidr: "10.10.10.0/24".to_string(),
                 mesh_interface: "cynic-mesh0".to_string(),
                 management_interface: None,
                 management_connection: None,

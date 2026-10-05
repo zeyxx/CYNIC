@@ -351,16 +351,16 @@ pub mod resolve {
     }
 
     pub fn resolve_current_host_direct_management_link(
-        synapse_cidr: &str,
+        service_cidr: &str,
         registry_path: Option<&str>,
     ) -> Result<Option<ResolvedDirectManagementLink>, String> {
         let hostname = current_hostname()?;
-        resolve_host_direct_management_link(&hostname, Some(synapse_cidr), registry_path)
+        resolve_host_direct_management_link(&hostname, Some(service_cidr), registry_path)
     }
 
     pub fn resolve_observed_direct_management_link(
         hostname: &str,
-        synapse_cidr: &str,
+        service_cidr: &str,
         observed: Option<&ObservedManagementLink>,
         registry_path: Option<&str>,
     ) -> Result<ResolvedHostIdentity, String> {
@@ -375,7 +375,7 @@ pub mod resolve {
                 .nodes
                 .iter()
                 .filter_map(|node| {
-                    let link = node.matching_direct_management_link(synapse_cidr)?;
+                    let link = node.matching_direct_management_link(service_cidr)?;
                     (link.interface == observed.interface
                         && link.connection == observed.connection
                         && link.address == observed.address
@@ -398,7 +398,7 @@ pub mod resolve {
                 let node = hostname_node
                     .ok_or_else(|| format!("node not found in registry: {hostname}"))?;
                 let link = node
-                    .matching_direct_management_link(synapse_cidr)
+                    .matching_direct_management_link(service_cidr)
                     .ok_or_else(|| "direct_management_link_not_declared_in_registry".to_string())?;
                 (node, link, "hostname", false)
             }
@@ -426,7 +426,7 @@ pub mod resolve {
 
     pub fn resolve_host_direct_management_link(
         node_name: &str,
-        synapse_cidr: Option<&str>,
+        service_cidr: Option<&str>,
         registry_path: Option<&str>,
     ) -> Result<Option<ResolvedDirectManagementLink>, String> {
         let path = resolve_registry_path(registry_path)?;
@@ -436,9 +436,9 @@ pub mod resolve {
             .iter()
             .find(|node| node_matches(node, node_name))
             .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
-        let Some(cidr) = synapse_cidr
+        let Some(cidr) = service_cidr
             .filter(|value| !value.trim().is_empty())
-            .or_else(|| registry.synapse_cidr())
+            .or_else(|| registry.service_cidr())
         else {
             return Ok(None);
         };

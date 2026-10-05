@@ -261,7 +261,7 @@ impl RegistryNetworkLink {
 }
 
 impl RegistryDocument {
-    pub fn synapse_cidr(&self) -> Option<&str> {
+    pub fn service_cidr(&self) -> Option<&str> {
         self.network_policy.as_ref().and_then(|policy| {
             policy
                 .planes
@@ -274,7 +274,7 @@ impl RegistryDocument {
 impl RegistryNode {
     pub fn matching_direct_management_link(
         &self,
-        synapse_cidr: &str,
+        service_cidr: &str,
     ) -> Option<ResolvedDirectManagementLink> {
         self.network_links.iter().find_map(|link| {
             let Some(plane) = link.plane.as_deref() else {
@@ -288,7 +288,7 @@ impl RegistryNode {
                     return None;
                 }
             }
-            let route_match = link.routes.iter().any(|route| route.trim() == synapse_cidr);
+            let route_match = link.routes.iter().any(|route| route.trim() == service_cidr);
             if !route_match {
                 return None;
             }

@@ -56,7 +56,7 @@ pub struct NetworkActuationRuntime {
 pub struct NetworkActuationTarget {
     pub provider_fallback_cidr: String,
     pub provider_fallback_gateway: Option<String>,
-    pub synapse_cidr: String,
+    pub service_cidr: String,
     pub mesh_interface: String,
     #[serde(default)]
     pub management_interface: Option<String>,
@@ -562,7 +562,7 @@ pub fn build_network_actuation_commands(
                     runtime.route_bin.clone(),
                     "route".to_string(),
                     "replace".to_string(),
-                    target.synapse_cidr.clone(),
+                    target.service_cidr.clone(),
                     "dev".to_string(),
                     target.mesh_interface.clone(),
                 ],
@@ -573,7 +573,7 @@ pub fn build_network_actuation_commands(
                     runtime.route_bin.clone(),
                     "route".to_string(),
                     "show".to_string(),
-                    target.synapse_cidr.clone(),
+                    target.service_cidr.clone(),
                 ],
             ),
         ]),
@@ -625,7 +625,7 @@ pub fn build_network_actuation_commands(
                         "ipv4.never-default".to_string(),
                         "yes".to_string(),
                         "ipv4.routes".to_string(),
-                        format!("{} {}", target.synapse_cidr, gateway),
+                        format!("{} {}", target.service_cidr, gateway),
                         "ipv4.dad-timeout".to_string(),
                         "3000".to_string(),
                         "ipv6.never-default".to_string(),
@@ -647,7 +647,7 @@ pub fn build_network_actuation_commands(
                         runtime.route_bin.clone(),
                         "route".to_string(),
                         "show".to_string(),
-                        target.synapse_cidr.clone(),
+                        target.service_cidr.clone(),
                     ],
                 ),
             ])
@@ -715,7 +715,7 @@ mod tests {
                 target: NetworkActuationTarget {
                     provider_fallback_cidr: "10.0.0.0/24".to_string(),
                     provider_fallback_gateway: None,
-                    synapse_cidr: "10.10.10.0/24".to_string(),
+                    service_cidr: "10.10.10.0/24".to_string(),
                     mesh_interface: "wg0".to_string(),
                     management_interface: None,
                     management_connection: None,
@@ -789,7 +789,7 @@ mod tests {
         let target = NetworkActuationTarget {
             provider_fallback_cidr: "10.0.0.0/24".to_string(),
             provider_fallback_gateway: Some("10.0.0.1".to_string()),
-            synapse_cidr: "10.10.10.0/24".to_string(),
+            service_cidr: "10.10.10.0/24".to_string(),
             mesh_interface: "wg-portable".to_string(),
             management_interface: None,
             management_connection: None,
@@ -821,7 +821,7 @@ mod tests {
         let target = NetworkActuationTarget {
             provider_fallback_cidr: "192.168.0.0/24".to_string(),
             provider_fallback_gateway: Some("192.168.0.254".to_string()),
-            synapse_cidr: "10.10.10.0/24".to_string(),
+            service_cidr: "10.10.10.0/24".to_string(),
             mesh_interface: "wg-portable".to_string(),
             management_interface: Some("eth-test".to_string()),
             management_connection: Some("cynic-management".to_string()),

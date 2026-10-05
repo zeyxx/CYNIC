@@ -63,7 +63,7 @@ fn execute_with_runner(
     let mut identity_resolution: Option<ResolvedHostIdentity> = None;
     if profile == "direct-management-link" {
         if let Some(observed) = observation.as_mut() {
-            match observe_local_management_link(runner, &observed.target.synapse_cidr) {
+            match observe_local_management_link(runner, &observed.target.service_cidr) {
                 Some(local_link) => match project_direct_management_target_from_registry(
                     observed,
                     Some(&local_link),
@@ -293,7 +293,7 @@ fn project_direct_management_target_from_registry(
         std::env::var("HOSTNAME").map_err(|_| "hostname_observation_unavailable".to_string())?;
     let identity = resolve_observed_direct_management_link(
         &hostname,
-        &observation.target.synapse_cidr,
+        &observation.target.service_cidr,
         local_link,
         registry_path,
     )?;
@@ -303,7 +303,7 @@ fn project_direct_management_target_from_registry(
 
 fn observe_local_management_link(
     runner: &impl ArgvRunner,
-    synapse_cidr: &str,
+    service_cidr: &str,
 ) -> Option<ObservedManagementLink> {
     let capabilities = current_runtime_layout().capabilities();
     let nmcli = capabilities.network_manager.command;
@@ -320,7 +320,7 @@ fn observe_local_management_link(
     if !nmcli_output.success() {
         return None;
     }
-    let route_argv = [route_bin.as_str(), "route", "show", synapse_cidr];
+    let route_argv = [route_bin.as_str(), "route", "show", service_cidr];
     let route_output = runner.run(&route_argv);
     if !route_output.success() {
         return None;
@@ -395,7 +395,7 @@ mod tests {
                 ],
                 ArgvOutput {
                     exit_code: Some(0),
-                    stdout: r#"{"provider_fallback_active":true,"synapse_route_active":false,"wireguard_active":true,"target":{"provider_fallback_cidr":"10.0.0.0/24","provider_fallback_gateway":null,"synapse_cidr":"10.10.10.0/24","mesh_interface":"wg0"}}"#.into(),
+                    stdout: r#"{"provider_fallback_active":true,"synapse_route_active":false,"wireguard_active":true,"target":{"provider_fallback_cidr":"10.0.0.0/24","provider_fallback_gateway":null,"service_cidr":"10.10.10.0/24","mesh_interface":"wg0"}}"#.into(),
                     stderr: String::new(),
                     spawn_error: None,
                 },
@@ -455,7 +455,7 @@ mod tests {
             target: crate::network_actuation::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
-                synapse_cidr: "10.10.10.0/24".to_string(),
+                service_cidr: "10.10.10.0/24".to_string(),
                 mesh_interface: "wg0".to_string(),
                 management_interface: None,
                 management_connection: None,
@@ -511,7 +511,7 @@ mod tests {
             target: crate::network_actuation::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
-                synapse_cidr: "10.10.10.0/24".to_string(),
+                service_cidr: "10.10.10.0/24".to_string(),
                 mesh_interface: "wg0".to_string(),
                 management_interface: None,
                 management_connection: None,
@@ -568,7 +568,7 @@ mod tests {
             target: crate::network_actuation::NetworkActuationTarget {
                 provider_fallback_cidr: "192.168.100.0/24".to_string(),
                 provider_fallback_gateway: Some("192.168.100.1".to_string()),
-                synapse_cidr: "10.10.10.0/24".to_string(),
+                service_cidr: "10.10.10.0/24".to_string(),
                 mesh_interface: "wg0".to_string(),
                 management_interface: None,
                 management_connection: None,

@@ -5,6 +5,5 @@
 //! was parsed twice into two incompatible types (the duplicate `MeshRegistry`
 //! in `cynic-node` vs the canonical one in `cynic-network`).
 pub(crate) use cynic_network::{
-    MeshPolicy, MeshRegistry, NetworkPlane, NetworkPolicy, NetworkReservation, RegistryNode,
-    RegistryService,
+    MeshPolicy, MeshRegistry, NetworkPlane, NetworkPolicy, RegistryNode, RegistryService,
 };

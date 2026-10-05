@@ -19,16 +19,16 @@ struct MeshRuntimeCommandOutputs {
 #[derive(Debug, Clone)]
 pub struct LocalMeshRuntimeObserver {
     interface: String,
-    synapse_cidr: String,
-    synapse_probe_ip: String,
+    service_cidr: String,
+    service_probe_ip: String,
 }
 
 impl LocalMeshRuntimeObserver {
-    pub fn new(interface: &str, synapse_cidr: &str, synapse_probe_ip: &str) -> Self {
+    pub fn new(interface: &str, service_cidr: &str, service_probe_ip: &str) -> Self {
         Self {
             interface: interface.to_string(),
-            synapse_cidr: synapse_cidr.to_string(),
-            synapse_probe_ip: synapse_probe_ip.to_string(),
+            service_cidr: service_cidr.to_string(),
+            service_probe_ip: service_probe_ip.to_string(),
         }
     }
 
@@ -93,9 +93,9 @@ impl MeshRuntimeObservationPort for LocalMeshRuntimeObserver {
                 .is_some_and(|value| value == "active"),
                 wg_show_has_output: command_stdout(&wg_bin, &["show", &self.interface, "dump"])
                     .is_some_and(|value| !value.is_empty()),
-                route_show: command_stdout(&ip_bin, &["route", "show", &self.synapse_cidr])
+                route_show: command_stdout(&ip_bin, &["route", "show", &self.service_cidr])
                     .unwrap_or_default(),
-                route_get: command_stdout(&ip_bin, &["route", "get", &self.synapse_probe_ip])
+                route_get: command_stdout(&ip_bin, &["route", "get", &self.service_probe_ip])
                     .unwrap_or_default(),
             },
         ))

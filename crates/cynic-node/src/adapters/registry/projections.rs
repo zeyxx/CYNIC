@@ -93,7 +93,7 @@ pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<Strin
             Some((
                 reservation.name.clone().filter(|value| !value.is_empty())?,
                 reservation
-                    .synapse
+                    .service
                     .clone()
                     .filter(|value| !value.is_empty())?,
             ))
