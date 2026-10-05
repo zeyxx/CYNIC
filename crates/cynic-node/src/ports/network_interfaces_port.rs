@@ -5,6 +5,7 @@ use crate::{
     build_attestation::BinaryAttestation,
 };
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::error::Error;
 
 /// Canonical registry-backed topology view for node-local network decisions.
@@ -92,6 +93,10 @@ pub struct NetworkPolicySummary {
     pub canonical_service_plane: String,
     pub service_cidr: Option<String>,
     pub service_dns_zone: Option<String>,
+    /// Every plane CIDR the registry actually declares, canonical order.
+    /// Exposed so `admin` and `mesh` are observable state rather than
+    /// parsed-and-dropped fields.
+    pub declared_plane_cidrs: BTreeMap<String, String>,
     pub provider_fallback_planes: Vec<String>,
 }
 

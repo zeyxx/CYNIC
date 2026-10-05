@@ -1,9 +1,8 @@
-//! Re-exports canonical mesh registry types from `cynic-network`.
+//! Re-exports canonical mesh registry types from cynic-network.
+//! Authority: FCIS pattern and DDD extraction.
 //!
-//! Authority: FCIS pattern and DDD extraction — one model, one crate. This
-//! module used to redeclare the registry structs locally, so the same JSON
-//! was parsed twice into two incompatible types (the duplicate `MeshRegistry`
-//! in `cynic-node` vs the canonical one in `cynic-network`).
-pub(crate) use cynic_network::{
-    MeshPolicy, MeshRegistry, NetworkPlane, NetworkPolicy, RegistryNode, RegistryService,
-};
+//! This module is the single `cynic-node` boundary onto the canonical mesh
+//! registry model. Every re-export here is a consumed one: a `pub(crate) use`
+//! no in-crate code reaches is a second, divergent spelling of a domain type.
+
+pub(crate) use cynic_network::{MeshPolicy, MeshRegistry, RegistryService};
