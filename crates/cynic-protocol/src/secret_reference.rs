@@ -6,7 +6,8 @@
 //! (`machine_identity`), storage identity, and kernel infra config; they do
 //! not belong to any one enrollment flow.
 //!
-//! Authority: AGENTS.md secret classes table (HumanAdmin = bootstrap only).
+//! Authority: `cynic-protocol::secret_use` — role-to-class permission is
+//! `SecretUseGrant::matches_role` and `permits_class`, not a prose table.
 
 use serde::{Deserialize, Serialize};
 

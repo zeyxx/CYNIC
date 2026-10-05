@@ -8,9 +8,9 @@
 //!   → `OsCredentialStore` in order
 //! - **Adapters**: env (V1), encrypted file (V2), OS keyring (V3), memory (test)
 //!
-//! Authority: AGENTS.md secret classes table (HumanAdmin = bootstrap only).
-//! `cynic-protocol::secret_reference::{SecretReference, SecretClass, SecretProvider}`
-//! define the canonical types; this crate consumes them without duplication.
+//! Authority: `cynic-protocol::secret_use` — the purpose/class matrix and the
+//! role match are a Rust type, not a table. `secret_reference.rs` defines the
+//! canonical reference types; this crate consumes them without duplication.
 
 pub mod adapters;
 pub mod composite;

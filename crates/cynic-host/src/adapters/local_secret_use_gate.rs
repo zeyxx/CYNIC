@@ -11,7 +11,8 @@
 //!    with the value in its environment, then redacts any accidental echo from
 //!    the captured output before returning.
 //!
-//! Authority: `AGENTS.md` secret classes table; `cynic-protocol::secret_use`.
+//! Authority: `cynic-protocol::secret_use` — the gate matrix is
+//! `SecretUseGrant::permits_class`; a table in prose cannot be checked.
 
 use std::collections::HashMap;
 use std::fs::OpenOptions;
