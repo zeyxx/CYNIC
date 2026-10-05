@@ -131,6 +131,24 @@ where
         .filter(|address| !address.is_empty())
 }
 
+/// Read the underlay / L2-adjacency address from a `BTreeMap`-shaped table.
+///
+/// `local` is not a plane (spec §5.1), so it is read directly and never
+/// through the plane alias map.
+pub fn underlay_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    addresses
+        .iter()
+        .find(|(key, _)| key.as_ref() == UNDERLAY_KEY)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
 /// [`plane_address_in_map`] across the canonical plane order, then underlay.
 pub fn best_plane_address_in_map<'a, K, V>(
     addresses: &'a std::collections::BTreeMap<K, V>,
