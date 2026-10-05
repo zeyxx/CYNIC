@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use crate::node_surface::cli::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 
 use crate::network_surface::NetworkCommand;
 use crate::registry_path;

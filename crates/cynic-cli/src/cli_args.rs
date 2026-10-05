@@ -9,7 +9,7 @@ use crate::git_surface::GitCommand;
 use crate::judge_surface::JudgeCommand;
 use crate::mask_surface::MaskCommand;
 use crate::network_surface::NetworkCommand;
-use crate::node_activation_surface::NodeActivationCommand;
+use crate::node_surface::NodeCommand;
 use crate::runtime_surface::{OperatorModelsCommand, RuntimeCommand};
 use crate::session_surface::SessionCommand;
 use crate::source_surface::SourceCommand;
@@ -83,7 +83,7 @@ pub(crate) enum Command {
     /// Observe and manage node identity, enrollment certificates, and lifecycle activation.
     Node {
         #[command(subcommand)]
-        command: NodeActivationCommand,
+        command: NodeCommand,
     },
     /// Source sync — observe/reconcile/apply across layers + release bot
     Source {

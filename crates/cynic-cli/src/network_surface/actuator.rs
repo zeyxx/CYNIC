@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use crate::node_surface::cli::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 
 use crate::network_surface::{NetworkActuatorCommand, NetworkCommand};
 use crate::registry_path;

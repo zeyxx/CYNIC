@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use crate::node_surface::cli::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 use serde_json::json;
 
 use crate::network_surface::{

@@ -9,7 +9,7 @@ use crate::cli_json::emit_pretty_json;
 use crate::command_manifest::commands_manifest;
 use crate::deps_surface;
 use crate::network_surface::execute_network;
-use crate::node_activation_surface::execute_node_activation;
+use crate::node_surface::execute_node;
 use crate::operator_doctor::execute_operator_doctor;
 use crate::operator_errors::execute_operator_errors;
 use crate::operator_help::execute_advanced_help;
@@ -26,12 +26,12 @@ pub(crate) fn print_cli_help(command: &mut clap::Command) -> ExitCode {
     }
 }
 
-pub(crate) fn execute_root_command(command: Command) -> ExitCode {
+pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
     match command {
         Command::Commands { json } => execute_commands_manifest(json),
         Command::Session { command } => execute_session(&command),
         Command::Network { command } => execute_network(command),
-        Command::Node { command } => execute_node_activation(command),
+        Command::Node { command } => execute_node(command).await,
         Command::Advanced => execute_advanced_help(),
         Command::Runtime { command } => execute_runtime(command),
         Command::Inference { command } => {

@@ -56,7 +56,6 @@ pub mod mcp_call_proof_index;
 pub mod network_audit;
 pub mod network_notify_surface;
 pub mod network_surface;
-pub mod node_activation_surface;
 pub mod node_host_audit;
 pub mod operator_doctor;
 pub mod operator_errors;
@@ -87,7 +86,7 @@ use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
-pub fn run_main() -> ExitCode {
+pub async fn run_main() -> ExitCode {
     if let Some(exit_code) = maybe_run_host_exec_alias() {
         return exit_code;
     }
@@ -98,7 +97,7 @@ pub fn run_main() -> ExitCode {
             let mut command = Cli::command();
             print_cli_help(&mut command)
         }
-        Some(command) => execute_root_command(command),
+        Some(command) => execute_root_command(command).await,
     }
 }
 

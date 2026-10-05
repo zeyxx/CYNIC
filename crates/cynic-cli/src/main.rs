@@ -5,6 +5,7 @@
 
 use std::process::ExitCode;
 
-fn main() -> ExitCode {
-    cynic_cli::run_main()
+#[tokio::main]
+async fn main() -> ExitCode {
+    cynic_cli::run_main().await
 }
