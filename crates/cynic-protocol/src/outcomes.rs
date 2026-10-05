@@ -153,7 +153,6 @@ pub fn outcome_spec() -> OutcomeSpec {
                     crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
                 ],
                 validation_commands: vec![
-                    "cynic dev surfaces --json",
                     "cargo test -p cynic-protocol",
                     "make local-host-proof",
                     "make local-network-proof",
@@ -283,8 +282,6 @@ pub fn outcome_spec() -> OutcomeSpec {
                 validation_commands: vec![
                     "cynic runtime validate --json",
                     "cynic runtime plan --json --proof <path>",
-                    "cynic dev surfaces --json",
-                    "cynic dev outcomes --json",
                 ],
                 non_goals: vec![
                     "make Kubernetes the only valid runtime substrate",
@@ -301,12 +298,12 @@ pub fn outcome_spec() -> OutcomeSpec {
                     kpi(
                         "scope_is_explicit",
                         "session work is tied to a declared development surface or runtime layer",
-                        "cynic dev surfaces --json exposes the owning surface before implementation",
+                        "the owning surface is declared before implementation",
                     ),
                     kpi(
                         "result_is_interrogable",
                         "session output can be inspected through a compiled command",
-                        "cynic dev outcomes --json emits cynic.outcome_spec.v1",
+                        "outcomes emit cynic.outcome_spec.v1",
                     ),
                     kpi(
                         "next_step_is_deterministic",
@@ -319,8 +316,6 @@ pub fn outcome_spec() -> OutcomeSpec {
                     "cynic.outcome_spec.v1",
                 ],
                 validation_commands: vec![
-                    "cynic dev surfaces --json",
-                    "cynic dev outcomes --json",
                     "cargo test -p cynic-protocol outcomes_are_measurable_and_unique",
                 ],
                 non_goals: vec![
@@ -337,12 +332,12 @@ pub fn outcome_spec() -> OutcomeSpec {
                     kpi(
                         "few_canonical_surfaces",
                         "development surfaces remain enumerable and owned",
-                        "cynic dev surfaces --json returns stable ids, owners, responsibilities, and anti_responsibilities",
+                        "surfaces return stable ids, owners, responsibilities, and anti_responsibilities",
                     ),
                     kpi(
                         "outcomes_reference_evidence",
                         "every target outcome names runtime evidence schemas",
-                        "cynic dev outcomes --json has required_evidence for every outcome",
+                        "outcomes have required_evidence for every outcome",
                     ),
                     kpi(
                         "contracts_compile",
@@ -355,8 +350,6 @@ pub fn outcome_spec() -> OutcomeSpec {
                     "cynic.outcome_spec.v1",
                 ],
                 validation_commands: vec![
-                    "cynic dev surfaces --json",
-                    "cynic dev outcomes --json",
                     "cargo test -p cynic-protocol",
                 ],
                 non_goals: vec![
@@ -536,8 +529,6 @@ mod tests {
                 crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
             ],
             &[
-                "cynic dev outcomes --json",
-                "cynic dev surfaces --json",
                 "cynic runtime plan --json [--proof <path>]",
             ],
         );

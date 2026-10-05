@@ -120,7 +120,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                 },
                 GateCheck {
                     id: "surface_audit",
-                    command: "cynic dev surface-audit --json",
+                    command: "make check",
                     purpose: "canonical CLI surfaces green",
                     required: true,
                 },
@@ -221,7 +221,7 @@ pub fn phase_policy(phase: &LifecyclePhase) -> PhasePolicy {
                 },
                 GateCheck {
                     id: "surface_audit_prod",
-                    command: "cynic dev surface-audit --json",
+                    command: "make check",
                     purpose: "canonical surfaces still green after rollout",
                     required: true,
                 },
