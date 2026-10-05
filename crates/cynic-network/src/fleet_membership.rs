@@ -166,6 +166,49 @@ impl FleetMembershipReport {
     }
 }
 
+/// Parse declared members out of a registry document.
+///
+/// Pure. A registry declares intent and establishes nothing
+/// (`contracts/observability-facts.json` N5), so this reads only what was
+/// declared. Nodes carrying no name are skipped for the same reason the
+/// observed parser skips them: a declaration without an identity cannot be
+/// compared against anything.
+///
+/// The declared address is read from the canonical `service` plane, then from
+/// the node underlay key, because a node whose address lives on the `mesh`
+/// plane is not reachable for direct contact and must not be compared as if it
+/// were.
+pub fn parse_declared_registry_members(registry: &serde_json::Value) -> Vec<DeclaredMember> {
+    let Some(nodes) = registry.get("nodes").and_then(serde_json::Value::as_array) else {
+        return Vec::new();
+    };
+    nodes
+        .iter()
+        .filter_map(|node| {
+            let name = node
+                .get("name")
+                .or_else(|| node.get("id"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|name| !name.is_empty())?;
+            let network = node.get("network");
+            let address = network
+                .and_then(|net| crate::plane_vocabulary::plane_address(net, "service"))
+                .or_else(|| network.and_then(crate::plane_vocabulary::underlay_address))
+                .map(ToString::to_string);
+            let state = match node.get("state").and_then(serde_json::Value::as_str) {
+                Some("planned") => DeclaredState::Planned,
+                _ => DeclaredState::Deployed,
+            };
+            Some(DeclaredMember {
+                name: name.to_string(),
+                state: DeclaredStateWrapper(state),
+                address,
+            })
+        })
+        .collect()
+}
+
 /// Parse a Proxmox `/api2/json/cluster/resources?type=vm` payload into
 /// observed members.
 ///
@@ -588,5 +631,92 @@ mod tests {
             ]
         );
         assert!(!report.every_declared_node_was_observed());
+    }
+
+    #[test]
+    fn a_registry_without_nodes_declares_nothing() {
+        assert!(parse_declared_registry_members(&serde_json::json!({})).is_empty());
+        assert!(parse_declared_registry_members(&serde_json::json!({"nodes": "x"})).is_empty());
+    }
+
+    /// A node is declared without a lifecycle state, which the registry means
+    /// as deployed. A node explicitly marked planned is not.
+    #[test]
+    fn declared_state_defaults_to_deployed_and_reads_planned() {
+        let members = parse_declared_registry_members(&serde_json::json!({
+            "nodes": [
+                {"name": "cynic-builder"},
+                {"name": "organ-forgejo", "state": "planned"},
+                {"name": "cynic-spare", "state": "something-else"}
+            ]
+        }));
+        assert_eq!(members.len(), 3);
+        assert_eq!(members[0].state.0, DeclaredState::Deployed);
+        assert_eq!(members[1].state.0, DeclaredState::Planned);
+        assert_eq!(
+            members[2].state.0,
+            DeclaredState::Deployed,
+            "an unrecognised state is not read as planned"
+        );
+    }
+
+    /// The address a node is comparable on. `service` first, then the underlay.
+    /// A node whose only address is on the `mesh` plane is not directly
+    /// reachable, so it is declared without an address rather than with one
+    /// that would compare against a tunnel address.
+    #[test]
+    fn a_declared_address_comes_from_service_then_underlay_never_mesh() {
+        let members = parse_declared_registry_members(&serde_json::json!({
+            "nodes": [
+                {"name": "a", "network": {"service": "10.10.10.1", "local": "192.168.0.37"}},
+                {"name": "b", "network": {"admin": "192.168.100.1", "local": "192.168.0.12"}},
+                {"name": "c", "network": {"mesh": "100.64.0.1"}},
+                {"name": "d", "network": {}}
+            ]
+        }));
+        assert_eq!(members[0].address.as_deref(), Some("10.10.10.1"));
+        assert_eq!(members[1].address.as_deref(), Some("192.168.0.12"));
+        assert_eq!(
+            members[2].address, None,
+            "mesh-only node has no direct address"
+        );
+        assert_eq!(members[3].address, None);
+    }
+
+    /// The registry in the repository today declares legacy plane keys as well as
+    /// canonical ones. The declaration parser must read both, or it would report
+    /// every node of an unmigrated registry as having no address.
+    #[test]
+    fn legacy_plane_keys_still_resolve_a_declared_address() {
+        let members = parse_declared_registry_members(&serde_json::json!({
+            "nodes": [{"name": "forgejo", "network": {"synapse": "10.10.10.101"}}]
+        }));
+        assert_eq!(members[0].address.as_deref(), Some("10.10.10.101"));
+    }
+
+    /// End to end over the repository registry as it exists now: eight declared
+    /// nodes, of which the ones carrying a canonical address parse.
+    #[test]
+    fn the_repository_registry_parses_to_every_named_node() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../infra/registry.json");
+        let Ok(raw) = std::fs::read_to_string(path) else {
+            // The fixture is not reachable from every crate root; the parsing
+            // itself is covered by the cases above.
+            return;
+        };
+        let registry: serde_json::Value = serde_json::from_str(&raw).expect("registry parses");
+        let members = parse_declared_registry_members(&registry);
+        assert_eq!(members.len(), 8);
+        assert!(
+            members
+                .iter()
+                .any(|m| m.name == "cynic-builder" && m.address.as_deref() == Some("10.10.10.119"))
+        );
+        assert!(
+            members
+                .iter()
+                .any(|m| m.name == "local-builder" && m.address.is_none()),
+            "local-builder declares an empty network object and must parse without an address"
+        );
     }
 }
