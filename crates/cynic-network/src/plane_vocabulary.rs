@@ -58,6 +58,72 @@ pub fn is_canonical_plane_key(key: &str) -> bool {
     CANONICAL_PLANE_KEYS.contains(&key)
 }
 
+/// Read `plane` from a JSON object, accepting canonical and legacy keys.
+///
+/// This is the read path every registry consumer must use. Before it existed,
+/// each crate re-implemented its own `.get("service").or_else(|| .get("synapse"))`
+/// chain — or, worse, read the legacy key alone. Those chains drifted and then
+/// broke silently when the registry was migrated: a legacy-only reader against
+/// a canonical registry resolves to `None` and the node vanishes with no error.
+///
+/// Lookup tries the canonical key first, then the legacy aliases, then the
+/// underlay key. Returns `None` only when no plane declares an address.
+pub fn plane_address<'a>(value: &'a serde_json::Value, plane: &str) -> Option<&'a str> {
+    let object = value.as_object()?;
+    plane_address_in(object, plane)
+}
+
+/// [`plane_address`] over a borrowed JSON object.
+pub fn plane_address_in<'a>(
+    object: &'a serde_json::Map<String, serde_json::Value>,
+    plane: &str,
+) -> Option<&'a str> {
+    let canonical = canonical_plane_key(plane);
+    let mut candidates = Vec::with_capacity(2);
+    candidates.push(canonical.to_string());
+    for (legacy, target) in LEGACY_PLANE_ALIASES {
+        if target == canonical {
+            candidates.push(legacy.to_string());
+        }
+    }
+    if plane == UNDERLAY_KEY {
+        candidates.push(UNDERLAY_KEY.to_string());
+    }
+    candidates
+        .iter()
+        .filter_map(|key| object.get(key))
+        .filter_map(serde_json::Value::as_str)
+        .map(str::trim)
+        .find(|address| !address.is_empty())
+}
+
+/// Read the underlay / L2-adjacency address of a node network object.
+///
+/// `local` is not a plane (spec §5.1), so it is read directly and never
+/// through the plane alias map.
+pub fn underlay_address(value: &serde_json::Value) -> Option<&str> {
+    value
+        .as_object()?
+        .get(UNDERLAY_KEY)?
+        .as_str()
+        .map(str::trim)
+        .filter(|address| !address.is_empty())
+}
+
+/// First address declared across the canonical plane order, then the underlay.
+///
+/// Mirrors the resolution order of `RegistryReservation::best_address` and
+/// `RegistryNodeNetwork::best_ip`, so a `serde_json` consumer and a typed
+/// consumer of the same registry agree on which address wins.
+pub fn best_plane_address(value: &serde_json::Value) -> Option<&str> {
+    for plane in CANONICAL_PLANE_KEYS {
+        if let Some(address) = plane_address(value, plane) {
+            return Some(address);
+        }
+    }
+    underlay_address(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,5 +162,86 @@ mod tests {
         for (_, canonical) in LEGACY_PLANE_ALIASES {
             assert!(is_canonical_plane_key(canonical));
         }
+    }
+
+    fn canonical_registry_node() -> serde_json::Value {
+        serde_json::json!({
+            "service": "10.10.10.1",
+            "admin": "192.168.100.1",
+            "mesh": "100.64.0.1",
+            "local": "192.168.0.37"
+        })
+    }
+
+    fn legacy_registry_node() -> serde_json::Value {
+        serde_json::json!({
+            "synapse": "10.10.10.1",
+            "management": "192.168.100.1",
+            "overlay": "100.64.0.1",
+            "local": "192.168.0.37"
+        })
+    }
+
+    /// The regression this API exists for: a canonical registry read by the
+    /// legacy vocabulary must resolve identically, and vice versa. Before
+    /// `plane_address` there was no shared path, so a legacy-only reader
+    /// against a canonical registry silently resolved to `None`.
+    #[test]
+    fn plane_address_reads_canonical_and_legacy_equally() {
+        for node in [canonical_registry_node(), legacy_registry_node()] {
+            assert_eq!(plane_address(&node, "service"), Some("10.10.10.1"));
+            assert_eq!(plane_address(&node, "admin"), Some("192.168.100.1"));
+            assert_eq!(plane_address(&node, "mesh"), Some("100.64.0.1"));
+        }
+    }
+
+    #[test]
+    fn plane_address_prefers_canonical_when_both_are_present() {
+        let node = serde_json::json!({
+            "service": "10.10.10.1",
+            "synapse": "172.16.0.1"
+        });
+        assert_eq!(plane_address(&node, "service"), Some("10.10.10.1"));
+    }
+
+    #[test]
+    fn plane_address_is_none_when_the_plane_is_absent() {
+        let node = serde_json::json!({ "admin": "192.168.100.1" });
+        assert_eq!(plane_address(&node, "service"), None);
+    }
+
+    #[test]
+    fn plane_address_ignores_blank_and_non_string_values() {
+        let node = serde_json::json!({ "service": "   ", "synapse": "10.10.10.9", "mesh": 42 });
+        assert_eq!(plane_address(&node, "service"), Some("10.10.10.9"));
+        assert_eq!(plane_address(&node, "mesh"), None);
+    }
+
+    #[test]
+    fn underlay_is_read_under_its_own_key_not_through_the_plane_map() {
+        let node = canonical_registry_node();
+        assert_eq!(underlay_address(&node), Some("192.168.0.37"));
+        assert_eq!(plane_address(&node, UNDERLAY_KEY), Some("192.168.0.37"));
+    }
+
+    #[test]
+    fn best_plane_address_follows_canonical_order() {
+        let node = serde_json::json!({ "mesh": "100.64.0.1", "admin": "192.168.100.1", "service": "10.10.10.1" });
+        assert_eq!(best_plane_address(&node), Some("10.10.10.1"));
+    }
+
+    #[test]
+    fn best_plane_address_falls_through_to_underlay() {
+        let node = serde_json::json!({ "local": "192.168.0.37" });
+        assert_eq!(best_plane_address(&node), Some("192.168.0.37"));
+        assert_eq!(best_plane_address(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn best_plane_address_agrees_across_both_vocabularies() {
+        assert_eq!(
+            best_plane_address(&canonical_registry_node()),
+            best_plane_address(&legacy_registry_node())
+        );
     }
 }
