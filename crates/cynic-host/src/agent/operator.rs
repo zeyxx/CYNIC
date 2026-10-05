@@ -45,11 +45,7 @@ impl<R: ArgvRunner> OperatorAgent<R> {
             current_branch: branch.stdout.trim().to_string(),
             git_status: status.stdout,
             recent_commits: log.stdout.lines().map(|l| l.to_string()).collect(),
-            available_commands: vec![
-                "cynic dev check".to_string(),
-                "cynic dev build".to_string(),
-                "cynic dev test".to_string(),
-            ],
+            available_commands: vec![],
             active_claims: Vec::new(),
         }
     }
@@ -221,7 +217,7 @@ mod tests {
     fn operator_agent_propose_with_fake_llm() {
         let agent = OperatorAgent::new("cynic".to_string(), test_runner());
         let llm = FakeLlm {
-            response: "run cynic dev check".to_string(),
+            response: "run make check".to_string(),
         };
         let obs = agent.observe();
         let action = agent.propose_action(&obs, &llm);

@@ -328,7 +328,7 @@ fn collect_surface_findings(runner: &dyn ArgvRunner, findings: &mut Vec<OpsFindi
             summary: format!("surface-audit status={st} blocked={blocked}"),
             evidence: format!("exit={:?}", out.exit_code),
             repair_id: None,
-            repair_command: Some("cynic dev surface-audit --json".into()),
+            repair_command: None,
             phase_allows_repair: false,
         });
     } else {

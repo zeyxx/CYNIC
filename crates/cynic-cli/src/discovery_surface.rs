@@ -1,7 +1,7 @@
 //! Discovery CLI surface — proactive capability declaration for LLM agents.
 //!
 //! Exposes the `cynic-discovery` + `cynic-discovery-host` domain types and
-//! bridge operations via `cynic dev discovery <sub>`.
+//! bridge operations via `cynic discovery <sub>`.
 //!
 //! Subcommands:
 //!   capabilities — GET /capabilities from local kernel (proactive declaration)

@@ -22,7 +22,6 @@ const ADVANCED_AREAS: &[(&str, &str)] = &[
         "lifecycle",
         "promotion gates, canaries, and repair workflows",
     ),
-    ("dev", "source, contract, and architecture audits"),
     ("lab", "isolated proof harnesses"),
     ("transport", "transport inspection and security audits"),
     ("solana", "read-only Solana observation planning"),

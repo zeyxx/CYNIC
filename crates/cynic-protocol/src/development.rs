@@ -126,7 +126,7 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 mutation_scope: "MCP/tool projections, not domain ownership",
                 canonical_commands: vec![
                     "make check",
-                    "cynic dev agent-exposure --json",
+
                     "cynic commands --json",
                 ],
                 exit_evidence: vec![

@@ -96,27 +96,6 @@ fn cli_exposes_framework_bootstrap_as_canonical_surface() {
             .contains("cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]"),
         "CLI manifest must expose the standalone CLI install surface"
     );
-    assert!(
-        command_manifest.contains("cynic dev crate-audit --json"),
-        "CLI manifest must expose the crate audit development surface"
-    );
-    assert!(
-        command_manifest.contains("cynic dev kernel-audit --json"),
-        "CLI manifest must expose the kernel audit development surface"
-    );
-    assert!(
-        command_manifest.contains("cynic dev ownership-audit --json"),
-        "CLI manifest must expose the ownership audit development surface"
-    );
-    assert!(
-        command_manifest.contains("cynic dev surface-matrix --json [--output <path>] [--persist]"),
-        "CLI manifest must expose the surface matrix development report"
-    );
-    assert!(
-        command_manifest
-            .contains("cynic dev check --json [--architecture-only] [--target-root <path>]"),
-        "CLI manifest must expose the dev check proof surface"
-    );
 }
 
 #[test]
@@ -317,37 +296,6 @@ fn deps_surface_is_split_into_thin_cli_modules() {
 }
 
 #[test]
-fn dev_check_declares_isolated_cargo_target_policy() {
-    let root = crate_root();
-    let check =
-        fs::read_to_string(root.join("src/dev_surface/check.rs")).expect("read dev check surface");
-
-    assert!(
-        check.contains("CargoTargetPolicy")
-            && check.contains("per_step_target_dir")
-            && check.contains("shared_worktree_target_allowed: false")
-            && check.contains("make_check")
-            && check.contains("CANONICAL_GATE")
-            && check.contains("ARCHITECTURE_BOUNDARY_GATE")
-            && check.contains("architecture_only")
-            && check.contains("architecture_boundary_ok"),
-        "dev check must expose a machine-readable isolated Cargo target policy and delegate to make check"
-    );
-    assert!(
-        check.contains("invalid symbol index")
-            && check.contains("internal compiler error: Segmentation fault")
-            && check.contains("compiler_or_linker_artifact_corruption"),
-        "dev check must classify linker artifact corruption explicitly"
-    );
-    assert!(
-        check.contains("CARGO_BUILD_JOBS")
-            && check.contains("CMAKE_BUILD_PARALLEL_LEVEL")
-            && check.contains("\"1\".to_string()"),
-        "dev check must serialize Rust/native build jobs for deterministic validation"
-    );
-}
-
-#[test]
 fn makefile_uses_isolated_cargo_target_dir_for_automated_surfaces() {
     let root = crate_root();
     let makefile = fs::read_to_string(root.join("../../Makefile")).expect("read Makefile");
@@ -400,19 +348,6 @@ fn cli_runtime_surface_is_split_out_of_main() {
     assert!(
         root.join("src/command_manifest.rs").exists(),
         "CLI command manifest must live outside main.rs"
-    );
-    assert!(
-        lib_rs().contains("mod dev_surface;") && !main_rs.contains("enum DevCommand"),
-        "lib.rs must declare dev_surface so dev command handling does not live in main.rs"
-    );
-    assert!(
-        root.join("src/dev_surface/check.rs").exists(),
-        "dev check execution must live in a granular dev_surface module"
-    );
-    assert!(
-        root.join("src/dev_surface/manifest.rs").exists()
-            && root.join("src/dev_surface/audit_persist.rs").exists(),
-        "dev surface must split manifest projections and audit persistence into dedicated modules"
     );
     assert!(
         main_rs.contains("mod audit_surface;") && !main_rs.contains("enum AuditCommand"),
@@ -536,33 +471,6 @@ fn deps_and_lifecycle_use_shared_json_emitter() {
 }
 
 #[test]
-fn runtime_and_dev_surfaces_share_file_json_writer() {
-    let root = crate_root();
-    let fs_json = fs::read_to_string(root.join("src/fs_json.rs")).expect("read fs_json.rs");
-    let runtime_report = fs::read_to_string(root.join("src/runtime_surface/report.rs"))
-        .expect("read runtime report");
-    let dev_persist = fs::read_to_string(root.join("src/dev_surface/audit_persist.rs"))
-        .expect("read dev_surface/audit_persist.rs");
-    let surface_matrix = fs::read_to_string(root.join("src/dev_surface/surface_matrix.rs"))
-        .expect("read dev_surface/surface_matrix.rs");
-
-    assert!(
-        lib_rs().contains("mod fs_json;"),
-        "lib.rs must register the shared fs_json module"
-    );
-    assert!(
-        fs_json.contains("pub(crate) fn write_pretty_json_file"),
-        "fs_json must own the shared pretty JSON file writer"
-    );
-    assert!(
-        runtime_report.contains("use crate::fs_json::write_pretty_json_file;")
-            && dev_persist.contains("use crate::fs_json::write_pretty_json_file;")
-            && surface_matrix.contains("use crate::fs_json::write_pretty_json_file;"),
-        "runtime report and dev audit/matrix persistence must share the common JSON file writer"
-    );
-}
-
-#[test]
 fn audits_share_rust_source_discovery_helpers() {
     let root = crate_root();
     let rust_source =
@@ -627,8 +535,10 @@ fn audits_share_rust_source_discovery_helpers() {
                 "rust_files_under",
                 "workspace_root"
             ]
-        ) && imports(&ownership_audit, &["relative_path", "rust_files_under", "workspace_root"])
-            && imports(&source_scan, &["rust_files_under"]),
+        ) && imports(
+            &ownership_audit,
+            &["relative_path", "rust_files_under", "workspace_root"]
+        ) && imports(&source_scan, &["rust_files_under"]),
         "audits and source scans must share the common rust_source helpers instead of reimplementing file discovery"
     );
 }
@@ -925,42 +835,6 @@ fn cli_runtime_surface_is_a_facade_over_granular_modules() {
         validation_fs.contains("validate_directory_contains")
             && validation_fs.contains("registry_dns_zone"),
         "runtime validation filesystem assertions must live in validation/fs_assertions.rs"
-    );
-}
-
-#[test]
-fn dev_surface_is_a_thin_facade_over_manifest_and_persistence_modules() {
-    let root = crate_root();
-    let dev_surface =
-        fs::read_to_string(root.join("src/dev_surface.rs")).expect("read dev_surface.rs");
-    let dev_manifest = fs::read_to_string(root.join("src/dev_surface/manifest.rs"))
-        .expect("read dev_surface/manifest.rs");
-    let dev_persist = fs::read_to_string(root.join("src/dev_surface/audit_persist.rs"))
-        .expect("read dev_surface/audit_persist.rs");
-
-    assert!(
-        dev_surface.contains("mod manifest;")
-            && dev_surface.contains("mod audit_persist;")
-            && dev_surface.contains("execute_surfaces(json)")
-            && dev_surface.contains("execute_framework(json)"),
-        "dev_surface.rs must delegate protocol projections to dev_surface/manifest.rs"
-    );
-    assert!(
-        dev_manifest.contains("pub(crate) fn execute_surfaces")
-            && dev_manifest.contains("pub(crate) fn execute_outcomes")
-            && dev_manifest.contains("pub(crate) fn execute_kpi_score")
-            && dev_manifest.contains("pub(crate) fn execute_framework"),
-        "development manifest projections must live in dev_surface/manifest.rs"
-    );
-    assert!(
-        dev_persist.contains("pub(crate) fn maybe_persist_dev_audit_report")
-            && dev_persist.contains("pub(crate) fn maybe_persist_kernel_audit_report")
-            && dev_persist.contains("write_dev_audit_report"),
-        "development audit persistence must live in dev_surface/audit_persist.rs"
-    );
-    assert!(
-        dev_surface.lines().count() < 260,
-        "dev_surface.rs must remain a thin facade, not a monolith"
     );
 }
 
@@ -1307,78 +1181,7 @@ fn cli_audit_crate_verification_passes() {
         report.crate_count, on_disk,
         "crate audit must measure every crate present in crates/, not a pinned list; \
          audit saw {} but {} crate manifests exist on disk",
-        report.crate_count,
-        on_disk
-    );
-}
-
-#[test]
-fn canonical_surface_audit_executes_against_real_modules() {
-    let source = PathBuf::from(env!("CARGO_BIN_EXE_cynic"));
-    let output = Command::new(&source)
-        .args(["dev", "surface-audit", "--json"])
-        .output()
-        .expect("run cynic dev surface-audit --json");
-    assert!(output.status.success(), "surface audit must pass");
-    let report: Value = serde_json::from_slice(&output.stdout).expect("parse surface audit");
-    assert_eq!(
-        report.get("schema").and_then(Value::as_str),
-        Some("cynic.cli.surface_audit.v1")
-    );
-    assert_eq!(report.get("status").and_then(Value::as_str), Some("ok"));
-    assert_eq!(report.get("blocked_count").and_then(Value::as_u64), Some(0));
-    assert!(
-        report
-            .get("surfaces")
-            .and_then(Value::as_array)
-            .is_some_and(|surfaces| surfaces.iter().all(|surface| {
-                surface.get("status").and_then(Value::as_str) == Some("ok")
-                    && surface
-                        .get("owner_module_paths")
-                        .and_then(Value::as_array)
-                        .is_some_and(|paths| !paths.is_empty())
-                    && surface
-                        .get("checks")
-                        .and_then(Value::as_array)
-                        .is_some_and(|checks| {
-                            !checks.is_empty()
-                                && checks.iter().any(|check| {
-                                    check.get("name").and_then(Value::as_str)
-                                        == Some("owner_calls_present")
-                                })
-                        })
-            })),
-        "all declared surfaces must have passing checks"
-    );
-    assert!(
-        report
-            .get("external_projection_findings")
-            .and_then(Value::as_array)
-            .is_some_and(|findings| {
-                findings.iter().any(|finding| {
-                    finding.get("id").and_then(Value::as_str) == Some("systemd_kernel_user_unit")
-                        && finding.get("status").and_then(Value::as_str) == Some("ok")
-                        && finding.get("projection_class").and_then(Value::as_str)
-                            == Some("operator_projection")
-                }) && findings.iter().any(|finding| {
-                    finding.get("id").and_then(Value::as_str) == Some("systemd_node_user_unit")
-                        && finding.get("status").and_then(Value::as_str) == Some("ok")
-                        && finding.get("projection_class").and_then(Value::as_str)
-                            == Some("operator_projection")
-                }) && findings.iter().any(|finding| {
-                    finding.get("id").and_then(Value::as_str)
-                        == Some("systemd_kernel_installed_unit")
-                        && finding.get("status").and_then(Value::as_str) == Some("ok")
-                        && finding.get("projection_class").and_then(Value::as_str)
-                            == Some("runtime_authority_adapter")
-                }) && findings.iter().any(|finding| {
-                    finding.get("id").and_then(Value::as_str) == Some("systemd_node_installed_unit")
-                        && finding.get("status").and_then(Value::as_str) == Some("ok")
-                        && finding.get("projection_class").and_then(Value::as_str)
-                            == Some("runtime_authority_adapter")
-                })
-            }),
-        "systemd user units and installed system units must expose distinct projection classes"
+        report.crate_count, on_disk
     );
 }
 
@@ -1764,9 +1567,7 @@ fn no_ssh_argv_hardcodes_a_host_the_registry_already_knows() {
         .lines()
         .filter_map(|l| l.split('"').nth(1))
         .filter(|v| v.contains("cynic-") || v.ends_with(".example"))
-        .filter(|v| {
-            registry.contains(&format!("\"target\": \"{v}\""))
-        })
+        .filter(|v| registry.contains(&format!("\"target\": \"{v}\"")))
         .map(str::to_string)
         .collect();
 
@@ -1942,8 +1743,9 @@ fn the_manifest_advertises_only_routable_domains() {
         routable.len()
     );
 
-    let manifest = std::fs::read_to_string(workspace().join("crates/cynic-cli/src/command_manifest.rs"))
-        .expect("read command_manifest.rs");
+    let manifest =
+        std::fs::read_to_string(workspace().join("crates/cynic-cli/src/command_manifest.rs"))
+            .expect("read command_manifest.rs");
 
     // Each entry looks like `name: "dev",` followed by a `commands: vec![ … ]` block of
     // `"cynic <domain> <verb> …"` strings. The domain is what must be routable.
@@ -1995,7 +1797,6 @@ fn the_manifest_advertises_only_routable_domains() {
     );
 }
 
-
 /// A reference to a contract must name a rule, never a line.
 ///
 /// Ten live files cited `contracts/foundation.json:74` for the 25 000 LOC ceiling. Line
@@ -2014,13 +1815,12 @@ fn contract_references_name_a_rule_and_not_a_line() {
     let parsed: Value = serde_json::from_str(&foundation).expect("foundation parses");
     let constitutional = &parsed["constitutional"];
 
-    let mut known: std::collections::BTreeSet<String> =
-        constitutional["hard_boundaries"]
-            .as_array()
-            .expect("hard_boundaries")
-            .iter()
-            .filter_map(|r| r["name"].as_str().map(str::to_string))
-            .collect();
+    let mut known: std::collections::BTreeSet<String> = constitutional["hard_boundaries"]
+        .as_array()
+        .expect("hard_boundaries")
+        .iter()
+        .filter_map(|r| r["name"].as_str().map(str::to_string))
+        .collect();
     if let Some(obj) = constitutional.as_object() {
         known.extend(obj.keys().filter_map(|k| {
             // Only the structural keys are addressable as anchors.
@@ -2066,13 +1866,15 @@ fn contract_references_name_a_rule_and_not_a_line() {
                 line_citations.push(format!("{rel}:{}", i + 1));
             }
             // `… → constitutional.hard_boundaries.<name>` or `…deleted_authorities`.
-            for part in line
-                .split("foundation.json")
-                .skip(1)
-                .map(|r| r.split(['`', ' ', ',', ')', ']']).next().unwrap_or("").trim())
-            {
+            for part in line.split("foundation.json").skip(1).map(|r| {
+                r.split(['`', ' ', ',', ')', ']'])
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+            }) {
                 let anchor = part.trim_start_matches("→ ").trim_start_matches('.');
-                if anchor.is_empty() || !anchor.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+                if anchor.is_empty() || !anchor.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+                {
                     continue;
                 }
                 if anchor == "constitutional" {
@@ -2137,7 +1939,7 @@ fn a_contract_may_not_overstate_its_own_enforcement() {
         .expect("contracts/ownership.json is readable");
     let parsed: Value = serde_json::from_str(&raw).expect("ownership.json parses");
 
-let discriminator = &parsed["discriminator"];
+    let discriminator = &parsed["discriminator"];
     let coverage = discriminator["coverage"].as_str().unwrap_or("absent");
 
     // The key must be present either way. An omitted key reads as an oversight; an explicit
@@ -2217,7 +2019,9 @@ fn ownership_claims_are_indexed_and_load_bearing_claims_are_falsifiable() {
     let entries = claims["claims"].as_array().expect("claims is an array");
     let mut indexed: BTreeSet<String> = BTreeSet::new();
     for entry in entries {
-        let id = entry["claim_id"].as_str().expect("every claim carries a claim_id");
+        let id = entry["claim_id"]
+            .as_str()
+            .expect("every claim carries a claim_id");
         assert!(
             indexed.insert(id.to_string()),
             "Duplicate claim_id {id}. An index with two entries under one key resolves to \
@@ -2295,7 +2099,10 @@ fn no_normative_spec_without_invariant_and_falsifier() {
             Ok(e) => e.path(),
             Err(_) => continue,
         };
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
         if !name.ends_with(".md") || name == "TEMPLATE.md" {
             continue;
         }
@@ -2347,8 +2154,12 @@ fn measure_arbitration_allocates_one_measure_per_power() {
     let mut collisions: Vec<String> = Vec::new();
 
     for entry in allocation {
-        let power = entry["power"].as_str().expect("every allocation names a power");
-        let measure = entry["measure"].as_str().expect("every allocation names a measure");
+        let power = entry["power"]
+            .as_str()
+            .expect("every allocation names a power");
+        let measure = entry["measure"]
+            .as_str()
+            .expect("every allocation names a measure");
         match owner.get(measure) {
             Some(first) => collisions.push(format!("{measure} -> {first} and {power}")),
             None => {
@@ -2428,7 +2239,10 @@ fn flow_and_stock_never_govern_the_same_power() {
             Some(q) => q.to_string(),
             None => continue,
         };
-        let variant = entry["variant"].as_str().unwrap_or("unspecified").to_string();
+        let variant = entry["variant"]
+            .as_str()
+            .unwrap_or("unspecified")
+            .to_string();
         let power = entry["power"].as_str().unwrap_or("?").to_string();
         by_quantity
             .entry(quantity)
@@ -2461,14 +2275,22 @@ fn flow_and_stock_never_govern_the_same_power() {
             violations.push(format!(
                 "{quantity}: expected exactly one flow power, found {} ({})",
                 flows.len(),
-                flows.iter().map(|p| p.as_str()).collect::<Vec<_>>().join(", ")
+                flows
+                    .iter()
+                    .map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
         if stocks.len() != 1 {
             violations.push(format!(
                 "{quantity}: expected exactly one stock power, found {} ({})",
                 stocks.len(),
-                stocks.iter().map(|p| p.as_str()).collect::<Vec<_>>().join(", ")
+                stocks
+                    .iter()
+                    .map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
         for flow_power in &flows {
