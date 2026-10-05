@@ -7,11 +7,11 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_build::build_node::NodeHealthView;
-use cynic_protocol::error_catalog::CynicErrorCode;
-use cynic_protocol::health_signal::OsHealthAnomaly;
 use cynic_node_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
+use cynic_protocol::error_catalog::CynicErrorCode;
+use cynic_protocol::health_signal::OsHealthAnomaly;
 
 use crate::os_health::probes::{read_available_mem_mib, read_bool, read_reclaim_pressure_pct};
 
@@ -212,14 +212,13 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string();
-            let synapse_ip = reservation
-                .get("synapse")
-                .and_then(|v| v.as_str())
+            // Canonical plane reads (RFC-NET-001 §2). Read path only: the struct field
+            // names stay historical so this does not restructure T6 territory.
+            let synapse_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
                 .map(String::from);
-            let management_ip = reservation
-                .get("management")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+            let management_ip =
+                cynic_network::plane_vocabulary::plane_address(reservation, "admin")
+                    .map(String::from);
 
             if let Some(management) = management_ip {
                 let (role, ports) = find_node_details(&value, &name);

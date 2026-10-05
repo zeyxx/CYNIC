@@ -236,11 +236,10 @@ fn build_desired_state(
         .flatten()
         .find(|item| item.get("name").and_then(serde_json::Value::as_str) == Some(node_id.as_str()))
         .ok_or_else(|| vec!["storage_primary_ipam_reservation_missing".to_string()])?;
-    if reservation
-        .get("synapse")
-        .and_then(serde_json::Value::as_str)
-        != Some(synapse)
-    {
+    // The IPAM address must sit on the `service` plane. Read through the shared
+    // resolver so a canonical or legacy registry key both satisfy the check;
+    // the plane name is stated here rather than implied by a hardcoded key.
+    if cynic_network::plane_vocabulary::plane_address(reservation, "service") != Some(synapse) {
         return Err(vec![
             "storage_primary_ipam_reservation_mismatch".to_string(),
         ]);
@@ -251,7 +250,7 @@ fn build_desired_state(
         .into_iter()
         .flatten()
         .filter_map(serde_json::Value::as_str)
-        .find(|name| name.ends_with(".synapse.cynic"))
+        .find(|name| name.ends_with(".service.cynic") || name.ends_with(".synapse.cynic"))
         .unwrap_or(synapse);
     let target = registry
         .pointer("/fleet_desired/targets")

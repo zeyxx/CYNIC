@@ -429,8 +429,7 @@ pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_forgejo::For
                             if role == "forge_primary" || id == "forgejo" {
                                 let ip = node
                                     .get("network")
-                                    .and_then(|n| n.get("synapse"))
-                                    .and_then(|v| v.as_str())
+                                    .and_then(cynic_network::plane_vocabulary::best_plane_address)
                                     .unwrap_or("127.0.0.1");
                                 let port = node
                                     .get("services")
@@ -730,8 +729,7 @@ pub(crate) fn execute_storage_credential_sync(
                             {
                                 let ip = node
                                     .get("network")
-                                    .and_then(|n| n.get("synapse"))
-                                    .and_then(|v| v.as_str())
+                                    .and_then(cynic_network::plane_vocabulary::best_plane_address)
                                     .unwrap_or("127.0.0.1");
                                 let port = services
                                     .and_then(|svcs| {

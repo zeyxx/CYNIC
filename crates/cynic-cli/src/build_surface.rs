@@ -867,7 +867,10 @@ fn resolve_default_builder_url() -> Result<String, String> {
             for node in nodes {
                 let role = node["role"].as_str().unwrap_or_default();
                 if role == "build_runner" {
-                    if let Some(ip) = node["network"]["synapse"].as_str() {
+                    let ip = node.get("network").and_then(|network| {
+                        cynic_network::plane_vocabulary::plane_address(network, "service")
+                    });
+                    if let Some(ip) = ip {
                         return Ok(format!("http://{ip}:9090"));
                     }
                 }
