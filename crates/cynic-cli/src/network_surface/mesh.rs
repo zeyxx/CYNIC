@@ -197,7 +197,7 @@ fn emit_mesh_status(
             .get("canonical_service_plane")
             .cloned()
             .unwrap_or_else(|| json!("unknown")),
-        "synapse_cidr": topology.get("synapse_cidr").cloned().unwrap_or(serde_json::Value::Null),
+        "service_cidr": topology.get("service_cidr").cloned().unwrap_or(serde_json::Value::Null),
         "provider_fallback_planes": [],
         "controller_status": serde_json::Value::Null,
         "policy_status": observation

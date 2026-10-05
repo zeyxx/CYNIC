@@ -44,7 +44,7 @@ pub fn build_provider_fallback_status(
     let registry_adapter = LocalRegistryAdapter::new(registry);
     let dns_zone = registry_adapter
         .fetch_network_policy_summary()?
-        .synapse_dns_zone
+        .service_dns_zone
         .unwrap_or_else(crate::dns_contract::default_dns_zone);
     let route = registry_adapter.fetch_provider_fallback_route()?;
     let service_checks = registry_adapter.fetch_provider_fallback_service_checks()?;

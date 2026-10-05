@@ -15,12 +15,12 @@ pub(crate) struct ObservationPlan {
     pub(crate) source: String,
     pub(crate) registry_path: Option<String>,
     pub(crate) canonical_service_plane: String,
-    pub(crate) synapse_cidr: String,
+    pub(crate) service_cidr: String,
     pub(crate) provider_fallback_cidr: String,
     pub(crate) provider_fallback_gateway: Option<String>,
     pub(crate) dns_zone: String,
     pub(crate) critical_hosts: Vec<String>,
-    pub(crate) expected_synapse_ips: BTreeMap<String, String>,
+    pub(crate) expected_service_ips: BTreeMap<String, String>,
     pub(crate) tcp_checks: Vec<TcpCheck>,
 }
 
@@ -29,13 +29,13 @@ impl ObservationPlan {
         Self {
             source: "bootstrap_fallback".to_string(),
             registry_path: None,
-            canonical_service_plane: "synapse".to_string(),
-            synapse_cidr: "10.20.0.0/24".to_string(),
+            canonical_service_plane: "service".to_string(),
+            service_cidr: "10.10.10.0/24".to_string(),
             provider_fallback_cidr: "10.10.10.0/24".to_string(),
             provider_fallback_gateway: None,
-            dns_zone: "synapse.cynic".to_string(),
+            dns_zone: "service.cynic".to_string(),
             critical_hosts: Vec::new(),
-            expected_synapse_ips: BTreeMap::new(),
+            expected_service_ips: BTreeMap::new(),
             tcp_checks: Vec::new(),
         }
     }
@@ -56,10 +56,10 @@ pub(crate) fn build_observation_plan(registry_path: Option<&str>) -> Observation
 
     if let Ok(summary) = adapter.fetch_network_policy_summary() {
         plan.canonical_service_plane = summary.canonical_service_plane;
-        if let Some(value) = summary.synapse_cidr {
-            plan.synapse_cidr = value;
+        if let Some(value) = summary.service_cidr {
+            plan.service_cidr = value;
         }
-        if let Some(value) = summary.synapse_dns_zone {
+        if let Some(value) = summary.service_dns_zone {
             plan.dns_zone = value;
         }
     }
@@ -71,7 +71,7 @@ pub(crate) fn build_observation_plan(registry_path: Option<&str>) -> Observation
         for record in &topology {
             for host in &record.names {
                 if host.ends_with(&plan.dns_zone) {
-                    plan.expected_synapse_ips
+                    plan.expected_service_ips
                         .insert(host.clone(), record.ip.clone());
                 }
             }
@@ -95,9 +95,9 @@ pub(crate) fn build_observation_plan(registry_path: Option<&str>) -> Observation
                 .into_iter()
                 .collect();
             plan.tcp_checks = tcp_checks;
-        } else if !plan.expected_synapse_ips.is_empty() {
+        } else if !plan.expected_service_ips.is_empty() {
             plan.critical_hosts = plan
-                .expected_synapse_ips
+                .expected_service_ips
                 .keys()
                 .cloned()
                 .collect::<BTreeSet<_>>()

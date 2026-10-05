@@ -255,10 +255,10 @@ fn registry_dns_zone(registry: &Registry) -> String {
         .network_policy
         .as_ref()
         .and_then(|policy| policy.planes.as_ref())
-        .and_then(|planes| planes.synapse.as_ref())
+        .and_then(|planes| planes.service.as_ref())
         .and_then(|plane| plane.dns_zone.clone())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "synapse.cynic".to_string())
+        .unwrap_or_else(|| "service.cynic".to_string())
 }
 
 fn provider_fallback_cidr(registry: &Registry) -> String {
@@ -272,7 +272,7 @@ fn provider_fallback_cidr(registry: &Registry) -> String {
         .and_then(|plane| plane.cidr.clone())
         .or_else(|| {
             planes
-                .and_then(|p| p.synapse.as_ref())
+                .and_then(|p| p.service.as_ref())
                 .and_then(|plane| plane.cidr.clone())
         })
         .filter(|value| !value.is_empty())
@@ -333,7 +333,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(synapse_ip) = node
                 .network
                 .as_ref()
-                .and_then(|network| network.synapse.as_deref())
+                .and_then(|network| network.service.as_deref())
             else {
                 continue;
             };
@@ -402,14 +402,14 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
         Ok(NetworkPolicySummary {
             canonical_service_plane: policy
                 .canonical_service_plane
-                .unwrap_or_else(|| "synapse".to_string()),
-            synapse_cidr: policy
+                .unwrap_or_else(|| "service".to_string()),
+            service_cidr: policy
                 .planes
                 .as_ref()
-                .and_then(|planes| planes.synapse.as_ref().and_then(|plane| plane.cidr.clone())),
-            synapse_dns_zone: policy.planes.as_ref().and_then(|planes| {
+                .and_then(|planes| planes.service.as_ref().and_then(|plane| plane.cidr.clone())),
+            service_dns_zone: policy.planes.as_ref().and_then(|planes| {
                 planes
-                    .synapse
+                    .service
                     .as_ref()
                     .and_then(|plane| plane.dns_zone.clone())
             }),

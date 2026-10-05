@@ -154,11 +154,11 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
 
     fn observe_mesh_runtime(
         &self,
-        synapse_cidr: &str,
-        synapse_probe_ip: &str,
+        service_cidr: &str,
+        service_probe_ip: &str,
     ) -> crate::ports::network_interfaces_port::MeshRuntimeObservation {
         let mesh_runtime_observer =
-            LocalMeshRuntimeObserver::new(&self.mesh_interface, synapse_cidr, synapse_probe_ip);
+            LocalMeshRuntimeObserver::new(&self.mesh_interface, service_cidr, service_probe_ip);
         mesh_runtime_observer.observe_runtime().unwrap_or(
             crate::ports::network_interfaces_port::MeshRuntimeObservation {
                 schema: "cynic.network_mesh.runtime_observation.v1",
@@ -175,14 +175,14 @@ impl NodeRuntimeObservationPort for LocalNodeRuntimeObservationPort {
     fn observe_dns_checks(
         &self,
         critical_hosts: &[String],
-        expected_synapse_ips: &std::collections::BTreeMap<String, String>,
+        expected_service_ips: &std::collections::BTreeMap<String, String>,
     ) -> Vec<crate::domain::observation_runtime::DnsResolutionObservation> {
         critical_hosts
             .iter()
             .map(|host| {
                 dns_resolution_observation(
                     host,
-                    expected_synapse_ips.get(host).cloned(),
+                    expected_service_ips.get(host).cloned(),
                     resolve_host(host),
                 )
             })
@@ -319,12 +319,12 @@ fn build_node_observation_with_port(
     let firewall = port.observe_firewall();
     let provider_fallback_route =
         port.observe_provider_fallback_route(&plan.provider_fallback_cidr);
-    let synapse_route = port.observe_synapse_route(&plan.synapse_cidr);
+    let synapse_route = port.observe_synapse_route(&plan.service_cidr);
     let wireguard = port.observe_wireguard();
-    let synapse_probe_ip = first_usable_ipv4_in_cidr(&plan.synapse_cidr)
+    let synapse_probe_ip = first_usable_ipv4_in_cidr(&plan.service_cidr)
         .unwrap_or_else(|| plan.provider_fallback_gateway.clone().unwrap_or_default());
-    let mesh_runtime = port.observe_mesh_runtime(&plan.synapse_cidr, &synapse_probe_ip);
-    let dns_checks = port.observe_dns_checks(&plan.critical_hosts, &plan.expected_synapse_ips);
+    let mesh_runtime = port.observe_mesh_runtime(&plan.service_cidr, &synapse_probe_ip);
+    let dns_checks = port.observe_dns_checks(&plan.critical_hosts, &plan.expected_service_ips);
     let tcp_checks = plan
         .tcp_checks
         .iter()
@@ -420,7 +420,7 @@ fn build_node_observation_with_runtime(
             source: plan.source,
             registry_path: plan.registry_path,
             canonical_service_plane: plan.canonical_service_plane,
-            synapse_cidr: plan.synapse_cidr,
+            service_cidr: plan.service_cidr,
             provider_fallback_cidr: plan.provider_fallback_cidr,
             provider_fallback_gateway: plan.provider_fallback_gateway,
             dns_zone: plan.dns_zone,

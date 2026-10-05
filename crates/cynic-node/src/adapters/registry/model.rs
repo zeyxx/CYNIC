@@ -19,7 +19,12 @@ pub(super) struct RegistryNetworkPolicy {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryPlanes {
-    pub(super) synapse: Option<RegistryPlane>,
+    #[serde(alias = "synapse")]
+    pub(super) service: Option<RegistryPlane>,
+    #[serde(alias = "management")]
+    pub(super) admin: Option<RegistryPlane>,
+    #[serde(alias = "overlay")]
+    pub(super) mesh: Option<RegistryPlane>,
     pub(super) proxmox_guest: Option<RegistryPlane>,
 }
 
@@ -33,8 +38,15 @@ pub(super) struct RegistryPlane {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryReservation {
     pub(super) name: Option<String>,
-    pub(super) synapse: Option<String>,
+    #[serde(alias = "synapse")]
+    pub(super) service: Option<String>,
+    #[serde(alias = "management")]
+    pub(super) admin: Option<String>,
+    #[serde(alias = "overlay")]
+    pub(super) mesh: Option<String>,
     pub(super) dns: Option<Vec<String>>,
+    #[serde(default)]
+    pub(super) addresses: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -83,17 +95,27 @@ pub(super) struct RegistryVm {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct RegistryNodeNetwork {
-    pub(super) synapse: Option<String>,
+    /// Canonical service plane address (legacy alias: `synapse`).
+    #[serde(alias = "synapse")]
+    pub(super) service: Option<String>,
+    /// Canonical admin plane address (legacy alias: `management`).
+    #[serde(alias = "management")]
+    pub(super) admin: Option<String>,
+    /// Canonical mesh overlay address (legacy alias: `overlay`).
+    #[serde(alias = "overlay")]
+    pub(super) mesh: Option<String>,
+    /// Underlay / L2 adjacency address of the node itself. Not a plane.
     pub(super) local: Option<String>,
-    pub(super) management: Option<String>,
+    pub(super) tailscale: Option<String>,
+    pub(super) public_ingress: Option<String>,
 }
 
 impl RegistryNodeNetwork {
     pub(super) fn best_ip(&self) -> Option<&str> {
         self.local
             .as_deref()
-            .or(self.synapse.as_deref())
-            .or(self.management.as_deref())
+            .or(self.service.as_deref())
+            .or(self.admin.as_deref())
             .filter(|value| !value.is_empty() && *value != "dhcp")
     }
 }
