@@ -6,8 +6,9 @@
 //! Replaces untyped key-value metric bags (`Vec<Metric>`) with schema-versioned,
 //! content-addressed `SensorySnapshot` payloads.
 //!
-//! Authority: AGENTS.md §Structural Invariant 7 ("Adapters are disposable; ports
-//! and proofs are durable. Policy is portable; substrate is injected.")
+//! Authority: `contracts/foundation.json` → `strict_dag_and_single_responsibility`.
+//! There is no "Structural Invariant 7" section in AGENTS.md; the portable
+//! host contract is the boundary this module implements.
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

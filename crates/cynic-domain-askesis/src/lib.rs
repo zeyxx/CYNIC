@@ -7,7 +7,9 @@
 //! that the pre-mutation state was captured. Called by the runner BEFORE any
 //! zone write to satisfy the "backup before write" invariant.
 //!
-//! Authority: foundation.json §35 (append_only_history), AGENTS.md backup policy.
+//! Authority: `contracts/foundation.json` → `explicit_over_implicit` and
+//! `runtime_proof_over_prose`. Append-only history is enforced by the archive
+//! module's own read-back; AGENTS.md has no "backup policy" section.
 
 pub mod archive;
 

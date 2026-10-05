@@ -4,7 +4,10 @@
 //! secret backends. They must remain I/O-free — all side effects live in the
 //! adapter implementations under `src/adapters/`.
 //!
-//! Authority: AGENTS.md §"Zero-I/O Domain Core".
+//! Authority: `cynic-secrets::ports` is a pure port declaration. The purity
+//! rule is executed by `crates/cynic-secrets/tests/architecture_boundary.rs`,
+//! which asserts the absence of `std::process::Command` and `reqwest` here —
+//! AGENTS.md only restates it for humans.
 
 use crate::{SecretError, SecretReference, SecretStatus};
 
