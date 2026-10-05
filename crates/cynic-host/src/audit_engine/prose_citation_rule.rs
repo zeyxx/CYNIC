@@ -150,17 +150,14 @@ mod tests {
     }
 
     fn index_with(files: Vec<SourceFile>) -> WorkspaceSourceIndex {
+        // WorkspaceSourceIndex derives Default, and a rule must never perform
+        // I/O, so a fixture needs nothing but the files it reads. Declaring the
+        // fields by hand was wrong twice over: it drifted from the real struct,
+        // and the host observation it imitated belongs to HostObservation,
+        // which stays None because a fixture is not a host.
         WorkspaceSourceIndex {
             rust_files: files,
-            json_files: Vec::new(),
-            manifests: Vec::new(),
-            existing_paths: BTreeSet::new(),
-            gitignore_patterns: Vec::new(),
-            host: None,
-            unit_files: Vec::new(),
-            unit_contents: std::collections::BTreeMap::new(),
-            exec_starts: Vec::new(),
-            claim_store: None,
+            ..Default::default()
         }
     }
 
