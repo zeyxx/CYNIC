@@ -158,7 +158,7 @@ impl FleetMembershipReport {
             matches!(
                 d,
                 MembershipDifference::OrphanDeclaration {
-                    state: DeclaredState::Planned,
+                    declared_state: DeclaredState::Planned,
                     ..
                 }
             ) || !matches!(d, MembershipDifference::OrphanDeclaration { .. })
