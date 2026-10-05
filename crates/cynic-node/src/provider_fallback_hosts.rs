@@ -8,9 +8,9 @@ use crate::adapters::registry::LocalRegistryAdapter;
 use crate::ports::network_interfaces_port::{ProviderFallbackHostRecord, RegistryTopologyPort};
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct ProviderFallbackHostsReport {
+pub struct ProviderFallbackHostsReport {
     pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     canonical: bool,
     mutates_system: bool,
     registry_ref: String,
@@ -21,7 +21,7 @@ pub(crate) struct ProviderFallbackHostsReport {
     expires_on: &'static str,
 }
 
-pub(crate) fn build_provider_fallback_hosts(
+pub fn build_provider_fallback_hosts(
     registry: &str,
     output_dir: &str,
 ) -> Result<ProviderFallbackHostsReport, Box<dyn std::error::Error>> {

@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::network_mesh_plan::model::MeshRegistry;
 use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
 
-pub(crate) struct LocalNetworkMeshRegistryReader;
+pub struct LocalNetworkMeshRegistryReader;
 
 impl NetworkMeshRegistryPort for LocalNetworkMeshRegistryReader {
     fn load_mesh_registry(&self, registry_path: &Path) -> Result<MeshRegistry, String> {

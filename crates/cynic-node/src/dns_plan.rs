@@ -9,7 +9,7 @@ use crate::dns_contract::{
 use crate::network_command_surface::NetworkCommandSurface;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct DnsPlanReport {
+pub struct DnsPlanReport {
     pub(crate) schema: &'static str,
     mutates: bool,
     target: DnsTargetPaths,
@@ -21,7 +21,7 @@ pub(crate) struct DnsPlanReport {
     forbidden: Vec<&'static str>,
 }
 
-pub(crate) fn build_dns_plan() -> DnsPlanReport {
+pub fn build_dns_plan() -> DnsPlanReport {
     DnsPlanReport {
         schema: "cynic.organ_fleet.dns_activation_plan.v1",
         mutates: false,

@@ -35,7 +35,7 @@ pub(crate) struct Backoff {
 
 impl Backoff {
     /// Create a new Backoff with explicit parameters.
-    pub(crate) fn new(
+    pub fn new(
         max_attempts: u32,
         initial_delay: Duration,
         max_delay: Duration,

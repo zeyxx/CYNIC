@@ -33,7 +33,7 @@ impl NetworkRootPolicyContext {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkRootPolicy {
+pub struct NetworkRootPolicy {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
     pub(crate) principal: &'static str,
@@ -84,7 +84,7 @@ pub(crate) struct DenialRequirement {
     pub(crate) expected: &'static str,
 }
 
-pub(crate) fn build_root_policy(observation: &NodeObservation) -> NetworkRootPolicy {
+pub fn build_root_policy(observation: &NodeObservation) -> NetworkRootPolicy {
     build_root_policy_with_context(
         observation,
         NetworkRootPolicyContext::from_current_runtime(),

@@ -11,7 +11,7 @@ pub(crate) use decision::plan_dns_activation;
 pub(crate) use observe::observe_dns_activation;
 pub(crate) use registry::resolve_dns_activation_spec;
 
-pub(crate) fn apply_dns_activation_value(
+pub fn apply_dns_activation_value(
     registry: &str,
     bundle_dir: &str,
     yes: bool,

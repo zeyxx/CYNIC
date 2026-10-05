@@ -14,7 +14,7 @@ mod policy;
 #[cfg(kani)]
 mod policy_verification;
 mod profile_execution;
-mod target_transaction;
+pub mod target_transaction;
 
 use command_plan::{
     dns_install, firewall_preflight, post_apply_observation, preflight, rollback_conditions,
@@ -24,12 +24,12 @@ use context::NetworkMeshApplyPlanContext;
 use policy::{MeshActuatorPolicyProjection, mesh_actuator_policy};
 pub(crate) use profile_execution::NetworkMeshApplyProfileReport;
 use profile_execution::apply_network_mesh_profile_from_plan;
-pub(crate) use target_transaction::{
+pub use target_transaction::{
     apply_network_mesh_target_transaction_with_runner, target_transaction_argv,
 };
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkMeshApplyPlanReport {
+pub struct NetworkMeshApplyPlanReport {
     pub(crate) schema: &'static str,
     pub(crate) status: &'static str,
     pub(crate) mutates: bool,
@@ -52,7 +52,7 @@ pub(crate) struct NetworkMeshApplyPlanReport {
     pub(crate) can_apply: bool,
 }
 
-pub(crate) fn build_network_mesh_apply_plan(
+pub fn build_network_mesh_apply_plan(
     bundle_dir: &str,
 ) -> Result<NetworkMeshApplyPlanReport, String> {
     build_network_mesh_apply_plan_with_reader_and_context(
@@ -126,7 +126,7 @@ fn build_network_mesh_apply_plan_with_reader_and_context(
     })
 }
 
-pub(crate) fn apply_network_mesh_profile(
+pub fn apply_network_mesh_profile(
     bundle_dir: &str,
     profile: &str,
     apply: bool,

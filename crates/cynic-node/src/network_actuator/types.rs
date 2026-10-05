@@ -9,7 +9,7 @@ use crate::network_command_surface::NetworkCommandSurface;
 use crate::network_diagnostic_surface::NetworkDiagnostic;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActuatorBundleManifest {
+pub struct NetworkActuatorBundleManifest {
     pub(crate) schema: &'static str,
     pub(crate) mutates: bool,
     pub(crate) helper_source: String,
@@ -27,7 +27,7 @@ pub(crate) struct NetworkActuatorBundleManifest {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActuatorActivationPlan {
+pub struct NetworkActuatorActivationPlan {
     pub(crate) schema: &'static str,
     pub(crate) mutates: bool,
     pub(crate) bundle_dir: String,
@@ -41,10 +41,10 @@ pub(crate) struct NetworkActuatorActivationPlan {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActuatorApplyReport {
+pub struct NetworkActuatorApplyReport {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) profile: String,
     pub(crate) apply: bool,
     pub(crate) helper_contract: &'static str,

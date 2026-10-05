@@ -22,8 +22,6 @@ pub mod finance_adapters;
 pub(crate) mod announce;
 mod build_attestation;
 pub mod builder_activation;
-pub mod cli;
-pub mod cli_dispatch;
 pub mod config;
 pub(crate) mod config_watch;
 pub mod dns_activation;
@@ -50,12 +48,13 @@ pub mod network_mesh_bundle;
 pub mod network_mesh_plan;
 pub mod network_repair;
 pub mod network_root_policy;
-mod network_runtime_proof;
+pub mod network_runtime_proof;
 pub mod network_runtime_status;
 pub mod network_shadow_proof;
 mod network_surface_inventory;
 pub mod node_control_runtime;
 pub mod observe;
+pub mod peer_commands;
 pub mod ports;
 pub mod provider_fallback_hosts;
 pub mod provider_fallback_status;
@@ -69,7 +68,6 @@ pub mod verify;
 pub mod watchdog;
 pub mod websocket;
 
-pub use cli::NetworkCommands;
 
 // Cross-crate surface, explicit.
 //
@@ -83,4 +81,3 @@ pub use cli::NetworkCommands;
 // `pub mod`. Widening those is slice 2, where the surfaces move out.
 pub use adapters::peer_storage::ingress::execute_peer_command;
 pub use network_runtime_status::build_network_runtime_status_value;
-pub use usecases::network_surfaces_uc::execute_network_command;

@@ -21,10 +21,10 @@ pub(crate) struct NetworkMeshTargetTransactionPhase {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkMeshTargetTransactionReport {
+pub struct NetworkMeshTargetTransactionReport {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) mutates: bool,
     pub(crate) profile: String,
     pub(crate) apply: bool,
@@ -39,7 +39,7 @@ pub(crate) struct NetworkMeshTargetTransactionReport {
     pub(crate) violations: Vec<NetworkDiagnostic>,
 }
 
-pub(crate) fn target_transaction_argv(
+pub fn target_transaction_argv(
     plan: &NetworkMeshApplyPlanReport,
     profile: &str,
 ) -> Vec<Vec<String>> {
@@ -56,7 +56,7 @@ pub(crate) fn target_transaction_argv(
         .collect()
 }
 
-pub(crate) fn apply_network_mesh_target_transaction_with_runner(
+pub fn apply_network_mesh_target_transaction_with_runner(
     bundle_dir: &str,
     profile: &str,
     apply: bool,

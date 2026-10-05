@@ -12,10 +12,10 @@ use crate::provider_fallback_status::build_provider_fallback_status;
 use cynic_host::registry::HostProfileResolution;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkRuntimeStatus {
+pub struct NetworkRuntimeStatus {
     schema: &'static str,
     generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) severity: &'static str,
     hostname: String,
     host_profile: &'static str,
@@ -35,7 +35,7 @@ pub(crate) struct NetworkRuntimeStatus {
     provider_fallback_status: Option<Value>,
 }
 
-pub(crate) fn build_network_runtime_status(
+pub fn build_network_runtime_status(
     registry: &str,
     resolve_dns: bool,
     check_provider_connectivity: bool,

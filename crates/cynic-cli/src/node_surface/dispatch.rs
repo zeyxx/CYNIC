@@ -2,20 +2,20 @@
 
 use std::process::ExitCode;
 
-use crate::adapters;
-use crate::cli::Commands;
-use crate::node_control_runtime;
-use crate::usecases::agent_scheduler_step_uc;
-use crate::usecases::agent_source_change_uc;
-use crate::usecases::agent_workload_store_uc;
-use crate::usecases::agent_workspace_lifecycle_uc;
-use crate::usecases::build_workload_grant_uc;
-use crate::usecases::network_surfaces_uc;
-use crate::usecases::node_identity_uc;
-use crate::usecases::source_admission_uc;
-use crate::usecases::source_materialization_uc;
-use crate::usecases::source_repository_bootstrap_uc;
-use crate::usecases::storage_lifecycle_uc;
+use cynic_node::adapters;
+use crate::node_surface::cli::Commands;
+use cynic_node::node_control_runtime;
+use cynic_node::usecases::agent_scheduler_step_uc;
+use cynic_node::usecases::agent_source_change_uc;
+use cynic_node::usecases::agent_workload_store_uc;
+use cynic_node::usecases::agent_workspace_lifecycle_uc;
+use cynic_node::usecases::build_workload_grant_uc;
+use crate::node_surface::network_surfaces_uc;
+use cynic_node::usecases::node_identity_uc;
+use cynic_node::usecases::source_admission_uc;
+use cynic_node::usecases::source_materialization_uc;
+use cynic_node::usecases::source_repository_bootstrap_uc;
+use cynic_node::usecases::storage_lifecycle_uc;
 
 pub async fn dispatch_command(command: Commands) -> ExitCode {
     match command {

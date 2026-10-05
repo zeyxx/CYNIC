@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_node::NetworkCommands;
+use crate::node_surface::cli::NetworkCommands;
 
 use crate::network_surface::NetworkCommand;
 use crate::registry_path;
@@ -59,7 +59,7 @@ pub(crate) fn try_execute_dns(
             corefile_path,
             service_path,
             resolved_dropin_path,
-        } => cynic_node::execute_network_command(&NetworkCommands::DnsActivationStatus {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsActivationStatus {
             json: true,
             registry: registry_path(registry),
             hosts_path: hosts_path
@@ -75,19 +75,19 @@ pub(crate) fn try_execute_dns(
         NetworkDnsCommand::Bundle {
             registry,
             output_dir,
-        } => cynic_node::execute_network_command(&NetworkCommands::DnsBundle {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsBundle {
             json: true,
             registry: registry_path(registry),
             output_dir,
         }),
         NetworkDnsCommand::Plan { .. } => {
-            cynic_node::execute_network_command(&NetworkCommands::DnsPlan { json: true })
+            crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsPlan { json: true })
         }
         NetworkDnsCommand::Activate {
             registry,
             bundle_dir,
             yes,
-        } => cynic_node::execute_network_command(&NetworkCommands::DnsActivate {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsActivate {
             json: true,
             registry: registry_path(registry),
             bundle_dir,

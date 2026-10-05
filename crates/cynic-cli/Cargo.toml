@@ -15,6 +15,8 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive", "env"] }
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
+cynic-consensus = { path = "../cynic-consensus" }
 cynic-host = { path = "../cynic-host" }
 cynic-inference = { path = "../cynic-inference" }
 cynic-node = { path = "../cynic-node" }

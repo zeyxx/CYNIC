@@ -3,7 +3,7 @@
 //! Conforms to `contracts/framework.json` §472 (cli_is_adapter).
 //! ZÉRO policy, ZÉRO logic: parse -> delegate to cynic-node.
 
-use cynic_node::cli::PeerCommands;
+use cynic_node::peer_commands::PeerCommands;
 use std::process::ExitCode;
 
 pub(crate) fn execute_peer(command: PeerCommands) -> ExitCode {

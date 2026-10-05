@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use cynic_node::peer_commands::{PeerCommands, PeerSubmitCommand};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_layout::current_runtime_layout;
 
@@ -749,57 +750,7 @@ pub enum NetworkCommands {
     },
 }
 
-#[derive(Debug, Clone, Subcommand)]
-pub enum PeerCommands {
-    /// Show peer SMR status, accounts summary and state root digest.
-    Status {
-        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
-        #[arg(long, default_value = "/var/lib/cynic/peer")]
-        dir: String,
-        /// Optional registry path used for auto-genesis bootstrap on fresh storage.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: Option<String>,
-        /// Emit JSON output.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Inspect an account (citizen, node, or mandate) from local SQLite projection.
-    Inspect {
-        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
-        #[arg(long, default_value = "/var/lib/cynic/peer")]
-        dir: String,
-        /// Account kind: citizen, node, or mandate.
-        #[arg(long)]
-        kind: String,
-        /// Unique account identifier.
-        #[arg(long)]
-        id: String,
-        /// Emit JSON output.
-        #[arg(long)]
-        json: bool,
-    },
-    /// Submit work to the peer. The peer is the SMR; `submit` is the verb.
-    Submit {
-        #[command(subcommand)]
-        command: PeerSubmitCommand,
-    },
-}
 
-#[derive(Debug, Clone, Subcommand)]
-pub enum PeerSubmitCommand {
-    /// Submit a signed ledger transaction JSON file to the peer SMR.
-    Tx {
-        /// Storage directory containing cynic-peer.wal and cynic-peer.db.
-        #[arg(long, default_value = "/var/lib/cynic/peer")]
-        dir: String,
-        /// Path to JSON file containing a LedgerTransaction.
-        #[arg(long)]
-        file: String,
-        /// Emit JSON output.
-        #[arg(long)]
-        json: bool,
-    },
-}
 
 #[cfg(test)]
 mod tests {

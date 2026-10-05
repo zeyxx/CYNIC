@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use crate::network_runtime_status;
 
-pub(crate) fn build_network_runtime_proof_bundle(
+pub fn build_network_runtime_proof_bundle(
     registry: &str,
     resolve_dns: bool,
     check_provider_connectivity: bool,

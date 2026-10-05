@@ -67,7 +67,7 @@ pub(crate) struct ServiceObservation {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NodeObservation {
+pub struct NodeObservation {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
     pub(crate) hostname: String,
@@ -117,7 +117,7 @@ impl SyntheticNodeObservationContext {
 }
 
 impl NodeObservation {
-    pub(crate) fn registry_observation(
+    pub fn registry_observation(
         &self,
         registry_path: &str,
     ) -> cynic_build::RuntimeNodeObservation {
@@ -173,7 +173,7 @@ impl NodeObservation {
         }
     }
 
-    pub(crate) fn network_actuation_observation(
+    pub fn network_actuation_observation(
         &self,
         mesh_interface: impl Into<String>,
     ) -> cynic_host::network_actuation::NetworkActuationObservation {
@@ -195,11 +195,11 @@ impl NodeObservation {
         }
     }
 
-    pub(crate) fn is_warning_or_worse(&self) -> bool {
+    pub fn is_warning_or_worse(&self) -> bool {
         self.severity != NodeRuntimeSeverity::Clear
     }
 
-    pub(crate) fn is_critical(&self) -> bool {
+    pub fn is_critical(&self) -> bool {
         self.severity == NodeRuntimeSeverity::Critical
     }
 
@@ -342,7 +342,7 @@ fn command_observation_for_tests(command: &str, args: &[&str]) -> CommandObserva
     }
 }
 
-pub(crate) fn observe_payload(registry_path: Option<&str>) -> NodeObservation {
+pub fn observe_payload(registry_path: Option<&str>) -> NodeObservation {
     crate::usecases::observe_node_uc::build_node_observation(registry_path)
 }
 

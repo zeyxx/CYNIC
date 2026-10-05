@@ -10,7 +10,7 @@ use crate::network_root_policy::{NetworkRootPolicy, build_root_policy};
 use crate::observe::NodeObservation;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkEvidence {
+pub struct NetworkEvidence {
     schema: &'static str,
     generated_at: String,
     observation: serde_json::Value,
@@ -31,7 +31,7 @@ struct NetworkGap {
     next_control: &'static str,
 }
 
-pub(crate) fn build_evidence(observation: &NodeObservation) -> NetworkEvidence {
+pub fn build_evidence(observation: &NodeObservation) -> NetworkEvidence {
     build_evidence_with_runtime(observation, network_actuator_activation_status(observation))
 }
 

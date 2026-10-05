@@ -11,10 +11,10 @@ use crate::ports::network_interfaces_port::{
 };
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct ProviderFallbackStatusReport {
+pub struct ProviderFallbackStatusReport {
     pub(crate) schema: &'static str,
     generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     canonical: bool,
     registry_ref: String,
     hosts_path: String,
@@ -36,7 +36,7 @@ struct ProviderFallbackChecks {
     network_connectivity_ok: Option<bool>,
 }
 
-pub(crate) fn build_provider_fallback_status(
+pub fn build_provider_fallback_status(
     registry: &str,
     hosts_path: &str,
     check_connectivity: bool,

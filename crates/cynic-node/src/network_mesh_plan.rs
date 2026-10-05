@@ -10,7 +10,7 @@ pub(crate) mod model;
 #[cfg(kani)]
 mod verification;
 
-pub(crate) fn build_network_mesh_plan(
+pub fn build_network_mesh_plan(
     registry_path: &str,
     provider_override: Option<&str>,
 ) -> Result<NetworkMeshPlan, String> {

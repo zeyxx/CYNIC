@@ -21,7 +21,7 @@ use crate::network_command_surface::NetworkCommandSurface;
 use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct DnsBundleReport {
+pub struct DnsBundleReport {
     pub(crate) schema: &'static str,
     mutates: bool,
     target: DnsTargetPaths,
@@ -36,7 +36,7 @@ pub(crate) struct DnsBundleReport {
     digests: BTreeMap<String, String>,
 }
 
-pub(crate) fn build_dns_bundle(
+pub fn build_dns_bundle(
     registry: &str,
     output_dir: &str,
 ) -> Result<DnsBundleReport, Box<dyn std::error::Error>> {

@@ -2,34 +2,34 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use crate::adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor;
-use crate::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
-use crate::adapters::local_network_actuation_request_reader::read_network_actuation_request;
-use crate::adapters::qemu_guest_agent_network_runner::QemuGuestAgentNetworkRunner;
-use crate::cli::NetworkCommands;
-use crate::dns_activation_status;
-use crate::dns_bundle;
-use crate::dns_plan;
-use crate::domain::network_execution::build_harness_target_attestation_report;
-use crate::network_activation_chain;
-use crate::network_actuator;
-use crate::network_actuator_status;
-use crate::network_evidence;
-use crate::network_mesh_apply_plan;
-use crate::network_mesh_bundle;
-use crate::network_mesh_plan;
-use crate::network_repair;
-use crate::network_root_policy;
-use crate::network_runtime_status;
-use crate::network_shadow_proof;
-use crate::observe;
-use crate::ports::harness_target_attestation_port::{
+use cynic_node::adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor;
+use cynic_node::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
+use cynic_node::adapters::local_network_actuation_request_reader::read_network_actuation_request;
+use cynic_node::adapters::qemu_guest_agent_network_runner::QemuGuestAgentNetworkRunner;
+use crate::node_surface::cli::NetworkCommands;
+use cynic_node::dns_activation_status;
+use cynic_node::dns_bundle;
+use cynic_node::dns_plan;
+use cynic_node::domain::network_execution::build_harness_target_attestation_report;
+use cynic_node::network_activation_chain;
+use cynic_node::network_actuator;
+use cynic_node::network_actuator_status;
+use cynic_node::network_evidence;
+use cynic_node::network_mesh_apply_plan;
+use cynic_node::network_mesh_bundle;
+use cynic_node::network_mesh_plan;
+use cynic_node::network_repair;
+use cynic_node::network_root_policy;
+use cynic_node::network_runtime_status;
+use cynic_node::network_shadow_proof;
+use cynic_node::observe;
+use cynic_node::ports::harness_target_attestation_port::{
     HarnessTargetAttestationPort, HarnessTargetAttestationRequest,
 };
-use crate::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;
-use crate::provider_fallback_hosts;
-use crate::provider_fallback_status;
-use crate::usecases::network_actuation_target_uc::{
+use cynic_node::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;
+use cynic_node::provider_fallback_hosts;
+use cynic_node::provider_fallback_status;
+use cynic_node::usecases::network_actuation_target_uc::{
     QemuNetworkActuationConfig, execute_qemu_network_actuation,
 };
 use cynic_host::runtime_harness::runtime_harness_catalog;
@@ -322,7 +322,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             bundle_dir,
             yes,
-        } => match crate::dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes) {
+        } => match cynic_node::dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes) {
             Ok(report) => {
                 let should_fail = report["status"].as_str() != Some("proved")
                     && report["status"].as_str() != Some("converged");
@@ -553,8 +553,8 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let ep = endpoint
                 .clone()
                 .unwrap_or_else(|| {
-                    use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
-                    use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
+                    use cynic_node::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
+                    use cynic_node::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
                     LocalNetworkMeshRegistryReader
                         .load_mesh_registry(Path::new(registry))
                         .ok()
@@ -575,9 +575,9 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                         })
                         .unwrap_or_else(|| "http://127.0.0.1:8080".to_string())
                 });
-            let mut adapter = crate::adapters::headscale::HeadscaleAdapter::new(&ep);
+            let mut adapter = cynic_node::adapters::headscale::HeadscaleAdapter::new(&ep);
             if let Some(key) = api_key {
-                adapter = crate::adapters::headscale::HeadscaleAdapter::with_api_key(&ep, key);
+                adapter = cynic_node::adapters::headscale::HeadscaleAdapter::with_api_key(&ep, key);
             }
 
             if *check_health {
@@ -589,11 +589,11 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                     }
                 }
             } else {
-                use crate::ports::mesh_coordination_port::MeshCoordinationPort;
+                use cynic_node::ports::mesh_coordination_port::MeshCoordinationPort;
                 let health = adapter.check_health().ok();
                 let members = adapter.list_members().unwrap_or_default();
                 let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
-                let desired_peers: Vec<crate::domain::mesh_coordination::DesiredMeshPeer> = plan
+                let desired_peers: Vec<cynic_node::domain::mesh_coordination::DesiredMeshPeer> = plan
                     .map(|p| {
                         p.desired_peers
                             .into_iter()
@@ -605,7 +605,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                                 if let Some(short) = peer.id.strip_prefix("cynic-lxc-") {
                                     aliases.push(short.to_string());
                                 }
-                                crate::domain::mesh_coordination::DesiredMeshPeer {
+                                cynic_node::domain::mesh_coordination::DesiredMeshPeer {
                                     id: peer.id.clone(),
                                     name: Some(peer.id),
                                     aliases,
@@ -621,7 +621,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                         .filter(|o| o.success)
                         .map(|o| o.stdout.trim().to_string());
 
-                let report = crate::domain::mesh_coordination::reconcile_mesh_coordination(
+                let report = cynic_node::domain::mesh_coordination::reconcile_mesh_coordination(
                     "headscale",
                     &desired_peers,
                     &members,
@@ -820,7 +820,7 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             corefile_path,
             service_path,
             resolved_dropin_path,
-        } => match crate::network_runtime_proof::build_network_runtime_proof_bundle(
+        } => match cynic_node::network_runtime_proof::build_network_runtime_proof_bundle(
             registry,
             *resolve_dns,
             *check_provider_connectivity,

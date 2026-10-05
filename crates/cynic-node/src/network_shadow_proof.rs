@@ -10,14 +10,14 @@ use crate::observe;
 use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkShadowProofReport {
+pub struct NetworkShadowProofReport {
     schema: &'static str,
     generated_at: String,
     registry: String,
     legacy_python: RetiredLegacyPython,
     rust: ShadowProofRust,
     drift: Vec<ShadowDrift>,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -60,7 +60,7 @@ struct ShadowProofReportInputs {
     drift: Vec<ShadowDrift>,
 }
 
-pub(crate) fn build_shadow_proof(
+pub fn build_shadow_proof(
     registry: &str,
     resolve_dns: bool,
     observe_runtime: bool,
