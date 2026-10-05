@@ -166,6 +166,50 @@ impl FleetMembershipReport {
     }
 }
 
+/// Parse a Proxmox `/api2/json/cluster/resources?type=vm` payload into
+/// observed members.
+///
+/// Pure. The payload is the documented Proxmox cluster resources shape: a
+/// `data` array whose VM entries carry `vmid`, `name` and a running state. The
+/// hypervisor is the inventory of record, so the name it reports is the name the
+/// comparison uses; inventing one would match the wrong declaration.
+///
+/// Entries carrying no usable name are skipped rather than defaulted: an
+/// observation with an invented identity is worse than an absent observation.
+/// An absent running state is an observation gap, so it is reported as not
+/// running and the caller sees the gap rather than a fabricated success.
+pub fn parse_proxmox_cluster_resources(
+    payload: &serde_json::Value,
+) -> Result<Vec<ObservedMember>, String> {
+    let data = payload
+        .get("data")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "proxmox cluster resources payload has no data array".to_string())?;
+
+    let mut members = Vec::new();
+    for entry in data {
+        let Some(name) = entry
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        else {
+            continue;
+        };
+        let running = entry
+            .get("status")
+            .and_then(serde_json::Value::as_str)
+            .or_else(|| entry.get("node").and_then(serde_json::Value::as_str))
+            .is_some_and(|state| state.eq_ignore_ascii_case("running"));
+        members.push(ObservedMember {
+            name: name.to_string(),
+            address: None,
+            running,
+        });
+    }
+    Ok(members)
+}
+
 /// Compare a declared fleet against an observed one.
 ///
 /// Pure. Returns every difference rather than a verdict, because the caller
@@ -434,5 +478,111 @@ mod tests {
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
         assert!(report.differences.is_empty());
         assert!(report.every_declared_node_was_observed());
+    }
+
+    /// The shape observed on the builder, transcribed: five containers, one of
+    /// which the registry cannot name. The parser must report all five, so the
+    /// comparison can report the one that is undeclared.
+    #[test]
+    fn proxmox_cluster_resources_yields_every_named_guest() {
+        let payload = serde_json::json!({
+            "data": [
+                {"vmid": 100, "name": "organ-headscale", "status": "running", "node": "pve"},
+                {"vmid": 101, "name": "organ-forgejo",   "status": "running", "node": "pve"},
+                {"vmid": 102, "name": "cynic-agent-host","status": "running", "node": "pve"},
+                {"vmid": 103, "name": "cynic-lxc-surrealdb", "status": "running", "node": "pve"},
+                {"vmid": 105, "name": "cynic-builder",    "status": "running", "node": "pve"}
+            ]
+        });
+        let observed = parse_proxmox_cluster_resources(&payload).expect("parse");
+        assert_eq!(observed.len(), 5);
+        assert!(observed.iter().all(|m| m.running));
+        assert!(observed.iter().any(|m| m.name == "organ-headscale"));
+    }
+
+    /// A stopped guest is observed as stopped. Absence of a status field is a
+    /// gap and is reported the same way, because the caller cannot tell a
+    /// missing field from a stopped guest without the raw payload.
+    #[test]
+    fn a_stopped_or_unlabelled_guest_is_not_running() {
+        let payload = serde_json::json!({
+            "data": [
+                {"vmid": 105, "name": "cynic-builder", "status": "stopped"},
+                {"vmid": 106, "name": "cynic-spare"}
+            ]
+        });
+        let observed = parse_proxmox_cluster_resources(&payload).expect("parse");
+        assert!(observed.iter().all(|m| !m.running));
+        assert_eq!(observed.len(), 2);
+    }
+
+    /// An entry with no name cannot be matched against any declaration. Skipping
+    /// it loses one observation; defaulting its name would invent an identity and
+    /// could match it against the wrong declaration.
+    #[test]
+    fn an_entry_without_a_name_is_skipped_rather_than_defaulted() {
+        let payload = serde_json::json!({
+            "data": [
+                {"vmid": 107},
+                {"vmid": 108, "name": "   "},
+                {"vmid": 105, "name": "cynic-builder", "status": "running"}
+            ]
+        });
+        let observed = parse_proxmox_cluster_resources(&payload).expect("parse");
+        assert_eq!(
+            observed.iter().map(|m| m.name.as_str()).collect::<Vec<_>>(),
+            vec!["cynic-builder"]
+        );
+    }
+
+    #[test]
+    fn a_payload_without_a_data_array_is_an_error_not_an_empty_fleet() {
+        assert!(parse_proxmox_cluster_resources(&serde_json::json!({})).is_err());
+        assert!(parse_proxmox_cluster_resources(&serde_json::json!({"data": "x"})).is_err());
+    }
+
+    /// The end-to-end shape O1 exists to produce: what the fleet says, against
+    /// what the registry declares, with the coordinator reported as undeclared
+    /// and the phantom coordinator reported as declared-and-absent.
+    #[test]
+    fn the_measured_shape_produces_both_defects_at_once() {
+        let declared_fleet = [
+            declared("cynic-host-proxmox"),
+            declared("cynic-host-cortex"),
+            declared("local-kernel"),
+            declared("local-builder"),
+            declared("cynic-lxc-surrealdb"),
+            declared("cynic-builder"),
+            declared("forgejo"),
+            declared("cynic-lxc-headscale"),
+        ];
+        let observed = parse_proxmox_cluster_resources(&serde_json::json!({
+            "data": [
+                {"vmid": 100, "name": "organ-headscale", "status": "running"},
+                {"vmid": 101, "name": "organ-forgejo", "status": "running"},
+                {"vmid": 102, "name": "cynic-agent-host", "status": "running"},
+                {"vmid": 103, "name": "cynic-lxc-surrealdb", "status": "running"},
+                {"vmid": 105, "name": "cynic-builder", "status": "running"}
+            ]
+        }))
+        .expect("parse");
+
+        let report = compare_membership(&declared_fleet, &observed, "proxmox:cluster-resources", 1);
+        assert_eq!(
+            report.unregistered_members(),
+            vec!["cynic-agent-host", "organ-forgejo", "organ-headscale"]
+        );
+        assert_eq!(
+            report.orphan_declarations(),
+            vec![
+                "cynic-host-cortex",
+                "cynic-host-proxmox",
+                "cynic-lxc-headscale",
+                "local-builder",
+                "local-kernel",
+                "forgejo",
+            ]
+        );
+        assert!(!report.every_declared_node_was_observed());
     }
 }
