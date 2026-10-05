@@ -121,8 +121,11 @@ pub fn canonical_provider_for_role(role: MeshRole) -> Option<MeshProviderBinding
         .find(|b| b.role == role && b.canonical_for_role)
 }
 
-// Canonical mesh types are defined in cynic-core (domain layer).
-// cynic-network re-exports them for backward compatibility.
+// The mesh model is owned by `cynic-core`, which holds no I/O. `cynic-network`
+// keeps its I/O in `adapters/`, so it re-exports the model rather than defining
+// a second one. That is the pure/impure split, enforced in both directions by
+// `cynic-core/tests/architecture_boundary.rs`. It is not backward compatibility:
+// no earlier shape is being preserved.
 pub use cynic_core::fleet_mesh::{
     NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan,
     NetworkMeshRoute, NetworkMeshService, WireguardMeshAssessment,
