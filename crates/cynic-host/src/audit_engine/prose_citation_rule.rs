@@ -58,6 +58,15 @@ impl AuditRule for CodeCitesProseRule {
             if file.relative_path.ends_with("audit_engine/prose_citation_rule.rs") {
                 continue;
             }
+            // PATH-002 excludes itself for the same reason, and this is the file
+            // whose doc comment holds its example: line 289 cites
+            // `protocols/h1-intent.md` as what a backticked citation looks like,
+            // so PROSE-001 reports the illustration instead of the violation it
+            // demonstrates. A detector that flags its own documentation cannot
+            // converge to zero, and a gate that cannot converge gets switched off.
+            if file.relative_path.ends_with("audit_engine/path_rules.rs") {
+                continue;
+            }
             for (line_idx, line) in file.content.lines().enumerate() {
                 let trimmed = line.trim();
                 // Only doc comments and string literals can declare authority.
@@ -217,6 +226,22 @@ mod tests {
         let file = source_file(
             "crates/cynic-host/src/audit_engine/prose_citation_rule.rs",
             "/// Authority: AGENTS.md secret classes table\npub struct Quux;",
+        );
+        let index = index_with(vec![file]);
+        let rule = CodeCitesProseRule;
+        let violations = rule.evaluate(&index);
+        assert_eq!(violations.len(), 0);
+    }
+
+    #[test]
+    fn ignores_path_rules_documentation_example() {
+        // The real line 289 of path_rules.rs, verbatim. It documents what a
+        // backticked citation looks like, so scanning it reports the
+        // illustration. PATH-002 excludes its own doc comment for this reason
+        // and PROSE-001 follows the same convention.
+        let file = source_file(
+            "crates/cynic-host/src/audit_engine/path_rules.rs",
+            "/// backticked path inside a doc comment — ``// Authority: `protocols/h1-intent.md` §Digest ambiguity`` —\npub fn quoted_paths() {}",
         );
         let index = index_with(vec![file]);
         let rule = CodeCitesProseRule;

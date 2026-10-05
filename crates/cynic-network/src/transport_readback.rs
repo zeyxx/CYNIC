@@ -6,7 +6,9 @@
 //! these reports but must never let them produce L1/L2 authority: a live
 //! handshake proves a channel, never identity issuance.
 //!
-//! Authority: `protocols/machine-enrollment-federation.md` §4 (proof schemas).
+//! Authority: `cynic_protocol::federation_membership::FEDERATION_MEMBERSHIP_SCHEMA`
+//! and `cynic_network::TRANSPORT_READBACK_SCHEMA` — the observation contract
+//! this proof reads is a Rust type, not a design document.
 
 use serde::{Deserialize, Serialize};
 

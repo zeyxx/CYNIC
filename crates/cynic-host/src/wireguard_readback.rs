@@ -4,7 +4,8 @@
 //!
 //! No raw `std::process::Command` here: tests inject fixture runners, prod
 //! injects [`LocalArgvRunner`]. The adapter is disposable; the typed proof is
-//! durable. Authority: `protocols/machine-enrollment-federation.md` step 2.
+//! durable. Authority: `cynic_network::TRANSPORT_READBACK_SCHEMA` — the typed
+//! proof is the authority, not the design note that proposed it.
 
 use cynic_network::{
     TRANSPORT_FLEET_READBACK_SCHEMA, TRANSPORT_READBACK_SCHEMA, TransportFleetReadback,
