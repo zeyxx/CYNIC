@@ -1,14 +1,15 @@
-//! Scan layer for the judgment surface.
+//! Scanning/observation logic for the mask surface.
 //!
-//! Observes the runtime state and produces a CynicJudgment. This is the
+//! Observes the runtime state and produces judgments. This is the
 //! observe/reconcile step — it reads the substrate and projects it into the
 //! canonical judgment shape.
 
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use cynic_eval::judgment::{CynefinDomain, CynicJudgment, DijkwLayer, SagePhase};
 
-use crate::judgment_surface::types::JudgmentReport;
+use super::types::JudgmentReport;
 
 /// Observe the runtime and produce a judgment. Read-only — never fabricate
 /// state. If a signal is unreadable, preserve it as residual unknown.
@@ -20,12 +21,9 @@ pub(super) fn observe_judgment(subject: Option<&str>) -> JudgmentReport {
 
     let subject_id = subject.unwrap_or("local").to_string();
 
-    // Observe OS substrate health via the host's observer.
     let os_observation = match observe_os_health_signal(&subject_id) {
         Some(j) => j,
         None => {
-            // No OS health signal available — produce a Data-layer judgment
-            // that preserves the gap as residual unknown.
             let mut j = CynicJudgment::new(
                 format!("judgment-{}-{}", subject_id, now),
                 false,
@@ -46,12 +44,6 @@ pub(super) fn observe_judgment(subject: Option<&str>) -> JudgmentReport {
 /// Attempt to observe OS health and convert it into a judgment. Returns None
 /// if the observation cannot be made (missing host integration, etc.).
 fn observe_os_health_signal(subject_id: &str) -> Option<CynicJudgment> {
-    // The host's OS health observer is available in cynic-host. We use it
-    // indirectly through the protocol's OsHealthAnomaly shape.
-    //
-    // For now, we produce a conservative Information-layer judgment that
-    // reflects the observation capability without depending on a live
-    // host integration from the CLI crate (which stays thin).
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -71,4 +63,9 @@ fn observe_os_health_signal(subject_id: &str) -> Option<CynicJudgment> {
     ];
     j.confidence = 0.3;
     Some(j)
+}
+
+/// Observe a patch (diff vs origin/main) and return the raw observation.
+pub(super) fn observe_patch(root: &Path, branch: &str) -> cynic_eval::judge_patch::PatchObservation {
+    cynic_host::judge_patch_observer::observe_patch(root, branch)
 }
