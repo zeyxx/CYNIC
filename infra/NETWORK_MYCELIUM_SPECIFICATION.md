@@ -12,11 +12,19 @@
 
 ### 1.1 First Principles
 1. **Identity Precedes Routing**: A node is immutably identified by its cryptographic Ed25519 `NodeId` (`cynic-identity`). IP addresses, physical MACs, and WireGuard endpoints are ephemeral transport paths (`NetworkPath`), never identity anchors or database primary keys.
-2. **Zero-I/O Domain Core**: All network data models, parsing algorithms, route planning, access control rendering, and drift evaluations reside in `cynic-network` with zero side-effects. Network I/O occurs strictly behind explicit ports (`NetworkObservationPort`, `MeshTransportPort`, `MeshCoordinationPort`).
+2. **Zero-I/O Domain Core**: All network data models, parsing algorithms, route planning, access control rendering, and drift evaluations reside in `cynic-network` with zero side-effects. Network I/O occurs strictly behind explicit boundaries.
 3. **Data-Centric Evolution**: The network is not static infrastructure; it is an active producer of continuous telemetry. Routing paths, relay elections, and workload admissions are dynamically governed by empirical data (`NetworkTelemetrySnapshot`), not hardcoded heuristics.
 4. **Mycelium Mesh Topology**: Direct peer-to-peer connectivity via WireGuard when reachable; automatic fallback to admitted relay nodes (DERP/STUN) across symmetric NATs; zero central single point of failure (No single coordinator SPOF).
 5. **Physical L2 Adjacency Optimization**: When nodes share a physical switch or hypervisor bridge, unencrypted line-rate transport is leveraged, avoiding unnecessary encapsulation overhead.
 6. **Safe Secret Injection**: All private keys and admission credentials conform to `cynic-secrets` (`RuntimeMachineIdentity`) and are injected via `SecretProviderPort`. Cleartext secrets are prohibited in code, git, logs, and proof bundles.
+
+### 1.2 Hybrid Architecture: Functional Core / Imperative Shell (FCIS) + Data-Oriented Design
+CYNIC formally rejects dogmatic Enterprise Java-style Hexagonal Architecture:
+- **Pitfall of Strict Hexagonal in Systems Rust**: Excessive `Arc<dyn Port>` indirections destroy CPU cache locality, inhibit compiler inlining, force heap allocations, and multiply boilerplate mock structures.
+- **The FCIS + DOD Solution**:
+  - **Functional Core (`cynic-network` core modules)**: 100% pure data structures and deterministic functions (`f(CurrentState, Telemetry) -> (NewState, PlanActions)`). Zero async runtimes, zero network sockets, zero mock objects. Testable in microseconds on any platform.
+  - **Imperative Shell (`adapters/` and runners)**: Direct, pragmatic I/O. Collects raw kernel data (`/proc`, `/sys`, `ip -j`, `wg show`), invokes the pure Functional Core, and executes the emitted Action Plan.
+  - **Zero-Copy & Static Dispatch**: Parsers parse slices (`&str`, `&[u8]`) directly without allocating intermediate DTOs unless explicitly needed.
 
 ---
 
@@ -51,7 +59,7 @@ CYNIC enforces the **4-Layer Host Observation Model** across all network interfa
 [ Kernel Substrate: /proc/net, /sys/class/net, /proc/pressure/net, wg show ]
                                   │
                                   ▼
-[ Pure Parsers: cynic-network::probe ] (Zero-I/O)
+[ Functional Core: cynic-network::probe ] (Zero-I/O Parsers)
                                   │
                                   ▼
 [ NetworkTelemetrySnapshot: 4-Layer Observation ]
@@ -125,29 +133,34 @@ When nodes reside on the same physical Ethernet switch or hypervisor bridge:
 
 ---
 
-## 7. CRATE ARCHITECTURE & BOUNDARIES
+## 7. CRATE ARCHITECTURE & BOUNDARIES (FCIS APPLIED)
 
 ```text
-cynic-network (L1 Domain Core — Zero-I/O):
-├── types.rs              — Plane, NodeAddress, NetworkPath, TelemetrySnapshot
-├── discovery.rs          — Pure drift detection, topology evaluation
-├── firewall_policy.rs    — Declarative nftables generator with MSS clamping and rate limits
-├── mesh_plan.rs          — Pure WireGuard/Headscale routing plan generator
-├── dns.rs                — Pure Corefile and hosts synthesizer
-├── socks5/               — Pure userspace SOCKS5 protocol engine and policy filter
-└── ports/
-    ├── observation.rs    — NetworkObservationPort trait (4 layers)
-    ├── discovery.rs      — NetworkDiscoveryProbePort trait
-    └── mesh.rs           — MeshTransportPort, MeshCoordinationPort traits
+cynic-network (L1 Domain — Functional Core + Direct Adapters):
+├── src/
+│   ├── lib.rs              — Public facade, re-exports, and pipeline entries
+│   ├── types.rs            — Pure data models (Plane, NodeAddress, NetworkPath, TelemetrySnapshot)
+│   ├── probe.rs            — Pure parsers (&str -> Typed Metrics, /proc, /sys, wg show)
+│   ├── discovery.rs        — Pure drift detection (observed vs desired -> Vec<DriftAction>)
+│   ├── firewall_policy.rs  — Pure nftables generator (MSS clamping, rate limits -> String)
+│   ├── mesh_plan.rs        — Pure WireGuard/Headscale routing plan generator
+│   ├── dns.rs              — Pure Corefile and hosts synthesizer
+│   ├── socks5/             — Pure userspace SOCKS5 protocol engine and policy filter
+│   ├── ports/              — Abstract capability traits when polymorphism is needed
+│   │   ├── observation.rs  — NetworkObservationPort trait (4 layers)
+│   │   ├── discovery.rs    — NetworkDiscoveryProbePort trait
+│   │   └── mesh.rs         — MeshTransportPort, MeshCoordinationPort traits
+│   └── adapters/           — Imperative Shell (Direct I/O implementations)
+│       ├── host_probe.rs   — Reads /proc and /sys locally, invokes pure parsers
+│       ├── headscale.rs    — REST HTTP client invoking Headscale membership API
+│       └── nftables.rs     — Applies generated ruleset to kernel via system runner
 
-cynic-host (L1 Substrate Adapters):
-└── adapters/network/
-    ├── local.rs          — /proc, /sys, ip, nftables concrete host executor
-    └── remote.rs         — ArgvRunner SSH executor for remote probes
+cynic-host (L1 Substrate):
+└── (No network business logic; delegates completely to cynic-network adapters)
 
 cynic-node (L3 Orchestration):
 └── network/
-    ├── actuator_runner.rs — Executes root-owned cynic-network-actuator
-    ├── sync_loop.rs       — Continuous mesh reconciliation and watchdog
-    └── proxy_daemon.rs    — Hosts the local SOCKS5 listener for agent sandboxes
+    ├── actuator_runner.rs  — Invokes root-owned cynic-network-actuator
+    ├── sync_loop.rs        — Periodic convergence loop (FCIS pipeline execution)
+    └── proxy_daemon.rs     — Hosts the local SOCKS5 listener for agent sandboxes
 ```
