@@ -1,0 +1,107 @@
+{
+  "schema": "cynic.infrastructure.discovery.v1",
+  "status": "normative",
+  "purpose": "Establish that fleet membership, addressing and serving state are discovered from the infrastructure rather than declared in a file that nobody reads. Exists because the measured fleet and the declared fleet disagreed in both directions: the desired-state registry declared two nodes that match nothing, omitted three containers that are running, and pointed at a mesh coordinator whose real name appears in no registry and in no hosts file, while the code looked the coordinator up under the declared name and therefore could not reach a live process.",
+  "authority": "contracts/observability-facts.json N5 and N6; contracts/observability-loop.json stages 1 and 2.",
+  "scope_note": "Transverse. Infrastructure discovery and its derivatives, not the network domain. The network is the first adopter, not the owner.",
+
+  "definitions": {
+    "inventory_of_record": "The substrate that can enumerate every machine the fleet runs on, read live. For the containerised fleet this is the hypervisor's container list, not any registry.",
+    "declared_inventory": "The set of nodes a registry declares, with their intended addresses and roles.",
+    "observed_inventory": "The set of nodes read live from the inventory of record, with their observed hostname, address, role and running services.",
+    "orphan_declaration": "A node present in the declared inventory and absent from the observed inventory, whose address resolves nowhere and matches no hostname on any host.",
+    "unregistered_member": "A node present in the observed inventory and absent from the declared inventory.",
+    "naming_error": "A live node whose observed hostname differs from the name under which the fleet addresses it."
+  },
+
+  "rules": [
+    {
+      "id": "INF1",
+      "rule": "Fleet membership is discovered, not declared. A node joins the fleet by being observed on the inventory of record, not by appearing in a registry.",
+      "corollary": "A registry may legitimately describe a node that does not exist yet. That is how deployment is planned, and it must be distinguishable from a claim that it exists. Every node entry therefore carries a declared state: planned, deployed, or orphaned.",
+      "detection": "Read the inventory of record on every observation cycle and diff it against the declared inventory. The diff is a first-class observation, not an error to be raised.",
+      "action": "Report each difference with the node name, the declared address, and what was actually observed. A planned node that is not observed is reported as planned-and-absent, never as a fault."
+    },
+    {
+      "id": "INF2",
+      "rule": "A node is addressed by a name that resolves to it. A name that resolves nowhere is a declaration error and must be reportable without operator intervention.",
+      "detection": "Resolve every node name in both inventories against every resolver the fleet actually uses, including per-host static entries. A name that fails to resolve, or that resolves to a different node than the one declaring it, is a violation.",
+      "action": "Report the name, the declaring node, and the resolution observed. A fleet whose own mesh coordinator has no resolvable name is in violation of this rule.",
+      "established_by": "organ-headscale runs as container 100 at 10.10.10.40 with headscale listening on port 8080. The name organ-headscale appears in neither registry and in no hosts file. cynic-node/src/usecases/network_surfaces_uc.rs:564 looks the coordinator up as cynic-lxc-headscale, so its default endpoint cannot find a coordinator that is running."
+    },
+    {
+      "id": "INF3",
+      "rule": "The runtime registry is a materialisation of the declared inventory on that node, not a second authority. It may lag. The lag is the drift to reconcile and it is measured, never assumed absent.",
+      "corollary": "The runtime registry and the declared registry must never be held byte-identical, because that makes drift invisible.",
+      "detection": "Compare the two and emit the difference as an observation carrying both values.",
+      "action": "Reconcile the runtime toward declared only where observation confirms the node exists; leave the difference visible where it does not."
+    },
+    {
+      "id": "INF4",
+      "rule": "No fleet name is served from a per-host static file. If a name resolves, it resolves because the authoritative resolver serves it.",
+      "detection": "Audit every host's static name file for fleet names the declared inventory does not project, and audit the resolver for records that no projection produced.",
+      "action": "Report both directions. A name in a hosts file with no registry entry, and a registry entry with no served name, are the same class of fault.",
+      "established_by": "the builder's static name file carries kernel, forgejo, surrealdb, builder and proxmox under synapse.cynic, none of which is served by any zone. dnsmasq answers them with TTL 0 and serves no SOA and no NS for any zone, which is a hosts-file emulation rather than a published zone. service.cynic resolves nowhere, so the six DNS reservations the repository declares name a zone with no published record."
+    }
+  ],
+
+  "measured_state_at_audit": {
+    "observed_at": "commit da157df0, branch agent/hermes/network-mycelium-unification",
+    "inventory_of_record": {
+      "source": "container list on the Proxmox hypervisor at 10.10.10.1",
+      "members": [
+        {"vmid": 100, "name": "organ-headscale", "ip": "10.10.10.40", "state": "running", "listening": "headscale on *:8080 pid 16516"},
+        {"vmid": 101, "name": "organ-forgejo", "ip": null, "state": "running"},
+        {"vmid": 102, "name": "cynic-agent-host", "ip": null, "state": "running"},
+        {"vmid": 103, "name": "cynic-lxc-surrealdb", "ip": "10.10.10.103", "state": "running"},
+        {"vmid": 105, "name": "cynic-builder", "ip": "dhcp", "state": "running", "resolved_address": "10.10.10.119"}
+      ]
+    },
+    "declared_inventory": {
+      "source": "infra/registry.json",
+      "count": 8,
+      "nodes": ["cynic-host-proxmox", "cynic-host-cortex", "local-kernel", "local-builder", "cynic-lxc-surrealdb", "cynic-builder", "forgejo", "cynic-lxc-headscale"]
+    },
+    "differences": [
+      {"class": "orphan_declaration", "node": "cynic-lxc-headscale", "declared_address": "10.10.10.40", "observed": "the address belongs to organ-headscale, which is running and not declared under its real name", "resolution": "fails"},
+      {"class": "orphan_declaration", "node": "local-builder", "declared_address": null, "observed": "no address declared; 10.10.10.119 is cynic-builder, VMID 105, running", "resolution": "fails"},
+      {"class": "unregistered_member", "node": "organ-headscale", "observed_address": "10.10.10.40", "observed": "runs headscale on port 8080; unresolvable by name in any registry and any hosts file"},
+      {"class": "unregistered_member", "node": "organ-forgejo", "observed": "container 101 running; the fleet addresses it as forgejo at 10.10.10.101, a name the hypervisor does not use"},
+      {"class": "unregistered_member", "node": "cynic-agent-host", "observed": "container 102 running; declared nowhere"},
+      {"class": "correct_absence", "node": "cynic-host-proxmox, cynic-host-cortex, local-kernel", "observed": "baremetal hosts, correctly absent from the container list"}
+    ],
+    "not_verified": "The four non-builder fleet nodes could not be reached: 10.10.10.100 timed out, 10.10.10.101 refused the key. Every observation in this document comes from the builder and from the hypervisor. Whether those nodes agree with any of this is unknown."
+  },
+
+  "enforcement": {
+    "status": "declared, not yet enforced",
+    "detectors_required": [
+      {"rule": "INF1", "detector": "read the inventory of record and diff it against declared, emitting orphan declarations and unregistered members"},
+      {"rule": "INF2", "detector": "resolve every declared node name against every resolver in use, including static name files"},
+      {"rule": "INF3", "detector": "compare declared against runtime registry and emit the drift as an observation"},
+      {"rule": "INF4", "detector": "audit static name files on every host against the registry projection"}
+    ],
+    "natural_owner": "cynic-node already exposes a registry-observation surface. Extending it to read the hypervisor and resolve names is the smallest step that makes any of this enforceable.",
+    "existing_asset": "cynic-discovery-host exists and is 220 lines, but it re-exports adapters from the cynic-host monolith rather than owning discovery, which is both a single-owner violation under N6 and an L1 to L1 DAG inversion."
+  },
+
+  "explicit_non_goals": [
+    "discovery does not replace declaration: the declared inventory remains the statement of intent, and INF1 keeps the two distinguishable",
+    "this contract does not mandate a discovery protocol such as mDNS or a service mesh; it mandates that membership be read from something that can enumerate it",
+    "it does not decide which source wins a disagreement; that is contracts/registry-authority if promoted, or an operator decision"
+  ],
+
+  "verification": {
+    "inventory_of_record": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct list\"'",
+    "coordinator_running": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct exec 100 -- ss -tlnp | grep 8080\"'",
+    "wrong_name_lookup": "grep -n 'cynic-lxc-headscale' crates/cynic-node/src/usecases/network_surfaces_uc.rs",
+    "unresolvable_coordinator": "ssh cynic-builder-ssh 'getent hosts organ-headscale.synapse.cynic'",
+    "static_file_audit": "ssh cynic-builder-ssh 'grep synapse /etc/hosts'",
+    "resolver_nature": "ssh cynic-builder-ssh 'dig +short @10.10.10.1 version.bind CHAOS TXT; dig +noall +answer @10.10.10.1 synapse.cynic SOA'"
+  },
+
+  "ratification": {
+    "status": "normative on the operator's instruction of 2026-10-05",
+    "promotion_note": "written in contracts/ because the operator ruled that a convention which cannot fail a build is prose. The enforcement status is declared above rather than left implicit."
+  }
+}
