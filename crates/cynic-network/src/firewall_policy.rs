@@ -151,6 +151,7 @@ pub fn derive_firewall_policy_from_registry(
     let service_cidr = registry
         .pointer(&service_cidr_pointer)
         .or_else(|| registry.pointer("/network_policy/planes/service/cidr"))
+        .or_else(|| registry.pointer("/network_policy/planes/synapse/cidr"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| "missing service plane cidr in registry (/network_policy/planes)".to_string())?
         .to_string();
@@ -449,10 +450,11 @@ mod tests {
     fn derives_firewall_policy_and_audits_ruleset() {
         let reg = serde_json::json!({
             "network_policy": {
+                "canonical_service_plane": "service",
                 "planes": {
-                    "synapse": { "cidr": "10.10.10.0/24" },
-                    "management": { "cidr": "192.168.100.0/24" },
-                    "overlay": { "cidr": "10.20.0.0/24" }
+                    "service": { "cidr": "10.10.10.0/24" },
+                    "admin": { "cidr": "192.168.100.0/24" },
+                    "mesh": { "cidr": "10.20.0.0/24" }
                 },
                 "wireguard": {
                     "nodes": [
