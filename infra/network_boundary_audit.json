@@ -1,0 +1,303 @@
+{
+  "schema": "cynic.network_boundary_audit.v1",
+  "status": "draft",
+  "purpose": "Measure, per crate, where network responsibility actually lives, against the rules RFC-NET-001 and AGENTS.md state. Exists because the previous three weeks produced a ratified specification describing an architecture that was never built, and 33 hardcoded DNS zones, 2 imperative network I/O sites, and 93 files inverting the DAG survived underneath it. This audit is a measurement, not a verdict: it records what is observed so the next tranche order is derived from evidence rather than from intent.",
+  "method": {
+    "scope": "all 48 workspace crates under crates/*/src",
+    "loc_count": "wc -l over every .rs file in the crate's src/ tree",
+    "test_exclusion": "per-line classification: a line is a fixture when it is inside an inline #[cfg(test)] / #[cfg(any(test, kani))] module, lives in a tests.rs file, or is a comment. Classifying per line rather than per file matters: truncating a file at its first test module discards production code that appears later in the same file.",
+    "dag_rule": "a dependency is an inversion only when the target crate's layer is strictly above the source crate's layer",
+    "not_a_tool": "produced by reading the tree with grep and a Python pass; reproducible by re-running the same greps, but no committed CYNIC surface generates it yet",
+    "known_limits": [
+      "layer assignment is hand-maintained, derived from AGENTS.md; a crate absent from that list defaults to L2, so a misclassified crate produces a false negative or a false positive in the DAG table",
+      "the DNS filter is the literal string 'synapse.cynic'; a zone built at runtime from fragments is invisible to it",
+      "the imperative-I/O filter matches Command::new(\"ping|wg|ip|nft|...\") per occurrence and records the matched binary; an argv assembled through a variable is invisible to it"
+    ]
+  },
+  "layer_map": {
+    "L0": [
+      "cynic-protocol",
+      "cynic-types",
+      "cynic-identity"
+    ],
+    "L1": [
+      "cynic-host",
+      "cynic-host-probes",
+      "cynic-network",
+      "cynic-lxc",
+      "cynic-sandbox",
+      "cynic-pkg",
+      "cynic-forensics",
+      "cynic-lifecycle",
+      "cynic-release",
+      "cynic-discovery-host"
+    ],
+    "L2": [
+      "cynic-storage",
+      "cynic-inference",
+      "cynic-inference-runtime",
+      "cynic-build",
+      "cynic-vcs",
+      "cynic-vcs-forgejo",
+      "cynic-eval",
+      "cynic-askesis",
+      "cynic-domain-ops",
+      "cynic-domain-cloudflare",
+      "cynic-domain-porkbun",
+      "cynic-domain-askesis",
+      "cynic-intel",
+      "cynic-intel-escore",
+      "cynic-intel-futarchy",
+      "cynic-intel-soc",
+      "cynic-solana-pay",
+      "cynic-zeroclaw-solana",
+      "cynic-consensus",
+      "cynic-discovery",
+      "cynic-node-protocol",
+      "cynic-agent-bus",
+      "cynic-agent-bus-server",
+      "cynic-agent-bus-coordinator",
+      "cynic-channel",
+      "cynic-pool",
+      "cynic-market"
+    ],
+    "L3": [
+      "cynic-kernel",
+      "cynic-node"
+    ],
+    "L4": [
+      "cynic-cli",
+      "cynic-mcp"
+    ],
+    "cross_cutting": [
+      "cynic-secrets",
+      "cynic-workload"
+    ]
+  },
+  "rules_under_audit": [
+    {
+      "id": "R-NET-1",
+      "source": "RFC-NET-001 \u00a71.1 principle 2, \u00a71.2",
+      "rule": "All network data models, parsing algorithms, route planning, access control rendering and drift evaluations reside in cynic-network, pure. Network I/O occurs strictly behind explicit boundaries in adapters/."
+    },
+    {
+      "id": "R-NET-2",
+      "source": "AGENTS.md Architecture & Crate Invariants, Zero-I/O Domain Core",
+      "rule": "Domain modules are 100% pure: no std::process, no reqwest, no tokio::spawn. Side effects stay behind explicit Ports in runner.rs or adapters/."
+    },
+    {
+      "id": "R-NET-3",
+      "source": "AGENTS.md, Facade & Ratchet",
+      "rule": "cynic-host and cynic-node are monoliths under strict ratchet: no net growth. Autonomous sub-domains must be clean-room extracted."
+    },
+    {
+      "id": "R-NET-4",
+      "source": "AGENTS.md, Strict DAG",
+      "rule": "Higher layers depend on lower layers, never the reverse. Pure domain crates never depend on orchestrator or host crates."
+    },
+    {
+      "id": "R-DNS-1",
+      "source": "operator decision 2026-10-05",
+      "rule": "The canonical service DNS zone is service.cynic, owned by cynic-network::dns::DEFAULT_DNS_ZONE. No crate may hardcode it; consumers read the authority."
+    }
+  ],
+  "canonical_authority": {
+    "dns_zone": {
+      "authority": "crates/cynic-network/src/dns.rs",
+      "value": "service.cynic",
+      "duplicates_found": [
+        "crates/cynic-node/src/dns_contract.rs:37 (const DEFAULT_DNS_ZONE = \"synapse.cynic\")",
+        "crates/cynic-inference/src/application/chat_endpoint.rs:56 (const DEFAULT_DNS_ZONE = \"synapse.cynic\")",
+        "crates/cynic-cli/src/runtime_surface/validation.rs:71 (let default_zone = \"synapse.cynic\")"
+      ],
+      "note": "cynic-node::dns_contract::default_dns_zone() is the de facto authority for five call sites inside cynic-node, so removing it requires re-pointing those callers at cynic-network. cynic-network already holds the correct value and nobody imports it."
+    },
+    "planes": {
+      "authority": "crates/cynic-network/src/plane_vocabulary.rs",
+      "canonical": [
+        "service",
+        "admin",
+        "mesh"
+      ],
+      "legacy": [
+        "synapse",
+        "management",
+        "overlay"
+      ],
+      "state": "resolved; see RFC-NET-001 \u00a72. Registry files and nine readers are migrated. Remaining legacy surface is field names (synapse_ip / management_ip) and DNS FQDNs."
+    }
+  },
+  "findings": {
+    "F-DNS": {
+      "class": "hardcoded-canonical-value",
+      "rule": "R-DNS-1",
+      "severity": "high",
+      "count_production_sites": 18,
+      "count_test_fixtures_excluded": 94,
+      "sites": {
+        "cynic-protocol": [
+          "src/health_signal/reconcile.rs:378",
+          "src/outcomes.rs:110",
+          "src/runtime_seed.rs:92",
+          "src/runtime_seed.rs:97"
+        ],
+        "cynic-host": [
+          "src/agent_host/decision.rs:177",
+          "src/runtime_resolver_plan.rs:75",
+          "src/storage_primary/decision.rs:253"
+        ],
+        "cynic-node": [
+          "src/dns_contract.rs:37",
+          "src/dns_contract/verification.rs:116",
+          "src/ports/build_runner_adapter.rs:154",
+          "src/usecases/network_sync_uc.rs:106",
+          "src/usecases/network_watchdog_uc.rs:89"
+        ],
+        "cynic-vcs-forgejo": [
+          "src/forgejo_token.rs:276"
+        ],
+        "cynic-cli": [
+          "src/network_audit/scan.rs:332",
+          "src/network_audit/scan.rs:86",
+          "src/runtime_surface/validation.rs:71",
+          "src/source_surface.rs:43"
+        ],
+        "cynic-inference": [
+          "src/application/chat_endpoint.rs:56"
+        ]
+      },
+      "why_it_matters": "the registry declares service.cynic while these sites still emit synapse.cynic, so the DNS bundle a node writes and the names the registry reserves disagree. Two DEFAULT_DNS_ZONE constants exist and neither is the canonical one.",
+      "operational_dependency": "some sites embed a real server name (forgejo.synapse.cynic, artifacts.synapse.cynic). Renaming the zone in code does not resolve those hosts: every A record and every TLS certificate must move first, or resolution fails at runtime.",
+      "blocked_on": "operator confirms the DNS cutover order: zone renamed on the hosts, then the code, or a dual-publish window",
+      "count_production_files": 16,
+      "count_test_inline": 94,
+      "count_test_files": 37,
+      "exclusion_note": "18 production lines across 16 files. 94 further occurrences sit inside inline #[cfg(test)] modules and are excluded: a fixture asserting the pre-migration zone is legitimate while the cutover is in flight. An earlier pass of this audit counted 112 because it truncated each file at its first #[cfg(test)] module and discarded production code written after it; the figure was corrected by classifying each line rather than each file."
+    },
+    "F-IO": {
+      "class": "imperative-network-io-outside-the-shell",
+      "rule": "R-NET-1, R-NET-2",
+      "severity": "high",
+      "count": 2,
+      "sites": [
+        {
+          "site": "crates/cynic-cli/src/network_audit/scan.rs:341",
+          "crate": "cynic-cli",
+          "binary": "wg",
+          "why": "a projection crate shells out to WireGuard directly; the same read already exists behind cynic_host::wireguard_readback and cynic_network::adapters::host_probe"
+        },
+        {
+          "site": "crates/cynic-node/src/watchdog.rs:216",
+          "crate": "cynic-node",
+          "binary": "ping",
+          "why": "network keepalive spawned directly from an orchestration crate instead of through cynic_network::adapters::host_probe, which already reads the same L2/L3 state"
+        }
+      ],
+      "related_duplication": {
+        "class": "duplicated-capability",
+        "sites": [
+          "crates/cynic-host/src/wireguard_readback.rs:56 reads `wg show <iface> dump`",
+          "crates/cynic-node/src/watchdog/peer_handshake.rs:93 reads `wg show <iface> latest-handshakes`"
+        ],
+        "why": "two crates own WireGuard read-back; one parses dump, the other latest-handshakes, neither delegates to the other"
+      }
+    },
+    "F-DAG": {
+      "class": "inverted-dependency",
+      "rule": "R-NET-4",
+      "severity": "high",
+      "total_files": 86,
+      "by_source": {
+        "cynic-host": {
+          "layer": "L1",
+          "files": 82,
+          "targets": {
+            "cynic-build": 39,
+            "cynic-node-protocol": 24,
+            "cynic-storage": 14,
+            "cynic-eval": 9,
+            "cynic-intel": 2,
+            "cynic-inference": 1
+          }
+        },
+        "cynic-lifecycle": {
+          "layer": "L1",
+          "files": 3,
+          "targets": {
+            "cynic-build": 3
+          }
+        },
+        "cynic-discovery-host": {
+          "layer": "L1",
+          "files": 1,
+          "targets": {
+            "cynic-build": 1
+          }
+        }
+      },
+      "correction_to_earlier_claims": "RFC-NET-001 \u00a77 named peer_resolver_mesh.rs as the single DAG inversion. Measured, it is 86 files: 82 in cynic-host, 3 in cynic-lifecycle, 1 in cynic-discovery-host. cynic-host is the bulk and the inversion reaches cynic-build, cynic-node-protocol, cynic-storage, cynic-eval, cynic-intel and cynic-inference.",
+      "cynic_network_is_clean": "cynic-network has zero outbound dependencies above L1. The T1-T5 extraction left the core genuinely pure."
+    },
+    "F-RATCHET": {
+      "class": "monolith-growth",
+      "rule": "R-NET-3",
+      "severity": "medium",
+      "observed": {
+        "cynic-host": {
+          "loc": 86641,
+          "ceiling": 25000,
+          "over": 3.5
+        },
+        "cynic-node": {
+          "loc": 55492,
+          "ceiling": 25000,
+          "over": 2.2
+        }
+      },
+      "network_share": "cynic-node carries roughly 11000 LOC across 31 network-named modules. Most of it is projection and convergence, which is legitimate L3 work; only the F-IO and F-DNS sites are violations. The ratchet failure is net growth, not the network domain's presence.",
+      "note": "foundation.json declares the 25k god-object ceiling as a hard boundary. No layer_debt record was found declaring an exception for either crate."
+    }
+  },
+  "explicit_non_goals": [
+    "this audit does not judge whether the ~11000 network LOC in cynic-node should exist; projection, convergence and actuation are legitimate L3 responsibilities",
+    "it does not propose a target architecture; it orders what the measurements justify",
+    "it does not audit the 126 test fixtures that still carry the legacy zone; fixtures are allowed to assert the pre-migration contract while the migration is in flight"
+  ],
+  "proposed_sequence": [
+    {
+      "tranche": "T4.5",
+      "finding": "F-DNS",
+      "scope": "delete the two duplicate DEFAULT_DNS_ZONE constants and the local fallback; re-point every consumer at cynic_network::dns::DEFAULT_DNS_ZONE; leave the server FQDNs for the cutover that requires the operator",
+      "blocked_on": "operator decision on the DNS cutover order"
+    },
+    {
+      "tranche": "T6",
+      "finding": "F-DAG",
+      "scope": "cynic-host's 82 inverted files, plus 4 in cynic-lifecycle and cynic-discovery-host. Not one tranche: it needs a dependency-inversion pass per target crate, starting with cynic-node-protocol because peer_resolver_mesh and local_autonomy_runtime sit on it",
+      "blocked_on": null
+    },
+    {
+      "tranche": "T6b",
+      "finding": "F-IO",
+      "scope": "watchdog.rs keepalive and cli scan route through cynic-network adapters; collapse the two WireGuard read-backs into one owner",
+      "blocked_on": null
+    },
+    {
+      "tranche": "T13",
+      "finding": "F-RATCHET",
+      "scope": "declare layer_debt or split cynic-host below the 25k ceiling; currently the hard boundary is violated silently",
+      "blocked_on": null
+    }
+  ],
+  "verification": {
+    "reproduce_dns": "grep -rn 'synapse\\.cynic' --include=*.rs crates/ | grep -v tests.rs | grep -v '^\\s*//'",
+    "reproduce_io": "grep -rn 'Command::new(\"\\(ping\\|wg\\|ip\\|nft\\|dig\\)\")' --include=*.rs crates/ | grep -v cynic-network/src/adapters",
+    "reproduce_dag": "for c in cynic-host cynic-lifecycle cynic-discovery-host; do grep -rl 'cynic_build::\\|cynic_node_protocol::\\|cynic_storage::' --include=*.rs crates/$c/src/; done | wc -l",
+    "baseline": "edbf8fae (the parent of the T4.3 vocabulary tranche) for failure attribution"
+  },
+  "ratification": {
+    "status": "draft",
+    "promotion_condition": "the operator accepts the finding counts and the tranche order; the audit then moves to contracts/ and becomes an enforceable gate",
+    "authority_note": "infra/ is not a source of truth. This file is a measurement record, not an authority; contracts/ is where a constraint that may fail a build belongs."
+  }
+}
