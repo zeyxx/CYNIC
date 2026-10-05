@@ -18,12 +18,7 @@ pub fn build_network_mesh_plan(
     let registry: model::MeshRegistry =
         LocalNetworkMeshRegistryReader.load_mesh_registry(registry_path_ref)?;
 
-    // Delegate to pure cynic-network domain engine
-    let net_registry: cynic_network::MeshRegistry =
-        serde_json::from_value(serde_json::to_value(&registry).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-
-    cynic_network::generate_mesh_plan(&net_registry, provider_override)
+    cynic_network::generate_mesh_plan(&registry, provider_override)
 }
 
 /// Test/kani engine: delegates to pure cynic-network domain engine.
@@ -35,27 +30,20 @@ fn build_network_mesh_plan_with_reader(
 ) -> Result<NetworkMeshPlan, String> {
     let registry_path_ref = Path::new(registry_path);
     let registry = registry_reader.load_mesh_registry(registry_path_ref)?;
-    let net_registry: cynic_network::MeshRegistry =
-        serde_json::from_value(serde_json::to_value(&registry).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
 
-    let mut plan = cynic_network::generate_mesh_plan(&net_registry, provider_override)?;
+    let mut plan = cynic_network::generate_mesh_plan(&registry, provider_override)?;
     plan.registry_path = registry_path_ref.to_string_lossy().to_string();
     Ok(plan)
 }
 
 #[cfg(any(test, kani))]
 fn address_plane(policy: Option<&model::NetworkPolicy>, service_plane: &str) -> String {
-    let net_policy: Option<cynic_network::NetworkPolicy> =
-        policy.and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
-    cynic_network::address_plane(net_policy.as_ref(), service_plane)
+    cynic_network::address_plane(policy, service_plane)
 }
 
 #[cfg(any(test, kani))]
 fn default_dns_names(id: &str, plane: Option<&model::NetworkPlane>) -> Vec<String> {
-    let net_plane: Option<cynic_network::NetworkPlane> =
-        plane.and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
-    cynic_network::default_dns_names(id, net_plane.as_ref())
+    cynic_network::default_dns_names(id, plane)
 }
 
 #[cfg(test)]

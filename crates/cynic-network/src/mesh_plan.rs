@@ -6,10 +6,10 @@ use crate::types::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MeshRegistry {
     #[serde(default)]
     pub network_policy: Option<NetworkPolicy>,
@@ -17,7 +17,7 @@ pub struct MeshRegistry {
     pub nodes: Vec<RegistryNode>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkPolicy {
     #[serde(default)]
     pub canonical_service_plane: Option<String>,
@@ -29,13 +29,13 @@ pub struct NetworkPolicy {
     pub mesh: Option<MeshPolicy>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MeshPolicy {
     #[serde(default)]
     pub provider: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkPlane {
     #[serde(default)]
     pub cidr: Option<String>,
@@ -45,14 +45,14 @@ pub struct NetworkPlane {
     pub canonical: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkReservation {
     pub name: Option<String>,
     #[serde(default)]
     pub dns: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RegistryNode {
     pub id: Option<String>,
     pub name: Option<String>,
@@ -64,7 +64,7 @@ pub struct RegistryNode {
     pub services: Vec<RegistryService>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RegistryService {
     pub name: Option<String>,
     pub port: Option<u16>,
