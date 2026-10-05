@@ -240,7 +240,7 @@
     },
     "F-RATCHET": {
       "class": "monolith-growth",
-      "rule": "R-NET-3",
+      "rule": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate",
       "severity": "medium",
       "observed": {
         "cynic-host": {
@@ -255,7 +255,11 @@
         }
       },
       "network_share": "cynic-node carries roughly 11000 LOC across 31 network-named modules. Most of it is projection and convergence, which is legitimate L3 work; only the F-IO and F-DNS sites are violations. The ratchet failure is net growth, not the network domain's presence.",
-      "note": "foundation.json declares the 25k god-object ceiling as a hard boundary. No layer_debt record was found declaring an exception for either crate."
+      "note": "foundation.json declares the 25k god-object ceiling as a hard boundary. No layer_debt record was found declaring an exception for either crate.",
+      "size_is_a_signal_not_a_verdict": "cynic-host at 86641 and cynic-node at 55492 both exceed the 25k ceiling in contracts/foundation.json, which is a hard boundary and therefore a real finding. The 5-15k band in CANONICAL_CRATE_MAP.md is explicitly a practical band and not a rule: pruning-policy.json records under known_ambiguities that the too-small threshold is contextual and gives a signal, not an automatic verdict. Size therefore indicates where to look, never what is wrong.",
+      "what_is_actually_wrong": "not the line count. The measurable violations are responsibility ones: two crates own WireGuard read-back, cynic-core and cynic-network both claim the mesh model, and three crates declare a DNS zone constant. A crate can be large because it owns many legitimate responsibilities, which is exactly what the measurement of cynic-node shows: 8898 LOC of projection, 3634 of orchestration logic and 3929 of I/O across its network modules, with only two imperative I/O sites actually violating the shell boundary.",
+      "enforcement_that_exists": "crates/cynic-host/tests/crate_taxonomy_ownership.rs is the executable surface for one_responsibility_one_crate. It checks declared responsibility and flags crates with none, as it does for cynic-intel-escore. It does NOT detect contested ownership of an effective surface, which is why the mesh model contested between cynic-core and cynic-network passes it.",
+      "correct_rule": "the size band locates the debt, the responsibility rules decide the verdict, and the executable surface decides the gate"
     }
   },
   "explicit_non_goals": [

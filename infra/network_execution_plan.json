@@ -88,7 +88,9 @@
       },
       "depends_on": null,
       "risk": "low to moderate. The mechanical part is contained; the real question is whether cynic-core survives, which is a governance call rather than a code one.",
-      "concurrent": false
+      "concurrent": false,
+      "guard_gap": "crates/cynic-host/tests/crate_taxonomy_ownership.rs enforces one_responsibility_one_crate by grouping crates on their manifest description. cynic-core and cynic-network carry different descriptions, so the contested mesh model passes the gate: the test compares DECLARED responsibility, not EFFECTIVE ownership. Either the test learns to detect a contested re-export, or O9 needs its own regression asserting that cynic-network defines rather than re-exports the mesh model.",
+      "guard_recommended": "a test asserting cynic-network/src/types.rs defines NetworkMeshPlan rather than pub use-ing it from another crate. That is the shape that actually prevents the inversion from returning."
     },
     {
       "id": "O1",
@@ -138,11 +140,11 @@
     },
     {
       "id": "O6",
-      "title": "Declare the ratchet debt",
-      "why": "cynic-host is 86641 LOC and cynic-node 55492 against a 25k hard boundary in foundation.json, with no layer_debt record for either. The boundary is being violated silently.",
-      "contract": "network_boundary_audit.json F-RATCHET",
-      "scope": "either declare the debt with a dated plan or split below the ceiling; the choice is governance",
-      "depends_on": "operator decision"
+      "title": "Resolve contested responsibility and ratchet debt, not line count",
+      "why": "The measurable faults are responsibility ones. Two crates own WireGuard read-back: cynic-host/wireguard_readback.rs parses dump, cynic-node/watchdog/peer_handshake.rs parses latest-handshakes. cynic-core and cynic-network both claim the mesh model. Three crates declare a DNS zone constant. cynic-discovery-host re-exports discovery from the cynic-host monolith instead of owning it. Size is where to look, not what is wrong: cynic-node's 55492 network LOC are 8898 projection, 3634 orchestration and 3929 I/O, and only two imperative I/O sites actually violate the shell boundary.",
+      "contract": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate; infra/network_boundary_audit.json F-RATCHET",
+      "scope": "resolve each contested responsibility to a single owner, repointing the loser. Size is then a consequence. Do not split a crate to satisfy a line count.",
+      "depends_on": "operator decision on cynic-core, which is O11"
     },
     {
       "id": "O7",
@@ -186,6 +188,16 @@
       "scope": "either delete the crate or repurpose it. Deleting requires a workspace manifest change, which AGENTS.md puts behind operator ask.",
       "depends_on": "O9",
       "risk": "governance rather than code"
+    },
+    {
+      "id": "O12",
+      "title": "Make the taxonomy gate detect contested effective ownership",
+      "why": "crate_taxonomy_ownership.rs groups crates by their manifest description, so a crate that re-exports another crate's central model under a different responsibility passes. The mesh model contested between cynic-core and cynic-network is the live instance. contracts/pruning-policy.json one_responsibility_one_crate says two crates that re-export the same surface under a second name are CONTESTED and the canonical owner wins; the gate does not implement that clause.",
+      "contract": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate",
+      "scope": "extend the gate so a crate whose source re-exports a type it does not define, for a surface named in the policy as owned elsewhere, is reported as contested",
+      "depends_on": null,
+      "risk": "low, a test change; it may surface existing contests beyond the network",
+      "concurrent": true
     }
   ],
   "deferred": [
@@ -226,6 +238,7 @@
     }
   ],
   "verification_discipline": [
+    "never treat a size band as a verdict. contracts/pruning-policy.json split_criteria governs: a crate is justified by an independent schedule, compilation or service requirement, a reused public API, an independent test reason, or a dependency cycle. Its known_ambiguities states the too-small threshold is contextual and gives a signal, not an automatic verdict. The 5-15k band in CANONICAL_CRATE_MAP.md is a practical band, not a rule, and that file declares it is not the taxonomy authority. The 25k ceiling in foundation.json IS a hard boundary. Size locates debt; responsibility rules decide the verdict.",
     "prove on the builder, never on cortex; cortex ICEs on rustc 1.96 and its RAM is unstable",
     "compare against the baseline failure set every time; a slice is green when it adds no new failure name",
     "never rsync into the canonical checkout: commit, push, then merge --ff-only on the builder",
@@ -253,6 +266,10 @@
       {
         "id": "O10",
         "why": "one constant, no dependency, and it removes an N6 violation"
+      },
+      {
+        "id": "O12",
+        "why": "a gate gap, independent of the network work, and it protects O9 from regressing"
       }
     ]
   }

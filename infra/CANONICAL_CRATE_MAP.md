@@ -32,7 +32,12 @@ R7. One crate per cohesive functional domain — no micro-crate cascades.
     Sub-structure (types, parser, scrubber, slots...) lives in INTERNAL
     MODULES of the domain crate, not in separate crates. SOTA model:
     solana-runtime, tokio+feature-flags — NOT 12 sub-crates per module.
-    Practical band: ~5-15k LOC per crate; 25k = god-object ceiling.
+    Practical band: ~5-15k LOC per crate is a reading aid, not a rule;
+    25k is the god-object ceiling and IS a hard boundary
+    (contracts/foundation.json). Split criteria are
+    contracts/pruning-policy.json split_criteria, and its known_ambiguities
+    records that the too-small threshold is contextual: a signal, never an
+    automatic verdict.
 R8. Vertical extraction only. Extraction proceeds bottom-up by tier
     (see section 5), never horizontally by technical layer. Special
     decomposition proposals in `infra/ARCHITECTURE_CONSTELLATIONS.md`
@@ -96,8 +101,19 @@ cynic-inference-runtime   6    composition shell (new in v3; stub over cynic-inf
 cynic-finance            1 049    cross-cutting ✓ (multi-resource accounting, ledgers, exchange rates)
 ```
 
-Ceiling references: GOD OBJECT > 25,000 LOC; MONOLITH band 15-25k; ok band 5-15k; small < 5k.
+> **The bands below are reading aids, not verdicts.** `contracts/pruning-policy.json`
+> `split_criteria` governs, and its `known_ambiguities` states that the too-small threshold
+> is contextual and gives a signal rather than an automatic verdict. Only the 25,000 ceiling
+> in `contracts/foundation.json` is a hard boundary. Size locates debt; the responsibility
+> rules decide the verdict; `crates/cynic-host/tests/crate_taxonomy_ownership.rs` is the gate.
+
+Reading aid: GOD OBJECT > 25,000 LOC (hard boundary); MONOLITH band 15-25k; ok band 5-15k; small < 5k.
 Six crates exceed the 25k ceiling: host, node, kernel, protocol, cli, inference.
+
+Do not split a crate to satisfy a band. A crate is justified by an independent schedule, a
+distinct compilation or service requirement, a reused public API, an independent test reason, or
+a dependency cycle. A crate can exceed a band while owning several legitimate responsibilities,
+and a crate can sit inside the band while contesting ownership of another crate's model.
 
 ---
 
