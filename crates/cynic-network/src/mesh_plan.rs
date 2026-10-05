@@ -2,7 +2,6 @@
 //! Clean-room extracted from cynic-node to cynic-network per Foundation §481 (SoC).
 //! Pure transformation: (MeshRegistry) -> NetworkMeshPlan. Zero I/O, zero network calls.
 
-use crate::plane_vocabulary::canonical_plane_key;
 use crate::types::{
     NETWORK_MESH_PLAN_SCHEMA, NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer,
     NetworkMeshPlan, NetworkMeshRoute, NetworkMeshService,
@@ -10,8 +9,8 @@ use crate::types::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// The canonical service plane name, resolved through the shared vocabulary.
-const CANONICAL_SERVICE_PLANE: &str = canonical_plane_key("service");
+/// The canonical service plane name (RFC-NET-001 §2).
+const CANONICAL_SERVICE_PLANE: &str = crate::plane_vocabulary::CANONICAL_PLANE_KEYS[0];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MeshRegistry {
@@ -134,7 +133,8 @@ fn peer_from_node(
     // Resolve through the shared vocabulary: `addr_plane` is a canonical plane
     // name, but the registry may still carry its legacy key, so a plain
     // `network.get(service_plane)` would silently drop the node.
-    let address = crate::plane_vocabulary::plane_address_in_map(&node.network, service_plane)?;
+    let address =
+        crate::plane_vocabulary::plane_address_in_map(&node.network, service_plane)?.to_string();
     let dns_names = reservation_dns
         .get(&id)
         .cloned()
@@ -143,7 +143,7 @@ fn peer_from_node(
     // its own key rather than as a plane. It is omitted when it duplicates the
     // plane address, which is what a single-plane node looks like.
     let local_address = crate::plane_vocabulary::underlay_address_in_map(&node.network)
-        .filter(|value| *value != address)
+        .filter(|value| *value != address.as_str())
         .map(ToString::to_string);
     let services = node
         .services
