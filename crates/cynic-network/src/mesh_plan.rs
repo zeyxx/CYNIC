@@ -9,12 +9,9 @@ use crate::types::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-<<<<<<< HEAD
 /// The canonical service plane name (RFC-NET-001 §2).
 const CANONICAL_SERVICE_PLANE: &str = crate::plane_vocabulary::CANONICAL_PLANE_KEYS[0];
 
-=======
->>>>>>> 69e34e60 (refactor(node,network): eliminate duplicate MeshRegistry model and double-JSON serialization)
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MeshRegistry {
     #[serde(default)]
