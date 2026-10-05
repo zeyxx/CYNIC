@@ -526,13 +526,13 @@ mod tests {
                 _ => None,
             })
             .collect();
-        let observed_addresses: Vec<_> = report
+        let observed_addresses: Vec<Option<String>> = report
             .differences
             .iter()
             .filter_map(|d| match d {
                 MembershipDifference::UnregisteredMember {
                     observed_address, ..
-                } => observed_address.clone(),
+                } => Some(observed_address.clone()),
                 _ => None,
             })
             .collect();
@@ -696,13 +696,13 @@ mod tests {
         let report = compare_membership(&[node], &observed, "proxmox:cluster-resources", 1);
         assert_eq!(report.unregistered_members(), vec!["organ-headscale"]);
         assert_eq!(report.orphan_declarations(), vec!["cynic-lxc-headscale"]);
-        let observed_addresses: Vec<_> = report
+        let observed_addresses: Vec<Option<String>> = report
             .differences
             .iter()
             .filter_map(|d| match d {
                 MembershipDifference::UnregisteredMember {
                     observed_address, ..
-                } => observed_address.clone(),
+                } => Some(observed_address.clone()),
                 _ => None,
             })
             .collect();
