@@ -76,7 +76,19 @@ impl RuntimeSeedRequest {
     /// function instead of silently rotting every downstream fixture.
     ///
     /// Digests and locators are placeholders; override the fields under test.
-    pub fn example(node_id: &str, release_id: &str, source_commit: &str) -> Self {
+    ///
+    /// `install_root` is a parameter, not a placeholder this function fills. A
+    /// fixture that asserts a filesystem root states authority it does not have:
+    /// the live value arrives from the operator-supplied request JSON, and a
+    /// hardcoded one silently becomes a claim about where the runtime lives.
+    /// Callers that do not exercise placement pass an obviously-fake root so a
+    /// future reader cannot mistake the value for a declaration.
+    pub fn example(
+        node_id: &str,
+        release_id: &str,
+        source_commit: &str,
+        install_root: &str,
+    ) -> Self {
         let placeholder_digest = format!("sha256:{}", "0".repeat(64));
         Self {
             schema: RUNTIME_SEED_REQUEST_SCHEMA.to_string(),
@@ -102,7 +114,7 @@ impl RuntimeSeedRequest {
             signer_identity: "cynic-runtime-release".to_string(),
             signature_namespace: "cynic-runtime-seed".to_string(),
             required_seed_contract_revision: RUNTIME_SEED_CONTRACT_REVISION,
-            install_root: "/opt/cynic/runtime".to_string(),
+            install_root: install_root.to_string(),
             staged_slot: format!("releases/{release_id}"),
             current_link: "current".to_string(),
             previous_link: "previous".to_string(),
