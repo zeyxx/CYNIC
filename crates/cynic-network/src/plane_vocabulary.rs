@@ -348,7 +348,7 @@ mod tests {
     fn best_plane_address_in_map_falls_through_to_underlay() {
         let map = std::collections::BTreeMap::from([("local", "192.168.0.37")]);
         assert_eq!(best_plane_address_in_map(&map), Some("192.168.0.37"));
-        let empty = std::collections::BTreeMap::new();
+        let empty: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
         assert_eq!(best_plane_address_in_map(&empty), None);
     }
 }
