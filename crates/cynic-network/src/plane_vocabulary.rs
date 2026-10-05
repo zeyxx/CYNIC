@@ -110,7 +110,48 @@ pub fn underlay_address(value: &serde_json::Value) -> Option<&str> {
         .filter(|address| !address.is_empty())
 }
 
-/// First address declared across the canonical plane order, then the underlay.
+/// Read `plane` from a `BTreeMap`-shaped address table.
+///
+/// The typed registry DTOs keep node addresses in a `BTreeMap<String, String>`
+/// rather than a JSON object, and that map cannot be borrowed as a
+/// `serde_json::Value`. This is the same resolution order as [`plane_address`].
+pub fn plane_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+    plane: &str,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    let canonical = canonical_plane_key(plane);
+    addresses
+        .iter()
+        .find(|(key, _)| canonical_plane_key(key.as_ref()) == canonical)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
+/// [`plane_address_in_map`] across the canonical plane order, then underlay.
+pub fn best_plane_address_in_map<'a, K, V>(
+    addresses: &'a std::collections::BTreeMap<K, V>,
+) -> Option<&'a str>
+where
+    K: AsRef<str> + Ord,
+    V: AsRef<str>,
+{
+    for plane in CANONICAL_PLANE_KEYS {
+        if let Some(address) = plane_address_in_map(addresses, plane) {
+            return Some(address);
+        }
+    }
+    addresses
+        .iter()
+        .find(|(key, _)| key.as_ref() == UNDERLAY_KEY)
+        .map(|(_, value)| value.as_ref().trim())
+        .filter(|address| !address.is_empty())
+}
+
+/// Address on the first plane that declares one, canonical order, then underlay.
 ///
 /// Mirrors the resolution order of `RegistryReservation::best_address` and
 /// `RegistryNodeNetwork::best_ip`, so a `serde_json` consumer and a typed
@@ -243,5 +284,71 @@ mod tests {
             best_plane_address(&canonical_registry_node()),
             best_plane_address(&legacy_registry_node())
         );
+    }
+
+    fn canonical_address_map() -> std::collections::BTreeMap<&'static str, &'static str> {
+        std::collections::BTreeMap::from([
+            ("service", "10.10.10.1"),
+            ("admin", "192.168.100.1"),
+            ("mesh", "100.64.0.1"),
+            ("local", "192.168.0.37"),
+        ])
+    }
+
+    fn legacy_address_map() -> std::collections::BTreeMap<&'static str, &'static str> {
+        std::collections::BTreeMap::from([
+            ("synapse", "10.10.10.1"),
+            ("management", "192.168.100.1"),
+            ("overlay", "100.64.0.1"),
+            ("local", "192.168.0.37"),
+        ])
+    }
+
+    #[test]
+    fn plane_address_in_map_reads_canonical_and_legacy_equally() {
+        for map in [canonical_address_map(), legacy_address_map()] {
+            assert_eq!(plane_address_in_map(&map, "service"), Some("10.10.10.1"));
+            assert_eq!(plane_address_in_map(&map, "admin"), Some("192.168.100.1"));
+            assert_eq!(plane_address_in_map(&map, "mesh"), Some("100.64.0.1"));
+        }
+    }
+
+    /// A non-plane key must not be mistaken for a plane. The previous map
+    /// variant returned `None` on the first non-matching key, which made it
+    /// depend on BTreeMap ordering rather than on the plane being asked for.
+    #[test]
+    fn plane_address_in_map_ignores_keys_of_other_planes() {
+        let map = std::collections::BTreeMap::from([
+            ("admin", "192.168.100.1"),
+            ("guest", "172.30.41.10"),
+            ("service", "10.10.10.1"),
+        ]);
+        assert_eq!(plane_address_in_map(&map, "service"), Some("10.10.10.1"));
+        assert_eq!(plane_address_in_map(&map, "guest"), Some("172.30.41.10"));
+        assert_eq!(plane_address_in_map(&map, "mesh"), None);
+    }
+
+    #[test]
+    fn best_plane_address_in_map_agrees_with_the_json_path() {
+        assert_eq!(
+            best_plane_address_in_map(&canonical_address_map()),
+            Some("10.10.10.1")
+        );
+        assert_eq!(
+            best_plane_address_in_map(&canonical_address_map()),
+            best_plane_address(&canonical_registry_node())
+        );
+        assert_eq!(
+            best_plane_address_in_map(&legacy_address_map()),
+            best_plane_address(&legacy_registry_node())
+        );
+    }
+
+    #[test]
+    fn best_plane_address_in_map_falls_through_to_underlay() {
+        let map = std::collections::BTreeMap::from([("local", "192.168.0.37")]);
+        assert_eq!(best_plane_address_in_map(&map), Some("192.168.0.37"));
+        let empty = std::collections::BTreeMap::new();
+        assert_eq!(best_plane_address_in_map(&empty), None);
     }
 }
