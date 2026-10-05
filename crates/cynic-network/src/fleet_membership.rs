@@ -302,13 +302,16 @@ mod tests {
 
     /// The naming defect the measurement found, stated exactly. `cynic-lxc-headscale`
     /// is declared and does not exist under that name anywhere; `organ-headscale`
-    /// is observed and exists only under that name; both claim 10.10.10.40. So the
-    /// report carries BOTH an orphan declaration and an unregistered member, plus a
-    /// divergence on the declared name, because the comparison is by name and the
-    /// names are what disagree. A tool that tried to pair them by address would
-    /// silently hide the defect, which is exactly what the report must not do.
+    /// is observed and exists only under that name; both claim 10.10.10.40.
+    ///
+    /// The report carries TWO facts, not one and not three. It compares by name,
+    /// so the two names never meet and no AddressDivergence is produced: pairing
+    /// them by address would report nothing at all and hide the defect, and
+    /// inventing a divergence between two nodes that share no name would
+    /// fabricate a relationship the registry does not claim. Two facts, both true,
+    /// and a reader has to notice that one address appears on both sides.
     #[test]
-    fn a_naming_defect_is_reported_as_three_facts_not_paired_by_address() {
+    fn a_naming_defect_is_reported_as_two_facts_never_paired_by_address() {
         let mut node = declared("cynic-lxc-headscale");
         node.address = Some("10.10.10.40".to_string());
         let mut seen = observed("organ-headscale", true);
@@ -320,11 +323,6 @@ mod tests {
         assert_eq!(
             report.differences,
             vec![
-                MembershipDifference::AddressDivergence {
-                    name: "cynic-lxc-headscale".to_string(),
-                    declared: Some("10.10.10.40".to_string()),
-                    observed: None,
-                },
                 MembershipDifference::UnregisteredMember {
                     name: "organ-headscale".to_string(),
                     observed_address: Some("10.10.10.40".to_string()),
@@ -357,6 +355,48 @@ mod tests {
                 declared: Some("10.10.10.40".to_string()),
                 observed: Some("10.10.10.99".to_string()),
             }]
+        );
+    }
+
+    /// The shared address is present in both reports and nothing correlates them.
+    /// That is the reader's job, and it is a real one: 10.10.10.40 is the address
+    /// the registry gives a node that does not exist and the address the
+    /// infrastructure gives a node the registry does not name.
+    #[test]
+    fn the_same_address_can_appear_on_both_sides_without_being_correlated() {
+        let mut node = declared("cynic-lxc-headscale");
+        node.address = Some("10.10.10.40".to_string());
+        let mut seen = observed("organ-headscale", true);
+        seen.address = Some("10.10.10.40".to_string());
+
+        let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
+        let declared_addresses: Vec<_> = report
+            .differences
+            .iter()
+            .filter_map(|d| match d {
+                MembershipDifference::OrphanDeclaration {
+                    declared_address, ..
+                } => declared_address.clone(),
+                _ => None,
+            })
+            .collect();
+        let observed_addresses: Vec<_> = report
+            .differences
+            .iter()
+            .filter_map(|d| match d {
+                MembershipDifference::UnregisteredMember {
+                    observed_address, ..
+                } => observed_address.clone(),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(declared_addresses, observed_addresses);
+        assert!(
+            !report
+                .differences
+                .iter()
+                .any(|d| matches!(d, MembershipDifference::AddressDivergence { .. })),
+            "no divergence may be invented between nodes that share no name"
         );
     }
 
