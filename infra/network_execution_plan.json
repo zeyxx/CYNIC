@@ -1,0 +1,199 @@
+{
+  "schema": "cynic.network_execution_plan.v1",
+  "status": "active",
+  "purpose": "One place that states what is done, what is open, in what order, and why. Exists because work spread across a specification, three contracts and two audit documents, and the sequence had to be re-derived from measurement at each step. Every entry below is either proven on the builder or measured against the tree; nothing here is a recollection.",
+  "branch": "agent/hermes/network-mycelium-unification",
+  "baseline_for_attribution": {
+    "commit": "edbf8fae",
+    "note": "the parent of the vocabulary tranche. Twelve tests fail there, unrelated to the network. A slice is green when it introduces no failure name absent from this set.",
+    "failing_tests": [
+      "service_catalog::tests::resolves_service_from_registry_dns_and_port",
+      "git_topology_observer::tests::observes_this_repo",
+      "framework_bootstrap::bundle::tests::build_runner_bundle_projects_node_and_registry",
+      "runtime_metrics::tests::metrics_keep_unknown_separate_from_zero",
+      "dns_activation::tests::bundle_tampering_is_a_pre_mutation_blocker",
+      "adapters::local_integration::tests::forgejo_endpoint_comes_from_runtime_remote_authority",
+      "adapters::remote_build_discovery::tests::observes_via_ssh_runner",
+      "agent::cleanup::tests::cleanup_agent_observe",
+      "audit_engine::topology::tests::only_dependency_lines_produce_edges",
+      "domain::build_discovery::probe::tests::derive_recipes_bins_libs",
+      "domain::build_discovery::probe::tests::parse_filters_workspace_members",
+      "domain::process::types::tests::crashloop_when_over_threshold"
+    ]
+  },
+  "done_and_proven": [
+    {
+      "tranche": "T1",
+      "scope": "I/O moved into cynic-network/src/adapters/; FCIS enforced by four executable architecture tests"
+    },
+    {
+      "tranche": "T2",
+      "scope": "LocalNetworkAdapter extracted from cynic-host into cynic-network/adapters/host_probe.rs",
+      "proof": "cynic-host lab 17/17"
+    },
+    {
+      "tranche": "T3",
+      "scope": "duplicated mesh registry models and the double JSON conversion removed",
+      "proof": "network_mesh_plan 22/22"
+    },
+    {
+      "tranche": "T4.1",
+      "scope": "canonical plane vocabulary in code; legacy aliases confined to the deserialization boundary"
+    },
+    {
+      "tranche": "T4.2",
+      "scope": "plane accessors; no parsed-and-dropped fields; service/reservation divergence is an explicit error",
+      "proof": "cynic-node registry 16/16"
+    },
+    {
+      "tranche": "T4.3",
+      "scope": "four registries rewritten in canonical vocabulary; mesh CIDR corrected to 100.64.0.0/10"
+    },
+    {
+      "tranche": "T4.4",
+      "scope": "nine registry readers migrated onto the shared plane resolver",
+      "proof": "cynic-network 60/60; five tests failing at baseline now pass"
+    },
+    {
+      "tranche": "T5",
+      "scope": "mesh_plan reconciled with the canonical resolver; the empty-plan and dropped-node defects fixed",
+      "proof": "cynic-network 65/65"
+    },
+    {
+      "tranche": "AUDIT",
+      "scope": "network_boundary_audit.json, registry_reconciliation.json, registry_authority.json, observability-facts.json, infrastructure-discovery.json"
+    }
+  ],
+  "sequencing_rationale": "Three measured dependencies decide the order. First INF9: a detector with no invocation site is a document, so every enforcement claim in the contracts is currently prose, and making one detector real is worth more than adding a tenth normative rule. Second INF7 then INF8: network actuation performs no read-back and the domain has no expected-state type, so a mutation can leave a partial state nothing detects and drift cannot be computed where it is owned; both are the network breaching the coherence pattern in AGENTS.md, which requires read-back proof. Third the DAG inversion is large but inert: 86 files invert it and none prevents a build, so it is repaired after the correctness defects. What is deliberately not sequenced is T9 through T12, the SOCKS5h, subnet router, MSS clamping and dual-stack work: they are new capability with no executor, and building them before the system can observe itself would produce more surface that cannot be verified.",
+  "critical_path": [
+    "O1",
+    "O3",
+    "O2"
+  ],
+  "critical_path_rationale": "O1 makes a rule enforceable and finds real faults. O3 gives the domain an expected state. O2 then has something to prove a mutation against.",
+  "open_work": [
+    {
+      "id": "O1",
+      "title": "Make INF1 real: wire cynic-node registry-observation to the hypervisor",
+      "why_first": "the only item that makes a normative rule enforceable, and it would immediately surface organ-headscale, a mesh coordinator running at 10.10.10.40 under a name that resolves nowhere",
+      "contract": "infrastructure-discovery.json INF1 and INF2",
+      "scope": "extend the existing registry-observation surface to read the container inventory from the hypervisor and to resolve every declared node name; emit a schema'd report carrying orphan declarations and unregistered members",
+      "blocks": "every other enforcement claim in both contracts",
+      "risk": "reading the hypervisor needs credentials; the registry already carries a credential_ref and lease metadata for the Proxmox token, so this reads an existing authority rather than adding one"
+    },
+    {
+      "id": "O3",
+      "title": "Introduce an expected-state type in cynic-network",
+      "why": "grep for desired_state, expected_state and target_state in the crate returns zero. RFC-NET-001 §1.1 principle 3 and §4 both presuppose a comparison between expected and observed, and the domain that owns the telemetry cannot perform it. drift_detected is a literal set by a caller.",
+      "contract": "observability-facts.json N5, infrastructure-discovery.json INF8",
+      "scope": "an expected-state model so observed minus expected is computable and the domain emits drift rather than having it supplied",
+      "unblocks": "O2, and the RFC's own §1.1 principle 3",
+      "depends_on": null
+    },
+    {
+      "id": "O2",
+      "title": "Give network actuation a read-back proof",
+      "why": "network_actuator/execution.rs contains zero occurrences of verify, read_back, observe or prove, while read_back has 1094 references elsewhere. The DNS bundle performs four independent fs::write calls, so a failure on the third leaves a partial state nothing detects.",
+      "contract": "observability-facts.json N7, infrastructure-discovery.json INF7",
+      "scope": "after every actuation, observe the state the action claimed to produce; a partial write is an observed state, never a silent success",
+      "depends_on": "O3"
+    },
+    {
+      "id": "O4",
+      "title": "Fix the two imperative network I/O sites and collapse the duplicated WireGuard read-back",
+      "why": "watchdog.rs spawns ping directly instead of reading L2/L3 state through the host probe it already depends on; the CLI audit shells out to wg. Two crates own WireGuard read-back: cynic-host parses dump, cynic-node parses latest-handshakes.",
+      "contract": "network_boundary_audit.json F-IO",
+      "scope": "route both through cynic-network adapters and give WireGuard read-back a single owner",
+      "depends_on": null,
+      "risk": "low, two sites, no behaviour change intended",
+      "concurrent": true
+    },
+    {
+      "id": "O5",
+      "title": "Repair the 86-file DAG inversion",
+      "why": "cynic-host is L1 and depends on six higher crates across 82 files; cynic-lifecycle 3; cynic-discovery-host 1. RFC-NET-001 §7 previously named a single file, which measurement corrected.",
+      "contract": "network_boundary_audit.json F-DAG, AGENTS.md strict DAG",
+      "scope": "dependency inversion per target crate, starting with cynic-node-protocol because peer_resolver_mesh and local_autonomy_runtime sit on it",
+      "depends_on": null,
+      "risk": "large; must be sliced per target crate, never as one tranche. cynic-discovery-host re-exports from the cynic-host monolith, which is both this violation and an N6 single-owner violation.",
+      "concurrent": true
+    },
+    {
+      "id": "O6",
+      "title": "Declare the ratchet debt",
+      "why": "cynic-host is 86641 LOC and cynic-node 55492 against a 25k hard boundary in foundation.json, with no layer_debt record for either. The boundary is being violated silently.",
+      "contract": "network_boundary_audit.json F-RATCHET",
+      "scope": "either declare the debt with a dated plan or split below the ceiling; the choice is governance",
+      "depends_on": "operator decision"
+    },
+    {
+      "id": "O7",
+      "title": "Resolve the DNS cutover, which is infrastructure rather than code",
+      "why": "service.cynic resolves nowhere, so the six reservations the repository declares name a zone with no published record. synapse.cynic is not a published zone either: dnsmasq answers it with TTL 0 and serves no SOA and no NS, which is a hosts-file emulation. The registry the node loads is entirely legacy, with mesh CIDR 10.20.0.0/24, an RFC 1918 range RFC-NET-001 §6.2 forbids for the overlay.",
+      "contract": "registry_authority.json D2",
+      "sequence": [
+        "publish service.cynic alongside the existing answers",
+        "project registry records into it and prove the projection by query",
+        "remove static per-host entries one at a time, each proven resolved before the next",
+        "retire synapse.cynic once nothing resolves it",
+        "reconcile the runtime registry to canonical vocabulary last"
+      ],
+      "blocked_on": "operator admission for resolver deployment and for mutating /etc/cynic/registry.json, which is root-owned",
+      "rollback": "each step rolls back by ceasing to project; the legacy zone stays served until the last step",
+      "concurrent": true
+    },
+    {
+      "id": "O8",
+      "title": "Reconcile the two remaining naming defects",
+      "why": "cynic-lxc-headscale does not resolve and is absent from the runtime registry, while its address belongs to organ-headscale, which runs headscale on port 8080 under a name appearing in no registry and no hosts file. cynic-node/src/usecases/network_surfaces_uc.rs:564 looks the coordinator up under the wrong name, so its default endpoint cannot reach a live process. local-builder declares no address while 10.10.10.119 is the running builder.",
+      "contract": "infrastructure-discovery.json INF2",
+      "scope": "rename the declaration to organ-headscale, remove local-builder, correct the lookup; add organ-forgejo and cynic-agent-host which run but are declared nowhere",
+      "depends_on": "O1, so the detector catches the correction if it is wrong"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "T7",
+      "scope": "pure actuation contracts then a cynic-network-actuator facade",
+      "why": "O2 and O3 change what actuation must prove. Building the facade first would encode the current no-proof behaviour into a new boundary."
+    },
+    {
+      "id": "T8",
+      "scope": "decide the owning crate of adapters/finance.rs",
+      "why": "49 LOC, duplicates the host probe, and gives the network crate a dependency on cynic-finance. Real debt, no urgency."
+    },
+    {
+      "id": "T8b",
+      "scope": "reconcile freebox.rs with FCIS",
+      "why": "10 lines, declares an orphan trait, documents the hexagonal pattern the RFC rejects. Cosmetic debt."
+    },
+    {
+      "id": "T9",
+      "scope": "SOCKS5h egress containment",
+      "why": "design only; zero occurrences in the tree. New capability with no executor."
+    },
+    {
+      "id": "T10",
+      "scope": "subnet router advertisement and the L2 bypass decision rule",
+      "why": "the underlay address concept exists, the decision rule does not; new capability."
+    },
+    {
+      "id": "T11",
+      "scope": "MSS clamping and MTU pinning",
+      "why": "the generator exists, the mitigation does not; lands better once O2 gives actuation a read-back."
+    },
+    {
+      "id": "T12",
+      "scope": "dual-stack path model",
+      "why": "no NetworkPath type exists at all; pure new capability."
+    }
+  ],
+  "verification_discipline": [
+    "prove on the builder, never on cortex; cortex ICEs on rustc 1.96 and its RAM is unstable",
+    "compare against the baseline failure set every time; a slice is green when it adds no new failure name",
+    "never rsync into the canonical checkout: commit, push, then merge --ff-only on the builder",
+    "restore Cargo.lock after every builder run; cargo rewrites it without --locked, and --locked is currently unusable because the committed lockfile does not match the package dependency sets, which is pre-existing debt proven at edbf8fae",
+    "format only explicit files; never bare cargo fmt in a shared worktree",
+    "when a claim is a count, re-verify it with the command the document carries before committing; three counts in these documents were wrong when taken by hand"
+  ]
+}

@@ -299,6 +299,11 @@ the convergence sync loop and the SOCKS5 proxy daemon do not exist.
 
 ## 8. IMPLEMENTATION SEQUENCE
 
+> **The executable sequence lives in `infra/network_execution_plan.json`.** The table
+> below records which tranches exist and their conformance state; the plan records what
+> runs next, in what order, and why that order follows from measurement. When the two
+> disagree, the plan is current and this table is the historical record.
+
 Derived from the conformance audit. Each tranche is bounded, committed and pushed separately.
 
 | Tranche | Scope | State |
