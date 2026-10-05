@@ -1,0 +1,118 @@
+{
+  "schema": "cynic.registry_authority.v1",
+  "status": "draft",
+  "purpose": "Answer the three decisions left open by registry_reconciliation.json: which source is authoritative, whether the canonical DNS zone should be published as real DNS, and whether the two absent nodes are deployment or registry debt. Records the engineering convention each answer imposes, because the operator ruled that D1 must be settled definitively by convention rather than by case-by-case judgement.",
+  "D1_authority": {
+    "decision": "The runtime registry is authoritative for what a node believes. The repository registry is the desired state it is reconciled toward. Neither is a copy of the other: they have distinct roles, and the reconciliation direction is what makes drift observable.",
+    "convention": {
+      "name": "observed-beats-declared, declared-beats-nothing",
+      "rules": [
+        "A node's own observation of its substrate (resolvers, interfaces, running services) outranks every declaration, including the repository registry. This is already foundation.json's ordering.",
+        "The repository registry declares DESIRED state. It may describe nodes that do not exist yet; that is legitimate and is how deployment is planned.",
+        "The runtime registry is the last materialisation of the desired state on that node. It may lag; the lag is the drift to reconcile.",
+        "Therefore the repository registry is authoritative for MEMBERSHIP and ADDRESSING. The runtime registry is authoritative for NOTHING on its own: it is a cache of the desired state, and a stale cache is drift, not truth."
+      ],
+      "forbidden_inference": "a node absent from the runtime registry is NOT evidence that it does not exist; a node absent from the repository registry IS evidence it should not exist. D3 proved this: organ-headscale runs on 10.10.10.40 and is absent from both, while cynic-lxc-headscale is declared in the repository and matches nothing.",
+      "consequence_for_the_audit": "the C1 contradiction was mis-framed. A repository declaring service.cynic while a node still serves synapse.cynic is not two truths, it is desired-versus-observed drift. What is missing is not an authority, it is a RECONCILER that compares them and emits a proof."
+    },
+    "what_this_changes": [
+      "the two registries must not be kept byte-identical; that would make drift invisible",
+      "a test must assert that the runtime registry is a projection of the repository registry for the membership it shares, and that every repository node is classified as deployed, planned, or orphaned",
+      "the 18 hardcoded DNS sites are drift sites, not ownership violations, except the two duplicate constants which are genuine ownership violations"
+    ]
+  },
+  "D2_dns": {
+    "decision": "Publish a real authoritative zone. Replace per-host static files with one data-driven resolver whose records are projected from the repository registry.",
+    "why_the_operator_is_right": "the current mechanism is a heresy for a data-driven system, and the code itself already declares it:",
+    "evidence_the_system_knows_it_is_broken": [
+      "crates/cynic-node/src/network_shadow_proof.rs:118-135 detects and reports three drift kinds: dns_hosts_empty, dns_corefile_empty, dns_resolved_dropin_empty. The system observes that its own DNS projection produces nothing and records it as drift rather than fixing it.",
+      "the resolver in production is dnsmasq answering synapse.cynic with TTL 0, no SOA and no NS for any zone. A TTL of 0 means the answer is never cached, which is the signature of a hosts-file emulation rather than a served zone.",
+      "no zone is published. service.cynic and synapse.cynic are both names that individual hosts answer from /etc/hosts, so there is no single point at which a change takes effect and no single place to observe the fleet's names.",
+      "CoreDNS is packaged and pathed everywhere (runtime_layout.rs, domain/packages.rs, dns_contract.rs) and deployed nowhere. On the only reachable node /etc/coredns does not exist."
+    ],
+    "engineering_convention": {
+      "name": "one authoritative zone, projected from the registry, observed by proof",
+      "rules": [
+        "exactly one resolver is authoritative for the fleet namespace; its records are a pure projection of the repository registry, never hand-maintained",
+        "no host carries a name in /etc/hosts that the registry does not declare; a mismatch is drift",
+        "the resolver is a declared substrate component with an availability contract, not a file path discovered at runtime",
+        "a name is served only if the registry declares it AND the node is observed reachable; otherwise the absence is reported, never faked",
+        "TTL is never 0 for a served fleet record: 0 is reserved for the shadow/observation surface"
+      ],
+      "migration_sequence": [
+        "stand up the authoritative resolver and publish service.cynic alongside the existing answers, so service.cynic resolves and synapse.cynic keeps resolving",
+        "project registry records into it, and prove the projection matches the registry by query, not by reading a generated file",
+        "remove the /etc/hosts entries once the resolver answers for them; each removal is proven by a successful resolution before the next",
+        "retire synapse.cynic once no consumer resolves it",
+        "then reconcile runtime registry to the repository vocabulary: canonical_service_plane service, planes service/admin/mesh, mesh CIDR 100.64.0.0/10"
+      ],
+      "rollback_at_each_step": "stop projecting and let the resolver fall back to its last known record set; the legacy zone stays served until step 5",
+      "depends_on_D1": false,
+      "blocked_on": "operator admission for the resolver deployment, which is infrastructure, not code"
+    },
+    "which_resolver": "CoreDNS is already packaged, already pathed, and already has a renderer in cynic-network/src/dns.rs. It is the declared component; making it real is cheaper than introducing a second option."
+  },
+  "D3_absent_nodes": {
+    "decision": "Both absent nodes are registry debt, except organ-headscale which is real and misnamed. Nothing is deployment debt: there is no headscale to deploy, it is already running.",
+    "diagnosed": {
+      "cynic-lxc-headscale": {
+        "status": "phantom declaration",
+        "finding": "does not resolve by DNS, is absent from the runtime registry and from /etc/hosts, yet 10.10.10.40 is a live address on a running container",
+        "real_fleet_member": "organ-headscale, VMID 100 on the Proxmox hypervisor, running, ip 10.10.10.40/24, hostname organ-headscale, headscale listening on *:8080 pid 16516",
+        "verdict": "the coordinator runs at exactly the declared address under a different name, and that name is resolvable nowhere. This is a registry naming error on top of an unresolvable coordinator, not an absent node.",
+        "corroboration": "crates/cynic-protocol/src/registry_claim_audit.rs:659 already records observed: \"organ-headscale (not in registry nodes)\" \u2014 the audit saw this and it was never reconciled. The name organ-headscale appears in neither /etc/hosts nor either registry, so the fleet currently has no resolvable name for its own mesh coordinator."
+      },
+      "local-builder": {
+        "status": "phantom declaration",
+        "finding": "declares an empty network object. 10.10.10.119 is the running builder, VMID 105 on the same hypervisor, hostname cynic-builder, and the runtime registry already names it cynic-builder at 10.10.10.119.",
+        "verdict": "a duplicate of cynic-builder under a name that matches no host. It should be removed, not deployed.",
+        "corroboration": "the builder's /etc/hosts carries 10.10.10.119 cynic-builder.synapse.cynic, so the canonical name is already established by the fleet itself."
+      }
+    },
+    "consequence": [
+      "10.10.10.40 and 10.10.10.119 are live addresses on real, running containers. The repository was correct about the addressing and wrong about the names. This is the opposite of the phantom-addressing failure the audit originally suspected, and it is why D1 needed the runtime-beats-declared rule to be stated carefully.",
+      "the hypervisor lists 5 containers (organ-headscale 100, organ-forgejo 101, cynic-agent-host 102, cynic-lxc-surrealdb 103, cynic-builder 105). Both registries are partial in opposite directions: the repository declares cynic-host-proxmox, cynic-host-cortex and local-kernel, which are baremetal hosts and therefore correctly absent from the container list, while it omits all three real containers organ-headscale, organ-forgejo and cynic-agent-host. The hypervisor alone is a complete inventory of the containerised part of the fleet, and no registry is complete.",
+      "cynic-node/src/usecases/network_surfaces_uc.rs:564 looks up the coordinator by the wrong name cynic-lxc-headscale, so its default endpoint cannot find a coordinator that is running at 10.10.10.40; and because no host publishes the name organ-headscale either, there is currently no name by which anything can reach it."
+    ]
+  },
+  "convention_changes_required": [
+    {
+      "id": "N1",
+      "rule": "A node name in any registry must be the hostname observable on that host. A name that resolves nowhere and matches no /etc/hosts entry is a declaration error and must fail a check, not sit silently.",
+      "enforcement": "a test that resolves every repository node name and every runtime node name, and reports unregistered"
+    },
+    {
+      "id": "N2",
+      "rule": "The hypervisor is the fleet inventory of record for membership. The registry declares intent; the hypervisor reports reality; drift between them is the reconciliation input.",
+      "enforcement": "cynic-node registry-observation already exists as a surface; it must read the hypervisor and compare"
+    },
+    {
+      "id": "N3",
+      "rule": "No fleet name is served from a static per-host file. If a name resolves, it resolves because the authoritative zone serves it.",
+      "enforcement": "an audit that greps /etc/hosts on every node for cynic names not present in the registry projection"
+    },
+    {
+      "id": "N4",
+      "rule": "A canonical value is declared once, at the lowest layer that can own it, and every higher layer imports it. No crate re-declares a constant owned by a lower crate.",
+      "enforcement": "already partially true via serde aliases; the two duplicate DEFAULT_DNS_ZONE constants violate it and are fixed by T4.5"
+    }
+  ],
+  "conventions_requiring_operator_ratification": [
+    "D1: the repository registry is authoritative for membership and addressing; the runtime registry is a cache, not a truth",
+    "D2: publish an authoritative zone rather than maintain per-host files, with CoreDNS as the declared component",
+    "D3: remove local-builder, rename cynic-lxc-headscale to organ-headscale, and add organ-forgejo and cynic-agent-host which appear in neither registry"
+  ],
+  "verification": {
+    "organ_headscale": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct config 100 | grep -E \\\"hostname|net0\\\"\"'",
+    "organ_headscale_listening": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct exec 100 -- ss -tlnp | grep 8080\"'",
+    "builder_container": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct config 105 | grep -E \\\"hostname|net0\\\"\"'",
+    "dns_drift_detection": "grep -n 'dns_hosts_empty\\|dns_corefile_empty' crates/cynic-node/src/network_shadow_proof.rs",
+    "wrong_name_lookup": "grep -n 'cynic-lxc-headscale' crates/cynic-node/src/usecases/network_surfaces_uc.rs",
+    "audit_saw_it": "grep -n 'organ-headscale (not in registry nodes)' crates/cynic-protocol/src/registry_claim_audit.rs"
+  },
+  "ratification": {
+    "status": "draft",
+    "promotion_condition": "the operator ratifies the three conventions listed above. They then become enforceable and belong in contracts/ rather than infra/.",
+    "authority_note": "the diagnosis is measured; the conventions are proposed and require the operator's signature."
+  }
+}
