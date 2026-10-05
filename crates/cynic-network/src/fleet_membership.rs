@@ -570,7 +570,10 @@ mod tests {
         let report = compare_membership(&declared_fleet, &observed, "proxmox:cluster-resources", 1);
         assert_eq!(
             report.unregistered_members(),
-            vec!["cynic-agent-host", "organ-forgejo", "organ-headscale"]
+            // Order follows the observed payload, not the payload's VMID sort.
+            // The hypervisor is the inventory of record, so its order is the
+            // order the differences are reported in.
+            vec!["organ-headscale", "organ-forgejo", "cynic-agent-host"]
         );
         assert_eq!(
             report.orphan_declarations(),
