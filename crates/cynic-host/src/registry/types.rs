@@ -263,7 +263,7 @@ impl RegistryNetworkLink {
 impl RegistryDocument {
     /// CIDR of the `service` plane, canonical or legacy registry key.
     pub fn service_cidr(&self) -> Option<&str> {
-        let planes = self.network_policy.as_ref()?.planes.as_ref()?;
+        let planes = &self.network_policy.as_ref()?.planes;
         for key in [
             cynic_network::plane_vocabulary::canonical_plane_key("service"),
             "synapse",
