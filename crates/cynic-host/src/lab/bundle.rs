@@ -264,7 +264,7 @@ fn cloud_init_meta_data(vm: &LabVmPlan) -> String {
 }
 
 fn cloud_init_network_config(vm: &LabVmPlan) -> String {
-    let address = vm.local_ip.as_deref().unwrap_or("172.30.41.254");
+    let address = vm.guest_ip.as_deref().unwrap_or("172.30.41.254");
     format!(
         r#"version: 2
 ethernets:
