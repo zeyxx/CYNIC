@@ -33,6 +33,9 @@
 //! assigns to a differently named node, and that real name appears in neither
 //! registry nor any hosts file.
 
+use cynic_protocol::host_substrate::hypervisor::{
+    HypervisorKind, VM_OBSERVATION_SCHEMA, VmObservation, VmState,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -73,18 +76,6 @@ impl Default for DeclaredStateWrapper {
     fn default() -> Self {
         Self(DeclaredState::Deployed)
     }
-}
-
-/// A node as the infrastructure reported it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ObservedMember {
-    pub name: String,
-    /// Address the infrastructure reports, when it reports one. A DHCP guest may
-    /// report none, which is an observation gap rather than a missing node.
-    #[serde(default)]
-    pub address: Option<String>,
-    /// Whether the infrastructure reports it running.
-    pub running: bool,
 }
 
 /// One difference between the declared and the observed fleet.
@@ -209,21 +200,26 @@ pub fn parse_declared_registry_members(registry: &serde_json::Value) -> Vec<Decl
         .collect()
 }
 
-/// Parse a Proxmox `/api2/json/cluster/resources?type=vm` payload into
-/// observed members.
+/// Parse a Proxmox `/api2/json/cluster/resources?type=vm` payload into the
+/// canonical L0 observation type.
+///
+/// The output is `cynic_protocol::host_substrate::hypervisor::VmObservation`,
+/// not a local struct. That type already declares `vmid`, `name`, `state` and
+/// `ip_addresses` behind `VM_OBSERVATION_SCHEMA`, it lives in L0 so this crate
+/// may use it without inverting the DAG, and it had no implementation and no
+/// consumer until now. A second local member type would have been the same fact
+/// under a second name, which N6 forbids.
 ///
 /// Pure. The payload is the documented Proxmox cluster resources shape: a
-/// `data` array whose VM entries carry `vmid`, `name` and a running state. The
-/// hypervisor is the inventory of record, so the name it reports is the name the
-/// comparison uses; inventing one would match the wrong declaration.
+/// `data` array whose VM entries carry `vmid`, `name`, a status and an address.
 ///
 /// Entries carrying no usable name are skipped rather than defaulted: an
 /// observation with an invented identity is worse than an absent observation.
-/// An absent running state is an observation gap, so it is reported as not
-/// running and the caller sees the gap rather than a fabricated success.
+/// An unrecognised state maps to `VmState::Unknown` rather than to Running,
+/// so a gap never reads as a success.
 pub fn parse_proxmox_cluster_resources(
     payload: &serde_json::Value,
-) -> Result<Vec<ObservedMember>, String> {
+) -> Result<Vec<VmObservation>, String> {
     let data = payload
         .get("data")
         .and_then(serde_json::Value::as_array)
@@ -239,15 +235,59 @@ pub fn parse_proxmox_cluster_resources(
         else {
             continue;
         };
-        let running = entry
+        let vmid = entry
+            .get("vmid")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32;
+        let state = match entry
             .get("status")
             .and_then(serde_json::Value::as_str)
-            .or_else(|| entry.get("node").and_then(serde_json::Value::as_str))
-            .is_some_and(|state| state.eq_ignore_ascii_case("running"));
-        members.push(ObservedMember {
+            .map(str::trim)
+        {
+            Some("running") => VmState::Running,
+            Some("stopped") => VmState::Stopped,
+            Some("paused") => VmState::Paused,
+            Some("suspended") => VmState::Suspended,
+            _ => VmState::Unknown,
+        };
+        // Proxmox reports addresses as a JSON array. A string form is also
+        // accepted because some cluster resources responses carry a
+        // comma-separated field instead, and losing the address would silently
+        // drop the one comparison the observation exists to make.
+        let ip_addresses = match entry.get("ip_addresses") {
+            Some(serde_json::Value::Array(items)) => items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|address| !address.is_empty())
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            Some(serde_json::Value::String(raw)) => raw
+                .split(',')
+                .map(str::trim)
+                .filter(|address| !address.is_empty())
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        members.push(VmObservation {
+            schema: VM_OBSERVATION_SCHEMA.to_string(),
+            vmid,
             name: name.to_string(),
-            address: None,
-            running,
+            state,
+            node: entry
+                .get("node")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            hypervisor: HypervisorKind::Proxmox,
+            cpu_cores: None,
+            memory_mb: None,
+            disk_total_gb: None,
+            disk_used_gb: None,
+            disk_used_percent: None,
+            ip_addresses,
+            uptime_seconds: None,
         });
     }
     Ok(members)
@@ -260,12 +300,12 @@ pub fn parse_proxmox_cluster_resources(
 /// comparison that returns a single boolean hides which side disagreed.
 pub fn compare_membership(
     declared: &[DeclaredMember],
-    observed: &[ObservedMember],
+    observed: &[VmObservation],
     observed_by: impl Into<String>,
     observed_at_unix_ms: u64,
 ) -> FleetMembershipReport {
     let observed_by = observed_by.into();
-    let observed_names: BTreeMap<&str, &ObservedMember> = observed
+    let observed_names: BTreeMap<&str, &VmObservation> = observed
         .iter()
         .map(|member| (member.name.as_str(), member))
         .collect();
@@ -277,20 +317,25 @@ pub fn compare_membership(
     let mut differences = Vec::new();
 
     for member in observed {
+        // The first reported address is the comparable one. A VM may report
+        // several; the declaration carries one, so comparing the first is the
+        // only pairing both sides actually assert.
+        let observed_address = member.ip_addresses.first().map(ToString::to_string);
+        let running = member.state == VmState::Running;
         match declared_names.get(member.name.as_str()) {
             None => differences.push(MembershipDifference::UnregisteredMember {
                 name: member.name.clone(),
-                observed_address: member.address.clone(),
+                observed_address,
             }),
             Some(declared) => {
-                if declared.address != member.address {
+                if declared.address != observed_address {
                     differences.push(MembershipDifference::AddressDivergence {
                         name: member.name.clone(),
                         declared: declared.address.clone(),
-                        observed: member.address.clone(),
+                        observed: observed_address,
                     });
                 }
-                if !member.running && declared.state.0 == DeclaredState::Deployed {
+                if !running && declared.state.0 == DeclaredState::Deployed {
                     differences.push(MembershipDifference::NotRunning {
                         name: member.name.clone(),
                     });
@@ -331,11 +376,25 @@ mod tests {
         }
     }
 
-    fn observed(name: &str, running: bool) -> ObservedMember {
-        ObservedMember {
+    fn observed(name: &str, running: bool) -> VmObservation {
+        VmObservation {
+            schema: VM_OBSERVATION_SCHEMA.to_string(),
+            vmid: 0,
             name: name.to_string(),
-            address: None,
-            running,
+            state: if running {
+                VmState::Running
+            } else {
+                VmState::Stopped
+            },
+            node: "pve".to_string(),
+            hypervisor: HypervisorKind::Proxmox,
+            cpu_cores: None,
+            memory_mb: None,
+            disk_total_gb: None,
+            disk_used_gb: None,
+            disk_used_percent: None,
+            ip_addresses: Vec::new(),
+            uptime_seconds: None,
         }
     }
 
@@ -539,7 +598,7 @@ mod tests {
         });
         let observed = parse_proxmox_cluster_resources(&payload).expect("parse");
         assert_eq!(observed.len(), 5);
-        assert!(observed.iter().all(|m| m.running));
+        assert!(observed.iter().all(|m| m.state == VmState::Running));
         assert!(observed.iter().any(|m| m.name == "organ-headscale"));
     }
 
@@ -555,7 +614,7 @@ mod tests {
             ]
         });
         let observed = parse_proxmox_cluster_resources(&payload).expect("parse");
-        assert!(observed.iter().all(|m| !m.running));
+        assert!(observed.iter().all(|m| m.state != VmState::Running));
         assert_eq!(observed.len(), 2);
     }
 
@@ -582,6 +641,72 @@ mod tests {
     fn a_payload_without_a_data_array_is_an_error_not_an_empty_fleet() {
         assert!(parse_proxmox_cluster_resources(&serde_json::json!({})).is_err());
         assert!(parse_proxmox_cluster_resources(&serde_json::json!({"data": "x"})).is_err());
+    }
+
+    /// The reason the observation carries the L0 type: `ip_addresses` is where
+    /// an observed address comes from, so an address comparison is possible at
+    /// all. Proxmox reports it as an array; a comma-separated string is accepted
+    /// because losing the address would silently drop the comparison.
+    #[test]
+    fn an_observed_address_comes_from_the_payload_in_either_shape() {
+        let array = parse_proxmox_cluster_resources(&serde_json::json!({
+            "data": [{"vmid": 100, "name": "organ-headscale", "status": "running",
+                      "ip_addresses": ["10.10.10.40"]}]
+        }))
+        .expect("parse");
+        assert_eq!(array[0].ip_addresses, vec!["10.10.10.40".to_string()]);
+
+        let csv = parse_proxmox_cluster_resources(&serde_json::json!({
+            "data": [{"vmid": 100, "name": "organ-headscale", "status": "running",
+                      "ip_addresses": "10.10.10.40,10.10.10.41"}]
+        }))
+        .expect("parse");
+        assert_eq!(
+            csv[0].ip_addresses,
+            vec!["10.10.10.40".to_string(), "10.10.10.41".to_string()]
+        );
+    }
+
+    /// An unrecognised status is `Unknown`, and Unknown is not Running, so a gap
+    /// never reads as a healthy guest.
+    #[test]
+    fn an_unrecognised_status_is_unknown_which_is_not_running() {
+        let observed = parse_proxmox_cluster_resources(&serde_json::json!({
+            "data": [{"vmid": 105, "name": "cynic-builder", "status": "weird"}]
+        }))
+        .expect("parse");
+        assert_eq!(observed[0].state, VmState::Unknown);
+        assert_ne!(observed[0].state, VmState::Running);
+    }
+
+    /// The full comparison now pairs on the observed address, which is what
+    /// makes the measured defect legible: the registry assigns 10.10.10.40 to a
+    /// node that does not exist, and the hypervisor assigns 10.10.10.40 to a
+    /// node the registry does not name.
+    #[test]
+    fn the_declared_and_observed_addresses_are_both_reported_for_one_physical_node() {
+        let mut node = declared("cynic-lxc-headscale");
+        node.address = Some("10.10.10.40".to_string());
+        let observed = parse_proxmox_cluster_resources(&serde_json::json!({
+            "data": [{"vmid": 100, "name": "organ-headscale", "status": "running",
+                      "ip_addresses": ["10.10.10.40"]}]
+        }))
+        .expect("parse");
+
+        let report = compare_membership(&[node], &observed, "proxmox:cluster-resources", 1);
+        assert_eq!(report.unregistered_members(), vec!["organ-headscale"]);
+        assert_eq!(report.orphan_declarations(), vec!["cynic-lxc-headscale"]);
+        let observed_addresses: Vec<_> = report
+            .differences
+            .iter()
+            .filter_map(|d| match d {
+                MembershipDifference::UnregisteredMember {
+                    observed_address, ..
+                } => observed_address.clone(),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(observed_addresses, vec![Some("10.10.10.40".to_string())]);
     }
 
     /// The end-to-end shape O1 exists to produce: what the fleet says, against
