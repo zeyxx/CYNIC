@@ -461,7 +461,7 @@ mod tests {
         let mut node = declared("cynic-lxc-headscale");
         node.address = Some("10.10.10.40".to_string());
         let mut seen = observed("organ-headscale", true);
-        seen.address = Some("10.10.10.40".to_string());
+        seen.ip_addresses = vec!["10.10.10.40".to_string()];
 
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
         assert_eq!(report.orphan_declarations(), vec!["cynic-lxc-headscale"]);
@@ -489,7 +489,7 @@ mod tests {
         let mut node = declared("organ-headscale");
         node.address = Some("10.10.10.40".to_string());
         let mut seen = observed("organ-headscale", true);
-        seen.address = Some("10.10.10.99".to_string());
+        seen.ip_addresses = vec!["10.10.10.99".to_string()];
 
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
         assert!(report.orphan_declarations().is_empty());
@@ -513,16 +513,16 @@ mod tests {
         let mut node = declared("cynic-lxc-headscale");
         node.address = Some("10.10.10.40".to_string());
         let mut seen = observed("organ-headscale", true);
-        seen.address = Some("10.10.10.40".to_string());
+        seen.ip_addresses = vec!["10.10.10.40".to_string()];
 
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
-        let declared_addresses: Vec<_> = report
+        let declared_addresses: Vec<Option<String>> = report
             .differences
             .iter()
             .filter_map(|d| match d {
                 MembershipDifference::OrphanDeclaration {
                     declared_address, ..
-                } => declared_address.clone(),
+                } => Some(declared_address.clone()),
                 _ => None,
             })
             .collect();
@@ -576,7 +576,7 @@ mod tests {
         let mut node = declared("cynic-builder");
         node.address = Some("10.10.10.119".to_string());
         let mut seen = observed("cynic-builder", true);
-        seen.address = Some("10.10.10.119".to_string());
+        seen.ip_addresses = vec!["10.10.10.119".to_string()];
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
         assert!(report.differences.is_empty());
         assert!(report.every_declared_node_was_observed());
