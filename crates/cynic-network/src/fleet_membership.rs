@@ -300,31 +300,63 @@ mod tests {
         );
     }
 
-    /// The naming defect the measurement found: both names exist, the address
-    /// does not agree, and neither side is wrong about its own existence.
+    /// The naming defect the measurement found, stated exactly. `cynic-lxc-headscale`
+    /// is declared and does not exist under that name anywhere; `organ-headscale`
+    /// is observed and exists only under that name; both claim 10.10.10.40. So the
+    /// report carries BOTH an orphan declaration and an unregistered member, plus a
+    /// divergence on the declared name, because the comparison is by name and the
+    /// names are what disagree. A tool that tried to pair them by address would
+    /// silently hide the defect, which is exactly what the report must not do.
     #[test]
-    fn a_node_present_on_both_sides_with_a_divergent_address_is_reported() {
+    fn a_naming_defect_is_reported_as_three_facts_not_paired_by_address() {
         let mut node = declared("cynic-lxc-headscale");
         node.address = Some("10.10.10.40".to_string());
         let mut seen = observed("organ-headscale", true);
         seen.address = Some("10.10.10.40".to_string());
 
         let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
-        assert!(report.unregistered_members().is_empty());
-        assert!(report.orphan_declarations().is_empty());
+        assert_eq!(report.orphan_declarations(), vec!["cynic-lxc-headscale"]);
+        assert_eq!(report.unregistered_members(), vec!["organ-headscale"]);
         assert_eq!(
             report.differences,
             vec![
                 MembershipDifference::AddressDivergence {
                     name: "cynic-lxc-headscale".to_string(),
                     declared: Some("10.10.10.40".to_string()),
-                    observed: Some("10.10.10.40".to_string()),
+                    observed: None,
                 },
                 MembershipDifference::UnregisteredMember {
                     name: "organ-headscale".to_string(),
                     observed_address: Some("10.10.10.40".to_string()),
                 },
+                MembershipDifference::OrphanDeclaration {
+                    name: "cynic-lxc-headscale".to_string(),
+                    declared_address: Some("10.10.10.40".to_string()),
+                    declared_state: DeclaredState::Deployed,
+                },
             ]
+        );
+    }
+
+    /// When the same NAME exists on both sides, membership agrees even when the
+    /// addresses do not, and the divergence is reported on its own.
+    #[test]
+    fn a_matching_name_with_a_divergent_address_is_only_a_divergence() {
+        let mut node = declared("organ-headscale");
+        node.address = Some("10.10.10.40".to_string());
+        let mut seen = observed("organ-headscale", true);
+        seen.address = Some("10.10.10.99".to_string());
+
+        let report = compare_membership(&[node], &[seen], "proxmox:pct-list", 1);
+        assert!(report.orphan_declarations().is_empty());
+        assert!(report.unregistered_members().is_empty());
+        assert_eq!(
+            report.differences,
+            vec![MembershipDifference::AddressDivergence {
+                name: "organ-headscale".to_string(),
+                declared: Some("10.10.10.40".to_string()),
+                observed: Some("10.10.10.99".to_string()),
+            }]
         );
     }
 
