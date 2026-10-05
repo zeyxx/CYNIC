@@ -1,7 +1,7 @@
 {
   "schema": "cynic.cynic_topology_measurement.v1",
   "status": "draft",
-  "purpose": "Measure which dimensions actually structure the CYNIC workspace, and identify where the declared model stops describing the code. Existence follows the operator's observation that policy sources diverge and the data must anchor them: a single declared model (L0 to L4) is being applied to a graph that is eight levels deep, whose family count is one family per crate, and where thirty of forty-eight crates name an external provider the constitution forbids in a domain.",
+  "purpose": "Measure which dimensions actually structure the CYNIC workspace, and identify where the declared model stops describing the code. Existence follows the operator's observation that policy sources diverge and the data must anchor them. The headline hypothesis, that five declared layers cannot describe the graph, was tested and refuted: the graph is six levels deep once the recorded debt is removed. What remains is a one-level residual from a legal same-layer chain, and a set of gates that were already red before any of this.",
   "method": {
     "measured_at": "commit a730c6c8, branch agent/hermes/network-mycelium-unification",
     "graph": "dependencies read from every crates/*/Cargo.toml, not from a declared manifest",
@@ -30,7 +30,21 @@
         "cynic-kernel(L3) -> cynic-node(L3) -> cynic-host(L1) -> cynic-intel(L2) -> cynic-inference(L2) -> cynic-workload(cross_cutting) -> cynic-consensus(L2) -> cynic-finance(L2) -> cynic-protocol(L0)"
       ],
       "ascending_edges_on_those_paths": 2,
-      "verdict": "the observed graph is eight levels deep against five declared layers. A layered model with N levels cannot describe a graph of depth 8 without either admitting undeclared edges or losing information. This is the structural reason the layer_debt gate cannot converge: the debt is not an exception list, it is the residue of a model that does not fit."
+      "verdict": "the observed graph is eight levels deep and the model declares five. The first reading was that the model does not fit. The discriminating test refutes it: deleting every ascending edge leaves the graph six levels deep, and cross_cutting accounts for none of the difference. The model describes the workspace with one level of slack, and that slack is a legal four-link same-layer chain (cynic-intel -> cynic-inference -> cynic-consensus -> cynic-finance before dropping to L0), which the policy explicitly permits as 'legal and common, especially inside L2'.",
+      "q1_discriminating_test": {
+        "question": "is the five-level model inadequate, or is the debt the only thing that breaks it?",
+        "method": "recompute the longest descending path with every ascending edge removed",
+        "depth_with_debt": 8,
+        "depth_without_debt": 6,
+        "ascending_edges_removed": 18,
+        "verdict": "the five-level model is NOT structurally inadequate. With every ascending edge removed the graph is six levels deep, and cross_cutting accounts for none of the excess. A five-level model cannot describe a six-level graph exactly, so there is a one-level residual, but it is an arithmetic edge rather than a structural failure. The debt is not what makes the graph deeper, and the layer model is not the thing that is broken.",
+        "what_would_fit_the_graph": "nothing needs to fit it better than this. Renumbering to six layers would hide the residual without removing it, since the same-layer chain would still be four long. If the intent is to bound depth, the missing statement is a rule on same-layer chain length, which no policy declares. If the intent is only to constrain order, the current model is adequate and the residual is documentation.",
+        "first_measurement_was_wrong": "the first pass returned 8 after removing the ascending edges. That computation still traversed them, so it re-derived the original number. Recomputing the depth over the graph with the 18 ascending edges actually deleted yields 6, and removing cross_cutting as well still yields 6. The correct finding is the opposite of the first one and weakens the claim considerably.",
+        "what_the_residual_is": "cynic-intel(L2) -> cynic-inference(L2) -> cynic-consensus(L2) -> cynic-finance(L2) -> cynic-protocol(L0) is a four-link same-layer chain before dropping a level. It is legal under the policy, which permits same-layer edges and calls them common. The chain length is what depth counts. So the model and the graph differ by one level because a legal same-layer chain accumulates length, not because the layering is wrong.",
+        "conclusion": "Q1 does not need a new dimension. The measurement contradicts the hypothesis it was asked to test: the five-layer model describes the workspace with one level of slack, and that slack is a legal same-layer chain. The open question is therefore not which dimension to model in, but whether a same-layer chain of four is intended."
+      },
+      "conclusion": "Q1 is answered by measurement, not by decision. The five-layer model is not wrong about order; it is incomplete about distance. What is missing is a declared rule on same-layer chaining.",
+      "structure_note": "see q1_discriminating_test for the corrected computation and the error in the first pass"
     },
     "dimension_3_family": {
       "families": 35,
@@ -71,7 +85,7 @@
   },
   "what_the_measurement_says_about_the_policies": {
     "the_policies_are_not_divergent_but_stratified": "contracts/foundation.json is the authority and declares authority_order. infra/crate-topology.json and contracts/pruning-policy.json are both status normative yet neither appears in that authority_order. AGENTS.md is a prose restatement that has drifted. The apparent three-way disagreement is a stratification problem, not a contradiction: two executable policies are unranked, so no ranked answer exists when they disagree.",
-    "the_model_does_not_fit_the_graph": "the layer model is the load-bearing abstraction of crate_topology_coherence, layer_debt_ratchet and crate_taxonomy_ownership. A five-level model over an eight-level graph means the debt those gates report is the residual of the model, which is why layer_debt declares 15 while BASELINE_EDGES holds 16 and the graph reports 19.",
+    "the_model_does_not_fit_the_graph": "the first pass concluded that the layer model does not fit the graph and that layer_debt is the residue of that mismatch. The discriminating test refutes it. With the 18 ascending edges deleted the graph is six deep, and the excess over five is a four-link same-layer chain that the policy permits. So the debt is not explained by a model failure, and the ratchet's inability to converge is a bookkeeping problem: layer_debt.edges holds 15, BASELINE_EDGES holds 16, the graph reports 19 of which 3 originate in cross_cutting and are unchecked. Those are three different numbers for one set, and no gate conciles them in both directions at once.",
     "three_gates_are_already_red_before_any_change": {
       "measured": "cargo test -p cynic-host --test layer_debt_ratchet --test authority_ladder_coherence --test divergence_audit on the builder at a730c6c8",
       "failures": [
@@ -109,13 +123,20 @@
       "id": "Q2",
       "question": "Are infra/crate-topology.json and contracts/pruning-policy.json authorities or derived policies?",
       "why": "both are status normative and neither is ranked by foundation.json. Until that is answered, no ranked answer exists when they disagree.",
-      "evidence_needed": "an operator decision, then either an authority_order entry or a status downgrade"
+      "evidence_needed": "an operator decision, then either an authority_order entry or a status downgrade",
+      "status": "answered_by_the_existing_gate",
+      "answer": "neither policy enters authority_order, and that is correct rather than an omission. crates/cynic-host/tests/authority_ladder_coherence.rs carries no_contract_ranks_itself, which asserts that infra/crate-topology.json declares no authority_order, with the reason stated in the test: 'The ladder lives in contracts/foundation.json; a document that restates it can only drift, and this one ranked itself.' A second test, no_document_ranks_itself, rejects self-rank phrases in prose and carries a shrink-only baseline of measured exceptions.",
+      "what_this_means": "crate-topology.json and pruning-policy.json are not unranked by omission, they are unranked by design. They are executable policies under the ladder, not sources of the ladder. Their disagreement with each other resolves downward to the ladder's own rank for infra/ and contracts/, which is not per-file. So the residual real defect is narrower than the stratification: no ranked answer exists for a conflict BETWEEN these two, and neither file is in the ladder to break it.",
+      "defect_to_fix": "two executable policies can disagree and nothing ranks them. The ladder ranks directories and files it names; it names neither."
     },
     {
       "id": "Q3",
       "question": "What gate should carry provider_agnostic_domain?",
       "why": "a constitutional hard boundary is asserted in prose and 30 of 48 crates name a provider, with nothing testing it.",
-      "evidence_needed": "a gate that distinguishes a substrate adapter naming its provider, which is legitimate, from a domain naming one, which is not"
+      "evidence_needed": "a gate that distinguishes a substrate adapter naming its provider, which is legitimate, from a domain naming one, which is not",
+      "status": "confirmed_by_the_operator",
+      "answer": "the operator ruled that prose enforces nothing, which matches the measurement: provider_agnostic_domain appears in contracts/foundation.json as a constitutional hard boundary and in two source files, and no gate tests it. Thirty of forty-eight crates name a provider.",
+      "what_a_gate_must_distinguish": "naming a provider in a substrate adapter is the adapter's purpose and is legitimate; naming one in a domain is the violation. The gate therefore cannot be a grep. It has to compare where the name appears against the layer and the declared purity of the crate, which means it depends on the layer model being sound, which is Q1."
     }
   ],
   "explicit_non_goals": [
