@@ -72,10 +72,11 @@ accepted **only** at the deserialization boundary. Business code reads canonical
 
 | Concern | Status | Evidence |
 |---|---|---|
-| Canonical trio as the domain vocabulary | `implemented` | `crates/cynic-network/src/plane_vocabulary.rs` (+5 resolver tests) |
+| Canonical trio as the domain vocabulary | `implemented` | `crates/cynic-network/src/plane_vocabulary.rs` (+14 resolver tests) |
 | Legacy aliases accepted at the boundary | `implemented` | serde aliases on registry DTOs; explicit compatibility test |
-| Business code free of legacy literals | `partial` | cleaned for the actuation chain; literals remain in `discovery.rs`, `network_surfaces_uc.rs`, CLI, node observation |
-| Registry files canonically renamed | `absent` | `infra/registry.json` still mixes: `network_policy.planes` uses `service/admin/mesh`, `nodes[].network` uses `synapse/management` |
+| Business code free of legacy literals | `implemented` for plane reads | nine readers migrated in T4.4; `mesh_plan` in T5. Remaining `synapse` literals are inline test fixtures, DNS zone FQDNs (`synapse.cynic`, 154 across 62 files), and two sites that already resolve `canonical_service_plane` first |
+| Registry files canonically renamed | `implemented` | all four registries migrated in T4.3; zero legacy plane keys remain |
+| Field names still carrying the legacy vocabulary | `partial` | `synapse_ip` / `management_ip` still propagate from `fleet_discovery` and `peer_resolver_mesh` into `cynic-protocol::federation_envelopes`. The read path is canonical; the struct field names are not. Renaming them is separate work |
 
 ---
 
@@ -307,8 +308,9 @@ Derived from the conformance audit. Each tranche is bounded, committed and pushe
 | T3 | Remove duplicated mesh registry models and the double JSON conversion | `done` |
 | T4.1 | Canonical plane vocabulary in code; legacy aliases confined to the boundary | `done` |
 | T4.2 | Plane accessors; no parsed-and-dropped fields; explicit service/reservation divergence error | `done` |
-| T4.3 | Rewrite `infra/registry.json` and the other registries in canonical vocabulary | `open` |
-| T5 | Reconcile `mesh_plan.rs`'s own registry model with the central resolver | `open` |
+| T4.3 | Rewrite `infra/registry.json` and the other registries in canonical vocabulary | `done` |
+| T4.4 | Migrate the nine registry readers onto the shared plane resolver | `done` |
+| T5 | Reconcile `mesh_plan.rs`'s own registry model with the central resolver | `done` |
 | T6 | Resolve the `peer_resolver_mesh.rs` DAG inversion | `open` |
 | T7 | Pure actuation contracts, then a `cynic-network-actuator` facade | `open` |
 | T8 | Decide the `finance.rs` adapter's owning crate | `open` |
