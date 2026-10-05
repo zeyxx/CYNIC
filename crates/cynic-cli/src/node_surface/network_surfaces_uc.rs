@@ -1029,15 +1029,11 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                             reg.nodes.into_iter().find(|n| {
                                 n.role.as_deref() == Some("mesh_coordinator")
                                     || n.id.as_deref() == Some("cynic-lxc-headscale")
-                            })
-                            .and_then(|node| {
-                                let ip =
-                                    cynic_network::plane_vocabulary::best_plane_address_in_map(
+                            }).and_then(|node| {
+                                let ip = cynic_network::plane_vocabulary::best_plane_address_in_map(
                                         &node.network,
                                     )?;
-                                let port = node
-                                    .services
-                                    .iter()
+                                let port = node.services.iter()
                                     .find(|s| s.name.as_deref() == Some("headscale"))
                                     .and_then(|s| s.port)
                                     .unwrap_or(8080);
