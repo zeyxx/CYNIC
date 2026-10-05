@@ -70,7 +70,10 @@ RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 # `module_inversion_rule.rs`), so `make audit` was structurally blind to the
 # findings those rules report. A gate that proves a stale source is worse than
 # no gate: it is green and wrong.
-CYNIC_SOURCE_BIN ?= $(CARGO_TARGET_DIR)/debug/cynic
+# `:=` (not `?=`): the gate subject must not silently change under an
+# environment override. `CARGO_TARGET_DIR` itself stays overridable, so
+# per-machine target dirs keep flowing through at parse time.
+CYNIC_SOURCE_BIN := $(CARGO_TARGET_DIR)/debug/cynic
 CYNIC_RUNTIME_BIN ?= /var/lib/cynic/runtime/current/bin/cynic
 
 # Graceful degradation, in one place.
