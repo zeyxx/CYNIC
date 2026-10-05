@@ -3,7 +3,7 @@
   "schema": "cynic.registry.v1.minimal",
   "purpose": "Home Fiber Sovereign Node Placement Registry for CYNIC.",
   "network_policy": {
-    "canonical_service_plane": "synapse",
+    "canonical_service_plane": "service",
     "public_ingress": {
       "ipv4": "82.65.26.228",
       "wireguard_port": 51820,
@@ -11,14 +11,14 @@
       "observed_latency_ms": 18
     },
     "planes": {
-      "management": {
+      "lan": {
         "cidr": "192.168.0.0/24",
         "canonical": false,
-        "purpose": "home lan underlay (Freebox router)"
+        "purpose": "home LAN underlay (Freebox router); reachable but not an admin plane"
       },
-      "synapse": {
+      "service": {
         "cidr": "10.10.10.0/24",
-        "dns_zone": "synapse.cynic",
+        "dns_zone": "service.cynic",
         "canonical": true
       }
     },
@@ -26,35 +26,39 @@
       {
         "name": "cynic-host-proxmox",
         "addresses": {
-          "management": "192.168.0.37",
-          "synapse": "10.10.10.1"
+          "lan": "192.168.0.37",
+          "service": "10.10.10.1"
         }
       },
       {
         "name": "cynic-host-cortex",
         "addresses": {
-          "management": "192.168.0.12",
-          "synapse": "10.10.10.2"
+          "lan": "192.168.0.12",
+          "service": "10.10.10.2"
         }
       },
       {
         "name": "forgejo",
         "addresses": {
-          "synapse": "10.10.10.101"
+          "service": "10.10.10.101"
         },
-        "dns": ["forgejo.synapse.cynic"]
+        "dns": [
+          "forgejo.service.cynic"
+        ]
       },
       {
         "name": "surrealdb",
         "addresses": {
-          "synapse": "10.10.10.10"
+          "service": "10.10.10.10"
         },
-        "dns": ["db.synapse.cynic"]
+        "dns": [
+          "db.service.cynic"
+        ]
       },
       {
         "name": "nomad-operator-laptop",
         "addresses": {
-          "synapse": "10.10.10.50"
+          "service": "10.10.10.50"
         }
       }
     ]
@@ -63,29 +67,41 @@
     {
       "id": "cynic-host-proxmox",
       "name": "cynic-host-proxmox",
-      "aliases": ["pve"],
+      "aliases": [
+        "pve"
+      ],
       "role": "hypervisor",
       "status": "active",
       "deploy_target": true,
       "network": {
-        "management": "192.168.0.37",
-        "synapse": "10.10.10.1",
+        "lan": "192.168.0.37",
+        "service": "10.10.10.1",
         "public_ingress": "82.65.26.228:51820"
       },
-      "services": ["forgejo", "surrealdb", "llama-server"]
+      "services": [
+        "forgejo",
+        "surrealdb",
+        "llama-server"
+      ]
     },
     {
       "id": "cynic-host-cortex",
       "name": "cynic-host-cortex",
-      "aliases": ["cortex-pc", "workstation"],
+      "aliases": [
+        "cortex-pc",
+        "workstation"
+      ],
       "role": "cortex_host",
       "status": "active",
       "deploy_target": false,
       "network": {
-        "management": "192.168.0.12",
-        "synapse": "10.10.10.2"
+        "lan": "192.168.0.12",
+        "service": "10.10.10.2"
       },
-      "services": ["llama-gpu", "observer"]
+      "services": [
+        "llama-gpu",
+        "observer"
+      ]
     }
   ]
 }
