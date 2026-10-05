@@ -64,34 +64,14 @@
       "scope": "network_boundary_audit.json, registry_reconciliation.json, registry_authority.json, observability-facts.json, infrastructure-discovery.json"
     }
   ],
-  "sequencing_rationale": "Four measured dependencies decide the order. First O9: the mesh model is owned by cynic-core and re-exported by cynic-network, so the declared owner of the domain does not own its central model, and every later item works on that model. Second INF9: a detector with no invocation site is a document, so every enforcement claim in both contracts is currently prose, and making one detector real is worth more than adding a tenth normative rule. Third INF7 then INF8: network actuation performs no read-back and the domain has no expected-state type, so a mutation can leave a partial state nothing detects and drift cannot be computed where it is owned; both are the network breaching the coherence pattern in AGENTS.md, which requires read-back proof. Fourth the DAG inversion is large but inert: 86 files invert it and none prevents a build, so it is repaired after the correctness defects. What is deliberately not sequenced is T9 through T12: they are new capability with no executor, and building them before the system can observe itself would produce more surface that cannot be verified.",
+  "sequencing_rationale": "Three measured dependencies decide the order. First O1: a detector with no invocation site is a document, so every enforcement claim in both observability contracts is currently prose, and making one detector real is worth more than adding a tenth normative rule. Second INF7 then INF8: network actuation performs no read-back and the domain has no expected-state type, so a mutation can leave a partial state nothing detects and drift cannot be computed where it is owned; both are the network breaching the coherence pattern in AGENTS.md, which requires read-back proof. Third the DAG inversion is large but inert: it is a set of tolerated edges already recorded as debt and almost fully paid, so it is repaired after the correctness defects. The workspace-wide findings P1 to P4 do not block this path. T9 through T12 stay unscheduled: they are new capability with no executor, and building them before the system can observe itself would produce more surface that cannot be verified.",
   "critical_path": [
-    "O9",
     "O1",
     "O3",
     "O2"
   ],
-  "critical_path_rationale": "O9 first: the mesh model is not owned by cynic-network. cynic-core/src/fleet_mesh.rs, 234 of cynic-core's 246 lines, defines nine structs and the FleetMeshPort trait that cynic-network/src/types.rs:126 re-exports, with the comment 're-exports them for backward compatibility'. The declared owner of the network domain therefore does not own its central model. Every later item works on that model, so building the expected state (O3) against a borrowed one would bake the wrong boundary in. Then O1 makes INF1 real, O3 gives the domain an expected state, and O2 gives actuation something to prove against.",
+  "critical_path_rationale": "O1 first: it is the only item that makes a normative rule enforceable, and it would immediately surface organ-headscale, a mesh coordinator running at 10.10.10.40 under a name that resolves nowhere. O3 gives the domain an expected state. O2 then has something to prove a mutation against. The O9 item that preceded this was refuted by measurement and is gone. None of the four workspace-wide findings P1 to P4 blocks this path: P1 and P2 are documentation with executable detectors, P3 is bookkeeping on a set that is already paid, and P4 is an additive gate.",
   "open_work": [
-    {
-      "id": "O9",
-      "title": "Return mesh model ownership to cynic-network",
-      "why_first": "cynic-core/src/fleet_mesh.rs holds 234 of cynic-core's 246 lines and defines nine structs plus the FleetMeshPort trait. cynic-network/src/types.rs:126 re-exports them, annotated 're-exports them for backward compatibility'. cynic-network also implements the trait through adapters/headscale.rs:124. The crate that owns the network domain does not own its central model, and cynic-core has no other content and no other consumer: the only crate whose manifest declares cynic-core is cynic-network itself.",
-      "contract": "observability-facts.json N6, RFC-NET-001 §7",
-      "scope": "move the nine structs and FleetMeshPort into cynic-network; turn cynic-core::fleet_mesh into a re-export if backward compatibility is required, or delete it if not. Then remove the cynic-core dependency from cynic-network. Update cynic-core/tests/architecture_boundary.rs:119, which asserts the trait textually.",
-      "measured_impact": {
-        "consumers_via_cynic_network": "31 references across 6 files",
-        "files": "cynic-network/types.rs, cynic-network/mesh_plan.rs, cynic-network/watchdog_alerter.rs, cynic-node/network_mesh_plan.rs, cynic-node/network_mesh_bundle.rs, cynic-node/usecases/network_watchdog_uc.rs, cynic-host/fleet_network_observer.rs",
-        "direct_cynic_core_users": "cynic-network/types.rs:126 and cynic-network/adapters/headscale.rs:9 are the only two",
-        "note": "because every consumer already goes through cynic-network, the move is a re-pointing inside one crate plus the re-export inversion, not a 31-site migration",
-        "cynic_core_dependents": "cynic-network only; the other Cargo.toml hit is cynic-core's own crate name in its manifest header"
-      },
-      "depends_on": null,
-      "risk": "low to moderate. The mechanical part is contained; the real question is whether cynic-core survives, which is a governance call rather than a code one.",
-      "concurrent": false,
-      "guard_gap": "crates/cynic-host/tests/crate_taxonomy_ownership.rs enforces one_responsibility_one_crate by grouping crates on their manifest description. cynic-core and cynic-network carry different descriptions, so the contested mesh model passes the gate: the test compares DECLARED responsibility, not EFFECTIVE ownership. Either the test learns to detect a contested re-export, or O9 needs its own regression asserting that cynic-network defines rather than re-exports the mesh model.",
-      "guard_recommended": "a test asserting cynic-network/src/types.rs defines NetworkMeshPlan rather than pub use-ing it from another crate. That is the shape that actually prevents the inversion from returning."
-    },
     {
       "id": "O1",
       "title": "Make INF1 real: wire cynic-node registry-observation to the hypervisor",
@@ -130,21 +110,19 @@
     },
     {
       "id": "O5",
-      "title": "Repair the 86-file DAG inversion",
-      "why": "cynic-host is L1 and depends on six higher crates across 82 files; cynic-lifecycle 3; cynic-discovery-host 1. RFC-NET-001 §7 previously named a single file, which measurement corrected.",
+      "title": "Pay down the tolerated ascending edges",
+      "why": "layer_debt records 15 ascending edges as tolerated debt, and 14 of the 15 are genuinely imported, so the debt is real. My earlier figure of '86 files' counted call sites of edges that were already declared, which is a different measure and overstates the defect by an order of magnitude. cynic-host is the bulk at 82 files across six higher crates, then cynic-lifecycle 3 and cynic-discovery-host 1.",
       "contract": "network_boundary_audit.json F-DAG, AGENTS.md strict DAG",
-      "scope": "dependency inversion per target crate, starting with cynic-node-protocol because peer_resolver_mesh and local_autonomy_runtime sit on it",
-      "depends_on": null,
-      "risk": "large; must be sliced per target crate, never as one tranche. cynic-discovery-host re-exports from the cynic-host monolith, which is both this violation and an N6 single-owner violation.",
-      "concurrent": true
-    },
-    {
-      "id": "O6",
-      "title": "Resolve contested responsibility and ratchet debt, not line count",
-      "why": "The measurable faults are responsibility ones. Two crates own WireGuard read-back: cynic-host/wireguard_readback.rs parses dump, cynic-node/watchdog/peer_handshake.rs parses latest-handshakes. cynic-core and cynic-network both claim the mesh model. Three crates declare a DNS zone constant. cynic-discovery-host re-exports discovery from the cynic-host monolith instead of owning it. Size is where to look, not what is wrong: cynic-node's 55492 network LOC are 8898 projection, 3634 orchestration and 3929 I/O, and only two imperative I/O sites actually violate the shell boundary.",
-      "contract": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate; infra/network_boundary_audit.json F-RATCHET",
-      "scope": "resolve each contested responsibility to a single owner, repointing the loser. Size is then a consequence. Do not split a crate to satisfy a line count.",
-      "depends_on": "operator decision on cynic-core, which is O11"
+      "scope": "pay the recorded edges: for each, extract the shared contract into a layer at or below L1 or move the dependent code down, then remove the edge from layer_debt.edges and from BASELINE_EDGES. P3 reconciles the three counts first.",
+      "depends_on": "P3",
+      "risk": "large; one target crate at a time, never a single commit",
+      "concurrent": true,
+      "measured_impact": {
+        "ascending_edges_declared": 15,
+        "genuinely_imported": 14,
+        "call_sites_in_cynic_host": 82,
+        "empty_manifests_in_the_debt": 1
+      }
     },
     {
       "id": "O7",
@@ -163,14 +141,6 @@
       "concurrent": true
     },
     {
-      "id": "O8",
-      "title": "Reconcile the two remaining naming defects",
-      "why": "cynic-lxc-headscale does not resolve and is absent from the runtime registry, while its address belongs to organ-headscale, which runs headscale on port 8080 under a name appearing in no registry and no hosts file. cynic-node/src/usecases/network_surfaces_uc.rs:564 looks the coordinator up under the wrong name, so its default endpoint cannot reach a live process. local-builder declares no address while 10.10.10.119 is the running builder.",
-      "contract": "infrastructure-discovery.json INF2",
-      "scope": "rename the declaration to organ-headscale, remove local-builder, correct the lookup; add organ-forgejo and cynic-agent-host which run but are declared nowhere",
-      "depends_on": "O1, so the detector catches the correction if it is wrong"
-    },
-    {
       "id": "O10",
       "title": "Remove the third DEFAULT_DNS_ZONE",
       "why": "crates/cynic-inference/src/application/chat_endpoint.rs:56 declares its own, value synapse.cynic. Two other crates carry the same stale value. The canonical value is Plane::Service.dns_zone() in cynic-protocol and nobody imports it.",
@@ -181,15 +151,6 @@
       "concurrent": true
     },
     {
-      "id": "O11",
-      "title": "Reconcile cynic-core after the mesh model moves",
-      "why": "once the mesh model leaves, cynic-core holds 12 lines of lib.rs and nothing else. It has no other consumer.",
-      "contract": "network_boundary_audit.json F-RATCHET",
-      "scope": "either delete the crate or repurpose it. Deleting requires a workspace manifest change, which AGENTS.md puts behind operator ask.",
-      "depends_on": "O9",
-      "risk": "governance rather than code"
-    },
-    {
       "id": "O12",
       "title": "Make the taxonomy gate detect contested effective ownership",
       "why": "crate_taxonomy_ownership.rs groups crates by their manifest description, so a crate that re-exports another crate's central model under a different responsibility passes. The mesh model contested between cynic-core and cynic-network is the live instance. contracts/pruning-policy.json one_responsibility_one_crate says two crates that re-export the same surface under a second name are CONTESTED and the canonical owner wins; the gate does not implement that clause.",
@@ -198,6 +159,75 @@
       "depends_on": null,
       "risk": "low, a test change; it may surface existing contests beyond the network",
       "concurrent": true
+    },
+    {
+      "id": "P1",
+      "title": "Stop the mesh model churn: one line, and record why the split exists",
+      "why": "I claimed the mesh model was owned by the wrong crate and put it first on the critical path. That was wrong. crates/cynic-core/tests/architecture_boundary.rs:112 carries mesh_types_are_declared_in_core_not_reexported_from_an_adapter, which requires exactly what I proposed to undo, and cynic-core/src/fleet_mesh.rs:7 states the same in prose. The mesh model lives in a pure crate with no I/O and cynic-network re-exports it while keeping its own I/O in adapters/. That is the pure/impure boundary expressed in Rust, not an ownership inversion. The only real defect is that cynic-network/src/types.rs:126 says 'for backward compatibility', which is not the reason and will mislead the next reader exactly as it misled me.",
+      "contract": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate",
+      "scope": "correct the comment to state the real reason, which is that the model is pure and cynic-network carries the I/O. Do not move the types.",
+      "depends_on": null,
+      "risk": "one comment line",
+      "concurrent": true
+    },
+    {
+      "id": "O6",
+      "title": "Resolve contested responsibility and ratchet debt, not line count",
+      "why": "The measurable faults are responsibility ones. Two crates own WireGuard read-back: cynic-host/wireguard_readback.rs parses dump, cynic-node/watchdog/peer_handshake.rs parses latest-handshakes. Three crates declare a DNS zone constant. cynic-discovery-host re-exports discovery from the cynic-host monolith instead of owning it. Size is where to look, not what is wrong: cynic-node's network LOC are 8898 projection, 3634 orchestration and 3929 I/O, and only two imperative I/O sites actually violate the shell boundary. Measured across the workspace: 152 declared dependencies, 124 imported, 28 never imported.",
+      "contract": "contracts/pruning-policy.json responsibility_rules.one_responsibility_one_crate; infra/network_boundary_audit.json F-RATCHET",
+      "scope": "resolve each contested responsibility to a single owner, repointing the loser. Size is then a consequence. Do not split a crate to satisfy a line count.",
+      "depends_on": "operator decision on cynic-core, which is O11"
+    },
+    {
+      "id": "O8",
+      "title": "Reconcile the two remaining naming defects",
+      "why": "cynic-lxc-headscale does not resolve and is absent from the runtime registry, while its address belongs to organ-headscale, which runs headscale on port 8080 under a name appearing in no registry and no hosts file. cynic-node/src/usecases/network_surfaces_uc.rs:564 looks the coordinator up under the wrong name, so its default endpoint cannot reach a live process. local-builder declares no address while 10.10.10.119 is the running builder.",
+      "contract": "infrastructure-discovery.json INF2",
+      "scope": "rename the declaration to organ-headscale, remove local-builder, correct the lookup; add organ-forgejo and cynic-agent-host which run but are declared nowhere",
+      "depends_on": "O1, so the detector catches the correction if it is wrong"
+    },
+    {
+      "id": "O11",
+      "title": "Leave cynic-core as the pure domain layer",
+      "why": "cynic-core holds the mesh model and a pure port trait, with no I/O, and cynic-core/tests/architecture_boundary.rs enforces that separation in both directions. Deleting it would move a pure domain model into the crate that carries I/O, which is the wrong direction.",
+      "contract": "network_boundary_audit.json F-RATCHET",
+      "scope": "none required; recorded so the crate is not treated as an orphan",
+      "depends_on": null,
+      "risk": "none; recorded because I proposed deleting it and was wrong"
+    },
+    {
+      "id": "P2",
+      "title": "Align AGENTS.md with the eight-entry authority ladder",
+      "why": "authority_ladder_coherence is red before any change of mine: the contract holds eight entries and AGENTS.md seven, omitting infra/directory-tree.json, which the gate's own doc calls one of the two files the ladder exists to separate. This is a documentation drift with an executable detector.",
+      "contract": "contracts/foundation.json constitutional.authority_order",
+      "scope": "restore the missing entry in AGENTS.md so the gate passes",
+      "depends_on": null,
+      "risk": "one prose list",
+      "concurrent": true,
+      "blocks_network_work": false
+    },
+    {
+      "id": "P3",
+      "title": "Reconcile the three counts for one dependency set",
+      "why": "layer_debt_ratchet is red in both directions. layer_debt.edges holds 15, BASELINE_EDGES holds 16, and the observed graph reports 19 ascending edges of which 3 originate in cross_cutting and are not checked, leaving 16 against 15. Separately the gate reports that some recorded edges are no longer ascending, so the ratchet can stop debt growing but cannot observe it shrinking.",
+      "contract": "infra/crate-topology.json layer_debt; crates/cynic-host/tests/layer_debt_ratchet.rs",
+      "scope": "bring the three numbers to the same set in both directions: add the undeclared ascending edge, remove the edges that are no longer ascending, and confirm cross_cutting edges are excluded by rule rather than by coincidence",
+      "depends_on": null,
+      "risk": "data change in a declared field; the ratchet forbids growth",
+      "concurrent": true,
+      "blocks_network_work": false,
+      "note": "measured: 14 of the 15 recorded ascending edges are genuinely imported, so the debt is real and almost fully paid. Only cynic-lifecycle to cynic-storage is an empty manifest."
+    },
+    {
+      "id": "P4",
+      "title": "Fail a declared dependency that no import reaches",
+      "why": "28 of the 152 declared dependencies are never imported. cynic-kernel declares seven including cynic-node, cynic-build, cynic-storage, cynic-workload and cynic-intel, ships a src/main.rs, and imports none. cynic-cli declares five and imports none. 27 of the 28 are descending or same-layer, so they inflate apparent coupling without ever reaching the debt ledger. No gate tests this.",
+      "contract": "new; belongs to the family that already exists in divergence_audit.rs and orphan_sources_ratchet.rs",
+      "scope": "a gate that reports a declared dependency with no import in src/ or tests/",
+      "depends_on": null,
+      "risk": "low, additive; may surface build-time or feature-gated cases that need an exception list",
+      "concurrent": true,
+      "blocks_network_work": false
     }
   ],
   "deferred": [
@@ -272,5 +302,32 @@
         "why": "a gate gap, independent of the network work, and it protects O9 from regressing"
       }
     ]
+  },
+  "red_gates_not_blocking_network_work": {
+    "measured": "cargo test -p cynic-host --test layer_debt_ratchet --test authority_ladder_coherence --test divergence_audit at a730c6c8, before any of this session's later commits",
+    "status": "all three were already red; none is caused by the network tranches",
+    "mapping": [
+      {
+        "gate": "authority_ladder_coherence",
+        "item": "P2",
+        "relation": "documentation drift with an executable detector"
+      },
+      {
+        "gate": "layer_debt_ratchet",
+        "item": "P3",
+        "relation": "bookkeeping: three counts for one dependency set"
+      },
+      {
+        "gate": "divergence_audit",
+        "item": null,
+        "relation": "402 LOC unreachable from a compilation root; left to the owner of that domain"
+      },
+      {
+        "gate": "provider_agnostic_domain",
+        "item": null,
+        "relation": "asserted in prose, never gated; recorded as Q3 in infra/cynic_topology_measurement.json"
+      }
+    ],
+    "conclusion": "no gate that is red blocks the network critical path. Two of them are repaired by one-prose-or-data edits, one belongs to another domain, and the fourth has no detector yet."
   }
 }
