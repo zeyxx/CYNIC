@@ -7,6 +7,8 @@
 
 pub mod finance;
 pub mod headscale;
+pub mod host_probe;
 
 pub use finance::NetworkFinanceMeter;
 pub use headscale::{HeadscaleClient, HeadscaleConfig};
+pub use host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};

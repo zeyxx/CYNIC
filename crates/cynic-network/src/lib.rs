@@ -24,6 +24,7 @@ pub mod watchdog_alerter;
 // Re-export adapters for direct and legacy access
 pub use adapters::finance::NetworkFinanceMeter;
 pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
+pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
 
 // Backward compatibility module aliases
 pub use adapters::finance as finance_adapters;
