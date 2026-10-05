@@ -258,8 +258,24 @@ fn uncited_infra_documents() -> Vec<String> {
 // Recorded state. Every count may only fall. Measured 2026-09-29.
 const BASELINE_MISSING_TARGETS: usize = 3;
 const BASELINE_TOOLCHAIN: usize = 3;
-const BASELINE_UNCOMPILED_LOC: usize = 557;
 const BASELINE_UNCITED_DOCS: usize = 63;
+
+// Uncompiled source, workspace-wide.
+//
+// WHY THIS IS NOT A PLAIN CONSTANT. The three counts above are ceilings and
+// `assert!(n <= BASELINE)` is correct for them: the divergence cannot be
+// enumerated by name, so a total is the only thing that can be bounded. An
+// uncompiled source CAN be enumerated — the shared detector returns the exact
+// file list, and every consuming crate already asserts its own list in both
+// directions. A frozen `assert_eq!` on that total was therefore asserting that
+// nobody had paid any debt, and it failed the moment 155 LOC were removed by
+// deleting cynic-observer (observed 402 against a frozen 557).
+//
+// A ratchet that fails when the debt shrinks punishes the agent who pays it,
+// which stops the debt from ever being paid. This bound is directional: the
+// number may fall and the constant follows it down, and rising above it is
+// still a failure.
+const BASELINE_UNCOMPILED_LOC: usize = 402;
 
 #[test]
 fn no_contract_cites_a_build_target_that_does_not_exist() {
@@ -290,12 +306,26 @@ fn no_source_is_sitting_on_disk_uncompiled() {
     // uncompiled file is invisible to every compiler, warning and test, and this
     // is the only instrument in the workspace that can see it across all crates
     // at once.
+    //
+    // Directional, not equality. The exact file list is asserted per crate by
+    // that crate's own `orphan_sources_ratchet.rs`, which also fails when a
+    // quarantined file is repaired and left on the list. This test exists to
+    // TOTAL them, and a total must be allowed to fall. Refreshing the constant
+    // when the debt is paid is part of paying it, not an admission that the
+    // number drifted.
     let uncompiled = uncompiled_workspace_loc();
+    assert!(
+        uncompiled <= BASELINE_UNCOMPILED_LOC,
+        "uncompiled LOC grew from {BASELINE_UNCOMPILED_LOC} to {uncompiled}: \
+         source is on disk that no compilation root reaches, so it is invisible to \
+         every compiler, warning and test. Declare it, delete it, or add it to the \
+         owning crate's quarantine list with the reason."
+    );
     assert_eq!(
         uncompiled, BASELINE_UNCOMPILED_LOC,
-        "{uncompiled} LOC on disk are unreachable from a compilation root, \
-         workspace-wide. The five per-crate gates each see only their own crate; \
-         this is the one that totals them."
+        "the uncompiled total moved to {uncompiled} but the constant is still \
+         {BASELINE_UNCOMPILED_LOC}. Refresh it in the same commit that changed the \
+         debt — that is the ratchet, and a stale constant is a silent regression."
     );
 }
 
