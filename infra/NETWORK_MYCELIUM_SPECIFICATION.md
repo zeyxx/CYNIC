@@ -264,6 +264,17 @@ recorded here so they cannot be mistaken for existing capabilities:
 - `types.rs` exposing a canonical `Plane`. **absent** — the plane type lives in
   `cynic-protocol::plane`, and `cynic-network` resolves it through `plane_vocabulary.rs`.
 
+### The mesh model is owned elsewhere
+
+`cynic-network` is not the owner of its central model. `cynic-core/src/fleet_mesh.rs` holds
+234 of `cynic-core`'s 246 lines and defines nine structs plus the `FleetMeshPort` trait;
+`cynic-network/src/types.rs:126` re-exports them, annotated "re-exports them for backward
+compatibility", and `cynic-network/src/adapters/headscale.rs:124` implements the trait. Every
+consumer already reaches the model through `cynic-network`, so the boundary *appears* correct
+while ownership sits in a 246-line crate that exists only to hold it. This contradicts §7's own
+statement that `cynic-network` owns the network domain, and it is an N6 single-owner violation.
+Tranche O9 returns ownership; see `infra/network_execution_plan.json`.
+
 ### Internal inconsistency
 
 `src/freebox.rs` declares itself a Ports-and-Adapters / hexagonal domain model. §1.2 of this RFC
