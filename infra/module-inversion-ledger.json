@@ -11,15 +11,15 @@
   "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "identities": 57,
-    "edges": 132,
+    "identities": 42,
+    "edges": 117,
     "by_crate": {
       "cynic-agent-bus": 1,
       "cynic-host": 13,
       "cynic-inference": 7,
       "cynic-intel": 2,
       "cynic-intel-soc": 3,
-      "cynic-node": 28,
+      "cynic-node": 13,
       "cynic-release": 1,
       "cynic-storage": 2
     }
@@ -191,34 +191,9 @@
       "evidence": "crates/cynic-node/src/usecases/observe_node_uc.rs:9"
     },
     {
-      "identity": "cynic-node|usecases -> cli",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:9"
-    },
-    {
       "identity": "cynic-node|usecases -> config",
       "count": 2,
       "evidence": "crates/cynic-node/src/usecases/node_enrollment_lifecycle_uc.rs:7"
-    },
-    {
-      "identity": "cynic-node|usecases -> dns_activation_status",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:10"
-    },
-    {
-      "identity": "cynic-node|usecases -> dns_bundle",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:11"
-    },
-    {
-      "identity": "cynic-node|usecases -> dns_plan",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:12"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_activation_chain",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:14"
     },
     {
       "identity": "cynic-node|usecases -> network_actuator",
@@ -236,59 +211,9 @@
       "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:21"
     },
     {
-      "identity": "cynic-node|usecases -> network_evidence",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:17"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_mesh_apply_plan",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:18"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_mesh_bundle",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:19"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_mesh_plan",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:20"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_repair",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:21"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_root_policy",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:22"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_runtime_status",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:23"
-    },
-    {
-      "identity": "cynic-node|usecases -> network_shadow_proof",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:24"
-    },
-    {
       "identity": "cynic-node|usecases -> observe",
       "count": 3,
       "evidence": "crates/cynic-node/src/usecases/node_network_recovery_uc.rs:22"
-    },
-    {
-      "identity": "cynic-node|usecases -> provider_fallback_hosts",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:30"
-    },
-    {
-      "identity": "cynic-node|usecases -> provider_fallback_status",
-      "count": 1,
-      "evidence": "crates/cynic-node/src/usecases/network_surfaces_uc.rs:31"
     },
     {
       "identity": "cynic-node|usecases -> watchdog",

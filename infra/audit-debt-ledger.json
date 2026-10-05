@@ -19,13 +19,13 @@
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate.",
-    "total": 220,
+    "total": 218,
     "critical": 23,
-    "debt": 195,
+    "debt": 193,
     "warning": 2,
-    "identities": 220,
+    "identities": 218,
     "by_rule": {
-      "ARCH-001": 195,
+      "ARCH-001": 193,
       "ARCH-004": 15,
       "PATH-002": 3,
       "RUN-001": 5,
@@ -165,7 +165,6 @@
       "rule": "ARCH-001",
       "severity": "debt"
     },
-
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/runtime_paths.rs",
       "count": 1,
@@ -869,12 +868,6 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/cli.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/dns_contract.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -954,12 +947,6 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/federation_membership_uc.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/network_surfaces_uc.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"

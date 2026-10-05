@@ -94,6 +94,7 @@
       "depends_on": [
         "cynic-askesis",
         "cynic-build",
+        "cynic-consensus",
         "cynic-discovery",
         "cynic-discovery-host",
         "cynic-domain-cloudflare",
@@ -123,10 +124,11 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 31443
+      "loc": 32976
     },
     "cynic-consensus": {
       "consumers": [
+        "cynic-cli",
         "cynic-node",
         "cynic-storage",
         "cynic-workload"
@@ -321,7 +323,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 91864
+      "loc": 92236
     },
     "cynic-host-probes": {
       "consumers": [],
@@ -571,7 +573,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 56882
+      "loc": 54776
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -656,7 +658,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 34389
+      "loc": 34401
     },
     "cynic-release": {
       "consumers": [
@@ -1075,7 +1077,6 @@
       "cynic-intel-soc",
       "cynic-market",
       "cynic-node-protocol",
-      "cynic-observer",
       "cynic-pool",
       "cynic-solana-pay",
       "cynic-storage",
@@ -1102,9 +1103,9 @@
     "crates": 48,
     "dev_edges": 1,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 335923,
+    "loc_total": 335734,
     "pending_disposition": 8,
-    "runtime_edges": 152,
+    "runtime_edges": 153,
     "unjustified": 8,
     "upward_edges": 15
   },
