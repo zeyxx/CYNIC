@@ -81,6 +81,27 @@
       },
       "gate": "none. The rule appears in contracts/foundation.json and in two source files, and no architecture gate tests it.",
       "verdict": "a constitutional hard boundary is asserted in prose and unenforced, across the majority of the workspace. Naming a provider is not necessarily a violation: a substrate adapter legitimately names one. The absence of the gate is the finding, not the count."
+    },
+    "dimension_5_declared_versus_imported_dependency": {
+      "question": "how many declared dependencies does the code actually import?",
+      "method": "for each depends_on entry in infra/crate-topology.json, search every .rs file under the crate's src/ and tests/ for the dependency identifier",
+      "declared_total": 152,
+      "imported": 124,
+      "never_imported": 28,
+      "of_the_28_never_imported": {
+        "ascending_edges_visible_to_ARCH_004": 1,
+        "the_one_ascending_edge": "cynic-lifecycle (L1) -> cynic-storage (L2), declared as debt and imported nowhere, in src/ or tests/",
+        "descending_or_same_layer_invisible_to_the_debt_ledger": 27,
+        "most_notable": [
+          "cynic-kernel declares seven dependencies including cynic-node, cynic-build, cynic-storage, cynic-workload and cynic-intel, has a src/main.rs, and imports none of them",
+          "cynic-cli declares cynic-askesis, cynic-discovery, cynic-intel, cynic-intel-futarchy and cynic-intel-soc and imports none",
+          "cynic-finance declares cynic-protocol and imports none",
+          "cynic-host declares cynic-forensics, cynic-sandbox and cynic-workload and imports none"
+        ]
+      },
+      "verdict": "the hypothesis that the layer debt is largely phantom is refuted. Fourteen of the fifteen recorded ascending edges are genuinely imported. One, cynic-lifecycle to cynic-storage, is an empty manifest. The other 27 empty manifests are descending or same-layer, so they inflate the crate's apparent coupling without ever appearing in the debt ledger. The fault is therefore real and almost entirely paid for; what is missing is not a correction of the debt but a rule that an unimported dependency is itself a defect.",
+      "what_it_changes_about_the_chain": "the four-link same-layer chain cynic-intel -> cynic-inference -> cynic-consensus -> cynic-finance is three real imports and one empty manifest. Each real link goes through a port trait: cynic_inference::ChatPort, cynic_finance::ports::ContextMeter and cynic_finance::ports::TokenMeter. So the chain is dependency inversion working correctly, and its length is a property of the inversion rather than a layering fault.",
+      "gate_gap": "no gate tests it. crates/cynic-host/tests/divergence_audit.rs already totals LOC unreachable from a compilation root, which is the same class of check in the opposite direction: that one finds code no compilation root reaches, and this one would find dependencies no import reaches. orphan_sources_ratchet.rs is a third member of that family."
     }
   },
   "what_the_measurement_says_about_the_policies": {
