@@ -577,13 +577,14 @@ mod tests {
         );
         assert_eq!(
             report.orphan_declarations(),
+            // Order follows the declared inventory, for the same reason.
             vec![
-                "cynic-host-cortex",
                 "cynic-host-proxmox",
-                "cynic-lxc-headscale",
-                "local-builder",
+                "cynic-host-cortex",
                 "local-kernel",
+                "local-builder",
                 "forgejo",
+                "cynic-lxc-headscale",
             ]
         );
         assert!(!report.every_declared_node_was_observed());
