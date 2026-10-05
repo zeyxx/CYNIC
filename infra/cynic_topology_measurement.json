@@ -1,0 +1,136 @@
+{
+  "schema": "cynic.cynic_topology_measurement.v1",
+  "status": "draft",
+  "purpose": "Measure which dimensions actually structure the CYNIC workspace, and identify where the declared model stops describing the code. Existence follows the operator's observation that policy sources diverge and the data must anchor them: a single declared model (L0 to L4) is being applied to a graph that is eight levels deep, whose family count is one family per crate, and where thirty of forty-eight crates name an external provider the constitution forbids in a domain.",
+  "method": {
+    "measured_at": "commit a730c6c8, branch agent/hermes/network-mycelium-unification",
+    "graph": "dependencies read from every crates/*/Cargo.toml, not from a declared manifest",
+    "layer_assignment": "infra/crate-topology.json, which declares itself owner of the DAG and layer assignment",
+    "depth": "longest descending path in the observed graph",
+    "not_verified": "the graph measures declared dependencies. A dependency used by one module does not describe the whole crate, and no measurement here proves how a crate is used."
+  },
+  "the_observed_topology": {
+    "dimension_1_declared_layers": {
+      "count": 6,
+      "distribution": {
+        "L2": 28,
+        "L4": 2,
+        "L0": 4,
+        "L1": 10,
+        "L3": 2,
+        "cross_cutting": 2
+      },
+      "verdict": "5 named layers plus cross_cutting. L2 absorbs 28 of 48 crates, so the layer is a coarse bucket rather than a separation."
+    },
+    "dimension_2_dependency_depth": {
+      "declared_layers": 5,
+      "observed_longest_descending_path": 8,
+      "worst_paths": [
+        "cynic-cli(L4) -> cynic-discovery-host(L1) -> cynic-host(L1) -> cynic-intel(L2) -> cynic-inference(L2) -> cynic-workload(cross_cutting) -> cynic-consensus(L2) -> cynic-finance(L2) -> cynic-protocol(L0)",
+        "cynic-kernel(L3) -> cynic-node(L3) -> cynic-host(L1) -> cynic-intel(L2) -> cynic-inference(L2) -> cynic-workload(cross_cutting) -> cynic-consensus(L2) -> cynic-finance(L2) -> cynic-protocol(L0)"
+      ],
+      "ascending_edges_on_those_paths": 2,
+      "verdict": "the observed graph is eight levels deep against five declared layers. A layered model with N levels cannot describe a graph of depth 8 without either admitting undeclared edges or losing information. This is the structural reason the layer_debt gate cannot converge: the debt is not an exception list, it is the residue of a model that does not fit."
+    },
+    "dimension_3_family": {
+      "families": 35,
+      "crates": 48,
+      "verdict": "35 families for 48 crates is close to one crate per family. A dimension that names almost everything separately does not structure the workspace; it restates it. CANONICAL_CRATE_MAP R7 already says a crate name states ONE responsibility and that the family prefix is not normative, which this distribution confirms.",
+      "crossed_with_layers": {
+        "L0": "core, identity, protocol, types",
+        "L1": "discovery, forensics, host, lifecycle, lxc, network, pkg, release, sandbox",
+        "L2": "18 families for 28 crates",
+        "L3": "kernel, node",
+        "L4": "cli, mcp",
+        "cross_cutting": "secrets, workload"
+      }
+    },
+    "dimension_4_external_provider": {
+      "constitutional_rule": "foundation.json hard_boundaries.provider_agnostic_domain: domain logic must not depend on a specific LLM, browser, host, hypervisor or cloud provider",
+      "crates_naming_a_provider_in_their_domain": 30,
+      "of_total": 48,
+      "top_providers": {
+        "proxmox": 11,
+        "forgejo": 10,
+        "solana": 9,
+        "wireguard": 7,
+        "llama": 7,
+        "openai": 7,
+        "headscale": 6,
+        "cloudflare": 6,
+        "porkbun": 5,
+        "tailscale": 5,
+        "coredns": 4,
+        "dnsmasq": 4,
+        "vllm": 3,
+        "anthropic": 2
+      },
+      "gate": "none. The rule appears in contracts/foundation.json and in two source files, and no architecture gate tests it.",
+      "verdict": "a constitutional hard boundary is asserted in prose and unenforced, across the majority of the workspace. Naming a provider is not necessarily a violation: a substrate adapter legitimately names one. The absence of the gate is the finding, not the count."
+    }
+  },
+  "what_the_measurement_says_about_the_policies": {
+    "the_policies_are_not_divergent_but_stratified": "contracts/foundation.json is the authority and declares authority_order. infra/crate-topology.json and contracts/pruning-policy.json are both status normative yet neither appears in that authority_order. AGENTS.md is a prose restatement that has drifted. The apparent three-way disagreement is a stratification problem, not a contradiction: two executable policies are unranked, so no ranked answer exists when they disagree.",
+    "the_model_does_not_fit_the_graph": "the layer model is the load-bearing abstraction of crate_topology_coherence, layer_debt_ratchet and crate_taxonomy_ownership. A five-level model over an eight-level graph means the debt those gates report is the residual of the model, which is why layer_debt declares 15 while BASELINE_EDGES holds 16 and the graph reports 19.",
+    "three_gates_are_already_red_before_any_change": {
+      "measured": "cargo test -p cynic-host --test layer_debt_ratchet --test authority_ladder_coherence --test divergence_audit on the builder at a730c6c8",
+      "failures": [
+        {
+          "gate": "authority_ladder_coherence",
+          "message": "AGENTS.md and contracts/foundation.json disagree about the ladder",
+          "detail": "the contract holds eight entries, AGENTS.md seven; infra/directory-tree.json is the omitted one, and the gate's own doc calls it one of the two files the ladder exists to separate"
+        },
+        {
+          "gate": "layer_debt_ratchet",
+          "message": "the recorded layer debt and what ARCH-004 reports have diverged",
+          "detail": "layer_debt.edges holds 15, BASELINE_EDGES holds 16, the observed graph reports 19 ascending edges of which 3 originate in cross_cutting and are not checked, leaving 16 against 15 declared"
+        },
+        {
+          "gate": "layer_debt_ratchet",
+          "message": "these edges are no longer ascending but are still recorded as debt",
+          "detail": "the ratchet prevents debt from growing but cannot observe it shrinking"
+        },
+        {
+          "gate": "divergence_audit",
+          "message": "402 LOC on disk are unreachable from a compilation root",
+          "detail": "left 402, right 557; left to the owner of that domain"
+        }
+      ]
+    }
+  },
+  "open_questions": [
+    {
+      "id": "Q1",
+      "question": "Does the layer model stay as five levels, or is the workspace modelled by something that fits an eight-level graph?",
+      "why": "every crate gate is written against the layer model. If the model changes, layer_debt_ratchet, crate_topology_coherence and 48 architecture_boundary gates change with it.",
+      "evidence_needed": "an observation of what the eight levels actually are, not a renumbering"
+    },
+    {
+      "id": "Q2",
+      "question": "Are infra/crate-topology.json and contracts/pruning-policy.json authorities or derived policies?",
+      "why": "both are status normative and neither is ranked by foundation.json. Until that is answered, no ranked answer exists when they disagree.",
+      "evidence_needed": "an operator decision, then either an authority_order entry or a status downgrade"
+    },
+    {
+      "id": "Q3",
+      "question": "What gate should carry provider_agnostic_domain?",
+      "why": "a constitutional hard boundary is asserted in prose and 30 of 48 crates name a provider, with nothing testing it.",
+      "evidence_needed": "a gate that distinguishes a substrate adapter naming its provider, which is legitimate, from a domain naming one, which is not"
+    }
+  ],
+  "explicit_non_goals": [
+    "this does not propose a replacement model. Q1 needs an observation first.",
+    "it does not treat 30 provider mentions as 30 violations; the finding is the missing gate",
+    "it does not re-litigate the network tranche sequence; it states the topology the sequence must respect"
+  ],
+  "verification": {
+    "depth": "read depends_on from every crates/*/Cargo.toml, then compute the longest descending path against infra/crate-topology.json layer ranks",
+    "families": "cynic_family names: 35 distinct for 48 crates",
+    "provider": "grep for the provider vocabulary across crates/*/src/*.rs, then cross with layer",
+    "gates": "cargo test -p cynic-host --test layer_debt_ratchet --test authority_ladder_coherence --test crate_topology_coherence --test crate_taxonomy_ownership --test divergence_audit"
+  },
+  "ratification": {
+    "status": "draft",
+    "note": "Q1, Q2 and Q3 are governance. The measurements above stand regardless of how they are answered."
+  }
+}
