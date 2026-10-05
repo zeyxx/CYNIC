@@ -262,63 +262,51 @@
     "reservations": [
       {
         "name": "cynic-host-proxmox",
-        "addresses": {
-          "service": "10.10.10.1",
-          "admin": "192.168.100.1"
-        },
         "dns": [
           "cynic-host-proxmox.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.1",
+        "admin": "192.168.100.1"
       },
       {
         "name": "local-kernel",
-        "addresses": {
-          "service": "10.10.10.100"
-        },
         "dns": [
           "kernel.service.cynic",
           "local-kernel.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.100"
       },
       {
         "name": "cynic-lxc-surrealdb",
-        "addresses": {
-          "service": "10.10.10.103"
-        },
         "dns": [
           "surrealdb.service.cynic",
           "cynic-lxc-surrealdb.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.103"
       },
       {
         "name": "cynic-builder",
-        "addresses": {
-          "service": "10.10.10.119"
-        },
         "dns": [
           "builder.service.cynic",
           "cynic-builder.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.119"
       },
       {
         "name": "forgejo",
-        "addresses": {
-          "service": "10.10.10.101"
-        },
         "dns": [
           "organ-forgejo.service.cynic",
           "forgejo.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.101"
       },
       {
         "name": "cynic-lxc-headscale",
-        "addresses": {
-          "service": "10.10.10.40"
-        },
         "dns": [
           "headscale.service.cynic",
           "cynic-lxc-headscale.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.40"
       }
     ]
   },

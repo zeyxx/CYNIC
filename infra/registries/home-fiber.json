@@ -25,41 +25,29 @@
     "reservations": [
       {
         "name": "cynic-host-proxmox",
-        "addresses": {
-          "lan": "192.168.0.37",
-          "service": "10.10.10.1"
-        }
+        "service": "10.10.10.1"
       },
       {
         "name": "cynic-host-cortex",
-        "addresses": {
-          "lan": "192.168.0.12",
-          "service": "10.10.10.2"
-        }
+        "service": "10.10.10.2"
       },
       {
         "name": "forgejo",
-        "addresses": {
-          "service": "10.10.10.101"
-        },
         "dns": [
           "forgejo.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.101"
       },
       {
         "name": "surrealdb",
-        "addresses": {
-          "service": "10.10.10.10"
-        },
         "dns": [
           "db.service.cynic"
-        ]
+        ],
+        "service": "10.10.10.10"
       },
       {
         "name": "nomad-operator-laptop",
-        "addresses": {
-          "service": "10.10.10.50"
-        }
+        "service": "10.10.10.50"
       }
     ]
   },
