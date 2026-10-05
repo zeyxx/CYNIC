@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use clap::{Args, Subcommand};
+use clap::Subcommand;
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_layout::current_runtime_layout;
 use std::process::ExitCode;

@@ -7,12 +7,12 @@
 //! manifests plus the policy keys, and the two are checked against each other
 //! before anything is written.
 //!
-//! WHY A SEPARATE BINARY. `cynic-audit` answers "is the workspace coherent" and
-//! must never write. This one answers "what should the document say" and must be
-//! able to write. A flag on the audit binary would make the audit surface capable
-//! of mutating the file it audits, which is the same mistake the repository has
-//! already paid for elsewhere: a reader that can also write cannot be trusted to
-//! only read.
+//! WHY A SEPARATE BINARY. The audit surface answers "is the workspace coherent"
+//! and must never write. This one answers "what should the document say" and must
+//! be able to write. A `--write` flag on the audit surface would make the reader
+//! of the topology document capable of mutating it, which is the same mistake the
+//! repository has already paid for elsewhere: a reader that can also write cannot
+//! be trusted to only read.
 //!
 //! OUTPUT. Machine-readable JSON on stdout, always, so a CI step reads the same
 //! artefact a human does. Exit 0 when the document is up to date or written, 1

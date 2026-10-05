@@ -166,7 +166,6 @@ celui de la bibliothèque : `pub` exporté, jamais `dead_code`.
 | `cynic-mcp` | `src/main.rs` | oui | **MIXTE** |
 | `cynic-node` | `src/main.rs` | oui | **MIXTE** |
 | `cynic-pool` | `src/main.rs` | oui | **MIXTE** |
-| `cynic-audit` | `src/bin/cynic-audit.rs` | oui | racine séparée |
 | `cynic-topology` | `src/bin/cynic-topology.rs` | oui | racine séparée |
 | `cynic-host-exec` | `src/bin/cynic-host-exec.rs` | oui | racine séparée |
 | `cynic-lxc-exec-bridge` | `src/bin/cynic-lxc-exec-bridge.rs` | oui | racine séparée |
@@ -174,7 +173,8 @@ celui de la bibliothèque : `pub` exporté, jamais `dead_code`.
 | `zeroclaw-solana-demo` | `src/bin/demo.rs` | oui | racine séparée |
 | `cynic-network-actuator` | `src/actuator_main.rs` | oui | racine déclarée explicitement |
 
-**5 binaires sur 12 sont MIXTE.** Le `dead_code` est analysé par *cible*, pas par
+**5 binaires sur 11 sont MIXTE** (mesuré avant la suppression de `cynic-audit`,
+qui a réduit le total de 12 à 11). Le `dead_code` est analysé par *cible*, pas par
 *paquet* : la bibliothèque est un arbre ouvert même quand sa racine binaire est un
 arbre clos. Un `pub fn` de `lib.rs` que seul `main.rs` n'atteint pas reste exporté et
 ne produit **aucun** warning.

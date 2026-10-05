@@ -14,10 +14,6 @@ path = "src/bin/cynic-topology.rs"
 name = "cynic-host-exec"
 path = "src/bin/cynic-host-exec.rs"
 
-[[bin]]
-name = "cynic-audit"
-path = "src/bin/cynic-audit.rs"
-
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }

@@ -167,18 +167,6 @@
       "note": "Refuses to write a document ARCH-004 would flag. The reference implementation for every other comparator in this repository."
     },
     {
-      "id": "cynic-audit",
-      "crate": "cynic-host",
-      "binary": "cynic-audit",
-      "audience": "tooling",
-      "install_path": null,
-      "roles": [],
-      "consumers": [
-        "audit_engine::run_workspace_audit driver"
-      ],
-      "note": "Overlaps the `cynic audit` operator surface. Candidate for fusion into the operator binary as a subcommand."
-    },
-    {
       "id": "cynic-pool",
       "crate": "cynic-pool",
       "binary": "cynic-pool",
