@@ -1,83 +1,9 @@
-use serde::{Deserialize, Serialize};
+//! Source release planning — pure, bounded, typed.
 
 use cynic_protocol::SecurityEvidenceState;
 use cynic_protocol::argv_allow::canonical_build_actions;
 
-pub const SOURCE_RELEASE_REQUEST_SCHEMA: &str = "cynic.source.release_request.v1";
-pub const SOURCE_RELEASE_OBSERVATION_SCHEMA: &str = "cynic.source.release_observation.v1";
-pub const SOURCE_RELEASE_PLAN_SCHEMA: &str = "cynic.source.release_plan.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceReleaseRequest {
-    pub schema: String,
-    pub release_id: String,
-    pub proposal_id: String,
-    pub repository_id: String,
-    pub sovereign_remote: String,
-    pub sovereign_ref: String,
-    pub source_commit: String,
-    pub build_runner_node_id: String,
-    pub retention_until_unix_ms: u64,
-    pub requested_action: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceReleaseObservation {
-    pub schema: String,
-    pub observed_at_unix_ms: u64,
-    pub proposal_admission: SecurityEvidenceState,
-    pub worktree_clean: SecurityEvidenceState,
-    pub sovereign_transport_identity: SecurityEvidenceState,
-    pub sovereign_authentication: SecurityEvidenceState,
-    pub remote_ref_commit: Option<String>,
-    pub snapshot_digest: Option<String>,
-    pub snapshot_digest_algorithm: Option<String>,
-    pub snapshot_store_read_back: SecurityEvidenceState,
-    pub build_runner_role: Option<String>,
-    pub build_runner_identity: SecurityEvidenceState,
-    pub build_runner_materialization_port: SecurityEvidenceState,
-    pub grant_signing_authority: SecurityEvidenceState,
-    #[serde(default)]
-    pub evidence_refs: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceReleasePlan {
-    pub schema: String,
-    pub status: String,
-    pub release_id: String,
-    pub source_commit: String,
-    pub snapshot_digest: Option<String>,
-    pub build_runner_node_id: String,
-    pub action_budget: u32,
-    pub actions: Vec<SourceReleaseAction>,
-    pub stop_conditions: Vec<String>,
-    pub retention_until_unix_ms: u64,
-    pub blockers: Vec<String>,
-    pub evidence_refs: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
-pub enum SourceReleaseAction {
-    MaterializeSnapshot {
-        repository_id: String,
-        source_commit: String,
-        snapshot_digest: String,
-        target_node_id: String,
-    },
-    VerifyCheckout {
-        source_commit: String,
-        snapshot_digest: String,
-        target_node_id: String,
-    },
-    DispatchBuildWorkload {
-        source_commit: String,
-        target_node_id: String,
-        requested_action: String,
-        retention_until_unix_ms: u64,
-    },
-}
+use crate::types::*;
 
 pub fn plan_source_release(
     request: &SourceReleaseRequest,
@@ -224,7 +150,7 @@ pub fn plan_source_release(
 }
 
 #[cfg(test)]
-mod tests {
+mod release_tests {
     use super::*;
 
     fn release_request() -> SourceReleaseRequest {

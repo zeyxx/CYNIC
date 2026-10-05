@@ -32,7 +32,7 @@ pub fn admit_source_sync(root: &Path, decision: &SyncDecision) -> SourceAdmissio
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_vcs::sync::types::{SourceLayer, SourceState, SyncObservation};
+    use cynic_vcs::sync::{SourceLayer, SourceState, SyncObservation};
 
     fn decision_clean() -> SyncDecision {
         SyncDecision {

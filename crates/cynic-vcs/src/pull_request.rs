@@ -183,7 +183,12 @@ mod tests {
     fn refuse_all_gates_failed_reports_two_blockers() {
         let verdict = evaluate_pr_admission(&open_pr(10), false, false);
         assert!(!verdict.admitted);
-        assert_eq!(verdict.blockers.len(), 2, "expected 2 blockers, got: {:?}", verdict.blockers);
+        assert_eq!(
+            verdict.blockers.len(),
+            2,
+            "expected 2 blockers, got: {:?}",
+            verdict.blockers
+        );
     }
 
     #[test]
@@ -193,7 +198,11 @@ mod tests {
         pr.mergeable = false;
         let verdict = evaluate_pr_admission(&pr, true, true);
         assert!(!verdict.admitted);
-        assert!(verdict.blockers.contains(&"merge_conflict_detected".to_string()));
+        assert!(
+            verdict
+                .blockers
+                .contains(&"merge_conflict_detected".to_string())
+        );
     }
 
     #[test]
@@ -202,6 +211,11 @@ mod tests {
         pr.state = PrState::Merged;
         let verdict = evaluate_pr_admission(&pr, true, true);
         assert!(!verdict.admitted);
-        assert!(verdict.blockers.iter().any(|b| b.starts_with("pr_not_open:")));
+        assert!(
+            verdict
+                .blockers
+                .iter()
+                .any(|b| b.starts_with("pr_not_open:"))
+        );
     }
 }

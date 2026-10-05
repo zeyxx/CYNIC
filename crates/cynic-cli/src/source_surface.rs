@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
-use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
+use cynic_vcs::adapters::forgejo::ForgejoPrAdapter;
 
 mod release_deployment_cli;
 mod sync_coherence;

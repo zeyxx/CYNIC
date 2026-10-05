@@ -1,83 +1,8 @@
-use serde::{Deserialize, Serialize};
+//! Source snapshot materialization planning — pure decision layer.
 
 use cynic_protocol::SecurityEvidenceState;
 
-pub const SOURCE_MATERIALIZATION_REQUEST_SCHEMA: &str = "cynic.source.materialization_request.v1";
-pub const SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA: &str =
-    "cynic.source.materialization_observation.v1";
-pub const SOURCE_MATERIALIZATION_PLAN_SCHEMA: &str = "cynic.source.materialization_plan.v1";
-pub const SOURCE_MATERIALIZATION_FORMAT: &str = "git_bundle_v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceMaterializationRequest {
-    pub schema: String,
-    pub release_id: String,
-    pub repository_id: String,
-    pub source_commit: String,
-    #[serde(default)]
-    pub source_tree: Option<String>,
-    pub snapshot_digest: String,
-    pub snapshot_format: String,
-    pub target_node_id: String,
-    pub target_relative_path: String,
-    pub required_principal: String,
-    pub retention_until_unix_ms: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceMaterializationObservation {
-    pub schema: String,
-    pub observed_at_unix_ms: u64,
-    pub target_node_id: String,
-    pub target_role: Option<String>,
-    pub node_identity: SecurityEvidenceState,
-    pub running_as_required_principal: SecurityEvidenceState,
-    pub snapshot_present: bool,
-    pub snapshot_digest_read_back: Option<String>,
-    pub snapshot_format_read_back: Option<String>,
-    pub target_exists: bool,
-    pub target_is_isolated: SecurityEvidenceState,
-    pub observed_commit: Option<String>,
-    #[serde(default)]
-    pub observed_tree: Option<String>,
-    pub observed_snapshot_digest: Option<String>,
-    #[serde(default)]
-    pub evidence_refs: Vec<String>,
-    #[serde(default)]
-    pub unknowns: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
-pub enum SourceMaterializationAction {
-    AcquireSnapshot {
-        snapshot_digest: String,
-        snapshot_format: String,
-    },
-    MaterializeCheckout {
-        snapshot_digest: String,
-        source_commit: String,
-        target_relative_path: String,
-    },
-    ReadBack {
-        snapshot_digest: String,
-        source_commit: String,
-        target_relative_path: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceMaterializationPlan {
-    pub schema: String,
-    pub status: String,
-    pub release_id: String,
-    pub action_budget: u32,
-    pub actions: Vec<SourceMaterializationAction>,
-    pub blockers: Vec<String>,
-    pub unknowns: Vec<String>,
-    pub stop_conditions: Vec<String>,
-    pub evidence_refs: Vec<String>,
-}
+use crate::types::*;
 
 pub fn plan_source_materialization(
     request: &SourceMaterializationRequest,
@@ -254,7 +179,7 @@ fn safe_identifier(value: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod materialization_tests {
     use super::*;
 
     fn request() -> SourceMaterializationRequest {

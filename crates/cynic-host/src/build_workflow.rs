@@ -11,10 +11,10 @@
 use cynic_build::build::BuildRecipe;
 use cynic_build::build_workflow::{BuildWorkflow, BuildWorkflowOutcome};
 use cynic_protocol::LeaseGuard;
-use cynic_vcs::source_control::SourceSnapshot;
+use cynic_vcs::SourceSnapshot;
 
-use cynic_build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
+use cynic_build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use cynic_lifecycle::ArgvRunner;
 
 /// Runtime configuration for the build workflow.

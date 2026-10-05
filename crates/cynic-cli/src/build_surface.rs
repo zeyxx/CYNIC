@@ -470,9 +470,23 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             json,
         } => {
             if local {
-                reclaim_build_cache_local(&node, &registry, &state_root, &temporary_root, apply, json)
+                reclaim_build_cache_local(
+                    &node,
+                    &registry,
+                    &state_root,
+                    &temporary_root,
+                    apply,
+                    json,
+                )
             } else {
-                reclaim_build_cache_remote(&node, &registry, &state_root, &temporary_root, apply, json)
+                reclaim_build_cache_remote(
+                    &node,
+                    &registry,
+                    &state_root,
+                    &temporary_root,
+                    apply,
+                    json,
+                )
             }
         }
     }
@@ -518,10 +532,16 @@ fn reclaim_build_cache_local(
             .map_err(|error| format!("reclaim report serialization failed: {error}"))?;
         println!("{text}");
     } else {
-        println!("build cache reclaim — node={} status={}", report.status, report.status);
+        println!(
+            "build cache reclaim — node={} status={}",
+            report.status, report.status
+        );
         println!("decision: {:?}", report.plan.decision);
         println!("available_bytes: {:?}", report.before.available_bytes);
-        println!("minimum_available_bytes: {}", report.plan.minimum_available_bytes);
+        println!(
+            "minimum_available_bytes: {}",
+            report.plan.minimum_available_bytes
+        );
         println!("reclaim_profile: {}", report.plan.target_profile);
         println!("preserved_profiles: {:?}", report.plan.preserved_profiles);
         if !report.before.observed_noncanonical_cache_paths.is_empty() {
@@ -561,7 +581,9 @@ fn reclaim_build_cache_remote(
     json: bool,
 ) -> Result<(), String> {
     let transport = cynic_host::registry::resolve::resolve_build_runner_transport(Some(registry))
-        .map_err(|error| format!("build runner unresolvable in registry {registry}: {error}"))?;
+        .map_err(|error| {
+        format!("build runner unresolvable in registry {registry}: {error}")
+    })?;
 
     let mut argv: Vec<String> = vec![
         "cynic".to_string(),
@@ -1108,8 +1130,8 @@ fn run_build(
 }
 
 fn serve_webhook(bind: &str, node_webhook_url: &str, json: bool) -> Result<(), String> {
-    use cynic_vcs_forgejo::WebhookServerConfig;
-    use cynic_vcs_forgejo::forgejo_webhook_server::spawn_webhook_server;
+    use cynic_vcs::adapters::forgejo::WebhookServerConfig;
+    use cynic_vcs::adapters::forgejo::spawn_webhook_server;
 
     if node_webhook_url.trim().is_empty() {
         return Err("node webhook URL is required; no forwarding target is guessed".to_string());

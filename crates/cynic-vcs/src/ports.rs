@@ -52,6 +52,17 @@ pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
 
+/// Observation port for Forgejo. Given a desired state, produce an observed state.
+///
+/// The concrete observer (`RuntimeForgejoObserver`) lives in `cynic-host`; the
+/// domain owns only this boundary.
+pub trait ForgejoObservationPort: Send + Sync {
+    fn observe(
+        &self,
+        desired: &crate::types::ForgejoDesiredState,
+    ) -> crate::types::ForgejoObservedState;
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct MapArgvRunner {

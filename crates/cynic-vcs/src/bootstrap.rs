@@ -1,89 +1,6 @@
-use serde::{Deserialize, Serialize};
+//! Source repository bootstrap reconciliation — pure decision layer.
 
-pub const SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA: &str =
-    "cynic.source_repository_bootstrap_request.v1";
-pub const SOURCE_REPOSITORY_BOOTSTRAP_OBSERVATION_SCHEMA: &str =
-    "cynic.source_repository_bootstrap_observation.v1";
-pub const SOURCE_REPOSITORY_BOOTSTRAP_REPORT_SCHEMA: &str =
-    "cynic.source_repository_bootstrap_report.v1";
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceRepositoryBootstrapRequest {
-    pub schema: String,
-    pub node_id: String,
-    pub repository_id: String,
-    pub source: String,
-    pub revision: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceRepositoryBootstrapObservation {
-    pub schema: String,
-    pub node_id: String,
-    pub repository_id: String,
-    pub repository_path: String,
-    pub required_principal: String,
-    pub state_root_exists: bool,
-    pub state_root_is_directory: bool,
-    pub state_root_owned_by_principal: bool,
-    pub running_as_required_principal: bool,
-    pub repository_exists: bool,
-    pub repository_is_git: bool,
-    pub observed_revision: Option<String>,
-    pub observed_source: Option<String>,
-    #[serde(default)]
-    pub unknowns: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "decision", rename_all = "snake_case")]
-pub enum SourceRepositoryBootstrapDecision {
-    Converged,
-    BootstrapRequired,
-    SyncRequired,
-    Blocked { blockers: Vec<String> },
-    Unknown { unknowns: Vec<String> },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceRepositoryBootstrapStatus {
-    Planned,
-    Completed,
-    Blocked,
-    Unknown,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceRepositoryBootstrapProofAuthority {
-    #[default]
-    Uncommitted,
-    LocalContentAddressed,
-    KernelCommitted,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceRepositoryBootstrapReport {
-    pub schema: String,
-    pub status: SourceRepositoryBootstrapStatus,
-    pub request: SourceRepositoryBootstrapRequest,
-    pub before: SourceRepositoryBootstrapObservation,
-    pub decision: SourceRepositoryBootstrapDecision,
-    #[serde(default)]
-    pub planned_actions: Vec<Vec<String>>,
-    pub after: Option<SourceRepositoryBootstrapObservation>,
-    pub lease: Option<cynic_protocol::LeaseGuard>,
-    pub proof_ref: Option<String>,
-    #[serde(default)]
-    pub proof_authority: SourceRepositoryBootstrapProofAuthority,
-    #[serde(default)]
-    pub evidence_refs: Vec<String>,
-    #[serde(default)]
-    pub blockers: Vec<String>,
-    #[serde(default)]
-    pub unknowns: Vec<String>,
-}
+use crate::types::*;
 
 pub fn reconcile_source_repository_bootstrap(
     request: &SourceRepositoryBootstrapRequest,
@@ -155,7 +72,7 @@ fn source_contains_inline_secret(source: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod bootstrap_tests {
     use super::*;
 
     fn request() -> SourceRepositoryBootstrapRequest {

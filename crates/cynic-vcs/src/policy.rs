@@ -1,54 +1,232 @@
+//! Source governance policy — pure decision layer for the agent-source protocol.
+//!
+//! Merges the former `source_policy` (commit/branch conventions, protected refs)
+//! with the source-change admission rules of `source_control`. Zero I/O: given a
+//! value and a policy, each function returns blocker codes.
+
+use cynic_protocol::SecurityEvidenceState;
+use cynic_protocol::vcs::SourceSnapshot;
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::{LeaseGuard, SecurityEvidenceState};
+use crate::types::{
+    SOURCE_ADMISSION_REPORT_SCHEMA, SOURCE_CHANGE_PROPOSAL_SCHEMA, SourceChangeAdmission,
+    SourceChangeProposal, SourceMatterClass, SourcePromotionStage, SourceStageAdmissionReport,
+};
 
-pub const SOURCE_ADMISSION_REPORT_SCHEMA: &str = "cynic.source.admission.v1";
-pub const SOURCE_CHANGE_PROPOSAL_SCHEMA: &str = "cynic.source.change_proposal.v1";
+pub const SOURCE_POLICY_SCHEMA: &str = "cynic.source_policy.v1";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceMatterClass {
-    Genome,
-    DesiredState,
-    Adapter,
-    Evidence,
-    GeneratedArtifact,
-    Secret,
-}
+/// Conventional-commits type vocabulary accepted by the protocol.
+///
+/// Keep in sync with `infra/agent-source-protocol.json`. `!:` (breaking) is
+/// permitted by the regex but is always treated as a review-gated change.
+pub const ACCEPTED_COMMIT_TYPES: &[&str] = &[
+    "feat", "fix", "test", "docs", "refactor", "chore", "ci", "build", "perf", "style",
+];
+
+/// Prefixes of branches that an agent may claim as its isolated work surface.
+///
+/// `agent` is the canonical per-agent prefix (`agent/<id>/<scope>`). The others
+/// are retained for human/infra workflows that still want isolation.
+pub const ACCEPTED_BRANCH_PREFIXES: &[&str] = &[
+    "agent",
+    "integration",
+    "recovery",
+    "backup",
+    "feat",
+    "fix",
+    "docs",
+    "refactor",
+    "test",
+    "chore",
+];
+
+/// Refs that no agent may push to directly. Promotion to these refs happens
+/// only through the merge bot / PR flow.
+pub const DEFAULT_PROTECTED_REFS: &[&str] = &["main", "forgejo/main", "origin/main", "master"];
+
+/// Bounds for commit intent validation.
+pub const MAX_COMMIT_SUBJECT_LEN: usize = 120;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceChangeProposal {
+pub struct CommitPolicy {
     pub schema: String,
-    pub proposal_id: String,
-    pub repository_id: String,
-    pub worktree_id: String,
-    pub lease_id: String,
-    pub fencing_token: u64,
-    pub base_commit: String,
-    pub actor: String,
-    pub node_id: String,
-    pub intent: String,
-    pub matter: SourceMatterClass,
-    pub paths: Vec<String>,
-    pub validation: SecurityEvidenceState,
-    pub rollback: String,
+    /// Accepted Conventional-Commits types (lower-case).
+    pub accepted_types: Vec<String>,
+    /// Maximum subject length (after `type(scope): `).
+    pub max_subject_len: usize,
+    /// Disallowed substrings (case-insensitive) — secret leakage guard.
     #[serde(default)]
-    pub evidence_refs: Vec<String>,
+    pub forbidden_substrings: Vec<String>,
 }
 
-impl SourceChangeProposal {
-    pub fn lease_guard(&self) -> LeaseGuard {
-        LeaseGuard {
-            agent_id: self.actor.clone(),
-            target: source_worktree_lease_target(&self.repository_id, &self.worktree_id),
-            lease_id: self.lease_id.clone(),
-            fencing_token: self.fencing_token,
+impl Default for CommitPolicy {
+    fn default() -> Self {
+        Self {
+            schema: SOURCE_POLICY_SCHEMA.to_string(),
+            accepted_types: ACCEPTED_COMMIT_TYPES
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            max_subject_len: MAX_COMMIT_SUBJECT_LEN,
+            forbidden_substrings: Vec::new(),
         }
     }
 }
 
-pub fn source_worktree_lease_target(repository_id: &str, worktree_id: &str) -> String {
-    format!("source-worktree:{repository_id}:{worktree_id}")
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BranchPolicy {
+    pub schema: String,
+    /// Accepted branch prefixes (lower-case, no trailing slash).
+    pub accepted_prefixes: Vec<String>,
+    /// Refs that no agent may push to directly.
+    pub protected_refs: Vec<String>,
+}
+
+impl Default for BranchPolicy {
+    fn default() -> Self {
+        Self {
+            schema: SOURCE_POLICY_SCHEMA.to_string(),
+            accepted_prefixes: ACCEPTED_BRANCH_PREFIXES
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            protected_refs: DEFAULT_PROTECTED_REFS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        }
+    }
+}
+
+/// Validate a commit intent against the Conventional Commits policy.
+///
+/// Returns an empty `blockers` vec when the intent conforms. Otherwise each
+/// violated rule contributes exactly one cumulative blocker code.
+pub fn commit_conforms(intent: &str, policy: &CommitPolicy) -> Vec<String> {
+    let mut blockers = Vec::new();
+    let intent = intent.trim();
+
+    if intent.is_empty() {
+        blockers.push("commit_intent_empty".to_string());
+        return blockers;
+    }
+
+    // Secret-leak guard: reject intents that embed obvious credential material.
+    let lowered = intent.to_lowercase();
+    for forbidden in &policy.forbidden_substrings {
+        if lowered.contains(&forbidden.to_lowercase()) {
+            blockers.push(format!("commit_intent_contains_forbidden:{forbidden}"));
+        }
+    }
+
+    // Conventional Commits: type[(scope)][!]: subject
+    // group1=type, group2=optional scope (without parens), group3=breaking "!",
+    // group4=subject
+    let re = match regex_light(intent) {
+        Some(parsed) => parsed,
+        None => {
+            blockers.push("commit_intent_not_conventional".to_string());
+            return blockers;
+        }
+    };
+
+    let ctype = re.0.to_lowercase();
+    if !policy
+        .accepted_types
+        .iter()
+        .any(|t| t.eq_ignore_ascii_case(&ctype))
+    {
+        blockers.push(format!("commit_type_unaccepted:{ctype}"));
+    }
+
+    // Subject bound (the part after `<type>(scope): `).
+    if let Some(subject) = re.1 {
+        if subject.is_empty() {
+            blockers.push("commit_subject_empty".to_string());
+        } else if subject.chars().count() > policy.max_subject_len {
+            blockers.push("commit_subject_too_long".to_string());
+        }
+    } else {
+        blockers.push("commit_subject_missing".to_string());
+    }
+
+    blockers
+}
+
+/// Validate a branch name against the isolation policy.
+pub fn branch_conforms(branch: &str, policy: &BranchPolicy) -> Vec<String> {
+    let mut blockers = Vec::new();
+    let branch = branch.trim();
+
+    if branch.is_empty() {
+        blockers.push("branch_name_empty".to_string());
+        return blockers;
+    }
+    // No ref may be pushed to a protected trunk directly.
+    if policy.protected_refs.iter().any(|r| r == branch) {
+        blockers.push(format!("branch_is_protected_ref:{branch}"));
+    }
+    // Reject obviously unsafe characters (spaces, ~, ^, :, ?, *, [).
+    if branch
+        .chars()
+        .any(|c| c.is_whitespace() || matches!(c, '~' | '^' | ':' | '?' | '*' | '['))
+    {
+        blockers.push("branch_name_unsafe_chars".to_string());
+    }
+
+    let prefix = branch.split('/').next().unwrap_or("").to_lowercase();
+    if !policy.accepted_prefixes.iter().any(|p| p == &prefix) {
+        blockers.push(format!("branch_prefix_unaccepted:{prefix}"));
+    }
+
+    blockers
+}
+
+/// Returns true if the ref name is protected (no direct agent push allowed).
+pub fn ref_is_protected(ref_name: &str, protected: &[String]) -> bool {
+    protected.iter().any(|r| r == ref_name)
+}
+
+/// Derive the canonical isolated branch name for an agent + scope.
+///
+/// `agent/hermes/agent-source-protocol` is the dogfooded shape: one agent,
+/// one scope, one branch. Returns `None` only if `agent_id` is empty.
+pub fn agent_branch_for(agent_id: &str, scope: &str) -> Option<String> {
+    let agent_id = agent_id.trim();
+    let scope = scope.trim();
+    if agent_id.is_empty() {
+        return None;
+    }
+    let scope = if scope.is_empty() { "work" } else { scope };
+    Some(format!("agent/{agent_id}/{scope}"))
+}
+
+/// Minimal Conventional-Commits parser that avoids pulling in the `regex`
+/// crate at the protocol layer (keeps `cynic-protocol` lean and offline).
+///
+/// Returns `(type, Option<subject>)` or `None` when the shape does not match
+/// `<type>[(scope)][!]: <subject>`.
+fn regex_light(intent: &str) -> Option<(&str, Option<&str>)> {
+    let colon = intent.find(':')?;
+    let head = &intent[..colon];
+    let subject = intent[colon + 1..].trim();
+    if subject.is_empty() {
+        return None;
+    }
+    // head = `type` or `type(scope)` or `type(scope)!`
+    let head = head.trim_end_matches('!');
+    let (ctype, _) = if let Some(open) = head.find('(') {
+        if !head.ends_with(')') {
+            return None;
+        }
+        (&head[..open], Some(&head[open + 1..head.len() - 1]))
+    } else {
+        (head, None)
+    };
+    if ctype.is_empty() || !ctype.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+        return None;
+    }
+    Some((ctype, Some(subject)))
 }
 
 fn is_sensitive_source_path(path: &str) -> bool {
@@ -82,15 +260,6 @@ fn is_sensitive_source_path(path: &str) -> bool {
         || [".key", ".pem", ".p12", ".pfx"]
             .iter()
             .any(|suffix| file_name.ends_with(suffix))
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceChangeAdmission {
-    pub schema: String,
-    pub status: String,
-    pub proposal_id: String,
-    pub blockers: Vec<String>,
-    pub evidence_refs: Vec<String>,
 }
 
 pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmission {
@@ -137,10 +306,7 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
     // Source-governance: commit intent must follow the agent-source protocol.
     // `intent` is the commit subject; an agent that cannot express its change
     // as a Conventional Commit has not met the contract.
-    let commit_blockers = crate::source_policy::commit_conforms(
-        &proposal.intent,
-        &crate::source_policy::CommitPolicy::default(),
-    );
+    let commit_blockers = commit_conforms(&proposal.intent, &CommitPolicy::default());
     blockers.extend(commit_blockers);
     match proposal.matter {
         SourceMatterClass::Secret => blockers.push("secret_matter_never_versioned".to_string()),
@@ -174,30 +340,10 @@ pub fn admit_source_change(proposal: &SourceChangeProposal) -> SourceChangeAdmis
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourcePromotionStage {
-    Worktree,
-    CommitCandidate,
-    SovereignCommit,
-    ReleaseSource,
-}
-
-pub use cynic_protocol::vcs::SourceSnapshot;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceAdmissionReport {
-    pub schema: String,
-    pub status: String,
-    pub target_stage: SourcePromotionStage,
-    pub blockers: Vec<String>,
-    pub evidence_refs: Vec<String>,
-}
-
 pub fn admit_source_stage(
     snapshot: &SourceSnapshot,
     target_stage: SourcePromotionStage,
-) -> SourceAdmissionReport {
+) -> SourceStageAdmissionReport {
     let mut blockers = Vec::new();
     if snapshot.branch.as_deref().is_none_or(str::is_empty) {
         blockers.push("branch_identity_missing".to_string());
@@ -241,10 +387,10 @@ pub fn admit_source_stage(
             // Source-governance: an agent may only promote to a branch it owns
             // (`agent/<id>/<scope>`), never to a protected trunk directly.
             if let Some(branch) = snapshot.branch.as_deref() {
-                let policy = crate::source_policy::BranchPolicy::default();
-                let branch_blockers = crate::source_policy::branch_conforms(branch, &policy);
+                let policy = BranchPolicy::default();
+                let branch_blockers = branch_conforms(branch, &policy);
                 blockers.extend(branch_blockers);
-                if crate::source_policy::ref_is_protected(branch, &policy.protected_refs) {
+                if ref_is_protected(branch, &policy.protected_refs) {
                     blockers.push("sovereign_promotion_to_protected_ref".to_string());
                 }
             } else {
@@ -268,7 +414,7 @@ pub fn admit_source_stage(
         }
     }
 
-    SourceAdmissionReport {
+    SourceStageAdmissionReport {
         schema: SOURCE_ADMISSION_REPORT_SCHEMA.to_string(),
         status: if blockers.is_empty() {
             "admitted".to_string()
@@ -282,7 +428,113 @@ pub fn admit_source_stage(
 }
 
 #[cfg(test)]
-mod tests {
+mod source_policy_tests {
+    use super::*;
+
+    #[test]
+    fn conventional_commit_conforms() {
+        let policy = CommitPolicy::default();
+        assert!(
+            commit_conforms("feat(protocol): add source policy predicates", &policy).is_empty()
+        );
+        assert!(commit_conforms("fix(source): reject direct main push", &policy).is_empty());
+        assert!(commit_conforms("chore: regenerate Cargo.lock", &policy).is_empty());
+        assert!(commit_conforms("refactor!: drop legacy git adapter", &policy).is_empty());
+    }
+
+    #[test]
+    fn non_conventional_commit_is_blocked() {
+        let policy = CommitPolicy::default();
+        let blockers = commit_conforms("updated the thing", &policy);
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b == "commit_intent_not_conventional")
+        );
+    }
+
+    #[test]
+    fn unknown_commit_type_is_blocked() {
+        let policy = CommitPolicy::default();
+        let blockers = commit_conforms("wip: half done", &policy);
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("commit_type_unaccepted"))
+        );
+    }
+
+    #[test]
+    fn empty_commit_is_blocked() {
+        let policy = CommitPolicy::default();
+        assert!(!commit_conforms("   ", &policy).is_empty());
+    }
+
+    #[test]
+    fn agent_branch_conforms() {
+        let policy = BranchPolicy::default();
+        assert!(branch_conforms("agent/hermes/agent-source-protocol", &policy).is_empty());
+        assert!(branch_conforms("integration/github-laptop-20260816", &policy).is_empty());
+        assert!(branch_conforms("recovery/federation-peer-resolver", &policy).is_empty());
+    }
+
+    #[test]
+    fn main_branch_is_protected() {
+        let policy = BranchPolicy::default();
+        let blockers = branch_conforms("main", &policy);
+        assert!(blockers.iter().any(|b| b == "branch_is_protected_ref:main"));
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("branch_prefix_unaccepted"))
+        );
+    }
+
+    #[test]
+    fn unsafe_branch_chars_blocked() {
+        let policy = BranchPolicy::default();
+        let blockers = branch_conforms("agent/hermes/foo bar", &policy);
+        assert!(blockers.iter().any(|b| b == "branch_name_unsafe_chars"));
+    }
+
+    #[test]
+    fn ref_is_protected_detects_trunk() {
+        let protected: Vec<String> = DEFAULT_PROTECTED_REFS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert!(ref_is_protected("main", &protected));
+        assert!(ref_is_protected("forgejo/main", &protected));
+        assert!(!ref_is_protected("agent/hermes/x", &protected));
+    }
+
+    #[test]
+    fn agent_branch_for_derives_canonical_name() {
+        assert_eq!(
+            agent_branch_for("hermes", "agent-source-protocol"),
+            Some("agent/hermes/agent-source-protocol".to_string())
+        );
+        assert_eq!(
+            agent_branch_for("hermes", ""),
+            Some("agent/hermes/work".to_string())
+        );
+        assert_eq!(agent_branch_for("", "x"), None);
+    }
+
+    #[test]
+    fn forbidden_substring_in_commit_is_blocked() {
+        let mut policy = CommitPolicy::default();
+        policy.forbidden_substrings.push("PASSWORD=".to_string());
+        let blockers = commit_conforms("fix(auth): rotate PASSWORD=supersecret", &policy);
+        assert!(
+            blockers
+                .iter()
+                .any(|b| b.starts_with("commit_intent_contains_forbidden"))
+        );
+    }
+}
+#[cfg(test)]
+mod source_control_tests {
     use super::*;
 
     #[test]

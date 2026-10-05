@@ -29,26 +29,23 @@ fn vcs_never_depends_on_high_layer_crates() {
 
 #[test]
 fn vcs_domain_modules_are_pure_zero_io() {
-    // Pure domain modules must not perform direct OS/process I/O
+    // Pure domain modules must not perform direct OS/process I/O.
+    // `adapters/` is the sole home of transport and process side effects.
     let domain_files = [
-        "src/entry.rs",
-        "src/parse.rs",
-        "src/runner.rs",
-        "src/sync/types.rs",
-        "src/sync/reconcile.rs",
-        "src/reconcile/types.rs",
-        "src/reconcile/reconcile.rs",
-        "src/reconcile/apply.rs",
-        "src/forgejo.rs",
+        "src/types.rs",
+        "src/policy.rs",
+        "src/sync.rs",
+        "src/worktree.rs",
+        "src/release.rs",
+        "src/bootstrap.rs",
+        "src/materialization.rs",
+        "src/inventory.rs",
+        "src/publication.rs",
+        "src/ports.rs",
         "src/git_hygiene.rs",
         "src/git_topology.rs",
-        "src/source_control.rs",
-        "src/source_materialization.rs",
-        "src/source_policy.rs",
-        "src/source_release.rs",
-        "src/source_repository_bootstrap.rs",
-        "src/source_worktree.rs",
-        "src/source_worktree_inventory.rs",
+        "src/isolated_worktree.rs",
+        "src/pull_request.rs",
         "src/development_genesis.rs",
     ];
     for rel_path in &domain_files {
@@ -81,7 +78,7 @@ fn vcs_domain_modules_are_pure_zero_io() {
 
 #[test]
 fn vcs_runners_are_isolated_behind_ports() {
-    let runner_path = vcs_crate_root().join("src/runner.rs");
+    let runner_path = vcs_crate_root().join("src/ports.rs");
     let content = fs::read_to_string(&runner_path)
         .unwrap_or_else(|e| panic!("failed to read {:?}: {}", runner_path, e));
 

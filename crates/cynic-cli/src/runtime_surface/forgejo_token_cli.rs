@@ -11,11 +11,11 @@
 
 use std::process::ExitCode;
 
-use cynic_vcs::forgejo_token::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
-use cynic_vcs_forgejo::forgejo_token::{
+use cynic_vcs::adapters::forgejo::{
     DefaultForgejoTokenSpec, FORGEJO_TOKEN_PATH, ForgejoTokenRuntimeSpec,
     observe_forgejo_token_runtime, provision_forgejo_token_apply, rotate_forgejo_token,
 };
+use cynic_vcs::{ForgejoTokenAuthState, ForgejoTokenStatusReport};
 
 use crate::cli_json;
 use crate::runtime_surface::ForgejoTokenMode;

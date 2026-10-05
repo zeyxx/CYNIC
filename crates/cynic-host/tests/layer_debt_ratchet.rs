@@ -78,7 +78,9 @@ fn manifest_debt() -> (Vec<String>, usize) {
                 .to_string()
         })
         .collect();
-    let count = debt["count"].as_u64().expect("layer_debt.count is not a number") as usize;
+    let count = debt["count"]
+        .as_u64()
+        .expect("layer_debt.count is not a number") as usize;
     (edges, count)
 }
 
@@ -99,7 +101,6 @@ const BASELINE_EDGES: &[&str] = &[
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-node-protocol (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-storage (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs (L2)",
-    "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-vcs-forgejo (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host-probes (L1) depends on cynic-finance (L2)",
     "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-build (L2)",
     "ARCH-004-UPWARD-EDGE cynic-lifecycle (L1) depends on cynic-storage (L2)",
@@ -119,7 +120,8 @@ fn the_manifest_debt_and_the_engine_agree_exactly() {
     let mut sorted = declared.clone();
     sorted.sort();
     assert_eq!(
-        sorted, ascending_edges(),
+        sorted,
+        ascending_edges(),
         "the recorded layer debt and what ARCH-004 reports have diverged.\n\
          recorded: {sorted:#?}\n\
          observed: {:#?}",
