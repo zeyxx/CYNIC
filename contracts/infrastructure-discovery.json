@@ -4,7 +4,6 @@
   "purpose": "Establish that fleet membership, addressing and serving state are discovered from the infrastructure rather than declared in a file that nobody reads. Exists because the measured fleet and the declared fleet disagreed in both directions: the desired-state registry declared two nodes that match nothing, omitted three containers that are running, and pointed at a mesh coordinator whose real name appears in no registry and in no hosts file, while the code looked the coordinator up under the declared name and therefore could not reach a live process.",
   "authority": "contracts/observability-facts.json N5 and N6; contracts/observability-loop.json stages 1 and 2.",
   "scope_note": "Transverse. Infrastructure discovery and its derivatives, not the network domain. The network is the first adopter, not the owner.",
-
   "definitions": {
     "inventory_of_record": "The substrate that can enumerate every machine the fleet runs on, read live. For the containerised fleet this is the hypervisor's container list, not any registry.",
     "declared_inventory": "The set of nodes a registry declares, with their intended addresses and roles.",
@@ -13,7 +12,6 @@
     "unregistered_member": "A node present in the observed inventory and absent from the declared inventory.",
     "naming_error": "A live node whose observed hostname differs from the name under which the fleet addresses it."
   },
-
   "rules": [
     {
       "id": "INF1",
@@ -44,53 +42,127 @@
       "established_by": "the builder's static name file carries kernel, forgejo, surrealdb, builder and proxmox under synapse.cynic, none of which is served by any zone. dnsmasq answers them with TTL 0 and serves no SOA and no NS for any zone, which is a hosts-file emulation rather than a published zone. service.cynic resolves nowhere, so the six DNS reservations the repository declares name a zone with no published record."
     }
   ],
-
   "measured_state_at_audit": {
     "observed_at": "commit da157df0, branch agent/hermes/network-mycelium-unification",
     "inventory_of_record": {
       "source": "container list on the Proxmox hypervisor at 10.10.10.1",
       "members": [
-        {"vmid": 100, "name": "organ-headscale", "ip": "10.10.10.40", "state": "running", "listening": "headscale on *:8080 pid 16516"},
-        {"vmid": 101, "name": "organ-forgejo", "ip": null, "state": "running"},
-        {"vmid": 102, "name": "cynic-agent-host", "ip": null, "state": "running"},
-        {"vmid": 103, "name": "cynic-lxc-surrealdb", "ip": "10.10.10.103", "state": "running"},
-        {"vmid": 105, "name": "cynic-builder", "ip": "dhcp", "state": "running", "resolved_address": "10.10.10.119"}
+        {
+          "vmid": 100,
+          "name": "organ-headscale",
+          "ip": "10.10.10.40",
+          "state": "running",
+          "listening": "headscale on *:8080 pid 16516"
+        },
+        {
+          "vmid": 101,
+          "name": "organ-forgejo",
+          "ip": null,
+          "state": "running"
+        },
+        {
+          "vmid": 102,
+          "name": "cynic-agent-host",
+          "ip": null,
+          "state": "running"
+        },
+        {
+          "vmid": 103,
+          "name": "cynic-lxc-surrealdb",
+          "ip": "10.10.10.103",
+          "state": "running"
+        },
+        {
+          "vmid": 105,
+          "name": "cynic-builder",
+          "ip": "dhcp",
+          "state": "running",
+          "resolved_address": "10.10.10.119"
+        }
       ]
     },
     "declared_inventory": {
       "source": "infra/registry.json",
       "count": 8,
-      "nodes": ["cynic-host-proxmox", "cynic-host-cortex", "local-kernel", "local-builder", "cynic-lxc-surrealdb", "cynic-builder", "forgejo", "cynic-lxc-headscale"]
+      "nodes": [
+        "cynic-host-proxmox",
+        "cynic-host-cortex",
+        "local-kernel",
+        "local-builder",
+        "cynic-lxc-surrealdb",
+        "cynic-builder",
+        "forgejo",
+        "cynic-lxc-headscale"
+      ]
     },
     "differences": [
-      {"class": "orphan_declaration", "node": "cynic-lxc-headscale", "declared_address": "10.10.10.40", "observed": "the address belongs to organ-headscale, which is running and not declared under its real name", "resolution": "fails"},
-      {"class": "orphan_declaration", "node": "local-builder", "declared_address": null, "observed": "no address declared; 10.10.10.119 is cynic-builder, VMID 105, running", "resolution": "fails"},
-      {"class": "unregistered_member", "node": "organ-headscale", "observed_address": "10.10.10.40", "observed": "runs headscale on port 8080; unresolvable by name in any registry and any hosts file"},
-      {"class": "unregistered_member", "node": "organ-forgejo", "observed": "container 101 running; the fleet addresses it as forgejo at 10.10.10.101, a name the hypervisor does not use"},
-      {"class": "unregistered_member", "node": "cynic-agent-host", "observed": "container 102 running; declared nowhere"},
-      {"class": "correct_absence", "node": "cynic-host-proxmox, cynic-host-cortex, local-kernel", "observed": "baremetal hosts, correctly absent from the container list"}
+      {
+        "class": "orphan_declaration",
+        "node": "cynic-lxc-headscale",
+        "declared_address": "10.10.10.40",
+        "observed": "the address belongs to organ-headscale, which is running and not declared under its real name",
+        "resolution": "fails"
+      },
+      {
+        "class": "orphan_declaration",
+        "node": "local-builder",
+        "declared_address": null,
+        "observed": "no address declared; 10.10.10.119 is cynic-builder, VMID 105, running",
+        "resolution": "fails"
+      },
+      {
+        "class": "unregistered_member",
+        "node": "organ-headscale",
+        "observed_address": "10.10.10.40",
+        "observed": "runs headscale on port 8080; unresolvable by name in any registry and any hosts file"
+      },
+      {
+        "class": "unregistered_member",
+        "node": "organ-forgejo",
+        "observed": "container 101 running; the fleet addresses it as forgejo at 10.10.10.101, a name the hypervisor does not use"
+      },
+      {
+        "class": "unregistered_member",
+        "node": "cynic-agent-host",
+        "observed": "container 102 running; declared nowhere"
+      },
+      {
+        "class": "correct_absence",
+        "node": "cynic-host-proxmox, cynic-host-cortex, local-kernel",
+        "observed": "baremetal hosts, correctly absent from the container list"
+      }
     ],
     "not_verified": "The four non-builder fleet nodes could not be reached: 10.10.10.100 timed out, 10.10.10.101 refused the key. Every observation in this document comes from the builder and from the hypervisor. Whether those nodes agree with any of this is unknown."
   },
-
   "enforcement": {
     "status": "declared, not yet enforced",
     "detectors_required": [
-      {"rule": "INF1", "detector": "read the inventory of record and diff it against declared, emitting orphan declarations and unregistered members"},
-      {"rule": "INF2", "detector": "resolve every declared node name against every resolver in use, including static name files"},
-      {"rule": "INF3", "detector": "compare declared against runtime registry and emit the drift as an observation"},
-      {"rule": "INF4", "detector": "audit static name files on every host against the registry projection"}
+      {
+        "rule": "INF1",
+        "detector": "read the inventory of record and diff it against declared, emitting orphan declarations and unregistered members"
+      },
+      {
+        "rule": "INF2",
+        "detector": "resolve every declared node name against every resolver in use, including static name files"
+      },
+      {
+        "rule": "INF3",
+        "detector": "compare declared against runtime registry and emit the drift as an observation"
+      },
+      {
+        "rule": "INF4",
+        "detector": "audit static name files on every host against the registry projection"
+      }
     ],
     "natural_owner": "cynic-node already exposes a registry-observation surface. Extending it to read the hypervisor and resolve names is the smallest step that makes any of this enforceable.",
-    "existing_asset": "cynic-discovery-host exists and is 220 lines, but it re-exports adapters from the cynic-host monolith rather than owning discovery, which is both a single-owner violation under N6 and an L1 to L1 DAG inversion."
+    "existing_asset": "cynic-discovery-host exists and is 220 lines, but it re-exports adapters from the cynic-host monolith rather than owning discovery, which is both a single-owner violation under N6 and an L1 to L1 DAG inversion.",
+    "blind_spot_summary": "Seven blind spots were found by testing these detectors against the current tree. INF9 is the governing one: the detectors have no invocation site, so they are documents. The other six describe what they would miss on the day they run. INF7 and INF8 are the network's own: network actuation performs no read-back, and the domain has no expected-state type, so drift cannot be computed inside it. INF11 bounds every measurement in both contracts: they were taken from one node, and four fleet nodes were unreachable."
   },
-
   "explicit_non_goals": [
     "discovery does not replace declaration: the declared inventory remains the statement of intent, and INF1 keeps the two distinguishable",
     "this contract does not mandate a discovery protocol such as mDNS or a service mesh; it mandates that membership be read from something that can enumerate it",
     "it does not decide which source wins a disagreement; that is contracts/registry-authority if promoted, or an operator decision"
   ],
-
   "verification": {
     "inventory_of_record": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct list\"'",
     "coordinator_running": "ssh cynic-builder-ssh 'timeout 8 ssh root@10.10.10.1 \"pct exec 100 -- ss -tlnp | grep 8080\"'",
@@ -99,9 +171,63 @@
     "static_file_audit": "ssh cynic-builder-ssh 'grep synapse /etc/hosts'",
     "resolver_nature": "ssh cynic-builder-ssh 'dig +short @10.10.10.1 version.bind CHAOS TXT; dig +noall +answer @10.10.10.1 synapse.cynic SOA'"
   },
-
   "ratification": {
     "status": "normative on the operator's instruction of 2026-10-05",
     "promotion_note": "written in contracts/ because the operator ruled that a convention which cannot fail a build is prose. The enforcement status is declared above rather than left implicit."
+  },
+  "blind_spots": {
+    "INF5_addressing_is_not_membership": {
+      "blind_spot": "INF1 to INF4 verify NAMES. They never verify ADDRESSES.",
+      "measured": "273 literal addresses appear in Rust source, across cynic-protocol, cynic-lifecycle, cynic-host and others. A node can be correctly named and carry a hardcoded address that no longer matches its observed one, and every detector passes.",
+      "evidence": "grep -rn '10\\.10\\.10\\.\\|192\\.168\\.100\\.\\|100\\.64\\.' --include=*.rs crates/ | grep -v target | wc -l  returns 273",
+      "detector_required": "for every node whose name resolves, resolve it again and compare the returned address against the declared address. Divergence is drift."
+    },
+    "INF6_health_is_not_membership": {
+      "blind_spot": "INF1 reads the container inventory, which reports RUNNING. It does not report whether the service inside is healthy, listening, or serving.",
+      "measured": "224 references to service state exist in the codebase, but none is wired to the membership observation. A container that runs and serves nothing satisfies INF1.",
+      "evidence": "the mesh coordinator runs as container 100 and listens on 8080, but nothing in the declared inventory asserts that it must listen; conversely a stopped service would satisfy every detector",
+      "detector_required": "per declared node, observe the required services and ports. A node that is present and running but not serving is degraded, not healthy."
+    },
+    "INF7_no_rollback_proof_on_network_mutation": {
+      "blind_spot": "read_back proof exists widely, 1094 references, but network actuation has none.",
+      "measured": "crates/cynic-node/src/network_actuator/execution.rs contains zero occurrences of verify, read_back, observe or prove. The DNS bundle writes four files with four independent fs::write calls; a failure on the third leaves a partial state that nothing detects.",
+      "evidence": "grep -cE 'verify|read_back|observe|prove|rollback' crates/cynic-node/src/network_actuator/execution.rs returns 0",
+      "detector_required": "every network mutation emits a read-back of the state it claims to have produced. A partial write is an observed state, never a silent success.",
+      "cross_reference": {
+        "rfc_sections": "RFC-NET-001 \u00a76 lists eight mitigations, none of which is a post-mutation read-back",
+        "conflict": "the coherence pattern in AGENTS.md requires desired state, observation, reconcile, bounded action, read-back proof. The network implements the first four and stops: actuation reports success without reading the state it produced.",
+        "consequence": "this is the network's own doctrine breach, not a missing capability elsewhere."
+      }
+    },
+    "INF8_no_expected_state_in_the_domain": {
+      "blind_spot": "the network domain models what is, never what should be. There is no desired-state type, so drift cannot be computed inside the domain.",
+      "measured": "grep for desired_state, expected_state or target_state in crates/cynic-network/src returns zero matches. The drift types that exist, ShadowDrift in network_shadow_proof and drift_detected in registry_maintenance, are set by their callers, not computed from an expected state.",
+      "evidence": "crates/cynic-network/src/registry_maintenance.rs:92 sets drift_detected: false as a literal in a fixture",
+      "detector_required": "an expected-state type in cynic-network, so that observed minus expected is computable and the domain can emit drift rather than have it supplied.",
+      "cross_reference": {
+        "rfc_section": "RFC-NET-001 \u00a71.1 principle 3 (Data-Centric Evolution) and \u00a74 (4-layer observation)",
+        "conflict": "principle 3 requires that routing be governed by empirical data rather than hardcoded heuristics, and \u00a74 defines a telemetry snapshot consumed by cynic-storage, cynic-intel and cynic-intel-soc. Both presuppose a comparison between an expected and an observed state. crates/cynic-network has zero desired_state, expected_state or target_state types, so the comparison the RFC relies on cannot be computed inside the domain that owns it.",
+        "consequence": "RFC-NET-001 \u00a74 is marked partial and this contract names the specific missing piece: not the telemetry, which exists, but the expected state it would be compared against."
+      }
+    },
+    "INF9_the_detectors_are_dead_code": {
+      "blind_spot": "INF1 to INF4 and the N5 to N7 detectors are declared in contracts and referenced by zero code.",
+      "measured": "the concepts inventory_of_record, orphan_declaration, unregistered_member and declared_state appear in 2 places in the whole workspace, both in tests or documentation, none in a runtime path.",
+      "evidence": "grep -rn 'inventory_of_record\\|orphan_declaration\\|unregistered_member\\|declared_state' --include=*.rs crates/ returns 2 matches",
+      "detector_required": "each detector needs an invocation site. A detector with no caller is a document, not a control.",
+      "severity_note": "this is the most important of the seven. The other six describe what the detectors would miss if they ran. This one says they do not run."
+    },
+    "INF10_observation_freshness_is_undefined": {
+      "blind_spot": "nothing defines how old an observation may be before it stops being a fact.",
+      "measured": "520 timestamps exist across the workspace and 29 in cynic-network, so facts are dated. No contract states a maximum age, so a year-old observation and a one-second-old one are equally trusted.",
+      "evidence": "contracts/observability-loop.json has a staleness rule for thresholds, 30 days, but no freshness bound for observations",
+      "detector_required": "an observation carries a maximum age. Beyond it, the fact degrades to unknown rather than being served as current."
+    },
+    "INF11_single_node_visibility": {
+      "blind_spot": "every measurement in these contracts came from one node. Four nodes were unreachable.",
+      "measured": "10.10.10.100 timed out, 10.10.10.101 refused the key. A contract written from one vantage point cannot see a split brain: two nodes disagreeing about a fact, or one node holding a private answer.",
+      "evidence": "the repository itself already has this vocabulary: HealthSignalPayload::NameResolutionInconsistent exists precisely because each node holding a private answer means no node can observe the fault",
+      "detector_required": "facts that must hold fleet-wide are observed from at least two vantage points and compared. Disagreement is a first-class signal, not a merge."
+    }
   }
 }

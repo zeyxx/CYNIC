@@ -320,6 +320,28 @@ Derived from the conformance audit. Each tranche is bounded, committed and pushe
 | T11 | MSS clamping + MTU pinning in `firewall_policy` (§6.1) | `open` |
 | T12 | Dual-stack path model (§6.4) | `open` |
 
-Tranches T1–T4.2 are proven on the builder. The rest are ordered by dependency, not by
-importance: T4.3 removes a live source of vocabulary divergence, T5 and T6 repair structural
-defects, and T9–T12 are new capability with no existing executor.
+Tranches T1–T5 are proven on the builder. The rest are ordered by dependency, not by
+importance: T6 repairs a measured 86-file DAG inversion, T7 the actuation contracts, and T9–T12
+are new capability with no existing executor.
+
+### 8.1 Governing contracts
+
+Two normative contracts now govern this document and were written from measurements against it:
+
+- `contracts/observability-facts.json` — N5, N6, N7. A registry declares intent and establishes
+  nothing; one observed fact has one owner and one schema; an unobserved fact is unknown with a
+  reason, never a default.
+- `contracts/infrastructure-discovery.json` — INF1 to INF4, plus seven recorded blind spots.
+
+Seven blind spots were found by testing those detectors against this crate's own tree, and they
+bear directly on the sections above:
+
+| Blind spot | Bears on |
+|---|---|
+| INF7 network actuation performs no read-back | §7 actuation; the coherence pattern stops before proof |
+| INF8 `cynic-network` has no expected-state type | §1.1 principle 3 and §4 both presuppose a comparison it cannot compute |
+| INF5 273 literal addresses in Rust | §2 CIDR allocation, which is declared but not verified in code |
+| INF6 membership does not imply service health | §4 L4 pressure; a running container serving nothing passes every detector |
+| INF9 the detectors have no invocation site | every claim in this document is, today, a measurement rather than a control |
+| INF10 no freshness bound on an observation | §4; nothing states how old an observation may be before it stops being a fact |
+| INF11 measurements came from one node | §5, §6.3; four fleet nodes were unreachable, so no fleet-wide claim here is proven |
