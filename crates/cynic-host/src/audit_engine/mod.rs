@@ -2,6 +2,7 @@ pub mod debt_ledger;
 mod module_inversion_rule;
 mod artefact_rule;
 pub mod path_rules;
+pub mod prose_citation_rule;
 pub mod topology;
 pub mod topology_generate;
 pub mod rules;
@@ -15,6 +16,7 @@ use cynic_protocol::{AUDIT_REPORT_SCHEMA_V2, AuditReportV2, AuditSeverity, Audit
 use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
+use self::prose_citation_rule::CodeCitesProseRule;
 use self::topology::CrateTopologyRule;
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
@@ -70,6 +72,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(AutobinsFrozenRule),
         Box::new(ModuleInversionRule),
         Box::new(LayerModelDeclaredRule),
+        Box::new(CodeCitesProseRule),
     ]
 }
 
