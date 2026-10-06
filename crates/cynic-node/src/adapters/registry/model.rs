@@ -26,6 +26,9 @@ pub(super) struct RegistryPlanes {
     #[serde(alias = "overlay")]
     pub(super) mesh: Option<RegistryPlane>,
     pub(super) proxmox_guest: Option<RegistryPlane>,
+    pub(super) service: Option<RegistryPlane>,
+    pub(super) admin: Option<RegistryPlane>,
+    pub(super) mesh: Option<RegistryPlane>,
 }
 
 impl RegistryPlanes {
