@@ -186,16 +186,24 @@ pub struct CapabilityCatalog {
 impl CapabilityCatalog {
     /// Project the catalog into sudoers rules for the given subject.
     ///
-    /// Each `requires_root` capability becomes one sudoers line:
-    ///   `<subject> ALL=(root) NOPASSWD: <argv>`
+    /// WHY THE RULE NAMES THE BINARY, NOT THE RESOLVED ARGV. sudoers cannot
+    /// express the admission policy. Measured: `visudo -c` rejects a rule
+    /// containing `--scopes write:repository` because `:` is a sudoers
+    /// separator, and it cannot validate that a vmid is an integer or that a
+    /// value is not an option lookalike. Those checks live in
+    /// `admit_capability`, which is the enforcement point.
     ///
-    /// `{param}` placeholders become `*` (sudoers wildcard). The result is
-    /// deterministic: capabilities are sorted by id so the same catalog always
-    /// produces the same rules.
+    /// So the membrane is deliberately coarse — the binary plus the capability
+    /// id — and the binary performs the fine admission. Defense in depth:
+    /// sudoers bounds WHICH capability may run as root, the binary bounds
+    /// WHICH parameters that capability may carry. A `*` tail is required
+    /// because sudoers cannot enumerate typed parameters, and sudoers refuses
+    /// any argument containing `/`, which is strictly more restrictive than
+    /// the binary.
     ///
-    /// This is a pure function — no I/O, no filesystem access. The caller
-    /// decides where to write the result.
-    pub fn sudoers_rules(&self, subject: &str) -> Vec<String> {
+    /// `{param}` placeholders never reach the rule: only the capability id
+    /// does. Deterministic (sorted by id).
+    pub fn sudoers_rules(&self, subject: &str, binary_path: &str) -> Vec<String> {
         let mut rules = Vec::new();
         let mut caps: Vec<&Capability> = self
             .capabilities
@@ -204,27 +212,18 @@ impl CapabilityCatalog {
             .collect();
         caps.sort_by(|a, b| a.id.cmp(&b.id));
         for cap in caps {
-            let argv = cap
-                .argv_template
-                .iter()
-                .map(|arg| {
-                    if arg.starts_with('{') && arg.ends_with('}') {
-                        "*".to_string()
-                    } else {
-                        arg.clone()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(" ");
-            rules.push(format!("{subject} ALL=(root) NOPASSWD: {argv}"));
+            rules.push(format!(
+                "{subject} ALL=(root) NOPASSWD: {binary_path} privilege exec {} *",
+                cap.id
+            ));
         }
         rules
     }
 
-    /// All sudoers rules as a single comma-separated line (classic sudoers format).
-    pub fn sudoers_line(&self, subject: &str) -> String {
-        let rules = self.sudoers_rules(subject);
-        rules.join(", ")
+    /// All sudoers rules as one file body, newline-terminated.
+    pub fn sudoers_file(&self, subject: &str, binary_path: &str) -> String {
+        let rules = self.sudoers_rules(subject, binary_path);
+        format!("{}\n", rules.join("\n"))
     }
 }
 
@@ -801,35 +800,47 @@ mod absorb_transport_tests {
     #[test]
     fn sudoers_rules_only_includes_root_capabilities() {
         let catalog = catalog_with_root_caps();
-        let rules = catalog.sudoers_rules("cynic");
+        let rules = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
         assert_eq!(rules.len(), 2);
-        assert!(rules.iter().all(|r| r.starts_with("cynic ALL=(root) NOPASSWD: ")));
+        assert!(rules
+            .iter()
+            .all(|r| r.starts_with("cynic ALL=(root) NOPASSWD: /usr/local/bin/cynic privilege exec ")));
         assert!(!rules.iter().any(|r| r.contains("node-control")));
     }
 
     #[test]
-    fn sudoers_rules_replace_param_placeholders() {
+    fn sudoers_rules_name_the_capability_id_not_the_argv() {
         let catalog = catalog_with_root_caps();
-        let rules = catalog.sudoers_rules("cynic");
-        let clone_rule = rules.iter().find(|r| r.contains("clone")).expect("clone rule");
-        assert!(clone_rule.contains("*"), "param placeholders must become wildcards: {clone_rule}");
-        assert!(!clone_rule.contains('{'), "no unresolved placeholders");
+        let rules = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
+        let clone_rule = rules
+            .iter()
+            .find(|r| r.contains("pct-clone"))
+            .expect("clone rule");
+        assert!(clone_rule.ends_with(" *"), "needs a wildcard tail: {clone_rule}");
+        assert!(
+            !clone_rule.contains("/usr/sbin/pct"),
+            "the rule must not embed the resolved argv: {clone_rule}"
+        );
+        assert!(
+            !clone_rule.contains('{'),
+            "no unresolved placeholders: {clone_rule}"
+        );
     }
 
     #[test]
     fn sudoers_rules_are_deterministic() {
         let catalog = catalog_with_root_caps();
-        let a = catalog.sudoers_rules("cynic");
-        let b = catalog.sudoers_rules("cynic");
+        let a = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
+        let b = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
         assert_eq!(a, b);
     }
 
     #[test]
-    fn sudoers_line_joins_with_comma() {
+    fn sudoers_file_is_newline_terminated() {
         let catalog = catalog_with_root_caps();
-        let line = catalog.sudoers_line("cynic");
-        assert!(line.contains(", "), "rules must be comma-separated");
-        assert!(line.starts_with("cynic ALL=(root) NOPASSWD: "));
+        let file = catalog.sudoers_file("cynic", "/usr/local/bin/cynic");
+        assert!(file.ends_with('\n'), "sudoers file must end with a newline");
+        assert_eq!(file.lines().count(), 2);
     }
 
     #[test]
@@ -838,6 +849,6 @@ mod absorb_transport_tests {
             r#"{"schema":"cynic.capability_catalog.v1","capabilities":[{"id":"x","domain":"d","argv_template":["/bin/true"],"requires_root":false,"purpose":"p"}]}"#,
         )
         .expect("valid");
-        assert!(catalog.sudoers_rules("cynic").is_empty());
+        assert!(catalog.sudoers_rules("cynic", "/usr/local/bin/cynic").is_empty());
     }
 }

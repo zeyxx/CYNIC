@@ -345,6 +345,7 @@ struct InstallReport {
     status: &'static str,
     subject: String,
     output_path: String,
+    binary_path: String,
     rules: Vec<String>,
     blockers: Vec<String>,
 }
@@ -396,13 +397,21 @@ fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
         Err(error) => return fail(error),
     };
 
-    let rules = view.catalog.sudoers_rules(subject);
+    // The binary path is where THIS executable lives: the sudoers rule must
+    // name the same binary the operator invokes, not a hardcoded guess.
+    let binary_path = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.to_str().map(str::to_string))
+        .unwrap_or_else(|| "/usr/local/bin/cynic".to_string());
+
+    let rules = view.catalog.sudoers_rules(subject, &binary_path);
     if rules.is_empty() {
         let report = InstallReport {
             schema: "cynic.privilege.install.v1",
             status: "blocked",
             subject: subject.to_string(),
             output_path: output.to_string(),
+            binary_path,
             rules: Vec::new(),
             blockers: vec!["no_root_capabilities_in_catalog".to_string()],
         };
@@ -410,13 +419,14 @@ fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let content = format!("{}\n", rules.join("\n"));
+    let content = view.catalog.sudoers_file(subject, &binary_path);
     if let Err(error) = std::fs::write(output, content) {
         let report = InstallReport {
             schema: "cynic.privilege.install.v1",
             status: "failed",
             subject: subject.to_string(),
             output_path: output.to_string(),
+            binary_path,
             rules,
             blockers: vec![format!("write_failed:{error}")],
         };
@@ -429,6 +439,7 @@ fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
         status: "installed",
         subject: subject.to_string(),
         output_path: output.to_string(),
+        binary_path,
         rules,
         blockers: Vec::new(),
     };
