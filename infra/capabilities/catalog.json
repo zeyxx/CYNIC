@@ -15,7 +15,10 @@
     {
       "id": "node-control",
       "domain": "runtime",
-      "argv_template": ["node", "control"],
+      "argv_template": [
+        "node",
+        "control"
+      ],
       "params": [],
       "requires_root": false,
       "mandatory": true,
@@ -24,7 +27,10 @@
     {
       "id": "pct-list",
       "domain": "hypervisor",
-      "argv_template": ["/usr/sbin/pct", "list"],
+      "argv_template": [
+        "/usr/sbin/pct",
+        "list"
+      ],
       "params": [],
       "requires_root": true,
       "mandatory": false,
@@ -33,8 +39,19 @@
     {
       "id": "pct-probe",
       "domain": "hypervisor",
-      "argv_template": ["/usr/sbin/pct", "exec", "{vmid}", "--", "hostname"],
-      "params": [{ "name": "vmid", "kind": "vmid" }],
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "hostname"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
       "requires_root": true,
       "mandatory": false,
       "purpose": "read-only container observation (hostname)"
@@ -43,11 +60,21 @@
       "id": "pct-clone",
       "domain": "hypervisor",
       "argv_template": [
-        "/usr/sbin/pct", "clone", "{source}", "{target}", "--full"
+        "/usr/sbin/pct",
+        "clone",
+        "{source}",
+        "{target}",
+        "--full"
       ],
       "params": [
-        { "name": "source", "kind": "vmid" },
-        { "name": "target", "kind": "vmid" }
+        {
+          "name": "source",
+          "kind": "vmid"
+        },
+        {
+          "name": "target",
+          "kind": "vmid"
+        }
       ],
       "requires_root": true,
       "mandatory": false,
@@ -56,8 +83,17 @@
     {
       "id": "pct-destroy",
       "domain": "hypervisor",
-      "argv_template": ["/usr/sbin/pct", "destroy", "{vmid}"],
-      "params": [{ "name": "vmid", "kind": "vmid" }],
+      "argv_template": [
+        "/usr/sbin/pct",
+        "destroy",
+        "{vmid}"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
       "requires_root": true,
       "mandatory": false,
       "purpose": "destroy an ephemeral container after read-back proof"
@@ -65,10 +101,22 @@
     {
       "id": "pct-resize",
       "domain": "hypervisor",
-      "argv_template": ["/usr/sbin/pct", "resize", "{vmid}", "rootfs", "{delta}"],
+      "argv_template": [
+        "/usr/sbin/pct",
+        "resize",
+        "{vmid}",
+        "rootfs",
+        "{delta}"
+      ],
       "params": [
-        { "name": "vmid", "kind": "vmid" },
-        { "name": "delta", "kind": "size_delta" }
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        },
+        {
+          "name": "delta",
+          "kind": "size_delta"
+        }
       ],
       "requires_root": true,
       "mandatory": false,
@@ -77,8 +125,17 @@
     {
       "id": "pct-status",
       "domain": "hypervisor",
-      "argv_template": ["/usr/sbin/pct", "status", "{vmid}"],
-      "params": [{ "name": "vmid", "kind": "vmid" }],
+      "argv_template": [
+        "/usr/sbin/pct",
+        "status",
+        "{vmid}"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
       "requires_root": true,
       "mandatory": false,
       "purpose": "observe a container's run state (read-only)"
@@ -86,7 +143,11 @@
     {
       "id": "systemctl-restart-pve-cluster",
       "domain": "system",
-      "argv_template": ["/usr/bin/systemctl", "restart", "pve-cluster"],
+      "argv_template": [
+        "/usr/bin/systemctl",
+        "restart",
+        "pve-cluster"
+      ],
       "params": [],
       "requires_root": true,
       "mandatory": false,
@@ -95,7 +156,11 @@
     {
       "id": "systemctl-restart-pvedaemon",
       "domain": "system",
-      "argv_template": ["/usr/bin/systemctl", "restart", "pvedaemon"],
+      "argv_template": [
+        "/usr/bin/systemctl",
+        "restart",
+        "pvedaemon"
+      ],
       "params": [],
       "requires_root": true,
       "mandatory": false,
@@ -105,14 +170,34 @@
       "id": "forgejo-machine-token",
       "domain": "identity",
       "argv_template": [
-        "/usr/sbin/pct", "exec", "{vmid}", "--", "forgejo", "admin", "user", "generate-access-token",
-        "--username", "{principal}", "--token-name", "{token_name}",
-        "--scopes", "write:repository", "--raw"
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "forgejo",
+        "admin",
+        "user",
+        "generate-access-token",
+        "--username",
+        "{principal}",
+        "--token-name",
+        "{token_name}",
+        "--scopes",
+        "write:repository"
       ],
       "params": [
-        { "name": "vmid", "kind": "vmid" },
-        { "name": "principal", "kind": "path_segment" },
-        { "name": "token_name", "kind": "path_segment" }
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        },
+        {
+          "name": "principal",
+          "kind": "path_segment"
+        },
+        {
+          "name": "token_name",
+          "kind": "path_segment"
+        }
       ],
       "requires_root": true,
       "mandatory": false,
