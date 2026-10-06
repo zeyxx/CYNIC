@@ -47,7 +47,7 @@ debt with an expiry, never as architecture.
 
 | # | Gap | Evidence | Severity |
 |---|---|---|---|
-| 1 | Orphan `cynic-cloud-api` on ingress hypervisor | 34 MB, `/usr/local/bin`, Jun 12, zero repo/basket/contract provenance; serves unknown ports | **Critical** — decide source or quarantine (§5 runtime-roles) |
+| 1 | Orphan `cynic-cloud-api` on ingress hypervisor | DECIDED 2026-10-06: quarantine (stop+disable, binary kept for triage). The *principle* is retained: a `cynic-cloud` web-surface hosting role on the hypervisor is wanted — as a declared, sourced, basket-listed service, not as this orphan. See runtime-roles §5.1. | **Critical** — quarantine pending root execution (no sudo grant on PVE) |
 | 2 | 13 un-GC'd releases on builder | `ls /var/lib/cynic/releases` → v0.2.0…v0.8.0 | Low — first GC-capable deploy cleans it |
 | 3 | No daemon health endpoints | cynic-node has no HTTP surface; kernel unlocated | Medium — `active` + `observe` is the interim probe; real `/health` per daemon is the target |
 | 4 | Port owners unknown | builder `:9090`; PVE `:80/443/4000/53/3128` (no sudo to attribute) | Medium — ingress you cannot attribute is ingress you cannot defend |
