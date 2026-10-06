@@ -51,13 +51,23 @@ TEST_RUST_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592
 # not actually being passed.
 RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 
-# A `cynic` on PATH may be stale, unmanaged, or absent. Resolve once, prefer a
-# managed install, and never fall back to a path that only exists on a build
-# runner. The operator host once resolved `cynic` to an unmanaged 0.2.0 debug
-# build that served four CLI surfaces HEAD cannot produce, which made
-# `make check` validate an artifact the source no longer described.
+# TWO SUBJECTS, TWO VARIABLES. Never merge them.
+#
+# `CYNIC_SOURCE_BIN` answers: "is HEAD conformant?" Only a binary built from
+# HEAD can, so it is always a cargo target path — never PATH, never an install.
+#
+# `CYNIC_INSTALLED` answers: "does the deployed artifact match its source?"
+# Its subject IS the install, so PATH resolution is correct here and only here.
+#
+# The previous single variable resolved PATH first and fell back to the cargo
+# path, so every gate validated whatever `cynic` happened to be installed. Lived:
+# the gate binary was 37 commits behind HEAD and could not see the two audit
+# rules added since (`prose_citation_rule.rs`, `module_inversion_rule.rs`), so
+# `make audit` was structurally blind to the findings those rules report. A gate
+# that proves a stale source is worse than no gate: it is green and wrong.
+CYNIC_SOURCE_BIN ?= $(CARGO_TARGET_DIR)/debug/cynic
 CYNIC ?= $(shell command -v cynic 2>/dev/null || true)
-CYNIC_BIN := $(if $(strip $(CYNIC)),$(CYNIC),$(CARGO_TARGET_DIR)/debug/cynic)
+CYNIC_INSTALLED := $(if $(strip $(CYNIC)),$(CYNIC),$(CYNIC_SOURCE_BIN))
 
 # Fail before spending a build when a target's CLI surface cannot be produced
 # from this tree. 13 of 31 targets used to call a surface that does not exist
@@ -68,7 +78,7 @@ CYNIC_BIN := $(if $(strip $(CYNIC)),$(CYNIC),$(CARGO_TARGET_DIR)/debug/cynic)
 define require_surface
 	@missing=""; \
 	for sub in $(1); do \
-		if ! $(CYNIC_BIN) $$sub --help >/dev/null 2>&1; then missing="$$missing $$sub"; fi; \
+		if ! $(CYNIC_SOURCE_BIN) $$sub --help >/dev/null 2>&1; then missing="$$missing $$sub"; fi; \
 	done; \
 	if [ -n "$$missing" ]; then \
 		echo "make $(@): not runnable — CLI surface(s) not routable from this tree:$$missing" >&2; \
@@ -86,8 +96,8 @@ help: ## List targets
 .PHONY: secret.literals
 secret.literals: ## Reject high-confidence literal credentials in Git-tracked source
 	@echo "==> cynic audit secret"
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) audit secret --json; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) audit secret --json; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit secret --json; \
 	fi
@@ -163,16 +173,16 @@ authority.check: secret.literals ## Read-only local validation of machine-readab
 .PHONY: check
 check: ## Native validation via cynic audit crate (no make recursion, exit code is the gate)
 	@echo "==> cynic audit crate (native, 100% Rust)"
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) audit crate --json; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) audit crate --json; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit crate --json; \
 	fi
 
 .PHONY: audit
 audit: ## Native unified audit of all crates, architecture boundaries, and secrets
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) audit all --json; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) audit all --json; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
 	fi
@@ -195,13 +205,43 @@ audit: ## Native unified audit of all crates, architecture boundaries, and secre
 audit.runtime: ## Runtime divergence: units, binaries, credentials, claim store (JSON, exit-code gated)
 	@$(CARGO) run -q -p cynic-host --bin cynic-audit
 
+# The DEPLOYED artifact's own gate. `make check`/`make audit` answer "is HEAD
+# conformant?" — this target answers the other question: "does the installed
+# binary match its source?" They are different subjects and must stay different
+# targets; merging them recreates the phantom this split removed.
+#
+# Fail-closed on BOTH divergence and absence: a binary that reports no git_sha
+# is an explicit unknown, never a pass.
+.PHONY: audit.deployed
+audit.deployed: ## Compare the installed artifact's baked git_sha to HEAD (fail-closed)
+	@if [ ! -x "$(CYNIC_INSTALLED)" ]; then \
+		echo "audit.deployed: no installed artifact at $(CYNIC_INSTALLED)" >&2; \
+		echo "  an absent install is an explicit unknown, not a pass" >&2; \
+		exit 1; \
+	fi
+	@installed_sha="$$("$(CYNIC_INSTALLED)" version --json 2>/dev/null | jq -r '.git_sha // empty')"; \
+	head_sha="$$(git rev-parse HEAD)"; \
+	if [ -z "$$installed_sha" ]; then \
+		echo "audit.deployed: $(CYNIC_INSTALLED) reports no git_sha — explicit unknown, not a pass" >&2; \
+		exit 1; \
+	fi; \
+	if [ "$$installed_sha" != "$$head_sha" ]; then \
+		distance="$$(git rev-list --count "$$installed_sha"..HEAD 2>/dev/null || echo unknown)"; \
+		echo "audit.deployed: DIVERGENT" >&2; \
+		echo "  installed: $$installed_sha  ($(CYNIC_INSTALLED))" >&2; \
+		echo "  HEAD     : $$head_sha" >&2; \
+		echo "  commits behind: $$distance" >&2; \
+		exit 1; \
+	fi; \
+	echo "audit.deployed: installed artifact matches HEAD ($$head_sha)"
+
 .PHONY: converge
 converge: ## Native automated convergence of worktrees, branches, and unified audit
 	@echo "==> Reconciling agent worktrees and branches"
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) source worktree --apply --json; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) source worktree --apply --json; \
 		echo "==> Verifying workspace convergence audit"; \
-		$(CYNIC_BIN) audit all --json; \
+		$(CYNIC_SOURCE_BIN) audit all --json; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source worktree --apply --json; \
 		echo "==> Verifying workspace convergence audit"; \
@@ -353,16 +393,16 @@ operator.day: ## Morning loop via native cynic deps
 .PHONY: release.deploy
 release.deploy: ## Run the release gate, then build and atomically deploy via native cynic source deploy
 	@echo "==> release gate"
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) source release; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) source release; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source release; \
 	fi
 	@echo "==> building release binaries"
 	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
 	@echo "==> deploying"
-	@if [ -x "$(CYNIC_BIN)" ]; then \
-		$(CYNIC_BIN) source deploy --apply; \
+	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
+		$(CYNIC_SOURCE_BIN) source deploy --apply; \
 	else \
 		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source deploy --apply; \
 	fi
