@@ -12,9 +12,9 @@ pub use capability_catalog::{
     catalog_path_from_env, installed_path_from_env,
 };
 pub use pve_helper::{
-    DEFAULT_CATALOG_PATH, DEFAULT_POLICY_PATH, PVE_HELPER_BUNDLE_MANIFEST_SCHEMA,
-    PVE_HELPER_POLICY_SCHEMA, PveHelperBundleManifest, PveHelperPolicy, PvePolicyError,
-    pve_helper_bundle_manifest, pve_helper_install_commands, pve_helper_read_back_commands,
+    DEFAULT_POLICY_PATH, PVE_HELPER_BUNDLE_MANIFEST_SCHEMA, PVE_HELPER_POLICY_SCHEMA,
+    PveHelperBundleManifest, PveHelperPolicy, PvePolicyError, pve_helper_bundle_manifest,
+    pve_helper_install_commands, pve_helper_read_back_commands,
 };
 pub use transport_caps::{
     AuthorityClass, DEFAULT_TRANSPORT_POLICY_PATH, TRANSPORT_CAPABILITIES_SCHEMA,

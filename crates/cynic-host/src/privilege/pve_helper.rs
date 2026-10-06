@@ -28,8 +28,9 @@ use cynic_protocol::privilege::CapabilityCatalog;
 pub const PVE_HELPER_POLICY_SCHEMA: &str = "cynic.host.pve_helper_policy.v1";
 pub const PVE_HELPER_BUNDLE_MANIFEST_SCHEMA: &str = "cynic.host.pve_helper_bundle_manifest.v1";
 
-/// The unified catalog. One capability source for every domain.
-pub const DEFAULT_CATALOG_PATH: &str = "infra/capabilities/catalog.json";
+/// The unified catalog path is owned by `capability_catalog`; re-exported here
+/// so pve_helper callers do not need a second constant for one concept.
+pub use crate::privilege::capability_catalog::DEFAULT_CATALOG_PATH;
 /// The legacy install-site policy (paths only; capabilities come from the catalog).
 pub const DEFAULT_POLICY_PATH: &str = "infra/privilege/pve-pct-helper.policy.json";
 
