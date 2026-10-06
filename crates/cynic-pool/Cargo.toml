@@ -19,11 +19,3 @@ tracing.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-
-[[bin]]
-name = "cynic-pool"
-path = "src/main.rs"
-required-features = ["cli"]
-
-[features]
-cli = []
