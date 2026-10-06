@@ -16,6 +16,21 @@ pub enum RuntimeSecretPresenceSource {
     InstalledFile,
 }
 
+/// What the observer could establish about a secret.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeSecretPresence {
+    /// Resolved to a readable secret (or at least readable metadata).
+    Present,
+    /// Proven absent: no candidate exists.
+    Absent,
+    /// A candidate exists but its metadata is unreadable (typically
+    /// `PermissionDenied` on a root-owned store observed from a user
+    /// process). Reporting `Absent` here would be a false negative:
+    /// the secret may well exist behind the permission boundary.
+    Unknown,
+}
+
 #[derive(Clone)]
 pub struct RuntimeSecretPresenceSpec {
     pub identity_id: String,
@@ -29,7 +44,9 @@ impl RuntimeSecretPresenceSpec {
         let mut file_candidates = Vec::new();
         if let Ok(home) = std::env::var("HOME") {
             file_candidates.push((
-                PathBuf::from(home).join(".config/cynic/secrets").join(filename),
+                PathBuf::from(home)
+                    .join(".config/cynic/secrets")
+                    .join(filename),
                 RuntimeSecretPresenceSource::PrincipalOwnedFile,
             ));
         }
@@ -46,7 +63,11 @@ impl RuntimeSecretPresenceSpec {
     }
 
     pub fn storage_runtime() -> Self {
-        Self::new("storage_runtime", &["SURREALDB_PASS"], "storage-runtime-password")
+        Self::new(
+            "storage_runtime",
+            &["SURREALDB_PASS"],
+            "storage-runtime-password",
+        )
     }
 
     pub fn proxmox_control() -> Self {
@@ -58,7 +79,11 @@ impl RuntimeSecretPresenceSpec {
     }
 
     pub fn cloudflare() -> Self {
-        Self::new("cloudflare", &["CLOUDFLARE_API_TOKEN"], "cloudflare-api-token")
+        Self::new(
+            "cloudflare",
+            &["CLOUDFLARE_API_TOKEN"],
+            "cloudflare-api-token",
+        )
     }
 
     pub fn porkbun() -> Self {
@@ -109,6 +134,9 @@ pub struct RuntimeSecretPresenceReport {
     pub identity_id: String,
     pub required_class: RuntimeSecretClass,
     pub present: bool,
+    /// Tri-state verdict. `present` stays for backward compatibility:
+    /// `true` iff `presence == Present`.
+    pub presence: RuntimeSecretPresence,
     pub source: Option<RuntimeSecretPresenceSource>,
     pub secret_exposed: bool,
     pub unknowns: Vec<String>,
@@ -124,33 +152,53 @@ pub fn observe_runtime_secret_presence(
     {
         return report(
             spec,
-            true,
+            RuntimeSecretPresence::Present,
             Some(RuntimeSecretPresenceSource::ProcessEnvironment),
             Vec::new(),
         );
     }
 
     let mut unknowns = Vec::new();
+    let mut denied = false;
     for (path, source) in &spec.file_candidates {
         match std::fs::symlink_metadata(path) {
             Ok(metadata) if metadata.file_type().is_file() && metadata.len() > 0 => {
-                return report(spec, true, Some(*source), unknowns);
+                return report(
+                    spec,
+                    RuntimeSecretPresence::Present,
+                    Some(*source),
+                    unknowns,
+                );
             }
             Ok(metadata) if metadata.file_type().is_symlink() => {
                 unknowns.push("runtime_secret_candidate_is_symlink".to_string());
             }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                // The candidate exists behind a permission boundary (e.g. a
+                // root-owned store observed from a user process). This is NOT
+                // absence: the secret may exist and be perfectly healthy.
+                denied = true;
+                unknowns.push(format!(
+                    "runtime_secret_unreadable_behind_permission_boundary:{}",
+                    path.display()
+                ));
+            }
             Err(_) => unknowns.push("runtime_secret_metadata_unavailable".to_string()),
         }
     }
 
-    report(spec, false, None, unknowns)
+    if denied {
+        report(spec, RuntimeSecretPresence::Unknown, None, unknowns)
+    } else {
+        report(spec, RuntimeSecretPresence::Absent, None, unknowns)
+    }
 }
 
 fn report(
     spec: &RuntimeSecretPresenceSpec,
-    present: bool,
+    presence: RuntimeSecretPresence,
     source: Option<RuntimeSecretPresenceSource>,
     mut unknowns: Vec<String>,
 ) -> RuntimeSecretPresenceReport {
@@ -160,7 +208,8 @@ fn report(
         schema: "cynic.runtime_secret_presence.v1",
         identity_id: spec.identity_id.clone(),
         required_class: spec.required_class,
-        present,
+        present: presence == RuntimeSecretPresence::Present,
+        presence,
         source,
         secret_exposed: false,
         unknowns,
