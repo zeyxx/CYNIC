@@ -1185,6 +1185,10 @@
     "cynic-market": {
       "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
       "reason": "measured 0 runtime, 0 dev dependents, not a binary"
+    },
+    "cynic-pool": {
+      "disposition": "see infra/CRATE_FUSION_DISPOSITIONS.md",
+      "reason": "measured 0 runtime, 0 dev dependents, phantom [[bin]] removed 2026-10-06; library-only, candidate for deletion"
     }
   },
   "purpose": "Machine-readable crate dependency topology. Single source of truth for the DAG, the layer assignment, and crate justification. Replaces the prose taxonomy in AGENTS.md and the tables in infra/CANONICAL_CRATE_MAP.md, which can drift from the build graph and from each other and are not executable. A vertical slice names crates; this file gives the topological order to extract them in.",
