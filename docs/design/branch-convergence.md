@@ -18,7 +18,7 @@ chantiers (hypervisor/cynic-proxmox, secrets migrations, vocabulary).
 | debt-priorities-architecture | 1 / 12 | 10-03 | Small, recent enough to merge fast |
 | plane-taxonomy-v1 | 186 / 13 | 10-06 | Ancient base, 13 commits — superseded candidate, delete unless claimed |
 | multi-agent-experiment | 36 / 1 | 09-30 | Stale experiment, 1 commit — delete unless claimed |
-| public-surface | unpushed (local only) | — | **At-risk work**: exists only in CYNIC-public-surface worktree. Push first, review second. |
+| public-surface | unpushed, OWNED by another agent (2026-10-06) | — | Hands off: owner pushes. Never stage, never merge from here. |
 
 Worktrees: main CYNIC (core-extraction, 84 foreign-modified files — other
 agents' WIP, never touch), canon / network-worktree / public-surface
@@ -41,11 +41,10 @@ this session, dirty), kernel-graisse checkout (dirty, solar-pro4 branch).
 
 ## 3. Tranche order (proposed)
 
-1. **Secure at-risk work**: push `public-surface` to origin (backup, no
-   review implied). Zero merge risk.
-2. **Drop or claim the dead**: plane-taxonomy-v1 (13 on ancient base),
-   multi-agent-experiment (1 stale commit). Default = delete after
-   operator confirms nobody owns them.
+1. **Hands off owned work**: `public-surface` belongs to another agent —
+   no push, no merge, no staging from here. Owner's responsibility.
+2. **Dead branches removed** (DONE 2026-10-06, operator-approved):
+   plane-taxonomy-v1, multi-agent-experiment — remote refs deleted.
 3. **Small first**: debt-priorities-architecture (12 commits) → review →
    merge to main. Proves the lane.
 4. **Reconcile the overlap**: knowledge-canon ↔ network-mycelium-unification
