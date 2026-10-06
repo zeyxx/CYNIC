@@ -1,16 +1,19 @@
-//! Hexagonal and DDD verification — the structural half of the architecture policy.
+//! FCIS and DDD verification — the structural half of the architecture policy.
 //!
-//! WHY THIS FILE EXISTS. `contracts/pruning-policy.json` → `taxonomy.hexagonal_and_ddd`
-//! declares the policy in force (ports and adapters, domain-driven design) and
-//! records `status: partially_enforced` with a `known_gap` naming four clauses that
-//! no test checked:
+//! WHY THIS FILE EXISTS. `contracts/pruning-policy.json` → `taxonomy.fcis_and_ddd`
+//! declares the policy in force (Functional Core / Imperative Shell with
+//! domain-driven design) and records `status: partially_enforced` with a
+//! `known_gap` naming clauses that no test checked:
 //!
-//!   1. that every adapter implements a declared port
+//!   1. that every adapter implements a declared port — RETIRED as a goal. FCIS
+//!      does not require it: adapters may be concrete and unbound by a trait.
+//!      A port with no second implementation is indirection, not architecture.
 //!   2. that a concept named in two crates has one canonical home
 //!   3. that an application layer is distinct from the domain and the infrastructure
 //!   4. aggregate boundaries and invariants
 //!
-//! This file closes (1) and (2). Clauses (3) and (4) stay open and are named in the
+//! This file closes (2). Clause (1) is retired with its reason recorded rather
+//! than silently dropped. Clauses (3) and (4) stay open and are named in the
 //! `known_gap` assertion at the bottom, so the gap cannot silently become a claim.
 //!
 //! WHAT IT MEASURES. Two structural facts, both read from the source, both
@@ -18,8 +21,9 @@
 //! violation is rejected, and a repaired one must leave its baseline.
 //!
 //!   1. PORT COVERAGE — every `pub trait` declared under a crate's `src/ports/`
-//!      must have an `impl Trait for ...` somewhere in the workspace. A port with
-//!      no adapter is a boundary that was declared and never built.
+//!      must have an `impl Trait for ...` somewhere in the workspace. Kept as a
+//!      MEASUREMENT (not a policy requirement): under FCIS a concrete adapter is
+//!      legitimate, so this reports indirection rather than enforcing a rule.
 //!
 //!   2. CONCEPT OWNERSHIP — a domain concept (a `pub struct`/`enum`/`trait`) must
 //!      not be defined in two crates. This is `one_responsibility_one_crate` applied
@@ -388,7 +392,7 @@ fn a_domain_concept_has_one_home() {
 
 /// The gap this file does NOT close, asserted so it cannot be forgotten.
 ///
-/// `pruning-policy.json → taxonomy.hexagonal_and_ddd.known_gap` names four
+/// `pruning-policy.json → taxonomy.fcis_and_ddd.known_gap` names four
 /// unverified clauses. Two are now covered above. The remaining two are asserted
 /// here by reading the contract, so deleting them from the contract fails this
 /// test rather than quietly shrinking the gap.

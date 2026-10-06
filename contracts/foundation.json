@@ -88,6 +88,10 @@
       {
         "name": "code_cites_prose",
         "rule": "Code cites machine-readable authority only. A normative rule that code depends on must live in a contract, a Rust type, or a test — never in markdown. A Rust source may not cite a `.md` path as `Authority:` or `Specifications:`. Markdown is for plans, designs, and audits; it is normative for humans and carries zero execution authority. A prose citation has no existence check, so a phantom section goes undetected. Measured at introduction (2026-10-05): 40 markdown citations from Rust across 18 files, 17 of them declaring authority; the worst is five files citing an `AGENTS.md secret classes table` that does not exist. Enforcement is the audit_engine rule `code_cites_prose`."
+      },
+      {
+        "name": "fcis_core_shell_separation",
+        "rule": "The architecture policy in force is Functional Core / Imperative Shell (FCIS) with Data-Oriented Design, not strict hexagonal ports-and-adapters. CYNIC rejects dogmatic Enterprise Java-style Hexagonal Architecture because excessive `Arc<dyn Port>` indirections destroy CPU cache locality, inhibit compiler inlining, force heap allocations, and multiply boilerplate mocks. A crate's pure core holds deterministic functions and data structures only — zero async runtimes, zero sockets, zero subprocess spawns, zero mocks — and is testable without any host. All I/O lives in the imperative shell (`adapters/`), which collects raw host state, calls the pure core, and executes the emitted action plan. Adapters are concrete and may be unbound by a trait: FCIS does not require every adapter to implement a declared port. Static dispatch is preferred; a `dyn` indirection needs a measured reason. Parsers read slices directly rather than allocating intermediate DTOs. Ports remain legitimate where a boundary genuinely needs substitution, but a port with no second implementation is indirection, not architecture. Normative statement: `contracts/pruning-policy.json` → `taxonomy.fcis_and_ddd`. Reference implementation: `crates/cynic-network/tests/architecture_boundary.rs`."
       }
     ],
     "deleted_authorities": [
