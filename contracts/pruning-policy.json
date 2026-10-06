@@ -70,12 +70,14 @@
       "known_gap": {
         "statement": "The structural half of the policy is NOT verified. Recorded here rather than left implicit, because an unrecorded gap reads as a guarantee.",
         "unverified": [
-          "that every adapter implements a declared port (FCIS does not require this — adapters may be concrete, not trait-bound)",
-          "that a concept named in two crates has one canonical home (measured 2026-09-30: 10 of 18 sampled concepts have two or more homes; 5 of 6 current collisions are network vocabulary in the parallel network session's territory)",
+          "that a concept named in two crates has one canonical home (measured 2026-09-30: 10 of 18 sampled concepts have two or more homes; measured 2026-10-06: 5 live collisions, all cynic-network vs cynic-node, 4 of which the parallel network session already repairs)",
           "that an application layer is distinct from the domain and the infrastructure",
           "aggregate boundaries and invariants"
         ],
-        "executor": "crates/cynic-host/tests/hexagonal_ddd_verifier.rs (concept ownership) + crates/cynic-network/tests/architecture_boundary.rs (core purity). The FCIS verifier generalization is pending."
+        "retired_clauses": [
+          "that every adapter implements a declared port — RETIRED 2026-10-06. FCIS does not require it: a concrete, trait-unbound adapter is legitimate, and a port with no second implementation is indirection rather than architecture. Port coverage is kept as a MEASUREMENT of indirection, not as a policy requirement."
+        ],
+        "executor": "crates/cynic-host/tests/hexagonal_ddd_verifier.rs — concept ownership, plus the generalized FCIS core-purity ratchet (a_pure_core_holds_no_io, measured per crate against FCIS_CORE_IO_BASELINE). Reference implementation of the boundary: crates/cynic-network/tests/architecture_boundary.rs."
       }
     },
     "known_unknown": {
