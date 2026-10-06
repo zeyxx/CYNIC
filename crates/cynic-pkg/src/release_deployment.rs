@@ -337,6 +337,12 @@ pub fn apply_release_deployment<E: ReleaseDeployExecutorPort>(
         deployed_binaries.push(bin_spec.name.clone());
     }
 
+    // Remember the rollback target BEFORE the switch: the release `current`
+    // points at right now (None on first deploy). Reading it after the
+    // switch would always return the new release itself.
+    let previous_target =
+        read_previous_target(executor, &plan.current_link, &plan.release_dir);
+
     // 3. Atomically switch /current symlink to the new release
     executor
         .atomic_symlink(&plan.release_dir, &plan.current_link)
@@ -379,11 +385,6 @@ pub fn apply_release_deployment<E: ReleaseDeployExecutorPort>(
             active_current_target.display()
         ));
     }
-
-    // Remember the rollback target BEFORE activation: the release we just
-    // replaced (None on first deploy).
-    let previous_target =
-        read_previous_target(executor, &plan.current_link, &plan.release_dir);
 
     // 6. Activation: restart declared units, probe health. Health failure
     // triggers rollback to the previous release (switch back + restart +
