@@ -244,8 +244,8 @@ are already this shape.
 - [ ] `cynic-host-exec` mutating subcommands → capabilities
 - [ ] `cynic-network-actuator` → `cynic network actuate`
 - [x] One generated `/etc/sudoers.d/cynic` (`cynic privilege install`);
-      9/9 rules pass `visudo -c`. The five old files still exist — deleting
-      them is the remaining step of this phase.
+      **11/11 rules pass `visudo -c`** with the live catalog. The five old
+      files still exist — deleting them is the remaining step of this phase.
 
 ### Phase D — absorb the tooling + service binaries
 - [x] `cynic-pool` phantom `[[bin]]` removed (the file never existed)

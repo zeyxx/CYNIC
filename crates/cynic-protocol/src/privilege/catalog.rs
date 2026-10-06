@@ -57,18 +57,26 @@ pub enum ParamKind {
 impl ParamKind {
     /// The sudoers character class that bounds this parameter's shape.
     ///
-    /// WHY. sudoers CAN express bounded wildcards — measured:
+    /// WHY. sudoers CAN express bounded wildcards — measured on the builder,
+    /// all parsed OK:
     ///   /usr/sbin/pct destroy [0-9]*              → parsed OK
     ///   /usr/sbin/pct resize [0-9]* rootfs [+][0-9]*[KMGT]  → parsed OK
     ///   /usr/sbin/pct clone [0-9]* [0-9]* --full → parsed OK
     ///
-    /// So the membrane is not decorative: sudoers bounds the SHAPE of each
-    /// parameter, and `admit_capability()` bounds the SEMANTICS (exact length,
-    /// exact range, exact charset). Two independent controls.
+    /// WHAT A CLASS ACTUALLY BOUNDS — measured, and narrower than it looks.
+    /// `[0-9]*` anchors the FIRST character; the tail is free. On the live
+    /// sudoers, with `--param vmid=[0-9]*`:
     ///
-    /// Kinds whose shape sudoers cannot express (paths with `/`, fixed-length
-    /// digests) return `None` — the caller falls back to `*`, which is strictly
-    /// more permissive than the binary. That is documented, not hidden.
+    ///   ACCEPTED: 106, `106; id`, `1/../../etc/shadow`, `106 --dangerous`
+    ///   REFUSED:  /etc/shadow, ../../etc/shadow, --privileged, abc
+    ///
+    /// So the membrane is a COARSE first filter, not the enforcement point. It
+    /// stops a value that cannot begin with a digit at all; it does not stop a
+    /// metacharacter appended after one. `admit_capability()` is the second
+    /// layer and DOES refuse those — verified on the same four inputs.
+    ///
+    /// Kinds whose shape sudoers cannot express (paths with `/`) return `None`;
+    /// the caller falls back to `*`. Documented, not hidden.
     pub fn sudoers_class(&self) -> Option<&'static str> {
         match self {
             ParamKind::Vmid => Some("[0-9]*"),
