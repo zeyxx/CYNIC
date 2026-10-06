@@ -63,3 +63,41 @@ fn every_node_with_a_service_plane_address_appears_as_peer() {
         }
     }
 }
+
+#[test]
+fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
+    let raw = std::fs::read_to_string(repo_registry_path()).expect("read infra/registry.json");
+    let value: serde_json::Value = serde_json::from_str(&raw).expect("parse registry JSON");
+    let nodes = value
+        .get("nodes")
+        .and_then(|nodes| nodes.as_array())
+        .expect("registry has a nodes array");
+    let empty: &[serde_json::Value] = &[];
+    for node in nodes {
+        let name = node
+            .get("name")
+            .and_then(|name| name.as_str())
+            .unwrap_or("?");
+        if let Some(network) = node.get("network").and_then(|net| net.as_object()) {
+            for key in network.keys() {
+                assert!(
+                    ["service", "admin", "mesh", "local"].contains(&key.as_str()),
+                    "node '{name}' network key '{key}' is outside the canonical trio vocabulary"
+                );
+            }
+        }
+        let services = node
+            .get("services")
+            .and_then(|services| services.as_array())
+            .map(Vec::as_slice)
+            .unwrap_or(empty);
+        for service in services {
+            if let Some(plane) = service.get("network_plane").and_then(|p| p.as_str()) {
+                assert!(
+                    ["service", "admin", "mesh"].contains(&plane),
+                    "node '{name}' service network_plane '{plane}' is outside the trio"
+                );
+            }
+        }
+    }
+}

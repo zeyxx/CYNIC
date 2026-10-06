@@ -149,7 +149,9 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
 
                 // Determine declared endpoint
                 let declared_endpoint = match (&svc.network_plane, &svc.endpoint_host, &fqdn) {
-                    (Some(plane), _, Some(f)) if plane == "synapse" => format!("{f}:{port}"),
+                    (Some(plane), _, Some(f)) if plane == "service" || plane == "synapse" => {
+                        format!("{f}:{port}")
+                    }
                     (_, Some(host), _) => format!("{host}:{port}"),
                     (_, _, Some(f)) => format!("{f}:{port}"),
                     _ => continue,
