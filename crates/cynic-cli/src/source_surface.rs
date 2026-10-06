@@ -126,6 +126,12 @@ pub(crate) enum SourceCommand {
         command: PrCommand,
     },
     /// Deploy built release binaries atomically to /var/lib/cynic/releases/<version>.
+    ///
+    /// Without --restart-unit the release is STAGED only (files placed,
+    /// symlink switched, no daemon touched). With --restart-unit (repeatable
+    /// `unit[:health_url]`, e.g. `cynic-kernel.service:http://127.0.0.1:3030/health`)
+    /// each declared unit is restarted, health-probed, and the deploy rolls
+    /// back on failure. Only declared units are ever restarted.
     Deploy {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
@@ -139,6 +145,23 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         apply: bool,
         /// Emit JSON report
+        #[arg(long)]
+        json: bool,
+        /// Declared unit to restart after switch, `unit[:health_url]`.
+        /// Repeatable. Without it the release stays staged.
+        #[arg(long)]
+        restart_unit: Vec<String>,
+    },
+    /// Plan the public projection of the private tree from contracts/publication.json.
+    ///
+    /// Read-only: emits a plan of which paths are published, which are excluded,
+    /// which are undeclared, and which private literals no redaction covers. It
+    /// performs no mutation and never pushes. Admission is refused on any
+    /// undeclared path, dead rule, or uncovered private literal.
+    Publish {
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Emit JSON plan
         #[arg(long)]
         json: bool,
     },
@@ -234,6 +257,7 @@ fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObser
 
 pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
     match command {
+        SourceCommand::Publish { root, json } => execute_publish(Path::new(&root), json),
         SourceCommand::Status { root, json } => {
             let path = Path::new(&root);
             let observation = cynic_host::source_sync::observe_all_layers(path);
@@ -397,12 +421,14 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             version,
             apply,
             json,
+            restart_unit,
         } => execute_deploy(
             Path::new(&root),
             Path::new(&state_root),
             version.as_deref(),
             apply,
             json,
+            &restart_unit,
         ),
     }
 }
@@ -916,6 +942,108 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             }
         }
+    }
+}
+
+/// Plan the public projection of the private tree.
+///
+/// Read-only. Observation is `git ls-files -z` (unquoted, so non-ASCII paths
+/// survive) plus the bytes of every path the contract publishes. The pure
+/// decision lives in `cynic_vcs::plan_publication`; this function only reads the
+/// substrate and projects the plan. It never writes and never pushes.
+fn execute_publish(root: &Path, json: bool) -> ExitCode {
+    let contract_path = root.join("contracts/publication.json");
+    let raw = match std::fs::read_to_string(&contract_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            eprintln!("blocked: cannot read {}: {e}", contract_path.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    let contract = match cynic_vcs::PublicationContract::from_json(&raw) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("blocked: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let output = match std::process::Command::new("git")
+        .args(["ls-files", "-z"])
+        .current_dir(root)
+        .output()
+    {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("blocked: git ls-files failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !output.status.success() {
+        eprintln!("blocked: git ls-files exited non-zero");
+        return ExitCode::FAILURE;
+    }
+    let tracked: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .split('\0')
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+
+    // Read the bytes of every path the contract publishes so the plan can report
+    // private literals no redaction covers. Non-UTF-8 files are read lossily:
+    // the plan's job is to surface literals, not to preserve bytes.
+    let mut files: Vec<(String, String)> = Vec::new();
+    for path in &tracked {
+        if contract
+            .rule_for(path)
+            .is_some_and(|r| r.status.is_published())
+        {
+            if let Ok(bytes) = std::fs::read(root.join(path)) {
+                files.push((path.clone(), String::from_utf8_lossy(&bytes).to_string()));
+            }
+        }
+    }
+
+    let plan = cynic_vcs::plan_publication(&contract, &tracked, &files);
+    let admitted = plan.is_admitted();
+
+    if json {
+        emit_pretty_json(&plan);
+        return if admitted {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
+
+    println!(
+        "Publication plan — {} ({})",
+        plan.contract_schema, plan.contract_status
+    );
+    println!("  tracked:   {}", plan.tracked_count);
+    println!("  published: {}", plan.published_count);
+    println!("  excluded:  {}", plan.excluded_count);
+    println!("  undeclared: {}", plan.undeclared.len());
+    println!("  dead rules: {}", plan.dead_rules.len());
+    println!(
+        "  uncovered private literals: {}",
+        plan.uncovered_literals.len()
+    );
+    for literal in plan.uncovered_literals.iter().take(10) {
+        println!("    {} ({} path(s))", literal.literal, literal.paths.len());
+    }
+    if admitted {
+        println!("ADMITTED — the private tree satisfies contracts/publication.json.");
+        ExitCode::SUCCESS
+    } else {
+        println!("REFUSED — {} blocker(s):", plan.blockers.len());
+        for blocker in plan.blockers.iter().take(20) {
+            println!("    {blocker}");
+        }
+        if plan.blockers.len() > 20 {
+            println!("    … and {} more", plan.blockers.len() - 20);
+        }
+        ExitCode::FAILURE
     }
 }
 
