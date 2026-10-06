@@ -2,7 +2,8 @@
   "schema": "cynic.runtime-update.v1",
   "status": "normative",
   "purpose": "Fleet runtime update policy: how a proven release reaches running daemons on every fleet node, with activation, health proof, and rollback. File placement without activation is not a deployment.",
-  "authority": ["contracts/foundation.json", "contracts/release-gates.json"],
+  "authority": ["contracts/foundation.json", "contracts/release-gates.json", "infra/runtime-authority.json", "infra/runtime-basket.json"],
+  "executor_of": "infra/runtime-basket.json/bundle_rules (activation, rollback_intent, proofs) — this contract is the executing procedure behind the basket's declared intent; the basket remains the declaring authority.",
   "sequence": [
     {
       "step": "gate",
