@@ -416,6 +416,11 @@ impl SecretStorePort for EncryptedFileSecretProvider {
 mod tests {
     use super::*;
     use crate::{SecretClass, SecretReference};
+    use std::sync::{Mutex, MutexGuard};
+
+    /// Process environment is global: these tests mutate `CYNIC_PRINCIPAL_SEED*`
+    /// and `CYNIC_PRINCIPAL_HOME`, so they must not run concurrently.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_provider(dir: &str) -> EncryptedFileSecretProvider {
         let base = std::env::temp_dir().join(dir);
@@ -432,10 +437,23 @@ mod tests {
         )
     }
 
+    /// Point every seed source at a fresh file holding `seed`, so the test never
+    /// depends on the host's real principal seed.
+    fn seed_via_file(guard: &MutexGuard<'_, ()>, seed: &str) -> PathBuf {
+        let _ = guard;
+        let path = std::env::temp_dir().join(format!("cynic-seed-{}", seed.len()));
+        std::fs::write(&path, seed).expect("write seed");
+        unsafe {
+            std::env::remove_var("CYNIC_PRINCIPAL_SEED");
+            std::env::set_var("CYNIC_PRINCIPAL_SEED_FILE", &path);
+        }
+        path
+    }
+
     #[test]
     fn round_trip_with_seed_in_env() {
-        // SAFETY: single-threaded test process for this env mutation.
-        unsafe { std::env::set_var("CYNIC_PRINCIPAL_SEED", "unit-test-seed-alpha") };
+        let guard = ENV_LOCK.lock().unwrap();
+        seed_via_file(&guard, "unit-test-seed-alpha");
         let provider = temp_provider("cynic-secrets-roundtrip");
         let reference = spec("alpha");
         provider.store(&reference, "s3cret-value").expect("store");
@@ -443,12 +461,12 @@ mod tests {
             provider.resolve(&reference).as_deref(),
             Some("s3cret-value")
         );
-        unsafe { std::env::remove_var("CYNIC_PRINCIPAL_SEED") };
     }
 
     #[test]
     fn stored_payload_is_not_plaintext_on_disk() {
-        unsafe { std::env::set_var("CYNIC_PRINCIPAL_SEED", "unit-test-seed-beta") };
+        let guard = ENV_LOCK.lock().unwrap();
+        seed_via_file(&guard, "unit-test-seed-beta");
         let provider = temp_provider("cynic-secrets-notplain");
         let reference = spec("beta");
         provider.store(&reference, "do-not-read-me").expect("store");
@@ -461,12 +479,12 @@ mod tests {
             !raw.windows(13).any(|w| w == b"do-not-read-me"),
             "plaintext must not appear anywhere in the stored payload"
         );
-        unsafe { std::env::remove_var("CYNIC_PRINCIPAL_SEED") };
     }
 
     #[test]
     fn rotation_rekeys_so_the_old_key_no_longer_opens() {
-        unsafe { std::env::set_var("CYNIC_PRINCIPAL_SEED", "unit-test-seed-gamma") };
+        let guard = ENV_LOCK.lock().unwrap();
+        seed_via_file(&guard, "unit-test-seed-gamma");
         let provider = temp_provider("cynic-secrets-rotation");
         let reference = spec("gamma");
         provider.store(&reference, "first").expect("store first");
@@ -475,12 +493,12 @@ mod tests {
         let second = std::fs::read(provider.secret_path(&reference)).expect("read second");
         assert_ne!(first, second, "rotation must produce a different payload");
         assert_eq!(provider.resolve(&reference).as_deref(), Some("second"));
-        unsafe { std::env::remove_var("CYNIC_PRINCIPAL_SEED") };
     }
 
     #[test]
     fn legacy_plaintext_file_is_rejected_not_read() {
-        unsafe { std::env::set_var("CYNIC_PRINCIPAL_SEED", "unit-test-seed-delta") };
+        let guard = ENV_LOCK.lock().unwrap();
+        seed_via_file(&guard, "unit-test-seed-delta");
         let provider = temp_provider("cynic-secrets-legacy");
         std::fs::create_dir_all(&provider.base_dir).expect("mkdir");
         let reference = spec("delta");
@@ -496,26 +514,25 @@ mod tests {
                 .is_err(),
             "reading a non-sealed file must be an explicit error"
         );
-        unsafe { std::env::remove_var("CYNIC_PRINCIPAL_SEED") };
     }
 
     #[test]
     fn missing_seed_fails_closed() {
+        let guard = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::remove_var("CYNIC_PRINCIPAL_SEED");
             std::env::set_var("CYNIC_PRINCIPAL_SEED_FILE", "/nonexistent/seed");
             std::env::set_var("CYNIC_PRINCIPAL_HOME", "/nonexistent/home");
         }
-        // Point the system fallback away from a real seed by using an isolated dir.
         let provider = temp_provider("cynic-secrets-noseed");
         let reference = spec("epsilon");
-        // Only assert when the host has no /etc/cynic/principal-seed.
+        // Only assert when the host itself carries no system seed.
         if !Path::new("/etc/cynic/principal-seed").exists() {
-            assert!(provider.store(&reference, "value").is_err());
+            assert!(
+                provider.store(&reference, "value").is_err(),
+                "a missing principal seed must fail closed, never derive a key"
+            );
         }
-        unsafe {
-            std::env::remove_var("CYNIC_PRINCIPAL_SEED_FILE");
-            std::env::remove_var("CYNIC_PRINCIPAL_HOME");
-        }
+        let _ = guard;
     }
 }
