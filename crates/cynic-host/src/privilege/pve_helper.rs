@@ -1,70 +1,61 @@
 //! Declarative bounded-helper policy for the Proxmox host (`cynic-host-proxmox`).
 //!
-//! The capability list is DATA, not code: adding an incremental sudo
-//! capability for the `cynic` principal means editing the policy JSON and
-//! re-projecting the bundle — never editing a shell script. The executor is
-//! the compiled `pct-bounded-exec` binary (a thin allowlisted argv wrapper
-//! around `/usr/sbin/pct`), so every granted argv is verifiable against the
-//! helper's own dispatch table and the artifact is digest-pinnable.
+//! The capability list is DATA, and there is now ONE data source:
+//! `infra/capabilities/catalog.json` (`CapabilityCatalog`). This module used to
+//! carry a second schema (`PveHelperCapability { id, action, args }`) beside the
+//! catalog's `Capability { id, argv_template, params }` — two representations of
+//! one concept, with divergent capability ids (`probe` vs `pct-probe`) and two
+//! sudoers generators. That duplicate is gone.
+//!
+//! This module keeps only what is genuinely install-site specific: where the
+//! binary lands, where the sudoers membrane lands, and the HumanAdmin bootstrap
+//! choreography. The capability set itself is the catalog's.
 //!
 //! Authority chain (see skill cynic-privileged-execution):
-//! HumanAdmin installs the bundle once; RuntimeMachineIdentity then calls the
-//! exact allowed argv through `sudo -n`; the sudoers file is a generated
-//! projection of this policy, never hand-written.
+//! HumanAdmin installs once; RuntimeMachineIdentity then calls the exact
+//! allowed argv through `sudo -n`; the sudoers file is a generated projection
+//! of the catalog, never hand-written.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::bounded_helper::BoundedHelperProjection;
 use crate::command_surface::HostCommandSurface;
-use crate::install_contract::{MODE_0440, MODE_0755, root_owned_path};
+use crate::install_contract::{MODE_0440, root_owned_path};
+use cynic_protocol::privilege::CapabilityCatalog;
 
 pub const PVE_HELPER_POLICY_SCHEMA: &str = "cynic.host.pve_helper_policy.v1";
 pub const PVE_HELPER_BUNDLE_MANIFEST_SCHEMA: &str = "cynic.host.pve_helper_bundle_manifest.v1";
 
+/// The unified catalog. One capability source for every domain.
+pub const DEFAULT_CATALOG_PATH: &str = "infra/capabilities/catalog.json";
+/// The legacy install-site policy (paths only; capabilities come from the catalog).
 pub const DEFAULT_POLICY_PATH: &str = "infra/privilege/pve-pct-helper.policy.json";
 
-/// One incremental sudo capability: an exact argv prefix the `cynic`
-/// principal may run as root via the bounded executor.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PveHelperCapability {
-    /// Stable capability id used in audits and journal lines.
-    pub id: String,
-    /// Executor subcommand (the helper's own allowlist key).
-    pub action: String,
-    /// Fixed trailing arguments after `<action>` (empty for bare actions).
-    #[serde(default)]
-    pub args: Vec<String>,
-    /// Why this capability exists; shows up in the sudoers projection header.
-    pub purpose: String,
-}
-
-impl PveHelperCapability {
-    /// Full argv relative to the helper binary.
-    pub fn argv(&self) -> Vec<String> {
-        let mut argv = vec![self.action.clone()];
-        argv.extend(self.args.iter().cloned());
-        argv
-    }
-}
-
-/// Root-owned executor + generated sudoers membrane for one subject on the
-/// Proxmox host. Serde-shaped so the policy can live in `infra/privilege/`.
+/// Install-site facts for the bounded membrane on the Proxmox host.
+///
+/// NO capability list here. The capabilities live in the catalog; this struct
+/// answers only "where do the artifacts land".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PveHelperPolicy {
     pub schema: String,
     /// Sudoers subject (principal) — always `cynic` in CYNIC runtime law.
     pub subject: String,
-    /// Absolute helper path on the hypervisor.
+    /// Absolute binary path on the hypervisor. In the single-binary design this
+    /// is the `cynic` binary itself, which IS the bounded executor.
     pub helper_path: String,
     /// Absolute generated-sudoers path on the hypervisor.
     pub sudoers_path: String,
-    /// Hypervisor-side pct binary the executor wraps.
+    /// Hypervisor-side pct binary the capabilities wrap.
     pub pct_path: String,
-    /// Incremental capability set — extend this list to grant more.
-    pub capabilities: Vec<PveHelperCapability>,
+    /// Path to the unified capability catalog. Defaults to DEFAULT_CATALOG_PATH.
+    #[serde(default = "default_catalog_path")]
+    pub catalog_path: String,
+}
+
+fn default_catalog_path() -> String {
+    DEFAULT_CATALOG_PATH.to_string()
 }
 
 impl PveHelperPolicy {
@@ -76,6 +67,32 @@ impl PveHelperPolicy {
             .map_err(|error| PvePolicyError(format!("parse {}: {error}", path.display())))?;
         policy.validate()?;
         Ok(policy)
+    }
+
+    /// Load the install-site policy AND the capability catalog it points at.
+    ///
+    /// Both are needed to project a membrane: the policy says where, the
+    /// catalog says what. A missing or invalid catalog is an error, never an
+    /// empty (permissive-looking) membrane.
+    pub fn load_with_catalog(
+        policy_path: impl AsRef<Path>,
+    ) -> Result<(Self, CapabilityCatalog), PvePolicyError> {
+        let policy = Self::load(policy_path)?;
+        let raw = std::fs::read_to_string(&policy.catalog_path).map_err(|error| {
+            PvePolicyError(format!("read catalog {}: {error}", policy.catalog_path))
+        })?;
+        let catalog: CapabilityCatalog = serde_json::from_str(&raw).map_err(|error| {
+            PvePolicyError(format!("parse catalog {}: {error}", policy.catalog_path))
+        })?;
+        let blockers = catalog.validate();
+        if !blockers.is_empty() {
+            return Err(PvePolicyError(format!(
+                "catalog {} is invalid: {}",
+                policy.catalog_path,
+                blockers.join(", ")
+            )));
+        }
+        Ok((policy, catalog))
     }
 
     pub fn validate(&self) -> Result<(), PvePolicyError> {
@@ -91,69 +108,53 @@ impl PveHelperPolicy {
                 self.subject
             )));
         }
-        if self.capabilities.is_empty() {
-            return Err(PvePolicyError(
-                "policy grants zero capabilities — refuse to project an empty membrane".into(),
-            ));
-        }
-        let mut seen = std::collections::BTreeSet::new();
-        for capability in &self.capabilities {
-            if !is_valid_token(&capability.id) || !is_valid_token(&capability.action) {
+        for (field, value) in [
+            ("helper_path", &self.helper_path),
+            ("sudoers_path", &self.sudoers_path),
+            ("pct_path", &self.pct_path),
+            ("catalog_path", &self.catalog_path),
+        ] {
+            if !value.starts_with('/') && field != "catalog_path" {
                 return Err(PvePolicyError(format!(
-                    "capability id/action must match ^[a-z0-9-]{{1,48}}$: ({}, {})",
-                    capability.id, capability.action
+                    "{field} must be an absolute path, got {value:?}"
                 )));
-            }
-            if !seen.insert(capability.id.clone()) {
-                return Err(PvePolicyError(format!(
-                    "duplicate capability id {}",
-                    capability.id
-                )));
-            }
-            for arg in &capability.args {
-                if arg.is_empty() || arg.contains('\0') || arg.contains('\n') {
-                    return Err(PvePolicyError(format!(
-                        "capability {} has an invalid fixed arg",
-                        capability.id
-                    )));
-                }
             }
         }
         Ok(())
     }
 
-    /// The typed projection consumed by the existing bundle/install machinery.
-    pub fn projection(&self) -> BoundedHelperProjection {
-        BoundedHelperProjection::new(
-            self.subject.clone(),
-            self.helper_path.clone(),
-            self.sudoers_path.clone(),
-            "Generated from infra/privilege/pve-pct-helper.policy.json (incremental \
-             capabilities for the cynic principal on the Proxmox host).",
-        )
-        .with_allowed_invocations(
-            self.capabilities
-                .iter()
-                .map(|capability| {
-                    let mut argv = vec![self.helper_path.clone()];
-                    argv.extend(capability.argv());
-                    argv
-                })
-                .collect(),
+    /// The generated sudoers membrane: one rule per `requires_root` capability
+    /// in the catalog. Delegates to the catalog — this module does NOT render
+    /// sudoers itself, because two renderers diverge silently (they did).
+    pub fn sudoers_projection(&self, catalog: &CapabilityCatalog) -> String {
+        let rules = catalog.sudoers_rules(&self.subject, &self.helper_path);
+        if rules.is_empty() {
+            return String::new();
+        }
+        format!(
+            "# Generated from {} (capability catalog)\n# Subject: {}\n{}\n",
+            self.catalog_path,
+            self.subject,
+            rules.join("\n")
         )
     }
 
-    /// The executor source ships beside the policy; digest goes into the manifest.
-    pub fn executor_source_candidates(&self) -> Vec<PathBuf> {
+    /// The exact argv a read-back probe must find granted for a capability.
+    ///
+    /// `sudo -n -l <argv>` checks a permission WITHOUT running it, so the probe
+    /// uses the same argv shape the membrane declares: the binary, the
+    /// `privilege exec <id>` arm, and the parameter names.
+    pub fn probe_argv(&self, capability_id: &str) -> Vec<String> {
         vec![
-            PathBuf::from("infra/host-bootstrap/pve/pct-bounded-exec.sh"),
-            PathBuf::from("/usr/local/share/cynic/pct-bounded-exec.sh"),
+            self.helper_path.clone(),
+            "privilege".to_string(),
+            "exec".to_string(),
+            capability_id.to_string(),
         ]
     }
 }
 
-/// Install-time command surfaces (root-owned artifacts), mirroring the
-/// bridge bundle contract modes: helper 0755, sudoers 0440.
+/// Install-time command surfaces (root-owned artifacts).
 ///
 /// ORDER IS A SECURITY PROPERTY. `validate_sudoers` runs BEFORE
 /// `install_sudoers`: a sudoers file that fails `visudo -c` must never land in
@@ -163,15 +164,8 @@ pub fn pve_helper_install_commands(
     policy: &PveHelperPolicy,
     staged_dir: &Path,
 ) -> Vec<HostCommandSurface> {
-    let helper_source = staged_dir.join("pct-bounded-exec");
     let sudoers_source = staged_dir.join("pve-pct.sudoers");
     vec![
-        crate::command_surface::install_file_command(
-            "install_helper",
-            helper_source.to_string_lossy().as_ref(),
-            &policy.helper_path,
-            root_owned_path(MODE_0755),
-        ),
         // Validate the STAGED file, then install it. Never the other way.
         crate::command_surface::validate_sudoers_command(
             "validate_sudoers",
@@ -197,38 +191,31 @@ pub fn pve_helper_install_commands(
 }
 
 /// Post-install read-back through ordinary host observation (not just the
-/// installer's exit code): deny-test + allow-probe + artifact modes.
-pub fn pve_helper_read_back_commands(policy: &PveHelperPolicy) -> Vec<HostCommandSurface> {
+/// installer's exit code): deny-test + allow-probe per capability + modes.
+pub fn pve_helper_read_back_commands(
+    policy: &PveHelperPolicy,
+    catalog: &CapabilityCatalog,
+) -> Vec<HostCommandSurface> {
     let mut commands = vec![crate::command_surface::argv_command(
         "prove_denied_action",
         vec![
             "sudo".to_string(),
             "-n".to_string(),
             "-l".to_string(),
-            format!("{} exec", policy.helper_path),
+            format!("{} privilege exec", policy.helper_path),
         ],
     )];
-    for capability in &policy.capabilities {
+    for capability in catalog.capabilities.iter().filter(|c| c.requires_root) {
         let mut probe = vec![
             "sudo".to_string(),
             "-n".to_string(),
             "-l".to_string(),
-            policy.helper_path.clone(),
         ];
-        probe.extend(capability.argv());
+        probe.extend(policy.probe_argv(&capability.id));
         let role: &'static str =
             Box::leak(format!("prove_allowed_{}", capability.id).into_boxed_str());
         commands.push(crate::command_surface::argv_command(role, probe));
     }
-    commands.push(crate::command_surface::argv_command(
-        "observe_helper_mode",
-        vec![
-            "stat".to_string(),
-            "-c".to_string(),
-            "%U:%G %a".to_string(),
-            policy.helper_path.clone(),
-        ],
-    ));
     commands.push(crate::command_surface::argv_command(
         "observe_sudoers_mode",
         vec![
@@ -246,32 +233,36 @@ pub fn pve_helper_read_back_commands(policy: &PveHelperPolicy) -> Vec<HostComman
 pub struct PveHelperBundleManifest {
     pub schema: &'static str,
     pub policy_schema: String,
+    pub catalog_schema: String,
     pub subject: String,
     pub helper_target: String,
     pub sudoers_target: String,
     pub capability_ids: Vec<String>,
-    pub executor_sha256: Option<String>,
+    pub sudoers_sha256: Option<String>,
 }
 
 pub fn pve_helper_bundle_manifest(
     policy: &PveHelperPolicy,
-    executor_source: &Path,
+    catalog: &CapabilityCatalog,
+    staged_sudoers: &Path,
 ) -> PveHelperBundleManifest {
-    let executor_sha256 = std::fs::read(executor_source)
+    let sudoers_sha256 = std::fs::read(staged_sudoers)
         .ok()
         .map(|bytes| use_sha2_hex(&bytes));
     PveHelperBundleManifest {
         schema: PVE_HELPER_BUNDLE_MANIFEST_SCHEMA,
         policy_schema: policy.schema.clone(),
+        catalog_schema: catalog.schema.clone(),
         subject: policy.subject.clone(),
         helper_target: policy.helper_path.clone(),
         sudoers_target: policy.sudoers_path.clone(),
-        capability_ids: policy
+        capability_ids: catalog
             .capabilities
             .iter()
+            .filter(|c| c.requires_root)
             .map(|capability| capability.id.clone())
             .collect(),
-        executor_sha256,
+        sudoers_sha256,
     }
 }
 
@@ -309,85 +300,109 @@ mod tests {
             r#"{
             "schema": "cynic.host.pve_helper_policy.v1",
             "subject": "cynic",
-            "helper_path": "/usr/local/sbin/pct-bounded-exec",
-            "sudoers_path": "/etc/sudoers.d/cynic-pve-pct",
-            "pct_path": "/usr/sbin/pct",
-            "capabilities": [
-                {"id": "pct-list", "action": "list", "args": [], "purpose": "CT inventory"},
-                {"id": "pct-probe", "action": "probe", "args": [],
-                 "purpose": "read-only git CT observation"},
-                {"id": "forgejo-token", "action": "generate-token", "args": ["--scopes", "write:repository"],
-                 "purpose": "one-shot machine token issuance"}
-            ]
+            "helper_path": "/usr/local/bin/cynic",
+            "sudoers_path": "/etc/sudoers.d/cynic",
+            "pct_path": "/usr/sbin/pct"
         }"#,
         )
         .expect("sample policy parses")
     }
 
-    #[test]
-    fn sample_policy_validates_and_projects_sudoers() {
-        let policy = sample_policy();
-        policy.validate().expect("valid");
-        let projection = policy.projection();
-        assert_eq!(projection.subject, "cynic");
-        let rule = projection.sudoers_rule();
-        for fragment in [
-            "/usr/local/sbin/pct-bounded-exec list",
-            "/usr/local/sbin/pct-bounded-exec probe",
-            "/usr/local/sbin/pct-bounded-exec generate-token --scopes write:repository",
-        ] {
-            assert!(rule.contains(fragment), "missing {fragment} in {rule}");
-        }
-        // No wildcard: every line is an exact argv ending in a fixed token.
-        assert!(!rule.contains('*'), "sudoers must not contain wildcards");
+    fn sample_catalog() -> CapabilityCatalog {
+        serde_json::from_str(
+            r#"{
+            "schema": "cynic.capability_catalog.v1",
+            "capabilities": [
+                {"id":"pct-list","domain":"hypervisor","argv_template":["/usr/sbin/pct","list"],"requires_root":true,"purpose":"inventory"},
+                {"id":"pct-destroy","domain":"hypervisor","argv_template":["/usr/sbin/pct","destroy","{vmid}"],"params":[{"name":"vmid","kind":"vmid"}],"requires_root":true,"purpose":"destroy"},
+                {"id":"node-control","domain":"runtime","argv_template":["node","control"],"requires_root":false,"purpose":"runtime"}
+            ]
+        }"#,
+        )
+        .expect("valid catalog")
     }
 
     #[test]
-    fn rejects_wrong_subject_and_empty_capabilities() {
+    fn policy_has_no_capability_list_of_its_own() {
+        // Regression lock: the duplicate capability schema is gone. The policy
+        // answers "where", the catalog answers "what".
+        let policy = sample_policy();
+        policy.validate().expect("valid");
+        assert_eq!(policy.catalog_path, DEFAULT_CATALOG_PATH);
+        // A policy carrying a `capabilities` key is no longer representable.
+        let with_caps = r#"{"schema":"cynic.host.pve_helper_policy.v1","subject":"cynic",
+            "helper_path":"/usr/local/bin/cynic","sudoers_path":"/etc/sudoers.d/cynic",
+            "pct_path":"/usr/sbin/pct","capabilities":[]}"#;
+        let parsed: PveHelperPolicy = serde_json::from_str(with_caps).expect("parses (ignores unknown)");
+        assert!(parsed.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_wrong_subject_and_relative_paths() {
         let mut policy = sample_policy();
         policy.subject = "root".into();
         assert!(policy.validate().is_err());
         policy.subject = "cynic".into();
-        policy.capabilities.clear();
-        assert!(policy.validate().is_err());
-    }
-
-    #[test]
-    fn rejects_bad_tokens_and_duplicate_ids() {
-        let mut policy = sample_policy();
-        policy.capabilities[0].id = "Bad_Id".into();
-        assert!(policy.validate().is_err());
-        policy.capabilities[0].id = "pct-list".into();
-        policy.capabilities[2].id = "pct-list".into();
-        assert!(policy.validate().is_err());
-        policy.capabilities[2].id = "forgejo-token".into();
+        policy.helper_path = "relative/path".into();
+        assert!(policy.validate().is_err(), "helper_path must be absolute");
+        policy.helper_path = "/usr/local/bin/cynic".into();
         policy.validate().expect("back to valid");
     }
 
     #[test]
-    fn read_back_covers_every_capability_plus_denial_probe() {
+    fn sudoers_projection_delegates_to_the_catalog() {
         let policy = sample_policy();
-        let read_back = pve_helper_read_back_commands(&policy);
+        let catalog = sample_catalog();
+        let projection = policy.sudoers_projection(&catalog);
+        // Only requires_root capabilities appear.
+        assert!(projection.contains("pct-list"));
+        assert!(projection.contains("pct-destroy"));
+        assert!(!projection.contains("node-control"));
+        // Bounded class, not a bare wildcard.
+        assert!(projection.contains("--param vmid=[0-9]*"));
+        // Header names the single source.
+        assert!(projection.contains("infra/capabilities/catalog.json"));
+    }
+
+    #[test]
+    fn probe_argv_matches_the_declared_membrane_shape() {
+        let policy = sample_policy();
+        let argv = policy.probe_argv("pct-destroy");
+        assert_eq!(
+            argv,
+            vec![
+                "/usr/local/bin/cynic",
+                "privilege",
+                "exec",
+                "pct-destroy"
+            ]
+        );
+    }
+
+    #[test]
+    fn read_back_covers_every_root_capability_plus_denial_probe() {
+        let policy = sample_policy();
+        let catalog = sample_catalog();
+        let read_back = pve_helper_read_back_commands(&policy, &catalog);
         let denial = read_back
             .iter()
             .find(|surface| surface.role == "prove_denied_action")
             .expect("denial probe present");
-        // The denial proof lists sudo grants for the helper; an action outside
-        // the policy must not appear as a separate granted token.
         let denial_argv = invocation_argv(denial);
         assert!(
             denial_argv
                 .iter()
-                .any(|part| part.ends_with("pct-bounded-exec exec"))
+                .any(|part| part.ends_with("cynic privilege exec")),
+            "denial probe must name the exec arm: {denial_argv:?}"
         );
-        assert!(!denial_argv.contains(&"list".to_string()));
-        assert!(!denial_argv.contains(&"probe".to_string()));
-        for capability in &policy.capabilities {
+        for capability in catalog.capabilities.iter().filter(|c| c.requires_root) {
             let expected_role = format!("prove_allowed_{}", capability.id);
             assert!(
                 read_back.iter().any(|surface| {
                     surface.role == expected_role
-                        && invocation_argv(surface).ends_with(capability.argv().as_slice())
+                        && invocation_argv(surface).ends_with(
+                            policy.probe_argv(&capability.id).as_slice()
+                        )
                 }),
                 "missing allow-probe for {}",
                 capability.id
@@ -403,29 +418,41 @@ mod tests {
     }
 
     #[test]
+    fn install_validates_the_staged_sudoers_before_installing_it() {
+        let policy = sample_policy();
+        let staged = Path::new("/tmp/stage");
+        let commands = pve_helper_install_commands(&policy, staged);
+        let roles: Vec<&str> = commands.iter().map(|s| s.role).collect();
+        let validate_at = roles
+            .iter()
+            .position(|r| *r == "validate_sudoers")
+            .expect("validate present");
+        let install_at = roles
+            .iter()
+            .position(|r| *r == "install_sudoers")
+            .expect("install present");
+        assert!(
+            validate_at < install_at,
+            "validate must run BEFORE install, got order {roles:?}"
+        );
+        // Validation targets the STAGED file, never the live one.
+        let validate = &commands[validate_at];
+        let argv = invocation_argv(validate);
+        assert!(
+            argv.iter().any(|a| a.contains("/tmp/stage")),
+            "must validate the staged path: {argv:?}"
+        );
+        assert!(
+            !argv.iter().any(|a| a == "/etc/sudoers.d/cynic"),
+            "must NOT validate the installed path: {argv:?}"
+        );
+    }
+
+    #[test]
     fn install_commands_pin_root_owned_modes() {
         let policy = sample_policy();
         let staged = Path::new("/tmp/stage");
         let commands = pve_helper_install_commands(&policy, staged);
-        assert!(
-            commands
-                .iter()
-                .any(|surface| surface.role == "install_helper"),
-            "helper install command missing"
-        );
-        assert!(
-            commands
-                .iter()
-                .any(|surface| surface.role == "install_sudoers"),
-            "sudoers install command missing"
-        );
-        assert!(
-            commands
-                .iter()
-                .any(|surface| surface.role == "validate_sudoers"),
-            "visudo validation missing"
-        );
-        // Modes are carried by the typed InstallFile policies, not strings:
         for surface in &commands {
             if let crate::command_surface::HostCommandInvocation::InstallFile {
                 policy: file_policy,
@@ -433,7 +460,7 @@ mod tests {
             } = &surface.invocation
             {
                 assert_eq!(file_policy.owner.user, "root");
-                assert!(file_policy.mode.octal == "0755" || file_policy.mode.octal == "0440");
+                assert_eq!(file_policy.mode.octal, "0440");
             }
         }
     }

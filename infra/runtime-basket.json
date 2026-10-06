@@ -127,9 +127,7 @@
       "roles": [
         "hypervisor"
       ],
-      "consumers": [
-        "sudoers.d/cynic-node"
-      ],
+      "consumers": [],
       "note": "crate corrected from cynic-host to cynic-lxc: the binary lives at crates/cynic-lxc/src/bin/. The previous declaration was drift, proven by the path not existing in the declared crate."
     }
   ],

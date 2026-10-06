@@ -1,16 +1,19 @@
-//! `cynic-host-exec pve-helper-bundle` — stage the root-owned bounded
-//! executor, the generated sudoers membrane, and a machine-readable manifest
-//! for HumanAdmin bootstrap on the Proxmox host.
+//! `cynic-host-exec pve-helper-bundle` — stage the generated sudoers membrane
+//! and a machine-readable manifest for HumanAdmin bootstrap on the Proxmox host.
 //!
-//! Thin glue over `crate::privilege::pve_helper`: policy is DATA
-//! (infra/privilege/pve-pct-helper.policy.json); this surface only stages,
-//! projects, and reports.
+//! Thin glue over `crate::privilege::pve_helper`: the install-site policy says
+//! WHERE artifacts land, the capability catalog says WHAT is granted; this
+//! surface only stages, projects, and reports.
+//!
+//! NO EXECUTOR IS STAGED. The bounded executor is the `cynic` binary itself
+//! (`privilege exec`), installed by the normal binary install path. The shell
+//! script this surface used to stage existed only because there was no single
+//! binary to name; it is gone.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::Serialize;
 
-use crate::bounded_helper::BoundedHelperProjection;
 use crate::host_exec_cli::args;
 use crate::host_exec_cli::io::emit_json;
 use crate::privilege::{
@@ -24,9 +27,10 @@ struct PveHelperBundleReport {
     schema: &'static str,
     status: String,
     staged_dir: String,
-    helper_source: String,
+    sudoers_source: String,
     sudoers_path: String,
     helper_path: String,
+    catalog_path: String,
     capability_ids: Vec<String>,
     manifest: Option<PveHelperBundleManifest>,
     blockers: Vec<String>,
@@ -44,72 +48,62 @@ pub(crate) fn execute_pve_helper_bundle(
         schema: PVE_HELPER_BUNDLE_REPORT_SCHEMA,
         status: "blocked".to_string(),
         staged_dir: output_dir.clone(),
-        helper_source: String::new(),
+        sudoers_source: String::new(),
         sudoers_path: String::new(),
         helper_path: String::new(),
+        catalog_path: String::new(),
         capability_ids: Vec::new(),
         manifest: None,
         blockers: Vec::new(),
     };
 
-    let Ok(policy) = PveHelperPolicy::load(&policy_path) else {
-        report
-            .blockers
-            .push(format!("policy_unreadable_or_invalid: {policy_path}"));
-        return finish(report);
+    // Policy (where) + catalog (what). A missing catalog is an error: an empty
+    // membrane would look like a valid install.
+    let (policy, catalog) = match PveHelperPolicy::load_with_catalog(&policy_path) {
+        Ok(pair) => pair,
+        Err(error) => {
+            report
+                .blockers
+                .push(format!("policy_or_catalog_unreadable: {}", error.0));
+            return finish(report);
+        }
     };
     report.sudoers_path = policy.sudoers_path.clone();
     report.helper_path = policy.helper_path.clone();
-    report.capability_ids = policy
+    report.catalog_path = policy.catalog_path.clone();
+    report.capability_ids = catalog
         .capabilities
         .iter()
+        .filter(|capability| capability.requires_root)
         .map(|capability| capability.id.clone())
         .collect();
 
-    let executor_source = find_executor_source(&policy);
-    let Some(executor_source) = executor_source else {
+    let projection = policy.sudoers_projection(&catalog);
+    if projection.is_empty() {
         report.blockers.push(
-            "executor_source_missing: expected infra/host-bootstrap/pve/pct-bounded-exec.sh \
-             beside the repo root"
+            "empty_membrane: the catalog declares no requires_root capability, refusing to stage"
                 .to_string(),
         );
         return finish(report);
-    };
-    report.helper_source = executor_source.display().to_string();
+    }
 
-    // Stage: copy executor (0755) + write generated sudoers projection.
     if let Err(error) = std::fs::create_dir_all(&output_dir) {
         report
             .blockers
             .push(format!("stage_dir_create_failed: {error}"));
         return finish(report);
     }
-    let staged_executor = Path::new(&output_dir).join("pct-bounded-exec");
-    if let Err(error) = std::fs::copy(&executor_source, &staged_executor) {
-        report
-            .blockers
-            .push(format!("executor_stage_failed: {error}"));
-        return finish(report);
-    }
-    use std::os::unix::fs::PermissionsExt;
-    if let Err(error) =
-        std::fs::set_permissions(&staged_executor, std::fs::Permissions::from_mode(0o755))
-    {
-        report
-            .blockers
-            .push(format!("executor_chmod_failed: {error}"));
-        return finish(report);
-    }
+
     let staged_sudoers = Path::new(&output_dir).join("pve-pct.sudoers");
-    let projection: BoundedHelperProjection = policy.projection();
-    if let Err(error) = std::fs::write(&staged_sudoers, projection.sudoers_projection()) {
+    report.sudoers_source = staged_sudoers.display().to_string();
+    if let Err(error) = std::fs::write(&staged_sudoers, &projection) {
         report
             .blockers
             .push(format!("sudoers_stage_failed: {error}"));
         return finish(report);
     }
 
-    let manifest = pve_helper_bundle_manifest(&policy, &staged_executor);
+    let manifest = pve_helper_bundle_manifest(&policy, &catalog, &staged_sudoers);
     let manifest_path = Path::new(&output_dir).join("manifest.json");
     match serde_json::to_string_pretty(&manifest) {
         Ok(json) => {
@@ -130,11 +124,7 @@ pub(crate) fn execute_pve_helper_bundle(
     report.manifest = Some(manifest);
 
     // Read-back proof: every expected artifact exists and is non-empty.
-    for artifact in [
-        staged_executor.as_path(),
-        staged_sudoers.as_path(),
-        manifest_path.as_path(),
-    ] {
+    for artifact in [staged_sudoers.as_path(), manifest_path.as_path()] {
         match std::fs::metadata(artifact) {
             Ok(metadata) if metadata.len() > 0 => {}
             Ok(_) => report
@@ -149,13 +139,6 @@ pub(crate) fn execute_pve_helper_bundle(
         report.status = "staged".to_string();
     }
     finish(report)
-}
-
-fn find_executor_source(policy: &PveHelperPolicy) -> Option<PathBuf> {
-    policy
-        .executor_source_candidates()
-        .into_iter()
-        .find(|candidate| candidate.is_file())
 }
 
 fn finish(report: PveHelperBundleReport) -> Result<std::process::ExitCode, String> {
