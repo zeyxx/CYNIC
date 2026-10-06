@@ -425,8 +425,8 @@ pub fn apply_release_deployment<E: ReleaseDeployExecutorPort>(
         }
     }
 
-    // 7. GC: keep current + two previous release dirs; prune older ones.
-    // Never prune the rollback target.
+    // 7. GC: keep current + two previous release dirs (contract §gc); prune
+    // older ones. Never prune the rollback target.
     let mut pruned_dirs = Vec::new();
     if let Ok(mut dirs) = executor.list_release_dirs(&spec.state_root) {
         dirs.retain(|d| *d != plan.release_dir);
@@ -434,11 +434,12 @@ pub fn apply_release_deployment<E: ReleaseDeployExecutorPort>(
             dirs.retain(|d| d != previous);
         }
         dirs.sort();
-        while dirs.len() > 2 {
+        // One slot left beyond current + rollback target: the second previous.
+        while dirs.len() > 1 {
             let oldest = dirs.remove(0);
-            executor.remove_release_dir(&oldest).map_err(|e| {
-                format!("gc failed removing {}: {e}", oldest.display())
-            })?;
+            executor
+                .remove_release_dir(&oldest)
+                .map_err(|e| format!("gc failed removing {}: {e}", oldest.display()))?;
             pruned_dirs.push(oldest);
         }
     }
