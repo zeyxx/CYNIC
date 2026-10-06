@@ -1,7 +1,9 @@
 pub mod agent_execution_runtime_observer;
 pub mod dns_renderer;
 pub mod ed25519_build_workload_grant;
-pub mod ed25519_credential_lease_verifier;
+// Proxmox adapters moved to cynic-proxmox (L1, canonical home).
+// Credential lease verifier port moved to cynic-protocol (L0).
+// Consumers import via cynic_proxmox::adapters::{...} directly.
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
@@ -56,7 +58,6 @@ pub mod local_workload_identity;
 pub mod peer_storage;
 pub mod provider_fallback_probe;
 pub mod proxmox;
-pub mod proxmox_control;
 pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;

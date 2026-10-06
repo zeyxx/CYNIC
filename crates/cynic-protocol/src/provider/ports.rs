@@ -1,10 +1,13 @@
-use cynic_protocol::{NodeSubstrateAction, NodeSubstrateDesiredState, NodeSubstrateObservation};
+//! Pure provider substrate ports — zero I/O, types in `super::types`.
+//!
+//! Portable read-only boundary below SSH and the node runtime.
+//! Provider-specific APIs, hypervisor commands, and bare-metal probes belong
+//! in adapters implementing this port. Unknown provider state must remain an
+//! explicit observation rather than an adapter error promoted to convergence.
 
-/// Portable read-only boundary below SSH and the node runtime.
-///
-/// Provider-specific APIs, hypervisor commands, and bare-metal probes belong
-/// in adapters implementing this port. Unknown provider state must remain an
-/// explicit observation rather than an adapter error promoted to convergence.
+use super::types::{NodeSubstrateAction, NodeSubstrateDesiredState, NodeSubstrateObservation};
+
+/// Read-only observation of a provider's substrate state.
 pub trait NodeSubstrateObservationPort: Send + Sync {
     fn observe_node_substrate(
         &self,

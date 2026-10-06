@@ -37,7 +37,7 @@ pub struct RemoteDiskAdapter<R: ArgvRunner> {
 impl<R: ArgvRunner> RemoteDiskAdapter<R> {
     /// Build a remote adapter for the given SSH target (e.g. `cynic@10.0.0.7`).
     /// Returns `Err` for an empty or option-like target, mirroring
-    /// [`crate::adapters::proxmox_substrate::ProxmoxSshSubstrateAdapter::new`].
+    /// [`cynic_proxmox::adapters::ProxmoxSshSubstrateAdapter::new`].
     pub fn new(runner: Arc<R>, ssh_target: impl Into<String>) -> Result<Self, String> {
         let ssh_target = ssh_target.into();
         if ssh_target.trim().is_empty() || ssh_target.starts_with('-') {

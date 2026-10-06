@@ -677,6 +677,21 @@
       "layer": "L0",
       "loc": 34403
     },
+    "cynic-proxmox": {
+      "consumers": [
+        "cynic-cli",
+        "cynic-node"
+      ],
+      "depends_on": [
+        "cynic-lifecycle",
+        "cynic-protocol"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L1",
+      "loc": 0
+    },
     "cynic-release": {
       "consumers": [
         "cynic-cli",

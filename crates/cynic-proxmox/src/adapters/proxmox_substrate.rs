@@ -4,7 +4,7 @@ use cynic_protocol::{
     NodeSubstratePower,
 };
 
-use crate::ports::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
+use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 use cynic_lifecycle::ArgvRunner;
 
 pub struct ProxmoxSshSubstrateAdapter<'a, R: ArgvRunner> {

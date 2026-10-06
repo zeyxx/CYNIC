@@ -35,9 +35,8 @@ pub mod local_task_admission;
 pub mod principal_manager;
 pub mod privilege_bridge;
 pub mod privilege_projection;
-pub mod proxmox_clone;
-pub mod proxmox_disk_extension;
-pub mod proxmox_substrate;
+// Proxmox adapters moved to cynic-proxmox (L1, canonical home).
+// Consumers import via cynic_proxmox::adapters::{ProxmoxSshCloneAdapter, ...} directly.
 
 pub mod remote_branch_graph;
 pub mod remote_build_artefact;

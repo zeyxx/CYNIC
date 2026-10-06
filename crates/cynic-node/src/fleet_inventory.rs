@@ -511,13 +511,13 @@ fn bool_flag(key: &str) -> Option<bool> {
 
 #[derive(Debug)]
 struct ProxmoxInventoryProvider {
-    adapter: crate::adapters::proxmox_control::ProxmoxControlAdapter,
+    adapter: cynic_proxmox::adapters::ProxmoxControlAdapter,
     target_nodes: Vec<String>,
 }
 
 impl ProxmoxInventoryProvider {
     fn from_env() -> Option<Self> {
-        let adapter = crate::adapters::proxmox_control::ProxmoxControlAdapter::from_env(
+        let adapter = cynic_proxmox::adapters::ProxmoxControlAdapter::from_env(
             Duration::from_secs(10),
         )
         .ok()?;

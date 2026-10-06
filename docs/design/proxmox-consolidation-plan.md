@@ -332,7 +332,9 @@ reference slice):
 | 13 | Registry-driven placement | which hypervisor, which template, which role — from `infra/registry.json` |
 | 14 | Self-hosting loop | the `cynic` binary compiled in the ephemeral provisions the next one — CYNIC deploying CYNIC bootstrap ratchet |
 
-- [ ] `ProvisioningPort` (pure trait) + `ProvisioningSpec` types in `cynic-protocol`
+- [x] `ProvisioningPort` (pure trait) + `ProvisioningSpec` types in `cynic-protocol`
+      (proven: 8/8 tests, `cargo test -p cynic-protocol --lib
+      host_substrate::provisioning` on builder checkout @ e50942da)
 - [ ] `ProxmoxProvisioningAdapter` in `cynic-proxmox` — drives `pct create/start/destroy`
       through `ArgvExecutionPort` (`cynic-host`), never raw shell
 - [ ] Provisioning from a CLEAN template (never clone a dirty container):

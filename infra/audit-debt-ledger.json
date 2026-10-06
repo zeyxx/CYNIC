@@ -850,7 +850,7 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/proxmox_control.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_control.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"

@@ -15,6 +15,7 @@ members = [
     "crates/cynic-node",
     "crates/cynic-node-protocol",
     "crates/cynic-host",
+    "crates/cynic-proxmox",
     "crates/cynic-audit-engine",
     "crates/cynic-intel",
     "crates/cynic-intel-escore",

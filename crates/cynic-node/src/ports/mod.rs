@@ -14,7 +14,7 @@ pub mod build_workload_grant_store_port;
 pub mod build_workload_observation_port;
 pub mod build_workload_submission_port;
 pub mod credential_broker_port;
-pub mod credential_lease_verifier_port;
+// credential_lease_verifier_port moved to cynic-protocol::provider (L0, pure).
 pub mod credential_material_sink_port;
 pub mod credential_rotation_authority_port;
 pub mod harness_target_attestation_port;

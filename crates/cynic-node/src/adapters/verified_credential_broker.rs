@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use cynic_protocol::{CredentialLeaseDesiredState, CredentialLeaseObservation};
 
-use crate::adapters::ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
-use crate::adapters::proxmox_control::ProxmoxControlAdapter;
+use cynic_proxmox::adapters::Ed25519CredentialLeaseVerifier;
+use cynic_proxmox::adapters::ProxmoxControlAdapter;
 use crate::ports::credential_broker_port::CredentialBrokerPort;
-use crate::ports::credential_lease_verifier_port::CredentialLeaseVerifierPort;
+use cynic_protocol::provider::CredentialLeaseVerifierPort;
 
 /// Node-owned Proxmox credential broker with an explicit, injected proof
 /// verifier.  The provider adapter remains responsible for material access;

@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::adapters::ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
-use crate::ports::credential_lease_verifier_port::CredentialLeaseVerifierPort;
+use cynic_protocol::provider::credential_lease_verifier::CredentialLeaseVerifierPort;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProxmoxControlStatus {

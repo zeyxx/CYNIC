@@ -27,8 +27,8 @@
 pub mod argv_execution;
 pub mod causal_epoch_index;
 pub mod evidence_store;
-pub mod provider_substrate;
-pub mod remote_execution;
+// provider_substrate ports moved to cynic-protocol::provider::ports (pure, zero I/O).
+// remote_execution port moved to cynic-protocol::host_substrate::remote_execution (pure, zero I/O).
 use crate::bridge::{PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState};
 use crate::domain::filesystem::FilesystemPolicy;
 use crate::domain::packages::PackageObservedState;
@@ -43,8 +43,10 @@ use crate::domain::shared::SubstrateDomainContract;
 use crate::execution::AdmittedHostOperation;
 use crate::hardware_conformance::HardwareObservation;
 use cynic_node_protocol::PreOsPlatformObservation;
-pub use provider_substrate::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
-pub use remote_execution::RemoteExecutionPort;
+// Re-exported from cynic-protocol (canonical home of the pure ports).
+pub use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
+// Re-exported from cynic-protocol (canonical home of the pure port).
+pub use cynic_protocol::host_substrate::remote_execution::RemoteExecutionPort;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
