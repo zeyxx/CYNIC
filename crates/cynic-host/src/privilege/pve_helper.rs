@@ -438,14 +438,17 @@ mod tests {
         );
         // Validation targets the STAGED file, never the live one.
         let validate = &commands[validate_at];
-        let argv = invocation_argv(validate);
+        let staged_path = match &validate.invocation {
+            crate::command_surface::HostCommandInvocation::ValidateSudoers { path } => path.clone(),
+            other => panic!("expected ValidateSudoers, got {other:?}"),
+        };
         assert!(
-            argv.iter().any(|a| a.contains("/tmp/stage")),
-            "must validate the staged path: {argv:?}"
+            staged_path.contains("/tmp/stage"),
+            "must validate the staged path: {staged_path}"
         );
         assert!(
-            !argv.iter().any(|a| a == "/etc/sudoers.d/cynic"),
-            "must NOT validate the installed path: {argv:?}"
+            !staged_path.contains("/etc/sudoers.d/"),
+            "must NOT validate the installed path: {staged_path}"
         );
     }
 
