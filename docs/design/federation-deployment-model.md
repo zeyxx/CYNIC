@@ -248,18 +248,80 @@ supervised — except the "provider" is our own substrate, not an API.
 | Community / hybrid (federation without central trust) | pull-only enrollment, deterministic emergence, autonomous degradation | §2 L0–L4 |
 | IaC state file | `infra/registry.json` (Tier 1, Git, read-only at runtime) — drift is an event, never a silent edit | `registry_maintenance.rs` writes `observed` only |
 
-## Next slices (in order; one commit each after operator go)
+## 7. Adversarial review record (2026-10-06, pre-merge of tranche network-vocabulary)
 
-1. **S1 — close the mesh-plan vocabulary root**: typed plane model
-   (revive `plane.rs`, re-export, delete ad-hoc traversal) so the
-   `or_else` fallbacks become compile errors; add one test pointed at the
-   REAL `infra/registry.json` asserting non-empty peers.
-2. **S2 — quarantine domain I/O**: move `headscale_client.rs` (+ finance
-   adapters) under `cynic-network/src/adapters/`, drop `reqwest` from the
-   domain surface the boundary test names; boundary suite green.
-3. **S3 — reconcile node readers**: census of `get("synapse")` /
-   `get("management")` legacy-only readers (CLI + node usecases) onto the
-   revived enum; fixtures must not mask the rename (one test per reader
-   against the real file).
-4. Only then: extraction slices (host fragments → network; node network
+Method: assume every rename broke something silent; hunt the
+literal-comparison class (`== "synapse"`), the typed-struct class
+(deserializing the renamed file into legacy-named fields), and the
+test-reads-real-file class. Findings:
+
+- CAUGHT R1a: `matching_direct_management_link` compared
+  `link.plane != "management"` — the B rename made it reject every link.
+  Fixed trio-primary (`admin` first, legacy kept).
+- CAUGHT R1b: typed `RegistryNodeNetwork{synapse,management}` + `best_ip()`
+  + 4 call sites + `fetch_static_topology` + `registry_dns_zone` degraded
+  to None/local-only on the renamed file. Fixed additively (new
+  `service`/`admin` fields and `RegistryPlanes` trio fields; legacy fields
+  retained for mesh-style files; fixtures untouched and still green).
+- LEFT DELIBERATELY: typed mesh-model `synapse`=10.20.0.x semantics (needs
+  a shape-vs-file audit, not a rename); `*.synapse.cynic` DNS strings
+  (zone cutover tranche, §8); construction defaults `network_plane:
+  "synapse"` (inputs, not reads); `tailscale` arms (pruned — zero data in
+  all five registry files); provider vocabulary (`provider == "synapse"`
+  is mesh-provider naming, a different vocabulary).
+- DNS SCHIZOPHRENIA (production blocker): two canonical zones are
+  simultaneously asserted — `service.cynic` (cynic-network/dns.rs +
+  registry `dns_zone`) and `synapse.cynic` (cynic-node/dns_contract.rs:37
+  + verification test + cynic-inference default). `getent` proves NEITHER
+  resolves on cortex; only `/etc/hosts` (itself internally duplicated:
+  two overlapping CYNIC blocks) answers. One zone must win before any
+  emitter migrates: `service.cynic` (trio-consistent, registry-declared).
+- DATA-CENTRIC GAPS (fabricated or arbitrary values — fix-or-record):
+  `unwrap_or("127.0.0.1")` in CLI surfaces (loopback invented when
+  unknown); default `:8080` headscale endpoint; `10.10.10.0/24` literal
+  defaults instead of plane-derived CIDRs; `{name}.synapse.cynic` suffix
+  baked into sync output; `values().next()` arbitrary-plane pick (saved
+  only by BTreeMap determinism); `observed.synapse_ip` field name outlives
+  the vocabulary; `127.0.0.1 localhost` baked into the DNS renderer.
+
+## 8. DNS cutover plan — one real zone, no /etc/hosts (awaits operator admission)
+
+Authority: `service.cynic` (registry `dns_zone`, trio-consistent).
+Fuel: `NetworkMeshPlan.dns` records + `dns.rs` renderers (Corefile,
+hosts, resolved drop-in, bundle manifest — all built, all pure).
+
+1. Settle the zone in code: migrate `dns_contract.rs:37`,
+   `chat_endpoint.rs:56`, verification pin to `service.cynic`
+   (`CYNIC_DNS_ZONE` override already exists — no flag day in code).
+2. Publish ALONGSIDE: stand up the authority (PVE dnsmasq recipe,
+   verified 2026-09-04, or the CoreDNS bundle via the approved
+   activation path) serving `service.cynic` from mesh-plan records;
+   keep `synapse.cynic` hosts blocks until step 4 proves.
+3. Prove BY QUERY from two peers + cortex:
+   `getent hosts kernel.service.cynic`, SOA-less answers rejected,
+   TTL inspected (TTL 0 = hosts-file emulation, not a zone).
+4. Migrate emitters one by one (sync suffix, alerter zone, divergence
+   probes, audit match arm), each proven before the next.
+5. Retire `/etc/hosts` CYNIC blocks one node at a time, each proven
+   before the next. Rollback at any step = stop projecting + restore
+   the block (no file-edit undo chains).
+6. Only then reconcile the `*.synapse.cynic` strings out of the repo.
+
+GATED: steps 2+5 need PVE root and fleet resolv/DHCP pushes
+(privileged, fleet-wide) — explicit operator admission required.
+No emitter changes ship before resolvers answer.
+
+## Next slices — S1 DONE 2026-10-06 (branch agent/hermes/network-vocabulary,
+commits test+A1+A2+B+C+R1, all builder-proven). Remaining, in order:
+
+1. **Merge the tranche** into the shared branch (convergence with sibling
+   slices first — audit/CLI refactors landed meanwhile).
+2. **Typed mesh-model audit**: `node/adapters/registry` `synapse`=mesh
+   semantics vs real-file service semantics — split or document, never
+   blind-rename (§7).
+3. **DNS cutover** (§8, gated on operator admission for PVE/fleet steps).
+4. **Data-centric hardening**: `127.0.0.1` fabrications → explicit
+   unknown; `:8080`/CIDR literals → registry-derived; sync DNS suffix →
+   zone-derived; `observed.synapse_ip` rename.
+5. Only then: extraction slices (host fragments → network; node network
    domain → network or `cynic-network-node`).

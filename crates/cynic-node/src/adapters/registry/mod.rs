@@ -255,7 +255,7 @@ fn registry_dns_zone(registry: &Registry) -> String {
         .network_policy
         .as_ref()
         .and_then(|policy| policy.planes.as_ref())
-        .and_then(|planes| planes.synapse.as_ref())
+        .and_then(|planes| planes.service.as_ref().or(planes.synapse.as_ref()))
         .and_then(|plane| plane.dns_zone.clone())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "synapse.cynic".to_string())
@@ -333,7 +333,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(synapse_ip) = node
                 .network
                 .as_ref()
-                .and_then(|network| network.synapse.as_deref())
+                .and_then(|network| network.service.as_deref().or(network.synapse.as_deref()))
             else {
                 continue;
             };

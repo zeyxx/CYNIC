@@ -21,6 +21,9 @@ pub(super) struct RegistryNetworkPolicy {
 pub(super) struct RegistryPlanes {
     pub(super) synapse: Option<RegistryPlane>,
     pub(super) proxmox_guest: Option<RegistryPlane>,
+    pub(super) service: Option<RegistryPlane>,
+    pub(super) admin: Option<RegistryPlane>,
+    pub(super) mesh: Option<RegistryPlane>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -86,13 +89,17 @@ pub(super) struct RegistryNodeNetwork {
     pub(super) synapse: Option<String>,
     pub(super) local: Option<String>,
     pub(super) management: Option<String>,
+    pub(super) service: Option<String>,
+    pub(super) admin: Option<String>,
 }
 
 impl RegistryNodeNetwork {
     pub(super) fn best_ip(&self) -> Option<&str> {
         self.local
             .as_deref()
+            .or(self.service.as_deref())
             .or(self.synapse.as_deref())
+            .or(self.admin.as_deref())
             .or(self.management.as_deref())
             .filter(|value| !value.is_empty() && *value != "dhcp")
     }

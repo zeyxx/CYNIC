@@ -280,7 +280,7 @@ impl RegistryNode {
             let Some(plane) = link.plane.as_deref() else {
                 return None;
             };
-            if plane != "management" {
+            if plane != "admin" && plane != "management" {
                 return None;
             }
             if let Some(provider) = link.provider.as_deref() {
