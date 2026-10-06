@@ -287,7 +287,7 @@ fn run_scripted_upgrade(dep_id: &str, source: Option<&str>) -> Result<UpgradeRes
 
 fn upgrade_cynic_self(source: Option<&str>) -> Result<UpgradeResult, String> {
     let source = match source {
-        Some(path) => Path.to_string(),
+        Some(path) => path.to_string(),
         None => std::env::current_exe()
             .map_err(|error| format!("current_exe: {error}"))?
             .to_str()
