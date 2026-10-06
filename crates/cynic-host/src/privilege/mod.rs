@@ -18,6 +18,8 @@ pub use pve_helper::{
 };
 pub use transport_caps::{
     AuthorityClass, DEFAULT_TRANSPORT_POLICY_PATH, TRANSPORT_CAPABILITIES_SCHEMA,
-    TransportCapabilities, TransportCapability, TransportCapabilityParam, TransportParamKind,
-    TransportPolicyError,
+    TransportCapabilities, TransportCapability, TransportCapabilityParam, TransportPolicyError,
 };
+// `ParamKind` is re-exported here for transport callers; it lives in
+// cynic-protocol (single source of truth) and is NOT redefined here.
+pub use cynic_protocol::privilege::ParamKind;

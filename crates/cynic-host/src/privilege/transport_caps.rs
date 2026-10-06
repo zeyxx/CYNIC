@@ -24,70 +24,20 @@ pub const TRANSPORT_CAPABILITIES_SCHEMA: &str = "cynic.host.transport_capabiliti
 pub const DEFAULT_TRANSPORT_POLICY_PATH: &str =
     "infra/privilege/transport-capabilities.policy.json";
 
-/// Typed parameter kinds — validated structurally, no regex engine needed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransportParamKind {
-    /// Git branch/ref name: no spaces, no `..`, no leading `-`.
-    BranchName,
-    /// One remote path segment: `[A-Za-z0-9._-]+`, no `/`, no `..`.
-    PathSegment,
-    /// sha256 hex digest.
-    Sha256Hex,
-    /// Local filesystem path (existence checked at execute time, not render).
-    LocalPath,
-}
-
-impl TransportParamKind {
-    pub fn validate(&self, value: &str) -> Result<(), TransportPolicyError> {
-        let reject = |reason: &str| {
-            Err(TransportPolicyError(format!(
-                "param value {value:?} rejected as {self:?}: {reason}"
-            )))
-        };
-        match self {
-            Self::BranchName => {
-                if value.is_empty()
-                    || value.len() > 128
-                    || value.starts_with('-')
-                    || value.contains("..")
-                    || value.contains(char::is_whitespace)
-                    || !value
-                        .chars()
-                        .all(|c| c.is_alphanumeric() || matches!(c, '/' | '.' | '_' | '-'))
-                {
-                    return reject("not a safe branch/ref token");
-                }
-            }
-            Self::PathSegment => {
-                if value.is_empty()
-                    || !value
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
-                    || value.contains("..")
-                {
-                    return reject("not a safe path segment");
-                }
-            }
-            Self::Sha256Hex => {
-                if value.len() != 64 || !value.chars().all(|c| c.is_ascii_hexdigit()) {
-                    return reject("not a sha256 hex digest");
-                }
-            }
-            Self::LocalPath => {
-                if value.is_empty() || value.contains('\0') {
-                    return reject("empty or NUL-bearing path");
-                }
-            }
-        }
-        Ok(())
-    }
-}
+/// Parameter kinds come from `cynic-protocol::privilege::ParamKind`.
+///
+/// ONE CONCEPT, ONE VALIDATOR. This module previously carried its own
+/// `TransportParamKind` with four variants (BranchName, PathSegment, Sha256Hex,
+/// LocalPath) — a strict subset of `ParamKind`, with a *different* BranchName
+/// rule (allowlist here, denylist there). Two validators for one concept
+/// diverge silently: the catalogue accepted `a@b` where this module refused it.
+/// The duplicate is gone; `ParamKind` is the single source of truth.
+pub use cynic_protocol::privilege::ParamKind;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransportCapabilityParam {
     pub name: String,
-    pub kind: TransportParamKind,
+    pub kind: ParamKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,7 +204,14 @@ impl TransportCapabilities {
                             param.name, capability.id
                         ))
                     })?;
-                    param.kind.validate(value)?;
+                    let blockers = param.kind.validate(value);
+                    if !blockers.is_empty() {
+                        return Err(TransportPolicyError(format!(
+                            "param value {value:?} rejected as {:?}: {}",
+                            param.kind,
+                            blockers.join(",")
+                        )));
+                    }
                     out = out.replace(&slot, value);
                 }
             }
