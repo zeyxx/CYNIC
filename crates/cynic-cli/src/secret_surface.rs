@@ -7,13 +7,11 @@
 //! - Bounded installation enforces strict 0600 permissions and immediate read-back proof.
 
 use std::io::Read;
-use std::os::unix::fs::OpenOptionsExt;
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::secret_presence::{
-    observe_runtime_secret_presence, RuntimeSecretPresenceReport, RuntimeSecretPresenceSpec,
+    RuntimeSecretPresenceReport, RuntimeSecretPresenceSpec, observe_runtime_secret_presence,
 };
 use serde::Serialize;
 
@@ -165,16 +163,19 @@ pub(crate) fn execute_secret_command(command: SecretCommand) -> ExitCode {
 
 fn execute_status(json: bool) -> ExitCode {
     let specs = RuntimeSecretPresenceSpec::all_runtime_specs();
-    let reports: Vec<_> = specs
-        .iter()
-        .map(observe_runtime_secret_presence)
-        .collect();
+    let reports: Vec<_> = specs.iter().map(observe_runtime_secret_presence).collect();
 
     let present_count = reports.iter().filter(|r| r.present).count();
-    let absent_count = reports.len() - present_count;
+    let unknown_count = reports
+        .iter()
+        .filter(|r| r.presence == cynic_host::secret_presence::RuntimeSecretPresence::Unknown)
+        .count();
+    let absent_count = reports.len() - present_count - unknown_count;
 
-    let overall_status = if absent_count == 0 {
+    let overall_status = if absent_count == 0 && unknown_count == 0 {
         "all_present"
+    } else if unknown_count > 0 && present_count == 0 && absent_count == 0 {
+        "all_unknown_behind_permission_boundary"
     } else if present_count > 0 {
         "partially_present"
     } else {
@@ -201,7 +202,13 @@ fn execute_status(json: bool) -> ExitCode {
         );
         println!();
         for s in &report.secrets {
-            let status_mark = if s.present { "[OK]" } else { "[MISSING]" };
+            let status_mark = if s.present {
+                "[OK]"
+            } else if s.presence == cynic_host::secret_presence::RuntimeSecretPresence::Unknown {
+                "[UNKNOWN]"
+            } else {
+                "[MISSING]"
+            };
             let source_str = s
                 .source
                 .map(|src| format!("{src:?}"))
@@ -217,10 +224,7 @@ fn execute_status(json: bool) -> ExitCode {
 
 fn execute_check(json: bool) -> ExitCode {
     let specs = RuntimeSecretPresenceSpec::all_runtime_specs();
-    let reports: Vec<_> = specs
-        .iter()
-        .map(observe_runtime_secret_presence)
-        .collect();
+    let reports: Vec<_> = specs.iter().map(observe_runtime_secret_presence).collect();
 
     let missing_ids: Vec<String> = reports
         .iter()
@@ -325,20 +329,21 @@ fn execute_install(
     yes: bool,
     json: bool,
 ) -> ExitCode {
-    let home = match std::env::var("HOME") {
-        Ok(h) if !h.is_empty() => PathBuf::from(h),
-        _ => return fail("cannot determine HOME directory for principal secret store"),
+    // The sealed vault resolves its own store location (system principal
+    // store when present, user store otherwise). Shown in plan mode.
+    let planned_file = {
+        use cynic_secrets::EncryptedFileSecretProvider;
+        EncryptedFileSecretProvider::default()
+            .base_dir
+            .join(map_filename(id))
     };
-
-    let target_dir = home.join(".config/cynic/secrets");
-    let target_file = target_dir.join(map_filename(id));
 
     if !yes {
         let report = SecretInstallReport {
             schema: "cynic.secret_install.v1",
             status: "plan_only",
             id: id.to_string(),
-            target_path: target_file.display().to_string(),
+            target_path: planned_file.display().to_string(),
             mode: "0600",
             mutated: false,
             verified_present: false,
@@ -346,8 +351,12 @@ fn execute_install(
         if json {
             return emit_json(&report, false);
         } else {
-            println!("Plan: install secret '{}' to {}", id, target_file.display());
-            println!("Permissions: mode 0600 (owner read-only)");
+            println!(
+                "Plan: install secret '{}' sealed to {}",
+                id,
+                planned_file.display()
+            );
+            println!("Permissions: mode 0600 (owner read-only), AES-256-GCM sealed");
             println!("Provide --yes to apply.");
             return ExitCode::SUCCESS;
         }
@@ -358,7 +367,11 @@ fn execute_install(
     if let Some(var_name) = from_env {
         match std::env::var(&var_name) {
             Ok(v) if !v.trim().is_empty() => secret_bytes = v.trim().as_bytes().to_vec(),
-            _ => return fail(format!("environment variable '{var_name}' is empty or absent")),
+            _ => {
+                return fail(format!(
+                    "environment variable '{var_name}' is empty or absent"
+                ));
+            }
         }
     } else if let Some(file_path) = file {
         match std::fs::read(&file_path) {
@@ -381,29 +394,39 @@ fn execute_install(
         return fail("must specify source for secret: --from-env <VAR>, --file <PATH>, or --stdin");
     }
 
-    // Create target dir with 0700
-    if let Err(e) = std::fs::create_dir_all(&target_dir) {
-        secret_bytes.fill(0);
-        return fail(format!("failed to create secrets directory {}: {e}", target_dir.display()));
-    }
+    // The sealed vault owns its directories; nothing to pre-create here.
+    // The report path below names where the vault stores this id.
+    let target_file = {
+        use cynic_secrets::EncryptedFileSecretProvider;
+        EncryptedFileSecretProvider::default()
+            .base_dir
+            .join(map_filename(id))
+    };
 
-    // Write file with mode 0600
-    let write_res = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&target_file)
-        .and_then(|mut f| {
-            use std::io::Write;
-            f.write_all(&secret_bytes)?;
-            f.flush()
-        });
+    // Write through the sealed vault: the value is encrypted under a fresh
+    // random data key before it touches disk. Never store plaintext.
+    let sealed = {
+        use cynic_secrets::{CompositeSecretProvider, SecretReference, SecretStorePort};
+        let store = CompositeSecretProvider::default();
+        let reference = SecretReference::with_class(
+            id,
+            map_filename(id),
+            cynic_secrets::SecretClass::RuntimeMachineIdentity,
+            cynic_secrets::SecretProviderKind::PrincipalOwnedFile,
+        );
+        (store, reference)
+    };
+    let write_res = sealed
+        .0
+        .store(&sealed.1, &String::from_utf8_lossy(&secret_bytes));
 
     secret_bytes.fill(0);
 
     if let Err(e) = write_res {
-        return fail(format!("failed to write secret to {}: {e}", target_file.display()));
+        return fail(format!(
+            "failed to write secret to {}: {e}",
+            target_file.display()
+        ));
     }
 
     // Read-back verification
@@ -412,7 +435,11 @@ fn execute_install(
 
     let report = SecretInstallReport {
         schema: "cynic.secret_install.v1",
-        status: if observation.present { "installed" } else { "failed_read_back" },
+        status: if observation.present {
+            "installed"
+        } else {
+            "failed_read_back"
+        },
         id: id.to_string(),
         target_path: target_file.display().to_string(),
         mode: "0600",
@@ -423,10 +450,17 @@ fn execute_install(
     if json {
         emit_json(&report, !observation.present)
     } else if observation.present {
-        println!("SUCCESS: Secret '{}' securely installed at {} (mode 0600).", id, target_file.display());
+        println!(
+            "SUCCESS: Secret '{}' securely installed at {} (mode 0600).",
+            id,
+            target_file.display()
+        );
         ExitCode::SUCCESS
     } else {
-        eprintln!("ERROR: Secret '{}' written but read-back observation failed.", id);
+        eprintln!(
+            "ERROR: Secret '{}' written but read-back observation failed.",
+            id
+        );
         ExitCode::FAILURE
     }
 }
