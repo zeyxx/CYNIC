@@ -24,7 +24,7 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use cynic_host::audit_engine::topology_generate;
+use cynic_audit_engine::topology_generate;
 
 fn workspace_root() -> PathBuf {
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -58,9 +58,10 @@ fn the_committed_document_is_what_the_generator_produces() {
     panic!(
         "{} is stale: the manifests and the policy keys no longer produce it.\n\
          differences (committed -> rendered):\n{}\n\
-         regenerate with: cargo run -q -p cynic-host --bin cynic-topology -- --write",
+         regenerate with: cargo run -q -p {} --bin cynic-topology -- --write",
         topology_generate::TOPOLOGY_DOC,
-        diff.join("\n")
+        diff.join("\n"),
+        env!("CARGO_PKG_NAME"),
     );
 }
 

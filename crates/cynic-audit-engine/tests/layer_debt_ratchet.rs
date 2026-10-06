@@ -41,7 +41,12 @@ fn workspace_root() -> PathBuf {
 }
 
 fn ascending_edges() -> Vec<String> {
-    let report = cynic_host::audit_engine::run_workspace_audit(&workspace_root());
+    // The RAW evaluation, not the verdict. `run_workspace_audit` applies the
+    // debt ledger, which absorbs every violation the ledger declares — and all
+    // fifteen ascending edges are declared. Reading the verdict therefore
+    // returns an empty set, and comparing it against a fifteen-entry baseline
+    // fails for a reason that has nothing to do with the layer model.
+    let report = cynic_audit_engine::evaluate_workspace_rules(&workspace_root());
     assert!(
         report
             .evaluated_rules

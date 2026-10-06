@@ -310,25 +310,25 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/audit_engine/path_rules.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/path_rules.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/audit_engine/runtime_divergence.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_divergence.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/audit_engine/topology.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/audit_engine/topology_generate.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology_generate.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"

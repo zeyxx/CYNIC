@@ -54,6 +54,18 @@ pub struct HostObservation {
     /// The claim store, parsed. Kept as text because a host is not a Rust
     /// project and this module must not depend on the coordination crate.
     pub claim_store: Option<String>,
+    /// Which ExecStart targets exist on this host.
+    ///
+    /// Observed here rather than tested by the rule, because a rule that calls
+    /// `Path::exists` answers a question about the machine it happens to run on,
+    /// not about the observation it was handed. A rule with no side effects can
+    /// be proven against a fixture; one that reaches the filesystem cannot.
+    pub existing_exec_starts: BTreeSet<PathBuf>,
+    /// ExecStart targets that record what they were built from.
+    ///
+    /// The set of targets whose provenance record is present. The rule asks
+    /// "is this target in the set", which is a comparison, not an inspection.
+    pub provenanced_exec_starts: BTreeSet<PathBuf>,
 }
 
 fn relative_of(root: &Path, path: &Path) -> String {
@@ -220,9 +232,55 @@ fn observe_host() -> Option<HostObservation> {
 
     observation.unit_files.sort();
     observation.exec_starts.sort();
+    // The two facts a rule must not look up for itself. Read once, here, where
+    // the rest of the host I/O already lives.
+    record_exec_start_facts(&mut observation);
     observation.claim_store = fs::read_to_string("/var/lib/cynic/.agent-claims.json")
         .ok()
         .or_else(|| fs::read_to_string(".agent-claims.json").ok());
 
     Some(observation)
+}
+
+/// Whether a binary records what it was built from.
+///
+/// The record sits beside the binary. A `--version` printing the commit and the
+/// compile-time digest, written next to the executable, is what makes a restart
+/// evidence of currency rather than of availability.
+fn provenance_record_beside(program: &Path) -> bool {
+    let Some(name) = program.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let parent = program.parent().unwrap_or(Path::new("/usr/local/bin"));
+    [".provenance", ".commit"]
+        .iter()
+        .any(|suffix| parent.join(format!("{name}{suffix}")).is_file())
+}
+
+/// Record, for each resolved ExecStart target, whether it exists and whether it
+/// records what it was built from.
+///
+/// Separated from `observe_host` so the seam can be proven. The unit tests all
+/// construct a `HostObservation` by hand, so before this existed nothing
+/// exercised the step that decides which facts the rule reads: the scanner could
+/// stop recording them entirely and every rule test would still pass, because
+/// each one supplied the answer its rule was about to read.
+///
+/// The two sets are disjoint in the only direction that matters — a target is
+/// in `existing_exec_starts` if and only if it is on disk — so a rule can treat
+/// presence as a lookup rather than a question.
+pub fn record_exec_start_facts(observation: &mut HostObservation) {
+    let programs: Vec<PathBuf> = observation
+        .exec_starts
+        .iter()
+        .map(|(_, program)| program.clone())
+        .collect();
+    for program in programs {
+        if program.exists() {
+            observation.existing_exec_starts.insert(program.clone());
+            if provenance_record_beside(&program) {
+                observation.provenanced_exec_starts.insert(program);
+            }
+        }
+    }
 }

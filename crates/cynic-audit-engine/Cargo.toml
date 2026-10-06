@@ -1,0 +1,33 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-audit-engine"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# Moved from cynic-host together with the engine it drives. It referenced
+# nothing from cynic-host, so leaving it there would have meant the substrate
+# depending on its own auditor in order to build a binary.
+[[bin]]
+name = "cynic-topology"
+path = "src/bin/cynic-topology.rs"
+
+[dependencies]
+# Measured, by compiling: the module reached cynic_protocol 11 times and one
+# other workspace crate zero times. cynic-host declares 20 cynic-* dependencies
+# and used 1 of them here, so `make audit` was linking 92 236 LOC of host
+# substrate to produce a report that reads 4 243 of them.
+cynic-protocol = { path = "../cynic-protocol" }
+
+# GeneratedAt on every report. Found by compiling, not by reading the imports:
+# lib.rs reaches it as a fully-qualified path, so no use-statement mentions it.
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+# Every moved test walks up for Cargo.toml + crates/ and then totals the whole
+# workspace. That is what these gates are FOR: the per-crate gates each see one
+# crate, and these are the only instruments that see all of them at once.
+tempfile = "3"

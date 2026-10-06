@@ -173,6 +173,25 @@ fn run_rules(root: &Path, rules: Vec<Box<dyn AuditRule>>) -> AuditReportV2 {
 /// ledger. The declared violations are removed because their record is the
 /// ledger itself. See the `debt_ledger` module for why a threshold is not the
 /// alternative.
+/// The default rules over the workspace, with NO debt ledger applied.
+///
+/// The counterpart of [`run_workspace_audit`], not a replacement for it. That
+/// function answers "what must an operator act on", and it answers it by
+/// absorbing every violation the ledger already declares — which is the correct
+/// behaviour for a verdict and useless for a measurement.
+///
+/// A shrink-only gate needs the facts before that absorption: `layer_debt` in
+/// `infra/crate-topology.json` records fifteen ascending edges, all declared in
+/// the debt ledger, so the verdict contains none of them. A ratchet that reads
+/// the verdict compares fifteen against zero and fails for a reason that has
+/// nothing to do with the architecture.
+///
+/// Both run the same rules over the same index; this one stops before the
+/// ledger rewrites the report.
+pub fn evaluate_workspace_rules(root: &Path) -> AuditReportV2 {
+    run_rules(root, default_rules())
+}
+
 pub fn run_workspace_audit(root: &Path) -> AuditReportV2 {
     let mut report = run_rules(root, default_rules());
     debt_ledger::apply_debt_ledger(&mut report, root);

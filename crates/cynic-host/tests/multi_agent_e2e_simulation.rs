@@ -1,4 +1,4 @@
-use cynic_host::audit_engine::run_workspace_audit;
+use cynic_audit_engine::run_workspace_audit;
 use cynic_host::coordination_lease_store::CoordinationLeaseStore;
 use cynic_intel::futarchy::cpmm::{
     calculate_prices_bps, create_market, execute_bet, resolve_market,

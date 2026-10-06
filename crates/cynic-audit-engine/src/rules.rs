@@ -81,7 +81,17 @@ impl AuditRule for PathSanitationRule {
 
                 let is_normative_directory_tree = file.relative_path == "infra/directory-tree.json";
 
+                // A rule may not report its own detector. SEC-001 has to name
+                // `/home/` and `/Users/` in order to find them, so the engine's
+                // own source is a guaranteed finding that says nothing about the
+                // workspace. Keyed on the FILE NAME, like the sibling rules in
+                // path_rules.rs and prose_citation_rule.rs, so the next extraction
+                // does not silently re-arm it.
+                let is_the_detector_itself =
+                    file.relative_path.ends_with("rules.rs");
+
                 if !in_test_scope
+                    && !is_the_detector_itself
                     && !inspects_rather_than_embeds
                     && !is_normative_directory_tree
                     && (line.contains("/home/")

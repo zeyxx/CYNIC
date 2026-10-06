@@ -194,7 +194,7 @@ fn unit_divergence(
         .exec_starts
         .iter()
         .filter(|(unit, program)| {
-            !program.exists()
+            !host.existing_exec_starts.contains(program)
                 && owned.contains(unit.trim_end_matches(".service").trim_end_matches(".timer"))
         })
         .map(|(unit, program)| format!("{unit} -> {}", program.display()))
@@ -236,7 +236,11 @@ fn cynic_binaries_without_provenance(
     let mut without: Vec<String> = host
         .exec_starts
         .iter()
-        .filter(|(_, program)| is_cynic_binary(program) && program.exists() && !provenance_record_exists(program))
+        .filter(|(_, program)| {
+            is_cynic_binary(program)
+                && host.existing_exec_starts.contains(program)
+                && !host.provenanced_exec_starts.contains(program)
+        })
         .map(|(_, program)| program.display().to_string())
         .collect();
     without.sort();
@@ -255,21 +259,6 @@ fn cynic_binaries_without_provenance(
     )]
 }
 
-fn provenance_record_exists(program: &Path) -> bool {
-    let Some(name) = program.file_name().and_then(|n| n.to_str()) else {
-        return false;
-    };
-    let parent = program.parent().unwrap_or(Path::new("/usr/local/bin"));
-    for candidate in [
-        parent.join(format!("{name}.provenance")),
-        parent.join(format!("{name}.commit")),
-    ] {
-        if candidate.is_file() {
-            return true;
-        }
-    }
-    false
-}
 
 /// Credential values held in a unit file.
 ///

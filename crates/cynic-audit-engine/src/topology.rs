@@ -436,6 +436,9 @@ mod tests {
         items.iter().map(|s| (*s).to_string()).collect()
     }
 
+    /// The universe of names the caller recognises. `named_in` emits an edge for
+    /// a name in here and not for a name outside it, so this set IS the
+    /// definition of what counts as a dependency edge.
     fn known() -> BTreeSet<String> {
         set(&["cynic-protocol", "cynic-host", "cynic-cli", "reqwest", "serde"])
     }
@@ -454,9 +457,14 @@ reqwest = { version = \"0.13\" }
 // cynic-host = { path = \"../cynic-host\" }
 cynic_protocol_note = \"cynic-protocol looks fine\"
 ";
+        // Every name in `known()` that appears as a dependency line IS an edge,
+        // including the third-party ones: the topology models what a manifest
+        // declares, and serde/reqwest are declared. The earlier expectation of
+        // two entries contradicted known() four lines above and only stayed
+        // unreached because no fixture yet declared a third-party dependency.
         assert_eq!(
             named_in(body, &known(), "cynic-test"),
-            set(&["cynic-protocol", "cynic-host"])
+            set(&["cynic-protocol", "cynic-host", "reqwest", "serde"])
         );
     }
 

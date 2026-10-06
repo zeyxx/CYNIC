@@ -319,7 +319,7 @@ impl AuditRule for LayerModelDeclaredRule {
                     category: AuditCategory::ResidualUnknown,
                     span: None,
                     remediation: Some(
-                        "Update INSIDE/APP in audit_engine/module_inversion_rule.rs to match \
+                        "Update INSIDE/APP in cynic-audit-engine/src/module_inversion_rule.rs to match \
                          the new module names."
                             .to_string(),
                     ),

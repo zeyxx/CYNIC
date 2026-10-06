@@ -25,7 +25,7 @@ fn workspace_root() -> PathBuf {
 }
 
 fn topology_violations() -> Vec<String> {
-    let report = cynic_host::audit_engine::run_workspace_audit(&workspace_root());
+    let report = cynic_audit_engine::run_workspace_audit(&workspace_root());
     assert!(
         report
             .evaluated_rules
@@ -45,7 +45,7 @@ fn topology_violations() -> Vec<String> {
 fn the_topology_rule_is_registered_and_running() {
     // The rule must be reachable from the default set, or `cynic audit crate` and
     // MCP never evaluate it.
-    let report = cynic_host::audit_engine::run_workspace_audit(&workspace_root());
+    let report = cynic_audit_engine::run_workspace_audit(&workspace_root());
     let ids: Vec<&str> = report
         .evaluated_rules
         .iter()

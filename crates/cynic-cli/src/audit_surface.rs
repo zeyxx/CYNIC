@@ -115,10 +115,10 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         }
         AuditCommand::Paths { json } => {
             // Projection only. The rule set, the extraction, and the existence
-            // observation belong to cynic-host::audit_engine, which MCP and the
+            // observation belong to cynic-audit-engine, which MCP and the
             // workspace audit already consume. A surface projects; it does not own.
             let report =
-                cynic_host::audit_engine::run_path_audit(&crate::rust_source::workspace_root());
+                cynic_audit_engine::run_path_audit(&crate::rust_source::workspace_root());
             let blocked = report.summary.status == "blocked";
             if *json {
                 emit_json(&report, blocked)
@@ -151,7 +151,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // That binary is gone; the fact it uniquely carried, `host_observed`,
             // is emitted below. The three checks answer different questions.
             let root = crate::rust_source::workspace_root();
-            let engine = cynic_host::audit_engine::run_workspace_audit(&root);
+            let engine = cynic_audit_engine::run_workspace_audit(&root);
 
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()

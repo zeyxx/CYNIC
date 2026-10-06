@@ -307,7 +307,13 @@ fn quoted_paths(
     // This file documents the rule with deliberately absent example paths, so it
     // reports itself unless excluded. A detector that flags its own fixtures
     // cannot converge, and a gate that cannot converge gets switched off.
-    if file.relative_path.ends_with("audit_engine/path_rules.rs") {
+    // A rule may not report its own fixture: the examples in this file are
+// deliberately counterexamples, and counting them as workspace findings is a
+// false positive produced by the auditor describing itself. Keyed on the FILE
+// NAME rather than a path, because a path-keyed exclusion silently stops
+// matching the next time the file is extracted — which is exactly what happened
+// when audit_engine moved to cynic-audit-engine.
+    if file.relative_path.ends_with("path_rules.rs") {
         return found;
     }
     let mut in_test_module = false;

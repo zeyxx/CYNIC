@@ -25,7 +25,7 @@ use std::process::ExitCode;
 
 use serde_json::json;
 
-use cynic_host::audit_engine::topology_generate;
+use cynic_audit_engine::topology_generate;
 
 fn main() -> ExitCode {
     match run() {
@@ -94,7 +94,12 @@ fn run() -> Result<ExitCode, String> {
             "path": topology_generate::TOPOLOGY_DOC,
             "differences": diff.len(),
             "diff": diff,
-            "remediation": "cargo run -q -p cynic-host --bin cynic-topology -- --write",
+            // The package is read, not written: this binary moved out of cynic-host, and a
+            // hardcoded `-p cynic-host` left behind an instruction nobody can paste.
+            "remediation": format!(
+                "cargo run -q -p {} --bin cynic-topology -- --write",
+                env!("CARGO_PKG_NAME")
+            ),
         }))
         .map_err(|e| e.to_string())?
     );
