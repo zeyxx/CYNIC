@@ -8,7 +8,7 @@ use cynic_protocol::{
     validate_credential_lease_metadata,
 };
 
-use cynic_protocol::provider::credential_lease_verifier::CredentialLeaseVerifierPort;
+use cynic_protocol::provider::CredentialLeaseVerifierPort;
 
 #[derive(Debug, Clone)]
 pub struct Ed25519CredentialLeaseVerifier {
