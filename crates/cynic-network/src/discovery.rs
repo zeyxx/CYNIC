@@ -1,6 +1,7 @@
 //! Dynamic Peer & Service Discovery Domain for CYNIC Network
 //! Follows CYNIC Coherence Pattern: Pure Observation Model -> Drift Detection -> Sealed Readback Proof.
 
+use cynic_protocol::plane::Plane;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -246,7 +247,8 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
                     reservations_service.insert(name.to_string(), syn.to_string());
                 }
                 if let Some(mgmt) = r
-                    .get("management")
+                    .get(Plane::Admin.name())
+                    .or_else(|| r.get("management"))
                     .or_else(|| r.get("direct"))
                     .and_then(|v| v.as_str())
                 {
