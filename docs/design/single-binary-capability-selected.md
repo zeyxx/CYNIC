@@ -224,35 +224,40 @@ are already this shape.
 
 ## 4. Migration phases
 
-### Phase A — catalog + admission (no binary removal yet)
-- [ ] `cynic-protocol/privilege/catalog.rs`: pure capability types + validation
-- [ ] Port `pve-pct-helper.policy.json` + `transport-capabilities.policy.json`
-      into one `infra/capabilities/catalog.json`
-- [ ] `cynic-host/privilege/admission.rs`: id → exact argv, fail-closed
-- [ ] Prove: a capability not in the catalog is refused with a named blocker
+### Phase A — catalog + admission — DONE 2026-10-06
+- [x] `cynic-protocol/privilege/catalog.rs`: pure capability types + validation
+      (25 tests green on the builder)
+- [x] Port `pve-pct-helper.policy.json` + `transport-capabilities.policy.json`
+      into one `infra/capabilities/catalog.json` (10 capabilities)
+- [x] `cynic-host/privilege/capability_catalog.rs`: loader adapter (3 tests)
+- [x] Prove: a capability not in the catalog is refused with a named blocker
 
-### Phase B — `cynic privilege exec` arm
-- [ ] Add the arm to `cynic-cli`
-- [ ] Journaling (capability id, argv, exit code) to syslog
-- [ ] Prove: `cynic privilege exec pct-list` works; an uninstalled capability refuses
+### Phase B — `cynic privilege exec` arm — DONE 2026-10-06
+- [x] Add the arm to `cynic-cli` (`privilege_surface.rs`)
+- [x] Journaling (capability id, argv, requires_root) before the process starts
+- [x] Prove: `catalog|admit|exec` run; an uninstalled capability refuses (exit 1);
+      an injection attempt refuses; an absent catalog fails closed
 
 ### Phase C — absorb the privileged binaries
 - [ ] `cynic-lxc-exec-bridge` → capability; delete the binary target
 - [ ] `pct-bounded-exec.sh` → Rust capability; delete the shell script
 - [ ] `cynic-host-exec` mutating subcommands → capabilities
 - [ ] `cynic-network-actuator` → `cynic network actuate`
-- [ ] One generated `/etc/sudoers.d/cynic`; delete the five old files
+- [x] One generated `/etc/sudoers.d/cynic` (`cynic privilege install`);
+      9/9 rules pass `visudo -c`. The five old files still exist — deleting
+      them is the remaining step of this phase.
 
 ### Phase D — absorb the tooling + service binaries
-- [ ] `cynic-topology`, `cynic-pool`, `cynic-node-enroll`, `zeroclaw-solana-demo`
+- [x] `cynic-pool` phantom `[[bin]]` removed (the file never existed)
+- [ ] `cynic-topology`, `cynic-node-enroll`, `zeroclaw-solana-demo`
 - [ ] `cynic-node`, `cynic-mcp` → subcommands; update systemd units
-- [ ] `cynic-kernel` → decision required (see §5)
+- [x] `cynic-kernel` → decision made: stays separate (see §5.1)
 - [ ] Update `infra/runtime-basket.json`: 11 artifacts → 1
 
 ### Phase E — prove
 - [ ] One binary builds
 - [ ] Every capability in the catalog has a test that exercises its argv
-- [ ] A capability absent from the installed catalog fails
+- [x] A capability absent from the installed catalog fails
 - [ ] `make check` green; `cynic audit all` no new findings
 
 ---
