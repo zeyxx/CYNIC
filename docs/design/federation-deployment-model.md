@@ -364,6 +364,18 @@ stand up `service.cynic` authority (§8) before touching any name.
 > PRs #33–#37 carry green builder proofs at their merge SHAs.
 > The dated observation stands as record; current status lives here.
 
+## 11. Proof ledger (builder, 2026-10-06)
+
+| Artifact | SHA | Proof |
+|---|---|---|
+| vocabulary tranche tip | `7cebbe6d` | `cynic-secrets lib EXIT=0`, `cynic-host lib EXIT=0`; 4/4 `mesh_plan_registry_proof` green |
+| convergence branch | `ddea0d0f` | `cynic-network/host/node/protocol lib EXIT=0` (4/4); 4/4 proof tests green |
+
+Both proofs ran on the builder after its ~8h outage. R1 repair,
+secrets keyring fix and Freebox secret-port wiring are covered by the
+`7cebbe6d` pass; the merge resolution is covered by the `ddea0d0f`
+pass.
+
 ## Next slices — S1 DONE 2026-10-06 (branch agent/hermes/network-vocabulary,
 commits test+A1+A2+B+C+R1, all builder-proven). Remaining, in order:
 
