@@ -1,0 +1,53 @@
+{
+  "schema": "cynic.runtime-update.v1",
+  "status": "normative",
+  "purpose": "Fleet runtime update policy: how a proven release reaches running daemons on every fleet node, with activation, health proof, and rollback. File placement without activation is not a deployment.",
+  "authority": ["contracts/foundation.json", "contracts/release-gates.json"],
+  "sequence": [
+    {
+      "step": "gate",
+      "description": "Release gates pass on the builder at the exact SHA (contracts/release-gates.json). No gate, no stage."
+    },
+    {
+      "step": "prerequisites",
+      "description": "Principal seed resolvable AND every secret the release's daemons need resolves through cynic-secrets. A release that cannot read its secrets is undeployable."
+    },
+    {
+      "step": "stage",
+      "description": "Binaries copied into <state_root>/releases/<tag>/ (atomic temp+rename per file)."
+    },
+    {
+      "step": "switch",
+      "description": "Atomic symlink <state_root>/current -> releases/<tag>, then <state_root>/bin/* links. Read-back: readlink(current) == release dir."
+    },
+    {
+      "step": "restart",
+      "description": "Bounded restart of the declared systemd units only (units list in the deploy plan). Never restart an undeclared unit. Restart is per-unit with its own read-back (active state)."
+    },
+    {
+      "step": "health",
+      "description": "Every restarted unit must answer its health probe (HTTP /health or declared equivalent) within the timeout. No health answer = failed update."
+    },
+    {
+      "step": "rollback",
+      "description": "On health failure: switch current back to the previous release dir, restart the same units, re-probe health. Rollback is itself read-back proven. Previous release dirs are retained until GC."
+    },
+    {
+      "step": "gc",
+      "description": "Keep the current plus the two previous release dirs; prune older ones. Never prune the rollback target before a newer release is health-proven."
+    }
+  ],
+  "fleet_order": {
+    "description": "Multi-node rollout order, by registry node name (infra/registry.json). One node converges fully (health-proven) before the next starts. Never update two nodes simultaneously.",
+    "order": ["cynic-builder", "cynic-host-proxmox"],
+    "rationale": "cynic-builder is the canary: it proves the release under load with zero fleet impact. cynic-host-proxmox (hypervisor host, internet ingress) updates only after the builder is health-proven on the new release."
+  },
+  "prohibitions": [
+    "No restart without an explicit --apply and a declared unit list.",
+    "No switch without read-back of the symlink target.",
+    "No health skip: a release that cannot prove health stays staged, never active.",
+    "No pruning of the rollback target.",
+    "No fleet-parallel rollout."
+  ],
+  "report_schema": "cynic.pkg.release_deploy.report.v2"
+}
