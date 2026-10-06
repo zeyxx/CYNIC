@@ -87,9 +87,12 @@ probed): builder `:9090`, PVE `:80`/`:443`/`:4000`/`:53`/`:3128`.
 
 ## 5. Decisions required (operator)
 
-1. **Orphan `cynic-cloud-api`**: identify source (which repo/commit built
-   it) or quarantine it. A root-service binary with no provenance on the
-   internet-ingress hypervisor is the fleet's largest single risk.
+1. **Orphan `cynic-cloud-api`**: DECIDED 2026-10-06 — quarantine, principle
+   retained. The binary leaves the hypervisor's active set (stop+disable,
+   binary kept for triage); the *role* (hypervisor-hosted web surfaces,
+   "cynic-cloud" done right: sourced, basket-listed, contracted) becomes a
+   work package of the hypervisor formalization, alongside the unfinished
+   hypervisor scope below. Execution needs root on PVE (no sudo grant there).
 2. **Kernel home**: confirm which machine runs `cynic-kernel` for
    `kernel_primary`, declare its unit + health probe, enroll it in the
    update model.
