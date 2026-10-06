@@ -2,10 +2,7 @@
 name = "cynic-proxmox"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license.workspace = true
-description = "Proxmox VE hypervisor substrate: adapters, watchdog, recovery, provisioning"
-repository.workspace = true
 publish = false
 
 [dependencies]
