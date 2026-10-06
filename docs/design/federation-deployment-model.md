@@ -348,8 +348,8 @@ liveness (22/80/443/3000/8006). Cortex = `192.168.0.11` (`ubuntu`).
 | local-kernel | service .100 | .100: nothing open | DEAD or firewalled — the `:3030` kernel seen earlier runs on cortex localhost, not .100 |
 | local-builder / cynic-builder | {} / service .119 | .119 SSH banner timeout since ~12:00 | builders DOWN (proofs queued) |
 | cynic-lxc-surrealdb | service .103 | .103: 22 only | host alive; DB port not probed — partial |
-| forgejo | service+local .101 | hosts→.101; .101(10.10.10): 22+3000, no 80/443 | alive; web presumably on 3000 — confirm before DNS cutover |
-| cynic-lxc-headscale | service .40 | .40: 22/80/443 | alive; 443 unexpected for headscale — identify before exposure review |
+| forgejo | service+local .101 | hosts→.101; .101(10.10.10): 22+3000, no 80/443 | CONFIRMED Gitea on :3000 ("CYNIC Forge") — register scheme+port before DNS cutover |
+| cynic-lxc-headscale | service .40 | .40: 22/80/443 | PARTIAL: `:80` answers `Server: Caddy` with 308→https; `:443` aborts TLS without SNI (no default site); site names undeclared in registry — needs Caddyfile read via PVE (`pct exec` into LXC) or SNI list |
 
 DNS: `kernel.service.cynic` resolves NOWHERE (zone without
 authority); everything else resolves via `/etc/hosts` only.
