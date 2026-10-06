@@ -56,18 +56,22 @@ RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 # `CYNIC_SOURCE_BIN` answers: "is HEAD conformant?" Only a binary built from
 # HEAD can, so it is always a cargo target path — never PATH, never an install.
 #
-# `CYNIC_INSTALLED` answers: "does the deployed artifact match its source?"
-# Its subject IS the install, so PATH resolution is correct here and only here.
-#
-# The previous single variable resolved PATH first and fell back to the cargo
-# path, so every gate validated whatever `cynic` happened to be installed. Lived:
-# the gate binary was 37 commits behind HEAD and could not see the two audit
-# rules added since (`prose_citation_rule.rs`, `module_inversion_rule.rs`), so
-# `make audit` was structurally blind to the findings those rules report. A gate
-# that proves a stale source is worse than no gate: it is green and wrong.
+# `CYNIC_RUNTIME_BIN` answers: "does the deployed artifact match its source?"
+# Its subject IS the runtime install, so it resolves the canonical runtime
+# path declared by `infra/directory-tree.json` (rank 4 authority):
+#   /var/lib/cynic/runtime/current/bin/cynic
+# This is the ONLY path the fleet uses. `command -v cynic` is forbidden here:
+# it resolves operator-home installs (~/.local/bin) or /usr/local/bin, which
+# are NOT the runtime path and would make `audit.deployed` validate the wrong
+# artifact. The previous single variable resolved PATH first and fell back to
+# the cargo path, so every gate validated whatever `cynic` happened to be
+# installed. Lived: the gate binary was 40 commits behind HEAD and could not
+# see the two audit rules added since (`prose_citation_rule.rs`,
+# `module_inversion_rule.rs`), so `make audit` was structurally blind to the
+# findings those rules report. A gate that proves a stale source is worse than
+# no gate: it is green and wrong.
 CYNIC_SOURCE_BIN ?= $(CARGO_TARGET_DIR)/debug/cynic
-CYNIC ?= $(shell command -v cynic 2>/dev/null || true)
-CYNIC_INSTALLED := $(if $(strip $(CYNIC)),$(CYNIC),$(CYNIC_SOURCE_BIN))
+CYNIC_RUNTIME_BIN ?= /var/lib/cynic/runtime/current/bin/cynic
 
 # Fail before spending a build when a target's CLI surface cannot be produced
 # from this tree. 13 of 31 targets used to call a surface that does not exist
@@ -214,21 +218,21 @@ audit.runtime: ## Runtime divergence: units, binaries, credentials, claim store 
 # is an explicit unknown, never a pass.
 .PHONY: audit.deployed
 audit.deployed: ## Compare the installed artifact's baked git_sha to HEAD (fail-closed)
-	@if [ ! -x "$(CYNIC_INSTALLED)" ]; then \
-		echo "audit.deployed: no installed artifact at $(CYNIC_INSTALLED)" >&2; \
+	@if [ ! -x "$(CYNIC_RUNTIME_BIN)" ]; then \
+		echo "audit.deployed: no installed artifact at $(CYNIC_RUNTIME_BIN)" >&2; \
 		echo "  an absent install is an explicit unknown, not a pass" >&2; \
 		exit 1; \
 	fi
-	@installed_sha="$$("$(CYNIC_INSTALLED)" version --json 2>/dev/null | jq -r '.git_sha // empty')"; \
+	@installed_sha="$$("$(CYNIC_RUNTIME_BIN)" version --json 2>/dev/null | jq -r '.git_sha // empty')"; \
 	head_sha="$$(git rev-parse HEAD)"; \
 	if [ -z "$$installed_sha" ]; then \
-		echo "audit.deployed: $(CYNIC_INSTALLED) reports no git_sha — explicit unknown, not a pass" >&2; \
+		echo "audit.deployed: $(CYNIC_RUNTIME_BIN) reports no git_sha — explicit unknown, not a pass" >&2; \
 		exit 1; \
 	fi; \
 	if [ "$$installed_sha" != "$$head_sha" ]; then \
 		distance="$$(git rev-list --count "$$installed_sha"..HEAD 2>/dev/null || echo unknown)"; \
 		echo "audit.deployed: DIVERGENT" >&2; \
-		echo "  installed: $$installed_sha  ($(CYNIC_INSTALLED))" >&2; \
+		echo "  installed: $$installed_sha  ($(CYNIC_RUNTIME_BIN))" >&2; \
 		echo "  HEAD     : $$head_sha" >&2; \
 		echo "  commits behind: $$distance" >&2; \
 		exit 1; \
