@@ -335,6 +335,30 @@ No emitter changes ship before resolvers answer.
   are queued behind its return. If it is a VM/container on PVE,
   revive it from the .37 console; if physical, it needs hands.
 
+## 10. Fleet diagnosis 2026-10-06 (declared vs observed — first full cross)
+
+Sources: `infra/registry.json` (declared), Freebox LAN browser (126
+hosts, `pve` active), `getent`/hosts (resolution), TCP connect
+liveness (22/80/443/3000/8006). Cortex = `192.168.0.11` (`ubuntu`).
+
+| Registry node | Declared | Observed | Verdict |
+|---|---|---|---|
+| cynic-host-proxmox | service .1, admin 192.168.100.1 | `.1` ≡ `.37` (same open set 22/80/443/8006); box shows `pve` on `.37` ACTIVE and `.101` inactive | dual-homed confirmed; **forward 8006→.101 is mispointed** (target dead), GUI actually lives on .37; admin net unverified from here |
+| cynic-host-cortex | admin 192.168.100.2 | cortex = `.11` active on home LAN | operator station OK; admin net is a different (planned OOB) network, unobserved |
+| local-kernel | service .100 | .100: nothing open | DEAD or firewalled — the `:3030` kernel seen earlier runs on cortex localhost, not .100 |
+| local-builder / cynic-builder | {} / service .119 | .119 SSH banner timeout since ~12:00 | builders DOWN (proofs queued) |
+| cynic-lxc-surrealdb | service .103 | .103: 22 only | host alive; DB port not probed — partial |
+| forgejo | service+local .101 | hosts→.101; .101(10.10.10): 22+3000, no 80/443 | alive; web presumably on 3000 — confirm before DNS cutover |
+| cynic-lxc-headscale | service .40 | .40: 22/80/443 | alive; 443 unexpected for headscale — identify before exposure review |
+
+DNS: `kernel.service.cynic` resolves NOWHERE (zone without
+authority); everything else resolves via `/etc/hosts` only.
+
+Actions derived (not yet executed): repoint 8006→.37 (needs
+`settings` Freebox permission — current grant is read-only);
+identify :443 on .40; confirm forgejo on 3000; revive builder;
+stand up `service.cynic` authority (§8) before touching any name.
+
 ## Next slices — S1 DONE 2026-10-06 (branch agent/hermes/network-vocabulary,
 commits test+A1+A2+B+C+R1, all builder-proven). Remaining, in order:
 
