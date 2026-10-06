@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use cynic_protocol::{
     AgentRecursionDecision, PolicyDecision, admit_child_delegation, admit_root_delegation,
+    resource_budget::ResourceLimit,
 };
 
 use super::{
@@ -350,6 +351,29 @@ pub fn admit_workload_mandate_binding(
             "mandate_wall_time_budget_exceeded",
             "workload requested wall time exceeds the observed mandate remainder",
         ));
+    }
+    // Resource budget admission: fail closed when no budget is declared.
+    if envelope.resource_budget.is_none() {
+        violations.push(violation(
+            "missing_resource_budget",
+            "workload must declare a resource budget (cpu_cores, memory_bytes, io_bps, net_bps)",
+        ));
+    } else {
+        let budget = envelope.resource_budget.as_ref().unwrap();
+        let host_limits = ResourceLimit::new()
+            .with_max_cpu_cores(8.0)
+            .with_max_memory_bytes(16 * 1024 * 1024 * 1024)
+            .with_max_io_bps(100 * 1024 * 1024)
+            .with_max_net_bps(1024 * 1024 * 1024);
+        if !budget.fits_within(&host_limits) {
+            violations.push(violation(
+                "resource_budget_exceeds_host_limits",
+                format!(
+                    "workload budget exceeds host limits: cpu={:?}, mem={:?}, io={:?}, net={:?}",
+                    budget.cpu_cores, budget.memory_bytes, budget.io_bps, budget.net_bps
+                ),
+            ));
+        }
     }
     admission(envelope.workload_id.clone(), violations, Vec::new())
 }

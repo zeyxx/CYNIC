@@ -101,6 +101,7 @@ pub mod service_catalog;
 pub mod service_supervisor_observation;
 pub mod source_control;
 pub mod source_lease;
+pub mod vcs_ports;
 pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;

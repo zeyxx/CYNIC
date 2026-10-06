@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub(crate) const AGENT_SOURCE_CHANGE_TRANSACTION_RESULT_SCHEMA: &str =
     "cynic.agent_source_change_transaction_result.v1";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) struct AgentSourceChangeTransactionRequest {
     pub workload: AgentWorkloadEnvelope,
     pub repository_id: String,

@@ -127,6 +127,15 @@ pub struct BuildProofBundle {
     /// invoice with CPU unknown instead of failing to parse.
     #[serde(default)]
     pub cpu_ms: Option<u64>,
+    /// Why the pipeline blocked, in the runner's own words, truncated.
+    ///
+    /// Present only when `status` is `Blocked`. Without it a blocked proof says
+    /// *that* the commit failed but not *why*, so an operator still has to
+    /// re-run the build to act — which defeats the point of retaining the
+    /// proof. Defaults to None so proofs written before this field existed
+    /// still parse.
+    #[serde(default)]
+    pub verdict_reason: Option<String>,
 }
 
 /// Whole-pipeline convergence status.
@@ -162,7 +171,7 @@ impl BuildProofBundle {
             })
             .collect();
         format!(
-            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"duration_ms\":{},\"cpu_ms\":{},\"layers\":[{}]}}",
+            "{{\"schema\":\"{}\",\"node\":\"{}\",\"source_commit\":\"{}\",\"action\":\"{}\",\"status\":\"{}\",\"broken_layer\":{},\"duration_ms\":{},\"cpu_ms\":{},\"verdict_reason\":{},\"layers\":[{}]}}",
             self.schema,
             self.node,
             self.source_commit,
@@ -172,7 +181,7 @@ impl BuildProofBundle {
                 PipelineStatus::Blocked => "blocked",
             },
             match &self.broken_layer {
-                Some(b) => format!("\"{}\"", b),
+                Some(b) => format!("\"{}\"", escape_json_string(b)),
                 None => "null".to_string(),
             },
             self.duration_ms,
@@ -180,9 +189,35 @@ impl BuildProofBundle {
                 Some(ms) => ms.to_string(),
                 None => "null".to_string(),
             },
+            match &self.verdict_reason {
+                Some(r) => format!("\"{}\"", escape_json_string(r)),
+                None => "null".to_string(),
+            },
             layers.join(",")
         )
     }
+}
+
+/// Escape a string for embedding in the hand-rolled JSON above.
+///
+/// The blocked reason carries compiler output, which routinely contains
+/// quotes, backslashes and newlines. Emitting it raw would produce JSON that
+/// does not parse — and an unparseable proof line is silently skipped by the
+/// reader, which is exactly the disappearance this whole change removes.
+fn escape_json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Health of the network build runner, observed before triggering.
@@ -199,13 +234,81 @@ pub struct RunnerHealth {
     pub binary_sha: Option<String>,
 }
 
-/// Errors from the build runner port.
+/// How a trigger ended when the runner RENDERED A VERDICT on the commit.
+///
+/// WHY THIS TYPE EXISTS. `trigger` used to return `Err` for a failed build,
+/// which meant no `BuildProofBundle` was constructed and nothing was appended
+/// to the proof log. The log therefore contained only successes, and two very
+/// different situations were indistinguishable in it:
+///
+///   - the commit was never tested        -> no line
+///   - the commit was tested and failed   -> no line
+///
+/// A log that can only say yes is not evidence, it is a celebration. The
+/// failure of a build is an OBSERVED OUTCOME, not a fault of the observer, so
+/// it belongs in the proof — carrying the duration, the layer and the compiler
+/// output — rather than in the error channel.
+///
+/// The split this type encodes:
+///   - `Ok(proof)` — the runner was reached and returned a verdict. The proof
+///     is appended whether the verdict is Converged or Blocked.
+///   - `Err(BuildError)` — no verdict exists. Malformed SHA, runner never
+///     contacted, or the trigger refused its own configuration before running
+///     anything. Absence of evidence, reported as absence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildVerdict {
+    /// The runner ran the requested action and the pipeline converged.
+    Converged,
+    /// The runner ran (or refused to run) the requested action and the commit
+    /// did not pass. Carries the broken layer and the truncated evidence.
+    Blocked {
+        /// Layer that failed, or `None` when the failure is pipeline-level
+        /// (for example, a checkout that never reached a layer).
+        broken_layer: Option<String>,
+        /// Why it blocked, in the runner's own words, truncated. This is the
+        /// text an operator needs to act without re-running the build.
+        reason: String,
+    },
+}
+
+impl BuildVerdict {
+    /// Project the verdict onto the bundle's pipeline status.
+    pub fn pipeline_status(&self) -> PipelineStatus {
+        match self {
+            BuildVerdict::Converged => PipelineStatus::Converged,
+            BuildVerdict::Blocked { .. } => PipelineStatus::Blocked,
+        }
+    }
+
+    pub fn is_converged(&self) -> bool {
+        matches!(self, BuildVerdict::Converged)
+    }
+
+    /// The blocking reason, when there is one.
+    pub fn reason(&self) -> Option<&str> {
+        match self {
+            BuildVerdict::Converged => None,
+            BuildVerdict::Blocked { reason, .. } => Some(reason.as_str()),
+        }
+    }
+}
+
+/// Errors from the build runner port: the cases where NO verdict exists.
+///
+/// Deliberately narrow. A build that failed, a checkout that landed on the
+/// wrong commit, a phase that refused to run — all of those produce a verdict
+/// and travel as `Ok(BuildProofBundle { status: Blocked, .. })`. Only the
+/// absence of a verdict is an error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuildError {
+    /// The SHA is not a 40-char hex string: rejected before any round-trip.
     InvalidCommit(String),
+    /// The runner could not be contacted. No observation of the commit exists.
     RunnerUnreachable(String),
-    AdmissionBlocked(String),
-    ProofUnparseable(String),
+    /// The trigger refused its own configuration before running anything, so
+    /// no build was attempted and no verdict can exist. Distinct from a build
+    /// that ran and failed, which is `BuildVerdict::Blocked`.
+    ConfigurationRefused(String),
 }
 
 impl fmt::Display for BuildError {
@@ -213,8 +316,9 @@ impl fmt::Display for BuildError {
         match self {
             BuildError::InvalidCommit(c) => write!(f, "invalid source commit: {c}"),
             BuildError::RunnerUnreachable(e) => write!(f, "runner unreachable: {e}"),
-            BuildError::AdmissionBlocked(e) => write!(f, "build admission blocked: {e}"),
-            BuildError::ProofUnparseable(e) => write!(f, "build proof unparseable: {e}"),
+            BuildError::ConfigurationRefused(e) => {
+                write!(f, "build trigger configuration refused: {e}")
+            }
         }
     }
 }
@@ -228,6 +332,11 @@ impl std::error::Error for BuildError {}
 /// port — it never shells out to `cargo` directly.
 pub trait BuildRunnerPort {
     /// Trigger a build on the runner and return its proof bundle.
+    ///
+    /// Returns `Ok` whenever the runner rendered a verdict, INCLUDING a failed
+    /// build (`status: Blocked`). Returns `Err` only when no verdict exists —
+    /// see `BuildError`. A caller that appends proofs must append on `Ok` and
+    /// decide its exit code from `proof.status`, never from `is_err()`.
     fn trigger(&self, trigger: &BuildTrigger) -> Result<BuildProofBundle, BuildError>;
     /// Observe runner health before triggering (liveness, cache, toolchain).
     fn observe_runner(&self) -> RunnerHealth;
@@ -322,6 +431,7 @@ mod tests {
             }],
             duration_ms: 1234,
             cpu_ms: Some(900),
+            verdict_reason: None,
         };
         let json = proof.to_json();
         assert!(json.contains("\"duration_ms\":1234"), "{json}");
@@ -351,6 +461,7 @@ mod tests {
             }],
             duration_ms: ms,
             cpu_ms,
+            verdict_reason: None,
         }
     }
 

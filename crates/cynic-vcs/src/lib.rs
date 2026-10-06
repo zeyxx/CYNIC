@@ -12,18 +12,23 @@ pub mod forgejo_port;
 pub mod forgejo_token;
 pub mod git_hygiene;
 pub mod git_topology;
+pub mod git_topology_observer;
 pub mod isolated_worktree;
 pub mod parse;
+pub mod ports;
 pub mod pull_request;
 pub mod reconcile;
+pub mod repo_access;
 pub mod runner;
 pub mod source_control;
+pub mod source_lease;
 pub mod source_materialization;
 pub mod source_policy;
 pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod source_worktree;
 pub mod source_worktree_inventory;
+pub mod stack;
 pub mod sync;
 
 #[cfg(test)]
@@ -36,15 +41,20 @@ pub use forgejo::*;
 pub use forgejo_port::{ForgejoObservationPort, build_forgejo_plan, forgejo_token_spec};
 pub use git_hygiene::*;
 pub use git_topology::*;
+pub use git_topology_observer::*;
 pub use parse::*;
+pub use ports::*;
+pub use repo_access::*;
 pub use runner::*;
 pub use source_control::*;
+pub use source_lease::*;
 pub use source_materialization::*;
 pub use source_policy::*;
 pub use source_release::*;
 pub use source_repository_bootstrap::*;
 pub use source_worktree::*;
 pub use source_worktree_inventory::*;
+pub use stack::*;
 
 const MAX_PORCELAIN_BYTES: usize = 4 * 1024 * 1024;
 
