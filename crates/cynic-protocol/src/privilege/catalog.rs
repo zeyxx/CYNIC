@@ -82,8 +82,20 @@ impl ParamKind {
                 if value.contains(char::is_whitespace) {
                     blockers.push("branch_whitespace".to_string());
                 }
-                if value.contains(['~', '^', ':', '?', '*', '[', '\\']) {
+                // ALLOWLIST, not denylist. A denylist of git-unsafe characters
+                // (`~ ^ : ? * [ \`) is incomplete: it accepts `@ # + = %` and
+                // every future metacharacter. Measured divergence against
+                // cynic-host transport_caps, which already used an allowlist:
+                // the catalogue accepted `a@b` where transport refused it.
+                // One concept, one validator — this is the stricter of the two.
+                if !value
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '/' | '.' | '_' | '-'))
+                {
                     blockers.push("branch_unsafe_character".to_string());
+                }
+                if value.len() > 128 {
+                    blockers.push("branch_too_long".to_string());
                 }
                 if value.starts_with('/') || value.ends_with('/') || value.ends_with(".lock") {
                     blockers.push("branch_invalid_shape".to_string());
@@ -773,6 +785,34 @@ mod absorb_transport_tests {
             ],
         );
         assert!(matches!(decision, CapabilityDecision::Blocked { .. }));
+    }
+
+    #[test]
+    fn branch_name_uses_allowlist_not_denylist() {
+        // Regression lock: the catalogue and cynic-host transport_caps must
+        // agree on BranchName. A denylist accepted `a@b` where transport
+        // refused it — one concept must have one validator.
+        for accepted in ["main", "feature/foo", "release-1.2", "a_b.c"] {
+            assert!(
+                ParamKind::BranchName.validate(accepted).is_empty(),
+                "{accepted} must be accepted"
+            );
+        }
+        for refused in ["a@b", "a#b", "a+b", "a=b", "a%b", "a~b", "a b", "a..b"] {
+            assert!(
+                ParamKind::BranchName
+                    .validate(refused)
+                    .contains(&"branch_unsafe_character".to_string())
+                    || ParamKind::BranchName
+                        .validate(refused)
+                        .contains(&"branch_traversal".to_string())
+                    || ParamKind::BranchName
+                        .validate(refused)
+                        .contains(&"branch_whitespace".to_string()),
+                "{refused} must be refused, got {:?}",
+                ParamKind::BranchName.validate(refused)
+            );
+        }
     }
 
     #[test]
