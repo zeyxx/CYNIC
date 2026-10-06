@@ -199,7 +199,7 @@ impl EncryptedFileSecretProvider {
         debug_assert_eq!(sealed_key.len(), DATA_KEY_LEN + TAG_LEN);
 
         let body_nonce: [u8; NONCE_LEN] = random_bytes();
-        let ciphertext = Aes256Gcm::new(Key::<Aes256Gcm>::from(data_key))
+        let ciphertext = Aes256Gcm::new(&Key::<Aes256Gcm>::from(data_key))
             .encrypt(
                 Nonce::from_slice(&body_nonce),
                 Payload {
@@ -260,7 +260,7 @@ impl EncryptedFileSecretProvider {
             SecretError::Crypto(format!("secret '{id}' data key has an invalid length"))
         })?;
 
-        let plaintext = Aes256Gcm::new(Key::<Aes256Gcm>::from(data_key))
+        let plaintext = Aes256Gcm::new(&Key::<Aes256Gcm>::from(data_key))
             .decrypt(
                 Nonce::from_slice(body_nonce),
                 Payload {
