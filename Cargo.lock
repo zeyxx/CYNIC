@@ -759,6 +759,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-audit-engine"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "cynic-build"
 version = "0.8.0"
 dependencies = [
@@ -797,6 +808,7 @@ dependencies = [
  "clap",
  "crossterm",
  "cynic-askesis",
+ "cynic-audit-engine",
  "cynic-build",
  "cynic-consensus",
  "cynic-discovery",
@@ -967,6 +979,7 @@ version = "0.8.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "cynic-audit-engine",
  "cynic-build",
  "cynic-eval",
  "cynic-finance",
