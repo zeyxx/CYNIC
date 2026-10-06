@@ -13,6 +13,87 @@
   ],
   "capabilities": [
     {
+      "id": "forgejo-inspect-app-ini",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "ls",
+        "-la",
+        "/etc/forgejo/app.ini"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only inspection of forgejo app.ini inside a CT"
+    },
+    {
+      "id": "forgejo-inspect-user",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "sh",
+        "-c",
+        "id forgejo; ls /usr/local/bin/forgejo /usr/bin/forgejo 2>/dev/null; which sudo || true"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only inspection of forgejo user and binary locations inside a CT"
+    },
+    {
+      "id": "forgejo-machine-token",
+      "domain": "identity",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "forgejo",
+        "admin",
+        "user",
+        "generate-access-token",
+        "--username",
+        "{principal}",
+        "--token-name",
+        "{token_name}",
+        "--scopes",
+        "write:repository"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        },
+        {
+          "name": "principal",
+          "kind": "path_segment"
+        },
+        {
+          "name": "token_name",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "one-shot RuntimeMachineIdentity issuance for a Forgejo principal"
+    },
+    {
       "id": "node-control",
       "domain": "runtime",
       "argv_template": [
@@ -23,38 +104,6 @@
       "requires_root": false,
       "mandatory": true,
       "purpose": "supervised node runtime (the node cannot function without it)"
-    },
-    {
-      "id": "pct-list",
-      "domain": "hypervisor",
-      "argv_template": [
-        "/usr/sbin/pct",
-        "list"
-      ],
-      "params": [],
-      "requires_root": true,
-      "mandatory": false,
-      "purpose": "CT inventory for fleet observation (read-only)"
-    },
-    {
-      "id": "pct-probe",
-      "domain": "hypervisor",
-      "argv_template": [
-        "/usr/sbin/pct",
-        "exec",
-        "{vmid}",
-        "--",
-        "hostname"
-      ],
-      "params": [
-        {
-          "name": "vmid",
-          "kind": "vmid"
-        }
-      ],
-      "requires_root": true,
-      "mandatory": false,
-      "purpose": "read-only container observation (hostname)"
     },
     {
       "id": "pct-clone",
@@ -97,6 +146,38 @@
       "requires_root": true,
       "mandatory": false,
       "purpose": "destroy an ephemeral container after read-back proof"
+    },
+    {
+      "id": "pct-list",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "list"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "CT inventory for fleet observation (read-only)"
+    },
+    {
+      "id": "pct-probe-hostname",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "hostname"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only hostname observation of a CT"
     },
     {
       "id": "pct-resize",
@@ -165,43 +246,6 @@
       "requires_root": true,
       "mandatory": false,
       "purpose": "hypervisor watchdog recovery of the PVE API daemon"
-    },
-    {
-      "id": "forgejo-machine-token",
-      "domain": "identity",
-      "argv_template": [
-        "/usr/sbin/pct",
-        "exec",
-        "{vmid}",
-        "--",
-        "forgejo",
-        "admin",
-        "user",
-        "generate-access-token",
-        "--username",
-        "{principal}",
-        "--token-name",
-        "{token_name}",
-        "--scopes",
-        "write:repository"
-      ],
-      "params": [
-        {
-          "name": "vmid",
-          "kind": "vmid"
-        },
-        {
-          "name": "principal",
-          "kind": "path_segment"
-        },
-        {
-          "name": "token_name",
-          "kind": "path_segment"
-        }
-      ],
-      "requires_root": true,
-      "mandatory": false,
-      "purpose": "one-shot RuntimeMachineIdentity issuance for a Forgejo principal"
     }
   ]
 }

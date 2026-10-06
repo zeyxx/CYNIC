@@ -55,6 +55,33 @@ pub enum ParamKind {
 }
 
 impl ParamKind {
+    /// The sudoers character class that bounds this parameter's shape.
+    ///
+    /// WHY. sudoers CAN express bounded wildcards — measured:
+    ///   /usr/sbin/pct destroy [0-9]*              → parsed OK
+    ///   /usr/sbin/pct resize [0-9]* rootfs [+][0-9]*[KMGT]  → parsed OK
+    ///   /usr/sbin/pct clone [0-9]* [0-9]* --full → parsed OK
+    ///
+    /// So the membrane is not decorative: sudoers bounds the SHAPE of each
+    /// parameter, and `admit_capability()` bounds the SEMANTICS (exact length,
+    /// exact range, exact charset). Two independent controls.
+    ///
+    /// Kinds whose shape sudoers cannot express (paths with `/`, fixed-length
+    /// digests) return `None` — the caller falls back to `*`, which is strictly
+    /// more permissive than the binary. That is documented, not hidden.
+    pub fn sudoers_class(&self) -> Option<&'static str> {
+        match self {
+            ParamKind::Vmid => Some("[0-9]*"),
+            ParamKind::SizeDelta => Some("[+][0-9]*[KMGT]"),
+            ParamKind::BranchName => Some("[a-zA-Z0-9._/-]*"),
+            ParamKind::PathSegment => Some("[a-zA-Z0-9._-]*"),
+            ParamKind::Sha256Hex => Some("[0-9a-f]*"),
+            ParamKind::Endpoint => Some("[a-zA-Z0-9._-]*"),
+            // sudoers refuses `/` in arguments, so paths cannot be bounded.
+            ParamKind::LocalPath | ParamKind::AbsolutePath => None,
+        }
+    }
+
     /// Validate one value for this kind. Empty result means accepted.
     pub fn validate(&self, value: &str) -> Vec<String> {
         let mut blockers = Vec::new();
@@ -188,6 +215,18 @@ pub struct Capability {
     pub purpose: String,
 }
 
+/// Escape the characters sudoers treats as separators.
+///
+/// MEASURED: `cynic ALL=(root) NOPASSWD: ... --scopes write:repository` is
+/// rejected by `visudo -c` with `syntax error` because `:` separates the
+/// user-list from the command-list. `write\:repository` parses OK.
+///
+/// Every literal that reaches a sudoers rule goes through this: a rule that
+/// fails to parse is an unparseable sudoers file, which can lock out `sudo`.
+fn escape_sudoers(value: &str) -> String {
+    value.replace(':', "\\:")
+}
+
 /// The full catalog, authored as data.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityCatalog {
@@ -224,10 +263,28 @@ impl CapabilityCatalog {
             .collect();
         caps.sort_by(|a, b| a.id.cmp(&b.id));
         for cap in caps {
-            rules.push(format!(
-                "{subject} ALL=(root) NOPASSWD: {binary_path} privilege exec {} *",
-                cap.id
-            ));
+            // The rule MUST match the argv the binary actually receives:
+            //   <binary> privilege exec <cap-id> [--param name=value]...
+            //
+            // NOT the resolved argv (`/usr/sbin/pct clone 105 106 --full`):
+            // the resolved argv is never passed on the command line, it is
+            // built inside the binary from the catalog. A rule naming it would
+            // never match any real invocation — the membrane would be dead
+            // while looking strict.
+            let mut parts = vec![format!(
+                "{} privilege exec {}",
+                escape_sudoers(binary_path),
+                escape_sudoers(&cap.id)
+            )];
+            for param in &cap.params {
+                let class = param.kind.sudoers_class().unwrap_or("*");
+                parts.push(format!(
+                    "--param {}={}",
+                    escape_sudoers(&param.name),
+                    class
+                ));
+            }
+            rules.push(format!("{subject} ALL=(root) NOPASSWD: {}", parts.join(" ")));
         }
         rules
     }
@@ -829,7 +886,7 @@ mod absorb_transport_tests {
             "schema": "cynic.capability_catalog.v1",
             "capabilities": [
                 {"id":"pct-list","domain":"hypervisor","argv_template":["/usr/sbin/pct","list"],"requires_root":true,"purpose":"list"},
-                {"id":"pct-clone","domain":"hypervisor","argv_template":["/usr/sbin/pct","clone","{source}","{target}","--full"],"requires_root":true,"purpose":"clone"},
+                {"id":"pct-clone","domain":"hypervisor","argv_template":["/usr/sbin/pct","clone","{source}","{target}","--full"],"params":[{"name":"source","kind":"vmid"},{"name":"target","kind":"vmid"}],"requires_root":true,"purpose":"clone"},
                 {"id":"node-control","domain":"runtime","argv_template":["node","control"],"requires_root":false,"purpose":"runtime"}
             ]
         }"#,
@@ -844,7 +901,7 @@ mod absorb_transport_tests {
         assert_eq!(rules.len(), 2);
         assert!(rules
             .iter()
-            .all(|r| r.starts_with("cynic ALL=(root) NOPASSWD: /usr/local/bin/cynic privilege exec ")));
+            .all(|r| r.contains(" privilege exec ")));
         assert!(!rules.iter().any(|r| r.contains("node-control")));
     }
 
@@ -856,7 +913,6 @@ mod absorb_transport_tests {
             .iter()
             .find(|r| r.contains("pct-clone"))
             .expect("clone rule");
-        assert!(clone_rule.ends_with(" *"), "needs a wildcard tail: {clone_rule}");
         assert!(
             !clone_rule.contains("/usr/sbin/pct"),
             "the rule must not embed the resolved argv: {clone_rule}"
@@ -865,6 +921,38 @@ mod absorb_transport_tests {
             !clone_rule.contains('{'),
             "no unresolved placeholders: {clone_rule}"
         );
+        // The rule matches what the binary RECEIVES: --param name=<class>
+        assert!(
+            clone_rule.contains("--param source="),
+            "params must appear as --param name=class: {clone_rule}"
+        );
+    }
+
+    #[test]
+    fn sudoers_params_use_bounded_classes_not_bare_wildcard() {
+        let catalog = catalog_with_root_caps();
+        let rules = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
+        let clone_rule = rules
+            .iter()
+            .find(|r| r.contains("pct-clone"))
+            .expect("clone rule");
+        // source/target are declared as Vmid in the fixture → [0-9]*
+        assert!(
+            clone_rule.contains("--param source=[0-9]*"),
+            "Vmid must render as [0-9]*, not *: {clone_rule}"
+        );
+        assert!(
+            !clone_rule.ends_with(" *"),
+            "no trailing bare wildcard: {clone_rule}"
+        );
+    }
+
+    #[test]
+    fn sudoers_escapes_colon_separator() {
+        // MEASURED: a bare `:` in a sudoers rule is a syntax error
+        // (visudo -c: "syntax error"). It must be escaped.
+        assert_eq!(escape_sudoers("write:repository"), "write\\:repository");
+        assert_eq!(escape_sudoers("plain"), "plain");
     }
 
     #[test]

@@ -154,6 +154,11 @@ impl PveHelperPolicy {
 
 /// Install-time command surfaces (root-owned artifacts), mirroring the
 /// bridge bundle contract modes: helper 0755, sudoers 0440.
+///
+/// ORDER IS A SECURITY PROPERTY. `validate_sudoers` runs BEFORE
+/// `install_sudoers`: a sudoers file that fails `visudo -c` must never land in
+/// `/etc/sudoers.d/`, because an unparseable file there can break `sudo`
+/// entirely — including the ability to fix it.
 pub fn pve_helper_install_commands(
     policy: &PveHelperPolicy,
     staged_dir: &Path,
@@ -167,15 +172,16 @@ pub fn pve_helper_install_commands(
             &policy.helper_path,
             root_owned_path(MODE_0755),
         ),
+        // Validate the STAGED file, then install it. Never the other way.
+        crate::command_surface::validate_sudoers_command(
+            "validate_sudoers",
+            sudoers_source.to_string_lossy().as_ref(),
+        ),
         crate::command_surface::install_file_command(
             "install_sudoers",
             sudoers_source.to_string_lossy().as_ref(),
             &policy.sudoers_path,
             root_owned_path(MODE_0440),
-        ),
-        crate::command_surface::validate_sudoers_command(
-            "validate_sudoers",
-            policy.sudoers_path.clone(),
         ),
         // PATH shim so non-interactive shells resolve pct.
         crate::command_surface::argv_command(
