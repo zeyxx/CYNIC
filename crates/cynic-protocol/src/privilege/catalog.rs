@@ -231,7 +231,10 @@ pub struct Capability {
 ///
 /// Every literal that reaches a sudoers rule goes through this: a rule that
 /// fails to parse is an unparseable sudoers file, which can lock out `sudo`.
-fn escape_sudoers(value: &str) -> String {
+///
+/// Public because every sudoers renderer needs it, and a renderer that
+/// reimplements the escaping is a second source of truth for the same rule.
+pub fn escape_sudoers(value: &str) -> String {
     value.replace(':', "\\:")
 }
 
@@ -245,23 +248,28 @@ pub struct CapabilityCatalog {
 impl CapabilityCatalog {
     /// Project the catalog into sudoers rules for the given subject.
     ///
-    /// WHY THE RULE NAMES THE BINARY, NOT THE RESOLVED ARGV. sudoers cannot
-    /// express the admission policy. Measured: `visudo -c` rejects a rule
-    /// containing `--scopes write:repository` because `:` is a sudoers
-    /// separator, and it cannot validate that a vmid is an integer or that a
-    /// value is not an option lookalike. Those checks live in
-    /// `admit_capability`, which is the enforcement point.
+    /// WHY THE RULE NAMES THE BINARY, NOT THE RESOLVED ARGV. The resolved argv
+    /// (`/usr/sbin/pct clone 105 106 --full`) is never passed on a command
+    /// line — it is built inside the binary from the catalog. A rule naming it
+    /// would never match any real invocation, so the membrane would be dead
+    /// while looking strict.
     ///
-    /// So the membrane is deliberately coarse — the binary plus the capability
-    /// id — and the binary performs the fine admission. Defense in depth:
-    /// sudoers bounds WHICH capability may run as root, the binary bounds
-    /// WHICH parameters that capability may carry. A `*` tail is required
-    /// because sudoers cannot enumerate typed parameters, and sudoers refuses
-    /// any argument containing `/`, which is strictly more restrictive than
-    /// the binary.
+    /// WHAT A PARAMETER CLASS ACTUALLY BOUNDS — measured, and narrower than it
+    /// looks. `[0-9]*` anchors the FIRST character; the tail is free. On the
+    /// live sudoers with `--param vmid=[0-9]*`, `106`, `106; id`,
+    /// `1/../../etc/shadow` and `106 --dangerous` are ALL accepted; only a
+    /// value that cannot begin with a digit is refused. A bare `*` is worse:
+    /// it accepts `/tmp/x`, `../../etc/shadow` and `--dangerous` with no
+    /// restriction at all.
     ///
-    /// `{param}` placeholders never reach the rule: only the capability id
-    /// does. Deterministic (sorted by id).
+    /// So the membrane is a COARSE FIRST FILTER, not the enforcement point.
+    /// `admit_capability()` is the layer that refuses the injections sudoers
+    /// accepts, and it is the layer that must never be bypassed. Defense in
+    /// depth: sudoers removes the class of invocations that were never
+    /// admissible, the binary decides.
+    ///
+    /// `{param}` placeholders never reach the rule: only the capability id and
+    /// the bounded classes do. Deterministic (sorted by id).
     pub fn sudoers_rules(&self, subject: &str, binary_path: &str) -> Vec<String> {
         let mut rules = Vec::new();
         let mut caps: Vec<&Capability> = self

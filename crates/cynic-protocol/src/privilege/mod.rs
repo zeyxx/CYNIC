@@ -13,5 +13,5 @@ mod catalog;
 pub use catalog::{
     CAPABILITY_CATALOG_SCHEMA, INSTALLED_CATALOG_SCHEMA, Capability, CapabilityCatalog,
     CapabilityDecision, CapabilityParam, InstalledCapabilities, ParamKind, admit_capability,
-    validate_install,
+    escape_sudoers, validate_install,
 };

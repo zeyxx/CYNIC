@@ -5,6 +5,7 @@ use crate::command_surface::{
     HostCommandSurface, install_dir_command, install_file_command, validate_sudoers_command,
 };
 use crate::install_contract::{MODE_0440, MODE_0755, mode_map, root_owned_path};
+use cynic_protocol::privilege::escape_sudoers;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,13 +42,32 @@ impl BoundedHelperProjection {
         }
     }
 
+    /// Render one sudoers rule per allowed invocation.
+    ///
+    /// ESCAPING IS NOT OPTIONAL. Measured: `visudo -c` rejects a rule
+    /// containing `--scopes write:repository` with `syntax error`, because `:`
+    /// separates the user-list from the command-list. A rule that fails to
+    /// parse is an unparseable sudoers file, which can lock out `sudo`
+    /// entirely — including the ability to fix it.
+    ///
+    /// Each token is escaped through the ONE escaper
+    /// (`cynic_protocol::privilege::escape_sudoers`). A renderer that
+    /// reimplements it is a second source of truth for the same rule.
     pub fn sudoers_rule(&self) -> String {
         if self.allowed_invocations.is_empty() {
             return String::new();
         }
         self.allowed_invocations
             .iter()
-            .map(|argv| format!("{} ALL=(root) NOPASSWD: {}", self.subject, argv.join(" ")))
+            .map(|argv| {
+                let escaped: Vec<String> =
+                    argv.iter().map(|token| escape_sudoers(token)).collect();
+                format!(
+                    "{} ALL=(root) NOPASSWD: {}",
+                    self.subject,
+                    escaped.join(" ")
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -192,6 +212,34 @@ mod tests {
         assert_eq!(
             projection.sudoers_rule(),
             "cynic ALL=(root) NOPASSWD: /usr/local/bin/helper principal-prepare\ncynic ALL=(root) NOPASSWD: /usr/local/bin/helper network-baseline observe"
+        );
+    }
+
+    #[test]
+    fn sudoers_rule_escapes_the_colon_separator() {
+        // Regression lock for the measured bug: a raw `:` in a rule makes the
+        // whole sudoers file unparseable, which can lock out `sudo`.
+        let projection = BoundedHelperProjection::new(
+            "cynic",
+            "/usr/local/bin/helper",
+            "/etc/sudoers.d/helper",
+            "Allows bounded helper invocation only.",
+        )
+        .with_allowed_invocations(vec![vec![
+            "/usr/local/bin/helper".to_string(),
+            "generate-token".to_string(),
+            "--scopes".to_string(),
+            "write:repository".to_string(),
+        ]]);
+
+        let rule = projection.sudoers_rule();
+        assert!(
+            rule.contains(r"write\:repository"),
+            "the colon must be escaped: {rule}"
+        );
+        assert!(
+            !rule.contains(" write:repository"),
+            "an unescaped colon reaches visudo as a separator: {rule}"
         );
     }
 
