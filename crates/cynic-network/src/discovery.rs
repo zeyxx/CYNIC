@@ -305,7 +305,8 @@ pub fn extract_desired_network_specs(registry: &serde_json::Value) -> Vec<Desire
 
             let direct_ip = node_net
                 .and_then(|net| {
-                    net.get("management")
+                    net.get(Plane::Admin.name())
+                        .or_else(|| net.get("management"))
                         .or_else(|| net.get("direct"))
                         .or_else(|| net.get("local"))
                 })

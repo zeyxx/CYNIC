@@ -31,21 +31,6 @@ pub(crate) fn resolve_registry_placeholders(mut content: String) -> String {
             name.to_uppercase().replace('-', "_")
         };
 
-        if let Some(ts) = node
-            .get("network")
-            .and_then(|nw| nw.get("tailscale"))
-            .and_then(|t| t.as_str())
-        {
-            let key = format!("<TAILSCALE_{name_upper}>");
-            let resolved = if ts.starts_with('<') && ts.ends_with('>') {
-                let env_var = &ts[1..ts.len() - 1];
-                std::env::var(env_var).unwrap_or_else(|_| ts.to_string())
-            } else {
-                ts.to_string()
-            };
-            content = content.replace(&key, &resolved);
-        }
-
         if let Some(local) = node
             .get("network")
             .and_then(|nw| nw.get("local"))

@@ -922,8 +922,7 @@ fn load_declared_inventory(registry_path: &Path) -> Result<Vec<FleetNodeObservat
             .unwrap_or("declared")
             .to_string();
         let ip = network
-            .get("tailscale")
-            .or_else(|| network.get("local"))
+            .get("local")
             .and_then(Value::as_str)
             .map(ToString::to_string);
 
