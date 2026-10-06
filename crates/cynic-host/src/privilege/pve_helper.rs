@@ -17,7 +17,7 @@
 //! of the catalog, never hand-written.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -423,7 +423,7 @@ mod tests {
         let policy = sample_policy();
         let staged = Path::new("/tmp/stage");
         let commands = pve_helper_install_commands(&policy, staged);
-        let roles: Vec<&str> = commands.iter().map(|s| s.role).collect();
+        let roles: Vec<&str> = commands.iter().map(|s| s.role.as_str()).collect();
         let validate_at = roles
             .iter()
             .position(|r| *r == "validate_sudoers")
