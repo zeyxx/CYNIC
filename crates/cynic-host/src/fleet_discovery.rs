@@ -136,11 +136,13 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
                 .unwrap_or("unknown")
                 .to_string();
             let synapse_ip = reservation
-                .get("synapse")
+                .get("service")
+                .or_else(|| reservation.get("synapse"))
                 .and_then(|v| v.as_str())
                 .map(String::from);
             let management_ip = reservation
-                .get("management")
+                .get("admin")
+                .or_else(|| reservation.get("management"))
                 .and_then(|v| v.as_str())
                 .map(String::from);
 

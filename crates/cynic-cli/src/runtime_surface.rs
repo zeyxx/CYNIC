@@ -430,7 +430,7 @@ pub(crate) fn forgejo_token_adapter_selector()
                             if role == "forge_primary" || id == "forgejo" {
                                 let ip = node
                                     .get("network")
-                                    .and_then(|n| n.get("synapse"))
+                                    .and_then(|n| n.get("service").or_else(|| n.get("synapse")))
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("127.0.0.1");
                                 let port = node
@@ -729,7 +729,7 @@ pub(crate) fn execute_storage_credential_sync(
                             {
                                 let ip = node
                                     .get("network")
-                                    .and_then(|n| n.get("synapse"))
+                                    .and_then(|n| n.get("service").or_else(|| n.get("synapse")))
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("127.0.0.1");
                                 let port = services

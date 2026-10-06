@@ -141,7 +141,12 @@ pub fn resolve_watchdog_services(registry_path: &str) -> Vec<ServiceProbeSpec> {
             .unwrap_or("");
         let net = node.get("network");
         let ip = net
-            .and_then(|n| n.get("synapse").or_else(|| n.get("management")))
+            .and_then(|n| {
+                n.get("service")
+                    .or_else(|| n.get("synapse"))
+                    .or_else(|| n.get("admin"))
+                    .or_else(|| n.get("management"))
+            })
             .and_then(serde_json::Value::as_str)
             .unwrap_or("");
 

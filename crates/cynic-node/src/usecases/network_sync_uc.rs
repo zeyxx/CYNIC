@@ -99,7 +99,8 @@ pub fn parse_registry_network_specs(
     if let Some(res_arr) = reservations {
         for res in res_arr {
             let ip = res
-                .get("synapse")
+                .get("service")
+                .or_else(|| res.get("synapse"))
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
             let name = res

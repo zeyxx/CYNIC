@@ -550,31 +550,38 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             api_key,
             check_health,
         } => {
-            let ep = endpoint
-                .clone()
-                .unwrap_or_else(|| {
-                    use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
-                    use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
-                    LocalNetworkMeshRegistryReader
-                        .load_mesh_registry(Path::new(registry))
-                        .ok()
-                        .and_then(|reg| {
-                            reg.nodes.into_iter().find(|n| {
+            let ep = endpoint.clone().unwrap_or_else(|| {
+                use crate::adapters::local_network_mesh_registry::LocalNetworkMeshRegistryReader;
+                use crate::ports::network_mesh_registry_port::NetworkMeshRegistryPort;
+                LocalNetworkMeshRegistryReader
+                    .load_mesh_registry(Path::new(registry))
+                    .ok()
+                    .and_then(|reg| {
+                        reg.nodes
+                            .into_iter()
+                            .find(|n| {
                                 n.role.as_deref() == Some("mesh_coordinator")
                                     || n.id.as_deref() == Some("cynic-lxc-headscale")
-                            }).and_then(|node| {
-                                let ip = node.network.get("synapse")
+                            })
+                            .and_then(|node| {
+                                let ip = node
+                                    .network
+                                    .get("service")
+                                    .or_else(|| node.network.get("synapse"))
+                                    .or_else(|| node.network.get("admin"))
                                     .or_else(|| node.network.get("management"))
                                     .or_else(|| node.network.values().next())?;
-                                let port = node.services.iter()
+                                let port = node
+                                    .services
+                                    .iter()
                                     .find(|s| s.name.as_deref() == Some("headscale"))
                                     .and_then(|s| s.port)
                                     .unwrap_or(8080);
                                 Some(format!("http://{ip}:{port}"))
                             })
-                        })
-                        .unwrap_or_else(|| "http://127.0.0.1:8080".to_string())
-                });
+                    })
+                    .unwrap_or_else(|| "http://127.0.0.1:8080".to_string())
+            });
             let mut adapter = crate::adapters::headscale::HeadscaleAdapter::new(&ep);
             if let Some(key) = api_key {
                 adapter = crate::adapters::headscale::HeadscaleAdapter::with_api_key(&ep, key);

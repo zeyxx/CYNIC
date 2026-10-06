@@ -7,11 +7,11 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cynic_build::build_node::NodeHealthView;
-use cynic_protocol::error_catalog::CynicErrorCode;
-use cynic_protocol::health_signal::OsHealthAnomaly;
 use cynic_node_protocol::peer_resolver::{
     PeerEndpoint, PeerResolver, PeerTransport, SignedPeerEndpoint,
 };
+use cynic_protocol::error_catalog::CynicErrorCode;
+use cynic_protocol::health_signal::OsHealthAnomaly;
 
 use crate::os_health::probes::{read_available_mem_mib, read_bool, read_reclaim_pressure_pct};
 
@@ -213,11 +213,13 @@ fn parse_declared_peers(bytes: &[u8]) -> Result<Vec<DeclaredPeer>, String> {
                 .unwrap_or("unknown")
                 .to_string();
             let synapse_ip = reservation
-                .get("synapse")
+                .get("service")
+                .or_else(|| reservation.get("synapse"))
                 .and_then(|v| v.as_str())
                 .map(String::from);
             let management_ip = reservation
-                .get("management")
+                .get("admin")
+                .or_else(|| reservation.get("management"))
                 .and_then(|v| v.as_str())
                 .map(String::from);
 

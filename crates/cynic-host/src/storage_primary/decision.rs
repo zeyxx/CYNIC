@@ -237,7 +237,8 @@ fn build_desired_state(
         .find(|item| item.get("name").and_then(serde_json::Value::as_str) == Some(node_id.as_str()))
         .ok_or_else(|| vec!["storage_primary_ipam_reservation_missing".to_string()])?;
     if reservation
-        .get("synapse")
+        .get("service")
+        .or_else(|| reservation.get("synapse"))
         .and_then(serde_json::Value::as_str)
         != Some(synapse)
     {
