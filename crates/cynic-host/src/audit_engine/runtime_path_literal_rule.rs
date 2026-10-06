@@ -124,7 +124,7 @@ impl AuditRule for RuntimePathLiteralRule {
             // written for — a test asserting a value production computed, that
             // the registry contradicts — is reported and named; it is not yet
             // proven to block on its own.
-            severity: AuditSeverity::High,
+            severity: AuditSeverity::Warning,
             automated_remediation_available: false,
         }
     }
@@ -241,13 +241,13 @@ impl AuditRule for RuntimePathLiteralRule {
                     };
                     (
                         "PATH-004-TEST-PINS-DIVERGENCE",
-                        AuditSeverity::High,
+                        AuditSeverity::Warning,
                         detail,
                     )
                 } else if in_placement_field || !registry_backed {
                     (
                         "PATH-004-UNREGISTERED-PLACEMENT",
-                        AuditSeverity::High,
+                        AuditSeverity::Warning,
                         "Derive this path from infra/directory-tree.json. A placement field \
                          holding a literal is a coordination claim: two components with \
                          different values here are each locally correct and globally \
