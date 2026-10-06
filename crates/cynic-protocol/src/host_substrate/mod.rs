@@ -7,6 +7,7 @@
 //! - `hypervisor`: VM lifecycle states, hypervisor control, and supervisor operations.
 //! - `memory`: physical RAM, page tables, memory pressure, and cgroup accounting.
 //! - `proxmox`: Proxmox VE VM identifiers, controllers, and extension policies.
+//! - `provisioning`: ephemeral build container provisioning spec and port.
 //! - `vm_disk`: VM disk resizing, SCSI/VirtIO controllers, and size limits.
 
 pub mod cpu;
@@ -15,4 +16,5 @@ pub mod fleet_disk;
 pub mod hypervisor;
 pub mod memory;
 pub mod proxmox;
+pub mod provisioning;
 pub mod vm_disk;

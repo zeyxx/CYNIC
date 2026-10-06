@@ -306,6 +306,32 @@ pub trait JanitorExecutionPort: Send + Sync {
 
 ### Phase 1 — Ephemeral build container (provisioning, agnostic, formalized)
 
+**Dogfooding rule**: the path being built must serve to build itself. The
+full reference slice is `provision → enroll → build (cynic) → deploy →
+prove → destroy`, executed with the `cynic` binary it produces. Every
+domain below is a pure port + an adapter, anchored in a live incident from
+this session.
+
+Dogfooding checklist (each row is one port/adapter pair, validated by the
+reference slice):
+
+| # | domain | anchor (2026-10-06 session) |
+|---|---|---|
+| 1 | Provisioning VM/container | named — Phase 1 core |
+| 2 | System/network administration | named — user account, SSH, net0, bridge |
+| 3 | Standalone cynic binary deployment | named — the container runs `cynic` to steer itself |
+| 4 | Dependency install on a virgin machine | named — pinned rustup, git, build-essential |
+| 5 | Cold secret distribution | virgin container cloning forgejo — token/SSH key via `SecretUseGatePort`, never plaintext env |
+| 6 | Identity enrollment | container receives identity (30-day enrollment grant, signing keys) — `cynic-identity` |
+| 7 | Exact source materialization | clone exact SHA, transport resolved from registry (never hardcoded), dirty-worktree protection |
+| 8 | Observed toolchain pin | `rustc 1.95.0` observed from inside the container, never assumed (ICE lesson: tool identity is read, not declared) |
+| 9 | Native teardown/GC | destroy after read-back — the janitor is born here: 8+ residual workspaces exist because this is missing |
+| 10 | Build observability from birth | log/progress route — the current scheduler is a black box (`claimed` with zero execution) |
+| 11 | Container health watchdog | disk 99.95%, RAM 8 GiB, load 27 — same probes as the pmxcfs watchdog, applied to the guest |
+| 12 | Bounded network policy | forgejo egress only, no internet — bwrap `--unshare-net` already exists (`cynic-host/sandbox`) |
+| 13 | Registry-driven placement | which hypervisor, which template, which role — from `infra/registry.json` |
+| 14 | Self-hosting loop | the `cynic` binary compiled in the ephemeral provisions the next one — CYNIC deploying CYNIC bootstrap ratchet |
+
 - [ ] `ProvisioningPort` (pure trait) + `ProvisioningSpec` types in `cynic-protocol`
 - [ ] `ProxmoxProvisioningAdapter` in `cynic-proxmox` — drives `pct create/start/destroy`
       through `ArgvExecutionPort` (`cynic-host`), never raw shell
@@ -317,6 +343,7 @@ pub trait JanitorExecutionPort: Send + Sync {
       (container identity), `cynic-janitor` (GC of dead containers/workspaces),
       `cynic-node` (scheduler integration)
 - [ ] Prove on a real ephemeral container: targeted check green in < 2 min
+- [ ] Prove the full reference slice end-to-end with the `cynic` binary it builds
 
 ### Phase 2 — Extract `cynic-proxmox` (L1)
 

@@ -64,6 +64,7 @@ pub use host_substrate::fleet_disk;
 pub use host_substrate::hypervisor;
 pub use host_substrate::memory;
 pub use host_substrate::proxmox;
+pub use host_substrate::provisioning;
 pub use host_substrate::vm_disk;
 pub mod inference_matrix;
 pub mod integrity;
