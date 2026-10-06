@@ -257,40 +257,66 @@ are already this shape.
 
 ---
 
-## 5. Open decisions (not silently resolved)
+## 5. Open decisions — MEASURED 2026-10-06
 
-### 5.1 `cynic-kernel` — boot lifecycle
+### 5.1 `cynic-kernel` — RESOLVED: stays a separate binary
 
-The kernel runs before/independently of the node runtime. Folding it into one
-binary couples their lifecycles: a kernel bug then blocks the operator CLI.
-**Options:** (a) fold it in and accept the coupling; (b) keep it as the one
-justified exception, documented in the basket. Needs a measurement of its
-boot dependency before deciding.
+**Measured.** `infra/systemd/cynic-kernel.service` runs `After=network.target`,
+`WantedBy=default.target`, `MemoryMax=2G`, `Restart=on-failure`, and
+`cynic-kernel/Cargo.toml:27` depends on `cynic-node`. Folding it into `cynic`
+would give `cynic → cynic-kernel → cynic-node → …` and couple an OS boot
+service to the operator CLI: a kernel panic would kill the operator surface.
 
-### 5.2 `cynic-topology` — read/write separation
+**Decision:** keep `cynic-kernel` as a justified exception, recorded in the
+basket with this reason. The kernel is the one binary that must run before and
+independently of the operator.
 
-The standing decision is that `cynic-topology` stays a separate binary
-*because it writes the file it audits*; merging a reader-writer into the
-canonical binary would abolish the read/write separation. Folding it into
-`cynic topology --write` **keeps the separation at the subcommand level** only
-if the audit path never invokes the write path. This must be proven, not
-assumed.
+### 5.2 `cynic-topology` — RESOLVED: stays a separate binary
 
-### 5.3 Bootstrap circularity
+**Measured.** The binary's own module doc (`bin/cynic-topology.rs:10-16`)
+states the reason: *"A `--write` flag on the audit surface would make the
+reader of the topology document capable of mutating it … a reader that can
+also write cannot be trusted to only read."*
 
-`cynic install` installs `cynic`. On a virgin machine the binary must exist
-before it can install itself. Resolution: the installer is the release
-artifact (signed), and `cynic install` handles *reconfiguration* (capability
-catalog changes) — not first contact. First contact is the existing
-`framework_bootstrap` path, which itself becomes a capability.
+Folding it into `cynic topology --write` would put both paths in one binary,
+which does **not** preserve the boundary. The separation must be at the binary
+level, not the subcommand level.
 
-### 5.4 `cynic-pool` phantom binary
+**Decision:** keep `cynic-topology` as a justified exception, with the
+read/write separation as the recorded reason.
 
-`crates/cynic-pool/Cargo.toml` declares a `[[bin]]` whose `src/main.rs` does
-not exist. Either the file was deleted without the manifest, or
-`required-features = ["cli"]` hides it from a default build. **Verify before
-touching**: a phantom target in the basket means the measured count is wrong
-somewhere, and every downstream count inherits the error.
+### 5.3 Bootstrap circularity — CONFIRMED REAL, needs a decision
+
+**Measured — the loop exists:**
+- `install_standalone_cli` (in `cynic-host`) installs the `cynic` binary **by
+  running `cynic`** (`cynic deps upgrade` → `install_standalone_cli`).
+- The source binary comes from `discover_source_binary()` — it must **already
+  exist**.
+- The bootstrap scripts install `/usr/local/libexec/cynic-host-exec` **from an
+  already-staged bundle**.
+- **Nothing describes how the first binary reaches a virgin machine.**
+
+So `cynic install` cannot be first contact. Two options:
+
+| # | approach | trade-off |
+|---|---|---|
+| **(R)** | `cynic install --source <path>` for first contact: the operator supplies the release binary explicitly; one install path, no separate bootstrap script to maintain | the operator must obtain the signed artifact by some out-of-band means (as with any installer) |
+| 2 | A separate signed bootstrap artifact + script | two install mechanisms to keep correct |
+
+**Recommendation: option R.** `cynic install` stays the only install surface;
+first contact is an explicit `--source`, never a guess. This is an open
+decision for the operator, not silently chosen.
+
+### 5.4 `cynic-pool` phantom binary — CONFIRMED, it is a bug
+
+**Measured.** `cynic-pool/Cargo.toml:23-26` declares
+`[[bin]] path = "src/main.rs"` with `required-features = ["cli"]`. That file
+**does not exist** (7 source files, no `main.rs`). The `cli = []` feature
+exists, so even `--features cli` cannot build it.
+
+**Decision:** either delete the `[[bin]]` block (and the phantom from the
+basket), or restore `main.rs`. Not silently resolved: a phantom target makes
+every downstream binary count wrong, so it must be fixed where it is declared.
 
 ---
 
