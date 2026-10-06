@@ -127,6 +127,7 @@
         "cynic-node-protocol",
         "cynic-pkg",
         "cynic-protocol",
+        "cynic-proxmox",
         "cynic-release",
         "cynic-secrets",
         "cynic-storage",
@@ -138,7 +139,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 33007
+      "loc": 33389
     },
     "cynic-consensus": {
       "consumers": [
@@ -309,7 +310,8 @@
         "cynic-discovery-host",
         "cynic-kernel",
         "cynic-mcp",
-        "cynic-node"
+        "cynic-node",
+        "cynic-proxmox"
       ],
       "depends_on": [
         "cynic-build",
@@ -339,7 +341,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 87276
+      "loc": 87708
     },
     "cynic-host-probes": {
       "consumers": [],
@@ -489,7 +491,8 @@
         "cynic-cli",
         "cynic-host",
         "cynic-mcp",
-        "cynic-node"
+        "cynic-node",
+        "cynic-proxmox"
       ],
       "depends_on": [
         "cynic-build",
@@ -578,6 +581,7 @@
         "cynic-network",
         "cynic-node-protocol",
         "cynic-protocol",
+        "cynic-proxmox",
         "cynic-release",
         "cynic-sandbox",
         "cynic-secrets",
@@ -589,7 +593,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 54776
+      "loc": 53810
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -661,6 +665,7 @@
         "cynic-node",
         "cynic-node-protocol",
         "cynic-pkg",
+        "cynic-proxmox",
         "cynic-release",
         "cynic-sandbox",
         "cynic-secrets",
@@ -675,7 +680,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 34403
+      "loc": 35525
     },
     "cynic-proxmox": {
       "consumers": [
@@ -683,14 +688,16 @@
         "cynic-node"
       ],
       "depends_on": [
+        "cynic-host",
         "cynic-lifecycle",
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-secrets"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 0
+      "loc": 1509
     },
     "cynic-release": {
       "consumers": [
@@ -731,7 +738,8 @@
         "cynic-intel",
         "cynic-kernel",
         "cynic-network",
-        "cynic-node"
+        "cynic-node",
+        "cynic-proxmox"
       ],
       "depends_on": [
         "cynic-protocol"
@@ -899,6 +907,7 @@
     "cynic-zeroclaw-solana",
     "cynic-discovery-host",
     "cynic-mcp",
+    "cynic-proxmox",
     "cynic-node",
     "cynic-cli",
     "cynic-kernel"
@@ -1085,6 +1094,7 @@
       "cynic-lxc",
       "cynic-network",
       "cynic-pkg",
+      "cynic-proxmox",
       "cynic-release",
       "cynic-sandbox"
     ],
@@ -1134,12 +1144,12 @@
   "measured": {
     "acyclic": true,
     "binaries": 9,
-    "crates": 49,
+    "crates": 50,
     "dev_edges": 2,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 336477,
+    "loc_total": 338956,
     "pending_disposition": 8,
-    "runtime_edges": 155,
+    "runtime_edges": 161,
     "unjustified": 8,
     "upward_edges": 15
   },
