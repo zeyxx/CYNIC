@@ -70,6 +70,7 @@ pub mod runtime_surface;
 pub mod rust_source;
 pub mod session_surface;
 pub mod secret_surface;
+pub mod privilege_surface;
 pub mod secret_use_surface;
 pub mod source_surface;
 pub mod surface_registry;

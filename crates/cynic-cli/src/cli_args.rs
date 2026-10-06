@@ -208,6 +208,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::secret_surface::SecretCommand,
     },
+    /// Privileged capability catalog, admission, and bounded execution.
+    Privilege {
+        #[command(subcommand)]
+        command: crate::privilege_surface::PrivilegeCommand,
+    },
 }
 
 #[derive(Subcommand)]

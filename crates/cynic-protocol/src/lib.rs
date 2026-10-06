@@ -84,6 +84,7 @@ pub mod rate_classify;
 pub mod phi;
 pub mod plane;
 pub mod policy;
+pub mod privilege;
 pub mod provider;
 pub mod publication_policy;
 pub mod queue;
