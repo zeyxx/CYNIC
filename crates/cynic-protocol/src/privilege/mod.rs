@@ -5,7 +5,7 @@
 //! the exec live in adapters (`cynic-host`).
 //!
 //! This module exists because three implementations of the same `pct` argv
-//! grew independently (`cynic-lxc::admit`, `pct-bounded-exec.sh`,
+//! grew independently (`cynic-lxc::admit`, a shell script,
 //! `proxmox_clone.rs`). Three implementations of one policy diverge silently.
 
 mod catalog;

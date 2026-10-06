@@ -338,9 +338,9 @@ mod tests {
                 &BTreeMap::from([
                     (
                         "source".to_string(),
-                        "/tmp/pve-bundle/pct-bounded-exec".to_string(),
+                        "/tmp/pve-bundle/cynic".to_string(),
                     ),
-                    ("remote_name".to_string(), "pct-bounded-exec".to_string()),
+                    ("remote_name".to_string(), "cynic".to_string()),
                 ]),
                 &endpoint,
             )
@@ -349,8 +349,8 @@ mod tests {
             argv,
             vec![
                 "scp",
-                "/tmp/pve-bundle/pct-bounded-exec",
-                "cynic-builder-build:/tmp/pct-bounded-exec"
+                "/tmp/pve-bundle/cynic",
+                "cynic-builder-build:/tmp/cynic"
             ]
         );
     }

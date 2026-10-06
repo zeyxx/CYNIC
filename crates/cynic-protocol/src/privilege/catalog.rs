@@ -17,7 +17,7 @@
 //!   but never downgrade to a warning.
 //!
 //! Why this module exists: three implementations of the same `pct` argv grew
-//! independently (`cynic-lxc::admit` in Rust, `pct-bounded-exec.sh` in shell,
+//! grew independently (`cynic-lxc::admit`, a shell script,
 //! `proxmox_clone.rs` in Rust). Three implementations of one policy diverge
 //! silently. This is the single one.
 

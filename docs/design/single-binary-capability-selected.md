@@ -53,26 +53,28 @@ Five distinct sudoers targets, three different installation mechanisms:
 | sudoers target | granted binary | how installed |
 |---|---|---|
 | `/etc/sudoers.d/cynic-lxc-exec-bridge` | `cynic-lxc-exec-bridge` | Rust `cynic-lxc::bundle` |
-| `/etc/sudoers.d/cynic-pve-pct` | `pct-bounded-exec` (**shell**) | Rust `cynic-host::pve_helper_install` |
+| `/etc/sudoers.d/cynic` | `cynic` (single binary) | Rust `cynic privilege install` |
 | `/etc/sudoers.d/cynic-host-exec` | `cynic-host-exec` | shell in `framework_bootstrap/scripts.rs` |
 | `/etc/sudoers.d/cynic-network-actuator` | `cynic-network-actuator` | Rust `cynic-host::runtime_layout` |
 | `/etc/sudoers.d/cynic-node` | `cynic-node` | `runtime-basket.json` |
 
 ### 1.3 Duplicated policy (the actual debt)
 
-Three independent implementations build the same `pct` argv:
+Three independent implementations built the same `pct` argv:
 
-| implementation | language | LOC |
-|---|---|---|
-| `cynic-lxc::admit` + `execute` | Rust | 1 086 |
-| `pct-bounded-exec.sh` | **shell** | 75 |
-| `cynic-proxmox/proxmox_clone.rs` | Rust | 233 |
+| implementation | language | LOC | status |
+|---|---|---|---|
+| `cynic-lxc::admit` + `execute` | Rust | 1 086 | kept (root boundary) |
+| `pct-bounded-exec.sh` | **shell** | 75 | **REMOVED** 2026-10-06 |
+| `cynic-proxmox/proxmox_clone.rs` | Rust | 233 | kept (adapter) |
 
-Three implementations of one policy diverge silently. The shell cannot share
-`admit()` with Rust: it is mechanically a second source of truth.
+Three implementations of one policy diverge silently. The shell could not share
+`admit()` with Rust: it was mechanically a second source of truth.
 
-**This violates the standing doctrine** (supply chain 100% Rust, shell wrapper
-eradication) in `infra/host-bootstrap/pve/pct-bounded-exec.sh`.
+**RESOLVED 2026-10-06**: `pct-bounded-exec.sh` deleted. The bounded executor is
+the `cynic` binary itself (`privilege exec`), installed by the normal binary
+install path. `pve_helper` now consumes the unified `CapabilityCatalog` — one
+sudoers renderer, one capability source.
 
 ---
 
@@ -240,7 +242,8 @@ are already this shape.
 
 ### Phase C — absorb the privileged binaries
 - [ ] `cynic-lxc-exec-bridge` → capability; delete the binary target
-- [ ] `pct-bounded-exec.sh` → Rust capability; delete the shell script
+- [x] `pct-bounded-exec.sh` → **DELETED** 2026-10-06; the bounded executor is
+      the `cynic` binary itself (`privilege exec`)
 - [ ] `cynic-host-exec` mutating subcommands → capabilities
 - [ ] `cynic-network-actuator` → `cynic network actuate`
 - [x] One generated `/etc/sudoers.d/cynic` (`cynic privilege install`);
@@ -331,9 +334,9 @@ every downstream binary count wrong, so it must be fixed where it is declared.
 |---|---|---|
 | binaries built | 11 | 1 (+ kernel if §5.1 keeps it) |
 | sudoers files | 5 | 1 |
-| shell executors | 1 (`pct-bounded-exec.sh`) | 0 |
-| `pct` argv implementations | 3 | 1 (`admit()`) |
-| policy sources | 2 JSON + code + shell | 1 catalog JSON |
+| shell executors | 1 (`pct-bounded-exec.sh`) | **0** — deleted 2026-10-06 |
+| `pct` argv implementations | 3 | **1** (`admit()`) — shell removed |
+| policy sources | 2 JSON + code + shell | **1** catalog JSON — `pve_helper` consumes it |
 | capability granularity | per binary | per capability, install-time |
 | install location | 2 roots (`/usr/local/bin`, `/usr/local/libexec`, `/usr/local/sbin`) | 1 (`/usr/local/bin`) |
 | basket drift | declared ≠ built | 1 artifact, trivially checked |

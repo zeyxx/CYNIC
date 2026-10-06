@@ -2,7 +2,7 @@
 //!
 //! WHY THIS EXISTS. CYNIC grew five privileged binaries, five sudoers
 //! membranes, and three independent implementations of the same `pct` argv
-//! (`cynic-lxc::admit` in Rust, `pct-bounded-exec.sh` in shell,
+//! (`cynic-lxc::admit` in Rust, a shell script,
 //! `proxmox_clone.rs` in Rust). Three implementations of one policy diverge
 //! silently, and the shell one cannot share `admit()` with Rust at all. This
 //! surface is the single entry point: one catalog, one admission, one
