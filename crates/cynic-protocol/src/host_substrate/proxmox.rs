@@ -1,26 +1,7 @@
 //! Proxmox domain types — pure types for VM lifecycle management.
 
+use super::hypervisor::{DiskController, VmState};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VmState {
-    Running,
-    Stopped,
-    Paused,
-    Suspended,
-    Unknown,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DiskController {
-    RootFS,
-    SCSI0,
-    SCSI1,
-    IDE0,
-    VirtIO0,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VmInfo {

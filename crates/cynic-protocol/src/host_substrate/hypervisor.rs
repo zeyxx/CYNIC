@@ -23,6 +23,17 @@ pub enum HypervisorKind {
     Proxmox,
     VMware,
     Cloud,
+    Libvirt,
+}
+
+/// Which container runtime is being supervised.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContainerKind {
+    Lxc,
+    Qemu,
+    Docker,
+    Process,
 }
 
 /// VM lifecycle states.

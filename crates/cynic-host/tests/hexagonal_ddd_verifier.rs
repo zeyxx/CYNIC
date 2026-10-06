@@ -168,7 +168,6 @@ const ORPHAN_PORT_BASELINE: &[&str] = &[
     "BackendCatalogPort",
     "BuildWorkloadObservationPort",
     "CredentialRotationAuthorityPort",
-    "HypervisorPort",
     "NodeControlStorePort",
     "NodeEnrollmentStorePort",
     "ProviderControlPort",

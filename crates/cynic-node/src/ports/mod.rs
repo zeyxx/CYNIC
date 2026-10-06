@@ -19,7 +19,6 @@ pub mod credential_material_sink_port;
 pub mod credential_rotation_authority_port;
 pub mod harness_target_attestation_port;
 pub mod harness_target_attestation_reader_port;
-pub mod hypervisor_port;
 pub mod mesh_coordination_port;
 pub mod mesh_port;
 pub(crate) mod network_command_runner_port;
