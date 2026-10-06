@@ -630,8 +630,8 @@
       "consumers": [],
       "depends_on": [],
       "dev_depends_on": [],
-      "justified": true,
-      "kind": "binary",
+      "justified": false,
+      "kind": "library",
       "layer": "L2",
       "loc": 790
     },
@@ -1143,14 +1143,14 @@
   },
   "measured": {
     "acyclic": true,
-    "binaries": 9,
+    "binaries": 8,
     "crates": 50,
     "dev_edges": 2,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 338956,
-    "pending_disposition": 8,
+    "pending_disposition": 9,
     "runtime_edges": 161,
-    "unjustified": 8,
+    "unjustified": 9,
     "upward_edges": 15
   },
   "pending_disposition": {
