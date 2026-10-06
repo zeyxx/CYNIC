@@ -13,6 +13,9 @@ use clap::Subcommand;
 use cynic_host::secret_presence::{
     RuntimeSecretPresenceReport, RuntimeSecretPresenceSpec, observe_runtime_secret_presence,
 };
+use cynic_secrets::{
+    CompositeSecretProvider, EncryptedFileSecretProvider, SecretReference, SecretStorePort,
+};
 use serde::Serialize;
 
 use crate::{emit_json, fail};
@@ -396,29 +399,20 @@ fn execute_install(
 
     // The sealed vault owns its directories; nothing to pre-create here.
     // The report path below names where the vault stores this id.
-    let target_file = {
-        use cynic_secrets::EncryptedFileSecretProvider;
-        EncryptedFileSecretProvider::default()
-            .base_dir
-            .join(map_filename(id))
-    };
+    let target_file = EncryptedFileSecretProvider::default()
+        .base_dir
+        .join(map_filename(id));
 
     // Write through the sealed vault: the value is encrypted under a fresh
     // random data key before it touches disk. Never store plaintext.
-    let sealed = {
-        use cynic_secrets::{CompositeSecretProvider, SecretReference, SecretStorePort};
-        let store = CompositeSecretProvider::default();
-        let reference = SecretReference::with_class(
-            id,
-            map_filename(id),
-            cynic_secrets::SecretClass::RuntimeMachineIdentity,
-            cynic_secrets::SecretProviderKind::PrincipalOwnedFile,
-        );
-        (store, reference)
-    };
-    let write_res = sealed
-        .0
-        .store(&sealed.1, &String::from_utf8_lossy(&secret_bytes));
+    let vault = CompositeSecretProvider::default();
+    let reference = SecretReference::with_class(
+        id,
+        map_filename(id),
+        cynic_secrets::SecretClass::RuntimeMachineIdentity,
+        cynic_secrets::SecretProviderKind::PrincipalOwnedFile,
+    );
+    let write_res = vault.store(&reference, &String::from_utf8_lossy(&secret_bytes));
 
     secret_bytes.fill(0);
 
