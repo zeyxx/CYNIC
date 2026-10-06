@@ -1,19 +1,20 @@
-# cynic-proxmox — Design and Consolidation Plan
+# Hypervisor + Build Consolidation Plan
 
-**Status:** SPECIFIED, NOT STARTED
-**Schema:** `cynic.design.proxmox_consolidation.v1`
-**Authority:** this document is a *directive*, not a contract. It changes no gate,
-no ledger and no threshold.
+**Status:** IN PROGRESS
+**Schema:** `cynic.hypervisor_consolidation.v1`
+**Authority:** directive, not contract. Changes no gate, no ledger, no threshold.
 
 ---
 
-## 0. Why this crate exists
+## 0. Why this exists
 
 The Proxmox/hypervisor control surface is fragmented across three crates with
 overlapping traits, inverted dependencies, and no single path for credentials.
-This was measured on 2026-10-06 and confirmed by a live incident where the
-builder VM became unreachable due to `pmxcfs` IPC corruption — a failure mode
-that no existing code could diagnose or recover from.
+The builder is a SPOF that crashes under load. The hypervisor IPC corrupts
+repeatedly with no watchdog. The scheduler creates workspaces but never purges
+them. Secrets are fragmented with no capability-based vault.
+
+Measured 2026-10-06. Confirmed by live incidents.
 
 ---
 
@@ -21,41 +22,50 @@ that no existing code could diagnose or recover from.
 
 ### 1.1 Symptom
 
-`ssh cynic-builder` → `Connection timed out during banner exchange`
+`ssh cynic-builder` → `Connection timed out during banner exchange` (recurrent)
 
 ### 1.2 Root cause chain
 
 | layer | what happened | how it manifested |
 |---|---|---|
-| `pmxcfs` (PID 4671) | old process held IPC files in `/dev/shm/qb-4671-*` | new `pmxcfs` could not create its own IPC |
+| `pmxcfs` (stale PID) | old process held IPC files in `/dev/shm/qb-*` | new `pmxcfs` could not create its own IPC |
 | `pvedaemon` | could not connect to `pmxcfs` | `qm list` / `pct list` returned `ipcc_send_rec` errors |
-| `sshd` on builder | could not authenticate (PAM depends on `pmxcfs` for user lookup) | TCP SYN accepted, banner never sent |
+| `sshd` on builder | could not authenticate (PAM depends on `pmxcfs`) | TCP SYN accepted, banner never sent |
 | `sudo` on PVE | `pmxcfs` lockfile stale | `systemctl restart pve-cluster` failed with timeout |
+| builder disk | `vm-105-disk-0` at 99.95% | I/O hang, D-state processes, load 27 |
+| builder RAM | 8 GiB, no swap headroom | OOM killer, sshd starved |
 
-### 1.3 Recovery procedure (proven, reproducible)
+### 1.3 Watchdog lessons (data-collected, 2026-10-06)
 
+**Real corruption signals** (from the three genuine incidents):
+1. `pmxcfs` unmounted (`mount` shows no `/etc/pve` fuse entry)
+2. `pvedaemon` inactive
+3. Functional probe fails: `pct list` emits `ipcc_send_rec` errors
+4. Stale `pmxcfs` process holding IPC files while a new one cannot start
+
+**False signals (v1 watchdog killed a healthy pmxcfs every 5 min):**
+- `.pmxcfs.lockfile` presence — this is a NORMAL pmxcfs runtime artifact,
+  recreated on start. Its presence is not corruption.
+- `ipcc_send_rec` failures from SSH as user `cynic` (uid 1001) — pmxcfs
+  rejects IPC connections from non-root users BY DESIGN
+  (`[ipcs] crit: connection from bad user 1001! - rejected`). The daemon
+  was healthy; the unprivileged caller was refused.
+
+**Proven recovery** (for a genuine stale-pmxcfs incident):
 ```bash
-# 1. Kill the stale pmxcfs process
-kill -9 <old_pmxcfs_pid>
-
-# 2. Remove corrupted IPC files
+kill -9 <stale_pmxcfs_pid>
 rm -rf /dev/shm/qb-*
-
-# 3. Remove stale lockfile
-rm /var/lib/pve-cluster/.pmxcfs.lockfile
-
-# 4. Restart pve-cluster (remounts pmxcfs)
-systemctl restart pve-cluster
-sleep 3
-
-# 5. Restart pvedaemon (reconnects to pmxcfs)
-systemctl restart pvedaemon
-sleep 3
-
-# 6. Verify
-/usr/sbin/qm list
-/usr/sbin/pct list
+systemctl restart pve-cluster pvedaemon
 ```
+
+**Deployed**: watchdog v2 at `/usr/local/bin/cynic-hypervisor-watchdog.sh`
+on pve (systemd timer, 5 min interval) — probes functionally, distinguishes
+real corruption from the uid-1001 IPC refusal, logs to
+`/var/log/cynic-watchdog.log`. First ticks: `probe_ipcc_err=0`, stable.
+
+**Consequence**: agent-side hypervisor mutation needs a root membrane
+(sudoers for `pct`/`qm`/`pvesh` or a PVE API token) — tracked in Phase 7.
+Until then, hypervisor mutations go through the operator root relay.
 
 ### 1.4 What was NOT needed
 
@@ -68,6 +78,8 @@ sleep 3
 - Diagnose the failure (no hypervisor control surface)
 - Recover the builder (no API access without `pvedaemon`)
 - Execute privileged commands (sudo requires password, no capability-based auth)
+- Observe build progress (no log route in HTTP API)
+- Purge stale workspaces (no GC mechanism)
 
 ---
 
@@ -78,7 +90,7 @@ sleep 3
 | trait | crate | layer | consumers |
 |---|---|---|---|
 | `HypervisorObserver` + `HypervisorController` | `cynic-protocol` | L0 | **zero** (orphan) |
-| `HypervisorPort` | `cynic-node` | L3 | `homeostasis_uc` |
+| `HypervisorPort` | `cynic-node` | L3 | **removed** (orphan, zero impl) |
 | `RemoteExecutionPort` | `cynic-host` | L1 | `ProxmoxSshCloneAdapter` |
 
 ### 2.2 Adapters (9 files, 2 crates)
@@ -99,10 +111,10 @@ sleep 3
 
 ### 2.3 Type duplication
 
-| type | location 1 | location 2 | problem |
+| type | location 1 | location 2 | status |
 |---|---|---|---|
-| `VmState` | `cynic-protocol/src/host_substrate/hypervisor.rs:31` | `cynic-protocol/src/host_substrate/proxmox.rs:7` | **same crate, two definitions** |
-| `LxcBridgeRequest/Response/Plan/Status` | `cynic-lxc/src/types.rs` | — | should be in `cynic-protocol` |
+| `VmState` | `cynic-protocol/src/host_substrate/hypervisor.rs:31` | `cynic-protocol/src/host_substrate/proxmox.rs:7` | **fixed** (Stage 1) |
+| `DiskController` | `cynic-protocol/src/host_substrate/hypervisor.rs:52` | `cynic-protocol/src/host_substrate/proxmox.rs:17` | **fixed** (Stage 1) |
 
 ### 2.4 Credential paths (fragmented)
 
@@ -113,11 +125,75 @@ sleep 3
 | `sudo` on PVE | password | no capability-based auth |
 | `pvesh` NOPASSWD | sudoers | only one command, no `systemctl` |
 
+### 2.5 Secrets (`cynic-secrets`, 339 LOC)
+
+| component | LOC | role |
+|---|---|---|
+| `ports.rs` | 86 | `SecretProviderPort`, `SecretStorePort`, `SecretUseGatePort` |
+| `protocol.rs` | 106 | `SecretStatus`, `SecretEntry`, `SecretError`, `SecretUseHandle` |
+| `composite.rs` | 82 | `CompositeSecretProvider` (env → file → keyring) |
+| `lib.rs` | 65 | re-exports + helpers |
+| `adapters/` | — | env, file, keyring, memory |
+
+**Problems:**
+- No vault centralisé capability-based
+- Credentials fragmentés (env, fichier, keyring) sans rotation automatique
+- `SecretUseGatePort` exists but scheduler doesn't use it
+- No unified audit of secret access
+
+### 2.6 Identity (`cynic-identity`, 185 LOC)
+
+| component | LOC | role |
+|---|---|---|
+| `types.rs` | 138 | `NodeId`, `NodeIdentity`, `SigningMaterial` |
+| `error.rs` | 24 | `IdentityError` |
+| `lib.rs` | 23 | re-exports, `no_std` compatible |
+
+**Problems:**
+- `SigningMaterial` exposes ed25519 private key without rotation
+- No binding between identity and capabilities
+- `no_std` but no vault for keys
+
+### 2.7 Builder state
+
+| metric | value |
+|---|---|
+| Disk | 118G, 52G free (55%) |
+| RAM | 8 GiB, no swap headroom |
+| Worktrees | 1 active, 3 prunable |
+| Workspaces `build-*` | 8+ residual (~26 Mo each) |
+| Branches local | 5 |
+| Branches remote | 13 |
+| `target/` | root-owned (permission denied for cynic) |
+
+### 2.8 Scheduler (`cynic-node`)
+
+| problem | evidence |
+|---|---|
+| `completion_not_admitted` | 18 revisions, no execution |
+| Spawn silent | no cargo/make process after claim |
+| `package` field ignored | all submissions become `make:check` |
+| No log route | only `state`/`completion` in API |
+| No workspace purge | 8+ residual workspaces |
+
 ---
 
 ## 3. Target architecture
 
-### 3.1 Taxonomy (agnostic, in `cynic-protocol`)
+### 3.1 Crate taxonomy
+
+| crate | layer | responsibility |
+|---|---|---|
+| `cynic-protocol` | L0 | pure types, ports, schemas |
+| `cynic-host` | L1 | local substrate: CPU, disk, network, processes, secrets |
+| `cynic-proxmox` | L1 | all Proxmox: adapters, watchdog, recovery, credentials |
+| `cynic-janitor` | L1 | GC artefacts: workspaces, build artefacts, disk |
+| `cynic-node` | L3 | runtime orchestration, scheduler, workload lifecycle |
+| `cynic-cli` | L4 | thin CLI projection |
+| `cynic-secrets` | cross-cutting | secret management, vault, gatekeeper |
+| `cynic-identity` | cross-cutting | node identity, signing material |
+
+### 3.2 Taxonomy (agnostic, in `cynic-protocol`)
 
 ```rust
 pub enum HypervisorKind {
@@ -143,36 +219,39 @@ pub enum VmState {
 }
 ```
 
-### 3.2 Single trait (in `cynic-protocol`)
+### 3.3 Single trait (in `cynic-protocol`)
 
 ```rust
+pub trait HypervisorObserver: Send + Sync {
+    fn observe_hypervisor(&self) -> Result<HypervisorObservation, String>;
+    fn observe_vm(&self, vmid: u32) -> Result<VmObservation, String>;
+}
+
 pub trait HypervisorController: Send + Sync {
-    fn observe(&self) -> Result<HypervisorObservation, String>;
-    fn observe_vm(&self, id: &str) -> Result<VmObservation, String>;
     fn control_vm(&self, op: &VmControlOp) -> Result<VmControlResult, String>;
     fn validate_control(&self, op: &VmControlOp) -> Vec<String>;
 }
 ```
 
-### 3.3 Single adapter (in `cynic-proxmox`, L1)
+### 3.4 Single adapter (in `cynic-proxmox`, L1)
 
 ```rust
 pub struct ProxmoxAdapter {
     client: reqwest::Client,
     base_url: String,
-    token: String,  // from HostSecretPort, never in code
+    token: String,  // from SecretUseGatePort, never in code
 }
 ```
 
-### 3.4 Credential flow
+### 3.5 Credential flow
 
 ```
-HostSecretPort → /etc/cynic/secrets/proxmox-token → ProxmoxAdapter
+SecretUseGatePort → /etc/cynic/secrets/proxmox-token → ProxmoxAdapter
 ```
 
 No env vars, no hardcoded paths, no sudo password.
 
-### 3.5 CLI surface (agnostic)
+### 3.6 CLI surface (agnostic)
 
 ```bash
 cynic hypervisor list [--json]
@@ -183,47 +262,127 @@ cynic hypervisor reboot <id> [--yes]
 cynic hypervisor extend-disk <id> <size-gb> [--yes]
 cynic hypervisor snapshot <id> <name> [--description <text>]
 cynic hypervisor rollback <id> <name>
+cynic hypervisor health [--json]
+cynic hypervisor recover [--yes]
 ```
 
 No "proxmox" in the CLI vocabulary. The adapter is injected, not named.
+
+### 3.7 Watchdog (in `cynic-proxmox`)
+
+```rust
+pub trait HypervisorWatchdogPort: Send + Sync {
+    fn observe_health(&self) -> Result<HypervisorHealthReport, String>;
+    fn recover(&self, report: &HypervisorHealthReport) -> Result<HypervisorRecoveryResult, String>;
+}
+```
+
+### 3.8 Janitor (in `cynic-janitor`)
+
+```rust
+pub trait JanitorObservationPort: Send + Sync {
+    fn observe(&self) -> Result<JanitorReport, String>;
+    fn plan(&self, report: &JanitorReport) -> JanitorPlan;
+}
+
+pub trait JanitorExecutionPort: Send + Sync {
+    fn execute(&self, plan: &JanitorPlan) -> JanitorResult;
+}
+```
 
 ---
 
 ## 4. Consolidation plan
 
-### Stage 1 — Assainir `cynic-protocol`
+### Phase 0 — Hypervisor correction (immediate)
 
-- Supprimer le doublon `VmState` dans `proxmox.rs`
-- Introduire `ContainerKind`
-- Étendre `HypervisorKind` avec `Libvirt`
-- Déplacer les types LXC de `cynic-lxc` vers `cynic-protocol`
-- Fusionner `HypervisorPort` → `HypervisorController` + `HypervisorObserver`
+- [x] Clean IPC corrupted + lockfile stale (three genuine incidents recovered)
+- [x] Verify `pmxcfs` mounted + `pvedaemon` connected
+- [x] Prove `pct list` + `qm list` functional
+- [x] Watchdog v2 deployed (systemd timer, 5 min): distinguishes real corruption
+      from the uid-1001 IPC refusal; logs to `/var/log/cynic-watchdog.log`
+- [x] Discovery: `ipcc_send_rec` from SSH-as-cynic is a BY-DESIGN refusal, not
+      corruption — hypervisor mutations need a root membrane (Phase 7)
 
-### Stage 2 — Créer `cynic-proxmox` (L1)
+### Phase 1 — Ephemeral build container (provisioning, agnostic, formalized)
 
-- Déplacer tous les adaptateurs Proxmox depuis `cynic-host` et `cynic-node`
-- Un seul adaptateur API Proxmox
-- Un seul chemin de credentials via `HostSecretPort`
-- Tests contre un mock HTTP
+- [ ] `ProvisioningPort` (pure trait) + `ProvisioningSpec` types in `cynic-protocol`
+- [ ] `ProxmoxProvisioningAdapter` in `cynic-proxmox` — drives `pct create/start/destroy`
+      through `ArgvExecutionPort` (`cynic-host`), never raw shell
+- [ ] Provisioning from a CLEAN template (never clone a dirty container):
+      Ubuntu LXC template + pinned rustc + forgejo clone + workspace layout
+- [ ] Lifecycle: provision → build (targeted `cargo check -p <crate>`, never
+      blanket `make check`) → read-back proof → destroy (or snapshot as template)
+- [ ] Interconnects: `cynic-secrets` (clone credentials), `cynic-identity`
+      (container identity), `cynic-janitor` (GC of dead containers/workspaces),
+      `cynic-node` (scheduler integration)
+- [ ] Prove on a real ephemeral container: targeted check green in < 2 min
 
-### Stage 3 — CLI et MCP agnostiques
+### Phase 2 — Extract `cynic-proxmox` (L1)
 
-- `cynic-cli` appelle `HypervisorController` depuis `cynic-protocol`
-- `cynic-mcp` appelle le même adaptateur
-- Supprimer la logique Proxmox dupliquée dans `cynic-mcp`
+- [ ] Create empty crate `cynic-proxmox`
+- [ ] Move Proxmox adapters from `cynic-host` and `cynic-node`:
+  - `ProxmoxControlAdapter` (879 LOC)
+  - `ProxmoxSshCloneAdapter` (233 LOC)
+  - `ProxmoxDiskExtensionAdapter` (129 LOC)
+  - `ProxmoxSubstrateAdapter` (166 LOC)
+  - `ProxmoxRestAgentHostObserver` (809 LOC)
+  - `ProxmoxSshAgentHostObserver` (335 LOC)
+  - `ProxmoxStorageAdapter` (204 LOC)
+- [ ] Unify credentials via `SecretUseGatePort`
+- [ ] Watchdog hyperviseur: `observe → detect corruption → recover → alert`
+- [ ] Tests mock HTTP for each operation
+- [ ] `cynic-host` keeps only profiles + agent_host observation
 
-### Stage 4 — Recovery automation
+### Phase 3 — Extract `cynic-janitor` (L1)
 
-- `cynic hypervisor recover` — détecte et corrige les corruptions IPC/lockfile
-- `cynic hypervisor health` — vérifie l'état de `pmxcfs`, `pvedaemon`, IPC
-- Intégrer la procédure de récupération de §1.3 comme code
+- [ ] Create empty crate `cynic-janitor`
+- [ ] Move GC ports from `cynic-host`:
+  - `DiskObservationPort`, `DiskCleanupExecutionPort`
+  - `BuildArtefactObservationPort`, `BuildArtefactGcExecutionPort`
+- [ ] Move GC adapters:
+  - `LocalDiskAdapter`, `LocalBuildArtefactAdapter`, `RemoteBuildArtefactAdapter`
+- [ ] Orchestrator: `observe → classify → plan → execute → read-back`
+- [ ] `cynic-node` consumes `cynic-janitor` for auto-purge
 
-### Stage 5 — Vault capability-based (Stage 6 du goal)
+### Phase 4 — Fix scheduler `cynic-node`
 
-- Vault centralisé pour les secrets (pas en clair dans l'env)
-- Capabilities à court terme pour les actions privilégiées
-- L'agent peut exécuter `systemctl restart pve-cluster` sans mot de passe
-- Tout est audité (qui, quoi, quand, preuve)
+- [ ] Diagnose `completion_not_admitted` (budget, lineage, evidence)
+- [ ] Fix silent spawn (log + detailed error)
+- [ ] Honor `package` field in HTTP submit (granularity)
+- [ ] Add route `GET /workloads/:id/log` (observability)
+- [ ] Auto-purge workspaces via `cynic-janitor`
+
+### Phase 5 — Convergence
+
+- [ ] Push `cynic-audit-engine` from builder
+- [ ] Delete `cynic-host/src/audit_engine/` local
+- [ ] GC prunable worktrees + residual `build-*` workspaces
+- [ ] Delete orphan branches (local + remote)
+- [ ] Prove `make check` on ephemeral container
+
+### Phase 6 — Industrialisation
+
+- [ ] Systemd timer watchdog hyperviseur (detection + recovery auto)
+- [ ] Systemd timer GC builder (purge workspaces + worktrees)
+- [ ] Alert if corruption detected (log + event)
+- [ ] Pattern `observe → classify → clean → read-back` replicated everywhere
+
+### Phase 7 — `cynic-secrets` vault capability-based
+
+- [ ] Centralized vault for secrets (not in env)
+- [ ] Short-term capabilities for privileged actions
+- [ ] Agent can execute `systemctl restart pve-cluster` without password
+- [ ] Everything audited (who, what, when, proof)
+- [ ] Rotation automatique des credentials
+- [ ] `SecretUseGatePort` consumed by scheduler
+
+### Phase 8 — `cynic-identity` binding
+
+- [ ] Binding between identity and capabilities
+- [ ] Key rotation for `SigningMaterial`
+- [ ] Vault for keys (not in env or files)
+- [ ] `no_std` compatible vault
 
 ---
 
@@ -234,11 +393,16 @@ No "proxmox" in the CLI vocabulary. The adapter is injected, not named.
 | `cynic-host` LOC | 87 276 | ~74 000 |
 | `cynic-node` LOC | 54 774 | ~53 700 |
 | `cynic-proxmox` LOC | — | ~14 700 |
+| `cynic-janitor` LOC | — | ~2 000 |
 | traits | 3 overlapping | 1 unified |
 | adapters | 9 files, 2 crates | 1 file, 1 crate |
 | credential paths | 4 fragmented | 1 unified |
 | CLI commands | `cynic hypervisor *` (proxmox-specific) | `cynic hypervisor *` (agnostic) |
 | recovery | manual, undocumented | `cynic hypervisor recover` |
+| watchdog | none | `cynic-proxmox` timer |
+| GC | none | `cynic-janitor` timer |
+| secrets | fragmented env/file/keyring | vault capability-based |
+| identity | no rotation | bound to capabilities |
 
 ---
 
