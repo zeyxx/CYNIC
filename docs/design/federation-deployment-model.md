@@ -269,13 +269,17 @@ test-reads-real-file class. Findings:
   "synapse"` (inputs, not reads); `tailscale` arms (pruned — zero data in
   all five registry files); provider vocabulary (`provider == "synapse"`
   is mesh-provider naming, a different vocabulary).
-- DNS SCHIZOPHRENIA (production blocker): two canonical zones are
-  simultaneously asserted — `service.cynic` (cynic-network/dns.rs +
-  registry `dns_zone`) and `synapse.cynic` (cynic-node/dns_contract.rs:37
-  + verification test + cynic-inference default). `getent` proves NEITHER
-  resolves on cortex; only `/etc/hosts` (itself internally duplicated:
-  two overlapping CYNIC blocks) answers. One zone must win before any
-  emitter migrates: `service.cynic` (trio-consistent, registry-declared).
+- DNS — CORRECTION 2026-10-06 (measured, not guessed): `synapse.cynic`
+  IS served on cortex — a live dnsmasq (observed pid) on 127.0.0.1:1053
+  with registry-generated `synapse.hosts`, systemd-resolved routing
+  (`Domains=~synapse.cynic`) in place, `dig @1053` answers. What is
+  genuinely missing: (a) `service.cynic` resolves NOWHERE (no
+  authority), (b) PVE (.1:53) answers nothing (dnsmasq recipe never
+  deployed there, or filtered), (c) `/etc/hosts` keeps two overlapping
+  CYNIC blocks — redundant on cortex, possibly load-bearing elsewhere
+  (never probed). Two canonical zones coexist in code (`service.cynic`
+  network+registry vs `synapse.cynic` node/inference, tests pinning
+  both) — one must win BEFORE any rollout: `service.cynic`.
 - DATA-CENTRIC GAPS (fabricated or arbitrary values — fix-or-record):
   `unwrap_or("127.0.0.1")` in CLI surfaces (loopback invented when
   unknown); default `:8080` headscale endpoint; `10.10.10.0/24` literal
@@ -310,6 +314,26 @@ hosts, resolved drop-in, bundle manifest — all built, all pure).
 GATED: steps 2+5 need PVE root and fleet resolv/DHCP pushes
 (privileged, fleet-wide) — explicit operator admission required.
 No emitter changes ship before resolvers answer.
+
+## 9. Fleet identities (proven 2026-10-06 via Freebox NAT read + operator word)
+
+- `192.168.0.37` (`api.talaria.build`) = **PVE, the host OS itself**
+  (dual-homed: `192.168.0.37` home LAN + `10.10.10.1` service plane).
+  It receives 7 of the 8 internet forwards: SSH/22, HTTP/80 (Caddy
+  ACME), HTTPS/443 (Headscale + Kernel), 3000, 8443 (webhooks),
+  UDP/3478 (DERP STUN), UDP/51820 (WireGuard). The hypervisor host OS
+  is the internet ingress point — every service on it is directly
+  exposed (no proxy in front today).
+- `192.168.0.101` (`ubuntu-21.home`) receives TCP/8006 (Proxmox GUI
+  default port) — UNEXPLAINED: PVE is .37, so either .101 is a second
+  Proxmox interface/host or this forward is mispointed. Verify before
+  any DNS cutover.
+- `192.168.0.11` = cortex (operator station, Wi-Fi). Receives nothing.
+- `10.10.10.119` = builder (build/test SSOT). DOWN since ~12:00
+  2026-10-06 (SSH banner timeout, was alive at the morning scan) —
+  all builder proofs (convergence `ddea0d0f`, secrets `3897e67a`)
+  are queued behind its return. If it is a VM/container on PVE,
+  revive it from the .37 console; if physical, it needs hands.
 
 ## Next slices — S1 DONE 2026-10-06 (branch agent/hermes/network-vocabulary,
 commits test+A1+A2+B+C+R1, all builder-proven). Remaining, in order:
