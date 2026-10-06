@@ -146,6 +146,9 @@ impl SecretStorePort for OsCredentialStoreSecretProvider {
         }
 
         // Linux: secret-tool store --label=cynic service cynic id <id>
+        // The secret value travels on the child's stdin (never argv, never
+        // env). The previous implementation piped stdin but never wrote to
+        // it, so every store silently persisted an EMPTY value (exit 0).
         #[cfg(target_os = "linux")]
         {
             if !Self::is_secret_tool_available() {
@@ -153,18 +156,43 @@ impl SecretStorePort for OsCredentialStoreSecretProvider {
                     "secret-tool not found (install libsecret-tools)".into(),
                 ));
             }
-            let status = std::process::Command::new("secret-tool")
+            let mut child = std::process::Command::new("secret-tool")
                 .args([
                     "store",
                     "--label=cynic",
-                    "service", &self.service_name,
-                    "id", &spec.locator,
+                    "service",
+                    &self.service_name,
+                    "id",
+                    &spec.locator,
                 ])
                 .stdin(std::process::Stdio::piped())
-                .status()
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .map_err(|e| SecretError::Backend(e.to_string()))?;
+            let write_result = child.stdin.take().map(|mut stdin| {
+                use std::io::Write;
+                stdin
+                    .write_all(value.as_bytes())
+                    .and_then(|_| stdin.flush())
+            });
+            if let Some(Err(e)) = write_result {
+                let _ = child.kill();
+                return Err(SecretError::Backend(format!(
+                    "secret-tool stdin write failed: {e}"
+                )));
+            }
+            let status = child
+                .wait()
                 .map_err(|e| SecretError::Backend(e.to_string()))?;
             if !status.success() {
                 return Err(SecretError::Backend("secret-tool store failed".into()));
+            }
+            // Read-back: the store is only trusted when a lookup finds it.
+            if self.lookup_linux(&spec.locator).is_none() {
+                return Err(SecretError::Backend(
+                    "secret-tool store unverified: lookup after store found nothing".into(),
+                ));
             }
             return Ok(());
         }
