@@ -248,6 +248,68 @@ fn toolchain_divergences() -> Vec<String> {
     // toolchain, and a missing CI file means the gate runs nowhere else. Moving
     // this file aside previously left the suite green, which made the check
     // below dead code that could not fail. Absence is now a finding of its own.
+    // Every per-crate pin, compared to the registry entry for the same crate.
+    //
+    // WHY THIS IS A SEPARATE CHECK. The loop above compares the SET of declared
+    // toolchains to the root pin. A set comparison cannot see a per-crate
+    // disagreement: with files at 1.96.0 and the registry at 1.95.0, both values
+    // are in the set, so "something differs from the root" is reported once and
+    // the fact that a SPECIFIC crate declares a toolchain nobody builds with is
+    // never surfaced. That is the shape of the defect the registry rewrite
+    // found: five crates whose pin contradicts the channel that compiles them.
+    //
+    // rustup resolves from the working directory, and no Makefile target builds
+    // from inside a crate, so these files are inert for a workspace build. They
+    // are still a second declared answer, and an answer that contradicts the
+    // first is worse than one that is merely redundant.
+    if let Some(text) = read("infra/rust-toolchain.json").text() {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
+            if let Some(crates) = value.get("crates").and_then(|c| c.as_object()) {
+                let mut mismatched: Vec<String> = Vec::new();
+                for (name, spec) in crates {
+                    let Some(registry_pin) = spec.get("toolchain").and_then(|t| t.as_str()) else {
+                        continue;
+                    };
+                    let path = format!("crates/{name}/rust-toolchain.toml");
+                    let Some(file_pin) = read(&path).text().and_then(|body| {
+                        body.lines().find_map(|line| {
+                            line.trim()
+                                .strip_prefix("channel")
+                                .and_then(|rest| rest.trim().strip_prefix('='))
+                                .map(|rest| rest.trim().trim_matches('"').to_string())
+                        })
+                    }) else {
+                        continue;
+                    };
+                    if file_pin != registry_pin {
+                        mismatched.push(format!(
+                            "{name}: file pins {file_pin} but infra/rust-toolchain.json \
+                             pins {registry_pin}, and the workspace builds under \
+                             {}",
+                            read("rust-toolchain.toml")
+                                .text()
+                                .and_then(|body| {
+                                    body.lines().find_map(|line| {
+                                        line.trim()
+                                            .strip_prefix("channel")
+                                            .and_then(|rest| rest.trim().strip_prefix('='))
+                                            .map(|rest| {
+                                                rest.trim().trim_matches('"').to_string()
+                                            })
+                                    })
+                                })
+                                .unwrap_or_else(|| "<unknown>".to_string())
+                        ));
+                    }
+                }
+                for entry in mismatched {
+                    out.insert(format!("a per-crate toolchain pin disagrees with the \
+                                        registry: {entry}"));
+                }
+            }
+        }
+    }
+
     match read(".github/workflows/ci.yml").required() {
         Ok(ci) => {
             if ci.contains("rust-toolchain@stable") || ci.contains("rust-toolchain@master") {
@@ -379,8 +441,6 @@ fn the_compiler_has_one_pinned_version_every_consumer_agrees_on() {
     let divergent = toolchain_divergences();
 
     const ACCEPTED: &[&str] = &[
-        "infra/rust-toolchain.json pins 1.96.0 for some crates while \
-         rust-toolchain.toml pins 1.95.0",
         "the CI installs a floating toolchain instead of the pinned one",
     ];
 

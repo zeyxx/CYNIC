@@ -1,4 +1,14 @@
-# CYNIC node/runtime layers — rustc 1.96.0
+# Aligned 2026-10-05 with the channel the workspace actually builds under.
+#
+# This file used to pin 1.96.0 and cite "1.95.0 SIGSEGV on proc-macro2". That
+# claim was retracted: proc-macro2 is in this crate's dependency graph and it
+# compiles under 1.95.0 here. The evidence for what builds is
+# `cargo check -v`, which prints the rustc binary cargo invokes.
+#
+# rustup resolves from the working directory, so this file governs a build run
+# from inside crates/cynic-node and no Makefile target does that. It is kept as the
+# declared intent for a per-crate toolchain, and it now agrees with the
+# registry and with the root pin instead of contradicting them.
 [toolchain]
-channel = "1.96.0"
+channel = "1.95.0"
 components = ["rustfmt", "clippy"]
