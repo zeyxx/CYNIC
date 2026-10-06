@@ -17,6 +17,31 @@ use worktree_allocation::execute_allocate_worktree;
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
 /// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
 /// provider kind is unknown.
+/// Resolve the sovereign VCS token from the environment or the principal
+/// secret file. Pure over injected readers so the refusal path is unit
+/// tested: a missing token must fail HERE with a message naming both
+/// sources, never travel to the API as an anonymous call that Forgejo
+/// answers with a cryptic 404/400 (observed 2026-10-06).
+fn resolve_vcs_token(
+    token_env: &str,
+    token_file: &str,
+    read_env: impl Fn(&str) -> Option<String>,
+    read_file: impl Fn(&str) -> Option<String>,
+) -> Result<String, String> {
+    if let Some(value) = read_env(token_env).filter(|v| !v.is_empty()) {
+        return Ok(value);
+    }
+    if let Some(value) = read_file(token_file)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
+        return Ok(value);
+    }
+    Err(format!(
+        "no sovereign VCS token: env {token_env} is unset and secret file {token_file} is unreadable; refusing anonymous API call"
+    ))
+}
+
 fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
     let reg_path = root.join("infra/registry.json");
     let raw = std::fs::read_to_string(&reg_path)
@@ -48,22 +73,19 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
         .as_str()
         .unwrap_or("/etc/cynic/secrets/forgejo-token");
 
-    let token = std::env::var(token_env)
-        .ok()
-        .filter(|v| !v.is_empty())
-        .or_else(|| {
-            std::fs::read_to_string(token_file)
-                .ok()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-        });
+    let token = resolve_vcs_token(
+        token_env,
+        token_file,
+        |name| std::env::var(name).ok(),
+        |path| std::fs::read_to_string(path).ok(),
+    )?;
 
     match kind {
         "forgejo" => Ok(Box::new(ForgejoPrAdapter::new(
             api_url.to_string(),
             owner.to_string(),
             repo.to_string(),
-            token,
+            Some(token),
         ))),
         other => Err(format!(
             "unknown vcs_provider kind '{other}' — only 'forgejo' is implemented"
@@ -939,6 +961,8 @@ fn execute_publish(root: &Path, json: bool) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use super::resolve_vcs_token;
+
     #[test]
     fn cli_source_surface_builds() {
         let cmd = super::SourceCommand::Status {
@@ -946,5 +970,43 @@ mod tests {
             json: false,
         };
         let _ = super::execute_source(cmd);
+    }
+
+    #[test]
+    fn token_prefers_env_over_file() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/nonexistent",
+            |_| Some("env-token".to_string()),
+            |_| Some("file-token".to_string()),
+        );
+        assert_eq!(got, Ok("env-token".to_string()));
+    }
+
+    #[test]
+    fn token_falls_back_to_file() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            |_| None,
+            |_| Some("  file-token\n".to_string()),
+        );
+        assert_eq!(got, Ok("file-token".to_string()));
+    }
+
+    #[test]
+    fn missing_token_fails_closed_naming_both_sources() {
+        let err = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            |_| None,
+            |_| None,
+        )
+        .expect_err("must refuse anonymous API call");
+        assert!(err.contains("FORGEJO_TOKEN"), "names env source: {err}");
+        assert!(
+            err.contains("/etc/cynic/secrets/forgejo-token"),
+            "names file source: {err}"
+        );
     }
 }
