@@ -40,9 +40,13 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Dependency { command } => {
             crate::dependency_surface::execute_dependency_command(command)
         }
-        Command::Update { target, json } => {
+        Command::Update {
+            target,
+            json,
+            source,
+        } => {
             let only = target.map(|t| vec![t]).unwrap_or_default();
-            deps_surface::execute_deps_upgrade(json, false, true, None, &only)
+            deps_surface::execute_deps_upgrade(json, false, true, None, &only, source.as_deref())
         }
         Command::Status { command, json } => match command {
             None => crate::operator_status::execute_operator_status(json),
