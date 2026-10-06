@@ -183,6 +183,51 @@ pub struct CapabilityCatalog {
     pub capabilities: Vec<Capability>,
 }
 
+impl CapabilityCatalog {
+    /// Project the catalog into sudoers rules for the given subject.
+    ///
+    /// Each `requires_root` capability becomes one sudoers line:
+    ///   `<subject> ALL=(root) NOPASSWD: <argv>`
+    ///
+    /// `{param}` placeholders become `*` (sudoers wildcard). The result is
+    /// deterministic: capabilities are sorted by id so the same catalog always
+    /// produces the same rules.
+    ///
+    /// This is a pure function — no I/O, no filesystem access. The caller
+    /// decides where to write the result.
+    pub fn sudoers_rules(&self, subject: &str) -> Vec<String> {
+        let mut rules = Vec::new();
+        let mut caps: Vec<&Capability> = self
+            .capabilities
+            .iter()
+            .filter(|c| c.requires_root)
+            .collect();
+        caps.sort_by(|a, b| a.id.cmp(&b.id));
+        for cap in caps {
+            let argv = cap
+                .argv_template
+                .iter()
+                .map(|arg| {
+                    if arg.starts_with('{') && arg.ends_with('}') {
+                        "*".to_string()
+                    } else {
+                        arg.clone()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            rules.push(format!("{subject} ALL=(root) NOPASSWD: {argv}"));
+        }
+        rules
+    }
+
+    /// All sudoers rules as a single comma-separated line (classic sudoers format).
+    pub fn sudoers_line(&self, subject: &str) -> String {
+        let rules = self.sudoers_rules(subject);
+        rules.join(", ")
+    }
+}
+
 /// The set of capabilities installed on this node.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstalledCapabilities {
@@ -737,5 +782,62 @@ mod absorb_transport_tests {
         assert!(ParamKind::Sha256Hex
             .validate("abc")
             .contains(&"sha256_not_64_hex".to_string()));
+    }
+
+    fn catalog_with_root_caps() -> CapabilityCatalog {
+        serde_json::from_str(
+            r#"{
+            "schema": "cynic.capability_catalog.v1",
+            "capabilities": [
+                {"id":"pct-list","domain":"hypervisor","argv_template":["/usr/sbin/pct","list"],"requires_root":true,"purpose":"list"},
+                {"id":"pct-clone","domain":"hypervisor","argv_template":["/usr/sbin/pct","clone","{source}","{target}","--full"],"requires_root":true,"purpose":"clone"},
+                {"id":"node-control","domain":"runtime","argv_template":["node","control"],"requires_root":false,"purpose":"runtime"}
+            ]
+        }"#,
+        )
+        .expect("valid catalog")
+    }
+
+    #[test]
+    fn sudoers_rules_only_includes_root_capabilities() {
+        let catalog = catalog_with_root_caps();
+        let rules = catalog.sudoers_rules("cynic");
+        assert_eq!(rules.len(), 2);
+        assert!(rules.iter().all(|r| r.starts_with("cynic ALL=(root) NOPASSWD: ")));
+        assert!(!rules.iter().any(|r| r.contains("node-control")));
+    }
+
+    #[test]
+    fn sudoers_rules_replace_param_placeholders() {
+        let catalog = catalog_with_root_caps();
+        let rules = catalog.sudoers_rules("cynic");
+        let clone_rule = rules.iter().find(|r| r.contains("clone")).expect("clone rule");
+        assert!(clone_rule.contains("*"), "param placeholders must become wildcards: {clone_rule}");
+        assert!(!clone_rule.contains('{'), "no unresolved placeholders");
+    }
+
+    #[test]
+    fn sudoers_rules_are_deterministic() {
+        let catalog = catalog_with_root_caps();
+        let a = catalog.sudoers_rules("cynic");
+        let b = catalog.sudoers_rules("cynic");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn sudoers_line_joins_with_comma() {
+        let catalog = catalog_with_root_caps();
+        let line = catalog.sudoers_line("cynic");
+        assert!(line.contains(", "), "rules must be comma-separated");
+        assert!(line.starts_with("cynic ALL=(root) NOPASSWD: "));
+    }
+
+    #[test]
+    fn sudoers_rules_empty_when_no_root_caps() {
+        let catalog: CapabilityCatalog = serde_json::from_str(
+            r#"{"schema":"cynic.capability_catalog.v1","capabilities":[{"id":"x","domain":"d","argv_template":["/bin/true"],"requires_root":false,"purpose":"p"}]}"#,
+        )
+        .expect("valid");
+        assert!(catalog.sudoers_rules("cynic").is_empty());
     }
 }

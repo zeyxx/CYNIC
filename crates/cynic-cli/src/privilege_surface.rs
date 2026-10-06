@@ -339,6 +339,16 @@ fn journal(capability_id: &str, argv: &[String], requires_root: bool) {
     }
 }
 
+#[derive(Debug, Serialize)]
+struct InstallReport {
+    schema: &'static str,
+    status: &'static str,
+    subject: String,
+    output_path: String,
+    rules: Vec<String>,
+    blockers: Vec<String>,
+}
+
 #[derive(Debug, clap::Subcommand)]
 pub(crate) enum PrivilegeCommand {
     /// Read back the declared capability catalog and the installed set.
@@ -362,6 +372,68 @@ pub(crate) enum PrivilegeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Generate the sudoers file from the capability catalog.
+    ///
+    /// One sudoers line per `requires_root` capability, with `{param}`
+    /// placeholders replaced by `*` (sudoers wildcard). The result is written
+    /// to `/etc/sudoers.d/cynic` (or `$CYNIC_SUDOERS_PATH`).
+    Install {
+        /// The user who will be granted sudo access (default: cynic).
+        #[arg(long, default_value = "cynic")]
+        subject: String,
+        /// Output path for the sudoers file.
+        #[arg(long, default_value = "/etc/sudoers.d/cynic")]
+        output: String,
+        /// Machine-readable JSON report.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+fn execute_install(subject: &str, output: &str, json: bool) -> ExitCode {
+    let view = match load_view() {
+        Ok(view) => view,
+        Err(error) => return fail(error),
+    };
+
+    let rules = view.catalog.sudoers_rules(subject);
+    if rules.is_empty() {
+        let report = InstallReport {
+            schema: "cynic.privilege.install.v1",
+            status: "blocked",
+            subject: subject.to_string(),
+            output_path: output.to_string(),
+            rules: Vec::new(),
+            blockers: vec!["no_root_capabilities_in_catalog".to_string()],
+        };
+        emit_json(&report, json);
+        return ExitCode::FAILURE;
+    }
+
+    let content = format!("{}\n", rules.join("\n"));
+    if let Err(error) = std::fs::write(output, content) {
+        let report = InstallReport {
+            schema: "cynic.privilege.install.v1",
+            status: "failed",
+            subject: subject.to_string(),
+            output_path: output.to_string(),
+            rules,
+            blockers: vec![format!("write_failed:{error}")],
+        };
+        emit_json(&report, json);
+        return ExitCode::FAILURE;
+    }
+
+    let report = InstallReport {
+        schema: "cynic.privilege.install.v1",
+        status: "installed",
+        subject: subject.to_string(),
+        output_path: output.to_string(),
+        rules,
+        blockers: Vec::new(),
+    };
+    emit_json(&report, json);
+    ExitCode::SUCCESS
 }
 
 pub(crate) fn execute_privilege_command(command: PrivilegeCommand) -> ExitCode {
@@ -369,5 +441,10 @@ pub(crate) fn execute_privilege_command(command: PrivilegeCommand) -> ExitCode {
         PrivilegeCommand::Catalog { json } => execute_catalog(json),
         PrivilegeCommand::Admit { args, json } => execute_admit(&args, json),
         PrivilegeCommand::Exec { args, json } => execute_exec(&args, json),
+        PrivilegeCommand::Install {
+            subject,
+            output,
+            json,
+        } => execute_install(&subject, &output, json),
     }
 }
