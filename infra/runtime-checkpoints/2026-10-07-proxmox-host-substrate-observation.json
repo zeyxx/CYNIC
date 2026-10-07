@@ -1,0 +1,318 @@
+{
+  "schema": "cynic.host_substrate_observation.v1",
+  "slice": "proxmox-hardware-baseline",
+  "observed_at_unix_ms": 1791372025000,
+  "observed_at_utc": "2026-10-07T11:20:25Z",
+  "verdict": "observed",
+  "target": {
+    "node_id": "cynic-host-proxmox",
+    "ssh_alias": "proxmox-forge",
+    "baremetal": true,
+    "registry_reference": "infra/registry.json node id=cynic-host-proxmox",
+    "prior_checkpoint": "infra/runtime-checkpoints/2026-09-01-c0.1-proxmox-placement-audit.json"
+  },
+  "collection_method": {
+    "transport": "ssh_batchmode_proxmox_forge",
+    "principal": "cynic",
+    "privilege_boundary": "sudo -n /usr/bin/pvesh (NOPASSWD, only sudoers entry on this host)",
+    "sudo_note": "plain sudo -n true requires a password; only the absolute path /usr/bin/pvesh is NOPASSWD. /usr/sbin is absent from the cynic PATH, so pvesm/pct/qm must be invoked by absolute path. pct-bounded-exec referenced by the prior checkpoint does not exist.",
+    "mutations": "none",
+    "read_only": true
+  },
+  "hardware": {
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-6500T CPU @ 2.50GHz",
+      "architecture": "x86_64",
+      "cores_physical": 4,
+      "threads_per_core": 1,
+      "sockets": 1,
+      "min_mhz": 800,
+      "max_mhz": 3100,
+      "cache": {
+        "l1d": "128 KiB (4 instances)",
+        "l2": "1 MiB (4 instances)",
+        "l3": "6 MiB (1 instance)"
+      },
+      "virtualization": "VT-x"
+    },
+    "memory": {
+      "total_bytes": 16648384512,
+      "available_bytes_observed": 14509375488,
+      "swap_total_bytes": 8589930496,
+      "swap_used_bytes": 1073152
+    },
+    "storage_devices": [
+      {
+        "name": "sda",
+        "model": "HGST HTS541010A9E680",
+        "size_bytes": 1000215219200,
+        "size_gib": 931.51,
+        "rotational": 1,
+        "transport": "SATA AHCI, host0 ata1, PCI 00:17.0 (Intel Q170 chipset)",
+        "sysfs_path": "/sys/devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda",
+        "logical_block_size": 512,
+        "physical_block_size": 4096,
+        "role": "pve root 96G ext4 plus the pve-data LVM-thin pool 794.3G",
+        "operator_assessment": "user-declared underperforming",
+        "assessment_status": "operator_declaration_not_yet_benchmarked"
+      },
+      {
+        "name": "nvme0n1",
+        "model": "SSD 4TB",
+        "controller": "Realtek RTS5765DL NVMe SSD Controller DRAM-less rev 01",
+        "size_gib_reported": 3726.02,
+        "rotational": 0,
+        "logical_block_size": 512,
+        "physical_block_size": 512,
+        "filesystem": "none on either partition",
+        "mountpoint": "none",
+        "io_since_boot": "reads_completed=356, ms_reading=853, writes=0",
+        "operator_assessment": "user-declared scam, fake 4TB with much smaller real capacity",
+        "assessment_status": "operator_declaration_unverified"
+      }
+    ]
+  },
+  "storage_pools": {
+    "local": {
+      "type": "dir",
+      "content": "backup,iso,vztmpl",
+      "total_bytes": 100861726720,
+      "used_bytes": 20828123136,
+      "available_bytes": 74862866432,
+      "used_fraction": 0.2065
+    },
+    "local-lvm": {
+      "type": "lvmthin",
+      "content": "images,rootdir",
+      "total_bytes": 852878163968,
+      "used_bytes": 120511684568,
+      "available_bytes": 732366479400,
+      "used_fraction": 0.1413
+    },
+    "note": "nvme0n1 carries no Proxmox storage entry and belongs to no pool."
+  },
+  "network": {
+    "interfaces": {
+      "eno1": { "address": "192.168.100.1/24", "plane": "admin", "driver": "Intel I219-LM" },
+      "wlp1s0": { "address": "192.168.0.37/24", "plane": "wan_uplink", "driver": "Intel Wireless 8260" },
+      "vmbr0": { "address": "10.10.10.1/24", "plane": "service", "bridge_ports": "none, routed not L2 bridged" },
+      "wg0": { "address": "10.20.0.1/24", "plane": "mesh" }
+    },
+    "nat": "vmbr0 post-up MASQUERADEs 10.10.10.0/24 out wlp1s0; UDP 3478 DNAT to 10.10.10.100 observed in /etc/network/interfaces",
+    "wireguard_mesh": true
+  },
+  "guests": [
+    { "vmid": 100, "name": "organ-headscale", "status": "running", "maxcpu": 1, "maxmem": 1073741824, "maxdisk": 4143677440, "uptime_s": 86567 },
+    { "vmid": 101, "name": "organ-forgejo", "status": "running", "maxcpu": 2, "maxmem": 1073741824, "maxdisk": 16729894912, "uptime_s": 86558 },
+    { "vmid": 102, "name": "cynic-agent-host", "status": "stopped", "maxcpu": 2, "maxmem": 4294967296, "maxdisk": 34359738368, "uptime_s": 0, "registry_declared": false },
+    { "vmid": 103, "name": "cynic-lxc-surrealdb", "status": "running", "maxcpu": 2, "maxmem": 2147483648, "maxdisk": 16729894912, "uptime_s": 86538 },
+    { "vmid": 105, "name": "cynic-builder", "status": "running", "maxcpu": 4, "maxmem": 8589934592, "maxdisk": 126630510592, "uptime_s": 71076 }
+  ],
+  "performance_observation": {
+    "method": "kernel counters in /proc/diskstats, cumulative since boot plus a 5 second delta window",
+    "authority": "observed runtime state; no synthetic benchmark was ever run on sda",
+    "uptime_seconds_at_measure": 86549.45,
+    "sda_cumulative_24h": {
+      "read_requests": 2592291,
+      "read_bytes": 236077700000,
+      "write_requests": 1444335,
+      "write_bytes": 40479800000,
+      "read_avg_iops": 30.0,
+      "write_avg_iops": 16.7,
+      "read_avg_latency_ms": 50.43,
+      "write_avg_latency_ms": 11.72,
+      "total_iops": 46.6,
+      "total_throughput_mb_s": 3.2,
+      "busy_fraction_of_wall_time": 0.128,
+      "avg_queue_depth": 13.67,
+      "avg_service_time_ms": 37.45
+    },
+    "sda_delta_5s": {
+      "read_requests": 99,
+      "write_requests": 15,
+      "read_throughput_mb_s": 1.7,
+      "write_throughput_mb_s": 0.03
+    },
+    "nvme0n1_since_boot": { "read_requests": 356, "read_ms": 853, "write_requests": 0 },
+    "interpretation": "sda moved 276.6 GB at 46.6 IOPS and 3.2 MB/s average, 12.8 percent busy, 50.43 ms average read latency. The disk is not saturated and is not the current bottleneck: the 5 second window shows 19.8 read IOPS and 3.0 write IOPS under idle host load 0.61. The 50 ms average read latency is normal rotating-media seek cost, not a fault signature. No workload on this host currently stresses storage, so the counters cannot rank this disk against a replacement.",
+    "historical_hdd_datapoint": {
+      "source": "/var/lib/vz/dump/vzdump-qemu-102-2026_06_16-16_55_57.log",
+      "workload": "single stream vzdump snapshot of a 31.5 GiB QEMU disk",
+      "result": "31.50 GiB in 924 seconds = 34.9 MiB/s sustained, with per-progress read rates oscillating 14.3 to 27.6 MiB/s and a 1.5 GiB/s final drain",
+      "caveat": "host contention of that date is unknown, so this is a real-workload datapoint and not an isolated device benchmark"
+    },
+    "unknowns": [
+      "No fio, hdparm or iostat synthetic benchmark for sda exists anywhere in the repository.",
+      "SMART attributes, power-on hours and reallocated sectors for sda are unknown: smartctl is absent on the host.",
+      "NVMe true capacity behind the reported 4TB is unknown: nvme-cli is absent on the host, so id-ctrl could not be read."
+    ]
+  },
+  "cpu_tuning_observation": {
+    "authority": "observed runtime state",
+    "scaling_driver": "intel_pstate",
+    "scaling_governor": "performance",
+    "energy_performance_preference": "performance",
+    "available_governors": ["performance", "powersave"],
+    "intel_pstate_status": "active",
+    "intel_pstate_no_turbo": 0,
+    "turbo_status": "enabled, no_turbo=0",
+    "hardware_pstate": "no_hwp file absent, which means HWP is enabled",
+    "scaling_cur_freq_khz_at_measure": [2913277, 2801213, 2965826, 2984662],
+    "cpuidle_driver": "poll",
+    "available_c_states": ["POLL", "C1", "C1E", "C3", "C6", "C7s", "C8"],
+    "transparent_hugepage": "always [madvise] never",
+    "thp_active_mode": "madvise",
+    "ksm_run": 0,
+    "ksm_status": "disabled",
+    "numa_nodes": 1,
+    "verdict": "CPU tuning is already performance-maximal. Governor performance plus EPP performance plus turbo enabled plus HWP enabled is the full performance envelope exposed by intel_pstate on this CPU. No further host-side tuning gain is available. The i5-6500T is a 4-core, 4-thread part with no hyperthreading, so per-core throughput cannot be improved by tuning.",
+    "remaining_untuned": [
+      "C-state residency: deep states C6, C7s and C8 are available and are likely entered at load 0.61. Latency-sensitive guests could be served better by restricting the deepest states, at the cost of power. Not measured: cpuidle residency counters were not read.",
+      "intel_pstate max_perf_pct and min_perf_pct were not read. Not required while governor=performance, which already pins frequency.",
+      "SATA link speed and NCQ depth on host0 were not read: no hdparm or smartctl on the host."
+    ]
+  },
+  "findings": [
+    {
+      "id": "sda_is_ahci_sata_hdd",
+      "severity": "informational",
+      "statement": "sda is a 931.51 GiB HGST 2.5 inch rotating HDD on a real SATA AHCI port of the Intel Q170 chipset controller at PCI 00:17.0. It carries pve root and the entire pve-data LVM-thin pool. It is not attached over USB.",
+      "proof_refs": [
+        "readlink -f /sys/block/sda resolves to /sys/devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda",
+        "lspci -k -s 00:17.0 reports Kernel driver in use: ahci",
+        "ls /sys/class/scsi_host/ reports host0 through host4, all with proc_name=ahci"
+      ]
+    },
+    {
+      "id": "nvme_is_unpooled_and_operator_declared_fake",
+      "severity": "declaration_drift",
+      "statement": "nvme0n1 reports 3726.02 GiB on a Realtek RTS5765DL DRAM-less controller, has no filesystem on either partition, no Proxmox storage entry and no mountpoint, and has served 356 reads and 0 writes since boot. Meanwhile sda at 931.51 GiB performs all real work. The operator declares this device a scam with fake 4TB capacity.",
+      "proof_refs": [
+        "lsblk /dev/nvme0n1 shows nvme0n1p1 vfat 1G and nvme0n1p2 part 2G with no mountpoint",
+        "pvesh get /nodes/pve/storage returns only local dir and local-lvm lvmthin",
+        "/proc/diskstats line for nvme0n1 shows reads_completed 356, writes 0",
+        "/sys/block/nvme0n1/device model is SSD 4TB, serial 000397, firmware_rev VC0S1369"
+      ],
+      "residual_unknown": "The real capacity behind the reported 4TB is not independently confirmed. nvme-cli is absent so id-ctrl cannot be read. The scam assessment is an operator declaration, not an observed fact."
+    },
+    {
+      "id": "ct102_stopped_lxc_missing_onboot",
+      "severity": "declaration_drift",
+      "statement": "CT 102 named cynic-agent-host is stopped with uptime 0, mem 0 and disk 0 for the current run only. It ran for roughly five weeks as the Hermes agent-host between its creation on 2026-09-01T17:32:27Z and the host reboot on 2026-10-06T13:10:38Z. It was NOT relaunched at the following boot because its config carries no onboot key, while all four sibling guests declare onboot=1. Its config is unprivileged=1, ostype=ubuntu, cores=2, memory=4096, swap=1024, net0 ip 10.10.10.102/24 hwaddr BC:24:11:C3:EE:79, rootfs local-lvm:vm-102-disk-1 32G. It is the target of repo slice C0.1 whose checkpoint verdict was ready, and it is absent from infra/registry.json. Before the LXC incarnation it was the QEMU VM cynic-vm-anvil on scsi0 local-lvm:vm-102-disk-0 32256M, backed up 2026-06-16 and destroyed 2026-08-29.",
+      "proof_refs": [
+        "pvesh get /nodes/pve/lxc/102/config --output-format json returns NO onboot key, while 100, 101, 103 and 105 each return onboot 1",
+        "grep ':102:' /var/log/pve/tasks/index shows vzcreate OK then vzstart OK on 2026-09-01 (UPID 6A96F00B and 6A96F027), then vzshutdown OK on 2026-10-06 (UPID 6AC4D72E) with no subsequent vzstart",
+        "/var/log/pve/tasks/active shows stopall UPID 6AC4D72D followed by vzshutdown:100, :101, :103, :105 and :102 all OK, then startall UPID 6AC4D863 that relaunches only 100, 101, 103 and 105",
+        "pvesh get /cluster/resources shows lxc/102 status stopped, name cynic-agent-host, uptime 0, mem 0, disk 0",
+        "pvesh get /nodes/pve/lxc/102/config returns arch amd64, cores 2, hostname cynic-agent-host, memory 4096, nameserver 10.10.10.1, ostype ubuntu, swap 1024, unprivileged 1",
+        "head -5 /var/lib/vz/dump/vzdump-qemu-102-2026_06_16-16_55_57.log shows Starting Backup of VM 102 (qemu) and VM Name: cynic-vm-anvil"
+      ],
+      "drift": "The C0.1 checkpoint declared a guest ready whose configuration omits onboot, so the guest silently disappeared after any host reboot. The registry omits it entirely. Its IP 10.10.10.102 is configured but currently unreachable (ping 100 percent packet loss). The failure mode is declaration drift with a silent availability consequence: a declared-ready service has been down for more than 24 hours with nothing in the registry to surface it."
+    },
+    {
+      "id": "ct102_disk_reserved_but_unused",
+      "severity": "resource_leak",
+      "statement": "CT 102 holds two thin-pool volumes: pve-vm--102--disk--0 at 31.5G left over from the QEMU era and pve-vm--102--disk--1 at 32G from the current LXC config, plus pve-vm--102--cloudinit at 4M. Total roughly 63.5G reserved, none carrying data.",
+      "proof_refs": [
+        "lsblk sda3 LVM children list pve-vm--102--disk--0 31.5G, pve-vm--102--disk--1 32G and pve-vm--102--cloudinit 4M",
+        "pvesh /cluster/resources lxc/102 reports disk 0"
+      ],
+      "residual_unknown": "Whether to reclaim the 63.5G is an operator decision, not an observation."
+    },
+    {
+      "id": "prose_drift_three_physical_machines",
+      "severity": "declaration_drift",
+      "statement": "infra/ARCHITECTURE_CONSTELLATIONS.md line 43 claims the active cluster consists of 3 dedicated physical machines: Cortex, Proxmox and Builder. Observed hardware shows exactly two baremetal machines. Proxmox is Intel i5-6500T with 16.6 GB. Cortex is AMD Ryzen 7 5700G with 27 GiB, observed from the agent host. Builder is LXC 105 running on this Proxmox host.",
+      "proof_refs": [
+        "infra/ARCHITECTURE_CONSTELLATIONS.md line 43",
+        "lscpu observed from cortex reports model name AMD Ryzen 7 5700G",
+        "pvesh get /cluster/resources node/pve reports maxcpu 4 and maxmem 16648384512"
+      ]
+    }
+  ],
+  "blockers": [],
+  "residual_unknowns": [
+    "sda synthetic benchmark (fio, hdparm or iostat): none exists in the repository, only real-workload counters.",
+    "SMART attributes and power-on hours for sda: smartctl absent on host.",
+    "NVMe true capacity behind the reported 4TB: nvme-cli absent on host; operator declaration only.",
+    "Whether slices C0.2 and C0.3 were ever implemented after the 2026-09-01 C0.1 checkpoint. CLOSED PARTIALLY: the repository does contain cynic-node/config-cynic-agent-host.toml whose header states LXC CT 102 10.10.10.102, and docs/.../2026-09-04-worktree-convergence-design.md line 214 lists Agent-Host Hermes at 10.10.10.102, so the slice work was planned and partially materialised even though the guest is stopped and undeclared in the registry.",
+    "Whether slices C0.2 and C0.3 were ever implemented after the 2026-09-01 C0.1 checkpoint.",
+    "C-state residency on the i5-6500T under load 0.61: not measured.",
+    "Per-core all-core turbo behaviour of the i5-6500T below single-core: not measured, only the cpuinfo max of 3100 MHz is observed."
+  ],
+  "ct102_timeline": {
+    "authority": "observed Proxmox task log /var/log/pve/tasks/index decoded from UPID hex starttime, plus sudo -n /usr/bin/pvesh config readback",
+    "vmid_reuse_warning": "vmid 102 was reused across three distinct incarnations. Any reasoning that treats a 102 entry as one machine is wrong.",
+    "incarnation_1_qemu": {
+      "created_utc": "2026-05-28T00:39:15Z",
+      "name": "cynic-vm-anvil",
+      "events": ["qmcreate OK", "qmstart OK", "qmstop OK"],
+      "second_qemu_created_utc": "2026-06-04T02:10:11Z",
+      "vnc_sessions_utc": ["2026-06-04T12:12:40Z"],
+      "cloned_utc": "2026-06-16T16:55:41Z",
+      "backed_up_utc": "2026-06-16T16:55:57Z",
+      "backup_artifact": "/var/lib/vz/dump/vzdump-qemu-102-2026_06_16-16_55_57.vma.gz, 9.66 GB",
+      "destroyed_utc": "2026-08-29T00:30:01Z"
+    },
+    "incarnation_2_qemu": {
+      "created_utc": "2026-09-01T16:56:37Z",
+      "destroyed_utc": "2026-09-01T17:32:20Z"
+    },
+    "incarnation_3_lxc_current": {
+      "created_utc": "2026-09-01T17:32:27Z",
+      "first_start_utc": "2026-09-01T17:32:55Z",
+      "clean_shutdown_utc": "2026-10-06T13:10:38Z",
+      "shutdown_context": "vzshutdown issued by the host stopall task UPID ...6AC4D72D, all five guests stopped together",
+      "host_boot_utc": "2026-10-06T13:15:47Z",
+      "relaunched_at_boot": false,
+      "onboot_flag": "ABSENT, defaults to 0. Every other guest declares onboot=1 (100, 101, 103, 105). This is the sole observed cause of the non-relaunch.",
+      "evidence_onboot": "pvesh get /nodes/pve/lxc/<vmid>/config --output-format json returns onboot 1 for 100, 101, 103, 105 and no onboot key at all for 102",
+      "lxc_runtime_since_creation": "roughly 5 weeks running before the 2026-10-06 shutdown",
+      "identity_confirmed": "nslookup cynic-agent-host.synapse.cynic on pve resolves to 10.10.10.102 and the reverse PTR 102.10.10.10.in-addr.arpa resolves to cynic-agent-host"
+    },
+    "why_stopped_verdict": "CT 102 ran for about five weeks as the Hermes agent-host, was shut down cleanly by the host reboot on 2026-10-06, and was never relaunched because its config carries no onboot flag while all four sibling guests declare onboot=1. Not a crash, not an OOM, not a lock failure.",
+    "correction_to_prior_draft": "An earlier draft of this checkpoint stated CT 102 had never been started, inferred from uptime=0, mem=0, disk=0. That inference was WRONG. Those counters reflect only the current run since the last start, and the task log proves two vzstart events. Corrected in ct102_timeline."
+  },
+  "ct102_remediation": {
+    "performed_at_utc": "2026-10-07T11:38:00Z",
+    "authority": "operator approved option 1 (restore) then option 2 (prevent the class)",
+    "host_mutations": [
+      {
+        "step": 1,
+        "argv": "sudo -n /usr/bin/pvesh set /nodes/pve/lxc/102/config --onboot 1",
+        "read_back": "sudo -n /usr/bin/pvesh get /nodes/pve/lxc/102/config --output-format json returns onboot present true, value 1",
+        "result": "converged"
+      },
+      {
+        "step": 2,
+        "argv": "sudo -n /usr/bin/pvesh create /nodes/pve/lxc/102/status/start",
+        "failed_first_attempt": "sudo -n /usr/bin/pvesh create /nodes/pve/lxc/102 --start 1 returned 'No create handler defined for /nodes/pve/lxc/102'. The correct sub-path is /status/start. Recorded because the wrong path reads as success-shaped failure.",
+        "read_back": "returns UPID:pve:00099B62:0085F395:6AC62EEA:vzstart:102:root@pam:",
+        "result": "converged"
+      },
+      {
+        "step": 3,
+        "argv": "pvesh get /cluster/resources",
+        "read_back": "lxc/102 name cynic-agent-host status running uptime 0 mem 352256 maxmem 4294967296",
+        "result": "converged"
+      },
+      {
+        "step": 4,
+        "argv": "ping -c2 -W2 10.10.10.102 from proxmox-forge, then ssh root@10.10.10.102 hostname",
+        "read_back": "ping 0 percent packet loss from proxmox-forge, 0 percent from cortex; ssh returns cynic-agent-host, uptime 1 minute",
+        "result": "converged",
+        "caveat_corrected_later": "An earlier caveat in this file said the guest disk was empty based on rrddata disk 0. That reading was wrong: rrddata had not yet sampled after the start. A direct read-back inside the guest shows the root filesystem on /dev/mapper/pve-vm--102--disk--1 at 32G with 4.8G used (17 percent) and 25G available, holding /var/lib/cynic with a populated .hermes directory (19 entries), workspaces of 53M, .opencode, .cua-driver and sandboxes. The guest is a populated agent host, not an empty container."
+      },
+      {
+        "step": 5,
+        "argv": "ssh root@10.10.10.102 systemctl list-units --state=running | grep -iE cynic",
+        "read_back": "no cynic service running",
+        "result": "observed",
+        "note": "Guest liveness is proven; guest workload health is not. No CYNIC runtime service is active inside CT 102, so the registry entry declares a reachable host, not a verified service."
+      }
+    ],
+    "registry_changes": "infra/registry.json now declares boot_persistence true on all five guests and adds the previously undeclared node cynic-agent-host (lxc/102, 10.10.10.102, role agent_host).",
+    "class_prevention": "crates/cynic-lifecycle/src/domain/persistence_drift.rs adds the pure declared-vs-observed predicate with 8 unit tests. Zero occurrences of onboot, on_boot, autostart or persist existed anywhere in the Rust workspace before this change, so the concept was absent from the model rather than omitted from one config."
+  },
+  "next_slice": "Operator decisions still open: (a) the SATA SSD from the HP EliteBook 840 G3 as a replacement for sda, which requires the drive model, capacity and health, and smartctl plus nvme-cli on the host; (b) whether the NVMe device should be removed from the host entirely now that it carries no filesystem and no pool; (c) whether to reclaim the 63.5G reserved by the two CT 102 thin-pool volumes."
+}
