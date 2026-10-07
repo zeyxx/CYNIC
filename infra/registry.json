@@ -604,7 +604,7 @@
         "elitebook"
       ],
       "role": "workstation_portable",
-      "host_family": "windows.windows11",
+      "host_family": "windows-service",
       "status": "observed",
       "deploy_target": false,
       "boot_persistence": false,
