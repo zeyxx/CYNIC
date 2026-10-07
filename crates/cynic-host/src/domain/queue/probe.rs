@@ -4,18 +4,10 @@
 use cynic_build::build_artefact::BuildArtefactGcPlan;
 use cynic_build::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
-use cynic_protocol::queue::{BoundedAction, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueueReason};
-
-fn reason_rank(r: &QueueReason) -> u8 {
-    match r {
-        QueueReason::OrphanReclaimable => 0,
-        QueueReason::AgedReclaimable => 1,
-        QueueReason::BranchWithoutUpstream => 2,
-        QueueReason::StaleBranch => 3,
-        QueueReason::UpstreamDivergent => 4,
-        QueueReason::Other { .. } => 5,
-    }
-}
+use cynic_protocol::queue::{
+    BoundedAction, CanonicalQueuePolicy, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueuePolicy,
+    QueueReason, reason_rank,
+};
 
 fn gc_reason(reason_str: &str) -> QueueReason {
     let r = reason_str.to_ascii_lowercase();
@@ -102,19 +94,16 @@ pub fn build_queue_plan(
         });
     }
 
-    // 3) Canonical order: reason rank -> branch -> id
-    items.sort_by(|a, b| {
-        reason_rank(&a.reason)
-            .cmp(&reason_rank(&b.reason))
-            .then(a.branch.cmp(&b.branch))
-            .then(a.id.cmp(&b.id))
-    });
+    // 3) Canonical order goes through the QueuePolicy trait — one address
+    // for ordering, never a call-site sort.
+    let items = CanonicalQueuePolicy.order(items);
 
     QueuePlan {
         schema: QUEUE_PLAN_SCHEMA.to_string(),
         root: branch_graph.root.clone(),
         items,
         total_reclaimable_bytes: gc_plan.total_reclaimable_bytes,
+        residual_unknowns: Vec::new(),
     }
 }
 

@@ -157,23 +157,29 @@ fn print_queue_human(plan: &cynic_protocol::queue::QueuePlan) {
     if plan.items.is_empty() {
         println!("(empty — no queued branches or reclaimable artefacts)");
         println!("reclaimable bytes: {}", plan.total_reclaimable_bytes);
-        return;
+    } else {
+        println!("{:<36} {:<20} {:<22} PRIV", "ID", "BRANCH", "REASON");
+        println!("{}", "-".repeat(90));
+        for item in &plan.items {
+            let priv_s = if item.action.requires_privilege {
+                "sudo"
+            } else {
+                "-"
+            };
+            println!(
+                "{:<36} {:<20} {:<22?} {}",
+                item.id, item.branch, item.reason, priv_s
+            );
+            println!("  recipe={} argv={:?}", item.recipe_id, item.action.argv);
+        }
+        println!("total_reclaimable_bytes: {}", plan.total_reclaimable_bytes);
     }
-    println!("{:<36} {:<20} {:<22} PRIV", "ID", "BRANCH", "REASON");
-    println!("{}", "-".repeat(90));
-    for item in &plan.items {
-        let priv_s = if item.action.requires_privilege {
-            "sudo"
-        } else {
-            "-"
-        };
-        println!(
-            "{:<36} {:<20} {:<22?} {}",
-            item.id, item.branch, item.reason, priv_s
-        );
-        println!("  recipe={} argv={:?}", item.recipe_id, item.action.argv);
+    if !plan.residual_unknowns.is_empty() {
+        println!("degraded inputs (fallback, not live):");
+        for unknown in &plan.residual_unknowns {
+            println!("  - {unknown}");
+        }
     }
-    println!("total_reclaimable_bytes: {}", plan.total_reclaimable_bytes);
 }
 
 fn print_queue_execution_human(result: &QueueExecutionResult) {
