@@ -345,6 +345,7 @@ mod tests {
                         !token.starts_with("--")
                             && !token.starts_with('<')
                             && !token.starts_with('[')
+                            && !token.starts_with('#')
                     })
                     .map(|token| token.to_string())
                     .collect::<Vec<_>>();
