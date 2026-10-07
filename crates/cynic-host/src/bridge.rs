@@ -220,12 +220,19 @@ pub fn bridge_status_via_helper() -> Result<HostExecBridgeStatus, String> {
     Ok(report)
 }
 
-fn install_commands_for_runtime(
+pub(crate) fn install_commands_for_runtime(
     helper_runtime: &BoundedHelperInstallRuntime,
     bundle_dir: &str,
     directory_policy: InstallPathPolicy,
     sudoers_policy: InstallPathPolicy,
 ) -> Vec<HostCommandSurface> {
+    // ORDER IS A SECURITY PROPERTY. `validate_sudoers` runs BEFORE
+    // `install_sudoers` and targets the STAGED file, never the installed one.
+    // A sudoers file that fails `visudo -c` must never land in
+    // `/etc/sudoers.d/`: an unparseable file there can break `sudo` entirely,
+    // including the ability to fix it. This is the same invariant
+    // `pve_helper_install_commands` enforces.
+    let staged_sudoers = format!("{bundle_dir}/{HOST_EXEC_SUDOERS_FILENAME}");
     prepare_directory_commands_for_runtime(helper_runtime, directory_policy)
         .into_iter()
         .chain([
@@ -235,13 +242,13 @@ fn install_commands_for_runtime(
                 helper_runtime.helper_target.clone(),
                 current_user_owned_policy(MODE_0755),
             ),
+            validate_sudoers_command("validate_sudoers", staged_sudoers.clone()),
             install_file_command(
                 "install_sudoers",
-                format!("{bundle_dir}/{HOST_EXEC_SUDOERS_FILENAME}"),
+                staged_sudoers,
                 helper_runtime.sudoers_target.clone(),
                 sudoers_policy,
             ),
-            validate_sudoers_command("validate_sudoers", helper_runtime.sudoers_target.clone()),
         ])
         .collect()
 }
