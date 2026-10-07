@@ -113,15 +113,6 @@ pub enum NetworkCommands {
         #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
         registry: String,
     },
-    /// Emit the least-privilege root policy required for bounded network mutation.
-    Policy {
-        /// Emit JSON. Present for explicit operator intent; currently always JSON.
-        #[arg(long)]
-        json: bool,
-        /// Registry path used to derive network checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: String,
-    },
     /// Emit the host-owned network actuation observation projection.
     ActuationObservation {
         #[arg(long)]
@@ -167,15 +158,6 @@ pub enum NetworkCommands {
         /// Required guard for mutation.
         #[arg(long)]
         apply: bool,
-    },
-    /// Emit a non-mutating network repair plan.
-    Repair {
-        /// Required guard: this command only plans; it never mutates the host.
-        #[arg(long)]
-        dry_run: bool,
-        /// Registry path used to derive network checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
-        registry: String,
     },
     /// Emit canonical provider fallback status for resurrection-only routing.
     MeshPlan {
@@ -485,8 +467,6 @@ use cynic_node::network_evidence;
 use cynic_node::network_mesh_apply_plan;
 use cynic_node::network_mesh_bundle;
 use cynic_node::network_mesh_plan;
-use cynic_node::network_repair;
-use cynic_node::network_root_policy;
 use cynic_node::network_runtime_status;
 use cynic_node::network_shadow_proof;
 use cynic_node::observe;
@@ -805,11 +785,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let evidence = network_evidence::build_evidence(&observation);
             emit_json("network evidence", &evidence, false)
         }
-        NetworkCommands::Policy { json: _, registry } => {
-            let observation = observe::observe_payload(Some(registry));
-            let policy = network_root_policy::build_root_policy(&observation);
-            emit_json("network root policy", &policy, false)
-        }
         NetworkCommands::ActuationObservation { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
             let projection = observation.network_actuation_observation(
@@ -855,17 +830,6 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             let report = network_actuator::apply_profile(&observation, profile, *apply);
             let should_fail = report.status != "completed";
             emit_json("network actuator apply", &report, should_fail)
-        }
-        NetworkCommands::Repair { dry_run, registry } => {
-            if !dry_run {
-                tracing::error!(
-                    "network repair currently requires --dry-run; apply is not implemented"
-                );
-                return ExitCode::FAILURE;
-            }
-            let observation = observe::observe_payload(Some(registry));
-            let plan = network_repair::build_dry_run_plan(&observation);
-            emit_json("network repair plan", &plan, false)
         }
         NetworkCommands::MeshPlan {
             json: _,

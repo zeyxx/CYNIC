@@ -74,6 +74,24 @@ pub(crate) fn try_execute_base(
                 registry: registry_path(registry),
             },
         )),
+        NetworkCommand::ShadowProof {
+            registry,
+            resolve_dns,
+            observe_runtime,
+        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+            &NetworkCommands::ShadowProof {
+                json: true,
+                registry: registry_path(registry),
+                resolve_dns,
+                observe_runtime,
+            },
+        )),
+        NetworkCommand::ActuationObservation { registry } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+            &NetworkCommands::ActuationObservation {
+                json: true,
+                registry: registry_path(registry),
+            },
+        )),
         NetworkCommand::Observe { json, freebox } => {
             let adapter = LocalNetworkAdapter;
             let report = adapter.observe_network();
