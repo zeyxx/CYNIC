@@ -157,10 +157,6 @@ mod tests {
             existing_paths: BTreeSet::new(),
             gitignore_patterns: Vec::new(),
             host: None,
-            unit_files: Vec::new(),
-            unit_contents: std::collections::BTreeMap::new(),
-            exec_starts: Vec::new(),
-            claim_store: None,
         }
     }
 
