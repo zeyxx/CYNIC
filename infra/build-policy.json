@@ -118,9 +118,10 @@
     }
   ],
   "coherence_contract": {
-    "test": "crates/cynic-cli/tests/build_policy_coherence.rs",
+    "test": "crates/cynic-cli/src/build_policy_coherence.rs",
     "rule": "Every consumer site must carry the value declared in parallelism.cargo_build_jobs. The test fails when a site diverges, and also fails when a consumer is added without being declared here.",
-    "replaces": "crates/cynic-cli/tests/architecture_boundary.rs previously asserted the literal string CYNIC_CARGO_BUILD_JOBS ?= 1, which made the value itself the contract and would have failed on any legitimate policy change."
+    "replaces": "crates/cynic-cli/tests/architecture_boundary.rs previously asserted the literal string CYNIC_CARGO_BUILD_JOBS ?= 1, which made the value itself the contract and would have failed on any legitimate policy change.",
+    "why_in_src_not_tests": "the canonical proof runner passes --lib, so a test under tests/ is never executed by it. The module lives in src/ so the gate actually runs it."
   },
   "toolchain_drift": {
     "observation": "Three toolchain versions coexist. rust-toolchain.toml pins 1.95.0 and overrides the builder, whose system rustc is 1.93.0. Pre-existing comments in .cargo/config.toml cite 1.96, a version no checkout runs.",
