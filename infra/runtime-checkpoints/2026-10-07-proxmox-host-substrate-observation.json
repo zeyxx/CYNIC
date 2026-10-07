@@ -596,9 +596,72 @@
       "recommendation": "the configuration change dominates the hardware purchase for build throughput. Storage remains justified on other grounds: it removes a device that returned EIO on every write, and it cuts the 2m28s boot observed with systemd-analyze. Those are risk and predictability arguments, not build speed."
     },
     "not_proven": [
-      "that two jobs never triggers the rustc ICE on a different commit: one successful run is not a guarantee, and the monomorphisation that triggers the ICE varies per crate",
-      "that the 56 percent gain reproduces on other commits; repeat measurements were in progress at the time of writing",
-      "what the original memory pressure observation was: the repository comment does not record hardware, commit, or measurement"
-    ]
+      "that two jobs never triggers the rustc ICE on a future commit: four clean runs bound the risk, they do not eliminate it, and the monomorphisation that triggers the ICE varies per crate",
+      "that two jobs is the optimal setting: jobs 3 and 4 were never measured, and the memory projection for them rests on the single observed 1.1 GiB peak rather than on measurement",
+      "that jobs 1 and 2 differ by 56 percent on every future commit: the single-job figure is one measurement on one commit, while the two-job figures are four"
+    ],
+    "repetition_across_commits": {
+      "schema": "cynic.build_parallelism_repetition.v1",
+      "purpose": "verify that the two-job gain is stable and does not trigger the rustc ICE cited in .cargo/config.toml",
+      "method": "full workspace cargo build --offline with a fresh target directory per commit, two jobs forced on the command line, wall clock and peak RSS captured with /usr/bin/time",
+      "baseline_single_job": {
+        "commit": "cynic-89b11ad4b9f6",
+        "wall_seconds": 641,
+        "rc": 0,
+        "errors": 0
+      },
+      "two_job_runs": [
+        {
+          "commit": "cynic-89b11ad4b9f6",
+          "wall_seconds": 282.0,
+          "rc": 0,
+          "errors": 0,
+          "peak_rss_mib": null
+        },
+        {
+          "commit": "cynic-1b75810cd5a3",
+          "wall_seconds": 261.66,
+          "rc": 0,
+          "errors": 0,
+          "peak_rss_mib": 1255
+        },
+        {
+          "commit": "cynic-2bba060486a7",
+          "wall_seconds": 247.52,
+          "rc": 0,
+          "errors": 0,
+          "peak_rss_mib": 1248
+        },
+        {
+          "commit": "cynic-c09f4ee98224",
+          "wall_seconds": 252.76,
+          "rc": 0,
+          "errors": 0,
+          "peak_rss_mib": 1249
+        }
+      ],
+      "two_job_statistics": {
+        "runs": 4,
+        "min_seconds": 247.52,
+        "max_seconds": 282.0,
+        "mean_seconds": 260.99,
+        "spread_seconds": 34.48,
+        "all_succeeded": true,
+        "total_compiler_errors_or_ice": 0
+      },
+      "gain_versus_single_job_percent": {
+        "worst": 56.0,
+        "best": 61.4,
+        "mean": 59.3
+      },
+      "memory_evidence": {
+        "peak_rss_single_job_mib": 1166,
+        "peak_rss_two_jobs_mib": 1255,
+        "delta_mib": 89,
+        "delta_percent": 7.6,
+        "interpretation": "two concurrent jobs did not double the peak. The additional 89 MiB is direct evidence that the two crates compiling at the same moment are of unequal size, which is also why the wall clock roughly halves instead of quartering."
+      },
+      "conclusion": "the two-job gain reproduces across four distinct commits with a 34 second spread and zero compiler errors or internal compiler errors. The measurement is stable enough to propose a configuration change, while remaining an observation and not a guarantee for every future commit."
+    }
   }
 }
