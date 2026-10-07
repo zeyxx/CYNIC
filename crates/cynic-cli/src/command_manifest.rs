@@ -342,4 +342,42 @@ mod tests {
             );
         }
     }
+
+    /// Every command string in the manifest must resolve to a real clap
+    /// subcommand path. This catches drift the domain-name test cannot see:
+    /// a domain can be listed while its commands are stale or missing.
+    #[test]
+    fn manifest_commands_resolve_in_clap() {
+        let cli = Cli::command();
+        let manifest = commands_manifest();
+        let mut checked = 0usize;
+        for domain in &manifest.domains {
+            for command in &domain.commands {
+                let path = command
+                    .split_whitespace()
+                    .skip(1) // skip "cynic"
+                    .take_while(|token| !token.starts_with('--') && !token.starts_with('<') && !token.starts_with('['))
+                    .map(|token| token.to_string())
+                    .collect::<Vec<_>>();
+                if path.is_empty() {
+                    continue;
+                }
+                checked += 1;
+                let mut current = &cli;
+                for (depth, segment) in path.iter().enumerate() {
+                    let found = current
+                        .get_subcommands()
+                        .find(|s| s.get_name() == segment.as_str());
+                    assert!(
+                        found.is_some(),
+                        "manifest command `{}` (domain `{}`) does not resolve at segment {depth}: `{segment}`",
+                        command,
+                        domain.name
+                    );
+                    current = found.unwrap();
+                }
+            }
+        }
+        assert!(checked > 100, "manifest command resolution checked too few commands: {checked}");
+    }
 }
