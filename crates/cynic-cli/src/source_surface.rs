@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
+use cynic_secrets::{OsCredentialStoreSecretProvider, SecretProviderPort, SecretReference};
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
 use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
 
@@ -17,6 +18,37 @@ use worktree_allocation::execute_allocate_worktree;
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
 /// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
 /// provider kind is unknown.
+/// Resolve the sovereign VCS token from the environment, the principal
+/// secret file, or the OS keyring — in that order. Pure over injected
+/// readers so the refusal path is unit tested: a missing token must fail
+/// HERE with a message naming all three sources, never travel to the API
+/// as an anonymous call that Forgejo answers with a cryptic 404/400
+/// (observed 2026-10-06).
+fn resolve_vcs_token(
+    token_env: &str,
+    token_file: &str,
+    keyring_id: &str,
+    read_env: impl Fn(&str) -> Option<String>,
+    read_file: impl Fn(&str) -> Option<String>,
+    read_keyring: impl Fn(&str) -> Option<String>,
+) -> Result<String, String> {
+    if let Some(value) = read_env(token_env).filter(|v| !v.is_empty()) {
+        return Ok(value);
+    }
+    if let Some(value) = read_file(token_file)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
+        return Ok(value);
+    }
+    if let Some(value) = read_keyring(keyring_id).filter(|v| !v.is_empty()) {
+        return Ok(value);
+    }
+    Err(format!(
+        "no sovereign VCS token: env {token_env} is unset, secret file {token_file} is unreadable, and OS keyring id {keyring_id} is absent; refusing anonymous API call"
+    ))
+}
+
 fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
     let reg_path = root.join("infra/registry.json");
     let raw = std::fs::read_to_string(&reg_path)
@@ -48,22 +80,33 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
         .as_str()
         .unwrap_or("/etc/cynic/secrets/forgejo-token");
 
-    let token = std::env::var(token_env)
-        .ok()
-        .filter(|v| !v.is_empty())
-        .or_else(|| {
-            std::fs::read_to_string(token_file)
-                .ok()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-        });
+    // Keyring id mirrors the principal file name (forgejo-token), same
+    // convention as the headscale migration: file and keyring address the
+    // same secret id in different backends.
+    let keyring_id = "forgejo-token";
+    let keyring = OsCredentialStoreSecretProvider::default();
+    let token = resolve_vcs_token(
+        token_env,
+        token_file,
+        keyring_id,
+        |name| std::env::var(name).ok(),
+        |path| std::fs::read_to_string(path).ok(),
+        |id| {
+            keyring.resolve(&SecretReference::with_class(
+                "forgejo",
+                id,
+                cynic_secrets::SecretClass::RuntimeMachineIdentity,
+                cynic_secrets::SecretProviderKind::OsCredentialStore,
+            ))
+        },
+    )?;
 
     match kind {
         "forgejo" => Ok(Box::new(ForgejoPrAdapter::new(
             api_url.to_string(),
             owner.to_string(),
             repo.to_string(),
-            token,
+            Some(token),
         ))),
         other => Err(format!(
             "unknown vcs_provider kind '{other}' — only 'forgejo' is implemented"
@@ -126,6 +169,12 @@ pub(crate) enum SourceCommand {
         command: PrCommand,
     },
     /// Deploy built release binaries atomically to /var/lib/cynic/releases/<version>.
+    ///
+    /// Without --restart-unit the release is STAGED only (files placed,
+    /// symlink switched, no daemon touched). With --restart-unit (repeatable
+    /// `unit[:health_url]`, e.g. `cynic-kernel.service:http://127.0.0.1:3030/health`)
+    /// each declared unit is restarted, health-probed, and the deploy rolls
+    /// back on failure. Only declared units are ever restarted.
     Deploy {
         #[arg(long, default_value = "/var/lib/cynic")]
         state_root: String,
@@ -139,6 +188,23 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         apply: bool,
         /// Emit JSON report
+        #[arg(long)]
+        json: bool,
+        /// Declared unit to restart after switch, `unit[:health_url]`.
+        /// Repeatable. Without it the release stays staged.
+        #[arg(long)]
+        restart_unit: Vec<String>,
+    },
+    /// Plan the public projection of the private tree from contracts/publication.json.
+    ///
+    /// Read-only: emits a plan of which paths are published, which are excluded,
+    /// which are undeclared, and which private literals no redaction covers. It
+    /// performs no mutation and never pushes. Admission is refused on any
+    /// undeclared path, dead rule, or uncovered private literal.
+    Publish {
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Emit JSON plan
         #[arg(long)]
         json: bool,
     },
@@ -234,6 +300,7 @@ fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObser
 
 pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
     match command {
+        SourceCommand::Publish { root, json } => execute_publish(Path::new(&root), json),
         SourceCommand::Status { root, json } => {
             let path = Path::new(&root);
             let observation = cynic_host::source_sync::observe_all_layers(path);
@@ -397,12 +464,14 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             version,
             apply,
             json,
+            restart_unit,
         } => execute_deploy(
             Path::new(&root),
             Path::new(&state_root),
             version.as_deref(),
             apply,
             json,
+            &restart_unit,
         ),
     }
 }
@@ -874,12 +943,15 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             };
 
-            // Gate evaluation — builder check proxied via cynic audit
+            // Gate evaluation — builder check proxied via cynic audit.
+            // NOTE: the subcommand is `audit crate` (singular). A past
+            // rename left this gate invoking a dead `audit crates` name,
+            // which failed closed on every merge (observed 2026-10-07).
             let builder_ok = {
                 let audit_output = std::process::Command::new(
                     std::env::current_exe().unwrap_or_else(|_| "cynic".into()),
                 )
-                .args(["audit", "crates", "--json"])
+                .args(["audit", "crate", "--json"])
                 .output();
                 match audit_output {
                     Ok(o) => o.status.success(),
@@ -919,8 +991,112 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
     }
 }
 
+/// Plan the public projection of the private tree.
+///
+/// Read-only. Observation is `git ls-files -z` (unquoted, so non-ASCII paths
+/// survive) plus the bytes of every path the contract publishes. The pure
+/// decision lives in `cynic_vcs::plan_publication`; this function only reads the
+/// substrate and projects the plan. It never writes and never pushes.
+fn execute_publish(root: &Path, json: bool) -> ExitCode {
+    let contract_path = root.join("contracts/publication.json");
+    let raw = match std::fs::read_to_string(&contract_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            eprintln!("blocked: cannot read {}: {e}", contract_path.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    let contract = match cynic_vcs::PublicationContract::from_json(&raw) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("blocked: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let output = match std::process::Command::new("git")
+        .args(["ls-files", "-z"])
+        .current_dir(root)
+        .output()
+    {
+        Ok(o) => o,
+        Err(e) => {
+            eprintln!("blocked: git ls-files failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !output.status.success() {
+        eprintln!("blocked: git ls-files exited non-zero");
+        return ExitCode::FAILURE;
+    }
+    let tracked: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .split('\0')
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+
+    // Read the bytes of every path the contract publishes so the plan can report
+    // private literals no redaction covers. Non-UTF-8 files are read lossily:
+    // the plan's job is to surface literals, not to preserve bytes.
+    let mut files: Vec<(String, String)> = Vec::new();
+    for path in &tracked {
+        if contract
+            .rule_for(path)
+            .is_some_and(|r| r.status.is_published())
+        {
+            if let Ok(bytes) = std::fs::read(root.join(path)) {
+                files.push((path.clone(), String::from_utf8_lossy(&bytes).to_string()));
+            }
+        }
+    }
+
+    let plan = cynic_vcs::plan_publication(&contract, &tracked, &files);
+    let admitted = plan.is_admitted();
+
+    if json {
+        emit_pretty_json(&plan);
+        return if admitted {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
+
+    println!(
+        "Publication plan — {} ({})",
+        plan.contract_schema, plan.contract_status
+    );
+    println!("  tracked:   {}", plan.tracked_count);
+    println!("  published: {}", plan.published_count);
+    println!("  excluded:  {}", plan.excluded_count);
+    println!("  undeclared: {}", plan.undeclared.len());
+    println!("  dead rules: {}", plan.dead_rules.len());
+    println!(
+        "  uncovered private literals: {}",
+        plan.uncovered_literals.len()
+    );
+    for literal in plan.uncovered_literals.iter().take(10) {
+        println!("    {} ({} path(s))", literal.literal, literal.paths.len());
+    }
+    if admitted {
+        println!("ADMITTED — the private tree satisfies contracts/publication.json.");
+        ExitCode::SUCCESS
+    } else {
+        println!("REFUSED — {} blocker(s):", plan.blockers.len());
+        for blocker in plan.blockers.iter().take(20) {
+            println!("    {blocker}");
+        }
+        if plan.blockers.len() > 20 {
+            println!("    … and {} more", plan.blockers.len() - 20);
+        }
+        ExitCode::FAILURE
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::resolve_vcs_token;
+
     #[test]
     fn cli_source_surface_builds() {
         let cmd = super::SourceCommand::Status {
@@ -928,5 +1104,63 @@ mod tests {
             json: false,
         };
         let _ = super::execute_source(cmd);
+    }
+
+    #[test]
+    fn token_prefers_env_over_file() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/nonexistent",
+            "forgejo-token",
+            |_| Some("env-token".to_string()),
+            |_| Some("file-token".to_string()),
+            |_| Some("keyring-token".to_string()),
+        );
+        assert_eq!(got, Ok("env-token".to_string()));
+    }
+
+    #[test]
+    fn token_falls_back_to_file() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
+            |_| None,
+            |_| Some("  file-token\n".to_string()),
+            |_| Some("keyring-token".to_string()),
+        );
+        assert_eq!(got, Ok("file-token".to_string()));
+    }
+
+    #[test]
+    fn token_falls_back_to_keyring() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
+            |_| None,
+            |_| None,
+            |_| Some("keyring-token".to_string()),
+        );
+        assert_eq!(got, Ok("keyring-token".to_string()));
+    }
+
+    #[test]
+    fn missing_token_fails_closed_naming_all_sources() {
+        let err = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
+            |_| None,
+            |_| None,
+            |_| None,
+        )
+        .expect_err("must refuse anonymous API call");
+        assert!(err.contains("FORGEJO_TOKEN"), "names env source: {err}");
+        assert!(
+            err.contains("/etc/cynic/secrets/forgejo-token"),
+            "names file source: {err}"
+        );
+        assert!(err.contains("forgejo-token"), "names keyring id: {err}");
     }
 }

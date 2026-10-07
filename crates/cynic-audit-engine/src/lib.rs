@@ -1,12 +1,13 @@
+mod artefact_rule;
 pub mod debt_ledger;
 mod module_inversion_rule;
-mod artefact_rule;
 pub mod path_rules;
 pub mod prose_citation_rule;
 pub mod topology;
 pub mod topology_generate;
 pub mod rules;
 mod runtime_divergence;
+pub mod runtime_path_literal_rule;
 pub mod scanner;
 
 use std::path::Path;
@@ -23,6 +24,7 @@ use self::rules::{
     PathSanitationRule,
 };
 use self::runtime_divergence::RuntimeDivergenceRule;
+use self::runtime_path_literal_rule::RuntimePathLiteralRule;
 use self::scanner::scan_workspace;
 pub use self::scanner::{HostObservation, WorkspaceSourceIndex};
 
@@ -73,6 +75,7 @@ pub fn default_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(ModuleInversionRule),
         Box::new(LayerModelDeclaredRule),
         Box::new(CodeCitesProseRule),
+        Box::new(RuntimePathLiteralRule),
     ]
 }
 
@@ -87,6 +90,7 @@ pub fn default_path_rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(DeclaredPathExistenceRule),
         Box::new(RustPathReferenceRule),
         Box::new(PathSsotIgnoreRule),
+        Box::new(RuntimePathLiteralRule),
     ]
 }
 

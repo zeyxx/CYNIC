@@ -56,3 +56,15 @@ FORGEJO_TOKEN=… ./scripts/forgejo-bootstrap
 ```
 
 Reports and MCP must show **presence** (`has_api_key=true`) never the secret.
+
+## TODO (explicit, recorded 2026-10-07): per-node keyring scope
+
+Each machine serves its own OS keyring for its own consumers; keyrings
+never sync. Missing before this is done:
+
+1. `secret status` per node (today: local machine only) — a divergent
+   `forgejo-token` on two keyrings is invisible drift.
+2. ID namespace convention for shared secret names across nodes
+   (prefix per node where the same id legitimately differs).
+3. Keyring inventory in the posture report: which node, which ids,
+   presence only.
