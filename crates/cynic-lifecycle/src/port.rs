@@ -129,29 +129,6 @@ impl cynic_build::BuildRunner for MapArgvRunner {
     }
 }
 
-impl ArgvRunner for MapArgvRunner {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        let key: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
-        for (k, v) in &self.responses {
-            if k == &key {
-                return v.clone();
-            }
-        }
-        // prefix match: first N tokens
-        for (k, v) in &self.responses {
-            if key.len() >= k.len() && key[..k.len()] == k[..] {
-                return v.clone();
-            }
-        }
-        ArgvOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: format!("MapArgvRunner: no stub for {argv:?}"),
-            spawn_error: Some(format!("MapArgvRunner: no stub for {argv:?}")),
-        }
-    }
-}
-
 pub fn split_command(command: &str) -> Vec<&str> {
     command.split_whitespace().collect()
 }
@@ -165,12 +142,4 @@ pub fn json_status(stdout: &str) -> Option<String> {
 
 pub fn parse_json(stdout: &str) -> Option<serde_json::Value> {
     serde_json::from_str(stdout.trim()).ok()
-}
-
-/// Blanket impl: a shared runner behind an `Arc` is still an argv runner.
-/// Lets fleet observers hold `Arc<R>` and hand `Arc<R>` clones to adapters.
-impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        self.as_ref().run(argv)
-    }
 }
