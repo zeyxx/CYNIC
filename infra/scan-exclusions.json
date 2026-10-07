@@ -1,0 +1,105 @@
+{
+  "schema": "cynic.infra.scan_exclusions.v1",
+  "status": "normative",
+  "purpose": "Single source for the directory and extension sets that repository scanners must skip. Exists because five scanners in this workspace each hand-wrote their own EXCLUDED_DIRS list (cynic-release secret_lint, cynic-host local_disk x2, cynic-host space_gc/observe, cynic-host-probes llm), and they had drifted: node_modules appears in all five, .cargo-home and vendor in one, and no Python cache in any of them. A Python venv in the tree therefore reached `cynic audit secret` and failed the release gate on a third-party `verify_token=` literal. Declaring the sets here makes the drift observable instead of discovered at gate time.",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "infra/runtime-authority.json",
+    "infra/directory-tree.json",
+    "infra/registry.json",
+    "workspace Cargo.toml",
+    "canonical Rust crates",
+    "infra/agent-exposure.json"
+  ],
+  "notes": [
+    "This registry declares what scanners skip. It does NOT declare what the filesystem must contain; infra/directory-tree.json owns that. Adding a required path here would be a category error.",
+    "A scanner that cannot read this file MUST keep a compiled-in fallback identical to the `fallback` lists below, so a missing registry degrades to today's behaviour instead of scanning everything."
+  ],
+  "scanners": {
+    "secret_lint": {
+      "consumer": "crates/cynic-release/src/adapters/secret_lint/mod.rs",
+      "purpose": "Detect credential-shaped literals in tracked source before release.",
+      "excluded_dirs": [
+        ".git",
+        ".cargo-home",
+        ".venv",
+        ".venv_data",
+        "__pycache__",
+        "node_modules",
+        "target",
+        "vendor"
+      ],
+      "excluded_extensions": [
+        "bin",
+        "gif",
+        "gz",
+        "ico",
+        "jpeg",
+        "jpg",
+        "pdf",
+        "png",
+        "ttf",
+        "woff",
+        "woff2",
+        "zip"
+      ],
+      "measured_gap_closed": "1.3G .venv_data tree, 25854 files walked, one false-positive finding at huggingface_hub/_eval_results.py:67"
+    },
+    "disk_scan": {
+      "consumer": "crates/cynic-host/src/adapters/local_disk.rs",
+      "purpose": "Enumerate disk usage on a host. Must not descend into dependency trees to count build output as user data.",
+      "excluded_dirs": [
+        ".git",
+        ".venv",
+        ".venv_data",
+        "__pycache__",
+        "node_modules",
+        "target"
+      ],
+      "excluded_extensions": [],
+      "measured_gap_closed": "the two local_disk walkers excluded only .git and node_modules, so a Python venv counted as host data"
+    },
+    "space_gc": {
+      "consumer": "crates/cynic-host/src/space_gc/observe.rs",
+      "purpose": "Report reclaimable space for garbage collection.",
+      "excluded_dirs": [
+        ".git",
+        ".venv",
+        ".venv_data",
+        "__pycache__",
+        "node_modules",
+        "target"
+      ],
+      "excluded_extensions": [],
+      "measured_gap_closed": "GC candidates were computed over dependency caches, which are regenerable and must never be reported as reclaimable user space"
+    }
+  },
+  "fallback": {
+    "why": "A scanner may run outside the repository root (packaged release, builder sandbox) where infra/ is absent. Compiling the list in keeps the gate fail-closed on a real finding rather than fail-open by scanning a vendored venv.",
+    "excluded_dirs": [
+      ".git",
+      ".cargo-home",
+      ".venv",
+      ".venv_data",
+      "__pycache__",
+      "node_modules",
+      "target",
+      "vendor"
+    ],
+    "excluded_extensions": [
+      "bin",
+      "gif",
+      "gz",
+      "ico",
+      "jpeg",
+      "jpg",
+      "pdf",
+      "png",
+      "ttf",
+      "woff",
+      "woff2",
+      "zip"
+    ]
+  }
+}

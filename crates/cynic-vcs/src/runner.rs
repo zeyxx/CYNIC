@@ -15,62 +15,15 @@ pub trait VcsRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> VcsCommandOutput;
 }
 
-/// String-oriented argv runner output matching CYNIC ArgvOutput.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArgvOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
+/// String-oriented argv runner and output — the single L0 port, re-exported
+/// so existing `crate::runner::` paths keep working. The local copies this
+/// replaces had a narrower contract (no `Serialize`, `MapArgvRunner` hidden
+/// behind `cfg(test)`); `VcsRunner`/`VcsCommandOutput` above stay separate
+/// because git output is byte-oriented and must not round-trip through `String`.
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
-impl ArgvOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-
-    pub fn summary(&self) -> String {
-        if let Some(err) = &self.spawn_error {
-            return format!("spawn error: {err}");
-        }
-        let code = self
-            .exit_code
-            .map(|c| c.to_string())
-            .unwrap_or_else(|| "none".into());
-        let msg = if !self.stdout.trim().is_empty() {
-            self.stdout.trim()
-        } else if !self.stderr.trim().is_empty() {
-            self.stderr.trim()
-        } else {
-            "empty output"
-        };
-        format!("exit {code}: {msg}")
-    }
-}
-
-pub trait ArgvRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> ArgvOutput;
-}
-
+/// Test fake from the owning crate. `cynic-vcs` (L2) may depend on
+/// `cynic-lifecycle` (L1) in tests — downward dependency, DAG-legal — but
+/// production code must never fabricate runners.
 #[cfg(test)]
-#[derive(Debug, Clone)]
-pub struct MapArgvRunner {
-    pub responses: Vec<(Vec<String>, ArgvOutput)>,
-}
-
-#[cfg(test)]
-impl ArgvRunner for MapArgvRunner {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        for (pattern, resp) in &self.responses {
-            if pattern.iter().map(|s| s.as_str()).eq(argv.iter().copied()) {
-                return resp.clone();
-            }
-        }
-        ArgvOutput {
-            exit_code: Some(1),
-            stdout: String::new(),
-            stderr: format!("unmatched argv: {:?}", argv),
-            spawn_error: None,
-        }
-    }
-}
+pub use cynic_lifecycle::MapArgvRunner;

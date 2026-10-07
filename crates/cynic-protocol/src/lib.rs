@@ -14,6 +14,7 @@ pub mod agent_session;
 pub mod agentic_tool_call;
 pub mod allowance;
 
+pub mod argv;
 pub mod argv_allow;
 pub mod artifact_release;
 pub mod audit;

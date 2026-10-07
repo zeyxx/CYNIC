@@ -2,47 +2,20 @@
 //!
 //! Domain must not hard-wire `Command::new("cynic")`. CLI injects
 //! [`LocalArgvRunner`]; tests inject fakes.
+//!
+//! The [`ArgvRunner`] trait and [`ArgvOutput`] type used to be defined here.
+//! They now live in [`cynic_protocol::argv`], beside [`cynic_protocol::argv_allow`]
+//! which already held the admission policy: the port that runs an argv must not
+//! sit above its own policy. `cynic-vcs` carried a third copy with a narrower
+//! contract (no `Serialize`, and its `MapArgvRunner` hidden behind `cfg(test)`).
+//!
+//! What stays here is the adapter layer: [`LocalArgvRunner`] spawns, and
+//! [`MapArgvRunner`] fabricates for tests in other crates — both depend on
+//! `cynic-build`, which an L0 port module must not.
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArgvOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl ArgvOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-
-    pub fn summary(&self) -> String {
-        if let Some(err) = &self.spawn_error {
-            return format!("spawn error: {err}");
-        }
-        let code = self
-            .exit_code
-            .map(|c| c.to_string())
-            .unwrap_or_else(|| "none".into());
-        let msg = if !self.stdout.trim().is_empty() {
-            self.stdout.trim()
-        } else if !self.stderr.trim().is_empty() {
-            self.stderr.trim()
-        } else {
-            "empty output"
-        };
-        format!("exit {code}: {msg}")
-    }
-}
-
-/// Argv-only command runner (no shell composition).
-pub trait ArgvRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> ArgvOutput;
-}
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 /// Production runner: spawns argv[0] with remaining args.
 #[derive(Debug, Default, Clone, Copy)]
@@ -140,6 +113,11 @@ fn observe_log_path() -> Option<String> {
 }
 
 /// Test double: returns fixed JSON for known commands.
+///
+/// The fake stays here (not in L0) because its `cynic-build` bridge impl
+/// below requires a local type: the orphan rule forbids implementing a
+/// foreign trait for a foreign type, so the struct must live where the
+/// bridge is implemented (observed 2026-10-07).
 #[derive(Debug, Default, Clone)]
 pub struct MapArgvRunner {
     pub responses: Vec<(Vec<String>, ArgvOutput)>,
@@ -158,18 +136,6 @@ impl MapArgvRunner {
                     )
                 })
                 .collect(),
-        }
-    }
-}
-
-impl cynic_build::BuildRunner for MapArgvRunner {
-    fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
-        let out = <Self as ArgvRunner>::run(self, argv);
-        cynic_build::BuildCommandOutput {
-            exit_code: out.exit_code,
-            stdout: out.stdout,
-            stderr: out.stderr,
-            spawn_error: out.spawn_error,
         }
     }
 }
@@ -197,6 +163,18 @@ impl ArgvRunner for MapArgvRunner {
     }
 }
 
+impl cynic_build::BuildRunner for MapArgvRunner {
+    fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
+        let out = <Self as ArgvRunner>::run(self, argv);
+        cynic_build::BuildCommandOutput {
+            exit_code: out.exit_code,
+            stdout: out.stdout,
+            stderr: out.stderr,
+            spawn_error: out.spawn_error,
+        }
+    }
+}
+
 pub fn split_command(command: &str) -> Vec<&str> {
     command.split_whitespace().collect()
 }
@@ -210,12 +188,4 @@ pub fn json_status(stdout: &str) -> Option<String> {
 
 pub fn parse_json(stdout: &str) -> Option<serde_json::Value> {
     serde_json::from_str(stdout.trim()).ok()
-}
-
-/// Blanket impl: a shared runner behind an `Arc` is still an argv runner.
-/// Lets fleet observers hold `Arc<R>` and hand `Arc<R>` clones to adapters.
-impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        self.as_ref().run(argv)
-    }
 }
