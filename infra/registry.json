@@ -422,6 +422,7 @@
       "status": "candidate",
       "deploy_target": true,
       "proxmox_id": "lxc/103",
+      "boot_persistence": true,
       "transports": {
         "ssh": {
           "target": "cynic-storage-primary.synapse.cynic",
@@ -488,6 +489,7 @@
       "status": "candidate",
       "deploy_target": true,
       "proxmox_id": "lxc/105",
+      "boot_persistence": true,
       "transports": {
         "ssh": {
           "target": "cynic-builder-ssh",
@@ -595,6 +597,32 @@
       }
     },
     {
+      "id": "cynic-agent-host",
+      "name": "cynic-agent-host",
+      "aliases": [
+        "agent-host"
+      ],
+      "role": "agent_host",
+      "host_family": "linux.ubuntu.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "proxmox_id": "lxc/102",
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "cynic-agent-host.synapse.cynic",
+          "trust": "ssh_trust_anchor"
+        }
+      },
+      "network": {
+        "service": "10.10.10.102"
+      },
+      "services": [],
+      "energy_profile": {
+        "class": "always_on"
+      }
+    },
+    {
       "id": "forgejo",
       "name": "forgejo",
       "aliases": [
@@ -605,6 +633,7 @@
       "status": "candidate",
       "deploy_target": true,
       "proxmox_id": "lxc/101",
+      "boot_persistence": true,
       "network": {
         "local": "10.10.10.101",
         "service": "10.10.10.101"
@@ -646,6 +675,7 @@
       "status": "candidate",
       "deploy_target": true,
       "proxmox_id": "lxc/100",
+      "boot_persistence": true,
       "transports": {
         "ssh": {
           "target": "headscale.synapse.cynic",
