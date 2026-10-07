@@ -98,10 +98,7 @@ pub fn parse_registry_network_specs(
     let mut dns_records = Vec::new();
     if let Some(res_arr) = reservations {
         for res in res_arr {
-            let ip = res
-                .get("synapse")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("");
+            let ip = cynic_network::plane_vocabulary::plane_address(res, "service").unwrap_or("");
             let name = res
                 .get("name")
                 .and_then(serde_json::Value::as_str)

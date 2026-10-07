@@ -27,14 +27,15 @@
       "provider": "wireguard"
     },
     "planes": {
-      "synapse": {
+      "labmesh": {
         "cidr": "172.30.40.0/24",
         "dns_zone": "labmesh.example",
         "canonical": true
       },
-      "proxmox_guest": {
+      "guest": {
         "cidr": "172.30.41.0/24",
-        "canonical": false
+        "canonical": false,
+        "purpose": "lab guest segment (libvirt bridged, QEMU/libvirt provider)"
       }
     },
     "reservations": [
@@ -67,12 +68,12 @@
       "name": "lab-kernel",
       "role": "kernel_primary",
       "host_family": "linux.debian.systemd",
-      "network_membership": "synapse_member",
+      "network_membership": "labmesh_member",
       "status": "candidate",
       "deploy_target": true,
       "network": {
-        "synapse": "172.30.40.10",
-        "local": "172.30.41.10"
+        "labmesh": "172.30.40.10",
+        "guest": "172.30.41.10"
       },
       "services": [
         {
@@ -93,12 +94,12 @@
       "name": "lab-builder",
       "role": "build_runner",
       "host_family": "linux.debian.systemd",
-      "network_membership": "synapse_member",
+      "network_membership": "labmesh_member",
       "status": "candidate",
       "deploy_target": false,
       "network": {
-        "synapse": "172.30.40.20",
-        "local": "172.30.41.20"
+        "labmesh": "172.30.40.20",
+        "guest": "172.30.41.20"
       },
       "services": [
         {
@@ -112,12 +113,12 @@
       "name": "lab-storage",
       "role": "storage_primary",
       "host_family": "linux.debian.systemd",
-      "network_membership": "synapse_member",
+      "network_membership": "labmesh_member",
       "status": "candidate",
       "deploy_target": false,
       "network": {
-        "synapse": "172.30.40.30",
-        "local": "172.30.41.30"
+        "labmesh": "172.30.40.30",
+        "guest": "172.30.41.30"
       },
       "services": [
         {

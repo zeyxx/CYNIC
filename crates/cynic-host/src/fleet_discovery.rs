@@ -135,14 +135,14 @@ fn parse_declared_nodes(bytes: &[u8]) -> Result<Vec<DeclaredNode>, String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string();
-            let synapse_ip = reservation
-                .get("synapse")
-                .and_then(|v| v.as_str())
+            // Canonical plane reads (RFC-NET-001 §2). The struct field names
+            // below are historical; only the registry access is migrated here,
+            // so this does not ripple into federation_envelopes.
+            let synapse_ip = cynic_network::plane_vocabulary::plane_address(reservation, "service")
                 .map(String::from);
-            let management_ip = reservation
-                .get("management")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+            let management_ip =
+                cynic_network::plane_vocabulary::plane_address(reservation, "admin")
+                    .map(String::from);
 
             if let Some(management) = management_ip {
                 // Find matching node for role and services

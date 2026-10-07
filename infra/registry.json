@@ -253,11 +253,62 @@
         "purpose": "bare-metal management and hypervisor control"
       },
       "mesh": {
-        "cidr": "10.20.0.0/24",
+        "cidr": "100.64.0.0/10",
         "canonical": false,
-        "purpose": "WireGuard encrypted full-mesh overlay"
+        "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
+        "cidr_basis": "rfc6598"
       }
-    }
+    },
+    "reservations": [
+      {
+        "name": "cynic-host-proxmox",
+        "dns": [
+          "cynic-host-proxmox.service.cynic"
+        ],
+        "service": "10.10.10.1",
+        "admin": "192.168.100.1"
+      },
+      {
+        "name": "local-kernel",
+        "dns": [
+          "kernel.service.cynic",
+          "local-kernel.service.cynic"
+        ],
+        "service": "10.10.10.100"
+      },
+      {
+        "name": "cynic-lxc-surrealdb",
+        "dns": [
+          "surrealdb.service.cynic",
+          "cynic-lxc-surrealdb.service.cynic"
+        ],
+        "service": "10.10.10.103"
+      },
+      {
+        "name": "cynic-builder",
+        "dns": [
+          "builder.service.cynic",
+          "cynic-builder.service.cynic"
+        ],
+        "service": "10.10.10.119"
+      },
+      {
+        "name": "forgejo",
+        "dns": [
+          "organ-forgejo.service.cynic",
+          "forgejo.service.cynic"
+        ],
+        "service": "10.10.10.101"
+      },
+      {
+        "name": "cynic-lxc-headscale",
+        "dns": [
+          "headscale.service.cynic",
+          "cynic-lxc-headscale.service.cynic"
+        ],
+        "service": "10.10.10.40"
+      }
+    ]
   },
   "nodes": [
     {
@@ -280,8 +331,8 @@
         }
       },
       "network": {
-        "management": "192.168.100.1",
-        "synapse": "10.10.10.1"
+        "admin": "192.168.100.1",
+        "service": "10.10.10.1"
       },
       "services": [],
       "energy_profile": {
@@ -298,11 +349,11 @@
       "status": "candidate",
       "deploy_target": false,
       "network": {
-        "management": "192.168.100.2"
+        "admin": "192.168.100.2"
       },
       "network_links": [
         {
-          "plane": "management",
+          "plane": "admin",
           "provider": "network-manager",
           "interface": "enp42s0",
           "connection": "Connexion filaire 1",
@@ -330,7 +381,7 @@
       "host_node_id": "cynic-host-cortex",
       "role": "kernel_primary",
       "network": {
-        "synapse": "10.10.10.100"
+        "service": "10.10.10.100"
       },
       "status": "candidate",
       "deploy_target": true,
@@ -340,7 +391,7 @@
           "artifact": "cynic-kernel",
           "scheme": "http",
           "endpoint_host": "192.168.100.2",
-          "network_plane": "management",
+          "network_plane": "admin",
           "port": 3030
         }
       ]
@@ -356,7 +407,8 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned."
+      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned.",
+      "network": {}
     },
     {
       "id": "cynic-lxc-surrealdb",
@@ -382,7 +434,7 @@
         }
       },
       "network": {
-        "synapse": "10.10.10.103"
+        "service": "10.10.10.103"
       },
       "services": [
         {
@@ -448,7 +500,7 @@
         }
       },
       "network": {
-        "synapse": "10.10.10.119"
+        "service": "10.10.10.119"
       },
       "source_workspace_layout": {
         "repository_store": "source/repositories",
@@ -527,7 +579,7 @@
           "scheme": "http",
           "endpoint_host": "10.10.10.119",
           "port": 9090,
-          "network_plane": "synapse",
+          "network_plane": "service",
           "unit": "cynic-node.service",
           "supervisor": {
             "provider": "systemd"
@@ -555,7 +607,7 @@
       "proxmox_id": "lxc/101",
       "network": {
         "local": "10.10.10.101",
-        "synapse": "10.10.10.101"
+        "service": "10.10.10.101"
       },
       "services": [
         {
@@ -601,7 +653,7 @@
         }
       },
       "network": {
-        "synapse": "10.10.10.40"
+        "service": "10.10.10.40"
       },
       "services": [
         {

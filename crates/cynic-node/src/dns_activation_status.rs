@@ -105,7 +105,7 @@ fn build_dns_activation_status_with_runtime(
     let dns_zone = registry_adapter
         .fetch_network_policy_summary()
         .ok()
-        .and_then(|summary| summary.synapse_dns_zone)
+        .and_then(|summary| summary.service_dns_zone)
         .unwrap_or_else(default_dns_zone);
     let synapse_dns_resolves = if resolve_dns {
         let dns_ok = topology_resolves_to_declared_addresses(&topology, &dns_zone);

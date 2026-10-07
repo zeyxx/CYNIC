@@ -82,7 +82,9 @@ pub(super) fn reservation_hosts_by_name(
     hosts
 }
 
-pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<String, String> {
+/// Reserved address per reservation name, read through the canonical plane
+/// resolver so `admin` / `mesh` reservations are honoured instead of dropped.
+pub(super) fn reservation_service_by_name(registry: &Registry) -> BTreeMap<String, String> {
     registry
         .network_policy
         .as_ref()
@@ -92,10 +94,7 @@ pub(super) fn reservation_synapse_by_name(registry: &Registry) -> BTreeMap<Strin
         .filter_map(|reservation| {
             Some((
                 reservation.name.clone().filter(|value| !value.is_empty())?,
-                reservation
-                    .synapse
-                    .clone()
-                    .filter(|value| !value.is_empty())?,
+                reservation.best_address()?.to_string(),
             ))
         })
         .collect()

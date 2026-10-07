@@ -21,51 +21,78 @@ fn network_domain_has_no_orchestrator_dependencies() {
 }
 
 #[test]
-fn network_domain_has_zero_direct_io_network_calls() {
-    // References & Canonical Hexagonal Sources:
-    // 1. Alistair Cockburn: Hexagonal Architecture (Ports and Adapters)
-    //    https://alistair.cockburn.us/hexagonal-architecture/
-    // 2. Domain-Driven Design (Eric Evans): Zero-I/O Domain Core Pattern
-    //    The core domain must never spawn raw network I/O or HTTP clients directly;
-    //    I/O must remain behind explicit ports.
+fn network_domain_has_no_uncontrolled_async_runtimes() {
     let cargo_toml_path = network_crate_root().join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path).expect("read Cargo.toml");
 
     assert!(
         !content.contains("tokio"),
-        "cynic-network core domain must not depend on tokio async runtime directly"
-    );
-    assert!(
-        !content.contains("reqwest"),
-        "cynic-network core domain must not depend on reqwest HTTP client directly (Hexagonal SoC)"
+        "cynic-network must not depend on tokio async runtime directly"
     );
 }
 
 #[test]
-fn network_extracted_domain_is_pure_zero_io() {
-    let domain_files = [
+fn network_functional_core_is_strictly_zero_io() {
+    // Functional Core / Imperative Shell (FCIS) invariant:
+    // Core domain modules must NEVER execute direct raw I/O or HTTP calls.
+    // All side-effects stay strictly quarantined in `src/adapters/`.
+    let core_files = [
         "src/types.rs",
+        "src/probe.rs",
+        "src/discovery.rs",
+        "src/firewall_policy.rs",
+        "src/mesh_plan.rs",
+        "src/dns.rs",
+        "src/actuator.rs",
+        "src/freebox.rs",
+        "src/port.rs",
+        "src/registry_maintenance.rs",
+        "src/telemetry.rs",
         "src/transport_readback.rs",
+        "src/transport_security.rs",
+        "src/watchdog_alerter.rs",
     ];
-    for rel_path in &domain_files {
+
+    for rel_path in &core_files {
         let path = network_crate_root().join(rel_path);
         let content = fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("failed to read {:?}: {}", path, e));
 
         assert!(
             !content.contains("std::process::Command"),
-            "Pure Domain Violation: {} contains direct std::process::Command!",
+            "FCIS Core Violation: {} contains direct std::process::Command!",
             rel_path
         );
         assert!(
             !content.contains("reqwest"),
-            "Pure Domain Violation: {} contains network HTTP dependencies!",
+            "FCIS Core Violation: {} contains direct reqwest HTTP dependency!",
             rel_path
         );
         assert!(
             !content.contains("tokio::spawn"),
-            "Pure Domain Violation: {} spawns async runtimes inside pure domain!",
+            "FCIS Core Violation: {} spawns async runtimes inside core!",
             rel_path
         );
     }
+}
+
+#[test]
+fn network_adapters_are_isolated_imperative_shell() {
+    let adapters_dir = network_crate_root().join("src/adapters");
+    assert!(
+        adapters_dir.exists(),
+        "src/adapters must exist as the imperative shell"
+    );
+    assert!(
+        adapters_dir.join("headscale.rs").exists(),
+        "headscale adapter must be in adapters/"
+    );
+    assert!(
+        adapters_dir.join("finance.rs").exists(),
+        "finance adapter must be in adapters/"
+    );
+    assert!(
+        adapters_dir.join("host_probe.rs").exists(),
+        "host_probe adapter must be in adapters/"
+    );
 }

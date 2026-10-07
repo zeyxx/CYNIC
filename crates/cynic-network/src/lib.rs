@@ -1,16 +1,19 @@
 //! Network observation domain (4-layer: physical / volume / usage / pressure).
 //!
-//! Pure parsers live in `probe`; the observe port is in `port`; canonical
-//! types are re-exported from `types` so host-domain code
-//! has a stable path (`crate::domain::network::*`) without duplicating policy.
+//! Conforms to Functional Core / Imperative Shell (FCIS) hybrid architecture:
+//! - Functional Core: pure data models (`types`), pure parsers (`probe`),
+//!   pure drift detection (`discovery`), and pure planning (`firewall_policy`, `mesh_plan`).
+//! - Imperative Shell: side-effecting I/O isolated under `adapters/`.
+
 pub mod actuator;
+pub mod adapters;
 pub mod discovery;
 pub mod dns;
-pub mod finance_adapters;
-pub mod headscale_client;
 pub mod firewall_policy;
 pub mod freebox;
 pub mod mesh_plan;
+pub mod fleet_membership;
+pub mod plane_vocabulary;
 pub mod port;
 pub mod probe;
 pub mod registry_maintenance;
@@ -19,6 +22,15 @@ pub mod transport_readback;
 pub mod transport_security;
 pub mod types;
 pub mod watchdog_alerter;
+
+// Re-export adapters for direct and legacy access
+pub use adapters::finance::NetworkFinanceMeter;
+pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
+pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
+
+// Backward compatibility module aliases
+pub use adapters::finance as finance_adapters;
+pub use adapters::headscale as headscale_client;
 
 pub use actuator::*;
 pub use discovery::*;

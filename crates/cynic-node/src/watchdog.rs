@@ -140,9 +140,10 @@ pub fn resolve_watchdog_services(registry_path: &str) -> Vec<ServiceProbeSpec> {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("");
         let net = node.get("network");
+        // Canonical plane order, resolved through the shared reader so a
+        // legacy registry key still resolves.
         let ip = net
-            .and_then(|n| n.get("synapse").or_else(|| n.get("management")))
-            .and_then(serde_json::Value::as_str)
+            .and_then(cynic_network::plane_vocabulary::best_plane_address)
             .unwrap_or("");
 
         if ip.is_empty() {

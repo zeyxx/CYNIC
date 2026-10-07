@@ -77,8 +77,10 @@ pub(crate) fn isolation_plan(network_policy: Option<&Value>) -> LabIsolationPlan
     let planes = network_policy
         .and_then(|value| value.get("planes"))
         .and_then(Value::as_object);
+    // The lab guest segment. RFC-NET-001 §2: a lab plane is a named plane, never
+    // `local` — `local` is reserved for the node's own underlay/L2 address.
     let local_cidr = planes
-        .and_then(|planes| planes.get("proxmox_guest"))
+        .and_then(|planes| planes.get("guest"))
         .and_then(|plane| plane.get("cidr"))
         .and_then(Value::as_str)
         .map(ToString::to_string);
@@ -137,12 +139,15 @@ pub(crate) fn vm_plan(node: &Value) -> Result<LabVmPlan, String> {
         name,
         role,
         status,
-        local_ip: network
-            .and_then(|value| value.get("local"))
+        // RFC-NET-001 §2: `local` is the node underlay, not a plane. The lab
+        // guest segment lives under its own plane name, so it is read from
+        // `guest` here and `local` stays available for a real underlay.
+        guest_ip: network
+            .and_then(|value| value.get("guest"))
             .and_then(Value::as_str)
             .map(ToString::to_string),
         mesh_ip: network
-            .and_then(|value| value.get("synapse"))
+            .and_then(|value| value.get("labmesh"))
             .and_then(Value::as_str)
             .map(ToString::to_string),
         services,

@@ -113,7 +113,9 @@ pub(crate) struct LabVmPlan {
     pub(crate) name: String,
     pub(crate) role: String,
     pub(crate) status: String,
-    pub(crate) local_ip: Option<String>,
+    /// Address on the lab's guest segment plane. Not `local`: RFC-NET-001 §2
+    /// reserves `local` for the node's own underlay/L2 address.
+    pub(crate) guest_ip: Option<String>,
     pub(crate) mesh_ip: Option<String>,
     pub(crate) services: Vec<String>,
     pub(crate) image_policy: &'static str,

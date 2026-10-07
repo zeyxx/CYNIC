@@ -261,20 +261,25 @@ impl RegistryNetworkLink {
 }
 
 impl RegistryDocument {
-    pub fn synapse_cidr(&self) -> Option<&str> {
-        self.network_policy.as_ref().and_then(|policy| {
-            policy
-                .planes
-                .get("synapse")
-                .and_then(|plane| plane.cidr.as_deref())
-        })
+    /// CIDR of the `service` plane, canonical or legacy registry key.
+    pub fn service_cidr(&self) -> Option<&str> {
+        let planes = &self.network_policy.as_ref()?.planes;
+        for key in [
+            cynic_network::plane_vocabulary::canonical_plane_key("service"),
+            "synapse",
+        ] {
+            if let Some(cidr) = planes.get(key).and_then(|plane| plane.cidr.as_deref()) {
+                return Some(cidr);
+            }
+        }
+        None
     }
 }
 
 impl RegistryNode {
     pub fn matching_direct_management_link(
         &self,
-        synapse_cidr: &str,
+        service_cidr: &str,
     ) -> Option<ResolvedDirectManagementLink> {
         self.network_links.iter().find_map(|link| {
             let Some(plane) = link.plane.as_deref() else {
@@ -288,7 +293,7 @@ impl RegistryNode {
                     return None;
                 }
             }
-            let route_match = link.routes.iter().any(|route| route.trim() == synapse_cidr);
+            let route_match = link.routes.iter().any(|route| route.trim() == service_cidr);
             if !route_match {
                 return None;
             }

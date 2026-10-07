@@ -44,7 +44,7 @@ pub fn build_dns_bundle(
     let topology = registry_adapter.fetch_static_topology()?;
     let zone = registry_adapter
         .fetch_network_policy_summary()?
-        .synapse_dns_zone
+        .service_dns_zone
         .unwrap_or_else(crate::dns_contract::default_dns_zone);
     let probe_fqdn = topology
         .iter()

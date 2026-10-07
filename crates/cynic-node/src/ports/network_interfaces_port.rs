@@ -5,6 +5,7 @@ use crate::{
     build_attestation::BinaryAttestation,
 };
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::error::Error;
 
 /// Canonical registry-backed topology view for node-local network decisions.
@@ -64,13 +65,13 @@ pub(crate) trait NodeRuntimeObservationPort {
     fn observe_wireguard(&self) -> CommandObservation;
     fn observe_mesh_runtime(
         &self,
-        synapse_cidr: &str,
-        synapse_probe_ip: &str,
+        service_cidr: &str,
+        service_probe_ip: &str,
     ) -> MeshRuntimeObservation;
     fn observe_dns_checks(
         &self,
         critical_hosts: &[String],
-        expected_synapse_ips: &std::collections::BTreeMap<String, String>,
+        expected_service_ips: &std::collections::BTreeMap<String, String>,
     ) -> Vec<DnsResolutionObservation>;
     fn observe_tcp_checks(&self, checks: &[ProviderServiceCheck]) -> Vec<TcpObservation>;
     fn observe_wg_quick_status(&self) -> CommandObservation;
@@ -90,8 +91,12 @@ pub struct RegistryNodeRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NetworkPolicySummary {
     pub canonical_service_plane: String,
-    pub synapse_cidr: Option<String>,
-    pub synapse_dns_zone: Option<String>,
+    pub service_cidr: Option<String>,
+    pub service_dns_zone: Option<String>,
+    /// Every plane CIDR the registry actually declares, canonical order.
+    /// Exposed so `admin` and `mesh` are observable state rather than
+    /// parsed-and-dropped fields.
+    pub declared_plane_cidrs: BTreeMap<String, String>,
     pub provider_fallback_planes: Vec<String>,
 }
 

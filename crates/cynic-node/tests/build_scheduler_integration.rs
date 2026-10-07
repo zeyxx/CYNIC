@@ -70,6 +70,7 @@ fn signed_build_grant_derivation_and_verification() {
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
         input: None,
+        resource_budget: None,
         action,
         delegation: AgentDelegationEnvelope {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),

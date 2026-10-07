@@ -1,0 +1,98 @@
+{
+  "schema": "cynic.observability.facts.v1",
+  "status": "normative",
+  "purpose": "Forbid any fact about the running system from being established by a constant, a static file, or a registry. A registry declares intent; only observation establishes a fact, and a fact that cannot be observed is unknown with a stated reason, never a silent default. Exists because a measured divergence went undetected for three weeks: a repository registry declared eight nodes with canonical plane keys, the runtime registry loaded six with legacy keys, and the resolver answered a zone that no registry published. Every test passed, because every consumer test reads an inline fixture and every DTO accepts both vocabularies through serde aliases. Nothing compared the sources.",
+  "authority": "contracts/observability-loop.json stages 1 and 2 \u2014 a component is not complete without observation and evaluation.",
+  "definitions": {
+    "declared": "A value written by a human or an agent expressing intent. A registry entry, a config key, a constant. It states what should be true.",
+    "observed": "A value read from the running substrate during this session, carrying a schema identifier, an observation timestamp, and the identity of the reader.",
+    "fact": "A claim about the running system. Every fact must trace to at least one observation. A declaration is not a fact.",
+    "unknown": "The state of a fact that was not observed. It is a first-class value carrying the reason it could not be observed. It is never a default, an empty string, a zero, or a null standing in for a successful read."
+  },
+  "rules": [
+    {
+      "id": "N5",
+      "rule": "A registry declares intent; it establishes nothing. Only observation establishes a fact about the running system.",
+      "corollary": "The forbidden inference is asymmetric and must be stated wherever a registry is read. A node absent from the runtime registry is NOT evidence that it does not exist. A node absent from the desired-state registry IS evidence that it should not exist.",
+      "detection": "Every registry consumer emits an observation of what it actually resolved, beside what it declared. Drift between the two is an input, not an error.",
+      "action": "Report the divergence with both values and the reader identity. Never pick a winner silently.",
+      "established_by": "registry_reconciliation.json finding C1: infra/registry.json declared service.cynic while /etc/cynic/registry.json declared synapse.cynic for the same six nodes at the same addresses, and no surface compared them."
+    },
+    {
+      "id": "N6",
+      "rule": "A single observed fact has exactly one owner and one schema, regardless of consumer. A fact may not be established by a constant, a static file, or a registry.",
+      "detection": "Audit every declared schema identifier. A fact observed by two components with two schemas, or established by a literal, is a violation.",
+      "action": "Name the owner, then converge the second reader onto the owner's schema. Do not suppress the duplicate.",
+      "established_by": "876 declared schema identifiers exist and only 26 of them, 3 percent, are observation or evidence schemas. 799, 91 percent, are exchange contracts and rendered outputs. The system is instrumented to talk, not to see."
+    },
+    {
+      "id": "N7",
+      "rule": "A fact that was not observed is unknown with a reason. A default is never substituted for an observation.",
+      "detection": "Any read path that returns a fallback when the substrate is unreadable is a violation site. This includes unwrap_or on a lookup, a const default where a probe belongs, and a hosts-file entry standing in for a served zone.",
+      "action": "Return the unknown with its reason. An unknown is a reportable state, not an error to be hidden and not a value to be invented.",
+      "established_by": "crates/cynic-node/src/network_shadow_proof.rs:118-135 detects and reports three drift kinds, dns_hosts_empty, dns_corefile_empty and dns_resolved_dropin_empty. The system observes its own DNS projection producing nothing and records it as drift rather than resolving it. Separately, crates/cynic-protocol/src/runtime_seed.rs:92 requests a detached signature from https://artifacts.synapse.cynic, which resolves nowhere under any zone. That endpoint was invented as a fixture argument and was never checked."
+    }
+  ],
+  "measurement_baseline": {
+    "observed_at": "commit da157df0, branch agent/hermes/network-mycelium-unification",
+    "schema_census": {
+      "total_declared": 876,
+      "observation_or_evidence": 26,
+      "rendered_output": 51,
+      "exchange_contract": 799
+    },
+    "logging_split": {
+      "note": "the node journals, the substrate and the projection do not. An action decided by the kernel leaves no readable trace on the substrate side.",
+      "cynic-cli": {
+        "println": 729,
+        "tracing": 0,
+        "note": "729 untyped println calls; the largest single block of unobservable output in the workspace"
+      },
+      "cynic-node": {
+        "println": 25,
+        "tracing": 316
+      },
+      "cynic-host": {
+        "println": 6,
+        "tracing": 0
+      },
+      "cynic-kernel": {
+        "println": 1,
+        "tracing": 35
+      }
+    },
+    "discovery_surface": {
+      "note": "one discover function exists in cynic-node and it enumerates build targets, not fleet members. No surface reports what is actually running. Fleet membership was established by running pct list on the hypervisor.",
+      "cynic-discovery-host": "220 LOC, and it re-exports adapters from the cynic-host monolith rather than owning discovery, which is also an L1 to L1 DAG inversion"
+    },
+    "silent_evidence": "crates/cynic-protocol/src/registry_claim_audit.rs:659 recorded observed: \"organ-headscale (not in registry nodes)\". The audit saw the divergence and nothing reconciled it."
+  },
+  "enforcement": {
+    "status": "declared, not yet enforced",
+    "gaps": [
+      "no surface reads the hypervisor to compare declared against actual membership, so N5 has no detector",
+      "no audit greps /etc/hosts on any node for fleet names the registry does not project",
+      "no check fails a build when a registry node name resolves nowhere",
+      "729 println calls in cynic-cli emit human text with no schema, so N6 cannot be checked there at all"
+    ],
+    "first_enforceable_step": "a registry-observation surface that resolves every declared node name, compares it against observed membership from the hypervisor, and emits a schema'd report. cynic-node registry-observation already exists as a surface and is the natural owner."
+  },
+  "explicit_non_goals": [
+    "this contract does not require every value to be dynamic; a compiled constant is legitimate when it is a pure function input with no claim about the running system",
+    "it does not require the runtime registry to equal the desired-state registry; they have distinct roles and their lag is the drift to reconcile",
+    "it does not prescribe a logging library; it prescribes that an observed fact carries a schema and an owner"
+  ],
+  "verification": {
+    "schema_census": "grep -rho '\"cynic\\.[a-z0-9_.]*\\.v[0-9]\"' --include=*.rs crates/ | sort -u | wc -l",
+    "observation_share": "grep -rho '\"cynic\\.[a-z0-9_.]*\\.v[0-9]\"' --include=*.rs crates/ | sort -u | grep -cE '\\.(observation|audit|evidence|proof|proofs|receipt)\\.'",
+    "silent_evidence": "grep -n 'organ-headscale (not in registry nodes)' crates/cynic-protocol/src/registry_claim_audit.rs",
+    "invented_endpoint": "grep -rn 'artifacts\\.synapse\\.cynic' --include=*.rs crates/ | grep -v target",
+    "dns_drift": "grep -n 'dns_hosts_empty\\|dns_corefile_empty' crates/cynic-node/src/network_shadow_proof.rs",
+    "logging_split": "for c in cynic-cli cynic-node cynic-host cynic-kernel; do printf '%s ' $c; grep -rho '\\bprintln!' --include=*.rs crates/$c/src/ | wc -l; done"
+  },
+  "ratification": {
+    "status": "normative on the operator's instruction of 2026-10-05",
+    "scope_note": "N5, N6 and N7 are transverse. The network domain is their first application and its worst current violator, but they govern every crate.",
+    "promotion_note": "already written in contracts/ because the operator ruled that a convention which cannot fail a build is prose. The enforcement gaps are stated above rather than implied absent."
+  }
+}

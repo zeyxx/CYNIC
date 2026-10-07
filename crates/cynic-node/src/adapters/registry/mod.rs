@@ -13,7 +13,7 @@ pub use agent_workspace_layout::RegistryAgentWorkspaceLayoutAdapter;
 use model::Registry;
 use projections::{
     canonical_names_for, preferred_node_host, reservation_hosts_by_name,
-    reservation_synapse_by_name, vm_aliases_by_name,
+    reservation_service_by_name, vm_aliases_by_name,
 };
 
 use crate::domain::fleet_truth::{Node, ObservedResource};
@@ -255,10 +255,10 @@ fn registry_dns_zone(registry: &Registry) -> String {
         .network_policy
         .as_ref()
         .and_then(|policy| policy.planes.as_ref())
-        .and_then(|planes| planes.synapse.as_ref())
+        .and_then(|planes| planes.service.as_ref())
         .and_then(|plane| plane.dns_zone.clone())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "synapse.cynic".to_string())
+        .unwrap_or_else(|| "service.cynic".to_string())
 }
 
 fn provider_fallback_cidr(registry: &Registry) -> String {
@@ -272,7 +272,7 @@ fn provider_fallback_cidr(registry: &Registry) -> String {
         .and_then(|plane| plane.cidr.clone())
         .or_else(|| {
             planes
-                .and_then(|p| p.synapse.as_ref())
+                .and_then(|p| p.service.as_ref())
                 .and_then(|plane| plane.cidr.clone())
         })
         .filter(|value| !value.is_empty())
@@ -326,36 +326,37 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
         let registry = self.load_registry()?;
         let dns_zone = registry_dns_zone(&registry);
         let reservation_hosts = reservation_hosts_by_name(&registry, &dns_zone);
-        let reservation_synapse = reservation_synapse_by_name(&registry);
+        let reservation_service = reservation_service_by_name(&registry);
         let mut records = Vec::new();
         let vm_aliases = vm_aliases_by_name(registry.nodes.as_deref().unwrap_or(&[]));
         for node in registry.nodes.unwrap_or_default() {
-            let Some(synapse_ip) = node
+            let Some(service_ip) = node
                 .network
                 .as_ref()
-                .and_then(|network| network.synapse.as_deref())
+                .and_then(|network| network.address_on("service"))
             else {
                 continue;
             };
-            if synapse_ip.starts_with('<') {
+            if service_ip.starts_with('<') {
                 continue;
             }
             let Some(primary_name) = node.name.clone().filter(|value| !value.is_empty()) else {
                 continue;
             };
-            if reservation_synapse.get(&primary_name).map(String::as_str) != Some(synapse_ip) {
+            if reservation_service.get(&primary_name).map(String::as_str) != Some(service_ip) {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     format!(
-                        "Synapse reservation missing or mismatched for {primary_name}: node={synapse_ip} reservation={:?}",
-                        reservation_synapse.get(&primary_name)
+                        "Service plane reservation missing or mismatched for {primary_name}: \
+                         node={service_ip} reservation={:?}",
+                        reservation_service.get(&primary_name)
                     ),
                 )
                 .into());
             }
             records.push(RegistryNodeRecord {
                 node: primary_name.clone(),
-                ip: synapse_ip.to_string(),
+                ip: service_ip.to_string(),
                 names: canonical_names_for(
                     &dns_zone,
                     &primary_name,
@@ -373,7 +374,7 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             for alias in aliases {
                 records.push(RegistryNodeRecord {
                     node: alias.clone(),
-                    ip: synapse_ip.to_string(),
+                    ip: service_ip.to_string(),
                     names: canonical_names_for(&dns_zone, &alias, &[], None),
                 });
             }
@@ -384,35 +385,39 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
     fn fetch_network_policy_summary(&self) -> Result<NetworkPolicySummary, Box<dyn Error>> {
         let registry = self.load_registry()?;
         let policy = registry.network_policy.unwrap_or_default();
-        let provider_fallback_planes = policy
-            .planes
-            .as_ref()
+        let planes = policy.planes.as_ref();
+        // Every declared plane that is explicitly non-canonical is a provider
+        // fallback. Reading through the resolver keeps this honest when a new
+        // plane is added to the registry.
+        let provider_fallback_planes = planes
             .map(|planes| {
-                let mut values = Vec::new();
-                if planes
-                    .proxmox_guest
-                    .as_ref()
-                    .is_some_and(|plane| plane.canonical == Some(false))
-                {
-                    values.push("proxmox_guest".to_string());
-                }
-                values
+                planes
+                    .declared_planes()
+                    .into_iter()
+                    .filter(|plane| {
+                        *plane != "service"
+                            && planes
+                                .get(plane)
+                                .and_then(|plane| plane.canonical)
+                                .is_some_and(|canonical| !canonical)
+                    })
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
         Ok(NetworkPolicySummary {
             canonical_service_plane: policy
                 .canonical_service_plane
-                .unwrap_or_else(|| "synapse".to_string()),
-            synapse_cidr: policy
-                .planes
-                .as_ref()
-                .and_then(|planes| planes.synapse.as_ref().and_then(|plane| plane.cidr.clone())),
-            synapse_dns_zone: policy.planes.as_ref().and_then(|planes| {
-                planes
-                    .synapse
-                    .as_ref()
-                    .and_then(|plane| plane.dns_zone.clone())
-            }),
+                .unwrap_or_else(|| "service".to_string()),
+            service_cidr: planes
+                .and_then(|planes| planes.get("service"))
+                .and_then(|plane| plane.cidr.clone()),
+            service_dns_zone: planes
+                .and_then(|planes| planes.get("service"))
+                .and_then(|plane| plane.dns_zone.clone()),
+            declared_plane_cidrs: planes
+                .map(|planes| planes.declared_plane_cidrs())
+                .unwrap_or_default(),
             provider_fallback_planes,
         })
     }
@@ -522,9 +527,17 @@ impl RegistryTopologyPort for LocalRegistryAdapter {
             let Some(network) = node.network.as_ref() else {
                 continue;
             };
-            let Some(local_ip) = network.best_ip().map(|value| value.to_string()) else {
+            // A provider-fallback check targets the node as seen from outside
+            // the fleet, so prefer the declared ingress / tailnet address and
+            // fall back to the L2-adjacent address.
+            let Some(target_ip) = network
+                .ingress_ip()
+                .or_else(|| network.best_ip())
+                .map(|value| value.to_string())
+            else {
                 continue;
             };
+            let local_ip = target_ip;
             let fallback_host = fallback_records
                 .iter()
                 .find(|record| record.node == name)

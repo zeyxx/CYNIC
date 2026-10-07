@@ -69,7 +69,7 @@ pub fn build_shadow_proof(
     let topology = registry_adapter.fetch_static_topology()?;
     let zone = registry_adapter
         .fetch_network_policy_summary()?
-        .synapse_dns_zone
+        .service_dns_zone
         .unwrap_or_else(crate::dns_contract::default_dns_zone);
     let renderer = SynapseDnsRenderer::new(zone);
     let activation_plan = renderer.activation_plan()?;
