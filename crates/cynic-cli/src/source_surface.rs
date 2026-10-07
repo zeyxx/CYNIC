@@ -943,12 +943,15 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             };
 
-            // Gate evaluation — builder check proxied via cynic audit
+            // Gate evaluation — builder check proxied via cynic audit.
+            // NOTE: the subcommand is `audit crate` (singular). A past
+            // rename left this gate invoking a dead `audit crates` name,
+            // which failed closed on every merge (observed 2026-10-07).
             let builder_ok = {
                 let audit_output = std::process::Command::new(
                     std::env::current_exe().unwrap_or_else(|_| "cynic".into()),
                 )
-                .args(["audit", "crates", "--json"])
+                .args(["audit", "crate", "--json"])
                 .output();
                 match audit_output {
                     Ok(o) => o.status.success(),
