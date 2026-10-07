@@ -4,6 +4,13 @@
 //! classification and admission rule; this module owns worktree locking,
 //! argv execution, and read-back evidence.
 
+//! Re-export pure source control types from `cynic-vcs` per Foundation §481 (SoC).
+//!
+//! The I/O functions (`observe_source_worktree`, `observe_source_push_target`,
+//! `GitSourceControlAdapter`, `SourceLock`, etc.) remain here in `cynic-host`
+//! because they depend on `crate::execution`, `crate::repo_access`, and
+//! `cynic_lifecycle::ArgvRunner` (L1 host substrate).
+
 use std::path::{Path, PathBuf};
 
 use cynic_protocol::SecurityEvidenceState;
@@ -18,25 +25,11 @@ use crate::repo_access::current_repo_access_status;
 use crate::source_lease::SourceLeaseVerifier;
 use cynic_lifecycle::{ArgvOutput, ArgvRunner};
 
-pub const SOURCE_CONTROL_PROOF_SCHEMA: &str = "cynic.host.source_control_proof.v1";
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SourceWorktreeObservation {
-    pub schema: &'static str,
-    pub root: String,
-    pub root_exists: bool,
-    pub git_dir: Option<String>,
-    pub git_dir_exists: bool,
-    pub owner: Option<String>,
-    pub group: Option<String>,
-    pub expected_owner: String,
-    pub ownership_status: &'static str,
-    pub mode: Option<u32>,
-    pub declared_writable: bool,
-    pub write_capability_status: &'static str,
-    pub status: &'static str,
-    pub blockers: Vec<String>,
-}
+// Re-export the pure types so existing `crate::source_control::` paths keep resolving.
+pub use cynic_vcs::source_control::{
+    SOURCE_CONTROL_PROOF_SCHEMA, SourceCommandProof, SourceControlPort, SourceControlProof,
+    SourcePushAuthorization, SourceWorktreeObservation, parse_snapshot,
+};
 
 pub fn observe_source_worktree(
     root: &Path,
@@ -154,35 +147,6 @@ fn group_name(id: u32) -> Option<String> {
         })
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct SourceControlProof {
-    pub schema: &'static str,
-    pub status: &'static str,
-    pub operation: &'static str,
-    pub admission: SourceChangeAdmission,
-    pub before: SourceSnapshot,
-    pub after: Option<SourceSnapshot>,
-    pub commands: Vec<SourceCommandProof>,
-    pub blockers: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SourceCommandProof {
-    pub argv: Vec<String>,
-    pub success: bool,
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct SourcePushAuthorization {
-    pub remote_target: SecurityEvidenceState,
-    pub transport_identity: SecurityEvidenceState,
-    pub authentication: SecurityEvidenceState,
-    pub remote_commit_matches: SecurityEvidenceState,
-}
-
 pub fn observe_source_push_target(repository_id: &str, remote: &str) -> SecurityEvidenceState {
     let report = current_repo_access_status();
     report
@@ -204,19 +168,6 @@ pub fn observe_source_push_target(repository_id: &str, remote: &str) -> Security
             }
         })
         .unwrap_or(SecurityEvidenceState::Absent)
-}
-
-pub trait SourceControlPort {
-    fn observe(&self) -> SourceSnapshot;
-    fn admit(&self, proposal: &SourceChangeProposal) -> SourceChangeAdmission;
-    fn commit(&self, proposal: &SourceChangeProposal) -> SourceControlProof;
-    fn push(
-        &self,
-        proposal: &SourceChangeProposal,
-        remote: &str,
-        branch: &str,
-        authorization: SourcePushAuthorization,
-    ) -> SourceControlProof;
 }
 
 pub struct GitSourceControlAdapter<'a, R: ArgvRunner> {
@@ -548,70 +499,5 @@ impl SourceLock {
 impl Drop for SourceLock {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
-    }
-}
-
-fn parse_snapshot(
-    branch: &str,
-    head: &str,
-    upstream: Option<String>,
-    status: &str,
-) -> SourceSnapshot {
-    let mut staged = Vec::new();
-    let mut unstaged = Vec::new();
-    let mut untracked = Vec::new();
-    let mut unmerged = Vec::new();
-    for line in status.lines() {
-        if line.len() < 3 {
-            continue;
-        }
-        let code = &line[..2];
-        let path = line[3..].to_string();
-        if code == "??" {
-            untracked.push(path);
-            continue;
-        }
-        if code.chars().next().is_some_and(|value| value != ' ') {
-            staged.push(path.clone());
-        }
-        if code.chars().nth(1).is_some_and(|value| value != ' ') {
-            unstaged.push(path.clone());
-        }
-        if code.contains('U') {
-            unmerged.push(path);
-        }
-    }
-    SourceSnapshot {
-        branch: (!branch.is_empty()).then(|| branch.to_string()),
-        head_commit: (!head.is_empty()).then(|| head.to_string()),
-        upstream,
-        staged_paths: staged,
-        unstaged_paths: unstaged,
-        untracked_paths: untracked,
-        unmerged_paths: unmerged,
-        validation: SecurityEvidenceState::Unknown,
-        sovereign_transport_identity: SecurityEvidenceState::Unknown,
-        sovereign_authentication: SecurityEvidenceState::Unknown,
-        remote_commit_matches: SecurityEvidenceState::Unknown,
-        build_input_digest: None,
-        evidence_refs: Vec::new(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn porcelain_snapshot_keeps_staged_and_untracked_distinct() {
-        let snapshot = parse_snapshot(
-            "main",
-            "abc",
-            Some("origin/main".into()),
-            "M  staged.rs\n M unstaged.rs\n?? new.rs\nUU conflict.rs\n",
-        );
-        assert_eq!(snapshot.staged_paths, vec!["staged.rs", "conflict.rs"]);
-        assert_eq!(snapshot.unstaged_paths, vec!["unstaged.rs", "conflict.rs"]);
-        assert_eq!(snapshot.untracked_paths, vec!["new.rs"]);
-        assert_eq!(snapshot.unmerged_paths, vec!["conflict.rs"]);
     }
 }

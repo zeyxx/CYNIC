@@ -167,23 +167,23 @@ pub(crate) fn execute_transport_run(
     }
 
     // Execute the rendered argv verbatim; capture read-back proof.
-    let (program, rest) = argv.split_first().expect("rendered argv non-empty");
-    let output = Command::new(program).args(rest).output();
-    match output {
-        Ok(output) => {
-            let success = output.status.success();
-            eprint!("{}", String::from_utf8_lossy(&output.stderr));
-            print!("{}", String::from_utf8_lossy(&output.stdout));
-            report.status = if success { "completed" } else { "failed" }.to_string();
-            if !success {
-                report
-                    .blockers
-                    .push(format!("exit_status: {:?}", output.status.code()));
-            }
-        }
+    // Migrated to ArgvRunner: single point for resource limits, timeouts, logging.
+    let argv_ref: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+    let output = match crate::adapters::argv_runner::ArgvRunner::run(&argv_ref) {
+        Ok(output) => output,
         Err(error) => {
             report.blockers.push(format!("spawn_failed: {error}"));
+            return finish(report);
         }
+    };
+    let success = output.success();
+    eprint!("{}", output.stderr);
+    print!("{}", output.stdout);
+    report.status = if success { "completed" } else { "failed" }.to_string();
+    if !success {
+        report
+            .blockers
+            .push(format!("exit_status: {:?}", output.exit_code));
     }
     finish(report)
 }

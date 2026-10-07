@@ -166,6 +166,7 @@ use cynic_protocol::{
                 explicit_apply: true,
                 satisfied_preconditions: vec![],
             },
+        resource_budget: None,
         }
     }
 

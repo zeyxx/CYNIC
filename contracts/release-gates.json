@@ -31,6 +31,13 @@
         "command": "cynic dev check --architecture-only",
         "pass_condition": "all boundary checks pass",
         "reference": "CYNIC architecture contract"
+      },
+      {
+        "name": "build_proof",
+        "description": "The builder rendered a converged verdict on this exact commit. Absence of proof blocks: a commit never validated on the declared build SSOT is not releasable.",
+        "command": "cynic build proofs list --commit <sha> --json",
+        "pass_condition": "most recent proof for the commit has status converged",
+        "reference": "CYNIC build contract; the builder is the declared SSOT for build validation"
       }
     ],
     "optional": [

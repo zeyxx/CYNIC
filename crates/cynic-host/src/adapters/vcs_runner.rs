@@ -10,29 +10,19 @@ pub struct LocalVcsRunner;
 
 impl VcsRunner for LocalVcsRunner {
     fn run(&self, argv: &[&str]) -> VcsCommandOutput {
-        if argv.is_empty() {
-            return VcsCommandOutput {
-                exit_code: None,
-                stdout: Vec::new(),
-                stderr: Vec::new(),
-                spawn_error: Some("empty argv".to_string()),
-            };
-        }
-        match std::process::Command::new(argv[0])
-            .args(&argv[1..])
-            .output()
-        {
+        // Migrated to ArgvRunner: single point for resource limits, timeouts, logging.
+        match crate::adapters::argv_runner::ArgvRunner::run(argv) {
             Ok(output) => VcsCommandOutput {
-                exit_code: output.status.code(),
-                stdout: output.stdout,
-                stderr: output.stderr,
-                spawn_error: None,
+                exit_code: output.exit_code,
+                stdout: output.stdout.into_bytes(),
+                stderr: output.stderr.into_bytes(),
+                spawn_error: output.spawn_error,
             },
             Err(error) => VcsCommandOutput {
                 exit_code: None,
                 stdout: Vec::new(),
                 stderr: Vec::new(),
-                spawn_error: Some(error.to_string()),
+                spawn_error: Some(error),
             },
         }
     }
@@ -40,29 +30,19 @@ impl VcsRunner for LocalVcsRunner {
 
 impl ArgvRunner for LocalVcsRunner {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
-        if argv.is_empty() {
-            return ArgvOutput {
-                exit_code: None,
-                stdout: String::new(),
-                stderr: String::new(),
-                spawn_error: Some("empty argv".to_string()),
-            };
-        }
-        match std::process::Command::new(argv[0])
-            .args(&argv[1..])
-            .output()
-        {
+        // Migrated to ArgvRunner: single point for resource limits, timeouts, logging.
+        match crate::adapters::argv_runner::ArgvRunner::run(argv) {
             Ok(output) => ArgvOutput {
-                exit_code: output.status.code(),
-                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-                spawn_error: None,
+                exit_code: output.exit_code,
+                stdout: output.stdout,
+                stderr: output.stderr,
+                spawn_error: output.spawn_error,
             },
             Err(error) => ArgvOutput {
                 exit_code: None,
                 stdout: String::new(),
                 stderr: String::new(),
-                spawn_error: Some(error.to_string()),
+                spawn_error: Some(error),
             },
         }
     }

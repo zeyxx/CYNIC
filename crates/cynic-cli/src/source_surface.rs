@@ -150,6 +150,88 @@ struct SourceExit {
     summary: String,
 }
 
+/// The SHA of the commit currently checked out, or None when git cannot answer.
+///
+/// None is not an error to swallow: it means no commit can be looked up, so no
+/// proof can exist for it, and the release gate treats that as NeverTested.
+fn observed_head_sha(root: &Path) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(root)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if sha.is_empty() {
+        None
+    } else {
+        Some(sha)
+    }
+}
+
+/// Read the proof log and reduce it to the builder's verdict on one commit.
+///
+/// The MOST RECENT proof for the commit is authoritative: a commit that was
+/// blocked and later fixed must be releasable, and one that converged and was
+/// then re-triggered into failure must not be. Reading the newest line is what
+/// makes a fix actually count.
+///
+/// An unreadable log is `Unreadable`, never `NeverTested`: evidence exists and
+/// cannot be read, which is a different problem with a different fix.
+fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObservation {
+    use cynic_release::build_proof::BuildProofObservation;
+
+    let log_path = match crate::build_proof_log::default_proof_log_path() {
+        Ok(path) => path,
+        // No HOME, no log: nothing was ever retained for this commit.
+        Err(_) => return BuildProofObservation::NeverTested,
+    };
+    let (proofs, skipped) = match crate::build_proof_log::read_proofs(&log_path, Some(sha), 0) {
+        Ok(reading) => reading,
+        Err(_) => return BuildProofObservation::NeverTested,
+    };
+    if proofs.is_empty() {
+        // A log with unparseable lines and no matching proof is Unreadable:
+        // the absence may be an artefact of the corruption, not a real absence.
+        if !skipped.is_empty() {
+            return BuildProofObservation::Unreadable {
+                skipped_lines: skipped.len(),
+            };
+        }
+        return BuildProofObservation::NeverTested;
+    }
+
+    // Newest last, per the reader's contract.
+    let newest = proofs.last().expect("non-empty checked above");
+    let node = newest
+        .get("node")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let status = newest
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    match status {
+        "converged" => BuildProofObservation::Converged { node },
+        "blocked" => BuildProofObservation::Blocked {
+            node,
+            reason: newest
+                .get("verdict_reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or("no reason recorded")
+                .to_string(),
+        },
+        // A status this build does not know how to interpret is not a pass.
+        other => BuildProofObservation::UnknownStatus {
+            node,
+            status: other.to_string(),
+        },
+    }
+}
+
 pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
     match command {
         SourceCommand::Status { root, json } => {
@@ -327,7 +409,28 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
 
 fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> ExitCode {
     let observation = cynic_host::source_sync::observe_all_layers(root);
-    let proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(root);
+    let mut proofs = cynic_release::adapters::release_gate_adapter::collect_host_gate_proofs(root);
+
+    // The builder's verdict on THIS commit, read from the proof log the trigger
+    // writes. `contracts/release-gates.json` declares `build_proof` mandatory:
+    // the builder is the declared SSOT for build validation, so a commit never
+    // validated there has no evidence to promote on.
+    //
+    // Four outcomes, three of them blocking — Converged, Blocked, NeverTested,
+    // Unreadable — and they are deliberately kept distinct: "not validated" and
+    // "evidence unreadable" call for different operator action.
+    let head_sha = observed_head_sha(root);
+    let build_observation = match head_sha.as_deref() {
+        Some(sha) => observe_build_proof(sha),
+        // HEAD unreadable: no commit to look up, so no proof exists for it.
+        None => cynic_release::build_proof::BuildProofObservation::NeverTested,
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    proofs.push(build_observation.to_gate_record(now));
+
     let report = cynic_release::evaluate_gate_records(proofs);
 
     if !report.all_passed {
@@ -340,7 +443,14 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
             ),
         };
         return if json {
-            emit_pretty_json(&exit)
+            emit_pretty_json(&serde_json::json!({
+                "schema": "cynic.source_release_report.v1",
+                "status": "blocked",
+                "commit": head_sha,
+                "build_proof": build_observation,
+                "gate_records": report.records,
+                "blockers": report.blockers,
+            }))
         } else {
             println!("{}", exit.summary);
             ExitCode::FAILURE

@@ -290,6 +290,7 @@ pub fn compose_build_agent_workload(
             explicit_apply: request.mutation_authorized,
             satisfied_preconditions: vec!["source_commit_observed".to_string()],
         },
+        resource_budget: None,
     })
 }
 

@@ -14,7 +14,7 @@ pub const DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA: &str = "cynic.durable_agent_work
 pub const AGENT_WORKLOAD_TRANSITION_REQUEST_SCHEMA: &str =
     "cynic.agent_workload_transition_request.v1";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DurableAgentWorkloadRecord {
     pub schema: String,
     pub revision: u64,
@@ -25,14 +25,14 @@ pub struct DurableAgentWorkloadRecord {
     pub committed_at_ms: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AgentWorkloadTransitionRequest {
     pub schema: String,
     pub expected_revision: Option<u64>,
     pub transition: AgentWorkloadTransition,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentWorkloadTransition {
     Dispatch {

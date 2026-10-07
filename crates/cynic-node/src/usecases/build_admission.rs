@@ -166,6 +166,7 @@ pub fn admit_build_check(
             explicit_apply: false,
             satisfied_preconditions: vec!["source_commit_observed".to_string()],
         },
+        resource_budget: None,
     };
     if !admit_agent_workload(&envelope).admitted() {
         return Err(vec![format!("build_admission_denied:{workload_id}")]);

@@ -1,7 +1,11 @@
 pub mod agent_access;
+pub mod argv_runner;
+pub mod jsonl_append;
+pub mod meminfo_reader;
 pub mod artifact_publisher_http;
 pub mod artifact_publisher_ssh;
 pub mod cpu_usage_meter;
+pub mod cgroup_isolation;
 pub mod fleet_branch_graph_observer;
 pub mod fleet_build_discovery_observer;
 pub mod fleet_queue_observer;
