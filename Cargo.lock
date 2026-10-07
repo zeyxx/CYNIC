@@ -833,6 +833,7 @@ dependencies = [
  "cynic-secrets",
  "cynic-storage",
  "cynic-vcs",
+ "cynic-vcs-forgejo",
  "cynic-workload",
  "hex",
  "libc",
@@ -997,6 +998,7 @@ dependencies = [
  "cynic-storage",
  "cynic-types",
  "cynic-vcs",
+ "cynic-vcs-forgejo",
  "cynic-workload",
  "ed25519-dalek",
  "hex",
@@ -1484,12 +1486,24 @@ version = "0.8.0"
 dependencies = [
  "cynic-network",
  "cynic-protocol",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "cynic-vcs-forgejo"
+version = "0.8.0"
+dependencies = [
+ "cynic-vcs",
  "hex",
  "hmac",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
  "thiserror 2.0.20",
  "zeroize",
 ]
