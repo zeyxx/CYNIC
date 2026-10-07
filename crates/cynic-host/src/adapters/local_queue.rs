@@ -39,7 +39,8 @@ impl LocalQueueAdapter {
         let discovery = match observe_discovery_local() {
             Ok(d) => d,
             Err(e) => {
-                unknowns.push(format!("discovery_fallback:{e}"));
+                // No direct push: the fallback report below already carries
+                // this cause, and the extend picks it up (no duplicates).
                 BuildDiscoveryReport {
                     schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
                     toolchain: Toolchain("stable".to_string()),
@@ -54,11 +55,13 @@ impl LocalQueueAdapter {
         // A discovery that succeeded partially still names its gaps — those
         // propagate to the plan so callers can tell live from guessed.
         unknowns.extend(discovery.residual_unknowns.iter().cloned());
-        let gc_plan = match LocalBuildArtefactAdapter
-            .observe_build_artefacts()
-            .map(|r| LocalBuildArtefactAdapter.plan_gc(&r))
-        {
-            Ok(plan) => plan,
+        let gc_plan = match LocalBuildArtefactAdapter.observe_build_artefacts_shallow() {
+            Ok(report) => {
+                // Shallow skips are the plan's unknowns too: sizes read 0 by
+                // contract, never by accident.
+                unknowns.extend(report.residual_unknowns.iter().cloned());
+                LocalBuildArtefactAdapter.plan_gc(&report)
+            }
             Err(e) => {
                 unknowns.push(format!("build_artefact_gc_fallback:{e}"));
                 cynic_build::build_artefact::BuildArtefactGcPlan {
