@@ -39,7 +39,8 @@ impl LocalQueueAdapter {
         let discovery = match observe_discovery_local() {
             Ok(d) => d,
             Err(e) => {
-                unknowns.push(format!("discovery_fallback:{e}"));
+                // No direct push: the fallback report below already carries
+                // this cause, and the extend picks it up (no duplicates).
                 BuildDiscoveryReport {
                     schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
                     toolchain: Toolchain("stable".to_string()),
