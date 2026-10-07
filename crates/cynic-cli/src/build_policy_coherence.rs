@@ -108,7 +108,9 @@ fn no_unregistered_parallelism_assignment_exists() {
     ];
 
     for (file, variable) in candidates {
-        if !registered.iter().any(|f| f == file) {
+        // Only flag files that are NOT declared as consumers. Declared files
+        // are checked by every_declared_consumer_carries_the_declared_value.
+        if registered.iter().any(|f| f == file) {
             continue;
         }
         let source = read_source(file);
