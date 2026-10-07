@@ -22,8 +22,6 @@ pub(super) struct RegistryPlanes {
     pub(super) synapse: Option<RegistryPlane>,
     pub(super) proxmox_guest: Option<RegistryPlane>,
     pub(super) service: Option<RegistryPlane>,
-    pub(super) admin: Option<RegistryPlane>,
-    pub(super) mesh: Option<RegistryPlane>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
