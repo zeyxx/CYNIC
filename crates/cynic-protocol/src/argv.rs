@@ -19,7 +19,6 @@
 //! contract is here.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Result of one argv execution.
 ///
@@ -89,56 +88,6 @@ pub trait ArgvRunner: Send + Sync {
 impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
     fn run(&self, argv: &[&str]) -> ArgvOutput {
         self.as_ref().run(argv)
-    }
-}
-
-/// Test double: returns fixed output for known commands. Lives here (not in
-/// `cynic-lifecycle`) for the same orphan-rule reason as the blanket impl
-/// above: every crate that fakes a runner — L1, L2, or higher — uses one
-/// type, production-available, with one matching semantic (exact match,
-/// then prefix match).
-#[derive(Debug, Default, Clone)]
-pub struct MapArgvRunner {
-    pub responses: Vec<(Vec<String>, ArgvOutput)>,
-}
-
-impl MapArgvRunner {
-    /// Build a test runner from shell-like command keys.
-    pub fn new(responses: HashMap<String, ArgvOutput>) -> Self {
-        Self {
-            responses: responses
-                .into_iter()
-                .map(|(command, output)| {
-                    (
-                        command.split_whitespace().map(str::to_string).collect(),
-                        output,
-                    )
-                })
-                .collect(),
-        }
-    }
-}
-
-impl ArgvRunner for MapArgvRunner {
-    fn run(&self, argv: &[&str]) -> ArgvOutput {
-        let key: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
-        for (k, v) in &self.responses {
-            if k == &key {
-                return v.clone();
-            }
-        }
-        // prefix match: first N tokens
-        for (k, v) in &self.responses {
-            if key.len() >= k.len() && key[..k.len()] == k[..] {
-                return v.clone();
-            }
-        }
-        ArgvOutput {
-            exit_code: None,
-            stdout: String::new(),
-            stderr: format!("MapArgvRunner: no stub for {argv:?}"),
-            spawn_error: Some(format!("MapArgvRunner: no stub for {argv:?}")),
-        }
     }
 }
 

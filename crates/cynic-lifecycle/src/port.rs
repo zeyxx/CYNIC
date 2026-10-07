@@ -9,12 +9,13 @@
 //! sit above its own policy. `cynic-vcs` carried a third copy with a narrower
 //! contract (no `Serialize`, and its `MapArgvRunner` hidden behind `cfg(test)`).
 //!
-//! What stays here is the adapter layer: [`LocalArgvRunner`] spawns, and the
-//! `cynic-build` bridge impl for [`MapArgvRunner`] — both depend on
-//! `cynic-build`, which an L0 port module must not. The fake itself lives
-//! in [`cynic_protocol::argv`] beside the port it fakes.
+//! What stays here is the adapter layer: [`LocalArgvRunner`] spawns, and
+//! [`MapArgvRunner`] fabricates for tests in other crates — both depend on
+//! `cynic-build`, which an L0 port module must not.
 
-pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner, MapArgvRunner};
+use std::collections::HashMap;
+
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 /// Production runner: spawns argv[0] with remaining args.
 #[derive(Debug, Default, Clone, Copy)]
@@ -113,10 +114,55 @@ fn observe_log_path() -> Option<String> {
 
 /// Test double: returns fixed JSON for known commands.
 ///
-/// The fake itself ([`MapArgvRunner`]) now lives in [`cynic_protocol::argv`]
-/// beside the port — one fake for every layer, production-available. What
-/// stays here is only the `cynic-build` bridge impl, because `cynic-build`
-/// is a dependency an L0 port module must not take.
+/// The fake stays here (not in L0) because its `cynic-build` bridge impl
+/// below requires a local type: the orphan rule forbids implementing a
+/// foreign trait for a foreign type, so the struct must live where the
+/// bridge is implemented (observed 2026-10-07).
+#[derive(Debug, Default, Clone)]
+pub struct MapArgvRunner {
+    pub responses: Vec<(Vec<String>, ArgvOutput)>,
+}
+
+impl MapArgvRunner {
+    /// Build a test runner from shell-like command keys.
+    pub fn new(responses: HashMap<String, ArgvOutput>) -> Self {
+        Self {
+            responses: responses
+                .into_iter()
+                .map(|(command, output)| {
+                    (
+                        command.split_whitespace().map(str::to_string).collect(),
+                        output,
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
+impl ArgvRunner for MapArgvRunner {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        let key: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
+        for (k, v) in &self.responses {
+            if k == &key {
+                return v.clone();
+            }
+        }
+        // prefix match: first N tokens
+        for (k, v) in &self.responses {
+            if key.len() >= k.len() && key[..k.len()] == k[..] {
+                return v.clone();
+            }
+        }
+        ArgvOutput {
+            exit_code: None,
+            stdout: String::new(),
+            stderr: format!("MapArgvRunner: no stub for {argv:?}"),
+            spawn_error: Some(format!("MapArgvRunner: no stub for {argv:?}")),
+        }
+    }
+}
+
 impl cynic_build::BuildRunner for MapArgvRunner {
     fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
         let out = <Self as ArgvRunner>::run(self, argv);

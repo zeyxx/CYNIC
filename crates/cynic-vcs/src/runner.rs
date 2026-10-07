@@ -20,4 +20,10 @@ pub trait VcsRunner: Send + Sync {
 /// replaces had a narrower contract (no `Serialize`, `MapArgvRunner` hidden
 /// behind `cfg(test)`); `VcsRunner`/`VcsCommandOutput` above stay separate
 /// because git output is byte-oriented and must not round-trip through `String`.
-pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner, MapArgvRunner};
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
+
+/// Test fake from the owning crate. `cynic-vcs` (L2) may depend on
+/// `cynic-lifecycle` (L1) in tests — downward dependency, DAG-legal — but
+/// production code must never fabricate runners.
+#[cfg(test)]
+pub use cynic_lifecycle::MapArgvRunner;
