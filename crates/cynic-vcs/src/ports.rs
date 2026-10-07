@@ -2,6 +2,18 @@
 //!
 //! Layer-pure ports: defines runner traits without concrete OS process bindings.
 //! Concrete implementations (LocalVcsRunner) live in `cynic-host`.
+//!
+//! `ArgvRunner`/`ArgvOutput` were declared here as a third copy of a port that
+//! `cynic-lifecycle` already owned, with a narrower contract (no `Serialize`,
+//! and its `MapArgvRunner` behind `cfg(test)` so no VCS code could fake a runner
+//! in production). Both now come from [`cynic_protocol::argv`].
+//!
+//! `VcsRunner`/`VcsCommandOutput` are deliberately NOT merged with it: git output
+//! is byte-oriented and must stay so, because a diff, a packfile hash and a
+//! `--porcelain` stream cannot round-trip through a lossy `String` without
+//! changing bytes. Two ports, two payload shapes, one name each.
+
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VcsCommandOutput {
@@ -13,43 +25,6 @@ pub struct VcsCommandOutput {
 
 pub trait VcsRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> VcsCommandOutput;
-}
-
-/// String-oriented argv runner output matching CYNIC ArgvOutput.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArgvOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl ArgvOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-
-    pub fn summary(&self) -> String {
-        if let Some(err) = &self.spawn_error {
-            return format!("spawn error: {err}");
-        }
-        let code = self
-            .exit_code
-            .map(|c| c.to_string())
-            .unwrap_or_else(|| "none".into());
-        let msg = if !self.stdout.trim().is_empty() {
-            self.stdout.trim()
-        } else if !self.stderr.trim().is_empty() {
-            self.stderr.trim()
-        } else {
-            "empty output"
-        };
-        format!("exit {code}: {msg}")
-    }
-}
-
-pub trait ArgvRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
 
 /// Observation port for Forgejo. Given a desired state, produce an observed state.

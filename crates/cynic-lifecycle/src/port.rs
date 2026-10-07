@@ -2,47 +2,20 @@
 //!
 //! Domain must not hard-wire `Command::new("cynic")`. CLI injects
 //! [`LocalArgvRunner`]; tests inject fakes.
+//!
+//! The [`ArgvRunner`] trait and [`ArgvOutput`] type used to be defined here.
+//! They now live in [`cynic_protocol::argv`], beside [`cynic_protocol::argv_allow`]
+//! which already held the admission policy: the port that runs an argv must not
+//! sit above its own policy. `cynic-vcs` carried a third copy with a narrower
+//! contract (no `Serialize`, and its `MapArgvRunner` hidden behind `cfg(test)`).
+//!
+//! What stays here is the adapter layer: [`LocalArgvRunner`] spawns, and
+//! [`MapArgvRunner`] fabricates for tests in other crates -- both depend on
+//! `cynic-build`, which an L0 port module must not.
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArgvOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl ArgvOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-
-    pub fn summary(&self) -> String {
-        if let Some(err) = &self.spawn_error {
-            return format!("spawn error: {err}");
-        }
-        let code = self
-            .exit_code
-            .map(|c| c.to_string())
-            .unwrap_or_else(|| "none".into());
-        let msg = if !self.stdout.trim().is_empty() {
-            self.stdout.trim()
-        } else if !self.stderr.trim().is_empty() {
-            self.stderr.trim()
-        } else {
-            "empty output"
-        };
-        format!("exit {code}: {msg}")
-    }
-}
-
-/// Argv-only command runner (no shell composition).
-pub trait ArgvRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> ArgvOutput;
-}
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner};
 
 /// Production runner: spawns argv[0] with remaining args.
 #[derive(Debug, Default, Clone, Copy)]
