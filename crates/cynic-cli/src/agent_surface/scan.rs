@@ -244,7 +244,8 @@ mod tests {
                 }
             }
         }"#;
-        let tmp = std::env::temp_dir().join("cynic-agent-roles-test.json");
+        let tmp_dir = tempfile::tempdir().expect("tempdir");
+        let tmp = tmp_dir.path().join("cynic-agent-roles-test.json");
         std::fs::write(&tmp, manifest).unwrap();
         let report = scan_agent_soc(&tmp);
         assert_eq!(report.schema, "cynic.agent_soc_report.v1");
