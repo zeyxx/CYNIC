@@ -130,7 +130,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             json,
             registry,
             observed,
-        } => crate::persistence_audit::execute(json, registry, observed),
+        } => crate::persistence_audit::execute(*json, registry, observed),
         AuditCommand::Paths { json } => {
             // Projection only. The rule set, the extraction, and the existence
             // observation belong to cynic-host::audit_engine, which MCP and the
