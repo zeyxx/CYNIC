@@ -47,13 +47,16 @@ pub fn observe_space_usage(root: &Path, scope: GcScope) -> SpaceGcObservation {
             // is exempt: an explicit pattern is explicit intent, so a
             // top-level `.venv_data` or `target` is measured even though the
             // same names are skipped when nested (no double counting).
-            let walker = WalkDir::new(&dir).follow_links(false).filter_entry(|e| {
-                e.depth() == 0
-                    || !e
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|name| skipped.contains(name))
-            });
+            let walker = WalkDir::new(&dir)
+                .follow_links(false)
+                .into_iter()
+                .filter_entry(|e| {
+                    e.depth() == 0
+                        || !e
+                            .file_name()
+                            .to_str()
+                            .is_some_and(|name| skipped.contains(name))
+                });
             for entry in walker {
                 if let Ok(e) = entry {
                     if e.file_type().is_file() {

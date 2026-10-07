@@ -24,13 +24,13 @@ const FALLBACK_EXCLUDED_DIRS: &[&str] = &[
     "vendor",
 ];
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct ScanExclusionSets {
     #[serde(default)]
     excluded_dirs: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct ScanExclusions {
     #[serde(default)]
     scanners: BTreeMap<String, ScanExclusionSets>,
