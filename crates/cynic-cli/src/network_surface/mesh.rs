@@ -59,6 +59,26 @@ pub(crate) fn try_execute_mesh(
             }),
         },
         NetworkMeshCommand::Target { command } => match command {
+            NetworkMeshTargetCommand::Actuate {
+                request,
+                apply,
+                harness_kind,
+                target_attestation,
+                observer_bin,
+                virsh_bin,
+                qga_timeout_seconds,
+                qga_max_status_polls,
+            } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ActuateTarget {
+                json: true,
+                request,
+                apply,
+                harness_kind,
+                target_attestation,
+                observer_bin,
+                virsh_bin,
+                qga_timeout_seconds,
+                qga_max_status_polls,
+            }),
             NetworkMeshTargetCommand::Attestation {
                 harness_kind,
                 target_id,

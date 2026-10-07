@@ -89,6 +89,23 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         check_provider_connectivity: bool,
     },
+    /// Shadow proof: drift between declared mesh and independently observed
+    /// state. Fails when drift is detected — the honest counterpart of proof.
+    ShadowProof {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        observe_runtime: bool,
+    },
+    /// Host-owned network actuation observation projection. This is the wire
+    /// contract consumed by `mesh target actuate` (observer_bin argv) — the
+    /// name is load-bearing, do not rename.
+    ActuationObservation {
+        #[arg(long)]
+        registry: Option<String>,
+    },
     Evidence {
         #[arg(long)]
         registry: Option<String>,
@@ -310,6 +327,34 @@ pub(crate) enum NetworkMeshTargetCommand {
         virsh_bin: String,
         #[arg(long)]
         ip_bin: Option<String>,
+    },
+    /// Execute network actuation on an attested target. Requires --apply;
+    /// without it the command fails closed.
+    Actuate {
+        /// JSON file containing plan, admission, and execution authorization.
+        #[arg(long)]
+        request: String,
+        /// Required guard for runtime execution.
+        #[arg(long)]
+        apply: bool,
+        /// Runtime harness kind whose attestation must remain valid.
+        #[arg(long, default_value = "closed_local_lab")]
+        harness_kind: String,
+        /// JSON file containing a direct attestation or target-attestation report.
+        #[arg(long)]
+        target_attestation: String,
+        /// Guest executable used to produce typed postflight observation.
+        #[arg(long, default_value = "cynic-node")]
+        observer_bin: String,
+        /// Injected libvirt QEMU guest-agent binary.
+        #[arg(long, default_value = "virsh")]
+        virsh_bin: String,
+        /// Per-call virsh/QEMU guest-agent timeout.
+        #[arg(long, default_value_t = 10)]
+        qga_timeout_seconds: u64,
+        /// Maximum guest-exec-status observations before failing closed.
+        #[arg(long, default_value_t = 20)]
+        qga_max_status_polls: usize,
     },
 }
 
