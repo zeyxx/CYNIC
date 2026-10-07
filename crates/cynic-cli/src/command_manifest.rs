@@ -40,11 +40,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "forensics",
                 commands: vec![
-                    "cynic forensics collect [--json]",
-                    "cynic forensics report [--json]",
-                    "cynic forensics snapshot [--json]",
-                    "cynic forensics diff --a <id> --b <id> [--json]",
-                    "cynic forensics watch [--json]",
+                    "cynic forensics evidence [--json] [--boot-id <id>]",
+                    "cynic forensics timeline --boot-id <id> [--json]",
+                    "cynic forensics post-mortem [--json] [--boot-id <id>]",
+                    "cynic forensics status [--json]",
+                    "cynic forensics services [--json] [--min-rate <rate>]",
                 ],
             },
             CommandDomain {
@@ -256,20 +256,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "queue",
                 commands: vec!["cynic queue [--json] [--apply]"],
-            },
-            CommandDomain {
-                name: "lifecycle",
-                commands: vec![
-                    "cynic lifecycle evidence <operation> [-- <operation-flags>]",
-                    "cynic lifecycle status [--json] [--state <path>]",
-                    "cynic lifecycle plan [--json]",
-                    "cynic lifecycle gate [--yes] [--json]",
-                    "cynic lifecycle promote --to <phase> --yes [--json]",
-                    "cynic lifecycle report [--json]   # operational findings (end black box)",
-                    "cynic lifecycle repair [--yes] [--json]",
-                    "cynic lifecycle apply [--yes] [--json]",
-                    "cynic lifecycle kernel-release --spec <path> [--state <path>] [--yes] [--json] [--registry <path>]",
-                ],
             },
             CommandDomain {
                 name: "court",
