@@ -97,31 +97,6 @@ pub fn address_plane(policy: Option<&NetworkPolicy>, service_plane: &str) -> Str
         .unwrap_or_else(|| CANONICAL_SERVICE_PLANE.to_string())
 }
 
-/// Resolve a node's address on a plane: canonical trio key first, then the
-/// pre-migration legacy aliases.
-///
-/// DECLARED DRIFT (removal condition): delete the alias arm once every
-/// admitted registry carries trio keys on all node `network` maps. The
-/// canonical `infra/registry.json` path is proven alias-free by
-/// `tests/mesh_plan_registry_proof.rs`; lab fixtures keep exercising the
-/// alias arm under their local dialect on purpose.
-pub fn resolve_plane_address(
-    network: &BTreeMap<String, String>,
-    plane_name: &str,
-) -> Option<String> {
-    if let Some(address) = network.get(plane_name).cloned() {
-        return Some(address);
-    }
-    let legacy_key = if plane_name == Plane::Service.name() {
-        Some("synapse")
-    } else if plane_name == Plane::Admin.name() {
-        Some("management")
-    } else {
-        None
-    };
-    legacy_key.and_then(|key| network.get(key).cloned())
-}
-
 fn reservation_dns_by_name(policy: Option<&NetworkPolicy>) -> BTreeMap<String, Vec<String>> {
     policy
         .map(|policy| {

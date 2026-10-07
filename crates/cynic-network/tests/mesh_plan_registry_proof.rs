@@ -71,28 +71,28 @@ fn plane_address_resolution_prefers_canonical_key_over_legacy_alias() {
     both.insert("service".to_string(), "10.10.10.1".to_string());
     both.insert("synapse".to_string(), "10.20.0.1".to_string());
     assert_eq!(
-        cynic_network::resolve_plane_address(&both, "service").as_deref(),
+        cynic_network::plane_address_in_map(&both, "service").as_deref(),
         Some("10.10.10.1")
     );
     let mut legacy_only = BTreeMap::new();
     legacy_only.insert("synapse".to_string(), "10.20.0.1".to_string());
     assert_eq!(
-        cynic_network::resolve_plane_address(&legacy_only, "service").as_deref(),
+        cynic_network::plane_address_in_map(&legacy_only, "service").as_deref(),
         Some("10.20.0.1")
     );
     let mut admin_pair = BTreeMap::new();
     admin_pair.insert("admin".to_string(), "192.168.100.1".to_string());
     admin_pair.insert("management".to_string(), "192.168.100.9".to_string());
     assert_eq!(
-        cynic_network::resolve_plane_address(&admin_pair, "admin").as_deref(),
+        cynic_network::plane_address_in_map(&admin_pair, "admin").as_deref(),
         Some("192.168.100.1")
     );
     let empty: BTreeMap<String, String> = BTreeMap::new();
     assert_eq!(
-        cynic_network::resolve_plane_address(&empty, "service"),
+        cynic_network::plane_address_in_map(&empty, "service"),
         None
     );
-    assert_eq!(cynic_network::resolve_plane_address(&empty, "mesh"), None);
+    assert_eq!(cynic_network::plane_address_in_map(&empty, "mesh"), None);
 }
 
 #[test]
