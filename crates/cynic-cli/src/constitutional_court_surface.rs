@@ -92,7 +92,9 @@ fn execute_audit(
         println!("    Violations found: {}", report.violations.len());
         println!("    Coherence score: {:.1}%", report.coherence_score);
         println!();
-        println!("    This is a Phase A stub. Run `cynic dev court-audit` from a Hermes session");
+        println!(
+            "    This is a Phase A stub. Run `cynic court` from a Hermes session"
+        );
         println!(
             "    to invoke the full LLM-assisted audit via skill `cynic-constitutional-court`."
         );

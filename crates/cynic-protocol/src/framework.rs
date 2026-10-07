@@ -783,11 +783,7 @@ pub fn framework_spec() -> FrameworkSpec {
             FrameworkPrimitiveFamily {
                 id: "agentic_surface",
                 role: "Give human and LLM agents bounded, inspectable, validation-backed commands.",
-                examples: vec![
-                    "cynic dev surfaces --json",
-                    "cynic dev outcomes --json",
-                    "cynic dev kpi-score --json",
-                ],
+                examples: vec![],
             },
             FrameworkPrimitiveFamily {
                 id: "agent_recursion_envelope",
