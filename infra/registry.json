@@ -545,6 +545,61 @@
       }
     },
     {
+      "id": "cynic-laptop-ax16pro",
+      "name": "cynic-laptop-ax16pro",
+      "aliases": [
+        "ax16pro",
+        "elitebook"
+      ],
+      "role": "workstation_portable",
+      "host_family": "windows.windows11",
+      "status": "observed",
+      "deploy_target": false,
+      "boot_persistence": false,
+      "energy_profile": {
+        "class": "portable_intermittent"
+      },
+      "transports": {
+        "ssh": {
+          "target": "cynic-laptop",
+          "trust": "ssh_trust_anchor",
+          "principal": "titouan",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "titouan",
+            "credential_ref": "laptop-ssh-authority"
+          },
+          "note": "OpenSSH for Windows 9.5 on 192.168.0.88, reverse DNS ax16pro.home. The account is a member of administrators, so sshd reads C:/ProgramData/ssh/administrators_authorized_keys under the Match Group administrators block and never reads the userprofile .ssh/authorized_keys. Enrolled 2026-10-07 by key cynic-laptop-authority."
+        }
+      },
+      "network": {
+        "lan": "192.168.0.88"
+      },
+      "observed_hardware": {
+        "manufacturer": "HP",
+        "model": "HP EliteBook 840 G3",
+        "system_family": "103C_5336AN HP EliteBook",
+        "cpu": "Intel Core i5-6300U, 2 cores, 4 logical",
+        "operating_system": "Microsoft Windows 11 Famille",
+        "storage": "1 disk, MasonSemi SSD, NVMe, 476.94 GB, GPT, Healthy, 41C",
+        "free_sata_controller": "Standard SATA AHCI Controller PCI VEN_8086 DEV_9D03 Status OK with zero disks attached, so an unused SATA port exists on this machine"
+      },
+      "storage_verification": {
+        "schema": "cynic.storage_write_verification.v1",
+        "performed_at_utc": "2026-10-07T13:20:00Z",
+        "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
+        "written_bytes": 2147483648,
+        "passes": [
+          { "pass": 1, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 },
+          { "pass": 2, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 }
+        ],
+        "verdict": "passed: the device stores and returns written data faithfully",
+        "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
+        "residual_unknown": "Endurance under sustained multi-hour load is not measured. Two passes over 2 GiB prove the device writes and reads correctly, not that it sustains 477 GB of daily use."
+      },
+      "services": []
+    },
+    {
       "id": "cynic-agent-host",
       "name": "cynic-agent-host",
       "aliases": [
