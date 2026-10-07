@@ -44,6 +44,19 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Audit declared guest boot persistence against the observed provider
+    /// state. Catches deploy targets that vanish silently at host reboot.
+    Persistence {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// Observed guest state as JSON: `{"node-id":"boot_persistent"}`.
+        /// Values: `boot_persistent`, `not_boot_persistent`, `unobserved`.
+        /// Omit to audit the declared side alone.
+        #[arg(long)]
+        observed: Option<String>,
+    },
     /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
     All {
         #[arg(long)]
@@ -113,6 +126,11 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        AuditCommand::Persistence {
+            json,
+            registry,
+            observed,
+        } => crate::persistence_audit::execute(json, registry, observed),
         AuditCommand::Paths { json } => {
             // Projection only. The rule set, the extraction, and the existence
             // observation belong to cynic-host::audit_engine, which MCP and the
@@ -149,8 +167,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // executed only through the cynic-audit binary and the tests --
             // comparators that exist, run, and are never consulted by the gate.
             // The three checks below answer different questions and stay.
-            let engine =
-                cynic_host::audit_engine::run_workspace_audit(&crate::rust_source::workspace_root());
+            let engine = cynic_host::audit_engine::run_workspace_audit(
+                &crate::rust_source::workspace_root(),
+            );
 
             let all_passed = crate_report.blocked_count == 0
                 && !secret_obs.has_findings()
