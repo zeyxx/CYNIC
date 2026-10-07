@@ -531,5 +531,74 @@
       "that builds were measurably slower because of the disk: no build-time baseline with and without an NVMe exists",
       "the historical iowait during build windows: only instantaneous sampling was performed, not a time series aligned to build runs"
     ]
+  },
+  "build_performance_diagnosis": {
+    "schema": "cynic.build_performance_diagnosis.v1",
+    "observed_at_utc": "2026-10-07T14:20:00Z",
+    "question": "where is the real build throughput bottleneck on proxmox-forge",
+    "verdict": "a deliberate single-job cargo setting, not the disk and not the CPU, is the dominant bottleneck; it costs 56 percent of full-workspace build time",
+    "baseline_full_workspace_build": {
+      "checkout": "cynic-89b11ad4b9f6",
+      "command": "cargo build --offline",
+      "effective_parallelism": "jobs=1 from .cargo/config.toml",
+      "result": "rc=0, Finished dev profile in 10m 40s",
+      "wall_seconds": 641,
+      "target_dir_growth": "2897 MiB to 3326 MiB",
+      "iowait_series_percent": {
+        "samples": 11,
+        "mean": 12.7,
+        "min": 0.0,
+        "max": 51.2,
+        "samples_at_or_above_20": 3
+      }
+    },
+    "peak_rss_per_crate_kbytes": {
+      "cynic-protocol": 1105940,
+      "cynic-kernel": 108496,
+      "cynic-mcp": 1166304,
+      "note": "Maximum resident set size is the largest single rustc peak observed, not a sum over concurrent jobs. The two heaviest crates are cynic-mcp and cynic-protocol at about 1.1 GiB each."
+    },
+    "forced_two_job_build": {
+      "command": "cargo build --offline --target-dir fresh -j 2",
+      "result": "rc=0, exit status 0",
+      "wall_seconds": 282,
+      "start_utc": "2026-10-07T14:10:44Z",
+      "end_utc": "2026-10-07T14:15:26Z",
+      "swaps": 0,
+      "filesystem_outputs_blocks": 5517808
+    },
+    "measured_gain": {
+      "baseline_seconds": 641,
+      "two_job_seconds": 282,
+      "absolute_seconds_saved": 359,
+      "relative_reduction_percent": 56,
+      "nproc_in_builder": 4,
+      "memory_available_in_builder_mib": 7700,
+      "projected_worst_case_rss_at_j2_gib": 2.22,
+      "memory_pressure_observed": "none: zero swaps, 7.7 GiB available"
+    },
+    "why_jobs_one_was_set": {
+      "source": ".cargo/config.toml [build] jobs = 1",
+      "stated_justification_in_repo": "rustc can overflow or ICE on deep monomorphization, serde plus rmcp being 47 percent of IR, citing rust-lang/rust 103767, 122357 and 138561; -j 1 stated as the only reliable setting and -j 2 as flaky under memory pressure",
+      "assessment": "the ICE risk is a real rustc property that cannot be dismissed, but the memory justification was never quantified in the repository. It is now quantified: one rustc peaks at about 1.1 GiB, so two jobs cost about 2.2 GiB against 7.7 GiB available with zero swaps. The stated memory pressure does not exist on this builder.",
+      "drift_from_observed_toolchain": "the config comment attributes clippy ICE mitigation to rustc 1.96 while the builder runs rustc 1.93.0, so the constraint may predate the current toolchain"
+    },
+    "ruled_out_as_bottleneck": {
+      "cpu_capacity": "load 1.70 across 4 cores, idle 47 to 73 percent during the build; the cores were idle because parallelism was pinned to one, not because the machine lacked capacity",
+      "network": "wifi 5 GHz at -57 dBm, 526 Mbit/s negotiated, 0.027 ms round trip to mesh peers",
+      "sequential_bandwidth": "103 MB/s host read and 86.5 to 114 MB/s writes inside the builder, correct for a rotational disk",
+      "page_cache_management": "Cached 1.2 GiB, Dirty 0.34 percent of MemTotal, Writeback 0, vm.dirty_ratio 20 and dirty_background_ratio 10 both at kernel defaults. No backlog and no misconfiguration. An earlier claim in this session that the cache held 8.2 GiB was stale and is retracted."
+    },
+    "nvme_purchase_case_after_this_diagnosis": {
+      "build_time_gain_from_nvme_seconds_estimate": 75,
+      "build_time_gain_from_two_jobs_seconds_measured": 359,
+      "ratio_config_change_over_storage_upgrade": 4.8,
+      "recommendation": "the configuration change dominates the hardware purchase for build throughput. Storage remains justified on other grounds: it removes a device that returned EIO on every write, and it cuts the 2m28s boot observed with systemd-analyze. Those are risk and predictability arguments, not build speed."
+    },
+    "not_proven": [
+      "that two jobs never triggers the rustc ICE on a different commit: one successful run is not a guarantee, and the monomorphisation that triggers the ICE varies per crate",
+      "that the 56 percent gain reproduces on other commits; repeat measurements were in progress at the time of writing",
+      "what the original memory pressure observation was: the repository comment does not record hardware, commit, or measurement"
+    ]
   }
 }
