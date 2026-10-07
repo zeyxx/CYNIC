@@ -581,7 +581,8 @@
       "source": ".cargo/config.toml [build] jobs = 1",
       "stated_justification_in_repo": "rustc can overflow or ICE on deep monomorphization, serde plus rmcp being 47 percent of IR, citing rust-lang/rust 103767, 122357 and 138561; -j 1 stated as the only reliable setting and -j 2 as flaky under memory pressure",
       "assessment": "the ICE risk is a real rustc property that cannot be dismissed, but the memory justification was never quantified in the repository. It is now quantified: one rustc peaks at about 1.1 GiB, so two jobs cost about 2.2 GiB against 7.7 GiB available with zero swaps. The stated memory pressure does not exist on this builder.",
-      "drift_from_observed_toolchain": "the config comment attributes clippy ICE mitigation to rustc 1.96 while the builder runs rustc 1.93.0, so the constraint may predate the current toolchain"
+      "drift_from_observed_toolchain": "three toolchain versions coexist in the repository. rust-toolchain.toml pins 1.95.0 and overrides the builder, whose /bin/rustc reports 1.93.0 outside a checkout; the effective rustc inside a build is 1.95.0, confirmed by rustup show active-toolchain reporting \"1.95.0-x86_64-unknown-linux-gnu (overridden by <checkout>/rust-toolchain.toml)\". The pre-existing comments in .cargo/config.toml cite 1.96, a version no checkout actually runs. The measurements in this checkpoint were taken at 1.95.0.",
+      "toolchain_drift_is_itself_unresolved": "whether the jobs=1 setting was calibrated against 1.93.0, 1.95.0 or 1.96 is not recorded anywhere in the repository. The prior comment named 1.96 for the clippy ICE and 1.96 for the incremental ghost errors, neither of which matches the toolchain that builds actually use."
     },
     "ruled_out_as_bottleneck": {
       "cpu_capacity": "load 1.70 across 4 cores, idle 47 to 73 percent during the build; the cores were idle because parallelism was pinned to one, not because the machine lacked capacity",
@@ -647,7 +648,8 @@
         "mean_seconds": 260.99,
         "spread_seconds": 34.48,
         "all_succeeded": true,
-        "total_compiler_errors_or_ice": 0
+        "total_compiler_errors_or_ice": 0,
+        "toolchain_used": "1.95.0, overridden by rust-toolchain.toml inside each checkout"
       },
       "gain_versus_single_job_percent": {
         "worst": 56.0,
@@ -661,7 +663,7 @@
         "delta_percent": 7.6,
         "interpretation": "two concurrent jobs did not double the peak. The additional 89 MiB is direct evidence that the two crates compiling at the same moment are of unequal size, which is also why the wall clock roughly halves instead of quartering."
       },
-      "conclusion": "the two-job gain reproduces across four distinct commits with a 34 second spread and zero compiler errors or internal compiler errors. The measurement is stable enough to propose a configuration change, while remaining an observation and not a guarantee for every future commit."
+      "conclusion": "the two-job gain reproduces across four distinct commits with a 34 second spread and zero compiler errors and zero internal compiler errors, under rustc 1.95.0 as pinned by rust-toolchain.toml. The measurement is stable enough to propose a configuration change, while remaining an observation and not a guarantee for every future commit."
     }
   }
 }
