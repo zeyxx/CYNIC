@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
+use cynic_secrets::{OsCredentialStoreSecretProvider, SecretProviderPort, SecretReference};
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
 use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
 
@@ -17,16 +18,19 @@ use worktree_allocation::execute_allocate_worktree;
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
 /// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
 /// provider kind is unknown.
-/// Resolve the sovereign VCS token from the environment or the principal
-/// secret file. Pure over injected readers so the refusal path is unit
-/// tested: a missing token must fail HERE with a message naming both
-/// sources, never travel to the API as an anonymous call that Forgejo
-/// answers with a cryptic 404/400 (observed 2026-10-06).
+/// Resolve the sovereign VCS token from the environment, the principal
+/// secret file, or the OS keyring — in that order. Pure over injected
+/// readers so the refusal path is unit tested: a missing token must fail
+/// HERE with a message naming all three sources, never travel to the API
+/// as an anonymous call that Forgejo answers with a cryptic 404/400
+/// (observed 2026-10-06).
 fn resolve_vcs_token(
     token_env: &str,
     token_file: &str,
+    keyring_id: &str,
     read_env: impl Fn(&str) -> Option<String>,
     read_file: impl Fn(&str) -> Option<String>,
+    read_keyring: impl Fn(&str) -> Option<String>,
 ) -> Result<String, String> {
     if let Some(value) = read_env(token_env).filter(|v| !v.is_empty()) {
         return Ok(value);
@@ -37,8 +41,11 @@ fn resolve_vcs_token(
     {
         return Ok(value);
     }
+    if let Some(value) = read_keyring(keyring_id).filter(|v| !v.is_empty()) {
+        return Ok(value);
+    }
     Err(format!(
-        "no sovereign VCS token: env {token_env} is unset and secret file {token_file} is unreadable; refusing anonymous API call"
+        "no sovereign VCS token: env {token_env} is unset, secret file {token_file} is unreadable, and OS keyring id {keyring_id} is absent; refusing anonymous API call"
     ))
 }
 
@@ -73,11 +80,25 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
         .as_str()
         .unwrap_or("/etc/cynic/secrets/forgejo-token");
 
+    // Keyring id mirrors the principal file name (forgejo-token), same
+    // convention as the headscale migration: file and keyring address the
+    // same secret id in different backends.
+    let keyring_id = "forgejo-token";
+    let keyring = OsCredentialStoreSecretProvider::default();
     let token = resolve_vcs_token(
         token_env,
         token_file,
+        keyring_id,
         |name| std::env::var(name).ok(),
         |path| std::fs::read_to_string(path).ok(),
+        |id| {
+            keyring.resolve(&SecretReference::with_class(
+                "forgejo",
+                id,
+                cynic_secrets::SecretClass::RuntimeMachineIdentity,
+                cynic_secrets::SecretProviderKind::OsCredentialStore,
+            ))
+        },
     )?;
 
     match kind {
@@ -1087,8 +1108,10 @@ mod tests {
         let got = resolve_vcs_token(
             "FORGEJO_TOKEN",
             "/nonexistent",
+            "forgejo-token",
             |_| Some("env-token".to_string()),
             |_| Some("file-token".to_string()),
+            |_| Some("keyring-token".to_string()),
         );
         assert_eq!(got, Ok("env-token".to_string()));
     }
@@ -1098,17 +1121,34 @@ mod tests {
         let got = resolve_vcs_token(
             "FORGEJO_TOKEN",
             "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
             |_| None,
             |_| Some("  file-token\n".to_string()),
+            |_| Some("keyring-token".to_string()),
         );
         assert_eq!(got, Ok("file-token".to_string()));
     }
 
     #[test]
-    fn missing_token_fails_closed_naming_both_sources() {
+    fn token_falls_back_to_keyring() {
+        let got = resolve_vcs_token(
+            "FORGEJO_TOKEN",
+            "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
+            |_| None,
+            |_| None,
+            |_| Some("keyring-token".to_string()),
+        );
+        assert_eq!(got, Ok("keyring-token".to_string()));
+    }
+
+    #[test]
+    fn missing_token_fails_closed_naming_all_sources() {
         let err = resolve_vcs_token(
             "FORGEJO_TOKEN",
             "/etc/cynic/secrets/forgejo-token",
+            "forgejo-token",
+            |_| None,
             |_| None,
             |_| None,
         )
@@ -1118,5 +1158,6 @@ mod tests {
             err.contains("/etc/cynic/secrets/forgejo-token"),
             "names file source: {err}"
         );
+        assert!(err.contains("forgejo-token"), "names keyring id: {err}");
     }
 }
