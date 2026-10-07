@@ -146,7 +146,6 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic discovery discover --kind local|remote [--target <ssh>] [--json]",
                 ],
             },
-
             CommandDomain {
                 name: "network",
                 commands: vec![
@@ -356,7 +355,11 @@ mod tests {
                 let path = command
                     .split_whitespace()
                     .skip(1) // skip "cynic"
-                    .take_while(|token| !token.starts_with('--') && !token.starts_with('<') && !token.starts_with('['))
+                    .take_while(|token| {
+                        !token.starts_with("--")
+                            && !token.starts_with('<')
+                            && !token.starts_with('[')
+                    })
                     .map(|token| token.to_string())
                     .collect::<Vec<_>>();
                 if path.is_empty() {
@@ -378,6 +381,9 @@ mod tests {
                 }
             }
         }
-        assert!(checked > 100, "manifest command resolution checked too few commands: {checked}");
+        assert!(
+            checked > 100,
+            "manifest command resolution checked too few commands: {checked}"
+        );
     }
 }
