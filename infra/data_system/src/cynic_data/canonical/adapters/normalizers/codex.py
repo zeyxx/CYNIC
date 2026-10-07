@@ -64,6 +64,14 @@ class CodexNormalizer:
             inside = False
         return source_ref.endswith(".jsonl") and inside
 
+    def conservation(self):
+        """α6: no contract yet — an explicit unknown, never an implicit no-loss.
+
+        This harness's vertical is not done. Until it is, the audit reports this
+        adapter as UNCONTRACTED rather than assuming conservation.
+        """
+        return None
+
     def session_refs(self) -> list[str]:
         """A Codex session is one rollout JSONL file under the sessions tree."""
         if not self.sessions_root.is_dir():
