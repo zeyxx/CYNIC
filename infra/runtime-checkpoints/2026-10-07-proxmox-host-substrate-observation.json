@@ -93,20 +93,76 @@
   },
   "network": {
     "interfaces": {
-      "eno1": { "address": "192.168.100.1/24", "plane": "admin", "driver": "Intel I219-LM" },
-      "wlp1s0": { "address": "192.168.0.37/24", "plane": "wan_uplink", "driver": "Intel Wireless 8260" },
-      "vmbr0": { "address": "10.10.10.1/24", "plane": "service", "bridge_ports": "none, routed not L2 bridged" },
-      "wg0": { "address": "10.20.0.1/24", "plane": "mesh" }
+      "eno1": {
+        "address": "192.168.100.1/24",
+        "plane": "admin",
+        "driver": "Intel I219-LM"
+      },
+      "wlp1s0": {
+        "address": "192.168.0.37/24",
+        "plane": "wan_uplink",
+        "driver": "Intel Wireless 8260"
+      },
+      "vmbr0": {
+        "address": "10.10.10.1/24",
+        "plane": "service",
+        "bridge_ports": "none, routed not L2 bridged"
+      },
+      "wg0": {
+        "address": "10.20.0.1/24",
+        "plane": "mesh"
+      }
     },
     "nat": "vmbr0 post-up MASQUERADEs 10.10.10.0/24 out wlp1s0; UDP 3478 DNAT to 10.10.10.100 observed in /etc/network/interfaces",
     "wireguard_mesh": true
   },
   "guests": [
-    { "vmid": 100, "name": "organ-headscale", "status": "running", "maxcpu": 1, "maxmem": 1073741824, "maxdisk": 4143677440, "uptime_s": 86567 },
-    { "vmid": 101, "name": "organ-forgejo", "status": "running", "maxcpu": 2, "maxmem": 1073741824, "maxdisk": 16729894912, "uptime_s": 86558 },
-    { "vmid": 102, "name": "cynic-agent-host", "status": "stopped", "maxcpu": 2, "maxmem": 4294967296, "maxdisk": 34359738368, "uptime_s": 0, "registry_declared": false },
-    { "vmid": 103, "name": "cynic-lxc-surrealdb", "status": "running", "maxcpu": 2, "maxmem": 2147483648, "maxdisk": 16729894912, "uptime_s": 86538 },
-    { "vmid": 105, "name": "cynic-builder", "status": "running", "maxcpu": 4, "maxmem": 8589934592, "maxdisk": 126630510592, "uptime_s": 71076 }
+    {
+      "vmid": 100,
+      "name": "organ-headscale",
+      "status": "running",
+      "maxcpu": 1,
+      "maxmem": 1073741824,
+      "maxdisk": 4143677440,
+      "uptime_s": 86567
+    },
+    {
+      "vmid": 101,
+      "name": "organ-forgejo",
+      "status": "running",
+      "maxcpu": 2,
+      "maxmem": 1073741824,
+      "maxdisk": 16729894912,
+      "uptime_s": 86558
+    },
+    {
+      "vmid": 102,
+      "name": "cynic-agent-host",
+      "status": "stopped",
+      "maxcpu": 2,
+      "maxmem": 4294967296,
+      "maxdisk": 34359738368,
+      "uptime_s": 0,
+      "registry_declared": false
+    },
+    {
+      "vmid": 103,
+      "name": "cynic-lxc-surrealdb",
+      "status": "running",
+      "maxcpu": 2,
+      "maxmem": 2147483648,
+      "maxdisk": 16729894912,
+      "uptime_s": 86538
+    },
+    {
+      "vmid": 105,
+      "name": "cynic-builder",
+      "status": "running",
+      "maxcpu": 4,
+      "maxmem": 8589934592,
+      "maxdisk": 126630510592,
+      "uptime_s": 71076
+    }
   ],
   "performance_observation": {
     "method": "kernel counters in /proc/diskstats, cumulative since boot plus a 5 second delta window",
@@ -133,7 +189,11 @@
       "read_throughput_mb_s": 1.7,
       "write_throughput_mb_s": 0.03
     },
-    "nvme0n1_since_boot": { "read_requests": 356, "read_ms": 853, "write_requests": 0 },
+    "nvme0n1_since_boot": {
+      "read_requests": 356,
+      "read_ms": 853,
+      "write_requests": 0
+    },
     "interpretation": "sda moved 276.6 GB at 46.6 IOPS and 3.2 MB/s average, 12.8 percent busy, 50.43 ms average read latency. The disk is not saturated and is not the current bottleneck: the 5 second window shows 19.8 read IOPS and 3.0 write IOPS under idle host load 0.61. The 50 ms average read latency is normal rotating-media seek cost, not a fault signature. No workload on this host currently stresses storage, so the counters cannot rank this disk against a replacement.",
     "historical_hdd_datapoint": {
       "source": "/var/lib/vz/dump/vzdump-qemu-102-2026_06_16-16_55_57.log",
@@ -152,14 +212,30 @@
     "scaling_driver": "intel_pstate",
     "scaling_governor": "performance",
     "energy_performance_preference": "performance",
-    "available_governors": ["performance", "powersave"],
+    "available_governors": [
+      "performance",
+      "powersave"
+    ],
     "intel_pstate_status": "active",
     "intel_pstate_no_turbo": 0,
     "turbo_status": "enabled, no_turbo=0",
     "hardware_pstate": "no_hwp file absent, which means HWP is enabled",
-    "scaling_cur_freq_khz_at_measure": [2913277, 2801213, 2965826, 2984662],
+    "scaling_cur_freq_khz_at_measure": [
+      2913277,
+      2801213,
+      2965826,
+      2984662
+    ],
     "cpuidle_driver": "poll",
-    "available_c_states": ["POLL", "C1", "C1E", "C3", "C6", "C7s", "C8"],
+    "available_c_states": [
+      "POLL",
+      "C1",
+      "C1E",
+      "C3",
+      "C6",
+      "C7s",
+      "C8"
+    ],
     "transparent_hugepage": "always [madvise] never",
     "thp_active_mode": "madvise",
     "ksm_run": 0,
@@ -246,9 +322,15 @@
     "incarnation_1_qemu": {
       "created_utc": "2026-05-28T00:39:15Z",
       "name": "cynic-vm-anvil",
-      "events": ["qmcreate OK", "qmstart OK", "qmstop OK"],
+      "events": [
+        "qmcreate OK",
+        "qmstart OK",
+        "qmstop OK"
+      ],
       "second_qemu_created_utc": "2026-06-04T02:10:11Z",
-      "vnc_sessions_utc": ["2026-06-04T12:12:40Z"],
+      "vnc_sessions_utc": [
+        "2026-06-04T12:12:40Z"
+      ],
       "cloned_utc": "2026-06-16T16:55:41Z",
       "backed_up_utc": "2026-06-16T16:55:57Z",
       "backup_artifact": "/var/lib/vz/dump/vzdump-qemu-102-2026_06_16-16_55_57.vma.gz, 9.66 GB",
@@ -365,5 +447,89 @@
     "my_own_defect_found_by_the_unblocking": "cynic-cli then failed with error[E0308] mismatched types at audit_surface.rs:133 because execute_audit matches on &AuditCommand and I passed json by reference to a fn taking bool. This was MY bug, hidden behind the foreign debt. Fixed in c09f4ee98224fe566209fc00597b7828a1593c00 by dereferencing.",
     "lesson": "Foreign debt does not merely block a slice, it conceals the slice's own defects. Repairing the blocker is what made the real error visible."
   },
-  "next_slice": "Operator decisions still open: (a) the SATA SSD from the HP EliteBook 840 G3 as a replacement for sda, which needs the drive model, capacity and health; (b) physical removal of the fraudulent NVMe, now proven to fail every WRITE with EIO; (c) Windows 11 node enrollment, which is a new substrate family rather than a config change."
+  "next_slice": "Operator decisions still open: (a) the SATA SSD from the HP EliteBook 840 G3 as a replacement for sda, which needs the drive model, capacity and health; (b) physical removal of the fraudulent NVMe, now proven to fail every WRITE with EIO; (c) Windows 11 node enrollment, which is a new substrate family rather than a config change.",
+  "storage_slot_replacement_capability": {
+    "schema": "cynic.storage_slot_replacement.v1",
+    "observed_at_utc": "2026-10-07T14:10:00Z",
+    "host": "proxmox-forge",
+    "chassis": "HP EliteDesk 800 G2 DM 35W",
+    "motherboard": "8055 / N21 Ver. 02.36",
+    "firmware_mode": "UEFI",
+    "pcie_slots_occupied": [
+      {
+        "root_port": "00:1c.0",
+        "device": "01:00.0",
+        "identity": "Intel Wireless 8260",
+        "is_storage": false,
+        "link": "2.5GT/s x1",
+        "note": "wireless, not a disk; this root port is not a spare storage slot"
+      },
+      {
+        "root_port": "00:1d.0",
+        "device": "02:00.0",
+        "identity": "Realtek Semiconductor RTS5765DL NVMe SSD Controller (DRAM-less) rev 01",
+        "is_storage": true,
+        "link_cap": "8GT/s x4",
+        "link_status": "8GT/s x4 active",
+        "kernel_driver": "nvme",
+        "verdict": "the fraudulent device occupies a genuine PCIe 3.0 x4 M.2 slot; the slot itself is functional and proves capable of a real NVMe"
+      }
+    ],
+    "free_storage_slots": 0,
+    "free_storage_slots_basis": "both enumerated PCIe root ports behind 1c.0 and 1d.0 are occupied; 1c.0 carries the wireless card, 1d.0 carries the fraudulent NVMe. No third M.2 or free SATA port was enumerated.",
+    "replacement_verdict": "A genuine NVMe can replace the fraudulent device in the same slot 02:00.0. It is a slot swap, not an addition: nothing else must move. Boot from NVMe is supported by UEFI firmware.",
+    "not_verified": [
+      "physical M.2 keying and whether the slot is physically accessible without disassembly",
+      "thermal and power behaviour of a real NVMe in this chassis",
+      "data migration procedure from the existing thin-pool on sda to a new NVMe"
+    ],
+    "state_at_observation": "the fraudulent device is present but dead: lsblk reports nvme0n1 at 0B after a controlled write test triggered a controller reset failure. It carries no filesystem, no Proxmox pool and no known production data."
+  },
+  "hdd_impact_measurement": {
+    "schema": "cynic.storage_impact_measurement.v1",
+    "observed_at_utc": "2026-10-07T14:05:00Z",
+    "question": "has the HDD been a blocker or a slowdown for builds and fleet operations",
+    "verdict": "slowdown measured, blocker not observed",
+    "sequential_throughput": {
+      "method": "dd 1 GiB read from /dev/sda on the host, and dd 512 MiB with oflag=direct inside CT105",
+      "host_read_mb_s": 103.0,
+      "ct105_direct_write_mb_s": 86.5,
+      "nvme_reference_mb_s": "2000 to 5000",
+      "ratio": "20x to 50x slower than NVMe"
+    },
+    "io_attribution_by_guest": {
+      "unit": "GiB cumulative read plus write, from pvesh /cluster/resources",
+      "ct105_cynic_builder": 47.4,
+      "ct103_cynic_lxc_surrealdb": 4.9,
+      "ct101_organ_forgejo": 1.9,
+      "ct100_organ_headscale": 1.2,
+      "ct102_cynic_agent_host": 0.6,
+      "host_node_pve": 20.8,
+      "finding": "the builder alone accounts for roughly three times the IO of every other guest combined"
+    },
+    "thin_pool_occupancy": {
+      "vm_105_disk_0_percent": 77.71,
+      "vm_103_disk_0_percent": 58.89,
+      "data_percent": 15.32,
+      "metadata_percent": 0.72
+    },
+    "instantaneous_saturation": {
+      "method": "vmstat 3 windows on proxmox-forge",
+      "iowait_percent_range": "1 to 9",
+      "run_queue": 1,
+      "blocked_processes": 0,
+      "finding": "the host is not storage bound at observation time"
+    },
+    "retracted_measurement": {
+      "claim": "iowait is 86.11 percent of CPU time",
+      "origin": "iowait ticks divided by total ticks from /proc/stat",
+      "why_retracted": "that arithmetic is invalid here: cumulative idle ticks were 3213552 while iowait ticks were 32242650, so idle was smaller than iowait, which cannot hold on a host whose storage is not limiting. On an LXC host the time guests spend waiting on storage is accounted differently. The instantaneous vmstat reading of 1 to 2 percent is the trustworthy figure.",
+      "lesson": "cumulative tick ratios must be sanity checked against the idle tick count before being reported as a saturation percentage"
+    },
+    "explicitly_not_proven": [
+      "that any build failed because of disk throughput: no such failure was found in the logs inspected",
+      "that builds were measurably slower because of the disk: no build-time baseline with and without an NVMe exists",
+      "the historical iowait during build windows: only instantaneous sampling was performed, not a time series aligned to build runs"
+    ]
+  }
 }
