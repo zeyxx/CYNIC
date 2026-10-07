@@ -5,6 +5,39 @@ use cynic_protocol::{
 use serde_json::Value;
 
 use crate::network_runtime_status;
+use crate::ports::runtime_proof_fetcher_port::RuntimeProofFetcherPort;
+
+/// 2N+2b transport layer — delegate peer `RuntimeProofBundle` fetch to the
+/// injected `RuntimeProofFetcherPort` adapter (AGENS.md §7: adapters
+/// disposable, port durable). HTTP GET /websocket swap lives only in the
+/// adapter impl, never in this policy layer.
+pub fn fetch_peer_runtime_proof_bundle(
+    fetcher: &dyn RuntimeProofFetcherPort,
+    peer_url: &str,
+) -> Result<RuntimeProofBundle, Box<dyn std::error::Error>> {
+    fetcher.fetch_peer_proof_bundle(peer_url)
+}
+
+/// 2N+2b verification policy — the peer node MUST admit `runtime_publisher`
+/// (2N+1) before federation trust. Reads the peer's `RuntimeProofBundle`
+/// through the injected port and checks the `runtime_publisher_admission`
+/// gate is `admitted`. Returns `true` iff admitted, `false` if denied or
+/// proof absent (residual unknown → Deny federation, never silent allow).
+pub fn verify_peer_runtime_publisher_admission(
+    fetcher: &dyn RuntimeProofFetcherPort,
+    peer_url: &str,
+) -> bool {
+    match fetch_peer_runtime_proof_bundle(fetcher, peer_url) {
+        Ok(bundle) => bundle.proofs.iter().any(|p| {
+            p.gate == "runtime_publisher_admission"
+                && p.status == "admitted"
+                && p.evidence
+                    .iter()
+                    .any(|e| e.id == "runtime_publisher_granted" && e.status == "true")
+        }),
+        Err(_) => false,
+    }
+}
 
 pub fn build_network_runtime_proof_bundle(
     registry: &str,

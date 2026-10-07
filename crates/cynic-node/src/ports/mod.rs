@@ -36,6 +36,7 @@ pub mod release_publication_port;
 pub mod runtime_artifact_transport_port;
 pub mod runtime_federation_port;
 pub mod runtime_federation_queue_store_port;
+pub mod runtime_proof_fetcher_port;
 pub mod runtime_seed_actuation_port;
 pub mod source_change_transaction_port;
 pub mod source_materialization_port;

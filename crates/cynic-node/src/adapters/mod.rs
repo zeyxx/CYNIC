@@ -62,6 +62,7 @@ pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;
 pub mod runtime_observation;
+pub mod runtime_proof_http_fetcher;
 pub(crate) mod source_materialization_marker;
 pub(crate) mod source_snapshot_store;
 pub mod ssh_build_proof;
