@@ -11,7 +11,8 @@
 //! - `apply --yes`: apply=true (execute mutations)
 //! - `apply --ns-cutover`: also sets ns_cutover_confirmed=true
 //!
-//! Authority: foundation.json §37 (portable_host_contract), AGENTS.md §CLI thin facade.
+//! Authority: `contracts/foundation.json` → `portable_host_contract`.
+//! The thin-facade shape is a projection property, not an AGENTS.md section.
 
 use std::process::ExitCode;
 

@@ -32,7 +32,7 @@ impl NetworkRepairContext {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkRepairPlan {
+pub struct NetworkRepairPlan {
     schema: &'static str,
     generated_at: String,
     dry_run: bool,
@@ -61,7 +61,7 @@ struct NetworkRepairStep {
     command_preview: Vec<NetworkCommandSurface>,
 }
 
-pub(crate) fn build_dry_run_plan(observation: &NodeObservation) -> NetworkRepairPlan {
+pub fn build_dry_run_plan(observation: &NodeObservation) -> NetworkRepairPlan {
     build_dry_run_plan_with_context(observation, &NetworkRepairContext::from_current_runtime())
 }
 

@@ -1,7 +1,9 @@
 pub mod agent_execution_runtime_observer;
 pub mod dns_renderer;
 pub mod ed25519_build_workload_grant;
-pub mod ed25519_credential_lease_verifier;
+// Proxmox adapters moved to cynic-proxmox (L1, canonical home).
+// Credential lease verifier port moved to cynic-protocol (L0).
+// Consumers import via cynic_proxmox::adapters::{...} directly.
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
@@ -13,7 +15,7 @@ pub mod https_source_snapshot_acquisition;
 pub mod kernel_agent_workspace_claim_store;
 pub mod kernel_plane_membership_transport;
 pub mod kernel_source_repository_proof_commit;
-pub(crate) mod libvirt_harness_target_attestor;
+pub mod libvirt_harness_target_attestor;
 pub mod local_agent_scheduler_journal;
 pub mod local_agent_workload_completion_receipt;
 pub mod local_agent_workload_delivery_lease;
@@ -29,13 +31,13 @@ pub mod local_bootstrap_seed_receipt_store;
 pub mod local_build_workload_grant_store;
 pub mod local_build_workspace;
 pub mod local_credential_material_sink;
-pub(crate) mod local_harness_target_attestation_reader;
+pub mod local_harness_target_attestation_reader;
 pub mod local_hex_key_file;
-pub(crate) mod local_network_actuation_request_reader;
+pub mod local_network_actuation_request_reader;
 pub(crate) mod local_network_command_runner;
 pub(crate) mod local_network_mesh_bundle;
 pub(crate) mod local_network_mesh_bundle_writer;
-pub(crate) mod local_network_mesh_registry;
+pub mod local_network_mesh_registry;
 pub mod local_node_control_observer;
 pub mod local_node_enrollment;
 pub mod local_node_enrollment_signer;
@@ -56,7 +58,6 @@ pub mod local_workload_identity;
 pub mod peer_storage;
 pub mod provider_fallback_probe;
 pub mod proxmox;
-pub mod proxmox_control;
 pub mod proxmox_storage;
 pub mod qemu_guest_agent_network_runner;
 pub mod registry;

@@ -1,4 +1,6 @@
 [package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
 name = "cynic-network"
 version.workspace = true
 edition.workspace = true
@@ -9,6 +11,9 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-core = { path = "../cynic-core" }
+cynic-secrets = { path = "../cynic-secrets" }
+reqwest.workspace = true
 cynic-finance = { path = "../cynic-finance" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

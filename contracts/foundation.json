@@ -84,6 +84,14 @@
       {
         "name": "measure_arbitration",
         "rule": "Each governance power is governed by exactly one measurement, no power is governed by a measurement its beneficiary can move, a quantity's flow and its stock never govern one power, and the treasury is allocated by cap rather than by score."
+      },
+      {
+        "name": "code_cites_prose",
+        "rule": "Code cites machine-readable authority only. A normative rule that code depends on must live in a contract, a Rust type, or a test — never in markdown. A Rust source may not cite a `.md` path as `Authority:` or `Specifications:`. Markdown is for plans, designs, and audits; it is normative for humans and carries zero execution authority. A prose citation has no existence check, so a phantom section goes undetected. Measured at introduction (2026-10-05): 40 markdown citations from Rust across 18 files, 17 of them declaring authority; the worst is five files citing an `AGENTS.md secret classes table` that does not exist. Enforcement is the audit_engine rule `code_cites_prose`."
+      },
+      {
+        "name": "fcis_core_shell_separation",
+        "rule": "The architecture policy in force is Functional Core / Imperative Shell (FCIS) with Data-Oriented Design, not strict hexagonal ports-and-adapters. CYNIC rejects dogmatic Enterprise Java-style Hexagonal Architecture because excessive `Arc<dyn Port>` indirections destroy CPU cache locality, inhibit compiler inlining, force heap allocations, and multiply boilerplate mocks. A crate's pure core holds deterministic functions and data structures only — zero async runtimes, zero sockets, zero subprocess spawns, zero mocks — and is testable without any host. All I/O lives in the imperative shell (`adapters/`), which collects raw host state, calls the pure core, and executes the emitted action plan. Adapters are concrete and may be unbound by a trait: FCIS does not require every adapter to implement a declared port. Static dispatch is preferred; a `dyn` indirection needs a measured reason. Parsers read slices directly rather than allocating intermediate DTOs. Ports remain legitimate where a boundary genuinely needs substitution, but a port with no second implementation is indirection, not architecture. Normative statement: `contracts/pruning-policy.json` → `taxonomy.fcis_and_ddd`. Reference implementation: `crates/cynic-network/tests/architecture_boundary.rs`."
       }
     ],
     "deleted_authorities": [
@@ -108,9 +116,9 @@
       "totals": {
         "covered": 6,
         "partial": 4,
-        "uncovered": 4,
+        "uncovered": 5,
         "by_design_unenforceable": 2,
-        "boundaries": 16
+        "boundaries": 17
       },
       "coverage": [
         {
@@ -192,6 +200,11 @@
           "boundary": "measure_arbitration",
           "status": "covered_green",
           "note": "contracts/measure-arbitration.json allocates five powers to five distinct measures across four classes. Six checks pass: measure_arbitration_allocates_one_measure_per_power, no_power_is_governed_by_a_self_reported_measure, flow_and_stock_never_govern_the_same_power, treasury_is_capped_and_never_weighted, no_calibrated_constant_without_a_measured_corpus, every_measure_names_a_falsifier. Each was negative-controlled: a mutated contract turns the corresponding check red. INV-17, which constrains the arbiter rather than a structure, has no check and is declared unbacked."
+        },
+        {
+          "boundary": "code_cites_prose",
+          "status": "uncovered",
+          "note": "no executable check yet. The rule is declared here and its enforcement is scheduled as the audit_engine rule `code_cites_prose` (KNOWLEDGE_ARCHITECTURE.md §5.1): a Rust source may not cite a `.md` path as `Authority:` or `Specifications:`. Until that rule lands, the 40 measured citations stay invisible, which is the failure this boundary names."
         }
       ],
       "rules": [

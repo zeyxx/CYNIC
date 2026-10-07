@@ -1,8 +1,8 @@
 //! Canonical 7 Constitutional Accounts of a CynicPeer.
 //!
-//! Specifications: `protocols/cynic-government-architecture.md` and
-//! `protocols/cynic-stage2-peer-and-ledger.md`.
-//! Invariants: `contracts/foundation.json` §481 (one_boundary_one_reason)
+//! Specifications: the seven `*_ACCOUNT_SCHEMA` constants below (citizen,
+//! node, agent, office, mandate, resource, treasury) and the account types
+//! they name. Invariants: `contracts/foundation.json` §481 (one_boundary_one_reason)
 
 use serde::{Deserialize, Serialize};
 

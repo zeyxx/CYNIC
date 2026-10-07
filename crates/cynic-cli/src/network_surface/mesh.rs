@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_node::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 use serde_json::json;
 
 use crate::network_surface::{
@@ -20,7 +20,7 @@ pub(crate) fn try_execute_mesh(
     let exit = match command {
         NetworkMeshCommand::Apply { command } => match command {
             NetworkMeshApplyCommand::Plan { bundle_dir } => {
-                cynic_node::execute_network_command(&NetworkCommands::MeshApplyPlan {
+                crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshApplyPlan {
                     json: true,
                     bundle_dir,
                 })
@@ -34,7 +34,7 @@ pub(crate) fn try_execute_mesh(
                 virsh_bin,
                 qga_timeout_seconds,
                 qga_max_status_polls,
-            } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyTarget {
+            } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshApplyTarget {
                 json: true,
                 bundle_dir,
                 profile,
@@ -50,7 +50,7 @@ pub(crate) fn try_execute_mesh(
                 profile,
                 apply,
                 closed_environment,
-            } => cynic_node::execute_network_command(&NetworkCommands::MeshApplyProfile {
+            } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshApplyProfile {
                 json: true,
                 bundle_dir,
                 profile,
@@ -67,7 +67,7 @@ pub(crate) fn try_execute_mesh(
                 expected_network_boundary,
                 virsh_bin,
                 ip_bin,
-            } => cynic_node::execute_network_command(&NetworkCommands::MeshTargetAttestation {
+            } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshTargetAttestation {
                 json: true,
                 harness_kind,
                 target_id,
@@ -84,7 +84,7 @@ pub(crate) fn try_execute_mesh(
             }),
         },
         NetworkMeshCommand::Plan { registry, provider } => {
-            cynic_node::execute_network_command(&NetworkCommands::MeshPlan {
+            crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshPlan {
                 json: true,
                 registry: registry_path(registry),
                 provider,
@@ -94,7 +94,7 @@ pub(crate) fn try_execute_mesh(
             registry,
             provider,
             output_dir,
-        } => cynic_node::execute_network_command(&NetworkCommands::MeshBundle {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshBundle {
             json: true,
             registry: registry_path(registry),
             provider,
@@ -121,7 +121,7 @@ pub(crate) fn try_execute_mesh(
             endpoint,
             api_key,
             check_health,
-        } => cynic_node::execute_network_command(&NetworkCommands::MeshCoordination {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::MeshCoordination {
             json: true,
             registry: registry_path(registry),
             endpoint,

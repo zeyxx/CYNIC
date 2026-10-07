@@ -2,57 +2,53 @@
   "$cynic": "toolchain-registry",
   "$schema": "../contracts/foundation.json",
   "crates": {
-    "cynic-host": {
-      "toolchain": "1.96.0",
-      "fallback": "1.95.0",
-      "reason": "1.95.0 SIGSEGV on proc-macro2 build script (rustc ICE); 1.96.0 resolves",
-      "min_stack": "8589934592"
-    },
-    "cynic-kernel": {
-      "toolchain": "1.95.0",
-      "fallback": null,
-      "reason": "syn ICE on 1.96.0; 1.95.0 stable",
-      "min_stack": "4294967296"
-    },
-    "cynic-protocol": {
+    "cynic-cli": {
       "toolchain": "1.95.0",
       "fallback": "1.96.0",
-      "reason": "rustc 1.96.0 SIGSEGV (signal 11) on edition 2024 + clippy-deny codegen; 1.95.0 passes (observed 2026-08-18). 1.96.0 fallback preserves upgrade path.",
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. The previous entry claimed 1.95.0 SIGSEGVs on proc-macro2 and that 1.96.0 resolves. Retracted on 2026-10-05: proc-macro2 is in this crate's dependency graph and it compiles under 1.95.0 here, and no record of that crash existed outside this file. The claim was never re-derivable because no gate compared this registry against the live toolchain.",
+      "min_stack": "8589934592"
+    },
+    "cynic-host": {
+      "toolchain": "1.95.0",
+      "fallback": "1.96.0",
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. The previous entry claimed 1.95.0 SIGSEGVs on proc-macro2 and that 1.96.0 resolves. Retracted on 2026-10-05: proc-macro2 is in this crate's dependency graph and it compiles under 1.95.0 here, and no record of that crash existed outside this file. The claim was never re-derivable because no gate compared this registry against the live toolchain.",
       "min_stack": "8589934592"
     },
     "cynic-inference": {
       "toolchain": "1.95.0",
       "fallback": "1.96.0",
-      "reason": "rustc 1.96.0 SIGSEGV (signal 11) on full codegen/link emit of the inference dep graph (rmcp/rustls/reqwest transitive); 1.95.0 passes (observed 2026-08-18). cynic-cli binary links cynic-inference → must build inference under 1.95 to avoid link ICE.",
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. The file crates/cynic-inference/rust-toolchain.toml pinned 1.96.0 while this registry said 1.95.0; the registry was right and the file was inert.",
       "min_stack": "8589934592"
+    },
+    "cynic-kernel": {
+      "toolchain": "1.95.0",
+      "fallback": null,
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. Kept without a fallback deliberately: the fallback column is only consulted on an observed ICE, and no ICE is reproducible here, so a declared fallback would be an untested path.",
+      "min_stack": "4294967296"
     },
     "cynic-node": {
       "toolchain": "1.95.0",
       "fallback": "1.96.0",
-      "reason": "rustc 1.96.0 SIGSEGV in MIR of cynic_inference::helius::rpc closure (transitive); isolated /tmp check confirmed not cache corruption. 1.95.0 joins kernel/protocol/inference serde-heavy cluster.",
-      "min_stack": "8589934592",
-      "proof_sha256": "isolated cargo check -p cynac-node @1.95"
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. The file crates/cynic-node/rust-toolchain.toml pinned 1.96.0 while this registry said 1.95.0; the registry was right and the file was inert.",
+      "min_stack": "8589934592"
     },
-    "cynic-cli": {
-      "toolchain": "1.96.0",
-      "fallback": "1.95.0",
-      "reason": "1.95.0 ICE on proc-macro2 build script; 1.96.0 resolves CLI surface. cynic-cli BINARY COLD-LINK = toolchain ceiling: cargo links cynic-kernel/node/inference deps under root 1.96 → syn/rustls SIGSEGV (rustc codegen bug, not source debt).",
-      "min_stack": "8589934592",
-      "cold_link_ceiling": "cynic-cli binary cold-link = sigsegv at BOTH 8G (RUST_MIN_STACK=8589934592) AND 16G (17179869184) under rustc 1.96; isolated cynac-node@1.95 ALSO sigsegvs (syn); cargo workspace = single toolchain per build → mixed 1.95/1.96 transitive graph = ICE ceiling (rustc codegen bug, not source debt). make_check metadata (8/8 crates Finished) PASSES; surface-audit binary link BLOCKED.",
-      "proof_sha256": "cynic dev check make_check per-crate: protocol/kernel/inference/node@1.95 + cli/host/mcp@1.96 all Finished metadata; surface-audit blocked at binary link"
-    },
-    "*": {
-      "toolchain": "1.96.0",
-      "fallback": "1.95.0",
-      "reason": "default: dynamic ICE detection + fallback on ICE",
-      "min_stack": null
-    },
-    "cynic-observer": {
+    "cynic-protocol": {
       "toolchain": "1.95.0",
       "fallback": "1.96.0",
-      "min_stack": "8589934592",
-      "reason": "NEW crate v0.1.0 (post-3.1b.3). Observed SIGSEGV @1.96 — cargo check (lib codegen) — on the libp2p/gossipsub + serde_json macro graph (rustc 1.96 codegen ICE, signal 11). Matches cynac-node/inference/ protocol serde-heavy cluster. 1.95 codegen passes (isolated /tmp check + incremental=false).",
-      "proof_sha256": "isolated cargo check -p cynic-observer @1.95 (incremental=false) = Finished metadata; @1.96 surface-audit SIGSEGV signal 11"
+      "reason": "Built by the workspace under 1.95.0: `cargo check -p <crate> -v` invokes /root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc. rustup resolves from the CWD, and every Makefile target builds from the workspace root, so this is the channel that compiles. The file crates/cynic-protocol/rust-toolchain.toml pinned 1.96.0 while this registry said 1.95.0; the registry was right and the file was inert.",
+      "min_stack": "8589934592"
     }
+  },
+  "status": "observation",
+  "authority": "SEED, NOT AUTHORITY. rust-toolchain.toml at the workspace root is the only pin cargo reads for a workspace build, because rustup resolves from the current directory and every Makefile target builds from the root. This file is read by ToolchainLifecycle (crates/cynic-host/src/toolchain/port.rs), which observes the live rustc, reconciles, and may run `rustup override set`. It is never compared against that observation, so it can disagree with the build without anything noticing — which is how it did.",
+  "measured": {
+    "observed_at": "2026-10-05",
+    "method": "cargo check -v prints the rustc binary it invokes; the toolchain directory name identifies the channel",
+    "rustc_invoked": "/root/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc",
+    "root_pin": "1.95.0",
+    "per_crate_pins": 6,
+    "per_crate_pins_read_by_a_workspace_build": 0,
+    "crates_without_a_pin": 42,
+    "note": "The six crates/*/rust-toolchain.toml files are read only when the working directory is inside that crate. No Makefile target does that. They are left in place as documentation of an intended per-crate toolchain; they are inert for the build."
   }
 }

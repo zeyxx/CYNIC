@@ -6,7 +6,8 @@
 //! (`machine_identity`), storage identity, and kernel infra config; they do
 //! not belong to any one enrollment flow.
 //!
-//! Authority: AGENTS.md secret classes table (HumanAdmin = bootstrap only).
+//! Authority: `cynic-protocol::secret_use` — role-to-class permission is
+//! `SecretUseGrant::matches_role` and `permits_class`, not a prose table.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,7 @@ pub enum SecretClass {
     MachineEnrollment,
     RuntimeMachineIdentity,
     RecoveryBreakglass,
+    HeadscaleApiKey,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +51,23 @@ impl SecretReference {
             id: id.to_string(),
             class: SecretClass::RuntimeMachineIdentity,
             provider: SecretProvider::ProcessEnvironment,
+            locator: locator.to_string(),
+        }
+    }
+
+    /// V1 migration helper: construct a SecretReference with an explicit class.
+    ///
+    /// Usage: 
+    pub fn with_class(
+        id: &str,
+        locator: &str,
+        class: SecretClass,
+        provider: SecretProvider,
+    ) -> Self {
+        Self {
+            id: id.to_string(),
+            class,
+            provider,
             locator: locator.to_string(),
         }
     }

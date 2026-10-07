@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_node::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 
 use crate::registry_path;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
@@ -120,7 +120,7 @@ pub(crate) enum NetworkCommand {
     /// Peer connectivity, observation, and consensus status.
     Peer {
         #[command(subcommand)]
-        command: cynic_node::cli::PeerCommands,
+        command: cynic_node::peer_commands::PeerCommands,
     },
     /// Host-level transport inspection and SSH configuration supervision.
     Transport {
@@ -428,7 +428,7 @@ fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
             max_handshake_age_secs,
             registry,
         } => {
-            cynic_node::execute_network_command(&cynic_node::cli::NetworkCommands::SecurityAudit {
+            crate::node_surface::network_surfaces_uc::execute_network_command(&crate::node_surface::network_surfaces_uc::NetworkCommands::SecurityAudit {
                 json: true,
                 max_handshake_age_secs,
                 registry: registry_path(registry),
@@ -444,8 +444,8 @@ fn execute_network_reconcile(command: NetworkReconcileCommand) -> ExitCode {
             registry,
             timeout_ms,
             apply,
-        } => cynic_node::execute_network_command(
-            &cynic_node::cli::NetworkCommands::ReconcileObserved {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(
+            &crate::node_surface::network_surfaces_uc::NetworkCommands::ReconcileObserved {
                 json: true,
                 registry: registry_path(registry),
                 timeout_ms,

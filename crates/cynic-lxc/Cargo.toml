@@ -1,10 +1,16 @@
 [package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
 name = "cynic-lxc"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 publish = false
+
+[[bin]]
+name = "cynic-lxc-exec-bridge"
+path = "src/bin/cynic-lxc-exec-bridge.rs"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }

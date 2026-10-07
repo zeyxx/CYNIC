@@ -81,12 +81,25 @@ impl HostExecPolicyDocument {
             .map_err(|error| format!("failed to parse policy {}: {error}", path.display()))
     }
 
-    pub fn sudoers_rule(&self) -> String {
-        format!(
-            "{} ALL=(root) NOPASSWD: {}",
-            self.sudoers_subject, self.helper_path
-        )
-    }
+    // REMOVED 2026-10-06: `pub fn sudoers_rule(&self) -> String` used to return
+    //     format!("{} ALL=(root) NOPASSWD: {}", self.sudoers_subject, self.helper_path)
+    //
+    // It was a phantom authority with zero callers and zero tests, and it was
+    // WRONG in the one direction that matters: it granted root to the helper
+    // binary with NO argument bound, so every subcommand of `cynic-host-exec`
+    // — including the mutating ones — would have run as root. The membrane
+    // actually installed is six bounded rules
+    // (`... cynic-host-exec bridge-status`, `... principal-prepare`, ...), each
+    // naming one subcommand.
+    //
+    // A dead generator is not harmless: it is the thing the next person wires up
+    // when they need a rule quickly, and it silently widens the grant. The
+    // sudoers membrane is generated from `infra/capabilities/catalog.json` by
+    // `cynic privilege install` — one renderer, bounded per capability.
+    //
+    // `helper_path` and `sudoers_subject` are KEPT: they are install-site facts
+    // (where the binary lives, which principal is granted), and the catalog
+    // renderer takes them as parameters.
 
     pub fn validate_request(
         &self,

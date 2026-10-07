@@ -1,9 +1,9 @@
 //! Publication / disclosure consent policy — pure law for what may leave the
 //! private membrane toward a public audience.
 //!
-//! Authority: AGENTS.md §Long-Horizon Direction — "disclose user activity
-//! only through explicit opt-in publication policy, minimization, consent,
-//! and evidence-preserving projection". This module turns that guardrail
+//! Authority: `contracts/publication.json` — opt-in, minimisation, consent and
+//! evidence-preserving projection are contract fields there, not a section
+//! heading in AGENTS.md.
 //! into refutable types; it performs no I/O and owns no transport.
 //!
 //! Core laws (each enforced by a named test):

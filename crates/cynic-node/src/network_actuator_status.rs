@@ -51,7 +51,7 @@ impl NetworkActuatorStatusContext {
     }
 }
 
-pub(crate) fn activation_status(observation: &NodeObservation) -> NetworkActuatorActivationStatus {
+pub fn activation_status(observation: &NodeObservation) -> NetworkActuatorActivationStatus {
     let root_policy = build_root_policy(observation);
     let context = NetworkActuatorStatusContext::from_current_runtime();
     let sudoers_content = fs::read_to_string(&context.sudoers_path).unwrap_or_default();

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use cynic_host::network_actuation::{NetworkActuationRequest, NetworkActuationWireRequest};
 
-pub(crate) fn read_network_actuation_request(
+pub fn read_network_actuation_request(
     path: &Path,
 ) -> Result<NetworkActuationRequest, String> {
     let bytes = std::fs::read(path).map_err(|error| {

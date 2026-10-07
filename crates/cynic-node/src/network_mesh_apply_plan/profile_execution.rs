@@ -12,10 +12,10 @@ use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 use crate::ports::network_command_runner_port::NetworkCommandRunnerPort;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkMeshApplyProfileReport {
+pub struct NetworkMeshApplyProfileReport {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) profile: String,
     pub(crate) apply: bool,
     pub(crate) closed_environment: bool,
@@ -45,7 +45,7 @@ pub(super) fn apply_network_mesh_profile_from_plan(
     )
 }
 
-pub(crate) fn apply_network_mesh_profile_from_plan_with_runner(
+pub fn apply_network_mesh_profile_from_plan_with_runner(
     bundle_dir: &str,
     profile: &str,
     apply: bool,

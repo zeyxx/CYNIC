@@ -91,8 +91,32 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
         .map_err(|error| error.to_string())?;
     let bytes = fs::read(&helper).map_err(|error| error.to_string())?;
     let hash = hex::encode(Sha256::digest(&bytes));
+    // BOUNDED BY THE BINARY, NOT BY SUDOERS — and that is a measured property,
+    // not a choice.
+    //
+    // MEASURED on the builder: a sudoers rule naming a binary with NO argument
+    // (`cynic ALL=(root) NOPASSWD: /usr/bin/echo`) grants that binary with ANY
+    // argument — `sudo -l /usr/bin/echo extra-arg` returns the grant. So this
+    // membrane cannot bound the bridge's argv at all, and a second
+    // `... --status` rule would be redundant: the bare rule already covers it.
+    //
+    // Why sudoers cannot bound it: the bridge is driven by a JSON request on
+    // stdin, and there is no argv to constrain. The real admission is
+    // `admit()` -> `admitted_operation()` — an exact-argv allowlist that
+    // refuses everything else with `operation_not_in_lxc_bridge_catalog` — and
+    // the binary refuses outright when `geteuid() != 0`.
+    //
+    // This is the ONE membrane in CYNIC whose bound is entirely inside the
+    // binary. Recorded here rather than implied, because a reader who assumes
+    // sudoers is the enforcement point would conclude the bridge is unbounded.
     let sudoers = format!(
-        "# CYNIC Rust-native bounded LXC bridge\ncynic ALL=(root) NOPASSWD: {HELPER_TARGET}\ncynic ALL=(root) NOPASSWD: {HELPER_TARGET} --status\n"
+        "# CYNIC Rust-native bounded LXC bridge\n\
+         # ONE rule, deliberately unbounded in argv: a bare sudoers grant allows\n\
+         # any argument (measured), and the bridge takes its request on stdin.\n\
+         # The bound is `cynic_lxc::admit` -> `admitted_operation`: an exact-argv\n\
+         # allowlist, plus a root check in the binary. Do not add a `--status`\n\
+         # rule expecting it to tighten anything: it would be redundant.\n\
+         cynic ALL=(root) NOPASSWD: {HELPER_TARGET}\n"
     );
     let sudoers_path = output_dir.join(format!("{HELPER_NAME}.sudoers"));
     fs::write(&sudoers_path, sudoers).map_err(|error| error.to_string())?;
@@ -122,6 +146,54 @@ fn write_bundle(output_dir: &Path, helper_source: &Path) -> Result<String, Strin
     )
     .map_err(|error| error.to_string())?;
     Ok(hash)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundle_sudoers_has_one_rule_and_says_where_the_bound_lives() {
+        // Regression lock. MEASURED on the builder: a bare sudoers grant
+        // (`cynic ALL=(root) NOPASSWD: /usr/bin/echo`) authorizes the binary
+        // with ANY argument — `sudo -n /usr/bin/echo REAL_ARGS_WORK` executed
+        // as root, exit 0. So a `... --status` rule would be redundant, and the
+        // bundle must not imply sudoers is the enforcement point.
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("cynic-lxc-bundle-{unique}"));
+        fs::create_dir_all(&dir).expect("tempdir");
+        let helper = dir.join("helper-src");
+        fs::write(&helper, b"fake helper").expect("write helper");
+
+        let report = bundle(&dir, &helper);
+        assert_eq!(report.status, "completed", "{:?}", report.unknowns);
+
+        let sudoers =
+            fs::read_to_string(dir.join(format!("{HELPER_NAME}.sudoers"))).expect("sudoers");
+        let rules: Vec<&str> = sudoers
+            .lines()
+            .filter(|line| line.contains("NOPASSWD"))
+            .collect();
+        assert_eq!(
+            rules.len(),
+            1,
+            "exactly one rule; a second would be redundant: {rules:?}"
+        );
+        assert!(
+            rules[0].ends_with(HELPER_TARGET),
+            "the rule names the binary with no argument: {}",
+            rules[0]
+        );
+        assert!(
+            sudoers.contains("admitted_operation"),
+            "the bundle must name where the bound actually lives: {sudoers}"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 pub fn status(helper_path: Option<&str>, sudoers_path: Option<&str>) -> LxcBridgeStatus {

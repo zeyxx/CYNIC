@@ -73,6 +73,7 @@ pub(crate) fn execute_deps_upgrade(
     yes: bool,
     confirm: Option<&str>,
     only: &[String],
+    source: Option<&str>,
 ) -> ExitCode {
     execute_deps_upgrade_impl(
         json,
@@ -80,6 +81,7 @@ pub(crate) fn execute_deps_upgrade(
         yes,
         confirm,
         only,
+        source,
         now_ms(),
         emit_pretty_json,
     )

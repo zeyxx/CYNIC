@@ -63,7 +63,27 @@ produces proofs.
 
 ### §2.4 — Legislative Power (Observer + Meta-Agent)
 
-**Owner**: `cynic-observer`, meta-agent
+**Owner**: *unassigned — the declared owner was removed*
+
+> **Recorded observation, 2026-10-04, for sovereign decision.**
+>
+> This section assigned the legislative power to `cynic-observer`. That crate was
+> deleted: fan-in 0, never installed, never running, no systemd unit. What it
+> actually did was ingest Solana mainnet data (`run_argo_node()` connects to
+> `api.mainnet-beta.solana.com` and Helius); it did not observe CYNIC's state,
+> detect violations, or propose amendments.
+>
+> The power therefore had **no executor before the deletion as well**. The
+> deletion removed a name, not a capability. `infra/runtime-authority.json` had
+> already recorded the crate as admitted only *"until proof of runtime use"* --
+> a conditional admission whose condition was never met.
+>
+> This annotation is a record, not an amendment. Reassigning the legislative
+> power is the constituent power's decision, not an agent's. Two questions are
+> open and are deliberately left open here:
+>   1. Which crate, if any, should hold the legislative power?
+>   2. Was the power ever exercised at all? If not, the gap is older than this
+>      deletion and larger than one crate.
 
 Observes the state, detects violations, proposes amendments and extractions.
 

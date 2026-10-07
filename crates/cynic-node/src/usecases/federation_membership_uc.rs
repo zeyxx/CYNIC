@@ -13,8 +13,9 @@
 //! Measuring from the newest measurement would keep a permanently-unreachable
 //! transport forever fresh and freeze the member in `Active` forever.
 //!
-//! Authority: `protocols/machine-enrollment-federation.md` §3.2 (steady
-//! state), decision D4 (node-local loop; the kernel only stores/projects).
+//! Authority: `cynic_protocol::federation_membership` — the steady-state loop
+//! and the kernel-only-stores projection are the type's own behaviour, not a
+//! design section that proposed it.
 //! The kernel is never contacted by this use case: when it dies, this tick
 //! keeps working — that is what node-local means.
 

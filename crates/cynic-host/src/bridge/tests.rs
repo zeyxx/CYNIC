@@ -66,6 +66,55 @@ fn runtime_projection_never_delegates_human_admin_principal_apply() {
 }
 
 #[test]
+fn install_validates_the_staged_sudoers_before_installing_it() {
+    // Regression lock. The order used to be install-then-validate, and the
+    // validation targeted the INSTALLED path. A sudoers file that fails
+    // `visudo -c` would land in /etc/sudoers.d/ before being checked, which can
+    // break `sudo` entirely — including the ability to fix it.
+    let runtime = BoundedHelperInstallRuntime {
+        helper_target: "/tmp/cynic-bridge-test/libexec/cynic-host-exec".to_string(),
+        sudoers_target: "/tmp/cynic-bridge-test/sudoers.d/cynic-host-exec".to_string(),
+        helper_dir: "/tmp/cynic-bridge-test/libexec".to_string(),
+        sudoers_dir: "/tmp/cynic-bridge-test/sudoers.d".to_string(),
+    };
+    let commands = install_commands_for_runtime(
+        &runtime,
+        "/tmp/cynic-bridge-test/bundle",
+        root_owned_path(MODE_0755),
+        root_owned_path(MODE_0440),
+    );
+
+    let roles: Vec<&str> = commands.iter().map(|surface| surface.role.as_str()).collect();
+    let validate_at = roles
+        .iter()
+        .position(|role| *role == "validate_sudoers")
+        .expect("validate_sudoers present");
+    let install_at = roles
+        .iter()
+        .position(|role| *role == "install_sudoers")
+        .expect("install_sudoers present");
+    assert!(
+        validate_at < install_at,
+        "validate must run BEFORE install, got order {roles:?}"
+    );
+
+    // Validation targets the STAGED file, never the installed one.
+    let validate = &commands[validate_at];
+    let staged_path = match &validate.invocation {
+        crate::command_surface::HostCommandInvocation::ValidateSudoers { path } => path.clone(),
+        other => panic!("expected ValidateSudoers, got {other:?}"),
+    };
+    assert!(
+        staged_path.contains("/tmp/cynic-bridge-test/bundle"),
+        "must validate the staged path: {staged_path}"
+    );
+    assert!(
+        !staged_path.contains("/tmp/cynic-bridge-test/sudoers.d"),
+        "must NOT validate the installed path: {staged_path}"
+    );
+}
+
+#[test]
 fn bridge_bundle_can_use_the_independently_installed_runtime_seed() {
     let root = std::env::temp_dir().join(format!("cynic-bridge-seed-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);

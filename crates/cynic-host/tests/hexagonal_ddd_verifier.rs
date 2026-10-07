@@ -1,16 +1,19 @@
-//! Hexagonal and DDD verification — the structural half of the architecture policy.
+//! FCIS and DDD verification — the structural half of the architecture policy.
 //!
-//! WHY THIS FILE EXISTS. `contracts/pruning-policy.json` → `taxonomy.hexagonal_and_ddd`
-//! declares the policy in force (ports and adapters, domain-driven design) and
-//! records `status: partially_enforced` with a `known_gap` naming four clauses that
-//! no test checked:
+//! WHY THIS FILE EXISTS. `contracts/pruning-policy.json` → `taxonomy.fcis_and_ddd`
+//! declares the policy in force (Functional Core / Imperative Shell with
+//! domain-driven design) and records `status: partially_enforced` with a
+//! `known_gap` naming clauses that no test checked:
 //!
-//!   1. that every adapter implements a declared port
+//!   1. that every adapter implements a declared port — RETIRED as a goal. FCIS
+//!      does not require it: adapters may be concrete and unbound by a trait.
+//!      A port with no second implementation is indirection, not architecture.
 //!   2. that a concept named in two crates has one canonical home
 //!   3. that an application layer is distinct from the domain and the infrastructure
 //!   4. aggregate boundaries and invariants
 //!
-//! This file closes (1) and (2). Clauses (3) and (4) stay open and are named in the
+//! This file closes (2). Clause (1) is retired with its reason recorded rather
+//! than silently dropped. Clauses (3) and (4) stay open and are named in the
 //! `known_gap` assertion at the bottom, so the gap cannot silently become a claim.
 //!
 //! WHAT IT MEASURES. Two structural facts, both read from the source, both
@@ -18,8 +21,9 @@
 //! violation is rejected, and a repaired one must leave its baseline.
 //!
 //!   1. PORT COVERAGE — every `pub trait` declared under a crate's `src/ports/`
-//!      must have an `impl Trait for ...` somewhere in the workspace. A port with
-//!      no adapter is a boundary that was declared and never built.
+//!      must have an `impl Trait for ...` somewhere in the workspace. Kept as a
+//!      MEASUREMENT (not a policy requirement): under FCIS a concrete adapter is
+//!      legitimate, so this reports indirection rather than enforcing a rule.
 //!
 //!   2. CONCEPT OWNERSHIP — a domain concept (a `pub struct`/`enum`/`trait`) must
 //!      not be defined in two crates. This is `one_responsibility_one_crate` applied
@@ -168,7 +172,6 @@ const ORPHAN_PORT_BASELINE: &[&str] = &[
     "BackendCatalogPort",
     "BuildWorkloadObservationPort",
     "CredentialRotationAuthorityPort",
-    "HypervisorPort",
     "NodeControlStorePort",
     "NodeEnrollmentStorePort",
     "ProviderControlPort",
@@ -284,6 +287,81 @@ fn observed_orphan_ports() -> BTreeSet<String> {
     orphans
 }
 
+/// A core file (outside `src/adapters/`) that reaches for an I/O primitive.
+///
+/// FCIS says the pure core holds deterministic functions and data only. This
+/// measures the crates that have already split their shell (`src/adapters/`
+/// exists) and counts the core files that still reach for I/O directly.
+///
+/// The baseline is a shrink-only ratchet: a NEW leak fails, and a repaired one
+/// must leave the list. Crate names are the unit, not file paths — a path moves
+/// when a module is reorganised, and a ratchet keyed on a path reports churn as
+/// debt. Measured 2026-10-06 on the crates that declare an `adapters/` directory.
+const FCIS_CORE_IO_BASELINE: &[&str] = &[
+    // Each entry is a crate whose pure core still performs I/O outside adapters.
+    // These are the crates that have SPLIT their shell and not yet cleaned the
+    // core: the boundary exists, the discipline does not.
+    "cynic-host",
+    "cynic-inference",
+    "cynic-node",
+    "cynic-secrets",
+];
+
+/// I/O primitives that belong in the imperative shell, never in a pure core.
+const IO_PRIMITIVES: &[&str] = &["std::process::Command", "reqwest::", "tokio::spawn"];
+
+/// Core files of `crate_name` (outside `src/adapters/`) that reach for I/O.
+fn core_files_with_io(crate_name: &str) -> Vec<String> {
+    let src = workspace_root().join("crates").join(crate_name).join("src");
+    let mut leaks = Vec::new();
+    let mut stack = vec![src];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                // The shell is where I/O is supposed to live.
+                if path.file_name().and_then(|n| n.to_str()) == Some("adapters") {
+                    continue;
+                }
+                stack.push(path);
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if !name.ends_with(".rs") || name == "tests.rs" || name.ends_with("_tests.rs") {
+                continue;
+            }
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            let text = production_only(&text);
+            if IO_PRIMITIVES.iter().any(|needle| text.contains(needle)) {
+                leaks.push(path.display().to_string());
+            }
+        }
+    }
+    leaks.sort();
+    leaks
+}
+
+/// Crates that declare an `adapters/` directory — i.e. that have adopted FCIS.
+fn fcis_adopting_crates() -> Vec<String> {
+    crate_names()
+        .into_iter()
+        .filter(|name| {
+            workspace_root()
+                .join("crates")
+                .join(name)
+                .join("src/adapters")
+                .is_dir()
+        })
+        .collect()
+}
+
 fn observed_concept_collisions() -> BTreeMap<String, BTreeSet<String>> {
     let mut owners: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for crate_name in crate_names() {
@@ -387,9 +465,55 @@ fn a_domain_concept_has_one_home() {
     );
 }
 
+/// FCIS: the pure core holds no I/O. Measured per crate, ratcheted shrink-only.
+///
+/// This is the generalization of `cynic-network/tests/architecture_boundary.rs`,
+/// which is the reference implementation. It is deliberately scoped to crates
+/// that HAVE an `adapters/` directory: a crate that never adopted FCIS has no
+/// shell to leak out of, and failing it would be measuring adoption rather than
+/// discipline. The baseline names the crates that split the shell and have not
+/// yet cleaned the core — a shrink-only list, like every ratchet here.
+#[test]
+fn a_pure_core_holds_no_io() {
+    let baseline: BTreeSet<&str> = FCIS_CORE_IO_BASELINE.iter().copied().collect();
+    let mut observed: BTreeSet<String> = BTreeSet::new();
+    let mut detail: BTreeMap<String, Vec<String>> = BTreeMap::new();
+
+    for crate_name in fcis_adopting_crates() {
+        let leaks = core_files_with_io(&crate_name);
+        if !leaks.is_empty() {
+            observed.insert(crate_name.clone());
+            detail.insert(crate_name, leaks);
+        }
+    }
+
+    let new: Vec<&String> = observed
+        .iter()
+        .filter(|c| !baseline.contains(c.as_str()))
+        .collect();
+    let stale: Vec<&&str> = baseline
+        .iter()
+        .filter(|b| !observed.contains(**b))
+        .collect();
+
+    assert!(
+        new.is_empty(),
+        "crates whose pure core now performs I/O outside `src/adapters/`:\n{new:#?}\n\n\
+         FCIS (contracts/foundation.json → fcis_core_shell_separation): the core \
+         holds deterministic functions and data only. Move the I/O into the \
+         imperative shell, or record the decision in FCIS_CORE_IO_BASELINE.\n\n\
+         Files involved:\n{detail:#?}"
+    );
+    assert!(
+        stale.is_empty(),
+        "baseline crates whose core is now clean:\n{stale:#?}\n\n\
+         Remove them. A ratchet that cannot tighten is a ratchet that rots."
+    );
+}
+
 /// The gap this file does NOT close, asserted so it cannot be forgotten.
 ///
-/// `pruning-policy.json → taxonomy.hexagonal_and_ddd.known_gap` names four
+/// `pruning-policy.json → taxonomy.fcis_and_ddd.known_gap` names four
 /// unverified clauses. Two are now covered above. The remaining two are asserted
 /// here by reading the contract, so deleting them from the contract fails this
 /// test rather than quietly shrinking the gap.
@@ -407,7 +531,7 @@ fn the_unverified_half_of_the_policy_is_still_declared() {
         assert!(
             text.contains(clause),
             "contracts/pruning-policy.json no longer carries `{clause}`. The \
-             hexagonal/DDD policy is still only partially enforced; a contract \
+             FCIS/DDD policy is still only partially enforced; a contract \
              that stops saying so reads as a guarantee."
         );
     }

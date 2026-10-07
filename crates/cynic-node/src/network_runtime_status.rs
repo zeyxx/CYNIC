@@ -12,10 +12,10 @@ use crate::provider_fallback_status::build_provider_fallback_status;
 use cynic_host::registry::HostProfileResolution;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkRuntimeStatus {
+pub struct NetworkRuntimeStatus {
     schema: &'static str,
     generated_at: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) severity: &'static str,
     hostname: String,
     host_profile: &'static str,
@@ -35,7 +35,7 @@ pub(crate) struct NetworkRuntimeStatus {
     provider_fallback_status: Option<Value>,
 }
 
-pub(crate) fn build_network_runtime_status(
+pub fn build_network_runtime_status(
     registry: &str,
     resolve_dns: bool,
     check_provider_connectivity: bool,
@@ -253,4 +253,33 @@ mod tests {
         assert_eq!(report.status, "provider_fallback_active");
         assert_eq!(report.severity, "warning");
     }
+}
+
+
+/// Network runtime status as a serializable value.
+///
+/// Moved here from `facade.rs`, which was a flat bag of cross-crate helpers. The
+/// function belongs to the module that owns the report type: it calls
+/// `build_network_runtime_status` and serializes the result, nothing more.
+pub fn build_network_runtime_status_value(
+    registry: &str,
+    resolve_dns: bool,
+    check_provider_connectivity: bool,
+    provider_hosts_path: &str,
+    hosts_path: &str,
+    corefile_path: &str,
+    service_path: &str,
+    resolved_dropin_path: &str,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let report = build_network_runtime_status(
+        registry,
+        resolve_dns,
+        check_provider_connectivity,
+        provider_hosts_path,
+        hosts_path,
+        corefile_path,
+        service_path,
+        resolved_dropin_path,
+    )?;
+    Ok(serde_json::to_value(report)?)
 }

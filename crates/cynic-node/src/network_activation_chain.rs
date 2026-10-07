@@ -15,11 +15,11 @@ use crate::network_runtime_status;
 use crate::observe;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActivationChainReport {
+pub struct NetworkActivationChainReport {
     schema: &'static str,
     generated_at: String,
     registry: String,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     host_profile: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     host_resolution: Option<cynic_host::registry::HostProfileResolution>,
@@ -52,7 +52,7 @@ struct ActivationStageCommand {
     command: String,
 }
 
-pub(crate) fn build_activation_chain_report(
+pub fn build_activation_chain_report(
     registry: &str,
     resolve_dns: bool,
     check_provider_connectivity: bool,

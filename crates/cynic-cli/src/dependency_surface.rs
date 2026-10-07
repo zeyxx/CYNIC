@@ -51,6 +51,9 @@ pub(crate) enum DependencyCommand {
         confirm: Option<String>,
         #[arg(long)]
         only: Vec<String>,
+        /// Explicit source binary path for first-contact bootstrap.
+        #[arg(long)]
+        source: Option<String>,
     },
 }
 
@@ -65,6 +68,14 @@ pub(crate) fn execute_dependency_command(command: DependencyCommand) -> ExitCode
             apply,
             confirm,
             only,
-        } => crate::deps_surface::execute_deps_upgrade(json, apply, yes, confirm.as_deref(), &only),
+            source,
+        } => crate::deps_surface::execute_deps_upgrade(
+            json,
+            apply,
+            yes,
+            confirm.as_deref(),
+            &only,
+            source.as_deref(),
+        ),
     }
 }

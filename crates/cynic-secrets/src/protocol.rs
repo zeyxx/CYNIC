@@ -3,7 +3,8 @@
 //! These types carry metadata about secrets — never the secret values
 //! themselves. They are consumed by the ports layer and concrete adapters.
 //!
-//! Authority: AGENTS.md secret classes table.
+//! Authority: `cynic-protocol::secret_use::{SecretUsePurpose, SecretUseRequest}`.
+//! The classes and their permitted purposes are a Rust type, not prose.
 
 use serde::{Deserialize, Serialize};
 

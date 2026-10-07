@@ -16,7 +16,7 @@ const ACL_FILENAME: &str = "acl.json";
 const ROUTES_FILENAME: &str = "routes.json";
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkMeshBundleReport {
+pub struct NetworkMeshBundleReport {
     pub(crate) schema: &'static str,
     pub(crate) status: &'static str,
     pub(crate) mutates: bool,
@@ -30,7 +30,7 @@ pub(crate) struct NetworkMeshBundleReport {
     pub(crate) activation_requires: Vec<&'static str>,
 }
 
-pub(crate) fn build_network_mesh_bundle(
+pub fn build_network_mesh_bundle(
     registry_path: &str,
     provider_override: Option<&str>,
     output_dir: &str,

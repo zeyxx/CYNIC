@@ -1,7 +1,7 @@
 //! The 18 Canonical Ledger Transactions of a CynicPeer.
 //!
-//! Specifications: `protocols/cynic-stage2-peer-and-ledger.md` §5.
-//! Invariants: Append-only, deterministic, content-addressed, idempotent.
+//! Specifications: `LEDGER_TRANSACTION_SCHEMA` and the 18 transaction types
+//! below. Invariants: Append-only, deterministic, content-addressed, idempotent.
 
 use serde::{Deserialize, Serialize};
 

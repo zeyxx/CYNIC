@@ -59,23 +59,25 @@
       "authority_rank": "crates/cynic-host/tests/authority_ladder_coherence.rs",
       "naming": "crates/cynic-host/tests/crate_taxonomy_ownership.rs (empty description, metaphor, layer token, purity prefix)"
     },
-    "hexagonal_and_ddd": {
-      "policy": "The architecture policy in force is hexagonal (ports and adapters) with domain-driven design. Domain logic holds no infrastructure; dependencies point inward; a port is a trait and an adapter implements it; one concept has one home.",
+    "fcis_and_ddd": {
+      "policy": "The architecture policy in force is Functional Core / Imperative Shell (FCIS) with Data-Oriented Design. CYNIC formally rejects dogmatic Enterprise Java-style Hexagonal Architecture: excessive Arc<dyn Port> indirections destroy CPU cache locality, inhibit compiler inlining, force heap allocations, and multiply boilerplate mock structures. The FCIS solution: (1) Functional Core — 100% pure data structures and deterministic functions, zero async runtimes, zero network sockets, zero mock objects, testable in microseconds; (2) Imperative Shell (adapters/) — direct pragmatic I/O, collects raw kernel data, invokes the pure Functional Core, executes the emitted Action Plan; (3) Zero-Copy and Static Dispatch — parsers parse slices directly without allocating intermediate DTOs. One concept has one home.",
       "status": "partially_enforced",
       "verified": {
-        "domain_purity_no_io": "crates/*/tests/architecture_boundary.rs asserts the absence of reqwest, std::process and tokio::spawn in domain modules (24 of 48 crates assert at least one of the three).",
+        "core_purity_zero_io": "crates/cynic-network/tests/architecture_boundary.rs asserts that I/O primitives (std::process::Command, reqwest, tokio::spawn) appear only under src/adapters/, and that the pure core holds none of them. This is the reference implementation of the FCIS boundary.",
         "dependency_direction": "26 of 48 crates assert no dependency on a higher layer; ARCH-004 checks the whole declared graph against the built one.",
-        "ports_are_traits": "1 crate asserts that its ports module holds traits only."
+        "concept_ownership": "crates/cynic-host/tests/hexagonal_ddd_verifier.rs checks that a domain concept is not defined in two crates. 5 of 6 current collisions are network vocabulary (MeshRegistry, NetworkActuatorActivationPlan, RegistryService) owned by the parallel network session; 1 is CodeCitesProseRule from the audit-engine extraction."
       },
       "known_gap": {
         "statement": "The structural half of the policy is NOT verified. Recorded here rather than left implicit, because an unrecorded gap reads as a guarantee.",
         "unverified": [
-          "that every adapter implements a declared port",
-          "that a concept named in two crates has one canonical home (measured 2026-09-30: 10 of 18 sampled concepts have two or more homes; ClaimStatus exists in both cynic-protocol and cynic-agent-bus)",
+          "that a concept named in two crates has one canonical home (measured 2026-09-30: 10 of 18 sampled concepts have two or more homes; measured 2026-10-06: 5 live collisions, all cynic-network vs cynic-node, 4 of which the parallel network session already repairs)",
           "that an application layer is distinct from the domain and the infrastructure",
           "aggregate boundaries and invariants"
         ],
-        "executor": "none yet. Closing this gap is the work of the hexagonal/DDD verifier slice, not of this contract."
+        "retired_clauses": [
+          "that every adapter implements a declared port — RETIRED 2026-10-06. FCIS does not require it: a concrete, trait-unbound adapter is legitimate, and a port with no second implementation is indirection rather than architecture. Port coverage is kept as a MEASUREMENT of indirection, not as a policy requirement."
+        ],
+        "executor": "crates/cynic-host/tests/hexagonal_ddd_verifier.rs — concept ownership, plus the generalized FCIS core-purity ratchet (a_pure_core_holds_no_io, measured per crate against FCIS_CORE_IO_BASELINE). Reference implementation of the boundary: crates/cynic-network/tests/architecture_boundary.rs."
       }
     },
     "known_unknown": {

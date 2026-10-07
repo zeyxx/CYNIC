@@ -8,7 +8,8 @@
 //! is declared. No new config surface: the kernel URL is the one the node
 //! already needs to run.
 //!
-//! Authority: `protocols/machine-enrollment-federation.md` step 3 wiring.
+//! Authority: `cynic_network::TRANSPORT_READBACK_SCHEMA` — the wiring this
+//! adapter builds is a typed proof, not a design step.
 
 use cynic_network::{TRANSPORT_READBACK_SCHEMA, TransportKind, TransportReadback, TransportState};
 

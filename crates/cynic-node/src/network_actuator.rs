@@ -1,11 +1,11 @@
-mod apply;
-mod bundle;
+pub mod apply;
+pub mod bundle;
 pub(crate) mod execution;
 mod policy;
-mod types;
+pub mod types;
 
-pub(crate) use apply::apply_profile;
-pub(crate) use bundle::{activation_plan, write_install_bundle};
+pub use apply::apply_profile;
+pub use bundle::{activation_plan, write_install_bundle};
 // Execution records are host substrate proof: node code only adapts and
 // schedules them. Keeping this alias preserves node call sites while removing
 // a duplicate execution schema from the node layer.

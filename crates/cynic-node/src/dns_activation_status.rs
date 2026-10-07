@@ -16,9 +16,9 @@ use crate::network_host_substrate;
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct DnsActivationStatusReport {
+pub struct DnsActivationStatusReport {
     pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     host_profile: &'static str,
     checks: DnsActivationChecks,
     provider_policy: DnsProviderPolicySurface,
@@ -56,7 +56,7 @@ struct DnsActivationPaths {
     resolved_dropin: String,
 }
 
-pub(crate) fn build_dns_activation_status(
+pub fn build_dns_activation_status(
     registry: &str,
     hosts_path: &str,
     corefile_path: &str,

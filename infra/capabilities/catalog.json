@@ -1,0 +1,251 @@
+{
+  "schema": "cynic.capability_catalog.v1",
+  "status": "normative",
+  "authority": {
+    "declared_by": "docs/design/single-binary-capability-selected.md",
+    "observed_by": "cynic privilege catalog --json",
+    "rule": "A privileged action runs only if its capability is declared here AND installed on this node AND every parameter validates. There is one catalog and one admit(); a domain that builds its own argv is a second source of truth.",
+    "negative_boundary": "This file never carries a secret, a hostname, or a path that varies per node. Node-specific values are parameters, validated at admission."
+  },
+  "consolidates": [
+    "infra/privilege/pve-pct-helper.policy.json",
+    "infra/privilege/transport-capabilities.policy.json"
+  ],
+  "capabilities": [
+    {
+      "id": "forgejo-inspect-app-ini",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "ls",
+        "-la",
+        "/etc/forgejo/app.ini"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only inspection of forgejo app.ini inside a CT"
+    },
+    {
+      "id": "forgejo-inspect-user",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "sh",
+        "-c",
+        "id forgejo; ls /usr/local/bin/forgejo /usr/bin/forgejo 2>/dev/null; which sudo || true"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only inspection of forgejo user and binary locations inside a CT"
+    },
+    {
+      "id": "forgejo-machine-token",
+      "domain": "identity",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "forgejo",
+        "admin",
+        "user",
+        "generate-access-token",
+        "--username",
+        "{principal}",
+        "--token-name",
+        "{token_name}",
+        "--scopes",
+        "write:repository"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        },
+        {
+          "name": "principal",
+          "kind": "path_segment"
+        },
+        {
+          "name": "token_name",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "one-shot RuntimeMachineIdentity issuance for a Forgejo principal"
+    },
+    {
+      "id": "node-control",
+      "domain": "runtime",
+      "argv_template": [
+        "node",
+        "control"
+      ],
+      "params": [],
+      "requires_root": false,
+      "mandatory": true,
+      "purpose": "supervised node runtime (the node cannot function without it)"
+    },
+    {
+      "id": "pct-clone",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "clone",
+        "{source}",
+        "{target}",
+        "--full"
+      ],
+      "params": [
+        {
+          "name": "source",
+          "kind": "vmid"
+        },
+        {
+          "name": "target",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "ephemeral build container provisioning from a clean template"
+    },
+    {
+      "id": "pct-destroy",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "destroy",
+        "{vmid}"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "destroy an ephemeral container after read-back proof"
+    },
+    {
+      "id": "pct-list",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "list"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "CT inventory for fleet observation (read-only)"
+    },
+    {
+      "id": "pct-probe-hostname",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "exec",
+        "{vmid}",
+        "--",
+        "hostname"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "read-only hostname observation of a CT"
+    },
+    {
+      "id": "pct-resize",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "resize",
+        "{vmid}",
+        "rootfs",
+        "{delta}"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        },
+        {
+          "name": "delta",
+          "kind": "size_delta"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "grow a container rootfs (never shrink)"
+    },
+    {
+      "id": "pct-status",
+      "domain": "hypervisor",
+      "argv_template": [
+        "/usr/sbin/pct",
+        "status",
+        "{vmid}"
+      ],
+      "params": [
+        {
+          "name": "vmid",
+          "kind": "vmid"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "observe a container's run state (read-only)"
+    },
+    {
+      "id": "systemctl-restart-pve-cluster",
+      "domain": "system",
+      "argv_template": [
+        "/usr/bin/systemctl",
+        "restart",
+        "pve-cluster"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "hypervisor watchdog recovery of a wedged pmxcfs"
+    },
+    {
+      "id": "systemctl-restart-pvedaemon",
+      "domain": "system",
+      "argv_template": [
+        "/usr/bin/systemctl",
+        "restart",
+        "pvedaemon"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "hypervisor watchdog recovery of the PVE API daemon"
+    }
+  ]
+}

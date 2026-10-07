@@ -106,9 +106,9 @@ pub fn peer_submit_tx(
 }
 
 /// Execute a PeerCommands variant and emit the JSON result.
-pub fn execute_peer_command(command: &crate::cli::PeerCommands) -> ExitCode {
+pub fn execute_peer_command(command: &crate::peer_commands::PeerCommands) -> ExitCode {
     match command {
-        crate::cli::PeerCommands::Status {
+        crate::peer_commands::PeerCommands::Status {
             dir,
             registry,
             json: _,
@@ -125,7 +125,7 @@ pub fn execute_peer_command(command: &crate::cli::PeerCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        crate::cli::PeerCommands::Inspect {
+        crate::peer_commands::PeerCommands::Inspect {
             dir,
             kind,
             id,
@@ -147,8 +147,8 @@ pub fn execute_peer_command(command: &crate::cli::PeerCommands) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        crate::cli::PeerCommands::Submit {
-            command: crate::cli::PeerSubmitCommand::Tx { dir, file, json: _ },
+        crate::peer_commands::PeerCommands::Submit {
+            command: crate::peer_commands::PeerSubmitCommand::Tx { dir, file, json: _ },
         } => {
             let raw = match std::fs::read_to_string(file) {
                 Ok(s) => s,

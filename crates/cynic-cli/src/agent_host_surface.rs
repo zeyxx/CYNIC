@@ -5,7 +5,7 @@
 //!
 //! No secret reading, no endpoint defaulting, no Proxmox policy in this file.
 //! All credential and endpoint resolution is delegated to
-//! `cynic_node::adapters::proxmox_control` (the canonical authority).
+//! `cynic_proxmox::adapters::ProxmoxControlAdapter` (the canonical authority).
 
 use std::process::ExitCode;
 use std::time::Duration;
@@ -16,7 +16,7 @@ use cynic_host::agent_host::{
     plan_agent_host_vm,
 };
 use cynic_lifecycle::LocalArgvRunner;
-use cynic_node::adapters::proxmox_control::ProxmoxControlAdapter;
+use cynic_proxmox::adapters::ProxmoxControlAdapter;
 use cynic_protocol::AgentHostDesired;
 
 use crate::cli_json::emit_pretty_json;

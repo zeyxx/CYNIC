@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub(crate) struct MeshRegistry {
+pub struct MeshRegistry {
     #[serde(default)]
     pub(crate) network_policy: Option<NetworkPolicy>,
     #[serde(default)]
-    pub(crate) nodes: Vec<RegistryNode>,
+    pub nodes: Vec<RegistryNode>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -40,25 +40,25 @@ pub(crate) struct NetworkPlane {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct NetworkReservation {
-    pub(crate) name: Option<String>,
+    pub name: Option<String>,
     #[serde(default)]
     pub(crate) dns: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub(crate) struct RegistryNode {
-    pub(crate) id: Option<String>,
-    pub(crate) name: Option<String>,
-    pub(crate) role: Option<String>,
-    pub(crate) status: Option<String>,
+pub struct RegistryNode {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub role: Option<String>,
+    pub status: Option<String>,
     #[serde(default)]
-    pub(crate) network: BTreeMap<String, String>,
+    pub network: BTreeMap<String, String>,
     #[serde(default)]
-    pub(crate) services: Vec<RegistryService>,
+    pub services: Vec<RegistryService>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub(crate) struct RegistryService {
-    pub(crate) name: Option<String>,
-    pub(crate) port: Option<u16>,
+pub struct RegistryService {
+    pub name: Option<String>,
+    pub port: Option<u16>,
 }

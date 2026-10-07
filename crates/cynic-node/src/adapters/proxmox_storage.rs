@@ -1,7 +1,7 @@
 use cynic_storage::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 use serde_json::Value;
 
-use crate::adapters::proxmox_control::ProxmoxControlAdapter;
+use cynic_proxmox::adapters::ProxmoxControlAdapter;
 use crate::ports::storage_mutation_port::{
     StorageMutationPort, StorageMutationRequest, StorageMutationResult, StorageOperationReadBack,
     StorageOperationReadBackPort,

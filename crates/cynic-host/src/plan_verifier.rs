@@ -147,7 +147,12 @@ mod tests {
             policy_digest:
                 "sha256:0000000000000000000000000000000000000000000000000000000000000000"
                     .to_string(),
-            release: RuntimeSeedRequest::example("node-cortex", "cynic-v0.1.0", "75b4cd4b"),
+            release: RuntimeSeedRequest::example(
+                "node-cortex",
+                "cynic-v0.1.0",
+                "75b4cd4b",
+                "/nonexistent/example-install-root",
+            ),
             required_capabilities: vec![],
             required_services: vec![],
             paused: false,

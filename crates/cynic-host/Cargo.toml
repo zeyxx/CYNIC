@@ -1,8 +1,14 @@
 [package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
 name = "cynic-host"
 version.workspace = true
 edition.workspace = true
 publish = false
+
+[[bin]]
+name = "cynic-host-exec"
+path = "src/bin/cynic-host-exec.rs"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
@@ -50,6 +56,10 @@ rand = "0.8"
 rpassword = "7.5.4"
 
 [dev-dependencies]
+# The workspace-wide audit gates that also need the coordination lease store.
+# A dev-dependency, not a production edge: cynic-host the library must not
+# depend on its own auditor.
+cynic-audit-engine = { path = "../cynic-audit-engine" }
 tempfile = "3"
 # adversarial_red_team_suite and multi_agent_e2e_simulation both import
 # cynic_intel::{escore, futarchy}. The crate exists and exports them; it was

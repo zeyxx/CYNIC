@@ -56,13 +56,11 @@ pub mod mcp_call_proof_index;
 pub mod network_audit;
 pub mod network_notify_surface;
 pub mod network_surface;
-pub mod node_activation_surface;
 pub mod node_host_audit;
 pub mod operator_doctor;
 pub mod operator_errors;
 pub mod operator_help;
 pub mod operator_status;
-pub mod ownership_audit;
 pub mod peer_surface;
 pub mod queue_surface;
 pub mod root_dispatch;
@@ -72,6 +70,7 @@ pub mod runtime_surface;
 pub mod rust_source;
 pub mod session_surface;
 pub mod secret_surface;
+pub mod privilege_surface;
 pub mod secret_use_surface;
 pub mod source_surface;
 pub mod surface_registry;
@@ -79,6 +78,7 @@ pub mod task_surface;
 pub mod transport_surface;
 pub mod version_surface;
 pub mod workload_observation;
+pub mod node_surface;
 
 pub use cli_args::Cli;
 pub(crate) use cli_args::Command;
@@ -87,7 +87,7 @@ use crate::host_exec_alias_surface::maybe_run_host_exec_alias;
 use crate::root_dispatch::{execute_root_command, print_cli_help};
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 
-pub fn run_main() -> ExitCode {
+pub async fn run_main() -> ExitCode {
     if let Some(exit_code) = maybe_run_host_exec_alias() {
         return exit_code;
     }
@@ -98,7 +98,7 @@ pub fn run_main() -> ExitCode {
             let mut command = Cli::command();
             print_cli_help(&mut command)
         }
-        Some(command) => execute_root_command(command),
+        Some(command) => execute_root_command(command).await,
     }
 }
 

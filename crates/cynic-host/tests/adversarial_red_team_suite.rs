@@ -1,4 +1,4 @@
-use cynic_host::audit_engine::run_workspace_audit;
+use cynic_audit_engine::run_workspace_audit;
 use cynic_host::coordination_lease_store::CoordinationLeaseStore;
 use cynic_intel::escore::decay::{calculate_decay, calculate_quadratic_modifier};
 use cynic_intel::escore::merkle::{build_proof, merkle_root, verify_proof};

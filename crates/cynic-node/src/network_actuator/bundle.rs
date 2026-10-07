@@ -26,15 +26,15 @@ use crate::network_command_surface::{
 };
 use crate::observe::NodeObservation;
 
-mod commands;
-mod context;
+pub mod commands;
+pub mod context;
 
 use commands::{
     denial_checks, deny_route_command, postflight_commands, preflight_commands, success_criteria,
 };
 use context::{NetworkActuatorBundleContext, helper_install_runtime};
 
-pub(crate) fn write_install_bundle(
+pub fn write_install_bundle(
     observation: &NodeObservation,
     output_dir: impl AsRef<Path>,
 ) -> Result<NetworkActuatorBundleManifest, Box<dyn std::error::Error>> {
@@ -78,7 +78,7 @@ pub(crate) fn write_install_bundle(
     Ok(manifest)
 }
 
-pub(crate) fn activation_plan(
+pub fn activation_plan(
     _observation: &NodeObservation,
     bundle_dir: impl AsRef<Path>,
 ) -> NetworkActuatorActivationPlan {

@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::ports::harness_target_attestation_reader_port::HarnessTargetAttestationReaderPort;
 
-pub(crate) struct LocalHarnessTargetAttestationReader;
+pub struct LocalHarnessTargetAttestationReader;
 
 #[derive(Deserialize)]
 struct AttestationEnvelope {

@@ -22,44 +22,42 @@ pub mod finance_adapters;
 pub(crate) mod announce;
 mod build_attestation;
 pub mod builder_activation;
-pub mod cli;
-pub mod cli_dispatch;
 pub mod config;
 pub(crate) mod config_watch;
-mod dns_activation;
-mod dns_activation_status;
-mod dns_bundle;
+pub mod dns_activation;
+pub mod dns_activation_status;
+pub mod dns_bundle;
 mod dns_contract;
-mod dns_plan;
+pub mod dns_plan;
 pub mod domain;
-pub mod facade;
 pub mod fleet_inventory;
 pub mod fleet_observability;
 pub mod inference_node_ops;
 pub mod inference_operations;
 pub mod mesh_registry;
-mod network_activation_chain;
-mod network_actuator;
+pub mod network_activation_chain;
+pub mod network_actuator;
 mod network_actuator_contract;
-mod network_actuator_status;
+pub mod network_actuator_status;
 mod network_command_surface;
 mod network_diagnostic_surface;
-mod network_evidence;
+pub mod network_evidence;
 mod network_host_substrate;
-mod network_mesh_apply_plan;
-mod network_mesh_bundle;
-mod network_mesh_plan;
-mod network_repair;
-mod network_root_policy;
-mod network_runtime_proof;
-mod network_runtime_status;
-mod network_shadow_proof;
+pub mod network_mesh_apply_plan;
+pub mod network_mesh_bundle;
+pub mod network_mesh_plan;
+pub mod network_repair;
+pub mod network_root_policy;
+pub mod network_runtime_proof;
+pub mod network_runtime_status;
+pub mod network_shadow_proof;
 mod network_surface_inventory;
 pub mod node_control_runtime;
-mod observe;
+pub mod observe;
+pub mod peer_commands;
 pub mod ports;
-mod provider_fallback_hosts;
-mod provider_fallback_status;
+pub mod provider_fallback_hosts;
+pub mod provider_fallback_status;
 pub mod runtime_supervision;
 pub mod shutdown;
 pub(crate) mod source_change_transaction;
@@ -70,5 +68,16 @@ pub mod verify;
 pub mod watchdog;
 pub mod websocket;
 
-pub use cli::NetworkCommands;
-pub use facade::*;
+
+// Cross-crate surface, explicit.
+//
+// These replace `pub use facade::*;`. A glob exported 13 functions; 8 had zero
+// consumers anywhere, and a glob cannot tell a used name from a dead one, so the
+// dead ones were indistinguishable from the API. Each name below has a measured
+// consumer, and the two that are already reachable through `pub mod usecases` /
+// `pub mod adapters` are re-exported rather than duplicated.
+//
+// The CLI needs these because cynic-node's network modules are `mod`, not
+// `pub mod`. Widening those is slice 2, where the surfaces move out.
+pub use adapters::peer_storage::ingress::execute_peer_command;
+pub use network_runtime_status::build_network_runtime_status_value;

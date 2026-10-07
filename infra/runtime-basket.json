@@ -2,11 +2,48 @@
   "schema": "cynic.runtime_basket.v1",
   "status": "normative",
   "purpose": "Canonical versioned artifact basket projected into role-specific runtime bundles.",
+  "authority": {
+    "declared_by": "this document",
+    "observed_by": "cargo metadata --no-deps (the compiler's target list)",
+    "rule": "A desired artifact is never promoted to shipped merely because it appears here; it is shipped when the compiler produces it and the release manifest installs it.",
+    "negative_boundary": "This document does not build, install, or execute anything. It declares."
+  },
+  "audiences": {
+    "operator": {
+      "description": "Invoked directly by a human or an agent on the command line. Non-supervised.",
+      "install_root": "/usr/local/bin",
+      "supervised": false,
+      "privilege": "user",
+      "deployed": true
+    },
+    "service": {
+      "description": "Long-running supervised daemon managed by systemd. Not invoked interactively.",
+      "install_root": "/usr/local/bin",
+      "supervised": true,
+      "privilege": "cynic",
+      "deployed": true
+    },
+    "privileged": {
+      "description": "Root-boundary bridge. Executes admitted operations behind an explicit privilege boundary. Kept separate because one binary that can run as root must not expose every other subcommand at root.",
+      "install_root": "/usr/local/libexec",
+      "supervised": false,
+      "privilege": "root",
+      "deployed": true
+    },
+    "tooling": {
+      "description": "Development and audit tools. Never deployed to a runtime node and never present in a role bundle. A tooling artifact that grows a deployment consumer must be reclassified, not silently shipped.",
+      "install_root": null,
+      "supervised": false,
+      "privilege": "user",
+      "deployed": false
+    }
+  },
   "runtime_seed": {
     "id": "cynic-host-exec",
     "crate": "cynic-host",
     "binary": "cynic-host-exec",
     "install_path": "/usr/local/libexec/cynic-host-exec",
+    "audience": "privileged",
     "contract_revision": 4,
     "signature_namespace": "cynic-runtime-seed",
     "lifecycle": "installed once through HumanAdmin bootstrap and rotated only through a separately signed seed-rotation ceremony",
@@ -24,36 +61,128 @@
       "id": "cynic",
       "crate": "cynic-cli",
       "binary": "cynic",
+      "audience": "operator",
       "install_path": "/usr/local/bin/cynic",
-      "roles": ["cortex_host", "hypervisor", "kernel_primary", "build_runner"]
+      "roles": [
+        "cortex_host",
+        "hypervisor",
+        "kernel_primary",
+        "build_runner"
+      ],
+      "consumers": [
+        "human operator",
+        "hermes agent",
+        "systemd unit ExecStart"
+      ]
     },
     {
       "id": "cynic-node",
       "crate": "cynic-node",
       "binary": "cynic-node",
+      "audience": "service",
       "install_path": "/usr/local/bin/cynic-node",
-      "roles": ["cortex_host", "hypervisor", "kernel_primary", "build_runner"]
+      "roles": [
+        "cortex_host",
+        "hypervisor",
+        "kernel_primary",
+        "build_runner"
+      ],
+      "consumers": [
+        "systemd cynic-node.service"
+      ]
     },
     {
       "id": "cynic-kernel",
       "crate": "cynic-kernel",
       "binary": "cynic-kernel",
+      "audience": "service",
       "install_path": "/usr/local/bin/cynic-kernel",
-      "roles": ["kernel_primary"]
+      "roles": [
+        "kernel_primary"
+      ],
+      "consumers": [
+        "systemd (kernel_primary nodes)"
+      ]
     },
     {
       "id": "cynic-mcp",
       "crate": "cynic-mcp",
       "binary": "cynic-mcp",
+      "audience": "service",
       "install_path": "/usr/local/bin/cynic-mcp",
-      "roles": ["cortex_host", "operator"]
+      "roles": [
+        "cortex_host",
+        "operator"
+      ],
+      "consumers": [
+        "hermes mcp client (stdio transport)"
+      ]
     },
     {
       "id": "cynic-lxc-exec-bridge",
-      "crate": "cynic-host",
+      "crate": "cynic-lxc",
       "binary": "cynic-lxc-exec-bridge",
+      "audience": "privileged",
       "install_path": "/usr/local/libexec/cynic-lxc-exec-bridge",
-      "roles": ["hypervisor"]
+      "roles": [
+        "hypervisor"
+      ],
+      "consumers": [],
+      "note": "crate corrected from cynic-host to cynic-lxc: the binary lives at crates/cynic-lxc/src/bin/. The previous declaration was drift, proven by the path not existing in the declared crate."
+    }
+  ],
+  "tooling": [
+    {
+      "id": "cynic-node-enroll",
+      "crate": "cynic-node",
+      "binary": "cynic-node-enroll",
+      "audience": "tooling",
+      "install_path": null,
+      "roles": [],
+      "consumers": [],
+      "note": "Enrollment grant generator. Runs once per node admission, never as a deployed daemon."
+    },
+    {
+      "id": "cynic-network-actuator",
+      "crate": "cynic-node",
+      "binary": "cynic-network-actuator",
+      "audience": "tooling",
+      "install_path": null,
+      "roles": [],
+      "consumers": [],
+      "note": "DEAD: zero external consumers. Recorded so the count stays honest; candidate for deletion."
+    },
+    {
+      "id": "cynic-topology",
+      "crate": "cynic-host",
+      "binary": "cynic-topology",
+      "audience": "tooling",
+      "install_path": null,
+      "roles": [],
+      "consumers": [
+        "infra/crate-topology.json generator (--check / --write)"
+      ],
+      "note": "Refuses to write a document ARCH-004 would flag. The reference implementation for every other comparator in this repository."
+    },
+    {
+      "id": "cynic-pool",
+      "crate": "cynic-pool",
+      "binary": "cynic-pool",
+      "audience": "tooling",
+      "install_path": null,
+      "roles": [],
+      "consumers": [],
+      "note": "DEAD: zero external consumers. Candidate for deletion."
+    },
+    {
+      "id": "zeroclaw-solana-demo",
+      "crate": "cynic-zeroclaw-solana",
+      "binary": "zeroclaw-solana-demo",
+      "audience": "tooling",
+      "install_path": null,
+      "roles": [],
+      "consumers": [],
+      "note": "DEAD: zero external consumers. Candidate for deletion."
     }
   ],
   "bundle_rules": {
@@ -72,5 +201,18 @@
       "runtime_postflight_observed"
     ],
     "rollback_intent": "restore previous versioned runtime basket when postflight proof fails"
+  },
+  "measured": {
+    "note": "Observation of the compiler's target list. Regenerated by a comparator, never authored by hand. cynic-observer removed 2026-10-04: 13 -> 12 binaries, service 4 -> 3.",
+    "bins_built": 12,
+    "bins_accounted": 12,
+    "by_audience": {
+      "operator": 1,
+      "service": 3,
+      "privileged": 2,
+      "tooling": 6
+    },
+    "deployed": 6,
+    "tooling_only": 6
   }
 }

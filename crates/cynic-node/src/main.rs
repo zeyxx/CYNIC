@@ -21,12 +21,9 @@
 use std::process::ExitCode;
 use std::time::Duration;
 
-use clap::Parser;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
-use cynic_node::cli::Cli;
-use cynic_node::cli_dispatch;
 use cynic_node::config;
 use cynic_node::node_control_runtime;
 use cynic_node::runtime_supervision;
@@ -39,10 +36,20 @@ async fn main() -> ExitCode {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let cli = Cli::parse();
-
-    if let Some(cmd) = cli.command {
-        return cli_dispatch::dispatch_command(cmd).await;
+    // The daemon owns exactly one subcommand: `control`. Every other
+    // subcommand is a CLI surface that belongs in `cynic`, not in a daemon.
+    // The systemd unit runs `cynic-node control --config ...`.
+    //
+    // We do NOT parse the full Cli here. Cli is a CLI type that now lives in
+    // cynic-cli. cynic-node cannot depend on cynic-cli (DAG inversion).
+    // Instead we check the first argument directly.
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] != "control" {
+        eprintln!(
+            "cynic-node is a daemon and only owns `control`. \
+             Use `cynic <command>` for CLI surfaces."
+        );
+        return ExitCode::FAILURE;
     }
 
     // Automatic Versioning Integration
@@ -58,18 +65,17 @@ async fn main() -> ExitCode {
         build_date
     );
 
-    if cli.watchdog {
-        let Some(config_path) = cli.config.as_deref() else {
-            tracing::error!("--config is required for --watchdog");
-            return ExitCode::FAILURE;
-        };
+    // Extract --config from args (after `control` if present)
+    let config_path = args
+        .iter()
+        .position(|a| a == "--config")
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
+        .unwrap_or("/etc/cynic/node-control.toml");
+
+    if args.len() > 1 && args[1] == "--watchdog" {
         return watchdog::execute(config_path).await;
     }
-
-    let Some(config_path) = cli.config.as_deref() else {
-        tracing::error!("--config is required unless using the observe command");
-        return ExitCode::FAILURE;
-    };
 
     let cfg = match config::load(config_path) {
         Ok(c) => c,

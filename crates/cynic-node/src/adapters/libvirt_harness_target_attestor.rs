@@ -12,14 +12,14 @@ use crate::ports::harness_target_attestation_port::{
     HarnessTargetAttestationPort, HarnessTargetAttestationRequest,
 };
 
-pub(crate) struct LibvirtHarnessTargetAttestor<R> {
+pub struct LibvirtHarnessTargetAttestor<R> {
     runner: R,
     virsh_bin: String,
     ip_bin: String,
 }
 
 impl<R> LibvirtHarnessTargetAttestor<R> {
-    pub(crate) fn new(runner: R, virsh_bin: impl Into<String>, ip_bin: impl Into<String>) -> Self {
+    pub fn new(runner: R, virsh_bin: impl Into<String>, ip_bin: impl Into<String>) -> Self {
         Self {
             runner,
             virsh_bin: virsh_bin.into(),

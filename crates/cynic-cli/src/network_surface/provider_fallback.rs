@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use cynic_node::NetworkCommands;
+use crate::node_surface::network_surfaces_uc::NetworkCommands;
 
 use crate::network_surface::{
     NetworkCommand, NetworkProviderCommand, NetworkProviderFallbackCommand,
@@ -24,7 +24,7 @@ pub(crate) fn try_execute_provider_fallback(
             registry,
             hosts_path,
             check_connectivity,
-        } => cynic_node::execute_network_command(&NetworkCommands::ProviderFallbackStatus {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ProviderFallbackStatus {
             json: true,
             registry: registry_path(registry),
             hosts_path: hosts_path
@@ -34,7 +34,7 @@ pub(crate) fn try_execute_provider_fallback(
         NetworkProviderFallbackCommand::Hosts {
             registry,
             output_dir,
-        } => cynic_node::execute_network_command(&NetworkCommands::ProviderFallbackHosts {
+        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ProviderFallbackHosts {
             json: true,
             registry: registry_path(registry),
             output_dir,

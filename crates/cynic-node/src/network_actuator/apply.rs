@@ -48,7 +48,7 @@ impl NetworkActuatorApplyContext {
     }
 }
 
-pub(crate) fn apply_profile(
+pub fn apply_profile(
     observation: &NodeObservation,
     profile: &str,
     apply: bool,

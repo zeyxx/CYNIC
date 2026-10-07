@@ -8,7 +8,9 @@
 //! The OS manages encryption at rest; CYNIC never touches raw secret key
 //! material. This avoids the `keyring` crate dep which requires system libs.
 //!
-//! Authority: AGENTS.md secret classes table (V3 = OsCredentialStore).
+//! Authority: `cynic-protocol::secret_reference::{SecretClass, SecretReference}`.
+//! The provider kinds (V1/V2/V3) are `SecretProviderKind`; V3 is
+//! `OsCredentialStore`. A prose table cannot carry that mapping.
 
 use crate::{
     SecretEntry, SecretError, SecretProviderPort, SecretProviderKind, SecretReference, SecretStatus,

@@ -6,7 +6,7 @@ use crate::network_command_surface::NetworkCommandSurface;
 use crate::network_diagnostic_surface::NetworkDiagnostic;
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct NetworkActuatorActivationStatus {
+pub struct NetworkActuatorActivationStatus {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
     pub(crate) status: &'static str,

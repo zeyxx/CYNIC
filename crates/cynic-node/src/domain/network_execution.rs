@@ -33,16 +33,16 @@ pub(crate) struct NetworkExecutionAdmission {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub(crate) struct HarnessTargetAttestationReport {
+pub struct HarnessTargetAttestationReport {
     pub(crate) schema: &'static str,
-    pub(crate) status: &'static str,
+    pub status: &'static str,
     pub(crate) mutates: bool,
     pub(crate) context: RuntimeHarnessContext,
     pub(crate) attestation: RuntimeHarnessTargetAttestation,
     pub(crate) violations: Vec<NetworkExecutionViolation>,
 }
 
-pub(crate) fn build_harness_target_attestation_report(
+pub fn build_harness_target_attestation_report(
     context: &RuntimeHarnessContext,
     attestation: RuntimeHarnessTargetAttestation,
 ) -> HarnessTargetAttestationReport {

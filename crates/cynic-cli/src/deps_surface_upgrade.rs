@@ -18,6 +18,7 @@ pub(crate) fn execute_deps_upgrade(
     yes: bool,
     confirm: Option<&str>,
     only: &[String],
+    source: Option<&str>,
     observed_at_unix_ms: u64,
     emit_json: impl Fn(&UpgradeReport) -> ExitCode,
 ) -> ExitCode {
@@ -147,7 +148,7 @@ pub(crate) fn execute_deps_upgrade(
         if !json {
             println!("  run   {}  …", candidate.dep_id);
         }
-        match run_scripted_upgrade(&candidate.dep_id) {
+        match run_scripted_upgrade(&candidate.dep_id, source) {
             Ok(result) => {
                 if !json {
                     println!("        → {}", if result.ok { "ok" } else { "FAILED" });
@@ -237,9 +238,9 @@ fn fnv1a64(data: &[u8]) -> u64 {
     hash
 }
 
-fn run_scripted_upgrade(dep_id: &str) -> Result<UpgradeResult, String> {
+fn run_scripted_upgrade(dep_id: &str, source: Option<&str>) -> Result<UpgradeResult, String> {
     if dep_id == "cynic" {
-        return upgrade_cynic_self();
+        return upgrade_cynic_self(source);
     }
 
     let layout = resolve_principal_install_layout();
@@ -284,11 +285,18 @@ fn run_scripted_upgrade(dep_id: &str) -> Result<UpgradeResult, String> {
     })
 }
 
-fn upgrade_cynic_self() -> Result<UpgradeResult, String> {
-    let source = std::env::current_exe().map_err(|error| format!("current_exe: {error}"))?;
+fn upgrade_cynic_self(source: Option<&str>) -> Result<UpgradeResult, String> {
+    let source = match source {
+        Some(path) => path.to_string(),
+        None => std::env::current_exe()
+            .map_err(|error| format!("current_exe: {error}"))?
+            .to_str()
+            .unwrap_or("")
+            .to_string(),
+    };
     let target = default_user_cli_target();
     let report = cynic_host::framework_bootstrap::install_standalone_cli(
-        Some(source.to_str().unwrap_or("")),
+        Some(&source),
         Some(target.to_str().unwrap_or("")),
         true,
     )?;
