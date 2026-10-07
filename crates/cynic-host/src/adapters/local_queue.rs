@@ -23,31 +23,55 @@ pub struct LocalQueueAdapter;
 
 impl LocalQueueAdapter {
     pub fn observe(&self) -> Result<QueuePlan, String> {
-        let bg = observe_branch_graph_local().unwrap_or_else(|_| BranchGraph {
-            schema: BRANCH_GRAPH_SCHEMA.to_string(),
-            root: "main".to_string(),
-            root_commit: String::new(),
-            nodes: vec![],
-        });
-        let discovery = observe_discovery_local().unwrap_or_else(|e| BuildDiscoveryReport {
-            schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
-            toolchain: Toolchain("stable".to_string()),
-            host_triple: HostTriple("x86_64-unknown-linux-gnu".to_string()),
-            targets: vec![],
-            crates: vec![],
-            observed_at_unix_s: now_secs(),
-            residual_unknowns: vec![format!("discovery_fallback:{e}")],
-        });
-        let gc_plan = LocalBuildArtefactAdapter
+        let mut unknowns: Vec<String> = Vec::new();
+        let bg = match observe_branch_graph_local() {
+            Ok(bg) => bg,
+            Err(e) => {
+                unknowns.push(format!("branch_graph_fallback:{e}"));
+                BranchGraph {
+                    schema: BRANCH_GRAPH_SCHEMA.to_string(),
+                    root: "main".to_string(),
+                    root_commit: String::new(),
+                    nodes: vec![],
+                }
+            }
+        };
+        let discovery = match observe_discovery_local() {
+            Ok(d) => d,
+            Err(e) => {
+                unknowns.push(format!("discovery_fallback:{e}"));
+                BuildDiscoveryReport {
+                    schema: BUILD_DISCOVERY_REPORT_SCHEMA.to_string(),
+                    toolchain: Toolchain("stable".to_string()),
+                    host_triple: HostTriple("x86_64-unknown-linux-gnu".to_string()),
+                    targets: vec![],
+                    crates: vec![],
+                    observed_at_unix_s: now_secs(),
+                    residual_unknowns: vec![format!("discovery_fallback:{e}")],
+                }
+            }
+        };
+        // A discovery that succeeded partially still names its gaps — those
+        // propagate to the plan so callers can tell live from guessed.
+        unknowns.extend(discovery.residual_unknowns.iter().cloned());
+        let gc_plan = match LocalBuildArtefactAdapter
             .observe_build_artefacts()
             .map(|r| LocalBuildArtefactAdapter.plan_gc(&r))
-            .unwrap_or_else(|_| cynic_build::build_artefact::BuildArtefactGcPlan {
-                schema: cynic_build::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
-                items: vec![],
-                total_reclaimable_bytes: 0,
-                total_reclaimable_human: "0B".to_string(),
-            });
-        Ok(build_queue_plan(&bg, &discovery, &gc_plan, now_secs()))
+        {
+            Ok(plan) => plan,
+            Err(e) => {
+                unknowns.push(format!("build_artefact_gc_fallback:{e}"));
+                cynic_build::build_artefact::BuildArtefactGcPlan {
+                    schema: cynic_build::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
+                    items: vec![],
+                    total_reclaimable_bytes: 0,
+                    total_reclaimable_human: "0B".to_string(),
+                }
+            }
+        };
+        let mut plan = build_queue_plan(&bg, &discovery, &gc_plan, now_secs());
+        plan.residual_unknowns = unknowns;
+        Ok(plan)
     }
 }
 
@@ -93,6 +117,11 @@ fn observe_branch_graph_local() -> Result<BranchGraph, String> {
         .filter(|c| c.success)
         .map(|c| c.stdout)
         .unwrap_or_default();
+    // No branches observed means git is missing or this is not a repository —
+    // an empty graph is a lie here, not a clean queue.
+    if raw_refs.trim().is_empty() {
+        return Err("git_branch_graph_unavailable".to_string());
+    }
     let g = parse_git_for_each_ref(&raw_refs, &root_commit, now_secs());
     let map = parse_git_log_graph(&raw_log);
     Ok(enrich_with_parents(g, &map))
