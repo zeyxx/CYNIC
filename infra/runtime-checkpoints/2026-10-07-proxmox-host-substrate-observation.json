@@ -664,6 +664,58 @@
         "interpretation": "two concurrent jobs did not double the peak. The additional 89 MiB is direct evidence that the two crates compiling at the same moment are of unequal size, which is also why the wall clock roughly halves instead of quartering."
       },
       "conclusion": "the two-job gain reproduces across four distinct commits with a 34 second spread and zero compiler errors and zero internal compiler errors, under rustc 1.95.0 as pinned by rust-toolchain.toml. The measurement is stable enough to propose a configuration change, while remaining an observation and not a guarantee for every future commit."
+    },
+    "measurement_topology_clarification": {
+      "schema": "cynic.measurement_topology_note.v1",
+      "issue": "measurements were labelled as being taken on CT105 while the commands were issued against root@10.10.10.1, which is the Proxmox host, not the registered builder",
+      "registered_builder": {
+        "id": "cynic-builder",
+        "service_address": "10.10.10.119",
+        "proxmox_id": "lxc/105",
+        "hostname_observed": "cynic-builder",
+        "checkouts_present": 20,
+        "nproc": 4,
+        "container_memory_mib": 8192,
+        "free_memory_mib": 7709
+      },
+      "proxmox_host": {
+        "address": "10.10.10.1",
+        "hostname": "pve",
+        "checkouts_present": 0,
+        "memory_mib": 15877
+      },
+      "resolution": "CT 105 is the same container either way, reached through pct exec from the host rather than by SSH to 10.10.10.119. The container boundary is what constrains the measurements, and it is 8 GiB with about 7.7 GiB available in both paths.",
+      "cpu_identical_on_both_nodes": "Intel Core i5-6500T, 4 cores, reported by both",
+      "effective_toolchain_identical_on_both_nodes": "1.95.0 via rust-toolchain.toml override, confirmed by rustup show active-toolchain inside a checkout on each; the 1.93.0 reported by /bin/rustc is the system rustc that the pin overrides",
+      "conclusion": "the measurements stand on the correct perimeter. Nothing in the diagnosis changes.",
+      "not_resolved": "cynic build proof did not materialise a checkout for commit 19e610517764 on the builder, returning manifest path does not exist with elapsed 0 s, while a manual clone of the same SHA from the same branch succeeded. The proof runner's materialisation step is therefore an open unknown. It is not evidence that the config change failed, and it is not evidence that it succeeded either.",
+      "follow_up_required": "the registered builder still holds jobs = 1 in its existing checkouts because those checkouts predate the change. The setting applies only to checkouts materialised at or after 19e610517764."
+    },
+    "scope_correction": {
+      "schema": "cynic.measurement_scope_correction.v1",
+      "what_was_measured": "cargo build launched by hand inside CT105 with CARGO_BUILD_JOBS=2 or -j 2 on the command line",
+      "what_was_claimed": "a 59.3 percent reduction in fleet build throughput",
+      "correction": "the reduction applies only to a manually launched cargo build. It does not apply to the canonical gate.",
+      "reason": "the canonical path forces CARGO_BUILD_JOBS=1 through the environment, and an environment variable overrides .cargo/config.toml. The setting changed in .cargo/config.toml at commit 19e610517764 therefore has no effect on make check or cynic build proof.",
+      "canonical_sites_forcing_one_job": [
+        "Makefile:11  CYNIC_CARGO_BUILD_JOBS ?= 1",
+        "Makefile:37  CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS)",
+        "crates/cynic-node/src/ports/build_runner_adapter.rs:277",
+        "crates/cynic-node/src/adapters/ssh_build_proof.rs:76",
+        "crates/cynic-node/src/adapters/tokio_build_execution.rs:240"
+      ],
+      "the_value_is_pinned_by_a_test": "crates/cynic-cli/tests/architecture_boundary.rs:305 asserts the Makefile contains CYNIC_CARGO_BUILD_JOBS ?= 1, so the single-job default is currently an executable contract, not only prose",
+      "open_unknown": "no measurement was found justifying the canonical single-job default. Whether it duplicates the rustc ICE rationale recorded in .cargo/config.toml, or answers a different constraint such as memory on a smaller builder, is not recorded anywhere in the repository. Deciding this requires operator input or a measurement of the canonical path itself.",
+      "consequence_for_commit_19e61051": "the configuration change is accurate as a record of what was measured but is ineffective for the canonical gate. Changing the gate requires touching the Makefile variable, the three adapters, and the architecture test, which is a separate slice with a wider blast radius than a single file."
+    },
+    "proof_runner_unknown_resolved": {
+      "schema": "cynic.build_runner_observation.v1",
+      "previously_reported": "cynic build proof returned manifest path does not exist with elapsed 0 s, which I recorded as the runner failing to materialise the checkout",
+      "that_reading_was_wrong": "the runner does materialise. SshBuildRunner::trigger probes for the checkout directory and clones from the configured ssot_url when it is absent.",
+      "actual_observed_failure": "failed to open /var/lib/cynic/checkouts/cynic-961426efe74a/target/debug/.cargo-lock, Permission denied (os error 13), elapsed 0 s",
+      "actual_cause": "operator error on my side. I cloned the checkout by hand as root, so target/ is owned by root while the runner compiles as a different principal. The permission conflict is self-inflicted and is not a runner defect.",
+      "evidence": "a manual clone of the same SHA from the same branch succeeds as root, and the failure appears only once a root-owned target directory exists in the checkout",
+      "still_not_proven": "that the canonical path succeeds end to end for this commit, because the proof has not been run against a checkout with correct ownership"
     }
   }
 }
