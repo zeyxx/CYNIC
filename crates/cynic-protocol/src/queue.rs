@@ -9,6 +9,11 @@ pub enum QueueReason {
     BranchWithoutUpstream,
     StaleBranch,
     UpstreamDivergent,
+    /// Extension point for non-branch domains. `domain` names the owning
+    /// domain (e.g. `"build_artefact_gc"`), `code` carries the domain's own
+    /// reason verbatim instead of being mislabeled as a branch-GC reason.
+    /// Branch-GC ranks (0-4) always sort before foreign reasons.
+    Other { domain: String, code: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -13,6 +13,7 @@ fn reason_rank(r: &QueueReason) -> u8 {
         QueueReason::BranchWithoutUpstream => 2,
         QueueReason::StaleBranch => 3,
         QueueReason::UpstreamDivergent => 4,
+        QueueReason::Other { .. } => 5,
     }
 }
 
@@ -23,8 +24,13 @@ fn gc_reason(reason_str: &str) -> QueueReason {
     } else if r.contains("age") {
         QueueReason::AgedReclaimable
     } else {
-        // conservative fallback — treat unknown reclaimable as orphan
-        QueueReason::OrphanReclaimable
+        // Honest extension point: an unrecognized GC code is another
+        // domain's vocabulary, not an orphan. Carried verbatim so a future
+        // domain can claim it; sorts after all branch-GC reasons.
+        QueueReason::Other {
+            domain: "build_artefact_gc".to_string(),
+            code: reason_str.to_string(),
+        }
     }
 }
 
@@ -278,5 +284,43 @@ mod tests {
         let plan = build_queue_plan(&bg, &d, &gc, 1_000_000);
         assert!(plan.items.is_empty());
         assert_eq!(plan.items.len(), 0);
+    }
+}
+
+#[cfg(test)]
+mod extension_tests {
+    use super::*;
+
+    #[test]
+    fn unknown_gc_code_becomes_other_not_a_mislabeled_orphan() {
+        let reason = gc_reason("checksum-mismatch");
+        assert_eq!(
+            reason,
+            QueueReason::Other {
+                domain: "build_artefact_gc".to_string(),
+                code: "checksum-mismatch".to_string(),
+            }
+        );
+        assert!(reason_rank(&reason) > reason_rank(&QueueReason::UpstreamDivergent));
+    }
+
+    #[test]
+    fn other_roundtrips_through_json() {
+        let item = QueueItem {
+            id: "x".to_string(),
+            branch: "b".to_string(),
+            recipe_id: "r".to_string(),
+            reason: QueueReason::Other {
+                domain: "future-domain".to_string(),
+                code: "some-code".to_string(),
+            },
+            action: BoundedAction {
+                argv: vec![],
+                requires_privilege: false,
+            },
+        };
+        let raw = serde_json::to_string(&item).expect("serialize");
+        let back: QueueItem = serde_json::from_str(&raw).expect("deserialize");
+        assert_eq!(back.reason, item.reason);
     }
 }
