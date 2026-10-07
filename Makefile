@@ -73,6 +73,27 @@ RELEASE_ENV := $(RUST_ENV) RUST_MIN_STACK=8589934592 RUSTFLAGS='-C debuginfo=0'
 CYNIC_SOURCE_BIN ?= $(CARGO_TARGET_DIR)/debug/cynic
 CYNIC_RUNTIME_BIN ?= /var/lib/cynic/runtime/current/bin/cynic
 
+# Graceful degradation, in one place.
+#
+# Seven targets used to inline the same `if [ -x ... ] then use it else cargo run`
+# ladder. Each was correct in isolation, but seven copies of one policy is zero
+# policies: the day the source binary must be built, or the day its path moves,
+# seven sites have to change and only one gets updated. This macro is the single
+# place that answers "how do I obtain a binary built from this tree".
+#
+# The degradation is deliberate and graceful: use the already-built binary when it
+# exists, otherwise build it once from this tree and use that. It never falls back
+# to whatever `cynic` happens to be on PATH. Falling back to an installed binary
+# would make every gate validate a stale artifact while reporting green -- the
+# exact failure the `CYNIC_RUNTIME_BIN` comment above describes, reintroduced one
+# layer up. A gate that proves a stale source is worse than no gate.
+define source_bin
+@if [ ! -x "$(CYNIC_SOURCE_BIN)" ]; then \
+	echo "==> building $(CYNIC_SOURCE_BIN) from this tree"; \
+	$(RUST_ENV) $(CARGO) build -q -p cynic-cli --bin cynic || exit 1; \
+fi
+endef
+
 # Fail before spending a build when a target's CLI surface cannot be produced
 # from this tree. 13 of 31 targets used to call a surface that does not exist
 # in HEAD — `dev`, `lab`, `bootstrap`, `deps`, `secret` — and each one burned a
@@ -100,11 +121,8 @@ help: ## List targets
 .PHONY: secret.literals
 secret.literals: ## Reject high-confidence literal credentials in Git-tracked source
 	@echo "==> cynic audit secret"
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) audit secret --json; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit secret --json; \
-	fi
+	$(source_bin)
+	$(CYNIC_SOURCE_BIN) audit secret --json
 
 # What each target delegates to the CLI, declared rather than parsed.
 #
@@ -177,19 +195,13 @@ authority.check: secret.literals ## Read-only local validation of machine-readab
 .PHONY: check
 check: ## Native validation via cynic audit crate (no make recursion, exit code is the gate)
 	@echo "==> cynic audit crate (native, 100% Rust)"
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) audit crate --json; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit crate --json; \
-	fi
+	$(source_bin)
+	$(CYNIC_SOURCE_BIN) audit crate --json
 
 .PHONY: audit
 audit: ## Native unified audit of all crates, architecture boundaries, and secrets
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) audit all --json; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
-	fi
+	$(source_bin)
+	$(CYNIC_SOURCE_BIN) audit all --json
 
 # The fast lens on the audit, as a binary that links. This depends on cynic-host
 # only and links in seconds, which is why it stays a separate target. It is NOT a
@@ -242,15 +254,10 @@ audit.deployed: ## Compare the installed artifact's baked git_sha to HEAD (fail-
 .PHONY: converge
 converge: ## Native automated convergence of worktrees, branches, and unified audit
 	@echo "==> Reconciling agent worktrees and branches"
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) source worktree --apply --json; \
-		echo "==> Verifying workspace convergence audit"; \
-		$(CYNIC_SOURCE_BIN) audit all --json; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source worktree --apply --json; \
-		echo "==> Verifying workspace convergence audit"; \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- audit all --json; \
-	fi
+	$(source_bin)
+	$(CYNIC_SOURCE_BIN) source worktree --apply --json
+	@echo "==> Verifying workspace convergence audit"
+	$(CYNIC_SOURCE_BIN) audit all --json
 
 # Per-layer check+test, fail-closed, dependency-ordered, over the single crate
 # list. Cache integrity is observed first so a stale vendored cache is
@@ -397,19 +404,12 @@ operator.day: ## Morning loop via native cynic deps
 .PHONY: release.deploy
 release.deploy: ## Run the release gate, then build and atomically deploy via native cynic source deploy
 	@echo "==> release gate"
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) source release; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source release; \
-	fi
+	$(source_bin)
+	$(CYNIC_SOURCE_BIN) source release
 	@echo "==> building release binaries"
-	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node --bin cynic --bin cynic-node --bin cynic-node-enroll
+	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node -p cynic-mcp -p cynic-kernel --bin cynic --bin cynic-node --bin cynic-node-enroll --bin cynic-mcp --bin cynic-kernel
 	@echo "==> deploying"
-	@if [ -x "$(CYNIC_SOURCE_BIN)" ]; then \
-		$(CYNIC_SOURCE_BIN) source deploy --apply; \
-	else \
-		$(RUST_ENV) $(CARGO) run -q -p cynic-cli -- source deploy --apply; \
-	fi
+	$(CYNIC_SOURCE_BIN) source deploy --apply
 
 .PHONY: operator.loop
 operator.loop: ## Fast operator iteration: install CLI and refresh authoritative reports
