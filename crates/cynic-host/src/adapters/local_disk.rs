@@ -2,6 +2,7 @@
 
 use crate::fleet_disk_observer::HOST_DISK_REPORT_SCHEMA;
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -17,6 +18,7 @@ use crate::domain::disk::{
     DiskFileEntry, DiskFilesystem, DiskReport, PhysicalDisk, bytes_to_human,
 };
 use crate::process_observation::capture_command;
+use crate::scan_exclusions::excluded_dirs_for_cwd;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalDiskAdapter;
@@ -159,7 +161,7 @@ fn get_disk_free_bytes() -> Option<u64> {
     }
 }
 
-fn get_dir_size(path: &Path) -> u64 {
+fn get_dir_size(path: &Path, skipped: &BTreeSet<String>) -> u64 {
     if !path.exists() {
         return 0;
     }
@@ -173,9 +175,11 @@ fn get_dir_size(path: &Path) -> u64 {
                     continue;
                 }
                 if path.is_dir() {
-                    // Skip noisy caches or recursively scanned sub-trees to keep speed high
+                    // Registry-declared skip set (infra/scan-exclusions.json,
+                    // scanner "disk_scan"): never descend into dependency
+                    // trees to count build output as user data.
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        if name == ".git" || name == "node_modules" {
+                        if skipped.contains(name) {
                             continue;
                         }
                     }
@@ -192,15 +196,23 @@ fn get_dir_size(path: &Path) -> u64 {
 fn observe_known_caches() -> Vec<DiskCacheEntry> {
     let mut entries = Vec::new();
     let home = std::env::var("HOME").map(PathBuf::from).ok();
+    // Registry-declared skip set, discovered from the current worktree or the
+    // compiled fallback outside one. One discovery per observation, threaded
+    // through every walker below.
+    let skipped = excluded_dirs_for_cwd("disk_scan");
 
-    // 1. /tmp/cynic-* targets
+    // 1. Legacy /tmp/cynic-* targets (pre-SSOT build root; now usually test
+    // litter) plus the SSOT cargo target root (A1: $CYNIC_STATE_ROOT or
+    // /var/lib/cynic, build-targets/<profile>). Both are observed; only the
+    // legacy path is ever proposed for cleanup (probe.rs) — the live build
+    // cache is never an automatic reclaim candidate.
     let mut tmp_cynic_size = 0u64;
     if let Ok(read_dir) = fs::read_dir("/tmp") {
         for entry in read_dir.flatten() {
             let path = entry.path();
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                 if name.starts_with("cynic-") {
-                    tmp_cynic_size += get_dir_size(&path);
+                    tmp_cynic_size += get_dir_size(&path, &skipped);
                 }
             }
         }
@@ -212,9 +224,26 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
         size_bytes: tmp_cynic_size,
     });
 
+    // 1b. SSOT cargo target root — the cache that actually matters since A1.
+    let state_root = std::env::var("CYNIC_STATE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/var/lib/cynic"));
+    let profile = std::env::var("CYNIC_CARGO_TARGET_PROFILE")
+        .ok()
+        .filter(|profile| !profile.trim().is_empty())
+        .unwrap_or_else(|| "default".to_string());
+    let ssot_targets = state_root.join("build-targets").join(&profile);
+    let ssot_size = get_dir_size(&ssot_targets, &skipped);
+    entries.push(DiskCacheEntry {
+        label: "ssot-build-targets".to_string(),
+        path: ssot_targets.display().to_string(),
+        size_human: bytes_to_human(ssot_size),
+        size_bytes: ssot_size,
+    });
+
     // 2. systemd journal
     let journal_path = Path::new("/var/log/journal");
-    let journal_size = get_dir_size(journal_path);
+    let journal_size = get_dir_size(journal_path, &skipped);
     entries.push(DiskCacheEntry {
         label: "journal-logs".to_string(),
         path: journal_path.display().to_string(),
@@ -239,7 +268,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     if let Some(home_path) = home {
         // 4. npm cache
         let npm = home_path.join(".npm");
-        let npm_sz = get_dir_size(&npm);
+        let npm_sz = get_dir_size(&npm, &skipped);
         entries.push(DiskCacheEntry {
             label: "npm-cache".to_string(),
             path: npm.display().to_string(),
@@ -249,7 +278,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
 
         // 5. pip cache
         let pip = home_path.join(".cache/pip");
-        let pip_sz = get_dir_size(&pip);
+        let pip_sz = get_dir_size(&pip, &skipped);
         entries.push(DiskCacheEntry {
             label: "pip-cache".to_string(),
             path: pip.display().to_string(),
@@ -259,7 +288,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
 
         // 6. uv cache
         let uv = home_path.join(".cache/uv");
-        let uv_sz = get_dir_size(&uv);
+        let uv_sz = get_dir_size(&uv, &skipped);
         entries.push(DiskCacheEntry {
             label: "uv-cache".to_string(),
             path: uv.display().to_string(),
@@ -269,7 +298,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
 
         // 7. HuggingFace cache
         let hf = home_path.join(".cache/huggingface");
-        let hf_sz = get_dir_size(&hf);
+        let hf_sz = get_dir_size(&hf, &skipped);
         entries.push(DiskCacheEntry {
             label: "hf-cache".to_string(),
             path: hf.display().to_string(),
@@ -305,6 +334,9 @@ fn observe_physical_disks() -> Vec<PhysicalDisk> {
 
 fn observe_large_files() -> Vec<DiskFileEntry> {
     let mut large_files = Vec::new();
+    // Same registry skip set as the cache walkers: dependency trees must not
+    // contribute hundred-megabyte blobs (uv/hf caches) to "user data".
+    let skipped = excluded_dirs_for_cwd("disk_scan");
     let mut search_paths = vec![Path::new("/tmp"), Path::new("/var/lib/cynic")]
         .into_iter()
         .map(Path::to_path_buf)
@@ -337,11 +369,7 @@ fn observe_large_files() -> Vec<DiskFileEntry> {
 
                     if path.is_dir() {
                         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                            if name == ".git"
-                                || name == "node_modules"
-                                || name == "target"
-                                || name == ".cache"
-                            {
+                            if skipped.contains(name) {
                                 continue;
                             }
                         }
