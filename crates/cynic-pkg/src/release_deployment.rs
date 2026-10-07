@@ -188,16 +188,28 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
         // Bounded actuation: exactly one systemctl verb, one declared unit.
         // No shell, no flags, no extra operands — the unit name is validated
         // as a plain `*.service` identifier before it reaches the kernel.
+        // Activation runs through `sudo -n <absolute systemctl path>`:
+        // non-interactive so a missing grant fails HERE with sudo's refusal
+        // instead of hanging on a password prompt (observed 2026-10-07:
+        // bare `systemctl restart` as unprivileged user => Access denied).
+        // The absolute path must match a verbatim entry in
+        // infra/privilege-grants.json; it is selected by read-only
+        // filesystem observation, never by shell PATH resolution.
         if !is_plain_service_unit(unit) {
             return Err(format!("refusing to restart non-service unit: {unit}"));
         }
-        let status = std::process::Command::new("systemctl")
+        let systemctl = select_systemctl_path(|p| std::path::Path::new(p).exists())?;
+        let status = std::process::Command::new("sudo")
+            .arg("-n")
+            .arg(&systemctl)
             .arg("restart")
             .arg(unit)
             .status()
-            .map_err(|e| format!("systemctl restart {unit}: {e}"))?;
+            .map_err(|e| format!("sudo -n {systemctl} restart {unit}: {e}"))?;
         if !status.success() {
-            return Err(format!("systemctl restart {unit} exited {status}"));
+            return Err(format!(
+                "sudo -n {systemctl} restart {unit} exited {status} (no grant? see infra/privilege-grants.json)"
+            ));
         }
         // Read-back: the unit must report active after restart.
         let output = std::process::Command::new("systemctl")
@@ -270,6 +282,20 @@ fn is_plain_service_unit(unit: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
         && !unit.contains("..")
         && !unit.contains('/')
+}
+
+/// Absolute systemctl path, selected by read-only filesystem observation.
+/// `/usr/bin` first (canonical on FHS layouts where `/bin` is a distinct
+/// file or a compat symlink); `/bin` as fallback. Both paths must appear
+/// verbatim in infra/privilege-grants.json. Pure over an injected
+/// existence probe so the preference order is unit tested.
+fn select_systemctl_path(exists: impl Fn(&str) -> bool) -> Result<String, String> {
+    for candidate in ["/usr/bin/systemctl", "/bin/systemctl"] {
+        if exists(candidate) {
+            return Ok(candidate.to_string());
+        }
+    }
+    Err("no systemctl binary at /usr/bin/systemctl or /bin/systemctl".to_string())
 }
 
 /// Minimal blocking HTTP status fetch without external crates.
@@ -738,5 +764,23 @@ mod tests {
         for bad in ["reboot.target", "../evil.service", "/bin/sh", "a;rm -rf", ""] {
             assert!(!is_plain_service_unit(bad), "must refuse unit name: {bad:?}");
         }
+    }
+
+    #[test]
+    fn prefers_usr_bin_systemctl() {
+        let got = select_systemctl_path(|p| p == "/usr/bin/systemctl" || p == "/bin/systemctl");
+        assert_eq!(got, Ok("/usr/bin/systemctl".to_string()));
+    }
+
+    #[test]
+    fn falls_back_to_bin_systemctl() {
+        let got = select_systemctl_path(|p| p == "/bin/systemctl");
+        assert_eq!(got, Ok("/bin/systemctl".to_string()));
+    }
+
+    #[test]
+    fn missing_systemctl_fails_closed() {
+        let err = select_systemctl_path(|_| false).expect_err("must refuse without a systemctl binary");
+        assert!(err.contains("/usr/bin/systemctl"), "names searched paths: {err}");
     }
 }
