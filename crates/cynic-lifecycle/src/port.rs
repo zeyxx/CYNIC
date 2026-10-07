@@ -2,47 +2,19 @@
 //!
 //! Domain must not hard-wire `Command::new("cynic")`. CLI injects
 //! [`LocalArgvRunner`]; tests inject fakes.
+//!
+//! The [`ArgvRunner`] trait and [`ArgvOutput`] type used to be defined here.
+//! They now live in [`cynic_protocol::argv`], beside [`cynic_protocol::argv_allow`]
+//! which already held the admission policy: the port that runs an argv must not
+//! sit above its own policy. `cynic-vcs` carried a third copy with a narrower
+//! contract (no `Serialize`, and its `MapArgvRunner` hidden behind `cfg(test)`).
+//!
+//! What stays here is the adapter layer: [`LocalArgvRunner`] spawns, and the
+//! `cynic-build` bridge impl for [`MapArgvRunner`] — both depend on
+//! `cynic-build`, which an L0 port module must not. The fake itself lives
+//! in [`cynic_protocol::argv`] beside the port it fakes.
 
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ArgvOutput {
-    pub exit_code: Option<i32>,
-    pub stdout: String,
-    pub stderr: String,
-    pub spawn_error: Option<String>,
-}
-
-impl ArgvOutput {
-    pub fn success(&self) -> bool {
-        self.spawn_error.is_none() && self.exit_code == Some(0)
-    }
-
-    pub fn summary(&self) -> String {
-        if let Some(err) = &self.spawn_error {
-            return format!("spawn error: {err}");
-        }
-        let code = self
-            .exit_code
-            .map(|c| c.to_string())
-            .unwrap_or_else(|| "none".into());
-        let msg = if !self.stdout.trim().is_empty() {
-            self.stdout.trim()
-        } else if !self.stderr.trim().is_empty() {
-            self.stderr.trim()
-        } else {
-            "empty output"
-        };
-        format!("exit {code}: {msg}")
-    }
-}
-
-/// Argv-only command runner (no shell composition).
-pub trait ArgvRunner: Send + Sync {
-    fn run(&self, argv: &[&str]) -> ArgvOutput;
-}
+pub use cynic_protocol::argv::{ArgvOutput, ArgvRunner, MapArgvRunner};
 
 /// Production runner: spawns argv[0] with remaining args.
 #[derive(Debug, Default, Clone, Copy)]
@@ -140,28 +112,11 @@ fn observe_log_path() -> Option<String> {
 }
 
 /// Test double: returns fixed JSON for known commands.
-#[derive(Debug, Default, Clone)]
-pub struct MapArgvRunner {
-    pub responses: Vec<(Vec<String>, ArgvOutput)>,
-}
-
-impl MapArgvRunner {
-    /// Build a test runner from shell-like command keys.
-    pub fn new(responses: HashMap<String, ArgvOutput>) -> Self {
-        Self {
-            responses: responses
-                .into_iter()
-                .map(|(command, output)| {
-                    (
-                        command.split_whitespace().map(str::to_string).collect(),
-                        output,
-                    )
-                })
-                .collect(),
-        }
-    }
-}
-
+///
+/// The fake itself ([`MapArgvRunner`]) now lives in [`cynic_protocol::argv`]
+/// beside the port — one fake for every layer, production-available. What
+/// stays here is only the `cynic-build` bridge impl, because `cynic-build`
+/// is a dependency an L0 port module must not take.
 impl cynic_build::BuildRunner for MapArgvRunner {
     fn run_command(&self, argv: &[&str]) -> cynic_build::BuildCommandOutput {
         let out = <Self as ArgvRunner>::run(self, argv);
