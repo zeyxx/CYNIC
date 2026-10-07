@@ -10,23 +10,12 @@ This is the fix for the defect: never read the live DB, read the frozen copy.
 from __future__ import annotations
 
 import datetime
-import hashlib
 import os
 import sqlite3
 
 from ...kernel.ids import content_hash, short_hash
 from ..domain.records import CaptureMethod, CaptureRecord
-
-
-def _sha256_file(path: str, chunk: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while True:
-            b = f.read(chunk)
-            if not b:
-                break
-            h.update(b)
-    return "sha256:" + h.hexdigest()
+from ._hash import hash_file
 
 
 class SqliteSourceCapturer:
@@ -53,7 +42,7 @@ class SqliteSourceCapturer:
         finally:
             con.close()
 
-        digest = _sha256_file(tmp)
+        digest = hash_file(tmp)
         final = os.path.join(dest_dir, f"{harness}.{digest.split(':')[1][:16]}.sqlite")
         os.replace(tmp, final)
 

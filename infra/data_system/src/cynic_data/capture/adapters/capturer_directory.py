@@ -8,35 +8,13 @@ Skips symlinks (a capture must never re-introduce a link to live data).
 from __future__ import annotations
 
 import datetime
-import hashlib
-import json
 import os
 import shutil
 import tempfile
 
 from ...kernel.ids import short_hash
 from ..domain.records import CaptureMethod, CaptureRecord
-
-
-def _hash_tree(root: str) -> tuple[str, int, int]:
-    """Return (manifest_digest, file_count, total_bytes) for a directory tree."""
-    entries = []
-    total = 0
-    for dirpath, _dirnames, filenames in os.walk(root):
-        for name in sorted(filenames):
-            full = os.path.join(dirpath, name)
-            if os.path.islink(full):
-                continue
-            rel = os.path.relpath(full, root)
-            size = os.path.getsize(full)
-            h = hashlib.sha256()
-            with open(full, "rb") as f:
-                for chunk in iter(lambda: f.read(1 << 20), b""):
-                    h.update(chunk)
-            entries.append({"path": rel, "size": size, "sha256": h.hexdigest()})
-            total += size
-    blob = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
-    return "sha256:" + hashlib.sha256(blob).hexdigest(), len(entries), total
+from ._hash import hash_tree
 
 
 class DirectorySourceCapturer:
@@ -65,7 +43,7 @@ class DirectorySourceCapturer:
                     continue
                 shutil.copy2(src_file, os.path.join(target_dir, name))
 
-        digest, count, total = _hash_tree(staging)
+        digest, count, total = hash_tree(staging)
         final = os.path.join(dest_dir, f"{harness}.{digest.split(':')[1][:16]}")
         if os.path.exists(final):
             shutil.rmtree(final)

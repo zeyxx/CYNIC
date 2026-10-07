@@ -82,7 +82,7 @@ def test_human_signal_is_captured_and_classified():
 def test_tool_results_link_back_to_calls():
     sid = _richest_session_id()
     sess = HermesNormalizer(HERMES_DB).normalize(sid)
-    results = [t for t in sess.tools if t.tool_name == "hermes_tool_result"]
+    results = [t for t in sess.tools if t.tool_name == "tool_result"]
     if results:
         linked = [t for t in results if t.parent_exec_uid]
         assert linked, "tool results must link back to their call when tool_call_id exists"
