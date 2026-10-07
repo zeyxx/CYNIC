@@ -1,0 +1,31 @@
+{
+  "schema": "cynic.privilege_grants.v1",
+  "status": "normative",
+  "purpose": "Desired-state registry of bounded privilege grants (sudoers) that agents may propose and only the human operator may install. An agent never applies a grant; it proposes exact file content, the operator reviews and installs, and this file records what SHOULD be present. Observed state comes from `sudo -l` read-back, never from this file.",
+  "authority": ["contracts/foundation.json"],
+  "proposal_convention": {
+    "rule": "Agent proposes the EXACT sudoers file content in a reviewable block plus a risk note (what breaks if abused, how to revoke). Operator installs by hand. Proposal and installation are two separate, individually explicit acts — never one gesture.",
+    "binding": "What the operator installs must equal what the agent proposed, verbatim. Any delta is a new proposal.",
+    "revocation": "Delete the grant file on the node, remove the entry here. A grant absent from the node but present here is drift (node behind); a grant present on the node but absent here is unauthorized (report, do not silently adopt).",
+    "read_back": "After install, `sudo -l -U <user>` on the node must show exactly the granted verbs. Record the check output reference (not the secret) in the entry."
+  },
+  "grants": [
+    {
+      "id": "builder-cynic-node-restart",
+      "node": "cynic-builder",
+      "grantee_user": "cynic",
+      "file": "/etc/sudoers.d/cynic-deploy",
+      "mode": "0440",
+      "content": "cynic ALL=(root) NOPASSWD: /bin/systemctl restart cynic-node.service, /bin/systemctl is-active cynic-node.service",
+      "permits": ["restart + active-state read-back of cynic-node.service only"],
+      "forbids": ["any other unit", "stop/start/enable/disable", "shell", "package or file writes"],
+      "purpose": "Runtime-update activation (contracts/runtime-update.json step 5) for canary deploys without per-deploy operator gesture.",
+      "proposed_by": "hermes",
+      "proposed_at": "2026-10-06",
+      "status": "proposed",
+      "installed_at": null,
+      "read_back_ref": null,
+      "risk_note": "Abuse ceiling: restart loop of one already-public service (DoS of node supervision, self-healing via rollback design). No data access, no lateral movement: verbs are unit-scoped, no wildcards, no shell."
+    }
+  ]
+}
