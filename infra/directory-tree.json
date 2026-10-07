@@ -108,7 +108,7 @@
           "vault/": "K5 — model vault (GGUF weights, etc.). CAS sha256 manifest.",
           "vault/models/": "Model files (GGUF).",
           "vault/db_scratch/": "Vault database scratch.",
-          "build-targets/": "Build targets.",
+          "build-targets/": "Build targets. Physical: {state-root}/build-targets/<profile> ({state-root} is /var/lib/cynic installed, $HOME/.local/share/cynic for operator dev via CYNIC_STATE_ROOT; <profile> is CYNIC_CARGO_TARGET_PROFILE or 'default'; explicit CARGO_TARGET_DIR wins). The cargo target directory for every build and the collection root for release deployment — never /tmp (ephemeral, world-writable) and never a hardcoded ./target.",
           ".cargo/": "Cargo home for runtime.",
           ".local/bin/": "User-local binaries (hf, sccache, etc.).",
           ".local/share/cynic/": "User-local share directory.",

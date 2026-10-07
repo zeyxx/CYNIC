@@ -6,7 +6,13 @@ SHELL := /bin/bash
 CARGO ?= cargo
 CARGO_NETWORK_MODE ?= offline
 CARGO_SOURCE_MODE ?= registry
-CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets
+# SSOT (infra/directory-tree.json, `build-targets/`): the cargo target root lives
+# under the effective state root — `/var/lib/cynic` on an installed machine,
+# `$HOME/.local/share/cynic` for operator dev (export CYNIC_STATE_ROOT there).
+# Never /tmp: ephemeral across reboots and world-writable, so a poisoned cache
+# would feed deployed binaries. An explicit CARGO_TARGET_DIR still wins.
+CYNIC_STATE_ROOT ?= /var/lib/cynic
+CYNIC_CARGO_TARGET_ROOT ?= $(CYNIC_STATE_ROOT)/build-targets
 CYNIC_CARGO_TARGET_PROFILE ?= default
 CYNIC_CARGO_BUILD_JOBS ?= 1
 CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))
@@ -408,7 +414,7 @@ release.deploy: ## Run the release gate, then build and atomically deploy via na
 	@echo "==> building release binaries"
 	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node -p cynic-mcp -p cynic-kernel --bin cynic --bin cynic-node --bin cynic-node-enroll --bin cynic-mcp --bin cynic-kernel
 	@echo "==> deploying"
-	$(CYNIC_SOURCE_BIN) source deploy --apply
+	@$(RELEASE_ENV) $(CYNIC_SOURCE_BIN) source deploy --apply
 
 .PHONY: operator.loop
 operator.loop: ## Fast operator iteration: install CLI and refresh authoritative reports

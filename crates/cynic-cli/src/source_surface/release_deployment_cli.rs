@@ -1,7 +1,8 @@
 //! CLI executor for atomic release deployment via cynic-pkg.
 
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -11,6 +12,38 @@ use cynic_pkg::{
 };
 
 use crate::cli_json::emit_pretty_json;
+
+/// Resolve the cargo target directory that holds the built release binaries.
+///
+/// Authority: `infra/directory-tree.json` (`build-targets/` under the state
+/// root). Same rule as the Makefile: an explicit `CARGO_TARGET_DIR` wins;
+/// otherwise `<state-root>/build-targets/<profile>` (`CYNIC_CARGO_TARGET_PROFILE`
+/// or `default`). A bare-cargo dev tree (`<root>/target`) is the last resort
+/// and only when it exists — the chosen directory is reported, never guessed
+/// silently, so a deploy can never collect stale binaries from the wrong tree.
+pub(crate) fn resolve_target_release_dir(root: &Path, state_root: &Path) -> PathBuf {
+    if let Ok(dir) = env::var("CARGO_TARGET_DIR") {
+        if !dir.trim().is_empty() {
+            return PathBuf::from(dir).join("release");
+        }
+    }
+    let profile = env::var("CYNIC_CARGO_TARGET_PROFILE")
+        .ok()
+        .filter(|profile| !profile.trim().is_empty())
+        .unwrap_or_else(|| "default".to_string());
+    let ssot = state_root
+        .join("build-targets")
+        .join(&profile)
+        .join("release");
+    if ssot.is_dir() {
+        return ssot;
+    }
+    let legacy = root.join("target").join("release");
+    if legacy.is_dir() {
+        return legacy;
+    }
+    ssot
+}
 
 pub(crate) fn execute_deploy(
     root: &Path,
@@ -55,7 +88,11 @@ pub(crate) fn execute_deploy(
         }
     };
 
-    let target_release_dir = root.join("target").join("release");
+    let target_release_dir = resolve_target_release_dir(root, state_root);
+    eprintln!(
+        "collecting release binaries from {}",
+        target_release_dir.display()
+    );
     let binary_names = ["cynic", "cynic-node", "cynic-node-enroll"];
     let mut binaries = Vec::new();
 
