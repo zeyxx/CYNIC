@@ -115,11 +115,23 @@ class HermesNormalizer:
         """α6: this adapter's conservation contract, anchored on SCHEMA_VERSION."""
         return CONTRACT
 
+    def _connect(self) -> sqlite3.Connection:
+        """Read-only, and tolerant of invalid UTF-8.
+
+        The producer stores arbitrary bytes in TEXT columns; at least 2 rows in
+        the live store are not valid UTF-8. Default sqlite3 raises on decode and
+        the whole session would be lost. We decode with ``replace`` so the row
+        survives (lossy bytes are visible as U+FFFD, never a silent skip).
+        """
+        con = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+        con.text_factory = lambda b: b.decode("utf-8", "replace")
+        return con
+
     def session_refs(self) -> list[str]:
         """A Hermes session is a ``messages.session_id`` value in this database."""
         if not os.path.exists(self.db_path):
             return []
-        con = sqlite3.connect(f"file:{self.db_path}?immutable=1", uri=True)
+        con = self._connect()
         try:
             rows = con.execute(
                 "SELECT DISTINCT session_id FROM messages "
@@ -131,7 +143,7 @@ class HermesNormalizer:
 
     def normalize(self, session_ref: str) -> NormalizedSession:
         session_uid = str(SessionUid(HARNESS, session_ref))
-        con = sqlite3.connect(f"file:{self.db_path}?immutable=1", uri=True)
+        con = self._connect()
         con.row_factory = sqlite3.Row
         try:
             session_row = con.execute(
