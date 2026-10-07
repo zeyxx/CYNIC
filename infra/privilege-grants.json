@@ -16,7 +16,7 @@
       "grantee_user": "cynic",
       "file": "/etc/sudoers.d/cynic-deploy",
       "mode": "0440",
-      "content": "cynic ALL=(root) NOPASSWD: /bin/systemctl restart cynic-node.service, /bin/systemctl is-active cynic-node.service",
+      "content": "cynic ALL=(root) NOPASSWD: /bin/systemctl restart cynic-node.service, /bin/systemctl is-active cynic-node.service, /usr/bin/systemctl restart cynic-node.service, /usr/bin/systemctl is-active cynic-node.service",
       "permits": ["restart + active-state read-back of cynic-node.service only"],
       "forbids": ["any other unit", "stop/start/enable/disable", "shell", "package or file writes"],
       "purpose": "Runtime-update activation (contracts/runtime-update.json step 5) for canary deploys without per-deploy operator gesture.",
@@ -24,7 +24,7 @@
       "proposed_at": "2026-10-06",
       "status": "installed",
       "installed_at": "2026-10-07",
-      "read_back_ref": "operator-pasted read-back 2026-10-07: `sudo -n true` refused (expected, ungranted verb), `sudo -n systemctl is-active cynic-node.service` returned active without password — grant functional",
+      "read_back_ref": "operator-pasted read-back 2026-10-07: visudo -c parsed OK on all sudoers sources; `sudo -n /usr/bin/systemctl is-active cynic-node.service` returned active without password — amended grant (both systemctl paths) functional",
       "risk_note": "Abuse ceiling: restart loop of one already-public service (DoS of node supervision, self-healing via rollback design). No data access, no lateral movement: verbs are unit-scoped, no wildcards, no shell."
     }
   ]
