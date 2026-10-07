@@ -50,6 +50,7 @@
       "consumer": "crates/cynic-host/src/adapters/local_disk.rs",
       "purpose": "Enumerate disk usage on a host. Must not descend into dependency trees to count build output as user data.",
       "excluded_dirs": [
+        ".cache",
         ".git",
         ".venv",
         ".venv_data",

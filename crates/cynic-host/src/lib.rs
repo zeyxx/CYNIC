@@ -92,6 +92,7 @@ pub mod runtime_registry;
 pub mod runtime_resolver_plan;
 mod runtime_secret_install;
 pub mod runtime_seed;
+pub mod scan_exclusions;
 pub mod secret_material;
 pub mod secret_presence;
 pub mod service_catalog;
