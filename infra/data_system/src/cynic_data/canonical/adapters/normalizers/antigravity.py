@@ -308,6 +308,14 @@ class AntigravityNormalizer:
                 dead.append(db.name)
         return refs, dead
 
+    def conservation(self):
+        """α6: no contract yet — an explicit unknown, never an implicit no-loss.
+
+        This harness's vertical is not done. Until it is, the audit reports this
+        adapter as UNCONTRACTED rather than assuming conservation.
+        """
+        return None
+
     def session_refs(self) -> list[str]:
         """A session is one trajectory DB (filename stem). Dead files skipped."""
         return self._scan_dbs()[0]

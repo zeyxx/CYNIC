@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from .domain.conservation import ConservationContract
 from .domain.session import NormalizedSession
 
 
@@ -28,6 +29,16 @@ class NormalizerPort(Protocol):
 
     def can_read(self, source_ref: str) -> bool:
         """Whether this adapter can normalize the given source reference."""
+        ...
+
+    def conservation(self) -> ConservationContract | None:
+        """The conservation contract for this harness, or None if none exists yet.
+
+        α6: an adapter that declares a contract is held to it — its producer's DDL
+        must match the contract's field set, and the schema version must match.
+        An adapter without a contract is an explicit unknown, never an implicit
+        "no loss". Returning None is allowed during migration; the audit reports it.
+        """
         ...
 
     def session_refs(self) -> list[str]:

@@ -238,6 +238,14 @@ class WindowsGeminiNormalizer:
         groups, _ = self._scan()
         return source_ref in groups
 
+    def conservation(self):
+        """α6: no contract yet — an explicit unknown, never an implicit no-loss.
+
+        This harness's vertical is not done. Until it is, the audit reports this
+        adapter as UNCONTRACTED rather than assuming conservation.
+        """
+        return None
+
     def session_refs(self) -> list[str]:
         """A session is a sessionId group (chat files + tool-outputs dir)."""
         groups, _ = self._scan()
