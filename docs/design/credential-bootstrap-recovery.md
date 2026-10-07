@@ -67,10 +67,24 @@ lifecycle has four obligatory phases; all four are unowned today:
    (signed, time-bounded, consumed) so emergency access is authority,
    not improvisation.
 
-## 5. Decisions required (operator)
+## 5. Decisions (operator — recorded 2026-10-07)
 
-1. Escrow holders: who holds the root recovery copy (operator keyring?
-   sealed offline copy?) — two holders maximum, named individuals/roles.
-2. Hypervisor recovery path confirmed for each node (PVE shell for LXCs,
-   what for bare metal builder?).
-3. Rotation cadence (90 days proposed; on-incident always).
+1. **Escrow holders** — DECIDED: two holders, split knowledge, dual
+   control. Holder A (daily): operator keyring, per-node credentials for
+   legitimate administration. Holder B (recovery): sealed OFFLINE copy
+   (encrypted media, physically secured), root material only, breakglass
+   use exclusively. Rationale from current incidents (scattered tokens,
+   unknown passwords, no root): a single holder is a SPOF, shared
+   knowledge is a leak; production-grade norms (least privilege, dual
+   control, audit trail) require that no one person can both USE daily
+   access and SILENTLY reconstitute root. Every escrow use — either
+   holder — produces a journal entry; breakglass uses additionally
+   require a signed `BreakglassAdmission` (consumed receipt).
+2. **Recovery path per node** — DECIDED: builder is a container/VM on
+   Proxmox (not bare metal), so recovery = PVE host shell (`pct`/`qm
+   enter or equivalent) + reset + rotate + re-escrow. Precondition to
+   verify: operator PVE-root access. Same path covers all LXC
+   satellites; documented per node in tranche 2 (credential_escrow
+   registry).
+3. **Rotation cadence** — DECIDED: 90 days; on-incident always,
+   immediately, with re-escrow in the same ceremony.
