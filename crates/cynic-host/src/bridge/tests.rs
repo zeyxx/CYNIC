@@ -84,7 +84,7 @@ fn install_validates_the_staged_sudoers_before_installing_it() {
         root_owned_path(MODE_0440),
     );
 
-    let roles: Vec<&str> = commands.iter().map(|surface| surface.role).collect();
+    let roles: Vec<&str> = commands.iter().map(|surface| surface.role.as_str()).collect();
     let validate_at = roles
         .iter()
         .position(|role| *role == "validate_sudoers")
