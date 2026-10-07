@@ -17,34 +17,38 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.adapters.store_sqlite import SqliteCanonicalStore
-from cynic_data.canonical.usecases.normalize import normalize_many
+from cynic_data.canonical.usecases.normalize import normalize_source
 
-HERMES_DB = os.environ.get("CYNIC_HERMES_DB", "/home/user/.hermes/state.db")
 OUT_DB = os.environ.get("CYNIC_CANONICAL_DB", "/home/user/.hermes/cache/scratch/canonical_hermes.sqlite")
 
 
-def hermes_session_ids(db: str) -> list[str]:
-    con = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
-    try:
-        rows = con.execute(
-            "SELECT DISTINCT session_id FROM messages WHERE session_id IS NOT NULL ORDER BY session_id"
-        ).fetchall()
-    finally:
-        con.close()
-    return [r[0] for r in rows]
-
-
 def main() -> int:
-    if os.path.exists(OUT_DB):
-        os.remove(OUT_DB)
-    os.makedirs(os.path.dirname(OUT_DB), exist_ok=True)
+    import argparse
 
-    ids = hermes_session_ids(HERMES_DB)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source", default=os.environ.get("CYNIC_HERMES_CAPTURE", ""))
+    ap.add_argument("--out", default=OUT_DB)
+    args = ap.parse_args()
+
+    if not args.source or not os.path.isfile(args.source):
+        print(
+            "[canonical] FATAL: a frozen hermes capture is required "
+            "(--source or CYNIC_HERMES_CAPTURE). Live reads are refused.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if os.path.exists(args.out):
+        os.remove(args.out)
+    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+
+    normalizer = HermesNormalizer(args.source)
+    ids = normalizer.session_refs()
     print(f"[canonical] hermes sessions to normalize: {len(ids)}")
 
     store = SqliteCanonicalStore(OUT_DB, blob_root=OUT_DB + ".blobs", bulk_load=True)
     t0 = time.time()
-    report = normalize_many(HermesNormalizer(HERMES_DB), store, ids, progress_every=500)
+    report = normalize_source(normalizer, store, progress_every=500)
     elapsed = time.time() - t0
 
     print()

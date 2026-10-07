@@ -8,18 +8,38 @@ from .domain.session import NormalizedSession
 
 
 class NormalizerPort(Protocol):
-    """A harness adapter: raw source -> canonical entities.
+    """A harness adapter: one bound source -> canonical sessions.
 
     Each harness has its own models and its own shape. A normalizer does NOT have
     to produce a uniform result — it must produce a *correct* one, and leave
     unobserved fields as None.
+
+    The adapter, not the caller, decides what a session is:
+      * Hermes     — a SQLite database; a session is a ``messages.session_id`` value
+      * Codex      — a directory of rollout JSONL files; a session is one file
+      * ClaudeCode — a directory tree of session JSONL files; a session is one file
+
+    The application layer never supplies session ids: where sessions live and what
+    identifies one is harness knowledge that belongs to the adapter. Only the
+    normalized domain object crosses the port.
     """
 
     harness: str
 
-    def can_read(self, source_ref: str) -> bool: ...
+    def can_read(self, source_ref: str) -> bool:
+        """Whether this adapter can normalize the given source reference."""
+        ...
 
-    def normalize(self, source_ref: str) -> NormalizedSession: ...
+    def session_refs(self) -> list[str]:
+        """Enumerate this source's sessions. Empty list when the source is absent.
+
+        Returned values are opaque: they mean nothing outside this adapter.
+        """
+        ...
+
+    def normalize(self, session_ref: str) -> NormalizedSession:
+        """Normalize one session of this adapter's bound source."""
+        ...
 
 
 class CanonicalStorePort(Protocol):

@@ -21,7 +21,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from cynic_data.capture.adapters.capturer_sqlite import SqliteSourceCapturer
-from cynic_data.capture.usecases.capture_source import capture_sources, write_manifest
+from cynic_data.capture.usecases.capture_source import capture_sources
+from cynic_data.capture.adapters.manifest_writer import FileManifestWriter
 
 DEFAULT_SOURCE = "/home/user/.hermes/state.db"
 DEFAULT_DEST = "/var/lib/cynic/vault/corpus/captures"
@@ -69,7 +70,7 @@ def main() -> int:
         print("[capture] FATAL: snapshot is not consistent", file=sys.stderr)
         return 3
 
-    write_manifest(manifest, os.path.join(args.dest, "manifest.json"))
+    FileManifestWriter().write(manifest, os.path.join(args.dest, "manifest.json"))
     print(f"[capture] manifest: {os.path.join(args.dest, 'manifest.json')}")
     print(f"[capture] MANIFEST_JSON " + json.dumps({
         "manifest_uid": manifest.manifest_uid,

@@ -13,3 +13,4 @@ packages = ["src/cynic_data"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

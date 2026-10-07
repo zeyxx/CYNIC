@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import sqlite3
 
 from ....kernel.ids import (
@@ -45,11 +46,29 @@ from ._human import classify_human_turn
 HARNESS = "hermes"
 
 
+def _tool_is_error(content: str | None) -> bool:
+    """Native error signal: JSON `success: false` or non-empty `error` field."""
+    if not content:
+        return False
+    try:
+        d = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(d, dict):
+        return False
+    if d.get("success") is False:
+        return True
+    err = d.get("error")
+    return bool(err)
+
+
 def _iso(ts_unix) -> str | None:
     if not ts_unix:
         return None
     try:
-        return datetime.datetime.fromtimestamp(ts_unix).isoformat()
+        return datetime.datetime.fromtimestamp(ts_unix, tz=datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        ) + "Z"
     except (OverflowError, OSError, ValueError):
         return None
 
@@ -63,8 +82,22 @@ class HermesNormalizer:
     def can_read(self, source_ref: str) -> bool:
         return source_ref.endswith(".db") or source_ref.endswith(".sqlite")
 
-    def normalize(self, raw_session_id: str) -> NormalizedSession:
-        session_uid = str(SessionUid(HARNESS, raw_session_id))
+    def session_refs(self) -> list[str]:
+        """A Hermes session is a ``messages.session_id`` value in this database."""
+        if not os.path.exists(self.db_path):
+            return []
+        con = sqlite3.connect(f"file:{self.db_path}?immutable=1", uri=True)
+        try:
+            rows = con.execute(
+                "SELECT DISTINCT session_id FROM messages "
+                "WHERE session_id IS NOT NULL ORDER BY session_id"
+            ).fetchall()
+        finally:
+            con.close()
+        return [r[0] for r in rows]
+
+    def normalize(self, session_ref: str) -> NormalizedSession:
+        session_uid = str(SessionUid(HARNESS, session_ref))
         con = sqlite3.connect(f"file:{self.db_path}?immutable=1", uri=True)
         try:
             rows = con.execute(
@@ -75,7 +108,7 @@ class HermesNormalizer:
                 WHERE session_id = ?
                 ORDER BY id ASC
                 """,
-                (raw_session_id,),
+                (session_ref,),
             ).fetchall()
         finally:
             con.close()
@@ -83,7 +116,7 @@ class HermesNormalizer:
         sess = NormalizedSession(
             session_uid=session_uid,
             harness=HARNESS,
-            source_ref=f"{self.db_path}#{raw_session_id}",
+            source_ref=f"{self.db_path}#{session_ref}",
             native_meta={"native_model": None, "ordering": "messages.id"},
         )
 
@@ -194,11 +227,11 @@ class HermesNormalizer:
                         session_uid=session_uid,
                         turn_uid=t_uid,
                         index=tool_idx,
-                        tool_name="hermes_tool_result",
+                        tool_name="tool_result",
                         call_id=tool_call_id or None,
                         command_or_args=None,
                         raw_output=content or "",
-                        is_error=bool(content and content.lower().startswith("error")),
+                        is_error=_tool_is_error(content),
                         parent_exec_uid=parent,
                         timestamp_iso=ts_iso,
                     )
