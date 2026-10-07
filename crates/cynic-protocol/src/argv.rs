@@ -81,6 +81,16 @@ pub trait ArgvRunner: Send + Sync {
     fn run(&self, argv: &[&str]) -> ArgvOutput;
 }
 
+/// Blanket impl: a shared runner behind an `Arc` is still an argv runner.
+/// Lets fleet observers hold `Arc<R>` and hand `Arc<R>` clones to adapters.
+/// Lives here (not in `cynic-lifecycle`) because the orphan rule allows a
+/// blanket impl over a foreign type only in the trait's home crate.
+impl<R: ArgvRunner> ArgvRunner for std::sync::Arc<R> {
+    fn run(&self, argv: &[&str]) -> ArgvOutput {
+        self.as_ref().run(argv)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
