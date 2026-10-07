@@ -40,6 +40,11 @@ rustc-ice-*.txt
 /node_modules/
 package-lock.json
 .venv/
+# Data-side Python venv (infra/data_system tooling). Untracked 1.3G tree whose
+# site-packages tripped `cynic audit secret` with a third-party
+# `verify_token=` literal -- a false positive, but the gate cannot tell a
+# vendored package from a leak.
+.venv_data/
 __pycache__/
 **/__pycache__/
 **/.gradle-user-home/
