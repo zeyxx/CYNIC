@@ -1,0 +1,130 @@
+{
+  "$cynic": "build-policy-registry",
+  "$schema": "cynic.build_policy.v1",
+  "purpose": "Single source of truth for cargo parallelism and build environment variables. These values are data, not code decisions: every production site is a reader that forwards them, so the value must be declared exactly once here and verified everywhere else. Before this file existed the value 1 appeared in seven places with no authority, and .cargo/config.toml could not govern it because an environment variable overrides that file.",
+  "authority_order": [
+    "contracts/foundation.json",
+    "infra/build-policy.json",
+    "infra/rust-toolchain.json",
+    "Makefile"
+  ],
+  "precedence_rule": "When a site passes a variable through the environment, the environment wins over .cargo/config.toml. Therefore .cargo/config.toml can only govern invocations that set nothing, and it is deliberately not the authority for parallelism.",
+  "canonical_gate": {
+    "command": "make check",
+    "runner": "cynic build proof",
+    "note": "Both force the environment explicitly, so both read the values below and ignore .cargo/config.toml."
+  },
+  "parallelism": {
+    "cargo_build_jobs": 1,
+    "cmake_build_parallel_level": 1,
+    "status": "unmeasured_on_canonical_path",
+    "declared_reason": "No measurement of the canonical gate justifies this value. It predates the current work and its origin is not recorded in the repository.",
+    "measured_alternative": {
+      "cargo_build_jobs": 2,
+      "measured_on": "cynic-builder CT105, manual cargo build, rustc 1.95.0 as pinned by rust-toolchain.toml",
+      "single_job_wall_seconds": 641,
+      "two_job_wall_seconds": [
+        282.0,
+        261.66,
+        247.52,
+        252.76
+      ],
+      "two_job_commits": [
+        "cynic-89b11ad4b9f6",
+        "cynic-1b75810cd5a3",
+        "cynic-2bba060486a7",
+        "cynic-c09f4ee98224"
+      ],
+      "two_job_results": "rc=0 on all four, zero compiler errors, zero internal compiler errors",
+      "reduction_percent": {
+        "worst": 56.0,
+        "best": 61.4,
+        "mean": 59.3
+      },
+      "peak_rss_mib": {
+        "single_job": 1166,
+        "two_jobs": 1255,
+        "delta_percent": 7.6
+      },
+      "swaps": 0,
+      "scope_warning": "These figures apply to a manually launched cargo build. They do not yet apply to make check or cynic build proof, because those force CARGO_BUILD_JOBS from the environment. Adopting 2 here requires proving it on the canonical path first.",
+      "evidence": "infra/runtime-checkpoints/2026-10-07-proxmox-host-substrate-observation.json -> build_performance_diagnosis.repetition_across_commits"
+    },
+    "not_measured": [
+      "cargo_build_jobs 3 and 4: the optimum above 2 is unknown",
+      "any value on the canonical gate itself: no canonical-path measurement exists",
+      "whether the original single job default answered a constraint other than the rustc ICE recorded in .cargo/config.toml"
+    ],
+    "revert_instruction": "If an internal compiler error appears on any commit, set cargo_build_jobs back to 1 here, propagate, and record the commit that broke it. The ICE risk cited in .cargo/config.toml is real and is not dismissed by the measurements above.",
+    "cargo_config_toml_scope": {
+      "file": ".cargo/config.toml",
+      "declared_jobs": 2,
+      "status": "declared_divergence",
+      "applies_to": "manual cargo invocations that set no environment, for example a developer running cargo test directly",
+      "does_not_apply_to": [
+        "make check",
+        "cynic build proof",
+        "any adapter that passes CARGO_BUILD_JOBS through the environment"
+      ],
+      "why_the_divergence_is_legitimate": "the two paths are genuinely different surfaces. The canonical gate always sets the variable explicitly, so the registry governs it. A direct cargo invocation inherits the config file instead. Declaring the value here, with its scope, keeps the difference deliberate rather than accidental.",
+      "why_it_would_be_wrong_without_this_record": "an undeclared divergence between a registry and a config file is indistinguishable from drift, and the next reader cannot tell which number is authoritative for their invocation",
+      "evidence": "four commits, 641 s single job against 247 to 282 s at two jobs, zero compiler errors"
+    }
+  },
+  "build_environment": {
+    "rust_min_stack": {
+      "value": "8589934592",
+      "declared_reason": "Present at three production sites with no recorded justification. Held here so the value has one location."
+    },
+    "cargo_incremental": {
+      "value": "0",
+      "declared_reason": "Stale incremental cache produces ghost errors under rustc 1.96 per .cargo/config.toml. Held here for the same reason."
+    },
+    "cargo_target_dir_shared": {
+      "value": "/var/lib/cynic/build-targets",
+      "declared_reason": "Shared build target directory used by the remote runner."
+    }
+  },
+  "consumers": [
+    {
+      "site": "Makefile:11",
+      "form": "CYNIC_CARGO_BUILD_JOBS ?= <cargo_build_jobs>",
+      "kind": "make_variable_default"
+    },
+    {
+      "site": "Makefile:37",
+      "form": "CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS) CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS)",
+      "kind": "make_transmission"
+    },
+    {
+      "site": "crates/cynic-node/src/adapters/tokio_build_execution.rs:240",
+      "form": "(\"CARGO_BUILD_JOBS\".to_string(), \"<cargo_build_jobs>\".to_string())",
+      "kind": "environment_map"
+    },
+    {
+      "site": "crates/cynic-node/src/adapters/ssh_build_proof.rs:76",
+      "form": "\"CARGO_BUILD_JOBS=<cargo_build_jobs>\".to_string()",
+      "kind": "environment_argv"
+    },
+    {
+      "site": "crates/cynic-node/src/adapters/ssh_build_proof.rs:96",
+      "form": "\"CARGO_BUILD_JOBS=<cargo_build_jobs>\".to_string()",
+      "kind": "environment_argv"
+    },
+    {
+      "site": "crates/cynic-node/src/ports/build_runner_adapter.rs:277",
+      "form": "\"CARGO_BUILD_JOBS=<cargo_build_jobs>\".to_string()",
+      "kind": "environment_argv"
+    }
+  ],
+  "coherence_contract": {
+    "test": "crates/cynic-cli/tests/build_policy_coherence.rs",
+    "rule": "Every consumer site must carry the value declared in parallelism.cargo_build_jobs. The test fails when a site diverges, and also fails when a consumer is added without being declared here.",
+    "replaces": "crates/cynic-cli/tests/architecture_boundary.rs previously asserted the literal string CYNIC_CARGO_BUILD_JOBS ?= 1, which made the value itself the contract and would have failed on any legitimate policy change."
+  },
+  "toolchain_drift": {
+    "observation": "Three toolchain versions coexist. rust-toolchain.toml pins 1.95.0 and overrides the builder, whose system rustc is 1.93.0. Pre-existing comments in .cargo/config.toml cite 1.96, a version no checkout runs.",
+    "status": "unresolved",
+    "consequence": "The rustc ICE rationale behind jobs = 1 was recorded against a toolchain that is not the one in use, so it cannot be assumed to still hold."
+  }
+}
