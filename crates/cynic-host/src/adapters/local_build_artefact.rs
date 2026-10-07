@@ -30,13 +30,27 @@ pub struct LocalBuildArtefactAdapter;
 
 impl BuildArtefactObservationPort for LocalBuildArtefactAdapter {
     fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
+        self.observe_inner(false)
+    }
+
+    fn observe_build_artefacts_shallow(&self) -> Result<BuildArtefactReport, String> {
+        self.observe_inner(true)
+    }
+
+    fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
+        build_gc_plan(report)
+    }
+}
+
+impl LocalBuildArtefactAdapter {
+    fn observe_inner(&self, shallow: bool) -> Result<BuildArtefactReport, String> {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
         let physical_disks = observe_physical_disks();
         let filesystems = observe_filesystems();
-        let (checkouts_raw, remote_shas) = observe_checkouts_raw();
+        let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
         let total_checkout_human = bytes_to_human(total_checkout_bytes);
@@ -63,6 +77,12 @@ impl BuildArtefactObservationPort for LocalBuildArtefactAdapter {
         if physical_disks.is_empty() {
             // not fatal - may be container without lsblk
             residual_unknowns.push("physical_disks_unknown".to_string());
+        }
+        if shallow {
+            // Shallow contract: classification without measurement. Sizes read
+            // 0 and remote refs are unprobed — named here, not hidden.
+            residual_unknowns.push("sizes_skipped:shallow_observe".to_string());
+            residual_unknowns.push("remote_shas_skipped:shallow_observe".to_string());
         }
 
         Ok(BuildArtefactReport {
@@ -149,10 +169,16 @@ fn observe_filesystems() -> Vec<cynic_protocol::disk::DiskFilesystem> {
     parse_df_filesystems(&stdout)
 }
 
-fn observe_checkouts_raw() -> (String, Vec<String>) {
+fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
     // Collect a pipe of "<path>|<sha>|<size>|<uid:gid>|<mtime_secs>|<remote 0/1>"
     // then feed to pure parse_checkout_list. Remote shas come from one batch ls-remote.
-    let remote_shas = fetch_remote_shas();
+    // Shallow skips the network ls-remote and the recursive du: the pure
+    // parser falls back to list checks, sizes read 0.
+    let remote_shas = if shallow {
+        Vec::new()
+    } else {
+        fetch_remote_shas()
+    };
     let mut lines = Vec::new();
     let entries = fs::read_dir(CHECKOUTS_BASE).ok();
     let Some(entries) = entries else {
@@ -170,7 +196,7 @@ fn observe_checkouts_raw() -> (String, Vec<String>) {
                 .unwrap_or("unknown")
                 .to_string()
         });
-        let (size_bytes, uid, gid, mtime_secs) = file_meta(&path);
+        let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
         let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
         // if remote_shas empty (no origin), leave flag but pure parser will fallback to list check
         let line =
@@ -193,7 +219,7 @@ fn git_sha(path: &Path) -> Option<String> {
     }
 }
 
-fn file_meta(path: &Path) -> (u64, u32, u32, u64) {
+fn file_meta(path: &Path, shallow: bool) -> (u64, u32, u32, u64) {
     let meta = fs::metadata(path).ok();
     let (uid, gid) = meta
         .as_ref()
@@ -211,17 +237,22 @@ fn file_meta(path: &Path) -> (u64, u32, u32, u64) {
                 .saturating_sub(d.as_secs()))
         })
         .unwrap_or(0);
-    // size via du -sb if available, else walk
-    let size_bytes = capture_command("du", &["-sb", &path.display().to_string()])
-        .ok()
-        .and_then(|c| {
-            if c.success {
-                c.stdout.split_whitespace().next()?.parse::<u64>().ok()
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| walk_size(path));
+    // size via du -sb if available, else walk. Shallow skips the recursive
+    // walk entirely: classification does not need it, sizes read 0.
+    let size_bytes = if shallow {
+        0
+    } else {
+        capture_command("du", &["-sb", &path.display().to_string()])
+            .ok()
+            .and_then(|c| {
+                if c.success {
+                    c.stdout.split_whitespace().next()?.parse::<u64>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| walk_size(path))
+    };
     (size_bytes, uid, gid, mtime_secs)
 }
 
@@ -328,5 +359,33 @@ fn tail(s: &str, n: usize) -> String {
         s.to_string()
     } else {
         s[s.len() - n..].to_string()
+    }
+}
+
+#[cfg(test)]
+mod shallow_tests {
+    use super::*;
+    use crate::domain::build_artefact::port::BuildArtefactObservationPort;
+
+    #[test]
+    fn shallow_skips_sizes_and_names_the_skips() {
+        let report = LocalBuildArtefactAdapter
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe");
+        assert_eq!(report.total_checkout_bytes, 0);
+        assert!(report
+            .residual_unknowns
+            .iter()
+            .any(|u| u == "sizes_skipped:shallow_observe"));
+        assert!(report
+            .residual_unknowns
+            .iter()
+            .any(|u| u == "remote_shas_skipped:shallow_observe"));
+        // Classification survives without measurement: every entry still has
+        // an sha (live rev-parse) even though sizes read 0.
+        for checkout in &report.checkouts {
+            assert_eq!(checkout.size_bytes, 0);
+            assert!(!checkout.sha.is_empty());
+        }
     }
 }
