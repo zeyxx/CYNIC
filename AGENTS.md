@@ -25,11 +25,11 @@ Compiler and build policy: `infra/RUST_COMPILER_ALPHAS.md`. `make test` exists b
 
 ## Structure
 
-48 workspace crates in 16 families. Canonical taxonomy, LOC census, and extraction verdicts: `infra/CANONICAL_CRATE_MAP.md` v3. God-object ceiling: 25k LOC (`contracts/foundation.json` hard boundary).
+47 workspace crates in 16 families. Canonical taxonomy and LOC census: `infra/CANONICAL_CRATE_MAP.md` v3 (its per-crate LOC table is the source; regenerate it rather than editing these numbers by hand). God-object ceiling: 25k LOC (`contracts/foundation.json` hard boundary). A crate exceeding it, or implementing another domain's ports, must be split.
 
 - L0 pure: `cynic-protocol`, `cynic-types`, `cynic-identity`.
 - L1 host substrate: `cynic-host`, `cynic-host-probes`, `cynic-network`, `cynic-lxc`, `cynic-sandbox`, `cynic-pkg`, `cynic-forensics`, `cynic-lifecycle`, `cynic-release`, `cynic-discovery-host`.
-- L2 domains: `cynic-storage`, `cynic-inference`, `cynic-inference-runtime`, `cynic-build`, `cynic-vcs`, `cynic-vcs-forgejo`, `cynic-eval`, `cynic-askesis`, `cynic-domain-ops`, `cynic-domain-cloudflare`, `cynic-domain-porkbun`, `cynic-domain-askesis`, `cynic-intel`, `cynic-intel-escore`, `cynic-intel-futarchy`, `cynic-intel-soc`, `cynic-solana-pay`, `cynic-zeroclaw-solana`, `cynic-consensus`, `cynic-discovery`, `cynic-node-protocol`, `cynic-agent-bus`, `cynic-agent-bus-server`, `cynic-agent-bus-coordinator`, `cynic-channel`, `cynic-pool`, `cynic-market`.
+- L2 domains: `cynic-storage`, `cynic-inference`, `cynic-inference-runtime`, `cynic-build`, `cynic-vcs` (Forgejo absorbed as `cynic-vcs/src/adapters/forgejo.rs`), `cynic-eval`, `cynic-askesis`, `cynic-domain-ops`, `cynic-domain-cloudflare`, `cynic-domain-porkbun`, `cynic-domain-askesis`, `cynic-intel`, `cynic-intel-escore`, `cynic-intel-futarchy`, `cynic-intel-soc`, `cynic-solana-pay`, `cynic-zeroclaw-solana`, `cynic-consensus`, `cynic-discovery`, `cynic-node-protocol`, `cynic-agent-bus`, `cynic-agent-bus-server`, `cynic-agent-bus-coordinator`, `cynic-channel`, `cynic-pool`, `cynic-market`.
 - L3 orchestration: `cynic-kernel`, `cynic-node`.
 - L4 projections: `cynic-cli`, `cynic-mcp` (replaceable agent-facing projection, never a bootstrap prerequisite).
 - Cross-cutting: `cynic-secrets`, `cynic-workload`.
@@ -66,6 +66,7 @@ Design gate (answer bottom-up before adding code, commands, crates, or contracts
 2. Mutate only inside the claimed scope and budget.
 3. `cynic agent release` with lease id and proof reference when done.
 4. MCP or coordination unreachable is an explicit unknown. Without human-admitted bounded fallback, report `blocked_disconnected`. A handshake or queue acknowledgement is never execution authority.
+5. Commit identity: every agent commit carries the agent's own identity (`-c user.name=<agent-id> -c user.email=<agent>@agent.local`), never the repo default. The default identity belongs to the human operator alone; agent work signed with it is indistinguishable from operator work and untriagable (observed 2026-10-07).
 
 ## Git isolation
 
@@ -79,6 +80,9 @@ Architecture & Crate Invariants (Mandatory):
 - Zero-I/O Domain Core: Domain modules (`entry.rs`, `parse.rs`, state machines) are 100% pure (no `std::process`, no `reqwest`, no `tokio::spawn`). Side-effects stay behind explicit Ports in `runner.rs` or `adapters/`.
 - Facade & Ratchet: Monolith crates (`cynic-host`, `cynic-node`) are under strict ratchet. No net growth allowed. Autonomous sub-domains must be clean-room extracted to micro-crates, with dead branches pruned destructively rather than kept as legacy baggage.
 - Automated Architectural Tests: Every crate boundary must be guarded by executable tests in `tests/architecture_boundary.rs`.
+- FCIS structure (supersedes strict hexagonal/DDD): every crate splits into Functional Core (pure types, parsers, planners, drift evaluators — zero `std::process`/`reqwest`/`tokio::spawn`) and Imperative Shell (`adapters/` implementing crate-owned ports). An adapter lives in the crate that declares its port, never by default in `cynic-host`. No struct-level secret fields — `SecretProviderPort` resolved at call time.
+- Implicit domains under consolidation: `cynic-host` is the monolith under ratchet (its current LOC and file count come from the `infra/CANONICAL_CRATE_MAP.md` census — read them there, not from this line). It legitimately owns ONE thing: host substrate observation + local actuation per family (`domain/<family>` pure probe + port, `adapters/local_*`, `adapters/remote_*` via SSH, `fleet_*_observer` rollup). Everything else inside it is a guest awaiting clean-room extraction to its owning micro-crate: network actuation/fleet observers → `cynic-network`; enrollment/activation/membership decisions → `cynic-node-protocol` (pure) with runtimes behind ports; build scheduling → `cynic-build`; storage → `cynic-storage`; VCS → `cynic-vcs`; secrets → `cynic-secrets`; node orchestration/usecases → `cynic-node`. Interconnection rule: readers consume `infra/registry.json` (Tier-1 desired state) through typed ports; Tier-2 observed state (discovery reports, telemetry, leases) never flows back into Git; fleet rollup picks Local vs Remote adapter by `observed_hostname()`, never by hardcoded role.
+- `cynic-kernel` is NOT a god object and must not be described as one. Genesis `1ee8185b` (2026-06-09) held 202 files / ~70k LOC as the whole runtime (MCP + REST API, dispatch, judge tools, and full business domains such as elections and chess). Those domains were clean-room extracted into L0–L2 micro-crates; the crate is now ~7k LOC and is a legitimate L3 orchestrator. It owns runtime boot (`main.rs`), bootstrap verify, domain type composition, and the MCP JSON-RPC proxy — nothing else. A future proposal to move domain logic back into it is a regression.
 Ask first: new crate, command, contract, or dependency; anything touching credentials, network, fleet, release, or another agent's scope.
 Never: commit secrets; mask unverified code with `allow(dead_code)`; recreate contract forests or Python organs as authority; turn a missing observer, adapter, or proof into a success report; amplify your own authority, budget, or scope.
 
