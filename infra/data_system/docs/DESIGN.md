@@ -221,9 +221,10 @@ A single green exit code or self-reported success claim is statistically unrelia
 
 ## 10. Multi-Day Episode Segmentation & Concurrency Tensor Formulation
 
-### 10.1 Episode Discontinuity & Topic Segmentation
+### 10.1 Empirical Discontinuity & Substance-Driven Segmentation
 Long-running sessions spanning days or traversing unrelated features are segmented into autonomous episodes:
-* **Temporal Cut ($\Delta t > 4h$)**: Physical interruptions (night pauses, multi-day hiatuses) are marked with `EpisodeBoundary`. Attention continuity is explicitly severed.
+* **Empirical Temporal Regimes**: Rejecting arbitrary thresholds. 99.48% of work occurs in $\Delta t \le 10\text{ min}$. The statistical inflection occurs at $\Delta t > 30\text{ min}$ (inserting an `EpisodeBoundary`), while $\Delta t \in [8\text{h}, 16\text{h}]$ marks inter-day sleep/resumption.
+* **Substance Over Naming for Crons**: Sessions named `cron_*` cannot be naively excluded. 320 code mutations (`patch`, `write_file`) and complex multi-turn debugging occur in crons; classification depends on action substance, not id prefix.
 * **Topic Shift Isolation**: Subtree transitions (e.g. moving from `crates/cynic-host` to `crates/cynic-node`) form distinct episode clusters.
 * **Compaction Folds as Epochs**: $N \rightarrow 1$ summary generation represents a natural phase transition.
 
