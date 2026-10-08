@@ -47,7 +47,9 @@ class Turn:
     session_uid: str
     index: int
     role: str
-    content: str
+    # None and "" are DISTINCT in the raw: a producer may store NULL (no content
+    # field) or an empty string. Collapsing one into the other is a silent loss.
+    content: str | None
     timestamp_iso: str | None = None
     native_model: str | None = None
     native_fields: dict[str, Any] = field(default_factory=dict)
