@@ -212,9 +212,49 @@ treats a known model using an unexpected home as **drift**, never silence.
 compaction replaced — **173 696 rows** on the live store (poolside/laguna-s-2.1
 alone: 60 902). The previous adapter read them as live history.
 
-Proof: `tests/test_hermes_conservation.py` — L1/L2/L3, 14 tests, random sample
-seeded, all green. `src/cynic_data/canonical/domain/conservation.py` is the pure
-alpha module; `hermes_contract.py` is the pinned instance.
+Proof: `tests/test_hermes_conservation.py` — L1/L2/L3, random sample seeded, all
+green. `src/cynic_data/canonical/domain/conservation.py` is the pure alpha
+module; `hermes_contract.py` is the pinned instance.
+
+### 5.2.1 The source is corrupt — what "freeze" must mean for Hermes
+
+Studying the raw surfaced three defects the live `state.db` carries, none of
+which a `cp` or a `VACUUM INTO` fixes:
+
+| Defect | Measured |
+|---|---|
+| `messages` B-tree corruption | page referenced twice, rowid 43961 absent; `PRAGMA integrity_check` fails |
+| 37 index inconsistencies | `row N missing from index …` |
+| invalid UTF-8 in TEXT | 2 `content` rows; the default `text_factory` raised and **lost a whole session** |
+| session pruning | live 1 390 distinct sessions vs 2 284 in the older freeze — Hermes prunes |
+
+`VACUUM INTO` keeps the corruption (it copies pages). The repair is a **rebuild
+into a fresh schema derived from the producer's own `SCHEMA_SQL`**, copying
+`messages` through the **primary-key index** (`ORDER BY id` + `SELECT WHERE id=?`)
+— the indexed path is correct where the corrupt full-scan path is not — and
+decoding TEXT with `errors=replace`. Result: `integrity_check` ok.
+
+The complete source is then the **union** of that repair and the older freeze,
+deduplicated on `messages.id` (the sources agree wherever they overlap: 2 000
+sampled shared ids, 0 differences):
+
+| Capture | messages | sessions | distinct session_id | integrity |
+|---|---|---|---|---|
+| older freeze (2026-10-03) | 286 061 | 2 650 | 2 284 | ok |
+| repaired live | 298 404 | 1 752 | 1 390 | ok |
+| **union (the source tests read)** | **314 194** | **2 795** | **2 430** | **ok** + FTS ok |
+
+`/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite` (+ `.manifest.json`,
+which records the merge rule and the counted losses: 4 duplicate ids, 1
+unfetchable row).
+
+**Two more alphas came out of this** (promoted to every harness):
+
+| α | Contract | Proven on Hermes |
+|---|---|---|
+| α7 | round-trip: the canonical session RECONSTRUCTS the raw row | found `content` NULL collapsed to `""` — 1 row |
+| α8 | cross-oracle: a second producer representation must agree, or the gap is quantified | `integrity_check`, FTS counts, session counters |
+| α9 | the source must be frozen, integrity-checked and deterministic before any proof runs | tests read the union capture, never the live store |
 
 ### 5.3 Test infrastructure debt (fixed)
 
