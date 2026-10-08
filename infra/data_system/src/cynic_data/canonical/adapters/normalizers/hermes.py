@@ -246,7 +246,7 @@ class HermesNormalizer:
                     session_uid=session_uid,
                     index=turn_idx,
                     role=role,
-                    content=row["content"] or "",
+                    content=row["content"],  # None and "" are distinct raw states
                     timestamp_iso=ts_iso,
                     native_model=native_model,
                     native_fields=turn_fields,

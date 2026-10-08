@@ -36,7 +36,10 @@ from cynic_data.canonical.adapters.normalizers.hermes_contract import (
 from cynic_data.canonical.domain.conservation import Fate, parse_fate, parse_ddl_columns
 
 HERMES_SRC = "/home/user/.hermes/hermes-agent/hermes_state_common.py"
-DB = "/home/user/.hermes/state.db"
+# The frozen, integrity-checked capture — NOT the live store, which is corrupt
+# (a full scan can raise "database disk image is malformed"). Tests must read a
+# deterministic source, or a passing run proves nothing.
+DB = "/var/lib/cynic/vault/corpus/captures/hermes_repaired.sqlite"
 
 pytestmark = pytest.mark.skipif(
     not (os.path.exists(HERMES_SRC) and os.path.exists(DB)),

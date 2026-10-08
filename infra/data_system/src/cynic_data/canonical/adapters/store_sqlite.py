@@ -63,7 +63,10 @@ class SqliteCanonicalStore:
 
     def _put_payload(self, text: str | None) -> str | None:
         """Store a payload, externalizing it if too large. Returns the value to
-        persist in the database: the text itself (inline) or its content hash."""
+        persist in the database: the text itself (inline) or its content hash.
+
+        None is stored as NULL, "" as "" — the two are distinct raw states and
+        collapsing them would be a silent loss."""
         if text is None:
             return None
         digest, inlined = self._blobs.put(text)
@@ -155,7 +158,7 @@ class SqliteCanonicalStore:
             native_meta=json.loads(native_meta) if native_meta else {},
         )
         for r in cur.execute("SELECT turn_uid, session_uid, idx, role, content, timestamp_iso, native_model, native_fields FROM turns WHERE session_uid = ? ORDER BY idx", (session_uid,)):
-            s.turns.append(Turn(r[0], r[1], r[2], r[3], self._get_payload(r[4]) or "", r[5], r[6], json.loads(r[7]) if r[7] else {}))
+            s.turns.append(Turn(r[0], r[1], r[2], r[3], self._get_payload(r[4]), r[5], r[6], json.loads(r[7]) if r[7] else {}))
         for r in cur.execute("SELECT exec_uid, session_uid, turn_uid, idx, tool_name, call_id, command_or_args, raw_output, exit_code, is_error, parent_exec_uid, timestamp_iso, native_fields FROM tools WHERE session_uid = ? ORDER BY idx", (session_uid,)):
             s.tools.append(ToolCall(r[0], r[1], r[2], r[3], r[4], r[5], self._get_payload(r[6]), self._get_payload(r[7]), r[8], bool(r[9]), r[10], r[11], json.loads(r[12]) if r[12] else {}))
         for r in cur.execute("SELECT trace_uid, session_uid, turn_uid, content, subject, model, timestamp_iso FROM reasoning WHERE session_uid = ?", (session_uid,)):
