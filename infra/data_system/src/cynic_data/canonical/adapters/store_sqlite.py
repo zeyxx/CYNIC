@@ -63,7 +63,10 @@ class SqliteCanonicalStore:
 
     def _put_payload(self, text: str | None) -> str | None:
         """Store a payload, externalizing it if too large. Returns the value to
-        persist in the database: the text itself (inline) or its content hash."""
+        persist in the database: the text itself (inline) or its content hash.
+
+        None is stored as NULL, "" as "" — the two are distinct raw states and
+        collapsing them would be a silent loss."""
         if text is None:
             return None
         digest, inlined = self._blobs.put(text)
@@ -86,21 +89,21 @@ class SqliteCanonicalStore:
 
     # -- write ---------------------------------------------------------------
 
-    def write(self, s: NormalizedSession) -> None:
+    def write(self, session: NormalizedSession) -> None:
         cur = self._con.cursor()
         cur.execute(
             "INSERT OR REPLACE INTO sessions (session_uid, harness, source_ref, native_meta) VALUES (?,?,?,?)",
-            (s.session_uid, s.harness, s.source_ref, _j(s.native_meta)),
+            (session.session_uid, session.harness, session.source_ref, _j(session.native_meta)),
         )
         # idempotent re-write: clear this session's rows first
         for table in ("turns", "tools", "reasoning", "edges", "states", "human_signals"):
-            cur.execute(f"DELETE FROM {table} WHERE session_uid = ?", (s.session_uid,))
+            cur.execute(f"DELETE FROM {table} WHERE session_uid = ?", (session.session_uid,))
 
         cur.executemany(
             "INSERT INTO turns (turn_uid, session_uid, idx, role, content, timestamp_iso, native_model, native_fields) VALUES (?,?,?,?,?,?,?,?)",
             [
                 (t.turn_uid, t.session_uid, t.index, t.role, self._put_payload(t.content), t.timestamp_iso, t.native_model, _j(t.native_fields))
-                for t in s.turns
+                for t in session.turns
             ],
         )
         cur.executemany(
@@ -109,19 +112,19 @@ class SqliteCanonicalStore:
                 (t.exec_uid, t.session_uid, t.turn_uid, t.index, t.tool_name, t.call_id,
                  self._put_payload(t.command_or_args), self._put_payload(t.raw_output),
                  t.exit_code, int(t.is_error), t.parent_exec_uid, t.timestamp_iso, _j(t.native_fields))
-                for t in s.tools
+                for t in session.tools
             ],
         )
         cur.executemany(
             "INSERT INTO reasoning (trace_uid, session_uid, turn_uid, content, subject, model, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
-            [(r.trace_uid, r.session_uid, r.turn_uid, self._put_payload(r.content), r.subject, r.model, r.timestamp_iso) for r in s.reasoning],
+            [(r.trace_uid, r.session_uid, r.turn_uid, self._put_payload(r.content), r.subject, r.model, r.timestamp_iso) for r in session.reasoning],
         )
         cur.executemany(
             "INSERT INTO edges (edge_uid, session_uid, kind, source_uids, target_uid, provenance, payload, timestamp_iso) VALUES (?,?,?,?,?,?,?,?)",
             [
                 (e.edge_uid, e.session_uid, e.kind.value, _j(list(e.source_uids)), e.target_uid,
                  e.provenance.value, _j(e.payload), e.timestamp_iso)
-                for e in s.edges
+                for e in session.edges
             ],
         )
         cur.executemany(
@@ -131,12 +134,12 @@ class SqliteCanonicalStore:
                  st.sandbox_policy, st.approval_policy, st.context_prompt_tokens,
                  st.context_nonmessage_tokens, st.cumulative_tokens,
                  None if st.compacted is None else int(st.compacted), _j(st.native_fields), st.timestamp_iso)
-                for st in s.states
+                for st in session.states
             ],
         )
         cur.executemany(
             "INSERT INTO human_signals (human_uid, session_uid, turn_uid, text, kind, markers, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
-            [(h.human_uid, h.session_uid, h.turn_uid, self._put_payload(h.text), h.kind.value, _j(list(h.markers)), h.timestamp_iso) for h in s.human],
+            [(h.human_uid, h.session_uid, h.turn_uid, self._put_payload(h.text), h.kind.value, _j(list(h.markers)), h.timestamp_iso) for h in session.human],
         )
         self._con.commit()
 
@@ -155,7 +158,7 @@ class SqliteCanonicalStore:
             native_meta=json.loads(native_meta) if native_meta else {},
         )
         for r in cur.execute("SELECT turn_uid, session_uid, idx, role, content, timestamp_iso, native_model, native_fields FROM turns WHERE session_uid = ? ORDER BY idx", (session_uid,)):
-            s.turns.append(Turn(r[0], r[1], r[2], r[3], self._get_payload(r[4]) or "", r[5], r[6], json.loads(r[7]) if r[7] else {}))
+            s.turns.append(Turn(r[0], r[1], r[2], r[3], self._get_payload(r[4]), r[5], r[6], json.loads(r[7]) if r[7] else {}))
         for r in cur.execute("SELECT exec_uid, session_uid, turn_uid, idx, tool_name, call_id, command_or_args, raw_output, exit_code, is_error, parent_exec_uid, timestamp_iso, native_fields FROM tools WHERE session_uid = ? ORDER BY idx", (session_uid,)):
             s.tools.append(ToolCall(r[0], r[1], r[2], r[3], r[4], r[5], self._get_payload(r[6]), self._get_payload(r[7]), r[8], bool(r[9]), r[10], r[11], json.loads(r[12]) if r[12] else {}))
         for r in cur.execute("SELECT trace_uid, session_uid, turn_uid, content, subject, model, timestamp_iso FROM reasoning WHERE session_uid = ?", (session_uid,)):
@@ -165,7 +168,7 @@ class SqliteCanonicalStore:
         for r in cur.execute("SELECT snapshot_uid, session_uid, turn_uid, idx, model, cwd, sandbox_policy, approval_policy, context_prompt_tokens, context_nonmessage_tokens, cumulative_tokens, compacted, native_fields, timestamp_iso FROM states WHERE session_uid = ? ORDER BY idx", (session_uid,)):
             s.states.append(StateSnapshot(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], None if r[11] is None else bool(r[11]), json.loads(r[12]) if r[12] else {}, r[13]))
         for r in cur.execute("SELECT human_uid, session_uid, turn_uid, text, kind, markers, timestamp_iso FROM human_signals WHERE session_uid = ?", (session_uid,)):
-            s.human.append(HumanSignal(r[0], r[1], r[2], self._get_payload(r[3]) or "", CorrectionKind(r[4]), tuple(json.loads(r[5])) if r[5] else (), r[6]))
+            s.human.append(HumanSignal(r[0], r[1], r[2], self._get_payload(r[3]), CorrectionKind(r[4]), tuple(json.loads(r[5])) if r[5] else (), r[6]))
         return s
 
     def count(self, table: str) -> int:
