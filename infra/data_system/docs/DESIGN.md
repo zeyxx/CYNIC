@@ -139,3 +139,42 @@ Whenever a new empirical fact or mathematical property is discovered:
 2. Implement the resolution in domain code.
 3. Update this document under **Section 4 (Empirical Ground-Truth Findings)** with proof metrics.
 4. Commit documentation changes alongside code changes.
+
+---
+
+## 7. The Full Spectrum of 7 Target Projections
+
+The pipeline does not terminate at basic SFT/DPO datasets; it services 7 distinct AI and software engineering disciplines:
+
+```
+                       ┌─── [1. SFT] : Pure imitation of verified successful trajectories
+                       ├─── [2. DPO / RLHF] : Contrastive preference alignment ({chosen, rejected})
+                       ├─── [3. PRM / Step-Reward] : Step-by-step value models for MCTS & Search
+                       │
+CAUSAL HYPERGRAPH ─────┼─── [4. RLVR Gyms] : Autonomous self-play environments with test oracles
+     (The SSOT)        │
+                       ├─── [5. Golden Evals] : Sovereign benchmarks against external contamination
+                       ├─── [6. Skill Mining & RAG] : Automatic procedural memory extraction
+                       └─── [7. Forensics & Routing] : Cost-to-capability routing & drift detection
+```
+
+---
+
+## 8. Multi-Week Temporal Evolution & Session Typology Architecture
+
+### 8.1 Temporal Non-Stationarity Handling
+Agent trajectories over multiple weeks suffer from environment drift, prompt updates, and shifting tool implementations. We govern temporal drift via:
+1. **Deployment Epochs ($\mathcal{E}_1, \mathcal{E}_2, \dots$)**: Partitioning the corpus into distinct architectural phases (e.g., pre-refactor vs post-refactor) to prevent anachronistic training collisions.
+2. **Git Commit Anchoring**: Every node in the hypergraph is indexed by the active repository commit SHA-1, decoupling historical truth from HEAD code changes.
+3. **Idempotent Append-Only Storage**: New capture batches receive distinct SHA-256 digests and are ingested without rewriting historical canonical stores.
+
+### 8.2 The 5-Class Session Typology & Routing Matrix
+Sessions exhibit starkly different computational dynamics and must be routed conditionally:
+
+| Cohort | Characteristics | Deduplication / Filtering | Target Projections |
+|---|---|---|---|
+| **Type A: Crons & Monitors** | Periodic, high-frequency, bash checks, low variance | MinHash aggressive dedup (keep 1 canonical instance) | Forensics, Anomaly detection. (Excluded from SFT). |
+| **Type B: Coding & Debugging** | Multi-file edits, test runs, error-correction cycles | High-fidelity causal cone extraction | SFT (chosen), DPO (pre/post fix), RLVR Gyms. |
+| **Type C: Research & Doctrine** | Dense dialogue, architectural thinking, zero edits | Extraction of decisions, principles, and trade-offs | Skill Mining (`SKILL.md`), Associative RAG. |
+| **Type D: Multi-Agent Swarms** | Asynchronous subagent trees ($1 \rightarrow M$, 603 sessions) | Causal DAG unification across session boundaries | Multi-Agent Coordination, Delegation training. |
+| **Type E: Pathologies & Crashs** | Ctrl+C, infinite loops, rate limits, SIGSEGV | Explicit failure typing (`USER_INTERRUPTED`, `LOOP`) | DPO (rejected pairs), SOC Behavioral Alarms. |
