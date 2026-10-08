@@ -168,13 +168,29 @@ Agent trajectories over multiple weeks suffer from environment drift, prompt upd
 2. **Git Commit Anchoring**: Every node in the hypergraph is indexed by the active repository commit SHA-1, decoupling historical truth from HEAD code changes.
 3. **Idempotent Append-Only Storage**: New capture batches receive distinct SHA-256 digests and are ingested without rewriting historical canonical stores.
 
-### 8.2 The 5-Class Session Typology & Routing Matrix
-Sessions exhibit starkly different computational dynamics and must be routed conditionally:
+### 8.2 Beyond Monolithic Classification: Multidimensional Attribution
 
-| Cohort | Characteristics | Deduplication / Filtering | Target Projections |
-|---|---|---|---|
-| **Type A: Crons & Monitors** | Periodic, high-frequency, bash checks, low variance | MinHash aggressive dedup (keep 1 canonical instance) | Forensics, Anomaly detection. (Excluded from SFT). |
-| **Type B: Coding & Debugging** | Multi-file edits, test runs, error-correction cycles | High-fidelity causal cone extraction | SFT (chosen), DPO (pre/post fix), RLVR Gyms. |
-| **Type C: Research & Doctrine** | Dense dialogue, architectural thinking, zero edits | Extraction of decisions, principles, and trade-offs | Skill Mining (`SKILL.md`), Associative RAG. |
-| **Type D: Multi-Agent Swarms** | Asynchronous subagent trees ($1 \rightarrow M$, 603 sessions) | Causal DAG unification across session boundaries | Multi-Agent Coordination, Delegation training. |
-| **Type E: Pathologies & Crashs** | Ctrl+C, infinite loops, rate limits, SIGSEGV | Explicit failure typing (`USER_INTERRUPTED`, `LOOP`) | DPO (rejected pairs), SOC Behavioral Alarms. |
+Reducing an entire session to a single rigid bucket (e.g., classifying a 50-turn session as "Type E: Pathology / DPO Rejected" because the last command was interrupted by Ctrl+C or a host SIGSEGV) is a critical methodological flaw. Sessions are collections of cognitive subgraphs and must be evaluated across 4 orthogonal dimensions:
+
+```
+                  ┌─── DIMENSION 1 : Physical Host Integrity (Host Layer)
+                  │    (OOM kill, Python SIGSEGV, network timeout, disk full)
+                  │
+                  ├─── DIMENSION 2 : Model Cognition (Cognitive Layer)
+TRAJECTORY ───────┤    (Tool syntax validity, plan coherence, logical deduction)
+SUBGRAPH          │
+                  ├─── DIMENSION 3 : Human Operator Steering (Interaction Layer)
+                  │    (Natural approval, early Ctrl+C to redirect, out-of-band message)
+                  │
+                  └─── DIMENSION 4 : Temporal Prefix Locality (Decomposition Layer)
+                       (Extracting autonomous valid prefixes 0..k from incomplete runs)
+```
+
+1. **Host Fault vs Model Fault Isolation**:
+   - A host crash (e.g. host Linux SIGSEGV during pytest) is an environmental failure, not a model cognitive error. Training DPO against this unfairly penalizes valid model reasoning for physical hardware defects. Environmental faults are quarantined from preference alignment.
+2. **Human Ctrl+C is Steering, Not Automatic Failure**:
+   - Operator interruptions (`Ctrl+C`, `SIGINT`) frequently occur when a command takes too long, when the operator already has the answer, or to guide the agent to a better branch. The preceding turns $0 \dots k-1$ frequently constitute pristine SFT material.
+3. **Prefix Slicing & Subgraph Harvesting**:
+   - Incomplete or interrupted sessions are decomposed into their subgraphs. Every autonomous step sequence $[T_0 \rightarrow T_k]$ that achieved a verified intermediate goal (e.g. clean code exploration, successful uncorrupted patch, valid unit test) is harvested as a valid SFT demonstration.
+4. **Target Routing by Subgraph, Not by Monolithic Session**:
+   - A single session can yield SFT training prefixes from turns $0 \dots 20$, a DPO pair from a failed attempt at turn $22$ and its correction at turn $23$, and a refusal/steering alignment point at the final interruption at turn $25$.
