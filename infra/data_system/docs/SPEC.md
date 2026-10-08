@@ -107,13 +107,13 @@ The Causal Hypergraph serves 7 distinct downstream artifacts:
 
 ---
 
-## 6. The 4 Multi-Scale Fractal Layers Specification
+## 6. Scale Modeling: Working Hypothesis $H_{\text{scales}}$ (Pending Empirical Measurement)
 
-Agent trajectories operate across 4 nested scales of abstraction; modeling must respect each level:
-1. **Scale 0 (Micro — Turn / Tool Call)**: Atomic action-perception steps. Validation: syntax, tool schema conformance, exit code.
-2. **Scale 1 (Meso — Single Session Thread)**: Continuous linear thread within one agent execution. Validation: intra-session task objective fulfillment.
-3. **Scale 2 (Macro — Subagent Delegation Tree)**: Asynchronous swarms spanning parent and child sessions ($1 \rightarrow M$, e.g. 603 child sessions). Validation: join resolution back to parent context.
-4. **Scale 3 (Meta — Inter-Session Campaign / Saga)**: Multi-day workflows spanning consecutive sessions on the same repository. Validation: long-term test stability and repository convergence.
+The multi-scale architecture is treated strictly as an unverified working hypothesis $H_{\text{scales}}$ awaiting topological measurement on the corpus:
+1. *Candidate Scale 0 (Micro — Turn / Tool Call)*: Atomic action-perception steps. Validation: syntax, tool schema conformance, exit code.
+2. *Candidate Scale 1 (Meso — Single Session Thread)*: Continuous linear thread within one agent execution. Validation: intra-session task objective fulfillment.
+3. *Candidate Scale 2 (Macro — Subagent Delegation Tree)*: Asynchronous swarms spanning parent and child sessions ($1 \rightarrow M$, e.g. 603 child sessions). Validation: join resolution back to parent context.
+4. *Candidate Scale 3 (Meta — Inter-Session Campaign / Saga)*: Multi-day workflows spanning consecutive sessions on the same repository. Validation: long-term test stability and repository convergence.
 
 ---
 

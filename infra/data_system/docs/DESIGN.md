@@ -199,12 +199,12 @@ SUBGRAPH          │
 
 ## 9. Multi-Scale Trajectory Geometry & Cross-Outcome Disambiguation
 
-### 9.1 The 4 Fractal Scales of Execution
-Trajectories exhibit self-similarity across four scales:
-* **Scale 0 (Micro — Step/Action)**: Atomic tool calls. Failure mode: schema error, crash, command typo.
-* **Scale 1 (Meso — Thread/Session)**: Sequential conversation history. Failure mode: context saturation, plan drift.
-* **Scale 2 (Macro — Subagent Swarm)**: Asynchronous tree of 1 parent and $M$ children. Failure mode: orphaned results, recursion loops.
-* **Scale 3 (Meta — Cross-Session Saga)**: Cumulative development over days. Failure mode: regression of past contracts, architectural amnesia.
+### 9.1 Scale Modeling: Working Hypothesis $H_{\text{scales}}$ (Pending Empirical Measurement)
+The fractal scale model is held as an unverified working hypothesis $H_{\text{scales}}$ awaiting empirical measurement on the frozen corpus:
+* *Candidate Scale 0 (Micro — Step/Action)*: Atomic tool calls.
+* *Candidate Scale 1 (Meso — Thread/Session)*: Sequential conversation history.
+* *Candidate Scale 2 (Macro — Subagent Swarm)*: Asynchronous tree of 1 parent and $M$ children.
+* *Candidate Scale 3 (Meta — Cross-Session Saga)*: Cumulative development over days.
 
 ### 9.2 The Cross-Outcome Skepticism Matrix
 A single green exit code or self-reported success claim is statistically unreliable. Disambiguation requires orthogonal cross-validation:
