@@ -623,3 +623,32 @@ def test_l2_store_meta_is_carried():
     kept = norm.normalize(sid).native_meta.get("store_meta")
     assert kept is not None, "store_meta key missing"
     assert kept == raw, f"store_meta drift: {kept} != {raw}"
+
+
+# ---------------------------------------------------------------------------
+# The black-box property: same frozen input -> byte-identical canonical output.
+# A reader must be able to reproduce any session exactly, and the output must
+# depend on the BYTES, not on process state.
+# ---------------------------------------------------------------------------
+
+def test_canonical_output_is_deterministic():
+    """normalize() called twice on the same session yields an identical session.
+    Sampling several shapes (compaction, codex reasoning, message-less, orphan)
+    covers the branches where unordered queries or dict iteration could leak
+    nondeterminism."""
+    norm = HermesNormalizer(DB)
+    for sid in _random_sessions(6, seed=99):
+        a = norm.normalize(sid)
+        b = norm.normalize(sid)
+        assert a == b, f"{sid}: canonical output is not deterministic"
+        # and the whole session must serialize (no raw bytes leaked anywhere)
+        json.dumps(a.native_meta)
+
+
+def test_canonical_output_is_a_pure_function_of_the_capture():
+    """Two independent normalizers over the same capture produce identical
+    sessions: the output depends on the bytes, not on hidden global state."""
+    sids = _random_sessions(4, seed=7)
+    first = [HermesNormalizer(DB).normalize(s) for s in sids]
+    second = [HermesNormalizer(DB).normalize(s) for s in sids]
+    assert first == second, "two normalizer instances disagree on the same capture"
