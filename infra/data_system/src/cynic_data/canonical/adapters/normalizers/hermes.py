@@ -159,14 +159,24 @@ class HermesNormalizer:
         return con
 
     def session_refs(self) -> list[str]:
-        """A Hermes session is a ``messages.session_id`` value in this database."""
+        """Every session the producer declares — the ``sessions`` table, unioned
+        with any ``messages.session_id`` that has no ``sessions`` row.
+
+        Enumerating from ``messages`` alone silently dropped 366 sessions that
+        carry NO messages but DO carry session-level truth (347 with tokens/cost,
+        344 with ``session_model_usage`` telemetry, 24 with a title). The
+        ``sessions`` table is the producer's own session registry; an orphan
+        message (1 row on this store) is included too so its content is not lost.
+        """
         if not os.path.exists(self.db_path):
             return []
         con = self._connect()
         try:
             rows = con.execute(
-                "SELECT DISTINCT session_id FROM messages "
-                "WHERE session_id IS NOT NULL ORDER BY session_id"
+                "SELECT id FROM sessions "
+                "UNION "
+                "SELECT DISTINCT session_id FROM messages WHERE session_id IS NOT NULL "
+                "ORDER BY 1"
             ).fetchall()
         finally:
             con.close()
