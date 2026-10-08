@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cynic.synapse/cynic.convergence_tracker.v1",
+  "title": "CYNIC Convergence Tracker",
+  "description": "Universal schema for tracking multi-branch convergence state in CYNIC. Each instance represents one convergence task with its branches, contradictions, domains, and execution log.",
+  "type": "object",
+  "required": ["schema", "created", "updated", "operator", "branch", "worktree", "status", "base_sha", "branches", "contradictions", "duplicates", "domains", "execution_log"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.convergence_tracker.v1",
+      "description": "Schema identifier"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp (ISO 8601)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modification timestamp (ISO 8601)"
+    },
+    "operator": {
+      "type": "string",
+      "description": "Operator/agent who created this convergence"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Current branch name"
+    },
+    "worktree": {
+      "type": "string",
+      "description": "Absolute path to the convergence worktree"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["IN_PROGRESS", "COMPLETE", "ABANDONED", "BLOCKED"],
+      "description": "Convergence task status"
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "origin/main SHA at census time"
+    },
+    "branches": {
+      "type": "object",
+      "required": ["to_merge", "to_archive", "delegated", "snapshots"],
+      "properties": {
+        "to_merge": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "unique_commits", "behind", "tip_sha", "tip_date", "approach", "domains"],
+            "properties": {
+              "name": { "type": "string" },
+              "unique_commits": { "type": "integer", "minimum": 0 },
+              "behind": { "type": "integer", "minimum": 0 },
+              "tip_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+              "tip_date": { "type": "string", "format": "date-time" },
+              "approach": {
+                "type": "string",
+                "enum": ["merge", "rebase", "cherry_pick", "direct_pr", "archive"]
+              },
+              "domains": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Semantic domain names (from canonical domain list)"
+              }
+            }
+          }
+        },
+        "to_archive": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "reason"],
+            "properties": {
+              "name": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "delegated": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "scope", "agent", "plan"],
+            "properties": {
+              "name": { "type": "string" },
+              "scope": { "type": "string" },
+              "agent": { "type": "string" },
+              "plan": { "type": "string" }
+            }
+          }
+        },
+        "snapshots": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "domain", "severity", "status", "approaches", "dependency", "integration_check", "decision", "resolution_order", "rationale", "lesson", "resolved_by", "resolved_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^C[0-9]+$",
+            "description": "Contradiction identifier (C1, C2, ...)"
+          },
+          "domain": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "resolved", "wont_fix", "deferred"]
+          },
+          "approaches": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["sha", "branch", "date", "author", "subject", "files"],
+              "properties": {
+                "sha": { "type": "string", "minLength": 8 },
+                "branch": { "type": "string" },
+                "date": { "type": "string", "format": "date-time" },
+                "author": { "type": "string" },
+                "subject": { "type": "string" },
+                "files": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "dependency": {
+            "type": "string",
+            "enum": ["none", "ancestor", "semantic", "unknown"]
+          },
+          "integration_check": {
+            "type": "string",
+            "description": "Detailed integration analysis"
+          },
+          "decision": {
+            "type": "string",
+            "enum": ["ADOPT_A", "ADOPT_B", "ADOPT_A_B", "MERGE", "REJECT", "DEFER"]
+          },
+          "resolution_order": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Approach indices in cherry-pick order (empty if no order required)"
+          },
+          "rationale": { "type": "string" },
+          "lesson": { "type": "string" },
+          "resolved_by": { "type": "string" },
+          "resolved_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "duplicates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["domain", "sha_a", "branch_a", "sha_b", "branch_b", "subject", "duplicate_type", "kept_sha", "dropped_sha", "resolution_method"],
+        "properties": {
+          "domain": { "type": "string" },
+          "sha_a": { "type": "string" },
+          "branch_a": { "type": "string" },
+          "sha_b": { "type": "string" },
+          "branch_b": { "type": "string" },
+          "subject": { "type": "string" },
+          "duplicate_type": {
+            "type": "string",
+            "enum": ["content_duplicate", "cherry_pick_duplicate"]
+          },
+          "kept_sha": { "type": "string" },
+          "dropped_sha": { "type": "string" },
+          "resolution_method": { "type": "string" }
+        }
+      }
+    },
+    "domains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "commits", "branches"],
+        "properties": {
+          "name": { "type": "string" },
+          "commits": { "type": "integer", "minimum": 0 },
+          "branches": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "merge_order": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered list of branch names to merge"
+    },
+    "builder_proof": {
+      "type": "object",
+      "properties": {
+        "sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "verdict": { "type": "string", "enum": ["green", "red", "unknown"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "worktree_state": {
+      "type": "object",
+      "properties": {
+        "dirty_files": { "type": "integer", "minimum": 0 },
+        "untracked_files": { "type": "integer", "minimum": 0 },
+        "staged_files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "execution_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "action", "result"],
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "action": { "type": "string" },
+          "result": { "type": "string" },
+          "sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,324 @@
+{
+  "schema": "cynic.convergence_tracker.v1",
+  "created": "2026-10-08T19:39:00+02:00",
+  "updated": "2026-10-08T22:35:00+02:00",
+  "operator": "hermes:convergence",
+  "branch": "agent/hermes/convergence-triage",
+  "worktree": "/tmp/cynic-convergence",
+  "status": "IN_PROGRESS",
+  "base_sha": "0fcd0cf6",
+
+  "branches": {
+    "to_merge": [
+      {
+        "name": "agent/hermes/core-extraction",
+        "unique_commits": 67,
+        "behind": 218,
+        "tip_sha": "0aaf5ee7",
+        "tip_date": "2026-10-08T19:39:00+02:00",
+        "approach": "merge",
+        "domains": ["network-refactor", "audit-engine", "secrets-vault", "docs-consolidation", "release-deploy", "cli-surface", "host-family", "build-policy", "refactor-cleanup", "vcs-consolidate", "node-enrollment"]
+      },
+      {
+        "name": "agent/hermes/network-convergence",
+        "unique_commits": 88,
+        "behind": 218,
+        "tip_sha": "ddea0d0f",
+        "tip_date": "2026-10-08T19:39:00+02:00",
+        "approach": "merge",
+        "domains": ["network-refactor", "docs-consolidation", "cli-surface", "audit-engine", "build-policy", "host-family", "node-enrollment", "refactor-cleanup", "vcs-consolidate", "release-deploy"]
+      },
+      {
+        "name": "agent/hermes/persistence-drift-rebase",
+        "unique_commits": 26,
+        "behind": 0,
+        "tip_sha": "644fabb9",
+        "tip_date": "2026-10-08T19:39:00+02:00",
+        "approach": "direct_pr",
+        "domains": ["build-policy", "cli-surface", "host-family", "node-enrollment", "persistence-drift", "docs-consolidation", "secrets-vault", "release-deploy"]
+      }
+    ],
+    "to_archive": [
+      { "name": "agent/hermes/network-vocabulary", "reason": "0 unique commits" },
+      { "name": "agent/hermes/network-mycelium-unification", "reason": "6 unique, duplicate of convergence" },
+      { "name": "agent/hermes/knowledge-canon", "reason": "2 unique, absorbed" },
+      { "name": "agent/hermes/public-surface", "reason": "3 unique (CV docs), rest duplicate" }
+    ],
+    "delegated": [
+      {
+        "name": "agent/hermes/scan-exclusions",
+        "scope": "infra/data_system/ (19 commits)",
+        "agent": "scan-exclusions",
+        "plan": "Create agent/hermes/data-system-foundation from HEAD, PR to main. Zero conflict."
+      }
+    ],
+    "snapshots": [
+      "recovery/core-clean-20261006",
+      "recovery/pre-reboot-20261006",
+      "backup/hermes-pre-rebase-20261004-132317",
+      "backup/hermes/persistence-drift"
+    ]
+  },
+
+  "contradictions": [
+    {
+      "id": "C1",
+      "domain": "network-refactor",
+      "severity": "HIGH",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "43431403",
+          "branch": "core-extraction",
+          "date": "2026-10-06T03:10:33+02:00",
+          "author": "hermes",
+          "subject": "feat(network): trio-primary plane resolution with declared legacy aliases",
+          "files": ["crates/cynic-network/src/discovery.rs", "crates/cynic-network/src/mesh_plan.rs", "crates/cynic-protocol/src/exports.rs"]
+        },
+        {
+          "sha": "f5be5013",
+          "branch": "network-convergence",
+          "date": "2026-10-05T15:51:50+02:00",
+          "author": "jeanterre552",
+          "subject": "refactor(network,node): make plane vocabulary canonical with legacy aliases at the boundary",
+          "files": ["crates/cynic-cli/src/network_surface/mesh.rs", "crates/cynic-network/src/lib.rs", "crates/cynic-network/src/plane_vocabulary.rs", "crates/cynic-node/src/adapters/registry/mod.rs", "crates/cynic-node/src/adapters/registry/model.rs", "crates/cynic-node/src/adapters/registry/tests.rs", "crates/cynic-node/src/dns_activation_status.rs", "crates/cynic-node/src/dns_bundle.rs", "crates/cynic-node/src/domain/observation_plan.rs", "crates/cynic-node/src/network_shadow_proof.rs", "crates/cynic-node/src/observe.rs", "crates/cynic-node/src/ports/network_interfaces_port.rs", "crates/cynic-node/src/provider_fallback_status.rs", "crates/cynic-node/src/usecases/observe_node_uc.rs"]
+        }
+      ],
+      "dependency": "none",
+      "integration_check": "No file overlap. A modifies discovery.rs, mesh_plan.rs, exports.rs. B modifies 14 files including plane_vocabulary.rs. Both address plane vocabulary but at different layers (A: protocol types, B: canonical vocabulary module).",
+      "decision": "MERGE",
+      "resolution_order": [1, 0],
+      "rationale": "B is more complete (14 files vs 3), A is more recent. Cherry-pick B first (canonical vocabulary), then A (trio-primary reads).",
+      "lesson": "More recent does not mean more complete. Evaluate both dimensions.",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    },
+    {
+      "id": "C2",
+      "domain": "network-refactor",
+      "severity": "HIGH",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "a28d1735",
+          "branch": "core-extraction",
+          "date": "2026-10-06T03:12:38+02:00",
+          "author": "hermes",
+          "subject": "feat(network): trio-primary reads across node/host/cli/kernel (legacy fallback retained)",
+          "files": ["crates/cynic-cli/src/runtime_surface.rs", "crates/cynic-host/src/fleet_discovery.rs", "crates/cynic-host/src/peer_resolver_mesh.rs", "crates/cynic-host/src/storage_primary/decision.rs", "crates/cynic-kernel/src/infra/config_loader/helpers.rs", "crates/cynic-network/src/discovery.rs", "crates/cynic-node/src/fleet_inventory.rs", "crates/cynic-node/src/usecases/network_surfaces_uc.rs", "crates/cynic-node/src/usecases/network_sync_uc.rs", "crates/cynic-node/src/watchdog.rs"]
+        },
+        {
+          "sha": "69e34e60",
+          "branch": "network-convergence",
+          "date": "2026-10-05T04:45:27+02:00",
+          "author": "jeanterre552",
+          "subject": "refactor(node,network): eliminate duplicate MeshRegistry model and double-JSON serialization",
+          "files": ["crates/cynic-network/src/mesh_plan.rs", "crates/cynic-node/src/network_mesh_plan.rs", "crates/cynic-node/src/network_mesh_plan/model.rs"]
+        }
+      ],
+      "dependency": "none",
+      "integration_check": "No file overlap. A modifies 10 files across cli/host/kernel/network/node. B modifies 3 files in network/node. A is a superset that includes the mesh model elimination.",
+      "decision": "ADOPT_A",
+      "resolution_order": [0],
+      "rationale": "A is both more recent AND more complete (10 files vs 3). B is obsolete.",
+      "lesson": "When one branch is both more recent AND more complete, it supersedes the other.",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    },
+    {
+      "id": "C3",
+      "domain": "cli-surface",
+      "severity": "MEDIUM",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "b0287cf6",
+          "branch": "core-extraction",
+          "date": "2026-10-05T22:37:09+02:00",
+          "author": "jeanterre552",
+          "subject": "refactor(cli): unify mask, judge and judgment into one mask surface",
+          "files": ["crates/cynic-cli/src/cli_args.rs", "crates/cynic-cli/src/judge_surface.rs", "crates/cynic-cli/src/judgment_surface.rs", "crates/cynic-cli/src/judgment_surface/render.rs", "crates/cynic-cli/src/judgment_surface/scan.rs", "crates/cynic-cli/src/judgment_surface/types.rs", "crates/cynic-cli/src/lib.rs", "crates/cynic-cli/src/mask/mod.rs", "crates/cynic-cli/src/mask/render.rs", "crates/cynic-cli/src/mask/scan.rs", "crates/cynic-cli/src/mask/types.rs", "crates/cynic-cli/src/mask_surface.rs", "crates/cynic-cli/src/root_dispatch.rs"]
+        },
+        {
+          "sha": "06289d56",
+          "branch": "scan-exclusions",
+          "date": "2026-10-07T13:53:36+02:00",
+          "author": "hermes:persistence-audit",
+          "subject": "feat(cli): cynic audit persistence — wire the drift predicate to a surface",
+          "files": ["crates/cynic-cli/src/audit_surface.rs", "crates/cynic-cli/src/lib.rs", "crates/cynic-cli/src/persistence_audit.rs"]
+        }
+      ],
+      "dependency": "ancestor",
+      "integration_check": "A is ancestor of B (git merge-base --is-ancestor). B depends on A (unified surface). Common file: lib.rs. A creates mask/ module, B adds persistence_audit.rs.",
+      "decision": "ADOPT_B",
+      "resolution_order": [0, 1],
+      "rationale": "B depends on A (unified surface). Cherry-pick A first, then B.",
+      "lesson": "When B is a descendant of A, there is no contradiction — just a cherry-pick order.",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    },
+    {
+      "id": "C4",
+      "domain": "audit-engine",
+      "severity": "MEDIUM",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "6f3e9cc0",
+          "branch": "core-extraction",
+          "date": "2026-10-04T15:31:33+00:00",
+          "author": "CYNIC Builder",
+          "subject": "feat(audit): the debt ledger — declared, counted, shrink-only",
+          "files": ["crates/cynic-host/src/audit_engine/debt_ledger.rs", "crates/cynic-host/src/audit_engine/mod.rs", "infra/audit-debt-ledger.json"]
+        },
+        {
+          "sha": "dc268c6d",
+          "branch": "scan-exclusions",
+          "date": "2026-10-07T17:03:46+02:00",
+          "author": "hermes:path004",
+          "subject": "fix(audit): drop four fields the WorkspaceSourceIndex test helper does not have",
+          "files": ["crates/cynic-host/src/audit_engine/prose_citation_rule.rs"]
+        }
+      ],
+      "dependency": "none",
+      "integration_check": "A does not reference any of the 4 dropped fields (unit_files, unit_contents, exec_starts, claim_store). A mentions WorkspaceSourceIndex only in a comment. A does not use prose_citation_rule. B only modifies a test helper.",
+      "decision": "ADOPT_A_B",
+      "resolution_order": [],
+      "rationale": "Completely independent changes. No file overlap, no semantic dependency.",
+      "lesson": "Not every contradiction is a conflict. Sometimes A + B simply coexist.",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    },
+    {
+      "id": "C5",
+      "domain": "secrets-vault",
+      "severity": "MEDIUM",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "59646b51",
+          "branch": "core-extraction",
+          "date": "2026-10-07T10:53:07+02:00",
+          "author": "hermes",
+          "subject": "feat(cli): resolve VCS token from env, file, then OS keyring (fail closed)",
+          "files": ["crates/cynic-cli/src/source_surface.rs"]
+        },
+        {
+          "sha": "1593dedb",
+          "branch": "core-extraction",
+          "date": "2026-10-06T22:52:03+02:00",
+          "author": "hermes",
+          "subject": "fix(release): capture rollback target before switch; export unit types; sealed install via vault port",
+          "files": ["crates/cynic-cli/src/secret_surface.rs", "crates/cynic-pkg/src/lib.rs", "crates/cynic-pkg/src/release_deployment.rs"]
+        }
+      ],
+      "dependency": "ancestor",
+      "integration_check": "B is ancestor of A (A is more recent). No file overlap. A modifies source_surface.rs (token resolution). B modifies secret_surface.rs (sealed install). Both use cynic_secrets but with different imports in different files. No cross-reference.",
+      "decision": "ADOPT_A_B",
+      "resolution_order": [],
+      "rationale": "Completely independent changes. Different files, different imports.",
+      "lesson": "Two commits in the same branch can be independent if they touch different files.",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    },
+    {
+      "id": "C6",
+      "domain": "build-policy",
+      "severity": "LOW",
+      "status": "resolved",
+      "approaches": [
+        {
+          "sha": "25749045",
+          "branch": "persistence-drift-rebase",
+          "date": "2026-10-07T21:32:21+02:00",
+          "author": "hermes:ssot-jobs",
+          "subject": "feat(build): make infra/build-policy.json the single source of build parallelism",
+          "files": ["crates/cynic-cli/tests/architecture_boundary.rs", "crates/cynic-cli/tests/build_policy_coherence.rs", "infra/build-policy.json"]
+        },
+        {
+          "sha": "50294409",
+          "branch": "core-extraction",
+          "date": "2026-10-06T12:25:17+02:00",
+          "author": "jeanterre552",
+          "subject": "fix(make): split the gate binary by subject — a gate that proved a stale source",
+          "files": ["Makefile"]
+        }
+      ],
+      "dependency": "semantic",
+      "integration_check": "No file overlap. A's test in architecture_boundary.rs references CYNIC_SOURCE_BIN which B introduces in Makefile.",
+      "decision": "ADOPT_A_B",
+      "resolution_order": [1, 0],
+      "rationale": "B introduces CYNIC_SOURCE_BIN in Makefile. A adds a test that asserts its use. Cherry-pick B first, then A.",
+      "lesson": "Even without file overlap, there can be a semantic dependency (test to code).",
+      "resolved_by": "hermes:convergence",
+      "resolved_at": "2026-10-08T22:30:00+02:00"
+    }
+  ],
+
+  "duplicates": [
+    { "domain": "cli-surface", "sha_a": "25cf0754", "branch_a": "persistence-drift-rebase", "sha_b": "2b33559b", "branch_b": "scan-exclusions", "subject": "fix(cli): invert the guard in the unregistered-assignment scan", "duplicate_type": "content_duplicate", "kept_sha": "25cf0754", "dropped_sha": "2b33559b", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "cli-surface", "sha_a": "d8206e8a", "branch_a": "persistence-drift-rebase", "sha_b": "637e1964", "branch_b": "scan-exclusions", "subject": "fix(cli): move build policy coherence test into src", "duplicate_type": "content_duplicate", "kept_sha": "d8206e8a", "dropped_sha": "637e1964", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "release-deploy", "sha_a": "16ee545d", "branch_a": "core-extraction", "sha_b": "e47b2c98", "branch_b": "persistence-drift-rebase", "subject": "fix(release): gate judges clean tree first", "duplicate_type": "content_duplicate", "kept_sha": "16ee545d", "dropped_sha": "e47b2c98", "resolution_method": "Cherry-pick from core-extraction, skip from persistence-drift-rebase (patch-id match)" },
+    { "domain": "build-policy", "sha_a": "25749045", "branch_a": "persistence-drift-rebase", "sha_b": "e75633e8", "branch_b": "scan-exclusions", "subject": "feat(build): make infra/build-policy.json the single source", "duplicate_type": "content_duplicate", "kept_sha": "25749045", "dropped_sha": "e75633e8", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "build-policy", "sha_a": "cecf89e3", "branch_a": "persistence-drift-rebase", "sha_b": "19e61051", "branch_b": "scan-exclusions", "subject": "perf(build): raise cargo jobs from 1 to 2", "duplicate_type": "content_duplicate", "kept_sha": "cecf89e3", "dropped_sha": "19e61051", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "build-policy", "sha_a": "37f44166", "branch_a": "persistence-drift-rebase", "sha_b": "b3493874", "branch_b": "scan-exclusions", "subject": "docs(checkpoint): repeat the two-job build", "duplicate_type": "content_duplicate", "kept_sha": "37f44166", "dropped_sha": "b3493874", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "build-policy", "sha_a": "16605b43", "branch_a": "persistence-drift-rebase", "sha_b": "901d4732", "branch_b": "scan-exclusions", "subject": "docs(checkpoint): diagnose build bottleneck", "duplicate_type": "content_duplicate", "kept_sha": "16605b43", "dropped_sha": "901d4732", "resolution_method": "Cherry-pick from persistence-drift-rebase, skip from scan-exclusions (patch-id match)" },
+    { "domain": "secrets-vault", "sha_a": "59646b51", "branch_a": "core-extraction", "sha_b": "59646b51", "branch_b": "scan-exclusions", "subject": "feat(cli): resolve VCS token", "duplicate_type": "cherry_pick_duplicate", "kept_sha": "59646b51", "dropped_sha": "59646b51", "resolution_method": "Same SHA on both branches. Cherry-pick once, skip second (already applied)." },
+    { "domain": "secrets-vault", "sha_a": "3897e67a", "branch_a": "core-extraction", "sha_b": "f6225eea", "branch_b": "persistence-drift-rebase", "subject": "fix(secrets): keyring store writes value to stdin", "duplicate_type": "content_duplicate", "kept_sha": "3897e67a", "dropped_sha": "f6225eea", "resolution_method": "Cherry-pick from core-extraction, skip from persistence-drift-rebase (patch-id match)" }
+  ],
+
+  "domains": [
+    { "name": "network-refactor", "commits": 53, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "audit-engine", "commits": 19, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "secrets-vault", "commits": 11, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "build-policy", "commits": 16, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "data-system", "commits": 12, "branches": ["scan-exclusions"] },
+    { "name": "release-deploy", "commits": 8, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "cli-surface", "commits": 8, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "host-family", "commits": 8, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "docs-consolidation", "commits": 35, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "vcs-consolidate", "commits": 2, "branches": ["core-extraction", "network-convergence", "scan-exclusions"] },
+    { "name": "persistence-drift", "commits": 3, "branches": ["persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "node-enrollment", "commits": 5, "branches": ["core-extraction", "network-convergence", "persistence-drift-rebase", "scan-exclusions"] },
+    { "name": "refactor-cleanup", "commits": 2, "branches": ["core-extraction", "network-convergence", "scan-exclusions"] }
+  ],
+
+  "merge_order": [
+    "agent/hermes/persistence-drift-rebase",
+    "agent/hermes/core-extraction",
+    "agent/hermes/network-convergence"
+  ],
+
+  "builder_proof": {
+    "sha": "unknown",
+    "verdict": "unknown",
+    "timestamp": "2026-10-08T22:35:00+02:00"
+  },
+
+  "worktree_state": {
+    "dirty_files": 0,
+    "untracked_files": 0,
+    "staged_files": 0
+  },
+
+  "execution_log": [
+    { "timestamp": "2026-10-08T19:39:00+02:00", "action": "worktree_created", "result": "/tmp/cynic-convergence" },
+    { "timestamp": "2026-10-08T19:45:00+02:00", "action": "branch_triage_analyzed", "result": "4 to archive, 3 to keep" },
+    { "timestamp": "2026-10-08T19:50:00+02:00", "action": "token_search", "result": "FOUND at /etc/cynic/secrets/forgejo-token (40 bytes)" },
+    { "timestamp": "2026-10-08T19:51:00+02:00", "action": "token_permissions", "result": "root:root 600 — unreadable by user" },
+    { "timestamp": "2026-10-08T19:52:00+02:00", "action": "correctif_immediat", "result": "Executed by operator" },
+    { "timestamp": "2026-10-08T19:53:00+02:00", "action": "token_resolution_test", "result": "cynic source pr list fails — binary not updated" },
+    { "timestamp": "2026-10-08T20:00:00+02:00", "action": "non_merged_branch_analysis", "result": "6 findings (F1-F6) from 4 branches" },
+    { "timestamp": "2026-10-08T20:30:00+02:00", "action": "rebase_attempt", "result": "ABANDONED — cascade conflicts (6+ files)" },
+    { "timestamp": "2026-10-08T21:00:00+02:00", "action": "merge_attempt", "result": "ABANDONED — 35 files in conflict" },
+    { "timestamp": "2026-10-08T21:15:00+02:00", "action": "domain_classification", "result": "196 commits, 18 domains, 4 branches" },
+    { "timestamp": "2026-10-08T21:30:00+02:00", "action": "contradiction_analysis", "result": "9 duplicates + 6 contradictions" },
+    { "timestamp": "2026-10-08T21:45:00+02:00", "action": "scan_exclusions_delegated", "result": "Agent handles own data_system PR" },
+    { "timestamp": "2026-10-08T22:00:00+02:00", "action": "cynic_contradiction_distiller_created", "result": "Skill for formal contradiction resolution" },
+    { "timestamp": "2026-10-08T22:05:00+02:00", "action": "cynic_bootstrap_experiment_created", "result": "Skill for bootstrap experiment protocol" },
+    { "timestamp": "2026-10-08T22:10:00+02:00", "action": "vision_documented", "result": "docs/design/cynic-scientific-os.md" },
+    { "timestamp": "2026-10-08T22:15:00+02:00", "action": "capability_map_completed", "result": "12 capabilities, 5 systems" },
+    { "timestamp": "2026-10-08T22:30:00+02:00", "action": "contradictions_resolved", "result": "C1-C6 all resolved" },
+    { "timestamp": "2026-10-08T22:35:00+02:00", "action": "tracker_json_created", "result": "convergence-tracker.json (machine-readable)" }
+  ]
+}
