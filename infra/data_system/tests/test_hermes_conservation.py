@@ -471,3 +471,54 @@ def test_l2_human_text_equals_raw_content_exactly():
     for h in sess.human:
         mid = by_turn[h.turn_uid]
         assert h.text == raw[mid], f"{sid}: human text {h.text!r} != raw {raw[mid]!r}"
+
+
+def test_l2_null_content_is_not_coerced_to_empty_string(tmp_path):
+    """SYNTHETIC: the real capture has ZERO NULL/empty user or tool content, so
+    the frozen-source test above cannot distinguish `content` from
+    `content or ""` — it is vacuous on this data. A minimal synthetic capture
+    pins the invariant directly: a NULL raw value must survive as None, an
+    empty string as "", and the two must never be conflated."""
+    src = sqlite3.connect(DB)
+    try:
+        msgs_ddl = src.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'"
+        ).fetchone()[0]
+        sess_ddl = src.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='sessions'"
+        ).fetchone()[0]
+        usage_ddl = src.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='session_model_usage'"
+        ).fetchone()[0]
+    finally:
+        src.close()
+    out = tmp_path / "synthetic.sqlite"
+    con = sqlite3.connect(out)
+    try:
+        con.execute(sess_ddl)
+        con.execute(msgs_ddl)
+        con.execute(usage_ddl)
+        con.execute(
+            "INSERT INTO sessions (id, source, started_at) VALUES ('syn', 'cli', 1.0)"
+        )
+        # tool with NULL content, tool with '' content, user with NULL content
+        con.executemany(
+            "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?,?,?,?)",
+            [
+                ("syn", "tool", None, 1.0),
+                ("syn", "tool", "", 2.0),
+                ("syn", "user", None, 3.0),
+            ],
+        )
+        con.commit()
+    finally:
+        con.close()
+
+    sess = HermesNormalizer(str(out)).normalize("syn")
+    tools = [t for t in sess.tools if t.tool_name == "tool_result"]
+    assert len(tools) == 2, f"expected 2 tool turns, got {len(tools)}"
+    assert tools[0].raw_output is None, "NULL tool content must stay None, not ''"
+    assert tools[1].raw_output == "", "empty tool content must stay ''"
+    assert sess.human and sess.human[0].text is None, (
+        "NULL user content must stay None, not ''"
+    )
