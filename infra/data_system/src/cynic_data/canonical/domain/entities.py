@@ -141,7 +141,8 @@ class HumanSignal:
     human_uid: str
     session_uid: str
     turn_uid: str
-    text: str
+    # None and "" are DISTINCT raw states; keep the raw value, never collapse.
+    text: str | None
     kind: CorrectionKind = CorrectionKind.UNKNOWN
     markers: tuple[str, ...] = field(default_factory=tuple)
     timestamp_iso: str | None = None

@@ -14,6 +14,8 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "cynic_data"
 FORBIDDEN_IN_DOMAIN = {
     "sqlite3", "psycopg2", "requests", "urllib", "http", "socket",
     "surreal", "surrealdb", "duckdb", "pyarrow", "subprocess", "os",
+    # filesystem/stream I/O must live in adapters, never in the domain core
+    "pathlib", "io", "shutil", "tempfile", "glob", "pickle",
 }
 
 

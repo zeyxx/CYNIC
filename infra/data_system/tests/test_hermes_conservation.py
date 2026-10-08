@@ -444,3 +444,30 @@ def test_orphan_message_session_is_enumerated_and_preserved():
     assert sid in set(norm.session_refs()), "orphan session not enumerated"
     sess = norm.normalize(sid)
     assert sess.turns, f"{sid}: orphan session has content but produced no turns"
+
+
+def test_l2_human_text_equals_raw_content_exactly():
+    """HumanSignal.text must be the raw content value, never coerced (no
+    ``content or ""``). None and "" are distinct raw states."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    try:
+        sid = con.execute(
+            "SELECT session_id FROM messages WHERE role = 'user' "
+            "GROUP BY session_id ORDER BY count(*) DESC LIMIT 1"
+        ).fetchone()[0]
+        raw = {
+            r[0]: r[1]
+            for r in con.execute(
+                "SELECT id, content FROM messages WHERE session_id = ? AND role = 'user'",
+                (sid,),
+            )
+        }
+    finally:
+        con.close()
+    sess = norm.normalize(sid)
+    by_turn = {t.turn_uid: t.native_fields["native_id"] for t in sess.turns}
+    for h in sess.human:
+        mid = by_turn[h.turn_uid]
+        assert h.text == raw[mid], f"{sid}: human text {h.text!r} != raw {raw[mid]!r}"
