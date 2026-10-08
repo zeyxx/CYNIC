@@ -216,3 +216,27 @@ A single green exit code or self-reported success claim is statistically unrelia
 | **Session $N$ finished** | Broken build discovered next day | Next session ($N+1$) opening prompt | Session $N$ flipped to DPO $y_{\text{rejected}}$ |
 | **Subagent reported Done** | Hallucinated side-quest | Parent session actually consumed return | Unused subagent marked dead branch |
 | **Candidate SFT sample** | Plausible code that fails build | Hermetic RLVR sandbox compilation | Flawed code purged prior to training export |
+
+---
+
+## 10. Multi-Day Episode Segmentation & Concurrency Tensor Formulation
+
+### 10.1 Episode Discontinuity & Topic Segmentation
+Long-running sessions spanning days or traversing unrelated features are segmented into autonomous episodes:
+* **Temporal Cut ($\Delta t > 4h$)**: Physical interruptions (night pauses, multi-day hiatuses) are marked with `EpisodeBoundary`. Attention continuity is explicitly severed.
+* **Topic Shift Isolation**: Subtree transitions (e.g. moving from `crates/cynic-host` to `crates/cynic-node`) form distinct episode clusters.
+* **Compaction Folds as Epochs**: $N \rightarrow 1$ summary generation represents a natural phase transition.
+
+### 10.2 Algebraic Concurrency & Resource Collision Formulation
+Simultaneous sessions over shared worktrees are evaluated via linear algebra:
+* **Causal Adjacency $\mathbf{A}$ & Resolvent**: Transitive dependency cone $\mathbf{C} = (\mathbf{I} - \mathbf{A})^{-1} - \mathbf{I}$. Disjoint sessions exhibit $C_{AB} = 0 \land C_{BA} = 0$.
+* **State Collision Matrix**: $\mathbf{M}_{\text{collision}} = \mathbf{W} \mathbf{R}^T$ over touched file paths. Non-zero entries identify cross-session race conditions, isolating environment collisions from model reasoning errors.
+* **Lamport Vector Clocks**: Logical timestamps $\vec{V} = (t_1, \dots, t_M)$ replace unstable physical clocks.
+
+---
+
+## 11. Semantic Discovery: LLM-Mining & RAG Blind-Spot Harvester
+
+Static SQL and regex queries are blind to semantic subtleties (strange prompt wording, subtle reasoning deadlocks, implicit operator frustration). The pipeline deploys active semantic discovery:
+1. **Semantic LLM-Mining over Dense Clusters**: Small local evaluators audit anomaly clusters to detect unmodeled edge cases.
+2. **Associative RAG Cross-Correlator**: Indexes past failure signatures and queries historical sessions to surface recurring operational blind spots across months of work.
