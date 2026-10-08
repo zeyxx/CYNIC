@@ -112,6 +112,33 @@ for _col in _SESSION_VERBATIM:
     SESSIONS_FATE[_col] = f"preserved: native_meta.session.{_col}"
 
 # ---------------------------------------------------------------------------
+# session_model_usage (17 columns). The producer keeps per-(session, model,
+# billing) token/cost telemetry here — the independent oracle for token
+# accounting. Every column is preserved under native_meta.model_usage.
+# ---------------------------------------------------------------------------
+
+SESSION_MODEL_USAGE_FATE: dict[str, str] = {
+    "session_id": "preserved: native_meta.model_usage.session_id",
+    "model": "preserved: native_meta.models_in_session + native_meta.model_usage.model",
+    "billing_provider": "preserved: native_meta.model_usage.billing_provider",
+    "billing_base_url": "preserved: native_meta.model_usage.billing_base_url",
+    "billing_mode": "preserved: native_meta.model_usage.billing_mode",
+    "task": "preserved: native_meta.model_usage.task",
+    "api_call_count": "preserved: native_meta.model_usage.api_call_count",
+    "input_tokens": "preserved: native_meta.model_usage.input_tokens",
+    "output_tokens": "preserved: native_meta.model_usage.output_tokens",
+    "cache_read_tokens": "preserved: native_meta.model_usage.cache_read_tokens",
+    "cache_write_tokens": "preserved: native_meta.model_usage.cache_write_tokens",
+    "reasoning_tokens": "preserved: native_meta.model_usage.reasoning_tokens",
+    "estimated_cost_usd": "preserved: native_meta.model_usage.estimated_cost_usd",
+    "actual_cost_usd": "preserved: native_meta.model_usage.actual_cost_usd",
+    "cost_status": "preserved: native_meta.model_usage.cost_status",
+    "cost_source": "preserved: native_meta.model_usage.cost_source",
+    "first_seen": "preserved: native_meta.model_usage.first_seen",
+    "last_seen": "preserved: native_meta.model_usage.last_seen",
+}
+
+# ---------------------------------------------------------------------------
 # Concept: reasoning — resolved across four homes, by model.
 # model_profiles records what each model was OBSERVED to use, so a known model
 # switching homes is drift, not silence.
@@ -148,6 +175,7 @@ CONTRACT = ConservationContract(
     field_fate={
         **{f"messages.{k}": v for k, v in MESSAGES_FATE.items()},
         **{f"sessions.{k}": v for k, v in SESSIONS_FATE.items()},
+        **{f"session_model_usage.{k}": v for k, v in SESSION_MODEL_USAGE_FATE.items()},
     },
     concepts=(REASONING,),
     transforms={

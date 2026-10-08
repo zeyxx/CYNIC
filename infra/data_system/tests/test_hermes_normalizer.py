@@ -1,7 +1,8 @@
-"""Hermes normalizer contract test — runs against the real state.db (read-only).
+"""Hermes normalizer contract test — reads the FROZEN capture (read-only).
 
 Proves the reference adapter: graph edges, state, human signal, tool linkage.
-Skips cleanly if the real DB is absent.
+α9: reads the frozen capture, never the live store (which is corrupt and grows).
+Skips cleanly if the capture is absent.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import pytest
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.domain.entities import EdgeProvenance
 
-HERMES_DB = "/home/user/.hermes/state.db"
+HERMES_DB = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite"
 
 
 def _richest_session_id() -> str | None:
@@ -22,6 +23,7 @@ def _richest_session_id() -> str | None:
     if not os.path.exists(HERMES_DB):
         return None
     con = sqlite3.connect(f"file:{HERMES_DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
     try:
         row = con.execute(
             """
