@@ -98,12 +98,12 @@ The Causal Hypergraph serves 7 distinct downstream artifacts:
 2. **Git Commit State Anchoring**: Every session trajectory is bound to its exact repository commit SHA-1.
 3. **Append-Only Idempotent Captures**: New time windows land in immutable, content-addressed files without mutating historical captures.
 
-### 5.2 Session Typology Taxonomy
-* **Type A (Crons & Infrastructure Moniteurs)**: Periodic, low-variance, repetitive checks $\rightarrow$ MinHash deduplicated, excluded from SFT, routed to Forensics.
-* **Type B (Engineering, Debugging & Refactoring)**: Multi-tool code modifications and test executions $\rightarrow$ Primary source for SFT, DPO, and RLVR.
-* **Type C (Research & Conceptual Doctrine)**: Dense dialogue, architectural design $\rightarrow$ Routed to Skill Mining and RAG.
-* **Type D (Multi-Agent Delegations & Swarms)**: Asynchronous forks ($1 \rightarrow M$) $\rightarrow$ Routed to hypergraph coordination training.
-* **Type E (Interrupted & Pathological Sessions)**: Timeouts, loops, Ctrl+C $\rightarrow$ Primary source for DPO rejected pairs and SOC detection.
+### 5.2 Session Typology Taxonomy (Substance-Driven, Not Prefix-Driven)
+* **Periodic & Monitor Tasks**: Repetitive checks without mutations $\rightarrow$ MinHash deduplicated, routed to Forensics.
+* **Autonomous Engineering & Bug Resolution (Including Active Crons)**: Sessions performing code modifications (`patch`, `write_file`) and multi-turn debugging (even if named `cron_*`) $\rightarrow$ Primary source for SFT, DPO, and RLVR.
+* **Research & Conceptual Doctrine**: Dense dialogue, architectural design $\rightarrow$ Routed to Skill Mining and RAG.
+* **Multi-Agent Delegations & Swarms**: Asynchronous forks ($1 \rightarrow M$) $\rightarrow$ Routed to hypergraph coordination training.
+* **Interrupted & Pathological Sessions**: Timeouts, loops, Ctrl+C $\rightarrow$ Primary source for DPO rejected pairs and SOC detection.
 
 ---
 
@@ -132,12 +132,17 @@ To eliminate false positives through systemic skepticism, no outcome may self-va
 
 ---
 
-## 8. Multi-Day Temporal Episode Segmentation Specification
+## 8. Empirical Temporal Regimes & Dynamic Discontinuity Specification
 
-Sessions spanning multiple days or multiple topics are partitioned into distinct causal episodes:
-1. **Temporal Discontinuity Boundaries**: Any inter-turn delay $\Delta t > 4.0\text{ hours}$ inserts an explicit `EpisodeBoundary`, decoupling human attention continuity across rest periods or multi-day intervals.
-2. **Topic Shift Detection**: Shifts in active repository subtrees (`cwd`) or declared user intent trigger episode partitioning.
-3. **Compaction Boundaries**: Context compaction folds ($N \rightarrow 1$) mark the physical completion of a phase and the birth of a summarized downstream episode.
+The arbitrary 4-hour threshold is rejected. Inter-turn delays ($\Delta t$) follow an empirical distribution across 310,507 transitions:
+1. **Regime 1: Continuous Synchronous Stream ($\Delta t \le 10\text{ min}$)**:
+   Accounts for **99.48%** of all transitions (62.34% in $<5\text{s}$, 29.16% in $5\text{s}-30\text{s}$, 5.31% in $30\text{s}-2\text{min}$, 2.67% in $2\text{min}-10\text{min}$). Modeled as continuous attention.
+2. **Regime 2: Transitional Reflection / Short Pause ($10\text{ min} < \Delta t \le 30\text{ min}$)**:
+   Accounts for **0.28%** of transitions. Short pause without context loss.
+3. **Regime 3: Cognitive Episode Cut ($\Delta t > 30\text{ min}$)**:
+   The statistical inflection point (**0.15%** of transitions). Any gap $>30\text{ min}$ marks a $>99.8\%$ probability of operator disengagement, inserting an explicit `EpisodeBoundary`.
+4. **Regime 4: Inter-Day Resumption ($8\text{h} \le \Delta t \le 16\text{h}$)**:
+   Distinct empirical mode (143 transitions) representing sleep / next-day resumption. Distinct project context re-evaluation required.
 
 ---
 
