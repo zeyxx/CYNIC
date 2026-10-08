@@ -62,3 +62,45 @@ Layer 3: PROJECTION
    Cursor streaming must be strictly enforced on SQLite connections. Loading unbounded record collections into contiguous memory arrays is prohibited to prevent host segmentation faults.
 3. **Auditability**:
    Every normalization and projection run must emit structured, machine-parseable JSON events conforming to `cynic.canonical.event.v1`.
+
+---
+
+## 4. Target Projections Specification (The 7 Consumer Outputs)
+
+The Causal Hypergraph serves 7 distinct downstream artifacts:
+
+1. **Projection 1: Supervised Fine-Tuning (SFT)**
+   - Format: `.parquet` / `.jsonl` with ChatML / Jinja templates.
+   - Admission: 100% verified successful trajectories (`exit_code == 0`, no infinite loops).
+   - Loss-Masking: $\text{Loss} = 1.0$ on assistant turns/thoughts; $\text{Loss} = 0.0$ on user messages and tool results.
+2. **Projection 2: Direct Preference Optimization (DPO / RLHF)**
+   - Format: `.parquet` triplets $\{x, y_{\text{chosen}}, y_{\text{rejected}}\}$.
+   - Source: Paired task contexts with successful vs failed/interrupted trajectory completions.
+3. **Projection 3: Process Reward Model (PRM / Step-level Supervision)**
+   - Format: Stepwise trajectories with per-turn scalar rewards $r_t \in \{-1.0, 0.0, +1.0\}$.
+   - Purpose: MCTS / Tree-of-Thought / Best-of-N inference-time compute guidance.
+4. **Projection 4: Reinforcement Learning with Verifiable Rewards (RLVR Gyms)**
+   - Format: Standalone reproducible execution scenarios (initial files, instructions, verifiable test oracle).
+   - Purpose: Autonomous self-play policy training (PPO / GRPO).
+5. **Projection 5: Sovereign Evaluation Benchmarks (Golden Evals)**
+   - Format: Curated hard-problem slices with automated pass/fail grading suites (anti-contamination).
+6. **Projection 6: Procedural Skill Mining & Few-Shot RAG**
+   - Format: Markdown skill specs (`SKILL.md`) and dense vector embeddings of successful tool interventions.
+7. **Projection 7: Agent Behavioral Forensics & Economic Routing**
+   - Format: Telemetry matrices and anomaly signatures to detect infinite loops, context fatigue, and optimize model cost-to-capability routing.
+
+---
+
+## 5. Temporal Evolution & Session Typology Specification
+
+### 5.1 Temporal Non-Stationarity Management
+1. **Deployment Epochs ($\mathcal{E}_k$)**: Slicing the corpus by historical architectural eras to prevent anachronistic training contradictions.
+2. **Git Commit State Anchoring**: Every session trajectory is bound to its exact repository commit SHA-1.
+3. **Append-Only Idempotent Captures**: New time windows land in immutable, content-addressed files without mutating historical captures.
+
+### 5.2 Session Typology Taxonomy
+* **Type A (Crons & Infrastructure Moniteurs)**: Periodic, low-variance, repetitive checks $\rightarrow$ MinHash deduplicated, excluded from SFT, routed to Forensics.
+* **Type B (Engineering, Debugging & Refactoring)**: Multi-tool code modifications and test executions $\rightarrow$ Primary source for SFT, DPO, and RLVR.
+* **Type C (Research & Conceptual Doctrine)**: Dense dialogue, architectural design $\rightarrow$ Routed to Skill Mining and RAG.
+* **Type D (Multi-Agent Delegations & Swarms)**: Asynchronous forks ($1 \rightarrow M$) $\rightarrow$ Routed to hypergraph coordination training.
+* **Type E (Interrupted & Pathological Sessions)**: Timeouts, loops, Ctrl+C $\rightarrow$ Primary source for DPO rejected pairs and SOC detection.
