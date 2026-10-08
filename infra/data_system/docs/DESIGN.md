@@ -194,3 +194,25 @@ SUBGRAPH          │
    - Incomplete or interrupted sessions are decomposed into their subgraphs. Every autonomous step sequence $[T_0 \rightarrow T_k]$ that achieved a verified intermediate goal (e.g. clean code exploration, successful uncorrupted patch, valid unit test) is harvested as a valid SFT demonstration.
 4. **Target Routing by Subgraph, Not by Monolithic Session**:
    - A single session can yield SFT training prefixes from turns $0 \dots 20$, a DPO pair from a failed attempt at turn $22$ and its correction at turn $23$, and a refusal/steering alignment point at the final interruption at turn $25$.
+
+---
+
+## 9. Multi-Scale Trajectory Geometry & Cross-Outcome Disambiguation
+
+### 9.1 The 4 Fractal Scales of Execution
+Trajectories exhibit self-similarity across four scales:
+* **Scale 0 (Micro — Step/Action)**: Atomic tool calls. Failure mode: schema error, crash, command typo.
+* **Scale 1 (Meso — Thread/Session)**: Sequential conversation history. Failure mode: context saturation, plan drift.
+* **Scale 2 (Macro — Subagent Swarm)**: Asynchronous tree of 1 parent and $M$ children. Failure mode: orphaned results, recursion loops.
+* **Scale 3 (Meta — Cross-Session Saga)**: Cumulative development over days. Failure mode: regression of past contracts, architectural amnesia.
+
+### 9.2 The Cross-Outcome Skepticism Matrix
+A single green exit code or self-reported success claim is statistically unreliable. Disambiguation requires orthogonal cross-validation:
+
+| Candidate Claim / Outcome | Primary Flaw / False Positive Mode | Orthogonal Disambiguating Oracle | Consequence |
+|---|---|---|---|
+| **Agent: "Bug fixed"** | Hallucination, premature claim | Non-empty `git diff` + `cargo test` exit 0 | Unverified claim rejected from SFT |
+| **Tool exit code 0** | Tool reported success on wrong target | Next human turn ($t+1$) satisfaction/redirect | Silent failure demoted to failure label |
+| **Session $N$ finished** | Broken build discovered next day | Next session ($N+1$) opening prompt | Session $N$ flipped to DPO $y_{\text{rejected}}$ |
+| **Subagent reported Done** | Hallucinated side-quest | Parent session actually consumed return | Unused subagent marked dead branch |
+| **Candidate SFT sample** | Plausible code that fails build | Hermetic RLVR sandbox compilation | Flawed code purged prior to training export |
