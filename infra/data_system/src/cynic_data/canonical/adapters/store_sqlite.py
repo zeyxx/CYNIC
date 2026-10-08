@@ -168,7 +168,7 @@ class SqliteCanonicalStore:
         for r in cur.execute("SELECT snapshot_uid, session_uid, turn_uid, idx, model, cwd, sandbox_policy, approval_policy, context_prompt_tokens, context_nonmessage_tokens, cumulative_tokens, compacted, native_fields, timestamp_iso FROM states WHERE session_uid = ? ORDER BY idx", (session_uid,)):
             s.states.append(StateSnapshot(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], None if r[11] is None else bool(r[11]), json.loads(r[12]) if r[12] else {}, r[13]))
         for r in cur.execute("SELECT human_uid, session_uid, turn_uid, text, kind, markers, timestamp_iso FROM human_signals WHERE session_uid = ?", (session_uid,)):
-            s.human.append(HumanSignal(r[0], r[1], r[2], self._get_payload(r[3]) or "", CorrectionKind(r[4]), tuple(json.loads(r[5])) if r[5] else (), r[6]))
+            s.human.append(HumanSignal(r[0], r[1], r[2], self._get_payload(r[3]), CorrectionKind(r[4]), tuple(json.loads(r[5])) if r[5] else (), r[6]))
         return s
 
     def count(self, table: str) -> int:

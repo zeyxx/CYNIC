@@ -398,7 +398,9 @@ class HermesNormalizer:
                         tool_name="tool_result",
                         call_id=row["tool_call_id"] or None,
                         command_or_args=None,
-                        raw_output=row["content"] or "",
+                        # None and "" are DISTINCT raw states (operator invariant);
+                        # never collapse one into the other.
+                        raw_output=row["content"],
                         is_error=_tool_is_error(row["content"]),
                         parent_exec_uid=parent,
                         timestamp_iso=ts_iso,
@@ -487,7 +489,8 @@ class HermesNormalizer:
                         human_uid=human_uid(session_uid, t_uid),
                         session_uid=session_uid,
                         turn_uid=t_uid,
-                        text=row["content"] or "",
+                        # keep the raw value: None stays None, "" stays ""
+                        text=row["content"],
                         kind=kind,
                         markers=markers,
                         timestamp_iso=ts_iso,
