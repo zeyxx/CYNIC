@@ -104,7 +104,35 @@ This section records empirical physical discoveries made on the real frozen corp
 
 ---
 
-## 5. Living Maintenance & Update Protocol
+## 5. The Canonical 6-Stage Production Workflow & Audit Gates
+
+The post-training data pipeline is executed strictly through 6 sequential stages, guarded by 5 non-negotiable Quality Gates:
+
+```
+[STAGE 0: INGESTION & CONSERVATION]  -> [GATE 0: DDL Closure & Non-Vacuity (α1-α9)]
+                 │
+                 ▼
+[STAGE 1: PROFILING & EDA]           -> [GATE 1: Population Audit & Cohort Mapping]
+                 │
+                 ▼
+[STAGE 2: HYGIENE & QUALITY]         -> [GATE 2: Deduplication & Attrition Waterfall]
+                 │
+                 ▼
+[STAGE 3: CAUSAL HYPERGRAPH MODEL]   -> [GATE 3: Topological Audit & Acyclicity (α10-α14)]
+                 │
+                 ▼
+[STAGE 4: SEMANTIC GROUNDING]        -> [GATE 4: Inter-Rater Reliability (Cohen's κ > 0.80)]
+                 │
+                 ▼
+[STAGE 5: LEAKAGE-FREE SPLITS]       -> [GATE 5: Split Certification & Disjointness Proof]
+                 │
+                 ▼
+[STAGE 6: PROJECTION & EXPORT]       -> [GATE FINAL: Artifact Lineage & Zero-Secret Proof]
+```
+
+---
+
+## 6. Living Maintenance & Update Protocol
 
 Whenever a new empirical fact or mathematical property is discovered:
 1. Formulate a failing test first in `tests/test_model_topology_invariants.py`.
