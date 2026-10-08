@@ -23,7 +23,9 @@ import pytest
 
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 
-SOURCE = "/var/lib/cynic/vault/corpus/captures/hermes_repaired.sqlite"
+# The union capture: newest data + the sessions the live store pruned, with the
+# FTS index rebuilt. Tests read a deterministic, integrity-checked source.
+SOURCE = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite"
 
 pytestmark = pytest.mark.skipif(
     not os.path.exists(SOURCE), reason="repaired hermes capture absent"
