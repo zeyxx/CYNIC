@@ -53,10 +53,23 @@ from ...domain.entities import (
     Turn,
 )
 from ...domain.session import NormalizedSession
+from ....kernel.errors import SourceSchemaDrift
 from ._human import classify_human_turn
 from .hermes_contract import CONTRACT
 
 HARNESS = "hermes"
+
+# Tables this normalizer READS. If any is absent from the source, an auxiliary
+# read would otherwise degrade to an empty value and silently drop session
+# truth — so their absence is a hard failure (fail-closed), not a quiet default.
+_REQUIRED_TABLES = (
+    "messages",
+    "sessions",
+    "session_model_usage",
+    "system_prompts",
+    "async_delegations",
+    "state_meta",
+)
 
 # The columns read from ``messages``. Every other column has a declared fate in
 # the contract, so nothing is dropped without a named home.
@@ -153,9 +166,23 @@ class HermesNormalizer:
         the live store are not valid UTF-8. Default sqlite3 raises on decode and
         the whole session would be lost. We decode with ``replace`` so the row
         survives (lossy bytes are visible as U+FFFD, never a silent skip).
+
+        Fail-closed: if the source is missing any table this normalizer reads,
+        raise ``SourceSchemaDrift``. A missing in-scope table would otherwise
+        make an auxiliary read return empty and silently drop session truth.
         """
         con = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
         con.text_factory = lambda b: b.decode("utf-8", "replace")
+        present = {
+            r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        missing = [t for t in _REQUIRED_TABLES if t not in present]
+        if missing:
+            con.close()
+            raise SourceSchemaDrift(
+                f"{self.db_path}: source is missing in-scope table(s) {missing}; "
+                f"the contract was derived from a different schema"
+            )
         return con
 
     def session_refs(self) -> list[str]:
@@ -219,41 +246,33 @@ class HermesNormalizer:
 
             # system prompt TEXT lives in ``system_prompts``, keyed by hash;
             # ``sessions.system_prompt`` is usually NULL. Resolve the exact text.
+            # Table presence is guaranteed by _connect() (fail-closed).
             system_prompt_resolved = None
             sp_hash = session_row["system_prompt_hash"] if session_row is not None else None
             if sp_hash:
-                try:
-                    sp = con.execute(
-                        "SELECT hash, prompt FROM system_prompts WHERE hash = ?", (sp_hash,)
-                    ).fetchone()
-                    if sp is not None:
-                        system_prompt_resolved = {"hash": sp["hash"], "prompt": sp["prompt"]}
-                except sqlite3.Error:
-                    system_prompt_resolved = None
+                sp = con.execute(
+                    "SELECT hash, prompt FROM system_prompts WHERE hash = ?", (sp_hash,)
+                ).fetchone()
+                if sp is not None:
+                    system_prompt_resolved = {"hash": sp["hash"], "prompt": sp["prompt"]}
 
             # delegation graph: rows whose origin session is this one. The live
             # process owner is operational, not session truth, so it is dropped
             # here (declared out in the contract), the rest kept verbatim.
-            try:
-                delegations = [
-                    {k: v for k, v in dict(r).items() if k not in ("owner_pid", "owner_started_at")}
-                    for r in con.execute(
-                        "SELECT * FROM async_delegations WHERE origin_session = ? "
-                        "ORDER BY dispatched_at",
-                        (session_ref,),
-                    ).fetchall()
-                ]
-            except sqlite3.Error:
-                delegations = []
+            delegations = [
+                {k: v for k, v in dict(r).items() if k not in ("owner_pid", "owner_started_at")}
+                for r in con.execute(
+                    "SELECT * FROM async_delegations WHERE origin_session = ? "
+                    "ORDER BY dispatched_at",
+                    (session_ref,),
+                ).fetchall()
+            ]
 
             # store provenance (store instance id, creation time, ...)
-            try:
-                store_meta = {
-                    r[0]: r[1]
-                    for r in con.execute("SELECT key, value FROM state_meta").fetchall()
-                }
-            except sqlite3.Error:
-                store_meta = {}
+            store_meta = {
+                r[0]: r[1]
+                for r in con.execute("SELECT key, value FROM state_meta").fetchall()
+            }
         finally:
             con.close()
 

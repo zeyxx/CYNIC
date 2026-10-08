@@ -504,23 +504,20 @@ def test_l2_null_content_is_not_coerced_to_empty_string(tmp_path):
     empty string as "", and the two must never be conflated."""
     src = sqlite3.connect(DB)
     try:
-        msgs_ddl = src.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'"
-        ).fetchone()[0]
-        sess_ddl = src.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='sessions'"
-        ).fetchone()[0]
-        usage_ddl = src.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='session_model_usage'"
-        ).fetchone()[0]
+        ddl = {
+            t: src.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)
+            ).fetchone()[0]
+            for t in ("messages", "sessions", "session_model_usage",
+                      "system_prompts", "async_delegations", "state_meta")
+        }
     finally:
         src.close()
     out = tmp_path / "synthetic.sqlite"
     con = sqlite3.connect(out)
     try:
-        con.execute(sess_ddl)
-        con.execute(msgs_ddl)
-        con.execute(usage_ddl)
+        for sql in ddl.values():
+            con.execute(sql)
         con.execute(
             "INSERT INTO sessions (id, source, started_at) VALUES ('syn', 'cli', 1.0)"
         )

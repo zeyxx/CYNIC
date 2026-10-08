@@ -5,9 +5,19 @@ Application layer: imports domain + ports, never adapters directly.
 
 from __future__ import annotations
 
+import json
+import time
 from dataclasses import dataclass, field
 
 from ..ports import CanonicalStorePort, NormalizerPort
+
+
+def _emit(kind: str, **fields) -> None:
+    """One structured JSON line per event. Stdlib-only, machine-readable, so a
+    run leaves an auditable trace (progress, drops, timing) instead of nothing.
+    Emitted on stdout with a stable ``cynic.canonical.event.v1`` schema."""
+    print(json.dumps({"schema": "cynic.canonical.event.v1", "event": kind, **fields},
+                     sort_keys=True), flush=True)
 
 
 @dataclass
@@ -34,11 +44,13 @@ def normalize_source(
     layer never passes ids it could not have known how to build.
     """
     report = NormalizeReport(harness=normalizer.harness)
+    t0 = time.monotonic()
     session_refs = normalizer.session_refs()
+    _emit("start", harness=normalizer.harness, sessions=len(session_refs))
     if not session_refs:
-        print(f"  [normalize] {normalizer.harness}: no sessions found in bound source")
+        _emit("empty", harness=normalizer.harness,
+              reason="no sessions found in bound source")
         return report
-    print(f"  [normalize] {normalizer.harness}: {len(session_refs)} sessions to normalize")
 
     for i, session_ref in enumerate(session_refs, 1):
         try:
@@ -50,11 +62,15 @@ def normalize_source(
         except Exception as exc:  # noqa: BLE001 — a bad session must not abort the run
             report.sessions_failed += 1
             report.failures.append((session_ref, f"{type(exc).__name__}: {exc}"))
+            _emit("session_failed", session_ref=session_ref,
+                  error=f"{type(exc).__name__}: {exc}")
         if progress_every and i % progress_every == 0:
-            print(
-                f"  ... {i}/{len(session_refs)} "
-                f"({report.sessions_ok} ok, {report.sessions_failed} failed)"
-            )
+            _emit("progress", done=i, total=len(session_refs),
+                  ok=report.sessions_ok, failed=report.sessions_failed,
+                  elapsed_s=round(time.monotonic() - t0, 1))
+    _emit("done", harness=normalizer.harness, ok=report.sessions_ok,
+          failed=report.sessions_failed, elapsed_s=round(time.monotonic() - t0, 1),
+          totals=report.totals)
     return report
 
 
