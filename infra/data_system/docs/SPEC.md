@@ -129,3 +129,27 @@ To eliminate false positives through systemic skepticism, no outcome may self-va
    The ultimate truth of session $N$ is decoded from the opening prompt of session $N+1$. An operator reporting regressions retroactively flips session $N$ into a negative demonstration ($y_{\text{rejected}}$) and establishes session $N+1$ as its contrastive repair ($y_{\text{chosen}}$).
 4. **Subagent Return $\leftrightarrow$ Parent Decision Oracle**:
    Subagent executions are verified by checking whether the parent session adopted the child output or was forced to discard and re-execute it.
+
+---
+
+## 8. Multi-Day Temporal Episode Segmentation Specification
+
+Sessions spanning multiple days or multiple topics are partitioned into distinct causal episodes:
+1. **Temporal Discontinuity Boundaries**: Any inter-turn delay $\Delta t > 4.0\text{ hours}$ inserts an explicit `EpisodeBoundary`, decoupling human attention continuity across rest periods or multi-day intervals.
+2. **Topic Shift Detection**: Shifts in active repository subtrees (`cwd`) or declared user intent trigger episode partitioning.
+3. **Compaction Boundaries**: Context compaction folds ($N \rightarrow 1$) mark the physical completion of a phase and the birth of a summarized downstream episode.
+
+---
+
+## 9. Concurrent Multi-Session Tensor & Matrix Formulation Specification
+
+Simultaneous sessions operating in parallel over shared workspaces are governed by linear algebraic formulations:
+1. **Causal Adjacency Matrix $\mathbf{A}$ & Transitive Closure**:
+   $$\mathbf{C} = (\mathbf{I} - \mathbf{A})^{-1} - \mathbf{I} = \sum_{k=1}^\infty \mathbf{A}^k$$
+   Two concurrent sessions $A$ and $B$ are strictly independent if and only if $C_{AB} = 0 \land C_{BA} = 0$.
+2. **Resource Collision Matrix $\mathbf{M}_{\text{collision}}$**:
+   Given write-incidence matrix $\mathbf{W}$ and read-incidence matrix $\mathbf{R}$ over modified file paths:
+   $$\mathbf{M}_{\text{collision}} = \mathbf{W} \mathbf{R}^T$$
+   $(\mathbf{M}_{\text{collision}})_{ij} \neq 0$ signals shared resource contention (e.g. concurrent git worktree writes), explaining transient tool failures as environmental race conditions rather than model errors.
+3. **Lamport Vector Clocks**:
+   Logical timestamps $\vec{V} = (t_1, t_2, \dots, t_M)$ decouple causal order from jittery host physical clocks.
