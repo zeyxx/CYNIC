@@ -102,6 +102,37 @@ def _iso(ts_unix) -> str | None:
         return None
 
 
+def _json_safe(value):
+    """Make a raw column value JSON-serializable without losing information.
+
+    ``messages.display_identity`` is a BLOB (a fixed-width sha256 digest the
+    producer uses for indexed display-generation lookup). ``json.dumps`` refuses
+    ``bytes``, so a turn carrying this column would crash the canonical write for
+    the whole session (measured: 85 675 rows). Encode the bytes as hex — lossless
+    and reversible with ``bytes.fromhex`` — and leave every other type untouched.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).hex()
+    return value
+
+
+def _parse_uid_list(raw: str | None) -> list[str]:
+    """Parse a producer JSON array of uids (``absorbed_message_uids``).
+
+    Returns ``[]`` for absent/malformed input — a parse failure must never crash
+    the session, and an empty list is the honest "nothing declared".
+    """
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(u) for u in parsed if u]
+
+
 class HermesNormalizer:
     harness = HARNESS
 
@@ -150,8 +181,8 @@ class HermesNormalizer:
                 "SELECT * FROM sessions WHERE id = ?", (session_ref,)
             ).fetchone()
             usage = con.execute(
-                "SELECT model FROM session_model_usage WHERE session_id = ? "
-                "GROUP BY model ORDER BY min(first_seen)",
+                "SELECT * FROM session_model_usage WHERE session_id = ? "
+                "ORDER BY first_seen",
                 (session_ref,),
             ).fetchall()
             rows = con.execute(
@@ -159,10 +190,35 @@ class HermesNormalizer:
                 "WHERE session_id = ? ORDER BY id ASC",
                 (session_ref,),
             ).fetchall()
+            # Producer's logical display order. Compaction generations copy the
+            # protected tail into a new generation with HIGHER ids, so physical
+            # id order is NOT the logical order the producer shows. display_order
+            # groups the generations of one logical message; the read path orders
+            # by it and dedupes by display_identity. We keep it to re-derive the
+            # logical position (measured: 30 sessions where id-order diverges).
+            try:
+                display_orders = {
+                    r[0]: r[1]
+                    for r in con.execute(
+                        "SELECT id, display_order FROM messages WHERE session_id = ?",
+                        (session_ref,),
+                    )
+                }
+            except sqlite3.Error:
+                display_orders = {}
         finally:
             con.close()
 
-        models_in_session = [u["model"] for u in usage]
+        # Dense rank of the producer's display_order: the logical index. A session
+        # without compaction has display_order == id, so this equals the physical
+        # index there; where generations exist, it is the producer's true order.
+        _distinct_orders = sorted({o for o in display_orders.values() if o is not None})
+        _order_rank = {o: i for i, o in enumerate(_distinct_orders)}
+
+        models_in_session = list(dict.fromkeys(u["model"] for u in usage))
+        # the whole telemetry row, verbatim: per-model token/cost accounting is
+        # the independent oracle for the token claims (session counters can drift)
+        model_usage = [dict(u) for u in usage]
         session_meta = dict(session_row) if session_row is not None else {}
         native_model = session_meta.get("model")
 
@@ -173,6 +229,7 @@ class HermesNormalizer:
             native_meta={
                 "native_model": native_model,
                 "models_in_session": models_in_session,
+                "model_usage": model_usage,
                 "multi_model": len(models_in_session) > 1,
                 # the whole session row, verbatim: 62 columns, no silent loss
                 "session": session_meta,
@@ -218,6 +275,9 @@ class HermesNormalizer:
             # ---- turn (all signal columns kept; dedicated homes named) ----
             turn_fields = {
                 "native_id": row["id"],
+                # the producer's logical position (display_order rank), so a
+                # reader never mistakes physical id order for the shown order
+                "logical_index": _order_rank.get(row["display_order"]),
                 "finish_reason": row["finish_reason"],
                 "effect_disposition": row["effect_disposition"],
                 "codex_message_items": row["codex_message_items"],
@@ -228,7 +288,8 @@ class HermesNormalizer:
                 "api_content": row["api_content"],
                 "display_kind": row["display_kind"],
                 "display_metadata": row["display_metadata"],
-                "display_identity": row["display_identity"],
+                # BLOB in the producer; hex-encoded so the canonical write survives
+                "display_identity": _json_safe(row["display_identity"]),
                 "display_order": row["display_order"],
                 "message_uid": row["message_uid"],
                 "absorbed_message_uids": row["absorbed_message_uids"],
@@ -386,6 +447,27 @@ class HermesNormalizer:
                     )
                     edge_idx += 1
                 state_idx += 1
+
+            # ---- n-ary compaction edge: which turns this row absorbed ----
+            # absorbed_message_uids names the logical messages folded into this
+            # one (a JSON array of message_uid values). It is the producer's own
+            # declaration of an n-ary relation — preserve it as an explicit edge,
+            # never as loose text, so the fold is navigable.
+            absorbed = _parse_uid_list(row["absorbed_message_uids"])
+            if absorbed:
+                sess.edges.append(
+                    Edge(
+                        edge_uid=edge_uid(session_uid, "compaction_absorb", edge_idx),
+                        session_uid=session_uid,
+                        kind=EdgeKind.COMPACTION,
+                        source_uids=tuple(absorbed),
+                        target_uid=t_uid,
+                        provenance=EdgeProvenance.NATIVE,
+                        payload={"absorbed_message_uids": absorbed},
+                        timestamp_iso=ts_iso,
+                    )
+                )
+                edge_idx += 1
 
             # ---- human signal ----
             if role == "user":

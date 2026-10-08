@@ -31,6 +31,7 @@ from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.adapters.normalizers.hermes_contract import (
     CONTRACT,
     MESSAGES_FATE,
+    SESSION_MODEL_USAGE_FATE,
     SESSIONS_FATE,
 )
 from cynic_data.canonical.domain.conservation import Fate, parse_fate, parse_ddl_columns
@@ -75,7 +76,11 @@ def test_l1_anchor_matches_producer_schema_version():
 def test_l1_every_producer_column_has_a_declared_fate():
     """Every column the producer declares must have exactly one fate."""
     _, tables = _producer_schema()
-    for table, fate_map in (("messages", MESSAGES_FATE), ("sessions", SESSIONS_FATE)):
+    for table, fate_map in (
+        ("messages", MESSAGES_FATE),
+        ("sessions", SESSIONS_FATE),
+        ("session_model_usage", SESSION_MODEL_USAGE_FATE),
+    ):
         cols = tables.get(table, [])
         assert cols, f"no columns parsed for {table}"
         missing = sorted(c for c in cols if c not in fate_map)
@@ -85,7 +90,11 @@ def test_l1_every_producer_column_has_a_declared_fate():
 def test_l1_no_fate_for_a_column_the_producer_does_not_have():
     """A fate for a column that no longer exists is stale contract debt."""
     _, tables = _producer_schema()
-    for table, fate_map in (("messages", MESSAGES_FATE), ("sessions", SESSIONS_FATE)):
+    for table, fate_map in (
+        ("messages", MESSAGES_FATE),
+        ("sessions", SESSIONS_FATE),
+        ("session_model_usage", SESSION_MODEL_USAGE_FATE),
+    ):
         cols = set(tables.get(table, []))
         stale = sorted(c for c in fate_map if c not in cols)
         assert not stale, f"{table}: fates for columns the producer does not have: {stale}"
@@ -250,3 +259,116 @@ def test_l3_every_preserved_fate_names_a_home():
         fate, detail = parse_fate(value)
         if fate is Fate.PRESERVED:
             assert detail.strip(), f"{field}: preserved fate with no named home"
+
+
+# ---------------------------------------------------------------------------
+# L2 — the blind spots the reverse-engineering of the producer surfaced.
+# Each test pins a real defect found by reading the writer, so it can never
+# come back silently.
+# ---------------------------------------------------------------------------
+
+def test_l2_display_identity_blob_is_preserved_and_json_safe():
+    """display_identity is a BLOB in the producer. It must survive as a
+    lossless, JSON-serializable value (hex) — a raw ``bytes`` crashes
+    ``json.dumps`` and would lose the whole session (measured: 85 675 rows)."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    try:
+        sid = con.execute(
+            "SELECT session_id FROM messages WHERE typeof(display_identity) = 'blob' LIMIT 1"
+        ).fetchone()[0]
+        raw = con.execute(
+            "SELECT id, display_identity FROM messages "
+            "WHERE session_id = ? AND display_identity IS NOT NULL ORDER BY id",
+            (sid,),
+        ).fetchall()
+    finally:
+        con.close()
+    sess = norm.normalize(sid)
+    by_id = {t.native_fields["native_id"]: t for t in sess.turns}
+    for mid, blob in raw:
+        kept = by_id[mid].native_fields.get("display_identity")
+        assert kept is not None, f"message {mid}: display_identity lost"
+        # hex round-trips to the exact bytes
+        assert bytes.fromhex(kept) == bytes(blob), f"message {mid}: display_identity corrupted"
+    # and the whole session must be persistable (json.dumps must not raise)
+    import json as _json
+    for t in sess.turns:
+        _json.dumps(t.native_fields)
+
+
+def test_l2_logical_index_matches_the_producers_display_order():
+    """Physical id order is NOT the logical order when compaction generations
+    exist. ``logical_index`` must equal the dense rank of the producer's
+    display_order (measured: 30 sessions diverge)."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    try:
+        sid = con.execute(
+            """
+            SELECT session_id FROM messages
+            GROUP BY session_id
+            HAVING count(DISTINCT display_order) < count(*)
+            ORDER BY count(*) DESC LIMIT 1
+            """
+        ).fetchone()[0]
+        orders = {
+            r[0]: r[1]
+            for r in con.execute(
+                "SELECT id, display_order FROM messages WHERE session_id = ?", (sid,)
+            )
+        }
+    finally:
+        con.close()
+    dense = {o: i for i, o in enumerate(sorted(set(orders.values())))}
+    sess = norm.normalize(sid)
+    for t in sess.turns:
+        assert t.native_fields["logical_index"] == dense[orders[t.native_fields["native_id"]]]
+
+
+def test_l2_model_usage_telemetry_is_preserved_verbatim():
+    """session_model_usage is the independent oracle for token accounting. Every
+    row and column must be kept verbatim under native_meta.model_usage."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        sid = con.execute(
+            "SELECT session_id FROM session_model_usage GROUP BY session_id "
+            "HAVING count(*) > 1 LIMIT 1"
+        ).fetchone()[0]
+        raw = [dict(r) for r in con.execute(
+            "SELECT * FROM session_model_usage WHERE session_id = ? ORDER BY first_seen", (sid,)
+        )]
+    finally:
+        con.close()
+    kept = norm.normalize(sid).native_meta["model_usage"]
+    assert len(kept) == len(raw), f"{sid}: model_usage row count changed"
+    for got, want in zip(kept, raw):
+        for col, value in want.items():
+            assert got.get(col) == value, f"{sid}: model_usage.{col} not preserved"
+
+
+def test_l2_absorbed_message_uids_become_an_nary_edge():
+    """absorbed_message_uids declares which logical messages a compaction folded
+    in. It must be an explicit n-ary edge, never loose text."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    try:
+        row = con.execute(
+            "SELECT session_id, absorbed_message_uids FROM messages "
+            "WHERE absorbed_message_uids IS NOT NULL AND absorbed_message_uids != '' LIMIT 1"
+        ).fetchone()
+    finally:
+        con.close()
+    sid, absorbed_json = row
+    import json as _json
+    absorbed = _json.loads(absorbed_json)
+    sess = norm.normalize(sid)
+    nary = [e for e in sess.edges if (e.payload or {}).get("absorbed_message_uids")]
+    assert nary, f"{sid}: absorbed_message_uids produced no n-ary edge"
+    assert any(set(e.source_uids) == set(absorbed) for e in nary), (
+        f"{sid}: n-ary edge sources {[e.source_uids for e in nary]} != declared {absorbed}"
+    )

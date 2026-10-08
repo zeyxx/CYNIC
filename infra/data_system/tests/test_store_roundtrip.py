@@ -1,4 +1,9 @@
-"""Store round-trip test — write then read must be lossless for canonical facts."""
+"""Store round-trip test — write then read must be lossless for canonical facts.
+
+α9: the proof reads the FROZEN capture, never the live store. The live store is
+corrupt (a full scan can raise) and grows under us, so a green run against it
+would prove nothing.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,7 @@ import pytest
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.adapters.store_sqlite import SqliteCanonicalStore
 
-HERMES_DB = "/home/user/.hermes/state.db"
+HERMES_DB = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite"
 
 
 @pytest.fixture()
@@ -24,6 +29,7 @@ def _session_id() -> str | None:
     if not os.path.exists(HERMES_DB):
         return None
     con = sqlite3.connect(f"file:{HERMES_DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
     try:
         row = con.execute(
             """

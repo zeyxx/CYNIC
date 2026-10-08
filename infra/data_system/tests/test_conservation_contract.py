@@ -24,8 +24,9 @@ from cynic_data.canonical.adapters.normalizers.windows_gemini import WindowsGemi
 from cynic_data.canonical.domain.conservation import Fate, parse_fate
 
 # Adapters that must expose a contract, with a callable that builds them.
+# α9: bound to the frozen capture, never the live store.
 CONTRACTED = {
-    "hermes": lambda: HermesNormalizer("/home/user/.hermes/state.db"),
+    "hermes": lambda: HermesNormalizer("/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite"),
 }
 
 # Adapters that still lack a contract. This list may only shrink; α6 is the
