@@ -147,6 +147,14 @@ To prevent silent failures in production-grade agent trajectories, the following
 
 ---
 
-## 10. Human Operator Constituent Authority
+## 10. Human Operator Constituent Authority & Human Entropy Law
 
-The human operator is the sovereign constituent authority above all models, scores, and automated heuristics. When automated metrics conflict with human empirical domain experience (e.g., knowledge of past operational cycles, development habits, or real production incidents), the human operator's verdict overrides automated classifications. Subsequent blind spots are surfaced empirically through data exploration, reviewed by the operator, and codified into this living policy contract.
+1. **Sovereign Constituent Authority**:
+   The human operator is the sovereign constituent authority above all models, scores, and automated heuristics. When automated metrics conflict with human empirical domain experience (e.g., knowledge of past operational cycles, development habits, or real production incidents), the human operator's verdict overrides automated classifications.
+2. **The Law of Human Entropy**:
+   Real-world human interaction introduces fundamental entropy that cannot be reduced to clean algorithmic abstractions:
+   - External, unrecorded mutations: Code edits made directly in IDEs/editors while the agent was idle.
+   - Communicative entropy: Laconic steering, intentional failure testing (probing tools with deliberate bad inputs), and unstated vocal/mental context.
+   - Shifting priorities: Sudden topic changes mid-stream.
+3. **Paranoid Skepticism & Mandatory HITL Gating**:
+   Every claim, metric, or classification that appears "clean" or "theoretically valid" on the surface is suspect by default. No open, ambiguous, or multi-faceted finding may be committed to downstream datasets without explicit Human-in-the-Loop (HITL) review and contextual arbitration by the operator.

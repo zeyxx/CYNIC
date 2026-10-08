@@ -240,3 +240,17 @@ Simultaneous sessions over shared worktrees are evaluated via linear algebra:
 Static SQL and regex queries are blind to semantic subtleties (strange prompt wording, subtle reasoning deadlocks, implicit operator frustration). The pipeline deploys active semantic discovery:
 1. **Semantic LLM-Mining over Dense Clusters**: Small local evaluators audit anomaly clusters to detect unmodeled edge cases.
 2. **Associative RAG Cross-Correlator**: Indexes past failure signatures and queries historical sessions to surface recurring operational blind spots across months of work.
+
+---
+
+## 12. Human Entropy Modeling & Mandatory HITL Gating Protocol
+
+### 12.1 The Dimensions of Real-World Human Entropy
+Human software development is not a synthetic test harness; it is saturated with human entropy:
+1. **Out-of-Band Displaced Mutations**: The operator edits files directly in their IDE (VSCode/Vim) while the agent is running or paused. The agent's subsequent tool executions see an updated reality with no corresponding turn in the capture log.
+2. **Intentional Stress & Failure Probing**: The operator submits prompts designed to test the agent's boundaries or tool limits, which naive classifiers falsely label as user confusion or model failure.
+3. **Laconic & Sarcastic Steering**: Human feedback is often terse ("no", "redo", "ok") and requires context from the developer's historical habits.
+
+### 12.2 Paranoid Skepticism & HITL Arbitration
+1. **Rejection of Surface Cleanliness**: Any metric, cluster, or outcome that looks cleanly sorted is treated with paranoid skepticism. Cleanliness in human interaction logs is often evidence of over-simplification or silent loss.
+2. **Mandatory Human-in-the-Loop (HITL) Gate**: Ambiguous cases, boundary anomalies, and classification thresholds must never be settled autonomously by an agent. The pipeline surfaces the raw evidence, statistical quantiles, and candidate hypotheses, leaving the authoritative verdict to the operator.
