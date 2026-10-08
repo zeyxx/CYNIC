@@ -71,3 +71,9 @@ __pycache__/
 *.mp4
 cynic-demo-output-*.txt
 cynic-demo.html
+
+# Generated evidence datasets, dumps, and experiment runs
+/evidence/datasets/
+/evidence/experiments/
+*.jsonl
+!evidence/inference_traces.jsonl
