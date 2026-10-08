@@ -372,3 +372,75 @@ def test_l2_absorbed_message_uids_become_an_nary_edge():
     assert any(set(e.source_uids) == set(absorbed) for e in nary), (
         f"{sid}: n-ary edge sources {[e.source_uids for e in nary]} != declared {absorbed}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Enumeration & session-level conservation — the loss the adversarial audit found.
+# ---------------------------------------------------------------------------
+
+def test_session_refs_cover_the_producer_session_registry():
+    """session_refs() must enumerate the producer's ``sessions`` table, not only
+    ``messages``. Enumerating from messages alone silently dropped 366 sessions
+    that carry NO messages but DO carry session-level truth (tokens, cost,
+    model_usage, title)."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    try:
+        n_sessions = con.execute("SELECT count(*) FROM sessions").fetchone()[0]
+        distinct_msg_sessions = con.execute(
+            "SELECT count(DISTINCT session_id) FROM messages"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    refs = set(norm.session_refs())
+    assert n_sessions > distinct_msg_sessions, "fixture: expected message-less sessions"
+    # every session row is enumerated
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    try:
+        all_ids = {r[0] for r in con.execute("SELECT id FROM sessions")}
+    finally:
+        con.close()
+    missing = all_ids - refs
+    assert not missing, f"{len(missing)} sessions not enumerated, e.g. {sorted(missing)[:3]}"
+
+
+def test_message_less_session_keeps_its_telemetry():
+    """A session with no messages still carries truth: token counters, cost and
+    model_usage. It must normalize without error and keep that truth."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        sid = con.execute(
+            "SELECT id FROM sessions WHERE id NOT IN (SELECT DISTINCT session_id FROM messages) "
+            "AND id IN (SELECT session_id FROM session_model_usage) LIMIT 1"
+        ).fetchone()[0]
+        raw = dict(con.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone())
+    finally:
+        con.close()
+    sess = norm.normalize(sid)
+    assert sess.turns == [], "fixture: expected a message-less session"
+    assert sess.native_meta["session"] == raw, f"{sid}: session row not preserved"
+    assert sess.native_meta.get("model_usage"), f"{sid}: model_usage lost on a message-less session"
+
+
+def test_orphan_message_session_is_enumerated_and_preserved():
+    """A message whose session_id has no ``sessions`` row is still source truth;
+    it must be enumerated and its content preserved (never dropped)."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    try:
+        row = con.execute(
+            "SELECT session_id FROM messages "
+            "WHERE session_id NOT IN (SELECT id FROM sessions) LIMIT 1"
+        ).fetchone()
+    finally:
+        con.close()
+    if row is None:
+        pytest.skip("no orphan-message session on this capture")
+    sid = row[0]
+    assert sid in set(norm.session_refs()), "orphan session not enumerated"
+    sess = norm.normalize(sid)
+    assert sess.turns, f"{sid}: orphan session has content but produced no turns"
