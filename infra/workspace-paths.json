@@ -1,0 +1,78 @@
+{
+  "schema": "cynic.workspace_paths.v1",
+  "status": "normative",
+  "purpose": "Single Source of Truth for the canonical CYNIC repository path. Every hardcoded path in scripts, docs, and tests must reference this registry.",
+  "canonical_path": "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC",
+  "path_resolution": {
+    "precedence": [
+      "1. This registry (infra/workspace-paths.json)",
+      "2. Environment variable CYNIC_REPO_ROOT (overrides for non-canonical checkouts)",
+      "3. Git worktree discovery (find infra/registry.json ancestor)"
+    ],
+    "expansions": {
+      "${CYNIC_REPO_ROOT}": "Canonical path from this registry, or CYNIC_REPO_ROOT env var",
+      "${GIT_WORKING_TREE}": "Current git working tree root (resolved by finding infra/registry.json ancestor)"
+    }
+  },
+  "anti_rules": [
+    "No hardcoded absolute path to the CYNIC repository outside this registry",
+    "No hardcoded path to the parent directory (asdf-forge/zeyxx) — always append /CYNIC",
+    "No hardcoded path in scripts, docs, or tests that duplicates the canonical_path value"
+  ],
+  "consumers": [
+    {
+      "site": "scripts/run-matrix-benchmark.py:18",
+      "form": "DATASET_PATH = \"<canonical_path>/infra/operational-benchmarks.json\"",
+      "file": "scripts/run-matrix-benchmark.py"
+    },
+    {
+      "site": "scripts/run-matrix-benchmark.py:19",
+      "form": "RESULTS_JSONL = \"<canonical_path>/infra/benchmark-results/op-benchmark-http-64k.jsonl\"",
+      "file": "scripts/run-matrix-benchmark.py"
+    },
+    {
+      "site": "scripts/run-matrix-benchmark.py:20",
+      "form": "SUMMARY_MD = \"<canonical_path>/infra/benchmark-results/matrix-use-cases-summary.md\"",
+      "file": "scripts/run-matrix-benchmark.py"
+    },
+    {
+      "site": "scripts/run_qwen38_matrix.sh:5",
+      "form": "MATRIX_SCRIPT=\"<canonical_path>/scripts/run_qwen38_bench.sh\"",
+      "file": "scripts/run_qwen38_matrix.sh"
+    },
+    {
+      "site": "HERMES_HANDOFF_2026-10-07.md:5",
+      "form": "**Worktree:** `<canonical_path>` (shared, multi-agent)",
+      "file": "HERMES_HANDOFF_2026-10-07.md"
+    },
+    {
+      "site": "infra/MULTI_AGENT_ISOLATION_DESIGN.md:137",
+      "form": "3. Ne PLUS travailler directement dans `<canonical_path>`",
+      "file": "infra/MULTI_AGENT_ISOLATION_DESIGN.md"
+    },
+    {
+      "site": "docs/superpowers/specs/2026-09-04-worktree-convergence-design.md:147",
+      "form": "Repository Root:  <canonical_path>",
+      "file": "docs/superpowers/specs/2026-09-04-worktree-convergence-design.md"
+    },
+    {
+      "site": "crates/cynic-protocol/src/agent_host_sandbox.rs:654",
+      "form": "\"<canonical_path>/worktree-1\".to_string()",
+      "file": "crates/cynic-protocol/src/agent_host_sandbox.rs"
+    },
+    {
+      "site": ".hermes/plans/2026-10-04_1330-ram-stability-and-source-integrity.md:163",
+      "form": "git -C <canonical_path> log --oneline -5",
+      "file": ".hermes/plans/2026-10-04_1330-ram-stability-and-source-integrity.md"
+    },
+    {
+      "site": "scripts/disk-audit:97",
+      "form": "check_cache \"cargo-target\"      \"<canonical_path>/target\"",
+      "file": "scripts/disk-audit"
+    }
+  ],
+  "coherence_contract": {
+    "test": "crates/cynic-cli/tests/workspace_paths_coherence.rs",
+    "description": "Verifies every consumer carries the canonical path from this registry, and no unregistered hardcoded path exists."
+  }
+}
