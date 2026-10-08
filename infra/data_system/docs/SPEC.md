@@ -104,3 +104,28 @@ The Causal Hypergraph serves 7 distinct downstream artifacts:
 * **Type C (Research & Conceptual Doctrine)**: Dense dialogue, architectural design $\rightarrow$ Routed to Skill Mining and RAG.
 * **Type D (Multi-Agent Delegations & Swarms)**: Asynchronous forks ($1 \rightarrow M$) $\rightarrow$ Routed to hypergraph coordination training.
 * **Type E (Interrupted & Pathological Sessions)**: Timeouts, loops, Ctrl+C $\rightarrow$ Primary source for DPO rejected pairs and SOC detection.
+
+---
+
+## 6. The 4 Multi-Scale Fractal Layers Specification
+
+Agent trajectories operate across 4 nested scales of abstraction; modeling must respect each level:
+1. **Scale 0 (Micro — Turn / Tool Call)**: Atomic action-perception steps. Validation: syntax, tool schema conformance, exit code.
+2. **Scale 1 (Meso — Single Session Thread)**: Continuous linear thread within one agent execution. Validation: intra-session task objective fulfillment.
+3. **Scale 2 (Macro — Subagent Delegation Tree)**: Asynchronous swarms spanning parent and child sessions ($1 \rightarrow M$, e.g. 603 child sessions). Validation: join resolution back to parent context.
+4. **Scale 3 (Meta — Inter-Session Campaign / Saga)**: Multi-day workflows spanning consecutive sessions on the same repository. Validation: long-term test stability and repository convergence.
+
+---
+
+## 7. Cross-Outcome Disambiguation & Retroactive Oracle Protocol
+
+To eliminate false positives through systemic skepticism, no outcome may self-validate. Every candidate label must be confirmed by an independent orthogonal oracle:
+
+1. **Agent Assertion $\leftrightarrow$ Git Diff & Compiler Oracle**:
+   Claims of completion ("I fixed the bug") are rejected as false positives unless confirmed by a non-empty `git diff` and compiler/test exit code 0 (`cargo test` / `pytest`).
+2. **Local Turn Success $\leftrightarrow$ Next Turn Human Oracle ($t + 1$)**:
+   An apparently successful tool execution (`exit_code: 0`) is retroactively demoted if the subsequent human turn signals redirection, dissatisfaction, or correction.
+3. **Session Outcome $\leftrightarrow$ Retroactive Session Oracle ($S + 1$)**:
+   The ultimate truth of session $N$ is decoded from the opening prompt of session $N+1$. An operator reporting regressions retroactively flips session $N$ into a negative demonstration ($y_{\text{rejected}}$) and establishes session $N+1$ as its contrastive repair ($y_{\text{chosen}}$).
+4. **Subagent Return $\leftrightarrow$ Parent Decision Oracle**:
+   Subagent executions are verified by checking whether the parent session adopted the child output or was forced to discard and re-execute it.
