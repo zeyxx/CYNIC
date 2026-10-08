@@ -119,3 +119,34 @@ When building data pipelines via autonomous LLM agents, specific cognitive and m
 4. **Psychometrics & Evaluator Calibration**:
    - Inter-judge agreement (human-to-LLM or LLM-to-LLM) must be evaluated via **Cohen’s $\kappa$** (nominal classification) and **Krippendorff’s $\alpha$** (multi-rater reliability).
    - Uncalibrated evaluators ($\kappa < 0.70$) are inadmissible as automated judges.
+
+---
+
+## 9. Real-World Environmental Robustness, Security, and Human Operational Invariants
+
+To prevent silent failures in production-grade agent trajectories, the following 7 operational boundaries are enforced:
+
+1. **Terminal Output Canonicalization (Physical Layer)**:
+   Raw tool executions capture ANSI terminal escape sequences (`\x1b[...]`), cursor returns (`\r`), and dynamic progress bars.
+   - *Rule*: Canonical layer preserves these verbatim. Projection layer must deterministically strip non-semantic ANSI escape codes and normalize `\r\n \rightarrow \n` to prevent context poisoning and corrupt tokenization.
+2. **Judge Bias & Condorcet Cycle Elimination (Epistemic Layer)**:
+   LLM-as-judge systems are susceptible to position bias ($A > B$ purely because $A$ precedes $B$), verbosity bias, and cyclic preferences ($A > B > C > A$).
+   - *Rule*: All preference evaluations must execute bidirectional positional swaps $(A, B)$ and $(B, A)$. Pairs failing invariance under positional swap or violating transitivity are marked unstable and discarded.
+3. **Loss-Masking Boundary (Tensors & Optimization Layer)**:
+   - *Rule*: Assistant decision thoughts and tool call syntax/arguments have $\text{Loss} = 1.0$. User messages and tool execution outputs have $\text{Loss} = 0.0$ (masked). Tool outputs representing transient network errors (HTTP 429, timeouts) must never have gradients backpropagated through them.
+4. **Indirect Prompt Injection & Data Poisoning Firewall (Security Layer)**:
+   Web extractions and ingested files may contain adversarial prompt injection payloads.
+   - *Rule*: A signature and heuristic scanner must audit raw external inputs prior to projection admission to prevent adversarial backdoor injection into model weights.
+5. **Decoupling Observed History from Sandbox Replay (Temporal Layer)**:
+   - *Rule*: Observed historical reality (what actually happened at timestamp $T$ in the capture) is distinct from reproducible execution replay. Replay requires pinning exact repository commit SHAs and containerized environments.
+6. **Typing of Human Out-of-Band Interruptions (Interaction Layer)**:
+   Mid-turn human steering (`[OUT-OF-BAND USER MESSAGE]`, `Ctrl+C`, `SIGINT`) must not be treated as natural model completions.
+   - *Rule*: Termination states must be explicitly typed: `COMPLETED_NATURAL`, `USER_INTERRUPTED`, `AGENT_TIMEOUT`, `OOM_CRASH`. Truncated turns are excluded from SFT imitation but preserved for refusal/interruption alignment.
+7. **Intellectual Property & Licensing Firewall (Legal Layer)**:
+   - *Rule*: File paths referenced by `read_file` or `git` must be reconciled against repository `LICENSE` metadata to prevent proprietary or incompatible copyleft code from leaking into public training projections.
+
+---
+
+## 10. Human Operator Constituent Authority
+
+The human operator is the sovereign constituent authority above all models, scores, and automated heuristics. When automated metrics conflict with human empirical domain experience (e.g., knowledge of past operational cycles, development habits, or real production incidents), the human operator's verdict overrides automated classifications. Subsequent blind spots are surfaced empirically through data exploration, reviewed by the operator, and codified into this living policy contract.
