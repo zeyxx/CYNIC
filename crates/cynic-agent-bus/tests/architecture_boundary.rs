@@ -137,7 +137,10 @@ fn proof_has_no_signature_field() {
 
 #[test]
 fn budget_has_both_axes() {
-    let types = read_file(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src/types.rs"));
+    // Budget was extracted to cynic-types (57a3aa63); read the owning file.
+    let types = read_file(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../cynic-types/src/budget.rs"),
+    );
     assert!(
         types.contains("actions: u32"),
         "Budget must have actions field"
@@ -150,7 +153,10 @@ fn budget_has_both_axes() {
 
 #[test]
 fn scopekind_has_three_variants() {
-    let types = read_file(&Path::new(env!("CARGO_MANIFEST_DIR")).join("src/types.rs"));
+    // ScopeKind was extracted to cynic-types (57a3aa63); read the owning file.
+    let types = read_file(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../cynic-types/src/scope.rs"),
+    );
     assert!(types.contains("File"), "ScopeKind must have File");
     assert!(types.contains("Module"), "ScopeKind must have Module");
     assert!(types.contains("Crate"), "ScopeKind must have Crate");

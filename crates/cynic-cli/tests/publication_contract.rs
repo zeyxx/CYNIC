@@ -192,7 +192,11 @@ fn rules_do_not_silently_shadow_each_other() {
     // Two literal rules on the same path are an unresolvable ambiguity. `**` rules may
     // overlap a specific rule only when the specific one is a redaction, which is the
     // intended layering: broad public, narrow redact.
-    let literals: Vec<&Value> = rules()
+    // The rule list is bound first: `rules()` returns an owned Vec, and
+    // borrowing `&Value` from a temporary would drop it at the end of the
+    // statement (E0716).
+    let all_rules = rules();
+    let literals: Vec<&Value> = all_rules
         .iter()
         .filter(|r| !r["path"].as_str().unwrap_or_default().contains(['*', '?']))
         .collect();
@@ -301,9 +305,9 @@ fn read_back_has_execution_steps_not_only_content_steps() {
              execution step proves only that the file looks right, not that it runs."
         );
     }
-    assert!(
     let c = contract();
-    c["read_back"]["on_any_failure"]
+    assert!(
+        c["read_back"]["on_any_failure"]
             .as_str()
             .is_some_and(|s| s.contains("refused")),
         "read_back must state what happens on failure; a soft failure is a wish"

@@ -2,7 +2,6 @@
 //! Belongs strictly to the Host Substrate layer (outbound adapter fulfilling FreeboxProbePort).
 //! Never imported by the pure core domain.
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use cynic_network::FreeboxProbePort;
@@ -29,32 +28,44 @@ impl Default for HttpFreeboxProbeAdapter {
 }
 
 impl HttpFreeboxProbeAdapter {
-    /// Resolve injected Freebox app token from environment or local config file.
+    /// Secret id shared by every leg of the resolution chain.
+    const APP_TOKEN_SECRET_ID: &str = "freebox-app-token";
+
+    /// Resolve the Freebox app token through the dedicated secret system.
+    ///
+    /// Chain (first hit wins, value never logged):
+    /// 1. `FREEBOX_APP_TOKEN` process environment (dev / container injection).
+    /// 2. Encrypted principal-owned file store (`SecretProvider::PrincipalOwnedFile`).
+    /// 3. OS credential store (`SecretProvider::OsCredentialStore`, e.g. gnome-keyring).
+    ///
+    /// The legacy raw files (`~/.config/cynic/freebox-app-token`,
+    /// `/etc/cynic/freebox-app-token`) are intentionally NOT read here: raw
+    /// files bypass the secret ports (no encryption, no audit, no rotation).
+    /// Migrate their content once with the `SecretStorePort`, then shred them.
     pub fn resolve_app_token() -> Option<String> {
-        if let Ok(token) = std::env::var("FREEBOX_APP_TOKEN") {
-            let trimmed = token.trim().to_string();
-            if !trimmed.is_empty() {
-                return Some(trimmed);
+        use cynic_secrets::{CompositeSecretProvider, SecretProviderPort, SecretReference};
+        use cynic_secrets::{SecretClass, SecretProviderKind};
+        let composite = CompositeSecretProvider::default();
+        if let Some(token) = composite.resolve(&SecretReference::env(
+            Self::APP_TOKEN_SECRET_ID,
+            "FREEBOX_APP_TOKEN",
+        )) {
+            return Some(token);
+        }
+        for provider in [
+            SecretProviderKind::PrincipalOwnedFile,
+            SecretProviderKind::OsCredentialStore,
+        ] {
+            let reference = SecretReference::with_class(
+                Self::APP_TOKEN_SECRET_ID,
+                Self::APP_TOKEN_SECRET_ID,
+                SecretClass::MachineEnrollment,
+                provider,
+            );
+            if let Some(token) = composite.resolve(&reference) {
+                return Some(token);
             }
         }
-
-        let home = std::env::var("HOME").ok().map(PathBuf::from)?;
-        let config_path = home.join(".config").join("cynic").join("freebox-app-token");
-        if let Ok(content) = std::fs::read_to_string(config_path) {
-            let trimmed = content.trim().to_string();
-            if !trimmed.is_empty() {
-                return Some(trimmed);
-            }
-        }
-
-        let etc_path = PathBuf::from("/etc/cynic/freebox-app-token");
-        if let Ok(content) = std::fs::read_to_string(etc_path) {
-            let trimmed = content.trim().to_string();
-            if !trimmed.is_empty() {
-                return Some(trimmed);
-            }
-        }
-
         None
     }
 

@@ -150,7 +150,7 @@ mod tests {
         Embedding {
             vector: vals,
             dimensions: dims,
-            prompt_tokens: 0,
+            prompt_tokens: Some(0),
         }
     }
 

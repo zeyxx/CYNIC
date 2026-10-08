@@ -300,16 +300,21 @@ fn makefile_uses_isolated_cargo_target_dir_for_automated_surfaces() {
     let root = crate_root();
     let makefile = fs::read_to_string(root.join("../../Makefile")).expect("read Makefile");
 
+    // The parallelism value is NOT asserted here. It lives in
+    // infra/build-policy.json and is checked against every consumer by
+    // build_policy_coherence.rs. Asserting the literal string here made the
+    // value itself the contract, so any legitimate policy change would fail
+    // this test and push an author toward editing the assertion instead of
+    // the registry.
     assert!(
         makefile.contains("CYNIC_CARGO_TARGET_ROOT ?= /tmp/cynic-cargo-targets")
-            && makefile.contains("CYNIC_CARGO_BUILD_JOBS ?= 1")
             && makefile.contains(
                 "CARGO_TARGET_DIR := $(if $(strip $(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(CYNIC_CARGO_TARGET_ROOT)/$(CYNIC_CARGO_TARGET_PROFILE))"
             )
             && makefile.contains("CARGO_BUILD_JOBS=$(CYNIC_CARGO_BUILD_JOBS)")
             && makefile.contains("CMAKE_BUILD_PARALLEL_LEVEL=$(CYNIC_CARGO_BUILD_JOBS)")
             && makefile.contains("CARGO_TARGET_DIR=$(CARGO_TARGET_DIR)"),
-        "Makefile automation must use isolated targets and serialized native build jobs"
+        "Makefile automation must use isolated targets and forward the registry-governed parallelism"
     );
     assert!(
         makefile.contains("$(CARGO_TARGET_DIR)/debug/cynic")

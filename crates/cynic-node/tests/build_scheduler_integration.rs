@@ -1,15 +1,14 @@
 #![allow(clippy::expect_used)]
 use cynic_build::{
-    build_recipe, canonical_build_action_from_argv, derive_build_workload_grant,
-    validate_build_recipe,
+    HarnessEvidence, HarnessEvidenceKind, HarnessEvidenceStatus, HarnessObservation,
+    HarnessScenario, HarnessScenarioId, HarnessStatus, build_recipe,
+    canonical_build_action_from_argv, derive_build_workload_grant, validate_build_recipe,
 };
 use cynic_protocol::{
     AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget, AgentCapabilityGrant, AgentDelegationEnvelope,
-    AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, HarnessEvidence,
-    HarnessEvidenceKind, HarnessEvidenceStatus, HarnessObservation, HarnessScenario,
-    HarnessScenarioId, HarnessStatus, LeaseGuard, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA,
-    PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
-    PolicySetRef, RequiredProof, digest_json,
+    AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA, ExecutionAuthorization, LeaseGuard,
+    MutationContract, POLICY_ADMISSION_REPORT_SCHEMA, PolicyAdmissionReport, PolicyAuthority,
+    PolicyDecision, PolicyIntentRef, PolicyScope, PolicySetRef, RequiredProof, digest_json,
 };
 use cynic_workload::{
     AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
@@ -261,7 +260,7 @@ fn scheduler_conformance_scenarios_reduction() {
         },
     ];
 
-    let matrix = cynic_protocol::reconcile_harness_matrix(&scenarios, &observations);
+    let matrix = cynic_build::reconcile_harness_matrix(&scenarios, &observations);
     assert_eq!(matrix.status, HarnessStatus::Completed);
     assert_eq!(matrix.cells.len(), 6);
     assert!(matrix.blockers.is_empty());

@@ -1,8 +1,28 @@
 [build]
 # rustc can overflow or ICE on deep monomorphization (serde+rmcp = 47% of IR).
 # rust-lang/rust #103767, #122357, #138561.
-# -j 1 is the only reliable setting; -j 2 is flaky under memory pressure.
-jobs = 1
+# jobs = 1 was set on that basis, with -j 2 declared "flaky under memory pressure".
+#
+# MEASURED 2026-10-07 on proxmox-forge, builder CT105 (rustc 1.95.0 via
+# rust-toolchain.toml override, 8 GiB, 4 cores),
+# full workspace cargo build --offline with a fresh target dir per run:
+#   jobs = 1  : 641 s                                       rc=0
+#   jobs = 2  : 282.00 / 261.66 / 247.52 / 252.76 s        rc=0 x4, 0 errors
+#   reduction : 56 % to 61 %, mean 59.3 %, spread 34 s
+#   peak RSS  : 1166 MiB at jobs = 1, 1255 MiB at jobs = 2 (+89 MiB, +7.6 %)
+#   swaps     : 0 in every run
+# The memory pressure cited for jobs = 1 does not exist here: two concurrent
+# rustc cost about 1.25 GiB against 7.7 GiB available, and the peak barely
+# moved because the two crates compiling at once are of unequal size.
+#
+# NOT MEASURED: jobs = 3 and jobs = 4. The optimal setting above 2 is unknown,
+# so 2 is a measured safe point, not a proven optimum.
+# NOT PROVEN: that 2 never trips the ICE on a future commit. Four clean runs
+# bound that risk, they do not remove it. If an ICE appears, revert to 1 and
+# record the commit that broke it.
+# Proof: infra/runtime-checkpoints/2026-10-07-proxmox-host-substrate-observation.json
+#   -> build_performance_diagnosis.repetition_across_commits
+jobs = 2
 # Convergence: clippy ICE mitigation for cold link-codegen under rustc 1.96.
 # `--cap-lints=allow` + `-A clippy::all` suppresses workspace clippy denies
 # (cli/src/lib.rs [workspace.lints]) that trigger SIGSEGV on full codegen

@@ -459,6 +459,7 @@ pub mod resolve {
             .iter()
             .find(|node| node_matches(node, node_name))
             .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
+        reject_unresolvable_family(node)?;
         Ok(profile_for_node(node))
     }
 
@@ -480,6 +481,7 @@ pub mod resolve {
             .iter()
             .find(|node| node_matches(node, node_name))
             .ok_or_else(|| format!("node not found in registry: {node_name}"))?;
+        reject_unresolvable_family(node)?;
         let profile = profile_for_node(node);
         let matched_name = registry_node_name(node).unwrap_or_else(|| node_name.to_string());
         Ok(HostProfileResolution {
@@ -627,6 +629,41 @@ pub mod resolve {
         }
     }
 
+    /// Whether the node resolves as declared.
+    ///
+    /// A node that declares a family the resolver cannot interpret resolves
+    /// under the wildcard profile above, which is a substitution nobody chose.
+    /// This reports that condition so callers can reject the node instead of
+    /// silently running it as something else.
+    fn node_family_resolves_as_declared(node: &RegistryNode) -> bool {
+        let Some(family) = declared_host_family(node) else {
+            // Nothing declared, so nothing was substituted. The role match
+            // decides, which is the documented path for undeclared nodes.
+            return true;
+        };
+        host_profile_for_family(family).is_some()
+    }
+
+    /// Refuse a node whose declared family the resolver cannot interpret.
+    ///
+    /// An absent family is left alone: those nodes resolve on role, which is
+    /// a declared behaviour rather than a substitution. Only a family that is
+    /// present and unknown is rejected, because that node would otherwise run
+    /// under the wildcard profile while appearing to be configured.
+    fn reject_unresolvable_family(node: &RegistryNode) -> Result<(), String> {
+        if node_family_resolves_as_declared(node) {
+            return Ok(());
+        }
+        let family = declared_host_family(node).unwrap_or_default();
+        let name = registry_node_name(node).unwrap_or_else(|| "<unnamed>".to_string());
+        Err(format!(
+            "node {name} declares host_family {family}, which the host profile resolver does not \
+             recognise; it would otherwise resolve under the default profile instead of the \
+             declared one. Use one of: {}.",
+            cynic_lifecycle::domain::host_family_drift::RESOLVED_FAMILIES.join(", ")
+        ))
+    }
+
     fn service_manager_for_node(
         node: &RegistryNode,
         units: &[crate::domain::services::ServiceUnitPolicy],
@@ -726,5 +763,108 @@ pub mod resolve {
             .and_then(|bootstrap| bootstrap.role_profiles.get(role))
             .map(|profile| profile.required_domains.clone())
             .unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    mod host_family_resolution_tests {
+        use super::*;
+        use crate::registry::types::RegistryNode;
+
+        fn node_with_family(name: &str, role: Option<&str>, family: Option<&str>) -> RegistryNode {
+            RegistryNode {
+                name: Some(name.to_string()),
+                id: Some(name.to_string()),
+                aliases: vec![],
+                role: role.map(str::to_string),
+                canonical_role: None,
+                provider_controls: vec![],
+                transports: None,
+                host_family: family.map(str::to_string),
+                substrate: None,
+                services: vec![],
+                network_links: vec![],
+            }
+        }
+
+        #[test]
+        fn undeclared_family_is_left_to_the_role_match() {
+            // The four nodes in infra/registry.json with no declared family must
+            // keep resolving, otherwise this change breaks live infrastructure.
+            for node in [
+                node_with_family("cynic-host-cortex", Some("cortex_host"), None),
+                node_with_family("local-kernel", Some("kernel_primary"), None),
+                node_with_family("local-builder", None, None),
+                node_with_family("forgejo", Some("forge_primary"), None),
+            ] {
+                assert!(
+                    node_family_resolves_as_declared(&node),
+                    "{} declares no family and must not be rejected",
+                    node.name.as_deref().unwrap_or("?")
+                );
+                assert!(reject_unresolvable_family(&node).is_ok());
+            }
+        }
+
+        #[test]
+        fn recognised_families_are_accepted() {
+            for family in [
+                "linux.debian.systemd",
+                "linux.ubuntu.systemd",
+                "linux.proxmox.systemd",
+                "windows-service",
+            ] {
+                let node = node_with_family("n", Some("kernel_primary"), Some(family));
+                assert!(
+                    node_family_resolves_as_declared(&node),
+                    "{family} is in the resolver table"
+                );
+            }
+        }
+
+        #[test]
+        fn the_value_that_caused_the_silent_fallback_is_rejected() {
+            // windows.windows11 was live in the registry and resolved as a Linux
+            // network node. It must now fail loudly instead.
+            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            assert!(!node_family_resolves_as_declared(&node));
+            let error = reject_unresolvable_family(&node).expect_err("must be rejected");
+            assert!(error.contains("windows.windows11"), "{error}");
+            assert!(error.contains("windows-service"), "must list valid values: {error}");
+        }
+
+        #[test]
+        fn the_rejection_message_names_the_consequence() {
+            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            let error = reject_unresolvable_family(&node).expect_err("must be rejected");
+            assert!(error.contains("laptop"), "must name the node: {error}");
+            assert!(
+                error.contains("default profile"),
+                "must state what would have happened instead: {error}"
+            );
+        }
+
+        #[test]
+        fn a_blank_family_is_not_an_unknown_family() {
+            let node = node_with_family("n", Some("kernel_primary"), Some("   "));
+            // declared_host_family filters blanks to None, so this is an absent
+            // family, not an unrecognised one, and must not be rejected.
+            assert!(reject_unresolvable_family(&node).is_ok());
+        }
+
+        #[test]
+        fn the_laptop_family_now_declared_in_the_registry_resolves_to_windows() {
+            let node = node_with_family("cynic-laptop-ax16pro", Some("workstation_portable"), Some("windows-service"));
+            assert!(node_family_resolves_as_declared(&node));
+            assert_eq!(profile_for_node(&node), HostProfile::WindowsNode);
+        }
+
+        #[test]
+        fn an_unrecognised_family_would_have_resolved_to_the_wildcard_profile() {
+            // This is the regression being prevented: record what the wildcard
+            // produced so a future change to profile_for_node cannot silently
+            // alter the substituted profile without this test noticing.
+            let node = node_with_family("laptop", Some("workstation_portable"), Some("windows.windows11"));
+            assert_eq!(profile_for_node(&node), HostProfile::NetworkNode);
+        }
     }
 }
