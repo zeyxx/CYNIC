@@ -153,3 +153,14 @@ Simultaneous sessions operating in parallel over shared workspaces are governed 
    $(\mathbf{M}_{\text{collision}})_{ij} \neq 0$ signals shared resource contention (e.g. concurrent git worktree writes), explaining transient tool failures as environmental race conditions rather than model errors.
 3. **Lamport Vector Clocks**:
    Logical timestamps $\vec{V} = (t_1, t_2, \dots, t_M)$ decouple causal order from jittery host physical clocks.
+
+---
+
+## 10. Human Entropy & Mandatory HITL Quality Gates Specification
+
+1. **Paranoid Skepticism Mandate**:
+   Surface-level cleanliness in session traces is non-evidence. Every candidate finding or clean classification must be treated as a refutable hypothesis.
+2. **Mandatory HITL Arbitration**:
+   No ambiguous, edge-case, or multi-faceted session cluster may be committed to downstream SFT/DPO projections without explicit Human-in-the-Loop review and arbitration.
+3. **Trace Grounding against External Mutations**:
+   When tool outputs or compiler checks indicate file states inconsistent with prior turns, the pipeline must flag potential out-of-band operator edits (IDE mutations) rather than automatically asserting model hallucination.
