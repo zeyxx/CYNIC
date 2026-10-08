@@ -76,7 +76,7 @@ _SESSION_DEDICATED = {
     "model": "preserved: native_meta.session_model (initial model; per-turn model is turn.native_model)",
     "system_prompt": "preserved: native_meta.system_prompt",
     "system_prompt_hash": "preserved: native_meta.system_prompt_hash",
-    "parent_session_id": "preserved: native_meta.parent_session_id + SUBAGENT edge",
+    "parent_session_id": "preserved: native_meta.parent_session_id (session-level link; a cross-session SUBAGENT edge belongs to the Model layer, not this per-session canonical layer)",
     "cwd": "preserved: state.cwd + native_meta.cwd",
     "git_branch": "preserved: native_meta.git_branch",
     "git_repo_root": "preserved: native_meta.git_repo_root",
@@ -168,6 +168,77 @@ REASONING = ConceptResolution(
     },
 )
 
+# ---------------------------------------------------------------------------
+# system_prompts (2 columns). The exact prompt TEXT. ``sessions.system_prompt``
+# is usually NULL; the real prompt is only reachable through
+# ``sessions.system_prompt_hash`` -> ``system_prompts.hash`` (1734 sessions
+# resolvable on the capture). Normalization resolves the text into
+# ``native_meta.system_prompt_resolved``.
+# ---------------------------------------------------------------------------
+
+SYSTEM_PROMPTS_FATE: dict[str, str] = {
+    "hash": "preserved: native_meta.system_prompt_resolved (key on sessions.system_prompt_hash)",
+    "prompt": "preserved: native_meta.system_prompt_resolved.prompt (exact prompt text)",
+}
+
+# ---------------------------------------------------------------------------
+# async_delegations (19 columns). The delegation graph: which session spawned an
+# async subagent and how its result was delivered. ``origin_session`` links back
+# to a session (38/38 resolvable). Normalization attaches the rows to the origin
+# session under ``native_meta.async_delegations``.
+# ---------------------------------------------------------------------------
+
+_ASYNC_DELEGATION_PRESERVED = [
+    "delegation_id", "origin_session", "origin_ui_session_id",
+    "parent_session_id", "state", "dispatched_at", "completed_at",
+    "updated_at", "event_json", "result_json", "delivery_state",
+    "delivery_attempts", "delivered_at", "task_json", "delivery_claim",
+    "delivery_claimed_at", "origin_session_id",
+]
+ASYNC_DELEGATIONS_FATE: dict[str, str] = {
+    c: f"preserved: native_meta.async_delegations.{c}" for c in _ASYNC_DELEGATION_PRESERVED
+}
+# The process owner of a delegation is live infrastructure state, not session
+# truth: it is declared out, not carried into the canonical graph.
+ASYNC_DELEGATIONS_FATE["owner_pid"] = "declared: live process owner, not session truth"
+ASYNC_DELEGATIONS_FATE["owner_started_at"] = "declared: live process owner, not session truth"
+
+# ---------------------------------------------------------------------------
+# state_meta (2 columns) — store provenance. Kept as a verbatim map.
+# ---------------------------------------------------------------------------
+
+STATE_META_FATE: dict[str, str] = {
+    "key": "preserved: native_meta.store_meta (verbatim key)",
+    "value": "preserved: native_meta.store_meta[key]",
+}
+
+# ---------------------------------------------------------------------------
+# schema_version (1 column) — the α2 anchor the contract pins to.
+# ---------------------------------------------------------------------------
+
+SCHEMA_VERSION_FATE: dict[str, str] = {
+    "version": "preserved: native_meta.producer_schema_version",
+}
+
+# ---------------------------------------------------------------------------
+# Tables declared OUT OF SCOPE. Not every producer table is session truth:
+# locks, leases, heartbeats, routing and hygiene state are LIVE OPERATIONAL
+# INFRASTRUCTURE — ephemeral, reconstructible, and NOT a statement about what a
+# session was. Modeling them would manufacture false authority. They are named
+# here with a reason so the closure test proves each table was decided, never
+# silently skipped. (FTS shadow tables and sqlite_sequence are SQLite internals,
+# not independent data tables.)
+# ---------------------------------------------------------------------------
+
+_OUT_OF_SCOPE: dict[str, str] = {
+    "compression_locks": "operational: ephemeral lock rows, not session truth",
+    "session_turn_leases": "operational: ephemeral turn lease rows, not session truth",
+    "gateway_heartbeats": "operational: gateway liveness heartbeats, not session truth",
+    "gateway_hygiene_state": "operational: gateway hygiene counters, not session truth",
+    "gateway_routing": "operational: routing table, not session truth",
+    "conversation_generations": "operational: generation counters (0 rows on this capture)",
+}
+
 CONTRACT = ConservationContract(
     producer=PRODUCER,
     producer_schema_version=PRODUCER_SCHEMA_VERSION,
@@ -176,9 +247,14 @@ CONTRACT = ConservationContract(
         **{f"messages.{k}": v for k, v in MESSAGES_FATE.items()},
         **{f"sessions.{k}": v for k, v in SESSIONS_FATE.items()},
         **{f"session_model_usage.{k}": v for k, v in SESSION_MODEL_USAGE_FATE.items()},
+        **{f"system_prompts.{k}": v for k, v in SYSTEM_PROMPTS_FATE.items()},
+        **{f"async_delegations.{k}": v for k, v in ASYNC_DELEGATIONS_FATE.items()},
+        **{f"state_meta.{k}": v for k, v in STATE_META_FATE.items()},
+        **{f"schema_version.{k}": v for k, v in SCHEMA_VERSION_FATE.items()},
     },
     concepts=(REASONING,),
     transforms={
         "turn.timestamp_iso": "unix seconds -> ISO-8601 UTC with trailing Z",
     },
+    out_of_scope=_OUT_OF_SCOPE,
 )

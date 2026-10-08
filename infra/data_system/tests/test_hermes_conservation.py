@@ -73,31 +73,54 @@ def test_l1_anchor_matches_producer_schema_version():
     )
 
 
-def test_l1_every_producer_column_has_a_declared_fate():
-    """Every column the producer declares must have exactly one fate."""
+def test_l1_every_producer_table_is_decided():
+    """Every table the producer declares must be DECIDED: either covered by a
+    fate map, or explicitly named out of scope with a reason. No table may be
+    silently unmodeled. This is the closure the hardcoded 3-table list lacked —
+    it exempted 10 producer tables, including ``system_prompts`` (the exact
+    prompt text of 1734 sessions) and ``async_delegations``."""
     _, tables = _producer_schema()
-    for table, fate_map in (
-        ("messages", MESSAGES_FATE),
-        ("sessions", SESSIONS_FATE),
-        ("session_model_usage", SESSION_MODEL_USAGE_FATE),
-    ):
-        cols = tables.get(table, [])
-        assert cols, f"no columns parsed for {table}"
-        missing = sorted(c for c in cols if c not in fate_map)
-        assert not missing, f"{table}: columns with no declared fate: {missing}"
+    unmodeled = CONTRACT.unmodeled_tables(tables)
+    assert not unmodeled, (
+        f"producer tables neither covered by a fate map nor declared out of "
+        f"scope: {unmodeled}"
+    )
+
+
+def test_l1_every_in_scope_column_has_a_declared_fate():
+    """Every column of every IN-SCOPE producer table must have exactly one fate.
+    Derived from the producer's own DDL, so a new column fails the moment the
+    producer adds it — for any table, not just the three hand-listed ones."""
+    _, tables = _producer_schema()
+    holes = CONTRACT.uncovered_columns(tables)
+    assert not holes, f"in-scope columns with no declared fate: {holes}"
+
+
+def test_l1_out_of_scope_tables_name_a_reason():
+    """An out-of-scope declaration must carry a non-empty reason — an empty
+    string would be a silent skip wearing a decision's clothes."""
+    for table, reason in CONTRACT.out_of_scope.items():
+        assert reason.strip(), f"{table}: out-of-scope with no reason"
+
+
+def test_l1_no_out_of_scope_table_the_producer_does_not_have():
+    """An out-of-scope entry for a table the producer no longer declares is
+    stale contract debt."""
+    _, tables = _producer_schema()
+    stale = CONTRACT.stale_out_of_scope(tables)
+    assert not stale, f"out-of-scope tables the producer does not have: {stale}"
 
 
 def test_l1_no_fate_for_a_column_the_producer_does_not_have():
     """A fate for a column that no longer exists is stale contract debt."""
     _, tables = _producer_schema()
-    for table, fate_map in (
-        ("messages", MESSAGES_FATE),
-        ("sessions", SESSIONS_FATE),
-        ("session_model_usage", SESSION_MODEL_USAGE_FATE),
-    ):
-        cols = set(tables.get(table, []))
-        stale = sorted(c for c in fate_map if c not in cols)
-        assert not stale, f"{table}: fates for columns the producer does not have: {stale}"
+    known = {
+        f"{table}.{col}"
+        for table, cols in tables.items()
+        for col in cols
+    }
+    stale = sorted(k for k in CONTRACT.field_fate if k not in known)
+    assert not stale, f"fates for columns the producer does not have: {stale}"
 
 
 def test_l1_all_fates_are_well_formed():
@@ -522,3 +545,81 @@ def test_l2_null_content_is_not_coerced_to_empty_string(tmp_path):
     assert sess.human and sess.human[0].text is None, (
         "NULL user content must stay None, not ''"
     )
+
+
+# ---------------------------------------------------------------------------
+# L2 — the tables the closure audit surfaced (system_prompts, async_delegations,
+# state_meta). Each carries real session truth that was previously unmodeled.
+# ---------------------------------------------------------------------------
+
+def test_l2_system_prompt_text_is_resolved_from_system_prompts():
+    """``sessions.system_prompt`` is usually NULL; the real prompt text lives in
+    ``system_prompts`` keyed by ``sessions.system_prompt_hash``. Normalization
+    must resolve it into ``native_meta.system_prompt_resolved`` — the text of
+    1734 sessions is otherwise unmodeled."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    con.row_factory = sqlite3.Row
+    try:
+        sid = con.execute(
+            "SELECT id FROM sessions WHERE system_prompt_hash IS NOT NULL "
+            "AND system_prompt_hash != '' LIMIT 1"
+        ).fetchone()[0]
+        raw = dict(con.execute("SELECT * FROM sessions WHERE id = ?", (sid,)).fetchone())
+        sp = con.execute(
+            "SELECT prompt FROM system_prompts WHERE hash = ?",
+            (raw["system_prompt_hash"],),
+        ).fetchone()
+    finally:
+        con.close()
+    resolved = norm.normalize(sid).native_meta.get("system_prompt_resolved")
+    assert resolved is not None, f"{sid}: system prompt not resolved"
+    assert resolved["hash"] == raw["system_prompt_hash"], f"{sid}: hash mismatch"
+    if sp is not None:
+        assert resolved["prompt"] == sp["prompt"], f"{sid}: prompt text drift"
+
+
+def test_l2_async_delegation_rows_are_attached_verbatim():
+    """A session that dispatched async subagents must carry its delegation rows
+    (minus the live process owner, which is operational, not session truth)."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    con.text_factory = lambda b: b.decode("utf-8", "replace")
+    con.row_factory = sqlite3.Row
+    try:
+        sid = con.execute(
+            "SELECT origin_session FROM async_delegations "
+            "WHERE origin_session IN (SELECT id FROM sessions) "
+            "GROUP BY origin_session ORDER BY count(*) DESC LIMIT 1"
+        ).fetchone()[0]
+        raw = [
+            {k: v for k, v in dict(r).items() if k not in ("owner_pid", "owner_started_at")}
+            for r in con.execute(
+                "SELECT * FROM async_delegations WHERE origin_session = ? "
+                "ORDER BY dispatched_at",
+                (sid,),
+            )
+        ]
+    finally:
+        con.close()
+    kept = norm.normalize(sid).native_meta.get("async_delegations")
+    assert kept is not None, f"{sid}: async_delegations key missing"
+    assert len(kept) == len(raw), f"{sid}: delegation row count {len(kept)} != {len(raw)}"
+    for got, want in zip(kept, raw):
+        assert got == want, f"{sid}: delegation row drift"
+
+
+def test_l2_store_meta_is_carried():
+    """``state_meta`` (store instance id, creation time) is store provenance and
+    must be carried verbatim."""
+    norm = HermesNormalizer(DB)
+    con = sqlite3.connect(f"file:{DB}?immutable=1", uri=True)
+    try:
+        raw = {r[0]: r[1] for r in con.execute("SELECT key, value FROM state_meta")}
+        sid = con.execute("SELECT id FROM sessions LIMIT 1").fetchone()[0]
+    finally:
+        con.close()
+    kept = norm.normalize(sid).native_meta.get("store_meta")
+    assert kept is not None, "store_meta key missing"
+    assert kept == raw, f"store_meta drift: {kept} != {raw}"

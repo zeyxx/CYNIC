@@ -216,6 +216,44 @@ class HermesNormalizer:
                 }
             except sqlite3.Error:
                 display_orders = {}
+
+            # system prompt TEXT lives in ``system_prompts``, keyed by hash;
+            # ``sessions.system_prompt`` is usually NULL. Resolve the exact text.
+            system_prompt_resolved = None
+            sp_hash = session_row["system_prompt_hash"] if session_row is not None else None
+            if sp_hash:
+                try:
+                    sp = con.execute(
+                        "SELECT hash, prompt FROM system_prompts WHERE hash = ?", (sp_hash,)
+                    ).fetchone()
+                    if sp is not None:
+                        system_prompt_resolved = {"hash": sp["hash"], "prompt": sp["prompt"]}
+                except sqlite3.Error:
+                    system_prompt_resolved = None
+
+            # delegation graph: rows whose origin session is this one. The live
+            # process owner is operational, not session truth, so it is dropped
+            # here (declared out in the contract), the rest kept verbatim.
+            try:
+                delegations = [
+                    {k: v for k, v in dict(r).items() if k not in ("owner_pid", "owner_started_at")}
+                    for r in con.execute(
+                        "SELECT * FROM async_delegations WHERE origin_session = ? "
+                        "ORDER BY dispatched_at",
+                        (session_ref,),
+                    ).fetchall()
+                ]
+            except sqlite3.Error:
+                delegations = []
+
+            # store provenance (store instance id, creation time, ...)
+            try:
+                store_meta = {
+                    r[0]: r[1]
+                    for r in con.execute("SELECT key, value FROM state_meta").fetchall()
+                }
+            except sqlite3.Error:
+                store_meta = {}
         finally:
             con.close()
 
@@ -243,6 +281,12 @@ class HermesNormalizer:
                 "multi_model": len(models_in_session) > 1,
                 # the whole session row, verbatim: 62 columns, no silent loss
                 "session": session_meta,
+                # the exact system prompt text (from system_prompts via hash)
+                "system_prompt_resolved": system_prompt_resolved,
+                # the delegation graph for this origin session (rows verbatim)
+                "async_delegations": delegations,
+                # store provenance (instance id, created_at)
+                "store_meta": store_meta,
                 "ordering": "messages.id",
                 "producer_schema_version": CONTRACT.producer_schema_version,
                 "producer_schema_source": CONTRACT.producer_schema_source,

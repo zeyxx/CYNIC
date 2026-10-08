@@ -91,12 +91,49 @@ class ConservationContract:
     # Keyed by canonical home -> human description of the transform. The L2
     # value check must apply the transform before comparing.
     transforms: Mapping[str, str] = field(default_factory=dict)
+    # Producer tables deliberately NOT modeled, each with a reason. This is the
+    # third disposition besides per-column fates: a table is either fully
+    # covered by field_fate, or named here. A table in neither is an unmodeled
+    # hole the closure check must fail on.
+    out_of_scope: Mapping[str, str] = field(default_factory=dict)
 
     # -- closure ------------------------------------------------------------
 
     def missing_fates(self, observed_fields: set[str]) -> list[str]:
         """Observed raw fields with no declared fate. Must be empty."""
         return sorted(f for f in observed_fields if f not in self.field_fate)
+
+    def unmodeled_tables(self, observed: Mapping[str, list[str]]) -> list[str]:
+        """Tables the producer declares that are NEITHER covered by a fate map
+        NOR named out of scope. Must be empty: every table is decided.
+
+        A table is 'covered' when at least one of its columns has a fate; the
+        per-column closure check (``missing_fates``) then proves the coverage is
+        complete, so a partially-fated table still fails loudly.
+        """
+        fated_tables = {key.split(".", 1)[0] for key in self.field_fate if "." in key}
+        unmodeled: list[str] = []
+        for table, cols in observed.items():
+            if table in self.out_of_scope or table in fated_tables:
+                continue
+            unmodeled.append(table)
+        return sorted(unmodeled)
+
+    def stale_out_of_scope(self, observed: Mapping[str, list[str]]) -> list[str]:
+        """Tables declared out of scope that the producer no longer has."""
+        return sorted(t for t in self.out_of_scope if t not in observed)
+
+    def uncovered_columns(self, observed: Mapping[str, list[str]]) -> dict[str, list[str]]:
+        """Columns of IN-SCOPE tables with no fate. Out-of-scope tables are
+        exempt (they are declared, not modeled)."""
+        holes: dict[str, list[str]] = {}
+        for table, cols in observed.items():
+            if table in self.out_of_scope:
+                continue
+            missing = sorted(c for c in cols if f"{table}.{c}" not in self.field_fate)
+            if missing:
+                holes[table] = missing
+        return holes
 
     def malformed_fates(self) -> list[str]:
         """Fates that do not start with preserved:/declared:."""
@@ -139,9 +176,12 @@ _CREATE_TABLE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-# Column-type keywords that must not be mistaken for a column name.
+# Column-type keywords that must not be mistaken for a column name. NOTE: "key"
+# is deliberately absent — it is a legal column name (``state_meta.key``); the
+# table-level form is ``PRIMARY KEY`` / ``FOREIGN KEY``, which start with
+# "primary"/"foreign" and are already filtered.
 _NOT_A_COLUMN = {
-    "primary", "foreign", "unique", "check", "constraint", "key", "references",
+    "primary", "foreign", "unique", "check", "constraint", "references",
     "not", "null", "default", "on", "delete", "cascade", "autoincrement",
 }
 
