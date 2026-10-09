@@ -18,8 +18,6 @@ default = []
 # cynic-inference removed: types and loader extracted to kernel-local modules
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-workload = { path = "../cynic-workload" }
-# cynic-intel and cynic-intel-soc removed: re-exports only, no source imports
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-storage = { path = "../cynic-storage" }
 # cynic-forensics removed: phantom dependency (no source imports)
