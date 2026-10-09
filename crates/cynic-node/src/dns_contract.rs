@@ -34,14 +34,22 @@ struct DnsRuntimeContext {
     bundle_service_filename: &'static str,
 }
 
-pub(crate) const DEFAULT_DNS_ZONE: &str = "synapse.cynic";
+pub(crate) use cynic_network::dns::{
+    DEFAULT_DNS_ZONE, SERVICE_DNS_COREFILE_FILENAME, SERVICE_DNS_HOSTS_FILENAME,
+    SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
+    SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
+};
 
-pub(crate) const SYNAPSE_DNS_HOSTS_FILENAME: &str = "synapse.hosts";
-pub(crate) const SYNAPSE_DNS_COREFILE_FILENAME: &str = "Corefile";
-pub(crate) const SYNAPSE_DNS_SERVICE_FILENAME: &str = "coredns-synapse.service";
-pub(crate) const SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-synapse-dns.conf";
-pub(crate) const SYNAPSE_DNS_MANIFEST_FILENAME: &str = "manifest.json";
-pub(crate) const SYNAPSE_DNS_README_FILENAME: &str = "README.activation.md";
+#[allow(unused_imports)]
+pub(crate) use self::{
+    DEFAULT_DNS_ZONE as SYNAPSE_DNS_ZONE,
+    SERVICE_DNS_COREFILE_FILENAME as SYNAPSE_DNS_COREFILE_FILENAME,
+    SERVICE_DNS_HOSTS_FILENAME as SYNAPSE_DNS_HOSTS_FILENAME,
+    SERVICE_DNS_MANIFEST_FILENAME as SYNAPSE_DNS_MANIFEST_FILENAME,
+    SERVICE_DNS_README_FILENAME as SYNAPSE_DNS_README_FILENAME,
+    SERVICE_DNS_RESOLVED_DROPIN_FILENAME as SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME,
+    SERVICE_DNS_SERVICE_FILENAME as SYNAPSE_DNS_SERVICE_FILENAME,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -519,17 +527,17 @@ fn dns_runtime_context_for_zone(
             SYNAPSE_DNS_SERVICE_FILENAME,
         ),
         DnsProviderKind::Dnsmasq => (
-            "cynic-dns-synapse.service".to_string(),
+            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
             observed
                 .observed_binaries
                 .get("dnsmasq")
                 .and_then(Clone::clone)
                 .unwrap_or_else(|| "/usr/sbin/dnsmasq".to_string()),
-            "/etc/cynic/dns/synapse.hosts".to_string(),
+            format!("/etc/cynic/dns/{SERVICE_DNS_HOSTS_FILENAME}"),
             "/etc/cynic/dns/dnsmasq.conf".to_string(),
-            "/etc/systemd/system/cynic-dns-synapse.service".to_string(),
+            format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"),
             "dnsmasq.conf",
-            "cynic-dns-synapse.service",
+            SERVICE_DNS_SERVICE_FILENAME,
         ),
     };
     DnsRuntimeContext {
@@ -574,16 +582,16 @@ mod tests {
             service_manager_kind: "systemd".to_string(),
             service_manager_bin: "/usr/bin/systemctl".to_string(),
             service_enable_bin: "/usr/bin/systemctl".to_string(),
-            dns_service_unit: "coredns-synapse.service".to_string(),
+            dns_service_unit: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
             resolved_unit: "systemd-resolved.service".to_string(),
             resolver_command: "/usr/bin/getent".to_string(),
             dns_binary_command: "/usr/bin/coredns".to_string(),
-            hosts_path: "/etc/coredns/synapse.hosts".to_string(),
+            hosts_path: format!("/etc/coredns/{SERVICE_DNS_HOSTS_FILENAME}"),
             corefile_path: "/etc/coredns/Corefile".to_string(),
-            service_path: "/etc/systemd/system/coredns-synapse.service".to_string(),
-            resolved_dropin_path: "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf".to_string(),
+            service_path: format!("/etc/systemd/system/coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            resolved_dropin_path: format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"),
             bundle_config_filename: "Corefile",
-            bundle_service_filename: "coredns-synapse.service",
+            bundle_service_filename: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
         }
     }
 
@@ -611,7 +619,7 @@ mod tests {
         let unit = dns_systemd_unit_with_context(&context());
         let readme = dns_activation_readme_with_context(&context());
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
-        assert!(readme.contains("coredns-synapse.service"));
+        assert!(readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME)));
         assert!(readme.contains("storage.test.zone"));
     }
 
@@ -628,8 +636,8 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(rendered.contains("/sbin/rc-update add coredns-synapse default"));
-        assert!(rendered.contains("/sbin/rc-service coredns-synapse start"));
+        assert!(rendered.contains(&format!("/sbin/rc-update add coredns-{} default", SERVICE_DNS_SERVICE_FILENAME)));
+        assert!(rendered.contains(&format!("/sbin/rc-service coredns-{} start", SERVICE_DNS_SERVICE_FILENAME)));
         assert!(rendered.contains("OpenRC resolver integration requires a dedicated adapter"));
         assert!(!rendered.contains("daemon-reload"));
         assert!(!rendered.contains("enable --now"));

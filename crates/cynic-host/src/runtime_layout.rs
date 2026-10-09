@@ -2,6 +2,10 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use cynic_network::dns::{
+    SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
+    SERVICE_DNS_SERVICE_FILENAME,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::package_provenance::PackageProvenancePolicy;
@@ -318,7 +322,7 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_hosts_path(&self) -> String {
-        "/etc/coredns/synapse.hosts".to_string()
+        format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME)
     }
 
     pub fn dns_corefile_path(&self) -> String {
@@ -327,9 +331,9 @@ impl HostRuntimeLayout {
 
     pub fn dns_service_path(&self) -> String {
         match self.service_manager_kind().as_str() {
-            "openrc" => "/etc/init.d/coredns-synapse".to_string(),
+            "openrc" => format!("/etc/init.d/coredns-{}", SERVICE_DNS_SERVICE_FILENAME).to_string(),
             _ => PathBuf::from(&self.service_unit_dir)
-                .join("coredns-synapse.service")
+                .join(format!("coredns-{}", SERVICE_DNS_SERVICE_FILENAME))
                 .display()
                 .to_string(),
         }
@@ -337,8 +341,8 @@ impl HostRuntimeLayout {
 
     pub fn dns_resolved_dropin_path(&self) -> String {
         match self.service_manager_kind().as_str() {
-            "openrc" => "/etc/cynic/resolver/openrc-synapse-dns.adapter-required".to_string(),
-            _ => "/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf".to_string(),
+            "openrc" => format!("/etc/cynic/resolver/openrc-service-dns.adapter-required").to_string(),
+            _ => format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}").to_string(),
         }
     }
 
@@ -358,14 +362,14 @@ impl HostRuntimeLayout {
         if let Ok(unit) = std::env::var("CYNIC_DNS_SERVICE_UNIT") {
             return unit;
         }
-        if std::path::Path::new("/etc/systemd/system/cynic-dns-synapse.service").exists()
-            || std::path::Path::new("/lib/systemd/system/cynic-dns-synapse.service").exists()
+        if std::path::Path::new(&format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
+            || std::path::Path::new(&format!("/lib/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
         {
-            return "cynic-dns-synapse.service".to_string();
+            return SERVICE_DNS_SERVICE_FILENAME.to_string();
         }
         match self.service_manager_kind().as_str() {
-            "openrc" => "coredns-synapse".to_string(),
-            _ => "coredns-synapse.service".to_string(),
+            "openrc" => format!("coredns-{}", SERVICE_DNS_SERVICE_FILENAME),
+            _ => format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
         }
     }
 
@@ -720,7 +724,7 @@ mod tests {
             log_dir: "/var/log/cynic".to_string(),
             host_exec_bundle_dir: "/tmp/cynic-host-exec".to_string(),
             network_actuator_bundle_dir: "/tmp/cynic-network-actuator".to_string(),
-            dns_bundle_dir: "/tmp/cynic-synapse-dns".to_string(),
+            dns_bundle_dir: "/tmp/cynic-service-dns".to_string(),
             provider_fallback_bundle_dir: "/tmp/cynic-provider-fallback-hosts".to_string(),
         };
 
@@ -831,8 +835,8 @@ mod tests {
         // branch correctly short-circuits to it and the openrc fallback is
         // unreachable. Skip honestly instead of asserting host-specific
         // state (no hardcoded substrate in tests).
-        if std::path::Path::new("/etc/systemd/system/cynic-dns-synapse.service").exists()
-            || std::path::Path::new("/lib/systemd/system/cynic-dns-synapse.service").exists()
+        if std::path::Path::new(format!("/etc/systemd/system/cynic-dns-{}", SERVICE_DNS_SERVICE_FILENAME)).exists()
+            || std::path::Path::new(format!("/lib/systemd/system/cynic-dns-{}", SERVICE_DNS_SERVICE_FILENAME)).exists()
         {
             eprintln!(
                 "skipped: cynic-dns systemd unit installed on this host; \
@@ -844,12 +848,12 @@ mod tests {
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let layout = HostRuntimeLayout::from_env();
 
-        assert_eq!(layout.dns_service_unit(), "coredns-synapse");
+        assert_eq!(layout.dns_service_unit(), &format!("coredns-{}", SERVICE_DNS_SERVICE_FILENAME));
         assert_eq!(layout.resolved_service_unit(), "resolver-adapter-required");
-        assert_eq!(layout.dns_service_path(), "/etc/init.d/coredns-synapse");
+        assert_eq!(layout.dns_service_path(), format!("/etc/init.d/coredns-{}", SERVICE_DNS_SERVICE_FILENAME));
         assert_eq!(
             layout.dns_resolved_dropin_path(),
-            "/etc/cynic/resolver/openrc-synapse-dns.adapter-required"
+            format!("/etc/cynic/resolver/openrc-service-dns.adapter-required")
         );
     }
 

@@ -359,14 +359,14 @@ mod tests {
     fn resolved_ip_parses_first_token_only_on_success() {
         let ok = command_observation(
             "getent",
-            &["hosts", "forge.synapse.cynic"],
+            &["hosts", "forge.service.cynic"],
             Some(0),
-            "10.20.0.10 forge.synapse.cynic alias".to_string(),
+            "10.20.0.10 forge.service.cynic alias".to_string(),
             String::new(),
         );
         let failed = command_observation(
             "getent",
-            &["hosts", "forge.synapse.cynic"],
+            &["hosts", "forge.service.cynic"],
             Some(2),
             String::new(),
             "not found".to_string(),

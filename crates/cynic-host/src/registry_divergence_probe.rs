@@ -420,10 +420,10 @@ mod tests {
     #[test]
     fn resolving_a_name_yields_its_address() {
         let r = runner(
-            &["getent", "hosts", "kernel.synapse.cynic"],
-            ok("192.168.100.2   kernel.synapse.cynic local-kernel.synapse.cynic"),
+            &["getent", "hosts", "kernel.service.cynic"],
+            ok("192.168.100.2   kernel.service.cynic local-kernel.service.cynic"),
         );
-        let result = resolve_name_here(&r, "cynic-builder", "kernel.synapse.cynic");
+        let result = resolve_name_here(&r, "cynic-builder", "kernel.service.cynic");
         assert_eq!(
             result,
             Ok(("cynic-builder".to_string(), "192.168.100.2".to_string()))
@@ -434,8 +434,8 @@ mod tests {
     /// decision layer can tell "nobody could check" from "they disagreed".
     #[test]
     fn an_unresolvable_name_is_attributed_to_its_observer() {
-        let r = runner(&["getent", "hosts", "cortex.synapse.cynic"], failed(2));
-        let result = resolve_name_here(&r, "cynic-builder", "cortex.synapse.cynic");
+        let r = runner(&["getent", "hosts", "cortex.service.cynic"], failed(2));
+        let result = resolve_name_here(&r, "cynic-builder", "cortex.service.cynic");
         assert_eq!(
             result,
             Err((
@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn getent_success_without_an_address_is_a_failure_to_resolve() {
         let r = runner(&["getent"], ok("   "));
-        let result = resolve_name_here(&r, "cortex", "kernel.synapse.cynic");
+        let result = resolve_name_here(&r, "cortex", "kernel.service.cynic");
         assert!(result.is_err());
     }
 
@@ -459,7 +459,7 @@ mod tests {
     #[test]
     fn assembled_vantage_points_expose_the_live_name_conflict() {
         let observation = assemble_name_observation(
-            "kernel.synapse.cynic",
+            "kernel.service.cynic",
             vec![
                 Ok(("cortex".to_string(), "127.0.0.1".to_string())),
                 Ok(("cynic-builder".to_string(), "192.168.100.2".to_string())),
@@ -496,7 +496,7 @@ mod tests {
         ];
         for argv in [
             vec!["ping", "-c", "1", "-W", "2", "10.10.10.100"],
-            vec!["getent", "hosts", "kernel.synapse.cynic"],
+            vec!["getent", "hosts", "kernel.service.cynic"],
             vec!["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}"],
             vec![
                 "timeout",

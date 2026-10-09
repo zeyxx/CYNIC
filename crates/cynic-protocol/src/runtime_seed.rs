@@ -101,12 +101,12 @@ impl RuntimeSeedRequest {
             registry_digest: placeholder_digest,
             basket_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
-                locator: format!("https://artifacts.synapse.cynic/releases/{release_id}.tar"),
+                locator: format!("https://artifacts.service.cynic/releases/{release_id}.tar"),
             },
             basket_path: format!("/var/lib/cynic/incoming/{release_id}.tar"),
             detached_signature_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
-                locator: format!("https://artifacts.synapse.cynic/releases/{release_id}.tar.sig"),
+                locator: format!("https://artifacts.service.cynic/releases/{release_id}.tar.sig"),
             },
             detached_signature_path: format!("/var/lib/cynic/incoming/{release_id}.tar.sig"),
             allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),
@@ -468,12 +468,12 @@ mod tests {
             registry_digest: format!("sha256:{}", "e".repeat(64)),
             basket_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
-                locator: "https://artifacts.synapse.cynic/releases/release-2.tar".to_string(),
+                locator: "https://artifacts.service.cynic/releases/release-2.tar".to_string(),
             },
             basket_path: "/var/lib/cynic/incoming/release-2.tar".to_string(),
             detached_signature_source: RuntimeArtifactSource {
                 transport: RuntimeArtifactTransportKind::Https,
-                locator: "https://artifacts.synapse.cynic/releases/release-2.tar.sig".to_string(),
+                locator: "https://artifacts.service.cynic/releases/release-2.tar.sig".to_string(),
             },
             detached_signature_path: "/var/lib/cynic/incoming/release-2.tar.sig".to_string(),
             allowed_signers_path: "/etc/cynic/runtime-seed-allowed-signers".to_string(),

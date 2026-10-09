@@ -250,7 +250,7 @@ fn build_desired_state(
         .into_iter()
         .flatten()
         .filter_map(serde_json::Value::as_str)
-        .find(|name| name.ends_with(".service.cynic") || name.ends_with(".synapse.cynic"))
+        .find(|name| name.ends_with(".service.cynic") || name.ends_with(".service.cynic"))
         .unwrap_or(synapse);
     let target = registry
         .pointer("/fleet_desired/targets")
@@ -318,9 +318,9 @@ mod tests {
                 role: "storage_primary".to_string(),
                 provider: "proxmox".to_string(),
                 resource_id: "lxc/103".to_string(),
-                endpoint: "http://storage.synapse.cynic:8000".to_string(),
+                endpoint: "http://storage.service.cynic:8000".to_string(),
                 unit: "surrealdb.service".to_string(),
-                artifact_endpoint: "https://storage.synapse.cynic:8443".to_string(),
+                artifact_endpoint: "https://storage.service.cynic:8443".to_string(),
                 artifact_unit: "runtime-artifact-store.service".to_string(),
                 artifact_base_path: "/runtime-releases".to_string(),
                 binding_id: "binding".to_string(),

@@ -12,17 +12,17 @@ use super::types::{
 fn spec() -> DnsActivationSpec {
     DnsActivationSpec {
         schema: "cynic.dns_activation.spec.v1",
-        zone: "synapse.cynic".to_string(),
+        zone: "service.cynic".to_string(),
         bundle_dir: "/bundle".to_string(),
         provider: "coredns".to_string(),
         provider_package: "coredns".to_string(),
         provider_provenance_proved: true,
-        service_unit: "coredns-synapse.service".to_string(),
+        service_unit: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
         resolver_unit: "systemd-resolved.service".to_string(),
         service_manager_kind: "systemd".to_string(),
         service_manager_bin: "/test/systemctl".to_string(),
         resolver_bin: "/test/getent".to_string(),
-        probe_fqdn: "forgejo.synapse.cynic".to_string(),
+        probe_fqdn: "forgejo.service.cynic".to_string(),
         files: (0..4)
             .map(|index| DnsActivationFileSpec {
                 source: format!("/bundle/source-{index}"),
@@ -96,7 +96,7 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
         out.path().to_str().expect("bundle path"),
     )
     .expect("bundle");
-    std::fs::write(out.path().join("synapse.hosts"), "tampered\n").expect("tamper bundle");
+    std::fs::write(out.path().join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME), "tampered\n").expect("tamper bundle");
 
     let desired = resolve_dns_activation_spec(
         registry.to_str().expect("registry path"),
@@ -108,7 +108,7 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
         desired
             .blockers
             .iter()
-            .any(|blocker| blocker == "dns_activation_bundle_digest_mismatch:synapse.hosts")
+            .any(|blocker| blocker == format!("dns_activation_bundle_digest_mismatch:{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME))
     );
 }
 

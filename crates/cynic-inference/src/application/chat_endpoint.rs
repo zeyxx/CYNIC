@@ -3,7 +3,7 @@
 //! Order (first usable wins):
 //! 1. Breakglass `CYNIC_CHAT_ENDPOINT` (explicit operator override only)
 //! 2. CYNIC inference config (`inference.toml` — principal runtime config then /etc)
-//! 3. Synapse DNS names (`inference.synapse.cynic`, `llama.synapse.cynic`, …)
+//! 3. Synapse DNS names (`inference.service.cynic`, `llama.service.cynic`, …)
 //! 4. ODS / local OpenAI-compat discovery (when `--ods` or as last probe)
 //!
 //! Never silently falls back to mock.
@@ -53,7 +53,7 @@ pub struct ChatEndpointResolution {
     pub config_path: Option<String>,
 }
 
-const DEFAULT_DNS_ZONE: &str = "synapse.cynic";
+const DEFAULT_DNS_ZONE: &str = "service.cynic";
 
 /// Resolve chat backend. `prefer_ods` elevates ODS discovery before loopback-only probe.
 pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
@@ -551,9 +551,9 @@ mod tests {
 
     #[test]
     fn dns_hostnames_use_zone() {
-        let h = dns_inference_hostnames("synapse.cynic");
-        assert!(h.iter().any(|x| x == "inference.synapse.cynic"));
-        assert!(h.iter().any(|x| x == "llama.synapse.cynic"));
+        let h = dns_inference_hostnames("service.cynic");
+        assert!(h.iter().any(|x| x == "inference.service.cynic"));
+        assert!(h.iter().any(|x| x == "llama.service.cynic"));
     }
 
     #[test]

@@ -492,12 +492,12 @@ mod tests {
     fn pure_builder_produces_expected_clear_mesh_state_without_host_runtime() {
         let plan = build_observation_plan(None);
         let dns_check = dns_resolution_observation(
-            "forge.synapse.cynic",
+            "forge.service.cynic",
             Some("10.20.0.10".to_string()),
             command_ok(
                 "getent",
-                &["hosts", "forge.synapse.cynic"],
-                "10.20.0.10 forge.synapse.cynic",
+                &["hosts", "forge.service.cynic"],
+                "10.20.0.10 forge.service.cynic",
             ),
         );
         let observation = build_node_observation_with_runtime(
@@ -542,7 +542,7 @@ mod tests {
                 },
                 dns_checks: vec![dns_check],
                 tcp_results: vec![TcpObservation {
-                    host: "forge.synapse.cynic".to_string(),
+                    host: "forge.service.cynic".to_string(),
                     port: 22,
                     status: "open".to_string(),
                 }],

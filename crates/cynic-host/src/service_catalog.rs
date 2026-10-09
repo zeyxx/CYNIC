@@ -133,6 +133,6 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(endpoint.endpoint, "https://forgejo.synapse.cynic");
+        assert_eq!(endpoint.endpoint, "https://forgejo.service.cynic");
     }
 }

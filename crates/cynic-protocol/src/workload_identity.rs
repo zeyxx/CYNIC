@@ -178,8 +178,8 @@ mod tests {
     fn desired() -> WorkloadIdentityDesiredState {
         WorkloadIdentityDesiredState {
             schema: WORKLOAD_IDENTITY_DESIRED_STATE_SCHEMA.to_string(),
-            subject: "spiffe://synapse.cynic/node/cynic-builder".to_string(),
-            trust_domain: "synapse.cynic".to_string(),
+            subject: "spiffe://service.cynic/node/cynic-builder".to_string(),
+            trust_domain: "service.cynic".to_string(),
             audience: "cynic-control-plane".to_string(),
             role: "build_runner".to_string(),
             renewal_window_seconds: 300,

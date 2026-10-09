@@ -145,7 +145,7 @@ fn build_runner_bundle_projects_node_and_registry() {
                     "services": [{
                         "name": "runtime-artifact-store",
                         "scheme": "https",
-                        "endpoint_host": "storage.synapse.cynic",
+                        "endpoint_host": "storage.service.cynic",
                         "port": 8443,
                         "base_path": "/runtime-releases",
                         "protocol": "generic_https_put_get",
@@ -188,7 +188,7 @@ fn build_runner_bundle_projects_node_and_registry() {
     assert!(control.contains("[node_control.build_scheduler.release_publication]"));
     assert!(
         control.contains(
-            "artifact_base_url = \"https://storage.synapse.cynic:8443/runtime-releases\""
+            "artifact_base_url = \"https://storage.service.cynic:8443/runtime-releases\""
         )
     );
     assert!(control.contains("authentication_kind = \"bearer_file\""));
@@ -254,11 +254,11 @@ fn build_runner_projection_requires_proxmox_placed_artifact_storage_desired_stat
 fn registry_storage_placement_projects_nonsecret_storage_config() {
     let registry = serde_json::json!({"nodes": [{
         "role": "storage_primary",
-        "transports": {"ssh": {"target": "storage.synapse.cynic"}},
+        "transports": {"ssh": {"target": "storage.service.cynic"}},
         "services": [{"name": "surrealdb", "scheme": "http", "port": 8000}]
     }]});
     let config = super::render_storage_config(&registry, "kernel_primary").unwrap();
-    assert!(config.contains("url = \"http://storage.synapse.cynic:8000\""));
+    assert!(config.contains("url = \"http://storage.service.cynic:8000\""));
     assert!(config.contains("username = \"cynic-runtime\""));
     assert!(!config.to_ascii_lowercase().contains("password ="));
 }

@@ -174,7 +174,7 @@ pub fn plan_agent_host_vm(
                     "--nameserver".to_string(),
                     nameserver,
                     "--searchdomain".to_string(),
-                    "synapse.cynic".to_string(),
+                    "service.cynic".to_string(),
                     "--ciuser".to_string(),
                     desired.principal.clone(),
                 ],

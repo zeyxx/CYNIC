@@ -427,7 +427,7 @@ mod tests {
         );
         assert_eq!(
             adapter.forgejo_endpoint().as_deref(),
-            Some("https://forgejo.synapse.cynic")
+            Some("https://forgejo.service.cynic")
         );
     }
 }

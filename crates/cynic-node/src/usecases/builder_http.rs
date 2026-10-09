@@ -678,7 +678,7 @@ mod tests {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
                 transport_uri: format!(
-                    "ssh://forgejo@forgejo.synapse.cynic:22/owner/{}.git",
+                    "ssh://forgejo@forgejo.service.cynic:22/owner/{}.git",
                     "cynic"
                 ),
                 revision: commit_sha.clone(),

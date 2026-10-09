@@ -199,7 +199,7 @@ mod tests {
 
         let nodes = vec![GenesisNodeCandidate {
             node_id: "cynic-builder".to_string(),
-            hostname: "cynic-builder.synapse.cynic".to_string(),
+            hostname: "cynic-builder.service.cynic".to_string(),
             host_family: "linux.ubuntu.systemd".to_string(),
             capabilities: vec!["build_runner".to_string()],
         }];

@@ -542,7 +542,7 @@ mod tests {
         fs::write(
             canonical.join("infra/registry.json"),
             r#"{
-  "network_policy":{"reservations":[{"name":"forgejo","dns":["forgejo.synapse.cynic"]}]},
+  "network_policy":{"reservations":[{"name":"forgejo","dns":["forgejo.service.cynic"]}]},
   "nodes":[{"id":"forgejo","services":[
     {"name":"ssh","scheme":"ssh","port":22},
     {"name":"forgejo-backend","scheme":"http","port":3000},
@@ -583,15 +583,15 @@ mod tests {
         assert_eq!(forgejo.http_port, Some(3000));
         assert_eq!(
             forgejo.desired_git_url.as_deref(),
-            Some("ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git")
+            Some("ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git")
         );
         assert_eq!(
             forgejo.endpoint_host.as_deref(),
-            Some("forgejo.synapse.cynic")
+            Some("forgejo.service.cynic")
         );
         assert_eq!(
             forgejo.desired_git_host.as_deref(),
-            Some("forgejo.synapse.cynic")
+            Some("forgejo.service.cynic")
         );
         assert!(!forgejo.desired_git_resolution_status.is_empty());
         assert_eq!(forgejo.host_ip, None);
@@ -625,8 +625,8 @@ mod tests {
     #[test]
     fn endpoint_host_extracts_host_from_ssh_remote() {
         assert_eq!(
-            endpoint_host("ssh://git@forgejo.synapse.cynic:22/owner/repo.git").as_deref(),
-            Some("forgejo.synapse.cynic")
+            endpoint_host("ssh://git@forgejo.service.cynic:22/owner/repo.git").as_deref(),
+            Some("forgejo.service.cynic")
         );
     }
 

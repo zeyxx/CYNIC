@@ -3,7 +3,7 @@
 //! The registry is desired state. It is never proof, and the cortex incident
 //! showed what happens when that distinction is lost: the registry declared
 //! `kernel_primary` at `10.10.10.100` while the kernel ran on cortex, and
-//! `kernel.synapse.cynic` resolved three different ways depending on which node
+//! `kernel.service.cynic` resolved three different ways depending on which node
 //! asked. Nothing detected it, because nothing compared the two sides.
 //!
 //! This module owns the *decision* only. It performs no I/O: an adapter probes
@@ -270,7 +270,7 @@ pub struct ClaimAuditSummary {
 /// One name as answered from several vantage points.
 ///
 /// Deliberately multi-observer: a node cannot detect this class from its own
-/// resolver. Cortex answering `127.0.0.1` for `kernel.synapse.cynic` is locally
+/// resolver. Cortex answering `127.0.0.1` for `kernel.service.cynic` is locally
 /// correct and globally wrong, and only comparing answers reveals it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NameObservation {
@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn disagreeing_observers_make_a_name_inconsistent() {
         let observation = NameObservation {
-            name: "kernel.synapse.cynic".to_string(),
+            name: "kernel.service.cynic".to_string(),
             answers: vec![
                 ("cortex".to_string(), "127.0.0.1".to_string()),
                 ("cynic-builder".to_string(), "192.168.100.2".to_string()),
@@ -539,7 +539,7 @@ mod tests {
     #[test]
     fn one_answer_cannot_certify_a_name() {
         let verdict = judge_name(&NameObservation {
-            name: "kernel.synapse.cynic".to_string(),
+            name: "kernel.service.cynic".to_string(),
             answers: vec![("cortex".to_string(), "127.0.0.1".to_string())],
             unresolved: vec![("cynic-builder".to_string(), "timeout".to_string())],
         });
@@ -552,7 +552,7 @@ mod tests {
     #[test]
     fn agreeing_observers_make_a_name_consistent() {
         let verdict = judge_name(&NameObservation {
-            name: "cynic-builder.synapse.cynic".to_string(),
+            name: "cynic-builder.service.cynic".to_string(),
             answers: vec![
                 ("cortex".to_string(), "10.10.10.119".to_string()),
                 ("forgejo".to_string(), "10.10.10.119".to_string()),

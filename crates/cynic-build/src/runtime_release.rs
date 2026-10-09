@@ -329,7 +329,7 @@ mod tests {
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".to_string(),
                 revision: source_commit.clone(),
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,

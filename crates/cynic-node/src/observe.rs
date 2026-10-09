@@ -274,7 +274,7 @@ impl NodeObservation {
                 service_cidr: "10.20.0.0/24".to_string(),
                 provider_fallback_cidr: "10.10.10.0/24".to_string(),
                 provider_fallback_gateway,
-                dns_zone: "synapse.cynic".to_string(),
+                dns_zone: "service.cynic".to_string(),
             },
             network_mesh_status,
             runtime_observation,

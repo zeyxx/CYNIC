@@ -934,7 +934,7 @@ mod tests {
                         "services": [{"name": "cynic-node", "endpoint_host": "10.10.10.119"}]
                     }
                 ],
-                "provider_control": {"endpoint": "https://pve.synapse.cynic:8006"}
+                "provider_control": {"endpoint": "https://pve.service.cynic:8006"}
             })
             .to_string(),
         )

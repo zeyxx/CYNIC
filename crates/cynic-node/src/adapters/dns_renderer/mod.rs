@@ -98,22 +98,22 @@ mod tests {
                     node: "builder".to_string(),
                     ip: "10.20.0.5".to_string(),
                     names: vec![
-                        "builder.synapse.cynic".to_string(),
-                        "builder-ssh.synapse.cynic".to_string(),
+                        "builder.service.cynic".to_string(),
+                        "builder-ssh.service.cynic".to_string(),
                     ],
                 },
                 RegistryNodeRecord {
                     node: "build-runner".to_string(),
                     ip: "10.20.0.5".to_string(),
-                    names: vec!["build-runner.synapse.cynic".to_string()],
+                    names: vec!["build-runner.service.cynic".to_string()],
                 },
             ])
             .expect("render hosts");
 
         assert!(payload.contains("10.20.0.5"));
-        assert!(payload.contains("builder.synapse.cynic"));
-        assert!(payload.contains("builder-ssh.synapse.cynic"));
-        assert!(payload.contains("build-runner.synapse.cynic"));
+        assert!(payload.contains("builder.service.cynic"));
+        assert!(payload.contains("builder-ssh.service.cynic"));
+        assert!(payload.contains("build-runner.service.cynic"));
         assert!(payload.contains("builder"));
         assert!(payload.contains("build-runner"));
     }

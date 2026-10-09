@@ -354,7 +354,7 @@ mod tests {
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
@@ -399,7 +399,7 @@ mod tests {
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
@@ -428,7 +428,7 @@ mod tests {
             authority_ref: "source-release:release-abc".to_string(),
             source: Some(cynic_protocol::RuntimeArtifactSource {
                 transport: cynic_protocol::RuntimeArtifactTransportKind::Https,
-                locator: "https://cynic-storage-primary.synapse.cynic/source-snapshots/cccc.bundle"
+                locator: "https://cynic-storage-primary.service.cynic/source-snapshots/cccc.bundle"
                     .to_string(),
             }),
         };
@@ -440,7 +440,7 @@ mod tests {
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: Some(snapshot.clone()),
@@ -496,7 +496,7 @@ mod tests {
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
                 revision: "a".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
@@ -531,7 +531,7 @@ mod tests {
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
-                transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
                 revision: "b".repeat(40),
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,

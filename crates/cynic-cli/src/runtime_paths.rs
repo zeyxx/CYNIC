@@ -1,5 +1,7 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME;
 
 use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
 
@@ -462,7 +464,7 @@ mod tests {
         );
         assert_eq!(
             resolved.dns_hosts_path,
-            PathBuf::from("/etc/coredns/synapse.hosts")
+            PathBuf::from(format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME))
         );
     }
 
@@ -557,9 +559,9 @@ mod tests {
         assert_eq!(resolved.sudoers_dir, PathBuf::from("/etc/sudoers.d"));
         assert!(
             resolved.dns_service_path
-                == PathBuf::from("/etc/systemd/system/coredns-synapse.service")
+                == PathBuf::from(format!("/etc/systemd/system/coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
                 || resolved.dns_service_path
-                    == PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service")
+                    == PathBuf::from(format!("/etc/systemd/system/cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
         );
     }
 

@@ -79,11 +79,11 @@ mod tests {
             role: Some("build_runner".to_string()),
             provider_plane: "proxmox_guest".to_string(),
             ip: "10.10.10.4".to_string(),
-            names: vec!["forge".to_string(), "forge.synapse.cynic".to_string()],
+            names: vec!["forge".to_string(), "forge.service.cynic".to_string()],
             canonical: false,
         }]);
 
-        assert!(rendered.contains("10.10.10.4\tforge forge.synapse.cynic"));
+        assert!(rendered.contains("10.10.10.4\tforge forge.service.cynic"));
         assert!(rendered.contains("TEMPORARY CYNIC PROVIDER FALLBACK HOSTS"));
     }
 }

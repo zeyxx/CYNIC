@@ -18,7 +18,7 @@ use cynic_lifecycle::ports::artifact_publisher_port::ArtifactPublisher;
 /// HTTP PUT publisher targeting the runtime's provider_control endpoint.
 ///
 /// `base_url` is the registry `provider_control.endpoint` (e.g.
-/// `https://pve.synapse.cynic:8006`).
+/// `https://pve.service.cynic:8006`).
 #[derive(Clone)]
 pub struct HttpArtifactPublisher {
     pub base_url: String,
@@ -124,12 +124,12 @@ mod tests {
 
     #[test]
     fn url_builds_provenance_from_proof_sha() {
-        let pub_http = HttpArtifactPublisher::new("https://pve.synapse.cynic:8006");
+        let pub_http = HttpArtifactPublisher::new("https://pve.service.cynic:8006");
         let req = ArtifactPublicationRequest {
             proof_sha: "a7f5293c".into(),
             target: cynic_lifecycle::domain::artifact_publication::PublicationTarget {
                 node: "synapse".into(),
-                target: "pve.synapse.cynic".into(),
+                target: "pve.service.cynic".into(),
                 protocol: TransportProtocol::HttpPut,
             },
             artefact_name: "cynic".into(),
@@ -142,6 +142,6 @@ mod tests {
             req.proof_sha,
             req.artefact_name,
         );
-        assert_eq!(url, "https://pve.synapse.cynic:8006/a7f5293c/cynic");
+        assert_eq!(url, "https://pve.service.cynic:8006/a7f5293c/cynic");
     }
 }

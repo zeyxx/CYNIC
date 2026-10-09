@@ -794,7 +794,7 @@ mod tests {
     #[test]
     fn rest_observer_blocked_without_ca() {
         let result = ProxmoxRestAgentHostObserver::new(
-            "https://pve.synapse.cynic:8006",
+            "https://pve.service.cynic:8006",
             "cynic@pve!runtime",
             "secret",
             None, // no CA → must fail closed

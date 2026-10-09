@@ -254,7 +254,7 @@ fn node_control_config_loads_without_inference_sections() {
     file.write_all(
         br#"
 [node_control]
-kernel_url = "http://kernel.synapse.cynic:3030"
+kernel_url = "http://kernel.service.cynic:3030"
 node_id = "cynic-builder"
 signing_key_path = "/var/lib/cynic/identity/node-signing.key"
 enrollment_request_path = "/var/lib/cynic/identity/enrollment-request.json"
@@ -268,7 +268,7 @@ observed_capabilities = ["build_runner"]
 [node_control.build_scheduler]
 
 [node_control.build_scheduler.release_publication]
-artifact_base_url = "https://artifacts.synapse.cynic/releases"
+artifact_base_url = "https://artifacts.service.cynic/releases"
 authentication_kind = "bearer_file"
 work_root = "/var/lib/cynic/release-publication"
 signing_key_path = "/var/lib/cynic/identity/release-signing-key"
@@ -293,7 +293,7 @@ signer_identity = "cynic-release"
         .expect("release publication config");
     assert_eq!(
         publication.artifact_base_url,
-        "https://artifacts.synapse.cynic/releases"
+        "https://artifacts.service.cynic/releases"
     );
     assert_eq!(publication.authentication_kind, "bearer_file");
     assert_eq!(

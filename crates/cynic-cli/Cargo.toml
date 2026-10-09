@@ -46,6 +46,7 @@ cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
 cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
 cynic-discovery-host = { path = "../cynic-discovery-host" }
+cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 tokio = { version = "1", features = ["full"] }
 ratatui = { version = "0.29", default-features = true }
 crossterm = "0.28"

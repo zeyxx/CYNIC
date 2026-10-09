@@ -107,7 +107,7 @@ pub fn outcome_spec() -> OutcomeSpec {
                     ),
                     kpi(
                         "dns_zone_not_hardcoded",
-                        "lab DNS bundle contains labmesh.example and excludes synapse.cynic",
+                        "lab DNS bundle contains labmesh.example and excludes service.cynic",
                         "make lab-smoke exits 0",
                     ),
                     kpi(

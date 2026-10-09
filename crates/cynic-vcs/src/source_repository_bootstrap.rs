@@ -163,7 +163,7 @@ mod tests {
             schema: SOURCE_REPOSITORY_BOOTSTRAP_REQUEST_SCHEMA.into(),
             node_id: "builder".into(),
             repository_id: "cynic".into(),
-            source: "ssh://forgejo@forgejo.synapse.cynic:22/owner/CYNIC.git".into(),
+            source: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
             revision: "a".repeat(40),
         }
     }

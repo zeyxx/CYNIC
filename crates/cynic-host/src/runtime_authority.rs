@@ -69,16 +69,16 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
         helper_root: PathBuf::from("/usr/local/libexec"),
         sudoers_dir: PathBuf::from("/etc/sudoers.d"),
         service_unit_dir: PathBuf::from("/etc/systemd/system"),
-        dns_hosts_path: PathBuf::from("/etc/coredns/synapse.hosts"),
+        dns_hosts_path: PathBuf::from(format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME)),
         dns_corefile_path: PathBuf::from("/etc/coredns/Corefile"),
-        dns_service_path: if PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service").exists()
-            || PathBuf::from("/lib/systemd/system/cynic-dns-synapse.service").exists()
+        dns_service_path: if PathBuf::from(format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
+            || PathBuf::from(format!("/lib/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
         {
-            PathBuf::from("/etc/systemd/system/cynic-dns-synapse.service")
+            PathBuf::from(format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"))
         } else {
-            PathBuf::from("/etc/systemd/system/coredns-synapse.service")
+            PathBuf::from(format!("/etc/systemd/system/coredns-{SERVICE_DNS_SERVICE_FILENAME}"))
         },
-        resolved_dropin_path: PathBuf::from("/etc/systemd/resolved.conf.d/cynic-synapse-dns.conf"),
+        resolved_dropin_path: PathBuf::from(format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}")),
         // Install bundles are durable, inspectable activation artifacts. `/tmp`
         // is suitable only when an explicit lab layout injects it.
         host_exec_bundle_dir: staging_root.join("host-exec"),

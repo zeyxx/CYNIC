@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn reports_ready_when_targets_resolve_and_have_addressability() {
         let observer = FakeObserver {
-            resolver: parse_resolver_baseline("nameserver 1.1.1.1\nsearch synapse.cynic\n"),
+            resolver: parse_resolver_baseline("nameserver 1.1.1.1\nsearch service.cynic\n"),
             probes: vec![probe("crates.io", 443, Some(0), "151.101.1.63", "open")],
         };
 
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn to_host_proof_submission_maps_report_event_type_and_payload() {
         let observer = FakeObserver {
-            resolver: parse_resolver_baseline("nameserver 1.1.1.1\nsearch synapse.cynic\n"),
+            resolver: parse_resolver_baseline("nameserver 1.1.1.1\nsearch service.cynic\n"),
             probes: vec![probe("crates.io", 443, Some(0), "151.101.1.63", "open")],
         };
         let report =
@@ -438,11 +438,11 @@ mod tests {
     #[test]
     fn parser_extracts_nameservers_and_search_domains() {
         let baseline = parse_resolver_baseline(
-            "# comment\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch synapse.cynic corp\n",
+            "# comment\nnameserver 127.0.0.53\noptions edns0 trust-ad\nsearch service.cynic corp\n",
         );
 
         assert_eq!(baseline.nameservers, vec!["127.0.0.53"]);
-        assert_eq!(baseline.search_domains, vec!["synapse.cynic", "corp"]);
+        assert_eq!(baseline.search_domains, vec!["service.cynic", "corp"]);
         assert!(baseline.uses_local_stub);
     }
 

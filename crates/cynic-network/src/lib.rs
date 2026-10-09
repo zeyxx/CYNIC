@@ -9,6 +9,7 @@ pub mod actuator;
 pub mod adapters;
 pub mod discovery;
 pub mod dns;
+pub mod dns_resolver;
 pub mod firewall_policy;
 pub mod freebox;
 pub mod mesh_plan;
@@ -27,6 +28,7 @@ pub mod watchdog_alerter;
 pub use adapters::finance::NetworkFinanceMeter;
 pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
+pub use adapters::host_types::*;
 
 // Backward compatibility module aliases
 pub use adapters::finance as finance_adapters;
@@ -35,6 +37,7 @@ pub use adapters::headscale as headscale_client;
 pub use actuator::*;
 pub use discovery::*;
 pub use dns::*;
+pub use dns_resolver::{DnsEndpoint, DnsResolutionPort};
 pub use firewall_policy::*;
 pub use freebox::FreeboxProbePort;
 pub use mesh_plan::*;

@@ -123,13 +123,13 @@ mod tests {
               "network_policy": {{
                 "canonical_service_plane": "synapse",
                 "planes": {{
-                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "synapse.cynic"}},
+                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
                   "proxmox_guest": {{"cidr": "10.10.10.0/24"}}
                 }},
                 "reservations": [
-                  {{"name": "kernel", "dns": ["kernel.synapse.cynic"]}},
-                  {{"name": "staging", "dns": ["staging.synapse.cynic"]}},
-                  {{"name": "builder", "dns": ["builder.synapse.cynic"]}}
+                  {{"name": "kernel", "dns": ["kernel.service.cynic"]}},
+                  {{"name": "staging", "dns": ["staging.service.cynic"]}},
+                  {{"name": "builder", "dns": ["builder.service.cynic"]}}
                 ]
               }},
               "nodes": [
@@ -174,8 +174,8 @@ mod tests {
         assert_eq!(
             plan.critical_hosts,
             vec![
-                "builder.synapse.cynic".to_string(),
-                "kernel.synapse.cynic".to_string(),
+                "builder.service.cynic".to_string(),
+                "kernel.service.cynic".to_string(),
             ]
         );
         assert_eq!(
@@ -184,8 +184,8 @@ mod tests {
                 .map(|check| (check.host.as_str(), check.port))
                 .collect::<Vec<_>>(),
             vec![
-                ("builder.synapse.cynic", 22),
-                ("kernel.synapse.cynic", 3030),
+                ("builder.service.cynic", 22),
+                ("kernel.service.cynic", 3030),
             ]
         );
     }

@@ -103,7 +103,7 @@ pub fn parse_registry_network_specs(
                 .get("name")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
-            let mut hostnames = vec![name.to_string(), format!("{name}.synapse.cynic")];
+            let mut hostnames = vec![name.to_string(), format!("{name}.service.cynic")];
             if let Some(dns_arr) = res.get("dns").and_then(serde_json::Value::as_array) {
                 for d in dns_arr {
                     if let Some(s) = d.as_str() {
@@ -181,7 +181,7 @@ pub fn execute_network_sync(
             hosts_content.push_str(&format!("{}\t{}\n", record.ip, record.hostnames.join(" ")));
         }
         let _ = std::fs::create_dir_all("/etc/cynic/dns");
-        let hosts_path = std::path::Path::new("/etc/cynic/dns/synapse.hosts");
+        let hosts_path = std::path::Path::new(&format!("/etc/cynic/dns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME));
         if let Err(e) = std::fs::write(hosts_path, &hosts_content) {
             blockers.push(format!("write_synapse_hosts_failed:{e}"));
         }
@@ -238,7 +238,7 @@ mod tests {
                     {
                         "name": "agent-host",
                         "synapse": "10.10.10.102",
-                        "dns": ["agent-host.synapse.cynic"]
+                        "dns": ["agent-host.service.cynic"]
                     }
                 ]
             }

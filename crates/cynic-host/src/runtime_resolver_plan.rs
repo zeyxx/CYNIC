@@ -72,7 +72,7 @@ pub fn build_runtime_resolver_plan(targets: &[String]) -> RuntimeResolverPlanRep
             resolver_role: "restore external DNS and TCP reachability without owning internal service DNS",
             service_contract: "fetch-dependent runtime surfaces can resolve and connect to declared external targets",
             must_not_own: vec![
-                "synapse.cynic internal DNS zone",
+                "service.cynic internal DNS zone",
                 "CoreDNS bundle rendering",
                 "mesh provider selection",
                 "implicit host network mutation from diagnostics",
@@ -160,7 +160,7 @@ mod tests {
             report
                 .desired_state
                 .must_not_own
-                .contains(&"synapse.cynic internal DNS zone")
+                .contains(&"service.cynic internal DNS zone")
         );
         assert!(report.phases.iter().any(|phase| phase.phase == "execute"));
         assert!(

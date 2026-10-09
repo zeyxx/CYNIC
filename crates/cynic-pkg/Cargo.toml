@@ -9,6 +9,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
+cynic-network = { path = "../cynic-network" }
 cynic-protocol = { path = "../cynic-protocol" }
 serde.workspace = true
 serde_json.workspace = true

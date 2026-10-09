@@ -652,12 +652,12 @@ use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SC
                 registry_digest: format!("sha256:{}", "e".repeat(64)),
                 basket_source: RuntimeArtifactSource {
                     transport: RuntimeArtifactTransportKind::Https,
-                    locator: "https://artifacts.synapse.cynic/release-2.tar".to_string(),
+                    locator: "https://artifacts.service.cynic/release-2.tar".to_string(),
                 },
                 basket_path: "/var/lib/cynic/inbox/release-2.tar".to_string(),
                 detached_signature_source: RuntimeArtifactSource {
                     transport: RuntimeArtifactTransportKind::Https,
-                    locator: "https://artifacts.synapse.cynic/release-2.tar.sig".to_string(),
+                    locator: "https://artifacts.service.cynic/release-2.tar.sig".to_string(),
                 },
                 detached_signature_path: "/var/lib/cynic/inbox/release-2.tar.sig".to_string(),
                 allowed_signers_path: "/etc/cynic/runtime-allowed-signers".to_string(),

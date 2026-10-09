@@ -68,7 +68,7 @@ fn build_runtime_validation_report(
     write_satisfied_host_and_network_proofs(&network_proof_path)?;
     write_satisfied_architecture_boundary_proof(&architecture_proof_path)?;
     let lab_zone = registry_dns_zone(lab_registry_path)?;
-    let default_zone = "synapse.cynic";
+    let default_zone = "service.cynic";
 
     let steps = vec![
         run_json_validation_step_with_predicate(

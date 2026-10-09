@@ -21,11 +21,13 @@ pub enum Plane {
     Admin,
     /// WireGuard encrypted full-mesh between nodes.
     Mesh,
+    /// Operator LAN (internet-facing, non-federated).
+    Lan,
 }
 
 impl Plane {
     /// All canonical planes in canonical order.
-    pub const ALL: [Plane; 3] = [Plane::Service, Plane::Admin, Plane::Mesh];
+    pub const ALL: [Plane; 4] = [Plane::Service, Plane::Admin, Plane::Mesh, Plane::Lan];
 
     /// Parse a plane from its canonical string name.
     pub fn from_name(name: &str) -> Option<Plane> {
@@ -33,6 +35,7 @@ impl Plane {
             "service" => Some(Plane::Service),
             "admin" => Some(Plane::Admin),
             "mesh" => Some(Plane::Mesh),
+            "lan" => Some(Plane::Lan),
             _ => None,
         }
     }
@@ -43,6 +46,7 @@ impl Plane {
             Plane::Service => "service",
             Plane::Admin => "admin",
             Plane::Mesh => "mesh",
+            Plane::Lan => "lan",
         }
     }
 
@@ -52,6 +56,7 @@ impl Plane {
             Plane::Service => Some("service.cynic"),
             Plane::Admin => None,
             Plane::Mesh => None,
+            Plane::Lan => None,
         }
     }
 
@@ -61,6 +66,7 @@ impl Plane {
             Plane::Service => "canonical_service_plane",
             Plane::Admin => "administration_only",
             Plane::Mesh => "encrypted_transport_plane",
+            Plane::Lan => "operator_lan_non_federated",
         }
     }
 
@@ -70,6 +76,7 @@ impl Plane {
             Plane::Service => "CYNIC service endpoints — kernel, builder, storage, forgejo",
             Plane::Admin => "bare-metal management and hypervisor control",
             Plane::Mesh => "WireGuard encrypted full-mesh between nodes",
+            Plane::Lan => "Operator LAN (internet-facing, non-federated)",
         }
     }
 }
@@ -83,6 +90,7 @@ mod tests {
         assert_eq!(Plane::Service.name(), "service");
         assert_eq!(Plane::Admin.name(), "admin");
         assert_eq!(Plane::Mesh.name(), "mesh");
+        assert_eq!(Plane::Lan.name(), "lan");
     }
 
     #[test]
@@ -97,6 +105,7 @@ mod tests {
         assert_eq!(Plane::from_name("synapse"), None);
         assert_eq!(Plane::from_name("management"), None);
         assert_eq!(Plane::from_name("overlay"), None);
+        assert_eq!(Plane::from_name("lan"), Some(Plane::Lan));
         assert_eq!(Plane::from_name(""), None);
     }
 
@@ -105,6 +114,7 @@ mod tests {
         assert_eq!(Plane::Service.dns_zone(), Some("service.cynic"));
         assert_eq!(Plane::Admin.dns_zone(), None);
         assert_eq!(Plane::Mesh.dns_zone(), None);
+        assert_eq!(Plane::Lan.dns_zone(), None);
     }
 
     #[test]
@@ -112,6 +122,7 @@ mod tests {
         assert_eq!(Plane::Service.federation_scope(), "canonical_service_plane");
         assert_eq!(Plane::Admin.federation_scope(), "administration_only");
         assert_eq!(Plane::Mesh.federation_scope(), "encrypted_transport_plane");
+        assert_eq!(Plane::Lan.federation_scope(), "operator_lan_non_federated");
     }
 
     #[test]
@@ -122,6 +133,8 @@ mod tests {
         assert_eq!(json, "\"admin\"");
         let json = serde_json::to_string(&Plane::Mesh).unwrap();
         assert_eq!(json, "\"mesh\"");
+        let json = serde_json::to_string(&Plane::Lan).unwrap();
+        assert_eq!(json, "\"lan\"");
     }
 
     #[test]
@@ -132,5 +145,7 @@ mod tests {
         assert_eq!(plane, Plane::Admin);
         let plane: Plane = serde_json::from_str("\"mesh\"").unwrap();
         assert_eq!(plane, Plane::Mesh);
+        let plane: Plane = serde_json::from_str("\"lan\"").unwrap();
+        assert_eq!(plane, Plane::Lan);
     }
 }

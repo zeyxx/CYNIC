@@ -154,7 +154,7 @@ mod tests {
             base_sha: "1234abc".into(),
             mergeable: true,
             has_conflicts: false,
-            html_url: format!("http://forgejo.synapse.cynic/jeanterre13/CYNIC/pulls/{number}"),
+            html_url: format!("http://forgejo.service.cynic/jeanterre13/CYNIC/pulls/{number}"),
         }
     }
 

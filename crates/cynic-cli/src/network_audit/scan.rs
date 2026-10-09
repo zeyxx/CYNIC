@@ -83,7 +83,7 @@ pub fn build_network_audit(registry_path: &str) -> NetworkAuditReport {
                     peers: vec![],
                 },
                 dns: DnsAudit {
-                    zone: "synapse.cynic".to_string(),
+                    zone: "service.cynic".to_string(),
                     total_records: 0,
                     resolved_records: 0,
                     failed_records: 0,
@@ -331,7 +331,7 @@ fn audit_dns(
     }
 
     DnsAudit {
-        zone: "synapse.cynic".to_string(),
+        zone: "service.cynic".to_string(),
         total_records: records.len(),
         resolved_records: resolved,
         failed_records: failed,

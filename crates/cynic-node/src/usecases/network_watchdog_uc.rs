@@ -86,7 +86,7 @@ pub fn execute_network_watchdog(
 
     // 2. Observe DNS
     let dns = DnsServiceAssessment {
-        zone: "synapse.cynic".to_string(),
+        zone: "service.cynic".to_string(),
         total_records: 4,
         resolved_records: 4,
         failed_records: 0,

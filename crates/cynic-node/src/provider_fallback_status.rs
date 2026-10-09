@@ -127,11 +127,11 @@ mod tests {
               "network_policy": {{
                 "canonical_service_plane": "synapse",
                 "planes": {{
-                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "synapse.cynic"}},
+                  "synapse": {{"cidr": "10.20.0.0/24", "dns_zone": "service.cynic"}},
                   "proxmox_guest": {{"cidr": "10.10.10.0/24", "canonical": false}}
                 }},
                 "reservations": [
-                  {{"name": "forge", "synapse": "10.20.0.4", "dns": ["forge.synapse.cynic"]}}
+                  {{"name": "forge", "synapse": "10.20.0.4", "dns": ["forge.service.cynic"]}}
                 ]
               }},
               "nodes": [

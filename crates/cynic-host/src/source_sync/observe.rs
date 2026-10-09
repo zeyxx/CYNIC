@@ -432,8 +432,8 @@ mod tests {
     #[test]
     fn url_host_covers_ssh_https_and_scp_forms() {
         assert_eq!(
-            url_host("ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"),
-            Some("forgejo.synapse.cynic".to_string())
+            url_host("ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git"),
+            Some("forgejo.service.cynic".to_string())
         );
         assert_eq!(
             url_host("https://github.com/zeyxx/CYNIC.git"),
@@ -451,7 +451,7 @@ mod tests {
         // `origin` pointing at Forgejo must classify as sovereign, even though
         // the authority id for the relay is also named `origin`.
         let sovereign = Some(RemoteIdentity {
-            host: "forgejo.synapse.cynic".to_string(),
+            host: "forgejo.service.cynic".to_string(),
             owner: "jeanterre13".to_string(),
             repository: "CYNIC".to_string(),
         });
@@ -461,13 +461,13 @@ mod tests {
             repository: "CYNIC".to_string(),
         });
         assert!(matches_identity(
-            "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+            "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git",
             &sovereign,
             &relay,
             &SourceLayer::Forgejo,
         ));
         assert!(!matches_identity(
-            "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+            "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git",
             &sovereign,
             &relay,
             &SourceLayer::GitHub,

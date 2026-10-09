@@ -57,9 +57,9 @@ pub(crate) fn resolve_dns_activation_spec(
     let capabilities = layout.capabilities();
     let (service_unit, config_name, service_name) = if provider_name == "dnsmasq" {
         (
-            "cynic-dns-synapse.service".to_string(),
+            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
             "dnsmasq.conf".to_string(),
-            "cynic-dns-synapse.service".to_string(),
+            format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
         )
     } else {
         (
@@ -76,7 +76,7 @@ pub(crate) fn resolve_dns_activation_spec(
         (config_name, targets.corefile.clone()),
         (service_name, targets.service.clone()),
         (
-            "cynic-synapse-dns.conf".to_string(),
+            SERVICE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
             targets.resolved_dropin.clone(),
         ),
     ];

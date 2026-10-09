@@ -375,7 +375,7 @@ pub fn reconcile_health_signal(
             action: AutonomicActionKind::UnifyNameAuthority {
                 name: name.clone(),
                 conflicting_answers: answers.clone(),
-                authoritative_zone: "synapse.cynic".to_string(),
+                authoritative_zone: "service.cynic".to_string(),
             },
             reasoning: format!(
                 "{name} resolves {} different ways across {} vantage point(s); \

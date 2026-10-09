@@ -6,6 +6,8 @@
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+
+use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 use serde::{Deserialize, Serialize};
 
 pub const RELEASE_DEPLOY_REPORT_SCHEMA: &str = "cynic.pkg.release_deploy.report.v1";
@@ -760,7 +762,7 @@ mod tests {
     fn refuses_to_restart_non_service_unit_names() {
         // Pure validation: refused before any systemctl invocation.
         assert!(is_plain_service_unit("cynic-kernel.service"));
-        assert!(is_plain_service_unit("cynic-dns-synapse.service"));
+        assert!(is_plain_service_unit(cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME));
         for bad in ["reboot.target", "../evil.service", "/bin/sh", "a;rm -rf", ""] {
             assert!(!is_plain_service_unit(bad), "must refuse unit name: {bad:?}");
         }

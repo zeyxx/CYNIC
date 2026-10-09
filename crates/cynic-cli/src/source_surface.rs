@@ -72,7 +72,7 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
     let kind = ssot["kind"].as_str().unwrap_or("forgejo");
     let api_url = ssot["api_url"]
         .as_str()
-        .unwrap_or("http://forgejo.synapse.cynic:3000");
+        .unwrap_or("http://forgejo.service.cynic:3000");
     let owner = ssot["owner"].as_str().unwrap_or("jeanterre13");
     let repo = ssot["repo"].as_str().unwrap_or("CYNIC");
     let token_env = ssot["token_env"].as_str().unwrap_or("FORGEJO_TOKEN");

@@ -209,7 +209,7 @@ mod tests {
             disk_gb: 80,
             cores: 4,
             toolchain_pin: "1.95.0".to_string(),
-            repository_transport_uri: "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git".to_string(),
+            repository_transport_uri: "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git".to_string(),
             timeout_secs: 600,
             source_commit: "e5e8f718faafc3a751e05dc210aedb4386f3b8cf".to_string(),
         }

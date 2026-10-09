@@ -129,11 +129,11 @@ mod tests {
             KernelTcpTransport::from_kernel_url("http://192.168.100.2:3030", 2000).expect("parses");
         assert_eq!(t.host, "192.168.100.2");
         assert_eq!(t.port, 3030);
-        let t2 = KernelTcpTransport::from_kernel_url("http://kernel.synapse.cynic", 1000)
+        let t2 = KernelTcpTransport::from_kernel_url("http://kernel.service.cynic", 1000)
             .expect("parses default port");
         assert_eq!(t2.port, 80);
         // scheme-aware defaults: https without explicit port is 443, not 80
-        let t3 = KernelTcpTransport::from_kernel_url("https://kernel.synapse.cynic", 1000)
+        let t3 = KernelTcpTransport::from_kernel_url("https://kernel.service.cynic", 1000)
             .expect("parses https default");
         assert_eq!(t3.port, 443);
     }

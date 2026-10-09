@@ -130,7 +130,7 @@ fn resolves_legacy_plane_keys_through_canonical_fields() {
           "network_policy": {
             "canonical_service_plane": "service",
             "planes": {
-              "synapse": { "cidr": "10.20.0.0/24", "dns_zone": "synapse.cynic", "canonical": true }
+              "synapse": { "cidr": "10.20.0.0/24", "dns_zone": "service.cynic", "canonical": true }
             }
           },
           "nodes": [

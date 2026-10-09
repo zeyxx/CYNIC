@@ -273,7 +273,7 @@ impl DefaultForgejoTokenSpec {
         let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
             .or_else(|_| std::env::var("FORGEJO_API_URL"))
             .or_else(|_| std::env::var("FORGEJO_URL"))
-            .unwrap_or_else(|_| "http://forgejo.synapse.cynic:3000".to_string());
+            .unwrap_or_else(|_| "http://forgejo.service.cynic:3000".to_string());
         ForgejoTokenSpec {
             schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
             principal,
@@ -863,7 +863,7 @@ mod tests {
     #[test]
     fn http_adapter_absent_when_file_missing() {
         let http = HttpForgejoTokenApiAdapter {
-            api_base: "https://forgejo.synapse.cynic/api/v1".to_string(),
+            api_base: "https://forgejo.service.cynic/api/v1".to_string(),
             principal: "cynic-cortex".to_string(),
             authorization_token: None,
         };

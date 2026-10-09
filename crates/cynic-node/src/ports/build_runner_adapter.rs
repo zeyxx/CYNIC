@@ -151,7 +151,7 @@ pub const DEFAULT_SCCACHE_DIR: &str = "/var/lib/cynic/sccache";
 /// on PATH, so the wrapper must never rely on PATH resolution).
 pub const DEFAULT_SCCACHE_BIN: &str = "/var/lib/cynic/bin/sccache";
 /// Default source of truth for fresh checkouts.
-pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git";
+pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
 
 impl SshBuildRunner {
     fn ssh_target(&self) -> String {

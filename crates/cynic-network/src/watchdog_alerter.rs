@@ -92,7 +92,7 @@ mod tests {
                 never_seen_peers: 0,
             },
             dns_service: DnsServiceAssessment {
-                zone: "synapse.cynic".to_string(),
+                zone: "service.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
                 failed_records: 0,
@@ -135,7 +135,7 @@ mod tests {
                 never_seen_peers: 0,
             },
             dns_service: DnsServiceAssessment {
-                zone: "synapse.cynic".to_string(),
+                zone: "service.cynic".to_string(),
                 total_records: 6,
                 resolved_records: 6,
                 failed_records: 0,
