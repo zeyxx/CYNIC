@@ -7,7 +7,7 @@
 
 use std::sync::atomic::Ordering;
 
-use crate::domain::metrics::Metrics;
+use super::Metrics;
 
 /// φ⁻² — drop rate critical threshold.
 const PHI_INV2: f64 = 0.381_966_011_250_105;
