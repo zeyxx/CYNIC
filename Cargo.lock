@@ -902,16 +902,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-identity"
+name = "cynic-host-probes"
 version = "0.1.0"
 dependencies = [
- "blake3",
- "ed25519-dalek",
- "hex",
- "rand_core 0.6.4",
+ "chrono",
+ "cynic-finance",
+ "dirs",
+ "regex",
+ "reqwest 0.13.5",
  "serde",
- "tempfile",
- "thiserror 2.0.21",
+ "serde_json",
+ "sysinfo 0.37.2",
+ "tokio",
+ "toml",
+ "tracing",
+ "walkdir",
+ "which",
 ]
 
 [[package]]
