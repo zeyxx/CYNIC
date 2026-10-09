@@ -923,6 +923,7 @@ dependencies = [
  "axum",
  "cynic-eval",
  "cynic-finance",
+ "cynic-network",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",

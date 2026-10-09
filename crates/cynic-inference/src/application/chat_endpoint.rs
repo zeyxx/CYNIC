@@ -53,7 +53,7 @@ pub struct ChatEndpointResolution {
     pub config_path: Option<String>,
 }
 
-const DEFAULT_DNS_ZONE: &str = "service.cynic";
+use cynic_network::dns::DEFAULT_DNS_ZONE;
 
 /// Resolve chat backend. `prefer_ods` elevates ODS discovery before loopback-only probe.
 pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {

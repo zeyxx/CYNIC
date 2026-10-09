@@ -30,6 +30,7 @@ pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
 pub use adapters::host_types::*;
 
+
 // Backward compatibility module aliases
 pub use adapters::finance as finance_adapters;
 pub use adapters::headscale as headscale_client;

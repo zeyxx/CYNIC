@@ -99,9 +99,13 @@ mod tests {
 
     #[test]
     fn renders_corefile_syntax() {
-        let corefile = render_corefile("service.cynic", 5353, "/etc/coredns/synapse.hosts");
+        let corefile = render_corefile(
+            "service.cynic",
+            5353,
+            &format!("/etc/coredns/{SERVICE_DNS_HOSTS_FILENAME}"),
+        );
         assert!(corefile.contains("service.cynic:5353 {"));
-        assert!(corefile.contains("hosts /etc/coredns/synapse.hosts"));
+        assert!(corefile.contains(&format!("hosts /etc/coredns/{SERVICE_DNS_HOSTS_FILENAME}")));
     }
 
     #[test]
