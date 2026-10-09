@@ -1,13 +1,9 @@
 use crate::infra::backend_config::{AuthStyle, BackendType, InferenceBackendConfig};
-use crate::infra::config_loader::helpers::InferenceConfigError;
-use crate::infra::config_loader::helpers::load_inference_config_from_path_public as load_inference_config;
 use std::path::Path;
 
 use crate::infra::config_schema::{BackendsFile, OrgansFile};
 use crate::infra::config_types as cfg;
-use crate::infra::config_types::{
-    AuthStyle, BackendConfig, BackendRemediation, BackendType, OrganRemediation,
-};
+use crate::infra::config_types::{BackendConfig, BackendRemediation, OrganRemediation};
 
 fn load_file(path: &Path) -> Option<String> {
     super::helpers::load_file(path)
