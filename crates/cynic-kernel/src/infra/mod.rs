@@ -7,8 +7,6 @@ pub mod config_schema;
 pub mod config_storage;
 pub mod config_types;
 pub mod crypto;
-pub mod evidence_journal_file;
-pub mod local_spool;
 pub mod node_identity;
 pub mod runtime_secret;
 pub mod task_health;

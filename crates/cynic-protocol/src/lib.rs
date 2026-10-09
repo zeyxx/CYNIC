@@ -11,6 +11,7 @@ pub mod agent_mutation_gates;
 pub mod agent_recursion;
 pub mod agent_review;
 pub mod agent_session;
+pub mod evidence_journal;
 pub mod agentic_tool_call;
 pub mod allowance;
 

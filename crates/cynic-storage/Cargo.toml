@@ -8,6 +8,7 @@ description = "CYNIC Storage — sovereign SMR event-sourced WAL and embedded st
 publish = false
 
 [dependencies]
+chrono = "0.4"
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-consensus = { path = "../cynic-consensus" }
 cynic-finance = { path = "../cynic-finance" }

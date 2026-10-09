@@ -11,6 +11,8 @@ pub mod book;
 pub mod client_policy;
 pub mod controller;
 pub mod credential_sync;
+pub mod evidence_journal_file;
+pub mod local_spool;
 pub mod error;
 pub mod finance_adapters;
 pub mod identity;
