@@ -9,13 +9,9 @@ pub mod dns_resolver;
 pub mod finance;
 pub mod headscale;
 pub mod host_probe;
-pub mod host_environment;
-pub mod host_hardware;
-pub mod host_llm;
-pub mod host_types;
 
 pub use dns_resolver::RegistryDnsResolver;
 pub use finance::NetworkFinanceMeter;
 pub use headscale::{HeadscaleClient, HeadscaleConfig};
 pub use host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
-pub use host_types::*;
+

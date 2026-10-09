@@ -28,7 +28,7 @@ pub mod watchdog_alerter;
 pub use adapters::finance::NetworkFinanceMeter;
 pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
-pub use adapters::host_types::*;
+
 
 
 // Backward compatibility module aliases
