@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod domain;
 pub mod agent;
 pub mod agent_access;
 pub mod agent_host;
@@ -24,6 +25,7 @@ pub mod credential_provisioning;
 pub mod crypto;
 pub mod development_genesis;
 pub mod domain;
+pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
 pub mod federation_runtime;

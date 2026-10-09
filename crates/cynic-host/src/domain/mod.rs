@@ -1,3 +1,4 @@
+pub mod agent_session;
 pub mod bootstrap;
 pub mod branch_graph;
 pub mod build_artefact;

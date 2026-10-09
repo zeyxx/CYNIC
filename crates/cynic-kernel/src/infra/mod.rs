@@ -1,4 +1,3 @@
-pub mod agent_session_sqlite;
 pub mod backend_config;
 pub mod backend_config_test;
 pub mod config;

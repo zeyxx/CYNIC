@@ -53,6 +53,7 @@ ed25519-dalek.workspace = true
 regex = "1"
 walkdir.workspace = true
 thiserror.workspace = true
+rusqlite = { version = "0.31", features = ["bundled"] }
 rand = "0.8"
 rpassword = "7.5.4"
 

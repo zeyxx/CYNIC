@@ -1,4 +1,3 @@
-pub mod agent_session;
 pub mod constants;
 pub mod events;
 pub mod observation_counters;
