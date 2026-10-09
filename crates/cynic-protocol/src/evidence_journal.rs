@@ -87,7 +87,7 @@ pub fn compute_entry_hash(
     sealed_at_unix_s: i64,
 ) -> String {
     let input = (payload_digest, prev_hash, sequence, sealed_at_unix_s).serialize_bytes();
-    cynic_protocol::digest::digest_bytes(&input)
+    crate::digest::digest_bytes(&input)
 }
 
 /// Per-entry structural validation (mirrors `validate_journal_entry`).
@@ -105,10 +105,10 @@ pub fn validate_evidence_entry(entry: &EvidenceJournalEntry) -> Vec<&'static str
     if entry.event_type.trim().is_empty() {
         violations.push("evidence_journal_event_type_missing");
     }
-    if cynic_protocol::digest::validate_digest(&entry.payload_digest, true).is_err() {
+    if crate::digest::validate_digest(&entry.payload_digest, true).is_err() {
         violations.push("evidence_journal_payload_digest_invalid");
     }
-    if cynic_protocol::digest::validate_digest(&entry.entry_hash, false).is_err() {
+    if crate::digest::validate_digest(&entry.entry_hash, false).is_err() {
         violations.push("evidence_journal_entry_hash_not_canonical");
     }
     violations
