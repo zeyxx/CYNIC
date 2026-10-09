@@ -24,7 +24,6 @@ pub mod credential;
 pub mod credential_provisioning;
 pub mod crypto;
 pub mod development_genesis;
-pub mod domain;
 pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
