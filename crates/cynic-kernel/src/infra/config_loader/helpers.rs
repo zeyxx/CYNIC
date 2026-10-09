@@ -38,7 +38,7 @@ pub enum InferenceConfigError {
     Parse {
         path: PathBuf,
         #[source]
-        toml::de::Error,
+        source: toml::de::Error,
     },
 
     #[error(
