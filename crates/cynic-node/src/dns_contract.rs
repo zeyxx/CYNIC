@@ -5,6 +5,7 @@ use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 use crate::network_command_surface::{
+use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
     NetworkCommandSurface, argv_command, expectation, package_presence_command,
 };
 

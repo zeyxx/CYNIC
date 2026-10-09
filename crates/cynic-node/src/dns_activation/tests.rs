@@ -5,6 +5,7 @@ use super::decision::plan_dns_activation;
 use super::registry::resolve_dns_activation_spec;
 use super::rollback::rollback_matches;
 use super::types::{
+use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
     DnsActivationFileObservation, DnsActivationFileSpec, DnsActivationObservation,
     DnsActivationSpec,
 };

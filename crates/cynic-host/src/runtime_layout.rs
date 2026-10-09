@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
+use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostCapabilities {
