@@ -38,7 +38,7 @@ notify = { version = "7", default-features = false, features = ["macos_kqueue"] 
 chrono.workspace = true
 sysinfo = "0.33"
 tempfile = "3"
-sha2 = "0.10.8"
+sha2.workspace = true
 hex.workspace = true
 base64.workspace = true
 ed25519-dalek.workspace = true
@@ -64,7 +64,7 @@ cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 async-trait.workspace = true
 axum.workspace = true
-hmac = "0.12"
+hmac.workspace = true
 uuid.workspace = true
 
 [target.'cfg(unix)'.dependencies]

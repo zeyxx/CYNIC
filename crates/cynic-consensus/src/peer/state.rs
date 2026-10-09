@@ -86,6 +86,6 @@ impl PeerState {
         use sha2::{Digest, Sha256};
         let canonical_json = serde_json::to_string(self).unwrap_or_default();
         let hash = Sha256::digest(canonical_json.as_bytes());
-        format!("{:x}", hash)
+        hex::encode(hash)
     }
 }
