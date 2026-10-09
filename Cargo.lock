@@ -888,6 +888,7 @@ dependencies = [
  "regex",
  "reqwest 0.13.5",
  "rpassword",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha1",
@@ -1002,12 +1003,10 @@ dependencies = [
  "bytes",
  "chrono",
  "cynic-askesis",
- "cynic-forensics",
  "cynic-node-protocol",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-storage",
- "cynic-workload",
  "dirs",
  "dotenvy",
  "ed25519-dalek",
@@ -1303,6 +1302,7 @@ name = "cynic-storage"
 version = "0.8.0"
 dependencies = [
  "bytes",
+ "chrono",
  "cynic-consensus",
  "cynic-finance",
  "cynic-protocol",
