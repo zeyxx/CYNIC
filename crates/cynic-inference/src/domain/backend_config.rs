@@ -1,4 +1,5 @@
-//! Inference adapter configuration values.
+//! Kernel-owned inference backend configuration types.
+//! Extracted from cynic-inference to eliminate upward dependency.
 
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ pub enum BackendType {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AuthStyle {
-    /// `Authorization: Bearer <key>` header.
+    /// `Authorization: Bearer *** header.
     Bearer,
     /// Key appended as a query parameter: `?<param>=<key>`.
     QueryParam { param: String },
@@ -26,10 +27,6 @@ pub enum AuthStyle {
 }
 
 /// Full configuration for one inference backend.
-///
-/// Designed to deserialize from a `[[backend]]` TOML table.
-/// Secrets (api_key) come from the env via the loader — never stored as
-/// plain text in the config file written to disk.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceBackendConfig {
     /// Stable identifier used as routing key and in logs.
@@ -78,8 +75,6 @@ pub struct InferenceBackendConfig {
     #[serde(default)]
     pub cli_extra_args: Vec<String>,
     /// True ↔ this backend runs locally under CYNIC sovereign control.
-    /// Sovereign backends are preferred when `RoutingConstraint::SovereignOnly`
-    /// is active and are never gated on external API keys.
     #[serde(default)]
     pub sovereign: bool,
 }

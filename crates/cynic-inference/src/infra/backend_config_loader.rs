@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::infra::backend_config::InferenceBackendConfig;
+use crate::domain::backend_config::InferenceBackendConfig;
 
 /// Top-level TOML document shape: `[[backend]]` array of tables.
 #[derive(Debug, Deserialize)]

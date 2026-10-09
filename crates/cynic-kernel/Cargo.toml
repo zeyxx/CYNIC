@@ -22,7 +22,8 @@ cynic-workload = { path = "../cynic-workload" }
 # cynic-intel and cynic-intel-soc removed: re-exports only, no source imports
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-storage = { path = "../cynic-storage" }
-cynic-forensics = { path = "../cynic-forensics" }
+# cynic-forensics removed: phantom dependency (no source imports)
+# cynic-inference removed: backend config extracted to cynic-inference
 # cynic-eval removed: pre-existing compile error (typo Eeserialize)
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 dotenvy = "0.15"
