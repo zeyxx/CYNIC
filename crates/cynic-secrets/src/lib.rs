@@ -14,8 +14,11 @@
 
 pub mod adapters;
 pub mod composite;
+pub mod error;
+pub mod identity;
 pub mod ports;
 pub mod protocol;
+pub mod types;
 
 // Re-export canonical secret types from cynic-protocol — no duplication.
 pub use cynic_protocol::secret_reference::{
@@ -31,6 +34,9 @@ pub use protocol::{
     SecretEntry, SecretError, SecretStatus, SecretUseExecutionReport, SecretUseHandle,
     SecretUseOutcome, SECRET_USE_EXECUTION_SCHEMA,
 };
+// Re-export identity types (merged from cynic-identity).
+pub use error::IdentityError;
+pub use types::{NodeId, NodeIdentity, SigningMaterial};
 
 /// V1 resolution helper — resolves an env var through the standard provider.
 ///
