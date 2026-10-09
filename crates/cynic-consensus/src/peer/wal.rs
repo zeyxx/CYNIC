@@ -72,7 +72,7 @@ pub fn calculate_entry_hash(
     hasher.update(sequence.to_le_bytes());
     hasher.update(timestamp_unix_s.to_le_bytes());
     hasher.update(tx_canonical.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

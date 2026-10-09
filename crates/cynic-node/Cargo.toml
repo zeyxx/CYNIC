@@ -64,7 +64,7 @@ cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 async-trait.workspace = true
 axum.workspace = true
-hmac = "0.12"
+hmac.workspace = true
 uuid.workspace = true
 
 [target.'cfg(unix)'.dependencies]

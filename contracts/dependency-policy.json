@@ -1,0 +1,111 @@
+{
+  "schema": "cynic.dependency_policy.v1",
+  "description": "Canonical dependency policy for the CYNIC workspace. All crates must use workspace dependencies to prevent version conflicts and supply chain attacks.",
+  "version": "1.0.0",
+  "rules": {
+    "workspace_canonical": {
+      "description": "Any dependency shared by 2+ crates must be declared in [workspace.dependencies] and consumed via .workspace = true",
+      "severity": "deny",
+      "detection": "grep -l 'dep_name = \"ver\"' crates/*/Cargo.toml | wc -l > 1",
+      "rationale": "Prevents version conflicts and ensures single source of truth"
+    },
+    "lockfile_committed": {
+      "description": "Cargo.lock must be committed and up-to-date",
+      "severity": "deny",
+      "detection": "git diff --name-only HEAD | grep Cargo.lock",
+      "rationale": "Ensures reproducible builds and prevents supply chain drift"
+    },
+    "no_unvetted_git_deps": {
+      "description": "No git dependencies unless explicitly approved in registry.json",
+      "severity": "deny",
+      "detection": "grep 'git =' crates/*/Cargo.toml | grep -v 'registry.json'",
+      "rationale": "Git dependencies bypass crates.io audit and are supply chain risks"
+    },
+    "audit_required": {
+      "description": "cargo audit must pass before merge",
+      "severity": "deny",
+      "detection": "cargo audit --json",
+      "rationale": "Detects known vulnerabilities in dependencies"
+    },
+    "registry_allowlist": {
+      "description": "Only registries listed in .cargo/config.toml are permitted",
+      "severity": "deny",
+      "detection": "cat .cargo/config.toml",
+      "rationale": "Prevents dependency confusion attacks via rogue registries"
+    },
+    "no_duplicate_packages": {
+      "description": "No duplicate packages in cargo tree (same crate, different versions)",
+      "severity": "warn",
+      "detection": "cargo tree --duplicates",
+      "rationale": "Duplicates increase attack surface and binary size"
+    }
+  },
+  "workspace_dependencies": {
+    "description": "Canonical versions for all shared dependencies",
+    "current_count": 25,
+    "target_count": 32,
+    "missing": [
+      "regex",
+      "anyhow",
+      "getrandom",
+      "libc",
+      "hmac",
+      "tokio-tungstenite",
+      "url",
+      "ulid"
+    ]
+  },
+  "conflicts": {
+    "description": "Active version conflicts that must be resolved",
+    "count": 5,
+    "items": [
+      {
+        "name": "thiserror",
+        "versions": ["1", "2.0"],
+        "target": "2.0",
+        "crates_on_v1": ["cynic-host", "cynic-inference-runtime", "cynic-pool"],
+        "crates_on_v2": 14
+      },
+      {
+        "name": "sha2",
+        "versions": ["0.10", "0.11"],
+        "target": "0.10",
+        "crates_on_0.10": 14,
+        "crates_on_0.11": ["cynic-kernel"]
+      },
+      {
+        "name": "sysinfo",
+        "versions": ["0.33", "0.37", "0.39"],
+        "target": "0.37",
+        "crates": {
+          "0.33": ["cynic-node"],
+          "0.37": ["cynic-host-probes", "cynic-kernel"],
+          "0.39": ["cynic-host"]
+        }
+      },
+      {
+        "name": "rand",
+        "versions": ["0.8", "0.9"],
+        "target": "0.9",
+        "crates_on_0.8": ["cynic-host"],
+        "crates_on_0.9": ["cynic-agent-bus", "cynic-kernel"]
+      },
+      {
+        "name": "hex",
+        "versions": ["0.4", "0.4.3"],
+        "target": "0.4",
+        "crates_on_0.4": ["cynic-eval"],
+        "crates_on_0.4.3": ["cynic-agent-bus"]
+      }
+    ]
+  },
+  "validation": {
+    "commands": [
+      "cargo check --workspace",
+      "cargo test --workspace",
+      "cargo tree --duplicates",
+      "cargo audit --json"
+    ],
+    "ci_gate": true
+  }
+}

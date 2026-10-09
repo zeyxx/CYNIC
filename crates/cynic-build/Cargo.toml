@@ -15,7 +15,7 @@ cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.10"
+sha2.workspace = true
 chrono.workspace = true
 hex.workspace = true
 thiserror = "2.0"
