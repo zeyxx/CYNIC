@@ -30,3 +30,4 @@ pub mod domain;
 pub mod infra;
 pub mod introspection;
 pub mod json;
+pub mod ports;

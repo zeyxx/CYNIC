@@ -18,7 +18,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use cynic_eval::evidence_journal::{
+// TEMP: cynic-eval dependency removed for spike (pre-existing Eeserialize typo)
+use crate::domain::metrics::{
     EVIDENCE_JOURNAL_SCHEMA, EvidenceJournalEntry, compute_entry_hash, validate_evidence_chain,
 };
 

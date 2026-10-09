@@ -121,12 +121,15 @@ pub fn canonical_provider_for_role(role: MeshRole) -> Option<MeshProviderBinding
         .find(|b| b.role == role && b.canonical_for_role)
 }
 
-// The mesh model is owned by `cynic-core`, which holds no I/O. `cynic-network`
+// The mesh model is owned by `cynic-types`, which holds no I/O. `cynic-network`
 // keeps its I/O in `adapters/`, so it re-exports the model rather than defining
 // a second one. That is the pure/impure split, enforced in both directions by
-// `cynic-core/tests/architecture_boundary.rs`. It is not backward compatibility:
-// no earlier shape is being preserved.
-// NetworkMesh types were moved to mesh_plan.rs after cynic-core was merged into cynic-types.
+// the architecture boundary test. It is not backward compatibility: no earlier
+// shape is being preserved.
+pub use cynic_types::fleet_mesh::{
+    NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan,
+    NetworkMeshRoute, NetworkMeshService, WireguardMeshAssessment,
+};
 
 
 /// Observation result for network substrate, following the 4-layer model

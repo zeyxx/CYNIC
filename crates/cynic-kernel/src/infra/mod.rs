@@ -1,4 +1,6 @@
 pub mod agent_session_sqlite;
+pub mod backend_config;
+pub mod backend_config_test;
 pub mod config;
 pub mod config_loader;
 pub mod config_schema;

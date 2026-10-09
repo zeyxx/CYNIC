@@ -404,7 +404,7 @@ pub fn append_dog_metrics(
 /// Append observation quality metrics from DogStats snapshots.
 pub fn append_observation_metrics(
     out: &mut String,
-    snapshots: &[(String, cynic_eval::eval::dog_health::DogStats)],
+    snapshots: &[(String, super::DogStats)],
 ) {
     use std::fmt::Write;
 
@@ -577,7 +577,7 @@ mod tests {
 
     #[test]
     fn observation_metrics_renders_correctly() {
-        let stats = cynic_eval::eval::dog_health::DogStats::new();
+        let stats = super::DogStats::new();
         let snapshots = vec![("test-dog".to_string(), stats)];
         let mut out = String::new();
         append_observation_metrics(&mut out, &snapshots);
