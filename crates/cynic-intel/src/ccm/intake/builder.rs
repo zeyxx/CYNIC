@@ -95,7 +95,7 @@ pub fn build_observation_with_ledger(
         context.as_deref().unwrap_or(""),
         value.as_ref().map(|v| v.to_string()).unwrap_or_default(),
     );
-    let hash = hex::encode(content_hash(&hash_input));
+    let hash = hex::encode(content_hash(&hash_input).to_le_bytes());
 
     let confidence_str = confidence.unwrap_or_else(|| "observed".into());
     let consensus_score = match confidence_str.as_str() {

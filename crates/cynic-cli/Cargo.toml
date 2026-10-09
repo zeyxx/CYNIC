@@ -55,7 +55,7 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 # node_activation_surface hashes an identity public key for its report digest.
 # Versions match cynic-node / cynic-protocol so the CLI does not pull a second
 # copy of sha2 into the graph.
-sha2 = "0.10.8"
+sha2.workspace = true
 hex.workspace = true
 libc = "0.2"
 rustix = { version = "1", features = ["fs"] }

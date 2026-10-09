@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use cynic_network::FreeboxProbePort;
 use cynic_network::{FREEBOX_LAN_OBSERVATION_SCHEMA, FreeboxHostEntry, FreeboxLanObservation};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use serde_json::Value;
 use sha1::Sha1;
 

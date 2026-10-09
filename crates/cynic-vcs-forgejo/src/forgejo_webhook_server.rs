@@ -139,6 +139,7 @@ fn verify_signature(secret: &str, body: &[u8], signature: &str) -> bool {
         Ok(bytes) => bytes,
         Err(_) => return false,
     };
+    use hmac::KeyInit;
     let mut mac = match Hmac::<Sha256>::new_from_slice(secret.as_bytes()) {
         Ok(mac) => mac,
         Err(_) => return false,
