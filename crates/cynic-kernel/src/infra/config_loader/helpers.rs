@@ -124,7 +124,7 @@ pub(crate) fn resolve_runtime_registry_path(_override: Option<&str>) -> Result<P
         .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".config")))
         .map(|base| base.join("cynic").join("registry.json"));
 
-    if let Some(ref p) = user_path {
+    if let Ok(ref p) = user_path {
         if p.exists() {
             return Ok(p.clone());
         }
