@@ -419,7 +419,7 @@ impl AuditRule for CrateTopologyRule {
                      in pending_disposition"
                 ),
                 "Fuse it, delete it, or record why it exists. See \
-                 infra/CRATE_FUSION_DISPOSITIONS.md.",
+                 contracts/crate-fusion-dispositions.json.",
             ));
         }
 

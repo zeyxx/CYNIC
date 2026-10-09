@@ -1,0 +1,130 @@
+{
+  "schema": "cynic.audit.crate_fusion.v1",
+  "status": "decision_proposal",
+  "method": "read-only observation plus one correction slice already landed separately. No crate was fused, split, or created in producing this.",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "infra/runtime-authority.json",
+    "infra/directory-tree.json",
+    "infra/registry.json",
+    "Cargo.toml workspace",
+    "canonical crates",
+    "infra/agent-exposure.json"
+  ],
+  "decision_rule": {
+    "source": "contracts/pruning-policy.json",
+    "crate_justified": "five conditions for a crate to earn its existence",
+    "suspect_over_splitting": "A crate is too small, too tightly coupled to one consumer, and has no strong reason to live on its own → Candidate for fusion or return to a module"
+  },
+  "companions": {
+    "WORKSPACE_ORPHAN_DECISIONS.md": "owns unreachable .rs files inside crates",
+    "DIRECTORY_STRUCTURE_AUDIT.md": "owns the filesystem arborescence"
+  },
+  "global_view": {
+    "total_crates": 47,
+    "total_loc": 388747,
+    "mean_loc_per_crate": 8300,
+    "distribution": {
+      "0_to_7_loc": 1,
+      "under_500_loc": 7,
+      "500_to_3000_loc": 19,
+      "over_25000_loc": 6,
+      "over_50000_loc": 2
+    },
+    "god_objects_over_25k": ["cynic-host 89851", "cynic-node 58327"],
+    "core_problem": "Simultaneous fragmentation at small end and god-object growth at large end. Extraction performed as ritual rather than consequence."
+  },
+  "measured_dependents": [
+    {
+      "crate": "cynic-inference-runtime",
+      "src_loc": 6,
+      "test_loc": 0,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "delete",
+      "rationale": "6 LOC, 0 public items, 0 dependents. 14 phantom dependencies in Cargo.toml. CANONICAL_CRATE_MAP labels it 'composition shell (stub, 6 LOC)'."
+    },
+    {
+      "crate": "cynic-domain-askesis",
+      "src_loc": 67,
+      "test_loc": 0,
+      "direct_dependents": 0,
+      "public_items": 3,
+      "disposition": "fuse into cynic-askesis",
+      "rationale": "One function archive_zone_backup. Name violates R3 (-domain banned prefix). Zero shared public names with parent."
+    },
+    {
+      "crate": "cynic-channel",
+      "src_loc": 283,
+      "test_loc": 40,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "fuse into natural parent",
+      "rationale": "0 dependents, 0 public items. AGENTS.md names it L2. Rename preserves a boundary nothing crosses."
+    },
+    {
+      "crate": "cynic-pool",
+      "src_loc": 744,
+      "test_loc": 46,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "fuse",
+      "rationale": "0 dependents, 0 public items. cli feature declared but never conditioned. Map already votes ORPHAN (rename: cynic-agent-pool)."
+    },
+    {
+      "crate": "cynic-host-probes",
+      "src_loc": 1129,
+      "test_loc": 22,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "decide by publication intent",
+      "rationale": "1129 LOC, 0 dependents, 0 public items but own version 0.1.0 + description. Commit 2e6f7210 makes probe functions pub 'reusable probe library'. Condition: is it published to registry + external consumer? If neither, fuse into cynic-host."
+    },
+    {
+      "crate": "cynic-identity",
+      "src_loc": 185,
+      "test_loc": 53,
+      "direct_dependents": 0,
+      "public_items": 0,
+      "disposition": "fuse once API surface read",
+      "rationale": "0 dependents, 0 public items. cynic-types has 4 dependents and earns its place; cynic-identity has 0 and does not. Same layer, opposite verdicts, decided by consumption."
+    },
+    {
+      "crate": "cynic-intel-futarchy",
+      "src_loc": 213,
+      "test_loc": 0,
+      "direct_dependents": 1,
+      "public_items": 5,
+      "disposition": "delete (clone, not fuse)",
+      "rationale": "All 5 public names shared with cynic-intel. cpmm.rs (138 LOC) and vault.rs (69) differ from cynic-intel counterparts by single use line. cynic-intel dependency declared — extraction removed nothing. R7 forbids micro-crate cascades."
+    },
+    {
+      "crate": "cynic-agent-bus-server",
+      "src_loc": 91,
+      "test_loc": 0,
+      "direct_dependents": 1,
+      "public_items": 1,
+      "disposition": "keep, rename in place",
+      "rationale": "Thin axum Router projection — real deployment shape. pruning-policy excludes modules with distinct service requirement. 3-way split (agent-bus 908 / server 113 / coordinator 479) with zero shared public names is well-formed constellation."
+    },
+    {
+      "crate": "cynic-discovery + cynic-discovery-host",
+      "src_loc": [352, 220],
+      "test_loc": [0, 0],
+      "direct_dependents": [2, 1],
+      "public_items": [0, 3],
+      "disposition": "fuse into one, or keep both deliberately",
+      "rationale": "Discovery-host already depends on discovery. Map names them for renames to node-discovery and host-discovery (different layers). Evidence genuinely ambiguous — owner's call. Do not rename first and decide later."
+    }
+  ],
+  "control": {
+    "crate": "cynic-askesis",
+    "src_loc": 2373,
+    "direct_dependents": 3,
+    "public_items": 56,
+    "verdict": "passes condition 3 of crate_justified — public API genuinely reused"
+  },
+  "missing_gate": "No test asserts a crate has a consumer, no rule that a new crate must justify itself. Proposed fix: for each workspace member, assert it is either a binary, or has at least one dependent, or appears on an explicit allow-list with written reason.",
+  "not_enforced": "The same gap as the LOC ratchet, which compiled but never ran. No test asserts a crate's consumer count."
+}

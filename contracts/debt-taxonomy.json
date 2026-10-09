@@ -1,0 +1,44 @@
+{
+  "schema": "cynic.debt_taxonomy.v1",
+  "status": "normative",
+  "purpose": "Canonical debt taxonomy for CYNIC organism. Source for cynic-debt-audit and debt-audit --json.",
+  "iteration": 54,
+  "frozen": true,
+  "frozen_date": "2026-08-31",
+  "roi_formula": "(unlock + risk * blast) / (effort + residual_cost)",
+  "debt_classes": [
+    {
+      "id": "Layer4",
+      "name": "Host 4 Layers",
+      "family": "host",
+      "description": "Host 4 layers not owned — disk/memory/CPU/network families without per-layer owner (physical/volume/usage/pressure). Lower layer missing but reported 'ok' instead of residual unknown. Type in CLI instead of cynic_protocol.",
+      "examples": [
+        "disk pressure none reported ok",
+        "memory PSI not read",
+        "NIC link not owned"
+      ],
+      "false_observation": "host coherent but lower layer empty fabricated",
+      "fix": "Host substrate observation layering — 4 layers per family, types in cynic_protocol::<family>, parsers in cynic_host::domain::<family>::probe, observe port Local/Remote, FleetReport",
+      "references": ["AGENTS.md Host substrate observation layering (4 layers)", "C11/Layer1"]
+    },
+    {
+      "id": "SecretClass",
+      "name": "Secret Classes",
+      "family": "secrets",
+      "description": "Secret class violated — secret used outside when (HumanAdmin at runtime, MachineEnrollment not one-time, RuntimeMachineIdentity missing). Runtime depends on HumanAdmin, secret in git/chat/proof.",
+      "examples": [
+        "runtime HumanAdmin sudo",
+        "llama API key in TOML git",
+        "FORGEJO_TOKEN in remote URL"
+      ],
+      "false_observation": "secret managed but class violated, HumanAdmin at runtime",
+      "fix": "Secrets — 4 classes (HumanAdmin bootstrap only, MachineEnrollment first join, Recovery breakglass, RuntimeMachineIdentity steady-state) + placement env/file/adapter, never git",
+      "references": ["AGENTS.md Secrets", "D17/D21/D24"]
+    }
+  ],
+  "history": {
+    "iteration_53_to_54": "+Layer4 +SecretClass1. 121 brutes / 119 effective. 54 iterations. Doubt close — next iteration requires live grep to prove distinct family not duplicated (ex: CLI thinness 200/400, surface grammar, shared helpers, sovereignty relay) otherwise exhaustion.",
+    "closed_axes": ["inventories 1-7", "cross-scale 1-8", "harness/session", "industrial/git", "agent/fractal", "compass/gate", "host/secrets"],
+    "remaining": ["CLI thinness thresholds", "surface/audit grammar", "shared helpers", "sovereignty relay details"]
+  }
+}

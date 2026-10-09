@@ -48,7 +48,7 @@
       "status": "superseded",
       "load_bearing": false,
       "superseded_by": "CLM-0001",
-      "home": "docs/CYNIC_TECHNICAL_WHITEPAPER.md:23",
+      "home": "docs/foundation/WHITEPAPER.md:23",
       "note": "Superseded framing. Describes an architecture whose organs, dogs and crystals are listed in foundation.json deleted_authorities."
     },
     {
@@ -57,7 +57,7 @@
       "status": "superseded",
       "load_bearing": false,
       "superseded_by": "CLM-0001",
-      "home": "docs/CYNIC_ORGANISM_ROADMAP.md:9-11",
+      "home": "docs/archive/CYNIC_ORGANISM_ROADMAP.md:9-11",
       "note": "Superseded. 'Autonomous' and 'self-improving' contradict CONSTITUTION.md 3.1 no self-amplification and 3.2 no self-judgment."
     },
     {
@@ -66,7 +66,7 @@
       "status": "superseded",
       "load_bearing": false,
       "superseded_by": "CLM-0001",
-      "home": "docs/CYNIC_NATION_ANTHROPOLOGY.md:42-59",
+      "home": "docs/archive/CYNIC_NATION_ANTHROPOLOGY.md:42-59",
       "note": "Superseded. Contradicts 'the human is the constituent power' and adds a counterparty a single operator does not have."
     },
     {
@@ -133,7 +133,7 @@
       "statement": "cynic dev is the machine-readable projection of the framework and agent-exposure ledgers.",
       "status": "falsified",
       "load_bearing": true,
-      "home": "WHITEPAPER.md:567, infra/runtime-authority.json:215, infra/verticals/*/intent.json",
+      "home": "docs/foundation/WHITEPAPER.md:567, infra/runtime-authority.json:215, infra/verticals/*/intent.json",
       "falsifier": "n/a — refuted.",
       "note": "DEFECT. The verb dev is absent from cli_args.rs. Consequently contracts/release-gates.json gate architecture_boundary calls `cynic dev check --architecture-only` and is structurally impossible to satisfy, and 12 Makefile targets guarded by require_surface cannot run."
     },
@@ -151,7 +151,7 @@
       "statement": "Every durable rule declares dimension, scale, layer, authority, enforcement, and exception path.",
       "status": "partial",
       "load_bearing": true,
-      "home": "docs/CYNIC_ORGANISM_POLICY_MATRIX.md:19-26",
+      "home": "docs/archive/CYNIC_ORGANISM_POLICY_MATRIX.md:19-26",
       "falsifier": "A rule in contracts/ missing any of the six fields.",
       "note": "The six fields are required of rules; no rule in contracts/ is currently expressed in them. The schema and its population are both absent."
     },
@@ -178,7 +178,7 @@
       "statement": "A market converges on truth and detects collusion.",
       "status": "falsified",
       "load_bearing": false,
-      "home": "infra/MARKET_OPEN_QUESTIONS.md Q4, Q5",
+      "home": "docs/design/MARKET_OPEN_QUESTIONS.md Q4, Q5",
       "falsifier": "n/a — refuted by the project's own simulation.",
       "note": "All 7 questions are marked resolved. Q4 records authority-competence correlation 0.9026 but no significant error reduction over 200 proposals. Q5 records that intelligent collusion is hard to detect. Administrative status was substituted for epistemic status. The missing measured_result field is now mandatory in open-questions."
     },

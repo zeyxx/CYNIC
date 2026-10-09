@@ -34,7 +34,7 @@ pub struct AuditObserverConfig {
 impl Default for AuditObserverConfig {
     fn default() -> Self {
         Self {
-            debt_file_path: PathBuf::from("infra/DEBT_TAXONOMY.md"),
+            debt_file_path: PathBuf::from("contracts/debt-taxonomy.json"),
         }
     }
 }

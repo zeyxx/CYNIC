@@ -78,5 +78,5 @@ Tout agent intervenant sur le dépôt doit obligatoirement consulter la spécifi
 2. **Plan d'Inférence & Gestion VRAM** : [`docs/specs/INFERENCE_PLANE_SPEC.md`](./INFERENCE_PLANE_SPEC.md)
 3. **E-Score & Arbre de Merkle 7D** : [`docs/specs/ESCORE_AND_FUTARCHY_SPEC.md`](./ESCORE_AND_FUTARCHY_SPEC.md)
 4. **Conformité Hôte & Métriques** : [`docs/specs/RUNTIME_CONFORMANCE_AND_METRICS_SPEC.md`](./RUNTIME_CONFORMANCE_AND_METRICS_SPEC.md)
-5. **Anthropologie & Vision Nation** : [`docs/CYNIC_NATION_ANTHROPOLOGY.md`](../CYNIC_NATION_ANTHROPOLOGY.md)
-6. **Doctrine du Catalyseur** : [`docs/CYNIC_THE_CATALYST.md`](../CYNIC_THE_CATALYST.md)
+5. **Anthropologie & Vision Nation** : [`docs/design/CYNIC_NATION_ANTHROPOLOGY.md`](../CYNIC_NATION_ANTHROPOLOGY.md)
+6. **Doctrine du Catalyseur** : [`docs/design/CYNIC_THE_CATALYST.md`](../CYNIC_THE_CATALYST.md)

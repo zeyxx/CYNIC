@@ -371,7 +371,7 @@ mod tests {
 
         // d = u8::MAX: disjoint scopes
         let f_infra = ClaimScope::File {
-            path: "infra/DEBT_TAXONOMY.md".to_string(),
+            path: "contracts/debt-taxonomy.json".to_string(),
         };
         assert_eq!(topological_distance(&f1, &f_infra), u8::MAX);
         assert_eq!(topological_distance(&ClaimScope::Fleet, &f1), u8::MAX);

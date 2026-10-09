@@ -117,7 +117,7 @@ fn load_backends_legacy(path: &Path) -> Vec<BackendConfig> {
                     tracing::error!(
                         backend = %name,
                         base_url = %entry.base_url,
-                        "Unresolved placeholder in backend config. Run scripts/config-sync.sh deploy"
+                        "Unresolved placeholder in backend config — resolve manually"
                     );
                 } else {
                     tracing::warn!(

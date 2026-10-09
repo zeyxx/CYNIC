@@ -27,7 +27,7 @@
           "infra/surface-registry/": "Surface registry: which crate owns which CLI surface, commands, entrypoints, evidence schemas.",
           "contracts/": "Constitutional and evolutive policy contracts.",
           "tests/support/": "Shared architectural and reachability test support.",
-          "spaces/operator/": "Operator exploratory workspace, concepts, and research corpus."
+          "docs/foundation/": "Founding documents: CONSTITUTION, MANIFESTO, WHITEPAPER (EN) and whitepaper/manifesto (FR)."
         }
       }
     },

@@ -107,7 +107,7 @@ pub fn collect_default_organic_opportunities(
     });
 
     let audit_obs = AuditValidationObserver::new(AuditObserverConfig {
-        debt_file_path: workspace_root.join("infra").join("DEBT_TAXONOMY.md"),
+        debt_file_path: workspace_root.join("contracts").join("debt-taxonomy.json"),
     });
 
     let pattern_obs = RateTrendObserver::new(RateTrendObserverConfig {

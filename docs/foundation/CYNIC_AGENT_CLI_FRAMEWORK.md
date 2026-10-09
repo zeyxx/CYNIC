@@ -58,7 +58,7 @@ mention as a deprecated heuristic, not an active surface.
 - `hermes-agent` (NousResearch) is CYNIC's own persistent autonomous organ: it
   claims tasks from the kernel mempool, emits proposals/proofs, and obeys the
   `/coord/register` + `claim-before-edit` guarantees from
-  `docs/CYNIC_ORGANISM_POLICY_MATRIX.md:130`.
+  `docs/archive/CYNIC_ORGANISM_POLICY_MATRIX.md:130`.
 - `mercury-agent` (cosmicstack-labs) is a standalone infra scheduler
   (sandbox/container lifecycle). It has **no** standing in the CYNIC contract
   hierarchy: it is not wired into `infra/registry.json`, not declared in
@@ -155,7 +155,7 @@ Before introducing or renaming an agent surface:
   inference benchmark plan contains no `mercury-read-only` scenario).
 - `infra/ecosystem-pins.json` must contain `antigravity-cli` and must NOT
   contain `gemini-cli`.
-- `docs/CYNIC_META_LAYER_CONTRACTS.md` must not list `mercury-agent` under
+- `docs/archive/CYNIC_META_LAYER_CONTRACTS.md` must not list `mercury-agent` under
   autonomous organ agents.
 
 ## 10. Enforcement & current gate status

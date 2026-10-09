@@ -332,7 +332,7 @@ Tests (`cynic-finance`):
 
 - `contracts/foundation.json` — constitutional invariants
 - `infra/ARCHITECTURE_CONSTELLATIONS.md` — crate taxonomy
-- `docs/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md` — economic flow model
-- `docs/CYNIC_PROTOCOL_TOKEN_PAPER.md` — token design
+- `docs/archive/CYNIC_FEDERATED_ECONOMIC_ARCHITECTURE.md` — economic flow model
+- `docs/archive/CYNIC_PROTOCOL_TOKEN_PAPER.md` — token design
 - Stripe Ledger pattern — double-entry bookkeeping for distributed systems
 - MegaETH resource accounting — multi-dimensional resource tracking

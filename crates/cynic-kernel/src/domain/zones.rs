@@ -112,7 +112,7 @@ mod tests {
             Some("api".to_string())
         );
         assert_eq!(
-            config.resolve("scripts/config-sync.sh"),
+            config.resolve("scripts/shell/cargo"),
             Some("scripts".to_string())
         );
         assert_eq!(

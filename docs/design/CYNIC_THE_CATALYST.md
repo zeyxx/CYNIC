@@ -42,6 +42,6 @@ Dans les registres d'âmes E-Score (`CYNIC_ESCORE_REGISTRIES.md`) :
 * **Effet de catalyse** : L'Opérateur qui prend le risque initial sans filet, apporte le capital d'amorçage, installe les premiers nœuds et injecte l'intention sans laquelle aucun calcul n'a de sens.
 
 ### 4. Le Catalyseur d'Exécution : L'Actuator / Hybrid Corrector
-Sur le plan du runtime Rust (`docs/CYNIC_AGENTIC_RUNTIME_ROLES.md` et `crates/cynic-host/src/agent_matrix.rs`) :
+Sur le plan du runtime Rust (`docs/archive/CYNIC_AGENTIC_RUNTIME_ROLES.md` et `crates/cynic-host/src/agent_matrix.rs`) :
 * **Fonction** : L'agent de mutation bornée.
 * **Effet de catalyse** : Alors que l'`Observer` et le `Planner` restent confinés dans l'espace des descriptions pures (`DesiredState` / `ObservedState`), l'**Actuator** précipite la décision dans le monde physique en exécutant la commande de mutation (`--apply` / `--yes`) et en générant la preuve de read-back post-action.

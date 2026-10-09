@@ -123,7 +123,7 @@ Measured against reality:
 |---|---|
 | "no duplication of git sources" | `registry.json` ↔ 2 verticals byte-identical (§1) |
 | "every path MUST reference this document" | 6 top-level dirs and 11 `infra/` subdirs absent from the tree |
-| `git_sources.key_files` (9 entries) | lists `contracts/` and `spaces/operator/` — but **not** `infra/verticals/`, `specs/`, `protocols/`, `apps/`, `programs/` |
+| `git_sources.key_files` (9 entries) | lists `contracts/` and `docs/foundation/` — but **not** `infra/verticals/`, `specs/`, `protocols/`, `apps/`, `programs/` |
 
 So the normative document is itself incomplete: it names 9 git sources while
 the tree holds 24 top-level directories. A document that says "no path outside
