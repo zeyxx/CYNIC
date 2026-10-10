@@ -369,3 +369,42 @@ https://raw.githubusercontent.com/bevyengine/bevy/main/Cargo.toml
 https://microsoft.github.io/rust-guidelines/guidelines/project/index.html
 https://matklad.github.io/2021/08/22/large-rust-workspaces.html
 ```
+
+---
+
+## 10. LLM Agent Constraints (added 2026-10-09)
+
+CYNIC is developed by LLM agents with limited context windows. This imposes
+constraints that do not appear in traditional Rust workspace design.
+
+### 10.1 Comprehensibility
+
+Each crate must be independently comprehensible by an LLM agent. This means:
+
+- **Max 3 external dependencies per crate.** A crate with 10 dependencies
+  cannot be understood in isolation; the agent must load 10 dependency graphs
+  to reason about one crate.
+- **Types must be auto-descriptive.** No opaque `String` wrappers. A type
+  named `AgentId(String)` is not auto-descriptive; `AgentId(Uuid)` is.
+- **Crate boundaries = agent context boundaries.** An agent working on one
+  crate should not need to load more than 2-3 other crates to understand it.
+
+### 10.2 no_std Ready
+
+New types must be no_std-compatible by default. `cynic-identity` is the model.
+`cynic-protocol` must split no_std/std. A new type that requires `std` without
+justification is a violation.
+
+### 10.3 Capability-Based Security
+
+Runtime secrets are injected (env, then principal-owned file, then OS store
+behind a port). Never git, docs, chat logs, or proof JSON. Reports show
+presence, never the secret. A crate that hardcodes credentials or paths is a
+violation.
+
+### 10.4 Dynamic Registry
+
+Readers consume `infra/registry.json` (Tier-1 desired state) through typed
+ports. Tier-2 observed state (discovery reports, telemetry, leases) never flows
+back into Git. Fleet rollup picks Local vs Remote adapter by
+`observed_hostname()`, never by hardcoded role.
