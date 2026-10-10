@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::types::*;
+use crate::usecases::agent_bus_types::*;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TaskEvent {

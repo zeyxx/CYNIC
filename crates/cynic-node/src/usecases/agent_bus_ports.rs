@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::types::*;
+use crate::usecases::agent_bus_types::*;
 
 /// Agent executor port — how agents are actually run.
 ///

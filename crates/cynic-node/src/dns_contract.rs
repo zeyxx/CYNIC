@@ -5,7 +5,6 @@ use cynic_host::runtime_layout::current_runtime_layout;
 use serde::Serialize;
 
 use crate::network_command_surface::{
-use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
     NetworkCommandSurface, argv_command, expectation, package_presence_command,
 };
 
@@ -41,16 +40,6 @@ pub(crate) use cynic_network::dns::{
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
 };
 
-#[allow(unused_imports)]
-pub(crate) use self::{
-    DEFAULT_DNS_ZONE as SYNAPSE_DNS_ZONE,
-    SERVICE_DNS_COREFILE_FILENAME as SYNAPSE_DNS_COREFILE_FILENAME,
-    SERVICE_DNS_HOSTS_FILENAME as SYNAPSE_DNS_HOSTS_FILENAME,
-    SERVICE_DNS_MANIFEST_FILENAME as SYNAPSE_DNS_MANIFEST_FILENAME,
-    SERVICE_DNS_README_FILENAME as SYNAPSE_DNS_README_FILENAME,
-    SERVICE_DNS_RESOLVED_DROPIN_FILENAME as SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME,
-    SERVICE_DNS_SERVICE_FILENAME as SYNAPSE_DNS_SERVICE_FILENAME,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

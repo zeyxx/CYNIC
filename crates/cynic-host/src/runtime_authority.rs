@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use cynic_network::dns::{SERVICE_DNS_SERVICE_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeProjectionClass {

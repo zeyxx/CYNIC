@@ -4,7 +4,8 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use chrono::Utc;
-use hmac::{Hmac, KeyInit, Mac};
+use hmac::{Hmac, Mac};
+use hmac::digest::KeyInit;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use uuid::Uuid;

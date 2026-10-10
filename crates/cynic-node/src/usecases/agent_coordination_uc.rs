@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use cynic_node::usecases::agent_bus_::*;
+use crate::usecases::agent_bus_types::*;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 

@@ -1,9 +1,8 @@
 use super::{
-use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
     CANONICAL_DNS_BINARY, CANONICAL_DNS_PROVIDER, DEFAULT_DNS_ZONE, DnsRuntimeContext,
-    SYNAPSE_DNS_COREFILE_FILENAME, SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME,
-    SYNAPSE_DNS_README_FILENAME, SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME,
-    SYNAPSE_DNS_SERVICE_FILENAME, approved_dns_sources, dns_activation_readme_with_context,
+    SERVICE_DNS_COREFILE_FILENAME, SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME,
+    SERVICE_DNS_README_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
+    SERVICE_DNS_SERVICE_FILENAME, approved_dns_sources, dns_activation_readme_with_context,
     dns_bundle_files, dns_forbidden_patterns, dns_provider_policy_surface_for_zone,
     dns_required_modes, dns_systemd_unit_with_context, forbidden_dns_sources,
     supported_dns_adapters, unadapted_dns_candidates,
@@ -37,8 +36,8 @@ fn context() -> DnsRuntimeContext {
             "/portable/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"
         )
         .to_string(),
-        bundle_config_filename: SYNAPSE_DNS_COREFILE_FILENAME,
-        bundle_service_filename: SYNAPSE_DNS_SERVICE_FILENAME,
+        bundle_config_filename: SERVICE_DNS_COREFILE_FILENAME,
+        bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME,
     }
 }
 
@@ -47,12 +46,12 @@ fn proof_dns_bundle_files_shape_is_stable() {
     let files = dns_bundle_files();
 
     assert_eq!(files.len(), 6);
-    assert_eq!(files[0], SYNAPSE_DNS_COREFILE_FILENAME);
-    assert_eq!(files[1], SYNAPSE_DNS_README_FILENAME);
-    assert_eq!(files[2], SYNAPSE_DNS_SERVICE_FILENAME);
-    assert_eq!(files[3], SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME);
-    assert_eq!(files[4], SYNAPSE_DNS_MANIFEST_FILENAME);
-    assert_eq!(files[5], SYNAPSE_DNS_HOSTS_FILENAME);
+    assert_eq!(files[0], SERVICE_DNS_COREFILE_FILENAME);
+    assert_eq!(files[1], SERVICE_DNS_README_FILENAME);
+    assert_eq!(files[2], SERVICE_DNS_SERVICE_FILENAME);
+    assert_eq!(files[3], SERVICE_DNS_RESOLVED_DROPIN_FILENAME);
+    assert_eq!(files[4], SERVICE_DNS_MANIFEST_FILENAME);
+    assert_eq!(files[5], SERVICE_DNS_HOSTS_FILENAME);
 }
 
 #[kani::proof]

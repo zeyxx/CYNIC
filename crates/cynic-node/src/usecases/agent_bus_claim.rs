@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 
-use crate::types::*;
+use crate::usecases::agent_bus_types::*;
 #[async_trait::async_trait]
 pub trait ClaimStore: Send + Sync {
     async fn acquire(&self, claim: Claim) -> Result<(), String>;
