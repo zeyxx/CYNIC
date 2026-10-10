@@ -69,7 +69,7 @@ cynic-channel = { path = "../cynic-channel" }
 async-trait.workspace = true
 thiserror = "2"
 axum.workspace = true
-hmac = "0.12"
+hmac.workspace = true
 uuid.workspace = true
 
 [target.'cfg(unix)'.dependencies]

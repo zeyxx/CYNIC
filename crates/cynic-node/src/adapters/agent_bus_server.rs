@@ -5,6 +5,7 @@ use axum::{
     Json,
     http::StatusCode,
 };
+use crate::usecases::agent_bus_types::*;
 use crate::usecases::agent_bus_ledger::*;
 
 pub async fn health() -> &'static str {
