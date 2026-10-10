@@ -1,6 +1,7 @@
 //! Pure kernel configuration domain objects used by infra adapters and services.
 
 use crate::infra::backend_config as inference_backend_config;
+use crate::infra::backend_config::{AuthStyle, BackendType};
 
 pub use crate::infra::config_storage::{StorageConfig, StorageIdentityConfig};
 

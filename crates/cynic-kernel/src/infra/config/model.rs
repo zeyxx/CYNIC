@@ -4,4 +4,4 @@ pub use crate::infra::config_types::{
     MonitoringConfig, OrganRemediation, PromptTier, StorageConfig, StorageIdentityConfig,
     VerdictSettings,
 };
-pub use cynic_inference::domain::backend_config::{AuthStyle, BackendType};
+pub use crate::infra::backend_config::{AuthStyle, BackendType};
