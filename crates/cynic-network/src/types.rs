@@ -334,16 +334,6 @@ pub struct NetworkAlert {
 }
 
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WireguardMeshAssessment {
-    pub total_peers: u32,
-    pub ok_peers: u32,
-    pub stale_peers: u32,
-    pub dead_peers: u32,
-    pub never_seen_peers: u32,
-}
-
 /// Assessment of Service DNS resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DnsServiceAssessment {
