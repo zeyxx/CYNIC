@@ -1,4 +1,5 @@
 use std::env;
+use std::path::Path;
 use std::path::PathBuf;
 
 use cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME;

@@ -513,8 +513,8 @@ fn dns_runtime_context_for_zone(
             runtime_layout.dns_hosts_path(),
             runtime_layout.dns_corefile_path(),
             runtime_layout.dns_service_path(),
-            SYNAPSE_DNS_COREFILE_FILENAME,
-            SYNAPSE_DNS_SERVICE_FILENAME,
+            SERVICE_DNS_COREFILE_FILENAME,
+            SERVICE_DNS_SERVICE_FILENAME,
         ),
         DnsProviderKind::Dnsmasq => (
             format!("cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
