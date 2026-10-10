@@ -434,6 +434,7 @@ fn find_registry_from(origin: Option<&Path>) -> Option<PathBuf> {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
