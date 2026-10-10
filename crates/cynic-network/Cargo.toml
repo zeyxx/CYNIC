@@ -11,7 +11,6 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
-cynic-core = { path = "../cynic-core" }
 cynic-secrets = { path = "../cynic-secrets" }
 reqwest.workspace = true
 cynic-finance = { path = "../cynic-finance" }
@@ -19,6 +18,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 chrono.workspace = true
+sysinfo = "0.37"
+toml = "0.8"
+dirs = "6.0"
+which = "7.0"
+walkdir = "2.5"
+regex = "1"
+tracing.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 tempfile = "3.17"

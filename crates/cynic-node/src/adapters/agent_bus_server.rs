@@ -5,7 +5,7 @@ use axum::{
     Json,
     http::StatusCode,
 };
-use cynic_agent_bus::*;
+use cynic_node::usecases::agent_bus_ledger::*;
 
 pub async fn health() -> &'static str {
     "ok"

@@ -38,7 +38,7 @@ notify = { version = "7", default-features = false, features = ["macos_kqueue"] 
 chrono.workspace = true
 sysinfo = "0.33"
 tempfile = "3"
-sha2 = "0.10.8"
+sha2.workspace = true
 hex.workspace = true
 base64.workspace = true
 ed25519-dalek.workspace = true
@@ -62,6 +62,9 @@ cynic-inference = { path = "../cynic-inference" }
 cynic-release = { path = "../cynic-release" }
 cynic-lxc = { path = "../cynic-lxc" }
 cynic-sandbox = { path = "../cynic-sandbox" }
+cynic-market = { path = "../cynic-market" }
+cynic-pool = { path = "../cynic-pool" }
+cynic-channel = { path = "../cynic-channel" }
 async-trait.workspace = true
 axum.workspace = true
 hmac = "0.12"

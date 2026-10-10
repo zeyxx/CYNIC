@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::types::*;
+use super::host_types::*;
 
 // ============================================================
 // ENVIRONMENT PROBE

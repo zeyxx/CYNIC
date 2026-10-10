@@ -359,5 +359,5 @@ pub struct OrganRemediation {
     pub cooldown_secs: u64,
 }
 
-/// Supported backend adapter families.
-pub use inference_backend_config::{AuthStyle, BackendType};
+// Re-exported from config/model.rs to avoid duplicate definitions.
+// pub use inference_backend_config::{AuthStyle, BackendType};

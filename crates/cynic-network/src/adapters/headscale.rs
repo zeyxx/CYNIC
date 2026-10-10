@@ -6,7 +6,37 @@
 
 use serde::Deserialize;
 
-use cynic_core::fleet_mesh::{FleetMeshPort, MeshError, MeshNode, MeshRoute};
+#[derive(Debug)]
+pub enum MeshError {
+    Unauthorized,
+    ApiError(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct MeshNode {
+    pub id: String,
+    pub name: String,
+    pub ip: String,
+    pub online: bool,
+    pub last_seen: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MeshRoute {
+    pub id: String,
+    pub prefix: String,
+    pub enabled: bool,
+    pub node_id: String,
+}
+
+pub trait FleetMeshPort {
+    fn list_nodes(&self) -> Result<Vec<MeshNode>, MeshError>;
+    fn enroll_node(&self, node: &MeshNode) -> Result<(), MeshError>;
+    fn remove_node(&self, node_id: &str) -> Result<(), MeshError>;
+    fn list_routes(&self) -> Result<Vec<MeshRoute>, MeshError>;
+    fn enable_route(&self, route_id: &str) -> Result<(), MeshError>;
+    fn disable_route(&self, route_id: &str) -> Result<(), MeshError>;
+}
 
 /// Headscale API response for a node.
 #[derive(Debug, Deserialize)]
