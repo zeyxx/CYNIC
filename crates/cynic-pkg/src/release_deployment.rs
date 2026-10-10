@@ -7,7 +7,6 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 use serde::{Deserialize, Serialize};
 
 pub const RELEASE_DEPLOY_REPORT_SCHEMA: &str = "cynic.pkg.release_deploy.report.v1";
