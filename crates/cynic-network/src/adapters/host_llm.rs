@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::environment::{ensure_models_dir, windows_to_wsl_path};
-use super::types::*;
+use super::host_environment::{ensure_models_dir, windows_to_wsl_path};
+use super::host_types::*;
 
 // ============================================================
 // LLM RESOURCE PROBE (Exhaustive — all tiers always run)

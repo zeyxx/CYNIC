@@ -126,10 +126,7 @@ pub fn canonical_provider_for_role(role: MeshRole) -> Option<MeshProviderBinding
 // a second one. That is the pure/impure split, enforced in both directions by
 // `cynic-core/tests/architecture_boundary.rs`. It is not backward compatibility:
 // no earlier shape is being preserved.
-pub use cynic_core::fleet_mesh::{
-    NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan,
-    NetworkMeshRoute, NetworkMeshService, WireguardMeshAssessment,
-};
+// NetworkMesh types were moved to mesh_plan.rs after cynic-core was merged into cynic-types.
 
 
 /// Observation result for network substrate, following the 4-layer model
@@ -334,6 +331,15 @@ pub struct NetworkAlert {
 }
 
 
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WireguardMeshAssessment {
+    pub total_peers: u32,
+    pub ok_peers: u32,
+    pub stale_peers: u32,
+    pub dead_peers: u32,
+    pub never_seen_peers: u32,
+}
 
 /// Assessment of Service DNS resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

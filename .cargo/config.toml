@@ -34,7 +34,7 @@ rustflags = ["-C", "debuginfo=0", "--cap-lints=allow", "-A", "clippy::all", "-C"
 # Native C compile memory for cc-rs native builds (libsqlite3-sys/sqlite3.c
 # is a single 8MB translation unit; -O0 under ~27GiB RAM SIGSEGVs cc).
 # Data-centric: applies to native build.rs (sqlite3) without touching source.
-CFLAGS = "-O1"
+CFLAGS = "-O0"
 # Disable incremental compilation — the skill §"Stale incremental cache
 # produces GHOST errors" (rustc 1.96: uninterned StableCrateId, inconsistent
 # macro resolution, cstore decoder panic on serde_json::json expansion).

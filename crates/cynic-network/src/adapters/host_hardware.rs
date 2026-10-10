@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use sysinfo::System;
 
-use super::types::*;
+use super::host_types::*;
 
 // ============================================================
 // HARDWARE PROBE
