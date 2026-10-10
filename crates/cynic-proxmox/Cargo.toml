@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[dev-dependencies]
+walkdir.workspace = true
+
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }

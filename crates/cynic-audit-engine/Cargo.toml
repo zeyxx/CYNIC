@@ -27,6 +27,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+walkdir.workspace = true
 # Every moved test walks up for Cargo.toml + crates/ and then totals the whole
 # workspace. That is what these gates are FOR: the per-crate gates each see one
 # crate, and these are the only instruments that see all of them at once.
