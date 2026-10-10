@@ -63,6 +63,45 @@ struct Message<'a> {
     content: &'a str,
 }
 
+/// Extract and concatenate assistant text from an SSE response buffer.
+///
+/// Pure function (no I/O): walks `data:` lines (both `data: ` and `data:`
+/// forms), parses each JSON chunk, and appends `choices[].delta.content` in
+/// order. `reasoning_content` deltas are ignored (they are not the answer),
+/// `[DONE]` and malformed lines are skipped, and a buffer with no content
+/// yields an empty string — never a fabricated placeholder.
+pub fn accumulate_sse_content(sse_buffer: &str) -> String {
+    let mut content = String::new();
+    for line in sse_buffer.lines() {
+        let line = line.trim();
+        // SSE spec: the field is `data` followed by a colon and an OPTIONAL
+        // single space. Accept both `data:` and `data: ` so a server emitting
+        // the no-space form does not have its content silently dropped.
+        let Some(data_str) = line.strip_prefix("data:") else {
+            continue;
+        };
+        let data_str = data_str.trim();
+        if data_str.is_empty() || data_str == "[DONE]" {
+            continue;
+        }
+        let Ok(val) = serde_json::from_str::<Value>(data_str) else {
+            continue;
+        };
+        if let Some(choices) = val["choices"].as_array() {
+            for choice in choices {
+                if let Some(delta_content) = choice
+                    .get("delta")
+                    .and_then(|delta| delta.get("content"))
+                    .and_then(|content| content.as_str())
+                {
+                    content.push_str(delta_content);
+                }
+            }
+        }
+    }
+    content
+}
+
 #[async_trait]
 impl HarnessExecutor for HttpHarnessExecutor {
     async fn execute(&self, scenario: &ScenarioSpec, task: &TaskSpec) -> InferenceReply {
@@ -126,6 +165,7 @@ impl HarnessExecutor for HttpHarnessExecutor {
         let mut completion_tokens = None;
         let mut event_kinds = Vec::new();
         let mut buffer = String::new();
+        let mut content = String::new();
 
         while let Some(chunk_res) = stream.next().await {
             let bytes = match chunk_res {
@@ -133,7 +173,11 @@ impl HarnessExecutor for HttpHarnessExecutor {
                 Err(err) => {
                     return InferenceReply {
                         runtime_run_id: None,
-                        text_response: None,
+                        text_response: if content.is_empty() {
+                            None
+                        } else {
+                            Some(content)
+                        },
                         http_status: Some(status),
                         prompt_tokens,
                         output_tokens: completion_tokens,
@@ -153,6 +197,9 @@ impl HarnessExecutor for HttpHarnessExecutor {
             while let Some(pos) = buffer.find("\n\n") {
                 let sse_line = buffer[..pos].to_string();
                 buffer.drain(..pos + 2);
+
+                // Accumulate the assistant text from this drained SSE block.
+                content.push_str(&accumulate_sse_content(&sse_line));
 
                 for line in sse_line.lines() {
                     let line = line.trim();
@@ -215,7 +262,11 @@ impl HarnessExecutor for HttpHarnessExecutor {
 
         InferenceReply {
             runtime_run_id: None,
-            text_response: None,
+            text_response: if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            },
             http_status: Some(status),
             prompt_tokens,
             output_tokens: completion_tokens,
@@ -244,5 +295,73 @@ fn failed(status: u16, error: String) -> InferenceReply {
         event_kinds: Vec::new(),
         event_stream_error: None,
         error: Some(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::accumulate_sse_content;
+
+    #[test]
+    fn accumulates_content_deltas_in_order() {
+        let buffer = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\" \"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        assert_eq!(accumulate_sse_content(buffer), "Hello world");
+    }
+
+    #[test]
+    fn ignores_reasoning_deltas_and_non_content() {
+        let buffer = concat!(
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thinking...\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"answer\"}}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        assert_eq!(accumulate_sse_content(buffer), "answer");
+    }
+
+    #[test]
+    fn empty_or_usage_only_buffer_yields_empty_string() {
+        let usage_only = "data: {\"choices\":[],\"usage\":{\"completion_tokens\":5}}\n\n";
+        assert_eq!(accumulate_sse_content(usage_only), "");
+        assert_eq!(accumulate_sse_content(""), "");
+    }
+
+    #[test]
+    fn skips_malformed_lines_without_fabricating() {
+        let buffer = concat!(
+            "data: not-json\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
+        );
+        assert_eq!(accumulate_sse_content(buffer), "ok");
+    }
+
+    #[test]
+    fn accepts_data_prefix_without_space() {
+        // SSE spec: the space after the colon is optional. A server emitting
+        // `data:{...}` must not have its content silently dropped.
+        let buffer = "data:{\"choices\":[{\"delta\":{\"content\":\"nospace\"}}]}\n\n";
+        assert_eq!(accumulate_sse_content(buffer), "nospace");
+    }
+
+    #[test]
+    fn ignores_null_and_non_string_content() {
+        let buffer = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":null}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":42}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"real\"}}]}\n\n",
+        );
+        assert_eq!(accumulate_sse_content(buffer), "real");
+    }
+
+    #[test]
+    fn concatenates_across_multiple_choices() {
+        // Some gateways emit more than one choice per chunk; all content in a
+        // chunk must be appended, in order.
+        let buffer = "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}},{\"delta\":{\"content\":\"b\"}}]}\n\n";
+        assert_eq!(accumulate_sse_content(buffer), "ab");
     }
 }

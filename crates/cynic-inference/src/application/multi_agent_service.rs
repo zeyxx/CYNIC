@@ -149,10 +149,10 @@ impl MultiAgentService {
             model_alias: model_alias.to_string(),
             endpoint: endpoint.to_string(),
             prompt: prompt.to_string(),
-            response: format!(
-                "Task execution completed via {}",
-                reply.runtime_run_id.as_deref().unwrap_or("direct")
-            ),
+            // Carry the model's real text. `text_response` is `None` only when the
+            // adapter genuinely produced no content; never substitute a fabricated
+            // placeholder here — the debate downstream reasons over this string.
+            response: reply.text_response.unwrap_or_default(),
             ttft_ms,
             gen_tok_s,
             prompt_tokens,
