@@ -7,7 +7,6 @@ use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
-use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 use serde::{Deserialize, Serialize};
 use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 
