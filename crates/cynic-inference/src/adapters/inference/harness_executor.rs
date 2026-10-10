@@ -65,16 +65,19 @@ struct Message<'a> {
 
 /// Extract and concatenate assistant text from an SSE response buffer.
 ///
-/// Pure function (no I/O): walks `data:` lines, parses each JSON chunk, and
-/// appends `choices[].delta.content` in order. `reasoning_content` deltas are
-/// ignored (they are not the answer), `[DONE]` and malformed lines are skipped,
-/// and a buffer with no content yields an empty string — never a fabricated
-/// placeholder.
+/// Pure function (no I/O): walks `data:` lines (both `data: ` and `data:`
+/// forms), parses each JSON chunk, and appends `choices[].delta.content` in
+/// order. `reasoning_content` deltas are ignored (they are not the answer),
+/// `[DONE]` and malformed lines are skipped, and a buffer with no content
+/// yields an empty string — never a fabricated placeholder.
 pub fn accumulate_sse_content(sse_buffer: &str) -> String {
     let mut content = String::new();
     for line in sse_buffer.lines() {
         let line = line.trim();
-        let Some(data_str) = line.strip_prefix("data: ") else {
+        // SSE spec: the field is `data` followed by a colon and an OPTIONAL
+        // single space. Accept both `data:` and `data: ` so a server emitting
+        // the no-space form does not have its content silently dropped.
+        let Some(data_str) = line.strip_prefix("data:") else {
             continue;
         };
         let data_str = data_str.trim();
@@ -334,5 +337,31 @@ mod tests {
             "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
         );
         assert_eq!(accumulate_sse_content(buffer), "ok");
+    }
+
+    #[test]
+    fn accepts_data_prefix_without_space() {
+        // SSE spec: the space after the colon is optional. A server emitting
+        // `data:{...}` must not have its content silently dropped.
+        let buffer = "data:{\"choices\":[{\"delta\":{\"content\":\"nospace\"}}]}\n\n";
+        assert_eq!(accumulate_sse_content(buffer), "nospace");
+    }
+
+    #[test]
+    fn ignores_null_and_non_string_content() {
+        let buffer = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":null}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":42}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"real\"}}]}\n\n",
+        );
+        assert_eq!(accumulate_sse_content(buffer), "real");
+    }
+
+    #[test]
+    fn concatenates_across_multiple_choices() {
+        // Some gateways emit more than one choice per chunk; all content in a
+        // chunk must be appended, in order.
+        let buffer = "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}},{\"delta\":{\"content\":\"b\"}}]}\n\n";
+        assert_eq!(accumulate_sse_content(buffer), "ab");
     }
 }
