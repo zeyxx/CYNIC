@@ -10,8 +10,8 @@ use crate::adapters::dns_renderer::SynapseDnsRenderer;
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
-    SYNAPSE_DNS_HOSTS_FILENAME, SYNAPSE_DNS_MANIFEST_FILENAME, SYNAPSE_DNS_README_FILENAME,
-    SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
+    SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
+    SERVICE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
     dns_activation_readme_for_zone, dns_bundle_config_filename, dns_bundle_files,
     dns_bundle_service_filename, dns_forbidden_patterns, dns_package_preconditions,
     dns_provider_config_for_zone, dns_provider_policy_surface_for_zone, dns_required_modes,
@@ -56,7 +56,7 @@ pub fn build_dns_bundle(
     let out = Path::new(output_dir);
     fs::create_dir_all(out)?;
     fs::write(
-        out.join(SYNAPSE_DNS_HOSTS_FILENAME),
+        out.join(SERVICE_DNS_HOSTS_FILENAME),
         renderer.render_hosts(&topology)?,
     )?;
     fs::write(
@@ -68,18 +68,18 @@ pub fn build_dns_bundle(
         dns_systemd_unit_for_zone(&zone),
     )?;
     fs::write(
-        out.join(SYNAPSE_DNS_RESOLVED_DROPIN_FILENAME),
+        out.join(SERVICE_DNS_RESOLVED_DROPIN_FILENAME),
         renderer.render_resolved_dropin()?,
     )?;
     fs::write(
-        out.join(SYNAPSE_DNS_README_FILENAME),
+        out.join(SERVICE_DNS_README_FILENAME),
         dns_activation_readme_for_zone(&zone, probe_fqdn.clone()),
     )?;
 
     let bundle_files = dns_bundle_files();
     let digests = bundle_files
         .iter()
-        .filter(|name| name.as_str() != SYNAPSE_DNS_MANIFEST_FILENAME)
+        .filter(|name| name.as_str() != SERVICE_DNS_MANIFEST_FILENAME)
         .map(|name| {
             let bytes = fs::read(out.join(name))?;
             Ok::<_, std::io::Error>((
@@ -103,7 +103,7 @@ pub fn build_dns_bundle(
         digests,
     };
     fs::write(
-        out.join(SYNAPSE_DNS_MANIFEST_FILENAME),
+        out.join(SERVICE_DNS_MANIFEST_FILENAME),
         serde_json::to_string_pretty(&report)? + "\n",
     )?;
     Ok(report)
@@ -125,8 +125,8 @@ mod tests {
         )
         .expect("bundle");
         assert_eq!(report.schema, "cynic.organ_fleet.dns_activation_bundle.v1");
-        assert!(out.path().join(SYNAPSE_DNS_MANIFEST_FILENAME).exists());
-        assert!(out.path().join(SYNAPSE_DNS_HOSTS_FILENAME).exists());
+        assert!(out.path().join(SERVICE_DNS_MANIFEST_FILENAME).exists());
+        assert!(out.path().join(SERVICE_DNS_HOSTS_FILENAME).exists());
         assert_eq!(report.digests.len(), 5);
         assert!(
             report

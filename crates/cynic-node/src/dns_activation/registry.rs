@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
-    SYNAPSE_DNS_HOSTS_FILENAME, dns_bundle_config_filename, dns_bundle_service_filename,
+    SERVICE_DNS_HOSTS_FILENAME, dns_bundle_config_filename, dns_bundle_service_filename,
     dns_target_paths, observe_dns_provider_status,
 };
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
@@ -71,7 +71,7 @@ pub(crate) fn resolve_dns_activation_spec(
     };
     let sources = [
         (
-            SYNAPSE_DNS_HOSTS_FILENAME.to_string(),
+            SERVICE_DNS_HOSTS_FILENAME.to_string(),
             targets.hosts.clone(),
         ),
         (config_name, targets.corefile.clone()),
