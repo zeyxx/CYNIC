@@ -88,7 +88,7 @@ fn drifts_to_json(drifts: &[PersistenceDrift]) -> Vec<serde_json::Value> {
 /// Pure with respect to the domain: the same registry and the same observed
 /// map always yield the same report, so the test suite can exercise the whole
 /// projection without a Proxmox host.
-pub fn build_report(
+pub(crate) fn build_report(
     registry: &Registry,
     observed: &BTreeMap<String, ObservedPersistence>,
 ) -> Report {
