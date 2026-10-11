@@ -1,7 +1,7 @@
 {
   "schema": "cynic.repo_remotes.v1",
   "purpose": "Git placement authority for sovereignty: Forgejo is the candidate sovereign SSOT; GitHub is an optional public relay.",
-  "updated_at": "2026-07-24",
+  "updated_at": "2026-10-11",
   "remotes": [
     {
       "id": "forgejo",
@@ -11,6 +11,7 @@
       "git_user": "forgejo",
       "canonical_host": "forgejo.synapse.cynic",
       "canonical_url": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git",
+      "local_aliases": ["origin", "forgejo"],
       "fallback_ip": "10.10.10.119",
       "fallback_note": "10.10.10.119 is the BUILDER (LXC) that only mirrors the SSOT, not the Forgejo SSOT itself. Resolve the sovereign remote by observed URL against canonical_host, never by local remote name.",
       "machine_principal": "cynic-cortex",
@@ -31,27 +32,26 @@
       "machine_key_fingerprint": "SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU",
       "status_observed": "machine_rbac_enrolled_ssh_authenticated",
       "notes": [
-        "Wrong legacy URL used port 18300 — Forgejo serves on 3000.",
-        "Observed 2026-07-24: owner jeanterre13 is active and repository CYNIC exists as private sovereign storage.",
-        "Machine principal cynic-cortex is restricted, non-admin, and has repository-scoped write permission.",
-        "Canonical service identity is forgejo.synapse.cynic; host_ip is observed topology evidence and must not become the desired transport identity.",
-        "Administrative API authority is HTTPS on the service DNS identity; port 3000 HTTP is backend reachability only and must never carry a HumanAdmin token.",
-        "Trusted source promotion uses the proven SSH transport; plaintext HTTP remains backend health only.",
-        "Observed SSH host fingerprint: SHA256:OJDMToiHPEVJ7QVdufmpjyP5EYm5aOtBvYG2qGEEQ88 (ED25519); the IP host key is already present in Cortex known_hosts.",
-        "Cortex machine key fingerprint SHA256:+MKg3+LWYy9CvFyDyQxd8LNy5K1wLZ6nNqfx6jrjjtU is enrolled under cynic-cortex.",
-        "Observed RBAC read-back: restricted=true, admin=false, repository permission=write, bootstrap tokens remaining=0.",
-        "Resolver/bootstrap must prove forgejo.synapse.cynic dynamically; static /etc/hosts may only be an explicitly bounded bootstrap adapter."
+        "Observed 2026-10-11: owner jeanterre13 is active and repository CYNIC is sovereign SSOT.",
+        "Local git checkout commonly maps 'origin' to Forgejo SSH URL.",
+        "Push mirror to GitHub configured via Forgejo API."
       ]
     },
     {
-      "id": "origin",
+      "id": "github",
       "role": "public_relay",
-      "url": "git@github.com:zeyxx/CYNIC.git",
-      "credential_ref": "/etc/cynic/secrets/github-deploy-key",
+      "owner": "zeyxx",
+      "repository": "CYNIC",
+      "url": "https://github.com/zeyxx/CYNIC.git",
+      "ssh_url": "git@github.com:zeyxx/CYNIC.git",
+      "local_aliases": ["github"],
+      "push_mirror_configured": true,
+      "push_mirror_engine": "forgejo_native",
+      "auth_channel": "oauth_token_keyring",
       "notes": [
-        "SSH deploy key stored in /etc/cynic/secrets/github-deploy-key (mode 0600, root:cynic).",
+        "Public projection repository (https://github.com/zeyxx/CYNIC).",
         "Not runtime authority and not a substitute for cynic proof surfaces.",
-        "Uses SecretMaterial::read_file() — key is never logged, never in env."
+        "Automatic push mirror active on Forgejo with sync_on_commit: true."
       ]
     }
   ],
