@@ -22,13 +22,13 @@ use cynic_lifecycle::domain::persistence_drift::{
 pub const PERSISTENCE_AUDIT_SCHEMA: &str = "cynic.cli.persistence_audit.v1";
 
 #[derive(Debug, Deserialize)]
-struct Registry {
+pub(crate) struct Registry {
     #[serde(default)]
     nodes: Vec<RegistryNode>,
 }
 
 #[derive(Debug, Deserialize)]
-struct RegistryNode {
+pub(crate) struct RegistryNode {
     #[serde(default)]
     id: String,
     #[serde(default)]

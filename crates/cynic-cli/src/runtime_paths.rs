@@ -2,8 +2,6 @@ use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 
-use cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME;
-
 use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
