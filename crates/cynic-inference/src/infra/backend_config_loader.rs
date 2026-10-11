@@ -67,6 +67,8 @@ fn load_inference_config_from_path(
         source,
     })?;
 
+    let raw = resolve_registry_placeholders(raw);
+
     let mut doc: InferenceConfigFile =
         toml::from_str(&raw).map_err(|source| InferenceConfigError::Parse {
             path: path.clone(),
@@ -132,10 +134,6 @@ pub(crate) fn resolve_runtime_registry_path(_override: Option<&str>) -> Result<P
     }
 
     Ok(system_path)
-}
-
-pub(crate) fn load_file(path: &std::path::Path) -> Option<String> {
-    std::fs::read_to_string(path).ok()
 }
 
 pub(crate) fn resolve_registry_placeholders(mut content: String) -> String {

@@ -10,6 +10,7 @@ use std::path::Path;
 ///
 /// Reads `evidence/inference_traces.jsonl` and sums `prompt_tokens + gen_tokens`
 /// for all traces matching the given agent/session.
+#[derive(Debug)]
 pub struct InferenceContextMeter {
     trace_dir: String,
 }
