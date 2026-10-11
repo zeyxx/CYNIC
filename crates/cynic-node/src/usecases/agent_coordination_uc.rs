@@ -55,8 +55,8 @@ pub struct FleetTopology {
 /// Coordinator — decomposes plans and assigns to leads.
 pub struct Coordinator {
     topology: Arc<RwLock<FleetTopology>>,
-    ledger: Arc<InMemoryLedger>,
-    claim_store: Arc<InMemoryClaimStore>,
+    _ledger: Arc<InMemoryLedger>,
+    _claim_store: Arc<InMemoryClaimStore>,
     span_of_control: usize,
 }
 
@@ -71,8 +71,8 @@ impl Coordinator {
                 coordinator_id,
                 leads: HashMap::new(),
             })),
-            ledger,
-            claim_store,
+            _ledger: ledger,
+            _claim_store: claim_store,
             span_of_control: DEFAULT_SPAN_OF_CONTROL,
         }
     }

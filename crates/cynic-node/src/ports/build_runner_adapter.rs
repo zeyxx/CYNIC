@@ -7,7 +7,7 @@
 
 use crate::ports::build_runner::{
     BuildError, BuildPhase, BuildProofBundle, BuildRunnerPort, BuildTrigger, BuildVerdict,
-    LayerProof, LayerStatus, NetworkMode, PipelineStatus, RunnerHealth,
+    LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
 
