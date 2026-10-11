@@ -259,7 +259,7 @@
       "params": [
         {
           "name": "package",
-          "kind": "package_name"
+          "kind": "path_segment"
         }
       ],
       "requires_root": true,
@@ -274,17 +274,12 @@
         "new-session",
         "-d",
         "-s",
-        "{session_name}",
-        "{command}"
+        "{session_name}"
       ],
       "params": [
         {
           "name": "session_name",
-          "kind": "identifier"
-        },
-        {
-          "name": "command",
-          "kind": "command"
+          "kind": "path_segment"
         }
       ],
       "requires_root": false,
@@ -296,9 +291,7 @@
       "domain": "runtime",
       "argv_template": [
         "/usr/bin/tmux",
-        "list-sessions",
-        "-F",
-        "#{session_name}:#{session_windows}:#{session_attached}"
+        "list-sessions"
       ],
       "params": [],
       "requires_root": false,
