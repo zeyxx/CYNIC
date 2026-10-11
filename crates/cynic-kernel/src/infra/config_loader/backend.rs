@@ -1,4 +1,4 @@
-use crate::infra::backend_config::{AuthStyle, BackendType, InferenceBackendConfig};
+use crate::infra::backend_config::{AuthStyle, BackendType};
 use crate::infra::config_loader::helpers::{InferenceConfigError, load_inference_config_from_path_public as load_inference_config};
 use std::path::Path;
 

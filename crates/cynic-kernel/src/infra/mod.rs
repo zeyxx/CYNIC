@@ -1,4 +1,5 @@
 pub mod backend_config;
+#[cfg(test)]
 pub mod backend_config_test;
 pub mod config;
 pub mod config_loader;
