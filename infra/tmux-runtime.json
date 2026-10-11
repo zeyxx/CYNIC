@@ -46,6 +46,11 @@
       "node": "builder",
       "role": "remote-builder-and-ci",
       "binary_path": "/usr/bin/tmux"
+    },
+    {
+      "node": "cynic-agent-host",
+      "role": "isolated-agent-lxc-container",
+      "binary_path": "/usr/bin/tmux"
     }
   ]
 }
