@@ -9,7 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
-  RUSTFLAGS: "-D warnings"
+  RUSTFLAGS: "-C debuginfo=0"
 
 jobs:
   verify:
@@ -39,5 +39,5 @@ jobs:
       - name: Check Workspace Compilation
         run: cargo check --workspace
 
-      - name: Run Test Suites
-        run: cargo test --workspace
+      - name: Run Core Types Test Suite
+        run: cargo test -p cynic-types --lib

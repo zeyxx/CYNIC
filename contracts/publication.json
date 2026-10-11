@@ -60,6 +60,10 @@
       "status": "public"
     },
     {
+      "path": ".github/ISSUE_TEMPLATE/**",
+      "status": "public"
+    },
+    {
       "path": ".mcp.json",
       "status": "public"
     },
@@ -109,6 +113,14 @@
     },
     {
       "path": "README.md",
+      "status": "public"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "status": "public"
+    },
+    {
+      "path": "SECURITY.md",
       "status": "public"
     },
     {

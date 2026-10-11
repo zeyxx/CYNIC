@@ -1,0 +1,29 @@
+name: Feature Request
+description: Propose a new capability or architectural enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please consult the architectural constraints in `README.md` and `AGENTS.md` before proposing new capabilities.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem or limitation?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution, target crate, and how it preserves architectural boundaries (FCIS, DAG downward).
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features considered?
+    validations:
+      required: false
