@@ -297,6 +297,25 @@
       "requires_root": false,
       "mandatory": false,
       "purpose": "observe tmux sessions (read-only)"
+    },
+    {
+      "id": "tmux-session-kill",
+      "domain": "runtime",
+      "argv_template": [
+        "/usr/bin/tmux",
+        "kill-session",
+        "-t",
+        "{session_name}"
+      ],
+      "params": [
+        {
+          "name": "session_name",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "terminate a detached tmux session cleanly"
     }
   ]
 }
