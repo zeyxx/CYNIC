@@ -246,6 +246,64 @@
       "requires_root": true,
       "mandatory": false,
       "purpose": "hypervisor watchdog recovery of the PVE API daemon"
+    },
+    {
+      "id": "apt-install",
+      "domain": "system",
+      "argv_template": [
+        "/usr/bin/apt-get",
+        "install",
+        "-y",
+        "{package}"
+      ],
+      "params": [
+        {
+          "name": "package",
+          "kind": "package_name"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "install a system package via apt (e.g., tmux, htop)"
+    },
+    {
+      "id": "tmux-session-create",
+      "domain": "runtime",
+      "argv_template": [
+        "/usr/bin/tmux",
+        "new-session",
+        "-d",
+        "-s",
+        "{session_name}",
+        "{command}"
+      ],
+      "params": [
+        {
+          "name": "session_name",
+          "kind": "identifier"
+        },
+        {
+          "name": "command",
+          "kind": "command"
+        }
+      ],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "create a detached tmux session for long-running agents"
+    },
+    {
+      "id": "tmux-session-observe",
+      "domain": "runtime",
+      "argv_template": [
+        "/usr/bin/tmux",
+        "list-sessions",
+        "-F",
+        "#{session_name}:#{session_windows}:#{session_attached}"
+      ],
+      "params": [],
+      "requires_root": false,
+      "mandatory": false,
+      "purpose": "observe tmux sessions (read-only)"
     }
   ]
 }

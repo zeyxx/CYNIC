@@ -1,0 +1,36 @@
+{
+  "schema": "cynic.binary_locations.v1",
+  "purpose": "Single Source of Truth for CYNIC binary locations across all fleet machines.",
+  "binaries": [
+    {
+      "name": "cynic",
+      "canonical_path": "/usr/local/bin/cynic",
+      "fallback_paths": [
+        "/home/user/.local/bin/cynic"
+      ],
+      "source": "cargo build --release --bin cynic",
+      "target_profile": "release"
+    }
+  ],
+  "machines": [
+    {
+      "hostname": "cortex",
+      "os": "Ubuntu 24.04",
+      "binary_path": "/home/user/.local/bin/cynic",
+      "status": "current",
+      "sha_baked": "09120fa1b9810f09ecf9432b111323d0ad82c00f"
+    },
+    {
+      "hostname": "builder",
+      "ip": "10.10.10.119",
+      "os": "Ubuntu 24.04",
+      "binary_path": "/usr/local/bin/cynic",
+      "status": "current",
+      "sha_baked": "09120fa1b9810f09ecf9432b111323d0ad82c00f"
+    }
+  ],
+  "anti_rules": [
+    "No hardcoded binary path outside this registry",
+    "No hardcoded machine hostname — reference by role"
+  ]
+}
