@@ -61,6 +61,7 @@ pub mod operator_errors;
 pub mod operator_help;
 pub mod operator_status;
 pub mod peer_surface;
+pub mod persistence_audit;
 pub mod queue_surface;
 pub mod root_dispatch;
 pub mod runtime_paths;

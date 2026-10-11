@@ -44,6 +44,19 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Audit declared guest boot persistence against the observed provider
+    /// state. Catches deploy targets that vanish silently at host reboot.
+    Persistence {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        /// Observed guest state as JSON: `{"node-id":"boot_persistent"}`.
+        /// Values: `boot_persistent`, `not_boot_persistent`, `unobserved`.
+        /// Omit to audit the declared side alone.
+        #[arg(long)]
+        observed: Option<String>,
+    },
     /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
     All {
         #[arg(long)]
@@ -136,6 +149,11 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
+        AuditCommand::Persistence {
+            json,
+            registry,
+            observed,
+        } => crate::persistence_audit::execute(*json, registry, observed),
         AuditCommand::All { json } => {
             let crate_report = crate_audit::audit_core_crates();
             let secret_obs = cynic_release::adapters::secret_lint::scan_for_secrets(Path::new("."));
