@@ -30,11 +30,11 @@ impl NodeId {
         hex::encode(self.0)
     }
 
-    pub fn from_hex(hex_str: &str) -> Result<Self, crate::error::IdentityError> {
+    pub fn from_hex(hex_str: &str) -> Result<Self, super::error::IdentityError> {
         let bytes = hex::decode(hex_str)
-            .map_err(|e| crate::error::IdentityError::HexDecode(e.to_string()))?;
+            .map_err(|e| super::error::IdentityError::HexDecode(e.to_string()))?;
         if bytes.len() != 16 {
-            return Err(crate::error::IdentityError::InvalidLength(bytes.len()));
+            return Err(super::error::IdentityError::InvalidLength(bytes.len()));
         }
         let mut arr = [0u8; 16];
         arr.copy_from_slice(&bytes);

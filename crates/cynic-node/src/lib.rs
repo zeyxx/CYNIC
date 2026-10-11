@@ -31,6 +31,7 @@ mod dns_contract;
 pub mod dns_plan;
 pub mod domain;
 pub mod fleet_inventory;
+pub mod task_health;
 pub mod fleet_observability;
 pub mod inference_node_ops;
 pub mod inference_operations;

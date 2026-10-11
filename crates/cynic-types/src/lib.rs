@@ -19,11 +19,14 @@
 
 pub mod agent;
 pub mod budget;
+pub mod fleet_mesh;
 pub mod hash;
 pub mod proc_text;
 pub mod scope;
 pub mod task;
 pub mod timestamp;
+
+pub use fleet_mesh::{FleetMeshPort, MeshError, MeshNode, MeshRoute};
 
 pub use agent::AgentId;
 pub use budget::Budget;

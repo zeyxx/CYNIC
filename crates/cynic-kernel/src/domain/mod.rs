@@ -1,9 +1,8 @@
-pub mod agent_session;
 pub mod constants;
 pub mod events;
-pub mod observation_counters;
-pub mod metrics;
-pub mod pattern_analysis;
+// observation_counters module extracted to cynic-host
+// metrics module extracted to cynic-host
+// pattern_analysis module extracted to cynic-host
 pub mod probe;
 pub mod sanitize;
 pub mod zones;

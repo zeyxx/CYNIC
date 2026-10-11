@@ -3,6 +3,7 @@
 //! This is the boundary where `std::fs`, `tokio::sync`, and other I/O
 //! primitives are permitted. The `domain/` layer is 100% pure.
 
+pub mod backend_config_loader;
 pub mod backend_health;
 pub mod domain_task_queue;
 pub mod gguf_meta;

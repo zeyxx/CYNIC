@@ -77,11 +77,11 @@ pub fn execute_network_watchdog(
     // 1. Observe WireGuard mesh
     let wg_obs = wireguard_observer.observe(wireguard_iface, 150, 200);
     let wireguard = WireguardMeshAssessment {
-        total_peers: wg_obs.peers.len() as u32,
-        ok_peers: wg_obs.ok_count as u32,
-        stale_peers: wg_obs.stale_count as u32,
-        dead_peers: wg_obs.dead_count as u32,
-        never_seen_peers: wg_obs.unknown_count as u32,
+        total_peers: wg_obs.peers.len(),
+        ok_peers: wg_obs.ok_count,
+        stale_peers: wg_obs.stale_count,
+        dead_peers: wg_obs.dead_count,
+        never_seen_peers: wg_obs.unknown_count,
     };
 
     // 2. Observe DNS

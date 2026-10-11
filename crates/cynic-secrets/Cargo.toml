@@ -19,6 +19,13 @@ zeroize = "1.8"
 aes-gcm = "0.10"
 blake3 = "1.5"
 getrandom = "0.2"
+ed25519-dalek.workspace = true
+hex.workspace = true
+rand_core = { version = "0.6", optional = true, features = ["getrandom"] }
+
+[features]
+default = ["std"]
+std = ["dep:rand_core", "ed25519-dalek/rand_core", "serde/std", "hex/std", "thiserror/std"]
 
 [dev-dependencies]
 tempfile = "3.27"

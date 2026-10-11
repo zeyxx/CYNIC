@@ -15,19 +15,14 @@ path = "src/main.rs"
 default = []
 
 [dependencies]
-cynic-host = { path = "../cynic-host" }
-cynic-inference = { path = "../cynic-inference" }
+# cynic-inference removed: types and loader extracted to kernel-local modules
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-workload = { path = "../cynic-workload" }
-cynic-build = { path = "../cynic-build" }
-cynic-intel = { path = "../cynic-intel" }
-cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-askesis = { path = "../cynic-askesis" }
-cynic-node = { path = "../cynic-node" }
 cynic-storage = { path = "../cynic-storage" }
-cynic-forensics = { path = "../cynic-forensics" }
-cynic-eval = { path = "../cynic-eval" }
+# cynic-forensics removed: phantom dependency (no source imports)
+# cynic-inference removed: backend config extracted to cynic-inference
+# cynic-eval removed: pre-existing compile error (typo Eeserialize)
 cynic-node-protocol = { path = "../cynic-node-protocol" }
 dotenvy = "0.15"
 chrono.workspace = true
@@ -52,7 +47,7 @@ blake3.workspace = true
 bitflags.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-thiserror = "2.0.18"
+thiserror.workspace = true
 arc-swap.workspace = true
 sha2 = "0.11.0"
 sha3 = "0.10.8"

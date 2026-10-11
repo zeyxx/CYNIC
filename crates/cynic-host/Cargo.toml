@@ -11,6 +11,7 @@ name = "cynic-host-exec"
 path = "src/bin/cynic-host-exec.rs"
 
 [dependencies]
+cynic-kernel = { path = "../cynic-kernel" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
@@ -52,6 +53,7 @@ ed25519-dalek.workspace = true
 regex = "1"
 walkdir.workspace = true
 thiserror.workspace = true
+rusqlite = { version = "0.34", features = ["bundled"] }
 rand = "0.8"
 rpassword = "7.5.4"
 

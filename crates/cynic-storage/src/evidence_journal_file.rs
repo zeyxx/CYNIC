@@ -18,7 +18,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use cynic_eval::evidence_journal::{
+use cynic_protocol::evidence_journal::{
     EVIDENCE_JOURNAL_SCHEMA, EvidenceJournalEntry, compute_entry_hash, validate_evidence_chain,
 };
 
