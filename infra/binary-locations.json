@@ -29,6 +29,15 @@
       "status": "current",
       "sha_baked": "c5de2d60065a57796cd47adab7901479eef5b8ab",
       "sha256": "4640377bc15df45ec525c8b2c6eade805a8736c7abe011692c965bbbe8f5ea6a"
+    },
+    {
+      "hostname": "cynic-agent-host",
+      "ip": "10.10.10.102",
+      "os": "Ubuntu 24.04 (LXC)",
+      "binary_path": "/usr/local/bin/cynic",
+      "status": "current",
+      "sha_baked": "c5de2d60065a57796cd47adab7901479eef5b8ab",
+      "sha256": "4640377bc15df45ec525c8b2c6eade805a8736c7abe011692c965bbbe8f5ea6a"
     }
   ],
   "anti_rules": [
