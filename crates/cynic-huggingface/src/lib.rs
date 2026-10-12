@@ -14,5 +14,5 @@ pub mod domain;
 pub use domain::dataset::HfDatasetSpec;
 pub use domain::export::ExternalExportReport;
 pub use domain::repository::HfRepositoryRef;
-pub use domain::job::{HfJobHandle, HfJobSpec};
+pub use domain::job::{HfJobHandle, HfJobSpec, HfJobStatus};
 pub use domain::projection::ProjectionReadiness;
