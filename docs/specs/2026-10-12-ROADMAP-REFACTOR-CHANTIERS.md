@@ -76,8 +76,11 @@
   - Canaux typés : `Control` (bidirectionnel), `Telemetry` (unidirectionnel), `Artifact` (unidirectionnel chunked 64KB).
   - Port asynchrone natif `QuicTransportPort` sans dépendance I/O directe.
   - Validation test unitaire et de frontière `quic_domain_tests` vert sur le builder 10.10.10.119.
-- [ ] **Tranche 2.2 — Protocole RPC agentique sur QUIC streams :**
-  - Implémenter les canaux multiplexés : flux de commandes prioritaires (0-RTT), flux de télémétrie haute fréquence, flux de transfert d'artéfacts.
+- [x] **Tranche 2.2 — Protocole RPC agentique et multiplexage de trames (FCIS) :** (Complété 2026-10-12)
+  - Cadrage binaire compact `AgentFrame` (`CYNIC_FRAME_MAGIC` 0x43, version wire 1).
+  - Canaux typés : `Control` (commandes de dispatch, leases, heartbeats), `Telemetry` (métriques de charge continue), `Artifact` (chunks découpés avec somme de contrôle BLAKE3 vérifiée).
+  - Encodage et décodage purs avec intégrité cryptographique BLAKE3 (`crates/cynic-network/src/quic/framing.rs`).
+  - Validation test unitaire et de roundtrip `quic_domain_tests` vert sur le builder 10.10.10.119 (8/8 tests passés).
 - [ ] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS :**
   - Intégrer la génération et la révocation dynamique des clés Headscale via le coordinateur `10.10.10.40:8080`.
   - Assurer la résolution DNS dynamique `*.synapse.cynic` sans fichiers hosts statiques.
