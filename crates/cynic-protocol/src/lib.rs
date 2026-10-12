@@ -69,6 +69,7 @@ pub use host_substrate::provisioning;
 pub use host_substrate::remote_execution::RemoteExecutionPort;
 pub use host_substrate::vm_disk;
 pub mod inference_matrix;
+pub mod information;
 pub mod integrity;
 pub mod intent;
 pub mod llm_port;
