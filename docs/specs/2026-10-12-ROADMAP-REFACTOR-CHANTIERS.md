@@ -100,12 +100,23 @@
 - Admission zero-touch pour les runners GPU et serveurs de calcul hybrides via WireGuard + pre-auth keys.
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 3.1 — Cycle de vie natif des conteneurs LXC :**
-  - Industrialiser les profils d'agents sous forme de templates LXC légers avec `cynic-proxmox`.
-  - Contrôle dynamique de l'allocation CPU/RAM/Vulkan selon les besoins de charges (`cynic-node`).
-- [ ] **Tranche 3.2 — Spécification et déploiement de l'API de contrôle Cloud :**
-  - Concevoir l'API de contrôle souveraine remplaçant `cynic-cloud-api` avec authentification Ed25519 et RBAC.
-- [ ] **Tranche 3.3 — Fédérateur de calcul hybride (Edge / Cloud) :**
+- [x] **Tranche 3.0 — Délestage de `cynic-host` et consolidation Proxmox :** (Complété 2026-10-12)
+  - `cynic-host` délesté des clients HTTP 8006 et runners `pvesh` (responsabilité strictly bornée à l'hôte local).
+  - Relocalisation de `agent_host` dans `cynic-proxmox` (`adapters/agent_host_observer.rs` et `agent_host/{decision, types}.rs`).
+  - Validation architecturale FCIS complète sur builder 10.10.10.119 (20/20 unit tests, 3/3 boundary tests, 42/42 crates OK).
+- [x] **Tranche 3.1 — Contrat canonique `ComputeSubstratePort` & Sandboxing hybride :** (Complété 2026-10-12)
+  - Formalisation dans `cynic-protocol::compute` des types purs `ComputeRequirements`, `SubstrateKind`, `RunnerAllocation`, `CommandExecutionResult`.
+  - Prédicat pur `decide_compute_placement` avec arbitrage automatique entre sandboxing local (`BwrapEphemeral`) et hyperviseur distant (`LxcUnprivileged`).
+  - Définition du trait universel `ComputeSubstratePort` abstrayant le cycle de vie des runners.
+  - Validation complète (suite `compute_domain_tests`, 42/42 crates OK).
+- [x] **Tranche 3.2 — Implémentation concrète de `ComputeSubstratePort` dans `cynic-sandbox` et `cynic-proxmox` :** (Complété 2026-10-12)
+  - Implémentation de `LocalBwrapSubstrateAdapter` dans `cynic-sandbox` pour sandboxing non-root local via namespaces Linux sans privilèges.
+  - Implémentation de `ProxmoxLxcSubstrateAdapter` dans `cynic-proxmox` pour provisionnement, exécution (`pct exec`) et cycle de vie LXC distant via typed argv.
+  - Validation empirique E2E : bwrap réel sous utilisateur non-root avec preuves de confinement FS, PID (PID 2) et zéro-egress, connexion live TLS PVE 8.4.0 (`200 OK`).
+- [x] **Tranche 3.3 — Remplacement de `cynic-cloud-api` par le use case de provisionnement dans `cynic-node` :** (Complété 2026-10-12)
+  - `execute_compute_provisioning` dans `cynic-node::usecases::compute_provisioning_uc` orchestrant l'admission, le placement déterministe, l'allocation et le nettoyage garanti.
+  - Tests unitaires et d'intégration validés sur builder (2/2 tests OK, 42/42 crates OK).
+- [ ] **Tranche 3.4 — Fédérateur de calcul hybride (Edge / Cloud) :**
   - Connecter les nœuds de calcul externes (ex: instances GPU RunPod, serveurs Hetzner) au coordinateur Headscale avec isolation stricte.
 
 ---
