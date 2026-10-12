@@ -18,6 +18,7 @@ serde_json.workspace = true
 tracing.workspace = true
 cynic-consensus = { path = "../cynic-consensus" }
 cynic-host = { path = "../cynic-host" }
+cynic-kernel = { path = "../cynic-kernel" }
 # The audit engine, extracted from cynic-host. `cynic audit` calls it directly.
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }

@@ -138,6 +138,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "daemon",
+                commands: vec![
+                    "cynic daemon kernel [--reset]",
+                    "cynic daemon node [--config <path>] [--watchdog]",
+                ],
+            },
+            CommandDomain {
                 name: "discovery",
                 commands: vec![
                     "cynic discovery capabilities [--json]",
