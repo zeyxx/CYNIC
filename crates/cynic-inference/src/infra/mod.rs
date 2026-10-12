@@ -8,7 +8,6 @@ pub mod backend_health;
 pub mod domain_task_queue;
 pub mod gguf_meta;
 pub mod model_layout;
-pub mod model_registry;
 pub mod principal_paths;
 pub mod runtime_plan;
 pub mod task_admission_port;

@@ -12,7 +12,6 @@ pub mod progress;
 pub mod verdict_cache;
 
 // Convenience re-exports
-pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use cynic_huggingface::HfCliAdapter;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
@@ -90,7 +89,6 @@ pub use infra::gguf_meta::{
     preflight_gguf_with_store, read_gguf_meta,
 };
 pub use infra::model_layout::{ModelLayout, ModelLayoutReport, resolve_chat_state_dir};
-pub use infra::model_registry::{InferenceEngine, ModelBackend, ModelCapability, ModelHealth};
 pub use infra::principal_paths::{PathAuthority, PrincipalPaths};
 pub use infra::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
 
