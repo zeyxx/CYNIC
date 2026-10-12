@@ -8,10 +8,10 @@ pub mod memory;
 use clap::Subcommand;
 use std::process::ExitCode;
 
-pub use capacity::execute_capacity;
-pub use cpu::execute_cpu;
-pub use disk::{RuntimeDiskCommand, execute_disk, execute_disk_command};
-pub use memory::execute_memory;
+pub(crate) use capacity::execute_capacity;
+pub(crate) use cpu::execute_cpu;
+pub(crate) use disk::{RuntimeDiskCommand, execute_disk, execute_disk_command};
+pub(crate) use memory::execute_memory;
 
 #[derive(Subcommand)]
 pub enum NodeHostCommand {

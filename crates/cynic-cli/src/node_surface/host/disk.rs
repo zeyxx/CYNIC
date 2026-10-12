@@ -12,7 +12,7 @@ use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 use cynic_protocol::disk::bytes_to_human;
 
 use crate::emit_json;
-pub use crate::runtime_surface::RuntimeDiskCommand;
+pub(crate) use crate::runtime_surface::RuntimeDiskCommand;
 
 pub(crate) fn execute_disk_command(command: RuntimeDiskCommand) -> ExitCode {
     match command {

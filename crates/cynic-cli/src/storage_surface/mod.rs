@@ -64,10 +64,16 @@ pub fn execute_storage(command: StorageCommand) -> ExitCode {
             }
         }
         StorageCommand::Capabilities { json, url } => {
-            match cynic_host::surreal_client::execute_storage_capabilities(json, url.as_deref()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(e) => fail(e),
+            if !json {
+                eprintln!("storage capabilities require --json");
+                return ExitCode::FAILURE;
             }
+            let endpoint = url
+                .map(str::to_string)
+                .or_else(|| std::env::var("SURREALDB_URL").ok())
+                .unwrap_or_else(|| "http://localhost:8000".into());
+            let report = cynic_host::storage_capabilities::observe_storage_capabilities(&endpoint);
+            emit_json(&report, report.status == "blocked")
         }
         StorageCommand::Credential { json, endpoint } => {
             match crate::runtime_surface::execute_storage_credential_sync(json, endpoint.as_deref())
