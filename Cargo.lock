@@ -951,7 +951,6 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
- "cynic-workload",
  "futures-util",
  "reqwest 0.13.5",
  "serde",
