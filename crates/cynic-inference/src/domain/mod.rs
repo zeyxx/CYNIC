@@ -10,9 +10,7 @@ pub mod hf_catalog;
 pub mod inference;
 pub mod local_runtime;
 
-pub mod debate;
 pub mod hermes_runtime;
-pub mod matrix_sweep;
 pub mod model_layout_report;
 pub mod model_retention;
 pub mod model_store;

@@ -5,14 +5,10 @@
 //! - UCB1 repeat-benchmark scheduling over observed, normalized rewards
 //! - Exact KV-cache storage from model tensor geometry
 
-pub mod pareto;
 pub mod roofline;
 pub mod tensor_geometry;
 pub mod ucb_sampler;
 
-pub use pareto::{
-    ObjectiveBounds, ObjectiveVector, extract_pareto_frontier, select_utopian_optimal,
-};
 pub use roofline::{
     RooflineAssessment, RooflineBottleneck, RooflineInputs, assess_roofline,
     calculate_theoretical_max_tps,

@@ -22,10 +22,10 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Child;
 use tokio::sync::{Mutex, RwLock};
 
-use crate::domain::matrix_sweep::HardwareBudget;
-use crate::domain::matrix_sweep::empirical_store::{ConstraintFilter, OptimizationGoal};
+use cynic_eval::sweep::HardwareBudget;
+use cynic_eval::sweep::empirical_store::{ConstraintFilter, OptimizationGoal};
 use crate::infra::domain_task_queue::DomainTaskQueue;
-use crate::ports::empirical_store_port::EmpiricalStorePort;
+use cynic_eval::sweep::port::EmpiricalStorePort;
 
 use super::matrix_sweep_executor::config_to_llama_argv;
 

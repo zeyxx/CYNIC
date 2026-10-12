@@ -76,17 +76,12 @@ pub use domain::backend_config::InferenceBackendConfig;
 pub use domain::chat_session::{
     ChatEvent, ChatEventKind, ChatMessage, SessionMeta, StreamChunk, ToolSpec, messages_from_events,
 };
-pub use domain::debate::{DebateParticipant, DebateRole, DebateSession, DebateTurn};
 pub use domain::hardware_profile::HardwareProfile;
 pub use domain::hf_catalog::{ModelCategory, category_catalog, short_alias_from_repo};
 pub use domain::local_runtime::LocalRuntimeState;
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
-pub use domain::matrix_sweep::empirical_store::{
-    ConstraintFilter, ModelEmpiricalScorecard, OptimizationGoal,
-};
-pub use domain::matrix_sweep::types::HardwareBudget;
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeResponse};
 pub use domain::token_entropy::{
@@ -115,7 +110,6 @@ pub use infra::slot_tracker::{BackendSlots, SlotHealthEntry, SlotTracker, build_
 // Ports
 pub use ports::chat_port::ChatPort;
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
-pub use ports::empirical_store_port::EmpiricalStorePort;
 pub use cynic_huggingface::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,
     HfSearchReport, HfSearchRequest,

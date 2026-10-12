@@ -14,13 +14,13 @@ use serde::{Deserialize, Serialize};
 
 use cynic_protocol::ParametricConfigPoint;
 
-use crate::domain::matrix_sweep::empirical_store::{
+use cynic_eval::sweep::empirical_store::{
     aggregate_model_scorecard, solve_optimal_configuration,
 };
-use crate::domain::matrix_sweep::{
+use cynic_eval::sweep::{
     ConstraintFilter, HardwareBudget, ModelEmpiricalScorecard, OomSafetyStatus, OptimizationGoal,
 };
-use crate::ports::empirical_store_port::{EmpiricalStoreError, EmpiricalStorePort};
+use cynic_eval::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 use crate::ports::local_runtime_port::{LocalInferenceRuntimePort, LocalRuntimeError};
 
 pub const BASKET_PLAN_SCHEMA: &str = "cynic.inference.bench_basket.v1";

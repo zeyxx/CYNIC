@@ -12,12 +12,12 @@ use async_trait::async_trait;
 use cynic_protocol::ContextTier;
 use tokio::sync::RwLock;
 
-use crate::domain::matrix_sweep::HardwareBudget;
-use crate::domain::matrix_sweep::empirical_store::{
+use cynic_eval::sweep::HardwareBudget;
+use cynic_eval::sweep::empirical_store::{
     ConstraintFilter, EmpiricalProfileEntry, ModelEmpiricalScorecard, OptimizationGoal,
     aggregate_model_scorecard, solve_optimal_configuration,
 };
-use crate::ports::empirical_store_port::{EmpiricalStoreError, EmpiricalStorePort};
+use cynic_eval::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 
 /// Default location for the empirical performance ledger.
 pub const DEFAULT_EMPIRICAL_LEDGER_PATH: &str = "/var/lib/cynic/evidence/inference_profiles.jsonl";
@@ -204,8 +204,8 @@ impl EmpiricalStorePort for FsEmpiricalStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::matrix_sweep::empirical_store::{BenchmarkProvenance, OomSafetyStatus};
-    use crate::domain::matrix_sweep::types::StreamDynamicsReport;
+    use cynic_eval::sweep::empirical_store::{BenchmarkProvenance, OomSafetyStatus};
+    use cynic_eval::sweep::types::StreamDynamicsReport;
     use cynic_protocol::{
         HarnessProtocol, KvQuantization, ParametricConfigPoint, RopeScaling, TopologyStrategy,
     };
