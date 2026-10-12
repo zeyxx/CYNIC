@@ -202,6 +202,22 @@ pub(crate) enum RuntimeStorageCommand {
         #[command(subcommand)]
         command: RuntimeStorageClientCommand,
     },
+    /// Probe SurrealDB health and connectivity via cynic-surreal.
+    Ping {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
+    /// Execute a SurrealQL query via cynic-surreal authenticated client.
+    Query {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        sql: String,
+        #[arg(long)]
+        endpoint: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -559,6 +575,28 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 apply,
                 json,
             ),
+            RuntimeStorageCommand::Ping { json: _, endpoint } => {
+                let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
+                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_surreal::SurrealHttpClient::new(config);
+                match cynic_surreal::SurrealStoragePort::check_health(&client) {
+                    Ok(report) => emit_json(&report, !report.healthy),
+                    Err(e) => fail(e),
+                }
+            }
+            RuntimeStorageCommand::Query {
+                json: _,
+                sql,
+                endpoint,
+            } => {
+                let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
+                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_surreal::SurrealHttpClient::new(config);
+                match cynic_surreal::SurrealStoragePort::execute_sql(&client, &sql) {
+                    Ok(results) => emit_json(&results, false),
+                    Err(e) => fail(e),
+                }
+            }
         },
         RuntimeCommand::Execution {
             command: RuntimeExecutionCommand::Context { json, hosts },

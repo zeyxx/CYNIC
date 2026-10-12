@@ -41,6 +41,7 @@ members = [
     "crates/cynic-domain-porkbun",
     "crates/cynic-domain-cloudflare",
     "crates/cynic-finance",
+    "crates/cynic-surreal",
 ]
 resolver = "2"
 
