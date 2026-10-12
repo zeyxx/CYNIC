@@ -14,5 +14,3 @@ pub mod proxy_routing;
 pub mod runtime_planner;
 
 pub mod vault_consolidate;
-pub mod vault_consolidate_capacity;
-pub mod vault_consolidate_storage;
