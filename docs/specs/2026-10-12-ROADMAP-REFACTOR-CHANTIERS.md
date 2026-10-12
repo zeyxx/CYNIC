@@ -50,10 +50,14 @@
   - Migration des sondes matérielles hôtes vers `cynic node host {cpu, memory, disk, capacity}`.
   - Migration des audits de conformance, metrics et harness vers `cynic audit {conformance, metrics, harness}`.
   - Déploiement du binaire release sur la flotte (hash `944753f2...`).
-- [ ] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :**
-  - Déplacer la logique Git/PR de `source_surface.rs` vers `cynic-vcs`.
-- [ ] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :**
-  - Déplacer la logique de `build_surface.rs` vers `cynic-build`.
+- [x] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :** (Complété 2026-10-12)
+  - Extraction de `PrPort` factory et token resolution vers `cynic-vcs-forgejo::registry_binding`.
+  - Encapsulation des inventaires et topologies Git dans `cynic-vcs::source_worktree_cli`.
+  - Réduction de 400 LOC dans `source_surface.rs`.
+- [x] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :** (Complété 2026-10-12)
+  - Client HTTP natif `cynic-build::builder_client` pour la soumission de builds.
+  - Factories CLI dans `cynic-node::cli_factory` pour les runners et preuves.
+  - Réduction de 242 LOC dans `build_surface.rs`.
 - [ ] **Tranche 1.5 — Finalisation du cap des 7 racines et nettoyage des façades :**
   - Réduction finale des LOC restantes sous 4 000.
 
@@ -81,9 +85,11 @@
   - Canaux typés : `Control` (commandes de dispatch, leases, heartbeats), `Telemetry` (métriques de charge continue), `Artifact` (chunks découpés avec somme de contrôle BLAKE3 vérifiée).
   - Encodage et décodage purs avec intégrité cryptographique BLAKE3 (`crates/cynic-network/src/quic/framing.rs`).
   - Validation test unitaire et de roundtrip `quic_domain_tests` vert sur le builder 10.10.10.119 (8/8 tests passés).
-- [ ] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS :**
-  - Intégrer la génération et la révocation dynamique des clés Headscale via le coordinateur `10.10.10.40:8080`.
-  - Assurer la résolution DNS dynamique `*.synapse.cynic` sans fichiers hosts statiques.
+- [x] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS (FCIS) :** (Complété 2026-10-12)
+  - Extension du port `FleetMeshPort` dans `cynic-types` avec `create_preauth_key` et `expire_preauth_key`.
+  - Implémentation complète dans `HeadscaleClient` (`/api/v1/preauthkey`, `/api/v1/preauthkey/expire`) avec injection de secret via `cynic-secrets`.
+  - Prédicat d'évaluation de politique pure `evaluate_preauth_spec` (`crates/cynic-network/src/fleet_membership/admission.rs`).
+  - Validation des suites `headscale_admission_tests` (4/4 tests passés) et `adapters::headscale` (3/3 tests passés) sur le builder 10.10.10.119.
 
 ---
 
@@ -100,12 +106,22 @@
 - Admission zero-touch pour les runners GPU et serveurs de calcul hybrides via WireGuard + pre-auth keys.
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 3.1 — Cycle de vie natif des conteneurs LXC :**
-  - Industrialiser les profils d'agents sous forme de templates LXC légers avec `cynic-proxmox`.
-  - Contrôle dynamique de l'allocation CPU/RAM/Vulkan selon les besoins de charges (`cynic-node`).
-- [ ] **Tranche 3.2 — Spécification et déploiement de l'API de contrôle Cloud :**
-  - Concevoir l'API de contrôle souveraine remplaçant `cynic-cloud-api` avec authentification Ed25519 et RBAC.
-- [ ] **Tranche 3.3 — Fédérateur de calcul hybride (Edge / Cloud) :**
+- [x] **Tranche 3.0 — Délestage de `cynic-host` et consolidation Proxmox :** (Complété 2026-10-12)
+  - `cynic-host` délesté des clients HTTP 8006 et runners `pvesh` (responsabilité strictly bornée à l'hôte local).
+  - Relocalisation de `agent_host` dans `cynic-proxmox` (`adapters/agent_host_observer.rs` et `agent_host/{decision, types}.rs`).
+  - Validation architecturale FCIS complète sur builder 10.10.10.119 (20/20 unit tests, 3/3 boundary tests, 42/42 crates OK).
+- [x] **Tranche 3.1 — Contrat canonique `ComputeSubstratePort` & Sandboxing hybride :** (Complété 2026-10-12)
+  - Formalisation dans `cynic-protocol::compute` des types purs `ComputeRequirements`, `SubstrateKind`, `RunnerAllocation`, `CommandExecutionResult`.
+  - Prédicat pur `decide_compute_placement` avec arbitrage automatique entre sandboxing local (`BwrapEphemeral`) et hyperviseur distant (`LxcUnprivileged`).
+  - Définition du trait universel `ComputeSubstratePort` abstrayant le cycle de vie des runners.
+  - Validation complète (suite `compute_domain_tests`, 42/42 crates OK).
+- [x] **Tranche 3.2 — Implémentation concrète de `ComputeSubstratePort` dans `cynic-sandbox` et `cynic-proxmox` :** (Complété 2026-10-12)
+  - Implémentation de `LocalBwrapSubstrateAdapter` dans `cynic-sandbox` pour sandboxing non-root local via namespaces Linux sans privilèges.
+  - Implémentation de `ProxmoxLxcSubstrateAdapter` dans `cynic-proxmox` pour provisionnement, exécution (`pct exec`) et cycle de vie LXC distant via typed argv.
+  - Validation complète sur builder 10.10.10.119 (16/16 unit tests + 1 test d'architecture + 1 bwrap test pour `cynic-sandbox`, 20/20 unit tests + 3 tests d'architecture + 1 lxc test pour `cynic-proxmox`, 42/42 crates OK).
+- [ ] **Tranche 3.3 — Remplacement de `cynic-cloud-api` par le use-case de provisionnement dans `cynic-node` :**
+  - Raccorder `cynic-workload` et `cynic-lifecycle` pour piloter les runners sans shell brut.
+- [ ] **Tranche 3.4 — Fédérateur de calcul hybride (Edge / Cloud) :**
   - Connecter les nœuds de calcul externes (ex: instances GPU RunPod, serveurs Hetzner) au coordinateur Headscale avec isolation stricte.
 
 ---

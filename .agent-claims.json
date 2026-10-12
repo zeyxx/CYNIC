@@ -1,6 +1,79 @@
 {
-  "claims": [],
+  "claims": [
+    {
+      "agent_id": "hermes:hf-contract",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_hermeshfcontract_1791832168",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-huggingface"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1791832168,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "hermes:hf-contract",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_hermeshfcontract_1791832377",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-cli"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1791832377,
+        "ttl_seconds": 3600
+      }
+    },
+    {
+      "agent_id": "hermes:hf-contract",
+      "budget": {
+        "actions": 50,
+        "wall_seconds": 3600
+      },
+      "claim_id": "claim_hermeshfcontract_1791832377",
+      "consumed": {
+        "actions": 0,
+        "wall_seconds": 0
+      },
+      "mode": "baseline",
+      "parent_claim_id": null,
+      "priority": 10,
+      "scope": {
+        "kind": "crate",
+        "path": "crates/cynic-inference"
+      },
+      "status": "active",
+      "temporal": {
+        "started_at_unix_s": 1791832377,
+        "ttl_seconds": 3600
+      }
+    }
+  ],
   "merge_queue": [],
-  "revision": 211,
+  "revision": 214,
   "schema": "cynic.agent_claims.v2"
 }
