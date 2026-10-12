@@ -29,6 +29,7 @@ pub mod source_policy;
 pub mod source_release;
 pub mod source_repository_bootstrap;
 pub mod source_worktree;
+pub mod source_worktree_cli;
 pub mod source_worktree_inventory;
 pub mod stack;
 pub mod sync;

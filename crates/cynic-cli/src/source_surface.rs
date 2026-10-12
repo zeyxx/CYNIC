@@ -441,83 +441,25 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     }
 }
 fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
-    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let ws_store_canonical = if workspace_store.exists() {
-        workspace_store.to_path_buf()
-    } else {
-        let home_ws = std::env::var_os("HOME")
-            .map(|h| std::path::PathBuf::from(h).join(".workspace"))
-            .unwrap_or_default();
-        if home_ws.exists() {
-            home_ws
-        } else {
-            workspace_store.to_path_buf()
-        }
-    };
-
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let inventory = cynic_vcs::observe_source_worktree_inventory(
-        root,
-        &ws_store_canonical,
-        "cynic",
-        "local",
-        &cynic_host::adapters::vcs_runner::LocalVcsRunner,
-        now_ms,
-    );
-    let head_sha =
-        cynic_vcs::observe_head_sha(&root_canonical).unwrap_or_else(|| "HEAD".to_string());
-
+    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let (head_sha, snapshots) =
+        cynic_vcs::source_worktree_cli::observe_worktree_convergence_snapshots(
+            root,
+            workspace_store,
+            &runner,
+            now_ms,
+        );
+    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let default_branch = "main".to_string();
-    let mut snapshots = Vec::new();
-    for entry in &inventory.entries {
-        let is_active_root = entry.path_basis
-            == cynic_vcs::SourceWorktreeInventoryPathBasis::MainRepository
-            || entry.relative_path.as_deref() == Some(".")
-            || entry.relative_path.as_deref() == Some("")
-            || entry.candidate_id == "cynic";
-
-        let path = if is_active_root {
-            root_canonical.clone()
-        } else {
-            entry
-                .relative_path
-                .as_deref()
-                .map(|r| ws_store_canonical.join(r))
-                .unwrap_or_else(|| std::path::PathBuf::from(&entry.candidate_id))
-        };
-
-        let branch = entry
-            .branch
-            .as_deref()
-            .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
-
-        let dirty_file_count = if path.exists() {
-            cynic_vcs::count_dirty_files(&path)
-        } else {
-            0
-        };
-
-        snapshots.push(cynic_vcs::source_worktree::ObservedWorktreeSnapshot {
-            path,
-            branch,
-            head_sha: entry.head.clone().unwrap_or_default(),
-            is_active_root,
-            dirty_file_count,
-            git_prunable: entry.git_prunable == Some(true)
-                || entry.state == cynic_vcs::SourceWorktreeInventoryEntryState::Malformed,
-            prunable_reason: entry.prunable_reason.clone(),
-        });
-    }
-
-    let plan = cynic_vcs::source_worktree::reconcile_worktree_convergence_pure(
-        root_canonical.clone(),
-        &default_branch,
-        &head_sha,
+    let plan = cynic_vcs::source_worktree_cli::plan_worktree_convergence(
+        root_canonical,
+        default_branch,
+        head_sha,
         &snapshots,
-        &[],
     );
 
     if apply {
@@ -834,41 +776,16 @@ fn execute_publish(root: &Path, json: bool) -> ExitCode {
         }
     };
 
-    let output = match std::process::Command::new("git")
-        .args(["ls-files", "-z"])
-        .current_dir(root)
-        .output()
-    {
-        Ok(o) => o,
+    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let (tracked, files) = match cynic_vcs::source_worktree_cli::observe_publication_inputs(
+        root, &contract, &runner,
+    ) {
+        Ok(inputs) => inputs,
         Err(e) => {
-            eprintln!("blocked: git ls-files failed: {e}");
+            eprintln!("blocked: {e}");
             return ExitCode::FAILURE;
         }
     };
-    if !output.status.success() {
-        eprintln!("blocked: git ls-files exited non-zero");
-        return ExitCode::FAILURE;
-    }
-    let tracked: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .split('\0')
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .collect();
-
-    // Read the bytes of every path the contract publishes so the plan can report
-    // private literals no redaction covers. Non-UTF-8 files are read lossily:
-    // the plan's job is to surface literals, not to preserve bytes.
-    let mut files: Vec<(String, String)> = Vec::new();
-    for path in &tracked {
-        if contract
-            .rule_for(path)
-            .is_some_and(|r| r.status.is_published())
-        {
-            if let Ok(bytes) = std::fs::read(root.join(path)) {
-                files.push((path.clone(), String::from_utf8_lossy(&bytes).to_string()));
-            }
-        }
-    }
 
     let plan = cynic_vcs::plan_publication(&contract, &tracked, &files);
     let admitted = plan.is_admitted();
