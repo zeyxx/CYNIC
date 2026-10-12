@@ -19,10 +19,8 @@ pub mod proxy_routing;
 pub mod routing_policy;
 pub mod runtime_planner;
 
-pub mod agent_harness;
 pub mod bench_basket_launcher;
 pub mod engine_selector;
-pub mod failure_gallery;
 pub mod hermes_runtime_service;
 pub mod inference_gateway;
 pub mod matrix_live_runner;

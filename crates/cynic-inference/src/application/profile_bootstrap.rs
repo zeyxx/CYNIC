@@ -549,7 +549,7 @@ pub fn forge_profile_from_benchmark_report(
 ) -> Result<ForgeProfileReport, ForgeProfileError> {
     let raw = std::fs::read_to_string(report_path)
         .map_err(|e| ForgeProfileError(format!("read {report_path}: {e}")))?;
-    let report: crate::application::agent_harness::BenchmarkReport = serde_json::from_str(&raw)
+    let report: cynic_eval::harness::BenchmarkReport = serde_json::from_str(&raw)
         .map_err(|e| ForgeProfileError(format!("parse BenchmarkReport: {e}")))?;
 
     // Pick the winning run: the AgentHarnessReport with the best output rate.
