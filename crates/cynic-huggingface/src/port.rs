@@ -6,7 +6,12 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::endpoint::HfEndpointSpec;
+use crate::domain::job::{HfJobInfo, HfJobSpec, HfScheduledJobRequest};
 use crate::domain::paths::HfLocalPaths;
+use crate::domain::repository::HfRepoType;
+use crate::domain::space::HfSpaceSpec;
+use crate::domain::webhook::HfWebhookSpec;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HfHubError {
@@ -134,4 +139,157 @@ pub trait HfHubPort: Send + Sync {
         repo_id: &str,
         revision: Option<&str>,
     ) -> Result<Vec<String>, HfHubError>;
+    /// `hf upload ...` — publish a file or folder to the Hub.
+    fn upload(&self, req: &HfUploadRequest) -> Result<HfUploadReport, HfHubError>;
+    /// `hf jobs uv run ...` / `hf jobs run ...` — submit, return remote id.
+    fn job_submit(&self, spec: &HfJobSpec) -> Result<HfJobReport, HfHubError>;
+    /// `hf jobs inspect ID --json` — observed state, raw payload preserved.
+    fn job_poll(&self, remote_id: &str, namespace: Option<&str>) -> Result<HfJobInfo, HfHubError>;
+    /// `hf jobs ps -a --json` — list observed jobs.
+    fn job_list(&self, all: bool, namespace: Option<&str>) -> Result<Vec<HfJobInfo>, HfHubError>;
+    /// `hf jobs logs ID` — captured log tail.
+    fn job_logs(
+        &self,
+        remote_id: &str,
+        namespace: Option<&str>,
+    ) -> Result<HfJobLogsReport, HfHubError>;
+    /// `hf jobs cancel ID`.
+    fn job_cancel(
+        &self,
+        remote_id: &str,
+        namespace: Option<&str>,
+    ) -> Result<HfJobReport, HfHubError>;
+    /// `hf jobs scheduled uv run SCHEDULE ...`.
+    fn job_schedule_submit(&self, req: &HfScheduledJobRequest) -> Result<HfJobReport, HfHubError>;
+    /// `hf jobs scheduled ps --json`.
+    fn job_schedule_list(&self) -> Result<Vec<serde_json::Value>, HfHubError>;
+    /// `hf jobs scheduled delete ID`.
+    fn job_schedule_delete(&self, scheduled_id: &str) -> Result<HfJobReport, HfHubError>;
+}
+
+/// Staged contract for Spaces (`hf spaces ...`). No CLI adapter yet.
+pub trait HfSpacePort: Send + Sync {
+    fn space_create(&self, spec: &HfSpaceSpec) -> Result<HfSpaceReport, HfHubError>;
+    fn space_pause(&self, repo_id: &str) -> Result<HfSpaceReport, HfHubError>;
+    fn space_restart(&self, repo_id: &str) -> Result<HfSpaceReport, HfHubError>;
+}
+
+/// Staged contract for webhooks (`hf webhooks ...`). No CLI adapter yet.
+pub trait HfWebhookPort: Send + Sync {
+    fn webhook_create(&self, spec: &HfWebhookSpec) -> Result<HfWebhookReport, HfHubError>;
+    fn webhook_list(&self) -> Result<Vec<serde_json::Value>, HfHubError>;
+    fn webhook_delete(&self, webhook_id: &str) -> Result<HfWebhookReport, HfHubError>;
+}
+
+/// Staged contract for Inference Endpoints (`hf endpoints ...`). No CLI adapter yet.
+pub trait HfEndpointPort: Send + Sync {
+    fn endpoint_create(&self, spec: &HfEndpointSpec) -> Result<HfEndpointReport, HfHubError>;
+    fn endpoint_list(&self) -> Result<Vec<serde_json::Value>, HfHubError>;
+    fn endpoint_delete(&self, name: &str) -> Result<HfEndpointReport, HfHubError>;
+}
+
+#[derive(Debug, Clone)]
+pub struct HfUploadRequest {
+    pub repo_id: String,
+    pub local_path: String,
+    pub path_in_repo: Option<String>,
+    pub repo_type: HfRepoType,
+    pub revision: Option<String>,
+    /// `Some(true)` creates a private repo when missing; `None` = Hub default.
+    pub private: Option<bool>,
+    pub include: Vec<String>,
+    pub exclude: Vec<String>,
+    pub commit_message: Option<String>,
+    pub create_pr: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfUploadReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub repo_id: String,
+    pub argv: Vec<String>,
+    pub stdout_tail: String,
+    pub stderr_tail: String,
+    pub message: Option<String>,
+}
+
+impl HfUploadReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_upload.v1";
+    pub const SURFACE: &'static str = "hf_cli";
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfJobReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub remote_id: Option<String>,
+    pub argv: Vec<String>,
+    pub stdout_tail: String,
+    pub stderr_tail: String,
+    pub message: Option<String>,
+}
+
+impl HfJobReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_job.v1";
+    pub const SURFACE: &'static str = "hf_cli";
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfJobLogsReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub remote_id: String,
+    pub logs: String,
+    pub message: Option<String>,
+}
+
+impl HfJobLogsReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_job_logs.v1";
+    pub const SURFACE: &'static str = "hf_cli";
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfSpaceReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub repo_id: String,
+    pub message: Option<String>,
+}
+
+impl HfSpaceReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_space.v1";
+    pub const SURFACE: &'static str = "hf_cli";
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfWebhookReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub remote_id: Option<String>,
+    pub message: Option<String>,
+}
+
+impl HfWebhookReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_webhook.v1";
+    pub const SURFACE: &'static str = "hf_cli";
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HfEndpointReport {
+    pub schema: &'static str,
+    pub surface: &'static str,
+    pub ok: bool,
+    pub name: String,
+    pub message: Option<String>,
+}
+
+impl HfEndpointReport {
+    pub const SCHEMA: &'static str = "cynic.huggingface.hf_endpoint.v1";
+    pub const SURFACE: &'static str = "hf_cli";
 }
