@@ -10,13 +10,11 @@ pub mod math;
 pub mod ods_discovery;
 pub mod ports;
 pub mod progress;
-pub mod routing_calc;
 pub mod verdict_cache;
 
 // Convenience re-exports
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
 pub use cynic_huggingface::HfCliAdapter;
-pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
     FsChatSessionStore, FsHardwareProbe, FsLocalModelInventory, FsModelStore,
@@ -44,7 +42,6 @@ pub use application::chat_service::{
     ToolInvoker, default_tool_specs,
 };
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
-pub use application::inference_gateway::{InferenceGateway, InferenceGatewayConfig};
 pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
 pub use application::model_store_service::ModelStoreService;
@@ -118,7 +115,6 @@ pub use ports::token_entropy_port::TokenEntropyPort;
 
 // Misc
 pub use math::roofline::assess_roofline;
-pub use routing_calc::RoutingCalculator;
 
 // Adapter re-exports
 pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};
