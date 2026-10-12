@@ -178,6 +178,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node cert-inspect --cert-path <path> [--json]",
                     "cynic node cert-verify --kernel-pubkey-hex <hex> --cert-path <path> [--json]",
                     "cynic node host-audit [--json] [--max-commits <n>]",
+                    "cynic node host cpu [--json]",
+                    "cynic node host memory [--json]",
+                    "cynic node host disk status [--json]",
+                    "cynic node host disk clean [--apply] [--json]",
+                    "cynic node host capacity [--json]",
                 ],
             },
             CommandDomain {

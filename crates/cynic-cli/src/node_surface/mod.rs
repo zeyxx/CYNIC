@@ -13,6 +13,7 @@ pub mod identity;
 pub mod observation;
 pub mod source;
 pub mod storage;
+pub mod host;
 
 
 use std::process::ExitCode;
@@ -132,6 +133,13 @@ pub enum NodeCommand {
         registry: String,
         #[arg(long)]
         output: Option<String>,
+    },
+
+    // === Host Probes ===
+    /// Probe host hardware: CPU, memory, storage disks, and capacity.
+    Host {
+        #[command(subcommand)]
+        command: host::NodeHostCommand,
     },
 
     // === Peer ===
@@ -330,6 +338,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::RegistryObservation { json: _, registry, output } => {
             observation::execute_registry_observation(&registry, output.as_deref())
         }
+
+        // === Host Probes ===
+        NodeCommand::Host { command } => host::execute_node_host(command),
 
         // === Peer ===
         NodeCommand::Peer { command } => {

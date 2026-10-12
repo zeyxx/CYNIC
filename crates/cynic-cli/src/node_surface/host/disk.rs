@@ -12,6 +12,28 @@ use cynic_host::domain::disk::{DiskCleanupPlan, DiskCleanupResult, DiskReport};
 use cynic_protocol::disk::bytes_to_human;
 
 use crate::emit_json;
+pub use crate::runtime_surface::RuntimeDiskCommand;
+
+pub(crate) fn execute_disk_command(command: RuntimeDiskCommand) -> ExitCode {
+    match command {
+        RuntimeDiskCommand::Status { json } => execute_disk(json),
+        RuntimeDiskCommand::Clean {
+            json,
+            apply,
+            build_runner,
+            registry,
+            node,
+            state_root,
+        } => execute_disk_clean(
+            json,
+            apply,
+            build_runner,
+            &registry,
+            node.as_deref(),
+            &state_root,
+        ),
+    }
+}
 
 pub(crate) fn execute_disk(json: bool) -> ExitCode {
     let adapter = LocalDiskAdapter;
