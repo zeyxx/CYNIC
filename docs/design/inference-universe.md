@@ -257,6 +257,19 @@ Proofs: inference@7a64d6b9, 4/4 `infra::runtime_plan` unit tests pass.
 `adapters/local/model_readiness.rs` (single definition, both delegate).
 `parse` keeps the `model`-key superset. Proofs: inference@ed678d88.
 
+### 5.11 Tranche H (proxy + registry burn) — CONVERGED
+
+`application/proxy_routing.rs` 260 (zero callers, 1 test pin deleted) +
+discovery-registry cluster ~320 (`adapters/discovery/`, `infra/model_registry`,
+`ports/model_registry_port`, 1 ownership test split to keep the kernel-side
+prohibition) + `publishers/null.rs` 24 (unpinned). Host orphan baseline
+tightened (`BackendCatalogPort` removed, as the ratchet itself prescribes).
+Proofs: inference/kernel/host checks@f239643c; kernel suite 18 passed
+(−1 deleted test), 6 pre-existing failures unchanged. Host suite still red
+on pre-existing items outside this diff: `TraceSinkPort` orphan (impl died
+in tranche 260b9515) and concept collisions (`AuthStyle` inference/kernel,
+`AgentSessionRecord` protocol/surreal) — recorded, not introduced here.
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
