@@ -73,7 +73,14 @@ cynic-demo-output-*.txt
 cynic-demo.html
 
 # Generated evidence datasets, dumps, and experiment runs
-/evidence/datasets/
-/evidence/experiments/
+/evidence/
+/references/
+/data_system/
+/scripts/
+/.agent-claims.json
 *.jsonl
-!evidence/inference_traces.jsonl
+*.tmp
+*.pptx
+*.docx
+*.xlsx
+*.pdf

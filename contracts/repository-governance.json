@@ -1,0 +1,61 @@
+{
+  "schema": "cynic.repository_governance.v1",
+  "status": "normative",
+  "policy": "deny_by_default",
+  "description": "Constitutional repository tree governance: fail-closed admission policy, explicit whitelists and blacklists.",
+  "root_admission": {
+    "allowed_directories": [
+      "crates",
+      "contracts",
+      "docs",
+      "tests",
+      "programs",
+      "apps",
+      "archive",
+      "infra"
+    ],
+    "allowed_files": [
+      ".gitignore",
+      "Cargo.lock",
+      "Cargo.toml",
+      "LICENSE",
+      "Makefile",
+      "README.md",
+      "deny.toml"
+    ]
+  },
+  "forbidden_roots": [
+    "scripts",
+    "specs",
+    "evidence",
+    "references",
+    "data_system",
+    "benchmarks",
+    "vault"
+  ],
+  "blacklisted_file_patterns": [
+    "*.pptx",
+    "*.docx",
+    "*.xlsx",
+    "*.pdf",
+    "*.zip",
+    "*.tar",
+    "*.tar.gz",
+    "*.bin",
+    "*.exe",
+    "*.dll",
+    "*.so",
+    "*.log",
+    "*.tmp",
+    "*.jsonl",
+    "*.sqlite",
+    "*.db",
+    ".agent-claims.json",
+    ".env",
+    ".env.*"
+  ],
+  "enforcement": {
+    "gate_test": "crates/cynic-cli/tests/repository_governance.rs",
+    "action_on_violation": "fail_closed"
+  }
+}
