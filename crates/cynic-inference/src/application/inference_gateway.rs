@@ -27,7 +27,7 @@ use cynic_eval::sweep::empirical_store::{ConstraintFilter, OptimizationGoal};
 use crate::infra::domain_task_queue::DomainTaskQueue;
 use cynic_eval::sweep::port::EmpiricalStorePort;
 
-use super::matrix_sweep_executor::config_to_llama_argv;
+use cynic_eval::sweep::matrix_sweep_executor::config_to_llama_argv;
 
 pub const INFERENCE_GATEWAY_SCHEMA: &str = "cynic.inference.gateway.v1";
 
