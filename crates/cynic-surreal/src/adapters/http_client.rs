@@ -74,11 +74,12 @@ impl SurrealHttpClient {
 
     /// Resolve runtime storage password through standard SSOT secret paths.
     fn resolve_password() -> Option<String> {
-        cynic_secrets::resolve_secret("storage_runtime", "CYNIC_STORAGE_PASSWORD")
+        cynic_secrets::resolve_secret("storage-runtime-password", "CYNIC_STORAGE_PASSWORD")
             .or_else(|| {
-                cynic_secrets::resolve_secret("storage-runtime-password", "SURREALDB_PASSWORD")
+                cynic_secrets::resolve_secret("storage_runtime", "CYNIC_STORAGE_RUNTIME_PASSWORD")
             })
             .or_else(|| std::env::var("CYNIC_STORAGE_PASSWORD").ok())
+            .or_else(|| std::env::var("SURREALDB_PASSWORD").ok())
     }
 
     fn http_client(&self) -> Result<Client, String> {
