@@ -169,7 +169,21 @@ or the extraction slice is rejected.
 | I5 | `cynic-host/src/agent_matrix.rs`, `cynic-host/tests/multi_agent_e2e_simulation.rs` | verified: NO code imports of the perimeter (surface-name strings / lease strings only) — no action |
 | I6 | staying `hermes_run_executor`, `hermes_process_supervisor`, `harness_executor`(if staying) | re-import harness traits from eval (O7); `HttpHarnessExecutor` moves per O5 |
 
-### 5.3 Declared non-goals of this slice
+### 5.3 Spike result (vocabulary slice) — CONVERGED
+
+Moved ~1.4 kLOC (`matrix_sweep` ×6, `debate`, `empirical_store_port`,
+`pareto`) to `cynic-eval::sweep`; `cynic-inference` −1 447 lines, six
+consumers rewired to `cynic_eval::sweep::*`. No `eval → inference` edge:
+serving-owned `roofline_inputs` is carried opaquely as `serde_json::Value`.
+Proofs: `cynic-eval@d203e926` converged, `cynic-inference@74f34c24`
+converged. Eval now ~5.7 kLOC — far from the 15 kLOC monolith band;
+executors move in later slices, never in one bulk.
+Open follow-ups (NOT this slice): `math::ucb_sampler` is an unreferenced
+orphan (declare + re-export, zero users) → burn candidate; `debate_live_test`
+moves with the executor slice; `failure_gallery` vs eval's
+`emergence_gallery` relation to settle before moving the gallery.
+
+### 5.4 Declared non-goals of this slice
 
 `verdict_cache` (family keeps it), `fs_empirical_store` impl, `math::{roofline,tensor_geometry}`,
 `ports::local_runtime_port` itself, hermes runtime files, finance glue,
