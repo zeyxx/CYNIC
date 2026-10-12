@@ -12,7 +12,7 @@
 //! four synchronized edits that can silently drift apart.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::Value;
 
@@ -277,7 +277,7 @@ fn the_registry_names_its_own_coherence_test() {
     let declared = policy["coherence_contract"]["test"]
         .as_str()
         .expect("coherence_contract must name its test");
-    let path: &Path = &repo_root().join(declared);
+    let path = repo_root().join(declared);
     assert!(
         path.is_file(),
         "the registry names {declared} as its coherence test but that file is absent"
