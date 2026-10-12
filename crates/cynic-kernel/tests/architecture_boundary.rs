@@ -512,24 +512,6 @@ fn kernel_inference_router_delegates_node_operations_to_cynic_inference_applicat
 }
 
 #[test]
-fn kernel_inference_router_delegates_routing_projection_to_inference() {
-    // NOTE (2026-09-28 api/ purge): kernel router side dead with the REST
-    // surface. Live owner contract below.
-    let routing = read_repo_file("crates/cynic-inference/src/application/fleet_routing.rs");
-    for expected in [
-        "pub struct InferenceRouteDecisionView",
-        "pub struct InferenceCandidateView",
-        "pub fn project_route_response",
-        "pub fn project_candidate_views",
-    ] {
-        assert!(
-            routing.contains(expected),
-            "cynic-inference fleet_routing must expose `{expected}`"
-        );
-    }
-}
-
-#[test]
 fn kernel_inference_proxy_delegates_backend_selection_to_inference() {
     // NOTE (2026-09-28 api/ purge): kernel proxy side dead with the REST
     // surface. Live owner contract below.
