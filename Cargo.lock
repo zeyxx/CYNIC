@@ -840,11 +840,14 @@ dependencies = [
 name = "cynic-eval"
 version = "0.2.0"
 dependencies = [
+ "async-trait",
  "cynic-protocol",
+ "cynic-types",
  "hex",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
