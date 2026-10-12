@@ -1,0 +1,105 @@
+{
+  "schema": "cynic.federation_mycelium_policy.v1",
+  "status": "normative",
+  "authority": "Human Operator (Constituent Power)",
+  "purpose": "Single Source of Truth governing peer-to-peer mycelium node federation, strict RBAC/ACL matrix, and the Epistemic Data Triad invariants.",
+  "epistemic_triad": {
+    "sovereign_data_center": {
+      "pipeline_stages": [
+        "capture",
+        "canonical",
+        "model",
+        "projection"
+      ],
+      "invariants": {
+        "alpha_1": "strict_causal_acyclicity_dag",
+        "alpha_2": "compaction_n_to_1_conservation",
+        "alpha_3": "transitive_subagent_tree_resolution",
+        "alpha_4": "tool_concurrency_lamport_poset",
+        "alpha_5": "integral_cot_phenotype_conservation",
+        "alpha_6": "null_distinct_from_empty_string",
+        "alpha_7": "deterministic_normalization",
+        "alpha_8": "fail_closed_schema_drift",
+        "alpha_9": "frozen_capture_reads_only"
+      }
+    },
+    "epistemic_engine": {
+      "methodology": "popperian_falsification",
+      "loop": [
+        "hypothesis_generation",
+        "null_hypothesis_formulation",
+        "destructive_physical_probe",
+        "sandbox_execution",
+        "popperian_verdict",
+        "fact_registry_update",
+        "retroactive_truth_propagation"
+      ],
+      "invariants": {
+        "anti_confirmation_bias": true,
+        "physical_receipt_required": true,
+        "l0_verification_precedes_l1_l2_inference": true,
+        "llm_tribunal_zero_material_authority": true
+      }
+    },
+    "associative_memory": {
+      "storage_engine": "surrealdb_surrealkv_sqlite",
+      "fact_registry": "immutable_content_addressed",
+      "retrieval_strategy": "hybrid_fts5_bm25_and_dense_vectors",
+      "quarantine_of_purity": "only_l0_verified_subgraphs_admitted"
+    }
+  },
+  "rbac_matrix": {
+    "roles": {
+      "WorkstationHost": {
+        "node_family": "cortex",
+        "default_ip": "192.168.100.2",
+        "allowed_inbound": ["all_with_hitl"],
+        "allowed_outbound": ["all"],
+        "can_mutate_contracts": true
+      },
+      "HypervisorHost": {
+        "node_family": "proxmox",
+        "default_ip": "10.10.10.1",
+        "allowed_inbound": ["ssh_admin", "pve_api"],
+        "allowed_outbound": ["lxc_management"],
+        "can_mutate_contracts": false
+      },
+      "BuildRunner": {
+        "node_family": "builder",
+        "default_ip": "10.10.10.119",
+        "allowed_inbound": ["ssh_build_requests"],
+        "allowed_outbound": ["store_artifact_push", "git_fetch"],
+        "can_mutate_contracts": false
+      },
+      "AgentHost": {
+        "node_family": "agent_host",
+        "default_ip": "10.10.10.102",
+        "allowed_inbound": ["ssh_agent_dispatch"],
+        "allowed_outbound": ["mesh_lease_announce", "artifact_http_read", "git_push_feature_branch"],
+        "can_mutate_contracts": false
+      },
+      "ArtifactStore": {
+        "node_family": "artifact_store",
+        "default_ip": "10.10.10.103",
+        "allowed_inbound": ["http_8443_read", "ssh_builder_ingest"],
+        "allowed_outbound": [],
+        "can_mutate_contracts": false
+      },
+      "StoragePrimary": {
+        "node_family": "surrealdb",
+        "default_ip": "10.10.10.103",
+        "allowed_inbound": ["surrealql_8000"],
+        "allowed_outbound": [],
+        "can_mutate_contracts": false
+      }
+    }
+  },
+  "admissible_envelopes": [
+    "cynic.node_observation.v1",
+    "cynic.network.registry_reconciliation_report.v1",
+    "cynic.coordination_lease.v1",
+    "cynic.runtime_artifact_store.v1",
+    "cynic.data_system.session_trace.v1",
+    "cynic.federation_mycelium_policy.v1"
+  ]
+}
