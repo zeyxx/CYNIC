@@ -304,6 +304,14 @@ regeneration needs the tool.
 Removed unimported `cynic-workload` dep from `cynic-inference` (+ lock).
 Proofs: inference@b3cd4be4.
 
+### 5.13 Tranche J (verdict + meter burn) — CONVERGED
+
+`verdict_cache.rs` 359 (zero users, only a commented-out test line) +
+`finance_adapters.rs` 104 (zero users; other crates' `finance_adapters`
+are namesakes) burned, −465. `domain/summarization.rs` kept: kernel-pinned
+law + host-recorded orphan port (awaiting impl, not mine to overturn).
+Proofs: inference@a46c3adb.
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
