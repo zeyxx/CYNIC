@@ -155,6 +155,27 @@
         "owner": "cynic:cynic",
         "mode": "0755"
       }
+    },
+    "runtime_install": {
+      "description": "Installed release binaries and current symlink root.",
+      "tree": {
+        "root": "/opt/cynic",
+        "owner": "root:cynic",
+        "mode": "0755",
+        "key_paths": {
+          "current/": "Symlink to current active release.",
+          "current/cynic": "Active CYNIC binary.",
+          "releases/": "Versioned releases directory."
+        }
+      }
+    },
+    "system_binaries": {
+      "description": "Standard host system binaries for cynic services.",
+      "tree": {
+        "root": "/usr/local/bin/cynic",
+        "owner": "root:root",
+        "mode": "0755"
+      }
     }
   },
   "operator_user": {
