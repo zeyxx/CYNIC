@@ -164,6 +164,49 @@ impl MarketLoop {
         Some(yes_count as f64 / predictions.len() as f64)
     }
 
+    /// Verdict counts for a proposal, in fixed `[yes, no]` bucket order.
+    ///
+    /// Returns `None` when the proposal has no predictions; absent data is not
+    /// represented as a fabricated zero-confidence consensus.
+    pub fn verdict_counts(&self, registry: &MarketRegistry, proposal_id: &str) -> Option<[usize; 2]> {
+        let predictions = self.get_predictions(registry, proposal_id);
+        if predictions.is_empty() {
+            return None;
+        }
+        let yes = predictions
+            .iter()
+            .filter(|p| p.predicted_value == "yes")
+            .count();
+        let no = predictions.len() - yes;
+        Some([yes, no])
+    }
+
+    /// Shannon consensus confidence modifier for a proposal's verdicts.
+    pub fn poj_consensus_confidence(
+        &self,
+        registry: &MarketRegistry,
+        proposal_id: &str,
+    ) -> Option<f64> {
+        let counts = self.verdict_counts(registry, proposal_id)?;
+        self.scoring
+            .poj_consensus_confidence(&counts, 2)
+            .ok()
+    }
+
+    /// Whether the proposal needs Proof-of-Jury escalation.
+    ///
+    /// Escalation is required when the Shannon consensus confidence modifier is
+    /// below the configured threshold. `None` is returned when no predictions
+    /// exist; unknown is not silently treated as consensus.
+    pub fn poj_escalation_required(
+        &self,
+        registry: &MarketRegistry,
+        proposal_id: &str,
+    ) -> Option<bool> {
+        let confidence = self.poj_consensus_confidence(registry, proposal_id)?;
+        Some(confidence < self.scoring.poj_config.escalation_threshold)
+    }
+
     /// Scoring access.
     pub fn scoring(&self) -> &ScoringEngine {
         &self.scoring
@@ -327,5 +370,120 @@ mod tests {
 
         let consensus = market.calculate_consensus(&registry, &proposal_id).unwrap();
         assert!((consensus - 0.6667).abs() < 0.01);
+    }
+
+    #[test]
+    fn poj_escalation_follows_shannon_consensus_confidence() {
+        let mut registry = MarketRegistry::new();
+        registry
+            .register_actor(Actor::new("actor1".to_string(), ActorKind::Llm))
+            .unwrap();
+        registry
+            .register_actor(Actor::new("actor2".to_string(), ActorKind::Llm))
+            .unwrap();
+        registry
+            .register_actor(Actor::new("actor3".to_string(), ActorKind::Llm))
+            .unwrap();
+
+        let market = MarketLoop::new();
+        let proposal_id = market
+            .submit_proposal(
+                &mut registry,
+                "Test".to_string(),
+                "Test".to_string(),
+                ProposalScale::Material,
+                "operator".to_string(),
+                vec![],
+            )
+            .unwrap();
+
+        for (actor, predicts_yes) in [
+            ("actor1", true),
+            ("actor2", true),
+            ("actor3", true),
+        ] {
+            market
+                .submit_prediction(
+                    &mut registry,
+                    &proposal_id,
+                    actor,
+                    "test",
+                    predicts_yes,
+                    0.7,
+                    "rationale",
+                )
+                .unwrap();
+        }
+
+        assert_eq!(
+            market
+                .poj_consensus_confidence(&registry, &proposal_id)
+                .unwrap(),
+            1.0
+        );
+        assert_eq!(
+            market.poj_escalation_required(&registry, &proposal_id),
+            Some(false)
+        );
+
+        for (actor, predicts_yes) in [("actor1", true), ("actor2", false)] {
+            let _ = actor;
+            let _ = predicts_yes;
+        }
+    }
+
+    #[test]
+    fn poj_escalation_required_when_verdicts_are_split() {
+        let mut registry = MarketRegistry::new();
+        registry
+            .register_actor(Actor::new("actor1".to_string(), ActorKind::Llm))
+            .unwrap();
+        registry
+            .register_actor(Actor::new("actor2".to_string(), ActorKind::Llm))
+            .unwrap();
+
+        let market = MarketLoop::new();
+        let proposal_id = market
+            .submit_proposal(
+                &mut registry,
+                "Test".to_string(),
+                "Test".to_string(),
+                ProposalScale::Material,
+                "operator".to_string(),
+                vec![],
+            )
+            .unwrap();
+
+        market
+            .submit_prediction(
+                &mut registry,
+                &proposal_id,
+                "actor1",
+                "test",
+                true,
+                0.7,
+                "rationale",
+            )
+            .unwrap();
+        market
+            .submit_prediction(
+                &mut registry,
+                &proposal_id,
+                "actor2",
+                "test",
+                false,
+                0.7,
+                "rationale",
+            )
+            .unwrap();
+
+        assert_eq!(
+            market.poj_consensus_confidence(&registry, &proposal_id).unwrap(),
+            0.0
+        );
+        assert_eq!(
+            market.poj_escalation_required(&registry, &proposal_id),
+            Some(true)
+        );
     }
 }
