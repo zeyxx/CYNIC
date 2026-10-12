@@ -8,9 +8,9 @@ authors.workspace = true
 license.workspace = true
 publish = false
 
-[[bin]]
+[[example]]
 name = "cynic-lxc-exec-bridge"
-path = "src/bin/cynic-lxc-exec-bridge.rs"
+path = "examples/lxc_exec_bridge_demo.rs"
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
