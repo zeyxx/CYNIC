@@ -147,6 +147,26 @@
 
 ---
 
+## Chantier Binaire Unique & Gestion des Processus (Chantier "Single Binary")
+
+### Diagnostic factuel
+- 10 cibles binaires déclarées dans le workspace, créant une dispersion d'artefacts, des frontières floues et de multiples membranes sudoers.
+
+### Objectif d'arrivée
+- Effondrement vers un exécutable unique canonique `/usr/local/bin/cynic`.
+- Démons au premier plan supervisés nativement par `systemd` (`cynic daemon kernel`, `cynic daemon node`).
+- Sous-processus sans aucun shell (`ArgvRunner`), sandboxés via `bwrap` et régis par catalogue typé (`cynic privilege exec`).
+
+### Plan d'exécution par tranches
+- [x] **Tranche B.1 — Effondrement et intégration des démons souverains :** (Complété 2026-10-12)
+  - Intégration de `cynic daemon kernel [--reset]` et `cynic daemon node [--config <path>] [--check]` dans le binaire maître `cynic`.
+  - Requalification de `zeroclaw-solana-demo` et `cynic-lxc-exec-bridge` en `[[example]]`.
+  - Éradication des binaires obsolètes `cynic-network-actuator` et `cynic-node-enroll`.
+  - Sanctuarisation de la conformité constitutionnelle (`mcp_is_not_a_dependency_of_anything`).
+  - Réduction observée sur le builder : de 10 à 5 cibles binaires opérationnelles (`cynic`, `cynic-topology`, `cynic-host-exec`, `cynic-kernel`, `cynic-node`).
+
+---
+
 ## Règles d'Exécution & Invariants
 1. **Build Gate SSOT :** Toutes les compilations et vérifications s'exécutent sur le builder distant `10.10.10.119`. Aucune compilation locale sur `cortex`.
 2. **Isolation Git :** Chaque tranche s'exécute dans un worktree dédié `agent/hermes/<nom-tranche>`, merge `--no-ff` sur `main` après `make check` vert, puis push immédiat.
