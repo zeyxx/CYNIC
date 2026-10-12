@@ -1,6 +1,7 @@
 pub mod backend_verification;
 pub mod chat_endpoint;
 pub mod chat_service;
+pub mod chat_support;
 
 pub mod hf_discovery;
 pub mod local_runtime_service;

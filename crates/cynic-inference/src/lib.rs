@@ -37,10 +37,11 @@ pub use application::chat_endpoint::{
     resolve_chat_endpoint, resolve_chat_model_id,
 };
 pub use application::chat_service::{
-    BuiltinToolInvoker, ChatCompletionClient, ChatService, ChatServiceConfig, ChatServiceError,
-    ChatTurnReport, CompletionOutcome, InferenceReadyReport, MockChatClient, ToolCallRequest,
-    ToolInvoker, default_tool_specs,
+    ChatCompletionClient, ChatService, ChatServiceConfig, ChatServiceError,
+    ChatTurnReport, CompletionOutcome, InferenceReadyReport, ToolCallRequest,
+    ToolInvoker,
 };
+pub use application::chat_support::{BuiltinToolInvoker, MockChatClient, default_tool_specs};
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
 pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
 pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
