@@ -114,6 +114,30 @@ impl RuntimeSecretPresenceSpec {
         Self::new("anthropic", &["ANTHROPIC_API_KEY"], "anthropic-api-key")
     }
 
+    pub fn telegram_bot() -> Self {
+        Self::new(
+            "telegram_bot",
+            &["CYNIC_TELEGRAM_BOT_TOKEN"],
+            "telegram-bot-token",
+        )
+    }
+
+    pub fn telegram_chat() -> Self {
+        Self::new(
+            "telegram_chat",
+            &["CYNIC_TELEGRAM_CHAT_ID"],
+            "telegram-chat-id",
+        )
+    }
+
+    pub fn headscale_key() -> Self {
+        Self::new(
+            "headscale_key",
+            &["CYNIC_HEADSCALE_KEY", "HEADSCALE_API_KEY"],
+            "headscale-api-key",
+        )
+    }
+
     pub fn all_runtime_specs() -> Vec<Self> {
         vec![
             Self::storage_runtime(),
@@ -121,6 +145,9 @@ impl RuntimeSecretPresenceSpec {
             Self::cloudflare(),
             Self::porkbun(),
             Self::forgejo(),
+            Self::headscale_key(),
+            Self::telegram_bot(),
+            Self::telegram_chat(),
             Self::huggingface(),
             Self::openai(),
             Self::anthropic(),
