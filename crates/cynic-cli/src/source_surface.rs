@@ -457,8 +457,8 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     let default_branch = "main".to_string();
     let plan = cynic_vcs::source_worktree_cli::plan_worktree_convergence(
         root_canonical,
-        default_branch,
-        head_sha,
+        default_branch.clone(),
+        head_sha.clone(),
         &snapshots,
     );
 
