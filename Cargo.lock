@@ -660,6 +660,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "walkdir",
 ]
 
 [[package]]
@@ -673,6 +674,7 @@ dependencies = [
  "cynic-workload",
  "hex",
  "libc",
+ "reqwest 0.13.5",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1126,16 +1128,27 @@ dependencies = [
 name = "cynic-network"
 version = "0.8.0"
 dependencies = [
+ "blake3",
+ "bytes",
  "chrono",
  "cynic-finance",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
+ "dirs",
+ "hex",
+ "regex",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
+ "sysinfo 0.37.2",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "toml",
+ "tracing",
+ "walkdir",
+ "which",
 ]
 
 [[package]]
@@ -1185,6 +1198,7 @@ dependencies = [
  "sha2 0.10.9",
  "sysinfo 0.33.1",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.24.0",
@@ -1262,13 +1276,16 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "ed25519-dalek",
+ "futures",
  "hex",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "thiserror 2.0.21",
  "tokio",
  "toml",
+ "walkdir",
 ]
 
 [[package]]
@@ -1294,6 +1311,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
