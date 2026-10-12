@@ -117,7 +117,7 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
                         "opp:worktree_anomaly:{}",
                         &entry.evidence_digest[..16.min(entry.evidence_digest.len())]
                     ),
-                    scope: "infra/worktree_layout".to_string(),
+                    scope: "infra/workspace-paths.json".to_string(),
                     sources: vec![OpportunitySource {
                         kind: OpportunitySourceKind::SourceWorktree,
                         ref_id: entry.evidence_digest.clone(),

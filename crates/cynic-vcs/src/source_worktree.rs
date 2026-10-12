@@ -1,6 +1,6 @@
 //! Pure worktree convergence data models and zero-I/O decision engine.
 //!
-//! Conforms to `contracts/foundation.json` §481 and `infra/SYSTEM_AGENTIC_MAPPING.md`.
+//! Conforms to `contracts/foundation.json` §481 and `infra/workspace-paths.json`.
 //! ZERO I/O: operates strictly on snapshots, producing deterministic plans.
 
 use serde::{Deserialize, Serialize};

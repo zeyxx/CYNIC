@@ -1,7 +1,7 @@
 //! Crate topology coherence — the declared DAG against the observed build graph.
 //!
 //! WHY: the layer taxonomy lived only as prose in `AGENTS.md` and as tables in
-//! `infra/CANONICAL_CRATE_MAP.md`. Two documents that can drift from each other
+//! `infra/crate-topology.json`. Two documents that can drift from each other
 //! and from the build graph, and nothing executable compared them. `LayerBoundaryRule`
 //! (ARCH-002) looked for four forbidden strings inside `cynic-protocol` and never
 //! looked at the graph at all, so an upward edge was invisible.

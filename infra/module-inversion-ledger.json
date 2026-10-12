@@ -11,10 +11,9 @@
   "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "identities": 42,
-    "edges": 117,
+    "identities": 41,
+    "edges": 116,
     "by_crate": {
-      "cynic-agent-bus": 1,
       "cynic-host": 13,
       "cynic-inference": 7,
       "cynic-intel": 2,
@@ -25,11 +24,6 @@
     }
   },
   "entries": [
-    {
-      "identity": "cynic-agent-bus|ports -> types",
-      "count": 1,
-      "evidence": "crates/cynic-agent-bus/src/ports.rs:3"
-    },
     {
       "identity": "cynic-host|domain -> command_surface",
       "count": 7,

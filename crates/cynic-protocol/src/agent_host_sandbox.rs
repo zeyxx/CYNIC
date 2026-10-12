@@ -1,6 +1,6 @@
 //! Canonical contracts for agent hosting outside Cortex (Slice C0.2).
 //!
-//! Defined in `infra/AGENT_FLEET_HOSTING_DESIGN.md` and `.hermes/plans/2026-09-01-agent-host-proxmox-sandbox-first.md`.
+//! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` and `docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md`.
 //! Pure types and predicates without I/O.
 
 use serde::{Deserialize, Serialize};

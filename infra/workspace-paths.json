@@ -21,54 +21,19 @@
   ],
   "consumers": [
     {
-      "site": "scripts/run-matrix-benchmark.py:18",
-      "form": "DATASET_PATH = \"<canonical_path>/infra/operational-benchmarks.json\"",
-      "file": "scripts/run-matrix-benchmark.py"
-    },
-    {
-      "site": "scripts/run-matrix-benchmark.py:19",
-      "form": "RESULTS_JSONL = \"<canonical_path>/infra/benchmark-results/op-benchmark-http-64k.jsonl\"",
-      "file": "scripts/run-matrix-benchmark.py"
-    },
-    {
-      "site": "scripts/run-matrix-benchmark.py:20",
-      "form": "SUMMARY_MD = \"<canonical_path>/infra/benchmark-results/matrix-use-cases-summary.md\"",
-      "file": "scripts/run-matrix-benchmark.py"
-    },
-    {
-      "site": "scripts/run_qwen38_matrix.sh:5",
-      "form": "MATRIX_SCRIPT=\"<canonical_path>/scripts/run_qwen38_bench.sh\"",
-      "file": "scripts/run_qwen38_matrix.sh"
-    },
-    {
-      "site": "HERMES_HANDOFF_2026-10-07.md:5",
-      "form": "**Worktree:** `<canonical_path>` (shared, multi-agent)",
-      "file": "HERMES_HANDOFF_2026-10-07.md"
-    },
-    {
-      "site": "infra/MULTI_AGENT_ISOLATION_DESIGN.md:137",
-      "form": "3. Ne PLUS travailler directement dans `<canonical_path>`",
-      "file": "infra/MULTI_AGENT_ISOLATION_DESIGN.md"
-    },
-    {
-      "site": "docs/superpowers/specs/2026-09-04-worktree-convergence-design.md:147",
-      "form": "Repository Root:  <canonical_path>",
-      "file": "docs/superpowers/specs/2026-09-04-worktree-convergence-design.md"
-    },
-    {
-      "site": "crates/cynic-protocol/src/agent_host_sandbox.rs:654",
+      "site": "crates/cynic-protocol/src/agent_host_sandbox.rs:655",
       "form": "\"<canonical_path>/worktree-1\".to_string()",
       "file": "crates/cynic-protocol/src/agent_host_sandbox.rs"
     },
     {
-      "site": ".hermes/plans/2026-10-04_1330-ram-stability-and-source-integrity.md:163",
-      "form": "git -C <canonical_path> log --oneline -5",
-      "file": ".hermes/plans/2026-10-04_1330-ram-stability-and-source-integrity.md"
+      "site": "docs/design/MULTI_AGENT_ISOLATION_DESIGN.md:137",
+      "form": "3. Ne PLUS travailler directement dans `<canonical_path>`",
+      "file": "docs/design/MULTI_AGENT_ISOLATION_DESIGN.md"
     },
     {
-      "site": "scripts/disk-audit:97",
-      "form": "check_cache \"cargo-target\"      \"<canonical_path>/target\"",
-      "file": "scripts/disk-audit"
+      "site": "docs/specs/checklist.md:216",
+      "form": "<canonical_path>",
+      "file": "docs/specs/checklist.md"
     }
   ],
   "coherence_contract": {
