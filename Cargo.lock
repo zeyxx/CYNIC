@@ -970,7 +970,6 @@ dependencies = [
  "async-trait",
  "blake3",
  "chrono",
- "cynic-inference",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-solana-pay",
