@@ -3,10 +3,19 @@
 //! Extracted from `chat_service`; the service owns session/turn logic, this
 //! module owns the scripted doubles. No production backend code here.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::application::chat_service::{
     ChatCompletionClient, ChatServiceError, CompletionOutcome, ToolCallRequest, ToolInvoker,
 };
 use crate::domain::chat_session::{ChatMessage, StreamChunk, ToolSpec};
+
+pub(crate) fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 // ── Mock client + tools for tests and offline CLI ───────────────────────────
 
