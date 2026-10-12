@@ -9,6 +9,7 @@ use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 use cynic_host::registry::resolve::resolve_build_runner_transport;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
+use crate::ports::build_proof_port::BuildProofPort;
 use crate::ports::build_runner_adapter::{
     DEFAULT_CHECKOUT_BASE, DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner,
 };
