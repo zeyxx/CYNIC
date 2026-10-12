@@ -55,6 +55,7 @@ pub mod network_shadow_proof;
 mod network_surface_inventory;
 pub mod node_control_runtime;
 pub mod observe;
+pub mod peer_attach;
 pub mod peer_commands;
 pub mod ports;
 pub mod provider_fallback_hosts;
