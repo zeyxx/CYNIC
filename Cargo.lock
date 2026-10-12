@@ -843,6 +843,7 @@ dependencies = [
  "async-trait",
  "cynic-protocol",
  "cynic-types",
+ "cynic-workload",
  "hex",
  "serde",
  "serde_json",
