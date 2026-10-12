@@ -726,6 +726,7 @@ dependencies = [
  "cynic-release",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-surreal",
  "cynic-vcs",
  "cynic-vcs-forgejo",
  "cynic-workload",
@@ -900,25 +901,6 @@ dependencies = [
  "toml",
  "walkdir",
  "zeroize",
-]
-
-[[package]]
-name = "cynic-host-probes"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "cynic-finance",
- "dirs",
- "regex",
- "reqwest 0.13.5",
- "serde",
- "serde_json",
- "sysinfo 0.37.2",
- "tokio",
- "toml",
- "tracing",
- "walkdir",
- "which",
 ]
 
 [[package]]
@@ -1114,11 +1096,14 @@ dependencies = [
 name = "cynic-network"
 version = "0.8.0"
 dependencies = [
+ "blake3",
+ "bytes",
  "chrono",
  "cynic-finance",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
+ "hex",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
@@ -1327,6 +1312,19 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+]
+
+[[package]]
+name = "cynic-surreal"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "cynic-secrets",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "tracing",
+ "walkdir",
 ]
 
 [[package]]
