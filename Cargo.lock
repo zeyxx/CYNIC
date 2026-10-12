@@ -842,6 +842,7 @@ version = "0.2.0"
 dependencies = [
  "async-trait",
  "cynic-protocol",
+ "cynic-secrets",
  "cynic-types",
  "cynic-workload",
  "futures-util",

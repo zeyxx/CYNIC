@@ -25,7 +25,8 @@ impl HttpHarnessExecutor {
         Ok(Self {
             client,
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            api_key: api_key.or_else(|| crate::resolve_chat_api_key(None)),
+            api_key: api_key
+                .or_else(|| cynic_secrets::resolve_secret("chat-api-key", "CYNIC_CHAT_API_KEY")),
         })
     }
 }

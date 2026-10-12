@@ -233,7 +233,7 @@ pub async fn launch_basket(
                 per_item_results.push(BasketItemResult {
                     alias: item.alias.clone(),
                     ok: report.ok,
-                    endpoint: report.status.endpoint,
+                    endpoint: report.endpoint,
                     message: report.message.unwrap_or_else(|| "launched".to_string()),
                 });
             }

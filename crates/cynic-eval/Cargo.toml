@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }
 cynic-workload = { path = "../cynic-workload" }
 futures-util.workspace = true
