@@ -19,3 +19,4 @@ pub mod model_store;
 pub mod node_contribution;
 pub mod summarization;
 pub mod supervision;
+pub mod token_entropy;

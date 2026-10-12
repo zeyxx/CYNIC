@@ -89,6 +89,10 @@ pub use domain::matrix_sweep::empirical_store::{
 pub use domain::matrix_sweep::types::HardwareBudget;
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeResponse};
+pub use domain::token_entropy::{
+    TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel, TokenUncertaintyParams,
+    assess_token_uncertainty, token_entropy_from_logits, token_entropy_from_probabilities,
+};
 
 // Infrastructure (I/O primitives)
 pub use infra::backend_health;
@@ -121,6 +125,7 @@ pub use ports::local_runtime_port::{
 };
 pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 pub use ports::model_store_port::ModelStorePort;
+pub use ports::token_entropy_port::TokenEntropyPort;
 
 // Misc
 pub use math::roofline::assess_roofline;
@@ -128,3 +133,4 @@ pub use routing_calc::RoutingCalculator;
 
 // Adapter re-exports
 pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};
+pub use adapters::inference::token_entropy::TokenEntropyAdapter;
