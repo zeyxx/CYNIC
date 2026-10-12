@@ -195,6 +195,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "storage",
+                commands: vec![
+                    "cynic storage ping [--endpoint <url>] [--json]",
+                    "cynic storage query --sql <surrealql> [--endpoint <url>] [--json]",
+                    "cynic storage capabilities [--url <url>] [--json]",
+                    "cynic storage credential [--endpoint <url>] [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "git",
                 commands: vec![
                     "cynic git branch-graph [--json]",

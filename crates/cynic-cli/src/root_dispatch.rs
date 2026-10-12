@@ -98,6 +98,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
                 ExitCode::FAILURE
             }),
         Command::Source { command } => crate::source_surface::execute_source(command),
+        Command::Storage { command } => crate::storage_surface::execute_storage(command),
         Command::Git { command } => crate::git_surface::execute_git(command),
         Command::Judge { command } => crate::mask::execute_judge(command),
         Command::Mask { command } => crate::mask::execute_mask(command),

@@ -73,6 +73,7 @@ pub mod privilege_surface;
 pub mod secret_use_surface;
 pub mod session_surface;
 pub mod source_surface;
+pub mod storage_surface;
 pub mod surface_registry;
 pub mod task_surface;
 pub mod transport_surface;
