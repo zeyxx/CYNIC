@@ -3,13 +3,11 @@ pub mod application;
 pub mod config_loader;
 pub mod domain;
 pub mod embedding;
-pub mod finance_adapters;
 pub mod infra;
 pub mod math;
 pub mod ods_discovery;
 pub mod ports;
 pub mod progress;
-pub mod verdict_cache;
 
 // Convenience re-exports
 pub use cynic_huggingface::HfCliAdapter;
