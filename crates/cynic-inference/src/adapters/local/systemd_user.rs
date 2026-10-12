@@ -9,8 +9,7 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use serde_json;
-
+use crate::adapters::local::model_readiness;
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::local_runtime::{
     LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
@@ -191,85 +190,6 @@ impl SystemdUserLocalRuntime {
         let _ = Self::systemctl(&["--user", "stop", "llama-server.service"]);
     }
 
-    fn expected_model_ids(
-        profile: &crate::domain::local_runtime::LocalModelProfile,
-    ) -> Vec<String> {
-        let mut ids = Vec::new();
-        ids.push(profile.alias.clone());
-
-        if let Some(name) = std::path::Path::new(&profile.model_path)
-            .file_name()
-            .and_then(|p| p.to_str())
-        {
-            let stem = std::path::Path::new(name)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or(name);
-            ids.push(name.to_string());
-            ids.push(stem.to_string());
-        }
-
-        ids.into_iter()
-            .map(|s| s.to_lowercase())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect()
-    }
-
-    fn parse_model_ids(body: &str) -> Vec<String> {
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
-            return Vec::new();
-        };
-
-        let mut ids = Vec::new();
-        if let Some(models) = v.get("data").and_then(|d| d.as_array()) {
-            for m in models {
-                if let Some(id) = m
-                    .get("id")
-                    .and_then(|x| x.as_str())
-                    .filter(|x| !x.is_empty())
-                {
-                    ids.push(id.to_string());
-                }
-            }
-        }
-
-        if let Some(models) = v.get("models").and_then(|d| d.as_array()) {
-            for m in models {
-                let Some(id) = m
-                    .get("id")
-                    .or_else(|| m.get("name"))
-                    .or_else(|| m.get("model"))
-                    .and_then(|x| x.as_str())
-                    .filter(|x| !x.is_empty())
-                else {
-                    continue;
-                };
-                ids.push(id.to_string());
-            }
-        }
-
-        ids.sort();
-        ids.dedup();
-        ids
-    }
-
-    fn model_matches_target(loaded: &[String], expected: &[String]) -> bool {
-        if loaded.is_empty() || expected.is_empty() {
-            return false;
-        }
-        let loaded_lc: Vec<String> = loaded.iter().map(|s| s.to_lowercase()).collect();
-        for e in expected {
-            let e_lc = e.to_lowercase();
-            for l in &loaded_lc {
-                if l == &e_lc || l.contains(&e_lc) || e_lc.contains(l) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
     fn fetch_models_for_wait(endpoint: &str) -> (String, Vec<String>) {
         let body = Command::new("curl")
             .args([
@@ -305,16 +225,13 @@ impl SystemdUserLocalRuntime {
             .trim()
             .to_string();
 
-        (code, Self::parse_model_ids(&body))
+        (code, model_readiness::parse_model_ids(&body))
     }
 
     fn estimate_model_ready_timeout(
         profile: &crate::domain::local_runtime::LocalModelProfile,
     ) -> Duration {
-        let size_gb = profile.size_bytes.unwrap_or(0) as f64 / (1024.0 * 1024.0 * 1024.0);
-        let extra = (size_gb * 45.0).round() as u64;
-        let timeout_secs = 180u64 + extra;
-        Duration::from_secs(timeout_secs.min(1200))
+        model_readiness::estimate_model_ready_timeout(profile)
     }
 
     fn wait_model_ready(
@@ -325,7 +242,7 @@ impl SystemdUserLocalRuntime {
         let endpoint = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
 
-        let expected = Self::expected_model_ids(profile);
+        let expected = model_readiness::expected_model_ids(profile);
         let mut last_seen = Vec::<String>::new();
         let mut last_state = String::from("initializing");
         let mut wait = crate::progress::WaitProgress::new(
@@ -360,7 +277,7 @@ impl SystemdUserLocalRuntime {
 
             let code_ok = matches!(code.as_str(), "200" | "401");
             if code_ok {
-                if Self::model_matches_target(&models, &expected) {
+                if model_readiness::model_matches_target(&models, &expected) {
                     wait.done(true);
                     return Ok(true);
                 }
@@ -469,7 +386,7 @@ impl LocalInferenceRuntimePort for SystemdUserLocalRuntime {
             "load",
             "waiting for llama-server to finish loading weights into memory/VRAM",
         );
-        let ready_timeout = Self::estimate_model_ready_timeout(&profile);
+        let ready_timeout = model_readiness::estimate_model_ready_timeout(&profile);
         let ready = self.wait_model_ready(&profile, ready_timeout)?;
         let st = self.status_for_unit(&Self::unit_name(alias))?;
         let ok = ready && st.state == LocalRuntimeState::Active;
