@@ -5,8 +5,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::time::{Duration, Instant};
 
-use crate::application::agent_harness::{HarnessExecutor, InferenceReply};
-use crate::application::agent_harness::{ScenarioSpec, TaskSpec};
+use cynic_eval::harness::{HarnessExecutor, InferenceReply};
+use cynic_eval::harness::{ScenarioSpec, TaskSpec};
 
 #[derive(Debug, Clone)]
 pub struct HttpHarnessExecutor {

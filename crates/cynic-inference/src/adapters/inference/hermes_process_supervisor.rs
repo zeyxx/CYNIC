@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::application::agent_harness::canonicalize_hermes_runtime_id;
+use cynic_eval::harness::canonicalize_hermes_runtime_id;
 use crate::application::chat_endpoint::resolve_chat_api_key;
 use crate::domain::hermes_runtime::{
     HermesGatewayMutation, HermesGatewayProfile, HermesGatewayState, HermesGatewayStatus,

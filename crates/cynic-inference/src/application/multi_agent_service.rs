@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
 use crate::adapters::inference::harness_executor::HttpHarnessExecutor;
-use crate::application::agent_harness::{
+use cynic_eval::harness::{
     HarnessExecutor, InferenceReply, ModelParameters, ModelSpec, ScenarioSpec, TaskKind, TaskSpec,
     Thresholds,
 };
@@ -86,7 +86,7 @@ impl MultiAgentService {
             scenario_id: format!("scenario-{task_id}"),
             probe_runtime_plan: false,
             correlation_id: Some(task_id.to_string()),
-            runtime_kind: crate::application::agent_harness::RuntimeKind::DirectLlama,
+            runtime_kind: cynic_eval::harness::RuntimeKind::DirectLlama,
             runtime_id: None,
             runtime_version: None,
             coordination_kind: None,

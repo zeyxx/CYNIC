@@ -8,7 +8,7 @@ use reqwest::Client;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-use crate::application::agent_harness::{HarnessExecutor, InferenceReply, ScenarioSpec, TaskSpec};
+use cynic_eval::harness::{HarnessExecutor, InferenceReply, ScenarioSpec, TaskSpec};
 
 #[derive(Debug, Clone)]
 pub struct HermesRunExecutor {
