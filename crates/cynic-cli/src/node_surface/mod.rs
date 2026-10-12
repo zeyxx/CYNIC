@@ -85,7 +85,7 @@ pub enum NodeCommand {
     /// Host crash forensics, boot timeline, and post-mortem evidence.
     Forensics {
         #[command(subcommand)]
-        pub(crate) command: crate::forensics_surface::ForensicsCommand,
+        command: crate::forensics_surface::ForensicsCommand,
     },
 
     // === Identity (from node_surface/cli.rs) ===
