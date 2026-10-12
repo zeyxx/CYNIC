@@ -179,6 +179,10 @@ const ORPHAN_PORT_BASELINE: &[&str] = &[
     "SignedNodeDesiredStatePullPort",
     "SummarizationPort",
     "TargetDiscoveryPort",
+    // Recorded 2026-10-12: TraceSinkPort's only impl (StubSink) died with the
+    // old chat trace pipeline; the trait compiles but no adapter exists.
+    // No producer injects it. Kept as a recorded decision, not a boundary.
+    "TraceSinkPort",
 ];
 
 /// Local-type suffixes excluded from concept ownership.
