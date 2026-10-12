@@ -10,4 +10,5 @@
 //! `cynic-lifecycle` (ArgvRunner). Never depends on orchestrator crates.
 
 pub mod adapters;
+pub mod agent_host;
 pub mod ports;
