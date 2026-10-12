@@ -104,7 +104,7 @@ mod tests {
             Some("scripts".to_string())
         );
         assert_eq!(
-            config.resolve("infra/systemd/foo.service"),
+            config.resolve("infra/os/systemd/foo.service"),
             Some("scripts".to_string())
         );
         assert_eq!(config.resolve("README.md"), None);

@@ -204,7 +204,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
         )?;
         write_file(
             output_dir.join("etc/systemd/cynic-node.service"),
-            include_str!("../../../../infra/systemd/installed/cynic-node.service").to_string(),
+            include_str!("../../../../infra/os/systemd/installed/cynic-node.service").to_string(),
             output_dir,
             &mut files,
         )?;

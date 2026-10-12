@@ -122,7 +122,7 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                 config_path: Some(path.to_string_lossy().to_string()),
                 status: "not_found",
                 message: Some(format!(
-                    "No inference config found. Copy infra/inference.toml.example to {}",
+                    "No inference config found. Copy infra/ai/inference.toml.example to {}",
                     path.display()
                 )),
                 backends: vec![],
