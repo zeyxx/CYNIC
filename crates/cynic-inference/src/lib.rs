@@ -54,9 +54,6 @@ pub use application::node_runtime_ops::{
     attempt_node_start, dog_to_node, dog_to_node as resolve_dog_node, probe_model_runtime,
     probe_node_model, remediate_dog_runtime, start_dog_runtime,
 };
-pub use application::peer_attach::{
-    PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
-};
 pub use application::profile_bootstrap::{
     EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
     pin_preferred_alias, resolve_start_alias, select_preferred_alias,

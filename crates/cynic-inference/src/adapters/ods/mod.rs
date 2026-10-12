@@ -22,12 +22,9 @@
 //! cynic deps upgrade --yes --only ods                # optional product install
 //! ```
 //!
-//! Prefer `crate::application::peer_attach` for new call sites (stable report).
+//! Prefer `cynic-node::peer_attach` for new call sites (stable report).
 //! Historical entrypoint: `crate::ods_discovery`.
 
-pub use crate::application::peer_attach::{
-    PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
-};
 pub use crate::ods_discovery::{
     DiscoveredService, DiscoveryReport, discover_ods_services, run_sync_pipeline,
     sync_discovered_backends,

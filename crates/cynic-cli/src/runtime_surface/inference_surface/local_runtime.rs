@@ -308,8 +308,8 @@ pub(crate) fn execute_inference_discover(json: bool, apply: bool, open_webui: bo
         cynic_inference::progress::progress("attach", "probe peers only (no mutation)");
     }
 
-    let report = rt.block_on(cynic_inference::peer_attach(
-        cynic_inference::PeerAttachOptions {
+    let report = rt.block_on(cynic_node::peer_attach::peer_attach(
+        cynic_node::peer_attach::PeerAttachOptions {
             apply,
             open_webui,
             node_id: "local-node".into(),
