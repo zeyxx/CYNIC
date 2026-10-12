@@ -44,7 +44,6 @@ pub use application::chat_service::{
 pub use application::chat_support::{BuiltinToolInvoker, MockChatClient, default_tool_specs};
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
 pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeServiceAny};
-pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
 pub use application::node_runtime_ops::{
@@ -91,13 +90,10 @@ pub use infra::gguf_meta::{
     GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,
     preflight_gguf_with_store, read_gguf_meta,
 };
-pub use infra::inference_queue::{InferenceQueue, InferenceQueueMap, QueuePermit};
 pub use infra::model_layout::{ModelLayout, ModelLayoutReport, resolve_chat_state_dir};
 pub use infra::model_registry::{InferenceEngine, ModelBackend, ModelCapability, ModelHealth};
 pub use infra::principal_paths::{PathAuthority, PrincipalPaths};
 pub use infra::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
-pub use infra::slot_semaphore::{SlotPermit, SlotPriority, SlotSemaphore, SlotSemaphoreMap};
-pub use infra::slot_tracker::{BackendSlots, SlotHealthEntry, SlotTracker, build_backend_slots};
 
 // Ports
 pub use ports::chat_port::ChatPort;
