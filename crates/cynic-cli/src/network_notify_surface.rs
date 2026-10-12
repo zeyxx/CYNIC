@@ -62,11 +62,10 @@ struct NetworkNotifyReport {
 fn resolve_transport() -> Option<Box<dyn NotificationTransportPort>> {
     let mut transports: Vec<Box<dyn NotificationTransportPort>> = Vec::new();
 
-    // 1. Resolve Telegram if credentials are set
-    if let (Ok(token), Ok(chat_id)) = (
-        std::env::var("CYNIC_TELEGRAM_BOT_TOKEN"),
-        std::env::var("CYNIC_TELEGRAM_CHAT_ID"),
-    ) {
+    // 1. Resolve Telegram if credentials are set (via cynic-secrets: env, file, or store)
+    let tg_token = cynic_secrets::resolve_secret("telegram-bot-token", "CYNIC_TELEGRAM_BOT_TOKEN");
+    let tg_chat_id = cynic_secrets::resolve_secret("telegram-chat-id", "CYNIC_TELEGRAM_CHAT_ID");
+    if let (Some(token), Some(chat_id)) = (tg_token, tg_chat_id) {
         if !token.trim().is_empty() && !chat_id.trim().is_empty() {
             if let Ok(tg) = HttpTelegramNotificationTransport::new(
                 token,
