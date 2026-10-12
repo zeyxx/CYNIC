@@ -56,7 +56,7 @@ fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
     let reg: serde_json::Value =
         serde_json::from_str(&raw).map_err(|e| format!("registry invalid JSON: {e}"))?;
 
-    let ssot = find_ssot_in_registry(&reg)
+    let ssot = cynic_vcs::find_ssot_in_registry(&reg)
         .ok_or_else(|| {
             // Emit the actual keys found at /nodes to help diagnose evolution
             let nodes_len = reg.pointer("/nodes")
@@ -214,27 +214,6 @@ pub(crate) enum SourceCommand {
 struct SourceExit {
     status: &'static str,
     summary: String,
-}
-
-/// The SHA of the commit currently checked out, or None when git cannot answer.
-///
-/// None is not an error to swallow: it means no commit can be looked up, so no
-/// proof can exist for it, and the release gate treats that as NeverTested.
-fn observed_head_sha(root: &Path) -> Option<String> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(root)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if sha.is_empty() {
-        None
-    } else {
-        Some(sha)
-    }
 }
 
 /// Read the proof log and reduce it to the builder's verdict on one commit.
@@ -488,7 +467,7 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     // Four outcomes, three of them blocking — Converged, Blocked, NeverTested,
     // Unreadable — and they are deliberately kept distinct: "not validated" and
     // "evidence unreadable" call for different operator action.
-    let head_sha = observed_head_sha(root);
+    let head_sha = cynic_vcs::observe_head_sha(root);
     let build_observation = match head_sha.as_deref() {
         Some(sha) => observe_build_proof(sha),
         // HEAD unreadable: no commit to look up, so no proof exists for it.
@@ -614,14 +593,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
         &cynic_host::adapters::vcs_runner::LocalVcsRunner,
         now_ms,
     );
-    let head_sha = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(&root_canonical)
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "HEAD".to_string());
+    let head_sha = cynic_vcs::observe_head_sha(&root_canonical).unwrap_or_else(|| "HEAD".to_string());
 
     let default_branch = "main".to_string();
     let mut snapshots = Vec::new();
@@ -648,13 +620,7 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
             .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
 
         let dirty_file_count = if path.exists() {
-            std::process::Command::new("git")
-                .args(["-C", &path.to_string_lossy(), "status", "--short"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
-                .unwrap_or(0)
+            cynic_vcs::count_dirty_files(&path)
         } else {
             0
         };
@@ -813,27 +779,6 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
             ExitCode::SUCCESS
         }
     }
-}
-
-/// Lookup the JSON pointer for the vcs_provider block,
-/// dynamically scanning across nodes to be resilient to registry schema evolution.
-fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
-    if let Some(nodes) = reg.get("nodes").and_then(|n| n.as_array()) {
-        for node in nodes {
-            if let Some(ssot) = node.pointer("/source_workspace_layout/vcs_provider/sovereign_ssot")
-            {
-                return Some(ssot);
-            }
-            if let Some(ssot) = node.pointer("/source_lifecycle/vcs_provider/sovereign_ssot") {
-                return Some(ssot);
-            }
-        }
-    }
-    let top_candidates = [
-        "/source_lifecycle/vcs_provider/sovereign_ssot",
-        "/vcs_provider/sovereign_ssot",
-    ];
-    top_candidates.iter().find_map(|ptr| reg.pointer(ptr))
 }
 
 #[derive(Debug, Subcommand)]
