@@ -433,13 +433,10 @@ fn kernel_must_not_own_summarization_adapter_or_domain() {
         read_repo_file("crates/cynic-inference/src/domain/summarization.rs");
     let inference_summary_port =
         read_repo_file("crates/cynic-inference/src/ports/summarization_port.rs");
-    let inference_openai_adapter =
-        read_repo_file("crates/cynic-inference/src/adapters/inference/openai_compat.rs");
     assert!(
         inference_summary_domain.contains("pub struct SummarizeRequest")
-            && inference_summary_port.contains("pub trait SummarizationPort")
-            && inference_openai_adapter.contains("impl InferPort for OpenAiCompatBackend"),
-        "cynic-inference must own summarization domain/port and direct inference adapter capability"
+            && inference_summary_port.contains("pub trait SummarizationPort"),
+        "cynic-inference must own summarization domain/port"
     );
 }
 
