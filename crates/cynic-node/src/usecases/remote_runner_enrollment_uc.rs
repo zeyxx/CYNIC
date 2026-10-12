@@ -23,7 +23,7 @@ pub struct RemoteRunnerEnrollmentReport {
 }
 
 /// Executes remote runner enrollment use case.
-pub async fn execute_remote_runner_enrollment<P: FleetMeshPort>(
+pub fn execute_remote_runner_enrollment<P: FleetMeshPort>(
     spec: &RemoteRunnerSpec,
     mesh_port: &P,
 ) -> Result<RemoteRunnerEnrollmentReport, String> {
@@ -35,20 +35,19 @@ pub async fn execute_remote_runner_enrollment<P: FleetMeshPort>(
         user: plan.user,
         reusable: plan.reusable,
         ephemeral: true,
-        expiration_seconds: Some(plan.expiration_seconds),
+        expiration: None,
         acl_tags: plan.acl_tags.clone(),
     };
 
     let key = mesh_port
         .create_preauth_key(&preauth_spec)
-        .await
-        .map_err(|e| format!("fleet_mesh_key_generation_failed: {e}"))?;
+        .map_err(|e| format!("fleet_mesh_key_generation_failed: {e:?}"))?;
 
     Ok(RemoteRunnerEnrollmentReport {
         schema: REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA.to_string(),
         node_name: plan.node_name,
         preauth_key: key.key,
-        expiration: key.expiration,
+        expiration: key.expiration.unwrap_or_else(|| "1h".to_string()),
         acl_tags: plan.acl_tags,
         status: "enrolled_pending_connect".to_string(),
     })

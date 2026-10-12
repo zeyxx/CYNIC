@@ -1,47 +1,62 @@
-use async_trait::async_trait;
 use cynic_node::usecases::remote_runner_enrollment_uc::{
     execute_remote_runner_enrollment, REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA,
 };
 use cynic_protocol::compute::RemoteRunnerSpec;
 use cynic_types::fleet_mesh::{
-    FleetMeshPort, MeshError, PreAuthKey, PreAuthKeySpec, RegisteredNode,
+    FleetMeshPort, MeshError, MeshNode, MeshRoute, PreAuthKey, PreAuthKeySpec,
 };
 
 struct MockMeshPort {
     fail: bool,
 }
 
-#[async_trait]
 impl FleetMeshPort for MockMeshPort {
-    async fn register_node(&self, _node: &RegisteredNode) -> Result<(), MeshError> {
+    fn list_nodes(&self) -> Result<Vec<MeshNode>, MeshError> {
+        Ok(vec![])
+    }
+
+    fn enroll_node(&self, _node: &MeshNode) -> Result<(), MeshError> {
         Ok(())
     }
 
-    async fn create_preauth_key(&self, spec: &PreAuthKeySpec) -> Result<PreAuthKey, MeshError> {
+    fn remove_node(&self, _node_id: &str) -> Result<(), MeshError> {
+        Ok(())
+    }
+
+    fn list_routes(&self) -> Result<Vec<MeshRoute>, MeshError> {
+        Ok(vec![])
+    }
+
+    fn enable_route(&self, _route_id: &str) -> Result<(), MeshError> {
+        Ok(())
+    }
+
+    fn disable_route(&self, _route_id: &str) -> Result<(), MeshError> {
+        Ok(())
+    }
+
+    fn create_preauth_key(&self, spec: &PreAuthKeySpec) -> Result<PreAuthKey, MeshError> {
         if self.fail {
             return Err(MeshError::ApiError("simulated_api_down".to_string()));
         }
         Ok(PreAuthKey {
+            id: "fake-key-id".to_string(),
             key: "hskey-fake-mesh-token-123456789".to_string(),
             user: spec.user.clone(),
-            expiration: "2026-10-12T18:00:00Z".to_string(),
+            expiration: Some("2026-10-12T18:00:00Z".to_string()),
             reusable: spec.reusable,
             ephemeral: spec.ephemeral,
-            acl_tags: spec.acl_tags.clone(),
+            used: false,
         })
     }
 
-    async fn expire_preauth_key(&self, _key: &str) -> Result<(), MeshError> {
+    fn expire_preauth_key(&self, _user: &str, _key: &str) -> Result<(), MeshError> {
         Ok(())
-    }
-
-    async fn list_nodes(&self) -> Result<Vec<RegisteredNode>, MeshError> {
-        Ok(vec![])
     }
 }
 
-#[tokio::test]
-async fn test_remote_runner_enrollment_happy_path() {
+#[test]
+fn test_remote_runner_enrollment_happy_path() {
     let mock = MockMeshPort { fail: false };
     let spec = RemoteRunnerSpec {
         node_name: "runpod-gpu-node-01".to_string(),
@@ -54,7 +69,6 @@ async fn test_remote_runner_enrollment_happy_path() {
     };
 
     let report = execute_remote_runner_enrollment(&spec, &mock)
-        .await
         .expect("enrollment should succeed");
 
     assert_eq!(report.schema, REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA);
@@ -64,8 +78,8 @@ async fn test_remote_runner_enrollment_happy_path() {
     assert_eq!(report.status, "enrolled_pending_connect");
 }
 
-#[tokio::test]
-async fn test_remote_runner_enrollment_validation_failures() {
+#[test]
+fn test_remote_runner_enrollment_validation_failures() {
     let mock = MockMeshPort { fail: false };
 
     // Empty node name
@@ -79,7 +93,6 @@ async fn test_remote_runner_enrollment_validation_failures() {
         wireguard_pubkey: "abcd1234abcd1234abcd1234abcd1234abcd1234==".to_string(),
     };
     let err = execute_remote_runner_enrollment(&spec_bad_name, &mock)
-        .await
         .unwrap_err();
     assert!(err.contains("invalid_node_name"));
 
@@ -94,7 +107,6 @@ async fn test_remote_runner_enrollment_validation_failures() {
         wireguard_pubkey: "abcd1234abcd1234abcd1234abcd1234abcd1234==".to_string(),
     };
     let err = execute_remote_runner_enrollment(&spec_zero_vcpu, &mock)
-        .await
         .unwrap_err();
     assert!(err.contains("invalid_capacity"));
 
@@ -109,7 +121,6 @@ async fn test_remote_runner_enrollment_validation_failures() {
         wireguard_pubkey: "short_key".to_string(),
     };
     let err = execute_remote_runner_enrollment(&spec_short_key, &mock)
-        .await
         .unwrap_err();
     assert!(err.contains("invalid_wireguard_pubkey"));
 }

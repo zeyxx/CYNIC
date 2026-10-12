@@ -124,7 +124,7 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             };
 
             let mesh_client = HeadscaleClient::from_environment_or_authority();
-            match execute_remote_runner_enrollment(&spec, &mesh_client).await {
+            match execute_remote_runner_enrollment(&spec, &mesh_client) {
                 Ok(report) => emit_json(&report),
                 Err(e) => {
                     eprintln!("error: remote runner enrollment failed: {e}");
