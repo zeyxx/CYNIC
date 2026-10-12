@@ -29,6 +29,7 @@ tracing.workspace = true
 tokio.workspace = true
 bytes.workspace = true
 blake3.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 tempfile = "3.17"
