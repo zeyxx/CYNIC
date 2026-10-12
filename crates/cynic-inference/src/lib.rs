@@ -33,7 +33,6 @@ pub use application::backend_verification::{
     ContextResult, IdentityResult, check_context, check_context_with_bearer, check_health,
     check_health_with_bearer, check_identity, check_identity_with_bearer, model_identity_matches,
 };
-pub use application::bench_basket_launcher::{build_basket_from_ledger, launch_basket};
 pub use application::chat_endpoint::{
     ChatEndpointResolution, ChatEndpointSource, dns_inference_hostnames,
     inference_config_candidates, probe_live_model_id, probe_live_model_ids, resolve_chat_api_key,
@@ -50,7 +49,6 @@ pub use application::local_runtime_service::{LocalRuntimeService, LocalRuntimeSe
 pub use application::model_process_pool::{ActivePoolSlot, ModelPoolReport, ModelProcessPool};
 pub use application::model_store_service::ModelStoreService;
 pub use application::model_sync_pipeline::ModelSyncPipeline;
-pub use application::multi_agent_service::MultiAgentService;
 pub use application::node_runtime_ops::{
     DogNodeBinding, DogOperationOutcome, ModelProbeResult, attempt_node_recovery,
     attempt_node_start, dog_to_node, dog_to_node as resolve_dog_node, probe_model_runtime,
@@ -60,9 +58,8 @@ pub use application::peer_attach::{
     PeerAttachOptions, PeerAttachReport, peer_attach, peer_attach_apply, peer_attach_status,
 };
 pub use application::profile_bootstrap::{
-    EnsureProfilesReport, ForgeProfileReport, PreferredChatBind, bind_preferred_chat_model,
-    ensure_profiles_from_vault, forge_profile_from_benchmark_report, pin_preferred_alias,
-    resolve_start_alias, select_preferred_alias,
+    EnsureProfilesReport, PreferredChatBind, bind_preferred_chat_model, ensure_profiles_from_vault,
+    pin_preferred_alias, resolve_start_alias, select_preferred_alias,
 };
 pub use application::runtime_planner::{MaterializeReport, RuntimePlanner};
 pub use application::vault_consolidate::{
