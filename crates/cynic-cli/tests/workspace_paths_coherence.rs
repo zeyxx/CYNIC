@@ -33,11 +33,22 @@ fn read_registry() -> Value {
 }
 
 fn canonical_path() -> String {
+    if let Ok(override_path) = std::env::var("CYNIC_REPO_ROOT") {
+        return override_path;
+    }
     let registry = read_registry();
-    registry["canonical_path"]
+    let declared = registry["canonical_path"]
         .as_str()
-        .expect("canonical_path must be a string")
-        .to_string()
+        .expect("canonical_path must be a string");
+    if std::path::Path::new(declared).exists() {
+        declared.to_string()
+    } else {
+        // Fallback to the live discovered workspace root if running on remote builder/CI
+        repo_root()
+            .canonicalize()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| declared.to_string())
+    }
 }
 
 fn consumers() -> Vec<Value> {
