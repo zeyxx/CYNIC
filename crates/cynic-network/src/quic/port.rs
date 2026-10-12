@@ -3,7 +3,6 @@
 use super::domain::{ConnectionMigrationEvent, QuicTransportParameters, StreamChannel};
 
 /// Port defining asynchronous QUIC stream handling capabilities.
-#[async_trait::async_trait]
 pub trait QuicTransportPort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
 
