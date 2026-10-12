@@ -307,36 +307,11 @@ fn kernel_storage_must_not_own_inference_model_registry() {
         );
     }
 
-    // NOTE (2026-09-28): registry types moved domain/model_registry.rs ->
-    // infra/model_registry.rs in cynic-inference. Pointer follows the owner.
-    let inference_domain = read_repo_file("crates/cynic-inference/src/infra/model_registry.rs");
-    let inference_port = read_repo_file("crates/cynic-inference/src/ports/model_registry_port.rs");
-    let inference_memory_adapter =
-        read_repo_file("crates/cynic-inference/src/adapters/discovery/model_registry.rs");
-    for expected in [
-        "pub enum InferenceEngine",
-        "pub enum ModelCapability",
-        "pub struct ModelBackend",
-        "pub enum ModelHealth",
-    ] {
-        assert!(
-            inference_domain.contains(expected),
-            "cynic-inference must own model registry domain type: {expected}"
-        );
-    }
-    assert!(
-        inference_port.contains("pub trait ModelRegistryPort")
-            && inference_port.contains("upsert_model_backend")
-            && inference_port.contains("list_model_backends")
-            && inference_port.contains("update_model_health"),
-        "cynic-inference must own the model registry port"
-    );
-    assert!(
-        inference_memory_adapter.contains("pub struct InMemoryModelRegistry")
-            && inference_memory_adapter
-                .contains("impl ModelRegistryPort for InMemoryModelRegistry"),
-        "cynic-inference must own the in-memory model registry adapter"
-    );
+    // NOTE (2026-10-12 tranche H): the inference-side registry cluster
+    // (infra/model_registry.rs, ports/model_registry_port.rs,
+    // adapters/discovery/model_registry.rs) was burned with zero production
+    // callers. The kernel-side prohibition above stays; there is no live
+    // owner to point at anymore.
 }
 
 #[test]
@@ -509,26 +484,6 @@ fn kernel_inference_router_delegates_node_operations_to_cynic_inference_applicat
             && inference_ops.contains("pub async fn probe_model_runtime"),
         "cynic-inference should own node runtime operation application primitives"
     );
-}
-
-#[test]
-fn kernel_inference_proxy_delegates_backend_selection_to_inference() {
-    // NOTE (2026-09-28 api/ purge): kernel proxy side dead with the REST
-    // surface. Live owner contract below.
-    let proxy_routing = read_repo_file("crates/cynic-inference/src/application/proxy_routing.rs");
-    for expected in [
-        "pub struct ProxyTargets",
-        "pub struct ProxyTarget",
-        "pub enum ProxyTargetSelectionError",
-        "pub fn from_fleet_meta",
-        "pub fn select",
-        "fn first_with_tools",
-    ] {
-        assert!(
-            proxy_routing.contains(expected),
-            "cynic-inference proxy_routing must expose `{expected}`"
-        );
-    }
 }
 
 #[test]

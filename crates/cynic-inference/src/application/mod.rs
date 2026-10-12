@@ -10,7 +10,6 @@ pub mod model_store_service;
 pub mod model_sync_pipeline;
 pub mod node_runtime_ops;
 pub mod profile_bootstrap;
-pub mod proxy_routing;
 pub mod runtime_planner;
 
 pub mod vault_consolidate;
