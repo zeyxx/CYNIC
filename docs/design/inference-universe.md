@@ -192,9 +192,36 @@ Zero orphans verified by workspace-wide grep.
 Remaining burn candidate: `math::ucb_sampler` (declared + re-exported, zero
 users) — untouched, out of slice.
 
-### 5.4 Declared non-goals of this slice
+### 5.4 Phase-2 partial — CONVERGED (falsified scope)
 
-`verdict_cache` (family keeps it), `fs_empirical_store` impl, `math::{roofline,tensor_geometry}`,
-`ports::local_runtime_port` itself, hermes runtime files, finance glue,
+Falsification of "P2 blocked": the boundary test
+(`kernel_inference_router_delegates_node_operations_to_cynic_inference_application`)
+pins ONLY `node_runtime_ops` dog fns. `peer_attach` is absent from the test;
+`node_contribution` is a zero-user stub. Moved without touching the test:
+`peer_attach.rs` → `cynic-node::peer_attach` (serving imports rewired to
+`cynic_inference::` paths, all downward), `node_contribution` →
+`cynic-node::domain`. CLI attach arm calls `cynic_node::peer_attach`.
+Proofs: node@91c56eda, inference@888aaacf, cli@888aaacf. Inference −285
+lines. `node_runtime_ops` STAYS until the operator amends the boundary test.
+
+### 5.5 Suspended (evidence-backed, awaiting operator release)
+
+- §2.5 remainder (`node_runtime_ops` dog fns): moving breaks the codified
+  boundary test. Technically movable (imports only `std::time::Instant`);
+  legally pinned. Needs test amendment, not code.
+- §2.6 (`finance_adapters.rs`): impl parses inference trace files with zero
+  inference types; every crate already owns its `finance_adapters` impl and
+  the port lives in `cynic-finance`. Current state already satisfies FCIS —
+  no move recommended.
+- §2.7 (publisher impls out): infeasible as written. `peer_attach` (now
+  node-owned, still serving-constructed) and staying `ods_discovery` build
+  these impls directly; `cynic-inference` has no upward dep to host/node to
+  re-import them from. Impls stay; ports were already the boundary.
+- Q1 (hermes home), Q2 (supervision keep), Q3 (progress/verdict keep):
+  open operator decisions; no code changed.
+
+Eval-slice standing non-goals (unchanged): `verdict_cache`, `fs_empirical_store`
+impl, `math::{roofline,tensor_geometry}`, `ports::local_runtime_port` itself,
+hermes runtime files, finance glue, ODS publishers.
 ODS publishers — untouched. `MultiAgentService`'s `RuntimeKind::DirectLlama`
 dependency resolves via O5 (executor moves with it).
