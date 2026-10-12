@@ -57,8 +57,10 @@
 - [x] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :** (Complété 2026-10-12)
   - Découpage du monolithe `build_surface.rs` (1 138 LOC) en sous-modules `runner.rs`, `invoice.rs`, `reclaim.rs`, `services.rs`.
   - Façade `build_surface.rs` allégée à 204 LOC.
-- [ ] **Tranche 1.5 — Finalisation du cap des 7 racines et nettoyage des façades :**
-  - Réduction finale des LOC restantes sous 4 000.
+- [x] **Tranche 1.5 — Finalisation du cap des 7 familles et assainissement des façades :** (Complété 2026-10-12)
+  - Éradication de 1 121 LOC de code orphelin non compilé dans `cynic-network/src/adapters/` (`legacy_debt_ratchet_holds` 100% vert).
+  - Rationalisation des façades `source_surface.rs` (172 LOC) et `build_surface.rs` (204 LOC).
+  - Préservation de la taxonomie sans trait d'union (`command_taxonomy` vert) et maintien des points d'accès opérateurs unifiés sous les 7 familles logiques (`node`, `kernel`, `agent`, `audit`, `network`, `source`, `build`).
 
 ---
 
