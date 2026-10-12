@@ -22,6 +22,7 @@ pub mod finance_adapters;
 pub(crate) mod announce;
 mod build_attestation;
 pub mod builder_activation;
+pub mod cli_factory;
 pub mod config;
 pub(crate) mod config_watch;
 pub mod dns_activation;
