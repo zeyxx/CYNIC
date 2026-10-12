@@ -12,7 +12,7 @@
 //! four synchronized edits that can silently drift apart.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::Value;
 
@@ -26,10 +26,8 @@ fn repo_root() -> PathBuf {
 
 fn read_policy() -> Value {
     let path = repo_root().join("infra/build-policy.json");
-    let raw = fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse {} as JSON: {e}", path.display()))
+    let raw = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {} as JSON: {e}", path.display()))
 }
 
 fn declared_jobs() -> String {
@@ -140,7 +138,9 @@ fn a_measured_value_is_never_declared_without_its_measurement() {
     let policy = read_policy();
     let parallelism = &policy["parallelism"];
     let status = parallelism["status"].as_str().unwrap_or_default();
-    let jobs = parallelism["cargo_build_jobs"].as_u64().expect("cargo_build_jobs");
+    let jobs = parallelism["cargo_build_jobs"]
+        .as_u64()
+        .expect("cargo_build_jobs");
 
     if status == "unmeasured_on_canonical_path" {
         let measured = &parallelism["measured_alternative"];
