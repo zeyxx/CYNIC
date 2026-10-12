@@ -11,10 +11,6 @@ default-run = "cynic-node"
 name = "cynic-node"
 path = "src/main.rs"
 
-[[bin]]
-name = "cynic-network-actuator"
-path = "src/actuator_main.rs"
-
 [dependencies]
 tokio.workspace = true
 tokio-util = { version = "0.7", features = ["io"] }

@@ -1,8 +1,7 @@
 //! In-tree Model Context Protocol (MCP) server surface.
 
 use clap::Subcommand;
-use rmcp::ServiceExt;
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum McpCommand {
@@ -13,18 +12,15 @@ pub enum McpCommand {
 pub async fn dispatch(cmd: McpCommand) -> ExitCode {
     match cmd {
         McpCommand::Serve => {
-            let server = cynic_mcp::server::CynicMcpServer::default();
-            match server.serve(rmcp::transport::io::stdio()).await {
-                Ok(running) => {
-                    if let Err(e) = running.waiting().await {
-                        eprintln!("cynic mcp error: {e}");
-                        ExitCode::FAILURE
-                    } else {
-                        ExitCode::SUCCESS
-                    }
+            let mcp_bin = std::env::var("CYNIC_MCP_BIN").unwrap_or_else(|_| "cynic-mcp".to_string());
+            match Command::new(&mcp_bin).status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(status) => {
+                    let code = status.code().unwrap_or(1);
+                    ExitCode::from(code as u8)
                 }
                 Err(e) => {
-                    eprintln!("cynic mcp startup error: {e}");
+                    eprintln!("cynic mcp execution error ({mcp_bin}): {e}");
                     ExitCode::FAILURE
                 }
             }
