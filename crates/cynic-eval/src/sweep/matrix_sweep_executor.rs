@@ -12,7 +12,7 @@
 //! - Topologies: DedicatedSingle, CoResident, HotSwapNvme
 //! - Harness protocols: OpenAiToolCall, HermesXml, OmpLinePatch, MercuryJson
 
-use cynic_eval::sweep::{
+use crate::sweep::{
     BenchmarkScenario, ModelArchDescriptor, can_admit_model_configuration,
 };
 use cynic_protocol::{
@@ -24,7 +24,7 @@ use std::path::PathBuf;
 
 pub const MATRIX_SWEEP_REPORT_SCHEMA: &str = "cynic.inference.matrix_sweep_run.v1";
 
-pub use cynic_eval::sweep::HardwareBudget;
+pub use crate::sweep::HardwareBudget;
 
 /// Full descriptor for a model under test.
 #[derive(Debug, Clone)]
