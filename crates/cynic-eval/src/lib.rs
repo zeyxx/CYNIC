@@ -18,6 +18,8 @@
 //! Extracted from `cynic-protocol` (Session 1 Vague B).
 
 pub mod agent_execution_provenance;
+pub mod agents;
+pub mod bench;
 pub mod convergence;
 pub mod emergence_gallery;
 pub mod eval;

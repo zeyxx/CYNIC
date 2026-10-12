@@ -4,6 +4,7 @@
 //! HTTP clients, and host metrics are injected later through adapters.
 
 pub mod baseline;
+pub mod http_harness_executor;
 pub mod plan;
 pub mod policy;
 pub mod ports;
