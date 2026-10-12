@@ -6,7 +6,7 @@
 //! | Layer | Owner | Role |
 //! |---|---|---|
 //! | **CYNIC native** | `adapters::local`, routing SSOT | vault, profiles, start/stop, sovereign routing |
-//! | **Peer plane** | this adapter + `application::peer_attach` | probe `/v1` listeners; optional publish into SSOT |
+//! | **Peer plane** | this adapter + `cynic-node::peer_attach` | probe `/v1` listeners; optional publish into SSOT |
 //! | **ODS product** | [Osmantic/ODS](https://github.com/Osmantic/ODS) (external) | optional full-stack bootstrap (WebUI, agents, …) |
 //! | **Install** | `cynic-host` ecosystem provider `ods` | clone pin + `install.sh` — **not** this crate |
 //!
