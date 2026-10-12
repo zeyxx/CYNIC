@@ -23,6 +23,7 @@ pub mod emergence_gallery;
 pub mod eval;
 pub mod evidence_journal;
 pub mod evidence_projection;
+pub mod harness;
 pub mod judge_patch;
 pub mod judgment;
 pub mod kyon;

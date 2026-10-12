@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-types = { path = "../cynic-types" }
+cynic-workload = { path = "../cynic-workload" }
 async-trait.workspace = true
 thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
