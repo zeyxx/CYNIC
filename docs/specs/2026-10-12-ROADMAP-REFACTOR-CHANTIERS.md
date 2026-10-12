@@ -50,10 +50,13 @@
   - Migration des sondes matérielles hôtes vers `cynic node host {cpu, memory, disk, capacity}`.
   - Migration des audits de conformance, metrics et harness vers `cynic audit {conformance, metrics, harness}`.
   - Déploiement du binaire release sur la flotte (hash `944753f2...`).
-- [ ] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :**
-  - Déplacer la logique Git/PR de `source_surface.rs` vers `cynic-vcs`.
-- [ ] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :**
-  - Déplacer la logique de `build_surface.rs` vers `cynic-build`.
+- [x] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :** (Complété 2026-10-12)
+  - Découpage du monolithe `source_surface.rs` (836 LOC) en sous-modules modulaires `pr.rs`, `worktree.rs`, `release.rs`, `sync.rs`.
+  - Délégation stricte vers `cynic-vcs` (`pull_request`, `source_worktree_cli`) et `cynic-host`.
+  - Façade `source_surface.rs` allégée à 172 LOC.
+- [x] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :** (Complété 2026-10-12)
+  - Découpage du monolithe `build_surface.rs` (1 138 LOC) en sous-modules `runner.rs`, `invoice.rs`, `reclaim.rs`, `services.rs`.
+  - Façade `build_surface.rs` allégée à 204 LOC.
 - [ ] **Tranche 1.5 — Finalisation du cap des 7 racines et nettoyage des façades :**
   - Réduction finale des LOC restantes sous 4 000.
 
