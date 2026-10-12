@@ -1,0 +1,21 @@
+[package]
+name = "cynic-surreal"
+version.workspace = true
+edition.workspace = true
+description = "SurrealDB multi-model projection, graph relations, and epistemic query client for the CYNIC fleet"
+license.workspace = true
+publish = false
+
+[dependencies]
+cynic-protocol = { path = "../cynic-protocol" }
+cynic-secrets = { path = "../cynic-secrets" }
+reqwest = { workspace = true, features = ["rustls"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing.workspace = true
+
+[dev-dependencies]
+walkdir.workspace = true
+
+[lints]
+workspace = true

@@ -783,6 +783,20 @@
       "layer": "L2",
       "loc": 4132
     },
+    "cynic-surreal": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [
+        "cynic-protocol",
+        "cynic-secrets"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 350
+    },
     "cynic-types": {
       "consumers": [
         "cynic-agent-bus",
