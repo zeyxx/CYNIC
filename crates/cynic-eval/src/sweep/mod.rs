@@ -1,6 +1,8 @@
 pub mod concurrency;
 pub mod debate;
 pub mod empirical_store;
+pub mod matrix_live_runner;
+pub mod matrix_sweep_executor;
 pub mod memory_estimator;
 pub mod pareto;
 pub mod port;
