@@ -13,7 +13,7 @@ use cynic_node::usecases::compute_provisioning_uc::{
     ComputeProvisioningIntent, execute_compute_provisioning,
 };
 use cynic_node::usecases::remote_runner_enrollment_uc::execute_remote_runner_enrollment;
-use cynic_network::adapters::headscale::HeadscaleClient;
+use cynic_network::adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 use crate::emit_json;
 
 #[derive(Subcommand, Debug, Clone)]
@@ -98,7 +98,7 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             let substrate_port = LocalBwrapSubstrateAdapter::new(runner);
 
             match execute_compute_provisioning(&intent, &substrates, &substrate_port).await {
-                Ok(report) => emit_json(&report),
+                Ok(report) => emit_json(&report, false),
                 Err(e) => {
                     eprintln!("error: compute provisioning failed: {e}");
                     ExitCode::FAILURE
@@ -123,9 +123,19 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 wireguard_pubkey: pubkey,
             };
 
-            let mesh_client = HeadscaleClient::from_environment_or_authority();
+            let base_url = std::env::var("HEADSCALE_URL")
+                .unwrap_or_else(|_| "http://10.10.10.101:8080".to_string());
+            let config = HeadscaleConfig::new(base_url, "headscale-api-key", "HEADSCALE_API_KEY");
+            let mesh_client = match HeadscaleClient::new(config) {
+                Ok(client) => client,
+                Err(e) => {
+                    eprintln!("error: failed to initialize headscale client: {e:?}");
+                    return ExitCode::FAILURE;
+                }
+            };
+
             match execute_remote_runner_enrollment(&spec, &mesh_client) {
-                Ok(report) => emit_json(&report),
+                Ok(report) => emit_json(&report, false),
                 Err(e) => {
                     eprintln!("error: remote runner enrollment failed: {e}");
                     ExitCode::FAILURE
