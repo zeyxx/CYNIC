@@ -18,8 +18,8 @@
       "os": "Ubuntu 24.04",
       "binary_path": "/home/user/.local/bin/cynic",
       "status": "current",
-      "sha_baked": "2d53db9c",
-      "sha256": "93787f6f62293bc4f33dfe81e190ac3079567eb9e470660d91c901e02adb0367"
+      "sha_baked": "67e474b8",
+      "sha256": "a02ef9550905ff51db68d7285ab1ec634ccc347d0ee0598e99f825815e1e6ec7"
     },
     {
       "hostname": "builder",
@@ -27,8 +27,8 @@
       "os": "Ubuntu 24.04",
       "binary_path": "/usr/local/bin/cynic",
       "status": "current",
-      "sha_baked": "2d53db9c",
-      "sha256": "93787f6f62293bc4f33dfe81e190ac3079567eb9e470660d91c901e02adb0367"
+      "sha_baked": "67e474b8",
+      "sha256": "a02ef9550905ff51db68d7285ab1ec634ccc347d0ee0598e99f825815e1e6ec7"
     },
     {
       "hostname": "cynic-agent-host",
@@ -36,8 +36,8 @@
       "os": "Ubuntu 24.04 (LXC)",
       "binary_path": "/usr/local/bin/cynic",
       "status": "current",
-      "sha_baked": "2d53db9c",
-      "sha256": "93787f6f62293bc4f33dfe81e190ac3079567eb9e470660d91c901e02adb0367"
+      "sha_baked": "67e474b8",
+      "sha256": "a02ef9550905ff51db68d7285ab1ec634ccc347d0ee0598e99f825815e1e6ec7"
     }
   ],
   "anti_rules": [
