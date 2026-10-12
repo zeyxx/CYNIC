@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::infra::model_layout::ModelLayout;
+use crate::domain::paths::HfLocalPaths;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HfHubError {
@@ -122,10 +122,10 @@ impl HfSearchReport {
 
 /// Hugging Face Hub operations via the official CLI.
 pub trait HfHubPort: Send + Sync {
-    fn status(&self, layout: &ModelLayout) -> Result<HfCliStatus, HfHubError>;
+    fn status(&self, paths: &HfLocalPaths) -> Result<HfCliStatus, HfHubError>;
     fn download(
         &self,
-        layout: &ModelLayout,
+        paths: &HfLocalPaths,
         req: &HfDownloadRequest,
     ) -> Result<HfDownloadReport, HfHubError>;
     fn search(&self, req: &HfSearchRequest) -> Result<Vec<serde_json::Value>, HfHubError>;
