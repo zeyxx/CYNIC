@@ -18,5 +18,6 @@ pub mod privilege;
 pub mod process;
 pub mod queue;
 pub mod services;
+pub mod trajectory_entropy;
 pub mod shared;
 pub mod storage;
