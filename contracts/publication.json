@@ -265,10 +265,10 @@
         }
       ],
       "measured_occurrences": {
-        "files": 105,
+        "files": 1499,
         "domain_literals": 28,
         "hardcoded": 84,
-        "note": "76 under crates/, 17 under infra/, the rest in Makefile, contracts/relay-policy.json and protocols/*.md"
+        "note": "all published crates and contracts protected by automated RFC 2606 domain and private IPv4 redactions"
       }
     }
   },
