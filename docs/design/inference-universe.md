@@ -224,6 +224,23 @@ lines. `node_runtime_ops` STAYS until the operator amends the boundary test.
 - Q2 (supervision keep), Q3 (progress/verdict keep):
   open operator decisions; no code changed.
 
+### 5.8 Tranche E (old-port generation burn) — CONVERGED
+
+Burned ~1 100 lines of production-dead code pinned as "live owner contract":
+`openai_compat` 670, `domain/chat` 92, `chat_port` 71, `adapters/null` 20,
+`inference.rs` shim, `InferPort` + `InferRequest/Response` + `BackendError`;
+`domain/inference` trimmed to `BackendStatus` + `BackendInitError` (pinned
+embedding still needs them). Intel fallout: `reflection.rs` 209 (sole
+`ChatPort` consumer, itself uninstantiated) + dropped `cynic-inference` dep
+(+1-line `Cargo.lock` fix for `--locked` builds). Kernel law amended twice:
+`InferPort` pin dropped (summarization pins intact), law-ownership pin
+repointed at `domain/inference.rs`, dead routing-projection test deleted
+(contract died with `fleet_routing`; proxy test covers survivor).
+Proofs: inference@724acfab, intel@724acfab, kernel@68a2914a, boundary suite
+19 passed incl. both amended tests. 6 remaining failures pre-existing
+(node/host/kernel-src files untouched by this diff; main itself uncompilable
+at 2b943f89 with broken intel `escore`).
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
