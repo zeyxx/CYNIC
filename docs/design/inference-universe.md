@@ -312,6 +312,11 @@ are namesakes) burned, −465. `domain/summarization.rs` kept: kernel-pinned
 law + host-recorded orphan port (awaiting impl, not mine to overturn).
 Proofs: inference@a46c3adb.
 
+### 5.14 Tranche K (supervision burn) — PROOF PENDING
+
+`domain/supervision.rs` (`SupervisionPolicy`, zero users; node/protocol
+`supervision` modules are namesakes, live node-side supervision untouched).
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
