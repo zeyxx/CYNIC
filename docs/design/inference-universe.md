@@ -206,9 +206,12 @@ lines. `node_runtime_ops` STAYS until the operator amends the boundary test.
 
 ### 5.5 Suspended (evidence-backed, awaiting operator release)
 
-- §2.5 remainder (`node_runtime_ops` dog fns): moving breaks the codified
-  boundary test. Technically movable (imports only `std::time::Instant`);
-  legally pinned. Needs test amendment, not code.
+- §2.5 remainder (`node_runtime_ops` dog fns): CONFIRMED KEEP (operator
+  decision R). Technically movable (imports only `std::time::Instant`) but
+  the boundary test is deliberate kernel law; the node façade already owns
+  the surface and only two modules consume the impl — moving gains nothing
+  mechanically. Revisit only if dog ops acquire fleet-side state (leases,
+  fleet truth) forcing colocation.
 - §2.6 (`finance_adapters.rs`): impl parses inference trace files with zero
   inference types; every crate already owns its `finance_adapters` impl and
   the port lives in `cynic-finance`. Current state already satisfies FCIS —
