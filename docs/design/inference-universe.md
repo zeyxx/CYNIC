@@ -241,6 +241,14 @@ Proofs: inference@724acfab, intel@724acfab, kernel@68a2914a, boundary suite
 (node/host/kernel-src files untouched by this diff; main itself uncompilable
 at 2b943f89 with broken intel `escore`).
 
+### 5.9 Tranche F (plan_launch split) — CONVERGED
+
+`infra/runtime_plan.rs`: 265-line `plan_launch` split into 8 pure resolve
+phases (`endpoint/context/threads/gpu_layers/batch_shape/engine_args/
+memory_max/cpu_quota/roofline`) over a `PlanNotes` accumulator; orchestration
+only in `plan_launch`. Behavior identical (same rationale strings/order).
+Proofs: inference@7a64d6b9, 4/4 `infra::runtime_plan` unit tests pass.
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
