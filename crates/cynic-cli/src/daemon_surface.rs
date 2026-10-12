@@ -2,7 +2,6 @@
 
 use clap::Subcommand;
 use std::process::ExitCode;
-use tokio_util::sync::CancellationToken;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum DaemonCommand {
@@ -15,6 +14,8 @@ pub enum DaemonCommand {
     Node {
         #[arg(long, default_value = "/etc/cynic/node-control.toml")]
         config: String,
+        #[arg(long)]
+        check: bool,
         #[arg(long)]
         watchdog: bool,
     },
@@ -47,29 +48,16 @@ pub async fn dispatch(cmd: DaemonCommand) -> ExitCode {
                 }
             }
         }
-        DaemonCommand::Node { config, watchdog } => {
+        DaemonCommand::Node {
+            config,
+            check,
+            watchdog,
+        } => {
             if watchdog {
                 return cynic_node::watchdog::execute(&config).await;
             }
 
-            let cfg = match cynic_node::config::load(&config) {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("failed to load node config from {config}: {e}");
-                    return ExitCode::FAILURE;
-                }
-            };
-
-            let cancel_token = CancellationToken::new();
-            cynic_node::shutdown::install_signal_handler(cancel_token.clone());
-
-            match cynic_node::node_control_runtime::run(cfg, cancel_token).await {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(e) => {
-                    eprintln!("node control runtime exited with error: {e}");
-                    ExitCode::FAILURE
-                }
-            }
+            cynic_node::node_control_runtime::run(&config, check).await
         }
     }
 }
