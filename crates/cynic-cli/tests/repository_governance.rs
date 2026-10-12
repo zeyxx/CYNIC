@@ -169,3 +169,42 @@ fn blacklisted_file_patterns_are_strictly_absent() {
         violations.join("\n")
     );
 }
+
+#[test]
+fn state_leak_blacklist_is_strictly_enforced() {
+    let contract = governance_contract();
+    let leak_patterns: Vec<String> = contract["state_leak_blacklist"]
+        .as_array()
+        .expect("state_leak_blacklist is array")
+        .iter()
+        .map(|v| v.as_str().expect("string").to_string())
+        .collect();
+
+    let mut violations = Vec::new();
+    for path in tracked_paths() {
+        let file_name = path.split('/').last().unwrap_or("");
+        for pat in &leak_patterns {
+            let matches = if pat.starts_with("*") && pat.ends_with(".json") {
+                let suffix = &pat[1..];
+                file_name.ends_with(suffix)
+            } else if pat.starts_with("*-") {
+                let suffix = &pat[1..];
+                file_name.ends_with(suffix)
+            } else {
+                file_name == pat || path == *pat
+            };
+
+            if matches {
+                violations.push(format!(
+                    "Dynamic state leak detected: '{path}' matches forbidden pattern '{pat}'"
+                ));
+            }
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "Dynamic state leaks tracked in git (must move to data_system/):\n{}",
+        violations.join("\n")
+    );
+}

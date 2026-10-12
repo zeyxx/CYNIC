@@ -68,6 +68,21 @@
     ".env",
     ".env.*"
   ],
+  "state_leak_blacklist": [
+    "*_report.json",
+    "*-observed.json",
+    "*_reconciliation.json",
+    "*_plan.json"
+  ],
+  "meta_policy": {
+    "state_vs_code": "Git strictly holds deterministic code and normative contracts. All dynamic captures, run reports, observed topology drift, and benchmark outcomes belong strictly in data_system/ (outside Git).",
+    "zero_flat_chaos": "Root directories must not host unclassified flat files. Infrastructure contracts and deployment definitions must be bounded by explicit functional domains.",
+    "architectural_taxonomy": {
+      "contracts_canonical": "Normative machine-readable specifications and schemas belong in contracts/.",
+      "deploy_canonical": "Host/cluster orchestration (systemd, wireguard, firewall, compose) belongs in deploy/.",
+      "infra_sunset": "The legacy infra/ umbrella is deprecated and phased into contracts/ and deploy/."
+    }
+  },
   "enforcement": {
     "gate_test": "crates/cynic-cli/tests/repository_governance.rs",
     "action_on_violation": "fail_closed"
