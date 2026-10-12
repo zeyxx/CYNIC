@@ -9,7 +9,6 @@
       ".codex",
       ".github",
       "apps",
-      "archive",
       "contracts",
       "crates",
       "docs",
@@ -41,6 +40,7 @@
     ]
   },
   "forbidden_roots": [
+    "archive",
     "benchmarks",
     "data_system",
     "evidence",

@@ -179,11 +179,6 @@
       "reason": "a separate Kotlin product, not one of the runtime crates"
     },
     {
-      "path": "archive/**",
-      "status": "exclude",
-      "reason": "superseded architecture, kept privately for provenance"
-    },
-    {
       "path": ".cortex/**",
       "status": "exclude",
       "reason": "agent session scratch, not a runtime artefact"
