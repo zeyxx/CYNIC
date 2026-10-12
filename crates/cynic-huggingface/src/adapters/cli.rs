@@ -45,6 +45,126 @@ impl HfCliAdapter {
         }
         t[t.len().saturating_sub(max)..].to_string()
     }
+
+    /// Render `hf jobs [scheduled] ...` argv for a spec. Pure helper so the
+    /// mapping stays testable without spawning anything.
+    fn job_argv(scheduled: Option<&str>, spec: &HfJobSpec) -> Vec<String> {
+        let mut argv = vec!["jobs".to_string()];
+        if scheduled.is_some() {
+            argv.push("scheduled".into());
+        }
+        match &spec.kind {
+            HfJobKind::UvScript { script, script_args } => {
+                argv.push("uv".into());
+                argv.push("run".into());
+                if let Some(schedule) = scheduled {
+                    argv.push(schedule.to_string());
+                }
+                Self::push_job_opts(&mut argv, spec);
+                argv.push(script.clone());
+                argv.extend(script_args.iter().cloned());
+            }
+            HfJobKind::Docker { image, command } => {
+                argv.push("run".into());
+                if let Some(schedule) = scheduled {
+                    argv.push(schedule.to_string());
+                }
+                Self::push_job_opts(&mut argv, spec);
+                argv.push(image.clone());
+                argv.extend(command.iter().cloned());
+            }
+        }
+        argv
+    }
+
+    fn push_job_opts(argv: &mut Vec<String>, spec: &HfJobSpec) {
+        if let Some(name) = &spec.name {
+            argv.push("--name".into());
+            argv.push(name.clone());
+        }
+        if let Some(flavor) = &spec.flavor {
+            argv.push("--flavor".into());
+            argv.push(flavor.clone());
+        }
+        for (k, v) in &spec.env {
+            argv.push("--env".into());
+            argv.push(format!("{k}={v}"));
+        }
+        // By NAME: the CLI resolves values from the process environment.
+        for secret in &spec.secret_names {
+            argv.push("--secrets".into());
+            argv.push(secret.clone());
+        }
+        for (k, v) in &spec.labels {
+            argv.push("--label".into());
+            argv.push(format!("{k}={v}"));
+        }
+        for vol in &spec.volumes {
+            argv.push("--volume".into());
+            argv.push(vol.clone());
+        }
+        if let Some(timeout) = &spec.timeout {
+            argv.push("--timeout".into());
+            argv.push(timeout.clone());
+        }
+        if let Some(ns) = &spec.namespace {
+            argv.push("--namespace".into());
+            argv.push(ns.clone());
+        }
+        if spec.detach {
+            argv.push("--detach".into());
+        }
+    }
+
+    fn namespaced(args: &mut Vec<String>, namespace: Option<&str>) {
+        if let Some(ns) = namespace {
+            args.push("--namespace".into());
+            args.push(ns.to_string());
+        }
+    }
+
+    fn to_job_report(
+        &self,
+        argv: &[String],
+        code: i32,
+        stdout: &str,
+        stderr: &str,
+        detached: bool,
+    ) -> HfJobReport {
+        let ok = code == 0;
+        let remote_id = if ok && detached {
+            let t = stdout.trim();
+            if t.is_empty() { None } else { Some(t.to_string()) }
+        } else {
+            None
+        };
+        HfJobReport {
+            schema: HfJobReport::SCHEMA,
+            surface: HfJobReport::SURFACE,
+            ok,
+            remote_id,
+            argv: std::iter::once(self.bin.display().to_string())
+                .chain(argv.iter().cloned())
+                .collect(),
+            stdout_tail: Self::tail(stdout, 2000),
+            stderr_tail: Self::tail(stderr, 2000),
+            message: if ok {
+                Some("job submitted".into())
+            } else {
+                Some(format!("hf jobs exit {code}"))
+            },
+        }
+    }
+
+    fn parse_job_values(stdout: &str) -> Vec<serde_json::Value> {
+        let Ok(val) = serde_json::from_str::<serde_json::Value>(stdout) else {
+            return Vec::new();
+        };
+        match val {
+            serde_json::Value::Array(arr) => arr,
+            other => vec![other],
+        }
+    }
 }
 
 impl HfHubPort for HfCliAdapter {
@@ -363,126 +483,6 @@ impl HfHubPort for HfCliAdapter {
                 Some(format!("hf upload exit {code}"))
             },
         })
-    }
-
-    /// Render `hf jobs [scheduled] ...` argv for a spec. Pure helper so the
-    /// mapping stays testable without spawning anything.
-    fn job_argv(scheduled: Option<&str>, spec: &HfJobSpec) -> Vec<String> {
-        let mut argv = vec!["jobs".to_string()];
-        if scheduled.is_some() {
-            argv.push("scheduled".into());
-        }
-        match &spec.kind {
-            HfJobKind::UvScript { script, script_args } => {
-                argv.push("uv".into());
-                argv.push("run".into());
-                if let Some(schedule) = scheduled {
-                    argv.push(schedule.to_string());
-                }
-                Self::push_job_opts(&mut argv, spec);
-                argv.push(script.clone());
-                argv.extend(script_args.iter().cloned());
-            }
-            HfJobKind::Docker { image, command } => {
-                argv.push("run".into());
-                if let Some(schedule) = scheduled {
-                    argv.push(schedule.to_string());
-                }
-                Self::push_job_opts(&mut argv, spec);
-                argv.push(image.clone());
-                argv.extend(command.iter().cloned());
-            }
-        }
-        argv
-    }
-
-    fn push_job_opts(argv: &mut Vec<String>, spec: &HfJobSpec) {
-        if let Some(name) = &spec.name {
-            argv.push("--name".into());
-            argv.push(name.clone());
-        }
-        if let Some(flavor) = &spec.flavor {
-            argv.push("--flavor".into());
-            argv.push(flavor.clone());
-        }
-        for (k, v) in &spec.env {
-            argv.push("--env".into());
-            argv.push(format!("{k}={v}"));
-        }
-        // By NAME: the CLI resolves values from the process environment.
-        for secret in &spec.secret_names {
-            argv.push("--secrets".into());
-            argv.push(secret.clone());
-        }
-        for (k, v) in &spec.labels {
-            argv.push("--label".into());
-            argv.push(format!("{k}={v}"));
-        }
-        for vol in &spec.volumes {
-            argv.push("--volume".into());
-            argv.push(vol.clone());
-        }
-        if let Some(timeout) = &spec.timeout {
-            argv.push("--timeout".into());
-            argv.push(timeout.clone());
-        }
-        if let Some(ns) = &spec.namespace {
-            argv.push("--namespace".into());
-            argv.push(ns.clone());
-        }
-        if spec.detach {
-            argv.push("--detach".into());
-        }
-    }
-
-    fn namespaced(args: &mut Vec<String>, namespace: Option<&str>) {
-        if let Some(ns) = namespace {
-            args.push("--namespace".into());
-            args.push(ns.to_string());
-        }
-    }
-
-    fn to_job_report(
-        &self,
-        argv: &[String],
-        code: i32,
-        stdout: &str,
-        stderr: &str,
-        detached: bool,
-    ) -> HfJobReport {
-        let ok = code == 0;
-        let remote_id = if ok && detached {
-            let t = stdout.trim();
-            if t.is_empty() { None } else { Some(t.to_string()) }
-        } else {
-            None
-        };
-        HfJobReport {
-            schema: HfJobReport::SCHEMA,
-            surface: HfJobReport::SURFACE,
-            ok,
-            remote_id,
-            argv: std::iter::once(self.bin.display().to_string())
-                .chain(argv.iter().cloned())
-                .collect(),
-            stdout_tail: Self::tail(stdout, 2000),
-            stderr_tail: Self::tail(stderr, 2000),
-            message: if ok {
-                Some("job submitted".into())
-            } else {
-                Some(format!("hf jobs exit {code}"))
-            },
-        }
-    }
-
-    fn parse_job_values(stdout: &str) -> Vec<serde_json::Value> {
-        let Ok(val) = serde_json::from_str::<serde_json::Value>(stdout) else {
-            return Vec::new();
-        };
-        match val {
-            serde_json::Value::Array(arr) => arr,
-            other => vec![other],
-        }
     }
 
     fn job_submit(&self, spec: &HfJobSpec) -> Result<HfJobReport, HfHubError> {
