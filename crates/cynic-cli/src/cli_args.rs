@@ -84,6 +84,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: NodeCommand,
     },
+    /// Multi-model storage runtime — SurrealDB status, queries, capabilities and credential sync.
+    Storage {
+        #[command(subcommand)]
+        command: crate::storage_surface::StorageCommand,
+    },
     /// Source sync — observe/reconcile/apply across layers + release bot
     Source {
         #[command(subcommand)]

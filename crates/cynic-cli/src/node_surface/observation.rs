@@ -9,7 +9,7 @@ pub(crate) fn execute_observe(
     fail_on_warning: bool,
     fail_on_critical: bool,
 ) -> ExitCode {
-    crate::node_surface::network_surfaces_uc::execute_observe(
+    crate::network_surface::execution::execute_observe(
         registry,
         fail_on_warning,
         fail_on_critical,
@@ -20,7 +20,7 @@ pub(crate) fn execute_registry_observation(
     registry: &str,
     output: Option<&str>,
 ) -> ExitCode {
-    crate::node_surface::network_surfaces_uc::execute_registry_observation(
+    crate::network_surface::execution::execute_registry_observation(
         registry,
         output,
     )

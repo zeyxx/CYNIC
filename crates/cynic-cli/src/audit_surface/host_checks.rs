@@ -71,19 +71,6 @@ pub(crate) fn execute_repo_access(json: bool, profile: Option<String>) -> ExitCo
     emit_json(&report, false)
 }
 
-pub(crate) fn execute_storage_capabilities(json: bool, url: Option<&str>) -> ExitCode {
-    if !json {
-        return ExitCode::FAILURE;
-    }
-
-    let endpoint = url
-        .map(str::to_string)
-        .or_else(|| std::env::var("SURREALDB_URL").ok())
-        .unwrap_or_else(|| "http://localhost:8000".into());
-    let report = cynic_host::storage_capabilities::observe_storage_capabilities(&endpoint);
-    emit_json(&report, report.status == "blocked")
-}
-
 fn load_runtime_proof_bundle(path: &str) -> Result<RuntimeProofBundle, String> {
     let raw = std::fs::read_to_string(path)
         .map_err(|error| format!("failed to read runtime proof bundle {path}: {error}"))?;

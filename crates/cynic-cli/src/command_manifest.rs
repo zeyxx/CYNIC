@@ -106,6 +106,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit paths [--json]",
                     "cynic audit branch [--json]",
                     "cynic audit all [--json]",
+                    "cynic audit conformance [--profile <name>] [--node <name>] [--registry <path>] [--json]",
+                    "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
+                    "cynic audit harness [--kind <name>] [--json]",
                 ],
             },
             CommandDomain {
@@ -178,6 +181,11 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node cert-inspect --cert-path <path> [--json]",
                     "cynic node cert-verify --kernel-pubkey-hex <hex> --cert-path <path> [--json]",
                     "cynic node host-audit [--json] [--max-commits <n>]",
+                    "cynic node host cpu [--json]",
+                    "cynic node host memory [--json]",
+                    "cynic node host disk status [--json]",
+                    "cynic node host disk clean [--apply] [--json]",
+                    "cynic node host capacity [--json]",
                 ],
             },
             CommandDomain {
@@ -187,6 +195,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic source release [--root <path>] [--dry-run] [--apply] [--json]",
                     "cynic source sync [--root <path>] [--apply] [--json]",
                     "cynic source worktree [--root <path>] [--workspace-store <path>] [--apply] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "storage",
+                commands: vec![
+                    "cynic storage ping [--endpoint <url>] [--json]",
+                    "cynic storage query --sql <surrealql> [--endpoint <url>] [--json]",
+                    "cynic storage capabilities [--url <url>] [--json]",
+                    "cynic storage credential [--endpoint <url>] [--json]",
                 ],
             },
             CommandDomain {

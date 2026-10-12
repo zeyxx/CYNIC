@@ -8,15 +8,11 @@ use crate::{emit_json, fail};
 use crate::host_profile_selection::ProfileArgs;
 
 mod agent_matrix;
-mod capacity;
 mod compat_aliases;
-mod cpu;
-mod disk;
 mod execution_context;
 mod forgejo_token_cli;
-mod host_checks;
+use crate::audit_surface::host_checks;
 pub(crate) mod inference_surface;
-mod memory;
 mod network;
 mod operator_models;
 
@@ -546,7 +542,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         }
         RuntimeCommand::Storage { command } => match command {
             RuntimeStorageCommand::Capabilities { json, url } => {
-                host_checks::execute_storage_capabilities(json, url.as_deref())
+                crate::storage_surface::execute_storage(
+                    crate::storage_surface::StorageCommand::Capabilities { json, url },
+                )
             }
             RuntimeStorageCommand::Credential { json, endpoint } => {
                 match execute_storage_credential_sync(json, endpoint.as_deref()) {
@@ -623,9 +621,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Agent {
             command: RuntimeAgentCommand::Matrix { json },
         } => agent_matrix::execute_agent_matrix(json),
-        RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
-        RuntimeCommand::Memory { json } => memory::execute_memory(json),
-        RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
+        RuntimeCommand::Capacity { json } => crate::node_surface::host::execute_capacity(json),
+        RuntimeCommand::Memory { json } => crate::node_surface::host::execute_memory(json),
+        RuntimeCommand::Cpu { json } => crate::node_surface::host::execute_cpu(json),
         RuntimeCommand::Forgejo {
             command:
                 RuntimeForgejoCommand::Token {

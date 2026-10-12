@@ -3,7 +3,7 @@ use std::process::ExitCode;
 use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_host::adapters::local_network::LocalNetworkAdapter;
 use cynic_host::domain::network::freebox::FreeboxProbePort;
-use crate::node_surface::network_surfaces_uc::NetworkCommands;
+use crate::network_surface::execution::NetworkCommands;
 use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
@@ -21,7 +21,7 @@ pub(crate) fn try_execute_base(
             registry,
             resolve_dns,
             check_provider_connectivity,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::ActivationChain {
                 json: true,
                 registry: registry_path(registry),
@@ -38,7 +38,7 @@ pub(crate) fn try_execute_base(
             registry,
             resolve_dns,
             check_provider_connectivity,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::RuntimeStatus {
                 json: true,
                 registry: registry_path(registry),
@@ -55,7 +55,7 @@ pub(crate) fn try_execute_base(
             registry,
             resolve_dns,
             check_provider_connectivity,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::RuntimeProof {
                 json: true,
                 registry: registry_path(registry),
@@ -68,7 +68,7 @@ pub(crate) fn try_execute_base(
                 resolved_dropin_path: runtime.resolved_dropin_path.to_string_lossy().to_string(),
             },
         )),
-        NetworkCommand::Evidence { registry } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        NetworkCommand::Evidence { registry } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::Evidence {
                 json: true,
                 registry: registry_path(registry),
@@ -78,7 +78,7 @@ pub(crate) fn try_execute_base(
             registry,
             resolve_dns,
             observe_runtime,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::ShadowProof {
                 json: true,
                 registry: registry_path(registry),
@@ -86,7 +86,7 @@ pub(crate) fn try_execute_base(
                 observe_runtime,
             },
         )),
-        NetworkCommand::ActuationObservation { registry } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        NetworkCommand::ActuationObservation { registry } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::ActuationObservation {
                 json: true,
                 registry: registry_path(registry),
@@ -286,7 +286,7 @@ pub(crate) fn try_execute_base(
             registry,
             node_id,
             audit,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::FirewallPolicy {
                 json: true,
                 registry: registry_path(registry),
@@ -307,7 +307,7 @@ fn execute_network_security(
             json: _,
             max_handshake_age_secs,
             registry,
-        } => Ok(crate::node_surface::network_surfaces_uc::execute_network_command(
+        } => Ok(crate::network_surface::execution::execute_network_command(
             &NetworkCommands::SecurityAudit {
                 json: true,
                 max_handshake_age_secs,
@@ -327,7 +327,7 @@ fn execute_network_reconcile(
             registry,
             timeout_ms,
             apply,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ReconcileObserved {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ReconcileObserved {
             json: true,
             registry: registry_path(registry),
             timeout_ms,

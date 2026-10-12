@@ -13,7 +13,8 @@ pub mod identity;
 pub mod observation;
 pub mod source;
 pub mod storage;
-pub mod network_surfaces_uc;
+pub mod host;
+
 
 use std::process::ExitCode;
 
@@ -134,11 +135,11 @@ pub enum NodeCommand {
         output: Option<String>,
     },
 
-    // === Network ===
-    /// Network diagnostics and guarded remediation plans.
-    Network {
+    // === Host Probes ===
+    /// Probe host hardware: CPU, memory, storage disks, and capacity.
+    Host {
         #[command(subcommand)]
-        command: crate::node_surface::network_surfaces_uc::NetworkCommands,
+        command: host::NodeHostCommand,
     },
 
     // === Peer ===
@@ -338,10 +339,8 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
             observation::execute_registry_observation(&registry, output.as_deref())
         }
 
-        // === Network ===
-        NodeCommand::Network { command } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&command)
-        }
+        // === Host Probes ===
+        NodeCommand::Host { command } => host::execute_node_host(command),
 
         // === Peer ===
         NodeCommand::Peer { command } => {
