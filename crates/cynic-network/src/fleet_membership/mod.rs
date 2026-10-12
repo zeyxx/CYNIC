@@ -33,6 +33,9 @@
 //! assigns to a differently named node, and that real name appears in neither
 //! registry nor any hosts file.
 
+pub mod admission;
+pub use admission::*;
+
 use cynic_protocol::host_substrate::hypervisor::{
     HypervisorKind, VM_OBSERVATION_SCHEMA, VmObservation, VmState,
 };
