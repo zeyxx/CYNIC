@@ -249,19 +249,19 @@
         },
         {
           "match": "10\\.10\\.10\\.[0-9]+",
-          "replace": "192.0.2.1"
+          "replace": "10-10-10-node.example.invalid"
         },
         {
           "match": "10\\.[0-9]+\\.[0-9]+\\.[0-9]+",
-          "replace": "192.0.2.2"
+          "replace": "10-node.example.invalid"
         },
         {
           "match": "192\\.168\\.[0-9]+\\.[0-9]+",
-          "replace": "192.0.2.3"
+          "replace": "192-168-node.example.invalid"
         },
         {
           "match": "172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+",
-          "replace": "192.0.2.4"
+          "replace": "172-node.example.invalid"
         }
       ],
       "measured_occurrences": {
