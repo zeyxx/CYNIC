@@ -220,11 +220,25 @@ lines. `node_runtime_ops` STAYS until the operator amends the boundary test.
   node-owned, still serving-constructed) and staying `ods_discovery` build
   these impls directly; `cynic-inference` has no upward dep to host/node to
   re-import them from. Impls stay; ports were already the boundary.
-- Q1 (hermes home), Q2 (supervision keep), Q3 (progress/verdict keep):
+- Q1 (hermes home): RESOLVED by deletion (tranche A — zero users).
+- Q2 (supervision keep), Q3 (progress/verdict keep):
   open operator decisions; no code changed.
+
+### 5.6 Tranche A (internal burn) — CONVERGED
+
+Burned 18 files, −2 457 lines (all verified zero-user, unpinned):
+hermes cluster ×5 (`hermes_run_executor` 458, supervisor 338, service 81,
+domain 70, port 22 — resolves Q1 by deletion), `inference_gateway` 440,
+dead routing cluster (`infra/routing`, `routing_policy`, `model_selection`,
+`fleet_routing`, `routing_calc`, ~650), pass-throughs (`inference_service`,
+`summarization_service`), `embedding_runtime`, `engine_selector`,
+`chat_trace_sink` (ledger consts moved to `ChatTrace`), `filesystem_capacity`
++ its port. Pinned-but-unused KEPT: `proxy_routing`, `model_catalog`,
+`openai_compat`, embedding adapter, dog fns. `RoutingEventPort` stays
+(host orphan baseline lists it). Proofs: inference@260b9515, cli@260b9515.
 
 Eval-slice standing non-goals (unchanged): `verdict_cache`, `fs_empirical_store`
 impl, `math::{roofline,tensor_geometry}`, `ports::local_runtime_port` itself,
-hermes runtime files, finance glue, ODS publishers.
+finance glue, ODS publishers.
 ODS publishers — untouched. `MultiAgentService`'s `RuntimeKind::DirectLlama`
 dependency resolves via O5 (executor moves with it).
