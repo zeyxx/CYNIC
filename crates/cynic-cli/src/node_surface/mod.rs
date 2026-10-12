@@ -14,6 +14,7 @@ pub mod observation;
 pub mod source;
 pub mod storage;
 pub mod host;
+pub mod compute;
 
 
 use std::process::ExitCode;
@@ -140,6 +141,13 @@ pub enum NodeCommand {
     Host {
         #[command(subcommand)]
         command: host::NodeHostCommand,
+    },
+
+    // === Compute Substrates & Hybrid Mesh ===
+    /// Run sovereign compute workloads or enroll remote hybrid runners.
+    Compute {
+        #[command(subcommand)]
+        command: compute::NodeComputeCommand,
     },
 
     // === Peer ===
@@ -341,6 +349,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
 
         // === Host Probes ===
         NodeCommand::Host { command } => host::execute_node_host(command),
+
+        // === Compute Substrates & Hybrid Mesh ===
+        NodeCommand::Compute { command } => compute::dispatch(command).await,
 
         // === Peer ===
         NodeCommand::Peer { command } => {

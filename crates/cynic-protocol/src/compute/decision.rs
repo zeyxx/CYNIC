@@ -1,6 +1,6 @@
 //! Pure placement decision predicates for compute workloads (Zero-I/O).
 
-use super::types::{ComputeRequirements, SubstrateKind};
+use super::types::{ComputeRequirements, RemoteRunnerEnrollmentPlan, RemoteRunnerSpec, SubstrateKind};
 use crate::agent_isolation::SandboxStrategy;
 
 /// Observed capability of an available compute substrate.
@@ -103,4 +103,40 @@ pub fn decide_compute_placement(
         reason: "insufficient compute capacity or incompatible isolation profile across fleet"
             .to_string(),
     }
+}
+
+/// Pure predicate validating a remote runner spec and producing a bounded mesh enrollment plan.
+pub fn plan_remote_runner_enrollment(
+    spec: &RemoteRunnerSpec,
+) -> Result<RemoteRunnerEnrollmentPlan, String> {
+    if spec.node_name.trim().is_empty() {
+        return Err("invalid_node_name: node_name cannot be empty".to_string());
+    }
+    if !spec
+        .node_name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(format!(
+            "invalid_node_name: '{}' contains illegal characters",
+            spec.node_name
+        ));
+    }
+    if spec.vcpus == 0 {
+        return Err("invalid_capacity: vcpus must be >= 1".to_string());
+    }
+    if spec.memory_bytes < 512 * 1024 * 1024 {
+        return Err("invalid_capacity: memory must be >= 512 MiB".to_string());
+    }
+    if spec.wireguard_pubkey.trim().len() < 40 {
+        return Err("invalid_wireguard_pubkey: public key must be at least 40 characters".to_string());
+    }
+
+    Ok(RemoteRunnerEnrollmentPlan {
+        node_name: spec.node_name.clone(),
+        user: "cynic".to_string(),
+        acl_tags: vec!["tag:runner".to_string()],
+        expiration_seconds: 3600,
+        reusable: false,
+    })
 }
