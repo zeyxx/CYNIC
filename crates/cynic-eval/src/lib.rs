@@ -26,6 +26,7 @@ pub mod evidence_projection;
 pub mod judge_patch;
 pub mod judgment;
 pub mod kyon;
+pub mod sweep;
 
 pub use agent_execution_provenance::*;
 pub use convergence::*;
