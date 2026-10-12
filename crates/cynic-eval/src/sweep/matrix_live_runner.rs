@@ -16,16 +16,16 @@ use reqwest::Client;
 use serde_json::Value;
 use tokio::process::Child;
 
-use cynic_eval::sweep::HardwareBudget;
-use cynic_eval::sweep::empirical_store::{
+use crate::sweep::HardwareBudget;
+use crate::sweep::empirical_store::{
     BenchmarkProvenance, EmpiricalProfileEntry, OomSafetyStatus,
 };
-use cynic_eval::sweep::memory_estimator::{
+use crate::sweep::memory_estimator::{
     ModelArchDescriptor, can_admit_model_configuration,
 };
-use cynic_eval::sweep::stream_metrics::compute_stream_dynamics;
-use cynic_eval::sweep::types::{BenchmarkScenario, StreamDynamicsReport};
-use cynic_eval::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
+use crate::sweep::stream_metrics::compute_stream_dynamics;
+use crate::sweep::types::{BenchmarkScenario, StreamDynamicsReport};
+use crate::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 
 use super::matrix_sweep_executor::config_to_llama_argv;
 
