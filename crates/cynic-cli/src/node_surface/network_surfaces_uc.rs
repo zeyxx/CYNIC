@@ -1007,7 +1007,12 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                         .unwrap_or_else(|| "http://127.0.0.1:8080".to_string())
                 });
             let mut adapter = cynic_node::adapters::headscale::HeadscaleAdapter::new(&ep);
-            if let Some(key) = api_key {
+            let resolved_key = api_key.clone().or_else(|| {
+                cynic_secrets::resolve_secret("headscale-api-key", "CYNIC_HEADSCALE_KEY").or_else(
+                    || cynic_secrets::resolve_secret("headscale-api-key", "HEADSCALE_API_KEY"),
+                )
+            });
+            if let Some(key) = resolved_key {
                 adapter = cynic_node::adapters::headscale::HeadscaleAdapter::with_api_key(&ep, key);
             }
 

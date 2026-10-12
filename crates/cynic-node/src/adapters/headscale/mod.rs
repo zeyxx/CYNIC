@@ -175,7 +175,7 @@ impl HeadscaleAdapter {
             let mut args = vec!["-s", "-m", "5"];
             let auth_header;
             if let Some(key) = &self.api_key {
-                auth_header = format!("Authorization: Bearer {key}");
+                auth_header = format!("Authorization: Bearer {}", key.trim());
                 args.push("-H");
                 args.push(&auth_header);
             }
@@ -215,7 +215,7 @@ impl HeadscaleAdapter {
             ];
             let auth_header;
             if let Some(key) = &self.api_key {
-                auth_header = format!("Authorization: Bearer {key}");
+                auth_header = format!("Authorization: Bearer {}", key.trim());
                 args.push("-H");
                 args.push(&auth_header);
             }
@@ -253,7 +253,7 @@ impl HeadscaleAdapter {
             let mut args = vec!["-s", "-m", "5", "-X", "DELETE"];
             let auth_header;
             if let Some(key) = &self.api_key {
-                auth_header = format!("Authorization: Bearer {key}");
+                auth_header = format!("Authorization: Bearer {}", key.trim());
                 args.push("-H");
                 args.push(&auth_header);
             }
