@@ -102,7 +102,6 @@ pub use ports::local_runtime_port::{
 pub use ports::token_entropy_port::TokenEntropyPort;
 pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 pub use ports::model_store_port::ModelStorePort;
-pub use ports::token_entropy_port::TokenEntropyPort;
 
 // Misc
 pub use math::roofline::assess_roofline;
