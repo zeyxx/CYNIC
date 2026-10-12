@@ -486,6 +486,17 @@
       "layer": "L3",
       "loc": 6963
     },
+    "cynic-knowledge": {
+      "consumers": [],
+      "depends_on": [
+        "cynic-types"
+      ],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L1",
+      "loc": 100
+    },
     "cynic-lifecycle": {
       "consumers": [
         "cynic-cli",

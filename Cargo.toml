@@ -43,6 +43,7 @@ members = [
     "crates/cynic-domain-cloudflare",
     "crates/cynic-finance",
     "crates/cynic-surreal",
+    "crates/cynic-knowledge",
 ]
 resolver = "2"
 

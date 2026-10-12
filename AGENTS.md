@@ -19,6 +19,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 
 ## Invariants
 
+- **Bottom-Up over Top-Down**: Always observe, measure, and validate physical substrate reality (hardware, raw bytes, exit codes, machine receipts, AST) before introducing speculative, probabilistic, or higher-layer abstractions across all domains. No model or policy without an empirically verified baseline.
 - **Strict DAG downward**: Higher layers depend on lower layers, never the reverse.
 - **FCIS / Zero-I/O Core**: Pure logic in domain modules; side effects behind ports in `adapters/`.
 - **Boundaries**: Dynamic registries over hardcoded values; typed argv execution; explicit `--yes`/`--apply` for mutation.

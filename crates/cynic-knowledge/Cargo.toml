@@ -1,0 +1,20 @@
+[package]
+autobins = false
+name = "cynic-knowledge"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CYNIC Knowledge Domain — Hierarchical PageIndex tree, deterministic BM25 lexical engine, and contract indexing"
+publish = false
+
+[dependencies]
+cynic-types = { path = "../cynic-types" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+regex.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
