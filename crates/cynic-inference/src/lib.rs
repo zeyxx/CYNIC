@@ -24,7 +24,7 @@ pub use adapters::ods::{
     discover_ods_services, run_sync_pipeline, sync_discovered_backends,
 };
 pub use adapters::publishers::{
-    inference_toml::InferenceTomlPublisher, null::NullPublisher, open_webui::OpenWebUiPublisher,
+    inference_toml::InferenceTomlPublisher, open_webui::OpenWebUiPublisher,
 };
 pub use application::backend_verification::{
     ContextResult, IdentityResult, check_context, check_context_with_bearer, check_health,
