@@ -4,7 +4,6 @@ pub mod config_loader;
 pub mod domain;
 pub mod embedding;
 pub mod finance_adapters;
-pub mod inference;
 pub mod infra;
 pub mod math;
 pub mod ods_discovery;
@@ -96,7 +95,6 @@ pub use infra::principal_paths::{PathAuthority, PrincipalPaths};
 pub use infra::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
 
 // Ports
-pub use ports::chat_port::ChatPort;
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use cynic_huggingface::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,

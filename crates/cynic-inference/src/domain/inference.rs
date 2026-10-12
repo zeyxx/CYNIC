@@ -1,4 +1,4 @@
-//! Inference domain types — backend status, errors, and request/response values.
+//! Inference domain types — backend status and initialization errors.
 //!
 //! No backend implementation belongs here. This module carries only domain data.
 
@@ -19,18 +19,6 @@ impl BackendStatus {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum BackendError {
-    #[error("Backend unreachable: {0}")]
-    Unreachable(String),
-    #[error("Model not loaded: {0}")]
-    ModelNotLoaded(String),
-    #[error("Backend {backend_id} timed out after {ms}ms")]
-    Timeout { backend_id: String, ms: u64 },
-    #[error("Protocol error: {0}")]
-    Protocol(String),
-}
-
-#[derive(Debug, thiserror::Error)]
 #[error("Backend initialization failed: {0}")]
 pub struct BackendInitError(String);
 
@@ -38,21 +26,4 @@ impl BackendInitError {
     pub fn from_http(error: impl std::fmt::Display) -> Self {
         Self(error.to_string())
     }
-}
-
-#[derive(Debug)]
-pub struct InferRequest {
-    pub system: Option<String>,
-    pub prompt: String,
-    pub temperature: f64,
-    pub max_tokens: u32,
-}
-
-#[derive(Debug)]
-pub struct InferResponse {
-    pub text: String,
-    pub model: String,
-    /// Backend-reported. `None` means unreported, which is not a measured zero.
-    pub prompt_tokens: Option<u64>,
-    pub completion_tokens: Option<u64>,
 }

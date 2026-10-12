@@ -1,4 +1,3 @@
-pub mod chat_port;
 pub mod chat_session_port;
 pub mod embedding_port;
 pub mod hardware_probe_port;
