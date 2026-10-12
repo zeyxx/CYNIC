@@ -22,6 +22,8 @@ cynic-kernel = { path = "../cynic-kernel" }
 # The audit engine, extracted from cynic-host. `cynic audit` calls it directly.
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }
+# Hub provider contract, consumed directly (never via inference re-exports).
+cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-proxmox = { path = "../cynic-proxmox" }

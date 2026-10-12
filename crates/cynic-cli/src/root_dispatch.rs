@@ -37,6 +37,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Inference { command } => {
             crate::inference_surface::execute_inference_command(command)
         }
+        Command::Hub { command } => crate::hub_surface::execute_hub_command(command),
         Command::Dependency { command } => {
             crate::dependency_surface::execute_dependency_command(command)
         }

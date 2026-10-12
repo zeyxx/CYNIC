@@ -7,6 +7,8 @@ use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use crate::{emit_json, fail};
 use crate::host_profile_selection::ProfileArgs;
 
+pub(crate) mod hub_surface;
+
 mod agent_matrix;
 mod compat_aliases;
 mod execution_context;
