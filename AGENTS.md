@@ -15,7 +15,7 @@ CYNIC is a low-layer sovereign Rust runtime for multi-agent systems. No mutation
 2. `contracts/foundation.json`
 3. `infra/runtime-authority.json`
 4. `infra/registry.json` (hosts, IPs, paths — never hardcode)
-5. `Cargo.toml` workspace & crates under `crates/` (census in `infra/CANONICAL_CRATE_MAP.md`)
+5. `Cargo.toml` workspace & crates under `crates/` (census in `infra/crate-topology.json`)
 
 ## Invariants
 

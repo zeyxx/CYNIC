@@ -60,10 +60,6 @@
       "status": "public"
     },
     {
-      "path": ".mcp.cynic-gpu.json",
-      "status": "public"
-    },
-    {
       "path": "Cargo.toml",
       "status": "public"
     },
@@ -129,10 +125,6 @@
     },
     {
       "path": "AGENTS.md",
-      "status": "public"
-    },
-    {
-      "path": "CODEX.md",
       "status": "public"
     },
     {
