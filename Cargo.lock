@@ -922,6 +922,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-huggingface"
+version = "0.8.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cynic-inference"
 version = "0.8.0"
 dependencies = [
@@ -929,6 +938,7 @@ dependencies = [
  "axum",
  "cynic-eval",
  "cynic-finance",
+ "cynic-huggingface",
  "cynic-network",
  "cynic-protocol",
  "cynic-secrets",
