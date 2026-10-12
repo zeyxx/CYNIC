@@ -1,5 +1,5 @@
-use serde_json::Value;
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use serde_json::Value;
 
 /// Parses a normative JSON contract into high-authority structural chunks.
 pub fn parse_json_contract(source_path: &str, content: &str) -> Vec<DocumentChunk> {
@@ -28,7 +28,8 @@ pub fn parse_json_contract(source_path: &str, content: &str) -> Vec<DocumentChun
             .or_else(|| map.get("contract"))
             .or_else(|| map.get("title"))
             .and_then(|v| v.as_str())
-            .unwrap_or(source_path);
+            .unwrap_or(source_path)
+            .to_string();
 
         // Group into concise chunks
         for (key, section_val) in map {
