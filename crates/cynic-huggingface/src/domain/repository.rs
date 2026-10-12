@@ -48,3 +48,22 @@ pub enum HfBoundaryError {
     #[error("revision required when explicitly supplied")]
     EmptyRevision,
 }
+
+/// Repository families hosted on the Hub. Maps 1:1 to `hf --type [...]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HfRepoType {
+    Model,
+    Dataset,
+    Space,
+}
+
+impl HfRepoType {
+    pub fn as_arg(self) -> &'static str {
+        match self {
+            Self::Model => "model",
+            Self::Dataset => "dataset",
+            Self::Space => "space",
+        }
+    }
+}

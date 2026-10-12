@@ -1,6 +1,9 @@
 pub mod dataset;
+pub mod endpoint;
 pub mod export;
 pub mod job;
 pub mod paths;
 pub mod projection;
 pub mod repository;
+pub mod space;
+pub mod webhook;
