@@ -1,5 +1,6 @@
 pub mod backend_config;
 pub mod backend_identity;
+pub mod chat;
 pub mod chat_session;
 pub mod chat_trace;
 pub mod embedding;
@@ -8,10 +9,14 @@ pub mod hardware_profile;
 pub mod hf_catalog;
 pub mod inference;
 pub mod local_runtime;
-pub mod memory_admission;
 
+pub mod debate;
+pub mod hermes_runtime;
+pub mod matrix_sweep;
 pub mod model_layout_report;
 pub mod model_retention;
 pub mod model_store;
+pub mod node_contribution;
 pub mod summarization;
 pub mod token_entropy;
+pub mod supervision;
