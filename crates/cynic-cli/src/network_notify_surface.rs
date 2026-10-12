@@ -31,8 +31,9 @@ use std::process::ExitCode;
 
 use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::{
-    HttpTelegramNotificationTransport, InMemoryNotificationOutboxStore,
-    NotificationOutboxStorePort as _, process_notification_outbox,
+    DesktopNotificationTransport, HttpTelegramNotificationTransport,
+    InMemoryNotificationOutboxStore, MultiChannelNotificationTransport,
+    NotificationOutboxStorePort as _, NotificationTransportPort, process_notification_outbox,
 };
 use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 use serde::Serialize;
@@ -49,28 +50,50 @@ struct NetworkNotifyReport {
     delivered: usize,
     failed: usize,
     dry_run: bool,
-    /// False when no transport credential is present; delivery was skipped.
+    /// False when no transport credential or desktop notifier is present; delivery was skipped.
     transport_configured: bool,
     /// True when delivery was attempted and at least one alert failed.
     delivery_failed: bool,
 }
 
-/// Resolve the Telegram transport from the environment.
+/// Resolve the active notification transports (Telegram and/or Desktop OS).
 ///
-/// Returns `None` when either half of the pair is absent or empty. An
-/// unconfigured transport is reported, never guessed at and never faked.
-fn resolve_transport() -> Option<HttpTelegramNotificationTransport> {
-    let token = std::env::var("CYNIC_TELEGRAM_BOT_TOKEN").ok()?;
-    let chat_id = std::env::var("CYNIC_TELEGRAM_CHAT_ID").ok()?;
-    if token.trim().is_empty() || chat_id.trim().is_empty() {
-        return None;
+/// Returns `None` when no transport is configured or available.
+fn resolve_transport() -> Option<Box<dyn NotificationTransportPort>> {
+    let mut transports: Vec<Box<dyn NotificationTransportPort>> = Vec::new();
+
+    // 1. Resolve Telegram if credentials are set
+    if let (Ok(token), Ok(chat_id)) = (
+        std::env::var("CYNIC_TELEGRAM_BOT_TOKEN"),
+        std::env::var("CYNIC_TELEGRAM_CHAT_ID"),
+    ) {
+        if !token.trim().is_empty() && !chat_id.trim().is_empty() {
+            if let Ok(tg) = HttpTelegramNotificationTransport::new(
+                token,
+                chat_id,
+                std::time::Duration::from_secs(5),
+            ) {
+                transports.push(Box::new(tg));
+            }
+        }
     }
-    HttpTelegramNotificationTransport::new(
-        token,
-        chat_id,
-        std::time::Duration::from_secs(5),
-    )
-    .ok()
+
+    // 2. Resolve Desktop OS notify-send if binary exists and desktop session or opt-in is active
+    let notify_send_path = "/usr/bin/notify-send";
+    let has_desktop_env = std::env::var("DISPLAY").is_ok()
+        || std::env::var("WAYLAND_DISPLAY").is_ok()
+        || std::env::var("DBUS_SESSION_BUS_ADDRESS").is_ok()
+        || std::env::var("CYNIC_NOTIFY_DESKTOP").is_ok();
+
+    if std::path::Path::new(notify_send_path).exists() && has_desktop_env {
+        transports.push(Box::new(DesktopNotificationTransport::new()));
+    }
+
+    match transports.len() {
+        0 => None,
+        1 => Some(transports.pop().unwrap()),
+        _ => Some(Box::new(MultiChannelNotificationTransport::new(transports))),
+    }
 }
 
 pub(crate) fn execute_network_notify(
@@ -159,11 +182,13 @@ pub(crate) fn execute_network_notify(
             "watchdog={} alerts_enqueued={} — transport not configured, nothing sent",
             out.watchdog_status, out.alerts_enqueued
         );
-        println!("set CYNIC_TELEGRAM_BOT_TOKEN and CYNIC_TELEGRAM_CHAT_ID to deliver");
+        println!(
+            "configure CYNIC_TELEGRAM_BOT_TOKEN/CYNIC_TELEGRAM_CHAT_ID or active desktop session (notify-send) to deliver"
+        );
         return ExitCode::SUCCESS;
     };
 
-    let drain = match process_notification_outbox(&store, &transport) {
+    let drain = match process_notification_outbox(&store, transport.as_ref()) {
         Ok(r) => r,
         Err(e) => {
             eprintln!("network notify: outbox delivery failed: {e}");

@@ -249,6 +249,85 @@ impl NotificationTransportPort for HttpTelegramNotificationTransport {
     }
 }
 
+/// Local desktop notification transport adapter invoking `/usr/bin/notify-send`.
+///
+/// Implements `NotificationTransportPort`.
+#[derive(Debug, Default, Clone)]
+pub struct DesktopNotificationTransport {
+    binary_path: Option<String>,
+}
+
+impl DesktopNotificationTransport {
+    pub fn new() -> Self {
+        Self { binary_path: None }
+    }
+
+    pub fn with_binary_path(path: impl Into<String>) -> Self {
+        Self {
+            binary_path: Some(path.into()),
+        }
+    }
+}
+
+impl NotificationTransportPort for DesktopNotificationTransport {
+    fn dispatch(&self, entry: &NotificationOutboxEntry) -> Result<String, String> {
+        let bin = self
+            .binary_path
+            .as_deref()
+            .unwrap_or("/usr/bin/notify-send");
+
+        let title = format!("[CYNIC ALERT] {:?}", entry.referenced_event.kind);
+        let output = std::process::Command::new(bin)
+            .arg("-u")
+            .arg("critical")
+            .arg("-a")
+            .arg("CYNIC Runtime")
+            .arg(&title)
+            .arg(&entry.summary)
+            .output()
+            .map_err(|e| format!("failed to invoke notify-send: {e}"))?;
+
+        if !output.status.success() {
+            return Err(format!("notify-send exit code: {:?}", output.status.code()));
+        }
+        Ok(format!("desktop:notified:{}", entry.notification_id))
+    }
+}
+
+/// Composite notification transport fanning out deliveries across multiple active transports.
+pub struct MultiChannelNotificationTransport {
+    transports: Vec<Box<dyn NotificationTransportPort>>,
+}
+
+impl MultiChannelNotificationTransport {
+    pub fn new(transports: Vec<Box<dyn NotificationTransportPort>>) -> Self {
+        Self { transports }
+    }
+}
+
+impl NotificationTransportPort for MultiChannelNotificationTransport {
+    fn dispatch(&self, entry: &NotificationOutboxEntry) -> Result<String, String> {
+        if self.transports.is_empty() {
+            return Err("no_transports_configured".to_string());
+        }
+        let mut receipts = Vec::new();
+        let mut errors = Vec::new();
+
+        for transport in &self.transports {
+            match transport.dispatch(entry) {
+                Ok(r) => receipts.push(r),
+                Err(e) => errors.push(e),
+            }
+        }
+
+        if receipts.is_empty() {
+            return Err(format!("all_transports_failed: {}", errors.join("; ")));
+        }
+
+        Ok(receipts.join("|"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,5 +422,36 @@ mod tests {
             HttpTelegramNotificationTransport::new("token", "", std::time::Duration::from_secs(1));
         assert!(res2.is_err());
         assert_eq!(res2.unwrap_err(), "telegram_chat_id_empty");
+    }
+
+    #[test]
+    fn multichannel_transport_dispatches_to_all_configured() {
+        let t1 = MockTelegramTransport { fail: false };
+        let t2 = MockTelegramTransport { fail: false };
+        let multi = MultiChannelNotificationTransport::new(vec![Box::new(t1), Box::new(t2)]);
+
+        let entry = sample_entry("n10", "idem-10");
+        let receipt = multi.dispatch(&entry).unwrap();
+        assert!(receipt.contains("telegram:msg_id:1001:n10"));
+        assert!(receipt.contains('|'));
+    }
+
+    #[test]
+    fn multichannel_transport_fails_when_all_fail() {
+        let t1 = MockTelegramTransport { fail: true };
+        let multi = MultiChannelNotificationTransport::new(vec![Box::new(t1)]);
+
+        let entry = sample_entry("n11", "idem-11");
+        let err = multi.dispatch(&entry).unwrap_err();
+        assert!(err.starts_with("all_transports_failed:"));
+    }
+
+    #[test]
+    fn desktop_transport_handles_missing_binary() {
+        let desktop =
+            DesktopNotificationTransport::with_binary_path("/nonexistent/notify-send-fake");
+        let entry = sample_entry("n12", "idem-12");
+        let err = desktop.dispatch(&entry).unwrap_err();
+        assert!(err.contains("failed to invoke notify-send"));
     }
 }

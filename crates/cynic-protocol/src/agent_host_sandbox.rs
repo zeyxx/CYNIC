@@ -183,6 +183,7 @@ pub enum NotificationChannel {
     Telegram,
     Console,
     File,
+    Desktop,
 }
 
 /// Classification of notification payload.
