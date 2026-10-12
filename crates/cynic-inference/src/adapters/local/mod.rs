@@ -9,6 +9,7 @@ pub mod docker_supervisor;
 pub mod engine_capability_store;
 pub mod engine_probe;
 pub mod host_probe;
+pub mod model_readiness;
 pub mod model_store;
 pub mod process_supervisor;
 pub mod session_store;
