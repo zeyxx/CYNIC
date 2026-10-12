@@ -542,7 +542,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         }
         RuntimeCommand::Storage { command } => match command {
             RuntimeStorageCommand::Capabilities { json, url } => {
-                host_checks::execute_storage_capabilities(json, url.as_deref())
+                crate::storage_surface::execute_storage(
+                    crate::storage_surface::StorageCommand::Capabilities { json, url },
+                )
             }
             RuntimeStorageCommand::Credential { json, endpoint } => {
                 match execute_storage_credential_sync(json, endpoint.as_deref()) {
