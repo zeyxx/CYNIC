@@ -103,6 +103,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Git { command } => crate::git_surface::execute_git(command),
         Command::Judge { command } => crate::mask::execute_judge(command),
         Command::Mask { command } => crate::mask::execute_mask(command),
+        Command::Know { command } => crate::knowledge_surface::execute_know_command(command).await,
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Discovery { command } => crate::discovery_surface::execute_discovery(command),

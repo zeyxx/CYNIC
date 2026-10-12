@@ -52,6 +52,7 @@ cynic-discovery-host = { path = "../cynic-discovery-host" }
 cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
 cynic-surreal = { path = "../cynic-surreal" }
 cynic-sandbox = { path = "../cynic-sandbox" }
+cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }
 ratatui = { version = "0.29", default-features = true }
 crossterm = "0.28"

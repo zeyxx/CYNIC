@@ -121,6 +121,7 @@
         "cynic-intel",
         "cynic-intel-futarchy",
         "cynic-intel-soc",
+        "cynic-knowledge",
         "cynic-lifecycle",
         "cynic-network",
         "cynic-node",
@@ -487,7 +488,9 @@
       "loc": 6963
     },
     "cynic-knowledge": {
-      "consumers": [],
+      "consumers": [
+        "cynic-cli"
+      ],
       "depends_on": [
         "cynic-types"
       ],

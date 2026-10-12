@@ -1,0 +1,141 @@
+use clap::Subcommand;
+use serde::Serialize;
+use std::path::PathBuf;
+use std::process::ExitCode;
+
+#[derive(Debug, Subcommand)]
+pub enum KnowCommand {
+    /// Deterministic lexical search across documentation and normative contracts.
+    Search {
+        /// The query string (exact symbol, phrase, or invariant).
+        query: String,
+        /// Maximum number of results to display.
+        #[arg(long, default_value = "3")]
+        limit: usize,
+        /// Output search results as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Index and summarize all documentation and contracts in the workspace.
+    Index {
+        /// Output indexing summary as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Serialize)]
+pub struct KnowledgeSearchHitView {
+    pub chunk_id: String,
+    pub source_path: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub section: String,
+    pub authority: String,
+    pub score: f64,
+    pub content_preview: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct KnowledgeIndexSummary {
+    pub chunk_count: usize,
+    pub status: String,
+}
+
+pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
+    // Detect repository root from current working directory or environment
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let repo_root = find_repo_root(&cwd).unwrap_or(cwd);
+
+    let index = cynic_knowledge::index_workspace(&repo_root);
+
+    match command {
+        KnowCommand::Index { json } => {
+            let summary = KnowledgeIndexSummary {
+                chunk_count: index.chunk_count(),
+                status: "indexed".to_string(),
+            };
+
+            if json {
+                crate::emit_json(&summary, false)
+            } else {
+                println!(
+                    "Knowledge Index: {} chunks indexed from docs/ and contracts/ at {}",
+                    summary.chunk_count,
+                    repo_root.display()
+                );
+                ExitCode::SUCCESS
+            }
+        }
+        KnowCommand::Search { query, limit, json } => {
+            let hits = index.search(&query, limit);
+
+            if json {
+                let views: Vec<KnowledgeSearchHitView> = hits
+                    .iter()
+                    .map(|h| KnowledgeSearchHitView {
+                        chunk_id: h.chunk.chunk_id.clone(),
+                        source_path: h.chunk.source_path.clone(),
+                        line_start: h.chunk.line_start,
+                        line_end: h.chunk.line_end,
+                        section: h.chunk.title(),
+                        authority: format!("{:?}", h.chunk.authority),
+                        score: h.score,
+                        content_preview: h
+                            .chunk
+                            .content
+                            .lines()
+                            .take(5)
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    })
+                    .collect();
+                crate::emit_json(&views, false)
+            } else {
+                if hits.is_empty() {
+                    println!("No knowledge chunks found matching query: \"{}\"", query);
+                    return ExitCode::SUCCESS;
+                }
+
+                println!(
+                    "=== Found {} knowledge chunks matching \"{}\" ===",
+                    hits.len(),
+                    query
+                );
+                for (idx, hit) in hits.iter().enumerate() {
+                    println!(
+                        "\n[{}] {} (score: {:.2}, {:?})",
+                        idx + 1,
+                        hit.chunk.title(),
+                        hit.score,
+                        hit.chunk.authority
+                    );
+                    println!(
+                        "    File: {}:{}-{}",
+                        hit.chunk.source_path, hit.chunk.line_start, hit.chunk.line_end
+                    );
+                    println!("    ---");
+                    for line in hit.chunk.content.lines().take(6) {
+                        println!("    {}", line);
+                    }
+                    if hit.chunk.content.lines().count() > 6 {
+                        println!("    [...]");
+                    }
+                }
+                ExitCode::SUCCESS
+            }
+        }
+    }
+}
+
+fn find_repo_root(start: &std::path::Path) -> Option<PathBuf> {
+    let mut current = start.to_path_buf();
+    loop {
+        if current.join(".git").exists() || current.join("Cargo.toml").exists() {
+            return Some(current);
+        }
+        if !current.pop() {
+            return None;
+        }
+    }
+}

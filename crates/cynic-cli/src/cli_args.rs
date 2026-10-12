@@ -203,6 +203,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: MaskCommand,
     },
+    /// Living knowledge domain — PageIndex tree and BM25 lexical search over docs and contracts.
+    Know {
+        #[command(subcommand)]
+        command: crate::knowledge_surface::KnowCommand,
+    },
     /// Local queue plan — branch+discovery+GC composed via LocalQueueAdapter (thin).
     Queue {
         #[arg(long)]
