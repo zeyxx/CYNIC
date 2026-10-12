@@ -99,13 +99,25 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
             style,
             json,
         } => {
-            let admission = match evaluate_pr_admission(port.as_ref(), number) {
-                Ok(a) => a,
+            let prs = match port.list("open") {
+                Ok(p) => p,
                 Err(e) => {
-                    eprintln!("blocked: pr admission check failed: {e}");
+                    eprintln!("blocked: cannot observe PRs before merge: {e}");
                     return ExitCode::FAILURE;
                 }
             };
+            let pr = match prs.iter().find(|p| p.number == number) {
+                Some(p) => p,
+                None => {
+                    eprintln!("blocked: PR #{number} not found among open PRs");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let audit_report = crate::crate_audit::audit_core_crates();
+            let builder_ok = audit_report.blocked_count == 0;
+
+            let admission = evaluate_pr_admission(pr, builder_ok, true);
 
             if !admission.admitted {
                 if json {
@@ -123,12 +135,12 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                         if json {
                             emit_pretty_json(&proof)
                         } else {
-                            println!("PR #{number} merged successfully.");
+                            println!("{}", proof.message);
                             ExitCode::SUCCESS
                         }
                     }
                     Err(e) => {
-                        eprintln!("blocked: pr merge failed: {e}");
+                        eprintln!("blocked: merge failed: {e}");
                         ExitCode::FAILURE
                     }
                 }

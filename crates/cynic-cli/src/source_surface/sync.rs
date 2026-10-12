@@ -84,6 +84,10 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
                     "Compass:  {}",
                     report.coherence.compass.desired_state_digest
                 );
+                for result in &proof.steps_completed {
+                    let status_sym = if result.success { "PASS" } else { "FAIL" };
+                    println!("  [{status_sym}] {:?}", result.step);
+                }
                 if proof.success {
                     ExitCode::SUCCESS
                 } else {
@@ -132,27 +136,28 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
 
 pub(crate) fn execute_publish(root: &Path, json: bool) -> ExitCode {
     let contract_path = root.join("contracts/publication.json");
-    let contract = match cynic_vcs::load_publication_contract(&contract_path) {
+    let raw = match std::fs::read_to_string(&contract_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            eprintln!("blocked: cannot read {}: {e}", contract_path.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    let contract = match cynic_vcs::PublicationContract::from_json(&raw) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("blocked: cannot load publication contract: {e}");
+            eprintln!("blocked: {e}");
             return ExitCode::FAILURE;
         }
     };
 
     let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
-    let tracked = match cynic_vcs::list_git_tracked_files(root, &runner) {
-        Ok(t) => t,
+    let (tracked, files) = match cynic_vcs::source_worktree_cli::observe_publication_inputs(
+        root, &contract, &runner,
+    ) {
+        Ok(inputs) => inputs,
         Err(e) => {
-            eprintln!("blocked: cannot list git tracked files: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let files = match cynic_vcs::read_files_content_map(root, &tracked) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("blocked: cannot read tracked files: {e}");
+            eprintln!("blocked: {e}");
             return ExitCode::FAILURE;
         }
     };
