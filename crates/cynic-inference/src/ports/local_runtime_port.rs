@@ -43,3 +43,26 @@ pub trait LocalInferenceRuntimePort: Send + Sync {
     }
     fn stop(&self, alias: Option<&str>) -> Result<LocalRuntimeMutationReport, LocalRuntimeError>;
 }
+
+/// Eval-side basket launcher over any native runtime port.
+///
+/// The `BenchLauncherPort` trait is declared in `cynic-eval` (which must not
+/// depend on this crate); the implementation lives here, next to the port it
+/// adapts. Only `start` is exposed — the basket executor never stops, probes,
+/// or reconfigures runtimes.
+impl cynic_eval::bench::BenchLauncherPort for dyn LocalInferenceRuntimePort {
+    fn start(
+        &self,
+        alias: &str,
+    ) -> Result<cynic_eval::bench::BenchStartReport, cynic_eval::bench::BenchLaunchError>
+    {
+        match LocalInferenceRuntimePort::start(self, alias) {
+            Ok(report) => Ok(cynic_eval::bench::BenchStartReport {
+                ok: report.ok,
+                endpoint: report.status.endpoint,
+                message: report.message,
+            }),
+            Err(err) => Err(cynic_eval::bench::BenchLaunchError(err.to_string())),
+        }
+    }
+}
