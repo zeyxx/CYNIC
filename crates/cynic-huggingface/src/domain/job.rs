@@ -117,6 +117,7 @@ impl HfJobInfo {
         Some(Self {
             remote_id,
             name: get(&["name", "job_name"]),
+            stage_raw: stage_raw.clone(),
             status: map_stage_str(&stage_raw),
             flavor: get(&["flavor", "hardware"]),
             raw: raw.clone(),
