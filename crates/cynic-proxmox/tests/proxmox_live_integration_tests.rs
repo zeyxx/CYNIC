@@ -30,7 +30,7 @@ fn proxmox_live_api_ping_or_explicit_secret_missing() {
         .expect("build HTTP client");
 
     let pve_url = "https://192.168.0.37:8006/api2/json/version";
-    let token_id = "cynic@pve!token"; // From registry / authority
+    let token_id = "cynic@pve!runtime"; // Canonical SSOT from infra/registry.json
 
     let res = client
         .get(pve_url)
