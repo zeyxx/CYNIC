@@ -32,6 +32,16 @@ pub struct CompletionOutcome {
     pub tool_calls: Vec<ToolCallRequest>,
     /// Progressive chunks when stream=true (may be empty if non-stream).
     pub stream_chunks: Vec<StreamChunk>,
+    /// Token-level uncertainty snapshots extracted from provider logprobs.
+    ///
+    /// `None`-equivalent empty means the provider did not expose logprobs or
+    /// the resolver could not build a support. Unknown is data, never zero.
+    #[serde(default)]
+    pub token_entropy_snapshots: Vec<crate::domain::token_entropy::TokenEntropySnapshot>,
+    /// Sequence-level assessment derived from `token_entropy_snapshots`.
+    #[serde(default)]
+    pub token_uncertainty:
+        Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -602,6 +612,8 @@ impl ChatCompletionClient for MockChatClient {
                 content: None,
                 tool_calls: vec![tc.clone()],
                 stream_chunks: vec![],
+                token_entropy_snapshots: vec![],
+                token_uncertainty: None,
             });
         }
         // Interactive mock: tool keyword only when the latest message is the user turn
@@ -621,6 +633,8 @@ impl ChatCompletionClient for MockChatClient {
                     ),
                 }],
                 stream_chunks: vec![],
+                token_entropy_snapshots: vec![],
+                token_uncertainty: None,
             });
         }
         // Interactive TUI uses placeholder "(mock ready)" so each turn echoes last user text.
@@ -639,6 +653,8 @@ impl ChatCompletionClient for MockChatClient {
             content: Some(content),
             tool_calls: vec![],
             stream_chunks,
+            token_entropy_snapshots: vec![],
+            token_uncertainty: None,
         })
     }
 }
