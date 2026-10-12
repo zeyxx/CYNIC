@@ -299,9 +299,10 @@ not hand-editable): `loc` 25971 vs ~14000, consumers `intel`
 (test literal only), missing `huggingface`/`network` deps — recorded,
 regeneration needs the tool.
 
-### 5.12 Tranche I (phantom dep) — PROOF PENDING
+### 5.12 Tranche I (phantom dep) — CONVERGED
 
 Removed unimported `cynic-workload` dep from `cynic-inference` (+ lock).
+Proofs: inference@b3cd4be4.
 
 ### 5.7 Tranches B/C/D — CONVERGED
 
