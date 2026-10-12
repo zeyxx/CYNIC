@@ -54,7 +54,7 @@ pub struct TokenUncertaintyParams {
 impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
-            exploration_top_probability: 0.6,
+            exploration_top_probability: 0.25,
             exploitation_top_probability: 0.75,
         }
     }
@@ -107,12 +107,10 @@ pub fn token_entropy_from_logits(
     if logits.is_empty() {
         return Err(EntropyError::EmptyDistribution);
     }
-    for (index, value) in logits.iter().enumerate() {
-        if !value.is_finite() {
-            return Err(EntropyError::NonFiniteProbability { index });
-        }
-    }
-    let max_logit = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let max_logit = logits
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
     if !max_logit.is_finite() {
         for (index, value) in logits.iter().enumerate() {
             if !value.is_finite() {
@@ -220,7 +218,7 @@ mod tests {
     #[test]
     fn one_hot_logits_have_zero_entropy() {
         let snapshot = token_entropy_from_logits(&[10.0, 0.0, -5.0], 0).unwrap();
-        assert!(snapshot.entropy_bits < 1e-3);
+        assert!(snapshot.entropy_bits < 1e-9);
         assert!(snapshot.top_probability > 0.999);
         assert_eq!(snapshot.top_token, 0);
     }
