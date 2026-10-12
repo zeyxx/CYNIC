@@ -117,6 +117,7 @@ struct ChoiceLogprobs {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct ContentLogprob {
     #[serde(default)]
     logprob: f64,
