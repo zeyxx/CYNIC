@@ -169,19 +169,28 @@ or the extraction slice is rejected.
 | I5 | `cynic-host/src/agent_matrix.rs`, `cynic-host/tests/multi_agent_e2e_simulation.rs` | verified: NO code imports of the perimeter (surface-name strings / lease strings only) — no action |
 | I6 | staying `hermes_run_executor`, `hermes_process_supervisor`, `harness_executor`(if staying) | re-import harness traits from eval (O7); `HttpHarnessExecutor` moves per O5 |
 
-### 5.3 Spike result (vocabulary slice) — CONVERGED
+### 5.3 Full extraction — CONVERGED (all three slices + spike)
 
-Moved ~1.4 kLOC (`matrix_sweep` ×6, `debate`, `empirical_store_port`,
-`pareto`) to `cynic-eval::sweep`; `cynic-inference` −1 447 lines, six
-consumers rewired to `cynic_eval::sweep::*`. No `eval → inference` edge:
-serving-owned `roofline_inputs` is carried opaquely as `serde_json::Value`.
-Proofs: `cynic-eval@d203e926` converged, `cynic-inference@74f34c24`
-converged. Eval now ~5.7 kLOC — far from the 15 kLOC monolith band;
-executors move in later slices, never in one bulk.
-Open follow-ups (NOT this slice): `math::ucb_sampler` is an unreferenced
-orphan (declare + re-export, zero users) → burn candidate; `debate_live_test`
-moves with the executor slice; `failure_gallery` vs eval's
-`emergence_gallery` relation to settle before moving the gallery.
+| slice | moved to eval | proofs |
+|---|---|---|
+| spike (vocab) | `sweep/` vocab + `debate` + `empirical_store_port` + `pareto` (~1.4 k) | eval@d203e926, inference@74f34c24 |
+| 1 (harness) | `harness/` ×10 + `BenchModelProfile` view (O1); `failure_gallery` burned (zero users) | eval@f7b61517, inference@18dd3f74 |
+| 2 (executors) | `sweep::{matrix_live_runner, matrix_sweep_executor}` (+tokio/reqwest/futures edges) | eval@29c214dd, inference@7402efa6 |
+| 3 (bench+agents) | `bench/` (basket + forge, seams injected) + `agents/` + `HttpHarnessExecutor` + debate test | eval@2877590f, inference@36826c8e, cli@36826c8e |
+
+Seam resolutions: O4 → `BenchLauncherPort` declared eval-side, implemented
+for `dyn LocalInferenceRuntimePort` in inference; O10 → forge takes
+`profiles_dir: &Path`, `alias_from_artifact_id` moved to eval (pure string
+fn), bootstrap ensure-path calls eval's `write_loopback_profile`; secret
+fallback via `cynic-secrets::resolve_secret` (downward, no cycle); `roofline_inputs`
+carried as opaque JSON. All wire schemas byte-identical
+(`matrix_sweep.v2`, `bench_basket.v1`, `forge_profile.v1`,
+`multi_agent_debate.v1`).
+Sizes: inference 30 k → 20.8 kLOC; eval 4.4 k → 9.6 kLOC (well under the
+15 kLOC band — no monolith moved, growth absorbed in four bounded slices).
+Zero orphans verified by workspace-wide grep.
+Remaining burn candidate: `math::ucb_sampler` (declared + re-exported, zero
+users) — untouched, out of slice.
 
 ### 5.4 Declared non-goals of this slice
 
