@@ -4,7 +4,7 @@ use clap::Subcommand;
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
 use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 
-use crate::fail;
+use crate::{emit_json, fail};
 use crate::host_profile_selection::ProfileArgs;
 
 mod agent_matrix;
