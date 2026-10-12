@@ -705,21 +705,14 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             };
 
-            // Gate evaluation — builder check proxied via cynic audit.
-            // NOTE: the subcommand is `audit crate` (singular). A past
-            // rename left this gate invoking a dead `audit crates` name,
-            // which failed closed on every merge (observed 2026-10-07).
-            let builder_ok = {
-                let audit_output = std::process::Command::new(
-                    std::env::current_exe().unwrap_or_else(|_| "cynic".into()),
-                )
-                .args(["audit", "crate", "--json"])
-                .output();
-                match audit_output {
-                    Ok(o) => o.status.success(),
-                    Err(_) => false,
-                }
-            };
+            // Gate evaluation — the crate audit runs in-process through the
+            // shared `crate_audit` module (the same code path as the
+            // `cynic audit crate` binary command). Spawning a child process
+            // per merge was both an I/O anti-pattern and a robustness bug:
+            // a dead or renamed subcommand would fail closed on every merge
+            // (observed 2026-10-07).
+            let audit_report = crate::crate_audit::audit_core_crates();
+            let builder_ok = audit_report.blocked_count == 0;
 
             let admission = evaluate_pr_admission(pr, builder_ok, true);
 
