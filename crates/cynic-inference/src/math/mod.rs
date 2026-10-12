@@ -7,11 +7,9 @@
 
 pub mod roofline;
 pub mod tensor_geometry;
-pub mod ucb_sampler;
 
 pub use roofline::{
     RooflineAssessment, RooflineBottleneck, RooflineInputs, assess_roofline,
     calculate_theoretical_max_tps,
 };
 pub use tensor_geometry::ExactTensorGeometry;
-pub use ucb_sampler::{RewardError, Ucb1Arm, select_ucb1_arm, ucb1_score};
