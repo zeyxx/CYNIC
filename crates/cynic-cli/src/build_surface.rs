@@ -12,10 +12,8 @@ use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
 use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_lifecycle::LocalArgvRunner;
-use cynic_node::adapters::ssh_build_proof::SshBuildProof;
-use cynic_node::ports::build_proof_port::BuildProofPort;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
-use cynic_node::ports::build_runner_adapter::{CommandRunner, LocalCommandRunner, SshBuildRunner};
+use cynic_node::ports::build_runner_adapter::LocalCommandRunner;
 use cynic_vcs::SourceSnapshot;
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
@@ -650,16 +648,7 @@ fn trigger_build(
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let host = match host.filter(|value| !value.trim().is_empty()) {
-        Some(explicit) => explicit.to_string(),
-        None => {
-            cynic_host::registry::resolve::resolve_build_runner_transport(Some(registry))
-                .map_err(|error| {
-                    format!("build runner unresolvable in registry {registry}: {error}")
-                })?
-                .ssh_target
-        }
-    };
+    let host = cynic_node::cli_factory::resolve_runner_host(host.as_deref(), registry)?;
     let phase = match phase {
         "check" => BuildPhase::Check,
         "build" => BuildPhase::Build,
@@ -671,27 +660,14 @@ fn trigger_build(
         "online" => NetworkMode::Online,
         other => return Err(format!("invalid network mode: {other}")),
     };
-    let runner = SshBuildRunner {
-        host: host.to_string(),
-        user: user.to_string(),
-        checkout_base: if checkout_base.is_empty() {
-            cynic_node::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE.to_string()
-        } else {
-            checkout_base.to_string()
-        },
-        ssot_url: if ssot_url.is_empty() {
-            cynic_node::ports::build_runner_adapter::DEFAULT_SSOT_URL.to_string()
-        } else {
-            ssot_url.to_string()
-        },
+    let runner = cynic_node::cli_factory::ssh_build_runner(
+        host,
+        user.to_string(),
+        checkout_base.to_string(),
+        ssot_url.to_string(),
         package,
-        sccache_dir: if sccache_dir.trim().is_empty() {
-            None
-        } else {
-            Some(sccache_dir.to_string())
-        },
-        runner: Box::new(LocalCommandRunner),
-    };
+        sccache_dir.to_string(),
+    );
     let health = runner.observe_runner();
     if !health.reachable {
         return Err(format!("build runner unreachable: {}", health.node_id));
@@ -864,10 +840,7 @@ fn prove_build(
     if !violations.is_empty() {
         return Err(format!("proof request invalid: {}", violations.join(", ")));
     }
-    let runtime =
-        tokio::runtime::Runtime::new().map_err(|e| format!("async runtime unavailable: {e}"))?;
-    let adapter = SshBuildProof::new(host, user, "builder");
-    let report = runtime.block_on(adapter.prove(&request))?;
+    let report = cynic_node::cli_factory::prove_build_blocking(&request, host, user)?;
     if json {
         println!(
             "{}",
