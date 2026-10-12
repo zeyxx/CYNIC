@@ -32,10 +32,6 @@
       "status": "public"
     },
     {
-      "path": "protocols/**",
-      "status": "public"
-    },
-    {
       "path": "tests/**",
       "status": "public"
     },
@@ -89,6 +85,10 @@
     },
     {
       "path": "clippy.toml",
+      "status": "public"
+    },
+    {
+      "path": "deny.toml",
       "status": "public"
     },
     {
@@ -149,17 +149,13 @@
     },
     {
       "path": "infra/**",
-      "status": "public"
+      "status": "exclude",
+      "reason": "sovereign host topology, fleet inventory, and private runtime evidence; public projection relies on abstract contracts only"
     },
     {
       "path": "Makefile",
       "status": "temporary",
       "until": "build prove-workspace and audit ratchets exist as native surfaces; the public README must not name a gate the public CI does not run"
-    },
-    {
-      "path": "scripts/cargo",
-      "status": "temporary",
-      "until": "a build runner surface replaces the cargo wrapper"
     },
     {
       "path": "scripts/**",
@@ -250,6 +246,22 @@
         {
           "match": "@cynic\\b",
           "replace": "@example.invalid"
+        },
+        {
+          "match": "10\\.10\\.10\\.[0-9]+",
+          "replace": "192.0.2.1"
+        },
+        {
+          "match": "10\\.[0-9]+\\.[0-9]+\\.[0-9]+",
+          "replace": "192.0.2.2"
+        },
+        {
+          "match": "192\\.168\\.[0-9]+\\.[0-9]+",
+          "replace": "192.0.2.3"
+        },
+        {
+          "match": "172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+",
+          "replace": "192.0.2.4"
         }
       ],
       "measured_occurrences": {
