@@ -71,9 +71,11 @@
 - Support natif de la migration de connexion (Connection ID) pour les nœuds nomades sans rupture de session TLS 1.3.
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 2.1 — Intégration de la stack QUIC pure Rust :**
-  - Ajouter `quinn` (ou `s2n-quic`) dans `cynic-network`.
-  - Définir l'abstraction FCIS de transport inter-nœuds (Pure Core de routage / Shell de socket UDP).
+- [x] **Tranche 2.1 — Intégration de la stack QUIC pure Rust (FCIS) :** (Complété 2026-10-12)
+  - Modèle pur de streams multiplexés (RFC 9000 section 19.14) avec ALPN `cynic-agent/1`.
+  - Canaux typés : `Control` (bidirectionnel), `Telemetry` (unidirectionnel), `Artifact` (unidirectionnel chunked 64KB).
+  - Port asynchrone natif `QuicTransportPort` sans dépendance I/O directe.
+  - Validation test unitaire et de frontière `quic_domain_tests` vert sur le builder 10.10.10.119.
 - [ ] **Tranche 2.2 — Protocole RPC agentique sur QUIC streams :**
   - Implémenter les canaux multiplexés : flux de commandes prioritaires (0-RTT), flux de télémétrie haute fréquence, flux de transfert d'artéfacts.
 - [ ] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS :**
