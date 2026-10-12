@@ -6,6 +6,7 @@ pub mod embedding;
 pub mod engine_caps;
 pub mod hardware_profile;
 pub mod hf_catalog;
+pub mod inference;
 pub mod local_runtime;
 
 pub mod model_layout_report;
