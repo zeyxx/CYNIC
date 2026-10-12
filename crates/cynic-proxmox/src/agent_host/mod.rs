@@ -3,6 +3,7 @@
 pub mod decision;
 pub mod types;
 
+pub use decision::plan_agent_host_vm;
 pub use crate::adapters::agent_host_observer::{
     AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
 };
