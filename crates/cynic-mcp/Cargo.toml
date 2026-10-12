@@ -6,10 +6,6 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-[[bin]]
-name = "cynic-mcp"
-path = "src/main.rs"
-
 [dependencies]
 cynic-host = { path = "../cynic-host" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }

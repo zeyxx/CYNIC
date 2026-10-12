@@ -412,7 +412,7 @@ release.deploy: ## Run the release gate, then build and atomically deploy via na
 	$(source_bin)
 	$(CYNIC_SOURCE_BIN) source release
 	@echo "==> building release binaries"
-	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node -p cynic-mcp -p cynic-kernel --bin cynic --bin cynic-node --bin cynic-node-enroll --bin cynic-mcp --bin cynic-kernel
+	@$(RELEASE_ENV) $(CARGO) build --release -p cynic-cli -p cynic-node -p cynic-kernel --bin cynic --bin cynic-node --bin cynic-kernel
 	@echo "==> deploying"
 	@$(RELEASE_ENV) $(CYNIC_SOURCE_BIN) source deploy --apply
 

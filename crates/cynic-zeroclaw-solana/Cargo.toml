@@ -18,9 +18,9 @@ tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
-[[bin]]
+[[example]]
 name = "zeroclaw-solana-demo"
-path = "src/bin/demo.rs"
+path = "examples/demo.rs"
 
 [lints]
 workspace = true
