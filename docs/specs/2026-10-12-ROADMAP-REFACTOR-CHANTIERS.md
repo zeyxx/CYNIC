@@ -116,8 +116,11 @@
 - [x] **Tranche 3.3 — Remplacement de `cynic-cloud-api` par le use case de provisionnement dans `cynic-node` :** (Complété 2026-10-12)
   - `execute_compute_provisioning` dans `cynic-node::usecases::compute_provisioning_uc` orchestrant l'admission, le placement déterministe, l'allocation et le nettoyage garanti.
   - Tests unitaires et d'intégration validés sur builder (2/2 tests OK, 42/42 crates OK).
-- [ ] **Tranche 3.4 — Fédérateur de calcul hybride (Edge / Cloud) :**
-  - Connecter les nœuds de calcul externes (ex: instances GPU RunPod, serveurs Hetzner) au coordinateur Headscale avec isolation stricte.
+- [x] **Tranche 3.4 — Fédérateur de calcul hybride (Edge / Cloud) :** (Complété 2026-10-12)
+  - Formalisation de `RemoteRunnerSpec`, `RemoteRunnerEnrollmentPlan` et du prédicat pur `plan_remote_runner_enrollment` dans `cynic-protocol::compute`.
+  - Use case `execute_remote_runner_enrollment` dans `cynic-node` générant des clés de pré-authentification WireGuard éphémères bornées avec tag `tag:runner` via `FleetMeshPort` (Headscale).
+  - Surface CLI native `cynic node compute` (`run` et `enroll`) intégrée dans `cynic-cli`.
+  - Validation empirique : suite de tests `remote_runner_enrollment_tests` passée, exécution réelle en direct via `cynic node compute run` avec sandbox bubblewrap éphémère (372 ms) et 42/42 crates validées.
 
 ---
 
