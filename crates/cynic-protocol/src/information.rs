@@ -4,7 +4,7 @@
 //! distribution; this module only computes entropy, mutual information, and
 //! divergences in bits. Pure, no I/O.
 
-use alloc::vec::Vec;
+use std::vec::Vec;
 use core::fmt;
 
 pub const INFORMATION_SCHEMA: &str = "cynic.information.v1";
