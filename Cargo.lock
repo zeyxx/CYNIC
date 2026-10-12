@@ -204,7 +204,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
- "sha1",
+ "sha1 0.10.7",
  "sync_wrapper",
  "tokio",
  "tokio-tungstenite 0.29.0",
@@ -439,6 +439,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmov"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,6 +622,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctutils"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03bb0e1cc970d482d121d9a1744999169b69a07470b3d644a7894e53fcaf4574"
+dependencies = [
+ "cmov",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "4.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -648,7 +663,7 @@ version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -660,6 +675,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "walkdir",
 ]
 
 [[package]]
@@ -674,7 +690,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -688,7 +704,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -738,7 +754,7 @@ dependencies = [
  "rustix 1.1.5",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tracing",
@@ -755,7 +771,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -795,6 +811,7 @@ dependencies = [
 name = "cynic-domain-ops"
 version = "0.8.0"
 dependencies = [
+ "cynic-askesis",
  "cynic-protocol",
  "cynic-secrets",
  "hex",
@@ -826,7 +843,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -892,11 +909,11 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "sha1",
- "sha2 0.10.9",
+ "sha1 0.11.0",
+ "sha2 0.11.0",
  "sysinfo 0.39.6",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "toml",
  "walkdir",
@@ -1044,7 +1061,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
@@ -1061,7 +1078,7 @@ dependencies = [
  "rustix 1.1.5",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "toml",
 ]
@@ -1103,12 +1120,20 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
+ "dirs",
  "hex",
+ "regex",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
+ "sysinfo 0.37.2",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
+ "toml",
+ "tracing",
+ "walkdir",
+ "which",
 ]
 
 [[package]]
@@ -1121,6 +1146,7 @@ dependencies = [
  "chrono",
  "clap",
  "cynic-build",
+ "cynic-channel",
  "cynic-consensus",
  "cynic-finance",
  "cynic-host",
@@ -1128,14 +1154,17 @@ dependencies = [
  "cynic-intel-soc",
  "cynic-lifecycle",
  "cynic-lxc",
+ "cynic-market",
  "cynic-network",
  "cynic-node-protocol",
+ "cynic-pool",
  "cynic-protocol",
  "cynic-proxmox",
  "cynic-release",
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-types",
  "cynic-vcs",
  "cynic-workload",
  "ed25519-dalek",
@@ -1151,9 +1180,10 @@ dependencies = [
  "rustix 1.1.5",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "sysinfo 0.33.1",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.24.0",
@@ -1173,7 +1203,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "sha3",
  "tempfile",
  "thiserror 2.0.21",
@@ -1200,7 +1230,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
 ]
@@ -1215,7 +1245,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "sha3",
  "tempfile",
  "thiserror 2.0.21",
@@ -1238,6 +1268,7 @@ dependencies = [
  "sha2 0.11.0",
  "tokio",
  "toml",
+ "walkdir",
 ]
 
 [[package]]
@@ -1362,7 +1393,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
@@ -1377,7 +1408,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -1455,7 +1486,6 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
  "crypto-common 0.1.7",
- "subtle",
 ]
 
 [[package]]
@@ -1467,6 +1497,7 @@ dependencies = [
  "block-buffer 0.12.1",
  "const-oid 0.10.2",
  "crypto-common 0.2.2",
+ "ctutils",
 ]
 
 [[package]]
@@ -1887,11 +1918,11 @@ dependencies = [
 
 [[package]]
 name = "hmac"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+checksum = "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
 dependencies = [
- "digest 0.10.7",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -3580,6 +3611,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4237,7 +4279,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.8",
- "sha1",
+ "sha1 0.10.7",
  "thiserror 1.0.69",
  "utf-8",
 ]
@@ -4254,7 +4296,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.5",
- "sha1",
+ "sha1 0.10.7",
  "thiserror 2.0.21",
 ]
 
