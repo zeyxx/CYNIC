@@ -32,10 +32,6 @@
       "status": "public"
     },
     {
-      "path": "protocols/**",
-      "status": "public"
-    },
-    {
       "path": "tests/**",
       "status": "public"
     },
@@ -89,6 +85,10 @@
     },
     {
       "path": "clippy.toml",
+      "status": "public"
+    },
+    {
+      "path": "deny.toml",
       "status": "public"
     },
     {
@@ -149,17 +149,13 @@
     },
     {
       "path": "infra/**",
-      "status": "public"
+      "status": "exclude",
+      "reason": "sovereign host topology, fleet inventory, and private runtime evidence; public projection relies on abstract contracts only"
     },
     {
       "path": "Makefile",
       "status": "temporary",
       "until": "build prove-workspace and audit ratchets exist as native surfaces; the public README must not name a gate the public CI does not run"
-    },
-    {
-      "path": "scripts/cargo",
-      "status": "temporary",
-      "until": "a build runner surface replaces the cargo wrapper"
     },
     {
       "path": "scripts/**",
@@ -250,13 +246,29 @@
         {
           "match": "@cynic\\b",
           "replace": "@example.invalid"
+        },
+        {
+          "match": "10\\.10\\.10\\.[0-9]+",
+          "replace": "10-10-10-node.example.invalid"
+        },
+        {
+          "match": "10\\.[0-9]+\\.[0-9]+\\.[0-9]+",
+          "replace": "10-node.example.invalid"
+        },
+        {
+          "match": "192\\.168\\.[0-9]+\\.[0-9]+",
+          "replace": "192-168-node.example.invalid"
+        },
+        {
+          "match": "172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+",
+          "replace": "172-node.example.invalid"
         }
       ],
       "measured_occurrences": {
-        "files": 105,
+        "files": 1499,
         "domain_literals": 28,
         "hardcoded": 84,
-        "note": "76 under crates/, 17 under infra/, the rest in Makefile, contracts/relay-policy.json and protocols/*.md"
+        "note": "all published crates and contracts protected by automated RFC 2606 domain and private IPv4 redactions"
       }
     }
   },
