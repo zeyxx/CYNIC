@@ -98,6 +98,20 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "hub",
+                commands: vec![
+                    "cynic hub upload --repo <id> --path <local> [--type model|dataset|space] --yes [--json]",
+                    "cynic hub job submit [--script <file|url> | --image <img>] [--args...] --yes [--json]",
+                    "cynic hub job poll --id <job-id> [--json]",
+                    "cynic hub job list [--all] [--json]",
+                    "cynic hub job logs --id <job-id> [--json]",
+                    "cynic hub job cancel --id <job-id> --yes [--json]",
+                    "cynic hub sched submit --schedule <cron|@alias> [--script | --image] --yes [--json]",
+                    "cynic hub sched list [--json]",
+                    "cynic hub sched delete --id <id> --yes [--json]",
+                ],
+            },
+            CommandDomain {
                 name: "audit",
                 commands: vec![
                     "cynic audit crate [--json]",

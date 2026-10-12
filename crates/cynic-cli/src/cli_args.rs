@@ -69,6 +69,12 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::inference_surface::InferenceCommand,
     },
+    /// Hugging Face Hub provider operations (upload, jobs) — model supply
+    /// stays under `inference hf`.
+    Hub {
+        #[command(subcommand)]
+        command: crate::hub_surface::HubCommand,
+    },
     /// Read-only tmux session supervision with per-pane metrics and activity.
     Session {
         #[command(subcommand)]

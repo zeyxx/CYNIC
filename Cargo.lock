@@ -728,6 +728,7 @@ dependencies = [
  "cynic-eval",
  "cynic-forensics",
  "cynic-host",
+ "cynic-huggingface",
  "cynic-inference",
  "cynic-intel",
  "cynic-intel-futarchy",
