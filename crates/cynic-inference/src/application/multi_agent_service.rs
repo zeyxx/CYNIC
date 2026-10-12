@@ -12,7 +12,7 @@ use crate::application::agent_harness::{
     HarnessExecutor, InferenceReply, ModelParameters, ModelSpec, ScenarioSpec, TaskKind, TaskSpec,
     Thresholds,
 };
-use crate::domain::debate::{DebateRole, DebateSession};
+use cynic_eval::sweep::debate::{DebateRole, DebateSession};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelComparisonResult {
