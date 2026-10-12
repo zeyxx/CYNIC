@@ -38,6 +38,7 @@ pub mod node_network_recovery_uc;
 pub mod notification_outbox_uc;
 pub mod observe_node_uc;
 pub mod release_webhook;
+pub mod remote_runner_enrollment_uc;
 pub mod runtime_artifact_deployment_uc;
 pub mod source_admission_uc;
 pub mod source_materialization_uc;

@@ -38,6 +38,8 @@ pub enum SubstrateKind {
     ProxmoxLxc,
     /// Local bubblewrap process isolation (non-root).
     LocalBwrap,
+    /// Remote hybrid mesh node (joined via WireGuard/Headscale).
+    RemoteHybridMesh,
     /// In-memory mock for testing.
     Mock,
 }
@@ -70,4 +72,26 @@ pub struct CommandExecutionResult {
     pub stdout: String,
     pub stderr: String,
     pub duration_ms: u64,
+}
+
+/// Declarative specification for enrolling an external/hybrid compute runner.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteRunnerSpec {
+    pub node_name: String,
+    pub vcpus: u32,
+    pub memory_bytes: u64,
+    pub disk_bytes: u64,
+    pub has_gpu: bool,
+    pub gpu_model: Option<String>,
+    pub wireguard_pubkey: String,
+}
+
+/// Pure plan to admit and configure a remote compute runner on the mesh.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteRunnerEnrollmentPlan {
+    pub node_name: String,
+    pub user: String,
+    pub acl_tags: Vec<String>,
+    pub expiration_seconds: u64,
+    pub reusable: bool,
 }
