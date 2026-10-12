@@ -470,9 +470,23 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             json,
         } => {
             if local {
-                reclaim_build_cache_local(&node, &registry, &state_root, &temporary_root, apply, json)
+                reclaim_build_cache_local(
+                    &node,
+                    &registry,
+                    &state_root,
+                    &temporary_root,
+                    apply,
+                    json,
+                )
             } else {
-                reclaim_build_cache_remote(&node, &registry, &state_root, &temporary_root, apply, json)
+                reclaim_build_cache_remote(
+                    &node,
+                    &registry,
+                    &state_root,
+                    &temporary_root,
+                    apply,
+                    json,
+                )
             }
         }
     }
@@ -518,10 +532,16 @@ fn reclaim_build_cache_local(
             .map_err(|error| format!("reclaim report serialization failed: {error}"))?;
         println!("{text}");
     } else {
-        println!("build cache reclaim — node={} status={}", report.status, report.status);
+        println!(
+            "build cache reclaim — node={} status={}",
+            report.status, report.status
+        );
         println!("decision: {:?}", report.plan.decision);
         println!("available_bytes: {:?}", report.before.available_bytes);
-        println!("minimum_available_bytes: {}", report.plan.minimum_available_bytes);
+        println!(
+            "minimum_available_bytes: {}",
+            report.plan.minimum_available_bytes
+        );
         println!("reclaim_profile: {}", report.plan.target_profile);
         println!("preserved_profiles: {:?}", report.plan.preserved_profiles);
         if !report.before.observed_noncanonical_cache_paths.is_empty() {
@@ -561,7 +581,9 @@ fn reclaim_build_cache_remote(
     json: bool,
 ) -> Result<(), String> {
     let transport = cynic_host::registry::resolve::resolve_build_runner_transport(Some(registry))
-        .map_err(|error| format!("build runner unresolvable in registry {registry}: {error}"))?;
+        .map_err(|error| {
+        format!("build runner unresolvable in registry {registry}: {error}")
+    })?;
 
     let mut argv: Vec<String> = vec![
         "cynic".to_string(),
@@ -709,7 +731,10 @@ fn trigger_build(
             }
         );
         if let Some(reason) = proof.verdict_reason.as_deref() {
-            println!("  broken_layer: {}", proof.broken_layer.as_deref().unwrap_or("pipeline"));
+            println!(
+                "  broken_layer: {}",
+                proof.broken_layer.as_deref().unwrap_or("pipeline")
+            );
             println!("  reason: {reason}");
         }
     }
@@ -720,7 +745,10 @@ fn trigger_build(
     if proof.status != cynic_node::ports::build_runner::PipelineStatus::Converged {
         return Err(format!(
             "build blocked for {commit}: {}",
-            proof.verdict_reason.as_deref().unwrap_or("no reason recorded")
+            proof
+                .verdict_reason
+                .as_deref()
+                .unwrap_or("no reason recorded")
         ));
     }
     Ok(())
@@ -852,34 +880,8 @@ fn prove_build(
 }
 
 fn resolve_default_builder_url() -> Result<String, String> {
-    if let Ok(env_url) = std::env::var("CYNIC_BUILDER_URL") {
-        if !env_url.trim().is_empty() {
-            return Ok(env_url);
-        }
-    }
-    let registry_path = std::path::Path::new("infra/registry.json");
-    if registry_path.exists() {
-        let content = std::fs::read_to_string(registry_path)
-            .map_err(|e| format!("cannot read infra/registry.json: {e}"))?;
-        let reg: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| format!("invalid infra/registry.json format: {e}"))?;
-        if let Some(nodes) = reg["nodes"].as_array() {
-            for node in nodes {
-                let role = node["role"].as_str().unwrap_or_default();
-                if role == "build_runner" {
-                    let ip = node.get("network").and_then(|network| {
-                        cynic_network::plane_vocabulary::plane_address(network, "service")
-                    });
-                    if let Some(ip) = ip {
-                        return Ok(format!("http://{ip}:9090"));
-                    }
-                }
-            }
-        }
-    }
-    Err("could not resolve builder URL dynamically from infra/registry.json or CYNIC_BUILDER_URL env".into())
+    cynic_build::resolve_builder_url()
 }
-
 fn submit_build(
     commit: &str,
     package: Option<&str>,
@@ -889,128 +891,11 @@ fn submit_build(
     wait: bool,
     json: bool,
 ) -> Result<(), String> {
-    let payload = serde_json::json!({
-        "commit_sha": commit,
-        "package": package,
-        "action": action,
-        "requested_by": requested_by,
-    });
-
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("http client init failed: {e}"))?;
-
-    let submit_url = format!("{}/workloads/submit", builder_url.trim_end_matches('/'));
-    let res = client
-        .post(&submit_url)
-        .json(&payload)
-        .send()
-        .map_err(|e| format!("failed to submit workload to {submit_url}: {e}"))?;
-
-    if !res.status().is_success() {
-        let status = res.status();
-        let body = res.text().unwrap_or_default();
-        return Err(format!("builder rejected submission ({status}): {body}"));
-    }
-
-    let proof: serde_json::Value = res
-        .json()
-        .map_err(|e| format!("failed to parse acceptance proof: {e}"))?;
-
-    if !wait {
-        if json {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&proof).unwrap_or_default()
-            );
-        } else {
-            let wid = proof["workload_id"].as_str().unwrap_or("unknown");
-            println!("Workload admitted successfully: id={wid} (status: accepted)");
-        }
-        return Ok(());
-    }
-
-    let wid = proof["workload_id"].as_str().unwrap_or("");
-    let proof_url = format!("{}/proofs/{}", builder_url.trim_end_matches('/'), wid);
-    if !json {
-        println!("Admitted workload {wid} to builder {builder_url}");
-        println!("Streaming state updates (polling {})...", proof_url);
-    }
-
-    let start = std::time::Instant::now();
-    let poll_timeout = std::time::Duration::from_secs(900);
-    let mut last_state = String::new();
-
-    while start.elapsed() < poll_timeout {
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        if let Ok(pres) = client.get(&proof_url).send() {
-            if pres.status().is_success() {
-                if let Ok(pjson) = pres.json::<serde_json::Value>() {
-                    let state = pjson["state"].as_str().unwrap_or("unknown");
-                    if state != last_state {
-                        if !json {
-                            let elapsed = start.elapsed().as_secs();
-                            println!(
-                                "[+{elapsed}s] Workload {wid} state transition: {last_state} -> {state}"
-                            );
-                        }
-                        last_state = state.to_string();
-                    }
-
-                    if state == "completed" || state == "failed" {
-                        if json {
-                            println!(
-                                "{}",
-                                serde_json::to_string_pretty(&pjson).unwrap_or_default()
-                            );
-                        } else {
-                            println!(
-                                "Build finished in {}s: state={state} id={wid}",
-                                start.elapsed().as_secs()
-                            );
-                            if let Some(receipt) = pjson.get("parcel_receipt") {
-                                if let Some(digest) =
-                                    receipt.get("final_record_digest").and_then(|d| d.as_str())
-                                {
-                                    println!("Hermetic Parcel Digest: {digest}");
-                                }
-                                if let Some(settled_at) =
-                                    receipt.get("settled_at_ms").and_then(|t| t.as_u64())
-                                {
-                                    println!("Settled At: {settled_at} ms");
-                                }
-                            }
-                            if let Some(completion) = pjson.get("completion") {
-                                if let Some(status) =
-                                    completion.get("status").and_then(|s| s.as_str())
-                                {
-                                    println!("Result Status: {status}");
-                                }
-                                if let Some(evs) =
-                                    completion.get("evidence_refs").and_then(|e| e.as_array())
-                                {
-                                    println!("Sealed Evidence References ({}):", evs.len());
-                                    for ev in evs {
-                                        println!("  - {}", ev.as_str().unwrap_or_default());
-                                    }
-                                }
-                            }
-                        }
-                        if state == "completed" {
-                            return Ok(());
-                        } else {
-                            return Err(format!("workload {wid} failed on builder"));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Err(format!("timed out waiting for proof of workload {wid}"))
+    let proof =
+        cynic_build::submit_workload(commit, package, action, requested_by, builder_url, wait)?;
+    cynic_build::render_workload_proof(&proof, json)?;
+    Ok(())
 }
-
 fn run_build(
     json: bool,
     observation_path: String,
