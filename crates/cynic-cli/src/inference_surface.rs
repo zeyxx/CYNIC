@@ -324,14 +324,16 @@ struct TracePostureReport {
 }
 
 fn execute_trace_command(command: TraceCommand) -> ExitCode {
-    let ledger_path = std::env::var(cynic_inference::adapters::chat_trace_sink::LEDGER_ENV_KEY)
+    let ledger_path = std::env::var(cynic_inference::domain::chat_trace::ChatTrace::LEDGER_ENV_KEY)
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
             let local_evidence = std::path::PathBuf::from("evidence/inference_traces.jsonl");
             if local_evidence.exists() {
                 local_evidence
             } else {
-                std::path::PathBuf::from(cynic_inference::adapters::chat_trace_sink::DEFAULT_LEDGER_PATH)
+                std::path::PathBuf::from(
+                    cynic_inference::domain::chat_trace::ChatTrace::DEFAULT_LEDGER_PATH,
+                )
             }
         });
 

@@ -11,7 +11,6 @@ pub mod inference_queue;
 pub mod model_layout;
 pub mod model_registry;
 pub mod principal_paths;
-pub mod routing;
 pub mod runtime_plan;
 pub mod slot_semaphore;
 pub mod slot_tracker;
