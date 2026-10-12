@@ -249,6 +249,14 @@ memory_max/cpu_quota/roofline`) over a `PlanNotes` accumulator; orchestration
 only in `plan_launch`. Behavior identical (same rationale strings/order).
 Proofs: inference@7a64d6b9, 4/4 `infra::runtime_plan` unit tests pass.
 
+### 5.10 Tranche G (readiness dedup) — CONVERGED
+
+`process_supervisor` + `systemd_user` duplicated 4 readiness helpers
+(`expected_model_ids`, `parse_model_ids`, `model_matches_target`,
+`estimate_model_ready_timeout`); extracted to
+`adapters/local/model_readiness.rs` (single definition, both delegate).
+`parse` keeps the `model`-key superset. Proofs: inference@ed678d88.
+
 ### 5.7 Tranches B/C/D — CONVERGED
 
 - B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
