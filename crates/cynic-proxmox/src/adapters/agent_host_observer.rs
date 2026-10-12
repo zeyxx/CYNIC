@@ -19,7 +19,7 @@ use reqwest::Certificate;
 use reqwest::blocking::Client;
 use serde_json::Value;
 
-use super::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
+use crate::agent_host::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
 
 // ---------------------------------------------------------------------------
 // Port

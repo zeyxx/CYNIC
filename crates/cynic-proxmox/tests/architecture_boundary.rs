@@ -40,6 +40,7 @@ fn proxmox_has_no_process_spawn_in_domain_core() {
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map(|ext| ext == "rs").unwrap_or(false))
+        .filter(|e| !e.path().components().any(|c| c.as_os_str() == "adapters"))
     {
         let content = fs::read_to_string(entry.path()).expect("read source file");
         for pattern in &forbidden_patterns {

@@ -3,11 +3,16 @@
 //! Every adapter drives the hypervisor through `cynic-lifecycle`'s
 //! `ArgvRunner` (typed argv, never raw shell) or the PVE REST API.
 
+pub mod agent_host_observer;
 pub mod ed25519_credential_lease_verifier;
 pub mod proxmox_clone;
 pub mod proxmox_control;
 pub mod proxmox_disk_extension;
 pub mod proxmox_substrate;
+
+pub use agent_host_observer::{
+    AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
+};
 
 pub use ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
 pub use proxmox_clone::{LxcCloneObservation, LxcCloneOutcome, ProxmoxSshCloneAdapter};
