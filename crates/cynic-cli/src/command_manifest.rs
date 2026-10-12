@@ -106,6 +106,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit paths [--json]",
                     "cynic audit branch [--json]",
                     "cynic audit all [--json]",
+                    "cynic audit conformance [--profile <name>] [--node <name>] [--registry <path>] [--json]",
+                    "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
+                    "cynic audit harness [--kind <name>] [--json]",
                 ],
             },
             CommandDomain {

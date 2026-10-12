@@ -11,7 +11,7 @@ mod agent_matrix;
 mod compat_aliases;
 mod execution_context;
 mod forgejo_token_cli;
-mod host_checks;
+use crate::audit_surface::host_checks;
 pub(crate) mod inference_surface;
 mod network;
 mod operator_models;

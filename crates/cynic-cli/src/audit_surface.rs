@@ -5,6 +5,8 @@ use clap::Subcommand;
 
 use crate::{crate_audit, emit_json, fail, node_host_audit};
 
+pub(crate) mod host_checks;
+
 #[derive(Subcommand)]
 pub(crate) enum AuditCommand {
     /// Audit core crates architecture boundary tests and entrypoint line limits.
@@ -61,6 +63,25 @@ pub(crate) enum AuditCommand {
     All {
         #[arg(long)]
         json: bool,
+    },
+    /// Observe host environment conformance against declared capability contracts.
+    Conformance {
+        #[command(flatten)]
+        profile: crate::host_profile_selection::ProfileArgs,
+    },
+    /// Generate verified runtime metrics from host conformance observation.
+    Metrics {
+        #[command(flatten)]
+        profile: crate::host_profile_selection::ProfileArgs,
+        #[arg(long)]
+        proof: Option<String>,
+    },
+    /// Inspect runtime harness catalog and provider execution environments.
+    Harness {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        kind: Option<String>,
     },
 }
 
@@ -247,6 +268,15 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                     ExitCode::FAILURE
                 }
             }
+        }
+        AuditCommand::Conformance { profile } => {
+            host_checks::execute_conformance(profile.json, profile)
+        }
+        AuditCommand::Metrics { profile, proof } => {
+            host_checks::execute_metrics(profile.json, profile, proof.as_deref())
+        }
+        AuditCommand::Harness { json, kind } => {
+            host_checks::execute_harness(*json, kind.as_deref())
         }
     }
 }
