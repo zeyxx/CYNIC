@@ -2,7 +2,7 @@
 
 use cynic_build::build::{BUILD_RECIPE_SCHEMA, BuildRecipe, canonical_argv_from_build_action};
 use cynic_build::build_proof::{BuildProofPhase, BuildProofRequest};
-use cynic_host::build_evidence::JsonBuildRunnerObservationAdapter;
+use cynic_host::build_evidence::{BuildRunnerObservationPort, JsonBuildRunnerObservationAdapter};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
 use cynic_lifecycle::LocalArgvRunner;
 use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger, NetworkMode};
