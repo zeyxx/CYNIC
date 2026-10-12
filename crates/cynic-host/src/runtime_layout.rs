@@ -835,8 +835,16 @@ mod tests {
         // branch correctly short-circuits to it and the openrc fallback is
         // unreachable. Skip honestly instead of asserting host-specific
         // state (no hardcoded substrate in tests).
-        if std::path::Path::new(format!("/etc/systemd/system/cynic-dns-{}", SERVICE_DNS_SERVICE_FILENAME)).exists()
-            || std::path::Path::new(format!("/lib/systemd/system/cynic-dns-{}", SERVICE_DNS_SERVICE_FILENAME)).exists()
+        if std::path::Path::new(&format!(
+            "/etc/systemd/system/cynic-dns-{}",
+            cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME
+        ))
+        .exists()
+            || std::path::Path::new(&format!(
+                "/lib/systemd/system/cynic-dns-{}",
+                cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME
+            ))
+            .exists()
         {
             eprintln!(
                 "skipped: cynic-dns systemd unit installed on this host; \
@@ -848,9 +856,21 @@ mod tests {
         let _service_manager = EnvOverride::set("CYNIC_SERVICE_MANAGER_KIND", "openrc");
         let layout = HostRuntimeLayout::from_env();
 
-        assert_eq!(layout.dns_service_unit(), &format!("coredns-{}", SERVICE_DNS_SERVICE_FILENAME));
+        assert_eq!(
+            layout.dns_service_unit(),
+            format!(
+                "coredns-{}",
+                cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME
+            )
+        );
         assert_eq!(layout.resolved_service_unit(), "resolver-adapter-required");
-        assert_eq!(layout.dns_service_path(), format!("/etc/init.d/coredns-{}", SERVICE_DNS_SERVICE_FILENAME));
+        assert_eq!(
+            layout.dns_service_path(),
+            format!(
+                "/etc/init.d/coredns-{}",
+                cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME
+            )
+        );
         assert_eq!(
             layout.dns_resolved_dropin_path(),
             format!("/etc/cynic/resolver/openrc-service-dns.adapter-required")
