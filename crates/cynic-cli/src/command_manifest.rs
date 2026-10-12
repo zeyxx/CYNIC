@@ -132,6 +132,12 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "mcp",
+                commands: vec![
+                    "cynic mcp serve",
+                ],
+            },
+            CommandDomain {
                 name: "discovery",
                 commands: vec![
                     "cynic discovery capabilities [--json]",

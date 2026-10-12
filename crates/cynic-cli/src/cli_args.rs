@@ -224,6 +224,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::privilege_surface::PrivilegeCommand,
     },
+    /// In-tree Model Context Protocol (MCP) server.
+    Mcp {
+        #[command(subcommand)]
+        command: crate::mcp_surface::McpCommand,
+    },
 }
 
 #[derive(Subcommand)]
