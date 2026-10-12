@@ -42,21 +42,20 @@
   7. `build` & `audit` (absorbe `court`, `secrets`, `conformance`, `crates`, `proofs`)
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 1.1 — Expulsion des use cases réseau et noeud :**
-  - Extraire `network_surfaces_uc.rs` (1 386 LOC) vers `cynic-network` (adapters/usecases).
-  - Réduire `node_surface` à une simple projection.
-- [ ] **Tranche 1.2 — Expulsion de la gestion de sources et VCS :**
-  - Déplacer toute la logique Git/PR de `source_surface.rs` (1 166 LOC) vers `cynic-vcs` et `cynic-vcs-forgejo`.
-- [ ] **Tranche 1.3 — Expulsion de l'orchestration de build et parcelles :**
-  - Déplacer la logique de `build_surface.rs` (1 280 LOC) vers `cynic-build`.
-- [ ] **Tranche 1.4 — Éradication définitive de `runtime_surface.rs` (822 LOC + 10 sous-modules) :**
-  - Reclasser les sondes matérielles sous `cynic node host ...`.
-  - Reclasser les commandes de stockage sous `cynic storage ...`.
-  - Supprimer le fichier et les sous-dossiers obsolètes.
-- [ ] **Tranche 1.5 — Rationalisation des dépendances et consolidation des 7 racines :**
-  - Fusionner les 9 fichiers `deps_surface_*` en une structure unifiée dans `cynic-vcs` ou `cynic-dev`.
-  - Ajuster `cli_args.rs`, `root_dispatch.rs`, `command_manifest.rs` et le `surface-registry`.
-  - Validation sur le builder 10.10.10.119 : `make check` vert, LOC < 5 000.
+- [x] **Tranche 1.1 — Expulsion des use cases réseau hors de la surface nœud :** (Complété 2026-10-12)
+  - `network_surfaces_uc.rs` (1 386 LOC) expulsé de `node_surface` et reclassé sous `network_surface/execution.rs`.
+  - Suppression de la sous-commande doublon `cynic node network`.
+- [x] **Tranche 1.4 — Création de `cynic storage` et migration `node host` :** (Complété 2026-10-12)
+  - Création de la famille canonique racine `cynic storage` (`ping`, `query`, `capabilities`, `credential`) câblée sur `cynic-surreal`.
+  - Migration des sondes matérielles hôtes vers `cynic node host {cpu, memory, disk, capacity}`.
+  - Migration des audits de conformance, metrics et harness vers `cynic audit {conformance, metrics, harness}`.
+  - Déploiement du binaire release sur la flotte (hash `944753f2...`).
+- [ ] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :**
+  - Déplacer la logique Git/PR de `source_surface.rs` vers `cynic-vcs`.
+- [ ] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :**
+  - Déplacer la logique de `build_surface.rs` vers `cynic-build`.
+- [ ] **Tranche 1.5 — Finalisation du cap des 7 racines et nettoyage des façades :**
+  - Réduction finale des LOC restantes sous 4 000.
 
 ---
 
