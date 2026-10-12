@@ -224,6 +224,21 @@ lines. `node_runtime_ops` STAYS until the operator amends the boundary test.
 - Q2 (supervision keep), Q3 (progress/verdict keep):
   open operator decisions; no code changed.
 
+### 5.7 Tranches B/C/D — CONVERGED
+
+- B: burned dead `cli` backend (242); split `chat_service` 894 → 719 +
+  `chat_support` 186 (mock/tools doubles extracted, `now_ms` moved with
+  them, API unchanged). Proofs: inference@48e4e5f2, cli@48e4e5f2.
+- C: burned dead pool/slot/queue cluster (1 645): `model_process_pool`,
+  `slot_semaphore`, `inference_queue`, `slot_tracker` + unpinned
+  `select_with_slot_tracker` removed from pinned `proxy_routing` (legal
+  surface intact). Proof: inference@36d0fa56.
+- D: burned dead empirical store (307) + `AutoRecoveryEmbedding` (75) +
+  `FixedEmbedding` (22); `NullEmbedding` impl preserved (host uses it —
+  caught and restored my own over-deletion by diff). Proof:
+  inference@808b3669.
+- Total: inference 30 k → 15.6 kLOC (−48 %). Q1 resolved by deletion.
+
 ### 5.6 Tranche A (internal burn) — CONVERGED
 
 Burned 18 files, −2 457 lines (all verified zero-user, unpinned):
