@@ -48,3 +48,48 @@ fn transport_admission_accepts_valid_default_profile() {
     let verdict = decide_transport_admission(&params);
     assert!(verdict.accepted);
 }
+
+#[test]
+fn quic_framing_control_roundtrip() {
+    let msg = cynic_network::quic::ControlMessage::TaskDispatch {
+        task_id: "task-42".to_string(),
+        assignee: "agent-builder".to_string(),
+        lease_ms: 120_000,
+        payload_json: "{\"action\":\"build\"}".to_string(),
+    };
+    let frame = cynic_network::quic::AgentFrame::Control(msg.clone());
+    let encoded = cynic_network::quic::encode_frame(&frame).expect("encode frame");
+    let decoded = cynic_network::quic::decode_frame(&encoded).expect("decode frame");
+    assert_eq!(decoded, cynic_network::quic::AgentFrame::Control(msg));
+}
+
+#[test]
+fn quic_framing_telemetry_roundtrip() {
+    let msg = cynic_network::quic::TelemetryMessage {
+        timestamp_ms: 1_791_772_000,
+        cpu_util_pct: 12.5,
+        mem_util_pct: 45.0,
+        open_streams_count: 8,
+    };
+    let frame = cynic_network::quic::AgentFrame::Telemetry(msg.clone());
+    let encoded = cynic_network::quic::encode_frame(&frame).expect("encode frame");
+    let decoded = cynic_network::quic::decode_frame(&encoded).expect("decode frame");
+    assert_eq!(decoded, cynic_network::quic::AgentFrame::Telemetry(msg));
+}
+
+#[test]
+fn quic_framing_artifact_chunk_roundtrip_and_hash_integrity() {
+    let raw_payload = bytes::Bytes::from_static(b"CYNIC RELEASE BINARY CHUNK CONTENT TEST BLAKE3");
+    let chunk = cynic_network::quic::ArtifactChunkMessage::new(0, 1, raw_payload);
+    let frame = cynic_network::quic::AgentFrame::Artifact(chunk);
+    let encoded = cynic_network::quic::encode_frame(&frame).expect("encode frame");
+    let decoded = cynic_network::quic::decode_frame(&encoded).expect("decode frame");
+    match decoded {
+        cynic_network::quic::AgentFrame::Artifact(c) => {
+            assert_eq!(c.chunk_index, 0);
+            assert_eq!(c.total_chunks, 1);
+            assert!(c.verify_integrity().is_ok());
+        }
+        _ => panic!("expected artifact frame"),
+    }
+}
