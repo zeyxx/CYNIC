@@ -69,7 +69,7 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
     let pid_probe = vec![
         "sh".to_string(),
         "-c".to_string(),
-        "ps -ef 2>/dev/null || cat /proc/self/stat | awk '{print $1}'".to_string(),
+        "echo $$".to_string(),
     ];
     let pid_result = adapter
         .execute_command(&allocation.allocation_id, &pid_probe, 5000)
@@ -89,6 +89,20 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
         "Sandboxed process PID must be small isolated number (<= 10), got {}",
         pid_num
     );
+
+    // PROOF 4: Absolute zero-egress network isolation (no host eth or tailscale visible)
+    let net_probe = vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        "ip link show 2>/dev/null || ls -d /sys/class/net/*".to_string(),
+    ];
+    let net_result = adapter
+        .execute_command(&allocation.allocation_id, &net_probe, 5000)
+        .await
+        .expect("command should execute");
+    assert_eq!(net_result.exit_code, 0);
+    assert!(!net_result.stdout.contains("eth0"), "Physical host eth0 must NOT be visible");
+    assert!(!net_result.stdout.contains("tailscale"), "Host tailscale/wireguard must NOT be visible");
 
     // Release runner
     adapter
