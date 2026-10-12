@@ -83,6 +83,15 @@ pub struct ProfileOverrides {
     pub force_cpu_quota: Option<String>,
 }
 
+/// Rationale lines and applied-override names accumulated while resolving
+/// a plan. Threaded `&mut` through each resolver so `plan_launch` stays a
+/// thin orchestration over pure phases.
+#[derive(Debug, Default)]
+struct PlanNotes {
+    rationale: Vec<String>,
+    overrides_applied: Vec<String>,
+}
+
 /// Build a launch plan from live probe data.
 pub fn plan_launch(
     alias: &str,
@@ -92,235 +101,28 @@ pub fn plan_launch(
     plugins: &EnginePlugins,
     overrides: &ProfileOverrides,
 ) -> RuntimeLaunchPlan {
-    let mut rationale = Vec::new();
-    let mut overrides_applied = Vec::new();
-
-    let host = overrides
-        .host
-        .clone()
-        .unwrap_or_else(|| "127.0.0.1".to_string());
-    if overrides.host.is_some() {
-        overrides_applied.push("host".into());
-    }
-    let port = overrides.port.unwrap_or(8080);
-    if overrides.port.is_some() {
-        overrides_applied.push("port".into());
-    }
-
-    // Context: scale with available RAM and model size
-    let ctx_size = if let Some(preset) = &overrides.context_preset {
-        match context_preset_ctx_size(preset) {
-            Some(cs) => {
-                overrides_applied.push("context_preset".into());
-                rationale.push(format!("ctx_size={cs} from context preset '{preset}'"));
-                cs
-            }
-            None => {
-                rationale.push(format!(
-                    "context preset '{preset}' unknown; falling back to probed ctx"
-                ));
-                let ctx = default_ctx(hw, model_size_bytes);
-                rationale.push(format!("ctx_size={ctx} from available_ram + model size"));
-                ctx
-            }
-        }
-    } else if let Some(c) = overrides.ctx_size {
-        overrides_applied.push("ctx_size".into());
-        c
-    } else {
-        let ctx = default_ctx(hw, model_size_bytes);
-        rationale.push(format!("ctx_size={ctx} from available_ram + model size"));
-        ctx
-    };
-
-    // Threads: leave headroom for OS; batch can use more
-    let threads = if let Some(t) = overrides.force_threads {
-        overrides_applied.push("threads".into());
-        t
-    } else {
-        let t = ((hw.cpu_threads as f32) * 0.5).ceil() as u32;
-        t.clamp(2, hw.cpu_threads.max(2))
-    };
-    let threads_batch = (threads * 2).min(hw.cpu_threads.max(threads));
-    rationale.push(format!(
-        "threads={threads} threads_batch={threads_batch} (cpu_threads={})",
-        hw.cpu_threads
-    ));
-
-    // GPU layers: full offload when a GPU backend is present AND the model
-    // weights fit the device offload budget.
-    //
-    // On APU / integrated GPUs the offload budget is the unified GTT aperture
-    // (graphics memory carved from the same physical RAM but allocated by
-    // Vulkan for `-ngl`), not the small "dedicated" VRAM carve-out. We must
-    // use `gpu_offload_budget_bytes()` so models that fit the GTT get full
-    // Vulkan offload instead of a wrong CPU-only fallback.
-    let gpu_budget = hw.gpu_offload_budget_bytes();
-    let n_gpu_layers = if let Some(n) = overrides.force_n_gpu_layers {
-        overrides_applied.push("n_gpu_layers".into());
-        n
-    } else if plugins.has_vulkan || plugins.has_cuda || plugins.has_metal {
-        let size = model_size_bytes.unwrap_or(u64::MAX);
-        if gpu_budget == 0 || size <= gpu_budget {
-            if gpu_budget > 0 {
-                let gb = gpu_budget / (1024 * 1024 * 1024);
-                let mb = (size / (1024 * 1024)) % 1024;
-                rationale.push(format!(
-                    "n_gpu_layers=99 — full {plug} offload; weights {} MiB <= {gb} GiB unified GPU budget",
-                    mb, plug = if plugins.has_vulkan { "Vulkan" } else if plugins.has_cuda { "CUDA" } else { "Metal" }
-                ));
-            } else {
-                rationale.push("n_gpu_layers=99 — GPU backend plugin present (no GTT budget probe; assume offload fits)".into());
-            }
-            99
-        } else {
-            let gb = gpu_budget / (1024 * 1024 * 1024);
-            let weight_gb = size / (1024 * 1024 * 1024);
-            rationale.push(format!(
-                "n_gpu_layers=0 — weights {weight_gb} GiB exceed {gb} GiB unified GPU budget; CPU-only to avoid OOM"
-            ));
-            0
-        }
-    } else {
-        rationale.push("n_gpu_layers=0 — no GPU plugin detected".into());
-        0
-    };
-
-    let flash_attn = if n_gpu_layers > 0 {
-        "on".to_string()
-    } else {
-        "auto".to_string()
-    };
-
-    // KV quant always useful on constrained hosts
-    let use_kv_q4 = matches!(hw.gpu.class, GpuClass::Integrated)
-        || hw.available_ram_bytes < 24 * 1024 * 1024 * 1024;
-    if use_kv_q4 {
-        rationale.push("KV cache q4_0 — integrated GPU or <24Gi available RAM".into());
-    }
-
-    let batch = if matches!(hw.gpu.class, GpuClass::Integrated) {
-        512
-    } else {
-        2048
-    };
-    let ubatch = if matches!(hw.gpu.class, GpuClass::Integrated) {
-        256
-    } else {
-        512
-    };
-
-    // parallel: keep 1 on integrated (stability); 2+ on discrete with RAM
-    let parallel = if matches!(hw.gpu.class, GpuClass::Integrated) {
-        rationale.push("parallel=1 — integrated/APU stability default".into());
-        1
-    } else if hw.available_ram_bytes > 20 * 1024 * 1024 * 1024 {
-        2
-    } else {
-        1
-    };
-
-    let mut engine_args: Vec<String> = Vec::new();
-    if let Some(force) = &overrides.force_extra_args {
-        overrides_applied.push("force_extra_args".into());
-        // split conservatively on whitespace
-        engine_args.extend(force.split_whitespace().map(|s| s.to_string()));
-        rationale.push("using profile force_extra_args (operator override)".into());
-    } else {
-        engine_args.push("--threads".into());
-        engine_args.push(threads.to_string());
-        engine_args.push("--threads-batch".into());
-        engine_args.push(threads_batch.to_string());
-        engine_args.push("--parallel".into());
-        engine_args.push(parallel.to_string());
-        engine_args.push("--n-gpu-layers".into());
-        engine_args.push(n_gpu_layers.to_string());
-        engine_args.push("--flash-attn".into());
-        engine_args.push(flash_attn.clone());
-        engine_args.push("--batch-size".into());
-        engine_args.push(batch.to_string());
-        engine_args.push("--ubatch-size".into());
-        engine_args.push(ubatch.to_string());
-        if use_kv_q4 {
-            engine_args.push("-ctk".into());
-            engine_args.push("q4_0".into());
-            engine_args.push("-ctv".into());
-            engine_args.push("q4_0".into());
-        }
-        if let Some(device) = explicit_device() {
-            engine_args.push("--device".into());
-            engine_args.push(device.clone());
-            rationale.push(format!(
-                "device override from {INFERENCE_DEVICE_ENV}={device}"
-            ));
-        }
-    }
-
-    let memory_max = if let Some(m) = &overrides.force_memory_max {
-        overrides_applied.push("memory_max".into());
-        m.clone()
-    } else {
-        // model + KV headroom + 2G OS/engine
-        let model = model_size_bytes.unwrap_or(2 * 1024 * 1024 * 1024);
-        let budget = model
-            .saturating_add(2 * 1024 * 1024 * 1024)
-            .saturating_add((ctx_size as u64) * 2 * 1024 * 1024 / 4);
-        let gb = (budget / (1024 * 1024 * 1024)).clamp(2, 64);
-        // never claim more than ~90% available
-        let cap_gb = (hw.available_ram_bytes * 9 / 10) / (1024 * 1024 * 1024);
-        let gb = gb.min(cap_gb.max(2));
-        rationale.push(format!("MemoryMax={gb}G from model+ctx vs available RAM"));
-        format!("{gb}G")
-    };
-
-    let cpu_quota = if let Some(q) = &overrides.force_cpu_quota {
-        overrides_applied.push("cpu_quota".into());
-        q.clone()
-    } else {
-        // Allow all logical CPUs for the service — do not freeze 400%
-        let pct = hw.cpu_threads.saturating_mul(100);
-        rationale.push(format!(
-            "CPUQuota={pct}% (= cpu_threads * 100) — not a frozen 400%"
-        ));
-        format!("{pct}%")
-    };
-
-    rationale.push(format!(
+    let mut notes = PlanNotes::default();
+    let (host, port) = resolve_endpoint(overrides, &mut notes);
+    let ctx_size = resolve_context(overrides, hw, model_size_bytes, &mut notes);
+    let (threads, threads_batch) = resolve_threads(overrides, hw, &mut notes);
+    let n_gpu_layers = resolve_gpu_layers(overrides, plugins, model_size_bytes, hw, &mut notes);
+    let shape = resolve_batch_shape(hw, n_gpu_layers, &mut notes);
+    let engine_args = build_engine_args(
+        overrides,
+        threads,
+        threads_batch,
+        n_gpu_layers,
+        &shape,
+        &mut notes,
+    );
+    let memory_max = resolve_memory_max(overrides, model_size_bytes, ctx_size, hw, &mut notes);
+    let cpu_quota = resolve_cpu_quota(overrides, hw, &mut notes);
+    notes.rationale.push(format!(
         "cpu_backend_class={} (Zen3⇒AVX2/haswell-class plugins; no zen3.so required)",
         plugins.likely_cpu_backend_class
     ));
-
-    // Roofline decode ceiling: tok/s_max = sustained_bandwidth / decode_bytes.
-    // Decode reads the weights roughly twice per token (prefill-style fused
-    // matmuls over Q/K/V + MLP). We use the *offload* path bytes: if the model
-    // is fully offloaded (n_gpu_layers>0) the relevant bandwidth is the GPU
-    // memory bandwidth estimate; if CPU-only, the CPU-RAM bandwidth estimate.
-    // Both come from the operator-supplied CYNIC_ESTIMATED_MEM_BW_GBPS (never
-    // guessed). No estimate => None and we omit the warning rather than invent.
-    let roofline_decode_tps_estimate = hw
-        .memory_bandwidth_bytes_per_sec_estimate
-        .filter(|bw| bw > &0)
-        .and_then(|bw| {
-            model_size_bytes.and_then(|size| {
-                let decode_bytes = (size * 2).max(1);
-                crate::math::roofline::calculate_theoretical_max_tps(decode_bytes, bw as f64)
-            })
-        });
-    if let Some(ceiling) = roofline_decode_tps_estimate {
-        let bw_gb = hw
-            .memory_bandwidth_bytes_per_sec_estimate
-            .map(|b| b as f64 / 1e9)
-            .unwrap_or(0.0);
-        if n_gpu_layers > 0 {
-            rationale.push(format!(
-                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, GPU offload)"
-            ));
-        } else {
-            rationale.push(format!(
-                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, CPU RAM)"
-            ));
-        }
-    }
+    let roofline_decode_tps_estimate =
+        resolve_roofline(hw, model_size_bytes, n_gpu_layers, &mut notes);
 
     let llama_extra_args = engine_args.join(" ");
 
@@ -340,13 +142,331 @@ pub fn plan_launch(
         threads,
         threads_batch,
         n_gpu_layers,
-        flash_attn,
+        flash_attn: shape.flash_attn,
         memory_max,
         cpu_quota,
-        rationale,
-        overrides_applied,
+        rationale: notes.rationale,
+        overrides_applied: notes.overrides_applied,
         roofline_decode_tps_estimate,
     }
+}
+
+fn resolve_endpoint(overrides: &ProfileOverrides, notes: &mut PlanNotes) -> (String, u16) {
+    let host = overrides
+        .host
+        .clone()
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    if overrides.host.is_some() {
+        notes.overrides_applied.push("host".into());
+    }
+    let port = overrides.port.unwrap_or(8080);
+    if overrides.port.is_some() {
+        notes.overrides_applied.push("port".into());
+    }
+    (host, port)
+}
+
+fn resolve_context(
+    overrides: &ProfileOverrides,
+    hw: &HardwareProfile,
+    model_size_bytes: Option<u64>,
+    notes: &mut PlanNotes,
+) -> u32 {
+    // Context: scale with available RAM and model size
+    if let Some(preset) = &overrides.context_preset {
+        match context_preset_ctx_size(preset) {
+            Some(cs) => {
+                notes.overrides_applied.push("context_preset".into());
+                notes
+                    .rationale
+                    .push(format!("ctx_size={cs} from context preset '{preset}'"));
+                cs
+            }
+            None => {
+                notes.rationale.push(format!(
+                    "context preset '{preset}' unknown; falling back to probed ctx"
+                ));
+                let ctx = default_ctx(hw, model_size_bytes);
+                notes
+                    .rationale
+                    .push(format!("ctx_size={ctx} from available_ram + model size"));
+                ctx
+            }
+        }
+    } else if let Some(c) = overrides.ctx_size {
+        notes.overrides_applied.push("ctx_size".into());
+        c
+    } else {
+        let ctx = default_ctx(hw, model_size_bytes);
+        notes
+            .rationale
+            .push(format!("ctx_size={ctx} from available_ram + model size"));
+        ctx
+    }
+}
+
+fn resolve_threads(
+    overrides: &ProfileOverrides,
+    hw: &HardwareProfile,
+    notes: &mut PlanNotes,
+) -> (u32, u32) {
+    // Threads: leave headroom for OS; batch can use more
+    let threads = if let Some(t) = overrides.force_threads {
+        notes.overrides_applied.push("threads".into());
+        t
+    } else {
+        let t = ((hw.cpu_threads as f32) * 0.5).ceil() as u32;
+        t.clamp(2, hw.cpu_threads.max(2))
+    };
+    let threads_batch = (threads * 2).min(hw.cpu_threads.max(threads));
+    notes.rationale.push(format!(
+        "threads={threads} threads_batch={threads_batch} (cpu_threads={})",
+        hw.cpu_threads
+    ));
+    (threads, threads_batch)
+}
+
+fn resolve_gpu_layers(
+    overrides: &ProfileOverrides,
+    plugins: &EnginePlugins,
+    model_size_bytes: Option<u64>,
+    hw: &HardwareProfile,
+    notes: &mut PlanNotes,
+) -> i32 {
+    // GPU layers: full offload when a GPU backend is present AND the model
+    // weights fit the device offload budget.
+    //
+    // On APU / integrated GPUs the offload budget is the unified GTT aperture
+    // (graphics memory carved from the same physical RAM but allocated by
+    // Vulkan for `-ngl`), not the small "dedicated" VRAM carve-out. We must
+    // use `gpu_offload_budget_bytes()` so models that fit the GTT get full
+    // Vulkan offload instead of a wrong CPU-only fallback.
+    let gpu_budget = hw.gpu_offload_budget_bytes();
+    if let Some(n) = overrides.force_n_gpu_layers {
+        notes.overrides_applied.push("n_gpu_layers".into());
+        n
+    } else if plugins.has_vulkan || plugins.has_cuda || plugins.has_metal {
+        let size = model_size_bytes.unwrap_or(u64::MAX);
+        if gpu_budget == 0 || size <= gpu_budget {
+            if gpu_budget > 0 {
+                let gb = gpu_budget / (1024 * 1024 * 1024);
+                let mb = (size / (1024 * 1024)) % 1024;
+                notes.rationale.push(format!(
+                    "n_gpu_layers=99 — full {plug} offload; weights {} MiB <= {gb} GiB unified GPU budget",
+                    mb, plug = if plugins.has_vulkan { "Vulkan" } else if plugins.has_cuda { "CUDA" } else { "Metal" }
+                ));
+            } else {
+                notes.rationale.push("n_gpu_layers=99 — GPU backend plugin present (no GTT budget probe; assume offload fits)".into());
+            }
+            99
+        } else {
+            let gb = gpu_budget / (1024 * 1024 * 1024);
+            let weight_gb = size / (1024 * 1024 * 1024);
+            notes.rationale.push(format!(
+                "n_gpu_layers=0 — weights {weight_gb} GiB exceed {gb} GiB unified GPU budget; CPU-only to avoid OOM"
+            ));
+            0
+        }
+    } else {
+        notes
+            .rationale
+            .push("n_gpu_layers=0 — no GPU plugin detected".into());
+        0
+    }
+}
+
+/// Batch geometry derived from GPU class and offload state.
+struct BatchShape {
+    flash_attn: String,
+    use_kv_q4: bool,
+    batch: u32,
+    ubatch: u32,
+    parallel: u32,
+}
+
+fn resolve_batch_shape(
+    hw: &HardwareProfile,
+    n_gpu_layers: i32,
+    notes: &mut PlanNotes,
+) -> BatchShape {
+    let flash_attn = if n_gpu_layers > 0 {
+        "on".to_string()
+    } else {
+        "auto".to_string()
+    };
+
+    // KV quant always useful on constrained hosts
+    let use_kv_q4 = matches!(hw.gpu.class, GpuClass::Integrated)
+        || hw.available_ram_bytes < 24 * 1024 * 1024 * 1024;
+    if use_kv_q4 {
+        notes
+            .rationale
+            .push("KV cache q4_0 — integrated GPU or <24Gi available RAM".into());
+    }
+
+    let batch = if matches!(hw.gpu.class, GpuClass::Integrated) {
+        512
+    } else {
+        2048
+    };
+    let ubatch = if matches!(hw.gpu.class, GpuClass::Integrated) {
+        256
+    } else {
+        512
+    };
+
+    // parallel: keep 1 on integrated (stability); 2+ on discrete with RAM
+    let parallel = if matches!(hw.gpu.class, GpuClass::Integrated) {
+        notes
+            .rationale
+            .push("parallel=1 — integrated/APU stability default".into());
+        1
+    } else if hw.available_ram_bytes > 20 * 1024 * 1024 * 1024 {
+        2
+    } else {
+        1
+    };
+
+    BatchShape {
+        flash_attn,
+        use_kv_q4,
+        batch,
+        ubatch,
+        parallel,
+    }
+}
+
+fn build_engine_args(
+    overrides: &ProfileOverrides,
+    threads: u32,
+    threads_batch: u32,
+    n_gpu_layers: i32,
+    shape: &BatchShape,
+    notes: &mut PlanNotes,
+) -> Vec<String> {
+    let mut engine_args: Vec<String> = Vec::new();
+    if let Some(force) = &overrides.force_extra_args {
+        notes.overrides_applied.push("force_extra_args".into());
+        // split conservatively on whitespace
+        engine_args.extend(force.split_whitespace().map(|s| s.to_string()));
+        notes
+            .rationale
+            .push("using profile force_extra_args (operator override)".into());
+    } else {
+        engine_args.push("--threads".into());
+        engine_args.push(threads.to_string());
+        engine_args.push("--threads-batch".into());
+        engine_args.push(threads_batch.to_string());
+        engine_args.push("--parallel".into());
+        engine_args.push(shape.parallel.to_string());
+        engine_args.push("--n-gpu-layers".into());
+        engine_args.push(n_gpu_layers.to_string());
+        engine_args.push("--flash-attn".into());
+        engine_args.push(shape.flash_attn.clone());
+        engine_args.push("--batch-size".into());
+        engine_args.push(shape.batch.to_string());
+        engine_args.push("--ubatch-size".into());
+        engine_args.push(shape.ubatch.to_string());
+        if shape.use_kv_q4 {
+            engine_args.push("-ctk".into());
+            engine_args.push("q4_0".into());
+            engine_args.push("-ctv".into());
+            engine_args.push("q4_0".into());
+        }
+        if let Some(device) = explicit_device() {
+            engine_args.push("--device".into());
+            engine_args.push(device.clone());
+            notes.rationale.push(format!(
+                "device override from {INFERENCE_DEVICE_ENV}={device}"
+            ));
+        }
+    }
+    engine_args
+}
+
+fn resolve_memory_max(
+    overrides: &ProfileOverrides,
+    model_size_bytes: Option<u64>,
+    ctx_size: u32,
+    hw: &HardwareProfile,
+    notes: &mut PlanNotes,
+) -> String {
+    if let Some(m) = &overrides.force_memory_max {
+        notes.overrides_applied.push("memory_max".into());
+        m.clone()
+    } else {
+        // model + KV headroom + 2G OS/engine
+        let model = model_size_bytes.unwrap_or(2 * 1024 * 1024 * 1024);
+        let budget = model
+            .saturating_add(2 * 1024 * 1024 * 1024)
+            .saturating_add((ctx_size as u64) * 2 * 1024 * 1024 / 4);
+        let gb = (budget / (1024 * 1024 * 1024)).clamp(2, 64);
+        // never claim more than ~90% available
+        let cap_gb = (hw.available_ram_bytes * 9 / 10) / (1024 * 1024 * 1024);
+        let gb = gb.min(cap_gb.max(2));
+        notes
+            .rationale
+            .push(format!("MemoryMax={gb}G from model+ctx vs available RAM"));
+        format!("{gb}G")
+    }
+}
+
+fn resolve_cpu_quota(
+    overrides: &ProfileOverrides,
+    hw: &HardwareProfile,
+    notes: &mut PlanNotes,
+) -> String {
+    if let Some(q) = &overrides.force_cpu_quota {
+        notes.overrides_applied.push("cpu_quota".into());
+        q.clone()
+    } else {
+        // Allow all logical CPUs for the service — do not freeze 400%
+        let pct = hw.cpu_threads.saturating_mul(100);
+        notes.rationale.push(format!(
+            "CPUQuota={pct}% (= cpu_threads * 100) — not a frozen 400%"
+        ));
+        format!("{pct}%")
+    }
+}
+
+fn resolve_roofline(
+    hw: &HardwareProfile,
+    model_size_bytes: Option<u64>,
+    n_gpu_layers: i32,
+    notes: &mut PlanNotes,
+) -> Option<f32> {
+    // Roofline decode ceiling: tok/s_max = sustained_bandwidth / decode_bytes.
+    // Decode reads the weights roughly twice per token (prefill-style fused
+    // matmuls over Q/K/V + MLP). We use the *offload* path bytes: if the model
+    // is fully offloaded (n_gpu_layers>0) the relevant bandwidth is the GPU
+    // memory bandwidth estimate; if CPU-only, the CPU-RAM bandwidth estimate.
+    // Both come from the operator-supplied CYNIC_ESTIMATED_MEM_BW_GBPS (never
+    // guessed). No estimate => None and we omit the warning rather than invent.
+    let ceiling = hw
+        .memory_bandwidth_bytes_per_sec_estimate
+        .filter(|bw| bw > &0)
+        .and_then(|bw| {
+            model_size_bytes.and_then(|size| {
+                let decode_bytes = (size * 2).max(1);
+                crate::math::roofline::calculate_theoretical_max_tps(decode_bytes, bw as f64)
+            })
+        });
+    if let Some(ceiling) = ceiling {
+        let bw_gb = hw
+            .memory_bandwidth_bytes_per_sec_estimate
+            .map(|b| b as f64 / 1e9)
+            .unwrap_or(0.0);
+        if n_gpu_layers > 0 {
+            notes.rationale.push(format!(
+                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, GPU offload)"
+            ));
+        } else {
+            notes.rationale.push(format!(
+                "roofline decode ≈ {ceiling:.1} tok/s (memory-bound; BW≈{bw_gb:.0} GB/s, ~2×weights/token, CPU RAM)"
+            ));
+        }
+    }
+    ceiling
 }
 
 fn default_ctx(hw: &HardwareProfile, model_size: Option<u64>) -> u32 {
