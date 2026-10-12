@@ -31,6 +31,28 @@ pub struct MeshRoute {
     pub node_id: String,
 }
 
+/// Pre-authentication key specification for dynamic node admission.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreAuthKeySpec {
+    pub user: String,
+    pub reusable: bool,
+    pub ephemeral: bool,
+    pub expiration: Option<String>,
+    pub acl_tags: Vec<String>,
+}
+
+/// Created pre-authentication key returned by mesh coordinator.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreAuthKey {
+    pub id: String,
+    pub key: String,
+    pub user: String,
+    pub reusable: bool,
+    pub ephemeral: bool,
+    pub used: bool,
+    pub expiration: Option<String>,
+}
+
 /// Errors that can occur when interacting with the fleet mesh.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MeshError {
@@ -63,6 +85,20 @@ pub trait FleetMeshPort {
 
     /// Disable a route in the fleet mesh.
     fn disable_route(&self, route_id: &str) -> Result<(), MeshError>;
+
+    /// Create a dynamic pre-authentication key for admitting a new node.
+    fn create_preauth_key(&self, _spec: &PreAuthKeySpec) -> Result<PreAuthKey, MeshError> {
+        Err(MeshError::ApiError(
+            "preauth key creation not implemented by adapter".to_string(),
+        ))
+    }
+
+    /// Expire a pre-authentication key to prevent further admissions.
+    fn expire_preauth_key(&self, _user: &str, _key: &str) -> Result<(), MeshError> {
+        Err(MeshError::ApiError(
+            "preauth key expiration not implemented by adapter".to_string(),
+        ))
+    }
 }
 
 /// Canonical mesh plan — desired state of the fleet mesh.

@@ -6,7 +6,27 @@
 
 use serde::Deserialize;
 
-use cynic_types::fleet_mesh::{FleetMeshPort, MeshError, MeshNode, MeshRoute};
+use cynic_types::fleet_mesh::{
+    FleetMeshPort, MeshError, MeshNode, MeshRoute, PreAuthKey, PreAuthKeySpec,
+};
+
+/// Headscale API response for preauth key wrapper.
+#[derive(Debug, Deserialize)]
+struct HeadscalePreAuthKeyWrapper {
+    pre_auth_key: HeadscalePreAuthKeyInner,
+}
+
+/// Headscale API response for preauth key details.
+#[derive(Debug, Deserialize)]
+struct HeadscalePreAuthKeyInner {
+    id: String,
+    key: String,
+    user: String,
+    reusable: bool,
+    ephemeral: bool,
+    used: bool,
+    expiration: Option<String>,
+}
 
 /// Headscale API response for a node.
 #[derive(Debug, Deserialize)]
@@ -174,6 +194,35 @@ impl FleetMeshPort for HeadscaleClient {
         let _: serde_json::Value = self.post(&format!("routes/{}/disable", route_id), "{}")?;
         Ok(())
     }
+
+    fn create_preauth_key(&self, spec: &PreAuthKeySpec) -> Result<PreAuthKey, MeshError> {
+        let body = serde_json::json!({
+            "user": spec.user,
+            "reusable": spec.reusable,
+            "ephemeral": spec.ephemeral,
+            "expiration": spec.expiration,
+            "acl_tags": spec.acl_tags,
+        });
+        let response: HeadscalePreAuthKeyWrapper = self.post("preauthkey", &body.to_string())?;
+        Ok(PreAuthKey {
+            id: response.pre_auth_key.id,
+            key: response.pre_auth_key.key,
+            user: response.pre_auth_key.user,
+            reusable: response.pre_auth_key.reusable,
+            ephemeral: response.pre_auth_key.ephemeral,
+            used: response.pre_auth_key.used,
+            expiration: response.pre_auth_key.expiration,
+        })
+    }
+
+    fn expire_preauth_key(&self, user: &str, key: &str) -> Result<(), MeshError> {
+        let body = serde_json::json!({
+            "user": user,
+            "key": key,
+        });
+        let _: serde_json::Value = self.post("preauthkey/expire", &body.to_string())?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -202,5 +251,20 @@ mod tests {
         // Without the env var set, this must fail with Unauthorized
         let result = HeadscaleClient::new(config);
         assert!(matches!(result, Err(MeshError::Unauthorized)));
+    }
+
+    #[test]
+    fn headscale_preauthkey_serialization_roundtrip() {
+        let spec = PreAuthKeySpec {
+            user: "cynic".to_string(),
+            reusable: false,
+            ephemeral: true,
+            expiration: Some("2026-10-12T16:00:00Z".to_string()),
+            acl_tags: vec!["tag:agent".to_string()],
+        };
+        let serialized = serde_json::to_string(&spec).expect("serialize spec");
+        let deserialized: PreAuthKeySpec =
+            serde_json::from_str(&serialized).expect("deserialize spec");
+        assert_eq!(spec, deserialized);
     }
 }
