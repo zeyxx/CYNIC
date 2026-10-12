@@ -1,4 +1,5 @@
 pub mod agent_host_placement_uc;
+pub mod compute_provisioning_uc;
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
 pub mod agent_workload_delivery_uc;
