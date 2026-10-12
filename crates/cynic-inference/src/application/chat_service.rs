@@ -4,10 +4,10 @@
 //! kernel domain storage.
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use crate::application::chat_support::now_ms;
 use crate::domain::chat_session::{
     ChatEvent, ChatMessage, StreamChunk, ToolSpec, messages_from_events,
 };
@@ -493,13 +493,6 @@ fn messages_with_runtime_context(
     let split_at = messages.len().saturating_sub(limit);
     messages.drain(0..split_at);
     messages
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]
