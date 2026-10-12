@@ -11,7 +11,6 @@
 
 use cynic_protocol::information::{self, EntropyError};
 use serde::{Deserialize, Serialize};
-use std::vec::Vec;
 
 pub const TOKEN_ENTROPY_SNAPSHOT_SCHEMA: &str = "cynic.inference_token_entropy.v1";
 pub const TOKEN_UNCERTAINTY_ASSESSMENT_SCHEMA: &str = "cynic.inference_token_uncertainty.v1";
