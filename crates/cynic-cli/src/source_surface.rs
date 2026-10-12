@@ -148,44 +148,7 @@ fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObser
         Ok(reading) => reading,
         Err(_) => return BuildProofObservation::NeverTested,
     };
-    if proofs.is_empty() {
-        // A log with unparseable lines and no matching proof is Unreadable:
-        // the absence may be an artefact of the corruption, not a real absence.
-        if !skipped.is_empty() {
-            return BuildProofObservation::Unreadable {
-                skipped_lines: skipped.len(),
-            };
-        }
-        return BuildProofObservation::NeverTested;
-    }
-
-    // Newest last, per the reader's contract.
-    let newest = proofs.last().expect("non-empty checked above");
-    let node = newest
-        .get("node")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let status = newest
-        .get("status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
-    match status {
-        "converged" => BuildProofObservation::Converged { node },
-        "blocked" => BuildProofObservation::Blocked {
-            node,
-            reason: newest
-                .get("verdict_reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or("no reason recorded")
-                .to_string(),
-        },
-        // A status this build does not know how to interpret is not a pass.
-        other => BuildProofObservation::UnknownStatus {
-            node,
-            status: other.to_string(),
-        },
-    }
+    cynic_release::reduce_newest_proof(&proofs, skipped.len())
 }
 
 pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
