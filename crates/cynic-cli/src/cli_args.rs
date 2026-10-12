@@ -229,6 +229,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::mcp_surface::McpCommand,
     },
+    /// Sovereign background daemons (kernel and node runtime).
+    Daemon {
+        #[command(subcommand)]
+        command: crate::daemon_surface::DaemonCommand,
+    },
 }
 
 #[derive(Subcommand)]

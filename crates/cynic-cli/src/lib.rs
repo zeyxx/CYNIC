@@ -81,6 +81,7 @@ pub mod version_surface;
 pub mod workload_observation;
 pub mod node_surface;
 pub mod mcp_surface;
+pub mod daemon_surface;
 
 pub use cli_args::Cli;
 pub(crate) use cli_args::Command;
