@@ -3,17 +3,17 @@
 use std::fs;
 use std::path::Path;
 
-use crate::adapters::hf::HfCliAdapter;
+use cynic_huggingface::HfCliAdapter;
+use cynic_huggingface::{
+    HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
+    HfSearchRequest,
+};
 use crate::domain::hardware_profile::HardwareProfile;
 use crate::domain::hf_catalog::{
     CategoryInfo, HardwareFit, ModelCategory, category_catalog, estimate_gguf_bytes, score_fit,
     short_alias_from_repo,
 };
 use crate::infra::model_layout::ModelLayout;
-use crate::ports::hf_hub_port::{
-    HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
-    HfSearchRequest,
-};
 
 #[derive(Debug)]
 pub struct HfDiscoveryService {
@@ -61,7 +61,7 @@ impl HfDownloadCommand {
 impl HfDiscoveryService {
     pub fn from_env() -> Self {
         let layout = ModelLayout::from_env();
-        let hf = HfCliAdapter::from_layout(&layout);
+        let hf = HfCliAdapter::from_paths(&layout.hf_local_paths());
         Self { layout, hf }
     }
 
@@ -191,7 +191,7 @@ impl HfDiscoveryService {
             into_vault: !command.cache_only,
             repo_type: command.repo_type,
         };
-        let mut report = self.hf.download(&self.layout, &req)?;
+        let mut report = self.hf.download(&self.layout.hf_local_paths(), &req)?;
         if !report.ok {
             return Ok(report);
         }

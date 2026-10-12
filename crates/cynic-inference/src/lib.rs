@@ -15,7 +15,7 @@ pub mod verdict_cache;
 
 // Convenience re-exports
 pub use adapters::discovery::model_registry::InMemoryModelRegistry;
-pub use adapters::hf::HfCliAdapter;
+pub use cynic_huggingface::HfCliAdapter;
 pub use adapters::inference::hermes_process_supervisor::read_hermes_api_key;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
@@ -112,7 +112,7 @@ pub use infra::slot_tracker::{BackendSlots, SlotHealthEntry, SlotTracker, build_
 pub use ports::chat_port::ChatPort;
 pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::empirical_store_port::EmpiricalStorePort;
-pub use ports::hf_hub_port::{
+pub use cynic_huggingface::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,
     HfSearchReport, HfSearchRequest,
 };

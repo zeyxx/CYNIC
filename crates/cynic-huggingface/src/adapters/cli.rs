@@ -2,8 +2,8 @@
 
 use std::process::Command;
 
-use crate::infra::model_layout::ModelLayout;
-use crate::ports::hf_hub_port::{
+use crate::domain::paths::HfLocalPaths;
+use crate::port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfSearchRequest,
 };
 
@@ -13,9 +13,9 @@ pub struct HfCliAdapter {
 }
 
 impl HfCliAdapter {
-    pub fn from_layout(layout: &ModelLayout) -> Self {
+    pub fn from_paths(paths: &HfLocalPaths) -> Self {
         Self {
-            bin: layout.hf_bin.clone(),
+            bin: paths.hf_bin.clone(),
         }
     }
 
@@ -46,7 +46,7 @@ impl HfCliAdapter {
 }
 
 impl HfHubPort for HfCliAdapter {
-    fn status(&self, layout: &ModelLayout) -> Result<HfCliStatus, HfHubError> {
+    fn status(&self, paths: &HfLocalPaths) -> Result<HfCliStatus, HfHubError> {
         let (code, stdout, stderr) = match self.run(&["version", "--format", "json"]) {
             Ok(r) => r,
             Err(_) => self.run(&["version"])?,
@@ -62,8 +62,8 @@ impl HfHubPort for HfCliAdapter {
                     version: None,
                     whoami: None,
                     authenticated: false,
-                    vault_dir: layout.vault_dir.display().to_string(),
-                    hf_cache_dir: layout.hf_cache_dir.display().to_string(),
+                    vault_dir: paths.vault_dir.display().to_string(),
+                    hf_cache_dir: paths.hf_cache_dir.display().to_string(),
                     message: Some(format!("hf version failed: {}", e2.trim())),
                 });
             }
@@ -76,8 +76,8 @@ impl HfHubPort for HfCliAdapter {
                 version,
                 whoami: None,
                 authenticated: false,
-                vault_dir: layout.vault_dir.display().to_string(),
-                hf_cache_dir: layout.hf_cache_dir.display().to_string(),
+                vault_dir: paths.vault_dir.display().to_string(),
+                hf_cache_dir: paths.hf_cache_dir.display().to_string(),
                 message: None,
             });
         }
@@ -120,15 +120,15 @@ impl HfHubPort for HfCliAdapter {
             version,
             whoami,
             authenticated,
-            vault_dir: layout.vault_dir.display().to_string(),
-            hf_cache_dir: layout.hf_cache_dir.display().to_string(),
+            vault_dir: paths.vault_dir.display().to_string(),
+            hf_cache_dir: paths.hf_cache_dir.display().to_string(),
             message: None,
         })
     }
 
     fn download(
         &self,
-        layout: &ModelLayout,
+        paths: &HfLocalPaths,
         req: &HfDownloadRequest,
     ) -> Result<HfDownloadReport, HfHubError> {
         if req.repo_id.trim().is_empty() {
@@ -154,7 +154,7 @@ impl HfHubPort for HfCliAdapter {
         }
 
         let local_dir = if req.into_vault {
-            let dir = layout.vault_download_dir(&req.repo_id);
+            let dir = paths.vault_download_dir(&req.repo_id);
             std::fs::create_dir_all(&dir).map_err(|e| {
                 HfHubError::Command(format!("create vault dir {}: {e}", dir.display()))
             })?;
