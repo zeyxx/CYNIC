@@ -114,5 +114,4 @@ pub use ports::token_entropy_port::TokenEntropyPort;
 pub use math::roofline::assess_roofline;
 
 // Adapter re-exports
-pub use adapters::empirical_store::{DEFAULT_EMPIRICAL_LEDGER_PATH, FsEmpiricalStore};
 pub use adapters::inference::token_entropy::TokenEntropyAdapter;
