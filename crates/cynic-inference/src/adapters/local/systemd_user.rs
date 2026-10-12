@@ -228,12 +228,6 @@ impl SystemdUserLocalRuntime {
         (code, model_readiness::parse_model_ids(&body))
     }
 
-    fn estimate_model_ready_timeout(
-        profile: &crate::domain::local_runtime::LocalModelProfile,
-    ) -> Duration {
-        model_readiness::estimate_model_ready_timeout(profile)
-    }
-
     fn wait_model_ready(
         &self,
         profile: &crate::domain::local_runtime::LocalModelProfile,

@@ -244,9 +244,6 @@ impl ProcessLocalRuntime {
         (code, ids)
     }
 
-    fn estimate_model_ready_timeout(profile: &LocalModelProfile) -> Duration {
-        model_readiness::estimate_model_ready_timeout(profile)
-    }
     fn wait_http_ready(&self, alias: &str, profile: &LocalModelProfile, timeout: Duration) -> bool {
         let url = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
