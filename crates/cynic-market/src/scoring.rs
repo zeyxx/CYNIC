@@ -74,6 +74,19 @@ impl ScoringEngine {
 
         numerator / denominator
     }
+
+    /// Consensus confidence modifier from Shannon entropy of verdict buckets.
+    ///
+    /// Wraps `cynic_protocol::information::consensus_confidence_modifier` so
+    /// the market surface consumes the canonical primitive rather than
+    /// recomputing it locally.
+    pub fn poj_consensus_confidence(
+        &self,
+        verdict_counts: &[usize],
+        buckets: usize,
+    ) -> Result<f64, cynic_protocol::information::EntropyError> {
+        cynic_protocol::information::consensus_confidence_modifier(verdict_counts, buckets)
+    }
 }
 
 impl Default for ScoringEngine {
@@ -106,5 +119,15 @@ mod tests {
         let low_energy = engine.compute_pow(10, 0.8, 0.5, 50.0, 10.0);
         let high_energy = engine.compute_pow(10, 0.8, 0.5, 200.0, 10.0);
         assert!(low_energy > high_energy);
+    }
+
+    #[test]
+    fn poj_consensus_confidence_delegates_to_canonical_primitive() {
+        let engine = ScoringEngine::new();
+        let counts = [3usize, 0, 0];
+        assert_eq!(
+            engine.poj_consensus_confidence(&counts, 3).unwrap(),
+            cynic_protocol::information::consensus_confidence_modifier(&counts, 3).unwrap()
+        );
     }
 }
