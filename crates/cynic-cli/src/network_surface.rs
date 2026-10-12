@@ -1,7 +1,8 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use crate::node_surface::network_surfaces_uc::NetworkCommands;
+pub mod execution;
+pub use execution::NetworkCommands;
 
 use crate::registry_path;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
@@ -473,7 +474,7 @@ fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
             max_handshake_age_secs,
             registry,
         } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&crate::node_surface::network_surfaces_uc::NetworkCommands::SecurityAudit {
+            crate::network_surface::execution::execute_network_command(&crate::network_surface::execution::NetworkCommands::SecurityAudit {
                 json: true,
                 max_handshake_age_secs,
                 registry: registry_path(registry),
@@ -489,8 +490,8 @@ fn execute_network_reconcile(command: NetworkReconcileCommand) -> ExitCode {
             registry,
             timeout_ms,
             apply,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(
-            &crate::node_surface::network_surfaces_uc::NetworkCommands::ReconcileObserved {
+        } => crate::network_surface::execution::execute_network_command(
+            &crate::network_surface::execution::NetworkCommands::ReconcileObserved {
                 json: true,
                 registry: registry_path(registry),
                 timeout_ms,

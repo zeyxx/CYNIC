@@ -13,7 +13,7 @@ pub mod identity;
 pub mod observation;
 pub mod source;
 pub mod storage;
-pub mod network_surfaces_uc;
+
 
 use std::process::ExitCode;
 
@@ -132,13 +132,6 @@ pub enum NodeCommand {
         registry: String,
         #[arg(long)]
         output: Option<String>,
-    },
-
-    // === Network ===
-    /// Network diagnostics and guarded remediation plans.
-    Network {
-        #[command(subcommand)]
-        command: crate::node_surface::network_surfaces_uc::NetworkCommands,
     },
 
     // === Peer ===
@@ -336,11 +329,6 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         }
         NodeCommand::RegistryObservation { json: _, registry, output } => {
             observation::execute_registry_observation(&registry, output.as_deref())
-        }
-
-        // === Network ===
-        NodeCommand::Network { command } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&command)
         }
 
         // === Peer ===
