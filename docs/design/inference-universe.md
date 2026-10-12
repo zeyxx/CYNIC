@@ -132,3 +132,46 @@ backends, not as ODS objects.
 
 Each phase: one design-validated slice, builder `check` proof, no `main`
 push without operator release.
+
+## 5. Phase-1 extraction map — eval perimeter, zero orphans
+
+Scope: §2.4 (agent_harness ×9, matrix_live_runner, matrix_sweep_executor,
+bench_basket_launcher, multi_agent_service, failure_gallery,
+domain/matrix_sweep ×6, domain/debate) plus their exclusive satellites.
+Verified by live grep on this branch; every edge below must be re-routed
+or the extraction slice is rejected.
+
+### 5.1 Outgoing edges (moving code needs from the staying side)
+
+| # | Edge | Resolution |
+|---|------|-----------|
+| O1 | `agent_harness` → `domain::local_runtime::LocalModelProfile` | move the type use to a minimal eval-local view, or move the type with the harness (spike decides; type is serving-shaped, prefer a thin view) |
+| O2 | `matrix_*`, `bench_basket` → `domain::matrix_sweep::*` | move together — same slice |
+| O3 | `matrix_*`, `bench_basket` → `ports::empirical_store_port` | port MOVES to eval with the perimeter; staying `fs_empirical_store` imports it from eval (direction `inference→eval` already exists via `verdict_cache`) |
+| O4 | `bench_basket_launcher` → `ports::local_runtime_port::LocalInferenceRuntimePort` (launch fn takes `&dyn` at line 186) | open seam: eval must not depend on inference. Spike options: (a) move a minimal launch port with the perimeter, implemented by the staying side; (b) keep launcher in inference. NO cycle (`eval→inference` dep) is acceptable |
+| O5 | `multi_agent_service` → `adapters::inference::harness_executor::HttpHarnessExecutor` (reqwest-only impl) | impl MOVES with the perimeter (it implements the moving `HarnessExecutor` trait) |
+| O6 | `multi_agent_service` → `domain::debate` | move together — same slice |
+| O7 | staying `hermes_*` adapters → `agent_harness::{HarnessExecutor, InferenceReply, ScenarioSpec, TaskSpec, canonicalize_hermes_runtime_id}` | staying files import these from `cynic-eval` after the move (allowed direction) |
+| O8 | staying `fs_empirical_store` → `domain::matrix_sweep::{HardwareBudget, empirical_store::{...}, types::StreamDynamicsReport}` | shared vocabulary MOVES to eval; staying store imports from eval |
+| O9 | staying `inference_gateway` → `domain::matrix_sweep::{HardwareBudget, ConstraintFilter, OptimizationGoal}` + `matrix_sweep_executor::config_to_llama_argv` (line 183) | `config_to_llama_argv` (sweep config → llama argv) is serving-shaped: EXTRACT it into the staying side (near `runtime_plan`) in the same slice; gateway imports the rest from eval |
+| O10 | staying `profile_bootstrap::forge_profile_from_benchmark_report` → `agent_harness::BenchmarkReport` | the forge fn CONSUMES an eval type: MOVE the fn (+ `ForgeProfileReport`) to eval; CLI Forge arm calls `cynic_eval` directly (CLI already depends on eval) |
+| O11 | `domain::matrix_sweep::empirical_store` → `math::pareto` | `pareto` (multi-objective selection) MOVES with the perimeter; `roofline`/`tensor_geometry` (sizing) STAY; `ucb_sampler` (benchmark scheduling) MOVES |
+| O12 | wire compat: `cynic-protocol/src/inference_matrix.rs` carries only the schema string `cynic.inference.matrix_sweep.v2` | keep byte-identical on move; never rename to the destination crate |
+
+### 5.2 Incoming edges (consumers that must be re-routed)
+
+| # | Consumer | Resolution |
+|---|----------|-----------|
+| I1 | `cynic-cli/.../local_runtime.rs:476` calls `forge_profile_from_benchmark_report` | call moves to `cynic_eval::...` (O10); CLI already deps eval |
+| I2 | `cynic-inference/tests/debate_live_test.rs` uses `cynic_inference::MultiAgentService` | test MOVES to eval, rewritten to `cynic_eval::...` |
+| I3 | `lib.rs` re-exports: `bench_basket_launcher::{build_basket_from_ledger, launch_basket}` (L36), `multi_agent_service::MultiAgentService` (L53), `debate::{...}` (L79), `matrix_sweep::{empirical_store::{...}, types::HardwareBudget}` (L86/89) | REMOVE from inference `lib.rs`; re-export from `cynic-eval` lib; audit `cynic-cli` + host/intel/kernel/node for each name before removal (only I1 found outside) |
+| I4 | `application/mod.rs` (`agent_harness`, `bench_basket_launcher`, `failure_gallery`, `matrix_live_runner`, `matrix_sweep_executor`) + `domain/mod.rs` (`debate`, `matrix_sweep`) declarations | REMOVE in the same slice (schema_warden: no orphan `pub mod`) |
+| I5 | `cynic-host/src/agent_matrix.rs`, `cynic-host/tests/multi_agent_e2e_simulation.rs` | verified: NO code imports of the perimeter (surface-name strings / lease strings only) — no action |
+| I6 | staying `hermes_run_executor`, `hermes_process_supervisor`, `harness_executor`(if staying) | re-import harness traits from eval (O7); `HttpHarnessExecutor` moves per O5 |
+
+### 5.3 Declared non-goals of this slice
+
+`verdict_cache` (family keeps it), `fs_empirical_store` impl, `math::{roofline,tensor_geometry}`,
+`ports::local_runtime_port` itself, hermes runtime files, finance glue,
+ODS publishers — untouched. `MultiAgentService`'s `RuntimeKind::DirectLlama`
+dependency resolves via O5 (executor moves with it).
