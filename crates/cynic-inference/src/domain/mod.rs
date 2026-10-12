@@ -14,5 +14,3 @@ pub mod model_retention;
 pub mod model_store;
 pub mod summarization;
 pub mod token_entropy;
-pub mod supervision;
-pub mod token_entropy;
