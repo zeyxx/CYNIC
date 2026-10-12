@@ -13,12 +13,13 @@
 //!   match). No substring guessing.
 //! - Storage content is queried on `desired.storage_pool`, not on `local`.
 
+use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::AgentHostDesired;
+use reqwest::Certificate;
+use reqwest::blocking::Client;
 use serde_json::Value;
 
-use cynic_lifecycle::ArgvRunner;
-
-use super::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
+use crate::agent_host::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
 
 // ---------------------------------------------------------------------------
 // Port
@@ -75,7 +76,7 @@ pub struct ProxmoxRestAgentHostObserver {
     base_url: String,
     token_id: String,
     token_secret: String,
-    client: reqwest::blocking::Client,
+    client: Client,
 }
 
 impl std::fmt::Debug for ProxmoxRestAgentHostObserver {
@@ -101,11 +102,11 @@ impl ProxmoxRestAgentHostObserver {
         let Some(pem) = ca_pem else {
             return Err("blocked_tls_unproven:no_ca_pem_supplied".to_string());
         };
-        let cert = reqwest::blocking::Client::builder().build().ok(); // just to validate; real cert below
+        let cert = Client::builder().build().ok(); // just to validate; real cert below
         drop(cert);
-        let certificate = reqwest::Certificate::from_pem(pem)
+        let certificate = Certificate::from_pem(pem)
             .map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
-        let client = reqwest::blocking::Client::builder()
+        let client = Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .add_root_certificate(certificate)
             .build()

@@ -2,7 +2,6 @@ pub mod adapters;
 pub mod domain;
 pub mod agent;
 pub mod agent_access;
-pub mod agent_host;
 pub mod agent_matrix;
 pub mod agent_runtime;
 pub mod bootstrap_chain;
