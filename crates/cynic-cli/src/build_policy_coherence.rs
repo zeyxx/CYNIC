@@ -12,7 +12,7 @@
 //! four synchronized edits that can silently drift apart.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 

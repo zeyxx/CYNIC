@@ -15,6 +15,7 @@
 pub mod adapters;
 pub mod build;
 pub mod build_artefact;
+pub mod builder_client;
 pub mod build_discovery;
 pub mod build_discovery_recipe;
 pub mod build_node;
@@ -35,6 +36,7 @@ pub mod types;
 pub use adapters::{MemFilesystem, OsIdentity, StdFilesystem};
 pub use build::*;
 pub use build_artefact::*;
+pub use builder_client::*;
 pub use build_discovery::*;
 pub use build_discovery_recipe::*;
 pub use build_node::*;

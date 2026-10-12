@@ -4,9 +4,8 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
-use cynic_secrets::{OsCredentialStoreSecretProvider, SecretProviderPort, SecretReference};
 use cynic_vcs::pull_request::{PrPort, evaluate_pr_admission};
-use cynic_vcs_forgejo::pull_request::ForgejoPrAdapter;
+use cynic_vcs_forgejo::forgejo_pr_port_from_registry;
 
 mod release_deployment_cli;
 mod sync_coherence;
@@ -18,100 +17,12 @@ use worktree_allocation::execute_allocate_worktree;
 /// Read vcs_provider.sovereign_ssot from infra/registry.json and return
 /// a boxed PrPort. Fails closed — returns Err if registry is unreadable or
 /// provider kind is unknown.
-/// Resolve the sovereign VCS token from the environment, the principal
-/// secret file, or the OS keyring — in that order. Pure over injected
-/// readers so the refusal path is unit tested: a missing token must fail
-/// HERE with a message naming all three sources, never travel to the API
-/// as an anonymous call that Forgejo answers with a cryptic 404/400
-/// (observed 2026-10-06).
-fn resolve_vcs_token(
-    token_env: &str,
-    token_file: &str,
-    keyring_id: &str,
-    read_env: impl Fn(&str) -> Option<String>,
-    read_file: impl Fn(&str) -> Option<String>,
-    read_keyring: impl Fn(&str) -> Option<String>,
-) -> Result<String, String> {
-    if let Some(value) = read_env(token_env).filter(|v| !v.is_empty()) {
-        return Ok(value);
-    }
-    if let Some(value) = read_file(token_file)
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-    {
-        return Ok(value);
-    }
-    if let Some(value) = read_keyring(keyring_id).filter(|v| !v.is_empty()) {
-        return Ok(value);
-    }
-    Err(format!(
-        "no sovereign VCS token: env {token_env} is unset, secret file {token_file} is unreadable, and OS keyring id {keyring_id} is absent; refusing anonymous API call"
-    ))
-}
-
+///
+/// The registry read, SSOT lookup, token resolution (environment →
+/// principal file → OS keyring) and adapter construction all live in
+/// `cynic-vcs-forgejo`; this surface only delegates.
 fn pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, String> {
-    let reg_path = root.join("infra/registry.json");
-    let raw = std::fs::read_to_string(&reg_path)
-        .map_err(|e| format!("registry unreadable at {}: {e}", reg_path.display()))?;
-    let reg: serde_json::Value =
-        serde_json::from_str(&raw).map_err(|e| format!("registry invalid JSON: {e}"))?;
-
-    let ssot = find_ssot_in_registry(&reg)
-        .ok_or_else(|| {
-            // Emit the actual keys found at /nodes to help diagnose evolution
-            let nodes_len = reg.pointer("/nodes")
-                .and_then(|v| v.as_array())
-                .map(|a| a.len())
-                .unwrap_or(0);
-            format!(
-                "vcs_provider.sovereign_ssot not found in registry (nodes count: {nodes_len}, \
-                 tried paths: /nodes/4/source_workspace_layout/..., /nodes/0/..., /source_lifecycle/...)"
-            )
-        })?;
-
-    let kind = ssot["kind"].as_str().unwrap_or("forgejo");
-    let api_url = ssot["api_url"]
-        .as_str()
-        .unwrap_or("http://forgejo.service.cynic:3000");
-    let owner = ssot["owner"].as_str().unwrap_or("jeanterre13");
-    let repo = ssot["repo"].as_str().unwrap_or("CYNIC");
-    let token_env = ssot["token_env"].as_str().unwrap_or("FORGEJO_TOKEN");
-    let token_file = ssot["token_file"]
-        .as_str()
-        .unwrap_or("/etc/cynic/secrets/forgejo-token");
-
-    // Keyring id mirrors the principal file name (forgejo-token), same
-    // convention as the headscale migration: file and keyring address the
-    // same secret id in different backends.
-    let keyring_id = "forgejo-token";
-    let keyring = OsCredentialStoreSecretProvider::default();
-    let token = resolve_vcs_token(
-        token_env,
-        token_file,
-        keyring_id,
-        |name| std::env::var(name).ok(),
-        |path| std::fs::read_to_string(path).ok(),
-        |id| {
-            keyring.resolve(&SecretReference::with_class(
-                "forgejo",
-                id,
-                cynic_secrets::SecretClass::RuntimeMachineIdentity,
-                cynic_secrets::SecretProviderKind::OsCredentialStore,
-            ))
-        },
-    )?;
-
-    match kind {
-        "forgejo" => Ok(Box::new(ForgejoPrAdapter::new(
-            api_url.to_string(),
-            owner.to_string(),
-            repo.to_string(),
-            Some(token),
-        ))),
-        other => Err(format!(
-            "unknown vcs_provider kind '{other}' — only 'forgejo' is implemented"
-        )),
-    }
+    forgejo_pr_port_from_registry(root)
 }
 
 #[derive(Debug, Subcommand)]
@@ -216,27 +127,6 @@ struct SourceExit {
     summary: String,
 }
 
-/// The SHA of the commit currently checked out, or None when git cannot answer.
-///
-/// None is not an error to swallow: it means no commit can be looked up, so no
-/// proof can exist for it, and the release gate treats that as NeverTested.
-fn observed_head_sha(root: &Path) -> Option<String> {
-    let output = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(root)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if sha.is_empty() {
-        None
-    } else {
-        Some(sha)
-    }
-}
-
 /// Read the proof log and reduce it to the builder's verdict on one commit.
 ///
 /// The MOST RECENT proof for the commit is authoritative: a commit that was
@@ -258,44 +148,7 @@ fn observe_build_proof(sha: &str) -> cynic_release::build_proof::BuildProofObser
         Ok(reading) => reading,
         Err(_) => return BuildProofObservation::NeverTested,
     };
-    if proofs.is_empty() {
-        // A log with unparseable lines and no matching proof is Unreadable:
-        // the absence may be an artefact of the corruption, not a real absence.
-        if !skipped.is_empty() {
-            return BuildProofObservation::Unreadable {
-                skipped_lines: skipped.len(),
-            };
-        }
-        return BuildProofObservation::NeverTested;
-    }
-
-    // Newest last, per the reader's contract.
-    let newest = proofs.last().expect("non-empty checked above");
-    let node = newest
-        .get("node")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let status = newest
-        .get("status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
-    match status {
-        "converged" => BuildProofObservation::Converged { node },
-        "blocked" => BuildProofObservation::Blocked {
-            node,
-            reason: newest
-                .get("verdict_reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or("no reason recorded")
-                .to_string(),
-        },
-        // A status this build does not know how to interpret is not a pass.
-        other => BuildProofObservation::UnknownStatus {
-            node,
-            status: other.to_string(),
-        },
-    }
+    cynic_release::reduce_newest_proof(&proofs, skipped.len())
 }
 
 pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
@@ -488,7 +341,7 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     // Four outcomes, three of them blocking — Converged, Blocked, NeverTested,
     // Unreadable — and they are deliberately kept distinct: "not validated" and
     // "evidence unreadable" call for different operator action.
-    let head_sha = observed_head_sha(root);
+    let head_sha = cynic_vcs::observe_head_sha(root);
     let build_observation = match head_sha.as_deref() {
         Some(sha) => observe_build_proof(sha),
         // HEAD unreadable: no commit to look up, so no proof exists for it.
@@ -588,95 +441,25 @@ fn execute_release(root: &Path, _dry_run: bool, apply: bool, json: bool) -> Exit
     }
 }
 fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool) -> ExitCode {
-    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let ws_store_canonical = if workspace_store.exists() {
-        workspace_store.to_path_buf()
-    } else {
-        let home_ws = std::env::var_os("HOME")
-            .map(|h| std::path::PathBuf::from(h).join(".workspace"))
-            .unwrap_or_default();
-        if home_ws.exists() {
-            home_ws
-        } else {
-            workspace_store.to_path_buf()
-        }
-    };
-
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let inventory = cynic_vcs::observe_source_worktree_inventory(
-        root,
-        &ws_store_canonical,
-        "cynic",
-        "local",
-        &cynic_host::adapters::vcs_runner::LocalVcsRunner,
-        now_ms,
-    );
-    let head_sha = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(&root_canonical)
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "HEAD".to_string());
-
+    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let (head_sha, snapshots) =
+        cynic_vcs::source_worktree_cli::observe_worktree_convergence_snapshots(
+            root,
+            workspace_store,
+            &runner,
+            now_ms,
+        );
+    let root_canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let default_branch = "main".to_string();
-    let mut snapshots = Vec::new();
-    for entry in &inventory.entries {
-        let is_active_root = entry.path_basis
-            == cynic_vcs::SourceWorktreeInventoryPathBasis::MainRepository
-            || entry.relative_path.as_deref() == Some(".")
-            || entry.relative_path.as_deref() == Some("")
-            || entry.candidate_id == "cynic";
-
-        let path = if is_active_root {
-            root_canonical.clone()
-        } else {
-            entry
-                .relative_path
-                .as_deref()
-                .map(|r| ws_store_canonical.join(r))
-                .unwrap_or_else(|| std::path::PathBuf::from(&entry.candidate_id))
-        };
-
-        let branch = entry
-            .branch
-            .as_deref()
-            .map(|b| b.strip_prefix("refs/heads/").unwrap_or(b).to_string());
-
-        let dirty_file_count = if path.exists() {
-            std::process::Command::new("git")
-                .args(["-C", &path.to_string_lossy(), "status", "--short"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
-                .unwrap_or(0)
-        } else {
-            0
-        };
-
-        snapshots.push(cynic_vcs::source_worktree::ObservedWorktreeSnapshot {
-            path,
-            branch,
-            head_sha: entry.head.clone().unwrap_or_default(),
-            is_active_root,
-            dirty_file_count,
-            git_prunable: entry.git_prunable == Some(true)
-                || entry.state == cynic_vcs::SourceWorktreeInventoryEntryState::Malformed,
-            prunable_reason: entry.prunable_reason.clone(),
-        });
-    }
-
-    let plan = cynic_vcs::source_worktree::reconcile_worktree_convergence_pure(
-        root_canonical.clone(),
-        &default_branch,
-        &head_sha,
+    let plan = cynic_vcs::source_worktree_cli::plan_worktree_convergence(
+        root_canonical,
+        default_branch.clone(),
+        head_sha.clone(),
         &snapshots,
-        &[],
     );
 
     if apply {
@@ -815,27 +598,6 @@ fn execute_worktree(root: &Path, workspace_store: &Path, apply: bool, json: bool
     }
 }
 
-/// Lookup the JSON pointer for the vcs_provider block,
-/// dynamically scanning across nodes to be resilient to registry schema evolution.
-fn find_ssot_in_registry(reg: &serde_json::Value) -> Option<&serde_json::Value> {
-    if let Some(nodes) = reg.get("nodes").and_then(|n| n.as_array()) {
-        for node in nodes {
-            if let Some(ssot) = node.pointer("/source_workspace_layout/vcs_provider/sovereign_ssot")
-            {
-                return Some(ssot);
-            }
-            if let Some(ssot) = node.pointer("/source_lifecycle/vcs_provider/sovereign_ssot") {
-                return Some(ssot);
-            }
-        }
-    }
-    let top_candidates = [
-        "/source_lifecycle/vcs_provider/sovereign_ssot",
-        "/vcs_provider/sovereign_ssot",
-    ];
-    top_candidates.iter().find_map(|ptr| reg.pointer(ptr))
-}
-
 #[derive(Debug, Subcommand)]
 pub(crate) enum PrCommand {
     /// List open pull requests from the sovereign VCS provider.
@@ -943,21 +705,14 @@ fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                 }
             };
 
-            // Gate evaluation — builder check proxied via cynic audit.
-            // NOTE: the subcommand is `audit crate` (singular). A past
-            // rename left this gate invoking a dead `audit crates` name,
-            // which failed closed on every merge (observed 2026-10-07).
-            let builder_ok = {
-                let audit_output = std::process::Command::new(
-                    std::env::current_exe().unwrap_or_else(|_| "cynic".into()),
-                )
-                .args(["audit", "crate", "--json"])
-                .output();
-                match audit_output {
-                    Ok(o) => o.status.success(),
-                    Err(_) => false,
-                }
-            };
+            // Gate evaluation — the crate audit runs in-process through the
+            // shared `crate_audit` module (the same code path as the
+            // `cynic audit crate` binary command). Spawning a child process
+            // per merge was both an I/O anti-pattern and a robustness bug:
+            // a dead or renamed subcommand would fail closed on every merge
+            // (observed 2026-10-07).
+            let audit_report = crate::crate_audit::audit_core_crates();
+            let builder_ok = audit_report.blocked_count == 0;
 
             let admission = evaluate_pr_admission(pr, builder_ok, true);
 
@@ -1014,41 +769,16 @@ fn execute_publish(root: &Path, json: bool) -> ExitCode {
         }
     };
 
-    let output = match std::process::Command::new("git")
-        .args(["ls-files", "-z"])
-        .current_dir(root)
-        .output()
-    {
-        Ok(o) => o,
+    let runner = cynic_host::adapters::vcs_runner::LocalVcsRunner;
+    let (tracked, files) = match cynic_vcs::source_worktree_cli::observe_publication_inputs(
+        root, &contract, &runner,
+    ) {
+        Ok(inputs) => inputs,
         Err(e) => {
-            eprintln!("blocked: git ls-files failed: {e}");
+            eprintln!("blocked: {e}");
             return ExitCode::FAILURE;
         }
     };
-    if !output.status.success() {
-        eprintln!("blocked: git ls-files exited non-zero");
-        return ExitCode::FAILURE;
-    }
-    let tracked: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .split('\0')
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-        .collect();
-
-    // Read the bytes of every path the contract publishes so the plan can report
-    // private literals no redaction covers. Non-UTF-8 files are read lossily:
-    // the plan's job is to surface literals, not to preserve bytes.
-    let mut files: Vec<(String, String)> = Vec::new();
-    for path in &tracked {
-        if contract
-            .rule_for(path)
-            .is_some_and(|r| r.status.is_published())
-        {
-            if let Ok(bytes) = std::fs::read(root.join(path)) {
-                files.push((path.clone(), String::from_utf8_lossy(&bytes).to_string()));
-            }
-        }
-    }
 
     let plan = cynic_vcs::plan_publication(&contract, &tracked, &files);
     let admitted = plan.is_admitted();
@@ -1095,8 +825,6 @@ fn execute_publish(root: &Path, json: bool) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_vcs_token;
-
     #[test]
     fn cli_source_surface_builds() {
         let cmd = super::SourceCommand::Status {
@@ -1104,63 +832,5 @@ mod tests {
             json: false,
         };
         let _ = super::execute_source(cmd);
-    }
-
-    #[test]
-    fn token_prefers_env_over_file() {
-        let got = resolve_vcs_token(
-            "FORGEJO_TOKEN",
-            "/nonexistent",
-            "forgejo-token",
-            |_| Some("env-token".to_string()),
-            |_| Some("file-token".to_string()),
-            |_| Some("keyring-token".to_string()),
-        );
-        assert_eq!(got, Ok("env-token".to_string()));
-    }
-
-    #[test]
-    fn token_falls_back_to_file() {
-        let got = resolve_vcs_token(
-            "FORGEJO_TOKEN",
-            "/etc/cynic/secrets/forgejo-token",
-            "forgejo-token",
-            |_| None,
-            |_| Some("  file-token\n".to_string()),
-            |_| Some("keyring-token".to_string()),
-        );
-        assert_eq!(got, Ok("file-token".to_string()));
-    }
-
-    #[test]
-    fn token_falls_back_to_keyring() {
-        let got = resolve_vcs_token(
-            "FORGEJO_TOKEN",
-            "/etc/cynic/secrets/forgejo-token",
-            "forgejo-token",
-            |_| None,
-            |_| None,
-            |_| Some("keyring-token".to_string()),
-        );
-        assert_eq!(got, Ok("keyring-token".to_string()));
-    }
-
-    #[test]
-    fn missing_token_fails_closed_naming_all_sources() {
-        let err = resolve_vcs_token(
-            "FORGEJO_TOKEN",
-            "/etc/cynic/secrets/forgejo-token",
-            "forgejo-token",
-            |_| None,
-            |_| None,
-            |_| None,
-        )
-        .expect_err("must refuse anonymous API call");
-        assert!(err.contains("FORGEJO_TOKEN"), "names env source: {err}");
-        assert!(
-            err.contains("/etc/cynic/secrets/forgejo-token"),
-            "names file source: {err}"
-        );
-        assert!(err.contains("forgejo-token"), "names keyring id: {err}");
     }
 }
