@@ -462,11 +462,11 @@ fn kernel_domain_must_not_reexport_inference_or_embedding_law() {
 
     let inference_lib = read_repo_file("crates/cynic-inference/src/lib.rs");
     let inference_embedding = read_repo_file("crates/cynic-inference/src/embedding.rs");
-    let inference_inference = read_repo_file("crates/cynic-inference/src/inference.rs");
+    let inference_domain = read_repo_file("crates/cynic-inference/src/domain/inference.rs");
     assert!(
         inference_lib.contains("pub mod domain;")
             && inference_embedding.contains("pub use crate::domain::embedding")
-            && inference_inference.contains("pub use crate::domain::inference"),
+            && inference_domain.contains("pub enum BackendStatus"),
         "cynic-inference must remain the public owner for embedding and inference law"
     );
 }
