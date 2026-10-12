@@ -24,7 +24,6 @@ toml.workspace = true
 # enables TLS (feature unification); compiled alone, cynic-proxmox must ask
 # for it explicitly.
 reqwest = { workspace = true, features = ["rustls"] }
-tokio.workspace = true
 ed25519-dalek.workspace = true
 
 [lints]

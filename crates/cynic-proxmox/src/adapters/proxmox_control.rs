@@ -519,7 +519,7 @@ impl ProxmoxControlAdapter {
             format!("/api2/json/nodes/{node}/qemu/{vmid}/agent/exec-status?pid={pid}");
         let started = Instant::now();
         while started.elapsed() < timeout.max(Duration::from_secs(1)) {
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            std::thread::sleep(Duration::from_millis(500));
             let status = self.get_json(&status_path).await?;
             if status["data"]["exited"].as_i64() == Some(1) {
                 return Ok(json!({
