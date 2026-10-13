@@ -272,7 +272,7 @@ ssh root@10.10.10.119 "cd /var/lib/cynic/source/repositories/CYNIC && make check
 Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_rag.v1`):
 
 - [x] **11.1 Substrate Ingestion & Cache**: Persistent cache (`corpus_cache.json`) + Git-diff incremental ingestion.
-- [ ] **11.2 Rust Code AST Ingestion**: Extract structs, enums, functions from `crates/*/src` into knowledge matrix.
+- [x] **11.2 Rust Code AST Ingestion**: Extract structs, enums, functions from `crates/*/src` into knowledge matrix.
 - [ ] **11.3 Graph-RAG Traversal**: Link chunks to parent contracts via `KnowledgeGraph` dependency edges.
 - [ ] **11.4 Matrix Re-Ranking**: Score chunks by BM25 × Authority Boost × Layer Boost × Git Freshness.
 - [ ] **11.5 Hybrid Retrieval (RRF)**: Reciprocal Rank Fusion combining BM25 and dense local embeddings.

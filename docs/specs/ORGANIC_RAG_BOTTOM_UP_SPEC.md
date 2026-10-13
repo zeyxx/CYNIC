@@ -40,7 +40,7 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
   - Fast-path verification: compare repository commit SHA / file mtimes.
   - If unmodified: load cached index in $< 5\text{ ms}$.
   - If modified: selectively chunk and index only changed files (`git diff --name-only`).
-- [ ] **1.3 Rust Code AST Chunking (Beyond Markdown):**
+- [x] **1.3 Rust Code AST Chunking (Beyond Markdown):**
   - Extract public structs, enums, functions, and docstrings from `crates/*/src` via Tree-sitter / syn.
   - Map code symbols to owning crate layer ($L_0$ to $L_4$).
 
