@@ -380,7 +380,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         })
                         .or_else(|| {
                             std::fs::read_to_string(
-                                cynic_types::CynicPaths::system_root().join("llama-api-key"),
+                                cynic_types::CynicPaths::system_config_dir().join("llama-api-key"),
                             )
                             .ok()
                         })
