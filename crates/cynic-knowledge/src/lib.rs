@@ -2,12 +2,14 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
-    GitExtractError, extract_git_history, load_workspace_geometry, parse_document_tree,
-    parse_git_log_output, parse_json_contract, parse_markdown_tree,
+    GitExtractError, extract_git_history, load_corpus_cache, load_workspace_geometry,
+    parse_document_tree, parse_git_log_output, parse_json_contract, parse_markdown_tree,
+    save_corpus_cache, sync_workspace_corpus,
 };
 pub use domain::{
-    AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CitedSource, CodeBlock,
-    CorpusManifest, CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
+    AuthorityTier, BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1,
+    CachedFileRecord, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
+    CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
     GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
     LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
     SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
