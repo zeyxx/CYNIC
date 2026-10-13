@@ -10,7 +10,6 @@ pub mod ports;
 pub mod progress;
 
 // Convenience re-exports
-pub use cynic_huggingface::HfCliAdapter;
 pub use adapters::inference::http_chat_client::HttpOpenAiChatClient;
 pub use adapters::local::{
     FsChatSessionStore, FsHardwareProbe, FsLocalModelInventory, FsModelStore,
@@ -33,9 +32,8 @@ pub use application::chat_endpoint::{
     resolve_chat_endpoint, resolve_chat_model_id,
 };
 pub use application::chat_service::{
-    ChatCompletionClient, ChatService, ChatServiceConfig, ChatServiceError,
-    ChatTurnReport, CompletionOutcome, InferenceReadyReport, ToolCallRequest,
-    ToolInvoker,
+    ChatCompletionClient, ChatService, ChatServiceConfig, ChatServiceError, ChatTurnReport,
+    CompletionOutcome, InferenceReadyReport, ToolCallRequest, ToolInvoker,
 };
 pub use application::chat_support::{BuiltinToolInvoker, MockChatClient, default_tool_specs};
 pub use application::hf_discovery::{HfDiscoveryService, HfDownloadCommand};
@@ -57,6 +55,7 @@ pub use application::vault_consolidate::{
 };
 pub use config_loader::load_inference_config_from_path_public;
 pub use config_loader::{InferenceConfigError, LoadedInferenceConfig, load_inference_config};
+pub use cynic_huggingface::HfCliAdapter;
 
 // Domain (pure types)
 pub use domain::backend_config::InferenceBackendConfig;
@@ -69,11 +68,15 @@ pub use domain::local_runtime::LocalRuntimeState;
 pub use domain::local_runtime::{
     LocalModelInventory, LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeStatus,
 };
+pub use domain::memory_admission::{
+    MemoryAdmissionVerdict, MemoryFootprintEstimate, evaluate_memory_admission,
+};
 pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeResponse};
 pub use domain::token_entropy::{
-    TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel, TokenUncertaintyParams,
-    assess_token_uncertainty, token_entropy_from_logits, token_entropy_from_probabilities,
+    TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel,
+    TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
+    token_entropy_from_probabilities,
 };
 
 // Infrastructure (I/O primitives)
@@ -91,17 +94,17 @@ pub use infra::principal_paths::{PathAuthority, PrincipalPaths};
 pub use infra::runtime_plan::{EnginePlugins, RuntimeLaunchPlan};
 
 // Ports
-pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use cynic_huggingface::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit,
     HfSearchReport, HfSearchRequest,
 };
+pub use ports::chat_session_port::{ChatSessionStore, SessionStoreError};
 pub use ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
-pub use ports::token_entropy_port::TokenEntropyPort;
 pub use ports::model_publisher_port::{ModelPublisherPort, NormalisedModel, PublishResult};
 pub use ports::model_store_port::ModelStorePort;
+pub use ports::token_entropy_port::TokenEntropyPort;
 
 // Misc
 pub use math::roofline::assess_roofline;
