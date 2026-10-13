@@ -9,11 +9,11 @@ pub use adapters::{
 pub use domain::{
     AuthorityTier, BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1,
     CachedFileRecord, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
-    CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
-    GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
-    LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
+    CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
+    DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
+    KnowledgeGraph, LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
     SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
-    expand_hits_with_graph,
+    expand_hits_with_graph, fuse_reciprocal_ranks,
 };
 
 use std::path::Path;
