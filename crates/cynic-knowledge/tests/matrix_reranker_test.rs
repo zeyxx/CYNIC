@@ -8,7 +8,7 @@ fn test_matrix_reranker_constitutional_supremacy() {
         1,
         15,
         vec!["CLI".into(), "Main".into()],
-        "fn execute_runtime() { check_sovereignty(); verify_admission(); }".into(),
+        "fn execute_runtime() { check(); sovereignty(); admission(); }".into(),
         AuthorityTier::L3Operation,
     );
 
