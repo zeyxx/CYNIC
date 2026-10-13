@@ -167,7 +167,7 @@ impl PorkbunRegistrar {
                     message: wrapper.message.unwrap_or_default(),
                 });
             }
-            wrapper.data.unwrap().ok_or_else(|| PorkbunError::ApiError {
+            wrapper.data.ok_or_else(|| PorkbunError::ApiError {
                 status: 0,
                 message: "missing data".to_owned(),
             })
@@ -192,7 +192,7 @@ impl PorkbunRegistrar {
                     message: wrapper.message.unwrap_or_default(),
                 });
             }
-            wrapper.data.unwrap().ok_or_else(|| PorkbunError::ApiError {
+            wrapper.data.ok_or_else(|| PorkbunError::ApiError {
                 status: 0,
                 message: "missing data".to_owned(),
             })
