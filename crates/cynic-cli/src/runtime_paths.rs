@@ -464,7 +464,10 @@ mod tests {
         );
         assert_eq!(
             resolved.dns_hosts_path,
-            PathBuf::from(format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME))
+            PathBuf::from(format!(
+                "/etc/coredns/{}",
+                cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME
+            ))
         );
     }
 
@@ -559,9 +562,20 @@ mod tests {
         assert_eq!(resolved.sudoers_dir, PathBuf::from("/etc/sudoers.d"));
         assert!(
             resolved.dns_service_path
-                == PathBuf::from(format!("/etc/systemd/system/coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
+                == PathBuf::from(format!(
+                    "/etc/systemd/system/coredns-{}.service",
+                    SERVICE_DNS_SERVICE_FILENAME
+                ))
                 || resolved.dns_service_path
-                    == PathBuf::from(format!("/etc/systemd/system/cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
+                    == PathBuf::from(format!(
+                        "/etc/systemd/system/cynic-dns-{}.service",
+                        SERVICE_DNS_SERVICE_FILENAME
+                    ))
+                || resolved.dns_service_path
+                    == PathBuf::from(format!(
+                        "/etc/systemd/system/{}.service",
+                        SERVICE_DNS_SERVICE_FILENAME
+                    ))
         );
     }
 

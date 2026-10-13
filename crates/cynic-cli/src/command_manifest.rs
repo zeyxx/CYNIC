@@ -147,9 +147,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "mcp",
-                commands: vec![
-                    "cynic mcp serve",
-                ],
+                commands: vec!["cynic mcp serve"],
             },
             CommandDomain {
                 name: "daemon",
@@ -322,6 +320,12 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic chat --model <alias|id> --mock --json # model-aware TUI boot / promptless control",
                     "cynic chat --list-sessions [--json]",
                     "cynic chat --export <session-id> [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "know",
+                commands: vec![
+                    "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
                 ],
             },
         ],
