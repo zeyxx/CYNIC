@@ -352,14 +352,16 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         {"role": "system", "content": synthesis_prompt.system_instruction},
                         {"role": "user", "content": synthesis_prompt.user_prompt}
                     ],
-                    "temperature": 0.1
+                    "temperature": 0.0,
+                    "max_tokens": 300
                 });
 
                 let mut answer_text = None;
                 let mut duration_ms = 0u128;
+                let mut error_msg = None;
                 tokio::task::block_in_place(|| {
                     let client = reqwest::blocking::Client::builder()
-                        .timeout(std::time::Duration::from_secs(20))
+                        .timeout(std::time::Duration::from_secs(90))
                         .build();
 
                     // Resolve API key from env or canonical CynicPaths
@@ -385,16 +387,23 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                             req = req.header("Authorization", format!("Bearer {}", key));
                         }
                         let start = std::time::Instant::now();
-                        if let Ok(resp) = req.send() {
-                            duration_ms = start.elapsed().as_millis();
-                            if resp.status().is_success() {
-                                if let Ok(body) = resp.json::<serde_json::Value>() {
-                                    if let Some(content) =
-                                        body["choices"][0]["message"]["content"].as_str()
-                                    {
-                                        answer_text = Some(content.to_string());
+                        match req.send() {
+                            Ok(resp) => {
+                                duration_ms = start.elapsed().as_millis();
+                                if resp.status().is_success() {
+                                    if let Ok(body) = resp.json::<serde_json::Value>() {
+                                        if let Some(content) =
+                                            body["choices"][0]["message"]["content"].as_str()
+                                        {
+                                            answer_text = Some(content.to_string());
+                                        }
                                     }
+                                } else {
+                                    error_msg = Some(format!("HTTP {}", resp.status().as_u16()));
                                 }
+                            }
+                            Err(e) => {
+                                error_msg = Some(format!("Connection error: {}", e));
                             }
                         }
                     }
@@ -436,9 +445,11 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                             );
                         }
                         None => {
+                            let err_suffix =
+                                error_msg.map(|e| format!(" ({})", e)).unwrap_or_default();
                             println!(
-                                "\n[!] Serveur d'inférence ({}) injoignable ou hors-ligne.",
-                                target_endpoint
+                                "\n[!] Serveur d'inférence ({}) injoignable ou en erreur{}.",
+                                target_endpoint, err_suffix
                             );
                             println!(
                                 "    Pour exécuter avec un agent, utilisez l'option `--prompt-only`."
