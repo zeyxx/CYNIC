@@ -18,7 +18,7 @@ fn test_matrix_reranker_constitutional_supremacy() {
         1,
         25,
         vec!["Constitution".into(), "Power Division".into()],
-        "Sovereign invariant: check sovereignty before admitting any workload.".into(),
+        "Sovereign invariant: check sovereignty before admission of any workload.".into(),
         AuthorityTier::L0Constitution,
     );
 
