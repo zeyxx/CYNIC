@@ -385,13 +385,15 @@ impl CloudflareDnsPort for CloudflareClient {
             jump_start: false,
         };
 
+        let http = self.http.clone();
+        let payload = payload.clone();
         let resp: CfResponse<CfZone> =
-            match tokio::task::block_in_place(|| self.http.post(&url).json(&payload).send()) {
-                Ok(r) => match r.json() {
-                    Ok(data) => data,
+            match std::thread::spawn(move || http.post(&url).json(&payload).send()) {
+                Ok(Ok(r)) => match r.json() {
+                    Ok(d) => d,
                     Err(_) => return String::new(),
                 },
-                Err(_) => return String::new(),
+                _ => return String::new(),
             };
 
         if !resp.success {
