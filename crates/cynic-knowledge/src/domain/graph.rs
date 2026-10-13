@@ -96,7 +96,7 @@ impl KnowledgeGraph {
                             source: doc.source_path.clone(),
                             target: target_clean,
                             kind: KnowledgeEdgeKind::CitesDocument,
-                            label: Some(link.label),
+                            label: Some(link.label.clone()),
                         });
                     }
                     None => {
