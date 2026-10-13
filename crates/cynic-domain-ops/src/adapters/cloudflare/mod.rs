@@ -170,12 +170,9 @@ impl CloudflareClient {
     /// Find the Cloudflare zone ID for a domain.
     fn find_zone_id(&self, zone: &str) -> Option<String> {
         let url = format!("{CF_API_BASE}/zones?name={zone}&status=active");
-        let resp: CfResponse<Vec<CfZone>> = self
-            .http
-            .get(&url)
-            .send()
-            .ok()
-            .and_then(|r| r.json().ok())?;
+        let resp: CfResponse<Vec<CfZone>> = tokio::task::block_in_place(|| {
+            self.http.get(&url).send().ok().and_then(|r| r.json().ok())
+        })?;
         resp.result
             .and_then(|zones| zones.into_iter().next())
             .map(|z| z.id)
@@ -242,14 +239,14 @@ impl CloudflareClient {
     /// Query DoH for NS records of a domain.
     fn doh_query_ns(&self, domain: &str) -> Vec<String> {
         let url = format!("{DOH_ENDPOINT}?name={domain}&type=NS");
-        let resp: DohResponse = match self
-            .dns_resolver
-            .get(&url)
-            .header("Accept", "application/dns-json")
-            .send()
-            .ok()
-            .and_then(|r| r.json().ok())
-        {
+        let resp: DohResponse = match tokio::task::block_in_place(|| {
+            self.dns_resolver
+                .get(&url)
+                .header("Accept", "application/dns-json")
+                .send()
+                .ok()
+                .and_then(|r| r.json().ok())
+        }) {
             Some(r) => r,
             None => return Vec::new(),
         };
