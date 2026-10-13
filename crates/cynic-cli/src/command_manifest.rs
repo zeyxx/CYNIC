@@ -211,7 +211,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node host disk status [--json]",
                     "cynic node host disk clean [--apply] [--json]",
                     "cynic node host capacity [--json]",
-                    "cynic node compute provision --vmid <n> --hostname <name> --template-volid <volid> [--ip-cidr <cidr> --gateway <ip> --nameserver <ip> --features <flag>] [--apply --hypervisor <ssh-target>]",
+                    "cynic node compute provision --vmid <n> --hostname <name> --template-volid <volid> [--ip-cidr <cidr> --gateway <ip> --nameserver <ip> --features <flag>] [--node <name>] [--apply [--hypervisor <ssh-target>]]",
                 ],
             },
             CommandDomain {

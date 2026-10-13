@@ -14,9 +14,10 @@ use cynic_protocol::compute::{
 };
 use cynic_protocol::provider::{
     LXC_PROVISIONING_SCHEMA, LxcProvisioningSpec, NodeSubstrateAction, NodeSubstrateControlPort,
-    NodeSubstrateDesiredState, NodeSubstratePower, NodeSubstrateProvisioningSpec,
+    NodeSubstrateDesiredState, NodeSubstrateObservationPort, NodeSubstratePower,
+    NodeSubstrateProvisioningSpec,
 };
-use cynic_proxmox::adapters::ProxmoxSshSubstrateAdapter;
+use cynic_proxmox::adapters::{ProxmoxControlAdapter, ProxmoxSshSubstrateAdapter};
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -87,10 +88,14 @@ pub enum NodeComputeCommand {
         unprivileged: bool,
         #[arg(long, default_value_t = true)]
         onboot: bool,
-        /// Hypervisor SSH target resolved from the registry build-runner role
-        /// when omitted (never a hardcoded default).
+        /// Hypervisor SSH target used only when the REST API is unavailable
+        /// (breakglass fallback, never a hardcoded default).
         #[arg(long)]
         hypervisor: Option<String>,
+        /// Proxmox node name for the REST path. Auto-resolved when the
+        /// cluster exposes a single node.
+        #[arg(long)]
+        node: Option<String>,
         #[arg(long, default_value_t = false)]
         apply: bool,
     },
@@ -205,6 +210,7 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             unprivileged,
             onboot,
             hypervisor,
+            node,
             apply,
         } => {
             let lxc_spec = LxcProvisioningSpec {
@@ -259,12 +265,19 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 };
             }
 
-            // Apply path: execute the planned argv over SSH through the
-            // canonical substrate control port. The hypervisor SSH target is
-            // operator-supplied (no hardcoded IP).
+            // Apply path: REST first (canonical), SSH breakglass fallback.
+            // The REST executor posts the validated spec and polls the UPID
+            // task to completion; the SSH executor runs the pure planned argv.
+            // Both paths close with a read-back before reporting provisioned.
+            if let Ok(rest) = ProxmoxControlAdapter::from_env(std::time::Duration::from_secs(5)) {
+                return apply_provision_rest(rest, node, vmid, hostname, &desired).await;
+            }
+            eprintln!(
+                "REST API unavailable (endpoint/token/CA not configured), falling back to SSH breakglass"
+            );
             let Some(hypervisor) = hypervisor else {
                 eprintln!(
-                    "error: --apply requires --hypervisor <ssh-target> (no hardcoded default)"
+                    "error: REST unavailable and no --hypervisor <ssh-target> supplied (no hardcoded default)"
                 );
                 return ExitCode::FAILURE;
             };
@@ -277,24 +290,119 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 }
             };
             match adapter.apply_node_substrate_action(&desired, &NodeSubstrateAction::Provision) {
-                Ok(()) => {
-                    emit_json(
-                        &serde_json::json!({
-                            "schema": "cynic.node.compute.provision.v1",
-                            "status": "provisioned",
-                            "vmid": vmid,
-                            "hostname": hostname,
-                        }),
-                        false,
-                    );
-                    ExitCode::SUCCESS
-                }
+                Ok(()) => match adapter.observe_node_substrate(&desired) {
+                    Ok(observation) => {
+                        emit_json(
+                            &serde_json::json!({
+                                "schema": "cynic.node.compute.provision.v1",
+                                "status": "provisioned",
+                                "channel": "ssh_breakglass",
+                                "vmid": vmid,
+                                "hostname": hostname,
+                                "observed_existence": observation.existence,
+                                "observed_power": observation.power,
+                                "observation_authority": observation.observation_authority,
+                            }),
+                            false,
+                        );
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("error: provisioned but read-back failed: {e}");
+                        ExitCode::FAILURE
+                    }
+                },
                 Err(e) => {
                     eprintln!("error: lxc provisioning failed: {e}");
                     ExitCode::FAILURE
                 }
             }
         }
+    }
+}
+
+/// REST apply path: resolve the target node, provision through
+/// `ProxmoxControlAdapter::provision_lxc`, then read back the container
+/// config as existence proof. Fails closed at every step.
+async fn apply_provision_rest(
+    rest: ProxmoxControlAdapter,
+    node: Option<String>,
+    vmid: u32,
+    hostname: String,
+    desired: &NodeSubstrateDesiredState,
+) -> ExitCode {
+    let node = match node {
+        Some(node) => node,
+        None => match resolve_single_proxmox_node(&rest).await {
+            Ok(node) => node,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+    };
+    let Some(spec) = desired
+        .provisioning
+        .as_ref()
+        .and_then(|provisioning| provisioning.lxc.as_ref())
+    else {
+        eprintln!("error: lxc provisioning spec missing");
+        return ExitCode::FAILURE;
+    };
+    let provisioned = match rest
+        .provision_lxc(&node, vmid, spec, std::time::Duration::from_secs(180))
+        .await
+    {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("error: REST lxc provisioning failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match rest.lxc_config(&node, &vmid.to_string()).await {
+        Ok(_) => {
+            emit_json(
+                &serde_json::json!({
+                    "schema": "cynic.node.compute.provision.v1",
+                    "status": "provisioned",
+                    "channel": "rest",
+                    "vmid": vmid,
+                    "hostname": hostname,
+                    "node": node,
+                    "upid": provisioned["upid"],
+                }),
+                false,
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: provisioned but read-back failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Resolve the target Proxmox node from the cluster: exactly one node means
+/// that node, otherwise the operator must pass --node explicitly.
+async fn resolve_single_proxmox_node(rest: &ProxmoxControlAdapter) -> Result<String, String> {
+    let payload = rest
+        .nodes()
+        .await
+        .map_err(|e| format!("proxmox_nodes_unreachable:{e}"))?;
+    let nodes = payload
+        .get("data")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "proxmox_nodes_response_not_array".to_string())?;
+    let names: Vec<&str> = nodes
+        .iter()
+        .filter_map(|entry| entry.get("node").and_then(serde_json::Value::as_str))
+        .collect();
+    match names.as_slice() {
+        [single] => Ok(single.to_string()),
+        _ => Err(format!(
+            "ambiguous_proxmox_node ({} nodes): pass --node explicitly",
+            names.len()
+        )),
     }
 }
 

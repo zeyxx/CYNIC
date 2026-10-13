@@ -486,6 +486,113 @@ impl ProxmoxControlAdapter {
         .await
     }
 
+    /// Provision a Proxmox LXC container through the REST API.
+    ///
+    /// WHY: the substrate control port admits a `Provision` action and the
+    /// pure `lxc_provisioning` planner owns the validated parameters, but no
+    /// REST executor existed — every apply went through SSH + `pct`.
+    ///
+    /// HOW: single POST to `/nodes/{node}/lxc` with `start=1`, covering both
+    /// planned steps (`create_lxc_container`, `start_lxc_container`). The
+    /// returned UPID task is polled to completion; any non-OK exit status
+    /// fails closed. No password or SSH key is set: same posture as the
+    /// SSH/pct path, root access stays disabled until the operator
+    /// configures it inside the guest.
+    ///
+    /// NEGATIVE BOUNDARY: never reads files, never spawns processes, never
+    /// guesses task state — unknown task status is an error, not convergence.
+    pub async fn provision_lxc(
+        &self,
+        node: &str,
+        vmid: u32,
+        spec: &cynic_protocol::provider::LxcProvisioningSpec,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        let blockers = cynic_protocol::provider::validate_lxc_provisioning_spec(spec);
+        if !blockers.is_empty() {
+            return Err(format!(
+                "lxc_provisioning_spec_invalid:{}",
+                blockers.join(",")
+            ));
+        }
+        let mut net0 = format!("name=eth0,bridge={}", spec.bridge);
+        if let Some(ip_cidr) = spec.ip_cidr.as_deref() {
+            net0.push_str(&format!(",ip={ip_cidr}"));
+            if let Some(gateway) = spec.gateway.as_deref() {
+                net0.push_str(&format!(",gw={gateway}"));
+            }
+        } else {
+            net0.push_str(",ip=dhcp");
+        }
+        let mut form: Vec<(&str, String)> = vec![
+            ("vmid", vmid.to_string()),
+            ("ostemplate", spec.template_volid.clone()),
+            ("hostname", spec.hostname.clone()),
+            ("cores", spec.cores.to_string()),
+            ("memory", spec.memory_mib.to_string()),
+            ("swap", spec.swap_mib.to_string()),
+            ("rootfs", format!("{}:{}", spec.storage_pool, spec.disk_gib)),
+            ("net0", net0),
+            ("onboot", if spec.onboot { "1" } else { "0" }.to_string()),
+            (
+                "unprivileged",
+                if spec.unprivileged { "1" } else { "0" }.to_string(),
+            ),
+            ("start", "1".to_string()),
+        ];
+        if let Some(nameserver) = spec.nameserver.as_deref() {
+            form.push(("nameserver", nameserver.to_string()));
+        }
+        if !spec.features.is_empty() {
+            form.push(("features", spec.features.join(",")));
+        }
+        let payload = self
+            .post_form_json(&format!("/api2/json/nodes/{node}/lxc"), &form)
+            .await?;
+        let upid = payload["data"]
+            .as_str()
+            .ok_or_else(|| "Proxmox lxc create response omitted data.upid".to_string())?;
+        self.wait_for_task(node, upid, timeout).await?;
+        Ok(json!({
+            "status": "completed",
+            "provider": "proxmox_lxc",
+            "node": node,
+            "vmid": vmid,
+            "upid": upid,
+        }))
+    }
+
+    /// Poll a Proxmox UPID task until it stops. Returns Ok on `exitstatus`
+    /// `OK`, Err on any other exit status, unknown status shape, or timeout.
+    async fn wait_for_task(&self, node: &str, upid: &str, timeout: Duration) -> Result<(), String> {
+        let started = Instant::now();
+        loop {
+            let status = self.task_status(node, upid).await?;
+            match status["data"]["status"].as_str() {
+                Some("stopped") => {
+                    if status["data"]["exitstatus"].as_str() == Some("OK") {
+                        return Ok(());
+                    }
+                    return Err(format!(
+                        "Proxmox task {upid} failed: exitstatus={}",
+                        status["data"]["exitstatus"]
+                    ));
+                }
+                Some("running") => {}
+                other => {
+                    return Err(format!(
+                        "Proxmox task {upid} reported unknown status: {other:?}"
+                    ));
+                }
+            }
+            if started.elapsed() >= timeout.max(Duration::from_secs(1)) {
+                return Err(format!("Proxmox task {upid} timed out"));
+            }
+            std::thread::sleep(Duration::from_secs(1));
+        }
+    }
+
     pub async fn qemu_guest_exec(
         &self,
         node: &str,
