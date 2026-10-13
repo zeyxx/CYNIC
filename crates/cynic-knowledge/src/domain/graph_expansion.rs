@@ -6,12 +6,12 @@ use crate::domain::scorer::SearchHit;
 
 /// Expands a list of initial search hits by traversing the knowledge graph
 /// to retrieve relevant parent contracts and authoritative dependencies.
-pub fn expand_hits_with_graph(
-    hits: &[SearchHit],
+pub fn expand_hits_with_graph<'a>(
+    hits: &[SearchHit<'a>],
     graph: &KnowledgeGraph,
-    all_chunks_by_path: &HashMap<String, Vec<DocumentChunk>>,
+    all_chunks_by_path: &'a HashMap<String, Vec<DocumentChunk>>,
     max_expansion: usize,
-) -> Vec<SearchHit> {
+) -> Vec<SearchHit<'a>> {
     let mut expanded = hits.to_vec();
     if max_expansion == 0 || hits.is_empty() {
         return expanded;
@@ -59,13 +59,8 @@ pub fn expand_hits_with_graph(
             if let Some(chunks) = all_chunks_by_path.get(&target_path) {
                 // Pick the first chunk (overview / title section) of the linked document/contract
                 if let Some(first_chunk) = chunks.first() {
-                    let mut expanded_chunk = first_chunk.clone();
-                    expanded_chunk
-                        .section_hierarchy
-                        .insert(0, "Graph-Linked Context".to_string());
-
                     expanded.push(SearchHit {
-                        chunk: expanded_chunk,
+                        chunk: first_chunk,
                         score: 1.0, // Base baseline score for graph context
                     });
                     added_count += 1;
@@ -117,7 +112,7 @@ mod tests {
         chunks_by_path.insert("contracts/foundation.json".into(), vec![foundation_chunk]);
 
         let initial_hits = vec![SearchHit {
-            chunk: spec_chunk,
+            chunk: &spec_chunk,
             score: 5.0,
         }];
 
@@ -128,9 +123,5 @@ mod tests {
         assert_eq!(expanded[0].chunk.source_path, "docs/specs/test_spec.md");
         assert_eq!(expanded[1].chunk.source_path, "contracts/foundation.json");
         assert_eq!(expanded[1].chunk.authority, AuthorityTier::L0Constitution);
-        assert_eq!(
-            expanded[1].chunk.section_hierarchy[0],
-            "Graph-Linked Context"
-        );
     }
 }
