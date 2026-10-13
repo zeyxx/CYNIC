@@ -591,7 +591,7 @@ mod tests {
                 "/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"
             ),
             bundle_config_filename: "Corefile",
-            bundle_service_filename: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME,
         }
     }
 
@@ -619,7 +619,9 @@ mod tests {
         let unit = dns_systemd_unit_with_context(&context());
         let readme = dns_activation_readme_with_context(&context());
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
-        assert!(readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME)));
+        assert!(
+            readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME).as_str())
+        );
         assert!(readme.contains("storage.test.zone"));
     }
 

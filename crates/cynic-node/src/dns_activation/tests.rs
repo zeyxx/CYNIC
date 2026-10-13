@@ -111,7 +111,7 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
     .expect("spec");
 
     assert!(desired.blockers.iter().any(|blocker| blocker
-        == format!(
+        == &format!(
             "dns_activation_bundle_digest_mismatch:{}",
             cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME
         )));
