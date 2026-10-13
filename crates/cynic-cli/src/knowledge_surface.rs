@@ -352,9 +352,15 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else {
-                let target_endpoint = endpoint.unwrap_or_else(
+                let mut target_endpoint = endpoint.unwrap_or_else(
                     cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint,
                 );
+                if !target_endpoint.contains("/chat/completions") {
+                    if !target_endpoint.ends_with('/') {
+                        target_endpoint.push('/');
+                    }
+                    target_endpoint.push_str("v1/chat/completions");
+                }
 
                 if !json {
                     println!("=== CYNIC Knowledge Synthesis Oracle ===");
