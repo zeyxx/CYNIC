@@ -123,7 +123,11 @@ pub fn static_fallback_arches() -> Vec<&'static str> {
         "gemma",
         "starcoder",
         "qwen",
+        "qwen2",
+        "qwen35",
         "deepseek",
         "openelm",
+        "lfm",
+        "lfm2",
     ]
 }

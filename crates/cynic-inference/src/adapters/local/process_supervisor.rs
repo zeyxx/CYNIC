@@ -383,6 +383,28 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         crate::progress::progress("plan", "probe hardware + materialize runtime env");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
+
+        // Preflight Memory Admission Guard: prevent kernel OOM by validating
+        // Weights + KV Cache + Activations + 20% Safety Margin against observed physical available RAM.
+        let footprint = crate::domain::memory_admission::MemoryFootprintEstimate::estimate(
+            plan.model_size_bytes.unwrap_or(1_600 * 1024 * 1024),
+            plan.ctx_size,
+            4,
+            cynic_protocol::KvQuantization::Fp16,
+        );
+        let verdict = crate::domain::memory_admission::evaluate_memory_admission(
+            plan.hardware.available_ram_bytes,
+            &footprint,
+            512 * 1024 * 1024,
+        );
+        if !verdict.admitted {
+            let reason = verdict
+                .reason
+                .unwrap_or_else(|| "insufficient memory".into());
+            crate::progress::progress("memory_guard", format!("REJECTED: {reason}"));
+            return Err(LocalRuntimeError::Rejected(reason));
+        }
+
         let materialize = planner.materialize(&plan)?;
         crate::progress::progress("plan", format!("env={}", materialize.runtime_env));
 
