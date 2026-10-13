@@ -1,6 +1,7 @@
 //! Sovereign Memory Admission Guard for LLM Inference.
 //!
-//! Enforces physical memory constraints according to "GPU Memory Math for LLMs":
+//! Enforces physical memory constraints according to "GPU Memory Math for LLMs (2026 Edition)"
+//! by Ahmad Osman (https://x.com/TheAhmadOsman):
 //! VRAM/RAM required = Weights + KV Cache + Activations + Safety Margin (20%).
 //! On Unified Memory Architecture (UMA / APU), VRAM is shared with host RAM,
 //! meaning insufficient host RAM will trigger an OS kernel OOM-Killer.
