@@ -345,7 +345,28 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     cynic_knowledge::SynthesisPromptBuilder::resolve_local_inference_endpoint,
                 );
 
-                // Attempt local LLM call via reqwest
+                if !json {
+                    println!("=== CYNIC Knowledge Synthesis Oracle ===");
+                    println!("Question : {}", question);
+                    println!(
+                        "Sources  : {} chunks retenus",
+                        synthesis_prompt.sources.len()
+                    );
+                    for (i, s) in synthesis_prompt.sources.iter().enumerate() {
+                        println!(
+                            "  [{}] {}:{}-{} ({:?}, score: {:.2})",
+                            i + 1,
+                            s.source_path,
+                            s.line_start,
+                            s.line_end,
+                            s.authority,
+                            s.score
+                        );
+                    }
+                    println!("\n=== Synthèse Souveraine (Streaming) ===");
+                }
+
+                // Attempt local LLM call via reqwest with streaming
                 let payload = serde_json::json!({
                     "model": model,
                     "messages": [
@@ -353,13 +374,18 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         {"role": "user", "content": synthesis_prompt.user_prompt}
                     ],
                     "temperature": 0.0,
-                    "max_tokens": 600
+                    "max_tokens": 600,
+                    "stream": true
                 });
 
                 let mut answer_text = None;
                 let mut duration_ms = 0u128;
                 let mut error_msg = None;
+                let is_json = json;
+
                 tokio::task::block_in_place(|| {
+                    use std::io::{BufRead, BufReader, Write};
+
                     let client = reqwest::blocking::Client::builder()
                         .timeout(std::time::Duration::from_secs(90))
                         .build();
@@ -394,19 +420,50 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         let start = std::time::Instant::now();
                         match req.send() {
                             Ok(resp) => {
-                                duration_ms = start.elapsed().as_millis();
                                 if resp.status().is_success() {
-                                    if let Ok(body) = resp.json::<serde_json::Value>() {
-                                        let text = body["choices"][0]["message"]["content"]
-                                            .as_str()
-                                            .filter(|s| !s.trim().is_empty())
-                                            .or_else(|| {
-                                                body["choices"][0]["message"]["reasoning_content"]
-                                                    .as_str()
-                                            });
-                                        if let Some(content) = text {
-                                            answer_text = Some(content.to_string());
+                                    let mut accumulated = String::new();
+                                    let reader = BufReader::new(resp);
+                                    for line in reader.lines().map_while(Result::ok) {
+                                        let trimmed = line.trim();
+                                        if let Some(data) = trimmed.strip_prefix("data: ") {
+                                            if data == "[DONE]" {
+                                                break;
+                                            }
+                                            if let Ok(chunk) =
+                                                serde_json::from_str::<serde_json::Value>(data)
+                                            {
+                                                if let Some(delta) =
+                                                    chunk["choices"][0]["delta"].as_object()
+                                                {
+                                                    let tok = delta
+                                                        .get("content")
+                                                        .and_then(|v| v.as_str())
+                                                        .or_else(|| {
+                                                            delta
+                                                                .get("reasoning_content")
+                                                                .and_then(|v| v.as_str())
+                                                        })
+                                                        .unwrap_or_default();
+                                                    if !tok.is_empty() {
+                                                        if !is_json {
+                                                            print!("{}", tok);
+                                                            std::io::stdout().flush().ok();
+                                                        }
+                                                        accumulated.push_str(tok);
+                                                    }
+                                                }
+                                            }
                                         }
+                                    }
+                                    duration_ms = start.elapsed().as_millis();
+                                    if !accumulated.is_empty() {
+                                        if !is_json {
+                                            println!(
+                                                "\n\n[Temps d'inférence : {} ms]",
+                                                duration_ms
+                                            );
+                                        }
+                                        answer_text = Some(accumulated);
                                     }
                                 } else {
                                     error_msg = Some(format!("HTTP {}", resp.status().as_u16()));
@@ -429,42 +486,15 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     });
                     crate::emit_json(&out, false)
                 } else {
-                    println!("=== CYNIC Knowledge Synthesis Oracle ===");
-                    println!("Question : {}", question);
-                    println!(
-                        "Sources  : {} chunks retenus",
-                        synthesis_prompt.sources.len()
-                    );
-                    for (i, s) in synthesis_prompt.sources.iter().enumerate() {
+                    if answer_text.is_none() {
+                        let err_suffix = error_msg.map(|e| format!(" ({})", e)).unwrap_or_default();
                         println!(
-                            "  [{}] {}:{}-{} ({:?}, score: {:.2})",
-                            i + 1,
-                            s.source_path,
-                            s.line_start,
-                            s.line_end,
-                            s.authority,
-                            s.score
+                            "\n[!] Serveur d'inférence ({}) injoignable ou en erreur{}.",
+                            target_endpoint, err_suffix
                         );
-                    }
-
-                    match answer_text {
-                        Some(ans) => {
-                            println!(
-                                "\n=== Réponse Synthétisée ({} ms) ===\n{}",
-                                duration_ms, ans
-                            );
-                        }
-                        None => {
-                            let err_suffix =
-                                error_msg.map(|e| format!(" ({})", e)).unwrap_or_default();
-                            println!(
-                                "\n[!] Serveur d'inférence ({}) injoignable ou en erreur{}.",
-                                target_endpoint, err_suffix
-                            );
-                            println!(
-                                "    Pour exécuter avec un agent, utilisez l'option `--prompt-only`."
-                            );
-                        }
+                        println!(
+                            "    Pour exécuter avec un agent, utilisez l'option `--prompt-only`."
+                        );
                     }
                     ExitCode::SUCCESS
                 }
