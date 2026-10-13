@@ -315,6 +315,14 @@
           "cynic-lxc-embedding.service.cynic"
         ],
         "service": "10.10.10.106"
+      },
+      {
+        "name": "cynic-agent-host",
+        "dns": [
+          "agent-host.service.cynic",
+          "cynic-agent-host.service.cynic"
+        ],
+        "service": "10.10.10.102"
       }
     ]
   },
