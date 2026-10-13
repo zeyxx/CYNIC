@@ -386,7 +386,7 @@ impl CloudflareDnsPort for CloudflareClient {
         };
 
         let http = self.http.clone();
-        let payload = payload.clone();
+        let payload = payload;
         let resp: CfResponse<CfZone> =
             match std::thread::spawn(move || http.post(&url).json(&payload).send()) {
                 Ok(Ok(r)) => match r.json() {
