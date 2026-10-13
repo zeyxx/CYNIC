@@ -14,6 +14,11 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Audit workspace crate topology, layer rules (L0-L4), cycles, and declared edges.
+    Topology {
+        #[arg(long)]
+        json: bool,
+    },
     /// Scan repository for leaked credentials, tokens, or private keys.
     Secret {
         #[arg(long)]
@@ -151,8 +156,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // Projection only. The rule set, the extraction, and the existence
             // observation belong to cynic-audit-engine, which MCP and the
             // workspace audit already consume. A surface projects; it does not own.
-            let report =
-                cynic_audit_engine::run_path_audit(&crate::rust_source::workspace_root());
+            let report = cynic_audit_engine::run_path_audit(&crate::rust_source::workspace_root());
             let blocked = report.summary.status == "blocked";
             if *json {
                 emit_json(&report, blocked)
@@ -166,6 +170,46 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 if blocked {
                     ExitCode::FAILURE
                 } else {
+                    ExitCode::SUCCESS
+                }
+            }
+        }
+        AuditCommand::Topology { json } => {
+            let root = crate::rust_source::workspace_root();
+            let engine = cynic_audit_engine::run_workspace_audit(&root);
+            let topology_violations: Vec<_> = engine
+                .violations
+                .into_iter()
+                .filter(|v| v.code.starts_with("ARCH-004") || v.code.starts_with("ARCH-005"))
+                .collect();
+            let blocked = !topology_violations.is_empty();
+
+            if *json {
+                let payload = serde_json::json!({
+                    "schema": "cynic.cli.audit_topology.v1",
+                    "status": if blocked { "blocked" } else { "ok" },
+                    "violations_count": topology_violations.len(),
+                    "violations": topology_violations,
+                });
+                emit_json(&payload, blocked)
+            } else {
+                println!("=== CYNIC Workspace Topology Audit (ARCH-004 / ARCH-005) ===");
+                if blocked {
+                    println!(
+                        "Status: BLOCKED ({} violations found)",
+                        topology_violations.len()
+                    );
+                    for v in &topology_violations {
+                        println!("\n  [{}] {}", v.code, v.message);
+                        if let Some(ref rem) = v.remediation {
+                            println!("    Remediation: {}", rem);
+                        }
+                    }
+                    ExitCode::FAILURE
+                } else {
+                    println!(
+                        "Status: OK (Zero architectural boundary violations, all layers and edges coherent)"
+                    );
                     ExitCode::SUCCESS
                 }
             }
