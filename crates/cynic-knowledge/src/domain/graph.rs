@@ -1,6 +1,6 @@
 use crate::domain::ast::CorpusManifest;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Sémantique des arêtes du graphe de connaissances.

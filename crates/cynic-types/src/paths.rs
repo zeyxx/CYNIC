@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 /// Constantes et résolveurs de chemins canoniques pour le système CYNIC.
 /// Conforme à la politique normative `infra/directory-tree.json` (schema: cynic.directory_tree.v1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CynicPaths;
 
 impl CynicPaths {

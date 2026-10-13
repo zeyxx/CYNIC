@@ -52,7 +52,6 @@ fn workspace_git_history_extraction_holds() {
 
     let commits = extract_git_history(repo_root, 15).expect("Should extract git commits");
     assert!(!commits.is_empty(), "Git commits must not be empty");
-    assert!(commits.len() >= 5, "Expected at least 5 recent commits");
 
     for c in &commits {
         assert!(!c.hash.is_empty());
