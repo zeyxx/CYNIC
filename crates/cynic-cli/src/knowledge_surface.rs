@@ -22,6 +22,12 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Export complete hierarchical corpus manifest (100% of Markdown files AST).
+    Manifest {
+        /// Output full CorpusManifest as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -64,6 +70,20 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     summary.chunk_count,
                     repo_root.display()
                 );
+                ExitCode::SUCCESS
+            }
+        }
+        KnowCommand::Manifest { json } => {
+            let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
+            if json {
+                crate::emit_json(&manifest, false)
+            } else {
+                println!("=== CYNIC Corpus Manifest ({}) ===", manifest.schema);
+                println!("  Corpus Hash       : {}", manifest.corpus_hash);
+                println!("  Total Documents   : {}", manifest.total_documents);
+                println!("  Total Sections    : {}", manifest.total_sections);
+                println!("  Total Code Blocks : {}", manifest.total_code_blocks);
+                println!("  Total Bytes       : {}", manifest.total_bytes);
                 ExitCode::SUCCESS
             }
         }

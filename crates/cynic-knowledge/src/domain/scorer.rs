@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use std::collections::HashMap;
 
 /// Pure in-memory BM25 lexical search and ranking engine.
 #[derive(Debug, Clone, Default)]
@@ -103,7 +103,11 @@ impl LexicalIndex {
             }
         }
 
-        scored_chunks.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored_chunks.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         scored_chunks.truncate(limit);
         scored_chunks
     }
