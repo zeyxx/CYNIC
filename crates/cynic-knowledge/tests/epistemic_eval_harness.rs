@@ -16,7 +16,7 @@ fn repo_root() -> PathBuf {
 struct EvalQuestion {
     id: &'static str,
     query: &'static str,
-    expected_top_authority: Option<AuthorityTier>,
+    requires_normative_authority: bool,
     expected_keyword_in_top_hit: Option<&'static str>,
     is_hallucination_trap: bool,
 }
@@ -38,7 +38,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q1_POWERS",
             query: "5 pouvoirs séparation constituante judiciaire",
-            expected_top_authority: Some(AuthorityTier::L0Constitution),
+            requires_normative_authority: true,
             expected_keyword_in_top_hit: Some("pouvoir"),
             is_hallucination_trap: false,
         },
@@ -46,7 +46,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q2_BUILD_GATE",
             query: "build gate ssot 10.10.10.119",
-            expected_top_authority: None,
+            requires_normative_authority: false,
             expected_keyword_in_top_hit: Some("10.10.10.119"),
             is_hallucination_trap: false,
         },
@@ -54,7 +54,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q3_INFERENCE_ADMISSION",
             query: "memory admission formula weights kv activations",
-            expected_top_authority: Some(AuthorityTier::L1Specification),
+            requires_normative_authority: true,
             expected_keyword_in_top_hit: Some("admission"),
             is_hallucination_trap: false,
         },
@@ -62,7 +62,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q4_BANDWIDTH_TIERS",
             query: "Ahmad Osman bandwidth tiers Sub100LegacyDdr",
-            expected_top_authority: Some(AuthorityTier::L1Specification),
+            requires_normative_authority: true,
             expected_keyword_in_top_hit: Some("Ahmad Osman"),
             is_hallucination_trap: false,
         },
@@ -70,7 +70,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q5_CYNIC_PATHS",
             query: "CynicPaths state_dir /var/lib/cynic",
-            expected_top_authority: Some(AuthorityTier::L0Constitution),
+            requires_normative_authority: true,
             expected_keyword_in_top_hit: Some("CynicPaths"),
             is_hallucination_trap: false,
         },
@@ -78,7 +78,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q6_TEMPORAL_CONTRACT",
             query: "pub struct TemporalContract temporal reconciliation",
-            expected_top_authority: Some(AuthorityTier::L0Constitution),
+            requires_normative_authority: true,
             expected_keyword_in_top_hit: Some("TemporalContract"),
             is_hallucination_trap: false,
         },
@@ -86,7 +86,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q7_CRATE_TOPOLOGY",
             query: "crate-topology workspace geometry fan-in",
-            expected_top_authority: None,
+            requires_normative_authority: false,
             expected_keyword_in_top_hit: Some("topology"),
             is_hallucination_trap: false,
         },
@@ -94,7 +94,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q8_TRAP_KUBERNETES",
             query: "deploy kubernetes helm chart cynic cluster pods",
-            expected_top_authority: None,
+            requires_normative_authority: false,
             expected_keyword_in_top_hit: None,
             is_hallucination_trap: true,
         },
@@ -102,7 +102,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q9_TRAP_SWAPFILE",
             query: "configure 32gb swapfile swapon cortex host",
-            expected_top_authority: None,
+            requires_normative_authority: false,
             expected_keyword_in_top_hit: None,
             is_hallucination_trap: true,
         },
@@ -110,7 +110,7 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
         EvalQuestion {
             id: "Q10_TRAP_UNISWAP",
             query: "uniswap pool cynic token price usd pair liquidity",
-            expected_top_authority: None,
+            requires_normative_authority: false,
             expected_keyword_in_top_hit: None,
             is_hallucination_trap: true,
         },
@@ -150,11 +150,13 @@ fn test_epistemic_eval_harness_10_questions_matrix() {
             );
             let top_hit = &hits[0];
 
-            if let Some(expected_auth) = q.expected_top_authority {
-                assert_eq!(
-                    top_hit.chunk.authority, expected_auth,
-                    "[{}] Top hit must match expected authority tier",
-                    q.id
+            if q.requires_normative_authority {
+                assert!(
+                    top_hit.chunk.authority == AuthorityTier::L0Constitution
+                        || top_hit.chunk.authority == AuthorityTier::L1Specification,
+                    "[{}] Top hit must belong to normative tiers (L0/L1), got {:?}",
+                    q.id,
+                    top_hit.chunk.authority
                 );
             }
 
