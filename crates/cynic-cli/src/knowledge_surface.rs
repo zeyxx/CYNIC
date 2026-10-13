@@ -342,8 +342,28 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 }
             } else {
                 let target_endpoint = endpoint.unwrap_or_else(|| {
-                    std::env::var("CYNIC_INFERENCE_URL")
-                        .unwrap_or_else(|_| "http://127.0.0.1:8080/v1/chat/completions".to_string())
+                    if let Ok(env_url) = std::env::var("CYNIC_INFERENCE_URL") {
+                        return env_url;
+                    }
+                    // Resolve from canonical CynicPaths SSOT (/etc/cynic/inference.toml)
+                    let cfg_path = cynic_types::CynicPaths::inference_config_path();
+                    if let Ok(content) = std::fs::read_to_string(&cfg_path) {
+                        if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
+                            if let Some(backends) =
+                                toml_val.get("backend").and_then(|b| b.as_array())
+                            {
+                                for b in backends {
+                                    if let Some(base_url) =
+                                        b.get("base_url").and_then(|u| u.as_str())
+                                    {
+                                        let trimmed = base_url.trim_end_matches('/');
+                                        return format!("{}/chat/completions", trimmed);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "http://127.0.0.1:8088/v1/chat/completions".to_string()
                 });
 
                 // Attempt local LLM call via reqwest

@@ -1,0 +1,89 @@
+use std::path::{Path, PathBuf};
+
+/// Constantes et résolveurs de chemins canoniques pour le système CYNIC.
+/// Conforme à la politique normative `infra/directory-tree.json` (schema: cynic.directory_tree.v1).
+pub struct CynicPaths;
+
+impl CynicPaths {
+    /// Racine système installée pour la configuration et les secrets (K6/K8 boundary).
+    /// Défini par `infra/directory-tree.json:installed_system.root`.
+    pub const DEFAULT_SYSTEM_ROOT: &'static str = "/etc/cynic";
+
+    /// Nom canonique du registre de placement runtime.
+    pub const DEFAULT_REGISTRY_FILENAME: &'static str = "registry.json";
+
+    /// Nom canonique du fichier de configuration des modèles et backends d'inférence.
+    pub const DEFAULT_INFERENCE_FILENAME: &'static str = "inference.toml";
+
+    /// Nom canonique du fichier de configuration du stockage souverain.
+    pub const DEFAULT_STORAGE_FILENAME: &'static str = "storage.toml";
+
+    /// Répertoire canonique des secrets machine (permissions 0640 cynic:cynic).
+    pub const DEFAULT_SECRETS_DIRNAME: &'static str = "secrets";
+
+    /// Résout la racine de configuration système.
+    /// Ordre d'autorité :
+    /// 1. Variable d'environnement `CYNIC_CONFIG_DIR` (dérivation explicite en test/dev).
+    /// 2. `/etc/cynic` (norme installée en production).
+    pub fn system_config_dir() -> PathBuf {
+        std::env::var("CYNIC_CONFIG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_SYSTEM_ROOT))
+    }
+
+    /// Résout le chemin du registre runtime de flotte.
+    /// Ordre d'autorité :
+    /// 1. `CYNIC_REGISTRY_PATH`
+    /// 2. `<system_config_dir>/registry.json`
+    pub fn registry_path() -> PathBuf {
+        std::env::var("CYNIC_REGISTRY_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_REGISTRY_FILENAME))
+    }
+
+    /// Résout le chemin de la configuration d'inférence souveraine.
+    /// Ordre d'autorité :
+    /// 1. `CYNIC_INFERENCE_CONFIG`
+    /// 2. `<system_config_dir>/inference.toml`
+    pub fn inference_config_path() -> PathBuf {
+        std::env::var("CYNIC_INFERENCE_CONFIG")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_INFERENCE_FILENAME))
+    }
+
+    /// Résout le chemin du répertoire des secrets.
+    /// Ordre d'autorité :
+    /// 1. `CYNIC_SECRETS_DIR`
+    /// 2. `<system_config_dir>/secrets`
+    pub fn secrets_dir() -> PathBuf {
+        std::env::var("CYNIC_SECRETS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_SECRETS_DIRNAME))
+    }
+
+    /// Résout le chemin d'un secret spécifique par son nom (ex: "forgejo-token", "storage-runtime-password").
+    pub fn secret_path(secret_name: &str) -> PathBuf {
+        Self::secrets_dir().join(secret_name)
+    }
+
+    /// Résout le chemin de configuration du stockage (SurrealDB / local engine).
+    pub fn storage_config_path() -> PathBuf {
+        std::env::var("CYNIC_STORAGE_CONFIG")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_STORAGE_FILENAME))
+    }
+
+    /// Résout le répertoire de configuration utilisateur (~/.config/cynic).
+    pub fn user_config_dir() -> Option<PathBuf> {
+        std::env::var("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".config")))
+            .map(|base| base.join("cynic"))
+            .ok()
+    }
+
+    /// Vérifie si un chemin donné pointe vers l'arborescence système cynic.
+    pub fn is_under_system_root(path: &Path) -> bool {
+        path.starts_with(Self::DEFAULT_SYSTEM_ROOT)
+    }
+}
