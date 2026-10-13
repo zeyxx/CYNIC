@@ -71,8 +71,10 @@ fn test_graph_rag_expansion_enriches_retrieval_with_parent_contracts() {
         expanded_hits[1].chunk.authority,
         AuthorityTier::L0Constitution
     );
-    assert_eq!(
-        expanded_hits[1].chunk.section_hierarchy[0],
-        "Graph-Linked Context"
+    assert!(
+        expanded_hits[1]
+            .chunk
+            .content
+            .contains("Sovereign foundation invariants.")
     );
 }
