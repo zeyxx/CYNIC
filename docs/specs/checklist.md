@@ -285,4 +285,30 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
 
 ---
 
+## 12. Builder Retention GC (opened 2026-10-14)
+
+Census: `checkouts` 40G → 29G (9 dirs, ~11G reclaimed 2026-10-14).
+`/tmp` 15G = same-day sibling clones (hands-off). `shared-target` 19G,
+`source` 15G, `build-targets` 6.7G, `target` 4.3G = warm build caches
+(load-bearing: deleting them only slows the next builds, saves nothing durable).
+
+Policy: `contracts/builder-retention.json` (TTL 7d per-SHA/session checkouts,
+2d `/tmp`; fence: HEAD < 48h, live claims, `/var/lib/cynic/source`, sccache).
+Test `cynic-cli/tests/builder_retention.rs` green on builder.
+
+Verdict: do NOT clean the rest — remainder is live or load-bearing. Next pass
+when TTLs mature. Self-cleaning conditions = the contract above, nothing else.
+
+### Pending privileged actions (traced, not done)
+
+- **PENDING ROOT** (cynic has no sudo on builder): `rm -rf
+  /var/lib/cynic/checkouts/cynic-65381e765497
+  /var/lib/cynic/checkouts/cynic-92da50e51cdd` — 3.5G, 7-9 days old, no claim,
+  reproducible-or-provenanceless. Root cause: builds ran as root on the builder
+  (16 011 root-owned files); every future purge blocks the same way until builds
+  run as `cynic`.
+- **PENDING CREDENTIAL**: github relay keeps 38 dead agent refs (read-only
+  access from this host). `main` SHAs in sync origin/github/local — content-safe.
+
+---
 **End of checklist.**
