@@ -108,8 +108,12 @@ impl CloudflareClient {
     /// `account_id` — Cloudflare account ID for zone creation.
     /// `expected_nameservers` — NS records expected after migration (e.g. Cloudflare's NS).
     pub fn new(api_token: String, account_id: String, expected_nameservers: Vec<String>) -> Self {
-        Self {
-            http: Client::builder()
+        // Build both blocking reqwest clients on dedicated threads. Constructing a
+        // reqwest blocking client inside an already running Tokio runtime can panic in
+        // tokio 1.53 when the inner blocking pool is dropped from async context.
+        // Keeping client construction thread-bound keeps the sync adapter safe.
+        let http = std::thread::spawn(|| {
+            Client::builder()
                 .user_agent("cynic-domain-cloudflare/0.1.0")
                 .timeout(std::time::Duration::from_secs(30))
                 .default_headers({
@@ -117,7 +121,9 @@ impl CloudflareClient {
                     h.insert(
                         "Authorization",
                         reqwest::header::HeaderValue::from_str(&format!("Bearer {api_token}"))
-                            .unwrap_or(reqwest::header::HeaderValue::from_static("Bearer")),
+                            .unwrap_or_else(|_| {
+                                reqwest::header::HeaderValue::from_static("Bearer")
+                            }),
                     );
                     h.insert(
                         "Content-Type",
@@ -126,14 +132,26 @@ impl CloudflareClient {
                     h
                 })
                 .build()
-                .unwrap_or_else(|e| panic!("reqwest client init failed: {e}")),
-            account_id,
-            expected_nameservers,
-            dns_resolver: Client::builder()
+                .unwrap_or_else(|e| panic!("reqwest client init failed: {e}"))
+        })
+        .join()
+        .unwrap_or_else(|_| panic!("reqwest client thread panicked"));
+
+        let dns_resolver = std::thread::spawn(|| {
+            Client::builder()
                 .user_agent("cynic-domain-cloudflare/0.1.0")
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
-                .unwrap_or_else(|e| panic!("reqwest dns client init failed: {e}")),
+                .unwrap_or_else(|e| panic!("reqwest dns client init failed: {e}"))
+        })
+        .join()
+        .unwrap_or_else(|_| panic!("reqwest dns client thread panicked"));
+
+        Self {
+            http,
+            account_id,
+            expected_nameservers,
+            dns_resolver,
         }
     }
 
