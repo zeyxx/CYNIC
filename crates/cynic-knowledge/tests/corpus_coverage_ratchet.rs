@@ -52,8 +52,12 @@ fn complete_corpus_coverage_ratchet_holds() {
         "CRATE_RULES.md must be in corpus"
     );
     assert!(
-        paths.contains(&"docs/CYNIC_EPISTEMIC_DATA_TRIAD.md"),
-        "CYNIC_EPISTEMIC_DATA_TRIAD.md must be in corpus"
+        paths.contains(&"docs/INDEX.md"),
+        "docs/INDEX.md must be in corpus"
+    );
+    assert!(
+        paths.contains(&"docs/specs/EPISTEMIC_QSCORE_CONSENSUS_SPEC.md"),
+        "EPISTEMIC_QSCORE_CONSENSUS_SPEC.md must be in corpus"
     );
 
     // Every document must adhere to document_tree.v1 schema and have valid properties
