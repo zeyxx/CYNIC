@@ -18,6 +18,10 @@ struct MockSubstratePort {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[allow(
+    dead_code,
+    reason = "mock error variants exist for fault-injection scenarios"
+)]
 enum MockError {
     #[error("mock error: {0}")]
     General(String),
