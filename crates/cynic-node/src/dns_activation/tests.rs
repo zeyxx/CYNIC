@@ -1,11 +1,11 @@
 use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
 
 use super::apply::root_authority_blocker;
 use super::decision::plan_dns_activation;
 use super::registry::resolve_dns_activation_spec;
 use super::rollback::rollback_matches;
 use super::types::{
-use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
     DnsActivationFileObservation, DnsActivationFileSpec, DnsActivationObservation,
     DnsActivationSpec,
 };
@@ -97,7 +97,12 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
         out.path().to_str().expect("bundle path"),
     )
     .expect("bundle");
-    std::fs::write(out.path().join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME), "tampered\n").expect("tamper bundle");
+    std::fs::write(
+        out.path()
+            .join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME),
+        "tampered\n",
+    )
+    .expect("tamper bundle");
 
     let desired = resolve_dns_activation_spec(
         registry.to_str().expect("registry path"),
@@ -105,12 +110,11 @@ fn bundle_tampering_is_a_pre_mutation_blocker() {
     )
     .expect("spec");
 
-    assert!(
-        desired
-            .blockers
-            .iter()
-            .any(|blocker| blocker == format!("dns_activation_bundle_digest_mismatch:{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME))
-    );
+    assert!(desired.blockers.iter().any(|blocker| blocker
+        == format!(
+            "dns_activation_bundle_digest_mismatch:{}",
+            cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME
+        )));
 }
 
 #[test]
