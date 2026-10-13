@@ -12,6 +12,8 @@ pub enum KnowledgeEdgeKind {
     EnforcesContract,
     /// Inclusion structurelle hiérarchique (Document -> Section -> Sous-section).
     ParentSection,
+    /// Dépendance topologique d'une crate Rust vers une autre.
+    CrateDependency,
 }
 
 /// Une arête orientée dans le graphe de connaissances CYNIC.

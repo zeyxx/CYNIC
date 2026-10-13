@@ -2,14 +2,15 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
-    GitExtractError, extract_git_history, parse_document_tree, parse_git_log_output,
-    parse_json_contract, parse_markdown_tree,
+    GitExtractError, extract_git_history, load_workspace_geometry, parse_document_tree,
+    parse_git_log_output, parse_json_contract, parse_markdown_tree,
 };
 pub use domain::{
     AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest,
-    DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord,
-    KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalIndex, MarkdownLink, SearchHit,
-    SectionNode,
+    CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
+    GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
+    LexicalIndex, MarkdownLink, SearchHit, SectionNode, WORKSPACE_GEOMETRY_SCHEMA_V1,
+    WorkspaceGeometry,
 };
 
 use std::path::Path;

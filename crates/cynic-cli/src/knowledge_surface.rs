@@ -46,6 +46,15 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Inspect the architectural geometry of crates across layers.
+    Crates {
+        /// Filter by architectural layer (e.g. L0, L1, L2, L3, L4).
+        #[arg(long)]
+        layer: Option<String>,
+        /// Output crate geometry as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -236,6 +245,46 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 }
                 Err(err) => {
                     eprintln!("Failed to extract git history: {}", err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        KnowCommand::Crates { layer, json } => {
+            match cynic_knowledge::load_workspace_geometry(&repo_root) {
+                Ok(geom) => {
+                    if json {
+                        crate::emit_json(&geom, false)
+                    } else {
+                        println!("=== CYNIC Workspace Crate Geometry ({}) ===", geom.schema);
+                        println!("  Total Crates : {}", geom.total_crates);
+                        println!("  Total LOC    : {}", geom.total_loc);
+
+                        let layers = ["L0", "L1", "L2", "L3", "L4"];
+                        for l in layers {
+                            if let Some(ref filter_l) = layer {
+                                if filter_l != l {
+                                    continue;
+                                }
+                            }
+                            let in_layer = geom.crates_in_layer(l);
+                            if !in_layer.is_empty() {
+                                println!("\n  [Layer {} — {} crates]:", l, in_layer.len());
+                                for c in in_layer {
+                                    println!(
+                                        "    - {:<30} {:>6} LOC (fan-in: {:>2}, fan-out: {:>2})",
+                                        c.name,
+                                        c.loc,
+                                        c.fan_in(),
+                                        c.fan_out()
+                                    );
+                                }
+                            }
+                        }
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Failed to load workspace geometry: {}", err);
                     ExitCode::FAILURE
                 }
             }

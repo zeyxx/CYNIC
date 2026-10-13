@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod chunk;
 pub mod commit;
+pub mod geometry;
 pub mod graph;
 pub mod scorer;
 
@@ -10,5 +11,6 @@ pub use ast::{
 };
 pub use chunk::{AuthorityTier, DocumentChunk};
 pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
+pub use geometry::{CrateGeometryRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry};
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use scorer::{LexicalIndex, SearchHit};
