@@ -112,7 +112,7 @@ impl CloudflareClient {
         // reqwest blocking client inside an already running Tokio runtime can panic in
         // tokio 1.53 when the inner blocking pool is dropped from async context.
         // Keeping client construction thread-bound keeps the sync adapter safe.
-        let http = std::thread::spawn(|| {
+        let http = std::thread::spawn(move || {
             Client::builder()
                 .user_agent("cynic-domain-cloudflare/0.1.0")
                 .timeout(std::time::Duration::from_secs(30))
