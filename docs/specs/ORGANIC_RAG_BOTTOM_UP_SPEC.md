@@ -33,10 +33,10 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
 ## III. IMPLEMENTATION PHASES & CHECKLIST
 
 ### Phase 1: Physical Ingestion & Persistent Cache (L0 Substrate)
-- [ ] **1.1 Persistent Knowledge Cache Format:**
+- [x] **1.1 Persistent Knowledge Cache Format:**
   - Define `cynic.knowledge.cache.v1` serializable to `CynicPaths::state_dir().join("knowledge/corpus_cache.json")`.
   - Store chunk vectors, AST tokens, authority levels, and Git blob SHA-1/SHA-3 hashes.
-- [ ] **1.2 Incremental Git-Diff Ingestion Engine:**
+- [x] **1.2 Incremental Git-Diff Ingestion Engine:**
   - Fast-path verification: compare repository commit SHA / file mtimes.
   - If unmodified: load cached index in $< 5\text{ ms}$.
   - If modified: selectively chunk and index only changed files (`git diff --name-only`).
