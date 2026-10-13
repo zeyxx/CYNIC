@@ -112,7 +112,7 @@ impl CloudflareClient {
         // reqwest blocking client inside an already running Tokio runtime can panic in
         // tokio 1.53 when the inner blocking pool is dropped from async context.
         // Keeping client construction thread-bound keeps the sync adapter safe.
-        let http = std::thread::spawn(move || {
+        let http = tokio::task::block_in_place(|| {
             Client::builder()
                 .user_agent("cynic-domain-cloudflare/0.1.0")
                 .timeout(std::time::Duration::from_secs(30))
@@ -133,19 +133,15 @@ impl CloudflareClient {
                 })
                 .build()
                 .unwrap_or_else(|e| panic!("reqwest client init failed: {e}"))
-        })
-        .join()
-        .unwrap_or_else(|_| panic!("reqwest client thread panicked"));
+        });
 
-        let dns_resolver = std::thread::spawn(|| {
+        let dns_resolver = tokio::task::block_in_place(|| {
             Client::builder()
                 .user_agent("cynic-domain-cloudflare/0.1.0")
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap_or_else(|e| panic!("reqwest dns client init failed: {e}"))
-        })
-        .join()
-        .unwrap_or_else(|_| panic!("reqwest dns client thread panicked"));
+        });
 
         Self {
             http,
