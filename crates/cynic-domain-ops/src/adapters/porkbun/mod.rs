@@ -1,17 +1,13 @@
 //! Porkbun API adapter — implements `RegistrarPort`.
 
-use crate::{RegistrarPort, SecretProvider};
-
-pub mod error;
-pub mod secret;
-
-pub use error::PorkbunError;
-pub use secret::EnvSecretProvider;
+use cynic_domain_ops::{RegistrarPort, SecretProvider};
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
+
+use super::error::PorkbunError;
 
 /// Porkbun API base URL.
 const PORKBUN_API_BASE: &str = "https://api.porkbun.com/api/json/v2";
@@ -106,17 +102,19 @@ impl PorkbunRegistrar {
     /// In production, the caller resolves these from `SecretReference`
     /// using an `EnvSecretProvider` or `PrincipalOwnedFileProvider` adapter.
     pub fn new(api_key: String, api_secret: String) -> Self {
-        // `reqwest::blocking::Client::builder().build()` creates and then unwinds its
-        // inner tokio runtime. Running it straight inside cynic's async main panics,
-        // while `block_in_place` reports a temporary blocking region to Tokio and
-        // keeps the construction safe in the async context.
-        let client = tokio::task::block_in_place(|| {
+        // Build the blocking reqwest client on a dedicated thread: constructing
+        // a reqwest blocking client inside an already running Tokio runtime panics
+        // in tokio 1.53 when the inner blocking pool drops at the wrong context.
+        // Keeping client construction thread-bound keeps the sync adapter safe.
+        let client = std::thread::spawn(|| {
             Client::builder()
                 .user_agent("cynic-domain-porkbun/0.1.0")
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|e| panic!("reqwest client init failed: {e}"))
-        });
+        })
+        .join()
+        .unwrap_or_else(|_| panic!("reqwest client thread panicked"));
 
         Self {
             client,
@@ -157,51 +155,29 @@ impl PorkbunRegistrar {
         body: &impl serde::Serialize,
     ) -> Result<T, PorkbunError> {
         let url = format!("{PORKBUN_API_BASE}{endpoint}");
-        let result = tokio::task::block_in_place(|| -> Result<T, PorkbunError> {
-            let resp = self
-                .client
-                .post(&url)
-                .json(body)
-                .send()
-                .map_err(PorkbunError::Http)?;
-            let wrapper: PorkbunResponse<T> = resp.json().map_err(PorkbunError::Http)?;
-            if wrapper.status == "ERROR" || wrapper.data.is_none() {
-                return Err(PorkbunError::ApiError {
-                    status: 0,
-                    message: wrapper.message.unwrap_or_default(),
-                });
-            }
-            wrapper.data.ok_or_else(|| PorkbunError::ApiError {
+        let resp = self.client.post(&url).json(body).send()?;
+        let wrapper: PorkbunResponse<T> = resp.json()?;
+        if wrapper.status == "ERROR" || wrapper.data.is_none() {
+            return Err(PorkbunError::ApiError {
                 status: 0,
-                message: "missing data".to_owned(),
-            })
-        });
-        result
+                message: wrapper.message.unwrap_or_default(),
+            });
+        }
+        Ok(wrapper.data.unwrap())
     }
 
     fn get_json<T: serde::de::DeserializeOwned>(&self, endpoint: &str) -> Result<T, PorkbunError> {
         // Porkbun requires auth body even on GET — use POST with auth.
         let url = format!("{PORKBUN_API_BASE}{endpoint}");
-        let result = tokio::task::block_in_place(|| -> Result<T, PorkbunError> {
-            let resp = self
-                .client
-                .post(&url)
-                .json(&self.auth())
-                .send()
-                .map_err(PorkbunError::Http)?;
-            let wrapper: PorkbunResponse<T> = resp.json().map_err(PorkbunError::Http)?;
-            if wrapper.status == "ERROR" || wrapper.data.is_none() {
-                return Err(PorkbunError::ApiError {
-                    status: 0,
-                    message: wrapper.message.unwrap_or_default(),
-                });
-            }
-            wrapper.data.ok_or_else(|| PorkbunError::ApiError {
+        let resp = self.client.post(&url).json(&self.auth()).send()?;
+        let wrapper: PorkbunResponse<T> = resp.json()?;
+        if wrapper.status == "ERROR" || wrapper.data.is_none() {
+            return Err(PorkbunError::ApiError {
                 status: 0,
-                message: "missing data".to_owned(),
-            })
-        });
-        result
+                message: wrapper.message.unwrap_or_default(),
+            });
+        }
+        Ok(wrapper.data.unwrap())
     }
 
     /// Convert a relative Porkbun record name (e.g. "www", "@") to FQDN.
