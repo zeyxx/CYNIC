@@ -628,7 +628,7 @@
           "endpoint_host": "10.10.10.106",
           "port": 8080,
           "network_plane": "service",
-          "unit": "llama-server@embeddinggemma-2-bf16.service",
+          "unit": "llama-server-embedding.service",
           "supervisor": {
             "provider": "systemd"
           },
