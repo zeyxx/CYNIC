@@ -153,29 +153,51 @@ impl PorkbunRegistrar {
         body: &impl serde::Serialize,
     ) -> Result<T, PorkbunError> {
         let url = format!("{PORKBUN_API_BASE}{endpoint}");
-        let resp = self.client.post(&url).json(body).send()?;
-        let wrapper: PorkbunResponse<T> = resp.json()?;
-        if wrapper.status == "ERROR" || wrapper.data.is_none() {
-            return Err(PorkbunError::ApiError {
+        let result = tokio::task::block_in_place(|| -> Result<T, PorkbunError> {
+            let resp = self
+                .client
+                .post(&url)
+                .json(body)
+                .send()
+                .map_err(PorkbunError::Http)?;
+            let wrapper: PorkbunResponse<T> = resp.json().map_err(PorkbunError::Http)?;
+            if wrapper.status == "ERROR" || wrapper.data.is_none() {
+                return Err(PorkbunError::ApiError {
+                    status: 0,
+                    message: wrapper.message.unwrap_or_default(),
+                });
+            }
+            wrapper.data.unwrap().ok_or_else(|| PorkbunError::ApiError {
                 status: 0,
-                message: wrapper.message.unwrap_or_default(),
-            });
-        }
-        Ok(wrapper.data.unwrap())
+                message: "missing data".to_owned(),
+            })
+        });
+        result
     }
 
     fn get_json<T: serde::de::DeserializeOwned>(&self, endpoint: &str) -> Result<T, PorkbunError> {
         // Porkbun requires auth body even on GET — use POST with auth.
         let url = format!("{PORKBUN_API_BASE}{endpoint}");
-        let resp = self.client.post(&url).json(&self.auth()).send()?;
-        let wrapper: PorkbunResponse<T> = resp.json()?;
-        if wrapper.status == "ERROR" || wrapper.data.is_none() {
-            return Err(PorkbunError::ApiError {
+        let result = tokio::task::block_in_place(|| -> Result<T, PorkbunError> {
+            let resp = self
+                .client
+                .post(&url)
+                .json(&self.auth())
+                .send()
+                .map_err(PorkbunError::Http)?;
+            let wrapper: PorkbunResponse<T> = resp.json().map_err(PorkbunError::Http)?;
+            if wrapper.status == "ERROR" || wrapper.data.is_none() {
+                return Err(PorkbunError::ApiError {
+                    status: 0,
+                    message: wrapper.message.unwrap_or_default(),
+                });
+            }
+            wrapper.data.unwrap().ok_or_else(|| PorkbunError::ApiError {
                 status: 0,
-                message: wrapper.message.unwrap_or_default(),
-            });
-        }
-        Ok(wrapper.data.unwrap())
+                message: "missing data".to_owned(),
+            })
+        });
+        result
     }
 
     /// Convert a relative Porkbun record name (e.g. "www", "@") to FQDN.
