@@ -144,6 +144,10 @@
   {
    "id": "court_surface",
    "path": "fragments/court_surface.json"
+  },
+  {
+   "id": "node_compute_provision",
+   "path": "fragments/node_compute_provision.json"
   }
  ],
  "retired": [
