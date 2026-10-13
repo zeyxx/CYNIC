@@ -313,7 +313,7 @@ impl CloudflareClient {
         };
 
         let url = format!("https://{fqdn}");
-        let response = match client.get(&url).send() {
+        let response = match tokio::task::block_in_place(|| client.get(&url).send()) {
             Ok(r) => r,
             Err(_) => {
                 return EdgeProbeResult {
@@ -362,13 +362,14 @@ impl CloudflareDnsPort for CloudflareClient {
         };
 
         let url = format!("{CF_API_BASE}/zones/{zone_id}/dns_records?per_page=5000");
-        let resp: CfResponse<Vec<CfDnsRecord>> = match self.http.get(&url).send() {
-            Ok(r) => match r.json() {
-                Ok(data) => data,
+        let resp: CfResponse<Vec<CfDnsRecord>> =
+            match tokio::task::block_in_place(|| self.http.get(&url).send()) {
+                Ok(r) => match r.json() {
+                    Ok(data) => data,
+                    Err(_) => return Vec::new(),
+                },
                 Err(_) => return Vec::new(),
-            },
-            Err(_) => return Vec::new(),
-        };
+            };
 
         match resp.result {
             Some(records) => records.into_iter().map(Self::cf_record_to_shape).collect(),
@@ -384,13 +385,14 @@ impl CloudflareDnsPort for CloudflareClient {
             jump_start: false,
         };
 
-        let resp: CfResponse<CfZone> = match self.http.post(&url).json(&payload).send() {
-            Ok(r) => match r.json() {
-                Ok(data) => data,
+        let resp: CfResponse<CfZone> =
+            match tokio::task::block_in_place(|| self.http.post(&url).json(&payload).send()) {
+                Ok(r) => match r.json() {
+                    Ok(data) => data,
+                    Err(_) => return String::new(),
+                },
                 Err(_) => return String::new(),
-            },
-            Err(_) => return String::new(),
-        };
+            };
 
         if !resp.success {
             return String::new();
@@ -413,10 +415,11 @@ impl CloudflareDnsPort for CloudflareClient {
             let url = format!("{CF_API_BASE}/zones/{zone_id}/dns_records");
 
             // Try POST (create). If conflict (exists), find and PUT.
-            let result = match self.http.post(&url).json(&payload).send() {
-                Ok(r) => r.json::<CfResponse<CfDnsRecord>>(),
-                Err(_) => continue,
-            };
+            let result =
+                match tokio::task::block_in_place(|| self.http.post(&url).json(&payload).send()) {
+                    Ok(r) => r.json::<CfResponse<CfDnsRecord>>(),
+                    Err(_) => continue,
+                };
 
             let record_id = match result {
                 Ok(resp) if resp.success && resp.result.is_some() => {
@@ -429,10 +432,11 @@ impl CloudflareDnsPort for CloudflareClient {
                         payload.r#type.as_str().trim_start_matches('_'),
                         payload.name,
                     );
-                    let find_resp = match self.http.get(&find_url).send() {
-                        Ok(r) => r.json::<CfResponse<Vec<CfDnsRecord>>>(),
-                        Err(_) => continue,
-                    };
+                    let find_resp =
+                        match tokio::task::block_in_place(|| self.http.get(&find_url).send()) {
+                            Ok(r) => r.json::<CfResponse<Vec<CfDnsRecord>>>(),
+                            Err(_) => continue,
+                        };
 
                     if let Ok(existing) = find_resp {
                         if let Some(existing_rec) = existing.result.and_then(|mut v| v.pop()) {
@@ -440,13 +444,11 @@ impl CloudflareDnsPort for CloudflareClient {
                                 "{CF_API_BASE}/zones/{zone_id}/dns_records/{}",
                                 existing_rec.id
                             );
-                            match self
-                                .http
-                                .put(&put_url)
-                                .json(&payload)
-                                .send()
-                                .ok()
-                                .and_then(|r| r.json::<CfResponse<CfDnsRecord>>().ok())
+                            match tokio::task::block_in_place(|| {
+                                self.http.put(&put_url).json(&payload).send()
+                            })
+                            .ok()
+                            .and_then(|r| r.json::<CfResponse<CfDnsRecord>>().ok())
                             {
                                 Some(resp) if resp.success => {
                                     resp.result.map(|r| r.id).unwrap_or_default()
@@ -472,7 +474,7 @@ impl CloudflareDnsPort for CloudflareClient {
 
     fn export_zone_backup(&self, zone_id: &str) -> String {
         let url = format!("{CF_API_BASE}/zones/{zone_id}/dns_records?per_page=5000");
-        match self.http.get(&url).send() {
+        match tokio::task::block_in_place(|| self.http.get(&url).send()) {
             Ok(resp) => match resp.json::<serde_json::Value>() {
                 Ok(json) => serde_json::to_string(&json).unwrap_or_default(),
                 Err(_) => String::new(),
