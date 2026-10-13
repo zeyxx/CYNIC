@@ -44,3 +44,16 @@ fn cynic_paths_environment_overrides_work_deterministically() {
         "/var/log/syslog"
     )));
 }
+
+#[test]
+fn anti_regression_no_hardcoded_etc_in_cli_knowledge_surface() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let knowledge_surface_path = manifest_dir.join("src/knowledge_surface.rs");
+    let content = std::fs::read_to_string(&knowledge_surface_path)
+        .expect("src/knowledge_surface.rs must exist");
+
+    assert!(
+        !content.contains("\"/etc/cynic"),
+        "crates/cynic-cli/src/knowledge_surface.rs must not hardcode '/etc/cynic', use CynicPaths SSOT"
+    );
+}
