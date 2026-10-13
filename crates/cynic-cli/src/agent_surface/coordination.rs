@@ -120,13 +120,13 @@ pub(crate) fn execute_identify(
             attested_at_unix_ms: now_unix_ms(),
         });
     };
-    let client = kernel_client();
     let url = format!("{base}/coord/identify");
     let payload = serde_json::json!({
         "agent_id": agent_id,
         "agent_kind": agent_kind,
     });
     let resp = blocking_kernel_request(move || {
+        let client = kernel_client();
         client
             .post(&url)
             .json(&payload)
@@ -177,13 +177,13 @@ pub(crate) fn execute_register(
             "kernel unreachable: no kernel base resolved (registry or --kernel-base)".to_string(),
         );
     };
-    let client = kernel_client();
     let url = format!("{base}/coord/register");
     let payload = serde_json::json!({
         "agent_id": agent_id,
         "intent": intent,
     });
     let resp = blocking_kernel_request(move || {
+        let client = kernel_client();
         client
             .post(&url)
             .json(&payload)
@@ -235,7 +235,6 @@ pub(crate) fn execute_claim(
     let Some(base) = kernel_base else {
         return claim_local();
     };
-    let client = kernel_client();
     let url = format!("{base}/coord/claim");
     let payload = serde_json::json!({
         "agent_id": agent_id,
@@ -246,6 +245,7 @@ pub(crate) fn execute_claim(
         "budget_wall_seconds": budget_wall_seconds,
     });
     let resp = match blocking_kernel_request(move || {
+        let client = kernel_client();
         client
             .post(&url)
             .json(&payload)
@@ -333,7 +333,6 @@ pub(crate) fn execute_release(
     let Some(base) = kernel_base else {
         return execute_release_local(agent_id, target, lease_id, proof_refs);
     };
-    let client = kernel_client();
     let url = format!("{base}/coord/release");
     let payload = serde_json::json!({
         "agent_id": agent_id,
@@ -343,6 +342,7 @@ pub(crate) fn execute_release(
         "proof_refs": proof_refs,
     });
     let resp = match blocking_kernel_request(move || {
+        let client = kernel_client();
         client
             .post(&url)
             .json(&payload)
@@ -775,9 +775,9 @@ pub(crate) fn execute_status(
     let Some(base) = kernel_base else {
         return execute_status_from_claims_file(agent_id);
     };
-    let client = kernel_client();
     let url = format!("{base}/coord/who?agent_id={agent_id}");
     let resp = blocking_kernel_request(move || {
+        let client = kernel_client();
         client
             .get(&url)
             .send()
