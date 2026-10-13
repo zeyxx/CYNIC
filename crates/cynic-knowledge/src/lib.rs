@@ -3,8 +3,9 @@ pub mod domain;
 
 pub use adapters::{parse_document_tree, parse_json_contract, parse_markdown_tree};
 pub use domain::{
-    AuthorityTier, CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest, DOCUMENT_TREE_SCHEMA_V1,
-    DocumentChunk, DocumentTree, LexicalIndex, MarkdownLink, SearchHit, SectionNode,
+    AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest,
+    DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree, KnowledgeEdge, KnowledgeEdgeKind,
+    KnowledgeGraph, LexicalIndex, MarkdownLink, SearchHit, SectionNode,
 };
 
 use std::path::Path;

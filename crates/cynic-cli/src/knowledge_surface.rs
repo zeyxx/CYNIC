@@ -28,6 +28,12 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Inspect the knowledge graph (cross-document links, contract enforcements, broken refs).
+    Graph {
+        /// Output full KnowledgeGraph as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -84,6 +90,37 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 println!("  Total Sections    : {}", manifest.total_sections);
                 println!("  Total Code Blocks : {}", manifest.total_code_blocks);
                 println!("  Total Bytes       : {}", manifest.total_bytes);
+                ExitCode::SUCCESS
+            }
+        }
+        KnowCommand::Graph { json } => {
+            let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
+            let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
+            if json {
+                crate::emit_json(&graph, false)
+            } else {
+                println!("=== CYNIC Knowledge Graph ===");
+                println!("  Total Nodes       : {}", graph.nodes.len());
+                println!("  Total Edges       : {}", graph.edges.len());
+                let doc_citations = graph
+                    .edges
+                    .iter()
+                    .filter(|e| e.kind == cynic_knowledge::KnowledgeEdgeKind::CitesDocument)
+                    .count();
+                let contract_edges = graph
+                    .edges
+                    .iter()
+                    .filter(|e| e.kind == cynic_knowledge::KnowledgeEdgeKind::EnforcesContract)
+                    .count();
+                println!("  Document Citations: {}", doc_citations);
+                println!("  Contract Enforces : {}", contract_edges);
+                println!("  Broken References : {}", graph.broken_references.len());
+                if !graph.broken_references.is_empty() {
+                    println!("\n  [!] Broken References Found:");
+                    for b in &graph.broken_references {
+                        println!("    {} -> {}", b.source_doc, b.target_raw);
+                    }
+                }
                 ExitCode::SUCCESS
             }
         }

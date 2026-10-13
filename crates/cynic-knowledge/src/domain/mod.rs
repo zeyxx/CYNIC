@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod chunk;
+pub mod graph;
 pub mod scorer;
 
 pub use ast::{
@@ -7,4 +8,5 @@ pub use ast::{
     MarkdownLink, SectionNode,
 };
 pub use chunk::{AuthorityTier, DocumentChunk};
+pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use scorer::{LexicalIndex, SearchHit};
