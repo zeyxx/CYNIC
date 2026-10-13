@@ -392,9 +392,14 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                                 duration_ms = start.elapsed().as_millis();
                                 if resp.status().is_success() {
                                     if let Ok(body) = resp.json::<serde_json::Value>() {
-                                        if let Some(content) =
-                                            body["choices"][0]["message"]["content"].as_str()
-                                        {
+                                        let text = body["choices"][0]["message"]["content"]
+                                            .as_str()
+                                            .filter(|s| !s.trim().is_empty())
+                                            .or_else(|| {
+                                                body["choices"][0]["message"]["reasoning_content"]
+                                                    .as_str()
+                                            });
+                                        if let Some(content) = text {
                                             answer_text = Some(content.to_string());
                                         }
                                     }
