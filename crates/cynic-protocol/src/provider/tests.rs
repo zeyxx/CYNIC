@@ -126,6 +126,7 @@ fn absent_substrate_with_content_addressed_reconstruction_plans_provisioning() {
         runtime_seed_ref: "artifact://runtime-seeds/builder".to_string(),
         runtime_seed_digest: format!("sha256:{}", "b".repeat(64)),
         network_profile_ref: "registry://network_profiles/build_runner".to_string(),
+        lxc: None,
     });
     let mut observation = observed();
     observation.existence = NodeSubstrateExistence::Absent;
@@ -146,4 +147,90 @@ fn absent_substrate_with_content_addressed_reconstruction_plans_provisioning() {
             .required_read_back
             .contains(&"runtime_seed_digest_observed".to_string())
     );
+}
+
+fn lxc_spec() -> LxcProvisioningSpec {
+    LxcProvisioningSpec {
+        schema: LXC_PROVISIONING_SCHEMA.to_string(),
+        hostname: "cynic-lxc-embedding".to_string(),
+        template_volid: "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst".to_string(),
+        storage_pool: "local-lvm".to_string(),
+        disk_gib: 16,
+        cores: 2,
+        memory_mib: 2048,
+        swap_mib: 1024,
+        bridge: "vmbr0".to_string(),
+        ip_cidr: Some("10.10.10.106/24".to_string()),
+        gateway: Some("10.10.10.1".to_string()),
+        nameserver: Some("10.10.10.1".to_string()),
+        unprivileged: true,
+        onboot: true,
+        features: vec!["nesting=1".to_string()],
+    }
+}
+
+fn desired_with_lxc(lxc: LxcProvisioningSpec) -> NodeSubstrateDesiredState {
+    NodeSubstrateDesiredState {
+        node_id: "cynic-lxc-embedding".to_string(),
+        provider: Some("proxmox".to_string()),
+        resource_id: Some("lxc/106".to_string()),
+        desired_power: NodeSubstratePower::Running,
+        provisioning: Some(NodeSubstrateProvisioningSpec {
+            schema: NODE_SUBSTRATE_PROVISIONING_SCHEMA.to_string(),
+            image_ref: String::new(),
+            image_digest: String::new(),
+            runtime_seed_ref: String::new(),
+            runtime_seed_digest: String::new(),
+            network_profile_ref: String::new(),
+            lxc: Some(lxc),
+        }),
+    }
+}
+
+#[test]
+fn valid_lxc_provisioning_spec_passes_validation() {
+    assert!(validate_lxc_provisioning_spec(&lxc_spec()).is_empty());
+}
+
+#[test]
+fn lxc_spec_rejects_invalid_hostname_template_and_network() {
+    let mut spec = lxc_spec();
+    spec.hostname = "-bad_hostname-".to_string();
+    assert!(validate_lxc_provisioning_spec(&spec).contains(&"lxc_hostname_invalid".to_string()));
+
+    let mut spec = lxc_spec();
+    spec.template_volid = "debian.tar.zst".to_string();
+    assert!(
+        validate_lxc_provisioning_spec(&spec).contains(&"lxc_template_volid_invalid".to_string())
+    );
+
+    let mut spec = lxc_spec();
+    spec.ip_cidr = Some("10.10.10.999/24".to_string());
+    assert!(validate_lxc_provisioning_spec(&spec).contains(&"lxc_ip_cidr_invalid".to_string()));
+
+    let mut spec = lxc_spec();
+    spec.gateway = None;
+    assert!(
+        validate_lxc_provisioning_spec(&spec)
+            .contains(&"lxc_gateway_missing_or_invalid_for_static_ip".to_string())
+    );
+}
+
+#[test]
+fn absent_lxc_substrate_plans_provisioning_without_content_addressed_digests() {
+    let desired = desired_with_lxc(lxc_spec());
+    let mut observation = observed();
+    observation.node_id = "cynic-lxc-embedding".to_string();
+    observation.provider = Some("proxmox".to_string());
+    observation.resource_id = Some("lxc/106".to_string());
+    observation.existence = NodeSubstrateExistence::Absent;
+    observation.power = NodeSubstratePower::Unknown;
+    observation.network_attachment = NodeNetworkAttachment::Unknown;
+
+    let decision = reconcile_node_substrate(&desired, &observation);
+
+    assert_eq!(decision.status, "planned");
+    assert_eq!(decision.action, Some(NodeSubstrateAction::Provision));
+    assert!(decision.mutates);
+    assert!(decision.blockers.is_empty());
 }
