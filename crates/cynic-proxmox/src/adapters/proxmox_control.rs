@@ -602,7 +602,9 @@ impl ProxmoxControlAdapter {
 }
 
 fn resolve_credential(path: &std::path::Path) -> Result<String, String> {
-    if let Some(value) = cynic_secrets::resolve_secret("proxmox-token", "CYNIC_PROXMOX_TOKEN_SECRET") {
+    if let Some(value) =
+        cynic_secrets::resolve_secret("proxmox-token", "CYNIC_PROXMOX_TOKEN_SECRET")
+    {
         return Ok(value);
     }
     if let Some(value) = cynic_secrets::resolve_secret("proxmox-token", "CYNIC_PROXMOX_SECRET") {

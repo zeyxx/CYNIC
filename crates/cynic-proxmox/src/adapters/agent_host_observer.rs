@@ -104,8 +104,8 @@ impl ProxmoxRestAgentHostObserver {
         };
         let cert = Client::builder().build().ok(); // just to validate; real cert below
         drop(cert);
-        let certificate = Certificate::from_pem(pem)
-            .map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
+        let certificate =
+            Certificate::from_pem(pem).map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(5))
             .add_root_certificate(certificate)

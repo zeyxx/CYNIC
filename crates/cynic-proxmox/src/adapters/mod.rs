@@ -17,7 +17,9 @@ pub use agent_host_observer::{
 
 pub use ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
 pub use proxmox_clone::{LxcCloneObservation, LxcCloneOutcome, ProxmoxSshCloneAdapter};
-pub use proxmox_control::{ProxmoxControlAdapter, ProxmoxControlConfiguration, ProxmoxControlStatus};
+pub use proxmox_control::{
+    ProxmoxControlAdapter, ProxmoxControlConfiguration, ProxmoxControlStatus,
+};
 pub use proxmox_disk_extension::ProxmoxSshDiskExtensionAdapter;
 pub use proxmox_lxc_compute_substrate::{ProxmoxLxcSubstrateAdapter, ProxmoxLxcSubstrateError};
 pub use proxmox_substrate::ProxmoxSshSubstrateAdapter;
