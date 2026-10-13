@@ -121,24 +121,28 @@ pub(crate) fn execute_identify(
         });
     };
     let client = kernel_client();
-    let resp = client
-        .post(format!("{base}/coord/identify"))
-        .json(&serde_json::json!({
-            "agent_id": agent_id,
-            "agent_kind": agent_kind,
-        }))
-        .send()
-        .map_err(|e| format!("kernel unreachable: {}", e))?;
+    let url = format!("{base}/coord/identify");
+    let payload = serde_json::json!({
+        "agent_id": agent_id,
+        "agent_kind": agent_kind,
+    });
+    let resp = blocking_kernel_request(move || {
+        client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("kernel unreachable: {e}"))
+    })?;
 
     let status = resp.status();
-    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
+    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {e}"))?;
 
     if !status.is_success() {
         let error = body
             .get("error")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        return Err(format!("identify failed: {}", error));
+        return Err(format!("identify failed: {error}"));
     }
 
     Ok(AgentIdentifyReport {
@@ -174,14 +178,18 @@ pub(crate) fn execute_register(
         );
     };
     let client = kernel_client();
-    let resp = client
-        .post(format!("{base}/coord/register"))
-        .json(&serde_json::json!({
-            "agent_id": agent_id,
-            "intent": intent,
-        }))
-        .send()
-        .map_err(|e| format!("kernel unreachable: {}", e))?;
+    let url = format!("{base}/coord/register");
+    let payload = serde_json::json!({
+        "agent_id": agent_id,
+        "intent": intent,
+    });
+    let resp = blocking_kernel_request(move || {
+        client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("kernel unreachable: {e}"))
+    })?;
 
     let status = resp.status();
     if is_kernel_auth_refusal(status.as_u16()) {
@@ -193,12 +201,12 @@ pub(crate) fn execute_register(
         );
     }
     if !status.is_success() {
-        let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
+        let body: Value = resp.json().map_err(|e| format!("invalid JSON: {e}"))?;
         let error = body
             .get("error")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        return Err(format!("register failed: {}", error));
+        return Err(format!("register failed: {error}"));
     }
 
     Ok(())
@@ -228,18 +236,22 @@ pub(crate) fn execute_claim(
         return claim_local();
     };
     let client = kernel_client();
-    let resp = match client
-        .post(format!("{base}/coord/claim"))
-        .json(&serde_json::json!({
-            "agent_id": agent_id,
-            "target": target,
-            "claim_type": claim_type,
-            "ttl_seconds": ttl_seconds,
-            "budget_actions": budget_actions,
-            "budget_wall_seconds": budget_wall_seconds,
-        }))
-        .send()
-    {
+    let url = format!("{base}/coord/claim");
+    let payload = serde_json::json!({
+        "agent_id": agent_id,
+        "target": target,
+        "claim_type": claim_type,
+        "ttl_seconds": ttl_seconds,
+        "budget_actions": budget_actions,
+        "budget_wall_seconds": budget_wall_seconds,
+    });
+    let resp = match blocking_kernel_request(move || {
+        client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("kernel unreachable: {e}"))
+    }) {
         Ok(resp) => resp,
         Err(_) => {
             return claim_local();
@@ -260,14 +272,14 @@ pub(crate) fn execute_claim(
         warn_kernel_auth_refusal("claim");
         return claim_local();
     }
-    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
+    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {e}"))?;
 
     if !status.is_success() {
         let error = body
             .get("error")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        return Err(format!("claim failed: {}", error));
+        return Err(format!("claim failed: {error}"));
     }
 
     let lease = body.get("lease").cloned().unwrap_or_default();
@@ -322,17 +334,21 @@ pub(crate) fn execute_release(
         return execute_release_local(agent_id, target, lease_id, proof_refs);
     };
     let client = kernel_client();
-    let resp = match client
-        .post(format!("{base}/coord/release"))
-        .json(&serde_json::json!({
-            "agent_id": agent_id,
-            "target": target,
-            "lease_id": lease_id,
-            "fencing_token": fencing_token,
-            "proof_refs": proof_refs,
-        }))
-        .send()
-    {
+    let url = format!("{base}/coord/release");
+    let payload = serde_json::json!({
+        "agent_id": agent_id,
+        "target": target,
+        "lease_id": lease_id,
+        "fencing_token": fencing_token,
+        "proof_refs": proof_refs,
+    });
+    let resp = match blocking_kernel_request(move || {
+        client
+            .post(&url)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("kernel unreachable: {e}"))
+    }) {
         Ok(resp) => resp,
         // Local file carries no fencing token; the kernel stays the fencing
         // authority whenever it is reachable.
@@ -345,12 +361,12 @@ pub(crate) fn execute_release(
         return execute_release_local(agent_id, target, lease_id, proof_refs);
     }
     if !status.is_success() {
-        let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
+        let body: Value = resp.json().map_err(|e| format!("invalid JSON: {e}"))?;
         let error = body
             .get("error")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        return Err(format!("release failed: {}", error));
+        return Err(format!("release failed: {error}"));
     }
 
     Ok(AgentReleaseReport {
@@ -369,11 +385,44 @@ pub(crate) fn execute_release(
 /// (.agent-claims.json) instead of failing with `kernel unreachable`.
 /// HOW: short-timeout kernel attempt first; transport failure falls back to a
 /// monotone local CAS on the claims file (revision + 1, tmp + rename).
+///
+/// RUNTIME SAFETY: the CLI runs under `#[tokio::main]`, so a
+/// `reqwest::blocking::Client` must never be created, used, or dropped on a
+/// tokio worker thread — dropping its internal runtime from within an async
+/// context panics with "Cannot drop a runtime in a context where blocking is
+/// not allowed" (tokio-1.53). Mirror the `prove_build_blocking` convention:
+/// build the blocking client inside `spawn_blocking` so the entire lifecycle
+/// (construction, request, response parsing, and drop) happens on a dedicated
+/// blocking thread outside the async runtime.
 fn kernel_client() -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(300))
         .build()
         .unwrap_or_default()
+}
+
+/// Perform a blocking kernel HTTP request on a dedicated OS thread.
+///
+/// WHY: the CLI runs inside a tokio runtime, and `reqwest::blocking::Client`
+/// panics when its internal runtime is dropped on or near a tokio worker.
+/// `block_in_place` + `spawn_blocking` + `block_on` is NOT sufficient — the
+/// hybrid context still trips tokio's blocking shutdown guard. A raw
+/// `std::thread::spawn` confines the client's entire lifecycle (construction,
+/// request, response, and drop) to a plain OS thread with zero tokio context.
+/// Falls back to synchronous execution when no tokio runtime is present
+/// (unit tests).
+fn blocking_kernel_request<F, T>(f: F) -> Result<T, String>
+where
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    if tokio::runtime::Handle::try_current().is_err() {
+        return f();
+    }
+    let handle = std::thread::spawn(f);
+    handle
+        .join()
+        .map_err(|_| "blocking kernel request panicked on worker thread".to_string())?
 }
 
 /// The kernel guards PEER surfaces with credentials. Node-local arbitration —
@@ -726,25 +775,26 @@ pub(crate) fn execute_status(
     let Some(base) = kernel_base else {
         return execute_status_from_claims_file(agent_id);
     };
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(300))
-        .build()
-        .unwrap_or_default();
-    let resp = client
-        .get(format!("{base}/coord/who?agent_id={agent_id}"))
-        .send();
+    let client = kernel_client();
+    let url = format!("{base}/coord/who?agent_id={agent_id}");
+    let resp = blocking_kernel_request(move || {
+        client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("kernel unreachable: {e}"))
+    });
 
     if resp.is_err() {
         return execute_status_from_claims_file(agent_id);
     }
-    let resp = resp.map_err(|e| format!("kernel unreachable: {}", e))?;
+    let resp = resp.map_err(|e| format!("kernel unreachable: {e}"))?;
 
     let status = resp.status();
     if is_kernel_auth_refusal(status.as_u16()) {
         warn_kernel_auth_refusal("status");
         return execute_status_from_claims_file(agent_id);
     }
-    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {}", e))?;
+    let body: Value = resp.json().map_err(|e| format!("invalid JSON: {e}"))?;
 
     if !status.is_success() {
         let error = body
