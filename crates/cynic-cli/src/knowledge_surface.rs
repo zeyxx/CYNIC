@@ -356,13 +356,37 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 });
 
                 let mut answer_text = None;
+                let mut duration_ms = 0u128;
                 tokio::task::block_in_place(|| {
                     let client = reqwest::blocking::Client::builder()
-                        .timeout(std::time::Duration::from_secs(12))
+                        .timeout(std::time::Duration::from_secs(20))
                         .build();
 
+                    // Resolve API key from env or canonical CynicPaths
+                    let api_key = std::env::var("CYNIC_LLAMA_API_KEY")
+                        .or_else(|_| std::env::var("CYNIC_API_KEY"))
+                        .ok()
+                        .or_else(|| {
+                            cynic_types::CynicPaths::user_config_dir()
+                                .and_then(|p| std::fs::read_to_string(p.join("llama-api-key")).ok())
+                        })
+                        .or_else(|| {
+                            std::fs::read_to_string(cynic_types::CynicPaths::secret_path(
+                                "llama-api-key",
+                            ))
+                            .ok()
+                        })
+                        .or_else(|| std::fs::read_to_string("/etc/cynic/llama-api-key").ok())
+                        .map(|k| k.trim().to_string());
+
                     if let Ok(client) = client {
-                        if let Ok(resp) = client.post(&target_endpoint).json(&payload).send() {
+                        let mut req = client.post(&target_endpoint).json(&payload);
+                        if let Some(ref key) = api_key {
+                            req = req.header("Authorization", format!("Bearer {}", key));
+                        }
+                        let start = std::time::Instant::now();
+                        if let Ok(resp) = req.send() {
+                            duration_ms = start.elapsed().as_millis();
                             if resp.status().is_success() {
                                 if let Ok(body) = resp.json::<serde_json::Value>() {
                                     if let Some(content) =
@@ -406,7 +430,10 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
 
                     match answer_text {
                         Some(ans) => {
-                            println!("\n=== Réponse Synthétisée ===\n{}", ans);
+                            println!(
+                                "\n=== Réponse Synthétisée ({} ms) ===\n{}",
+                                duration_ms, ans
+                            );
                         }
                         None => {
                             println!(
