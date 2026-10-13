@@ -45,7 +45,7 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
   - Map code symbols to owning crate layer ($L_0$ to $L_4$).
 
 ### Phase 2: Graph-RAG & Structural Topology Traversal (L1 Truth Graph)
-- [ ] **2.1 Dependency Expansion Traversal:**
+- [x] **2.1 Dependency Expansion Traversal:**
   - When a chunk is selected by lexical retrieval, query `KnowledgeGraph` (`crates/cynic-knowledge/src/domain/graph.rs`).
   - Automatically fetch parent contracts (`contracts/*.json`) and architectural constraints linked to the document.
 - [ ] **2.2 Matrix Re-Ranking Engine ($S_0..S_4 \times C_0..C_4$):**
