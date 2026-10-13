@@ -23,11 +23,11 @@ fn synthesis_prompt_builder_enforces_epistemic_grounding() {
 
     let hits = vec![
         SearchHit {
-            chunk: chunk1,
+            chunk: &chunk1,
             score: 18.5,
         },
         SearchHit {
-            chunk: chunk2,
+            chunk: &chunk2,
             score: 12.0,
         },
     ];
