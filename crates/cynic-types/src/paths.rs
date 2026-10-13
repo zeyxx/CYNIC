@@ -94,6 +94,32 @@ impl CynicPaths {
             .ok()
     }
 
+    /// Résout le répertoire de cache utilisateur (~/.cache/cynic).
+    pub fn user_cache_dir() -> PathBuf {
+        std::env::var("CYNIC_CACHE_DIR")
+            .map(PathBuf::from)
+            .or_else(|_| {
+                std::env::var("XDG_CACHE_HOME")
+                    .map(PathBuf::from)
+                    .or_else(|_| std::env::var("HOME").map(|h| PathBuf::from(h).join(".cache")))
+            })
+            .map(|base| base.join("cynic"))
+            .unwrap_or_else(|_| PathBuf::from("/tmp/cynic-cache"))
+    }
+
+    /// Résout le chemin du cache de connaissance souverain (corpus_cache.json).
+    /// Si /var/lib/cynic/knowledge n'est pas inscriptible par l'utilisateur courant,
+    /// repli automatique et propre sur ~/.cache/cynic/corpus_cache.json.
+    pub fn knowledge_cache_path() -> PathBuf {
+        let system_path = Self::state_dir().join("knowledge/corpus_cache.json");
+        if let Some(parent) = system_path.parent() {
+            if std::fs::create_dir_all(parent).is_ok() {
+                return system_path;
+            }
+        }
+        Self::user_cache_dir().join("corpus_cache.json")
+    }
+
     /// Vérifie si un chemin donné pointe vers l'arborescence système cynic.
     pub fn is_under_system_root(path: &Path) -> bool {
         path.starts_with(Self::DEFAULT_SYSTEM_ROOT)

@@ -321,8 +321,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             model,
             json,
         } => {
-            let cache_path =
-                cynic_types::CynicPaths::state_dir().join("knowledge/corpus_cache.json");
+            let cache_path = cynic_types::CynicPaths::knowledge_cache_path();
             let (_cache, index) =
                 cynic_knowledge::sync_workspace_corpus(&repo_root, Some(&cache_path), commits);
             let hits = index.search(&question, limit);
