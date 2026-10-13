@@ -107,7 +107,7 @@ pub use ports::model_store_port::ModelStorePort;
 pub use ports::token_entropy_port::TokenEntropyPort;
 
 // Misc
-pub use math::roofline::assess_roofline;
+pub use math::roofline::{BandwidthTier, assess_roofline};
 
 // Adapter re-exports
 pub use adapters::inference::token_entropy::TokenEntropyAdapter;
