@@ -355,24 +355,26 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     "temperature": 0.1
                 });
 
-                let client = reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_secs(12))
-                    .build();
-
                 let mut answer_text = None;
-                if let Ok(client) = client {
-                    if let Ok(resp) = client.post(&target_endpoint).json(&payload).send() {
-                        if resp.status().is_success() {
-                            if let Ok(body) = resp.json::<serde_json::Value>() {
-                                if let Some(content) =
-                                    body["choices"][0]["message"]["content"].as_str()
-                                {
-                                    answer_text = Some(content.to_string());
+                tokio::task::block_in_place(|| {
+                    let client = reqwest::blocking::Client::builder()
+                        .timeout(std::time::Duration::from_secs(12))
+                        .build();
+
+                    if let Ok(client) = client {
+                        if let Ok(resp) = client.post(&target_endpoint).json(&payload).send() {
+                            if resp.status().is_success() {
+                                if let Ok(body) = resp.json::<serde_json::Value>() {
+                                    if let Some(content) =
+                                        body["choices"][0]["message"]["content"].as_str()
+                                    {
+                                        answer_text = Some(content.to_string());
+                                    }
                                 }
                             }
                         }
                     }
-                }
+                });
 
                 if json {
                     let out = serde_json::json!({

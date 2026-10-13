@@ -62,29 +62,47 @@ pub(crate) fn execute_inference(probe: bool, json: bool) -> ExitCode {
     match load_inference_config() {
         Ok(loaded) => {
             let sovereign_count = loaded.backends.iter().filter(|b| b.sovereign).count();
-            let client = if probe {
-                reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_millis(1500))
-                    .build()
-                    .ok()
+            let backends: Vec<BackendView> = if probe {
+                tokio::task::block_in_place(|| {
+                    let client = reqwest::blocking::Client::builder()
+                        .timeout(std::time::Duration::from_millis(1500))
+                        .build()
+                        .ok();
+
+                    loaded
+                        .backends
+                        .iter()
+                        .map(|b| {
+                            let probe_status = client.as_ref().map(|c| {
+                                let models_url =
+                                    format!("{}/models", b.base_url.trim_end_matches('/'));
+                                match c.get(&models_url).send() {
+                                    Ok(resp) if resp.status().is_success() => "ONLINE".to_string(),
+                                    Ok(resp) => format!("HTTP_{}", resp.status().as_u16()),
+                                    Err(_) => "UNREACHABLE".to_string(),
+                                }
+                            });
+
+                            BackendView {
+                                name: b.name.clone(),
+                                sovereign: b.sovereign,
+                                base_url: b.base_url.clone(),
+                                model: b.model.clone(),
+                                backend_type: format!("{:?}", b.backend_type).to_lowercase(),
+                                context_size: b.context_size,
+                                timeout_secs: b.timeout_secs,
+                                max_tokens: b.max_tokens,
+                                has_api_key: b.api_key.is_some(),
+                                probe_status,
+                            }
+                        })
+                        .collect()
+                })
             } else {
-                None
-            };
-
-            let backends: Vec<BackendView> = loaded
-                .backends
-                .iter()
-                .map(|b| {
-                    let probe_status = client.as_ref().map(|c| {
-                        let models_url = format!("{}/models", b.base_url.trim_end_matches('/'));
-                        match c.get(&models_url).send() {
-                            Ok(resp) if resp.status().is_success() => "ONLINE".to_string(),
-                            Ok(resp) => format!("HTTP_{}", resp.status().as_u16()),
-                            Err(_) => "UNREACHABLE".to_string(),
-                        }
-                    });
-
-                    BackendView {
+                loaded
+                    .backends
+                    .iter()
+                    .map(|b| BackendView {
                         name: b.name.clone(),
                         sovereign: b.sovereign,
                         base_url: b.base_url.clone(),
@@ -94,10 +112,10 @@ pub(crate) fn execute_inference(probe: bool, json: bool) -> ExitCode {
                         timeout_secs: b.timeout_secs,
                         max_tokens: b.max_tokens,
                         has_api_key: b.api_key.is_some(),
-                        probe_status,
-                    }
-                })
-                .collect();
+                        probe_status: None,
+                    })
+                    .collect()
+            };
 
             let view = InferenceConfigView {
                 schema: "cynic.inference_config.v1",
