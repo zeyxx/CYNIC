@@ -227,10 +227,10 @@ mod tests {
 
         // Modification: add second document
         let doc2 = root.join("doc2.md");
-        fs::write(&doc2, "# Title 2\nContent of document 2.\n").unwrap();
+        fs::write(&doc2, "# SpecialHeader\nUnique keyword for document two.\n").unwrap();
 
         let (cache3, index3) = sync_workspace_corpus(root, Some(&cache_file), 0);
         assert_eq!(cache3.files.len(), 2);
-        assert_eq!(index3.search("Title 2", 5).len(), 1);
+        assert_eq!(index3.search("Unique keyword", 5).len(), 1);
     }
 }
