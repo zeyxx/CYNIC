@@ -74,8 +74,17 @@ pub fn prove_build_blocking(
     host: &str,
     user: &str,
 ) -> Result<BuildProofReport, String> {
-    let runtime =
-        tokio::runtime::Runtime::new().map_err(|e| format!("async runtime unavailable: {e}"))?;
+    // The CLI runs inside a tokio runtime (#[tokio::main]), so a fresh
+    // `Runtime::block_on` would panic with "cannot start a runtime from
+    // within a runtime". Mirror the adapter convention: join the ambient
+    // runtime when present, build one only when absent.
     let adapter = SshBuildProof::new(host, user, "builder");
-    runtime.block_on(adapter.prove(request))
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => tokio::task::block_in_place(|| handle.block_on(adapter.prove(request))),
+        Err(_) => {
+            let runtime = tokio::runtime::Runtime::new()
+                .map_err(|e| format!("async runtime unavailable: {e}"))?;
+            runtime.block_on(adapter.prove(request))
+        }
+    }
 }
