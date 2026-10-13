@@ -1,0 +1,75 @@
+{
+  "schema": "cynic.retrieval_gain_labels.v1",
+  "note": "Graded relevance fixture for 11.10. Grades: 2 = exact answer, 1 = related, 0 = noise (default). Traps are measured only. Rerun after slice 3 (hybrid) and compare MRR/nDCG on this exact fixture.",
+  "queries": [
+    {
+      "id": "RQ1_MERGE_GATE",
+      "query": "merge gate audit crate",
+      "trap": false,
+      "grades": {
+        "contracts/dependency-policy.json": 2,
+        "contracts/release-gates.json": 1,
+        "AGENTS.md": 1
+      }
+    },
+    {
+      "id": "RQ2_DISK_RECLAIM",
+      "query": "how is disk space reclaimed on the builder",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ3_BUILDER_SSOT",
+      "query": "build gate ssot 10.10.10.119",
+      "trap": false,
+      "grades": {
+        "AGENTS.md": 2
+      }
+    },
+    {
+      "id": "RQ4_POWERS",
+      "query": "5 pouvoirs separation constituante judiciaire",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ5_ADMISSION",
+      "query": "memory admission formula weights kv activations",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ6_BANDWIDTH",
+      "query": "Ahmad Osman bandwidth tiers",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ7_PATHS",
+      "query": "CynicPaths state dir var lib cynic",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ8_TOPOLOGY",
+      "query": "crate topology workspace geometry fan-in",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ9_TEMPORAL",
+      "query": "TemporalContract temporal reconciliation",
+      "trap": false,
+      "grades": {}
+    },
+    {
+      "id": "RQ10_TRAP_KUBERNETES",
+      "query": "deploy kubernetes helm chart cynic cluster pods",
+      "trap": true,
+      "grades": {}
+    }
+  ]
+}
