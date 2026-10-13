@@ -34,7 +34,8 @@
       "deny.toml",
       "env.example",
       "rust-toolchain.toml",
-      "rustfmt.toml"
+      "rustfmt.toml",
+      "vercel.json"
     ]
   },
   "forbidden_roots": [
