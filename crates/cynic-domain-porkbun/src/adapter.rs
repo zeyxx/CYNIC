@@ -102,19 +102,17 @@ impl PorkbunRegistrar {
     /// In production, the caller resolves these from `SecretReference`
     /// using an `EnvSecretProvider` or `PrincipalOwnedFileProvider` adapter.
     pub fn new(api_key: String, api_secret: String) -> Self {
-        // Build the blocking reqwest client on a dedicated thread: constructing
-        // a reqwest blocking client inside an already running Tokio runtime panics
-        // in tokio 1.53 when the inner blocking pool drops at the wrong context.
-        // Keeping client construction thread-bound keeps the sync adapter safe.
-        let client = std::thread::spawn(|| {
+        // `reqwest::blocking::Client::builder().build()` creates and then unwinds its
+        // inner tokio runtime. Running it straight inside cynic's async main panics,
+        // while `block_in_place` reports a temporary blocking region to Tokio and
+        // keeps the construction safe in the async context.
+        let client = tokio::task::block_in_place(|| {
             Client::builder()
                 .user_agent("cynic-domain-porkbun/0.1.0")
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|e| panic!("reqwest client init failed: {e}"))
-        })
-        .join()
-        .unwrap_or_else(|_| panic!("reqwest client thread panicked"));
+        });
 
         Self {
             client,
