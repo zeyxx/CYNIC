@@ -230,7 +230,7 @@ pub fn standalone_function() -> u32 {
         assert!(!chunks.is_empty());
 
         // 1. Module overview
-        assert_eq!(chunks[0].hierarchy[2], "Module Overview");
+        assert_eq!(chunks[0].section_hierarchy[2], "Module Overview");
         assert_eq!(chunks[0].authority, AuthorityTier::L0Constitution);
 
         // 2. Struct
