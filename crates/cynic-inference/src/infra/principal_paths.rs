@@ -17,7 +17,7 @@ pub mod env_keys {
     pub const FORCE_OPERATOR_HOME: &str = "CYNIC_FORCE_OPERATOR_HOME";
 }
 
-const DEFAULT_PRINCIPAL_HOME: &str = "/var/lib/cynic";
+const DEFAULT_PRINCIPAL_HOME: &str = cynic_types::CynicPaths::DEFAULT_STATE_ROOT;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

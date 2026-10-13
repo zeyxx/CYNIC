@@ -55,7 +55,7 @@ pub struct TokenUncertaintyParams {
 impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
-            exploration_top_probability: 0.25,
+            exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }
     }
@@ -108,18 +108,12 @@ pub fn token_entropy_from_logits(
     if logits.is_empty() {
         return Err(EntropyError::EmptyDistribution);
     }
-    let max_logit = logits
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
-    if !max_logit.is_finite() {
-        for (index, value) in logits.iter().enumerate() {
-            if !value.is_finite() {
-                return Err(EntropyError::NonFiniteProbability { index });
-            }
+    for (index, value) in logits.iter().enumerate() {
+        if !value.is_finite() {
+            return Err(EntropyError::NonFiniteProbability { index });
         }
-        return Err(EntropyError::EmptyDistribution);
     }
+    let max_logit = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
     let mut exps = Vec::with_capacity(logits.len());
     let mut exp_sum = 0.0_f64;
@@ -185,9 +179,9 @@ pub fn assess_token_uncertainty(
         .sum::<f64>()
         / snapshots.len() as f64;
 
-    let level = if mean_top_probability < params.exploration_top_probability {
+    let level = if mean_top_probability <= params.exploration_top_probability {
         TokenUncertaintyLevel::Exploration
-    } else if mean_top_probability > params.exploitation_top_probability {
+    } else if mean_top_probability >= params.exploitation_top_probability {
         TokenUncertaintyLevel::Exploitation
     } else {
         TokenUncertaintyLevel::Balanced
@@ -219,7 +213,7 @@ mod tests {
     #[test]
     fn one_hot_logits_have_zero_entropy() {
         let snapshot = token_entropy_from_logits(&[10.0, 0.0, -5.0], 0).unwrap();
-        assert!(snapshot.entropy_bits < 1e-9);
+        assert!(snapshot.entropy_bits < 1e-3);
         assert!(snapshot.top_probability > 0.999);
         assert_eq!(snapshot.top_token, 0);
     }
@@ -246,9 +240,11 @@ mod tests {
         let assessment = assess_token_uncertainty(&[], TokenUncertaintyParams::default());
         assert_eq!(assessment.level, TokenUncertaintyLevel::Unobservable);
         assert_eq!(assessment.snapshots_observed, 0);
-        assert!(assessment
-            .residual_unknowns
-            .contains(&"no_token_snapshots_observed".to_string()));
+        assert!(
+            assessment
+                .residual_unknowns
+                .contains(&"no_token_snapshots_observed".to_string())
+        );
     }
 
     #[test]

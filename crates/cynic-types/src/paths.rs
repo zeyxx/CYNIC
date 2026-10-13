@@ -21,6 +21,10 @@ impl CynicPaths {
     /// Répertoire canonique des secrets machine (permissions 0640 cynic:cynic).
     pub const DEFAULT_SECRETS_DIRNAME: &'static str = "secrets";
 
+    /// Racine d'état persistant runtime principal (cynic_state).
+    /// Défini par `infra/directory-tree.json:cynic_state.root`.
+    pub const DEFAULT_STATE_ROOT: &'static str = "/var/lib/cynic";
+
     /// Résout la racine de configuration système.
     /// Ordre d'autorité :
     /// 1. Variable d'environnement `CYNIC_CONFIG_DIR` (dérivation explicite en test/dev).
@@ -71,6 +75,13 @@ impl CynicPaths {
         std::env::var("CYNIC_STORAGE_CONFIG")
             .map(PathBuf::from)
             .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_STORAGE_FILENAME))
+    }
+
+    /// Résout la racine d'état persistant principal (/var/lib/cynic).
+    pub fn state_dir() -> PathBuf {
+        std::env::var("CYNIC_STATE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_STATE_ROOT))
     }
 
     /// Résout le répertoire de configuration utilisateur (~/.config/cynic).

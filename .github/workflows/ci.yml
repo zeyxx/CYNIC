@@ -41,4 +41,13 @@ jobs:
         run: cargo check --workspace
 
       - name: Run Core Types Test Suite
-        run: cargo test -p cynic-types --lib
+        run: cargo test -p cynic-types
+
+      - name: Run Knowledge Test Suite
+        run: cargo test -p cynic-knowledge
+
+      - name: Run Inference Test Suite
+        run: cargo test -p cynic-inference
+
+      - name: Run Canonical Paths Coherence Test
+        run: cargo test -p cynic-cli --test canonical_paths_coherence
