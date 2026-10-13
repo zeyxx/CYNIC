@@ -322,10 +322,19 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             json,
         } => {
             let cache_path = cynic_types::CynicPaths::knowledge_cache_path();
-            let (_cache, index) =
+            let (cache, index) =
                 cynic_knowledge::sync_workspace_corpus(&repo_root, Some(&cache_path), commits);
             let hits = index.search(&question, limit);
-            let synthesis_prompt = cynic_knowledge::SynthesisPromptBuilder::build(&question, &hits);
+
+            // Phase 11.3: Graph-RAG Traversal (link chunks to parent contracts and governing specs)
+            let manifest = cynic_knowledge::adapters::markdown::scan_corpus_manifest(&repo_root);
+            let graph = cynic_knowledge::KnowledgeGraph::build_from_manifest(&repo_root, &manifest);
+            let chunks_by_path = cache.chunks_by_path();
+            let final_hits =
+                cynic_knowledge::expand_hits_with_graph(&hits, &graph, &chunks_by_path, 2);
+
+            let synthesis_prompt =
+                cynic_knowledge::SynthesisPromptBuilder::build(&question, &final_hits);
 
             if prompt_only {
                 if json {

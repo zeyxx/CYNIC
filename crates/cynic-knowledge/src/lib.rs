@@ -13,6 +13,7 @@ pub use domain::{
     GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
     LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
     SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
+    expand_hits_with_graph,
 };
 
 use std::path::Path;

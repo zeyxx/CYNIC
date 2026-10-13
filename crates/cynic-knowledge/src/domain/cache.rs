@@ -74,6 +74,14 @@ impl CorpusCacheRecord {
     pub fn total_chunks(&self) -> usize {
         self.files.values().map(|f| f.chunks.len()).sum()
     }
+
+    /// Returns a map of relative path to its document chunks.
+    pub fn chunks_by_path(&self) -> HashMap<String, Vec<DocumentChunk>> {
+        self.files
+            .iter()
+            .map(|(path, entry)| (path.clone(), entry.chunks.clone()))
+            .collect()
+    }
 }
 
 #[cfg(test)]
