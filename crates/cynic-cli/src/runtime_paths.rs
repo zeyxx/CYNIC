@@ -563,17 +563,17 @@ mod tests {
         assert!(
             resolved.dns_service_path
                 == PathBuf::from(format!(
-                    "/etc/systemd/system/coredns-{}.service",
+                    "/etc/systemd/system/{}",
                     SERVICE_DNS_SERVICE_FILENAME
                 ))
                 || resolved.dns_service_path
                     == PathBuf::from(format!(
-                        "/etc/systemd/system/cynic-dns-{}.service",
+                        "/etc/systemd/system/coredns-{}",
                         SERVICE_DNS_SERVICE_FILENAME
                     ))
                 || resolved.dns_service_path
                     == PathBuf::from(format!(
-                        "/etc/systemd/system/{}.service",
+                        "/etc/systemd/system/cynic-dns-{}",
                         SERVICE_DNS_SERVICE_FILENAME
                     ))
         );
