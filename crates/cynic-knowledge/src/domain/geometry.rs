@@ -74,7 +74,7 @@ impl CrateGeometryRecord {
 
         let authority = match self.layer.as_str() {
             "L0" => AuthorityTier::L0Constitution,
-            "L1" => AuthorityTier::L1Spec,
+            "L1" => AuthorityTier::L1Specification,
             _ => AuthorityTier::L2Design,
         };
 
