@@ -111,7 +111,7 @@ mod tests {
                     let bytes = text.as_bytes();
                     vec![
                         f32::from(bytes.first().copied().unwrap_or(0)),
-                        f32::from(bytes.len() % 7),
+                        (bytes.len() % 7) as f32,
                         1.0,
                     ]
                 })
@@ -133,7 +133,7 @@ mod tests {
             3,
             vec![],
             content.into(),
-            AuthorityTier::L4Ephemeral,
+            AuthorityTier::L3Operation,
         )
     }
 
