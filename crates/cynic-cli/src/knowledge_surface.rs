@@ -353,7 +353,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                         {"role": "user", "content": synthesis_prompt.user_prompt}
                     ],
                     "temperature": 0.0,
-                    "max_tokens": 300
+                    "max_tokens": 600
                 });
 
                 let mut answer_text = None;
