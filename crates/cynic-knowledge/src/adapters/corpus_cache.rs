@@ -192,12 +192,19 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
+
+    fn test_temp_dir(name: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("cynic_corpus_{}_{}", name, std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
 
     #[test]
     fn test_sync_workspace_corpus_incremental_roundtrip() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
+        let dir = test_temp_dir("roundtrip");
+        let root = &dir;
 
         // Create sample markdown file
         let doc1 = root.join("doc1.md");

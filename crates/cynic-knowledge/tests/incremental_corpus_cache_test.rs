@@ -1,12 +1,19 @@
 use std::fs;
-use tempfile::tempdir;
+use std::path::PathBuf;
 
 use cynic_knowledge::{load_corpus_cache, sync_workspace_corpus};
 
+fn test_temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("cynic_know_{}_{}", name, std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
 #[test]
 fn test_incremental_cache_avoids_reparsing_unmodified_files() {
-    let dir = tempdir().unwrap();
-    let root = dir.path();
+    let dir = test_temp_dir("incr_cache");
+    let root = &dir;
 
     // 1. Setup sample document
     let docs_dir = root.join("docs");
