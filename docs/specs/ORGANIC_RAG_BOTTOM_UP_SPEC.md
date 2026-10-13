@@ -48,11 +48,11 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
 - [x] **2.1 Dependency Expansion Traversal:**
   - When a chunk is selected by lexical retrieval, query `KnowledgeGraph` (`crates/cynic-knowledge/src/domain/graph.rs`).
   - Automatically fetch parent contracts (`contracts/*.json`) and architectural constraints linked to the document.
-- [ ] **2.2 Matrix Re-Ranking Engine ($S_0..S_4 \times C_0..C_4$):**
+- [x] **2.2 Matrix Re-Ranking Engine ($S_0..S_4 \times C_0..C_4$):**
   - Implement dynamic multi-tier scoring:
     $$Score = BM25 \times Boost_{Authority} \times Boost_{Layer} \times Freshness_{Git}$$
   - $L_0$ (Constitution/Foundation) strictly outranks $L_2$ (Design) in conflict resolution.
-- [ ] **2.3 Contradiction & Deprecation Pruning:**
+- [x] **2.3 Contradiction & Deprecation Pruning:**
   - Filter out obsolete documents flagged in `contracts/foundation.json` deleted authorities.
 
 ### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Sémantique)

@@ -274,7 +274,7 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
 - [x] **11.1 Substrate Ingestion & Cache**: Persistent cache (`corpus_cache.json`) + Git-diff incremental ingestion.
 - [x] **11.2 Rust Code AST Ingestion**: Extract structs, enums, functions from `crates/*/src` into knowledge matrix.
 - [x] **11.3 Graph-RAG Traversal**: Link chunks to parent contracts via `KnowledgeGraph` dependency edges.
-- [ ] **11.4 Matrix Re-Ranking**: Score chunks by BM25 × Authority Boost × Layer Boost × Git Freshness.
+- [x] **11.4 Matrix Re-Ranking**: Score chunks by BM25 × Authority Boost × Layer Boost × Git Freshness.
 - [ ] **11.5 Hybrid Retrieval (RRF)**: Reciprocal Rank Fusion combining BM25 and dense local embeddings.
 - [ ] **11.6 MCP Native Exposure**: Wire `cynic_know_ask` into `cynic-mcp` with zero shell-fork overhead.
 - [ ] **11.7 Epistemic CI Evaluation Harness**: Automated 10-question evaluation matrix with 0% hallucination gate.
