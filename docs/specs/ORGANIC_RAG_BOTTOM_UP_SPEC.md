@@ -69,7 +69,7 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
   - Allow Hermes, Claude, and local subagents to query living memory natively.
 - [ ] **4.2 Streaming CLI Ergonomics:**
   - Streaming SSE with token-by-token output and interactive cancellation.
-- [ ] **4.3 Epistemic Evaluation Harness (Faithfulness & Relevance):**
+- [x] **4.3 Epistemic Evaluation Harness (Faithfulness & Relevance):**
   - Automated CI test matrix executing 10 deterministic test questions (invariants, specs, negative out-of-corpus questions).
   - Verify 100% negative rejection rate on hallucination traps.
 
