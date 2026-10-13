@@ -246,6 +246,7 @@ tmux attach -t inference
 | PVE host | `pve` | Hypervisor | Proxmox VE 8 | N/A | Stable |
 | Forgejo CT | `101` | Git, web | Ubuntu 22.04 (CT) | N/A | Stable |
 | Builder CT | `105` | Build container | Ubuntu 24.04 (CT) | N/A | Stable |
+| Embedding CT | `106` | Dense embeddings (EmbeddingGemma-2, DIM 768) | Debian 12 (CT) | `llama-server-embed` + fallback | Stable, systemd + enabled |
 
 ---
 
@@ -275,9 +276,12 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
 - [x] **11.2 Rust Code AST Ingestion**: Extract structs, enums, functions from `crates/*/src` into knowledge matrix.
 - [x] **11.3 Graph-RAG Traversal**: Link chunks to parent contracts via `KnowledgeGraph` dependency edges.
 - [x] **11.4 Matrix Re-Ranking**: Score chunks by BM25 × Authority Boost × Layer Boost × Git Freshness.
-- [x] **11.5 Hybrid Retrieval (RRF)**: Reciprocal Rank Fusion combining BM25 and dense local embeddings.
+- [x] **11.5 Hybrid Retrieval (RRF)**: Reciprocal Rank Fusion combining BM25 and dense local embeddings (dense = stub vectors in unit tests until 2026-10-13; live 768d endpoint since, see 11.8).
 - [ ] **11.6 MCP Native Exposure**: Wire `cynic_know_ask` into `cynic-mcp` with zero shell-fork overhead.
 - [x] **11.7 Epistemic CI Evaluation Harness**: Automated 10-question evaluation matrix with 0% hallucination gate.
+- [x] **11.8 Live Dense Endpoint (2026-10-13)**: `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding` (lxc/106, `10.10.10.106:8080`, DIM 768, systemd unit `llama-server-embedding.service`); declared in `infra/registry.json`; live smoke test `cynic-inference/tests/embedding_live.rs` (ignored by default, `dims=768`, 71 ms builder→106).
+- [ ] **11.9 Chunk Vectorizer + Cosine Index**: Batch-encode corpus chunks through `EmbeddingPort`, cache vectors, dense top-k feeding `fuse_reciprocal_ranks` (no pipeline exists yet — smoke test only).
+- [ ] **11.10 Retrieval Gain Measurement**: Re-run the 10-question bench BM25-only vs hybrid with graded relevance labels (labels do not exist yet).
 
 ---
 
