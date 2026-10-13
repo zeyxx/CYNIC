@@ -6,11 +6,11 @@ pub use adapters::{
     parse_git_log_output, parse_json_contract, parse_markdown_tree,
 };
 pub use domain::{
-    AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest,
-    CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
+    AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CitedSource, CodeBlock,
+    CorpusManifest, CrateGeometryRecord, DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree,
     GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
-    LexicalIndex, MarkdownLink, SearchHit, SectionNode, WORKSPACE_GEOMETRY_SCHEMA_V1,
-    WorkspaceGeometry,
+    LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
+    SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
 };
 
 use std::path::Path;

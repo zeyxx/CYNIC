@@ -55,6 +55,29 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Ask a question to the knowledge oracle with strict epistemic grounding.
+    Ask {
+        /// The question to answer.
+        question: String,
+        /// Maximum number of sources to retrieve.
+        #[arg(long, default_value = "4")]
+        limit: usize,
+        /// Also index recent Git commits for provenance.
+        #[arg(long, default_value = "20")]
+        commits: usize,
+        /// Only output the bounded epistemic prompt without invoking local LLM.
+        #[arg(long)]
+        prompt_only: bool,
+        /// Optional custom OpenAI-compatible endpoint (defaults to http://127.0.0.1:8080/v1/chat/completions).
+        #[arg(long)]
+        endpoint: Option<String>,
+        /// Model name for completion.
+        #[arg(long, default_value = "default")]
+        model: String,
+        /// Output response as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -286,6 +309,115 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 Err(err) => {
                     eprintln!("Failed to load workspace geometry: {}", err);
                     ExitCode::FAILURE
+                }
+            }
+        }
+        KnowCommand::Ask {
+            question,
+            limit,
+            commits,
+            prompt_only,
+            endpoint,
+            model,
+            json,
+        } => {
+            let index = cynic_knowledge::index_workspace_with_commits(&repo_root, commits);
+            let hits = index.search(&question, limit);
+            let synthesis_prompt = cynic_knowledge::SynthesisPromptBuilder::build(&question, &hits);
+
+            if prompt_only {
+                if json {
+                    crate::emit_json(&synthesis_prompt, false)
+                } else {
+                    println!(
+                        "=== CYNIC Epistemic Prompt ({}) ===",
+                        synthesis_prompt.schema
+                    );
+                    println!(
+                        "\n[SYSTEM INSTRUCTION]\n{}",
+                        synthesis_prompt.system_instruction
+                    );
+                    println!("\n[USER PROMPT]\n{}", synthesis_prompt.user_prompt);
+                    ExitCode::SUCCESS
+                }
+            } else {
+                let target_endpoint = endpoint.unwrap_or_else(|| {
+                    std::env::var("CYNIC_INFERENCE_URL")
+                        .unwrap_or_else(|_| "http://127.0.0.1:8080/v1/chat/completions".to_string())
+                });
+
+                // Attempt local LLM call via reqwest
+                let payload = serde_json::json!({
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": synthesis_prompt.system_instruction},
+                        {"role": "user", "content": synthesis_prompt.user_prompt}
+                    ],
+                    "temperature": 0.1
+                });
+
+                let client = reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_secs(12))
+                    .build();
+
+                let mut answer_text = None;
+                if let Ok(client) = client {
+                    if let Ok(resp) = client.post(&target_endpoint).json(&payload).send() {
+                        if resp.status().is_success() {
+                            if let Ok(body) = resp.json::<serde_json::Value>() {
+                                if let Some(content) =
+                                    body["choices"][0]["message"]["content"].as_str()
+                                {
+                                    answer_text = Some(content.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if json {
+                    let out = serde_json::json!({
+                        "question": question,
+                        "answer": answer_text,
+                        "endpoint": target_endpoint,
+                        "sources": synthesis_prompt.sources,
+                        "prompt": synthesis_prompt
+                    });
+                    crate::emit_json(&out, false)
+                } else {
+                    println!("=== CYNIC Knowledge Synthesis Oracle ===");
+                    println!("Question : {}", question);
+                    println!(
+                        "Sources  : {} chunks retenus",
+                        synthesis_prompt.sources.len()
+                    );
+                    for (i, s) in synthesis_prompt.sources.iter().enumerate() {
+                        println!(
+                            "  [{}] {}:{}-{} ({:?}, score: {:.2})",
+                            i + 1,
+                            s.source_path,
+                            s.line_start,
+                            s.line_end,
+                            s.authority,
+                            s.score
+                        );
+                    }
+
+                    match answer_text {
+                        Some(ans) => {
+                            println!("\n=== Réponse Synthétisée ===\n{}", ans);
+                        }
+                        None => {
+                            println!(
+                                "\n[!] Serveur d'inférence ({}) injoignable ou hors-ligne.",
+                                target_endpoint
+                            );
+                            println!(
+                                "    Pour exécuter avec un agent, utilisez l'option `--prompt-only`."
+                            );
+                        }
+                    }
+                    ExitCode::SUCCESS
                 }
             }
         }
