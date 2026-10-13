@@ -307,6 +307,14 @@
           "cynic-lxc-headscale.service.cynic"
         ],
         "service": "10.10.10.40"
+      },
+      {
+        "name": "cynic-lxc-embedding",
+        "dns": [
+          "embedding.service.cynic",
+          "cynic-lxc-embedding.service.cynic"
+        ],
+        "service": "10.10.10.106"
       }
     ]
   },
