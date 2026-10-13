@@ -159,7 +159,63 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
         }
     }
 
-    // 3. Prune files deleted from disk
+    // 3. Scan crates/*/src Rust source files
+    let crates_dir = root.join("crates");
+    if crates_dir.exists() {
+        for entry in WalkDir::new(crates_dir)
+            .into_iter()
+            .filter_entry(|e| {
+                let name = e.file_name().to_string_lossy();
+                !IGNORED_DIRS.contains(&name.as_ref())
+            })
+            .flatten()
+        {
+            if entry.file_type().is_file()
+                && entry.path().extension().is_some_and(|ext| ext == "rs")
+                && entry.path().to_string_lossy().contains("/src/")
+            {
+                let rel_path = entry
+                    .path()
+                    .strip_prefix(root)
+                    .unwrap_or(entry.path())
+                    .to_string_lossy()
+                    .to_string();
+
+                active_paths.push(rel_path.clone());
+
+                let metadata = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+
+                let size_bytes = metadata.len();
+                let mtime_secs = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+
+                if !cache.is_file_fresh(&rel_path, mtime_secs, size_bytes) {
+                    if let Ok(content) = fs::read_to_string(entry.path()) {
+                        let hash = blake3::hash(content.as_bytes()).to_hex().to_string();
+                        let chunks =
+                            crate::adapters::rust_ast::parse_rust_file(&rel_path, &content);
+                        cache.update_file(CachedFileRecord {
+                            rel_path,
+                            mtime_secs,
+                            size_bytes,
+                            content_hash: hash,
+                            chunks,
+                        });
+                        cache_dirty = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Prune files deleted from disk
     let initial_count = cache.files.len();
     cache.prune_missing(&active_paths);
     if cache.files.len() != initial_count {

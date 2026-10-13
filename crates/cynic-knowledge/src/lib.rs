@@ -4,7 +4,7 @@ pub mod domain;
 pub use adapters::{
     GitExtractError, extract_git_history, load_corpus_cache, load_workspace_geometry,
     parse_document_tree, parse_git_log_output, parse_json_contract, parse_markdown_tree,
-    save_corpus_cache, sync_workspace_corpus,
+    parse_rust_file, save_corpus_cache, sync_workspace_corpus,
 };
 pub use domain::{
     AuthorityTier, BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1,
