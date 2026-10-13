@@ -378,7 +378,12 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                             ))
                             .ok()
                         })
-                        .or_else(|| std::fs::read_to_string("/etc/cynic/llama-api-key").ok())
+                        .or_else(|| {
+                            std::fs::read_to_string(
+                                cynic_types::CynicPaths::system_root().join("llama-api-key"),
+                            )
+                            .ok()
+                        })
                         .map(|k| k.trim().to_string());
 
                     if let Ok(client) = client {
