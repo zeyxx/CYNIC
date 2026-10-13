@@ -40,7 +40,6 @@ pub(crate) use cynic_network::dns::{
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
 };
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum DnsProviderKind {
@@ -560,6 +559,12 @@ mod tests {
         dns_activation_readme_with_context, dns_systemd_unit_with_context,
         dns_target_paths_with_context,
     };
+    // Canonical DNS filenames live in cynic_network; the tests reference them
+    // unqualified (production code uses full paths).
+    use cynic_network::dns::{
+        SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
+        SERVICE_DNS_SERVICE_FILENAME,
+    };
 
     fn context() -> DnsRuntimeContext {
         DnsRuntimeContext {
@@ -578,10 +583,15 @@ mod tests {
             dns_binary_command: "/usr/bin/coredns".to_string(),
             hosts_path: format!("/etc/coredns/{SERVICE_DNS_HOSTS_FILENAME}"),
             corefile_path: "/etc/coredns/Corefile".to_string(),
-            service_path: format!("/etc/systemd/system/coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
-            resolved_dropin_path: format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"),
+            service_path: format!(
+                "/etc/systemd/system/coredns-{}.service",
+                SERVICE_DNS_SERVICE_FILENAME
+            ),
+            resolved_dropin_path: format!(
+                "/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}"
+            ),
             bundle_config_filename: "Corefile",
-            bundle_service_filename: format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME),
+            bundle_service_filename: SERVICE_DNS_SERVICE_FILENAME,
         }
     }
 
@@ -609,7 +619,9 @@ mod tests {
         let unit = dns_systemd_unit_with_context(&context());
         let readme = dns_activation_readme_with_context(&context());
         assert!(unit.contains("/usr/bin/coredns -conf /etc/coredns/Corefile"));
-        assert!(readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME)));
+        assert!(
+            readme.contains(format!("coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME).as_str())
+        );
         assert!(readme.contains("storage.test.zone"));
     }
 
@@ -626,8 +638,14 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(rendered.contains(&format!("/sbin/rc-update add coredns-{} default", SERVICE_DNS_SERVICE_FILENAME)));
-        assert!(rendered.contains(&format!("/sbin/rc-service coredns-{} start", SERVICE_DNS_SERVICE_FILENAME)));
+        assert!(rendered.contains(&format!(
+            "/sbin/rc-update add coredns-{} default",
+            SERVICE_DNS_SERVICE_FILENAME
+        )));
+        assert!(rendered.contains(&format!(
+            "/sbin/rc-service coredns-{} start",
+            SERVICE_DNS_SERVICE_FILENAME
+        )));
         assert!(rendered.contains("OpenRC resolver integration requires a dedicated adapter"));
         assert!(!rendered.contains("daemon-reload"));
         assert!(!rendered.contains("enable --now"));

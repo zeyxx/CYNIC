@@ -232,7 +232,9 @@ impl BuildRunnerPort for SshBuildRunner {
         // Blocked. Only the two cases below — a runner we cannot reach, and a
         // trigger that refuses its own configuration — stay errors, because in
         // those cases no observation of the commit exists to record.
-        let blocked = |broken_layer: Option<String>, reason: String| -> Result<BuildProofBundle, BuildError> {
+        let blocked = |broken_layer: Option<String>,
+                       reason: String|
+         -> Result<BuildProofBundle, BuildError> {
             Ok(self.proof(
                 &sha,
                 action,
@@ -514,9 +516,9 @@ fn build_evidence(stderr: &str) -> String {
     // A cargo error block starts at `error` and runs until the next blank
     // separator or the next top-level `error`/`warning`. Keep the first block:
     // one real error is what an operator acts on.
-    let start = lines.iter().position(|l| {
-        l.starts_with("error") && !l.starts_with("error: could not compile")
-    });
+    let start = lines
+        .iter()
+        .position(|l| l.starts_with("error") && !l.starts_with("error: could not compile"));
     if let Some(start) = start {
         let mut out = String::new();
         for line in lines.iter().skip(start) {
@@ -550,6 +552,9 @@ fn build_evidence(stderr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // PipelineStatus is only referenced by tests; the file-level import was
+    // dropped to silence the unused warning on normal builds.
+    use crate::ports::build_runner::PipelineStatus;
 
     use std::collections::VecDeque;
     use std::sync::{Arc, Mutex};
@@ -760,8 +765,14 @@ mod tests {
         assert_eq!(proof.status, PipelineStatus::Blocked);
         assert_eq!(proof.layers[0].status, LayerStatus::Failed);
         let reason = proof.verdict_reason.expect("a blocked proof says why");
-        assert!(reason.contains(&"d".repeat(40)), "reason names the observed head: {reason}");
-        assert!(reason.contains(&commit), "reason names the expected commit: {reason}");
+        assert!(
+            reason.contains(&"d".repeat(40)),
+            "reason names the observed head: {reason}"
+        );
+        assert!(
+            reason.contains(&commit),
+            "reason names the expected commit: {reason}"
+        );
     }
 
     #[test]
@@ -789,8 +800,13 @@ mod tests {
         assert_eq!(proof.broken_layer.as_deref(), Some("cynic-host"));
         assert_eq!(proof.layers[0].layer, "cynic-host");
         assert_eq!(proof.layers[0].status, LayerStatus::Failed);
-        let reason = proof.verdict_reason.expect("the compiler output is retained");
-        assert!(reason.contains("E0432"), "the reason carries the compiler output: {reason}");
+        let reason = proof
+            .verdict_reason
+            .expect("the compiler output is retained");
+        assert!(
+            reason.contains("E0432"),
+            "the reason carries the compiler output: {reason}"
+        );
         // Wall time burned by the failed build is evidence too.
         assert!(proof.duration_ms > 0 || proof.duration_ms == 0);
     }
@@ -879,7 +895,9 @@ mod tests {
         // cargo prints errors FIRST and the summary LAST. A plain tail keeps
         // the summary and the warnings, and drops the error — the one thing an
         // operator acts on.
-        let mut stderr = String::from("error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n");
+        let mut stderr = String::from(
+            "error[E0432]: unresolved import `foo`\n --> src/lib.rs:3:5\n  |\n3 | use foo::bar;\n  |     ^^^ no `foo` in the root\n\n",
+        );
         // Pad with warnings so the error is pushed out of a 2 KiB tail.
         for i in 0..80 {
             stderr.push_str(&format!(
@@ -889,10 +907,7 @@ mod tests {
         stderr.push_str("error: could not compile `cynic-cli` (lib) due to 1 previous error\n");
 
         let evidence = build_evidence(&stderr);
-        assert!(
-            evidence.contains("E0432"),
-            "the error survives: {evidence}"
-        );
+        assert!(evidence.contains("E0432"), "the error survives: {evidence}");
         assert!(
             evidence.contains("no `foo` in the root"),
             "the explanation survives: {evidence}"
