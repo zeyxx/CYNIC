@@ -1,11 +1,15 @@
 pub mod adapters;
 pub mod domain;
 
-pub use adapters::{parse_document_tree, parse_json_contract, parse_markdown_tree};
+pub use adapters::{
+    GitExtractError, extract_git_history, parse_document_tree, parse_git_log_output,
+    parse_json_contract, parse_markdown_tree,
+};
 pub use domain::{
     AuthorityTier, BrokenReference, CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest,
-    DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree, KnowledgeEdge, KnowledgeEdgeKind,
-    KnowledgeGraph, LexicalIndex, MarkdownLink, SearchHit, SectionNode,
+    DOCUMENT_TREE_SCHEMA_V1, DocumentChunk, DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord,
+    KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalIndex, MarkdownLink, SearchHit,
+    SectionNode,
 };
 
 use std::path::Path;
@@ -53,6 +57,11 @@ pub fn scan_corpus_manifest<P: AsRef<Path>>(root: P) -> CorpusManifest {
 
 /// Scans and indexes all documentation and contracts in a CYNIC workspace for fast lexical search.
 pub fn index_workspace<P: AsRef<Path>>(root: P) -> LexicalIndex {
+    index_workspace_with_commits(root, 0)
+}
+
+/// Scans and indexes documentation, contracts, and optionally recent Git commits into BM25 index.
+pub fn index_workspace_with_commits<P: AsRef<Path>>(root: P, max_commits: usize) -> LexicalIndex {
     let root = root.as_ref();
     let mut all_chunks = Vec::new();
 
@@ -82,6 +91,15 @@ pub fn index_workspace<P: AsRef<Path>>(root: P) -> LexicalIndex {
                     let chunks = parse_json_contract(&rel_path, &content);
                     all_chunks.extend(chunks);
                 }
+            }
+        }
+    }
+
+    // 3. Scan Git commits if requested
+    if max_commits > 0 {
+        if let Ok(commits) = extract_git_history(root, max_commits) {
+            for commit in commits {
+                all_chunks.push(commit.to_chunk());
             }
         }
     }

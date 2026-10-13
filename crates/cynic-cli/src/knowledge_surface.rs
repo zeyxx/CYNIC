@@ -12,6 +12,9 @@ pub enum KnowCommand {
         /// Maximum number of results to display.
         #[arg(long, default_value = "3")]
         limit: usize,
+        /// Also index recent Git commits for VCS history search.
+        #[arg(long, default_value = "0")]
+        commits: usize,
         /// Output search results as JSON.
         #[arg(long)]
         json: bool,
@@ -31,6 +34,15 @@ pub enum KnowCommand {
     /// Inspect the knowledge graph (cross-document links, contract enforcements, broken refs).
     Graph {
         /// Output full KnowledgeGraph as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect recent VCS Git history records.
+    Commits {
+        /// Number of recent commits to inspect.
+        #[arg(long, default_value = "10")]
+        limit: usize,
+        /// Output commits as JSON.
         #[arg(long)]
         json: bool,
     },
@@ -124,7 +136,17 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        KnowCommand::Search { query, limit, json } => {
+        KnowCommand::Search {
+            query,
+            limit,
+            commits,
+            json,
+        } => {
+            let index = if commits > 0 {
+                cynic_knowledge::index_workspace_with_commits(&repo_root, commits)
+            } else {
+                index
+            };
             let hits = index.search(&query, limit);
 
             if json {
@@ -180,6 +202,42 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     }
                 }
                 ExitCode::SUCCESS
+            }
+        }
+        KnowCommand::Commits { limit, json } => {
+            match cynic_knowledge::extract_git_history(&repo_root, limit) {
+                Ok(commits) => {
+                    if json {
+                        crate::emit_json(&commits, false)
+                    } else {
+                        println!("=== CYNIC VCS History (Last {} Commits) ===", commits.len());
+                        for c in &commits {
+                            let short_hash = if c.hash.len() >= 8 {
+                                &c.hash[..8]
+                            } else {
+                                &c.hash
+                            };
+                            println!(
+                                "\n[{}] {} — {} ({})",
+                                short_hash, c.subject, c.author_name, c.timestamp
+                            );
+                            if !c.files_changed.is_empty() {
+                                println!("    Touched ({} files):", c.files_changed.len());
+                                for f in c.files_changed.iter().take(5) {
+                                    println!("      - {}", f);
+                                }
+                                if c.files_changed.len() > 5 {
+                                    println!("      - ... (+{} files)", c.files_changed.len() - 5);
+                                }
+                            }
+                        }
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Failed to extract git history: {}", err);
+                    ExitCode::FAILURE
+                }
             }
         }
     }

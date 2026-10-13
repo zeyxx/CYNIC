@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod chunk;
+pub mod commit;
 pub mod graph;
 pub mod scorer;
 
@@ -8,5 +9,6 @@ pub use ast::{
     MarkdownLink, SectionNode,
 };
 pub use chunk::{AuthorityTier, DocumentChunk};
+pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use scorer::{LexicalIndex, SearchHit};
