@@ -56,9 +56,9 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
   - Filter out obsolete documents flagged in `contracts/foundation.json` deleted authorities.
 
 ### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Sémantique)
-- [ ] **3.1 Sovereign Embedding Model Integration:**
+- [x] **3.1 Sovereign Embedding Model Integration:**
   - Wire local embedding pipeline via `cynic-inference::embedding` or lightweight local GGUF embedding server (`bge-small` / `all-MiniLM-L6-v2`).
-- [ ] **3.2 Reciprocal Rank Fusion (RRF):**
+- [x] **3.2 Reciprocal Rank Fusion (RRF):**
   - Combine Sparse BM25 ranks and Dense Vector cosine similarity:
     $$RRF(d) = \sum_{m \in \{BM25, Dense\}} \frac{1}{k + rank_m(d)}$$
   - Resolves semantic synonymy without losing exact keyword precision.
