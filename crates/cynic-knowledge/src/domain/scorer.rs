@@ -71,11 +71,13 @@ impl LexicalIndex {
 
         let mut scored_chunks = Vec::with_capacity(self.chunks.len());
 
+        let is_technical = is_technical_code_query(query);
+
         for (idx, chunk) in self.chunks.iter().enumerate() {
             let term_counts = &self.chunk_term_counts[idx];
             let chunk_len = term_counts.values().sum::<usize>() as f64;
 
-            let mut score = 0.0;
+            let mut raw_bm25 = 0.0;
             for token in &query_tokens {
                 if let Some(&tf) = term_counts.get(token) {
                     let df = *self.doc_frequencies.get(token).unwrap_or(&0) as f64;
@@ -83,22 +85,32 @@ impl LexicalIndex {
 
                     let tf_norm = (tf as f64 * (k1 + 1.0))
                         / (tf as f64 + k1 * (1.0 - b + b * (chunk_len / self.avg_chunk_length)));
-                    score += idf * tf_norm;
+                    raw_bm25 += idf * tf_norm;
                 }
             }
 
-            if score > 0.0 {
-                // Authority tier weighting (L0 constitution gets boost over exploratory notes)
-                let authority_multiplier = match chunk.authority {
-                    AuthorityTier::L0Constitution => 1.25,
-                    AuthorityTier::L1Specification => 1.10,
-                    AuthorityTier::L2Design => 1.0,
-                    AuthorityTier::L3Operation => 0.90,
+            if raw_bm25 > 0.0 {
+                // Jalon 11.4: Matrix Re-Ranking Engine
+                // Formula: [BM25 + ContractFloor] * Altitude * Deprecation * QueryModality
+                let contract_floor = evaluate_contract_floor(&chunk.source_path);
+                let altitude = evaluate_altitude_multiplier(chunk.authority);
+                let deprecation =
+                    evaluate_deprecation_multiplier(&chunk.source_path, &chunk.content);
+
+                let modality_boost = if !is_technical
+                    && (chunk.source_path.ends_with(".md") || chunk.source_path.ends_with(".json"))
+                {
+                    1.25 // Conceptual questions favor authoritative prose and contracts over raw code functions
+                } else {
+                    1.0
                 };
+
+                let final_score =
+                    (raw_bm25 + contract_floor) * altitude * deprecation * modality_boost;
 
                 scored_chunks.push(SearchHit {
                     chunk,
-                    score: score * authority_multiplier,
+                    score: final_score,
                 });
             }
         }
@@ -125,4 +137,113 @@ pub fn tokenize(text: &str) -> Vec<String> {
         .filter(|t| t.len() >= 2)
         .map(|s| s.to_string())
         .collect()
+}
+
+/// Evaluates topological altitude multiplier based on CYNIC authority cone.
+pub fn evaluate_altitude_multiplier(authority: AuthorityTier) -> f64 {
+    match authority {
+        AuthorityTier::L0Constitution => 3.0,
+        AuthorityTier::L1Specification => 2.0,
+        AuthorityTier::L2Design => 1.3,
+        AuthorityTier::L3Operation => 1.0,
+    }
+}
+
+/// Evaluates deprecation multiplier based on explicit markers in path or content.
+pub fn evaluate_deprecation_multiplier(path: &str, content: &str) -> f64 {
+    let lower_content = content.to_lowercase();
+    let lower_path = path.to_lowercase();
+    if lower_content.contains("\"status\": \"superseded\"")
+        || lower_content.contains("\"status\": \"deprecated\"")
+        || lower_content.contains("\"status\": \"archived\"")
+        || lower_content.contains("[superseded]")
+        || lower_content.contains("[deprecated]")
+        || lower_path.contains("superseded")
+        || lower_path.contains("archive")
+    {
+        0.2 // Strong penalty for obsolete/deprecated material
+    } else {
+        1.0
+    }
+}
+
+/// Evaluates contract floor bonus to protect brief normative JSON clauses.
+pub fn evaluate_contract_floor(path: &str) -> f64 {
+    if path.starts_with("contracts/") || path.ends_with(".json") {
+        0.5
+    } else {
+        0.0
+    }
+}
+
+/// Detects if a query contains explicit programming symbols (snake_case, PascalCase, or code keywords).
+pub fn is_technical_code_query(query: &str) -> bool {
+    query.contains('_')
+        || query.contains("::")
+        || query.starts_with("fn ")
+        || query.starts_with("pub ")
+        || query.starts_with("struct ")
+        || query.starts_with("enum ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_matrix_reranker_prioritizes_l0_constitution_over_l3_operation() {
+        let chunk_l3 = DocumentChunk::new(
+            "crates/cynic-cli/src/main.rs".into(),
+            1,
+            10,
+            vec!["Main".into()],
+            "system state verification routine".into(),
+            AuthorityTier::L3Operation,
+        );
+
+        let chunk_l0 = DocumentChunk::new(
+            "docs/foundation/CONSTITUTION.md".into(),
+            1,
+            10,
+            vec!["Constitution".into()],
+            "system state verification invariant rule".into(),
+            AuthorityTier::L0Constitution,
+        );
+
+        let index = LexicalIndex::build(vec![chunk_l3, chunk_l0]);
+        let hits = index.search("system state verification", 2);
+
+        assert_eq!(hits.len(), 2);
+        // L0 Constitution must decisively outrank L3 Operation
+        assert_eq!(hits[0].chunk.authority, AuthorityTier::L0Constitution);
+        assert!(hits[0].score > hits[1].score * 2.0);
+    }
+
+    #[test]
+    fn test_deprecated_documents_are_severely_penalized() {
+        let active_chunk = DocumentChunk::new(
+            "docs/specs/active.md".into(),
+            1,
+            10,
+            vec!["Active".into()],
+            "feature execution pipeline".into(),
+            AuthorityTier::L1Specification,
+        );
+
+        let deprecated_chunk = DocumentChunk::new(
+            "docs/specs/old.md".into(),
+            1,
+            10,
+            vec!["Old".into()],
+            "feature execution pipeline [SUPERSEDED]".into(),
+            AuthorityTier::L1Specification,
+        );
+
+        let index = LexicalIndex::build(vec![active_chunk, deprecated_chunk]);
+        let hits = index.search("feature execution pipeline", 2);
+
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].chunk.source_path, "docs/specs/active.md");
+        assert!(hits[0].score > hits[1].score * 4.0);
+    }
 }
