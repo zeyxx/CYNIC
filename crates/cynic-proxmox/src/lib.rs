@@ -11,4 +11,5 @@
 
 pub mod adapters;
 pub mod agent_host;
+pub mod lxc_provisioning;
 pub mod ports;
