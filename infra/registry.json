@@ -597,6 +597,52 @@
       }
     },
     {
+      "id": "cynic-lxc-embedding",
+      "name": "cynic-lxc-embedding",
+      "role": "embedding_runner",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "proxmox_id": "lxc/106",
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "cynic-builder-ssh",
+          "trust": "ssh_trust_anchor",
+          "principal": "root",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "root",
+            "credential_ref": "registry-machine-ssh-identity"
+          }
+        }
+      },
+      "network": {
+        "service": "10.10.10.106"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server",
+          "scheme": "http",
+          "endpoint_host": "10.10.10.106",
+          "port": 8080,
+          "network_plane": "service",
+          "unit": "llama-server@embeddinggemma-2-bf16.service",
+          "supervisor": {
+            "provider": "systemd"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://10.10.10.106:8080/health"
+          }
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
+    },
+    {
       "id": "cynic-laptop-ax16pro",
       "name": "cynic-laptop-ax16pro",
       "aliases": [
