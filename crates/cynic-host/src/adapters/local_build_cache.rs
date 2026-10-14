@@ -61,8 +61,9 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
             reclaim_profile_state,
             preserved_profile_states,
             observed_noncanonical_cache_paths,
-            observed_ephemeral,
+            observed_ephemeral: observed_ephemeral.clone(),
             ephemeral_skipped,
+            unlinked_checkouts: Vec::new(),
             unknowns,
         }
     }
@@ -991,6 +992,46 @@ mod tests {
             .expect_err("live workspace must abort");
         assert!(error.contains("workspace_live"), "got: {error}");
         assert!(live.is_dir(), "the refused workspace must be untouched");
+    }
+
+    #[test]
+    fn observe_surfaces_unlinked_checkouts() {
+        let root = tempfile::tempdir().unwrap();
+        let checkouts = root.path().join("checkouts");
+        fs::create_dir_all(checkouts.join("cynic-aaaabbbb")).unwrap();
+        fs::create_dir_all(checkouts.join("cynic-ccccdddd")).unwrap();
+        fs::create_dir_all(checkouts.join("cynic-eeeeeeee")).unwrap();
+        // Link cynic-aaaabbbb to a workload record in the store.
+        write_record(root.path(), "cynic-aaaabbbb", "completed");
+        let mut scopes = vec![checkout_scope()];
+        scopes.push(EphemeralScope {
+            base: "state_root".to_string(),
+            relative_path: "ws".to_string(),
+            kind: EphemeralKind::WorkloadWorkspace,
+            workload_store_relative_path: Some("wstore".to_string()),
+        });
+        let desired = retention_desired(root.path(), scopes);
+
+        let observation = LocalBuildCacheAdapter.observe(&desired);
+
+        assert_eq!(
+            observation.unlinked_checkouts.len(),
+            2,
+            "got: {:?}",
+            observation.unlinked_checkouts
+        );
+        assert!(observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-ccccdddd")));
+        assert!(observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-eeeeeeee")));
+        assert!(!observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-aaaabbbb")));
     }
 
     #[test]
