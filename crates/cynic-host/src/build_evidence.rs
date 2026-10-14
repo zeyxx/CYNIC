@@ -6,6 +6,7 @@ use cynic_protocol::{
 use sha2::{Digest, Sha256};
 
 use cynic_lifecycle::ArgvRunner;
+use cynic_types::paths::CynicPaths;
 
 pub trait BuildRunnerObservationPort {
     fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String>;
@@ -49,6 +50,7 @@ impl<'a, R: ArgvRunner> SshBuildRunnerObservationAdapter<'a, R> {
 
 impl<R: ArgvRunner> BuildRunnerObservationPort for SshBuildRunnerObservationAdapter<'_, R> {
     fn observe(&self) -> Result<cynic_build::BuildRunnerObservation, String> {
+        let registry = CynicPaths::registry_path().display().to_string();
         let argv = [
             "ssh",
             "-o",
@@ -62,7 +64,7 @@ impl<R: ArgvRunner> BuildRunnerObservationPort for SshBuildRunnerObservationAdap
             "registry-observation",
             "--json",
             "--registry",
-            "/etc/cynic/registry.json",
+            registry.as_str(),
         ];
         let output = self.runner.run(&argv);
         if !output.success() {

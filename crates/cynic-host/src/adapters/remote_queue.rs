@@ -16,6 +16,7 @@ use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, p
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use cynic_lifecycle::ArgvRunner;
+use cynic_types::paths::CynicPaths;
 
 pub struct RemoteQueueAdapter<R: ArgvRunner> {
     runner: Arc<R>,
@@ -111,9 +112,11 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         parse_cargo_metadata(&json, now_secs(), toolchain, host)
     }
     fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
-        let raw_list = self
-            .ssh(&["ls", "-1", "/var/lib/cynic/checkouts"])
-            .unwrap_or_default();
+        let checkouts_dir = CynicPaths::state_dir()
+            .join("checkouts")
+            .display()
+            .to_string();
+        let raw_list = self.ssh(&["ls", "-1", &checkouts_dir]).unwrap_or_default();
         let remote_shas = self
             .ssh(&["git", "ls-remote", "origin"])
             .map(|s| {
@@ -124,7 +127,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_default();
         let mut lines = Vec::new();
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("/var/lib/cynic/checkouts/{name}");
+            let path = format!("{checkouts_dir}/{name}");
             let sha = self
                 .ssh(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -149,7 +152,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         }
         let checkouts = parse_checkout_list(&lines.join("\n"), &remote_shas);
         let df_k = self
-            .ssh(&["df", "-k", "/var/lib/cynic/checkouts"])
+            .ssh(&["df", "-k", &checkouts_dir])
             .or_else(|_| self.ssh(&["df", "-k", "/"]))
             .unwrap_or_default();
         let pressure =

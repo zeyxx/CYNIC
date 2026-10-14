@@ -11,7 +11,6 @@ pub mod types;
 pub mod validate;
 
 // Re-export main public API
-pub use crate::runtime_registry::DEFAULT_REGISTRY_PATH;
 pub use persist::{
     PersistError, WriteProof, load_and_validate_registry, write_registry, write_registry_atomic,
 };
