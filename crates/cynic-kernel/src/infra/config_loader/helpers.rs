@@ -114,7 +114,7 @@ pub(crate) fn resolve_runtime_registry_path(_override: Option<&str>) -> Result<P
         return Ok(PathBuf::from(path));
     }
 
-    let system_path = PathBuf::from("/etc/cynic/registry.json");
+    let system_path = cynic_types::paths::CynicPaths::registry_path();
     if system_path.exists() {
         return Ok(system_path);
     }
