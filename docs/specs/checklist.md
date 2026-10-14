@@ -282,12 +282,30 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
 - [x] **11.8 Live Dense Endpoint (2026-10-13)**: `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding` (lxc/106, `10.10.10.106:8080`, DIM 768, systemd unit `llama-server-embedding.service`); declared in `infra/registry.json`; live smoke test `cynic-inference/tests/embedding_live.rs` (ignored by default, `dims=768`, 71 ms builder→106).
 - [x] **11.9 Chunk Vectorizer + Cosine Index**: `vectorize_chunks` +
   `top_k_dense` + `fuse_reciprocal_ranks` live in `cynic-knowledge`
-  (unit-covered); neural consumption via `SyncEmbeddingBridge` (PR 79,
-  unmerged). No cached-vector pipeline yet — vectors are computed per run.
+  (unit-covered); neural consumption via `SyncEmbeddingBridge` (merged).
+  Backend fans WIDTH concurrent sub-lots of 8 (`CYNIC_EMBED_WIDTH`, default
+  4) across server slots. No cached-vector pipeline yet — vectors are
+  computed per run.
 - [ ] **11.10 Retrieval Gain Measurement**: graded labels exist
   (`retrieval_gain_labels.json`: 10 pairs / 1 trap / 9 scored). Measured
   2026-10-14: BM25 MRR 0.222, hashed-stub hybrid 0.133 (delta -0.089).
-  Neural run pending (blocked on server 512-token batch; inputs truncated).
+  Neural run in flight against cortex overflow server (ubatch 2048).
+- [ ] **11.11 Embedding Server Calibration**: the request cap is the
+  **ubatch**, not the batch (observed live: ubatch 512 rejects 541-token
+  inputs). LXC 106 (operator):
+  ```bash
+  systemctl edit --full llama-server-embedding.service
+  # set: --batch-size 2048 --ubatch-size 2048 (watch container RAM)
+  systemctl restart llama-server-embedding.service
+  curl -s http://10.10.10.106:8080/health
+  ```
+  Cortex overflow (this host): master build + Vulkan, `-c 4096 --batch-size
+  2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4`, unit
+  `cynic-embedding-cortex.service` (MemoryMax=3G).
+  Client levers (no recompile): `CYNIC_EMBED_LOT_SIZE` (default 32, clamp
+  1..128), `CYNIC_EMBED_WIDTH` (default 4, clamp 1..8). Sweep matrix:
+  server ubatch {512, 2048, 4096} x client lot {8, 32, 64}; keep the
+  fastest `EMBED done` seconds from the live test.
 
 ---
 

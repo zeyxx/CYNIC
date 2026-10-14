@@ -63,9 +63,9 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
         texts: &[&str],
         report: &dyn Fn(usize, usize),
     ) -> Result<Vec<Vec<f32>>, String> {
-        const REPORT_LOT: usize = 32;
+        use super::super::http::lot_size;
         let mut vectors = Vec::with_capacity(texts.len());
-        for lot in texts.chunks(REPORT_LOT) {
+        for lot in texts.chunks(lot_size()) {
             let embeddings = self
                 .runtime
                 .block_on(self.backend.embed_batch(lot))

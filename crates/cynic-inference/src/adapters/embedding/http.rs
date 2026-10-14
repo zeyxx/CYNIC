@@ -152,6 +152,19 @@ struct EmbeddingUsage {
 /// array on its continuous-batch engine, so one call of N inputs costs ~one
 /// prefill instead of N round-trips.
 const EMBED_BATCH_SIZE: usize = 32;
+/// Upper clamp: beyond this the server-side physical batch (not ours) does
+/// the splitting, so bigger lots only add latency, never throughput.
+const EMBED_BATCH_MAX: usize = 128;
+
+/// Calibration lever (crate-visible): lot size follows `CYNIC_EMBED_LOT_SIZE`
+/// (default 32) so batch/ubatch sweeps can run without recompiling.
+pub(crate) fn lot_size() -> usize {
+    std::env::var("CYNIC_EMBED_LOT_SIZE")
+        .ok()
+        .and_then(|raw| raw.parse::<usize>().ok())
+        .filter(|size| (1..=EMBED_BATCH_MAX).contains(size))
+        .unwrap_or(EMBED_BATCH_SIZE)
+}
 
 #[async_trait]
 impl EmbeddingPort for EmbeddingBackend {
@@ -175,7 +188,7 @@ impl EmbeddingBackend {
         report: &(dyn Fn(usize, usize) + Sync),
     ) -> Result<Vec<Embedding>, EmbeddingError> {
         let mut out = Vec::with_capacity(texts.len());
-        for lot in texts.chunks(EMBED_BATCH_SIZE) {
+        for lot in texts.chunks(lot_size()) {
             let inputs = lot.iter().map(|text| (*text).to_string()).collect();
             out.extend(self.post_batch(inputs).await?);
             report(out.len(), texts.len());
@@ -245,5 +258,20 @@ mod tests {
     fn from_env_defaults() {
         let backend = EmbeddingBackend::from_env().unwrap();
         assert!(backend.base_url().contains("8081"));
+    }
+
+    #[test]
+    fn lot_size_follows_env_with_safe_bounds() {
+        std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
+        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "8");
+        assert_eq!(lot_size(), 8);
+        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "0");
+        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "9999");
+        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "not-a-number");
+        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+        std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
     }
 }
