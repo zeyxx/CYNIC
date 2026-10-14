@@ -847,6 +847,7 @@ name = "cynic-eval"
 version = "0.2.0"
 dependencies = [
  "async-trait",
+ "cynic-knowledge",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
