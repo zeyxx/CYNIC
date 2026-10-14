@@ -306,6 +306,9 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
   1..128), `CYNIC_EMBED_WIDTH` (default 4, clamp 1..8). Sweep matrix:
   server ubatch {512, 2048, 4096} x client lot {8, 32, 64}; keep the
   fastest `EMBED done` seconds from the live test.
+  Access gap (2026-10-14): no SSH session from cortex to `root@10.10.10.106`
+  (key auth missing) — required for LAN weight pulls and unit edits. Until
+  granted, weights come from HuggingFace WAN and server changes are manual.
 
 ---
 
