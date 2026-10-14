@@ -125,9 +125,9 @@ impl BackendPort for EmbeddingBackend {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct EmbeddingRequest {
-    input: String,
+    input: Vec<String>,
     model: String,
 }
 
@@ -148,14 +148,36 @@ struct EmbeddingUsage {
     prompt_tokens: Option<u32>,
 }
 
+/// One `/v1/embeddings` round-trip per call: the server batches the whole
+/// array on its continuous-batch engine, so one call of N inputs costs ~one
+/// prefill instead of N round-trips.
+const EMBED_BATCH_SIZE: usize = 32;
+
 #[async_trait]
 impl EmbeddingPort for EmbeddingBackend {
     async fn embed(&self, text: &str) -> Result<Embedding, EmbeddingError> {
+        let mut out = self.post_batch(vec![text.to_string()]).await?;
+        out.pop()
+            .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))
+    }
+
+    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingError> {
+        let mut out = Vec::with_capacity(texts.len());
+        for lot in texts.chunks(EMBED_BATCH_SIZE) {
+            let inputs = lot.iter().map(|text| (*text).to_string()).collect();
+            out.extend(self.post_batch(inputs).await?);
+        }
+        Ok(out)
+    }
+}
+
+impl EmbeddingBackend {
+    async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
         let url = format!("{}/embeddings", self.base_url);
         let start = Instant::now();
 
         let req_body = EmbeddingRequest {
-            input: text.to_string(),
+            input: inputs,
             model: self.model.clone(),
         };
 
@@ -186,23 +208,19 @@ impl EmbeddingPort for EmbeddingBackend {
             .await
             .map_err(|error| EmbeddingError::Protocol(format!("JSON parse error: {error}")))?;
 
-        let data = parsed
-            .data
-            .into_iter()
-            .next()
-            .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))?;
-
-        let dimensions = data.embedding.len();
         // `#[serde(default)]` on an Option is None, so an absent counter is None. It was
         // `u32` with the same attribute, which made a missing field indistinguishable from a
         // backend that legitimately reported zero.
         let prompt_tokens = parsed.usage.and_then(|usage| usage.prompt_tokens);
-
-        Ok(Embedding {
-            vector: data.embedding,
-            dimensions,
-            prompt_tokens,
-        })
+        Ok(parsed
+            .data
+            .into_iter()
+            .map(|data| Embedding {
+                dimensions: data.embedding.len(),
+                vector: data.embedding,
+                prompt_tokens,
+            })
+            .collect())
     }
 }
 
