@@ -25,9 +25,19 @@ pub(super) fn claim_if_available(
     current: &DurableAgentWorkloadRecord,
 ) -> Result<Option<DurableAgentWorkloadRecord>, String> {
     let now_ms = current_unix_ms();
-    // A workload that is already Claimed by this runner must not be re-claimed or
-    // have its fencing token bumped while it is actively in flight.
-    if current.record.state == AgentWorkloadState::Claimed {
+    // A workload that is already Claimed by a LIVE lease must not be
+    // re-claimed or have its fencing token bumped while it is in flight.
+    // An EXPIRED lease is reclaimable: it falls through to the normal claim
+    // path below (fresh guard, fencing + 1), and the caller's recovery proof
+    // block fires for it. Skipping every Claimed record here made the
+    // recovery path unreachable and stranded expired claims forever.
+    if current.record.state == AgentWorkloadState::Claimed
+        && current
+            .record
+            .claim
+            .as_ref()
+            .is_some_and(|claim| claim.expires_at_ms > now_ms)
+    {
         return Ok(None);
     }
     let guard = LeaseGuard {
