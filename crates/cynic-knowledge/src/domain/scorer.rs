@@ -1,4 +1,6 @@
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use crate::domain::hybrid_rrf::{DEFAULT_RRF_K, fuse_reciprocal_ranks};
+use crate::domain::vectorizer::{ChunkVector, top_k_dense};
 use std::collections::HashMap;
 
 /// Pure in-memory BM25 lexical search and ranking engine.
@@ -124,6 +126,25 @@ impl LexicalIndex {
         scored_chunks
     }
 
+    /// Hybrid BM25 + dense retrieval fused by RRF. `search` stays the
+    /// lexical-only path; this is the additive hybrid entry. Queries with no
+    /// lexical token hits still return fused dense hits — that is the case
+    /// dense retrieval exists for.
+    pub fn search_hybrid<'a>(
+        &'a self,
+        query: &str,
+        query_vector: &[f32],
+        vectors: &[ChunkVector],
+        limit: usize,
+        dense_k: usize,
+    ) -> Vec<SearchHit<'a>> {
+        let sparse = self.search(query, limit);
+        let dense = top_k_dense(query_vector, &self.chunks, vectors, dense_k);
+        let mut fused = fuse_reciprocal_ranks(&sparse, &dense, DEFAULT_RRF_K);
+        fused.truncate(limit);
+        fused
+    }
+
     /// Returns the total number of indexed chunks.
     pub fn chunk_count(&self) -> usize {
         self.chunks.len()
@@ -245,5 +266,66 @@ mod tests {
         assert_eq!(hits.len(), 2);
         assert_eq!(hits[0].chunk.source_path, "docs/specs/active.md");
         assert!(hits[0].score > hits[1].score * 4.0);
+    }
+
+    struct FixedEmbedder(Vec<Vec<f32>>);
+    impl crate::domain::vectorizer::ChunkEmbedder for FixedEmbedder {
+        fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            assert_eq!(texts.len(), self.0.len(), "one vector per chunk");
+            Ok(self.0.clone())
+        }
+    }
+
+    fn hybrid_chunks() -> Vec<DocumentChunk> {
+        vec![
+            DocumentChunk::new(
+                "docs/alpha.md".into(),
+                1,
+                3,
+                vec![],
+                "alpha alpha alpha".into(),
+                AuthorityTier::L3Operation,
+            ),
+            DocumentChunk::new(
+                "docs/beta.md".into(),
+                1,
+                3,
+                vec![],
+                "beta beta beta".into(),
+                AuthorityTier::L3Operation,
+            ),
+        ]
+    }
+
+    #[test]
+    fn hybrid_returns_dense_hits_when_lexical_misses_everything() {
+        let chunks = hybrid_chunks();
+        let index = LexicalIndex::build(chunks.clone());
+        // Lexical query shares no token with any chunk.
+        assert!(index.search("zzzqqq", 5).is_empty());
+        let vectors = crate::domain::vectorizer::vectorize_chunks(
+            &FixedEmbedder(vec![vec![1.0, 0.0], vec![0.0, 1.0]]),
+            &chunks,
+        )
+        .expect("vectors");
+        let hits = index.search_hybrid("zzzqqq", &[1.0, 0.0], &vectors, 5, 5);
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].chunk.source_path, "docs/alpha.md");
+    }
+
+    #[test]
+    fn hybrid_fuses_both_rankings_and_respects_limit() {
+        let chunks = hybrid_chunks();
+        let index = LexicalIndex::build(chunks.clone());
+        // Lexical ranks beta first; dense ranks alpha first.
+        let vectors = crate::domain::vectorizer::vectorize_chunks(
+            &FixedEmbedder(vec![vec![1.0, 0.0], vec![0.0, 1.0]]),
+            &chunks,
+        )
+        .expect("vectors");
+        let hits = index.search_hybrid("beta", &[1.0, 0.0], &vectors, 1, 5);
+        assert_eq!(hits.len(), 1);
+        let both = index.search_hybrid("beta", &[1.0, 0.0], &vectors, 5, 5);
+        assert_eq!(both.len(), 2);
     }
 }
