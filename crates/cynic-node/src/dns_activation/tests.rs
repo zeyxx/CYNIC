@@ -1,5 +1,5 @@
 use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
-use cynic_network::dns::{SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_SERVICE_FILENAME};
+use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 
 use super::apply::root_authority_blocker;
 use super::decision::plan_dns_activation;
