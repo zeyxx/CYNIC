@@ -39,13 +39,14 @@ mod tests {
 
     fn registry_with_ssot_at(ptr: &str) -> serde_json::Value {
         let mut reg = serde_json::json!({ "nodes": [] });
-        let mut target = serde_json::Value::Object(serde_json::Map::new());
-        for (i, segment) in ptr.trim_start_matches('/').split('/').enumerate() {
-            if i == ptr.trim_start_matches('/').split('/').count() - 1 {
-                target = serde_json::json!({ segment: { "kind": "forgejo" } });
-            } else {
-                target = serde_json::json!({ segment: target });
-            }
+        let segments: Vec<&str> = ptr.trim_start_matches('/').split('/').collect();
+        let mut target = serde_json::json!({ "kind": "forgejo" });
+        for segment in segments.iter().rev() {
+            // Dynamic key: `json!({ segment: ... })` would freeze the literal
+            // word "segment" instead of the variable's value.
+            let mut map = serde_json::Map::new();
+            map.insert(segment.to_string(), target);
+            target = serde_json::Value::Object(map);
         }
         // Merge the nested structure into the registry root.
         merge(&mut reg, &target);
