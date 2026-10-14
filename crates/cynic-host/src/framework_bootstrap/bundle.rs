@@ -37,7 +37,8 @@ struct RuntimeBasket {
 
 #[derive(Deserialize)]
 struct RuntimeSeed {
-    binary: String,
+    executor: String,
+    capability: String,
     contract_revision: u64,
     signature_namespace: String,
     runtime_basket_member: bool,
@@ -140,19 +141,13 @@ pub fn write_framework_bootstrap_bundle_for_role(
     } else {
         None
     };
-    let host_exec_bundle_dir = output_dir.join("host-exec-bundle");
-    fs::create_dir_all(&host_exec_bundle_dir)
-        .map_err(|error| format!("failed to create host-exec-bundle dir: {error}"))?;
-    let current_exe = std::env::current_exe()
-        .map_err(|error| format!("failed to locate current executable: {error}"))?;
-    let bridge_manifest =
-        bridge::write_bridge_bundle_from_binary(&host_exec_bundle_dir, &current_exe)
-            .map_err(|error| format!("failed to write host-exec bridge bundle: {error}"))?;
+    let privilege_bundle_dir = output_dir.join("privilege-bundle");
+    let membrane_manifest = bridge::bundle::write_privilege_membrane_bundle(&privilege_bundle_dir)
+        .map_err(|error| format!("failed to write privilege membrane bundle: {error}"))?;
 
     let mut files = vec![
-        "host-exec-bundle/cynic-host-exec".to_string(),
-        "host-exec-bundle/cynic-host-exec.sudoers".to_string(),
-        "host-exec-bundle/manifest.json".to_string(),
+        "privilege-bundle/privilege.sudoers".to_string(),
+        "privilege-bundle/manifest.json".to_string(),
     ];
 
     let copied_current_cli = copy_standalone_cli_if_available(output_dir, &mut files)?;
@@ -241,18 +236,23 @@ pub fn write_framework_bootstrap_bundle_for_role(
             "schema": "cynic.framework_bootstrap.security_policy.v1",
             "runtime_user": "cynic",
             "runtime_group": "cynic",
-            "helper_target": "/usr/local/libexec/cynic-host-exec",
-            "sudoers_target": "/etc/sudoers.d/cynic-host-exec",
+            "executor": "/usr/local/bin/cynic",
+            "sudoers_target": "/etc/sudoers.d/cynic",
             "allowed_invocations": [
-                ["/usr/local/libexec/cynic-host-exec", "bridge-status"],
-                ["/usr/local/libexec/cynic-host-exec", "principal-prepare"],
-                ["/usr/local/libexec/cynic-host-exec", "hardware-baseline-enroll", "--apply"],
-                ["/usr/local/libexec/cynic-host-exec", "service-reconcile", "--apply"],
-                ["/usr/local/libexec/cynic-host-exec", "network-baseline", "observe"],
-                ["/usr/local/libexec/cynic-host-exec", "network-actuate"]
+                ["/usr/local/bin/cynic", "privilege", "exec", "bridge-install"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "pve-helper-install"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "principal-prepare"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "runtime-seed-reconcile"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "service-reconcile"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "network-actuate"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "network-baseline-apply"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "storage-identity-enroll"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "storage-schema-migrate"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "hardware-baseline-enroll"],
+                ["/usr/local/bin/cynic", "privilege", "exec", "ssh-trust-admit"]
             ],
-            "denied_classes": ["shell", "raw_systemctl", "raw_package_manager", "unbounded_helper"],
-            "bridge_manifest": bridge_manifest
+            "denied_classes": ["shell", "raw_systemctl", "raw_package_manager", "unbounded_helper", "libexec_helper"],
+            "membrane_manifest": membrane_manifest
         }))
         .map_err(|error| format!("failed to serialize security policy: {error}"))?,
         output_dir,
@@ -286,7 +286,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
         target_runtime: "fresh_linux_node",
         security_invariants: vec![
             "runtime user is system principal cynic with nologin shell",
-            "sudoers grants only exact cynic-host-exec subcommands",
+            "sudoers grants only admitted capability argv through the single binary",
             "bootstrap installs minimal OS packages through the detected package manager when missing",
             "sudoers is validated with visudo before verification",
             "direct shell/systemctl/package-manager sudo paths must remain denied",
@@ -329,14 +329,18 @@ fn render_storage_config(registry: &serde_json::Value, target_role: &str) -> Opt
 }
 
 fn validate_runtime_seed_boundary(basket: &RuntimeBasket) -> Result<(), String> {
-    if basket.runtime_seed.binary != "cynic-host-exec"
+    if basket.runtime_seed.executor != "cynic"
+        || basket.runtime_seed.capability.is_empty()
         || basket.runtime_seed.contract_revision == 0
         || basket.runtime_seed.signature_namespace
             != cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
         || basket.runtime_seed.runtime_basket_member
+        || !basket
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.binary == basket.runtime_seed.executor)
         || basket.artifacts.iter().any(|artifact| {
-            artifact.binary == basket.runtime_seed.binary
-                || artifact.binary.is_empty()
+            artifact.binary.is_empty()
                 || !artifact
                     .binary
                     .bytes()
@@ -360,7 +364,7 @@ fn validate_runtime_seed_boundary(basket: &RuntimeBasket) -> Result<(), String> 
             })
     {
         return Err(
-            "runtime seed must be independently governed and excluded from mutable baskets"
+            "runtime seed role must be independently governed through an admitted capability"
                 .to_string(),
         );
     }

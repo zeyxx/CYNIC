@@ -10,6 +10,10 @@
    "path": "fragments/host_bootstrap.json"
   },
   {
+   "id": "host",
+   "path": "fragments/host.json"
+  },
+  {
    "id": "bootstrap_host_exec_bridge",
    "path": "fragments/bootstrap_host_exec_bridge.json"
   },

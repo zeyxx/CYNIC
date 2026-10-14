@@ -11,7 +11,7 @@
 //! compares that list against the contract.
 //!
 //! HOW. Pure file reading: every `crates/*/Cargo.toml` `[[bin]]` name, against
-//! `runtime-basket.json` (artifacts + tooling + the runtime seed binary). No
+//! `runtime-basket.json` (artifacts + tooling + the runtime seed executor). No
 //! subprocess, so the guard is deterministic and runs anywhere.
 //!
 //! NEGATIVE BOUNDARY. It does not build, install, or classify anything. It
@@ -100,9 +100,9 @@ fn contracted_binaries(root: &Path) -> BTreeSet<String> {
     }
     let seed = doc
         .get("runtime_seed")
-        .and_then(|v| v.get("binary"))
+        .and_then(|v| v.get("executor"))
         .and_then(|v| v.as_str())
-        .expect("runtime_seed.binary");
+        .expect("runtime_seed.executor");
     found.insert(seed.to_string());
     found
 }
