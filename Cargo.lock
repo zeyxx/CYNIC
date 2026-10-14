@@ -1288,6 +1288,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-types",
  "ed25519-dalek",
  "futures",
  "hex",

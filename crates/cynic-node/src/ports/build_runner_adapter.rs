@@ -10,6 +10,8 @@ use crate::ports::build_runner::{
     LayerProof, LayerStatus, NetworkMode, RunnerHealth,
 };
 use cynic_build::build::canonical_argv_from_build_action;
+use cynic_types::paths::CynicPaths;
+use std::path::PathBuf;
 
 /// Minimal argv command runner (no shell composition).
 ///
@@ -124,7 +126,7 @@ fn observe_log_path() -> Option<String> {
 pub struct SshBuildRunner {
     pub host: String,
     pub user: String,
-    /// Base dir for per-SHA checkouts, e.g. `/var/lib/cynic/checkouts`.
+    /// Base dir for per-SHA checkouts, e.g. `<state>/checkouts`.
     pub checkout_base: String,
     /// Source of truth cloned when no checkout exists for the SHA.
     pub ssot_url: String,
@@ -139,17 +141,25 @@ pub struct SshBuildRunner {
 }
 
 /// Default checkout base on runner nodes.
-pub const DEFAULT_CHECKOUT_BASE: &str = "/var/lib/cynic/checkouts";
+pub fn default_checkout_base() -> PathBuf {
+    CynicPaths::state_dir().join("checkouts")
+}
 /// Shared compilation cache across per-SHA checkouts. Third-party
 /// dependencies (same lockfile, same toolchain) compile once; only the
 /// workspace crates rebuild per checkout. Cargo fingerprints keep SHAs
 /// isolated; concurrent builds serialize on the target-dir lock.
-pub const DEFAULT_SHARED_TARGET_DIR: &str = "/var/lib/cynic/shared-target";
+pub fn default_shared_target_dir() -> PathBuf {
+    CynicPaths::state_dir().join("shared-target")
+}
 /// Default shared sccache dir on runner nodes (created on first use).
-pub const DEFAULT_SCCACHE_DIR: &str = "/var/lib/cynic/sccache";
+pub fn default_sccache_dir() -> PathBuf {
+    CynicPaths::state_dir().join("sccache")
+}
 /// Absolute sccache binary on runners (non-interactive SSH has no cargo/bin
 /// on PATH, so the wrapper must never rely on PATH resolution).
-pub const DEFAULT_SCCACHE_BIN: &str = "/var/lib/cynic/bin/sccache";
+pub fn default_sccache_bin() -> PathBuf {
+    CynicPaths::state_dir().join("bin/sccache")
+}
 /// Default source of truth for fresh checkouts.
 pub const DEFAULT_SSOT_URL: &str = "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git";
 
@@ -351,10 +361,13 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!("CARGO_TARGET_DIR={DEFAULT_SHARED_TARGET_DIR}"),
+            format!(
+                "CARGO_TARGET_DIR={}",
+                default_shared_target_dir().display()
+            ),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
-            argv.push(format!("RUSTC_WRAPPER={DEFAULT_SCCACHE_BIN}"));
+            argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
             argv.push(format!("SCCACHE_DIR={dir}"));
         }
         argv.extend(cargo);
