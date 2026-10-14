@@ -19,13 +19,13 @@
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate.",
-    "total": 488,
+    "total": 487,
     "critical": 16,
-    "debt": 200,
+    "debt": 199,
     "warning": 272,
-    "identities": 487,
+    "identities": 486,
     "by_rule": {
-      "ARCH-001": 200,
+      "ARCH-001": 199,
       "ARCH-004": 14,
       "ARCH-005": 3,
       "ART-001": 5,
@@ -299,12 +299,6 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/sweep/empirical_store.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/probe.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
