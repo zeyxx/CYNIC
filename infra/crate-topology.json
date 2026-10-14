@@ -26,9 +26,9 @@
       ],
       "dev_depends_on": [],
       "justified": true,
-      "kind": "binary",
+      "kind": "library",
       "layer": "L1",
-      "loc": 6071
+      "loc": 5894
     },
     "cynic-build": {
       "consumers": [
@@ -48,7 +48,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 9826
+      "loc": 9905
     },
     "cynic-channel": {
       "consumers": [
@@ -110,7 +110,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 37002
+      "loc": 37613
     },
     "cynic-consensus": {
       "consumers": [
@@ -300,7 +300,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1735
+      "loc": 1697
     },
     "cynic-inference": {
       "consumers": [
@@ -400,7 +400,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3670
+      "loc": 3984
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -520,7 +520,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 56994
+      "loc": 57152
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -606,11 +606,13 @@
       "depends_on": [
         "cynic-types"
       ],
-      "dev_depends_on": [],
+      "dev_depends_on": [
+        "cynic-types"
+      ],
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 37673
+      "loc": 37675
     },
     "cynic-proxmox": {
       "consumers": [
@@ -1096,11 +1098,11 @@
   },
   "measured": {
     "acyclic": true,
-    "binaries": 6,
+    "binaries": 5,
     "crates": 44,
-    "dev_edges": 3,
+    "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 351691,
+    "loc_total": 352640,
     "pending_disposition": 4,
     "runtime_edges": 171,
     "unjustified": 0,
