@@ -57,21 +57,21 @@ pub mod cynic_anchor {
         require!(market.status == 0, CynicAnchorError::MarketClosed);
         require!(amount_units > 0, CynicAnchorError::InvalidAmount);
 
-        let (in_pool, out_pool) = if is_yes {
-            (&mut market.no_pool_units, &mut market.yes_pool_units)
-        } else {
-            (&mut market.yes_pool_units, &mut market.no_pool_units)
-        };
-
         let dx = amount_units as u128;
-        let x = *in_pool as u128;
-        let y = *out_pool as u128;
+        let (x_before, y_before) = if is_yes {
+            (market.no_pool_units as u128, market.yes_pool_units as u128)
+        } else {
+            (market.yes_pool_units as u128, market.no_pool_units as u128)
+        };
+        let dy = (y_before * dx) / (x_before + dx);
 
-        let dy = (y * dx) / (x + dx);
-        let shares_bought = dy as u64;
-
-        *in_pool += amount_units;
-        *out_pool = out_pool.saturating_sub(shares_bought);
+        if is_yes {
+            market.no_pool_units += amount_units;
+            market.yes_pool_units = market.yes_pool_units.saturating_sub(dy as u64);
+        } else {
+            market.yes_pool_units += amount_units;
+            market.no_pool_units = market.no_pool_units.saturating_sub(dy as u64);
+        }
 
         Ok(())
     }
@@ -150,7 +150,7 @@ pub struct CreateFutarchyMarket<'info> {
         init,
         payer = creator,
         space = 8 + std::mem::size_of::<FutarchyMarketAccount>(),
-        seeds = [b"futarchy_market", &proposal_hash],
+        seeds = [b"futarchy_market", proposal_hash.as_ref()],
         bump
     )]
     pub market: AccountLoader<'info, FutarchyMarketAccount>,
