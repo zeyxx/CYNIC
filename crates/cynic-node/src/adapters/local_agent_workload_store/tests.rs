@@ -123,6 +123,72 @@ fn evidence(subject: &str) -> AgentEvidenceRef {
 }
 
 #[test]
+fn archive_terminal_moves_eligible_terminal_record() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let store = LocalAgentWorkloadStore::new(root.path());
+
+    let mut terminal_record = record("workload-old", "key-old");
+    terminal_record.state = AgentWorkloadState::Completed;
+    store
+        .compare_and_swap("workload-old", None, &terminal_record, 1_000)
+        .expect("seed terminal record");
+
+    let archived = store
+        .archive_terminal("workload-old", 500, 2_000)
+        .expect("archive terminal");
+    let path = archived.expect("archive path returned");
+    assert!(path.contains("archive"));
+    assert!(path.contains("workload-old"));
+    assert!(std::path::Path::new(&path).exists());
+    assert!(!root.path().join("workload-old").exists());
+}
+
+#[test]
+fn archive_terminal_returns_none_for_live_record() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let store = LocalAgentWorkloadStore::new(root.path());
+
+    store
+        .compare_and_swap("workload-live", None, &record("workload-live", "key-live"), 1_000)
+        .expect("seed live record");
+
+    let result = store
+        .archive_terminal("workload-live", 500, 2_000)
+        .expect("archive terminal live");
+    assert!(result.is_none());
+    assert!(root.path().join("workload-live").exists());
+}
+
+#[test]
+fn archive_terminal_returns_none_for_missing_workload() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let store = LocalAgentWorkloadStore::new(root.path());
+
+    let result = store
+        .archive_terminal("workload-missing", 500, 2_000)
+        .expect("archive terminal missing");
+    assert!(result.is_none());
+}
+
+#[test]
+fn archive_terminal_returns_none_for_fresh_terminal_record() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let store = LocalAgentWorkloadStore::new(root.path());
+
+    let mut terminal_record = record("workload-fresh", "key-fresh");
+    terminal_record.state = AgentWorkloadState::Blocked;
+    store
+        .compare_and_swap("workload-fresh", None, &terminal_record, 1_900)
+        .expect("seed fresh terminal record");
+
+    let result = store
+        .archive_terminal("workload-fresh", 500, 2_000)
+        .expect("archive terminal fresh");
+    assert!(result.is_none());
+    assert!(root.path().join("workload-fresh").exists());
+}
+
+#[test]
 fn append_only_cas_rejects_stale_revision_and_duplicate_idempotency() {
     let root = tempfile::tempdir().expect("tempdir");
     let store = LocalAgentWorkloadStore::new(root.path());
