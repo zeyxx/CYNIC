@@ -86,6 +86,13 @@ pub struct BuildSchedulerConfig {
     /// when it is unavailable. Fleet rollout requires bwrap on every runner.
     #[serde(default)]
     pub sandbox_bwrap: bool,
+    /// Optional shared cargo target root. When set, scheduler builds reuse
+    /// `<root>/<profile>` (profile derived from argv: `release` when
+    /// `--release` is present, `debug` otherwise) instead of a throwaway
+    /// per-build directory. Unset preserves the previous isolated behavior.
+    /// Single-slot only: parallel slots must take an inter-build lock first.
+    #[serde(default)]
+    pub shared_target_root: Option<PathBuf>,
     #[serde(default)]
     pub release_publication: Option<ReleasePublicationConfig>,
 }

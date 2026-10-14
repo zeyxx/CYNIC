@@ -432,7 +432,7 @@ async fn execute_claimed(
                     final_record_digest = %receipt.final_record_digest,
                     "hermetic parcel settled successfully"
                 );
-                persist_settlement_proof(&SettlementProofFields {
+                persist_settlement_proof(store, &SettlementProofFields {
                     workload_id,
                     status: &status,
                     unknowns: &settlement_unknowns,
@@ -541,12 +541,10 @@ pub(crate) struct SettlementProofFields<'a> {
     pub capacity_unknowns: &'a [String],
 }
 
-/// Build the canonical settlement proof evidence ref. Pure: serializes the
-/// settlement facts to canonical JSON and digests them with SHA3-512.
-pub(crate) fn settlement_proof_evidence_ref(
-    fields: &SettlementProofFields<'_>,
-) -> Result<String, serde_json::Error> {
-    let proof = serde_json::json!({
+/// Build the canonical settlement proof body as JSON. Pure: the same facts
+/// feed both the evidence digest and the durable sidecar.
+pub(crate) fn settlement_proof_body(fields: &SettlementProofFields<'_>) -> serde_json::Value {
+    serde_json::json!({
         "workload_id": fields.workload_id,
         "status": fields.status,
         "unknowns": fields.unknowns,
@@ -559,19 +557,38 @@ pub(crate) fn settlement_proof_evidence_ref(
         "queue_wait_clamped": fields.queue_wait_clamped,
         "load_tier": fields.load_tier,
         "capacity_unknowns": fields.capacity_unknowns,
-    });
+    })
+}
+
+/// Build the canonical settlement proof evidence ref. Pure: serializes the
+/// settlement facts to canonical JSON and digests them with SHA3-512.
+pub(crate) fn settlement_proof_evidence_ref(
+    fields: &SettlementProofFields<'_>,
+) -> Result<String, serde_json::Error> {
+    let proof = settlement_proof_body(fields);
     cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-settlement:{digest}"))
 }
 
-fn persist_settlement_proof(fields: &SettlementProofFields<'_>) {
-    let evidence_ref = settlement_proof_evidence_ref(fields)
+fn persist_settlement_proof(
+    store: &dyn crate::ports::agent_workload_store_port::AgentWorkloadStorePort,
+    fields: &SettlementProofFields<'_>,
+) {
+    let proof = settlement_proof_body(fields);
+    let evidence_ref = cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-settlement:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-settlement:{}", fields.workload_id));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_settlement"],
         &[evidence_ref],
     ) {
         tracing::warn!(%error, workload_id = %fields.workload_id, "scheduler settlement proof read-back unavailable");
+    }
+    // Durable body next to the record it explains: the digest alone cannot
+    // answer WHY a build died. Best-effort — never fails the settlement.
+    let file_name = format!("settlement-{}.json", fields.settled_at_ms);
+    if let Err(error) = store.append_evidence(fields.workload_id, &file_name, &proof) {
+        tracing::warn!(?error, workload_id = %fields.workload_id, "scheduler settlement body unavailable");
     }
 }
 
@@ -1042,6 +1059,7 @@ mod tests {
             claim_ttl_secs: 60,
             command_timeout_secs: 900,
             sandbox_bwrap: false,
+            shared_target_root: None,
             release_publication: None,
         };
         (control, scheduler)
