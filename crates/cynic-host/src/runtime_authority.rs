@@ -1,5 +1,7 @@
 use std::path::PathBuf;
+
 use cynic_network::dns::{SERVICE_DNS_SERVICE_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME};
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeProjectionClass {
@@ -53,9 +55,9 @@ pub fn default_runtime_principal_layout() -> RuntimePrincipalLayout {
         runtime_group: "cynic".to_string(),
         // Runtime state is the canonical anchor. A Unix home may exist, but it
         // should not outrank the runtime-owned state root in authority.
-        home_dir: PathBuf::from("/var/lib/cynic"),
-        state_root: PathBuf::from("/var/lib/cynic"),
-        log_root: PathBuf::from("/var/log/cynic"),
+        home_dir: CynicPaths::state_dir(),
+        state_root: CynicPaths::state_dir(),
+        log_root: CynicPaths::log_dir(),
     }
 }
 
@@ -63,10 +65,10 @@ pub fn default_runtime_authority_paths() -> RuntimeAuthorityPaths {
     let principal = default_runtime_principal_layout();
     let staging_root = principal.state_root.join("staging");
     RuntimeAuthorityPaths {
-        config_root: PathBuf::from("/etc/cynic"),
+        config_root: CynicPaths::system_config_dir(),
         kernel_socket_path: PathBuf::from("/run/cynic/kernel.sock"),
         agent_access_group: "cynic-agent".to_string(),
-        policy_root: PathBuf::from("/etc/cynic"),
+        policy_root: CynicPaths::system_config_dir(),
         helper_root: PathBuf::from("/usr/local/libexec"),
         sudoers_dir: PathBuf::from("/etc/sudoers.d"),
         service_unit_dir: PathBuf::from("/etc/systemd/system"),

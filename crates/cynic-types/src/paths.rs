@@ -22,8 +22,8 @@ impl CynicPaths {
     /// Répertoire canonique des secrets machine (permissions 0640 cynic:cynic).
     pub const DEFAULT_SECRETS_DIRNAME: &'static str = "secrets";
 
-    /// Racine d'état persistant runtime principal (cynic_state).
-    /// Défini par `infra/directory-tree.json:cynic_state.root`.
+    /// Canonical persistent state root (cynic_state).
+    /// Defined by `infra/directory-tree.json:cynic_state.root`.
     pub const DEFAULT_STATE_ROOT: &'static str = "/var/lib/cynic";
 
     /// Canonical log root for runtime logs.
@@ -84,7 +84,7 @@ impl CynicPaths {
             .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_STORAGE_FILENAME))
     }
 
-    /// Résout la racine d'état persistant principal (/var/lib/cynic).
+    /// Resolve the primary persistent state root (/var/lib/cynic).
     pub fn state_dir() -> PathBuf {
         std::env::var("CYNIC_STATE_DIR")
             .map(PathBuf::from)
