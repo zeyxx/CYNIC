@@ -22,9 +22,10 @@ use serde::Deserialize;
 const TOP_K: usize = 5;
 const DENSE_K: usize = 20;
 /// Server batch ceiling (llama-server physical batch 512 tokens): inputs are
-/// front-truncated to stay under it. A measurement decision, not bridge
-/// behavior — the bridge must surface oversize inputs as errors, never clip.
-const MAX_EMBED_CHARS: usize = 1500;
+/// front-truncated to stay under it. 1000 chars ≈ 370 tokens even on dense
+/// code chunks (~2.7 chars/token observed live). A measurement decision, not
+/// bridge behavior — the bridge must surface oversize inputs as errors.
+const MAX_EMBED_CHARS: usize = 1000;
 
 #[derive(Debug, Deserialize)]
 struct Fixture {
