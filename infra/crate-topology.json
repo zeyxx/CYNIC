@@ -110,7 +110,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-      "loc": 36975
+      "loc": 37002
     },
     "cynic-consensus": {
       "consumers": [
@@ -288,7 +288,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 88360
+      "loc": 88496
     },
     "cynic-huggingface": {
       "consumers": [
@@ -321,7 +321,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 14072
+      "loc": 14078
     },
     "cynic-intel": {
       "consumers": [
@@ -380,13 +380,14 @@
         "cynic-node-protocol",
         "cynic-protocol",
         "cynic-secrets",
-        "cynic-storage"
+        "cynic-storage",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 3963
+      "loc": 3969
     },
     "cynic-knowledge": {
       "consumers": [
@@ -413,13 +414,14 @@
       "depends_on": [
         "cynic-build",
         "cynic-protocol",
-        "cynic-storage"
+        "cynic-storage",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 6884
+      "loc": 6885
     },
     "cynic-lxc": {
       "consumers": [
@@ -427,13 +429,14 @@
         "cynic-node"
       ],
       "depends_on": [
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1279
+      "loc": 1284
     },
     "cynic-market": {
       "consumers": [
@@ -517,7 +520,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-      "loc": 56912
+      "loc": 56994
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -543,13 +546,14 @@
       ],
       "depends_on": [
         "cynic-network",
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3745
+      "loc": 3746
     },
     "cynic-pool": {
       "consumers": [
@@ -617,13 +621,14 @@
         "cynic-host",
         "cynic-lifecycle",
         "cynic-protocol",
-        "cynic-secrets"
+        "cynic-secrets",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 3678
+      "loc": 3679
     },
     "cynic-release": {
       "consumers": [
@@ -735,18 +740,25 @@
         "cynic-eval",
         "cynic-host",
         "cynic-inference",
+        "cynic-kernel",
         "cynic-knowledge",
+        "cynic-lifecycle",
+        "cynic-lxc",
         "cynic-network",
         "cynic-node",
+        "cynic-pkg",
         "cynic-protocol",
-        "cynic-secrets"
+        "cynic-proxmox",
+        "cynic-secrets",
+        "cynic-vcs",
+        "cynic-vcs-forgejo"
       ],
       "depends_on": [],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 932
+      "loc": 945
     },
     "cynic-vcs": {
       "consumers": [
@@ -757,7 +769,8 @@
       ],
       "depends_on": [
         "cynic-network",
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-types"
       ],
       "dev_depends_on": [
         "cynic-lifecycle"
@@ -765,7 +778,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 8906
+      "loc": 8914
     },
     "cynic-vcs-forgejo": {
       "consumers": [
@@ -774,13 +787,14 @@
       ],
       "depends_on": [
         "cynic-secrets",
+        "cynic-types",
         "cynic-vcs"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 1964
+      "loc": 1979
     },
     "cynic-workload": {
       "consumers": [
@@ -1086,9 +1100,9 @@
     "crates": 44,
     "dev_edges": 3,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 351390,
+    "loc_total": 351691,
     "pending_disposition": 4,
-    "runtime_edges": 164,
+    "runtime_edges": 171,
     "unjustified": 0,
     "upward_edges": 14
   },

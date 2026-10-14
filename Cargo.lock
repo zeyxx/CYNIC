@@ -1029,6 +1029,7 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-types",
  "dirs",
  "dotenvy",
  "ed25519-dalek",
@@ -1084,6 +1085,7 @@ dependencies = [
  "cynic-build",
  "cynic-protocol",
  "cynic-storage",
+ "cynic-types",
  "hex",
  "serde",
  "serde_json",
@@ -1098,6 +1100,7 @@ name = "cynic-lxc"
 version = "0.8.0"
 dependencies = [
  "cynic-protocol",
+ "cynic-types",
  "ed25519-dalek",
  "hex",
  "libc",
@@ -1241,6 +1244,7 @@ version = "0.8.0"
 dependencies = [
  "cynic-network",
  "cynic-protocol",
+ "cynic-types",
  "reqwest 0.13.5",
  "serde",
  "serde_json",
@@ -1286,6 +1290,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-types",
  "ed25519-dalek",
  "futures",
  "hex",
@@ -1407,6 +1412,7 @@ dependencies = [
  "cynic-lifecycle",
  "cynic-network",
  "cynic-protocol",
+ "cynic-types",
  "serde",
  "serde_json",
  "tempfile",
@@ -1418,6 +1424,7 @@ name = "cynic-vcs-forgejo"
 version = "0.8.0"
 dependencies = [
  "cynic-secrets",
+ "cynic-types",
  "cynic-vcs",
  "hex",
  "hmac",
