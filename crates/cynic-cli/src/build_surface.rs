@@ -2,6 +2,7 @@
 
 use clap::Subcommand;
 
+mod archive;
 mod invoice;
 mod reclaim;
 mod runner;
@@ -16,6 +17,7 @@ use runner::{prove_build, resolve_default_builder_url, run_build, submit_build, 
 use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
+use archive::{ArchiveReport, archive_terminal_workloads};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -183,6 +185,21 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         target: Option<String>,
     },
+    /// Archive terminal workload records (dry-run + --apply).
+    Store {
+        /// Node state root.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Minimum age in ms for a terminal record to be eligible.
+        #[arg(long, default_value_t = 86_400_000)]
+        older_than_ms: u64,
+        /// Execute the archive. Without this flag the surface only reports.
+        #[arg(long)]
+        apply: bool,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Reclaim the builder's reproducible build caches, per the policy declared
     /// in `infra/registry.json` (target_profile=debug, preserve release).
     Reclaim {
@@ -208,6 +225,34 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+}
+
+/// Render the archive report (JSON or text).
+fn render_archive_report(report: &ArchiveReport, json: bool) {
+    if json {
+        let text = serde_json::to_string_pretty(report)
+            .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
+        println!("{text}");
+    } else {
+        println!(
+            "archive — eligible={} applied={} mode={}",
+            report.eligible_count,
+            report.archived.len(),
+            if report.apply { "apply" } else { "dry-run" }
+        );
+        for e in &report.eligible {
+            println!("  eligible: {} (age {} ms)", e.workload_id, e.age_ms);
+        }
+        for a in &report.archived {
+            println!(
+                "  archived: {} -> {} (source absent: {})",
+                a.workload_id, a.archive_path, a.source_absent
+            );
+        }
+        if !report.apply {
+            println!("(dry-run — pass --apply to execute)");
+        }
+    }
 }
 
 /// Execute the build CLI command.
@@ -348,6 +393,20 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             user,
             json,
         } => prove_build(&commit, package, &phase, filter, &host, &user, json),
+        BuildCommand::Store {
+            state_root,
+            older_than_ms,
+            apply,
+            json,
+        } => {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            let report = archive_terminal_workloads(&state_root, older_than_ms, now_ms, apply)?;
+            render_archive_report(&report, json);
+            Ok(())
+        }
         BuildCommand::Reclaim {
             node,
             registry,
