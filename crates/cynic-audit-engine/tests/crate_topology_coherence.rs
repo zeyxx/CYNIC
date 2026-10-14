@@ -125,7 +125,7 @@ fn unjustified_crates_are_declared_and_no_undisclosed_one_can_appear() {
         .map(|entries| entries.len())
         .unwrap_or_default();
     assert_eq!(
-        declared, 9,
+        declared, 4,
         "pending_disposition changed size. A crate was fused or deleted: remove its entry. \
          A crate was added without justification: that is the failure this gate exists to stop."
     );

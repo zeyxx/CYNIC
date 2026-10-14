@@ -53,6 +53,8 @@ pub mod invoice_log;
 pub mod knowledge_surface;
 pub mod mask;
 pub mod mcp_call_proof_index;
+#[cfg(feature = "topology_write")]
+pub mod topology_write;
 
 pub mod daemon_surface;
 pub mod mcp_surface;

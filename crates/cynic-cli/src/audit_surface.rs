@@ -15,9 +15,19 @@ pub(crate) enum AuditCommand {
         json: bool,
     },
     /// Audit workspace crate topology, layer rules (L0-L4), cycles, and declared edges.
+    ///
+    /// With the `topology_write` feature compiled in, `--write --apply` regenerates
+    /// the derived half of the topology SSOT. The default binary carries no write
+    /// path at all: the flags do not exist unless the feature is enabled.
     Topology {
         #[arg(long)]
         json: bool,
+        #[cfg(feature = "topology_write")]
+        #[arg(long)]
+        write: bool,
+        #[cfg(feature = "topology_write")]
+        #[arg(long)]
+        apply: bool,
     },
     /// Scan repository for leaked credentials, tokens, or private keys.
     Secret {
@@ -174,46 +184,17 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
-        AuditCommand::Topology { json } => {
-            let root = crate::rust_source::workspace_root();
-            let engine = cynic_audit_engine::run_workspace_audit(&root);
-            let topology_violations: Vec<_> = engine
-                .violations
-                .into_iter()
-                .filter(|v| v.code.starts_with("ARCH-004") || v.code.starts_with("ARCH-005"))
-                .collect();
-            let blocked = !topology_violations.is_empty();
-
-            if *json {
-                let payload = serde_json::json!({
-                    "schema": "cynic.cli.audit_topology.v1",
-                    "status": if blocked { "blocked" } else { "ok" },
-                    "violations_count": topology_violations.len(),
-                    "violations": topology_violations,
-                });
-                emit_json(&payload, blocked)
-            } else {
-                println!("=== CYNIC Workspace Topology Audit (ARCH-004 / ARCH-005) ===");
-                if blocked {
-                    println!(
-                        "Status: BLOCKED ({} violations found)",
-                        topology_violations.len()
-                    );
-                    for v in &topology_violations {
-                        println!("\n  [{}] {}", v.code, v.message);
-                        if let Some(ref rem) = v.remediation {
-                            println!("    Remediation: {}", rem);
-                        }
-                    }
-                    ExitCode::FAILURE
-                } else {
-                    println!(
-                        "Status: OK (Zero architectural boundary violations, all layers and edges coherent)"
-                    );
-                    ExitCode::SUCCESS
-                }
+        #[cfg(feature = "topology_write")]
+        AuditCommand::Topology { json, write, apply } => {
+            // Compile-time gated writer: the flag pair does not exist in the
+            // default binary, so a reader build cannot write even by accident.
+            if *write {
+                return crate::topology_write::execute(*json, *apply);
             }
+            execute_topology_read(*json)
         }
+        #[cfg(not(feature = "topology_write"))]
+        AuditCommand::Topology { json } => execute_topology_read(*json),
         AuditCommand::Persistence {
             json,
             registry,
@@ -348,4 +329,88 @@ fn host_was_observed(root: &Path) -> bool {
         && std::env::var("CYNIC_AUDIT_UNIT_DIRS")
             .map(|value| !value.trim().is_empty())
             .unwrap_or(false)
+}
+
+/// Read-only topology audit: ARCH-004/ARCH-005 violations plus SSOT freshness.
+///
+/// The committed SSOT must match what the manifests and policy keys render. No
+/// file is written here; regeneration lives behind the `topology_write` feature
+/// in `topology_write::execute`.
+fn execute_topology_read(json: bool) -> ExitCode {
+    let root = crate::rust_source::workspace_root();
+    let engine = cynic_audit_engine::run_workspace_audit(&root);
+    let topology_violations: Vec<_> = engine
+        .violations
+        .into_iter()
+        .filter(|v| v.code.starts_with("ARCH-004") || v.code.starts_with("ARCH-005"))
+        .collect();
+
+    let committed_result = cynic_audit_engine::topology_generate::committed(&root);
+    let rendered_result = cynic_audit_engine::topology_generate::render_text(&root);
+    let render_error = committed_result
+        .as_ref()
+        .err()
+        .or(rendered_result.as_ref().err())
+        .map(|e| e.to_string());
+    let committed_text = committed_result.ok();
+    let rendered_text = rendered_result.ok();
+    // Freshness is a semantic comparison. A byte mismatch with an empty
+    // structural diff (e.g. a trailing newline) is not a stale SSOT.
+    let freshness_diff = match (committed_text.as_ref(), rendered_text.as_ref()) {
+        (Some(committed), Some(rendered)) => {
+            cynic_audit_engine::topology_generate::diff_paths(committed, rendered)
+                .unwrap_or_default()
+        }
+        _ => Vec::new(),
+    };
+    // Retain an explicit failure when rendering or committing could not be read.
+    let render_failed = committed_text.is_none() || rendered_text.is_none();
+    let is_fresh = !render_failed && freshness_diff.is_empty();
+
+    let blocked = !topology_violations.is_empty() || !is_fresh || render_failed;
+
+    if json {
+        let payload = serde_json::json!({
+            "schema": "cynic.cli.audit_topology.v1",
+            "status": if blocked { "blocked" } else { "ok" },
+            "violations_count": topology_violations.len(),
+            "violations": topology_violations,
+            "ssot_fresh": is_fresh,
+            "freshness_diff_count": freshness_diff.len(),
+            "freshness_diff": freshness_diff,
+            "render_error": render_error,
+        });
+        emit_json(&payload, blocked)
+    } else {
+        println!("=== CYNIC Workspace Topology Audit (ARCH-004 / ARCH-005) ===");
+        if !topology_violations.is_empty() {
+            println!(
+                "Status: BLOCKED ({} violations found)",
+                topology_violations.len()
+            );
+            for v in &topology_violations {
+                println!("\n  [{}] {}", v.code, v.message);
+                if let Some(ref rem) = v.remediation {
+                    println!("    Remediation: {}", rem);
+                }
+            }
+        } else if !is_fresh {
+            println!(
+                "Status: BLOCKED (SSOT stale, {} differences)",
+                freshness_diff.len()
+            );
+            for diff in freshness_diff.iter().take(10) {
+                println!("  {}", diff);
+            }
+        } else {
+            println!(
+                "Status: OK (Zero architectural boundary violations, all layers and edges coherent; SSOT fresh)"
+            );
+        }
+        if blocked {
+            ExitCode::FAILURE
+        } else {
+            ExitCode::SUCCESS
+        }
+    }
 }

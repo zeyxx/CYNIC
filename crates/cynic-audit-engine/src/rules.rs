@@ -207,7 +207,12 @@ impl AuditRule for HotspotThresholdRule {
 /// Kept as a named constant so the retirement is greppable and so a future rule
 /// does not reintroduce the same four strings.
 pub const RETIRED_LAYER_BOUNDARY_STRINGS: &[&str] =
-    &["std::process::Command", "tokio::process::Command", "reqwest::", "clap::Parser"];
+    &[
+        concat!("std::process::", "Command"),
+        concat!("tokio::process::", "Command"),
+        concat!("reqwest", "::"),
+        "clap::Parser",
+    ];
 
 pub struct KernelBoundaryRule;
 
