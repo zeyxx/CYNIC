@@ -39,13 +39,14 @@ mod tests {
 
     fn registry_with_ssot_at(ptr: &str) -> serde_json::Value {
         let mut reg = serde_json::json!({ "nodes": [] });
-        let mut target = serde_json::Value::Object(serde_json::Map::new());
-        for (i, segment) in ptr.trim_start_matches('/').split('/').enumerate() {
-            if i == ptr.trim_start_matches('/').split('/').count() - 1 {
-                target = serde_json::json!({ segment: { "kind": "forgejo" } });
-            } else {
-                target = serde_json::json!({ segment: target });
-            }
+        let segments: Vec<&str> = ptr.trim_start_matches('/').split('/').collect();
+        let mut target = serde_json::json!({ "kind": "forgejo" });
+        for segment in segments.iter().rev() {
+            // Dynamic key: `json!({ segment: ... })` would freeze the literal
+            // word "segment" instead of the variable's value.
+            let mut map = serde_json::Map::new();
+            map.insert(segment.to_string(), target);
+            target = serde_json::Value::Object(map);
         }
         // Merge the nested structure into the registry root.
         merge(&mut reg, &target);
@@ -53,10 +54,41 @@ mod tests {
     }
 
     fn merge(base: &mut serde_json::Value, overlay: &serde_json::Value) {
+        // A single numeric key addresses an array element (`nodes/0`).
+        // Replacing the array with an object would unindex it.
+        if let (serde_json::Value::Array(base_arr), serde_json::Value::Object(overlay_map)) =
+            (&mut *base, overlay)
+        {
+            let indexed: Option<(usize, &serde_json::Value)> = if overlay_map.len() == 1 {
+                overlay_map
+                    .iter()
+                    .next()
+                    .and_then(|(key, value)| key.parse::<usize>().ok().map(|idx| (idx, value)))
+            } else {
+                None
+            };
+            match indexed {
+                Some((idx, value)) => {
+                    if base_arr.len() <= idx {
+                        base_arr.resize(idx + 1, serde_json::Value::Null);
+                    }
+                    merge(&mut base_arr[idx], value);
+                }
+                None => {
+                    *base = overlay.clone();
+                }
+            }
+            return;
+        }
         match (base, overlay) {
             (serde_json::Value::Object(base_map), serde_json::Value::Object(overlay_map)) => {
                 for (key, value) in overlay_map {
-                    merge(base_map.entry(key.clone()).or_insert(serde_json::Value::Null), value);
+                    merge(
+                        base_map
+                            .entry(key.clone())
+                            .or_insert(serde_json::Value::Null),
+                        value,
+                    );
                 }
             }
             (base, overlay) => {
@@ -67,7 +99,8 @@ mod tests {
 
     #[test]
     fn finds_ssot_under_node_source_workspace_layout() {
-        let reg = registry_with_ssot_at("/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot");
+        let reg =
+            registry_with_ssot_at("/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot");
         let ssot = find_ssot_in_registry(&reg).expect("ssot found");
         assert_eq!(ssot["kind"], "forgejo");
     }
