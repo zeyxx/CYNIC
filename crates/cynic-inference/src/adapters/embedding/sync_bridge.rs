@@ -63,7 +63,7 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
         texts: &[&str],
         report: &dyn Fn(usize, usize),
     ) -> Result<Vec<Vec<f32>>, String> {
-        use super::super::http::lot_size;
+        use super::http::lot_size;
         let mut vectors = Vec::with_capacity(texts.len());
         for lot in texts.chunks(lot_size()) {
             let embeddings = self
@@ -126,8 +126,8 @@ mod tests {
 
     #[test]
     fn bridge_reports_progress_ending_at_total() {
-        let bridge = SyncEmbeddingBridge::probe(FixedBackend { dimensions: 2 }, "probe")
-            .expect("probe");
+        let bridge =
+            SyncEmbeddingBridge::probe(FixedBackend { dimensions: 2 }, "probe").expect("probe");
         let texts: Vec<&str> = (0..70).map(|_| "abc").collect();
         let seen = std::cell::RefCell::new(Vec::new());
         let vectors = bridge
