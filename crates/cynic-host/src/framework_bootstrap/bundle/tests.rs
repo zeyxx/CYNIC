@@ -16,7 +16,7 @@ fn use_repo_capability_catalog() {
 
 fn basket_install_path(binary: &str) -> String {
     let basket: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../infra/runtime-basket.json"))
+        serde_json::from_str(include_str!("../../../../../infra/runtime-basket.json"))
             .expect("parse authority runtime basket");
     basket["artifacts"]
         .as_array()
@@ -242,7 +242,7 @@ fn build_runner_bundle_projects_node_and_registry() {
         std::fs::read_to_string(out.join("etc/systemd/cynic-node.service")).expect("service");
     assert_eq!(
         service,
-        include_str!("../../../../infra/os/systemd/installed/cynic-node.service")
+        include_str!("../../../../../infra/os/systemd/installed/cynic-node.service")
     );
     let seed = std::fs::read_to_string(out.join("seed-manifest.json")).expect("seed");
     assert!(seed.contains(r#""target_role": "build_runner""#));
