@@ -1,0 +1,45 @@
+{
+  "schema": "cynic.agent.claim_event.v1",
+  "description": "Append-only claim event log emitted by cynic agent claim/release/status/identify/register. One JSON line per event, stored in data_system/vault/captures/agent-claims-YYYY-MM-DD.jsonl.",
+  "fields": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.agent.claim_event.v1",
+      "description": "Schema identifier. Every line must carry this exact value."
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "identify_local",
+        "register",
+        "claim_kernel",
+        "claim_local",
+        "claim_local_heartbeat",
+        "release_kernel",
+        "release_local",
+        "status_query"
+      ],
+      "description": "Event type. Distinguishes kernel-granted vs local-fallback operations for observability."
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Agent that performed the operation."
+    },
+    "target": {
+      "type": "string",
+      "description": "Claimed target path or crate. '*' for agent-level operations (identify, register, status)."
+    },
+    "timestamp_unix_s": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Event timestamp in Unix seconds (UTC)."
+    },
+    "detail": {
+      "type": "object",
+      "description": "Event-specific payload. Contents depend on event type."
+    }
+  },
+  "required": ["schema", "event", "agent_id", "target", "timestamp_unix_s", "detail"],
+  "additionalProperties": false
+}
