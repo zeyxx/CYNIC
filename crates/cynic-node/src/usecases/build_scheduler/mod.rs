@@ -640,33 +640,28 @@ mod tests {
     /// `prepare_ms`, `execute_ms`, `queue_wait_ms`, and `queue_wait_clamped`.
     #[test]
     fn settlement_proof_persists_reasons_and_timings() {
-        let workload_id = "test-workload-123";
         let status = AgentCompletionStatus::Blocked;
         let unknowns = vec![
             "build_execution_timeout".to_string(),
             "build_peak_memory_unobserved".to_string(),
         ];
-        let elapsed = Duration::from_millis(1500);
-        let measured_cpu_ms = Some(750);
-        let settled_at_ms = 1_700_000_000_000_u64;
-        let prepare_ms = 250_u64;
-        let execute_ms = 1200_u64;
-        let queue_wait_ms = 500_u64;
-        let queue_wait_clamped = false;
+        let fields = SettlementProofFields {
+            workload_id: "test-workload-123",
+            status: &status,
+            unknowns: &unknowns,
+            elapsed: Duration::from_millis(1500),
+            measured_cpu_ms: Some(750),
+            settled_at_ms: 1_700_000_000_000_u64,
+            prepare_ms: 250_u64,
+            execute_ms: 1200_u64,
+            queue_wait_ms: 500_u64,
+            queue_wait_clamped: false,
+            load_tier: "normal",
+            capacity_unknowns: &["cpu_report_missing".to_string()],
+        };
 
-        let evidence_ref = settlement_proof_evidence_ref(
-            workload_id,
-            &status,
-            &unknowns,
-            elapsed,
-            measured_cpu_ms,
-            settled_at_ms,
-            prepare_ms,
-            execute_ms,
-            queue_wait_ms,
-            queue_wait_clamped,
-        )
-        .expect("settlement proof evidence ref");
+        let evidence_ref = settlement_proof_evidence_ref(&fields)
+            .expect("settlement proof evidence ref");
 
         // The evidence ref must start with the settlement prefix
         assert!(
@@ -681,21 +676,144 @@ mod tests {
 
         // Reconstruct the expected proof JSON and verify its digest matches
         let expected_proof = serde_json::json!({
-            "workload_id": workload_id,
+            "workload_id": "test-workload-123",
             "status": "blocked",
             "unknowns": unknowns,
             "elapsed_ms": 1500_u64,
             "measured_cpu_ms": 750_u64,
-            "settled_at_ms": settled_at_ms,
-            "prepare_ms": prepare_ms,
-            "execute_ms": execute_ms,
-            "queue_wait_ms": queue_wait_ms,
-            "queue_wait_clamped": queue_wait_clamped,
+            "settled_at_ms": 1_700_000_000_000_u64,
+            "prepare_ms": 250_u64,
+            "execute_ms": 1200_u64,
+            "queue_wait_ms": 500_u64,
+            "queue_wait_clamped": false,
+            "load_tier": "normal",
+            "capacity_unknowns": ["cpu_report_missing"],
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
             digest, expected_digest,
             "settlement proof digest mismatch — stage timings not persisted"
+        );
+    }
+
+    /// T3 (T4): a Saturated load tier must refuse admission. The gate is the
+    /// pure `admit_claim_under_capacity` decision over the assessment
+    /// produced by `cynic_protocol::capacity::assess_load_tier`.
+    #[test]
+    fn saturated_tier_skips_claim() {
+        let policy = LoadPolicy::with_legacy_defaults("test-node");
+
+        // CPU 92% > saturation threshold (85%) ⇒ Saturated.
+        let cpu_saturated =
+            assess_load_tier(Some(&fabricated_cpu_report(92.0)), None, &policy);
+        assert_eq!(cpu_saturated.state, LoadTier::Saturated);
+        assert!(
+            !admit_claim_under_capacity(&cpu_saturated),
+            "saturated host must refuse claims this tick"
+        );
+
+        // Memory 26/28 GiB (92.8%) > saturation threshold (90%) ⇒ Saturated.
+        let mem_saturated = assess_load_tier(
+            Some(&fabricated_cpu_report(5.0)),
+            Some(&fabricated_memory_report(28, 26)),
+            &policy,
+        );
+        assert_eq!(mem_saturated.state, LoadTier::Saturated);
+        assert!(
+            !admit_claim_under_capacity(&mem_saturated),
+            "memory-saturated host must refuse claims this tick"
+        );
+    }
+
+    /// T3 (T4): Headroom and Normal tiers admit; the unmeasured path
+    /// (Normal + residual unknowns) also admits — the policy default never
+    /// refuses on unmeasured capacity.
+    #[test]
+    fn admit_claim_under_capacity_admits_standard_tiers_and_unknowns() {
+        let policy = LoadPolicy::with_legacy_defaults("test-node");
+
+        let headroom = assess_load_tier(
+            Some(&fabricated_cpu_report(5.0)),
+            Some(&fabricated_memory_report(28, 4)),
+            &policy,
+        );
+        assert_eq!(headroom.state, LoadTier::Headroom);
+        assert!(
+            admit_claim_under_capacity(&headroom),
+            "headroom host must admit claims"
+        );
+
+        let normal = assess_load_tier(
+            Some(&fabricated_cpu_report(50.0)),
+            Some(&fabricated_memory_report(28, 10)),
+            &policy,
+        );
+        assert_eq!(normal.state, LoadTier::Normal);
+        assert!(
+            admit_claim_under_capacity(&normal),
+            "normal host must admit claims"
+        );
+
+        let unmeasured = assess_load_tier(None, None, &policy);
+        assert_eq!(unmeasured.state, LoadTier::Normal);
+        assert!(
+            !unmeasured.residual_unknowns.is_empty(),
+            "unmeasured assessment must carry explicit unknowns"
+        );
+        assert!(
+            admit_claim_under_capacity(&unmeasured),
+            "policy default: unknowns proceed, never refuse on unmeasured"
+        );
+    }
+
+    /// T3 (T4): the settlement proof JSON must carry the capacity gate
+    /// outcome — tier string and residual unknowns — so the admission
+    /// decision is auditable from persisted evidence, not logs alone.
+    #[test]
+    fn settlement_proof_persists_capacity_gate_outcome() {
+        let status = AgentCompletionStatus::Completed;
+        let fields = SettlementProofFields {
+            workload_id: "wl-capacity",
+            status: &status,
+            unknowns: &[],
+            elapsed: Duration::from_millis(10),
+            measured_cpu_ms: None,
+            settled_at_ms: 42,
+            prepare_ms: 1,
+            execute_ms: 9,
+            queue_wait_ms: 0,
+            queue_wait_clamped: false,
+            load_tier: "saturated",
+            capacity_unknowns: &[
+                "cpu_report_missing".to_string(),
+                "memory_report_missing".to_string(),
+            ],
+        };
+
+        let evidence_ref =
+            settlement_proof_evidence_ref(&fields).expect("settlement proof evidence ref");
+        let digest = evidence_ref
+            .strip_prefix("scheduler-settlement:")
+            .expect("settlement prefix");
+
+        let expected_proof = serde_json::json!({
+            "workload_id": "wl-capacity",
+            "status": "completed",
+            "unknowns": [] as [String; 0],
+            "elapsed_ms": 10_u64,
+            "measured_cpu_ms": serde_json::Value::Null,
+            "settled_at_ms": 42_u64,
+            "prepare_ms": 1_u64,
+            "execute_ms": 9_u64,
+            "queue_wait_ms": 0_u64,
+            "queue_wait_clamped": false,
+            "load_tier": "saturated",
+            "capacity_unknowns": ["cpu_report_missing", "memory_report_missing"],
+        });
+        let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
+        assert_eq!(
+            digest, expected_digest,
+            "capacity gate outcome missing from settlement proof"
         );
     }
 
@@ -723,19 +841,23 @@ mod tests {
     /// valid evidence ref (None serializes to null in the JSON).
     #[test]
     fn settlement_proof_with_no_unknowns_and_no_cpu() {
-        let evidence_ref = settlement_proof_evidence_ref(
-            QA,
-            &AgentCompletionStatus::Completed,
-            &[],
-            Duration::ZERO,
-            None,
-            42,
-            0,
-            0,
-            0,
-            false,
-        )
-        .expect("settlement proof evidence ref");
+        let fields = SettlementProofFields {
+            workload_id: QA,
+            status: &AgentCompletionStatus::Completed,
+            unknowns: &[],
+            elapsed: Duration::ZERO,
+            measured_cpu_ms: None,
+            settled_at_ms: 42,
+            prepare_ms: 0,
+            execute_ms: 0,
+            queue_wait_ms: 0,
+            queue_wait_clamped: false,
+            load_tier: "headroom",
+            capacity_unknowns: &[],
+        };
+
+        let evidence_ref = settlement_proof_evidence_ref(&fields)
+            .expect("settlement proof evidence ref");
 
         let digest = evidence_ref
             .strip_prefix("scheduler-settlement:")
@@ -752,9 +874,76 @@ mod tests {
             "execute_ms": 0_u64,
             "queue_wait_ms": 0_u64,
             "queue_wait_clamped": false,
+            "load_tier": "headroom",
+            "capacity_unknowns": Vec::<String>::new(),
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
+    }
+
+    /// Fabricated CPU report with a known utilisation, mirroring the
+    /// constructor pattern used by `cynic_protocol::capacity` tests.
+    fn fabricated_cpu_report(util_pct: f64) -> cynic_protocol::cpu::CpuReport {
+        cynic_protocol::cpu::CpuReport {
+            schema: "cynic.host_cpu_report.v1".to_string(),
+            timestamp: "test".to_string(),
+            physical: cynic_protocol::cpu::CpuPhysical {
+                model_name: "test".to_string(),
+                logical_cpus: 16,
+                cores: Some(8),
+                sockets: Some(1),
+                max_bogomips_or_hz: None,
+            },
+            volume: cynic_protocol::cpu::CpuVolume {
+                governor: None,
+                isolated_mask: None,
+                online_cpus: 16,
+                possible_cpus: 16,
+            },
+            usage: cynic_protocol::cpu::CpuUsage {
+                user: 0,
+                system: 0,
+                idle: 0,
+                iowait: 0,
+                softirq: 0,
+                steal: 0,
+                util_pct: Some(util_pct),
+            },
+            pressure: None,
+            residual_unknowns: Vec::new(),
+        }
+    }
+
+    /// Fabricated memory report from total/used GiB, mirroring the
+    /// constructor pattern used by `cynic_protocol::capacity` tests.
+    fn fabricated_memory_report(total_gb: u64, used_gb: u64) -> cynic_protocol::memory::MemoryReport {
+        cynic_protocol::memory::MemoryReport {
+            schema: "cynic.host_memory_report.v1".to_string(),
+            timestamp: "test".to_string(),
+            physical: cynic_protocol::memory::MemoryUsage {
+                total_bytes: total_gb * 1024 * 1024 * 1024,
+                free_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
+                available_bytes: (total_gb - used_gb) * 1024 * 1024 * 1024,
+                used_bytes: used_gb * 1024 * 1024 * 1024,
+                reclaimable_bytes: 0,
+            },
+            volume: cynic_protocol::memory::MemoryVolume {
+                page_size_bytes: 4096,
+                swappiness: None,
+                hugepages_reserved: None,
+                hugepage_size_bytes: None,
+            },
+            swap: cynic_protocol::memory::MemoryUsage {
+                total_bytes: 0,
+                free_bytes: 0,
+                available_bytes: 0,
+                used_bytes: 0,
+                reclaimable_bytes: 0,
+            },
+            pressure: None,
+            meminfo_headline: None,
+            residual_unknowns: Vec::new(),
+        }
     }
 
     fn scheduler_configs() -> (
