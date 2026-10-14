@@ -75,6 +75,8 @@ pub struct RegistryService {
     pub port: Option<u16>,
     #[serde(default)]
     pub network_plane: Option<String>,
+    #[serde(default)]
+    pub protocol: Option<String>,
 }
 
 /// Resolve which registry key carries node addresses.
@@ -156,7 +158,10 @@ fn peer_from_node(
             service.name.as_ref().map(|name| NetworkMeshService {
                 name: name.clone(),
                 port: service.port,
-                protocol: "tcp".to_string(),
+                protocol: service
+                    .protocol
+                    .clone()
+                    .unwrap_or_else(|| "tcp".to_string()),
                 plane: service.network_plane.clone(),
             })
         })
@@ -286,6 +291,7 @@ mod tests {
                     name: Some("cynic-kernel".to_string()),
                     port: Some(3030),
                     network_plane: Some("service".to_string()),
+                    protocol: Some("tcp".to_string()),
                 }],
             }],
         };
@@ -301,6 +307,7 @@ mod tests {
             plan.desired_peers[0].services[0].plane.as_deref(),
             Some("service")
         );
+        assert_eq!(plan.desired_peers[0].services[0].protocol, "tcp");
     }
 
     fn registry_with(network: &[(&str, &str)], declared_plane: Option<&str>) -> MeshRegistry {

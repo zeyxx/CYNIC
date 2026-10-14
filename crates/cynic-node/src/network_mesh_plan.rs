@@ -88,6 +88,7 @@ mod tests {
                             name: Some("ssh".to_string()),
                             port: Some(22),
                             network_plane: None,
+                            protocol: None,
                         }],
                     },
                     model::RegistryNode {
