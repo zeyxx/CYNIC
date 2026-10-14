@@ -53,6 +53,32 @@ mod tests {
     }
 
     fn merge(base: &mut serde_json::Value, overlay: &serde_json::Value) {
+        // A single numeric key addresses an array element (`nodes/0`).
+        // Replacing the array with an object would unindex it.
+        if let (serde_json::Value::Array(base_arr), serde_json::Value::Object(overlay_map)) =
+            (&mut *base, overlay)
+        {
+            let indexed: Option<(usize, &serde_json::Value)> = if overlay_map.len() == 1 {
+                overlay_map
+                    .iter()
+                    .next()
+                    .and_then(|(key, value)| key.parse::<usize>().ok().map(|idx| (idx, value)))
+            } else {
+                None
+            };
+            match indexed {
+                Some((idx, value)) => {
+                    if base_arr.len() <= idx {
+                        base_arr.resize(idx + 1, serde_json::Value::Null);
+                    }
+                    merge(&mut base_arr[idx], value);
+                }
+                None => {
+                    *base = overlay.clone();
+                }
+            }
+            return;
+        }
         match (base, overlay) {
             (serde_json::Value::Object(base_map), serde_json::Value::Object(overlay_map)) => {
                 for (key, value) in overlay_map {
@@ -62,29 +88,6 @@ mod tests {
                             .or_insert(serde_json::Value::Null),
                         value,
                     );
-                }
-            }
-            // A single numeric key addresses an array element (`nodes/0`).
-            // Replacing the array with an object would unindex it.
-            (serde_json::Value::Array(base_arr), serde_json::Value::Object(overlay_map)) => {
-                let mut indexed: Option<(usize, &serde_json::Value)> = None;
-                if overlay_map.len() == 1 {
-                    if let Some((key, value)) = overlay_map.iter().next() {
-                        if let Ok(idx) = key.parse::<usize>() {
-                            indexed = Some((idx, value));
-                        }
-                    }
-                }
-                match indexed {
-                    Some((idx, value)) => {
-                        if base_arr.len() <= idx {
-                            base_arr.resize(idx + 1, serde_json::Value::Null);
-                        }
-                        merge(&mut base_arr[idx], value);
-                    }
-                    None => {
-                        *base = overlay.clone();
-                    }
                 }
             }
             (base, overlay) => {
