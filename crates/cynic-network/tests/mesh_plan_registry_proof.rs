@@ -139,6 +139,30 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
 }
 
 #[test]
+fn firewall_policy_derives_from_repo_registry() {
+    // Proves the declared data and the fail-closed renderer agree on the
+    // live file: any undeclared plane or missing mesh interface breaks here,
+    // not in production.
+    let raw = std::fs::read_to_string(repo_registry_path())
+        .expect("read infra/registry.json from workspace");
+    let registry: serde_json::Value =
+        serde_json::from_str(&raw).expect("parse infra/registry.json");
+    let policy = cynic_network::firewall_policy::derive_firewall_policy_from_registry(
+        &registry, "forgejo", 1000,
+    )
+    .expect("derive firewall policy from live registry");
+    assert!(
+        policy.bindings.iter().any(|b| b.port == 3000),
+        "forgejo backend binding missing"
+    );
+    let ruleset = policy.render_nftables_ruleset();
+    assert!(
+        ruleset.contains("10.10.10.0/24 tcp dport 3000 accept"),
+        "service-plane rule missing: {ruleset}"
+    );
+}
+
+#[test]
 fn every_repo_registry_service_declares_its_plane() {
     // Pins the firewall derivation to declared data: an undeclared service
     // silently falls back to ServiceOnly in derive_firewall_policy_from_registry.
