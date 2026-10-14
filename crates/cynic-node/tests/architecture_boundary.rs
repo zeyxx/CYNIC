@@ -530,7 +530,7 @@ fn network_mesh_plan_reads_registry_through_a_port() {
             && adapter.contains("serde_json::from_str"),
         "local mesh registry file loading must live in the local adapter"
     );
-    let tests = planner.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let tests = planner.split("mod tests").nth(1).unwrap_or_default();
     assert!(
         tests.contains("FakeRegistryReader") && tests.contains("/virtual/registry.json"),
         "network mesh plan tests must prove substituted registry loading"
