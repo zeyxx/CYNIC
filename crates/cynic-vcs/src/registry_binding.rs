@@ -56,7 +56,35 @@ mod tests {
         match (base, overlay) {
             (serde_json::Value::Object(base_map), serde_json::Value::Object(overlay_map)) => {
                 for (key, value) in overlay_map {
-                    merge(base_map.entry(key.clone()).or_insert(serde_json::Value::Null), value);
+                    merge(
+                        base_map
+                            .entry(key.clone())
+                            .or_insert(serde_json::Value::Null),
+                        value,
+                    );
+                }
+            }
+            // A single numeric key addresses an array element (`nodes/0`).
+            // Replacing the array with an object would unindex it.
+            (serde_json::Value::Array(base_arr), serde_json::Value::Object(overlay_map)) => {
+                let mut indexed: Option<(usize, &serde_json::Value)> = None;
+                if overlay_map.len() == 1 {
+                    if let Some((key, value)) = overlay_map.iter().next() {
+                        if let Ok(idx) = key.parse::<usize>() {
+                            indexed = Some((idx, value));
+                        }
+                    }
+                }
+                match indexed {
+                    Some((idx, value)) => {
+                        if base_arr.len() <= idx {
+                            base_arr.resize(idx + 1, serde_json::Value::Null);
+                        }
+                        merge(&mut base_arr[idx], value);
+                    }
+                    None => {
+                        *base = overlay.clone();
+                    }
                 }
             }
             (base, overlay) => {
@@ -67,7 +95,8 @@ mod tests {
 
     #[test]
     fn finds_ssot_under_node_source_workspace_layout() {
-        let reg = registry_with_ssot_at("/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot");
+        let reg =
+            registry_with_ssot_at("/nodes/0/source_workspace_layout/vcs_provider/sovereign_ssot");
         let ssot = find_ssot_in_registry(&reg).expect("ssot found");
         assert_eq!(ssot["kind"], "forgejo");
     }
