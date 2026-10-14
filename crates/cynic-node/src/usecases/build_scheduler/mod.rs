@@ -529,4 +529,108 @@ mod tests {
 
         assert!(ordered.is_empty());
     }
+
+    fn scheduler_configs() -> (
+        crate::config::NodeControlConfig,
+        crate::config::BuildSchedulerConfig,
+    ) {
+        use std::path::PathBuf;
+        let control = crate::config::NodeControlConfig {
+            kernel_url: String::new(),
+            node_id: "node-1".to_string(),
+            signing_key_path: PathBuf::from("/tmp/x"),
+            enrollment_request_path: PathBuf::from("/tmp/x"),
+            enrollment_grant_path: PathBuf::from("/tmp/x"),
+            enrollment_authority_public_key_path: PathBuf::from("/tmp/x"),
+            enrollment_token_path: PathBuf::from("/tmp/x"),
+            enrollment_seed_id: String::new(),
+            enrollment_role: String::new(),
+            agent_workload_state_root: PathBuf::from("/tmp/x"),
+            runtime_artifact_inbox_root: PathBuf::from("/tmp/x"),
+            runtime_artifact_max_bytes: 0,
+            runtime_artifact_timeout_secs: 0,
+            enrollment_requested_capabilities: Vec::new(),
+            enrollment_request_ttl_secs: 0,
+            enrollment_renewal_window_secs: 0,
+            interval_secs: 0,
+            timeout_secs: 0,
+            workload_delivery_lease_ttl_secs: 0,
+            observed_capabilities: Vec::new(),
+            observed_services: Vec::new(),
+            registry_path: PathBuf::from("/tmp/x"),
+            build_scheduler: None,
+            builder_listen_addr: "127.0.0.1:1".parse().expect("addr"),
+            workspace_root: PathBuf::from("/tmp/x"),
+            membership_interval_secs: 0,
+        };
+        let scheduler = crate::config::BuildSchedulerConfig {
+            registry_path: PathBuf::from("/tmp/x"),
+            repository_id: String::new(),
+            transport_uri: None,
+            interval_secs: 0,
+            claim_ttl_secs: 60,
+            command_timeout_secs: 900,
+            sandbox_bwrap: false,
+            release_publication: None,
+        };
+        (control, scheduler)
+    }
+
+    /// Regression: an EXPIRED lease must be reclaimable, a LIVE lease must be
+    /// skipped. Before the fix, every Claimed record was skipped and the
+    /// recovery path in run_iteration was unreachable — expired claims
+    /// stranded forever.
+    #[test]
+    fn expired_claim_reclaims_live_claim_skips() {
+        use cynic_protocol::LeaseGuard;
+        use cynic_workload::AgentWorkloadClaim;
+
+        let store = queue_store();
+        let admitted = admit_build_check(
+            QA, "cynic-host", "cynic-builder", "node-1", "agent-1", 100, &store,
+        )
+        .expect("admit");
+        let (control, scheduler) = scheduler_configs();
+
+        let mut expired = admitted.record.clone();
+        expired.state = cynic_workload::AgentWorkloadState::Claimed;
+        expired.last_fencing_token = 1;
+        expired.claim = Some(AgentWorkloadClaim {
+            guard: LeaseGuard {
+                agent_id: "agent-1".to_string(),
+                target: expired.envelope.workload_id.clone(),
+                lease_id: "old-lease".to_string(),
+                fencing_token: 1,
+            },
+            expires_at_ms: 1,
+            cancellation_generation: 0,
+            max_lease_window_ms: 900_000,
+            granted_at_ms: 1,
+        });
+        let forged = store
+            .compare_and_swap(
+                &expired.envelope.workload_id.clone(),
+                Some(admitted.revision),
+                &expired,
+                200,
+            )
+            .expect("forge expired claim");
+
+        let reclaimed = lifecycle::claim_if_available(&control, &scheduler, &store, &forged)
+            .expect("no store error")
+            .expect("expired claim must reclaim");
+        assert_eq!(
+            reclaimed.record.state,
+            cynic_workload::AgentWorkloadState::Claimed
+        );
+        assert_eq!(reclaimed.record.last_fencing_token, 2);
+
+        let live = store
+            .read(&reclaimed.record.envelope.workload_id)
+            .expect("read")
+            .expect("present");
+        let skipped = lifecycle::claim_if_available(&control, &scheduler, &store, &live)
+            .expect("no store error");
+        assert!(skipped.is_none(), "live claim must be skipped");
+    }
 }
