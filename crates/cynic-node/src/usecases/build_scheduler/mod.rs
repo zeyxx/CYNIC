@@ -339,6 +339,8 @@ async fn execute_claimed(
             .map(|c| c.guard.clone())
             .unwrap_or_else(|| guard.clone());
 
+        let settlement_elapsed = started.elapsed();
+        let settlement_unknowns = unknowns.clone();
         let _receipt = match lifecycle::finish(
             store,
             &latest,
@@ -346,7 +348,7 @@ async fn execute_claimed(
             status,
             evidence_refs.clone(),
             unknowns,
-            started.elapsed(),
+            settlement_elapsed,
             measured_cpu_ms,
         ) {
             Ok(receipt) => {
@@ -355,6 +357,14 @@ async fn execute_claimed(
                     settled_at_ms = receipt.settled_at_ms,
                     final_record_digest = %receipt.final_record_digest,
                     "hermetic parcel settled successfully"
+                );
+                persist_settlement_proof(
+                    workload_id,
+                    &status,
+                    &settlement_unknowns,
+                    settlement_elapsed,
+                    measured_cpu_ms,
+                    receipt.settled_at_ms,
                 );
                 receipt
             }
@@ -418,6 +428,53 @@ fn persist_cancellation_proof(workload_id: &str, revision: u64) {
         &[evidence_ref],
     ) {
         tracing::warn!(%error, workload_id, "scheduler cancellation proof read-back unavailable");
+    }
+}
+
+/// Build the canonical settlement proof evidence ref. Pure: serializes the
+/// settlement facts to canonical JSON and digests them with SHA3-512.
+pub(crate) fn settlement_proof_evidence_ref(
+    workload_id: &str,
+    status: &AgentCompletionStatus,
+    unknowns: &[String],
+    elapsed: Duration,
+    measured_cpu_ms: Option<u64>,
+    settled_at_ms: u64,
+) -> Result<String, serde_json::Error> {
+    let proof = serde_json::json!({
+        "workload_id": workload_id,
+        "status": status,
+        "unknowns": unknowns,
+        "elapsed_ms": elapsed.as_millis(),
+        "measured_cpu_ms": measured_cpu_ms,
+        "settled_at_ms": settled_at_ms,
+    });
+    cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-settlement:{digest}"))
+}
+
+fn persist_settlement_proof(
+    workload_id: &str,
+    status: &AgentCompletionStatus,
+    unknowns: &[String],
+    elapsed: Duration,
+    measured_cpu_ms: Option<u64>,
+    settled_at_ms: u64,
+) {
+    let evidence_ref = settlement_proof_evidence_ref(
+        workload_id,
+        status,
+        unknowns,
+        elapsed,
+        measured_cpu_ms,
+        settled_at_ms,
+    )
+    .unwrap_or_else(|_| format!("scheduler-settlement:{workload_id}"));
+    if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
+        &["scheduler_settlement"],
+        &[evidence_ref],
+    ) {
+        tracing::warn!(%error, workload_id, "scheduler settlement proof read-back unavailable");
     }
 }
 
@@ -528,6 +585,89 @@ mod tests {
         let ordered = queue_ordered_ids(&durables, "node-1");
 
         assert!(ordered.is_empty());
+    }
+
+    /// Regression: settlement proof persists reasons and timings. The
+    /// settlement evidence ref must be a `scheduler-settlement:{digest}`
+    /// over the canonical JSON `{workload_id, status, unknowns, elapsed_ms,
+    /// measured_cpu_ms, settled_at_ms}`.
+    #[test]
+    fn settlement_proof_persists_reasons_and_timings() {
+        let workload_id = "test-workload-123";
+        let status = AgentCompletionStatus::Blocked;
+        let unknowns = vec![
+            "build_execution_timeout".to_string(),
+            "build_peak_memory_unobserved".to_string(),
+        ];
+        let elapsed = Duration::from_millis(1500);
+        let measured_cpu_ms = Some(750);
+        let settled_at_ms = 1_700_000_000_000_u64;
+
+        let evidence_ref = settlement_proof_evidence_ref(
+            workload_id,
+            &status,
+            &unknowns,
+            elapsed,
+            measured_cpu_ms,
+            settled_at_ms,
+        )
+        .expect("settlement proof evidence ref");
+
+        // The evidence ref must start with the settlement prefix
+        assert!(
+            evidence_ref.starts_with("scheduler-settlement:"),
+            "evidence ref prefix mismatch: {evidence_ref}"
+        );
+
+        // Extract the digest from the evidence ref
+        let digest = evidence_ref
+            .strip_prefix("scheduler-settlement:")
+            .expect("settlement prefix");
+
+        // Reconstruct the expected proof JSON and verify its digest matches
+        let expected_proof = serde_json::json!({
+            "workload_id": workload_id,
+            "status": "blocked",
+            "unknowns": unknowns,
+            "elapsed_ms": 1500_u64,
+            "measured_cpu_ms": 750_u64,
+            "settled_at_ms": settled_at_ms,
+        });
+        let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
+        assert_eq!(
+            digest, expected_digest,
+            "settlement proof digest mismatch — unknowns/elapsed/status not persisted"
+        );
+    }
+
+    /// Settlement proof with no unknowns and no measured CPU still produces a
+    /// valid evidence ref (None serializes to null in the JSON).
+    #[test]
+    fn settlement_proof_with_no_unknowns_and_no_cpu() {
+        let evidence_ref = settlement_proof_evidence_ref(
+            QA,
+            &AgentCompletionStatus::Completed,
+            &[],
+            Duration::ZERO,
+            None,
+            42,
+        )
+        .expect("settlement proof evidence ref");
+
+        let digest = evidence_ref
+            .strip_prefix("scheduler-settlement:")
+            .expect("settlement prefix");
+
+        let expected_proof = serde_json::json!({
+            "workload_id": QA,
+            "status": "completed",
+            "unknowns": Vec::<String>::new(),
+            "elapsed_ms": 0_u64,
+            "measured_cpu_ms": serde_json::Value::Null,
+            "settled_at_ms": 42_u64,
+        });
+        let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
+        assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
     }
 
     fn scheduler_configs() -> (
