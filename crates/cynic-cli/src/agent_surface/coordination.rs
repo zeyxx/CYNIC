@@ -483,14 +483,25 @@ pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
 /// `data_system/vault/captures/`. Returns the captures directory path
 /// (the caller composes the dated filename).
 fn claim_event_log_dir() -> Option<std::path::PathBuf> {
-    let output = std::process::Command::new("git")
+    // Try git root first; fall back to current directory.
+    let root = std::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
         .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default()
+        });
     if root.is_empty() {
         return None;
     }
