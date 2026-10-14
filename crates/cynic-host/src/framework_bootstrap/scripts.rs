@@ -46,11 +46,11 @@ pub(crate) fn bootstrap_install_script(artifacts: &[BootstrapRuntimeArtifact]) -
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-BUNDLE="$ROOT/host-exec-bundle"
+BUNDLE="$ROOT/privilege-bundle"
 RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
 RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
-HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
-SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
+CYNIC_BIN="${CYNIC_BIN:-__CYNIC_CLI_DEFAULT__}"
+SUDOERS_TARGET="${CYNIC_PRIVILEGE_SUDOERS:-/etc/sudoers.d/cynic}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-__CYNIC_CLI_DEFAULT__}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-__CYNIC_NODE_DEFAULT__}"
 NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-__CYNIC_NODE_CONTROL_DEFAULT__}"
@@ -111,9 +111,9 @@ install_bootstrap_packages
 command -v visudo >/dev/null 2>&1 || { echo "visudo is required after package bootstrap" >&2; exit 1; }
 command -v sudo >/dev/null 2>&1 || { echo "sudo is required after package bootstrap" >&2; exit 1; }
 
-install -d -o root -g root -m 0755 "$(dirname "$HELPER_TARGET")" "$(dirname "$SUDOERS_TARGET")"
-install -o root -g root -m 0755 "$BUNDLE/cynic-host-exec" "$HELPER_TARGET"
-install -o root -g root -m 0440 "$BUNDLE/cynic-host-exec.sudoers" "$SUDOERS_TARGET"
+test -x "$CYNIC_BIN" || { echo "cynic binary missing at $CYNIC_BIN (install the release basket first)" >&2; exit 1; }
+install -d -o root -g root -m 0755 "$(dirname "$SUDOERS_TARGET")"
+install -o root -g root -m 0440 "$BUNDLE/privilege.sudoers" "$SUDOERS_TARGET"
 if [ -f "$ROOT/etc/node-control.toml" ]; then
   install -d -o root -g "$RUNTIME_GROUP" -m 0755 "$(dirname "$NODE_CONTROL_CONFIG_TARGET")"
   install -o root -g "$RUNTIME_GROUP" -m 0640 "$ROOT/etc/node-control.toml" "$NODE_CONTROL_CONFIG_TARGET"
@@ -138,7 +138,7 @@ if [ -f "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" ]; then
 fi
 visudo -cf "$SUDOERS_TARGET"
 
-"$HELPER_TARGET" principal-prepare --apply > "$STATE_ROOT/bootstrap/principal-prepare.json"
+"$CYNIC_BIN" host principal prepare --apply > "$STATE_ROOT/bootstrap/principal-prepare.json"
 chown "$RUNTIME_USER:$RUNTIME_GROUP" "$STATE_ROOT/bootstrap/principal-prepare.json"
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0750 \
   "$RUNTIME_ARTIFACT_INBOX"
@@ -146,7 +146,7 @@ install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 \
   "$RUNTIME_INSTALL_ROOT" "$RUNTIME_INSTALL_ROOT/releases"
 __CYNIC_RUNTIME_ACTIVATION__
 
-echo "cynic framework bootstrap installed: $HELPER_TARGET"
+echo "cynic framework bootstrap installed: $CYNIC_BIN via $SUDOERS_TARGET"
 "#
     .replace(
         "__CYNIC_RUNTIME_PREFLIGHT__",
@@ -202,8 +202,8 @@ set -eu
 
 RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
 RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
-HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
-SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
+CYNIC_BIN="${CYNIC_BIN:-__CYNIC_CLI_DEFAULT__}"
+SUDOERS_TARGET="${CYNIC_PRIVILEGE_SUDOERS:-/etc/sudoers.d/cynic}"
 EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-__CYNIC_EVIDENCE_DEFAULT__}"
 CLI_TARGET="${CYNIC_STANDALONE_CLI:-__CYNIC_CLI_DEFAULT__}"
 NODE_TARGET="${CYNIC_NODE_BINARY:-__CYNIC_NODE_DEFAULT__}"
@@ -219,7 +219,7 @@ RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-arti
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 "$EVIDENCE_DIR"
 test -d "$RUNTIME_INSTALL_ROOT"
 test -d "$RUNTIME_ARTIFACT_INBOX"
-test -x "$HELPER_TARGET"
+test -x "$CYNIC_BIN"
 test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
 if [ -x "$CLI_TARGET" ]; then
@@ -229,9 +229,9 @@ __CYNIC_NODE_READ_BACK__
 if [ -x "$LXC_BRIDGE_TARGET" ]; then
   sudo -u "$RUNTIME_USER" sudo -n "$LXC_BRIDGE_TARGET" --status > "$EVIDENCE_DIR/lxc-exec-bridge-status.json"
 fi
-"$HELPER_TARGET" bridge-status > "$EVIDENCE_DIR/bridge-status.json"
-sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
-sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" network-baseline observe > "$EVIDENCE_DIR/network-baseline-observe.json" || true
+"$CYNIC_BIN" host bridge status > "$EVIDENCE_DIR/bridge-status.json"
+sudo -u "$RUNTIME_USER" "$CYNIC_BIN" host principal prepare > "$EVIDENCE_DIR/principal-plan-through-sudo.json"
+sudo -u "$RUNTIME_USER" "$CYNIC_BIN" host network baseline > "$EVIDENCE_DIR/network-baseline-observe.json" || true
 __CYNIC_RUNTIME_READ_BACK__
 
 chown "$RUNTIME_USER:$RUNTIME_GROUP" "$EVIDENCE_DIR"/*.json
@@ -253,27 +253,26 @@ pub(crate) fn bootstrap_security_maintenance_script() -> String {
 set -eu
 
 RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
-HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
-SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
+CYNIC_BIN="${CYNIC_BIN:-/usr/local/bin/cynic}"
+SUDOERS_TARGET="${CYNIC_PRIVILEGE_SUDOERS:-/etc/sudoers.d/cynic}"
 
-test -x "$HELPER_TARGET"
+test -x "$CYNIC_BIN"
 test -f "$SUDOERS_TARGET"
 visudo -cf "$SUDOERS_TARGET"
 
-grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $HELPER_TARGET bridge-status" "$SUDOERS_TARGET" >/dev/null
-grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $HELPER_TARGET principal-prepare" "$SUDOERS_TARGET" >/dev/null
-grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $HELPER_TARGET service-reconcile --apply" "$SUDOERS_TARGET" >/dev/null
-grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $HELPER_TARGET network-baseline observe" "$SUDOERS_TARGET" >/dev/null
-if grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $HELPER_TARGET" "$SUDOERS_TARGET" >/dev/null; then
-  echo "unbounded helper sudoers rule detected" >&2
+grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $CYNIC_BIN privilege exec service-reconcile --param node=[a-zA-Z0-9._-]* --param registry=* --param unit=[a-zA-Z0-9._-]*" "$SUDOERS_TARGET" >/dev/null
+grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $CYNIC_BIN privilege exec principal-prepare" "$SUDOERS_TARGET" >/dev/null
+grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $CYNIC_BIN privilege exec network-baseline-apply --param profile=[a-zA-Z0-9._-]* --param target=[a-zA-Z0-9._-]* --param registry=*" "$SUDOERS_TARGET" >/dev/null
+if grep -Fx "$RUNTIME_USER ALL=(root) NOPASSWD: $CYNIC_BIN" "$SUDOERS_TARGET" >/dev/null; then
+  echo "unbounded binary sudoers rule detected" >&2
   exit 1
 fi
-if grep -E '/bin/sh|/bin/bash| bash| systemctl| apt-get| dnf| apk' "$SUDOERS_TARGET" >/dev/null; then
+if grep -E '/bin/sh|/bin/bash| bash| systemctl| apt-get| dnf| apk|libexec/cynic-host-exec' "$SUDOERS_TARGET" >/dev/null; then
   echo "forbidden raw sudo target detected" >&2
   exit 1
 fi
 
-sudo -u "$RUNTIME_USER" sudo -n "$HELPER_TARGET" principal-prepare >/dev/null
+sudo -u "$RUNTIME_USER" "$CYNIC_BIN" host principal prepare >/dev/null
 if sudo -u "$RUNTIME_USER" sudo -n /bin/sh -c true >/dev/null 2>&1; then
   echo "direct shell sudo unexpectedly allowed" >&2
   exit 1

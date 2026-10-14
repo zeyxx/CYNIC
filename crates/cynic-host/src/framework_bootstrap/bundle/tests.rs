@@ -1,5 +1,19 @@
 use cynic_types::paths::CynicPaths;
 
+/// Point membrane staging at the repository catalog: the writer resolves
+/// `CYNIC_CAPABILITY_CATALOG` (default repo-relative), and tests run with
+/// the crate dir as cwd, so the relative default does not resolve here.
+fn use_repo_capability_catalog() {
+    let catalog = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../infra/capabilities/catalog.json");
+    // CARGO_MANIFEST_DIR may itself contain `..`-free absolute path already.
+    let catalog = std::fs::canonicalize(&catalog).unwrap_or(catalog);
+    // SAFETY: test-only; serializes with the sibling tests in this module.
+    unsafe {
+        std::env::set_var("CYNIC_CAPABILITY_CATALOG", &catalog);
+    }
+}
+
 fn basket_install_path(binary: &str) -> String {
     let basket: serde_json::Value =
         serde_json::from_str(include_str!("../../../../../infra/runtime-basket.json"))
@@ -16,6 +30,7 @@ fn basket_install_path(binary: &str) -> String {
 
 #[test]
 fn framework_bootstrap_bundle_writes_security_kit() {
+    use_repo_capability_catalog();
     let out = std::env::temp_dir().join(format!(
         "cynic-framework-bootstrap-test-{}",
         std::time::SystemTime::now()
@@ -28,7 +43,7 @@ fn framework_bootstrap_bundle_writes_security_kit() {
         .expect("framework bootstrap bundle");
 
     assert_eq!(report.status, "written");
-    assert!(out.join("host-exec-bundle/cynic-host-exec").is_file());
+    assert!(out.join("privilege-bundle/privilege.sudoers").is_file());
     assert!(out.join("install.sh").is_file());
     assert!(out.join("enroll.sh").is_file());
     let enroll_script = std::fs::read_to_string(out.join("enroll.sh")).expect("read enroll.sh");
@@ -36,7 +51,7 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     assert!(enroll_script.contains("\"$ROOT/verify.sh\""));
     assert!(enroll_script.contains("one-time HumanAdmin boundary"));
     let install_script = std::fs::read_to_string(out.join("install.sh")).expect("read install.sh");
-    assert!(install_script.contains("principal-prepare --apply"));
+    assert!(install_script.contains("host principal prepare --apply"));
     assert!(install_script.contains(&CynicPaths::binary_dir().join("cynic").display().to_string()));
     assert!(!install_script.contains("/home/$RUNTIME_USER"));
     assert!(!install_script.contains("CYNIC_PROJECT_ROOT"));
@@ -50,8 +65,8 @@ fn framework_bootstrap_bundle_writes_security_kit() {
     assert!(out.join("runtime-basket.json").is_file());
     assert!(out.join("seed-manifest.json").is_file());
     assert!(out.join("seed-artifacts.sha256").is_file());
-    let manifest = std::fs::read_to_string(out.join("host-exec-bundle/manifest.json"))
-        .expect("read bridge manifest");
+    let manifest = std::fs::read_to_string(out.join("privilege-bundle/manifest.json"))
+        .expect("read membrane manifest");
     let security_policy =
         std::fs::read_to_string(out.join("security-policy.json")).expect("read policy");
     let runtime_basket =
@@ -126,6 +141,7 @@ fn build_runner_bundle_blocks_without_role_payload_and_registry() {
 
 #[test]
 fn build_runner_bundle_projects_node_and_registry() {
+    use_repo_capability_catalog();
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("time")

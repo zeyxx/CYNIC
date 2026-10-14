@@ -186,6 +186,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "host",
+                commands: vec![
+                    "cynic host <bridge|membrane|transport|ssh|bootstrap|runner|capability|principal|seed|storage|hardware|service|network|request> <verb> [flags] [--apply]",
+                    "cynic host bridge <bundle|plan|install|status> [--bundle-dir <dir>] [--apply]",
+                    "cynic host service reconcile --node <node> --registry <path> <unit> --apply",
+                    "cynic host network <baseline|actuate> --profile <name> --target <node> --registry <path> [--apply]",
+                ],
+            },
+            CommandDomain {
                 name: "agent",
                 commands: vec![
                     "cynic agent identify --agent-id <id> [--agent-kind <kind>] [--registry <path>] [--kernel-base <url>] [--json]",

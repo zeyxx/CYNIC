@@ -39,14 +39,13 @@
     }
   },
   "runtime_seed": {
-    "id": "cynic-host-exec",
-    "crate": "cynic-host",
-    "binary": "cynic-host-exec",
-    "install_path": "/usr/local/libexec/cynic-host-exec",
+    "id": "cynic-runtime-seed",
+    "executor": "cynic",
+    "capability": "runtime-seed-reconcile",
     "audience": "privileged",
-    "contract_revision": 4,
+    "contract_revision": 5,
     "signature_namespace": "cynic-runtime-seed",
-    "lifecycle": "installed once through HumanAdmin bootstrap and rotated only through a separately signed seed-rotation ceremony",
+    "lifecycle": "exercised through the single cynic binary via the admitted runtime-seed-reconcile capability and rotated only through a separately signed seed-rotation ceremony",
     "runtime_basket_member": false,
     "owns": [
       "runtime basket signature and digest verification",
