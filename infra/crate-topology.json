@@ -28,7 +28,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 6064
+      "loc": 6071
     },
     "cynic-build": {
       "consumers": [
@@ -250,7 +250,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-      "loc": 1279
+      "loc": 1284
     },
     "cynic-host": {
       "consumers": [
@@ -673,13 +673,14 @@
         "cynic-vcs-forgejo"
       ],
       "depends_on": [
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
       "kind": "library",
       "layer": "cross_cutting",
-      "loc": 1691
+      "loc": 1701
     },
     "cynic-solana-pay": {
       "consumers": [
@@ -737,7 +738,8 @@
         "cynic-knowledge",
         "cynic-network",
         "cynic-node",
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-secrets"
       ],
       "depends_on": [],
       "dev_depends_on": [],
@@ -1084,9 +1086,9 @@
     "crates": 44,
     "dev_edges": 3,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 351304,
+    "loc_total": 351326,
     "pending_disposition": 4,
-    "runtime_edges": 163,
+    "runtime_edges": 164,
     "unjustified": 0,
     "upward_edges": 14
   },
