@@ -252,6 +252,11 @@ pub fn derive_firewall_policy_from_registry(
                 .and_then(|v| v.as_str())
                 .unwrap_or("tcp")
                 .to_string();
+            if protocol != "tcp" && protocol != "udp" {
+                return Err(format!(
+                    "unknown_service_protocol:{canonical_node_id}/{name}:{protocol}"
+                ));
+            }
             let plane_str = s
                 .get("network_plane")
                 .and_then(|v| v.as_str())
@@ -539,6 +544,22 @@ mod tests {
             .expect_err("unknown plane must fail");
         assert!(
             error.contains("unknown_service_plane:probe-node/ghost:synapse"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn unknown_service_protocol_fails_closed() {
+        let reg = firewall_test_registry(serde_json::json!({
+            "name": "ghost",
+            "port": 9999,
+            "network_plane": "service",
+            "protocol": "sctp"
+        }));
+        let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
+            .expect_err("unknown protocol must fail");
+        assert!(
+            error.contains("unknown_service_protocol:probe-node/ghost:sctp"),
             "{error}"
         );
     }
