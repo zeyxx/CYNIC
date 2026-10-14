@@ -116,6 +116,9 @@ pub mod usecases;
 pub mod vertical_conformance;
 pub mod wireguard_readback;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub fn sha256_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(bytes))

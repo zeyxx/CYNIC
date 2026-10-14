@@ -308,7 +308,7 @@ mod tests {
                 {"name":"foo-test","kind":["test"]}
             ]}
         ],
-        "workspace_members":["cynic-host 0.1.0 (path+file:///tmp)","cynic-protocol 0.1.0 (path+file:///tmp)"],
+        "workspace_members":["cynic-host 0.1.0 (path+file:///tmp/cynic-host)","cynic-protocol 0.1.0 (path+file:///tmp/cynic-protocol)"],
         "target_directory":"/tmp/target",
         "version":1
     }"#;
