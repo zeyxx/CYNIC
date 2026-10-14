@@ -17,7 +17,7 @@ pub use forge::{
     forge_profile_from_benchmark_report, write_loopback_profile,
 };
 pub use retrieval_gain::{
-    BenchConfig, BenchReport, FIXTURE_SCHEMA_V1, Fixture, LabeledQuery, QueryScores,
-    REPORT_SCHEMA_V1, TemplatedEmbedder, TextPipeline, VectorCacheRecord, grade_hit,
-    load_vector_cache, reciprocal_rank, run_bench, save_vector_cache, truncate_front,
+    BenchConfig, BenchReport, FIXTURE_SCHEMA_V1, Fixture, GOLD_DIAG_DEPTH, LabeledQuery,
+    QueryScores, REPORT_SCHEMA_V1, TemplatedEmbedder, TextPipeline, VectorCacheRecord, gold_rank,
+    grade_hit, load_vector_cache, reciprocal_rank, run_bench, save_vector_cache, truncate_front,
 };
