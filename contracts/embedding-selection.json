@@ -28,10 +28,23 @@
   },
   "candidates": {
     "B1_gemma2_q4": {
-      "repo": "ggml-org/embeddinggemma-2-GGUF",
-      "size_mb": 271,
+      "repo": "unsloth/embeddinggemma-2-GGUF",
+      "model_file": "embeddinggemma-2-UD-Q4_K_XL.gguf",
+      "size_mb": 168,
       "why": "Same weights as reference: isolates quantization cost. Free speed if quality holds.",
-      "measured": null
+      "measured": {
+        "subset_1000": {
+          "mrr_bm25": 0.574,
+          "mrr_dense": 0.233,
+          "mrr_hybrid_rrf": 0.349,
+          "mrr_hybrid_guard_0_1": 0.481,
+          "mrr_hybrid_bilateral_guard": 0.491,
+          "throughput_chunks_per_sec": 23.2,
+          "embed_secs_1000": 43.1,
+          "sentinel_rqc4_paraphrase_dense": 0.0
+        },
+        "full_corpus": null
+      }
     },
     "B2_jina_nano_retrieval": {
       "repo": "jinaai/jina-embeddings-v5-text-nano-retrieval",
