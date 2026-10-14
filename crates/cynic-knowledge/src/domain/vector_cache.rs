@@ -21,33 +21,38 @@ pub const VECTOR_CACHE_SCHEMA_V1: &str = "cynic.knowledge.vector_cache.v1";
 pub struct VectorCacheRecord {
     pub schema: String,
     pub model: String,
+    /// Text pipeline that produced these vectors (truncation, instruction
+    /// prefixes): any pipeline change invalidates, since equal chunk ids
+    /// would otherwise serve vectors from different input texts.
+    pub pipeline: String,
     pub dim: usize,
     pub vectors: HashMap<String, Vec<f32>>,
 }
 
 impl VectorCacheRecord {
-    pub fn new(model: &str) -> Self {
+    pub fn new(model: &str, pipeline: &str) -> Self {
         Self {
             schema: VECTOR_CACHE_SCHEMA_V1.to_string(),
             model: model.to_string(),
+            pipeline: pipeline.to_string(),
             dim: 0,
             vectors: HashMap::new(),
         }
     }
 
-    /// A record is usable only for its own model and schema; anything else
-    /// means recompute, never silent mixing.
-    pub fn usable_for(&self, model: &str) -> bool {
-        self.schema == VECTOR_CACHE_SCHEMA_V1 && self.model == model
+    /// A record is usable only for its own model, pipeline, and schema;
+    /// anything else means recompute, never silent mixing.
+    pub fn usable_for(&self, model: &str, pipeline: &str) -> bool {
+        self.schema == VECTOR_CACHE_SCHEMA_V1 && self.model == model && self.pipeline == pipeline
     }
 }
 
-/// Load a cache file; `None` on missing file, corrupt JSON, or model/schema
-/// mismatch — every case means "recompute", never "fail".
-pub fn load_vector_cache(path: &Path, model: &str) -> Option<VectorCacheRecord> {
+/// Load a cache file; `None` on missing file, corrupt JSON, or model/schema/
+/// pipeline mismatch — every case means "recompute", never "fail".
+pub fn load_vector_cache(path: &Path, model: &str, pipeline: &str) -> Option<VectorCacheRecord> {
     let raw = std::fs::read_to_string(path).ok()?;
     let record: VectorCacheRecord = serde_json::from_str(&raw).ok()?;
-    record.usable_for(model).then_some(record)
+    record.usable_for(model, pipeline).then_some(record)
 }
 
 /// Persist the record; errors are reported, never hidden, so a silent
@@ -136,7 +141,7 @@ mod tests {
     #[test]
     fn cached_run_embeds_only_missing_and_reuses() {
         let embedder = CountingEmbedder(std::cell::Cell::new(0));
-        let mut cache = VectorCacheRecord::new("model-a");
+        let mut cache = VectorCacheRecord::new("model-a", "pipe-a");
         let chunks = vec![chunk_at("a.md", "alpha"), chunk_at("b.md", "beta")];
         let (first, reused, embedded) =
             vectorize_chunks_cached(&embedder, &chunks, &mut cache, &|_, _| {})
@@ -157,7 +162,7 @@ mod tests {
     #[test]
     fn edited_content_misses_and_model_scope_rejects() {
         let embedder = CountingEmbedder(std::cell::Cell::new(0));
-        let mut cache = VectorCacheRecord::new("model-a");
+        let mut cache = VectorCacheRecord::new("model-a", "pipe-a");
         let before = vec![chunk_at("a.md", "alpha")];
         vectorize_chunks_cached(&embedder, &before, &mut cache, &|_, _| {}).expect("seed");
         let after = vec![chunk_at("a.md", "alpha edited")];
@@ -166,7 +171,8 @@ mod tests {
                 .expect("edited content re-embeds");
         assert_eq!((reused, embedded), (0, 1));
 
-        assert!(cache.usable_for("model-a"));
-        assert!(!cache.usable_for("model-b"));
+        assert!(cache.usable_for("model-a", "pipe-a"));
+        assert!(!cache.usable_for("model-b", "pipe-a"));
+        assert!(!cache.usable_for("model-a", "pipe-b"));
     }
 }

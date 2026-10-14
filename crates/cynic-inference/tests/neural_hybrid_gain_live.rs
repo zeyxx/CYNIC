@@ -114,15 +114,25 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     let corpus_start = std::time::Instant::now();
     let last_report = std::cell::Cell::new(0usize);
     // Truncation is deterministic, so vectors of truncated texts stay valid
-    // under the full chunk's content-addressed id across runs.
+    // under the full chunk's content-addressed id across runs. Instruction
+    // prefixes (EmbeddingGemma retrieval protocol) are part of the text
+    // pipeline: any prefix change must invalidate the cache, hence the tag.
+    let doc_prefix = std::env::var("CYNIC_EMBED_DOC_PREFIX").unwrap_or_default();
+    let query_prefix = std::env::var("CYNIC_EMBED_QUERY_PREFIX").unwrap_or_default();
+    let pipeline = format!("trunc{MAX_EMBED_CHARS}/doc={doc_prefix}/query={query_prefix}");
     struct Truncating<'a> {
         bridge: &'a SyncEmbeddingBridge<EmbeddingBackend>,
         last_report: &'a std::cell::Cell<usize>,
         corpus_start: std::time::Instant,
+        doc_prefix: &'a str,
     }
     impl ChunkEmbedder for Truncating<'_> {
         fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-            let truncated: Vec<&str> = texts.iter().map(|text| truncate_front(text)).collect();
+            let owned: Vec<String> = texts
+                .iter()
+                .map(|text| format!("{}{}", self.doc_prefix, truncate_front(text)))
+                .collect();
+            let truncated: Vec<&str> = owned.iter().map(String::as_str).collect();
             self.bridge
                 .embed_batch_reported(&truncated, &|done, total| {
                     if done >= self.last_report.get() + 320 || done == total {
@@ -138,12 +148,13 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     }
     let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
     let vector_cache_file = root.join(format!("target/eval_vectors_{model}.json"));
-    let mut vector_cache = load_vector_cache(&vector_cache_file, &model)
-        .unwrap_or_else(|| VectorCacheRecord::new(&model));
+    let mut vector_cache = load_vector_cache(&vector_cache_file, &model, &pipeline)
+        .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline));
     let adapter = Truncating {
         bridge: &bridge,
         last_report: &last_report,
         corpus_start,
+        doc_prefix: &doc_prefix,
     };
     let (vectors, reused, embedded) =
         vectorize_chunks_cached(&adapter, &chunks, &mut vector_cache, &|_, _| {})
@@ -174,8 +185,9 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
             "[{}] valid query must retrieve at least one hit",
             labeled.id
         );
+        let query_text = format!("{query_prefix}{}", truncate_front(&labeled.query));
         let query_vector = bridge
-            .embed_batch(std::slice::from_ref(&truncate_front(&labeled.query)))
+            .embed_batch(std::slice::from_ref(&query_text.as_str()))
             .expect("query vector");
         let hybrid_hits =
             index.search_hybrid(&labeled.query, &query_vector[0], &vectors, TOP_K, DENSE_K);
