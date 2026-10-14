@@ -55,11 +55,11 @@ pub(super) fn default_workload_delivery_lease_ttl_secs() -> u64 {
 }
 
 pub(super) fn default_agent_workload_state_root() -> std::path::PathBuf {
-    "/var/lib/cynic".into()
+    CynicPaths::state_dir()
 }
 
 pub(super) fn default_runtime_artifact_inbox_root() -> std::path::PathBuf {
-    "/var/lib/cynic/runtime-artifacts/inbox".into()
+    CynicPaths::state_dir().join("runtime-artifacts/inbox")
 }
 
 pub(super) fn default_runtime_artifact_max_bytes() -> u64 {
@@ -71,7 +71,7 @@ pub(super) fn default_runtime_artifact_timeout_secs() -> u64 {
 }
 
 pub(super) fn default_runtime_registry_path() -> std::path::PathBuf {
-    "/etc/cynic/registry.json".into()
+    CynicPaths::registry_path()
 }
 
 pub(super) fn default_build_repository_id() -> String {
@@ -135,11 +135,11 @@ pub(super) fn default_builder_listen_addr() -> std::net::SocketAddr {
 }
 
 pub(super) fn default_workspace_root() -> std::path::PathBuf {
-    std::path::PathBuf::from("/var/lib/cynic/source/workspaces")
+    CynicPaths::state_dir().join("source/workspaces")
 }
 
 pub(super) fn default_watchdog_registry_path() -> String {
-    DEFAULT_REGISTRY_PATH.to_string()
+    CynicPaths::registry_path().display().to_string()
 }
 
 pub(super) fn default_watchdog_constellation() -> String {
@@ -149,4 +149,4 @@ pub(super) fn default_watchdog_constellation() -> String {
 pub(super) fn default_watchdog_role() -> String {
     "node_watchdog".to_string()
 }
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;

@@ -7,6 +7,8 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
+use cynic_types::paths::CynicPaths;
+
 pub const NETWORK_SYNC_REPORT_SCHEMA: &str = "cynic.network.sync_report.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,8 +182,9 @@ pub fn execute_network_sync(
         for record in &dns_records {
             hosts_content.push_str(&format!("{}\t{}\n", record.ip, record.hostnames.join(" ")));
         }
-        let _ = std::fs::create_dir_all("/etc/cynic/dns");
-        let hosts_path = std::path::PathBuf::from(format!("/etc/cynic/dns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME));
+        let dns_dir = CynicPaths::system_config_dir().join("dns");
+        let _ = std::fs::create_dir_all(&dns_dir);
+        let hosts_path = dns_dir.join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME);
         if let Err(e) = std::fs::write(hosts_path, &hosts_content) {
             blockers.push(format!("write_synapse_hosts_failed:{e}"));
         }

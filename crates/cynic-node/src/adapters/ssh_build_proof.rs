@@ -12,7 +12,7 @@ use std::time::Instant;
 use crate::ports::build_proof_port::BuildProofPort;
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
 
-use crate::ports::build_runner_adapter::DEFAULT_CHECKOUT_BASE;
+use crate::ports::build_runner_adapter::default_checkout_base;
 
 pub struct SshBuildProof {
     pub host: String,
@@ -40,7 +40,7 @@ impl SshBuildProof {
     fn checkout_dir(&self, sha: &str) -> String {
         format!(
             "{}/cynic-{}",
-            DEFAULT_CHECKOUT_BASE,
+            default_checkout_base().display(),
             &sha[..12.min(sha.len())]
         )
     }

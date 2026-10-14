@@ -9,7 +9,7 @@ use cynic_host::bounded_helper::{
 use cynic_host::install_contract::{
     MODE_0440, MODE_0644, MODE_0755, ROOT_OWNERSHIP, mode_map, owner_string, root_owned_path,
 };
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 
 use crate::network_actuator::policy::build_policy_document;
 use crate::network_actuator::types::{
@@ -226,7 +226,8 @@ fn activation_checks(
             expectation(
                 "prove_profile_apply",
                 format!(
-                    "sudo -n helper_target apply --profile synapse-route --registry {DEFAULT_REGISTRY_PATH} --apply"
+                    "sudo -n helper_target apply --profile synapse-route --registry {} --apply",
+                    CynicPaths::registry_path().display()
                 ),
             ),
             expectation(

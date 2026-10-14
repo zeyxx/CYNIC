@@ -1,4 +1,5 @@
 use super::*;
+use cynic_types::paths::CynicPaths;
 
 const VALID_TOML: &str = r#"
 [kernel]
@@ -154,7 +155,7 @@ fn runtime_federation_config_derives_defaults_when_section_missing() {
         home.map(|path| path.join(".cynic/node"))
             .unwrap_or_else(|| std::path::PathBuf::from("/tmp/cynic/node"))
     } else {
-        std::path::PathBuf::from("/var/lib/cynic/node")
+        CynicPaths::state_dir().join("node")
     };
     assert_eq!(federation.queue_dir, expected_queue_dir);
 }
@@ -252,15 +253,16 @@ fn node_control_config_loads_without_inference_sections() {
 
     let mut file = tempfile::NamedTempFile::new().unwrap();
     file.write_all(
-        br#"
+        format!(
+            r#"
 [node_control]
 kernel_url = "http://kernel.service.cynic:3030"
 node_id = "cynic-builder"
-signing_key_path = "/var/lib/cynic/identity/node-signing.key"
-enrollment_request_path = "/var/lib/cynic/identity/enrollment-request.json"
-enrollment_grant_path = "/var/lib/cynic/identity/enrollment-grant.json"
-enrollment_authority_public_key_path = "/etc/cynic/enrollment-authority.pub"
-enrollment_token_path = "/var/lib/cynic/identity/enrollment-token"
+signing_key_path = "{}"
+enrollment_request_path = "{}"
+enrollment_grant_path = "{}"
+enrollment_authority_public_key_path = "{}"
+enrollment_token_path = "{}"
 enrollment_seed_id = "cynic-builder"
 enrollment_role = "build_runner"
 observed_capabilities = ["build_runner"]
@@ -270,11 +272,35 @@ observed_capabilities = ["build_runner"]
 [node_control.build_scheduler.release_publication]
 artifact_base_url = "https://artifacts.service.cynic/releases"
 authentication_kind = "bearer_file"
-work_root = "/var/lib/cynic/release-publication"
-signing_key_path = "/var/lib/cynic/identity/release-signing-key"
-credential_path = "/var/lib/cynic/identity/artifact-store-token"
+work_root = "{}"
+signing_key_path = "{}"
+credential_path = "{}"
 signer_identity = "cynic-release"
 "#,
+            CynicPaths::state_dir()
+                .join("identity/node-signing.key")
+                .display(),
+            CynicPaths::state_dir()
+                .join("identity/enrollment-request.json")
+                .display(),
+            CynicPaths::state_dir()
+                .join("identity/enrollment-grant.json")
+                .display(),
+            CynicPaths::system_config_dir()
+                .join("enrollment-authority.pub")
+                .display(),
+            CynicPaths::state_dir()
+                .join("identity/enrollment-token")
+                .display(),
+            CynicPaths::state_dir().join("release-publication").display(),
+            CynicPaths::state_dir()
+                .join("identity/release-signing-key")
+                .display(),
+            CynicPaths::state_dir()
+                .join("identity/artifact-store-token")
+                .display(),
+        )
+        .as_bytes(),
     )
     .unwrap();
 
@@ -284,10 +310,7 @@ signer_identity = "cynic-release"
     assert_eq!(config.observed_capabilities, vec!["build_runner"]);
     let scheduler = config.build_scheduler.expect("build scheduler config");
     assert_eq!(scheduler.repository_id, "cynic");
-    assert_eq!(
-        scheduler.registry_path,
-        std::path::PathBuf::from("/etc/cynic/registry.json")
-    );
+    assert_eq!(scheduler.registry_path, CynicPaths::registry_path());
     let publication = scheduler
         .release_publication
         .expect("release publication config");
@@ -300,13 +323,10 @@ signer_identity = "cynic-release"
         publication.signature_namespace,
         cynic_protocol::RUNTIME_RELEASE_SIGNATURE_NAMESPACE
     );
-    assert_eq!(
-        config.agent_workload_state_root,
-        std::path::PathBuf::from("/var/lib/cynic")
-    );
+    assert_eq!(config.agent_workload_state_root, CynicPaths::state_dir());
     assert_eq!(
         config.runtime_artifact_inbox_root,
-        std::path::PathBuf::from("/var/lib/cynic/runtime-artifacts/inbox")
+        CynicPaths::state_dir().join("runtime-artifacts/inbox")
     );
     assert_eq!(config.runtime_artifact_max_bytes, 4 * 1024 * 1024 * 1024);
     assert_eq!(config.runtime_artifact_timeout_secs, 900);

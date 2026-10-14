@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use cynic_host::install_contract::MODE_0644;
 use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 
 use crate::network_command_surface::{
@@ -522,8 +523,15 @@ fn dns_runtime_context_for_zone(
                 .get("dnsmasq")
                 .and_then(Clone::clone)
                 .unwrap_or_else(|| "/usr/sbin/dnsmasq".to_string()),
-            format!("/etc/cynic/dns/{SERVICE_DNS_HOSTS_FILENAME}"),
-            "/etc/cynic/dns/dnsmasq.conf".to_string(),
+            format!(
+                "{}/{}",
+                CynicPaths::system_config_dir().join("dns").display(),
+                SERVICE_DNS_HOSTS_FILENAME
+            ),
+            CynicPaths::system_config_dir()
+                .join("dns/dnsmasq.conf")
+                .display()
+                .to_string(),
             format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"),
             "dnsmasq.conf",
             SERVICE_DNS_SERVICE_FILENAME,

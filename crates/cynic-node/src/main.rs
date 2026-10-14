@@ -29,6 +29,7 @@ use cynic_node::node_control_runtime;
 use cynic_node::runtime_supervision;
 use cynic_node::shutdown::install_signal_handler;
 use cynic_node::watchdog;
+use cynic_types::paths::CynicPaths;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -70,8 +71,13 @@ async fn main() -> ExitCode {
         .iter()
         .position(|a| a == "--config")
         .and_then(|i| args.get(i + 1))
-        .map(|s| s.as_str())
-        .unwrap_or("/etc/cynic/node-control.toml");
+        .cloned()
+        .unwrap_or_else(|| {
+            CynicPaths::system_config_dir()
+                .join("node-control.toml")
+                .display()
+                .to_string()
+        });
 
     // The daemon owns only `control`, and `control` consumes only
     // [node_control]. Parse narrowly: the full Config requires the
@@ -82,10 +88,10 @@ async fn main() -> ExitCode {
     }
 
     if args.len() > 1 && args[1] == "--watchdog" {
-        return watchdog::execute(config_path).await;
+        return watchdog::execute(&config_path).await;
     }
 
-    let cfg = match config::load(config_path) {
+    let cfg = match config::load(&config_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("config error: {e}");
