@@ -260,6 +260,7 @@ fn delivery() -> AgentWorkloadDelivery {
         request_id: "delivery-test".to_string(),
         requested_by: "agent-test".to_string(),
         source_commit: "a".repeat(40),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: "cynic".into(),
