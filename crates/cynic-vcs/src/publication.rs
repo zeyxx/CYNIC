@@ -888,7 +888,7 @@ mod tests {
                 must_preserve_compilation: true,
                 substitutions: vec![PublicationSubstitution {
                     match_pattern: "([unclosed".to_string(),
-                    replace: "x".to_string(),
+                    replace: "<node>.example.invalid".to_string(),
                 }],
             }],
         );
