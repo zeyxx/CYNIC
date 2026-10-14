@@ -256,6 +256,21 @@ pub fn truncate_front(text: &str, max_chars: usize) -> &str {
     }
 }
 
+/// Grade of one retrieved chunk: chunk_id exact match > line span match > path substring match.
+pub fn grade_chunk(chunk: &cynic_knowledge::DocumentChunk, grades: &HashMap<String, u32>) -> u32 {
+    if let Some(&grade) = grades.get(&chunk.chunk_id) {
+        return grade;
+    }
+    let span_key = format!(
+        "{}:{}-{}",
+        chunk.source_path, chunk.line_start, chunk.line_end
+    );
+    if let Some(&grade) = grades.get(&span_key) {
+        return grade;
+    }
+    grade_hit(&chunk.source_path, grades)
+}
+
 /// Grade of one retrieved path: best matching labeled substring, else 0.
 pub fn grade_hit(path: &str, grades: &HashMap<String, u32>) -> u32 {
     grades
@@ -358,34 +373,39 @@ pub fn run_bench(
         if hybrid_hits.is_empty() {
             return Err(format!("[{}] hybrid retrieved nothing", labeled.id));
         }
-        let grades_of = |paths: Vec<&str>| {
-            paths
+        let bm25_rr = reciprocal_rank(
+            &bm25_hits
                 .iter()
-                .map(|p| grade_hit(p, &labeled.grades))
-                .collect()
+                .take(config.top_k)
+                .map(|hit| grade_chunk(hit.chunk, &labeled.grades))
+                .collect::<Vec<_>>(),
+        );
+        let dense_rr = reciprocal_rank(
+            &dense_hits
+                .iter()
+                .take(config.top_k)
+                .map(|hit| grade_chunk(hit.chunk, &labeled.grades))
+                .collect::<Vec<_>>(),
+        );
+        let hybrid_rr = reciprocal_rank(
+            &hybrid_hits
+                .iter()
+                .take(config.top_k)
+                .map(|hit| grade_chunk(hit.chunk, &labeled.grades))
+                .collect::<Vec<_>>(),
+        );
+
+        let find_gold = |hits: &[cynic_knowledge::SearchHit<'_>]| {
+            hits.iter()
+                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == 2)
+                .map(|idx| idx + 1)
         };
-        let bm25_paths: Vec<&str> = bm25_hits
-            .iter()
-            .map(|hit| hit.chunk.source_path.as_str())
-            .collect();
-        let dense_paths: Vec<&str> = dense_hits
-            .iter()
-            .map(|hit| hit.chunk.source_path.as_str())
-            .collect();
-        let hybrid_paths: Vec<&str> = hybrid_hits
-            .iter()
-            .map(|hit| hit.chunk.source_path.as_str())
-            .collect();
-        let rr = |grades: Vec<u32>| reciprocal_rank(&grades);
-        let bm25_rr = rr(grades_of(
-            bm25_paths[..config.top_k.min(bm25_paths.len())].to_vec(),
-        ));
-        let dense_rr = rr(grades_of(
-            dense_paths[..config.top_k.min(dense_paths.len())].to_vec(),
-        ));
-        let hybrid_rr = rr(grades_of(
-            hybrid_paths[..config.top_k.min(hybrid_paths.len())].to_vec(),
-        ));
+        let find_dense_gold = |hits: &[cynic_knowledge::DenseHit<'_>]| {
+            hits.iter()
+                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == 2)
+                .map(|idx| idx + 1)
+        };
+
         sum_bm25 += bm25_rr;
         sum_dense += dense_rr;
         sum_hybrid += hybrid_rr;
@@ -396,11 +416,16 @@ pub fn run_bench(
             mrr_hybrid: hybrid_rr,
             top1_hybrid: hybrid_hits
                 .first()
-                .map(|hit| hit.chunk.source_path.clone())
+                .map(|hit| {
+                    format!(
+                        "{}:{}-{}",
+                        hit.chunk.source_path, hit.chunk.line_start, hit.chunk.line_end
+                    )
+                })
                 .unwrap_or_else(|| "<none>".into()),
-            gold_rank_bm25: gold_rank(&bm25_paths, &labeled.grades),
-            gold_rank_dense: gold_rank(&dense_paths, &labeled.grades),
-            gold_rank_hybrid: gold_rank(&hybrid_paths, &labeled.grades),
+            gold_rank_bm25: find_gold(&bm25_hits),
+            gold_rank_dense: find_dense_gold(&dense_hits),
+            gold_rank_hybrid: find_gold(&hybrid_hits),
         });
     }
     if rows.is_empty() {
