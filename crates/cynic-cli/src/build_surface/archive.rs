@@ -55,7 +55,7 @@ pub(crate) fn archive_terminal_workloads(
         if !apply {
             continue;
         }
-        match store.archive_terminal(workload_id, older_than_ms, now_ms) {
+        match store.archive_terminal(workload_id, *older_than_ms, now_ms) {
             Ok(Some(path)) => {
                 let read_back_absent = !std::path::Path::new(state_root).join(workload_id).exists();
                 archived.push(ArchivedWorkload {
@@ -131,7 +131,7 @@ mod tests {
 
     fn test_envelope(workload_id: &str, idempotency_key: &str) -> AgentWorkloadEnvelope {
         let action = AgentBoundedAction {
-            argv: vec!["cargo".into(), "check".into()],
+            argv: vec!["make".into(), "check".into()],
             working_directory: Some("checkout".into()),
             input_digest: Some(format!("sha256:{}", "b".repeat(64))),
             mutates: true,
@@ -165,8 +165,6 @@ mod tests {
             mandate_binding: None,
             input: None,
             resource_budget: None,
-            source_commit: None,
-            branch: None,
             action,
             delegation: AgentDelegationEnvelope {
                 schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
@@ -241,35 +239,25 @@ mod tests {
         }
     }
 
-    fn test_claim(
-        workload_id: &str,
-        fencing_token: u64,
-        expires_at_ms: u64,
-    ) -> cynic_workload::AgentWorkloadClaim {
-        cynic_workload::AgentWorkloadClaim {
-            guard: cynic_protocol::LeaseGuard {
-                agent_id: "build-agent-1".into(),
-                target: workload_id.into(),
-                lease_id: "lease-1".into(),
-                fencing_token,
-            },
-            expires_at_ms,
-            cancellation_generation: 0,
-            max_lease_window_ms: 300_000,
-            granted_at_ms: expires_at_ms.saturating_sub(300_000),
-        }
-    }
-
     fn durable_record(
         workload_id: &str,
         idempotency_key: &str,
         state: AgentWorkloadState,
         committed_at_ms: u64,
-        claim: Option<u64>,
+        claim: Option<(u64, u64)>, // (expires_at_ms, first_claim_ms)
     ) -> cynic_workload::DurableAgentWorkloadRecord {
         let mut rec = test_record(workload_id, idempotency_key);
         rec.state = state;
-        rec.claim = claim.map(|exp| test_claim(workload_id, rec.last_fencing_token, exp));
+        rec.claim =
+            claim.map(
+                |(expires_at_ms, first_claim_ms)| cynic_workload::AgentWorkloadClaim {
+                    expires_at_ms,
+                    first_claim_ms,
+                    renewal_count: 0,
+                    last_renewal_ms: first_claim_ms,
+                    actor: "build-agent-1".into(),
+                },
+            );
         cynic_workload::DurableAgentWorkloadRecord {
             schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
             revision: 1,
@@ -321,9 +309,9 @@ mod tests {
         let mut terminal_claimed = durable_record(
             "workload-claimed",
             "key-claimed",
-            AgentWorkloadState::Claimed,
+            AgentWorkloadState::Completed,
             1_000,
-            Some(6_000),
+            Some((6_000, 1_500)),
         );
         store
             .compare_and_swap("workload-claimed", None, &terminal_claimed.record, 1_000)
