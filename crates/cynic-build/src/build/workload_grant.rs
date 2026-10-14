@@ -90,7 +90,14 @@ pub fn derive_build_workload_grant(
     if record.state != AgentWorkloadState::Claimed {
         blockers.push("build_workload_not_claimed".to_string());
     }
-    if record.consumed_actions != 1 {
+    // Reservation check: at least one action must have been consumed
+    // (submit-time authorization and/or scheduler execution reservation).
+    // Was `!= 1`, which assumed a single-consume flow — but the lifecycle
+    // consumes twice (orchestrator at submit, scheduler at prepare), so
+    // every natively submitted workload failed here after the budget fix.
+    // Over-consumption cannot slip through: consume itself is fenced by
+    // the delegation budget.
+    if record.consumed_actions == 0 {
         blockers.push("build_workload_action_not_reserved".to_string());
     }
     let claim = record.claim.as_ref();
