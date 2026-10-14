@@ -20,7 +20,7 @@ use crate::{
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{
         agent_workload_store_port::AgentWorkloadStorePort,
-        agent_workspace_port::AgentWorkspaceLayoutPort,
+        agent_workspace_port::{AgentWorkspaceLayout, AgentWorkspaceLayoutPort},
         build_scheduler_port::{BuildExecutionRequest, BuildWorkspacePort, BuildWorkspaceReadBack},
         build_workload_grant_store_port::BuildWorkloadGrantStorePort,
     },
@@ -303,5 +303,166 @@ mod tests {
             shared_target_dir_for(root, &debug_argv),
             PathBuf::from("/var/lib/cynic/build-targets/debug")
         );
+    }
+
+    fn scheduler_config() -> crate::config::BuildSchedulerConfig {
+        crate::config::BuildSchedulerConfig {
+            registry_path: PathBuf::from("/tmp/x"),
+            repository_id: String::new(),
+            transport_uri: None,
+            interval_secs: 0,
+            claim_ttl_secs: 60,
+            command_timeout_secs: 900,
+            sandbox_bwrap: false,
+            shared_target_root: None,
+            stable_workspace_root: None,
+            release_publication: None,
+        }
+    }
+
+    fn registry_layout() -> AgentWorkspaceLayout {
+        AgentWorkspaceLayout {
+            repository_root: PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC"),
+            workspace_root: PathBuf::from(
+                "/var/lib/cynic/state/source/workspaces/cynic/workload-1",
+            ),
+            dedicated: true,
+            required_principal: "cynic".to_string(),
+            evidence_digest: "sha256:registry".to_string(),
+            transport_uri: None,
+        }
+    }
+
+    fn git(args: &[&str], dir: &std::path::Path) -> bool {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn stable_workspace_reuses_profile_dir() {
+        let root = std::path::Path::new("/var/lib/cynic/build-workspaces");
+        assert_eq!(
+            stable_workspace_for(root, "debug"),
+            stable_workspace_for(root, "debug"),
+            "the same profile must map to the same stable workspace path"
+        );
+        assert_eq!(
+            stable_workspace_for(root, "debug"),
+            PathBuf::from("/var/lib/cynic/build-workspaces/debug")
+        );
+        assert_eq!(
+            stable_workspace_for(root, "release"),
+            PathBuf::from("/var/lib/cynic/build-workspaces/release")
+        );
+        assert_ne!(
+            stable_workspace_for(root, "debug"),
+            stable_workspace_for(root, "release"),
+            "different profiles must not share a workspace path"
+        );
+    }
+
+    #[test]
+    fn stable_workspace_profile_follows_release_argv() {
+        let release_argv = vec![
+            "cargo".to_string(),
+            "build".to_string(),
+            "--release".to_string(),
+        ];
+        let debug_argv = vec!["cargo".to_string(), "build".to_string()];
+        assert_eq!(profile_for_argv(&release_argv), "release");
+        assert_eq!(profile_for_argv(&debug_argv), "debug");
+    }
+
+    #[test]
+    fn stable_workspace_clean_removes_previous_workspace() {
+        let case = tempfile::tempdir().unwrap();
+        let workspace = case.path().join("stable").join("debug");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(workspace.join("stale-artifact.bin"), b"stale").unwrap();
+        clean_stable_workspace(case.path(), &workspace).unwrap();
+        assert!(!workspace.exists());
+    }
+
+    #[test]
+    fn stable_workspace_clean_absent_path_is_noop() {
+        let case = tempfile::tempdir().unwrap();
+        clean_stable_workspace(case.path(), &case.path().join("absent")).unwrap();
+    }
+
+    #[test]
+    fn stable_workspace_clean_removes_registered_git_worktree() {
+        let case = tempfile::tempdir().unwrap();
+        let repository = case.path().join("repository");
+        let workspace = case.path().join("stable").join("debug");
+        std::fs::create_dir_all(repository.join(".git")).unwrap();
+        git(&["init", "-q"], &repository);
+        git(&["config", "user.email", "t@t"], &repository);
+        git(&["config", "user.name", "t"], &repository);
+        std::fs::write(repository.join("f"), b"x").unwrap();
+        git(&["add", "f"], &repository);
+        git(&["commit", "-qm", "init"], &repository);
+        std::fs::create_dir_all(workspace.parent().unwrap()).unwrap();
+        assert!(
+            git(
+                &[
+                    "worktree",
+                    "add",
+                    "--detach",
+                    "-q",
+                    workspace.to_str().unwrap(),
+                    "HEAD"
+                ],
+                &repository
+            ),
+            "worktree creation must succeed"
+        );
+        assert!(workspace.exists());
+        clean_stable_workspace(&repository, &workspace).unwrap();
+        assert!(!workspace.exists());
+        // The clean must leave no stale registration that blocks re-creation
+        // at the same stable path.
+        assert!(
+            git(
+                &[
+                    "worktree",
+                    "add",
+                    "--detach",
+                    "-q",
+                    workspace.to_str().unwrap(),
+                    "HEAD"
+                ],
+                &repository
+            ),
+            "re-add after clean must succeed"
+        );
+    }
+
+    #[test]
+    fn stable_workspace_allocation_overrides_registry_workspace() {
+        let case = tempfile::tempdir().unwrap();
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        scheduler.stable_workspace_root = Some(case.path().join("stable"));
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let applied = apply_stable_workspace(layout, &scheduler, &argv).unwrap();
+        assert_eq!(applied.workspace_root, case.path().join("stable/debug"));
+        assert_eq!(
+            applied.repository_root,
+            PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC")
+        );
+    }
+
+    #[test]
+    fn stable_workspace_allocation_unset_preserves_registry_workspace() {
+        let layout = registry_layout();
+        let scheduler = scheduler_config();
+        let applied = apply_stable_workspace(layout.clone(), &scheduler, &[]).unwrap();
+        assert_eq!(applied, layout);
     }
 }
