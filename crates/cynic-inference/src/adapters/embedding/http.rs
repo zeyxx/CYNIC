@@ -162,14 +162,26 @@ impl EmbeddingPort for EmbeddingBackend {
     }
 
     async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingError> {
+        self.embed_batch_reported(texts, &|_, _| {}).await
+    }
+}
+
+impl EmbeddingBackend {
+    /// Batched embedding with per-lot progress: `report(done, total)` fires
+    /// after each round-trip so long corpora stay observable.
+    pub async fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &dyn Fn(usize, usize),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
         let mut out = Vec::with_capacity(texts.len());
         for lot in texts.chunks(EMBED_BATCH_SIZE) {
             let inputs = lot.iter().map(|text| (*text).to_string()).collect();
             out.extend(self.post_batch(inputs).await?);
+            report(out.len(), texts.len());
         }
         Ok(out)
     }
-}
 
 impl EmbeddingBackend {
     async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
