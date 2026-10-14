@@ -491,7 +491,8 @@
             "kind": "http",
             "path": "/health",
             "port": 8000
-          }
+          },
+          "network_plane": "service"
         },
         {
           "name": "runtime-artifact-store",
@@ -514,7 +515,8 @@
             "kind": "https",
             "path": "/health",
             "port": 8443
-          }
+          },
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -808,7 +810,8 @@
         {
           "name": "forgejo-backend",
           "scheme": "http",
-          "port": 3000
+          "port": 3000,
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -856,7 +859,8 @@
           "name": "headscale",
           "scheme": "http",
           "port": 8080,
-          "status": "planned"
+          "status": "planned",
+          "network_plane": "service"
         }
       ],
       "energy_profile": {

@@ -132,3 +132,43 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
         }
     }
 }
+
+#[test]
+fn every_repo_registry_service_declares_its_plane() {
+    // Pins the firewall derivation to declared data: an undeclared service
+    // silently falls back to ServiceOnly in derive_firewall_policy_from_registry.
+    // This test fails the moment a service is added without network_plane.
+    let raw = std::fs::read_to_string(repo_registry_path())
+        .expect("read infra/registry.json from workspace");
+    let registry: serde_json::Value =
+        serde_json::from_str(&raw).expect("parse infra/registry.json");
+    let nodes = registry
+        .get("nodes")
+        .and_then(|nodes| nodes.as_array())
+        .expect("registry has nodes");
+    let mut undeclared = Vec::new();
+    for node in nodes {
+        let name = node.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+        let empty = Vec::new();
+        let services = node
+            .get("services")
+            .and_then(|services| services.as_array())
+            .unwrap_or(&empty);
+        for service in services {
+            let plane = service
+                .get("network_plane")
+                .and_then(|plane| plane.as_str())
+                .map(str::trim)
+                .filter(|plane| !plane.is_empty());
+            if plane.is_none() {
+                let service_name = service.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                undeclared.push(format!("{name}/{service_name}"));
+            }
+        }
+    }
+    assert!(
+        undeclared.is_empty(),
+        "services without declared network_plane: {}",
+        undeclared.join(", ")
+    );
+}
