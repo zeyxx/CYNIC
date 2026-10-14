@@ -2,18 +2,20 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
-    GitExtractError, extract_git_history, load_corpus_cache, load_workspace_geometry,
-    parse_document_tree, parse_git_log_output, parse_json_contract, parse_markdown_tree,
-    parse_rust_file, save_corpus_cache, sync_workspace_corpus,
+    GitExtractError, extract_git_history, load_authority_overrides, load_corpus_cache,
+    load_workspace_geometry, parse_document_tree, parse_git_log_output, parse_json_contract,
+    parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file, save_corpus_cache,
+    sync_workspace_corpus,
 };
 pub use domain::{
-    AuthorityTier, BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1,
-    CachedFileRecord, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
-    CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
-    DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
-    KnowledgeGraph, LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
-    SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
-    expand_hits_with_graph, fuse_reciprocal_ranks,
+    AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, AuthorityTier,
+    BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
+    CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest, CrateGeometryRecord, DEFAULT_RRF_K,
+    DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk, DocumentTree, GIT_COMMIT_SCHEMA_V1,
+    GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalIndex, MarkdownLink,
+    SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode, SynthesisPrompt, SynthesisPromptBuilder,
+    WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry, authority_for, expand_hits_with_graph,
+    fuse_reciprocal_ranks,
 };
 
 use std::path::Path;
@@ -79,6 +81,7 @@ pub fn index_workspace_with_commits<P: AsRef<Path>>(root: P, max_commits: usize)
     }
 
     // 2. Scan contracts/ directory
+    let overrides = load_authority_overrides(root);
     let contracts_dir = root.join("contracts");
     if contracts_dir.exists() {
         for entry in WalkDir::new(contracts_dir).into_iter().flatten() {
@@ -92,7 +95,11 @@ pub fn index_workspace_with_commits<P: AsRef<Path>>(root: P, max_commits: usize)
                         .unwrap_or(entry.path())
                         .to_string_lossy()
                         .to_string();
-                    let chunks = parse_json_contract(&rel_path, &content);
+                    let chunks = parse_json_contract_with_authority(
+                        &rel_path,
+                        &content,
+                        authority_for(&rel_path, &overrides),
+                    );
                     all_chunks.extend(chunks);
                 }
             }

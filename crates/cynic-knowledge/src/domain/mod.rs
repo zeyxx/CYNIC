@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod authority;
 pub mod cache;
 pub mod chunk;
 pub mod commit;
@@ -13,6 +14,9 @@ pub mod vectorizer;
 pub use ast::{
     CORPUS_MANIFEST_SCHEMA_V1, CodeBlock, CorpusManifest, DOCUMENT_TREE_SCHEMA_V1, DocumentTree,
     MarkdownLink, SectionNode,
+};
+pub use authority::{
+    AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, authority_for,
 };
 pub use cache::{CORPUS_CACHE_SCHEMA_V1, CachedFileRecord, CorpusCacheRecord};
 pub use chunk::{AuthorityTier, DocumentChunk};
