@@ -407,7 +407,7 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
-        branch: Some(reref_name(payload)),
+        branch: Some(reref_name(&payload)),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
