@@ -8,8 +8,6 @@ use crate::runtime_authority::RuntimeProjectionClass;
 
 const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
 
-pub const DEFAULT_REGISTRY_PATH: &str = "/etc/cynic/registry.json";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeRegistryMode {
     ExplicitPath,

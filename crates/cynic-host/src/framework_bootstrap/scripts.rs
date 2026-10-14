@@ -1,5 +1,6 @@
 mod runtime_artifacts;
 
+use cynic_types::paths::CynicPaths;
 pub(crate) use runtime_artifacts::BootstrapRuntimeArtifact;
 use runtime_artifacts::{install_activation_fragment, install_preflight_fragment, verify_fragment};
 
@@ -29,6 +30,18 @@ fi
 }
 
 pub(crate) fn bootstrap_install_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
+    let cli_default = CynicPaths::binary_dir().join("cynic").display().to_string();
+    let node_default = CynicPaths::binary_dir()
+        .join("cynic-node")
+        .display()
+        .to_string();
+    let node_control_default = CynicPaths::system_config_dir()
+        .join("node-control.toml")
+        .display()
+        .to_string();
+    let registry_default = CynicPaths::registry_path().display().to_string();
+    let storage_default = CynicPaths::storage_config_path().display().to_string();
+    let state_default = CynicPaths::state_dir().display().to_string();
     r#"#!/bin/sh
 set -eu
 
@@ -38,15 +51,15 @@ RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
 RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
-CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
-NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
-NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
+CLI_TARGET="${CYNIC_STANDALONE_CLI:-__CYNIC_CLI_DEFAULT__}"
+NODE_TARGET="${CYNIC_NODE_BINARY:-__CYNIC_NODE_DEFAULT__}"
+NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-__CYNIC_NODE_CONTROL_DEFAULT__}"
 NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
-REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
-STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
+REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-__CYNIC_REGISTRY_DEFAULT__}"
+STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-__CYNIC_STORAGE_DEFAULT__}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
 LXC_BRIDGE_SUDOERS="${CYNIC_LXC_EXEC_BRIDGE_SUDOERS:-/etc/sudoers.d/cynic-lxc-exec-bridge}"
-STATE_ROOT="${CYNIC_STATE_ROOT:-/var/lib/cynic}"
+STATE_ROOT="${CYNIC_STATE_ROOT:-__CYNIC_STATE_DEFAULT__}"
 RUNTIME_INSTALL_ROOT="${CYNIC_RUNTIME_INSTALL_ROOT:-$STATE_ROOT/runtime}"
 RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-artifacts/inbox}"
 BOOTSTRAP_RELEASE=""
@@ -125,8 +138,8 @@ if [ -f "$ROOT/lxc-exec-bridge-bundle/cynic-lxc-exec-bridge" ]; then
 fi
 visudo -cf "$SUDOERS_TARGET"
 
-"$HELPER_TARGET" principal-prepare --apply > /var/lib/cynic/bootstrap/principal-prepare.json
-chown "$RUNTIME_USER:$RUNTIME_GROUP" /var/lib/cynic/bootstrap/principal-prepare.json
+"$HELPER_TARGET" principal-prepare --apply > "$STATE_ROOT/bootstrap/principal-prepare.json"
+chown "$RUNTIME_USER:$RUNTIME_GROUP" "$STATE_ROOT/bootstrap/principal-prepare.json"
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0750 \
   "$RUNTIME_ARTIFACT_INBOX"
 install -d -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0755 \
@@ -143,9 +156,31 @@ echo "cynic framework bootstrap installed: $HELPER_TARGET"
         "__CYNIC_RUNTIME_ACTIVATION__",
         &install_activation_fragment(artifacts),
     )
+    .replace("__CYNIC_CLI_DEFAULT__", &cli_default)
+    .replace("__CYNIC_NODE_DEFAULT__", &node_default)
+    .replace("__CYNIC_NODE_CONTROL_DEFAULT__", &node_control_default)
+    .replace("__CYNIC_REGISTRY_DEFAULT__", &registry_default)
+    .replace("__CYNIC_STORAGE_DEFAULT__", &storage_default)
+    .replace("__CYNIC_STATE_DEFAULT__", &state_default)
 }
 
 pub(crate) fn bootstrap_verify_script(artifacts: &[BootstrapRuntimeArtifact]) -> String {
+    let cli_default = CynicPaths::binary_dir().join("cynic").display().to_string();
+    let node_default = CynicPaths::binary_dir()
+        .join("cynic-node")
+        .display()
+        .to_string();
+    let node_control_default = CynicPaths::system_config_dir()
+        .join("node-control.toml")
+        .display()
+        .to_string();
+    let registry_default = CynicPaths::registry_path().display().to_string();
+    let storage_default = CynicPaths::storage_config_path().display().to_string();
+    let state_default = CynicPaths::state_dir().display().to_string();
+    let evidence_default = CynicPaths::state_dir()
+        .join("bootstrap")
+        .display()
+        .to_string();
     let node_artifact_required = artifacts
         .iter()
         .any(|artifact| artifact.binary == "cynic-node");
@@ -155,7 +190,7 @@ test -x "$NODE_TARGET"
 test -f "$REGISTRY_TARGET"
 test -f "$NODE_CONTROL_CONFIG_TARGET"
 test -f "$NODE_SERVICE_TARGET"
-grep -F "ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml" "$NODE_SERVICE_TARGET" >/dev/null
+grep -F "ExecStart=$NODE_TARGET control --config $NODE_CONTROL_CONFIG_TARGET" "$NODE_SERVICE_TARGET" >/dev/null
 "$CLI_TARGET" node registry observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
 "$NODE_TARGET" control --config "$NODE_CONTROL_CONFIG_TARGET" --check > "$EVIDENCE_DIR/node-control-config-check.json"
 "#
@@ -169,15 +204,15 @@ RUNTIME_USER="${CYNIC_RUNTIME_USER:-cynic}"
 RUNTIME_GROUP="${CYNIC_RUNTIME_GROUP:-cynic}"
 HELPER_TARGET="${CYNIC_HOST_EXEC_HELPER:-/usr/local/libexec/cynic-host-exec}"
 SUDOERS_TARGET="${CYNIC_HOST_EXEC_SUDOERS:-/etc/sudoers.d/cynic-host-exec}"
-EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-/var/lib/cynic/bootstrap}"
-CLI_TARGET="${CYNIC_STANDALONE_CLI:-/usr/local/bin/cynic}"
-NODE_TARGET="${CYNIC_NODE_BINARY:-/usr/local/bin/cynic-node}"
-NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-/etc/cynic/node-control.toml}"
+EVIDENCE_DIR="${CYNIC_BOOTSTRAP_EVIDENCE_DIR:-__CYNIC_EVIDENCE_DEFAULT__}"
+CLI_TARGET="${CYNIC_STANDALONE_CLI:-__CYNIC_CLI_DEFAULT__}"
+NODE_TARGET="${CYNIC_NODE_BINARY:-__CYNIC_NODE_DEFAULT__}"
+NODE_CONTROL_CONFIG_TARGET="${CYNIC_NODE_CONTROL_CONFIG:-__CYNIC_NODE_CONTROL_DEFAULT__}"
 NODE_SERVICE_TARGET="${CYNIC_NODE_SERVICE_UNIT:-/etc/systemd/system/cynic-node.service}"
-REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-/etc/cynic/registry.json}"
-STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-/etc/cynic/storage.toml}"
+REGISTRY_TARGET="${CYNIC_RUNTIME_REGISTRY:-__CYNIC_REGISTRY_DEFAULT__}"
+STORAGE_CONFIG_TARGET="${CYNIC_STORAGE_CONFIG:-__CYNIC_STORAGE_DEFAULT__}"
 LXC_BRIDGE_TARGET="${CYNIC_LXC_EXEC_BRIDGE_HELPER:-/usr/local/libexec/cynic-lxc-exec-bridge}"
-STATE_ROOT="${CYNIC_STATE_ROOT:-/var/lib/cynic}"
+STATE_ROOT="${CYNIC_STATE_ROOT:-__CYNIC_STATE_DEFAULT__}"
 RUNTIME_INSTALL_ROOT="${CYNIC_RUNTIME_INSTALL_ROOT:-$STATE_ROOT/runtime}"
 RUNTIME_ARTIFACT_INBOX="${CYNIC_RUNTIME_ARTIFACT_INBOX:-$STATE_ROOT/runtime-artifacts/inbox}"
 
@@ -204,6 +239,13 @@ echo "cynic framework bootstrap verified: $EVIDENCE_DIR"
 "#
     .replace("__CYNIC_NODE_READ_BACK__", node_read_back)
     .replace("__CYNIC_RUNTIME_READ_BACK__", &verify_fragment(artifacts))
+    .replace("__CYNIC_CLI_DEFAULT__", &cli_default)
+    .replace("__CYNIC_NODE_DEFAULT__", &node_default)
+    .replace("__CYNIC_NODE_CONTROL_DEFAULT__", &node_control_default)
+    .replace("__CYNIC_REGISTRY_DEFAULT__", &registry_default)
+    .replace("__CYNIC_STORAGE_DEFAULT__", &storage_default)
+    .replace("__CYNIC_STATE_DEFAULT__", &state_default)
+    .replace("__CYNIC_EVIDENCE_DEFAULT__", &evidence_default)
 }
 
 pub(crate) fn bootstrap_security_maintenance_script() -> String {
