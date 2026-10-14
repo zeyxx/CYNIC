@@ -263,7 +263,9 @@
         "cynic-kernel"
       ],
       "depends_on": [
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-secrets",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -756,7 +758,8 @@
         "cynic-proxmox"
       ],
       "depends_on": [
-        "cynic-protocol"
+        "cynic-protocol",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,

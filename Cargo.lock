@@ -1333,6 +1333,7 @@ dependencies = [
  "aes-gcm",
  "blake3",
  "cynic-protocol",
+ "cynic-types",
  "ed25519-dalek",
  "getrandom 0.2.17",
  "hex",
