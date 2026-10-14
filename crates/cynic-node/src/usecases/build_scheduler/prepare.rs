@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    fs,
     path::PathBuf,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -63,6 +64,11 @@ pub(super) async fn prepare(
             &control.node_id,
         )
         .map_err(|error| error.code)?;
+    let layout = apply_stable_workspace(
+        layout,
+        scheduler,
+        &claimed.record.envelope.action.argv,
+    )?;
     let _desired_working_directory = resolve_working_directory(
         claimed.record.envelope.action.working_directory.as_deref(),
         &layout.workspace_root,
@@ -172,15 +178,81 @@ pub(super) async fn prepare(
     })
 }
 
-/// Resolve the shared cargo target directory for a build: `<root>/<profile>`
-/// with `release` when `--release` is in argv, `debug` otherwise. Pure.
-fn shared_target_dir_for(root: &std::path::Path, argv: &[String]) -> std::path::PathBuf {
-    let profile = if argv.iter().any(|arg| arg == "--release") {
+/// Derive the cargo profile name from argv: `release` when `--release` is
+/// present, `debug` otherwise. Pure.
+fn profile_for_argv(argv: &[String]) -> &'static str {
+    if argv.iter().any(|arg| arg == "--release") {
         "release"
     } else {
         "debug"
-    };
+    }
+}
+
+/// Resolve the shared cargo target directory for a build: `<root>/<profile>`
+/// with `release` when `--release` is in argv, `debug` otherwise. Pure.
+fn shared_target_dir_for(root: &std::path::Path, argv: &[String]) -> std::path::PathBuf {
+    root.join(profile_for_argv(argv))
+}
+
+/// Resolve the stable build workspace path for a profile:
+/// `<root>/<profile>`. Pure: the same profile always maps to the same path,
+/// so absolute-path fingerprints embedded in build artifacts survive across
+/// builds.
+fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::PathBuf {
     root.join(profile)
+}
+
+/// Pre-build clean for a stable workspace: remove a previous workspace at
+/// the exact stable path so the next build starts from a clean tree, while
+/// the path itself stays stable so fingerprints survive. A git-registered
+/// worktree is removed through `git worktree remove` so the repository
+/// worktree registry keeps no stale entry that would block re-creation at
+/// the same path; anything else falls back to a plain recursive removal.
+fn clean_stable_workspace(
+    repository_root: &std::path::Path,
+    workspace: &std::path::Path,
+) -> Result<(), String> {
+    if !workspace.exists() {
+        return Ok(());
+    }
+    let git_removed = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repository_root)
+        .args(["worktree", "remove", "--force"])
+        .arg(workspace)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+    if git_removed {
+        return Ok(());
+    }
+    fs::remove_dir_all(workspace)
+        .map_err(|_| "build_workspace_stable_clean_failed".to_string())
+}
+
+/// Apply the stable-workspace override when the scheduler configures one:
+/// the build workspace becomes `<stable_root>/<profile>` (profile derived
+/// from argv exactly like `shared_target_root`) instead of the
+/// registry-resolved per-workload path, and the previous tree at that path
+/// is cleaned first. Without the setting the registry layout passes
+/// through unchanged. The registry layout evidence digest keeps describing
+/// the registry-declared authority inputs; the workspace path actually
+/// used is recorded in the execution request and its read-back.
+fn apply_stable_workspace(
+    mut layout: AgentWorkspaceLayout,
+    scheduler: &BuildSchedulerConfig,
+    argv: &[String],
+) -> Result<AgentWorkspaceLayout, String> {
+    let root = match scheduler.stable_workspace_root.as_ref() {
+        None => return Ok(layout),
+        Some(root) => root,
+    };
+    let workspace_root = stable_workspace_for(root, profile_for_argv(argv));
+    clean_stable_workspace(&layout.repository_root, &workspace_root)?;
+    layout.workspace_root = workspace_root;
+    Ok(layout)
 }
 
 /// Decide the execution isolation mode from scheduler config.

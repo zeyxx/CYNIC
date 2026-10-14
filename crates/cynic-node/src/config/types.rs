@@ -93,6 +93,15 @@ pub struct BuildSchedulerConfig {
     /// Single-slot only: parallel slots must take an inter-build lock first.
     #[serde(default)]
     pub shared_target_root: Option<PathBuf>,
+    /// Optional stable build workspace root. When set, the scheduler reuses
+    /// `<root>/<profile>` (profile derived from argv exactly like
+    /// `shared_target_root`) as the build execution workspace instead of
+    /// the registry-resolved per-workload path. The tree at that path is
+    /// cleaned before every build, but the path itself stays stable across
+    /// builds so absolute-path fingerprints embedded in artifacts survive.
+    /// Unset preserves the per-workload layout.
+    #[serde(default)]
+    pub stable_workspace_root: Option<PathBuf>,
     #[serde(default)]
     pub release_publication: Option<ReleasePublicationConfig>,
 }
