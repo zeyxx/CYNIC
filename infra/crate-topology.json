@@ -288,7 +288,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-      "loc": 88309
+      "loc": 88360
     },
     "cynic-huggingface": {
       "consumers": [
@@ -746,7 +746,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-      "loc": 919
+      "loc": 932
     },
     "cynic-vcs": {
       "consumers": [
@@ -1086,7 +1086,7 @@
     "crates": 44,
     "dev_edges": 3,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
-    "loc_total": 351326,
+    "loc_total": 351390,
     "pending_disposition": 4,
     "runtime_edges": 164,
     "unjustified": 0,

@@ -20,7 +20,6 @@ use std::path::Path;
 use serde_json::Value;
 
 /// Path constants for SSH credential layout.
-pub const SSH_KEY_DIR: &str = "/etc/cynic/secrets";
 pub const SSH_KEY_SUFFIX: &str = "-ssh";
 
 /// A transport entry discovered in the registry that needs SSH provisioning.

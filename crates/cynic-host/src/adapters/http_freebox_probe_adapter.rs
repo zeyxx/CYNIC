@@ -38,8 +38,8 @@ impl HttpFreeboxProbeAdapter {
     /// 2. Encrypted principal-owned file store (`SecretProvider::PrincipalOwnedFile`).
     /// 3. OS credential store (`SecretProvider::OsCredentialStore`, e.g. gnome-keyring).
     ///
-    /// The legacy raw files (`~/.config/cynic/freebox-app-token`,
-    /// `/etc/cynic/freebox-app-token`) are intentionally NOT read here: raw
+    /// The legacy raw files (`~/.config/cynic/freebox-app-token`, the system
+    /// config directory's `freebox-app-token`) are intentionally NOT read here:
     /// files bypass the secret ports (no encryption, no audit, no rotation).
     /// Migrate their content once with the `SecretStorePort`, then shred them.
     pub fn resolve_app_token() -> Option<String> {

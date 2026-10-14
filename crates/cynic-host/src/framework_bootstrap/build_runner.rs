@@ -19,6 +19,7 @@ use crate::{
     },
 };
 use cynic_lifecycle::ArgvRunner;
+use cynic_types::paths::CynicPaths;
 
 pub const BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA: &str = "cynic.build_runner.bootstrap_plan.v1";
 
@@ -376,7 +377,8 @@ pub fn observe_build_runner_bootstrap(
     // Role observation: le nœud exécutant le bootstrap doit avoir le rôle
     // build_runner dans le registry. Empêche un agent de builder localement
     // sur un nœud kernel_primary (cortex) en forgeant un node_id erroné.
-    let local_role = std::fs::read_to_string("/etc/cynic/node-role").ok();
+    let local_role =
+        std::fs::read_to_string(CynicPaths::system_config_dir().join("node-role")).ok();
     let local_role_matches = local_role
         .as_deref()
         .is_some_and(|r| r.trim() == "build_runner");

@@ -5,7 +5,8 @@
 //! 2. Generate self-signed Certificate Signing Request (CSR) proving possession.
 //! 3. Verify CSR authenticity.
 //! 4. Issue Kernel-signed Node Enrollment Certificate.
-//! 5. Verify and install certificate to `/etc/cynic/node-identity.cert`.
+//! 5. Verify and install certificate to the system config directory's
+//! `node-identity.cert`.
 
 use std::fs;
 use std::path::Path;

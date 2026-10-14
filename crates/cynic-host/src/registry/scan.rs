@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::registry::types::{RegistryDocument, RegistryNode};
 use crate::runtime_registry::resolve_runtime_registry_path;
+use cynic_types::paths::CynicPaths;
 
 /// Registry loading error
 #[derive(Debug, thiserror::Error)]
@@ -72,14 +73,14 @@ pub fn discover_registry_sources() -> Vec<PathBuf> {
 
     // Check common locations
     let candidates = [
-        "/etc/cynic/registry.json",
-        "/var/lib/cynic/registry.json",
-        "./registry.json",
-        "./infra/registry.json",
+        CynicPaths::registry_path(),
+        CynicPaths::state_dir().join("registry.json"),
+        PathBuf::from("./registry.json"),
+        PathBuf::from("./infra/registry.json"),
     ];
 
     for candidate in candidates {
-        let path = Path::new(candidate);
+        let path = candidate.as_path();
         if path.exists() && !sources.iter().any(|p| p == path) {
             sources.push(path.to_path_buf());
         }

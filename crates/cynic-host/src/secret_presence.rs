@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -51,7 +52,7 @@ impl RuntimeSecretPresenceSpec {
             ));
         }
         file_candidates.push((
-            PathBuf::from("/etc/cynic/secrets").join(filename),
+            CynicPaths::secrets_dir().join(filename),
             RuntimeSecretPresenceSource::InstalledFile,
         ));
         Self {
