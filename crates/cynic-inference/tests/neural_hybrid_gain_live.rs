@@ -53,6 +53,13 @@ fn env_guard_gap() -> Option<f64> {
         .filter(|gap: &f64| (0.0..=1.0).contains(gap))
 }
 
+fn env_dense_guard_gap() -> Option<f64> {
+    std::env::var("CYNIC_DENSE_GUARD_GAP")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .filter(|gap: &f64| (0.0..=1.0).contains(gap))
+}
+
 #[test]
 #[ignore = "needs a live /v1/embeddings endpoint (CYNIC_EMBED_URL)"]
 fn neural_hybrid_gain_over_bm25_is_measured() {
@@ -79,6 +86,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
         top_k: env_usize("CYNIC_EMBED_TOP_K", 1, 50, 5),
         dense_k: env_usize("CYNIC_EMBED_DENSE_K", 1, 200, 20),
         guard_gap: env_guard_gap(),
+        dense_guard_gap: env_dense_guard_gap(),
         embed_lot: env_usize("CYNIC_EMBED_LOT", 1, 128, 32),
         pipeline,
         model: std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into()),

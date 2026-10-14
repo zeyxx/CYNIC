@@ -17,7 +17,7 @@ pub use domain::{
     SynthesisPrompt, SynthesisPromptBuilder, VectorCacheRecord, WORKSPACE_GEOMETRY_SCHEMA_V1,
     WorkspaceGeometry, authority_for, bm25_margin, cosine_similarity, expand_hits_with_graph,
     fuse_reciprocal_ranks, load_vector_cache, save_vector_cache, tokenize, top_k_dense,
-    vectorize_chunks, vectorize_chunks_cached,
+    vectorize_chunks, vectorize_chunks_cached, dense_margin,
 };
 
 use std::path::Path;
