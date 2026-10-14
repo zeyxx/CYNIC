@@ -1,10 +1,14 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use sysinfo::Disks;
 
 use crate::domain::disk::build_runner::{
     BUILD_CACHE_OBSERVATION_SCHEMA, BuildCacheDesiredState, BuildCacheMutationPort,
-    BuildCacheObservation, BuildCacheObservationPort, BuildCachePathState,
+    BuildCacheObservation, BuildCacheObservationPort, BuildCachePathState, EphemeralEntry,
+    EphemeralKind, EphemeralScope,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -44,6 +48,8 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
                 )),
             }
         }
+        let (observed_ephemeral, ephemeral_skipped) =
+            observe_ephemeral(desired, state_root, temporary_root);
         BuildCacheObservation {
             schema: BUILD_CACHE_OBSERVATION_SCHEMA,
             node_id: desired.node_id.clone(),
@@ -54,6 +60,8 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
             reclaim_profile_state,
             preserved_profile_states,
             observed_noncanonical_cache_paths,
+            observed_ephemeral,
+            ephemeral_skipped,
             unknowns,
         }
     }
@@ -217,6 +225,339 @@ impl BuildCacheMutationPort for LocalBuildCacheAdapter {
             }
         ))
     }
+
+    /// Remove retention-eligible ephemeral paths.
+    ///
+    /// Every path is re-verified at removal time because the observation may
+    /// be stale: it must sit exactly one level under a declared retention
+    /// scope parent, match that scope's strict name pattern, pass the
+    /// ancestor chain check, and — for workspaces — read back terminal
+    /// against the store right now. A workspace whose record is live or
+    /// unreadable at this instant aborts the whole operation before anything
+    /// else is touched.
+    fn reclaim_ephemeral_paths(
+        &self,
+        desired: &BuildCacheDesiredState,
+        paths: &[String],
+    ) -> Result<String, String> {
+        let state_root = Path::new(&desired.state_root);
+        let temporary_root = Path::new(&desired.temporary_root);
+        let mut removed = Vec::new();
+        let mut skipped = Vec::new();
+
+        for raw in paths {
+            let path = Path::new(raw);
+            let scope = scope_for_ephemeral(desired, state_root, temporary_root, path)
+                .ok_or_else(|| {
+                    format!("build_cache_ephemeral_path_outside_declared_scopes:{raw}")
+                })?;
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| {
+                    format!("build_cache_ephemeral_path_name_not_utf8:{raw}")
+                })?;
+            if !name_matches(scope.kind, name) {
+                return Err(format!("build_cache_ephemeral_path_name_rejected:{raw}"));
+            }
+            if scope.kind == EphemeralKind::WorkloadWorkspace {
+                match read_workload_terminal(
+                    state_root,
+                    scope.workload_store_relative_path.as_deref(),
+                    name,
+                ) {
+                    Some(true) => {}
+                    Some(false) => {
+                        return Err(format!(
+                            "build_cache_ephemeral_workspace_live:{raw}"
+                        ));
+                    }
+                    None => {
+                        return Err(format!(
+                            "build_cache_ephemeral_workspace_unclassifiable:{raw}"
+                        ));
+                    }
+                }
+            }
+
+            let mut unknowns = Vec::new();
+            match fs::symlink_metadata(path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    skipped.push(raw.clone());
+                    continue;
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "build_cache_ephemeral_path_unobservable:{raw}:{error}"
+                    ));
+                }
+                Ok(metadata) => {
+                    if metadata.file_type().is_symlink() {
+                        return Err(format!(
+                            "build_cache_ephemeral_path_is_symlink:{raw}"
+                        ));
+                    }
+                    if !metadata.is_dir() {
+                        return Err(format!(
+                            "build_cache_ephemeral_path_not_a_directory:{raw}"
+                        ));
+                    }
+                }
+            }
+            let parent = path.parent().ok_or_else(|| {
+                format!("build_cache_ephemeral_path_has_no_parent:{raw}")
+            })?;
+            if directory_chain_state(parent, path, &mut unknowns)
+                != BuildCachePathState::SafeDirectory
+            {
+                return Err(format!("build_cache_ephemeral_path_rejected:{raw}"));
+            }
+            if !unknowns.is_empty() {
+                return Err(format!(
+                    "build_cache_ephemeral_path_unknown:{raw}:{}",
+                    unknowns.join(",")
+                ));
+            }
+
+            fs::remove_dir_all(path)
+                .map_err(|error| format!("build_cache_ephemeral_remove_failed:{raw}:{error}"))?;
+
+            match fs::symlink_metadata(path) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    removed.push(raw.clone());
+                }
+                Ok(_) => {
+                    return Err(format!(
+                        "build_cache_ephemeral_read_back_failed:{raw}"
+                    ));
+                }
+                Err(error) => {
+                    return Err(format!(
+                        "build_cache_ephemeral_read_back_unknown:{raw}:{error}"
+                    ));
+                }
+            }
+        }
+
+        Ok(format!(
+            "removed_ephemeral_paths:{}:skipped_absent:{}",
+            if removed.is_empty() {
+                "none".to_string()
+            } else {
+                removed.join("|")
+            },
+            if skipped.is_empty() {
+                "none".to_string()
+            } else {
+                skipped.join("|")
+            }
+        ))
+    }
+}
+
+/// Observe the declared retention scopes: classify each entry, never follow
+/// anything ambiguous.
+///
+/// An entry becomes an `EphemeralEntry` only when ALL of these hold: it is a
+/// real directory (never a symlink, never a file), its name matches the
+/// scope kind's strict pattern, and its mtime is readable. Anything else is
+/// listed in `ephemeral_skipped` — reported, never eligible, never blocking.
+/// Workspaces additionally carry a liveness read-back against the workload
+/// store; a missing or unreadable record classifies as unclassifiable
+/// (`workload_terminal: None`), which the pure decision treats as ineligible.
+fn observe_ephemeral(
+    desired: &BuildCacheDesiredState,
+    state_root: &Path,
+    temporary_root: &Path,
+) -> (Vec<EphemeralEntry>, Vec<String>) {
+    let mut observed = Vec::new();
+    let mut skipped = Vec::new();
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    for scope in &desired.ephemeral_scopes {
+        let base = match scope.base.as_str() {
+            "state_root" => state_root,
+            "temporary_directory" => temporary_root,
+            _ => {
+                skipped.push(format!(
+                    "ephemeral_scope_base_unsupported:{}",
+                    scope.relative_path
+                ));
+                continue;
+            }
+        };
+        let parent = base.join(&scope.relative_path);
+        let entries = match fs::read_dir(&parent) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                skipped.push(format!(
+                    "ephemeral_scope_unobservable:{}:{error}",
+                    parent.display()
+                ));
+                continue;
+            }
+        };
+        for entry in entries {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    skipped.push(format!(
+                        "ephemeral_entry_unobservable:{}:{error}",
+                        parent.display()
+                    ));
+                    continue;
+                }
+            };
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                skipped.push(format!(
+                    "ephemeral_entry_name_not_utf8:{}",
+                    parent.display()
+                ));
+                continue;
+            };
+            if !name_matches(scope.kind, name) {
+                skipped.push(format!("ephemeral_entry_name_rejected:{name}"));
+                continue;
+            }
+            match fs::symlink_metadata(&path) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    skipped.push(format!("ephemeral_entry_is_symlink:{name}"));
+                    continue;
+                }
+                Ok(metadata) if !metadata.is_dir() => {
+                    skipped.push(format!("ephemeral_entry_not_a_directory:{name}"));
+                    continue;
+                }
+                Ok(metadata) => {
+                    let age_ms = match metadata.modified() {
+                        Ok(modified) => {
+                            let mtime_ms = modified
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|duration| duration.as_millis() as u64)
+                                .unwrap_or(now_ms);
+                            now_ms.saturating_sub(mtime_ms)
+                        }
+                        Err(_) => {
+                            skipped.push(format!("ephemeral_entry_mtime_unknown:{name}"));
+                            continue;
+                        }
+                    };
+                    let workload_terminal = match scope.kind {
+                        EphemeralKind::EvidenceCheckout => None,
+                        EphemeralKind::WorkloadWorkspace => read_workload_terminal(
+                            state_root,
+                            scope.workload_store_relative_path.as_deref(),
+                            name,
+                        ),
+                    };
+                    observed.push(EphemeralEntry {
+                        path: path.display().to_string(),
+                        age_ms,
+                        kind: scope.kind,
+                        workload_terminal,
+                    });
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    skipped.push(format!("ephemeral_entry_unobservable:{name}:{error}"));
+                }
+            }
+        }
+    }
+    observed.sort_by(|left, right| left.path.cmp(&right.path));
+    (observed, skipped)
+}
+
+/// Strict name patterns: checkouts are `cynic-<hex>` evidence clones,
+/// workspaces are `build-<hex>` scheduler materializations. Anything else
+/// under a scope parent is not ours to judge.
+fn name_matches(kind: EphemeralKind, name: &str) -> bool {
+    let (prefix, min_hex, max_hex) = match kind {
+        EphemeralKind::EvidenceCheckout => ("cynic-", 7, 64),
+        EphemeralKind::WorkloadWorkspace => ("build-", 16, 64),
+    };
+    let Some(hex) = name.strip_prefix(prefix) else {
+        return false;
+    };
+    (min_hex..=max_hex).contains(&hex.len())
+        && !hex.is_empty()
+        && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+/// Minimal liveness read-back: latest `revision-*` file of the workload
+/// record, `record.state` only. No chain validation — this is an observer,
+/// not the store; any doubt classifies as unclassifiable (None), which is
+/// never eligible.
+fn read_workload_terminal(
+    state_root: &Path,
+    store_relative: Option<&str>,
+    workload_id: &str,
+) -> Option<bool> {
+    let store_relative = store_relative?;
+    if workload_id.is_empty()
+        || workload_id.contains('/')
+        || workload_id.contains('\0')
+    {
+        return None;
+    }
+    let record_dir = state_root.join(store_relative).join(workload_id);
+    let entries = fs::read_dir(&record_dir).ok()?;
+    let mut latest: Option<(u64, PathBuf)> = None;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(revision) = name
+            .strip_prefix("revision-")
+            .and_then(|number| number.parse::<u64>().ok())
+        else {
+            continue;
+        };
+        if latest.as_ref().is_some_and(|(best, _)| *best >= revision) {
+            continue;
+        }
+        latest = Some((revision, entry.path()));
+    }
+    let (_, path) = latest?;
+    let bytes = fs::read(&path).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    match value
+        .get("record")?
+        .get("state")?
+        .as_str()?
+    {
+        "completed" | "blocked" | "failed" | "degraded" | "recovered_unattributed" => Some(true),
+        "dispatched" | "claimed" | "cancel_requested" => Some(false),
+        _ => None,
+    }
+}
+
+/// Resolve the retention scope governing `path`: the path must sit exactly
+/// one level under a declared scope parent. Ambiguous (under two scopes of
+/// different kinds) resolves to nothing — fail closed.
+fn scope_for_ephemeral<'a>(
+    desired: &'a BuildCacheDesiredState,
+    state_root: &Path,
+    temporary_root: &Path,
+    path: &Path,
+) -> Option<&'a crate::domain::disk::build_runner::EphemeralScope> {
+    let parent = path.parent()?;
+    let mut matches = desired.ephemeral_scopes.iter().filter(|scope| {
+        let base = match scope.base.as_str() {
+            "state_root" => state_root,
+            "temporary_directory" => temporary_root,
+            _ => return false,
+        };
+        base.join(&scope.relative_path) == parent
+    });
+    let first = matches.next()?;
+    if matches.any(|scope| scope.kind != first.kind) {
+        return None;
+    }
+    Some(first)
 }
 
 fn directory_chain_state(
@@ -286,6 +627,9 @@ mod tests {
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
             noncanonical_cache_paths: Vec::new(),
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         LocalBuildCacheAdapter
@@ -318,6 +662,9 @@ mod tests {
                 state_cache.display().to_string(),
                 temp_cache.display().to_string(),
             ],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         let evidence = LocalBuildCacheAdapter
@@ -343,6 +690,9 @@ mod tests {
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
             noncanonical_cache_paths: vec![absent.display().to_string()],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         let evidence = LocalBuildCacheAdapter
@@ -371,6 +721,9 @@ mod tests {
                 .join("not-mine")
                 .display()
                 .to_string()],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         let error = LocalBuildCacheAdapter
@@ -400,6 +753,9 @@ mod tests {
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
             noncanonical_cache_paths: vec![link.display().to_string()],
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         let error = LocalBuildCacheAdapter
@@ -428,6 +784,9 @@ mod tests {
             reclaim_profile: "debug".to_string(),
             preserved_profiles: vec!["release".to_string()],
             noncanonical_cache_paths: Vec::new(),
+            ephemeral_scopes: Vec::new(),
+            retention_max_age_ms: None,
+            retention_pressure_grace_ms: None,
         };
 
         let error = LocalBuildCacheAdapter
@@ -436,5 +795,175 @@ mod tests {
 
         assert_eq!(error, "build_cache_mutation_path_rejected");
         assert!(outside.path().join("targets/debug").is_dir());
+    }
+
+    fn retention_desired(
+        root: &std::path::Path,
+        scopes: Vec<EphemeralScope>,
+    ) -> BuildCacheDesiredState {
+        BuildCacheDesiredState {
+            node_id: "builder-a".to_string(),
+            state_root: root.display().to_string(),
+            temporary_root: root.display().to_string(),
+            canonical_target: root.join("targets").display().to_string(),
+            minimum_available_bytes: 1,
+            reclaim_profile: "debug".to_string(),
+            preserved_profiles: vec!["release".to_string()],
+            noncanonical_cache_paths: Vec::new(),
+            ephemeral_scopes: scopes,
+            retention_max_age_ms: Some(u64::MAX),
+            retention_pressure_grace_ms: Some(0),
+        }
+    }
+
+    fn checkout_scope() -> EphemeralScope {
+        EphemeralScope {
+            base: "state_root".to_string(),
+            relative_path: "checkouts".to_string(),
+            kind: EphemeralKind::EvidenceCheckout,
+            workload_store_relative_path: None,
+        }
+    }
+
+    fn workspace_scope() -> EphemeralScope {
+        EphemeralScope {
+            base: "state_root".to_string(),
+            relative_path: "ws".to_string(),
+            kind: EphemeralKind::WorkloadWorkspace,
+            workload_store_relative_path: Some("wstore".to_string()),
+        }
+    }
+
+    fn write_record(root: &std::path::Path, workload_id: &str, state: &str) {
+        let dir = root.join("wstore").join(workload_id);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("revision-1"),
+            format!(r#"{{"record":{{"state":"{state}"}}}}"#),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn ephemeral_observe_classifies_checkouts_and_rejects_foreign_names() {
+        let root = tempfile::tempdir().unwrap();
+        let parent = root.path().join("checkouts");
+        fs::create_dir_all(parent.join("cynic-abcdef12")).unwrap();
+        fs::create_dir_all(parent.join("random-stuff")).unwrap();
+        fs::write(parent.join("notes.txt"), b"not a cache").unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir_all(outside.path().join("real")).unwrap();
+        symlink(outside.path().join("real"), parent.join("cynic-eeeeeeee")).unwrap();
+        let desired = retention_desired(root.path(), vec![checkout_scope()]);
+
+        let observation = LocalBuildCacheAdapter.observe(&desired);
+
+        assert_eq!(observation.observed_ephemeral.len(), 1);
+        let entry = &observation.observed_ephemeral[0];
+        assert!(entry.path.ends_with("cynic-abcdef12"));
+        assert_eq!(entry.kind, EphemeralKind::EvidenceCheckout);
+        assert_eq!(entry.workload_terminal, None);
+        assert!(
+            observation
+                .ephemeral_skipped
+                .iter()
+                .any(|line| line.contains("random-stuff")),
+            "foreign dir must be reported skipped: {:?}",
+            observation.ephemeral_skipped
+        );
+        assert!(
+            observation
+                .ephemeral_skipped
+                .iter()
+                .any(|line| line.contains("notes.txt")),
+            "foreign file must be reported skipped: {:?}",
+            observation.ephemeral_skipped
+        );
+        assert!(
+            observation
+                .ephemeral_skipped
+                .iter()
+                .any(|line| line.contains("cynic-eeeeeeee")),
+            "symlink must be reported skipped: {:?}",
+            observation.ephemeral_skipped
+        );
+        assert!(outside.path().join("real").is_dir());
+    }
+
+    #[test]
+    fn ephemeral_observe_reads_workspace_liveness_from_the_store() {
+        let root = tempfile::tempdir().unwrap();
+        let parent = root.path().join("ws");
+        fs::create_dir_all(parent.join("build-0123456789abcdef")).unwrap();
+        fs::create_dir_all(parent.join("build-1111111111111111")).unwrap();
+        fs::create_dir_all(parent.join("build-2222222222222222")).unwrap();
+        write_record(root.path(), "build-0123456789abcdef", "completed");
+        write_record(root.path(), "build-1111111111111111", "claimed");
+        let desired = retention_desired(root.path(), vec![workspace_scope()]);
+
+        let observation = LocalBuildCacheAdapter.observe(&desired);
+
+        let terminal = |name: &str| {
+            observation
+                .observed_ephemeral
+                .iter()
+                .find(|entry| entry.path.ends_with(name))
+                .map(|entry| entry.workload_terminal)
+        };
+        assert_eq!(
+            terminal("build-0123456789abcdef"),
+            Some(Some(true)),
+            "completed workspace must read back terminal"
+        );
+        assert_eq!(
+            terminal("build-1111111111111111"),
+            Some(Some(false)),
+            "claimed workspace must read back live"
+        );
+        assert_eq!(
+            terminal("build-2222222222222222"),
+            Some(None),
+            "record-less workspace must read back unclassifiable"
+        );
+    }
+
+    #[test]
+    fn ephemeral_mutation_removes_dead_and_refuses_live() {
+        let root = tempfile::tempdir().unwrap();
+        let checkouts = root.path().join("checkouts");
+        let dead = checkouts.join("cynic-deadbeef");
+        fs::create_dir_all(dead.join("target")).unwrap();
+        let ws = root.path().join("ws");
+        let live = ws.join("build-aaaaaaaaaaaaaaaa");
+        fs::create_dir_all(&live).unwrap();
+        write_record(root.path(), "build-aaaaaaaaaaaaaaaa", "claimed");
+        let desired =
+            retention_desired(root.path(), vec![checkout_scope(), workspace_scope()]);
+
+        let evidence = LocalBuildCacheAdapter
+            .reclaim_ephemeral_paths(&desired, &[dead.display().to_string()])
+            .expect("dead checkout removes");
+        assert!(!dead.exists());
+        assert!(evidence.contains("cynic-deadbeef"), "got: {evidence}");
+
+        let error = LocalBuildCacheAdapter
+            .reclaim_ephemeral_paths(&desired, &[live.display().to_string()])
+            .expect_err("live workspace must abort");
+        assert!(error.contains("workspace_live"), "got: {error}");
+        assert!(live.is_dir(), "the refused workspace must be untouched");
+    }
+
+    #[test]
+    fn ephemeral_mutation_refuses_a_path_outside_declared_scopes() {
+        let root = tempfile::tempdir().unwrap();
+        let rogue = root.path().join("cynic-rogue1234");
+        fs::create_dir_all(&rogue).unwrap();
+        let desired = retention_desired(root.path(), vec![checkout_scope()]);
+
+        let error = LocalBuildCacheAdapter
+            .reclaim_ephemeral_paths(&desired, &[rogue.display().to_string()])
+            .expect_err("outside any scope parent must be refused");
+        assert!(error.contains("outside_declared_scopes"), "got: {error}");
+        assert!(rogue.is_dir(), "the refused path must be untouched");
     }
 }
