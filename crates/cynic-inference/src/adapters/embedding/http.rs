@@ -277,16 +277,20 @@ mod tests {
 
     #[test]
     fn lot_size_follows_env_with_safe_bounds() {
-        std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
-        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "8");
-        assert_eq!(lot_size(), 8);
-        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "0");
-        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "9999");
-        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-        std::env::set_var("CYNIC_EMBED_LOT_SIZE", "not-a-number");
-        assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-        std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
+        // SAFETY: this process alone touches CYNIC_EMBED_LOT_SIZE, and the
+        // test restores the environment before returning.
+        unsafe {
+            std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
+            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "8");
+            assert_eq!(lot_size(), 8);
+            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "0");
+            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "9999");
+            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "not-a-number");
+            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
+            std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
+        }
     }
 }
