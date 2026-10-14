@@ -19,20 +19,50 @@
   "ratified_at_commit": "92e9a85c4a931b67049f7e7e173b9c9ec7daaf62",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act. cynic-observer removed 2026-10-04: 3 hotspot entries deleted with the crate.",
-    "total": 218,
-    "critical": 23,
-    "debt": 193,
-    "warning": 2,
-    "identities": 218,
+    "total": 488,
+    "critical": 16,
+    "debt": 200,
+    "warning": 272,
+    "identities": 487,
     "by_rule": {
-      "ARCH-001": 193,
-      "ARCH-004": 15,
+      "ARCH-001": 200,
+      "ARCH-004": 14,
+      "ARCH-005": 3,
+      "ART-001": 5,
+      "ART-002": 2,
+      "PATH-001": 8,
       "PATH-002": 3,
-      "RUN-001": 5,
-      "SEC-001": 2
+      "PATH-004": 246,
+      "PROSE-001": 1,
+      "RUN-001": 3,
+      "SEC-001": 3
     }
   },
   "entries": [
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/path_rules.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_divergence.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology_generate.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-build/src/build/agent_request.rs",
       "count": 1,
@@ -118,19 +148,25 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/audit_surface.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/branch_audit.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/build_surface.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/chat_surface/runtime.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/chat_surface/runtime.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/command_manifest.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -148,6 +184,12 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/knowledge_surface.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_audit/scan.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -160,7 +202,25 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/network_surface/execution.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_host_audit.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/node_surface/compute.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/privilege_surface.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -185,12 +245,6 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/secret_surface.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-cli/src/source_surface.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -244,6 +298,12 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-eval/src/sweep/empirical_store.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/probe.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -251,18 +311,6 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-forensics/src/types.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host-probes/src/hardware.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host-probes/src/llm.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -298,37 +346,7 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/agent_host/observe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/agent_runtime/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/path_rules.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/runtime_divergence.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-audit-engine/src/topology_generate.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -359,6 +377,12 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/ecosystem_package/integration_port.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-host/src/domain/metrics/mod.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -580,13 +604,13 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/inference/hermes_run_executor.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-huggingface/src/adapters/cli.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/inference/openai_compat.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/adapters/inference/http_chat_client.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -616,12 +640,6 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/inference_gateway.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/application/profile_bootstrap.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -634,37 +652,13 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/domain/matrix_sweep/empirical_store.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/domain_task_queue.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/inference_queue.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/runtime_plan.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-inference/src/infra/slot_semaphore.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-intel-escore/src/aggregator.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -718,25 +712,7 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/domain/metrics.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/domain/probe.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/infra/local_spool.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-kernel/src/infra/task_health.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -760,6 +736,12 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-market/src/market_loop.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-mcp/src/server.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -773,6 +755,12 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/firewall_policy.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-network/src/fleet_membership/mod.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -850,12 +838,6 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_control.rs",
-      "count": 1,
-      "rule": "ARCH-001",
-      "severity": "debt"
-    },
-    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/adapters/qemu_guest_agent_network_runner.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -916,6 +898,12 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/task_health.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/bootstrap_seed_uc.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -958,7 +946,19 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/notification_outbox_uc.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-node/src/usecases/observe_node_uc.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-pkg/src/release_deployment.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -1048,6 +1048,12 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/privilege/catalog.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-protocol/src/publication_policy.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -1096,6 +1102,24 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/agent_host_observer.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-proxmox/src/adapters/proxmox_control.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-secrets/src/adapters/file.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/book/mod.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -1103,6 +1127,12 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/lifecycle.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-storage/src/local_spool.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -1138,6 +1168,18 @@
       "severity": "debt"
     },
     {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/git_topology_observer.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/publication.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_control.rs",
       "count": 1,
       "rule": "ARCH-001",
@@ -1145,6 +1187,12 @@
     },
     {
       "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs/src/source_worktree_inventory.rs",
+      "count": 1,
+      "rule": "ARCH-001",
+      "severity": "debt"
+    },
+    {
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-workload/src/admission.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -1258,12 +1306,6 @@
       "severity": "critical"
     },
     {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host-probes (L1) depends on cynic-finance (L2)",
-      "count": 1,
-      "rule": "ARCH-004",
-      "severity": "critical"
-    },
-    {
       "identity": "ARCH-004-UPWARD-EDGE|cynic-lifecycle (L1) depends on cynic-build (L2)",
       "count": 1,
       "rule": "ARCH-004",
@@ -1282,28 +1324,1612 @@
       "severity": "critical"
     },
     {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/worktree_observer.rs:120 cites path infra/worktree_layout which does not exist in the working tree",
+      "identity": "ARCH-005-NEW-INVERSION|New module inversion `cynic-vcs|ports -> repo_access` (1 edge(s)), first at crates/cynic-vcs/src/ports.rs:10. A lower layer depending on a concrete module means the boundary is missing.",
       "count": 1,
-      "rule": "PATH-002",
-      "severity": "critical"
+      "rule": "ARCH-005",
+      "severity": "warning"
     },
     {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-inference/src/domain/chat.rs:69 cites path references/llms-101-mapping.md which does not exist in the working tree",
+      "identity": "ARCH-005-STALE-ENTRY|infra/module-inversion-ledger.json records `cynic-inference|domain -> math` but no such edge was observed. Paid debt left in the list hides that the list is stale.",
       "count": 1,
-      "rule": "PATH-002",
-      "severity": "critical"
+      "rule": "ARCH-005",
+      "severity": "warning"
     },
     {
-      "identity": "PATH-002-CITED-ABSENT|crates/cynic-vcs-forgejo/src/forgejo_webhook.rs:3 cites path scripts/forgejo-build-webhook which does not exist in the working tree",
+      "identity": "ARCH-005-STALE-ENTRY|infra/module-inversion-ledger.json records `cynic-inference|ports -> infra` but no such edge was observed. Paid debt left in the list hides that the list is stale.",
       "count": 1,
-      "rule": "PATH-002",
-      "severity": "critical"
+      "rule": "ARCH-005",
+      "severity": "warning"
     },
     {
-      "identity": "RUN-001-BUDGET-NOT-COUNTED|every active claim reports consumed.actions = 0 across 10 claim owner(s), so the action budget is decorative and cannot be used as a limit or as proof",
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-lxc-exec-bridge` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
       "count": 1,
-      "rule": "RUN-001",
-      "severity": "critical"
+      "rule": "ART-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-network-actuator` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "count": 1,
+      "rule": "ART-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-node-enroll` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "count": 1,
+      "rule": "ART-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `cynic-pool` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "count": 1,
+      "rule": "ART-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-001-PHANTOM-ARTIFACT|infra/runtime-basket.json accounts for a binary named `zeroclaw-solana-demo` that no workspace manifest declares. A role bundle selecting this artefact cannot activate, and `missing_required_artifact` is `blocked`.",
+      "count": 1,
+      "rule": "ART-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-proxmox/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
+      "count": 1,
+      "rule": "ART-002",
+      "severity": "warning"
+    },
+    {
+      "identity": "ART-002-AUTOBINS-NOT-FROZEN|crates/cynic-surreal/Cargo.toml does not set `autobins = false`. Cargo will autodiscover every src/main.rs and src/bin/*.rs in this crate as a deployment artefact.",
+      "count": 1,
+      "rule": "ART-002",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|contracts/foundation.json declares path infra/systemd which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/application/peer_attach.rs which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/domain/matrix_sweep/empirical_store.rs which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/module-inversion-ledger.json declares path crates/cynic-inference/src/ports/model_registry_port.rs which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/cynic-kernel.service which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/cynic-node.service which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/installed/cynic-kernel.service which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-001-DECLARED-ABSENT|infra/runtime-authority.json declares path infra/systemd/installed/cynic-node.service which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-001",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/autoresearch_observer.rs:25 cites path infra/autoresearch_report.json which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-002",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-host/src/organic_opportunity/rate_classify_observer.rs:28 cites path infra/rate_classify_report.json which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-002",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-002-CITED-ABSENT|crates/cynic-protocol/src/runtime/layers.rs:181 cites path infra/surreal_init.surql which does not exist in the working tree",
+      "count": 1,
+      "rule": "PATH-002",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/path_rules.rs:18 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/rules.rs:358 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/runtime_divergence.rs:224 embeds runtime path /opt/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-audit-engine/src/scanner.rs:238 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-build/src/build_artefact.rs:4 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-build/src/compressor.rs:61 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface.rs:196 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface/services.rs:15 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface/services.rs:33 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface/services.rs:76 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/build_surface/services.rs:77 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/daemon_surface.rs:15 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/deps_surface_specs.rs:44 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/deps_surface_upgrade.rs:320 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/discovery_surface.rs:41 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/network_surface.rs:179 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/network_surface/base.rs:265 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/activation.rs:16 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/activation.rs:52 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/activation.rs:56 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:122 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:133 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:167 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:169 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:186 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:188 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:207 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:216 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:225 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:253 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:281 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:283 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:304 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:306 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/node_surface/mod.rs:96 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/privilege_surface.rs:26 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/privilege_surface.rs:328 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/privilege_surface.rs:405 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_paths.rs:258 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_paths.rs:401 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_paths.rs:405 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_paths.rs:412 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_surface.rs:287 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_surface.rs:412 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_surface/report.rs:15 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_surface/report.rs:16 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/runtime_surface/report/build.rs:112 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/source_surface.rs:77 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-cli/src/source_surface.rs:79 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/fs_window_journal.rs:18 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/fs_window_journal.rs:6 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/http_freebox_probe_adapter.rs:42 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_build_artefact.rs:2 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_build_artefact.rs:26 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_disk.rs:206 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_disk.rs:230 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/local_disk.rs:340 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_build_artefact.rs:102 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_build_artefact.rs:133 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_build_artefact.rs:88 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_queue.rs:115 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_queue.rs:127 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/adapters/remote_queue.rs:152 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/agent/cleanup.rs:53 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/build_evidence.rs:65 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/credential.rs:23 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/credential.rs:34 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/credential_provisioning.rs:23 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/domain/build_artefact/probe.rs:10 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/domain/build_artefact/probe.rs:66 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/federation_runtime.rs:320 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/federation_runtime.rs:352 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/build_runner.rs:379 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle.rs:292 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle.rs:324 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:45 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:54 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:55 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:56 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:57 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/node_control.rs:58 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:134 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:135 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:187 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:195 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:201 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:211 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:213 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:216 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:219 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:228 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/bundle/tests.rs:24 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install.rs:159 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install/tests.rs:109 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install/tests.rs:124 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install/tests.rs:59 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install/tests.rs:63 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/cli_install/tests.rs:66 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/propagation/observe.rs:6 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/propagation/observe.rs:7 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/propagation/plan.rs:237 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/propagation/plan.rs:253 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/provider_enrollment/tests.rs:13 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/provider_enrollment/tests.rs:20 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/provider_enrollment/tests.rs:21 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/provider_enrollment/tests.rs:24 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/provider_enrollment/tests.rs:38 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/runtime_binding/tests.rs:54 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/runtime_binding/tests.rs:78 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:128 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:129 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:158 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:172 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:173 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:174 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:175 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:177 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:178 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:180 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:41 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:42 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:43 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:45 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:46 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/framework_bootstrap/scripts.rs:49 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/host_bootstrap_evidence.rs:70 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/lab/bundle.rs:181 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/lab/bundle.rs:182 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/lab/bundle.rs:243 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/lab/bundle.rs:252 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/local_autonomy_runtime.rs:90 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/node_identity_workflow.rs:8 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/principal_prepare/tests.rs:68 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/principal_prepare/tests.rs:69 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/privilege/capability_catalog.rs:23 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/registry/scan.rs:75 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/registry/scan.rs:76 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_authority.rs:58 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_execution_context.rs:176 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_execution_context.rs:222 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_execution_context.rs:304 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_execution_context.rs:327 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_execution_context.rs:338 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_layout.rs:344 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_registry.rs:146 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/runtime_registry.rs:9 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/secret_presence.rs:54 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/ssh_trust/store.rs:6 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/storage_credential_sync/mod.rs:90 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/storage_credential_sync/mod.rs:92 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/storage_primary/bundle.rs:27 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-host/src/vertical_conformance.rs:96 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/adapters/local/docker_supervisor.rs:22 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/adapters/local/process_supervisor.rs:197 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/adapters/publishers/inference_toml.rs:2 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/application/chat_endpoint.rs:305 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/application/chat_endpoint.rs:482 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/config_loader.rs:137 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/config_loader.rs:6 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/domain/chat_trace.rs:46 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-inference/src/infra/domain_task_queue.rs:17 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-kernel/src/bootstrap/entry.rs:100 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-kernel/src/bootstrap/entry.rs:126 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-kernel/src/infra/config_loader/helpers.rs:110 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-kernel/src/infra/config_loader/helpers.rs:117 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-lifecycle/src/state_store.rs:14 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-lifecycle/src/state_store.rs:15 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-lxc/examples/lxc_exec_bridge_demo.rs:12 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-lxc/examples/lxc_exec_bridge_demo.rs:67 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-lxc/src/bundle.rs:12 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-network/src/dns_resolver.rs:6 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/adapters/agent_execution_runtime_observer.rs:13 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/build_attestation.rs:169 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/build_attestation.rs:184 embeds runtime path /usr/local/bin/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/build_attestation.rs:187 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/defaults.rs:138 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/defaults.rs:58 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/defaults.rs:62 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/defaults.rs:74 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:157 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:259 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:260 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:261 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:262 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:263 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:273 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:274 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:275 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:289 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:305 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/config/tests.rs:309 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/dns_contract.rs:525 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/dns_contract.rs:526 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/domain/runtime_federation.rs:43 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/main.rs:74 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/peer_commands.rs:15 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/peer_commands.rs:27 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/peer_commands.rs:51 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/ports/build_runner_adapter.rs:127 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/ports/build_runner_adapter.rs:142 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/ports/build_runner_adapter.rs:147 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/ports/build_runner_adapter.rs:149 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/ports/build_runner_adapter.rs:152 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/usecases/network_sync_uc.rs:183 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-node/src/usecases/network_sync_uc.rs:184 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-pkg/src/layout.rs:23 embeds runtime path /var/log/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:364 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:383 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/agent_host_sandbox.rs:384 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/builder_rbac.rs:48 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/provider/tests.rs:38 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:106 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:111 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:112 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-protocol/src/runtime_seed.rs:113 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-proxmox/src/adapters/proxmox_control.rs:805 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-proxmox/src/adapters/proxmox_control.rs:814 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-proxmox/src/adapters/proxmox_control.rs:857 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:129 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:132 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:134 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:149 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:182 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:66 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:8 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/adapters/file.rs:87 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-secrets/src/lib.rs:65 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-storage/src/credential_sync.rs:4 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-storage/src/evidence_journal_file.rs:4 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:11 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:111 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:27 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:32 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-types/src/paths.rs:81 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-vcs-forgejo/src/forgejo_token.rs:29 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-vcs-forgejo/src/forgejo_token.rs:30 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-vcs-forgejo/src/registry_binding.rs:85 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-vcs/src/forgejo_port.rs:39 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-LITERAL-TRACKED|crates/cynic-vcs/src/forgejo_token.rs:44 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-host/src/principal_prepare/tests.rs:67 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-host/src/runtime_authority.rs:56 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-host/src/runtime_authority.rs:57 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-host/src/runtime_authority.rs:66 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-host/src/runtime_authority.rs:69 embeds runtime path /etc/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-pkg/src/layout.rs:21 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PATH-004-UNREGISTERED-PLACEMENT|crates/cynic-pkg/src/layout.rs:22 embeds runtime path /var/lib/cynic which the canonical registry (infra/directory-tree.json) does not declare",
+      "count": 1,
+      "rule": "PATH-004",
+      "severity": "warning"
+    },
+    {
+      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` \u2014 code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "count": 1,
+      "rule": "PROSE-001",
+      "severity": "warning"
     },
     {
       "identity": "RUN-001-CREDENTIAL-IN-UNIT|1 unit file(s) hold a credential value in cleartext. The value is not reported: file and variable name only. /etc/systemd/system/forgejo.service [FORGEJO__INSTALL_KEY]",
@@ -1318,25 +2944,19 @@
       "severity": "critical"
     },
     {
-      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|5 service(s) declared in infra/registry.json have no unit on this host: cynic-kernel, forgejo-backend, headscale, runtime-artifact-store, surrealdb",
+      "identity": "RUN-001-DECLARED-SERVICE-ABSENT|6 service(s) declared in infra/registry.json have no unit on this host: cynic-kernel, embedding-server, forgejo-backend, headscale, runtime-artifact-store, surrealdb",
       "count": 1,
       "rule": "RUN-001",
-      "severity": "critical"
+      "severity": "warning"
     },
     {
-      "identity": "RUN-001-STALE-CLAIM|52 claim(s) are marked active and are past their own TTL: hermes:build-extract:crates/cynic-cli/src, hermes:build-extract:crates/cynic-node/Cargo.toml, hermes:build-extract:crates/cynic-node/src, hermes:build-extract:crates/cynic-protocol/Cargo.toml, hermes:build-extract:crates/cynic-protocol/src/build, hermes:build-extract:crates/cynic-protocol/src/build_node.rs, hermes:build-extract:crates/cynic-protocol/src/health_signal/types.rs, hermes:build-extract:crates/cynic-protocol/src/peer_resolver.rs, hermes:build-extract:crates/cynic-protocol/src/release_publication.rs, hermes:build-extract:crates/cynic-protocol/src/runtime_release.rs, hermes:build-extract:crates/cynic-protocol/src/source_release.rs, hermes:build-hex:crates/cynic-build/Cargo.toml, hermes:build-hex:crates/cynic-build/tests/architecture_boundary.rs, hermes:build-hex:crates/cynic-host/src/build_workflow.rs, hermes:crates/cynic-protocol, hermes:crates/cynic-protocol, hermes:node-debt:crates/cynic-node/src/network_mesh_plan.rs, hermes:node-debt:crates/cynic-node/src/usecases/build_scheduler/lifecycle.rs, hermes:parcel-settlement:crates/cynic-protocol/src/agent_workload/settlement.rs, hermes:storage-debt:crates/cynic-storage/src/wal/frame.rs, hermes:storage-debt:crates/cynic-storage/src/wal/mod.rs, hermes:workload-extract:Cargo.toml, hermes:workload-extract:crates/cynic-build/src/build/agent_workload.rs, hermes:workload-extract:crates/cynic-build/src/build/workload_grant.rs, hermes:workload-extract:crates/cynic-build/tests/workload_build_integration.rs, hermes:workload-extract:crates/cynic-cli/Cargo.toml, hermes:workload-extract:crates/cynic-cli/src, hermes:workload-extract:crates/cynic-host/Cargo.toml, hermes:workload-extract:crates/cynic-host/src, hermes:workload-extract:crates/cynic-inference/Cargo.toml, hermes:workload-extract:crates/cynic-inference/src/application/agent_harness/runtime_adapter.rs, hermes:workload-extract:crates/cynic-kernel/Cargo.toml, hermes:workload-extract:crates/cynic-kernel/src, hermes:workload-extract:crates/cynic-node/Cargo.toml, hermes:workload-extract:crates/cynic-node/src, hermes:workload-extract:crates/cynic-protocol/src/agent_workload, hermes:workload-extract:crates/cynic-protocol/src/capability_responsibility.rs, hermes:workload-extract:crates/cynic-protocol/src/lib.rs, hermes:workload-extract:crates/cynic-protocol/src/lib.rs, hermes:workload-extract:crates/cynic-protocol/src/source_change_submission.rs, opencode-audit:crates/cynic-inference/src/domain, opencode-gov:contracts/foundation.json, opencode-gov:crates/cynic-protocol/src/constitutional_law.rs, opencode-gov:docs/README.md, opencode-gov:infra/CANONICAL_CRATE_MAP.md, opencode-gov:infra/directory-tree.json, opencode-gov:infra/runtime-authority.json, opencode-inference-audit:crates/cynic-cli/src/root_dispatch.rs, opencode-inference-audit:crates/cynic-cli/src/runtime_surface.rs, opencode-inference-audit:crates/cynic-cli/src/source_surface.rs, opencode-inference-audit:crates/cynic-cli/src/surface_registry/assembler/tests.rs, opencode-inference-audit:crates/cynic-cli/tests/architecture_boundary.rs",
-      "count": 1,
-      "rule": "RUN-001",
-      "severity": "critical"
-    },
-    {
-      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/runtime-checkpoints/2026-08-05-cli-artifact-identity-observation.json",
-      "count": 1,
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/binary-locations.json",
+      "count": 2,
       "rule": "SEC-001",
       "severity": "warning"
     },
     {
-      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/runtime-checkpoints/2026-08-05-mcp-artifact-compatibility-observation.json",
+      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/workspace-paths.json",
       "count": 1,
       "rule": "SEC-001",
       "severity": "warning"
