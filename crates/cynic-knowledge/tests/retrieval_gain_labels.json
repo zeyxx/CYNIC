@@ -84,7 +84,7 @@
       "query": "how do mesh peers reach consensus",
       "trap": false,
       "grades": {
-        "docs/specs/network-topology-design.md": 2
+        "docs/specs/cynic-stage2-peer-and-ledger.md": 2
       }
     },
     {
