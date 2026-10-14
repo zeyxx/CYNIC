@@ -2,6 +2,7 @@
 //! Default target: local llama-server on :8081 with Qwen3-Embedding.
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -162,6 +163,13 @@ const EMBED_BATCH_SIZE: usize = 32;
 /// Upper clamp: beyond this the server-side physical batch (not ours) does
 /// the splitting, so bigger lots only add latency, never throughput.
 const EMBED_BATCH_MAX: usize = 128;
+/// Sub-lot per in-flight request: small enough to fit one server slot, so
+/// WIDTH of them keep every slot fed without queueing behind a giant lot.
+const FANOUT_SUB_LOT: usize = 8;
+/// Default concurrent in-flight requests; the sequential client starves the
+/// server (GPU ~10% busy observed live), so fan-out is the throughput lever.
+const FANOUT_DEFAULT_WIDTH: usize = 4;
+const FANOUT_MAX_WIDTH: usize = 8;
 
 /// Calibration lever (crate-visible): lot size follows `CYNIC_EMBED_LOT_SIZE`
 /// (default 32) so batch/ubatch sweeps can run without recompiling.
@@ -175,6 +183,17 @@ fn parse_lot_size(raw: Option<&str>) -> usize {
     raw.and_then(|text| text.parse::<usize>().ok())
         .filter(|size| (1..=EMBED_BATCH_MAX).contains(size))
         .unwrap_or(EMBED_BATCH_SIZE)
+}
+
+/// Concurrent in-flight requests; 1 restores strict sequential behavior.
+fn parse_fanout_width(raw: Option<&str>) -> usize {
+    raw.and_then(|text| text.parse::<usize>().ok())
+        .filter(|width| (1..=FANOUT_MAX_WIDTH).contains(width))
+        .unwrap_or(FANOUT_DEFAULT_WIDTH)
+}
+
+fn fanout_width() -> usize {
+    parse_fanout_width(std::env::var("CYNIC_EMBED_WIDTH").ok().as_deref())
 }
 
 #[async_trait]
@@ -198,17 +217,29 @@ impl EmbeddingBackend {
         texts: &[&str],
         report: &(dyn Fn(usize, usize) + Sync),
     ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let width = fanout_width();
+        // Fan sub-lots of 8 across WIDTH concurrent round-trips so every
+        // server slot stays fed; `buffered` preserves input order while
+        // polling WIDTH futures at once.
+        let sublots: Vec<(usize, Vec<String>)> = texts
+            .chunks(FANOUT_SUB_LOT)
+            .enumerate()
+            .map(|(sub_no, lot)| (sub_no, lot.iter().map(|text| (*text).to_string()).collect()))
+            .collect();
+        let total_sublots = sublots.len();
         let mut out = Vec::with_capacity(texts.len());
-        let lots = texts.chunks(lot_size()).len();
-        for (lot_no, lot) in texts.chunks(lot_size()).enumerate() {
-            let inputs = lot.iter().map(|text| (*text).to_string()).collect();
-            let mut batch = self.post_batch(inputs).await.map_err(|error| {
-                EmbeddingError::Protocol(format!(
-                    "lot {}/{lots} ({lot} inputs) failed: {error}",
-                    lot_no + 1,
-                    lot = lot.len()
-                ))
-            })?;
+        let mut stream =
+            futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| async move {
+                let batch = self.post_batch(inputs).await.map_err(|error| {
+                    EmbeddingError::Protocol(format!(
+                        "sub-lot {}/{total_sublots} failed: {error}",
+                        sub_no + 1
+                    ))
+                })?;
+                Ok::<_, EmbeddingError>((sub_no, batch))
+            }))
+            .buffered(width);
+        while let Some((_, mut batch)) = stream.next().await.transpose()? {
             out.append(&mut batch);
             report(out.len(), texts.len());
         }
@@ -286,5 +317,13 @@ mod tests {
         assert_eq!(parse_lot_size(Some("0")), EMBED_BATCH_SIZE);
         assert_eq!(parse_lot_size(Some("9999")), EMBED_BATCH_SIZE);
         assert_eq!(parse_lot_size(Some("not-a-number")), EMBED_BATCH_SIZE);
+    }
+
+    #[test]
+    fn fanout_width_defaults_and_clamps() {
+        assert_eq!(parse_fanout_width(None), FANOUT_DEFAULT_WIDTH);
+        assert_eq!(parse_fanout_width(Some("1")), 1);
+        assert_eq!(parse_fanout_width(Some("0")), FANOUT_DEFAULT_WIDTH);
+        assert_eq!(parse_fanout_width(Some("99")), FANOUT_DEFAULT_WIDTH);
     }
 }
