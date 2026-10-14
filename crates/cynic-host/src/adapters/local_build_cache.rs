@@ -516,7 +516,7 @@ fn observe_unlinked_checkouts(
 fn has_workload_record(store: &Path, workload_id: &str) -> bool {
     if workload_id.is_empty()
         || workload_id.contains('/')
-        || workload_id.contains('\\0')
+        || workload_id.contains('\0')
     {
         return false;
     }
