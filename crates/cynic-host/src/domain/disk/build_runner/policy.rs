@@ -151,6 +151,14 @@ pub fn reconcile_build_cache(
     {
         blockers.push("build_cache_observation_identity_mismatch".to_string());
         BuildCacheDecision::Blocked
+    } else if !ephemeral_eligible(desired, observed).is_empty() {
+        // Dead weight goes before everything else, including the
+        // non-canonical refusal: ephemeral entries are verified dead
+        // (terminal workspaces) or retention-aged (checkouts past the hard
+        // cap, or past the pressure grace under pressure), while a present
+        // non-canonical cache may still be live. Reclaiming the dead first
+        // is strictly safer than refusing on the ungoverned.
+        BuildCacheDecision::ReclaimEphemeral
     } else if !observed.observed_noncanonical_cache_paths.is_empty() {
         blockers.push("noncanonical_build_cache_present".to_string());
         BuildCacheDecision::Blocked
@@ -165,12 +173,6 @@ pub fn reconcile_build_cache(
         BuildCacheDecision::Blocked
     } else if !observed.unknowns.is_empty() {
         BuildCacheDecision::Blocked
-    } else if !ephemeral_eligible(desired, observed).is_empty() {
-        // Dead weight goes before warm caches: ephemeral entries are
-        // verified dead (terminal workspaces) or retention-aged (checkouts
-        // past the hard cap, or past the pressure grace under pressure),
-        // while the canonical profile is a warm cache with a rebuild cost.
-        BuildCacheDecision::ReclaimEphemeral
     } else if observed
         .available_bytes
         .is_some_and(|bytes| bytes >= desired.minimum_available_bytes)
