@@ -35,7 +35,7 @@ pub fn parse_json_contract_with_authority(
             return vec![DocumentChunk::new(
                 source_path.to_string(),
                 1,
-                content.lines().count(),
+                content.lines().count().max(1),
                 vec![format!("Contract: {}", source_path)],
                 content.to_string(),
                 authority,
@@ -43,8 +43,10 @@ pub fn parse_json_contract_with_authority(
         }
     };
 
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len().max(1);
+
     if let Value::Object(map) = val {
-        // If the contract has a schema or description, extract it
         let title = map
             .get("name")
             .or_else(|| map.get("contract"))
@@ -53,15 +55,25 @@ pub fn parse_json_contract_with_authority(
             .unwrap_or(source_path)
             .to_string();
 
-        // Group into concise chunks
+        let spans = find_json_top_level_spans(content);
+
+        // Group into concise chunks with exact line coordinates
         for (key, section_val) in map {
-            let section_str = serde_json::to_string_pretty(&section_val).unwrap_or_default();
+            let (line_start, line_end, chunk_content) = if let Some(&(start, end)) = spans.get(&key)
+            {
+                let slice = lines[start.saturating_sub(1)..end.min(total_lines)].join("\n");
+                (start, end, slice)
+            } else {
+                let section_str = serde_json::to_string_pretty(&section_val).unwrap_or_default();
+                (1, total_lines, format!("{}:\n{}", key, section_str))
+            };
+
             chunks.push(DocumentChunk::new(
                 source_path.to_string(),
-                1,
-                content.lines().count(),
+                line_start,
+                line_end,
                 vec![format!("Contract: {}", title), format!("Field: {}", key)],
-                format!("{}:\n{}", key, section_str),
+                chunk_content,
                 authority,
             ));
         }
@@ -69,7 +81,7 @@ pub fn parse_json_contract_with_authority(
         chunks.push(DocumentChunk::new(
             source_path.to_string(),
             1,
-            content.lines().count(),
+            total_lines,
             vec![format!("Contract: {}", source_path)],
             content.to_string(),
             AuthorityTier::L0Constitution,
@@ -77,4 +89,40 @@ pub fn parse_json_contract_with_authority(
     }
 
     chunks
+}
+
+/// Locates 1-indexed (line_start, line_end) for top-level JSON keys in formatted text.
+fn find_json_top_level_spans(content: &str) -> std::collections::HashMap<String, (usize, usize)> {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut spans = std::collections::HashMap::new();
+    let mut current_key: Option<String> = None;
+    let mut current_start = 1;
+
+    for (idx, line) in lines.iter().enumerate() {
+        let line_num = idx + 1;
+        let trimmed = line.trim_start();
+        if (line.starts_with("  \"") || line.starts_with("\t\"")) && trimmed.starts_with('"') {
+            if let Some(colon_pos) = trimmed.find("\":") {
+                let key = &trimmed[1..colon_pos];
+                if let Some(prev_key) = current_key.take() {
+                    let end_line = line_num.saturating_sub(1);
+                    spans.insert(prev_key, (current_start, end_line.max(current_start)));
+                }
+                current_key = Some(key.to_string());
+                current_start = line_num;
+            }
+        }
+    }
+
+    if let Some(prev_key) = current_key {
+        let mut end_line = lines.len();
+        while end_line > current_start
+            && (lines[end_line - 1].trim() == "}" || lines[end_line - 1].trim().is_empty())
+        {
+            end_line -= 1;
+        }
+        spans.insert(prev_key, (current_start, end_line.max(current_start)));
+    }
+
+    spans
 }
