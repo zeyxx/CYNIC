@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::{self, Burn, Token2022};
+use anchor_spl::token::{self as spl_token, Burn as SplBurn, ID as SPL_TOKEN_ID};
+use anchor_spl::token_2022::{self, Burn as Token2022Burn};
 
 pub mod state;
 use state::*;
@@ -101,14 +102,23 @@ pub mod cynic_anchor {
     pub fn execute_ignis_burn(ctx: Context<ExecuteIgnisBurn>, amount: u64) -> Result<()> {
         let mut vault = ctx.accounts.ignis_vault.load_mut()?;
         
-        let cpi_accounts = Burn {
-            mint: ctx.accounts.mint.to_account_info(),
-            from: ctx.accounts.token_source.to_account_info(),
-            authority: ctx.accounts.payer.to_account_info(),
-        };
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        token_2022::burn(cpi_ctx, amount)?;
+
+        if *cpi_program.key == SPL_TOKEN_ID {
+            let cpi_ctx = CpiContext::new(cpi_program.clone(), SplBurn {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: ctx.accounts.token_source.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(),
+            });
+            spl_token::burn(cpi_ctx, amount)?;
+        } else {
+            let cpi_ctx = CpiContext::new(cpi_program, Token2022Burn {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: ctx.accounts.token_source.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(),
+            });
+            token_2022::burn(cpi_ctx, amount)?;
+        }
 
         vault.total_burned_units += amount;
         vault.last_burn_timestamp = Clock::get()?.unix_timestamp;
@@ -173,7 +183,7 @@ pub struct ExecuteIgnisBurn<'info> {
     pub token_source: AccountInfo<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
-    pub token_program: Program<'info, Token2022>,
+    pub token_program: AccountInfo<'info>, // Routed: Token program for ASDF (legacy), Token-2022 for pump v2 mints.
 }
 
 #[error_code]
