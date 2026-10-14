@@ -22,9 +22,10 @@ use serde::Deserialize;
 const TOP_K: usize = 5;
 const DENSE_K: usize = 20;
 /// Server batch ceiling (llama-server physical batch 512 tokens): inputs are
-/// front-truncated to stay under it. A measurement decision, not bridge
-/// behavior — the bridge must surface oversize inputs as errors, never clip.
-const MAX_EMBED_CHARS: usize = 1500;
+/// front-truncated to stay under it. 1000 chars ≈ 370 tokens even on dense
+/// code chunks (~2.7 chars/token observed live). A measurement decision, not
+/// bridge behavior — the bridge must surface oversize inputs as errors.
+const MAX_EMBED_CHARS: usize = 1000;
 
 #[derive(Debug, Deserialize)]
 struct Fixture {
@@ -107,14 +108,32 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
 
     let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
     chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
+    let corpus_start = std::time::Instant::now();
+    let last_report = std::cell::Cell::new(0usize);
     let raw_vectors = bridge
-        .embed_batch(
+        .embed_batch_reported(
             &chunks
                 .iter()
                 .map(|c| truncate_front(c.content.as_str()))
                 .collect::<Vec<_>>(),
+            &|done, total| {
+                // Throttle to every ~10 lots: one line per ~320 chunks.
+                if done >= last_report.get() + 320 || done == total {
+                    last_report.set(done);
+                    println!(
+                        "EMBED {done}/{total} chunks ({}%) elapsed={:.0}s",
+                        done * 100 / total,
+                        corpus_start.elapsed().as_secs_f32()
+                    );
+                }
+            },
         )
         .expect("corpus vectors");
+    println!(
+        "EMBED done: {} vectors in {:.0}s",
+        raw_vectors.len(),
+        corpus_start.elapsed().as_secs_f32()
+    );
     let vectors: Vec<ChunkVector> = chunks
         .iter()
         .zip(raw_vectors)
