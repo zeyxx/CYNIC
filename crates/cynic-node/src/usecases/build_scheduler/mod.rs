@@ -152,6 +152,7 @@ async fn execute_claimed(
         execution_cancel.clone(),
         shutdown.clone(),
     ));
+    let prepare_start = Instant::now();
     let prepared = match prepare::prepare(
         control,
         scheduler,
@@ -172,9 +173,12 @@ async fn execute_claimed(
             return Ok(());
         }
     };
+    let prepare_ms = prepare_start.elapsed().as_millis() as u64;
+    let execute_start = Instant::now();
     let execution = TokioBuildExecution
         .execute(&prepared.execution, &execution_cancel)
         .await;
+    let execute_ms = execute_start.elapsed().as_millis() as u64;
     let workload_id = &prepared.durable.record.envelope.workload_id;
     let after_execution = store
         .read(workload_id)
@@ -341,6 +345,17 @@ async fn execute_claimed(
 
         let settlement_elapsed = started.elapsed();
         let settlement_unknowns = unknowns.clone();
+        // Queue wait: first claim time minus durable commit time. Uses
+        // latest.committed_at_ms (immutable across revisions) and the claim's
+        // granted_at_ms (fixed at initial claim, unchanged by renewals).
+        let first_claim_ms = latest
+            .record
+            .claim
+            .as_ref()
+            .map(|c| c.granted_at_ms)
+            .unwrap_or(0);
+        let (queue_wait_ms, queue_wait_clamped) =
+            compute_queue_wait_ms(first_claim_ms, latest.committed_at_ms);
         let _receipt = match lifecycle::finish(
             store,
             &latest,
@@ -365,6 +380,10 @@ async fn execute_claimed(
                     settlement_elapsed,
                     measured_cpu_ms,
                     receipt.settled_at_ms,
+                    prepare_ms,
+                    execute_ms,
+                    queue_wait_ms,
+                    queue_wait_clamped,
                 );
                 receipt
             }
@@ -431,6 +450,18 @@ fn persist_cancellation_proof(workload_id: &str, revision: u64) {
     }
 }
 
+/// Compute queue wait duration from first claim time and commit time.
+/// Returns `(queue_wait_ms, clamped)` where `clamped` is true when clock
+/// skew produced a negative raw wait (proofs never show negative durations).
+fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, bool) {
+    let raw = first_claim_ms as i64 - committed_at_ms as i64;
+    if raw < 0 {
+        (0, true)
+    } else {
+        (raw as u64, false)
+    }
+}
+
 /// Build the canonical settlement proof evidence ref. Pure: serializes the
 /// settlement facts to canonical JSON and digests them with SHA3-512.
 pub(crate) fn settlement_proof_evidence_ref(
@@ -440,6 +471,10 @@ pub(crate) fn settlement_proof_evidence_ref(
     elapsed: Duration,
     measured_cpu_ms: Option<u64>,
     settled_at_ms: u64,
+    prepare_ms: u64,
+    execute_ms: u64,
+    queue_wait_ms: u64,
+    queue_wait_clamped: bool,
 ) -> Result<String, serde_json::Error> {
     let proof = serde_json::json!({
         "workload_id": workload_id,
@@ -448,6 +483,10 @@ pub(crate) fn settlement_proof_evidence_ref(
         "elapsed_ms": elapsed.as_millis(),
         "measured_cpu_ms": measured_cpu_ms,
         "settled_at_ms": settled_at_ms,
+        "prepare_ms": prepare_ms,
+        "execute_ms": execute_ms,
+        "queue_wait_ms": queue_wait_ms,
+        "queue_wait_clamped": queue_wait_clamped,
     });
     cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-settlement:{digest}"))
@@ -460,6 +499,10 @@ fn persist_settlement_proof(
     elapsed: Duration,
     measured_cpu_ms: Option<u64>,
     settled_at_ms: u64,
+    prepare_ms: u64,
+    execute_ms: u64,
+    queue_wait_ms: u64,
+    queue_wait_clamped: bool,
 ) {
     let evidence_ref = settlement_proof_evidence_ref(
         workload_id,
@@ -468,6 +511,10 @@ fn persist_settlement_proof(
         elapsed,
         measured_cpu_ms,
         settled_at_ms,
+        prepare_ms,
+        execute_ms,
+        queue_wait_ms,
+        queue_wait_clamped,
     )
     .unwrap_or_else(|_| format!("scheduler-settlement:{workload_id}"));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
@@ -587,10 +634,10 @@ mod tests {
         assert!(ordered.is_empty());
     }
 
-    /// Regression: settlement proof persists reasons and timings. The
-    /// settlement evidence ref must be a `scheduler-settlement:{digest}`
-    /// over the canonical JSON `{workload_id, status, unknowns, elapsed_ms,
-    /// measured_cpu_ms, settled_at_ms}`.
+    /// Regression: settlement proof persists reasons, timings, and stage
+    /// durations. The settlement evidence ref must be a
+    /// `scheduler-settlement:{digest}` over the canonical JSON including
+    /// `prepare_ms`, `execute_ms`, `queue_wait_ms`, and `queue_wait_clamped`.
     #[test]
     fn settlement_proof_persists_reasons_and_timings() {
         let workload_id = "test-workload-123";
@@ -602,6 +649,10 @@ mod tests {
         let elapsed = Duration::from_millis(1500);
         let measured_cpu_ms = Some(750);
         let settled_at_ms = 1_700_000_000_000_u64;
+        let prepare_ms = 250_u64;
+        let execute_ms = 1200_u64;
+        let queue_wait_ms = 500_u64;
+        let queue_wait_clamped = false;
 
         let evidence_ref = settlement_proof_evidence_ref(
             workload_id,
@@ -610,6 +661,10 @@ mod tests {
             elapsed,
             measured_cpu_ms,
             settled_at_ms,
+            prepare_ms,
+            execute_ms,
+            queue_wait_ms,
+            queue_wait_clamped,
         )
         .expect("settlement proof evidence ref");
 
@@ -632,12 +687,36 @@ mod tests {
             "elapsed_ms": 1500_u64,
             "measured_cpu_ms": 750_u64,
             "settled_at_ms": settled_at_ms,
+            "prepare_ms": prepare_ms,
+            "execute_ms": execute_ms,
+            "queue_wait_ms": queue_wait_ms,
+            "queue_wait_clamped": queue_wait_clamped,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
             digest, expected_digest,
-            "settlement proof digest mismatch — unknowns/elapsed/status not persisted"
+            "settlement proof digest mismatch — stage timings not persisted"
         );
+    }
+
+    /// Regression: a negative raw queue wait (clock skew) must clamp to 0
+    /// with `queue_wait_clamped: true` so proofs never show negative waits.
+    #[test]
+    fn queue_wait_clamps_negative_raw_to_zero() {
+        // Simulate clock skew: first claim timestamp is BEFORE committed_at
+        let (wait, clamped) = compute_queue_wait_ms(900, 1000);
+        assert_eq!(wait, 0, "negative raw wait must clamp to 0");
+        assert!(clamped, "clamped flag must be set when skew detected");
+
+        // Normal case: claim after commit
+        let (wait, clamped) = compute_queue_wait_ms(1500, 1000);
+        assert_eq!(wait, 500, "normal wait must be preserved");
+        assert!(!clamped, "clamped flag must be false when no skew");
+
+        // Edge: exact same timestamp
+        let (wait, clamped) = compute_queue_wait_ms(1000, 1000);
+        assert_eq!(wait, 0, "zero wait must stay 0");
+        assert!(!clamped, "zero wait is not skew");
     }
 
     /// Settlement proof with no unknowns and no measured CPU still produces a
@@ -651,6 +730,10 @@ mod tests {
             Duration::ZERO,
             None,
             42,
+            0,
+            0,
+            0,
+            false,
         )
         .expect("settlement proof evidence ref");
 
@@ -665,6 +748,10 @@ mod tests {
             "elapsed_ms": 0_u64,
             "measured_cpu_ms": serde_json::Value::Null,
             "settled_at_ms": 42_u64,
+            "prepare_ms": 0_u64,
+            "execute_ms": 0_u64,
+            "queue_wait_ms": 0_u64,
+            "queue_wait_clamped": false,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
