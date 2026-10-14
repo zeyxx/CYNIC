@@ -51,6 +51,8 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
         }
         let (observed_ephemeral, ephemeral_skipped) =
             observe_ephemeral(desired, state_root, temporary_root);
+        let unlinked_checkouts =
+            observe_unlinked_checkouts(desired, state_root, &observed_ephemeral);
         BuildCacheObservation {
             schema: BUILD_CACHE_OBSERVATION_SCHEMA,
             node_id: desired.node_id.clone(),
@@ -61,8 +63,9 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
             reclaim_profile_state,
             preserved_profile_states,
             observed_noncanonical_cache_paths,
-            observed_ephemeral,
+            observed_ephemeral: observed_ephemeral.clone(),
             ephemeral_skipped,
+            unlinked_checkouts,
             unknowns,
         }
     }
@@ -471,6 +474,63 @@ fn observe_ephemeral(
     }
     observed.sort_by(|left, right| left.path.cmp(&right.path));
     (observed, skipped)
+}
+
+/// Observe evidence checkouts whose name matches no workload record in any
+/// configured workload store. A checkout is "linked" when a directory named
+/// after it exists under a workload store and contains at least one
+/// `revision-*.json` record. Unlinked checkouts are reported here — an
+/// observation surface for operators, never an eligibility input.
+fn observe_unlinked_checkouts(
+    desired: &BuildCacheDesiredState,
+    state_root: &Path,
+    observed: &[EphemeralEntry],
+) -> Vec<String> {
+    let store_paths: Vec<PathBuf> = desired
+        .ephemeral_scopes
+        .iter()
+        .filter(|scope| scope.kind == EphemeralKind::WorkloadWorkspace)
+        .filter_map(|scope| scope.workload_store_relative_path.as_ref())
+        .map(|relative| state_root.join(relative))
+        .collect();
+    let mut unlinked: Vec<String> = observed
+        .iter()
+        .filter(|entry| entry.kind == EphemeralKind::EvidenceCheckout)
+        .filter(|entry| {
+            let Some(name) = Path::new(&entry.path).file_name().and_then(|n| n.to_str())
+            else {
+                return false;
+            };
+            !store_paths.iter().any(|store| has_workload_record(store, name))
+        })
+        .map(|entry| entry.path.clone())
+        .collect();
+    unlinked.sort();
+    unlinked
+}
+
+/// Check whether a workload record directory exists and contains at least
+/// one `revision-*.json` file. Any doubt (missing directory, unreadable
+/// entry, unparseable name) resolves to `false` — the checkout is then
+/// reported as unlinked.
+fn has_workload_record(store: &Path, workload_id: &str) -> bool {
+    if workload_id.is_empty()
+        || workload_id.contains('/')
+        || workload_id.contains('\0')
+    {
+        return false;
+    }
+    let record_dir = store.join(workload_id);
+    let Ok(entries) = fs::read_dir(&record_dir) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            return false;
+        };
+        name.starts_with("revision-") && name.ends_with(".json")
+    })
 }
 
 /// Strict name patterns: checkouts are `cynic-<hex>` evidence clones,
@@ -991,6 +1051,46 @@ mod tests {
             .expect_err("live workspace must abort");
         assert!(error.contains("workspace_live"), "got: {error}");
         assert!(live.is_dir(), "the refused workspace must be untouched");
+    }
+
+    #[test]
+    fn observe_surfaces_unlinked_checkouts() {
+        let root = tempfile::tempdir().unwrap();
+        let checkouts = root.path().join("checkouts");
+        fs::create_dir_all(checkouts.join("cynic-aaaabbbb")).unwrap();
+        fs::create_dir_all(checkouts.join("cynic-ccccdddd")).unwrap();
+        fs::create_dir_all(checkouts.join("cynic-eeeeeeee")).unwrap();
+        // Link cynic-aaaabbbb to a workload record in the store.
+        write_record(root.path(), "cynic-aaaabbbb", "completed");
+        let mut scopes = vec![checkout_scope()];
+        scopes.push(EphemeralScope {
+            base: "state_root".to_string(),
+            relative_path: "ws".to_string(),
+            kind: EphemeralKind::WorkloadWorkspace,
+            workload_store_relative_path: Some("wstore".to_string()),
+        });
+        let desired = retention_desired(root.path(), scopes);
+
+        let observation = LocalBuildCacheAdapter.observe(&desired);
+
+        assert_eq!(
+            observation.unlinked_checkouts.len(),
+            2,
+            "got: {:?}",
+            observation.unlinked_checkouts
+        );
+        assert!(observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-ccccdddd")));
+        assert!(observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-eeeeeeee")));
+        assert!(!observation
+            .unlinked_checkouts
+            .iter()
+            .any(|p| p.ends_with("cynic-aaaabbbb")));
     }
 
     #[test]

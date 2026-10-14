@@ -326,6 +326,7 @@ mod tests {
             request_id: "release-build-a".to_string(),
             requested_by: "release-agent".to_string(),
             source_commit: source_commit.clone(),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
