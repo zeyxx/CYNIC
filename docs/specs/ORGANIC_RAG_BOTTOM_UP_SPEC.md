@@ -48,20 +48,52 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
 - [x] **2.1 Dependency Expansion Traversal:**
   - When a chunk is selected by lexical retrieval, query `KnowledgeGraph` (`crates/cynic-knowledge/src/domain/graph.rs`).
   - Automatically fetch parent contracts (`contracts/*.json`) and architectural constraints linked to the document.
-- [x] **2.2 Matrix Re-Ranking Engine ($S_0..S_4 \times C_0..C_4$):**
-  - Implement dynamic multi-tier scoring:
+- [x] **2.2 Authority tiers (rows of the matrix, live):**
+  - `AuthorityTier` (`crates/cynic-knowledge/src/domain/chunk.rs`) has **four**
+    rows, not five: `L0Constitution` (foundation invariants), `L1Specification`
+    (specs, contracts), `L2Design` (design docs, RFCs), `L3Operation`
+    (operational notes, captures). Registry downgrades in
+    `contracts/authority-tiers.json` (`cynic.knowledge.authority_tiers.v1`).
+  - Authority is stored per chunk and used for **conflict ordering** in graph
+    expansion (L0 outranks lower tiers); there is **no multiplicative
+    re-ranking** in the current code — the formula below is a target, kept
+    here so the gap stays visible:
     $$Score = BM25 \times Boost_{Authority} \times Boost_{Layer} \times Freshness_{Git}$$
-  - $L_0$ (Constitution/Foundation) strictly outranks $L_2$ (Design) in conflict resolution.
-- [x] **2.3 Contradiction & Deprecation Pruning:**
+- [ ] **2.3 Confidence columns ($C_0..C_4$, target — no code counterpart yet):**
+  - $C_0$ retrieved (a chunk came back for the query);
+  - $C_1$ lexically relevant (graded relevance $\ge 1$ on the fixture);
+  - $C_2$ authority-resolved (conflicts settled toward the higher tier);
+  - $C_3$ corroborated (linked to its governing contract via `KnowledgeGraph`);
+  - $C_4$ admitted as proof (usable as evidence in a gated decision).
+  - A memory item moves from one column to the next only through these
+    explicit passages, never by default. No passage is implemented to date:
+    only the $C_0 \to C_1$ measurement exists (fixture MRR, see Phase 3).
+- [x] **2.4 Contradiction & Deprecation Pruning:**
   - Filter out obsolete documents flagged in `contracts/foundation.json` deleted authorities.
 
-### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Sémantique)
+### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Semantic)
 - [x] **3.1 Sovereign Embedding Model Integration:**
-  - Wire local embedding pipeline via `cynic-inference::embedding` or lightweight local GGUF embedding server (`bge-small` / `all-MiniLM-L6-v2`).
+  - `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding`
+    (lxc/106, `10.10.10.106:8080`, DIM 768); consumed through
+    `cynic-inference::SyncEmbeddingBridge` (PR 79, unmerged at time of writing;
+    private runtime, dimensions pinned at probe, drift refused) implementing
+    knowledge's sync `ChunkEmbedder`.
+  - Server constraint observed live: physical batch 512 tokens — inputs above
+    it fail with HTTP 500, so measurement inputs are front-truncated.
 - [x] **3.2 Reciprocal Rank Fusion (RRF):**
   - Combine Sparse BM25 ranks and Dense Vector cosine similarity:
     $$RRF(d) = \sum_{m \in \{BM25, Dense\}} \frac{1}{k + rank_m(d)}$$
-  - Resolves semantic synonymy without losing exact keyword precision.
+  - Measured on the graded fixture (`retrieval_gain_labels.json`,
+    10 pairs / 1 trap / 9 scored, `target/*_gain_measure.json` reports):
+
+    | Backend | Mean MRR (9 queries) | Delta vs BM25 |
+    |---|---|---|
+    | BM25 only | 0.222 | — |
+    | Hybrid + hashed-token stub | 0.133 | -0.089 |
+    | Hybrid + neural (EmbeddingGemma-2) | pending | pending |
+  - Reading: fusion mechanics proven deterministic; the stub dense signal
+    degrades ranking, so the neural run is the one that decides whether dense
+    earns its keep. Gain direction stays warn-only until a neural delta lands.
 
 ### Phase 4: Production-Grade Oracle & Agent Exposure (L3 Surface)
 - [ ] **4.1 In-Tree MCP Exposure (`cynic-mcp`):**
