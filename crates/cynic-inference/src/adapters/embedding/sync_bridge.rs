@@ -72,6 +72,7 @@ mod tests {
     use super::*;
     use crate::domain::embedding::{Embedding, EmbeddingError};
     use async_trait::async_trait;
+    use cynic_knowledge::ChunkEmbedder;
 
     struct FixedBackend {
         dimensions: usize,
