@@ -6,7 +6,6 @@ pub mod agent_matrix;
 pub mod agent_runtime;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
-pub mod bounded_helper;
 pub mod bridge;
 pub mod build_evidence;
 pub mod build_runner_harness;

@@ -1,6 +1,3 @@
-use cynic_types::paths::CynicPaths;
-
-use crate::network_actuator_contract::NETWORK_ACTUATOR_HELPER_FILENAME;
 use crate::network_command_surface::{NetworkCommandSurface, argv_command};
 use crate::network_diagnostic_surface::{NetworkDiagnostic, diagnostic};
 
@@ -8,7 +5,6 @@ use super::context::NetworkActuatorBundleContext;
 
 pub(super) fn preflight_commands(bundle_dir_str: &str) -> Vec<NetworkCommandSurface> {
     vec![
-        cargo_build_helper_command(),
         cargo_run_network_command(
             "bundle",
             vec![
@@ -23,13 +19,11 @@ pub(super) fn preflight_commands(bundle_dir_str: &str) -> Vec<NetworkCommandSurf
 }
 
 pub(super) fn postflight_commands(
-    context: &NetworkActuatorBundleContext,
+    _context: &NetworkActuatorBundleContext,
 ) -> Vec<NetworkCommandSurface> {
-    vec![
-        status_command(),
-        evidence_command(),
-        prove_profile_apply_command(context),
-    ]
+    // No actuation proof here: proving `network-actuate` runs belongs to the
+    // recovery flow on the target node, not to the bundle install plan.
+    vec![status_command(), evidence_command()]
 }
 
 pub(super) fn denial_checks(context: &NetworkActuatorBundleContext) -> Vec<NetworkCommandSurface> {
@@ -38,25 +32,6 @@ pub(super) fn denial_checks(context: &NetworkActuatorBundleContext) -> Vec<Netwo
         deny_wireguard_command(context),
         deny_shell_command(context),
     ]
-}
-
-pub(super) fn prove_profile_apply_command(
-    context: &NetworkActuatorBundleContext,
-) -> NetworkCommandSurface {
-    argv_command(
-        "prove_profile_apply",
-        vec![
-            context.sudo_bin.clone(),
-            "-n".to_string(),
-            context.helper_target.clone(),
-            "apply".to_string(),
-            "--profile".to_string(),
-            "synapse-route".to_string(),
-            "--registry".to_string(),
-            CynicPaths::registry_path().display().to_string(),
-            "--apply".to_string(),
-        ],
-    )
 }
 
 pub(super) fn deny_route_command(context: &NetworkActuatorBundleContext) -> NetworkCommandSurface {
@@ -140,21 +115,6 @@ fn evidence_command() -> NetworkCommandSurface {
     cargo_run_network_command(
         "evidence",
         vec!["evidence".to_string(), "--json".to_string()],
-    )
-}
-
-fn cargo_build_helper_command() -> NetworkCommandSurface {
-    argv_command(
-        "build",
-        vec![
-            "cargo".to_string(),
-            "build".to_string(),
-            "-q".to_string(),
-            "-p".to_string(),
-            "cynic-node".to_string(),
-            "--bin".to_string(),
-            NETWORK_ACTUATOR_HELPER_FILENAME.to_string(),
-        ],
     )
 }
 

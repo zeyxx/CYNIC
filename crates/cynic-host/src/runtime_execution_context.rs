@@ -68,7 +68,7 @@ pub struct RuntimePathEvidence {
     pub state_root: PathStatus,
     pub log_root: PathStatus,
     pub runtime_home: PathStatus,
-    pub host_exec_helper: PathStatus,
+    pub privilege_executor: PathStatus,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -179,7 +179,7 @@ fn observe_runtime_paths(layout: &HostRuntimeLayout) -> RuntimePathEvidence {
         state_root: path_status(&layout.state_dir),
         log_root: path_status(&layout.log_dir),
         runtime_home: path_status(&layout.runtime_home_dir),
-        host_exec_helper: path_status(layout.host_exec_helper_path()),
+        privilege_executor: path_status(layout.privilege_executor_path()),
     }
 }
 
@@ -451,8 +451,8 @@ mod tests {
                 is_file: false,
                 readonly_metadata: Some(false),
             },
-            host_exec_helper: PathStatus {
-                path: "/usr/local/libexec/cynic/cynic-host-exec".to_string(),
+            privilege_executor: PathStatus {
+                path: "/usr/local/bin/cynic".to_string(),
                 exists: false,
                 is_dir: false,
                 is_file: false,

@@ -91,7 +91,7 @@ fn execute_with_runner(
             let layout = current_runtime_layout();
             let capabilities = layout.capabilities();
             let runtime = NetworkActuationRuntime {
-                helper_path: layout.host_exec_helper_path(),
+                executor_path: layout.privilege_executor_path(),
                 sudoers_subject: "cynic",
                 max_timeout_seconds: 60,
                 service_manager_bin: capabilities.service_manager.command,
