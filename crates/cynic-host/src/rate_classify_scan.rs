@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::DateTime;
 use cynic_protocol::rate_classify::{
-    RateReport, WindowedCount, Thresholds, build_report, window_events,
+    RateReport, Thresholds, WindowedCount, build_report, window_events,
 };
 
 use cynic_intel::autoresearch::bucket_signatures;

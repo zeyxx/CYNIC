@@ -4,8 +4,8 @@
 //! distribution; this module only computes entropy, mutual information, and
 //! divergences in bits. Pure, no I/O.
 
-use std::vec::Vec;
 use core::fmt;
+use std::vec::Vec;
 
 pub const INFORMATION_SCHEMA: &str = "cynic.information.v1";
 
@@ -29,11 +29,19 @@ impl fmt::Display for EntropyError {
             Self::EmptyDistribution => f.write_str("empty_distribution"),
             Self::NegativeProbability { index } => write!(f, "negative_probability_at_{index}"),
             Self::NonFiniteProbability { index } => write!(f, "non_finite_probability_at_{index}"),
-            Self::ProbabilitySumOutOfRange { sum } => write!(f, "probability_sum_out_of_range:{sum}"),
+            Self::ProbabilitySumOutOfRange { sum } => {
+                write!(f, "probability_sum_out_of_range:{sum}")
+            }
             Self::LengthMismatch { lhs, rhs } => write!(f, "length_mismatch:{lhs}_vs_{rhs}"),
-            Self::ShapeMismatch { expected, actual } => write!(f, "shape_mismatch:expected_{expected}_got_{actual}"),
-            Self::UnsupportedEntropyOrder { alpha } => write!(f, "unsupported_entropy_order:{alpha}"),
-            Self::KlDivergenceDivergent { index } => write!(f, "kl_divergence_divergent_at_{index}"),
+            Self::ShapeMismatch { expected, actual } => {
+                write!(f, "shape_mismatch:expected_{expected}_got_{actual}")
+            }
+            Self::UnsupportedEntropyOrder { alpha } => {
+                write!(f, "unsupported_entropy_order:{alpha}")
+            }
+            Self::KlDivergenceDivergent { index } => {
+                write!(f, "kl_divergence_divergent_at_{index}")
+            }
             Self::NoObservations => f.write_str("no_observations"),
             Self::InsufficientBuckets { buckets } => write!(f, "insufficient_buckets:{buckets}"),
         }
@@ -98,7 +106,11 @@ pub fn joint_entropy_bits(joint: &[f64], rows: usize, cols: usize) -> Result<f64
     shannon_entropy_bits(joint)
 }
 
-pub fn marginals_from_joint(joint: &[f64], rows: usize, cols: usize) -> Result<(Vec<f64>, Vec<f64>), EntropyError> {
+pub fn marginals_from_joint(
+    joint: &[f64],
+    rows: usize,
+    cols: usize,
+) -> Result<(Vec<f64>, Vec<f64>), EntropyError> {
     if rows == 0 || cols == 0 || rows.saturating_mul(cols) != joint.len() {
         return Err(EntropyError::ShapeMismatch {
             expected: rows.saturating_mul(cols),
@@ -118,14 +130,22 @@ pub fn marginals_from_joint(joint: &[f64], rows: usize, cols: usize) -> Result<(
     Ok((row_marginal, col_marginal))
 }
 
-pub fn conditional_entropy_bits(joint: &[f64], rows: usize, cols: usize) -> Result<f64, EntropyError> {
+pub fn conditional_entropy_bits(
+    joint: &[f64],
+    rows: usize,
+    cols: usize,
+) -> Result<f64, EntropyError> {
     let (_, col_marginal) = marginals_from_joint(joint, rows, cols)?;
     let joint_h = shannon_entropy_bits(joint)?;
     let y_h = shannon_entropy_bits(&col_marginal)?;
     Ok(joint_h - y_h)
 }
 
-pub fn mutual_information_bits(joint: &[f64], rows: usize, cols: usize) -> Result<f64, EntropyError> {
+pub fn mutual_information_bits(
+    joint: &[f64],
+    rows: usize,
+    cols: usize,
+) -> Result<f64, EntropyError> {
     let (row_marginal, col_marginal) = marginals_from_joint(joint, rows, cols)?;
     let h_x = shannon_entropy_bits(&row_marginal)?;
     let h_y = shannon_entropy_bits(&col_marginal)?;
@@ -139,7 +159,10 @@ pub fn mutual_information_bits(joint: &[f64], rows: usize, cols: usize) -> Resul
 
 pub fn kl_divergence_bits(p: &[f64], q: &[f64]) -> Result<f64, EntropyError> {
     if p.len() != q.len() {
-        return Err(EntropyError::LengthMismatch { lhs: p.len(), rhs: q.len() });
+        return Err(EntropyError::LengthMismatch {
+            lhs: p.len(),
+            rhs: q.len(),
+        });
     }
     validate_distribution(p)?;
     validate_distribution(q)?;
@@ -212,7 +235,10 @@ pub fn consensus_entropy_bits(counts: &[usize]) -> Result<f64, EntropyError> {
     shannon_entropy_bits(&probabilities)
 }
 
-pub fn consensus_confidence_modifier(counts: &[usize], buckets: usize) -> Result<f64, EntropyError> {
+pub fn consensus_confidence_modifier(
+    counts: &[usize],
+    buckets: usize,
+) -> Result<f64, EntropyError> {
     if buckets < 2 {
         return Err(EntropyError::InsufficientBuckets { buckets });
     }
@@ -223,8 +249,12 @@ pub fn consensus_confidence_modifier(counts: &[usize], buckets: usize) -> Result
     let h = consensus_entropy_bits(counts)?;
     let max_h = (buckets as f64).log2();
     let gamma = 1.0 - (h / max_h);
-    if gamma < 0.0 { return Ok(0.0); }
-    if gamma > 1.0 { return Ok(1.0); }
+    if gamma < 0.0 {
+        return Ok(0.0);
+    }
+    if gamma > 1.0 {
+        return Ok(1.0);
+    }
     Ok(gamma)
 }
 
@@ -252,7 +282,9 @@ pub fn typicality_bits(probability: f64, n: usize) -> Result<f64, EntropyError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn approx(a: f64, b: f64) -> bool { (a - b).abs() < 1e-9 }
+    fn approx(a: f64, b: f64) -> bool {
+        (a - b).abs() < 1e-9
+    }
 
     #[test]
     fn uniform_binary_entropy_is_one_bit() {
@@ -296,7 +328,10 @@ mod tests {
     fn kl_reports_divergent_support() {
         let p = [0.5, 0.5];
         let q = [1.0, 0.0];
-        assert!(matches!(kl_divergence_bits(&p, &q).unwrap_err(), EntropyError::KlDivergenceDivergent { index: 1 }));
+        assert!(matches!(
+            kl_divergence_bits(&p, &q).unwrap_err(),
+            EntropyError::KlDivergenceDivergent { index: 1 }
+        ));
     }
 
     #[test]
@@ -315,10 +350,16 @@ mod tests {
     fn consensus_entropy_and_modifier() {
         let counts = [4usize, 0, 0];
         assert!(approx(consensus_entropy_bits(&counts).unwrap(), 0.0));
-        assert!(approx(consensus_confidence_modifier(&counts, 3).unwrap(), 1.0));
+        assert!(approx(
+            consensus_confidence_modifier(&counts, 3).unwrap(),
+            1.0
+        ));
 
         let counts2 = [1usize, 1, 1];
-        assert!(approx(consensus_confidence_modifier(&counts2, 3).unwrap(), 0.0));
+        assert!(approx(
+            consensus_confidence_modifier(&counts2, 3).unwrap(),
+            0.0
+        ));
     }
 
     #[test]

@@ -24,8 +24,7 @@ pub enum DaemonCommand {
 pub async fn dispatch(cmd: DaemonCommand) -> ExitCode {
     match cmd {
         DaemonCommand::Kernel { reset } => {
-            let mut entry_flags =
-                cynic_kernel::bootstrap::entry::KernelEntryFlags::from_env_args();
+            let mut entry_flags = cynic_kernel::bootstrap::entry::KernelEntryFlags::from_env_args();
             if reset {
                 entry_flags.force_reprobe = true;
             }

@@ -178,7 +178,9 @@ impl NodeActivationAdapter {
         let status = match &proof {
             cynic_node_protocol::node_activation::ActivationProof::Activated { .. } => "activated",
             cynic_node_protocol::node_activation::ActivationProof::Failed { .. } => "failed",
-            cynic_node_protocol::node_activation::ActivationProof::RolledBack { .. } => "rolled_back",
+            cynic_node_protocol::node_activation::ActivationProof::RolledBack { .. } => {
+                "rolled_back"
+            }
         };
 
         ActivationReport {

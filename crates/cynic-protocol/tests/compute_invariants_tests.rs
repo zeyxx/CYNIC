@@ -159,5 +159,8 @@ fn invariant_total_determinism() {
     let run_1 = decide_compute_placement(&reqs, &fleet);
     let run_2 = decide_compute_placement(&reqs, &fleet);
 
-    assert_eq!(run_1, run_2, "Placement decision must be 100% deterministic");
+    assert_eq!(
+        run_1, run_2,
+        "Placement decision must be 100% deterministic"
+    );
 }

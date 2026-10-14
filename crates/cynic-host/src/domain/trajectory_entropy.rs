@@ -128,9 +128,11 @@ mod tests {
         let report = classify_trajectory_entropy(&[], TrajectoryEntropyParams::default());
         assert_eq!(report.level, TrajectoryEntropyLevel::Unobservable);
         assert!(report.entropy_rate_bits.is_none());
-        assert!(report
-            .residual_unknowns
-            .contains(&"no_trajectory_windows_observed".to_string()));
+        assert!(
+            report
+                .residual_unknowns
+                .contains(&"no_trajectory_windows_observed".to_string())
+        );
     }
 
     #[test]
@@ -140,10 +142,12 @@ mod tests {
         let report = classify_trajectory_entropy(&windows, TrajectoryEntropyParams::default());
         assert_eq!(report.level, TrajectoryEntropyLevel::Unobservable);
         assert!(report.entropy_rate_bits.is_none());
-        assert!(report
-            .residual_unknowns
-            .iter()
-            .any(|u| u.starts_with("invalid_trajectory_distribution:")));
+        assert!(
+            report
+                .residual_unknowns
+                .iter()
+                .any(|u| u.starts_with("invalid_trajectory_distribution:"))
+        );
     }
 
     #[test]
@@ -153,8 +157,10 @@ mod tests {
         let report = classify_trajectory_entropy(&windows, TrajectoryEntropyParams::default());
         assert_eq!(report.level, TrajectoryEntropyLevel::Unobservable);
         assert_eq!(report.windows_observed, 1);
-        assert!(report
-            .residual_unknowns
-            .contains(&"insufficient_windows".to_string()));
+        assert!(
+            report
+                .residual_unknowns
+                .contains(&"insufficient_windows".to_string())
+        );
     }
 }

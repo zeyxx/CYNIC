@@ -60,8 +60,7 @@ impl BoundedHelperProjection {
         self.allowed_invocations
             .iter()
             .map(|argv| {
-                let escaped: Vec<String> =
-                    argv.iter().map(|token| escape_sudoers(token)).collect();
+                let escaped: Vec<String> = argv.iter().map(|token| escape_sudoers(token)).collect();
                 format!(
                     "{} ALL=(root) NOPASSWD: {}",
                     self.subject,

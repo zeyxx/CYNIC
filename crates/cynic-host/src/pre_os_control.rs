@@ -1,5 +1,5 @@
-use cynic_protocol::{SecurityEvidenceState};
 use cynic_node_protocol::{PreOsExecutionPlan, PreOsPlatformObservation};
+use cynic_protocol::SecurityEvidenceState;
 use serde::Serialize;
 
 use crate::ports::{
@@ -108,8 +108,8 @@ pub fn plan_pre_os_control(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::{SecurityEvidenceState};
-use cynic_node_protocol::{PRE_OS_PLATFORM_OBSERVATION_SCHEMA, PreOsControlKind};
+    use cynic_node_protocol::{PRE_OS_PLATFORM_OBSERVATION_SCHEMA, PreOsControlKind};
+    use cynic_protocol::SecurityEvidenceState;
 
     struct Fixture;
 

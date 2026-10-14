@@ -43,8 +43,6 @@ pub mod scan;
 pub mod types;
 
 pub use policy::{SCHEMA, classify, classify_all};
-pub use report::{ClassTally, RateReport, REPORT_SCHEMA, build_report};
+pub use report::{ClassTally, REPORT_SCHEMA, RateReport, build_report};
 pub use scan::{WindowOutcome, window_events};
-pub use types::{
-    RateTrend, RateVerdict, WindowedCount, CountWindows, Thresholds,
-};
+pub use types::{CountWindows, RateTrend, RateVerdict, Thresholds, WindowedCount};

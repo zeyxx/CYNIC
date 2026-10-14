@@ -345,7 +345,7 @@ pub async fn run_membership_loop(
 mod tests {
     use super::*;
     use cynic_network::TransportReadback;
-use cynic_network::{TransportKind, TransportState};
+    use cynic_network::{TransportKind, TransportState};
     use std::sync::Mutex;
 
     struct FixtureTransport(Vec<TransportReadback>);

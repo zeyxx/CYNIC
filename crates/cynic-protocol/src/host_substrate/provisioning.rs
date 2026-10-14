@@ -111,7 +111,9 @@ impl ProvisioningSpec {
         }
         if self.repository_transport_uri.trim().is_empty() {
             blockers.push("provisioning_repository_transport_missing".to_string());
-        } else if self.repository_transport_uri.contains(':') && !self.repository_transport_uri.contains('@') {
+        } else if self.repository_transport_uri.contains(':')
+            && !self.repository_transport_uri.contains('@')
+        {
             // A URI with credentials inline is refused; secret-free only.
             if self.repository_transport_uri.matches(':').count() > 1 {
                 blockers.push("provisioning_repository_transport_contains_credentials".to_string());
@@ -209,7 +211,8 @@ mod tests {
             disk_gb: 80,
             cores: 4,
             toolchain_pin: "1.95.0".to_string(),
-            repository_transport_uri: "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git".to_string(),
+            repository_transport_uri:
+                "ssh://forgejo@forgejo.service.cynic:22/jeanterre13/CYNIC.git".to_string(),
             timeout_secs: 600,
             source_commit: "e5e8f718faafc3a751e05dc210aedb4386f3b8cf".to_string(),
         }
@@ -224,36 +227,42 @@ mod tests {
     fn unpinned_toolchain_is_blocked() {
         let mut s = spec();
         s.toolchain_pin = String::new();
-        assert!(s
-            .validate()
-            .contains(&"provisioning_toolchain_unpinned".to_string()));
+        assert!(
+            s.validate()
+                .contains(&"provisioning_toolchain_unpinned".to_string())
+        );
     }
 
     #[test]
     fn memory_below_incident_floor_is_blocked() {
         let mut s = spec();
         s.memory_mb = 4096;
-        assert!(s
-            .validate()
-            .contains(&"provisioning_memory_below_floor".to_string()));
+        assert!(
+            s.validate()
+                .contains(&"provisioning_memory_below_floor".to_string())
+        );
     }
 
     #[test]
     fn short_commit_is_blocked() {
         let mut s = spec();
         s.source_commit = "e5e8f718".to_string();
-        assert!(s
-            .validate()
-            .contains(&"provisioning_source_commit_invalid".to_string()));
+        assert!(
+            s.validate()
+                .contains(&"provisioning_source_commit_invalid".to_string())
+        );
     }
 
     #[test]
     fn empty_template_is_blocked() {
         let mut s = spec();
-        s.source = ProvisioningSource::CleanTemplate { template: String::new() };
-        assert!(s
-            .validate()
-            .contains(&"provisioning_template_empty".to_string()));
+        s.source = ProvisioningSource::CleanTemplate {
+            template: String::new(),
+        };
+        assert!(
+            s.validate()
+                .contains(&"provisioning_template_empty".to_string())
+        );
     }
 
     #[test]

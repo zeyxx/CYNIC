@@ -96,7 +96,8 @@ impl LoadPolicy {
         let Some(raw) = declared_json else {
             return Ok(Self::with_legacy_defaults(default_policy_id));
         };
-        let parsed: Self = serde_json::from_str(raw).map_err(|e| format!("load policy unparseable: {e}"))?;
+        let parsed: Self =
+            serde_json::from_str(raw).map_err(|e| format!("load policy unparseable: {e}"))?;
         let violations = parsed.violations();
         if violations.is_empty() {
             Ok(parsed)

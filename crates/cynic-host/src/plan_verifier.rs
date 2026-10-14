@@ -135,8 +135,8 @@ impl PlanVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::RuntimeSeedRequest;
     use cynic_node_protocol::node_control::NODE_DESIRED_STATE_SCHEMA;
+    use cynic_protocol::RuntimeSeedRequest;
 
     fn fixture_desired(generation: u64) -> NodeDesiredState {
         NodeDesiredState {

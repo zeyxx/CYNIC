@@ -168,7 +168,11 @@ impl MarketLoop {
     ///
     /// Returns `None` when the proposal has no predictions; absent data is not
     /// represented as a fabricated zero-confidence consensus.
-    pub fn verdict_counts(&self, registry: &MarketRegistry, proposal_id: &str) -> Option<[usize; 2]> {
+    pub fn verdict_counts(
+        &self,
+        registry: &MarketRegistry,
+        proposal_id: &str,
+    ) -> Option<[usize; 2]> {
         let predictions = self.get_predictions(registry, proposal_id);
         if predictions.is_empty() {
             return None;
@@ -188,9 +192,7 @@ impl MarketLoop {
         proposal_id: &str,
     ) -> Option<f64> {
         let counts = self.verdict_counts(registry, proposal_id)?;
-        self.scoring
-            .poj_consensus_confidence(&counts, 2)
-            .ok()
+        self.scoring.poj_consensus_confidence(&counts, 2).ok()
     }
 
     /// Whether the proposal needs Proof-of-Jury escalation.
@@ -397,11 +399,7 @@ mod tests {
             )
             .unwrap();
 
-        for (actor, predicts_yes) in [
-            ("actor1", true),
-            ("actor2", true),
-            ("actor3", true),
-        ] {
+        for (actor, predicts_yes) in [("actor1", true), ("actor2", true), ("actor3", true)] {
             market
                 .submit_prediction(
                     &mut registry,
@@ -478,7 +476,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            market.poj_consensus_confidence(&registry, &proposal_id).unwrap(),
+            market
+                .poj_consensus_confidence(&registry, &proposal_id)
+                .unwrap(),
             0.0
         );
         assert_eq!(

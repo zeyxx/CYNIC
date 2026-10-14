@@ -87,7 +87,12 @@ pub(crate) fn execute_hub_upload(args: &HubUploadArgs<'_>) -> ExitCode {
         "model" => HfRepoType::Model,
         "dataset" => HfRepoType::Dataset,
         "space" => HfRepoType::Space,
-        other => return cli_error(args.json, &format!("--type must be model|dataset|space, got {other}")),
+        other => {
+            return cli_error(
+                args.json,
+                &format!("--type must be model|dataset|space, got {other}"),
+            );
+        }
     };
     let req = HfUploadRequest {
         repo_id: args.repo.to_string(),
@@ -109,7 +114,11 @@ pub(crate) fn execute_hub_upload(args: &HubUploadArgs<'_>) -> ExitCode {
     };
     match hub_adapter().upload(&req) {
         Ok(report) => {
-            let code = if report.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+            let code = if report.ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
             if args.json {
                 let _ = emit_json(&report);
             } else {
@@ -216,7 +225,11 @@ pub(crate) fn execute_hub_job_submit(args: &HubJobSubmitArgs<'_>) -> ExitCode {
     };
     match result {
         Ok(report) => {
-            let code = if report.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+            let code = if report.ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
             if args.json {
                 let _ = emit_json(&report);
             } else {
@@ -240,7 +253,10 @@ pub(crate) fn execute_hub_job_poll(id: &str, namespace: Option<&str>, json: bool
             if json {
                 let _ = emit_json(&info);
             } else {
-                println!("Hub Job: {} [{:?}] stage={}", info.remote_id, info.status, info.stage_raw);
+                println!(
+                    "Hub Job: {} [{:?}] stage={}",
+                    info.remote_id, info.status, info.stage_raw
+                );
             }
             ExitCode::SUCCESS
         }
@@ -261,7 +277,10 @@ pub(crate) fn execute_hub_job_list(all: bool, namespace: Option<&str>, json: boo
             } else {
                 println!("Hub Jobs ({}):", infos.len());
                 for info in &infos {
-                    println!("  - {} [{:?}] stage={}", info.remote_id, info.status, info.stage_raw);
+                    println!(
+                        "  - {} [{:?}] stage={}",
+                        info.remote_id, info.status, info.stage_raw
+                    );
                 }
             }
             ExitCode::SUCCESS
@@ -273,7 +292,11 @@ pub(crate) fn execute_hub_job_list(all: bool, namespace: Option<&str>, json: boo
 pub(crate) fn execute_hub_job_logs(id: &str, namespace: Option<&str>, json: bool) -> ExitCode {
     match hub_adapter().job_logs(id, namespace) {
         Ok(report) => {
-            let code = if report.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+            let code = if report.ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
             if json {
                 let _ = emit_json(&report);
             } else {
@@ -296,7 +319,11 @@ pub(crate) fn execute_hub_job_cancel(
     }
     match hub_adapter().job_cancel(id, namespace) {
         Ok(report) => {
-            let code = if report.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+            let code = if report.ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
             if json {
                 let _ = emit_json(&report);
             } else {
@@ -336,7 +363,11 @@ pub(crate) fn execute_hub_sched_delete(id: &str, yes: bool, json: bool) -> ExitC
     }
     match hub_adapter().job_schedule_delete(id) {
         Ok(report) => {
-            let code = if report.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+            let code = if report.ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
             if json {
                 let _ = emit_json(&report);
             } else {

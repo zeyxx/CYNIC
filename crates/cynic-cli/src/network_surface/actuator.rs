@@ -12,25 +12,31 @@ pub(crate) fn try_execute_actuator(command: NetworkCommand) -> Result<ExitCode, 
 
     let exit = match command {
         NetworkActuatorCommand::Status { registry } => {
-            crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorStatus {
-                json: true,
-                registry: registry_path(registry),
-            })
+            crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::ActuatorStatus {
+                    json: true,
+                    registry: registry_path(registry),
+                },
+            )
         }
         NetworkActuatorCommand::Bundle {
             registry,
             output_dir,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorBundle {
-            registry: registry_path(registry),
-            output_dir,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::ActuatorBundle {
+                registry: registry_path(registry),
+                output_dir,
+            },
+        ),
         NetworkActuatorCommand::Plan {
             registry,
             bundle_dir,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorPlan {
-            registry: registry_path(registry),
-            bundle_dir,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::ActuatorPlan {
+                registry: registry_path(registry),
+                bundle_dir,
+            },
+        ),
         NetworkActuatorCommand::Apply {
             registry,
             profile,

@@ -12,7 +12,8 @@ pub enum McpCommand {
 pub async fn dispatch(cmd: McpCommand) -> ExitCode {
     match cmd {
         McpCommand::Serve => {
-            let mcp_bin = std::env::var("CYNIC_MCP_BIN").unwrap_or_else(|_| "cynic-mcp".to_string());
+            let mcp_bin =
+                std::env::var("CYNIC_MCP_BIN").unwrap_or_else(|_| "cynic-mcp".to_string());
             match Command::new(&mcp_bin).status() {
                 Ok(status) if status.success() => ExitCode::SUCCESS,
                 Ok(status) => {

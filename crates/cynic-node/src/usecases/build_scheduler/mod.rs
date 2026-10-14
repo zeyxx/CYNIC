@@ -587,7 +587,13 @@ mod tests {
 
         let store = queue_store();
         let admitted = admit_build_check(
-            QA, "cynic-host", "cynic-builder", "node-1", "agent-1", 100, &store,
+            QA,
+            "cynic-host",
+            "cynic-builder",
+            "node-1",
+            "agent-1",
+            100,
+            &store,
         )
         .expect("admit");
         let (control, scheduler) = scheduler_configs();

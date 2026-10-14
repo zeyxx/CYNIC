@@ -473,13 +473,13 @@ fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
             json: _,
             max_handshake_age_secs,
             registry,
-        } => {
-            crate::network_surface::execution::execute_network_command(&crate::network_surface::execution::NetworkCommands::SecurityAudit {
+        } => crate::network_surface::execution::execute_network_command(
+            &crate::network_surface::execution::NetworkCommands::SecurityAudit {
                 json: true,
                 max_handshake_age_secs,
                 registry: registry_path(registry),
-            })
-        }
+            },
+        ),
     }
 }
 

@@ -60,13 +60,18 @@ pub fn discover_registry_root(start: &Path) -> Option<PathBuf> {
 /// second, never an empty set.
 pub fn excluded_dirs(repo_root: Option<&Path>, scanner: &str) -> BTreeSet<String> {
     let from_registry = repo_root
-        .and_then(|root| std::fs::read_to_string(root.join("infra").join("scan-exclusions.json")).ok())
+        .and_then(|root| {
+            std::fs::read_to_string(root.join("infra").join("scan-exclusions.json")).ok()
+        })
         .and_then(|raw| serde_json::from_str::<ScanExclusions>(&raw).ok())
         .and_then(|registry| registry.scanners.get(scanner).cloned())
         .map(|sets| sets.excluded_dirs.into_iter().collect::<BTreeSet<_>>());
     match from_registry {
         Some(dirs) if !dirs.is_empty() => dirs,
-        _ => FALLBACK_EXCLUDED_DIRS.iter().map(|s| s.to_string()).collect(),
+        _ => FALLBACK_EXCLUDED_DIRS
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     }
 }
 

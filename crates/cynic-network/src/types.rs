@@ -127,10 +127,9 @@ pub fn canonical_provider_for_role(role: MeshRole) -> Option<MeshProviderBinding
 // the architecture boundary test. It is not backward compatibility: no earlier
 // shape is being preserved.
 pub use cynic_types::fleet_mesh::{
-    NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan,
-    NetworkMeshRoute, NetworkMeshService, WireguardMeshAssessment,
+    NetworkMeshAclRule, NetworkMeshDnsRecord, NetworkMeshPeer, NetworkMeshPlan, NetworkMeshRoute,
+    NetworkMeshService, WireguardMeshAssessment,
 };
-
 
 /// Observation result for network substrate, following the 4-layer model
 /// (physical / volume / usage / pressure) that disk+memory reuse.
@@ -332,7 +331,6 @@ pub struct NetworkAlert {
     pub message: String,
     pub recovery_hint: String,
 }
-
 
 /// Assessment of Service DNS resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -16,7 +16,8 @@
 //! `cynic-host` and any future packaging adapter read the same one.
 
 /// Arguments for `cargo metadata`, excluding the program name.
-pub const CARGO_METADATA_ARGS: &[&str] = &["metadata", "--format-version", "1", "--no-deps", "--frozen"];
+pub const CARGO_METADATA_ARGS: &[&str] =
+    &["metadata", "--format-version", "1", "--no-deps", "--frozen"];
 
 /// The full argv, including the program, for adapters that want one slice.
 ///
@@ -53,7 +54,9 @@ mod tests {
             "discovery must be offline and lock-checked, or two runs can disagree"
         );
         assert!(
-            CARGO_METADATA_ARGS.windows(2).any(|w| w == ["--format-version", "1"]),
+            CARGO_METADATA_ARGS
+                .windows(2)
+                .any(|w| w == ["--format-version", "1"]),
             "the split form is the one this tree is tested against; \
              the equals form is a second spelling of the same fact"
         );

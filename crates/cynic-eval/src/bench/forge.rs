@@ -192,9 +192,8 @@ LLAMA_CPU_QUOTA=400%
 CYNIC_MODEL_ALIAS={alias}
 "#
     );
-    fs::write(&path, body).map_err(|e| {
-        ForgeProfileError(format!("write profile {}: {e}", path.display()))
-    })?;
+    fs::write(&path, body)
+        .map_err(|e| ForgeProfileError(format!("write profile {}: {e}", path.display())))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

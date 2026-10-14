@@ -47,7 +47,10 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
     );
     assert!(
         ro_result.stderr.to_lowercase().contains("read-only")
-            || ro_result.stderr.to_lowercase().contains("permission denied"),
+            || ro_result
+                .stderr
+                .to_lowercase()
+                .contains("permission denied"),
         "Expected Read-only filesystem error, got: {}",
         ro_result.stderr
     );
@@ -66,11 +69,7 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
     assert_eq!(rw_result.stdout.trim(), "sovereign proof");
 
     // PROOF 3: Private PID namespace (only sandbox processes visible)
-    let pid_probe = vec![
-        "sh".to_string(),
-        "-c".to_string(),
-        "echo $$".to_string(),
-    ];
+    let pid_probe = vec!["sh".to_string(), "-c".to_string(), "echo $$".to_string()];
     let pid_result = adapter
         .execute_command(&allocation.allocation_id, &pid_probe, 5000)
         .await
@@ -101,8 +100,14 @@ async fn bwrap_e2e_proves_network_pid_and_filesystem_isolation() {
         .await
         .expect("command should execute");
     assert_eq!(net_result.exit_code, 0);
-    assert!(!net_result.stdout.contains("eth0"), "Physical host eth0 must NOT be visible");
-    assert!(!net_result.stdout.contains("tailscale"), "Host tailscale/wireguard must NOT be visible");
+    assert!(
+        !net_result.stdout.contains("eth0"),
+        "Physical host eth0 must NOT be visible"
+    );
+    assert!(
+        !net_result.stdout.contains("tailscale"),
+        "Host tailscale/wireguard must NOT be visible"
+    );
 
     // Release runner
     adapter

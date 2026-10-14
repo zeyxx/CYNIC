@@ -20,10 +20,12 @@ pub(crate) fn try_execute_mesh(
     let exit = match command {
         NetworkMeshCommand::Apply { command } => match command {
             NetworkMeshApplyCommand::Plan { bundle_dir } => {
-                crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshApplyPlan {
-                    json: true,
-                    bundle_dir,
-                })
+                crate::network_surface::execution::execute_network_command(
+                    &NetworkCommands::MeshApplyPlan {
+                        json: true,
+                        bundle_dir,
+                    },
+                )
             }
             NetworkMeshApplyCommand::Target {
                 bundle_dir,
@@ -34,29 +36,33 @@ pub(crate) fn try_execute_mesh(
                 virsh_bin,
                 qga_timeout_seconds,
                 qga_max_status_polls,
-            } => crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshApplyTarget {
-                json: true,
-                bundle_dir,
-                profile,
-                apply,
-                harness_kind,
-                target_attestation,
-                virsh_bin,
-                qga_timeout_seconds,
-                qga_max_status_polls,
-            }),
+            } => crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::MeshApplyTarget {
+                    json: true,
+                    bundle_dir,
+                    profile,
+                    apply,
+                    harness_kind,
+                    target_attestation,
+                    virsh_bin,
+                    qga_timeout_seconds,
+                    qga_max_status_polls,
+                },
+            ),
             NetworkMeshApplyCommand::Profile {
                 bundle_dir,
                 profile,
                 apply,
                 closed_environment,
-            } => crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshApplyProfile {
-                json: true,
-                bundle_dir,
-                profile,
-                apply,
-                closed_environment,
-            }),
+            } => crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::MeshApplyProfile {
+                    json: true,
+                    bundle_dir,
+                    profile,
+                    apply,
+                    closed_environment,
+                },
+            ),
         },
         NetworkMeshCommand::Target { command } => match command {
             NetworkMeshTargetCommand::Actuate {
@@ -68,17 +74,19 @@ pub(crate) fn try_execute_mesh(
                 virsh_bin,
                 qga_timeout_seconds,
                 qga_max_status_polls,
-            } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuateTarget {
-                json: true,
-                request,
-                apply,
-                harness_kind,
-                target_attestation,
-                observer_bin,
-                virsh_bin,
-                qga_timeout_seconds,
-                qga_max_status_polls,
-            }),
+            } => crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::ActuateTarget {
+                    json: true,
+                    request,
+                    apply,
+                    harness_kind,
+                    target_attestation,
+                    observer_bin,
+                    virsh_bin,
+                    qga_timeout_seconds,
+                    qga_max_status_polls,
+                },
+            ),
             NetworkMeshTargetCommand::Attestation {
                 harness_kind,
                 target_id,
@@ -87,21 +95,23 @@ pub(crate) fn try_execute_mesh(
                 expected_network_boundary,
                 virsh_bin,
                 ip_bin,
-            } => crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshTargetAttestation {
-                json: true,
-                harness_kind,
-                target_id,
-                transport,
-                transport_target,
-                expected_network_boundary,
-                virsh_bin,
-                ip_bin: ip_bin.unwrap_or_else(|| {
-                    cynic_host::runtime_layout::current_runtime_layout()
-                        .capabilities()
-                        .route_tool
-                        .command
-                }),
-            }),
+            } => crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::MeshTargetAttestation {
+                    json: true,
+                    harness_kind,
+                    target_id,
+                    transport,
+                    transport_target,
+                    expected_network_boundary,
+                    virsh_bin,
+                    ip_bin: ip_bin.unwrap_or_else(|| {
+                        cynic_host::runtime_layout::current_runtime_layout()
+                            .capabilities()
+                            .route_tool
+                            .command
+                    }),
+                },
+            ),
         },
         NetworkMeshCommand::Plan { registry, provider } => {
             crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshPlan {
@@ -114,12 +124,14 @@ pub(crate) fn try_execute_mesh(
             registry,
             provider,
             output_dir,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshBundle {
-            json: true,
-            registry: registry_path(registry),
-            provider,
-            output_dir,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::MeshBundle {
+                json: true,
+                registry: registry_path(registry),
+                provider,
+                output_dir,
+            },
+        ),
 
         NetworkMeshCommand::Status {
             registry,
@@ -141,13 +153,15 @@ pub(crate) fn try_execute_mesh(
             endpoint,
             api_key,
             check_health,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::MeshCoordination {
-            json: true,
-            registry: registry_path(registry),
-            endpoint,
-            api_key,
-            check_health,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::MeshCoordination {
+                json: true,
+                registry: registry_path(registry),
+                endpoint,
+                api_key,
+                check_health,
+            },
+        ),
     };
 
     Ok(exit)

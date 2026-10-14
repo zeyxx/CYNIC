@@ -13,8 +13,8 @@
 //! `OsCredentialStore`. A prose table cannot carry that mapping.
 
 use crate::{
-    SecretEntry, SecretError, SecretProviderPort, SecretProviderKind, SecretReference, SecretStatus,
-    SecretStorePort,
+    SecretEntry, SecretError, SecretProviderKind, SecretProviderPort, SecretReference,
+    SecretStatus, SecretStorePort,
 };
 
 const SERVICE_NAME: &str = "cynic";
@@ -69,7 +69,9 @@ impl OsCredentialStoreSecretProvider {
         if !output.status.success() {
             return None;
         }
-        String::from_utf8(output.stdout).ok().map(|s| s.trim_end().to_string())
+        String::from_utf8(output.stdout)
+            .ok()
+            .map(|s| s.trim_end().to_string())
     }
 
     /// macOS: security find-generic-password -s cynic -S <id> -w
@@ -88,7 +90,9 @@ impl OsCredentialStoreSecretProvider {
         if !output.status.success() {
             return None;
         }
-        String::from_utf8(output.stdout).ok().map(|s| s.trim_end().to_string())
+        String::from_utf8(output.stdout)
+            .ok()
+            .map(|s| s.trim_end().to_string())
     }
 }
 
@@ -128,19 +132,30 @@ impl SecretStorePort for OsCredentialStoreSecretProvider {
         #[cfg(target_os = "macos")]
         {
             let _ = std::process::Command::new("security")
-                .args(["delete-generic-password", "-s", &self.service_name, "-S", &spec.locator])
+                .args([
+                    "delete-generic-password",
+                    "-s",
+                    &self.service_name,
+                    "-S",
+                    &spec.locator,
+                ])
                 .output();
             let status = std::process::Command::new("security")
                 .args([
                     "add-generic-password",
-                    "-s", &self.service_name,
-                    "-S", &spec.locator,
-                    "-w", value,
+                    "-s",
+                    &self.service_name,
+                    "-S",
+                    &spec.locator,
+                    "-w",
+                    value,
                 ])
                 .status()
                 .map_err(|e| SecretError::Backend(e.to_string()))?;
             if !status.success() {
-                return Err(SecretError::Backend("security add-generic-password failed".into()));
+                return Err(SecretError::Backend(
+                    "security add-generic-password failed".into(),
+                ));
             }
             return Ok(());
         }
@@ -197,7 +212,9 @@ impl SecretStorePort for OsCredentialStoreSecretProvider {
             return Ok(());
         }
 
-        Err(SecretError::Unsupported("V3 not supported on this platform".into()))
+        Err(SecretError::Unsupported(
+            "V3 not supported on this platform".into(),
+        ))
     }
 
     fn rotate(&self, spec: &SecretReference, new_value: &str) -> Result<(), SecretError> {
@@ -210,7 +227,13 @@ impl SecretStorePort for OsCredentialStoreSecretProvider {
         #[cfg(target_os = "macos")]
         {
             let status = std::process::Command::new("security")
-                .args(["delete-generic-password", "-s", &self.service_name, "-S", &spec.locator])
+                .args([
+                    "delete-generic-password",
+                    "-s",
+                    &self.service_name,
+                    "-S",
+                    &spec.locator,
+                ])
                 .status()
                 .map_err(|e| SecretError::Backend(e.to_string()))?;
             let _ = status;

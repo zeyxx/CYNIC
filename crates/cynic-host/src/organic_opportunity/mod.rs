@@ -6,8 +6,8 @@
 pub mod audit_observer;
 pub mod autoresearch_observer;
 pub mod decision_store;
-pub mod rate_classify_observer;
 pub mod port;
+pub mod rate_classify_observer;
 pub mod session_observer;
 pub mod worktree_observer;
 
@@ -18,8 +18,8 @@ use cynic_protocol::organic_opportunity::{
     OrganicOpportunityReport, ValueFrame, rank_in_value_frame,
 };
 pub use decision_store::OpportunityDecisionStore;
-pub use rate_classify_observer::{RateTrendObserver, RateTrendObserverConfig};
 pub use port::{OrganicOpportunityObserver, SourceObservationStatus};
+pub use rate_classify_observer::{RateTrendObserver, RateTrendObserverConfig};
 pub use session_observer::{SessionObserverConfig, SessionPatternObserver};
 pub use worktree_observer::{SourceWorktreeObserver, WorktreeObserverConfig};
 
@@ -111,7 +111,9 @@ pub fn collect_default_organic_opportunities(
     });
 
     let pattern_obs = RateTrendObserver::new(RateTrendObserverConfig {
-        pattern_report_path: workspace_root.join("infra").join("rate_classify_report.json"),
+        pattern_report_path: workspace_root
+            .join("infra")
+            .join("rate_classify_report.json"),
         retention_policy: Default::default(),
     });
 

@@ -246,10 +246,7 @@ mod tests {
             Some("CYNIC-agent-v1"),
         );
 
-        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(
-            &[entry],
-            0,
-        );
+        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(&[entry], 0);
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::Unfinished);
         assert_eq!(opps[0].scope, "worktree/CYNIC-agent-v1");
@@ -266,10 +263,7 @@ mod tests {
             None,
         );
 
-        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(
-            &[entry],
-            0,
-        );
+        let opps = SourceWorktreeObserver::<LocalVcsRunner>::analyze_entries(&[entry], 0);
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::Plumbing);
         assert_eq!(opps[0].scope, "infra/worktree_layout");

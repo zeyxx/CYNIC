@@ -93,8 +93,8 @@ pub(crate) fn reclaim_build_cache_remote(
 ) -> Result<(), String> {
     let transport = cynic_host::registry::resolve::resolve_build_runner_transport(Some(registry))
         .map_err(|error| {
-            format!("build runner unresolvable in registry {registry}: {error}")
-        })?;
+        format!("build runner unresolvable in registry {registry}: {error}")
+    })?;
 
     let remote_registry = remote_reclaim_registry_for(registry);
 

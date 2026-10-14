@@ -194,6 +194,37 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
         }
         Ok(read_back)
     }
+
+    fn archive_terminal(
+        &self,
+        workload_id: &str,
+        older_than_ms: u64,
+        now_ms: u64,
+    ) -> Result<Option<String>, AgentWorkloadStoreError> {
+        let root = self.workload_root(workload_id)?;
+        reject_non_directory(&root)?;
+        let record = match read_latest(&root)? {
+            Some(record) => record,
+            None => return Ok(None),
+        };
+        if !record.record.state.terminal() {
+            return Ok(None);
+        }
+        let age_ms = now_ms.saturating_sub(record.committed_at_ms);
+        if age_ms < older_than_ms {
+            return Ok(None);
+        }
+        let archive_root = self.root.join("archive");
+        fs::create_dir_all(&archive_root)
+            .map_err(|_| error("workload_store_archive_root_create_failed"))?;
+        let archive_path = archive_root.join(workload_id);
+        fs::rename(&root, &archive_path)
+            .map_err(|_| error("workload_store_archive_move_failed"))?;
+        if root.exists() {
+            return Err(error("workload_store_archive_read_back_failed"));
+        }
+        Ok(Some(archive_path.to_string_lossy().into_owned()))
+    }
 }
 
 fn read_latest(root: &Path) -> Result<Option<DurableAgentWorkloadRecord>, AgentWorkloadStoreError> {
@@ -363,4 +394,257 @@ fn error(code: &str) -> AgentWorkloadStoreError {
 }
 
 #[cfg(test)]
-mod tests;
+mod tests {
+    use cynic_protocol::{
+        AGENT_DELEGATION_ENVELOPE_SCHEMA, AgentBudget, AgentCapabilityGrant,
+        AgentDelegationEnvelope, AgentEvidenceRef, EXECUTION_AUTHORIZATION_SCHEMA,
+        ExecutionAuthorization, MutationContract, POLICY_ADMISSION_REPORT_SCHEMA,
+        PolicyAdmissionReport, PolicyAuthority, PolicyDecision, PolicyIntentRef, PolicyScope,
+        PolicySetRef, RequiredProof, digest_json,
+    };
+    use cynic_workload::{
+        AGENT_WORKLOAD_ENVELOPE_SCHEMA, AGENT_WORKLOAD_RECORD_SCHEMA, AgentBoundedAction,
+        AgentWorkloadEnvelope, AgentWorkloadRecord, AgentWorkloadState,
+    };
+
+    use super::*;
+
+    fn valid_envelope(workload_id: &str) -> AgentWorkloadEnvelope {
+        let action = AgentBoundedAction {
+            argv: vec!["make".into(), "check".into()],
+            working_directory: Some("/source".into()),
+            input_digest: Some(format!("sha256:{}", "b".repeat(64))),
+            mutates: true,
+            requires_privilege: false,
+            stop_condition: "stop on first non-zero exit".into(),
+            rollback_intent: "discard isolated checkout".into(),
+        };
+        let plan_digest = digest_json(&action).expect("action digest");
+        let mutation = MutationContract {
+            kind: "repository_validation".into(),
+            scope: PolicyScope {
+                domain: "build".into(),
+                target: "commit-a".into(),
+            },
+            mutates: true,
+            requires_privilege: false,
+            requires_explicit_apply: true,
+            required_authority: PolicyAuthority::RuntimePrincipal,
+            preconditions: vec!["source_commit_observed".into()],
+            rollback_intent: "discard isolated checkout".into(),
+            expected_proofs: vec![RequiredProof {
+                gate: "canonical_gate_report".into(),
+                subject: "commit-a".into(),
+            }],
+        };
+        AgentWorkloadEnvelope {
+            schema: AGENT_WORKLOAD_ENVELOPE_SCHEMA.into(),
+            workload_id: workload_id.into(),
+            idempotency_key: format!("idem-{workload_id}"),
+            plan_digest: plan_digest.clone(),
+            mandate_binding: None,
+            input: None,
+            resource_budget: None,
+            action,
+            delegation: AgentDelegationEnvelope {
+                schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
+                delegation_id: format!("delegation-{workload_id}"),
+                node_id: "test-node".into(),
+                agent_id: "test-agent".into(),
+                parent_agent_id: None,
+                depth: 0,
+                objective: "run test".into(),
+                authority_snapshot: AgentEvidenceRef {
+                    kind: "policy".into(),
+                    subject: workload_id.into(),
+                    digest: format!("sha256:{}", "c".repeat(64)),
+                    lineage: None,
+                },
+                context_refs: vec![],
+                capabilities: vec![AgentCapabilityGrant {
+                    id: "repository_validation".into(),
+                    mutates: true,
+                }],
+                budget: AgentBudget {
+                    context_tokens: 1_000,
+                    actions: 2,
+                    children: 0,
+                    wall_time_ms: 300_000,
+                    cpu_ms: None,
+                },
+                expected_proofs: vec!["canonical_gate_report".into()],
+            },
+            parent_delegation: None,
+            policy_admission: PolicyAdmissionReport {
+                schema: POLICY_ADMISSION_REPORT_SCHEMA.into(),
+                policy_set: PolicySetRef {
+                    id: "test.policy".into(),
+                    version: "v1".into(),
+                    digest: format!("sha256:{}", "e".repeat(64)),
+                },
+                intent: PolicyIntentRef {
+                    id: format!("intent-{workload_id}"),
+                    kind: "repository_validation".into(),
+                    actor: "test-agent".into(),
+                    subject: "commit-a".into(),
+                    digest: format!("sha256:{}", "f".repeat(64)),
+                    plan_digest: plan_digest.clone(),
+                },
+                mutation,
+                decision: PolicyDecision::Allow {
+                    required_authority: PolicyAuthority::RuntimePrincipal,
+                    required_proofs: vec![RequiredProof {
+                        gate: "canonical_gate_report".into(),
+                        subject: "commit-a".into(),
+                    }],
+                },
+            },
+            execution_authorization: ExecutionAuthorization {
+                schema: EXECUTION_AUTHORIZATION_SCHEMA.into(),
+                actor: "test-agent".into(),
+                authority: PolicyAuthority::RuntimePrincipal,
+                explicit_apply: true,
+                satisfied_preconditions: vec!["source_commit_observed".into()],
+            },
+        }
+    }
+
+    fn terminal_record(
+        workload_id: &str,
+        state: AgentWorkloadState,
+        committed_at_ms: u64,
+    ) -> DurableAgentWorkloadRecord {
+        let record = AgentWorkloadRecord {
+            schema: AGENT_WORKLOAD_RECORD_SCHEMA.into(),
+            envelope: valid_envelope(workload_id),
+            state,
+            claim: None,
+            last_fencing_token: 0,
+            cancellation_generation: 0,
+            consumed_actions: 0,
+            completion: None,
+        };
+        let record_digest = digest_json(&record).expect("record digest");
+        DurableAgentWorkloadRecord {
+            schema: DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
+            revision: 1,
+            previous_record_digest: None,
+            record_digest,
+            record,
+            committed_at_ms,
+        }
+    }
+
+    fn write_revision(root: &Path, revision: u64, record: &DurableAgentWorkloadRecord) {
+        let path = root.join(revision_name(revision));
+        let bytes = serde_json::to_vec_pretty(record).unwrap();
+        fs::write(&path, &bytes).unwrap();
+    }
+
+    #[test]
+    fn debug_validate_record_violations() {
+        let record = terminal_record("test-workload", AgentWorkloadState::Completed, 1000);
+        let bytes = serde_json::to_vec_pretty(&record).unwrap();
+        let result: Result<DurableAgentWorkloadRecord, _> = serde_json::from_slice(&bytes);
+        match result {
+            Ok(deserialized) => {
+                let violations = cynic_workload::validate_durable_agent_workload_record(&deserialized);
+                panic!("deserialized OK, violations: {:?}", violations);
+            }
+            Err(e) => panic!("deserialization failed: {}", e),
+        }
+    }
+
+    #[test]
+    fn archive_terminal_moves_directory_when_terminal_and_old() {
+        let tmp = std::env::temp_dir().join(format!("cynic-test-{}", std::process::id()));
+        let store = LocalAgentWorkloadStore::new(&tmp);
+        let workload_id = "test-workload";
+
+        let root = tmp.join(workload_id);
+        fs::create_dir_all(&root).unwrap();
+
+        let record = terminal_record(workload_id, AgentWorkloadState::Completed, 1000);
+        write_revision(&root, 1, &record);
+
+        let archive_path = store.archive_terminal(workload_id, 500, 2000).unwrap();
+
+        assert!(
+            archive_path.is_some(),
+            "expected Some(path) for terminal+old workload"
+        );
+        let path_str = archive_path.unwrap();
+        assert!(
+            path_str.contains("archive"),
+            "path should contain archive dir"
+        );
+        assert!(
+            Path::new(&path_str).exists(),
+            "archive directory should exist"
+        );
+        assert!(!root.exists(), "original directory should be moved");
+
+        fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn archive_terminal_returns_none_when_live() {
+        let tmp = std::env::temp_dir().join(format!("cynic-test-{}", std::process::id()));
+        let store = LocalAgentWorkloadStore::new(&tmp);
+        let workload_id = "test-workload";
+
+        let root = tmp.join(workload_id);
+        fs::create_dir_all(&root).unwrap();
+
+        let record = terminal_record(workload_id, AgentWorkloadState::Dispatched, 1000);
+        write_revision(&root, 1, &record);
+
+        let result = store.archive_terminal(workload_id, 500, 2000).unwrap();
+
+        assert!(result.is_none(), "expected None for live workload");
+        assert!(
+            root.exists(),
+            "directory should still exist for live workload"
+        );
+
+        fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn archive_terminal_returns_none_when_missing() {
+        let tmp = std::env::temp_dir().join(format!("cynic-test-{}", std::process::id()));
+        let store = LocalAgentWorkloadStore::new(&tmp);
+
+        let result = store.archive_terminal("nonexistent", 500, 2000).unwrap();
+
+        assert!(result.is_none(), "expected None for missing workload");
+
+        fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn archive_terminal_returns_none_when_terminal_but_fresh() {
+        let tmp = std::env::temp_dir().join(format!("cynic-test-{}", std::process::id()));
+        let store = LocalAgentWorkloadStore::new(&tmp);
+        let workload_id = "test-workload";
+
+        let root = tmp.join(workload_id);
+        fs::create_dir_all(&root).unwrap();
+
+        let record = terminal_record(workload_id, AgentWorkloadState::Completed, 1500);
+        write_revision(&root, 1, &record);
+
+        let result = store.archive_terminal(workload_id, 500, 2000).unwrap();
+
+        assert!(
+            result.is_none(),
+            "expected None for terminal but fresh workload"
+        );
+        assert!(
+            root.exists(),
+            "directory should still exist for fresh workload"
+        );
+
+        fs::remove_dir_all(&tmp).ok();
+    }
+}

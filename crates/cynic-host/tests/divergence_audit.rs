@@ -134,7 +134,11 @@ fn make_targets() -> BTreeSet<String> {
             }
             let name = trimmed.split(':').next()?;
             let name = name.split_whitespace().next()?;
-            if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || "._-".contains(c)) {
+            if name.is_empty()
+                || !name
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || "._-".contains(c))
+            {
                 return None;
             }
             Some(name.to_string())
@@ -188,7 +192,10 @@ fn missing_make_targets() -> Vec<String> {
     authorities
         .into_iter()
         .map(|(target, cited_by)| {
-            format!("make {target} (cited by {})", cited_by.into_iter().collect::<Vec<_>>().join(", "))
+            format!(
+                "make {target} (cited by {})",
+                cited_by.into_iter().collect::<Vec<_>>().join(", ")
+            )
         })
         .collect()
 }
@@ -293,9 +300,7 @@ fn toolchain_divergences() -> Vec<String> {
                                         line.trim()
                                             .strip_prefix("channel")
                                             .and_then(|rest| rest.trim().strip_prefix('='))
-                                            .map(|rest| {
-                                                rest.trim().trim_matches('"').to_string()
-                                            })
+                                            .map(|rest| rest.trim().trim_matches('"').to_string())
                                     })
                                 })
                                 .unwrap_or_else(|| "<unknown>".to_string())
@@ -303,8 +308,10 @@ fn toolchain_divergences() -> Vec<String> {
                     }
                 }
                 for entry in mismatched {
-                    out.insert(format!("a per-crate toolchain pin disagrees with the \
-                                        registry: {entry}"));
+                    out.insert(format!(
+                        "a per-crate toolchain pin disagrees with the \
+                                        registry: {entry}"
+                    ));
                 }
             }
         }
@@ -367,7 +374,11 @@ fn uncited_infra_documents() -> Vec<String> {
     };
 
     let mut authorities = String::new();
-    for authority in ["contracts/foundation.json", "AGENTS.md", "contracts/pruning-policy.json"] {
+    for authority in [
+        "contracts/foundation.json",
+        "AGENTS.md",
+        "contracts/pruning-policy.json",
+    ] {
         if let Some(text) = read(authority).text() {
             authorities.push_str(&text);
             authorities.push('\n');
@@ -380,7 +391,9 @@ fn uncited_infra_documents() -> Vec<String> {
         if path.extension().and_then(|e| e.to_str()) != Some("md") {
             continue;
         }
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
         if !authorities.contains(stem) {
             uncited.push(stem.to_string());
         }
@@ -440,9 +453,7 @@ fn the_compiler_has_one_pinned_version_every_consumer_agrees_on() {
     // knows its own size cannot be reviewed.
     let divergent = toolchain_divergences();
 
-    const ACCEPTED: &[&str] = &[
-        "the CI installs a floating toolchain instead of the pinned one",
-    ];
+    const ACCEPTED: &[&str] = &["the CI installs a floating toolchain instead of the pinned one"];
 
     let new: Vec<&String> = divergent
         .iter()

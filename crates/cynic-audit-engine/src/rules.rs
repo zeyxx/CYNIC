@@ -87,8 +87,7 @@ impl AuditRule for PathSanitationRule {
                 // workspace. Keyed on the FILE NAME, like the sibling rules in
                 // path_rules.rs and prose_citation_rule.rs, so the next extraction
                 // does not silently re-arm it.
-                let is_the_detector_itself =
-                    file.relative_path.ends_with("rules.rs");
+                let is_the_detector_itself = file.relative_path.ends_with("rules.rs");
 
                 if !in_test_scope
                     && !is_the_detector_itself
@@ -206,8 +205,12 @@ impl AuditRule for HotspotThresholdRule {
 ///
 /// Kept as a named constant so the retirement is greppable and so a future rule
 /// does not reintroduce the same four strings.
-pub const RETIRED_LAYER_BOUNDARY_STRINGS: &[&str] =
-    &["std::process::Command", "tokio::process::Command", "reqwest::", "clap::Parser"];
+pub const RETIRED_LAYER_BOUNDARY_STRINGS: &[&str] = &[
+    "std::process::Command",
+    "tokio::process::Command",
+    "reqwest::",
+    "clap::Parser",
+];
 
 pub struct KernelBoundaryRule;
 

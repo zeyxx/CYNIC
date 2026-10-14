@@ -153,7 +153,9 @@ pub fn derive_firewall_policy_from_registry(
         .or_else(|| registry.pointer("/network_policy/planes/service/cidr"))
         .or_else(|| registry.pointer("/network_policy/planes/synapse/cidr"))
         .and_then(|v| v.as_str())
-        .ok_or_else(|| "missing service plane cidr in registry (/network_policy/planes)".to_string())?
+        .ok_or_else(|| {
+            "missing service plane cidr in registry (/network_policy/planes)".to_string()
+        })?
         .to_string();
     let admin_cidr = registry
         .pointer("/network_policy/planes/admin/cidr")

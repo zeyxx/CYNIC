@@ -13,13 +13,19 @@ pub struct Budget {
 
 impl Default for Budget {
     fn default() -> Self {
-        Self { actions: 0, wall_seconds: 0 }
+        Self {
+            actions: 0,
+            wall_seconds: 0,
+        }
     }
 }
 
 impl Budget {
     pub const fn new(actions: u32, wall_seconds: u32) -> Self {
-        Self { actions, wall_seconds }
+        Self {
+            actions,
+            wall_seconds,
+        }
     }
 
     /// Sum of actions and wall_seconds consumed.

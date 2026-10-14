@@ -85,7 +85,10 @@ fn cynic_mcp_has_no_closed_include_island() {
         island
             .members
             .iter()
-            .map(|member| format!("  {} ({} loc, attached by {:?})", member.path, member.loc, member.attached_by_dead))
+            .map(|member| format!(
+                "  {} ({} loc, attached by {:?})",
+                member.path, member.loc, member.attached_by_dead
+            ))
             .collect::<Vec<_>>()
             .join("\n"),
     );
@@ -98,7 +101,11 @@ fn no_workspace_crate_declares_a_closed_include_island() {
     let violations = report();
     let islands: Vec<Violation> = violations
         .iter()
-        .filter(|violation| violation.code.starts_with(source_island::RULE_CLOSED_INCLUDE_ISLAND))
+        .filter(|violation| {
+            violation
+                .code
+                .starts_with(source_island::RULE_CLOSED_INCLUDE_ISLAND)
+        })
         .cloned()
         .collect();
     assert!(
@@ -124,14 +131,15 @@ fn the_quarantine_manifest_is_a_valid_loan_book() {
         quarantine.horizon_days,
         source_island::MAX_QUARANTINE_HORIZON_DAYS
     );
-    let violations = source_island::evaluate_islands(
-        &source_island::workspace_islands(),
-        &quarantine,
-        today,
-    );
+    let violations =
+        source_island::evaluate_islands(&source_island::workspace_islands(), &quarantine, today);
     let integrity: Vec<Violation> = violations
         .iter()
-        .filter(|violation| violation.code.starts_with(source_island::RULE_QUARANTINE_INTEGRITY))
+        .filter(|violation| {
+            violation
+                .code
+                .starts_with(source_island::RULE_QUARANTINE_INTEGRITY)
+        })
         .cloned()
         .collect();
     assert!(
@@ -187,7 +195,11 @@ fn the_island_rule_fires_on_a_synthetic_island() {
     };
     let today = source_island::today();
     let fired = source_island::evaluate_islands(&islands, &empty, today);
-    assert_eq!(fired.len(), 1, "expected one SRC-001 finding, got {fired:?}");
+    assert_eq!(
+        fired.len(),
+        1,
+        "expected one SRC-001 finding, got {fired:?}"
+    );
     assert_eq!(fired[0].code, "SRC-001-UNQUARANTINED");
 
     // Quarantined with an owner but no reason and no expiry: SRC-002 fires
@@ -209,11 +221,7 @@ fn the_island_rule_fires_on_a_synthetic_island() {
         .iter()
         .map(|violation| violation.code.as_str())
         .collect();
-    for expected in [
-        "SRC-002-NO-OWNER",
-        "SRC-002-NO-REASON",
-        "SRC-002-NO-EXPIRY",
-    ] {
+    for expected in ["SRC-002-NO-OWNER", "SRC-002-NO-REASON", "SRC-002-NO-EXPIRY"] {
         assert!(codes.contains(&expected), "missing {expected} in {codes:?}");
     }
 
@@ -226,17 +234,27 @@ fn the_island_rule_fires_on_a_synthetic_island() {
             crate_name: "synthetic".to_string(),
             path: "island/inner.rs".to_string(),
             owner: "zeyxx:source-island-gate".to_string(),
-            reason: "Superseded provider adapter kept for one bounded migration window.".to_string(),
+            reason: "Superseded provider adapter kept for one bounded migration window."
+                .to_string(),
             expires,
         }],
     };
     // Inside the horizon: silent. This is the ONLY shape a quarantine may take.
-    let soon = Date { epoch_day: today.epoch_day + 30 }.to_iso();
+    let soon = Date {
+        epoch_day: today.epoch_day + 30,
+    }
+    .to_iso();
     let valid = source_island::evaluate_islands(&islands, &dated(soon.clone()), today);
-    assert!(valid.is_empty(), "a dated, owned loan inside the horizon must be silent: {valid:?}");
+    assert!(
+        valid.is_empty(),
+        "a dated, owned loan inside the horizon must be silent: {valid:?}"
+    );
     let past = source_island::evaluate_islands(&islands, &dated("2020-01-01".to_string()), today);
     assert_eq!(past.len(), 1, "{past:?}");
-    assert_eq!(past[0].code, "SRC-002-EXPIRED", "an expired loan must FAIL, not pass");
+    assert_eq!(
+        past[0].code, "SRC-002-EXPIRED",
+        "an expired loan must FAIL, not pass"
+    );
     let over_reach =
         source_island::evaluate_islands(&islands, &dated("2200-01-01".to_string()), today);
     assert_eq!(over_reach.len(), 1, "{over_reach:?}");
@@ -276,7 +294,13 @@ fn dates_round_trip_and_reject_impossible_days() {
         let date = Date::parse(iso).unwrap_or_else(|error| panic!("{iso}: {error}"));
         assert_eq!(date.to_iso(), iso);
     }
-    for bad in ["2026-02-30", "2026-13-01", "2026-00-10", "not-a-date", "2026-9-28x"] {
+    for bad in [
+        "2026-02-30",
+        "2026-13-01",
+        "2026-00-10",
+        "not-a-date",
+        "2026-9-28x",
+    ] {
         assert!(Date::parse(bad).is_err(), "{bad} must not parse");
     }
     // 2026-03-01 minus 2026-02-28 is one day, across a non-leap February.
@@ -321,21 +345,23 @@ fn crate_island_fixture(label: &str) -> std::path::PathBuf {
     ));
     let src = base.join("crates/synthetic/src");
     fs::create_dir_all(src.join("island")).unwrap_or_else(|error| panic!("{error}"));
-    fs::write(base.join("crates/synthetic/Cargo.toml"), "[package]\nname = \"synthetic\"\n")
-        .unwrap_or_else(|error| panic!("{error}"));
-    fs::write(src.join("lib.rs"), "pub mod server;\n").unwrap_or_else(|error| panic!("{error}"));
-    fs::write(src.join("server.rs"), "pub fn ping() {}\n").unwrap_or_else(|error| panic!("{error}"));
     fs::write(
-        src.join("bridge.rs"),
-        "include!(\"island/inner.rs\");\n",
+        base.join("crates/synthetic/Cargo.toml"),
+        "[package]\nname = \"synthetic\"\n",
     )
     .unwrap_or_else(|error| panic!("{error}"));
+    fs::write(src.join("lib.rs"), "pub mod server;\n").unwrap_or_else(|error| panic!("{error}"));
+    fs::write(src.join("server.rs"), "pub fn ping() {}\n")
+        .unwrap_or_else(|error| panic!("{error}"));
+    fs::write(src.join("bridge.rs"), "include!(\"island/inner.rs\");\n")
+        .unwrap_or_else(|error| panic!("{error}"));
     fs::write(
         src.join("island/inner.rs"),
         "pub fn inner() -> u8 { 7 }\n// padding line to make the mass visible\n",
     )
     .unwrap_or_else(|error| panic!("{error}"));
-    fs::write(src.join("loose.rs"), "pub fn loose() {}\n").unwrap_or_else(|error| panic!("{error}"));
+    fs::write(src.join("loose.rs"), "pub fn loose() {}\n")
+        .unwrap_or_else(|error| panic!("{error}"));
     base
 }
 

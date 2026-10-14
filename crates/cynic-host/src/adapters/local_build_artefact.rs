@@ -373,14 +373,18 @@ mod shallow_tests {
             .observe_build_artefacts_shallow()
             .expect("shallow observe");
         assert_eq!(report.total_checkout_bytes, 0);
-        assert!(report
-            .residual_unknowns
-            .iter()
-            .any(|u| u == "sizes_skipped:shallow_observe"));
-        assert!(report
-            .residual_unknowns
-            .iter()
-            .any(|u| u == "remote_shas_skipped:shallow_observe"));
+        assert!(
+            report
+                .residual_unknowns
+                .iter()
+                .any(|u| u == "sizes_skipped:shallow_observe")
+        );
+        assert!(
+            report
+                .residual_unknowns
+                .iter()
+                .any(|u| u == "remote_shas_skipped:shallow_observe")
+        );
         // Classification survives without measurement: every entry still has
         // an sha (live rev-parse) even though sizes read 0.
         for checkout in &report.checkouts {

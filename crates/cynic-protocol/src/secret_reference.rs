@@ -57,7 +57,7 @@ impl SecretReference {
 
     /// V1 migration helper: construct a SecretReference with an explicit class.
     ///
-    /// Usage: 
+    /// Usage:
     pub fn with_class(
         id: &str,
         locator: &str,

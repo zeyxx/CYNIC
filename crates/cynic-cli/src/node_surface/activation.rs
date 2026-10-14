@@ -67,8 +67,7 @@ pub(crate) fn execute_status(node_id: String, json: bool) -> ExitCode {
     if !json {
         return ExitCode::FAILURE;
     }
-    let registry_path =
-        resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+    let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
     let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
         registry_path.to_string_lossy().to_string(),
     );
@@ -77,8 +76,7 @@ pub(crate) fn execute_status(node_id: String, json: bool) -> ExitCode {
 }
 
 pub(crate) fn execute_activate(node_id: String, yes: bool, json: bool) -> ExitCode {
-    let registry_path =
-        resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
+    let registry_path = resolve_runtime_paths(&RuntimeContext::from_env(None)).registry_path;
     let adapter = cynic_host::node_activation::NodeActivationAdapter::new(
         registry_path.to_string_lossy().to_string(),
     );
@@ -99,8 +97,7 @@ pub(crate) fn execute_activate(node_id: String, yes: bool, json: bool) -> ExitCo
                     );
                 }
                 cynic_node_protocol::node_activation::ActivationProof::Failed {
-                    blockers,
-                    ..
+                    blockers, ..
                 } => {
                     println!("FAILED: {} (blockers: {})", node_id, blockers.join(", "));
                     return ExitCode::FAILURE;
@@ -285,9 +282,7 @@ pub(crate) fn execute_cert_verify(
                     );
                     ExitCode::SUCCESS
                 } else {
-                    println!(
-                        "REJECTED: Certificate signature or temporal validity check failed."
-                    );
+                    println!("REJECTED: Certificate signature or temporal validity check failed.");
                     ExitCode::FAILURE
                 }
             }

@@ -3,8 +3,8 @@
 //! Enforces Foundation §481 and `contracts/source-lifecycle.json`.
 //! Pure zero-I/O validation and path derivation for concurrent agent worktrees.
 
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 pub const ISOLATED_WORKTREE_ALLOCATION_SCHEMA: &str = "cynic.vcs.isolated_worktree.v1";
 
@@ -28,7 +28,13 @@ pub struct WorktreeAllocationPlan {
 pub fn branch_to_directory_slug(branch: &str) -> String {
     branch
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 

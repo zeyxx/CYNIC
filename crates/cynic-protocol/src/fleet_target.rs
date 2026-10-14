@@ -24,9 +24,11 @@ mod tests {
 
     #[test]
     fn the_pinned_name_is_the_one_the_registry_declares() {
-        let registry =
-            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../infra/registry.json"))
-                .expect("registry.json is readable");
+        let registry = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../infra/registry.json"
+        ))
+        .expect("registry.json is readable");
         assert!(
             registry.contains(&format!("\"target\": \"{BUILD_RUNNER_SSH_TARGET}\"")),
             "the pinned runner name no longer appears in infra/registry.json; one of the two \

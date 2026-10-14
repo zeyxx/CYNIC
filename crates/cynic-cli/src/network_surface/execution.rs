@@ -452,6 +452,8 @@ pub enum NetworkCommands {
     },
 }
 
+use cynic_host::runtime_harness::runtime_harness_catalog;
+use cynic_lifecycle::LocalArgvRunner;
 use cynic_node::adapters::libvirt_harness_target_attestor::LibvirtHarnessTargetAttestor;
 use cynic_node::adapters::local_harness_target_attestation_reader::LocalHarnessTargetAttestationReader;
 use cynic_node::adapters::local_network_actuation_request_reader::read_network_actuation_request;
@@ -479,8 +481,6 @@ use cynic_node::provider_fallback_status;
 use cynic_node::usecases::network_actuation_target_uc::{
     QemuNetworkActuationConfig, execute_qemu_network_actuation,
 };
-use cynic_host::runtime_harness::runtime_harness_catalog;
-use cynic_lifecycle::LocalArgvRunner;
 
 pub fn execute_observe(registry: &str, fail_on_warning: bool, fail_on_critical: bool) -> ExitCode {
     let observation = observe::observe_payload(Some(registry));
@@ -769,17 +769,20 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
             registry,
             bundle_dir,
             yes,
-        } => match cynic_node::dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes) {
-            Ok(report) => {
-                let should_fail = report["status"].as_str() != Some("proved")
-                    && report["status"].as_str() != Some("converged");
-                emit_json("dns activation apply", &report, should_fail)
+        } => {
+            match cynic_node::dns_activation::apply_dns_activation_value(registry, bundle_dir, *yes)
+            {
+                Ok(report) => {
+                    let should_fail = report["status"].as_str() != Some("proved")
+                        && report["status"].as_str() != Some("converged");
+                    emit_json("dns activation apply", &report, should_fail)
+                }
+                Err(error) => {
+                    tracing::error!("dns activation apply failed: {error}");
+                    ExitCode::FAILURE
+                }
             }
-            Err(error) => {
-                tracing::error!("dns activation apply failed: {error}");
-                ExitCode::FAILURE
-            }
-        },
+        }
         NetworkCommands::Evidence { json: _, registry } => {
             let observation = observe::observe_payload(Some(registry));
             let evidence = network_evidence::build_evidence(&observation);
@@ -1029,8 +1032,8 @@ pub fn execute_network_command(command: &NetworkCommands) -> ExitCode {
                 let health = adapter.check_health().ok();
                 let members = adapter.list_members().unwrap_or_default();
                 let plan = network_mesh_plan::build_network_mesh_plan(registry, Some("headscale"));
-                let desired_peers: Vec<cynic_node::domain::mesh_coordination::DesiredMeshPeer> = plan
-                    .map(|p| {
+                let desired_peers: Vec<cynic_node::domain::mesh_coordination::DesiredMeshPeer> =
+                    plan.map(|p| {
                         p.desired_peers
                             .into_iter()
                             .map(|peer| {

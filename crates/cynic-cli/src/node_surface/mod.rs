@@ -8,14 +8,13 @@
 
 pub mod activation;
 pub mod agent;
+pub mod compute;
 pub mod consensus;
+pub mod host;
 pub mod identity;
 pub mod observation;
 pub mod source;
 pub mod storage;
-pub mod host;
-pub mod compute;
-
 
 use std::process::ExitCode;
 
@@ -321,31 +320,59 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
     match command {
         // === Activation ===
         NodeCommand::Status { node_id, json } => activation::execute_status(node_id, json),
-        NodeCommand::Activate { node_id, yes, json } => activation::execute_activate(node_id, yes, json),
-        NodeCommand::IdentityInit { key_path, json } => activation::execute_identity_init(key_path, json),
-        NodeCommand::CsrCreate { node_id, role, key_path, json } => activation::execute_csr_create(node_id, role, key_path, json),
-        NodeCommand::CertInspect { cert_path, json } => activation::execute_cert_inspect(cert_path, json),
-        NodeCommand::CertVerify { kernel_pubkey_hex, cert_path, json } => activation::execute_cert_verify(kernel_pubkey_hex, cert_path, json),
-        NodeCommand::HostAudit { json, max_commits } => activation::execute_host_audit(json, max_commits),
+        NodeCommand::Activate { node_id, yes, json } => {
+            activation::execute_activate(node_id, yes, json)
+        }
+        NodeCommand::IdentityInit { key_path, json } => {
+            activation::execute_identity_init(key_path, json)
+        }
+        NodeCommand::CsrCreate {
+            node_id,
+            role,
+            key_path,
+            json,
+        } => activation::execute_csr_create(node_id, role, key_path, json),
+        NodeCommand::CertInspect { cert_path, json } => {
+            activation::execute_cert_inspect(cert_path, json)
+        }
+        NodeCommand::CertVerify {
+            kernel_pubkey_hex,
+            cert_path,
+            json,
+        } => activation::execute_cert_verify(kernel_pubkey_hex, cert_path, json),
+        NodeCommand::HostAudit { json, max_commits } => {
+            activation::execute_host_audit(json, max_commits)
+        }
         NodeCommand::Forensics { command } => crate::forensics_surface::execute_forensics(command),
 
         // === Identity ===
-        NodeCommand::NodeIdentity { node_id, signing_key_path, apply, json } => {
-            identity::execute_node_identity(&node_id, &signing_key_path, apply, json)
-        }
+        NodeCommand::NodeIdentity {
+            node_id,
+            signing_key_path,
+            apply,
+            json,
+        } => identity::execute_node_identity(&node_id, &signing_key_path, apply, json),
 
         // === Consensus ===
-        NodeCommand::ConsensusStatus { json: _, expected_epoch, expected_commit, max_skew_ms } => {
-            consensus::execute_consensus_status(expected_epoch, &expected_commit, max_skew_ms)
-        }
+        NodeCommand::ConsensusStatus {
+            json: _,
+            expected_epoch,
+            expected_commit,
+            max_skew_ms,
+        } => consensus::execute_consensus_status(expected_epoch, &expected_commit, max_skew_ms),
 
         // === Observation ===
-        NodeCommand::Observe { json: _, registry, fail_on_warning, fail_on_critical } => {
-            observation::execute_observe(&registry, fail_on_warning, fail_on_critical)
-        }
-        NodeCommand::RegistryObservation { json: _, registry, output } => {
-            observation::execute_registry_observation(&registry, output.as_deref())
-        }
+        NodeCommand::Observe {
+            json: _,
+            registry,
+            fail_on_warning,
+            fail_on_critical,
+        } => observation::execute_observe(&registry, fail_on_warning, fail_on_critical),
+        NodeCommand::RegistryObservation {
+            json: _,
+            registry,
+            output,
+        } => observation::execute_registry_observation(&registry, output.as_deref()),
 
         // === Host Probes ===
         NodeCommand::Host { command } => host::execute_node_host(command),
@@ -359,39 +386,150 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         }
 
         // === Agent ===
-        NodeCommand::AgentWorkspace { request, result_file, registry, state_root, kernel_endpoint, max_claim_ttl_ms, max_retention_ms, apply, json: _ } => {
-            agent::execute_agent_workspace(&request, result_file.as_deref(), &registry, &state_root, &kernel_endpoint, max_claim_ttl_ms, max_retention_ms, apply).await
+        NodeCommand::AgentWorkspace {
+            request,
+            result_file,
+            registry,
+            state_root,
+            kernel_endpoint,
+            max_claim_ttl_ms,
+            max_retention_ms,
+            apply,
+            json: _,
+        } => {
+            agent::execute_agent_workspace(
+                &request,
+                result_file.as_deref(),
+                &registry,
+                &state_root,
+                &kernel_endpoint,
+                max_claim_ttl_ms,
+                max_retention_ms,
+                apply,
+            )
+            .await
         }
-        NodeCommand::AgentWorkspaceLifecycle { workload_id, registry, state_root, kernel_endpoint, agent_id, renewal_window_ms, renewal_ttl_ms, apply, json: _ } => {
-            agent::execute_agent_workspace_lifecycle(&workload_id, &registry, &state_root, &kernel_endpoint, &agent_id, renewal_window_ms, renewal_ttl_ms, apply).await
+        NodeCommand::AgentWorkspaceLifecycle {
+            workload_id,
+            registry,
+            state_root,
+            kernel_endpoint,
+            agent_id,
+            renewal_window_ms,
+            renewal_ttl_ms,
+            apply,
+            json: _,
+        } => {
+            agent::execute_agent_workspace_lifecycle(
+                &workload_id,
+                &registry,
+                &state_root,
+                &kernel_endpoint,
+                &agent_id,
+                renewal_window_ms,
+                renewal_ttl_ms,
+                apply,
+            )
+            .await
         }
-        NodeCommand::AgentSchedulerStep { observation, state_root, json: _ } => {
-            agent::execute_agent_scheduler_step(&observation, &state_root)
-        }
-        NodeCommand::AgentWorkloadStatus { workload_id, state_root, json: _ } => {
-            agent::execute_agent_workload_status(&workload_id, &state_root)
-        }
-        NodeCommand::AgentWorkloadTransition { request, state_root, apply, json: _ } => {
-            agent::execute_agent_workload_transition(&request, &state_root, apply)
-        }
-        NodeCommand::BuildWorkloadGrantVerify { grant, workload_record, authority_public_key, node_id, source_commit, action, json: _ } => {
-            agent::execute_build_workload_grant_verify(&grant, &workload_record, &authority_public_key, &node_id, &source_commit, &action)
-        }
+        NodeCommand::AgentSchedulerStep {
+            observation,
+            state_root,
+            json: _,
+        } => agent::execute_agent_scheduler_step(&observation, &state_root),
+        NodeCommand::AgentWorkloadStatus {
+            workload_id,
+            state_root,
+            json: _,
+        } => agent::execute_agent_workload_status(&workload_id, &state_root),
+        NodeCommand::AgentWorkloadTransition {
+            request,
+            state_root,
+            apply,
+            json: _,
+        } => agent::execute_agent_workload_transition(&request, &state_root, apply),
+        NodeCommand::BuildWorkloadGrantVerify {
+            grant,
+            workload_record,
+            authority_public_key,
+            node_id,
+            source_commit,
+            action,
+            json: _,
+        } => agent::execute_build_workload_grant_verify(
+            &grant,
+            &workload_record,
+            &authority_public_key,
+            &node_id,
+            &source_commit,
+            &action,
+        ),
 
         // === Storage ===
-        NodeCommand::StorageReconcile { state_dir, warmup_seconds, restart_window_seconds, max_restarts_per_window, apply, json: _ } => {
-            storage::execute_storage_reconcile(&state_dir, warmup_seconds, restart_window_seconds, max_restarts_per_window, apply).await
+        NodeCommand::StorageReconcile {
+            state_dir,
+            warmup_seconds,
+            restart_window_seconds,
+            max_restarts_per_window,
+            apply,
+            json: _,
+        } => {
+            storage::execute_storage_reconcile(
+                &state_dir,
+                warmup_seconds,
+                restart_window_seconds,
+                max_restarts_per_window,
+                apply,
+            )
+            .await
         }
 
         // === Source ===
-        NodeCommand::SourceAdmissionPlan { request, observation, json: _ } => {
-            source::execute_source_admission_plan(&request, &observation)
-        }
-        NodeCommand::SourceMaterialize { request, state_root, snapshot_root, snapshot_base_url, node_id, apply, json: _ } => {
-            source::execute_source_materialize(&request, &state_root, &snapshot_root, snapshot_base_url.as_deref(), &node_id, apply)
-        }
-        NodeCommand::SourceBootstrap { node, repository, source, revision, registry, state_root, agent_id, kernel_endpoint, apply, json: _ } => {
-            source::execute_source_bootstrap(&node, &repository, &source, &revision, &registry, &state_root, &agent_id, &kernel_endpoint, apply).await
+        NodeCommand::SourceAdmissionPlan {
+            request,
+            observation,
+            json: _,
+        } => source::execute_source_admission_plan(&request, &observation),
+        NodeCommand::SourceMaterialize {
+            request,
+            state_root,
+            snapshot_root,
+            snapshot_base_url,
+            node_id,
+            apply,
+            json: _,
+        } => source::execute_source_materialize(
+            &request,
+            &state_root,
+            &snapshot_root,
+            snapshot_base_url.as_deref(),
+            &node_id,
+            apply,
+        ),
+        NodeCommand::SourceBootstrap {
+            node,
+            repository,
+            source,
+            revision,
+            registry,
+            state_root,
+            agent_id,
+            kernel_endpoint,
+            apply,
+            json: _,
+        } => {
+            source::execute_source_bootstrap(
+                &node,
+                &repository,
+                &source,
+                &revision,
+                &registry,
+                &state_root,
+                &agent_id,
+                &kernel_endpoint,
+                apply,
+            )
+            .await
         }
     }
 }

@@ -150,9 +150,7 @@ mod tests {
     }
 
     fn installed_json(ids: &str) -> String {
-        format!(
-            r#"{{"schema":"cynic.capability_catalog.installed.v1","capability_ids":[{ids}]}}"#
-        )
+        format!(r#"{{"schema":"cynic.capability_catalog.installed.v1","capability_ids":[{ids}]}}"#)
     }
 
     #[test]
@@ -167,7 +165,11 @@ mod tests {
         let view = CapabilityView::load(&catalog, &installed).expect("load");
         assert!(view.mandatory_ids().contains(&"node-control".to_string()));
         match view.admit("pct-list", &[]) {
-            CapabilityDecision::Admitted { argv, requires_root, .. } => {
+            CapabilityDecision::Admitted {
+                argv,
+                requires_root,
+                ..
+            } => {
                 assert_eq!(argv, vec!["/usr/sbin/pct", "list"]);
                 assert!(requires_root);
             }

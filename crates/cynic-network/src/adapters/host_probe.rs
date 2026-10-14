@@ -229,10 +229,7 @@ impl NetworkDiscoveryProbePort for LocalNetworkDiscoveryProbeAdapter {
         Ok(start.elapsed().as_millis() as u64)
     }
 
-    fn probe_wireguard_handshakes(
-        &self,
-        iface: &str,
-    ) -> Result<BTreeMap<String, u64>, String> {
+    fn probe_wireguard_handshakes(&self, iface: &str) -> Result<BTreeMap<String, u64>, String> {
         match capture_command("wg", &["show", iface, "dump"]) {
             Ok(out) if out.success => {
                 let tele = parse_wireguard_telemetry(&out.stdout);

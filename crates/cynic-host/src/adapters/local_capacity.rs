@@ -21,10 +21,7 @@ impl LocalCapacityAdapter {
 
     /// Observe local CPU and memory, then assess the load tier.
     /// Missing probes become explicit residual unknowns — never fabricated.
-    pub fn assess_capacity(
-        &self,
-        policy: &LoadPolicy,
-    ) -> Result<CapacityAssessmentV1, String> {
+    pub fn assess_capacity(&self, policy: &LoadPolicy) -> Result<CapacityAssessmentV1, String> {
         let policy_violations = policy.violations();
         if !policy_violations.is_empty() {
             return Err(format!(

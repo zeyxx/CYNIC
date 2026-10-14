@@ -1,5 +1,4 @@
 pub mod adapters;
-pub mod domain;
 pub mod agent;
 pub mod agent_access;
 pub mod agent_matrix;
@@ -14,6 +13,7 @@ pub mod build_workflow;
 pub mod clock;
 pub mod command_surface;
 pub mod conformance;
+pub mod domain;
 pub mod rate_classify_scan;
 // The store two integration tests already import. It was never declared, so the
 // coordination lease enforcement it implements has been inert: nothing compiled
@@ -23,7 +23,6 @@ pub mod credential;
 pub mod credential_provisioning;
 pub mod crypto;
 pub mod development_genesis;
-pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
 pub mod federation_runtime;
@@ -49,13 +48,16 @@ pub mod host_exec_cli;
 pub mod host_exec_policy;
 mod identity_database;
 pub mod inference_observation;
+pub mod infra;
 pub mod install_contract;
 pub mod judge_patch_observer;
 pub mod kernel_proof_persistence;
 pub mod kernel_tunnel;
 pub mod lab;
 pub mod lease_manager;
-pub use cynic_lifecycle::forge_task_contract::{validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task};
+pub use cynic_lifecycle::forge_task_contract::{
+    validate_forge_lifecycle_contract, validate_repo_affecting_hermes_task,
+};
 pub mod mcp_runtime;
 pub mod mcp_tool;
 pub mod network_actuation;
@@ -99,7 +101,6 @@ pub mod service_catalog;
 pub mod service_supervisor_observation;
 pub mod source_control;
 pub mod source_lease;
-pub mod vcs_ports;
 pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;
@@ -114,6 +115,7 @@ pub mod toolchain;
 pub mod transport;
 pub mod tunnel_supervisor;
 pub mod usecases;
+pub mod vcs_ports;
 pub mod vertical_conformance;
 pub mod wireguard_readback;
 

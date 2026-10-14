@@ -12,9 +12,7 @@
 //! - Topologies: DedicatedSingle, CoResident, HotSwapNvme
 //! - Harness protocols: OpenAiToolCall, HermesXml, OmpLinePatch, MercuryJson
 
-use crate::sweep::{
-    BenchmarkScenario, ModelArchDescriptor, can_admit_model_configuration,
-};
+use crate::sweep::{BenchmarkScenario, ModelArchDescriptor, can_admit_model_configuration};
 use cynic_protocol::{
     ContextTier, HarnessProtocol, KvQuantization, MatrixScorecard, ParametricConfigPoint,
     ParametricRunResult, RopeScaling, TopologyStrategy,

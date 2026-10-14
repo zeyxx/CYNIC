@@ -1,12 +1,12 @@
 use cynic_storage::{STORAGE_OBSERVATION_SCHEMA, StorageObservation, StoragePhase};
 use serde_json::Value;
 
-use cynic_proxmox::adapters::ProxmoxControlAdapter;
 use crate::ports::storage_mutation_port::{
     StorageMutationPort, StorageMutationRequest, StorageMutationResult, StorageOperationReadBack,
     StorageOperationReadBackPort,
 };
 use crate::ports::storage_provider_port::{StorageProviderPort, StorageProviderTarget};
+use cynic_proxmox::adapters::ProxmoxControlAdapter;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ProxmoxStorageAdapter<'a> {

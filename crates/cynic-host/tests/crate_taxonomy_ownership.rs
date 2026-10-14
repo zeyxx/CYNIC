@@ -60,8 +60,13 @@ fn crate_names() -> Vec<String> {
 }
 
 fn manifest_of(crate_name: &str) -> String {
-    fs::read_to_string(workspace_root().join("crates").join(crate_name).join("Cargo.toml"))
-        .unwrap_or_else(|e| panic!("read {crate_name}/Cargo.toml: {e}"))
+    fs::read_to_string(
+        workspace_root()
+            .join("crates")
+            .join(crate_name)
+            .join("Cargo.toml"),
+    )
+    .unwrap_or_else(|e| panic!("read {crate_name}/Cargo.toml: {e}"))
 }
 
 fn description_of(crate_name: &str) -> String {
@@ -81,7 +86,9 @@ fn source_of(crate_name: &str) -> String {
     let mut out = String::new();
     let mut stack = vec![src];
     while let Some(dir) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
@@ -214,7 +221,10 @@ fn crate_taxonomy_ownership_is_measured_and_shrink_only() {
     let observed = violations();
     let baseline: Vec<&str> = BASELINE.to_vec();
 
-    let new: Vec<&String> = observed.iter().filter(|v| !baseline.contains(&v.as_str())).collect();
+    let new: Vec<&String> = observed
+        .iter()
+        .filter(|v| !baseline.contains(&v.as_str()))
+        .collect();
     let stale: Vec<&&str> = baseline
         .iter()
         .filter(|b| !observed.iter().any(|o| o.as_str() == **b))

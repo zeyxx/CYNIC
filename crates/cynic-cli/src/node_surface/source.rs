@@ -47,5 +47,6 @@ pub(crate) async fn execute_source_bootstrap(
         agent_id,
         kernel_endpoint,
         apply,
-    ).await
+    )
+    .await
 }

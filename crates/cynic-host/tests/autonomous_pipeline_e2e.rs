@@ -17,16 +17,16 @@ use cynic_build::build::BuildRunnerObservation;
 use cynic_build::runtime_release::RuntimeReleaseDeclaration;
 use cynic_host::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
 use cynic_host::build_workflow::{BuildWorkflowConfig, BuildWorkflowResult, run_build_workflow};
-use cynic_vcs_forgejo::forgejo_webhook::{
-    ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
-};
-use cynic_vcs_forgejo::{WebhookServerConfig, spawn_webhook_server};
 use cynic_host::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
 };
 use cynic_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
+use cynic_vcs_forgejo::forgejo_webhook::{
+    ForgejoHandlerConfig, ForgejoHandlerResult, ForgejoPayload, handle_forgejo_payload,
+};
+use cynic_vcs_forgejo::{WebhookServerConfig, spawn_webhook_server};
 
 // ── Fake adapters ────────────────────────────────────────────────────────────
 
@@ -299,8 +299,11 @@ fn e2e_step3_harness_allowed_with_proofs() {
 #[test]
 fn e2e_step4_runtime_release_declaration_constructs() {
     use cynic_build::RUNTIME_RELEASE_DECLARATION_SCHEMA;
-    use cynic_protocol::{RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedRequest};
-use cynic_node_protocol::{NODE_DESIRED_STATE_SCHEMA};
+    use cynic_node_protocol::NODE_DESIRED_STATE_SCHEMA;
+    use cynic_protocol::{
+        RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind,
+        RuntimeSeedRequest,
+    };
 
     let source_commit = valid_sha40();
     let proof_digest = format!("sha256:{}", "b".repeat(64));

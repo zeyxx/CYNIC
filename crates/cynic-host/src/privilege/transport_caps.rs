@@ -336,10 +336,7 @@ mod tests {
             .render(
                 capability,
                 &BTreeMap::from([
-                    (
-                        "source".to_string(),
-                        "/tmp/pve-bundle/cynic".to_string(),
-                    ),
+                    ("source".to_string(), "/tmp/pve-bundle/cynic".to_string()),
                     ("remote_name".to_string(), "cynic".to_string()),
                 ]),
                 &endpoint,

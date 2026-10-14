@@ -4,11 +4,11 @@
 //! Converts channel settlements into ResourceTransaction entries.
 
 use crate::types::ChannelSettlementProof;
+use cynic_finance::ResourceUnit;
 use cynic_finance::ports::MeterError;
 use cynic_finance::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::ResourceUnit;
 
 /// Channel settlement ledger — records channel settlements as ResourceTransaction.
 ///

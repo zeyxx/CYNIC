@@ -31,10 +31,7 @@ fn desired() -> BuildCacheDesiredState {
     }
 }
 
-fn observed(
-    available_bytes: Option<u64>,
-    ephemeral: Vec<EphemeralEntry>,
-) -> BuildCacheObservation {
+fn observed(available_bytes: Option<u64>, ephemeral: Vec<EphemeralEntry>) -> BuildCacheObservation {
     BuildCacheObservation {
         schema: BUILD_CACHE_OBSERVATION_SCHEMA,
         node_id: "builder-a".to_string(),
@@ -152,7 +149,10 @@ fn hard_cap_fires_without_pressure() {
 fn young_checkout_is_spared_under_pressure_by_grace() {
     let plan = reconcile_build_cache(
         &desired(),
-        &observed(Some(10), vec![checkout("/state/checkouts/cynic-new", 60_000)]),
+        &observed(
+            Some(10),
+            vec![checkout("/state/checkouts/cynic-new", 60_000)],
+        ),
     );
 
     // The only ephemeral entry is younger than the pressure grace: no
@@ -170,7 +170,10 @@ fn retention_absent_preserves_historical_behavior() {
         &undeclared,
         &observed(
             Some(10),
-            vec![checkout("/state/checkouts/cynic-old", MAX_AGE_MS + 1_000_000)],
+            vec![checkout(
+                "/state/checkouts/cynic-old",
+                MAX_AGE_MS + 1_000_000,
+            )],
         ),
     );
 

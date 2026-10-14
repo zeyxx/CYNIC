@@ -83,7 +83,9 @@ fn manifest_debt() -> (Vec<String>, usize) {
                 .to_string()
         })
         .collect();
-    let count = debt["count"].as_u64().expect("layer_debt.count is not a number") as usize;
+    let count = debt["count"]
+        .as_u64()
+        .expect("layer_debt.count is not a number") as usize;
     (edges, count)
 }
 
@@ -124,7 +126,8 @@ fn the_manifest_debt_and_the_engine_agree_exactly() {
     let mut sorted = declared.clone();
     sorted.sort();
     assert_eq!(
-        sorted, ascending_edges(),
+        sorted,
+        ascending_edges(),
         "the recorded layer debt and what ARCH-004 reports have diverged.\n\
          recorded: {sorted:#?}\n\
          observed: {:#?}",

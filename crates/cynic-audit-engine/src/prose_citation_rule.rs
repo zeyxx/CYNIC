@@ -56,12 +56,12 @@ impl AuditRule for CodeCitesProseRule {
             }
             // This file documents the rule with deliberately absent example paths.
             // A rule may not report its own fixture: the examples in this file are
-// deliberately counterexamples, and counting them as workspace findings is a
-// false positive produced by the auditor describing itself. Keyed on the FILE
-// NAME rather than a path, because a path-keyed exclusion silently stops
-// matching the next time the file is extracted — which is exactly what happened
-// when audit_engine moved to cynic-audit-engine.
-    if file.relative_path.ends_with("prose_citation_rule.rs") {
+            // deliberately counterexamples, and counting them as workspace findings is a
+            // false positive produced by the auditor describing itself. Keyed on the FILE
+            // NAME rather than a path, because a path-keyed exclusion silently stops
+            // matching the next time the file is extracted — which is exactly what happened
+            // when audit_engine moved to cynic-audit-engine.
+            if file.relative_path.ends_with("prose_citation_rule.rs") {
                 continue;
             }
             // PATH-002 excludes itself for the same reason, and this is the file
@@ -77,7 +77,10 @@ impl AuditRule for CodeCitesProseRule {
                 let trimmed = line.trim();
                 // Only doc comments and string literals can declare authority.
                 // A bare `Authority:` in code is not a citation.
-                if !(trimmed.starts_with("///") || trimmed.starts_with("//!") || trimmed.starts_with("//")) {
+                if !(trimmed.starts_with("///")
+                    || trimmed.starts_with("//!")
+                    || trimmed.starts_with("//"))
+                {
                     continue;
                 }
                 let lower = trimmed.to_lowercase();
@@ -142,7 +145,9 @@ fn extract_markdown_paths(line: &str) -> Vec<String> {
     // ending in .md. Only if not already found in backticks.
     if found.is_empty() {
         for word in line.split_whitespace() {
-            let cleaned = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' && c != '_');
+            let cleaned = word.trim_matches(|c: char| {
+                !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' && c != '_'
+            });
             if cleaned.ends_with(".md") && seen.insert(cleaned.to_string()) {
                 found.push(cleaned.to_string());
             }
@@ -200,7 +205,11 @@ mod tests {
         let rule = CodeCitesProseRule;
         let violations = rule.evaluate(&index);
         assert_eq!(violations.len(), 1);
-        assert!(violations[0].message.contains("machine-enrollment-federation.md"));
+        assert!(
+            violations[0]
+                .message
+                .contains("machine-enrollment-federation.md")
+        );
     }
 
     #[test]

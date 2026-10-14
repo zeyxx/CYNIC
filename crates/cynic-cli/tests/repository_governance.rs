@@ -84,7 +84,9 @@ fn root_admission_whitelist_holds() {
             // Root file
             let file = parts[0];
             if !allowed_files.contains(file) {
-                violations.push(format!("Root file '{file}' is not in allowed_files whitelist"));
+                violations.push(format!(
+                    "Root file '{file}' is not in allowed_files whitelist"
+                ));
             }
         } else {
             // File in a directory

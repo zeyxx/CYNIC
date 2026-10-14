@@ -129,7 +129,7 @@ fn parse_args() -> Result<Options, String> {
             other => {
                 return Err(format!(
                     "unknown argument `{other}`. Usage: cynic-topology [--check|--write] [--root PATH]"
-                ))
+                ));
             }
         }
     }

@@ -37,7 +37,13 @@ fn no_io_in_lib_sources() {
         }
         let content = std::fs::read_to_string(&path).unwrap();
         let rel = path.strip_prefix(manifest_dir).unwrap().display();
-        for needle in ["std::fs", "std::process", "reqwest", "tokio::spawn", "tokio::fs"] {
+        for needle in [
+            "std::fs",
+            "std::process",
+            "reqwest",
+            "tokio::spawn",
+            "tokio::fs",
+        ] {
             assert!(
                 !content.contains(needle),
                 "{rel}: forbidden I/O primitive {needle}"

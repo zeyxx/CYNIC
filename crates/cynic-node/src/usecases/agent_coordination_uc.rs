@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::usecases::agent_bus_types::*;
-use crate::usecases::agent_bus_ledger::*;
 use crate::usecases::agent_bus_claim::*;
+use crate::usecases::agent_bus_ledger::*;
+use crate::usecases::agent_bus_types::*;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -176,27 +176,19 @@ impl Coordinator {
             return false;
         }
         let recent = &outputs[outputs.len().saturating_sub(3)..];
-        let normalized: Vec<String> = recent
-            .iter()
-            .map(|s| s.trim().to_lowercase())
-            .collect();
-        !normalized.is_empty() && normalized.iter().all(|s| !s.is_empty() && s == &normalized[0])
+        let normalized: Vec<String> = recent.iter().map(|s| s.trim().to_lowercase()).collect();
+        !normalized.is_empty()
+            && normalized
+                .iter()
+                .all(|s| !s.is_empty() && s == &normalized[0])
     }
 
     /// Get fleet status.
     pub async fn fleet_status(&self) -> FleetStatus {
         let topology = self.topology.read().await;
         let total_leads = topology.leads.len();
-        let total_capacity: usize = topology
-            .leads
-            .values()
-            .map(|l| l.max_workers)
-            .sum();
-        let active_workers: usize = topology
-            .leads
-            .values()
-            .map(|l| l.active_workers)
-            .sum();
+        let total_capacity: usize = topology.leads.values().map(|l| l.max_workers).sum();
+        let active_workers: usize = topology.leads.values().map(|l| l.active_workers).sum();
 
         FleetStatus {
             coordinator_id: topology.coordinator_id.clone(),

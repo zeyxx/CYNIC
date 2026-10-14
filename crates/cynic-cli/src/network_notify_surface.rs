@@ -95,15 +95,12 @@ fn resolve_transport() -> Option<Box<dyn NotificationTransportPort>> {
     }
 }
 
-pub(crate) fn execute_network_notify(
-    interface: &str,
-    dry_run: bool,
-    json: bool,
-) -> ExitCode {
+pub(crate) fn execute_network_notify(interface: &str, dry_run: bool, json: bool) -> ExitCode {
     let store = InMemoryNotificationOutboxStore::default();
 
     let wg_observer = LocalPeerHandshakeObserver;
-    let freebox_probe = cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter::default();
+    let freebox_probe =
+        cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter::default();
     let services = declared_service_probe_specs();
     let adapter = cynic_host::adapters::local_network::LocalNetworkAdapter;
     let pressure = adapter.observe_network().pressure;

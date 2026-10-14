@@ -16,8 +16,8 @@ use crate::service_catalog::{ServiceRef, resolve_service_ref};
 
 // Re-export the pure types so existing `crate::repo_access::` paths keep resolving.
 pub use cynic_vcs::repo_access::{
-    REGISTRY_AUTHORITY_REL, REPO_ACCESS_STATUS_SCHEMA, REPO_REMOTES_AUTHORITY_REL,
-    RepoAccessEntry, RepoAccessReadiness, RepoAccessStatusReport, SovereignRemoteReadiness,
+    REGISTRY_AUTHORITY_REL, REPO_ACCESS_STATUS_SCHEMA, REPO_REMOTES_AUTHORITY_REL, RepoAccessEntry,
+    RepoAccessReadiness, RepoAccessStatusReport, SovereignRemoteReadiness,
 };
 
 #[derive(Debug, Deserialize)]

@@ -6,14 +6,13 @@
 
 use cynic_protocol::agent_isolation::SandboxStrategy;
 use cynic_protocol::compute::{
-    CommandExecutionResult, ComputeRequirements, ComputeSubstratePort,
-    SubstrateObservation, decide_compute_placement,
+    CommandExecutionResult, ComputeRequirements, ComputeSubstratePort, SubstrateObservation,
+    decide_compute_placement,
 };
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
-pub const COMPUTE_PROVISIONING_REPORT_SCHEMA: &str =
-    "cynic.node.compute_provisioning_report.v1";
+pub const COMPUTE_PROVISIONING_REPORT_SCHEMA: &str = "cynic.node.compute_provisioning_report.v1";
 
 /// Declarative intent to provision and execute a compute workload.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,7 +70,11 @@ pub async fn execute_compute_provisioning<P: ComputeSubstratePort>(
 
     // 3. Execution inside allocated runner
     let exec_res = substrate_port
-        .execute_command(&allocation.allocation_id, &intent.command, intent.timeout_ms)
+        .execute_command(
+            &allocation.allocation_id,
+            &intent.command,
+            intent.timeout_ms,
+        )
         .await;
 
     // 4. Guaranteed cleanup

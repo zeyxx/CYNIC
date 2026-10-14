@@ -88,7 +88,8 @@ impl SignedNodeControlPlan {
             issued_at_unix_s: self.issued_at_unix_s,
             expires_at_unix_s: self.expires_at_unix_s,
         };
-        cynic_protocol::canonical_json_bytes(&payload).expect("canonicalize signed control plan payload")
+        cynic_protocol::canonical_json_bytes(&payload)
+            .expect("canonicalize signed control plan payload")
     }
 
     pub fn is_valid_at(&self, now_unix_s: u64) -> bool {

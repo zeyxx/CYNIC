@@ -97,13 +97,15 @@ mod tests {
 
     #[test]
     fn success_requires_zero_exit_and_no_spawn_error() {
-        assert!(ArgvOutput {
-            exit_code: Some(0),
-            stdout: String::new(),
-            stderr: String::new(),
-            spawn_error: None,
-        }
-        .success());
+        assert!(
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            }
+            .success()
+        );
 
         // A failed spawn has no exit code; treating it as success is the bug this
         // documents, because `exit_code == Some(0)` alone would let it pass.
@@ -115,13 +117,15 @@ mod tests {
 
     #[test]
     fn nonzero_exit_is_not_success() {
-        assert!(!ArgvOutput {
-            exit_code: Some(1),
-            stdout: String::new(),
-            stderr: "boom".to_string(),
-            spawn_error: None,
-        }
-        .success());
+        assert!(
+            !ArgvOutput {
+                exit_code: Some(1),
+                stdout: String::new(),
+                stderr: "boom".to_string(),
+                spawn_error: None,
+            }
+            .success()
+        );
     }
 
     #[test]

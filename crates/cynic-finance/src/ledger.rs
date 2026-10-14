@@ -2,9 +2,7 @@
 //!
 //! This module provides the core ledger logic. It is pure — no I/O.
 
-use crate::types::{
-    ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
-};
+use crate::types::{ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection};
 
 /// Errors that can occur in ledger operations.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,10 +15,7 @@ pub enum LedgerError {
         actual: ResourceType,
     },
     /// Insufficient balance for a debit transaction.
-    InsufficientBalance {
-        available: f64,
-        requested: f64,
-    },
+    InsufficientBalance { available: f64, requested: f64 },
     /// Proof verification failed.
     InvalidProof(String),
     /// Ledger is empty.
@@ -97,7 +92,11 @@ impl LedgerEngine {
         }
 
         // Check idempotency
-        if ledger.entries.iter().any(|e| e.transaction_id == transaction.transaction_id) {
+        if ledger
+            .entries
+            .iter()
+            .any(|e| e.transaction_id == transaction.transaction_id)
+        {
             return Err(LedgerError::DuplicateTransaction(
                 transaction.transaction_id.clone(),
             ));
@@ -250,7 +249,10 @@ mod tests {
         engine.create_ledger("led-1", ResourceType::Token);
         let tx = sample_transaction("tx-1", TransactionDirection::Debit);
         let result = engine.append("led-1", tx);
-        assert!(matches!(result, Err(LedgerError::InsufficientBalance { .. })));
+        assert!(matches!(
+            result,
+            Err(LedgerError::InsufficientBalance { .. })
+        ));
     }
 
     #[test]
@@ -267,7 +269,10 @@ mod tests {
             ResourceMetadata::default(),
         );
         let result = engine.append("led-1", tx);
-        assert!(matches!(result, Err(LedgerError::ResourceTypeMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(LedgerError::ResourceTypeMismatch { .. })
+        ));
     }
 
     #[test]

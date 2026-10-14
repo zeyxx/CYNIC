@@ -4,6 +4,7 @@ pub mod ed25519_build_workload_grant;
 // Proxmox adapters moved to cynic-proxmox (L1, canonical home).
 // Credential lease verifier port moved to cynic-protocol (L0).
 // Consumers import via cynic_proxmox::adapters::{...} directly.
+pub mod agent_bus_server;
 pub mod headscale;
 pub mod host;
 pub mod host_observation;
@@ -72,4 +73,3 @@ pub mod tokio_build_execution;
 pub mod verified_credential_broker;
 pub mod websocket_federation;
 pub mod wireguard;
-pub mod agent_bus_server;

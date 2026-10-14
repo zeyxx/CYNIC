@@ -3,8 +3,8 @@
 //! Rates emerge from observed usage patterns. Each rate has a confidence
 //! score based on sample count and variance.
 
-use crate::types::{EXCHANGE_RATE_SCHEMA, ResourceUnit};
 pub use crate::types::EXCHANGE_RATE_TABLE_SCHEMA;
+use crate::types::{EXCHANGE_RATE_SCHEMA, ResourceUnit};
 use serde::{Deserialize, Serialize};
 
 /// A measured exchange rate between two resource units.

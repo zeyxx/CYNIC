@@ -45,18 +45,22 @@ fn job_handle_remains_typed_and_stable() {
 
 #[test]
 fn dataset_projection_readiness_is_binary() {
-    assert!(ProjectionReadiness {
-        has_redaction: true,
-        has_manifest: true,
-        canonical_bytes: 1,
-    }
-    .export_ready());
-    assert!(!ProjectionReadiness {
-        has_redaction: true,
-        has_manifest: false,
-        canonical_bytes: 1,
-    }
-    .export_ready());
+    assert!(
+        ProjectionReadiness {
+            has_redaction: true,
+            has_manifest: true,
+            canonical_bytes: 1,
+        }
+        .export_ready()
+    );
+    assert!(
+        !ProjectionReadiness {
+            has_redaction: true,
+            has_manifest: false,
+            canonical_bytes: 1,
+        }
+        .export_ready()
+    );
 }
 
 #[test]

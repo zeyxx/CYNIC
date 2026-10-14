@@ -1,11 +1,11 @@
 use crate::domain::package_provenance::PackagePromotionPolicy;
-use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 use crate::domain::packages::PackagePolicy;
 use crate::domain::principal::PrincipalPolicy;
 use crate::domain::privilege::PrivilegePolicy;
 use crate::domain::services::{ServiceManagerKind, ServicePolicy, ServiceUnitPolicy};
 use crate::runtime_authority::default_runtime_principal_layout;
 use crate::runtime_layout::{PackageManagerKind, current_runtime_layout};
+use cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostFamilyKind {

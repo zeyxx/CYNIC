@@ -22,8 +22,8 @@ pub use domain::dataset::HfDatasetSpec;
 pub use domain::endpoint::{HfEndpointSpec, HfEndpointStatus, map_endpoint_state};
 pub use domain::export::ExternalExportReport;
 pub use domain::job::{
-    HfJobHandle, HfJobInfo, HfJobKind, HfJobSpec, HfJobSpecError, HfJobStatus, HfScheduledJobRequest,
-    map_stage_str,
+    HfJobHandle, HfJobInfo, HfJobKind, HfJobSpec, HfJobSpecError, HfJobStatus,
+    HfScheduledJobRequest, map_stage_str,
 };
 pub use domain::paths::HfLocalPaths;
 pub use domain::projection::ProjectionReadiness;

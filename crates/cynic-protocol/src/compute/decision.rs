@@ -1,6 +1,8 @@
 //! Pure placement decision predicates for compute workloads (Zero-I/O).
 
-use super::types::{ComputeRequirements, RemoteRunnerEnrollmentPlan, RemoteRunnerSpec, SubstrateKind};
+use super::types::{
+    ComputeRequirements, RemoteRunnerEnrollmentPlan, RemoteRunnerSpec, SubstrateKind,
+};
 use crate::agent_isolation::SandboxStrategy;
 
 /// Observed capability of an available compute substrate.
@@ -41,7 +43,10 @@ pub fn decide_compute_placement(
 
     // Try to match preferred strategy first
     for sub in substrates {
-        if !sub.supported_strategies.contains(&requirements.preferred_strategy) {
+        if !sub
+            .supported_strategies
+            .contains(&requirements.preferred_strategy)
+        {
             continue;
         }
         if sub.available_vcpus < requirements.vcpus {
@@ -129,7 +134,9 @@ pub fn plan_remote_runner_enrollment(
         return Err("invalid_capacity: memory must be >= 512 MiB".to_string());
     }
     if spec.wireguard_pubkey.trim().len() < 40 {
-        return Err("invalid_wireguard_pubkey: public key must be at least 40 characters".to_string());
+        return Err(
+            "invalid_wireguard_pubkey: public key must be at least 40 characters".to_string(),
+        );
     }
 
     Ok(RemoteRunnerEnrollmentPlan {

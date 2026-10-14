@@ -3,12 +3,12 @@ pub mod debt_ledger;
 mod module_inversion_rule;
 pub mod path_rules;
 pub mod prose_citation_rule;
-pub mod topology;
-pub mod topology_generate;
 pub mod rules;
 mod runtime_divergence;
 pub mod runtime_path_literal_rule;
 pub mod scanner;
+pub mod topology;
+pub mod topology_generate;
 
 use std::path::Path;
 
@@ -18,7 +18,6 @@ use self::artefact_rule::{ArtefactContractRule, AutobinsFrozenRule};
 use self::module_inversion_rule::{LayerModelDeclaredRule, ModuleInversionRule};
 use self::path_rules::{DeclaredPathExistenceRule, PathSsotIgnoreRule, RustPathReferenceRule};
 use self::prose_citation_rule::CodeCitesProseRule;
-use self::topology::CrateTopologyRule;
 use self::rules::{
     AuditRule, HotspotThresholdRule, KernelBoundaryRule, NodeHostBoundaryRule, OwnershipRule,
     PathSanitationRule,
@@ -27,6 +26,7 @@ use self::runtime_divergence::RuntimeDivergenceRule;
 use self::runtime_path_literal_rule::RuntimePathLiteralRule;
 use self::scanner::scan_workspace;
 pub use self::scanner::{HostObservation, WorkspaceSourceIndex};
+use self::topology::CrateTopologyRule;
 
 /// The RUN-001 body, callable from a fixture.
 ///

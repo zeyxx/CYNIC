@@ -3,8 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cynic_network::dns::{
-    SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
-    SERVICE_DNS_SERVICE_FILENAME,
+    SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME, SERVICE_DNS_SERVICE_FILENAME,
 };
 use serde::{Deserialize, Serialize};
 
@@ -322,7 +321,10 @@ impl HostRuntimeLayout {
     }
 
     pub fn dns_hosts_path(&self) -> String {
-        format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME)
+        format!(
+            "/etc/coredns/{}",
+            cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME
+        )
     }
 
     pub fn dns_corefile_path(&self) -> String {
@@ -341,8 +343,11 @@ impl HostRuntimeLayout {
 
     pub fn dns_resolved_dropin_path(&self) -> String {
         match self.service_manager_kind().as_str() {
-            "openrc" => format!("/etc/cynic/resolver/openrc-service-dns.adapter-required").to_string(),
-            _ => format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}").to_string(),
+            "openrc" => {
+                format!("/etc/cynic/resolver/openrc-service-dns.adapter-required").to_string()
+            }
+            _ => format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}")
+                .to_string(),
         }
     }
 
@@ -362,8 +367,14 @@ impl HostRuntimeLayout {
         if let Ok(unit) = std::env::var("CYNIC_DNS_SERVICE_UNIT") {
             return unit;
         }
-        if std::path::Path::new(&format!("/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
-            || std::path::Path::new(&format!("/lib/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}")).exists()
+        if std::path::Path::new(&format!(
+            "/etc/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"
+        ))
+        .exists()
+            || std::path::Path::new(&format!(
+                "/lib/systemd/system/{SERVICE_DNS_SERVICE_FILENAME}"
+            ))
+            .exists()
         {
             return SERVICE_DNS_SERVICE_FILENAME.to_string();
         }

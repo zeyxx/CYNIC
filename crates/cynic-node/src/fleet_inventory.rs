@@ -517,10 +517,9 @@ struct ProxmoxInventoryProvider {
 
 impl ProxmoxInventoryProvider {
     fn from_env() -> Option<Self> {
-        let adapter = cynic_proxmox::adapters::ProxmoxControlAdapter::from_env(
-            Duration::from_secs(10),
-        )
-        .ok()?;
+        let adapter =
+            cynic_proxmox::adapters::ProxmoxControlAdapter::from_env(Duration::from_secs(10))
+                .ok()?;
         let target_nodes = bool_env_csv("CYNIC_PROXMOX_NODES");
         Some(Self {
             adapter,

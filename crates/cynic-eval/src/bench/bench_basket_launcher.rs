@@ -14,13 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use cynic_protocol::ParametricConfigPoint;
 
-use crate::sweep::empirical_store::{
-    aggregate_model_scorecard, solve_optimal_configuration,
-};
+use crate::sweep::empirical_store::{aggregate_model_scorecard, solve_optimal_configuration};
+use crate::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 use crate::sweep::{
     ConstraintFilter, HardwareBudget, ModelEmpiricalScorecard, OomSafetyStatus, OptimizationGoal,
 };
-use crate::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 
 /// Minimal launch capability the basket executor needs from a serving runtime.
 ///
