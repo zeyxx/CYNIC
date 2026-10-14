@@ -145,6 +145,7 @@ async fn submit_workload(
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
         requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
@@ -406,6 +407,7 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
+        branch: Some(reref_name(payload)),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),

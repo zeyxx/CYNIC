@@ -59,6 +59,8 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
             workload_id: durable.record.envelope.workload_id.clone(),
             idempotency_key: durable.record.envelope.idempotency_key.clone(),
             committed_at_ms: durable.committed_at_ms,
+            source_commit: durable.record.envelope.source_commit.clone(),
+            branch: durable.record.envelope.branch.clone(),
             terminal: durable.record.state.terminal(),
             is_build: canonical_build_action_from_argv(&durable.record.envelope.action.argv)
                 .is_some(),
