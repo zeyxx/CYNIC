@@ -69,6 +69,20 @@ pub(crate) fn reclaim_build_cache_local(
     Ok(())
 }
 
+/// Registry path the builder must read for a remote reclaim.
+/// The local default is repo-relative (cortex checkout) and does not exist
+/// on the builder; only the untouched default is remapped, an explicit
+/// override is forwarded verbatim.
+pub(crate) fn remote_reclaim_registry_for(registry: &str) -> &str {
+    const DEFAULT_LOCAL_REGISTRY: &str = "infra/registry.json";
+    const BUILDER_CANONICAL_REGISTRY: &str = "/etc/cynic/registry.json";
+    if registry == DEFAULT_LOCAL_REGISTRY {
+        BUILDER_CANONICAL_REGISTRY
+    } else {
+        registry
+    }
+}
+
 pub(crate) fn reclaim_build_cache_remote(
     node: &str,
     registry: &str,
@@ -82,6 +96,8 @@ pub(crate) fn reclaim_build_cache_remote(
             format!("build runner unresolvable in registry {registry}: {error}")
         })?;
 
+    let remote_registry = remote_reclaim_registry_for(registry);
+
     let mut argv: Vec<String> = vec![
         "cynic".to_string(),
         "build".to_string(),
@@ -90,7 +106,7 @@ pub(crate) fn reclaim_build_cache_remote(
         "--node".to_string(),
         node.to_string(),
         "--registry".to_string(),
-        registry.to_string(),
+        remote_registry.to_string(),
         "--state-root".to_string(),
         state_root.to_string(),
         "--temporary-root".to_string(),
@@ -129,4 +145,25 @@ pub(crate) fn reclaim_build_cache_remote(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remote_reclaim_registry_for;
+
+    #[test]
+    fn default_local_registry_remaps_to_builder_canonical() {
+        assert_eq!(
+            remote_reclaim_registry_for("infra/registry.json"),
+            "/etc/cynic/registry.json"
+        );
+    }
+
+    #[test]
+    fn explicit_registry_override_forwards_verbatim() {
+        assert_eq!(
+            remote_reclaim_registry_for("/srv/custom/registry.json"),
+            "/srv/custom/registry.json"
+        );
+    }
 }
