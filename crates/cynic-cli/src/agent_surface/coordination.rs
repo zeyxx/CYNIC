@@ -9,9 +9,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use crate::agent_surface::types::{
-    AGENT_CLAIM_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA,
-    AGENT_STATUS_REPORT_SCHEMA, AgentClaimReport, AgentClaimSummary, AgentIdentifyReport,
-    AgentReleaseReport, AgentStatusReport,
+    AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA,
+    AGENT_RELEASE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA, AgentClaimReport, AgentClaimSummary,
+    AgentEventsReport, AgentIdentifyReport, AgentReleaseReport, AgentStatusReport,
 };
 
 use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
@@ -1062,6 +1062,208 @@ pub(crate) fn execute_status(
     })
 }
 
+/// Refresh the TTL of a live local claim (native heartbeat).
+///
+/// WHY: long sessions outlive the default TTL. Without a heartbeat surface
+/// the only refresh path is a full re-claim, which reports a fresh grant and
+/// obscures the audit trail. Heartbeat refreshes `started_at_unix_s` in place
+/// and emits a `claim_local_heartbeat` event, so the log shows liveness
+/// instead of a second grant.
+///
+/// HOW: local claims file only. The kernel exposes no heartbeat endpoint, so
+/// a kernel-granted lease cannot be heartbeated here — that is an explicit
+/// unknown carried by the error, never silently converted into a local claim.
+pub(crate) fn execute_heartbeat(
+    agent_id: &str,
+    target: &str,
+    lease_id: &str,
+) -> Result<AgentClaimReport, String> {
+    if agent_id.trim().is_empty() {
+        return Err("heartbeat failed: agent_id is required".to_string());
+    }
+    if target.trim().is_empty() {
+        return Err("heartbeat failed: target is required".to_string());
+    }
+    let mut doc = load_claims_doc()?;
+    let now_s = now_unix_s();
+    let now_ms = now_s * 1000;
+    let (id, kind, ttl, actions, wall) =
+        refresh_claim_entry(&mut doc, agent_id, target, lease_id, now_s)?;
+    let revision = store_claims_doc(&mut doc)?;
+    append_claim_event(
+        "claim_local_heartbeat",
+        agent_id,
+        target,
+        serde_json::json!({"lease_id": id, "revision": revision}),
+    );
+    Ok(AgentClaimReport {
+        schema: AGENT_CLAIM_REPORT_SCHEMA,
+        status: "heartbeat",
+        agent_id: agent_id.to_string(),
+        target: target.to_string(),
+        claim_type: kind,
+        lease_id: id,
+        fencing_token: revision,
+        ttl_seconds: ttl,
+        budget_actions: actions,
+        budget_wall_seconds: wall,
+        granted_at_unix_ms: now_ms,
+        expires_at_unix_ms: now_ms + ttl * 1000,
+    })
+}
+
+/// Pure refresh step: find the live entry and bump `started_at_unix_s`.
+/// Returns (lease_id, kind, ttl, actions, wall). No I/O — unit-testable.
+fn refresh_claim_entry(
+    doc: &mut serde_json::Value,
+    agent_id: &str,
+    target: &str,
+    lease_id: &str,
+    now_s: u64,
+) -> Result<(String, String, u64, u64, u64), String> {
+    let list = doc
+        .get_mut("claims")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| "heartbeat failed: claims store has no claim list".to_string())?;
+    for claim in list.iter_mut() {
+        let cid = claim
+            .get("claim_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let holder = claim
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let path = claim
+            .get("scope")
+            .and_then(|s| s.get("path"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let kind = claim
+            .get("scope")
+            .and_then(|s| s.get("kind"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("file")
+            .to_string();
+        if !lease_id.is_empty() {
+            if cid != lease_id {
+                continue;
+            }
+        } else if holder != agent_id || path != target {
+            continue;
+        }
+        if holder != agent_id && agent_id != "*" {
+            return Err(format!("heartbeat failed: claim {cid} is held by {holder}"));
+        }
+        if !local_claim_active(&*claim, now_s) {
+            return Err(format!(
+                "heartbeat failed: claim {cid} is expired or released (re-claim instead)"
+            ));
+        }
+        claim["temporal"]["started_at_unix_s"] = serde_json::json!(now_s);
+        let ttl = claim
+            .get("temporal")
+            .and_then(|t| t.get("ttl_seconds"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1800);
+        let actions = claim
+            .get("budget")
+            .and_then(|b| b.get("actions"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50);
+        let wall = claim
+            .get("budget")
+            .and_then(|b| b.get("wall_seconds"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(3600);
+        return Ok((cid, kind, ttl, actions, wall));
+    }
+    Err(format!(
+        "heartbeat failed: no active local claim for target {target}"
+    ))
+}
+
+/// Read back the append-only claim event log.
+///
+/// WHY: the event log is the audit trail — without a read surface it is
+/// write-only evidence. `events` makes coordination failures observable
+/// after the fact: who claimed what, which fallbacks fired, what expired.
+///
+/// HOW: parse every `agent-claims-*.jsonl` in the captures directory in
+/// filename order (one file per UTC day, lines appended in time order), keep
+/// lines matching the schema and both filters, return the tail. Read-only:
+/// never creates, locks, or truncates the log.
+pub(crate) fn execute_events(
+    agent_filter: &str,
+    target_filter: &str,
+    limit: usize,
+) -> Result<AgentEventsReport, String> {
+    let Some(dir) = claim_event_log_dir() else {
+        return Err("events failed: cannot resolve captures directory".to_string());
+    };
+    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+        .map_err(|e| format!("events failed: cannot list captures dir: {e}"))?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with("agent-claims-") && name.ends_with(".jsonl"))
+                .unwrap_or(false)
+        })
+        .collect();
+    files.sort();
+    let mut events = Vec::new();
+    for path in &files {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| format!("events failed: cannot read {}: {e}", path.display()))?;
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line)
+                .map_err(|e| format!("events failed: invalid JSONL line: {e}"))?;
+            if event_matches(&event, agent_filter, target_filter) {
+                events.push(event);
+            }
+        }
+    }
+    let total = events.len();
+    if total > limit {
+        events.drain(..total - limit);
+    }
+    Ok(AgentEventsReport {
+        schema: AGENT_EVENTS_REPORT_SCHEMA,
+        status: "observed",
+        agent_id: agent_filter.to_string(),
+        target: target_filter.to_string(),
+        total_events: total,
+        events,
+    })
+}
+
+/// Pure event predicate: schema must match and both filters must pass.
+/// Empty or "*" filters match everything. No I/O — unit-testable.
+fn event_matches(event: &Value, agent_filter: &str, target_filter: &str) -> bool {
+    if event.get("schema").and_then(|v| v.as_str()) != Some(CLAIM_EVENT_SCHEMA) {
+        return false;
+    }
+    if !agent_filter.is_empty() && agent_filter != "*" {
+        if event.get("agent_id").and_then(|v| v.as_str()) != Some(agent_filter) {
+            return false;
+        }
+    }
+    if !target_filter.is_empty() && target_filter != "*" {
+        if event.get("target").and_then(|v| v.as_str()) != Some(target_filter) {
+            return false;
+        }
+    }
+    true
+}
+
 fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, String> {
     let path = std::path::Path::new(".agent-claims.json");
     if !path.exists() {
@@ -1288,5 +1490,83 @@ mod tests {
             &claim_entry("active", now - 1799, 1800),
             now
         ));
+    }
+
+    fn live_doc(now: u64) -> serde_json::Value {
+        serde_json::json!({
+            "schema": "cynic.agent_claims.v2",
+            "revision": 3,
+            "claims": [claim_entry("active", now - 100, 1800)],
+            "merge_queue": [],
+        })
+    }
+
+    #[test]
+    fn heartbeat_refreshes_started_at_and_keeps_lease() {
+        let now = 1_790_600_000u64;
+        let mut doc = live_doc(now);
+        let (id, kind, ttl, actions, wall) =
+            refresh_claim_entry(&mut doc, "tester", "a/b.rs", "", now + 500)
+                .expect("live claim heartbeats");
+        assert_eq!(id, "claim_test_1");
+        assert_eq!(kind, "file");
+        assert_eq!(ttl, 1800);
+        assert_eq!((actions, wall), (50, 3600));
+        assert_eq!(
+            doc["claims"][0]["temporal"]["started_at_unix_s"],
+            serde_json::json!(now + 500)
+        );
+    }
+
+    #[test]
+    fn heartbeat_refuses_expired_claim() {
+        let now = 1_790_600_000u64;
+        let mut doc = serde_json::json!({
+            "schema": "cynic.agent_claims.v2",
+            "revision": 3,
+            "claims": [claim_entry("active", now - 2000, 1800)],
+            "merge_queue": [],
+        });
+        let err = refresh_claim_entry(&mut doc, "tester", "a/b.rs", "", now).unwrap_err();
+        assert!(err.contains("expired or released"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn heartbeat_refuses_foreign_lease() {
+        let now = 1_790_600_000u64;
+        let mut doc = live_doc(now);
+        let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "", now).unwrap_err();
+        assert!(err.contains("no active local claim"), "unexpected: {err}");
+        let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
+        assert!(err.contains("held by tester"), "unexpected: {err}");
+    }
+
+    fn sample_event(agent: &str, target: &str) -> serde_json::Value {
+        serde_json::json!({
+            "schema": "cynic.agent.claim_event.v1",
+            "event": "claim_local",
+            "agent_id": agent,
+            "target": target,
+            "timestamp_unix_s": 1_791_936_000u64,
+            "detail": {},
+        })
+    }
+
+    #[test]
+    fn event_predicate_filters_by_agent_and_target() {
+        let event = sample_event("hermes", "crates/cynic-cli");
+        assert!(event_matches(&event, "*", "*"));
+        assert!(event_matches(&event, "", ""));
+        assert!(event_matches(&event, "hermes", "crates/cynic-cli"));
+        assert!(!event_matches(&event, "codex", "*"));
+        assert!(!event_matches(&event, "*", "crates/cynic-node"));
+        let foreign_schema = serde_json::json!({"schema": "other.v1"});
+        assert!(!event_matches(&foreign_schema, "*", "*"));
+    }
+
+    #[test]
+    fn civil_date_math_matches_known_day() {
+        // 1791936000 == 2026-10-14T00:00:00Z == 20740 days since epoch.
+        assert_eq!(civil_from_days(1791936000 / 86400), (2026, 10, 14));
     }
 }
