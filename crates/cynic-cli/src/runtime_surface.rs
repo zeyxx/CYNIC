@@ -2,7 +2,7 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 
 use crate::{emit_json, fail};
 use crate::host_profile_selection::ProfileArgs;
@@ -279,12 +279,12 @@ pub(crate) enum RuntimeDiskCommand {
         /// Reconcile only the registry-declared build-runner cache profile.
         #[arg(long)]
         build_runner: bool,
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Build-runner node id; defaults to the observed hostname.
         #[arg(long)]
         node: Option<String>,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
     },
 }
@@ -409,7 +409,7 @@ pub(crate) enum RuntimeForgejoCommand {
         /// Apply mutation (create/rotate). Required for write operations.
         #[arg(long)]
         yes: bool,
-        /// Override the canonical token secret path (default /etc/cynic/secrets/forgejo-token).
+        /// Override the canonical token secret path (default <system-config>/secrets/forgejo-token).
         #[arg(long)]
         token_path: Option<String>,
     },

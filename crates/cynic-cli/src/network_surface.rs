@@ -1,6 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 pub mod execution;
 pub use execution::NetworkCommands;
 
@@ -176,7 +177,7 @@ pub(crate) enum NetworkCommand {
     Sync {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long, default_value = "cynic-host-cortex")]
         node_id: String,
