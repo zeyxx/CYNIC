@@ -91,7 +91,7 @@ pub fn build_report(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rate_classify::types::{WindowedCount, CountWindows};
+    use crate::rate_classify::types::{CountWindows, WindowedCount};
 
     fn obs(key: &str, historical: u64, recent: u64) -> WindowedCount {
         WindowedCount {

@@ -66,6 +66,9 @@ fn observe_os_health_signal(subject_id: &str) -> Option<CynicJudgment> {
 }
 
 /// Observe a patch (diff vs origin/main) and return the raw observation.
-pub(super) fn observe_patch(root: &Path, branch: &str) -> cynic_eval::judge_patch::PatchObservation {
+pub(super) fn observe_patch(
+    root: &Path,
+    branch: &str,
+) -> cynic_eval::judge_patch::PatchObservation {
     cynic_host::judge_patch_observer::observe_patch(root, branch)
 }

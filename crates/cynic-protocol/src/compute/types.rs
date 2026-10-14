@@ -1,7 +1,7 @@
 //! Pure domain types for sovereign compute workloads and execution substrates.
 
-use serde::{Deserialize, Serialize};
 use crate::agent_isolation::SandboxStrategy;
+use serde::{Deserialize, Serialize};
 
 /// Resource and isolation requirements declared by a workload.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ impl Default for ComputeRequirements {
     fn default() -> Self {
         Self {
             vcpus: 1,
-            memory_bytes: 1024 * 1024 * 1024, // 1 GiB
+            memory_bytes: 1024 * 1024 * 1024,    // 1 GiB
             disk_bytes: 10 * 1024 * 1024 * 1024, // 10 GiB
             requires_gpu: false,
             preferred_strategy: SandboxStrategy::BwrapEphemeral,

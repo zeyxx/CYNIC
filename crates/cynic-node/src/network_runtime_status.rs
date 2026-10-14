@@ -255,7 +255,6 @@ mod tests {
     }
 }
 
-
 /// Network runtime status as a serializable value.
 ///
 /// Moved here from `facade.rs`, which was a flat bag of cross-crate helpers. The

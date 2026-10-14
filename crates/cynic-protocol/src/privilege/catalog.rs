@@ -188,7 +188,9 @@ impl ParamKind {
                 if value.contains(char::is_whitespace) {
                     blockers.push("endpoint_whitespace".to_string());
                 }
-                if value.contains(['/', '\\', '`', '$', '|', '&', ';', '<', '>', '"', '\'', '{', '}']) {
+                if value.contains([
+                    '/', '\\', '`', '$', '|', '&', ';', '<', '>', '"', '\'', '{', '}',
+                ]) {
                     blockers.push("endpoint_metacharacter".to_string());
                 }
             }
@@ -294,13 +296,12 @@ impl CapabilityCatalog {
             )];
             for param in &cap.params {
                 let class = param.kind.sudoers_class().unwrap_or("*");
-                parts.push(format!(
-                    "--param {}={}",
-                    escape_sudoers(&param.name),
-                    class
-                ));
+                parts.push(format!("--param {}={}", escape_sudoers(&param.name), class));
             }
-            rules.push(format!("{subject} ALL=(root) NOPASSWD: {}", parts.join(" ")));
+            rules.push(format!(
+                "{subject} ALL=(root) NOPASSWD: {}",
+                parts.join(" ")
+            ));
         }
         rules
     }
@@ -336,7 +337,9 @@ pub enum CapabilityDecision {
         requires_root: bool,
         domain: String,
     },
-    Blocked { blockers: Vec<String> },
+    Blocked {
+        blockers: Vec<String>,
+    },
 }
 
 impl CapabilityCatalog {
@@ -465,7 +468,10 @@ pub fn admit_capability(
     for declared in &capability.params {
         if let Some((_, value)) = parameters.iter().find(|(name, _)| name == &declared.name) {
             for blocker in declared.kind.validate(value) {
-                blockers.push(format!("capability_param_invalid:{id}:{}:{blocker}", declared.name));
+                blockers.push(format!(
+                    "capability_param_invalid:{id}:{}:{blocker}",
+                    declared.name
+                ));
             }
         }
     }
@@ -502,7 +508,10 @@ pub fn admit_capability(
 
 /// Installed capabilities must include every mandatory one. A node missing a
 /// mandatory capability is a blocked install, not a degraded node.
-pub fn validate_install(catalog: &CapabilityCatalog, installed: &InstalledCapabilities) -> Vec<String> {
+pub fn validate_install(
+    catalog: &CapabilityCatalog,
+    installed: &InstalledCapabilities,
+) -> Vec<String> {
     let mut blockers = Vec::new();
     if installed.schema != INSTALLED_CATALOG_SCHEMA {
         blockers.push("installed_catalog_schema_mismatch".to_string());
@@ -608,29 +617,32 @@ mod tests {
     fn placeholder_without_param_is_rejected() {
         let mut c = catalog();
         c.capabilities[1].params.pop();
-        assert!(c
-            .validate()
-            .iter()
-            .any(|b| b.starts_with("capability_placeholder_undeclared:pct-clone")));
+        assert!(
+            c.validate()
+                .iter()
+                .any(|b| b.starts_with("capability_placeholder_undeclared:pct-clone"))
+        );
     }
 
     #[test]
     fn param_without_placeholder_is_rejected() {
         let mut c = catalog();
         c.capabilities[1].argv_template = vec!["/usr/sbin/pct".to_string(), "clone".to_string()];
-        assert!(c
-            .validate()
-            .iter()
-            .any(|b| b.starts_with("capability_param_unused:pct-clone")));
+        assert!(
+            c.validate()
+                .iter()
+                .any(|b| b.starts_with("capability_param_unused:pct-clone"))
+        );
     }
 
     #[test]
     fn duplicate_capability_id_is_rejected() {
         let mut c = catalog();
         c.capabilities.push(c.capabilities[0].clone());
-        assert!(c
-            .validate()
-            .contains(&"capability_id_duplicate:pct-list".to_string()));
+        assert!(
+            c.validate()
+                .contains(&"capability_id_duplicate:pct-list".to_string())
+        );
     }
 
     #[test]
@@ -645,7 +657,11 @@ mod tests {
             ],
         );
         match decision {
-            CapabilityDecision::Admitted { argv, requires_root, .. } => {
+            CapabilityDecision::Admitted {
+                argv,
+                requires_root,
+                ..
+            } => {
                 assert_eq!(argv, vec!["/usr/sbin/pct", "clone", "105", "106", "--full"]);
                 assert!(requires_root);
             }
@@ -741,27 +757,35 @@ mod tests {
 
     #[test]
     fn path_traversal_is_blocked() {
-        assert!(ParamKind::LocalPath
-            .validate("/tmp/../../etc/shadow")
-            .contains(&"path_traversal".to_string()));
+        assert!(
+            ParamKind::LocalPath
+                .validate("/tmp/../../etc/shadow")
+                .contains(&"path_traversal".to_string())
+        );
     }
 
     #[test]
     fn branch_traversal_is_blocked() {
-        assert!(ParamKind::BranchName
-            .validate("main..evil")
-            .contains(&"branch_traversal".to_string()));
+        assert!(
+            ParamKind::BranchName
+                .validate("main..evil")
+                .contains(&"branch_traversal".to_string())
+        );
     }
 
     #[test]
     fn size_delta_validates() {
         assert!(ParamKind::SizeDelta.validate("+40G").is_empty());
-        assert!(ParamKind::SizeDelta
-            .validate("40G")
-            .contains(&"size_delta_missing_sign".to_string()));
-        assert!(ParamKind::SizeDelta
-            .validate("+40X")
-            .contains(&"size_delta_unit_invalid".to_string()));
+        assert!(
+            ParamKind::SizeDelta
+                .validate("40G")
+                .contains(&"size_delta_missing_sign".to_string())
+        );
+        assert!(
+            ParamKind::SizeDelta
+                .validate("+40X")
+                .contains(&"size_delta_unit_invalid".to_string())
+        );
     }
 
     #[test]
@@ -826,7 +850,10 @@ mod absorb_transport_tests {
             "builder-push-branch",
             &[
                 ("endpoint".to_string(), "cynic-builder-build".to_string()),
-                ("branch".to_string(), "agent/hermes/knowledge-canon".to_string()),
+                (
+                    "branch".to_string(),
+                    "agent/hermes/knowledge-canon".to_string(),
+                ),
             ],
         );
         match decision {
@@ -891,9 +918,11 @@ mod absorb_transport_tests {
     #[test]
     fn sha256_kind_validates() {
         assert!(ParamKind::Sha256Hex.validate(&"a".repeat(64)).is_empty());
-        assert!(ParamKind::Sha256Hex
-            .validate("abc")
-            .contains(&"sha256_not_64_hex".to_string()));
+        assert!(
+            ParamKind::Sha256Hex
+                .validate("abc")
+                .contains(&"sha256_not_64_hex".to_string())
+        );
     }
 
     fn catalog_with_root_caps() -> CapabilityCatalog {
@@ -915,9 +944,7 @@ mod absorb_transport_tests {
         let catalog = catalog_with_root_caps();
         let rules = catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
         assert_eq!(rules.len(), 2);
-        assert!(rules
-            .iter()
-            .all(|r| r.contains(" privilege exec ")));
+        assert!(rules.iter().all(|r| r.contains(" privilege exec ")));
         assert!(!rules.iter().any(|r| r.contains("node-control")));
     }
 
@@ -993,6 +1020,10 @@ mod absorb_transport_tests {
             r#"{"schema":"cynic.capability_catalog.v1","capabilities":[{"id":"x","domain":"d","argv_template":["/bin/true"],"requires_root":false,"purpose":"p"}]}"#,
         )
         .expect("valid");
-        assert!(catalog.sudoers_rules("cynic", "/usr/local/bin/cynic").is_empty());
+        assert!(
+            catalog
+                .sudoers_rules("cynic", "/usr/local/bin/cynic")
+                .is_empty()
+        );
     }
 }

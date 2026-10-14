@@ -69,7 +69,6 @@ const SENSITIVITY: &[(&str, &str)] = &[
     ("PATH-001-DECLARED-ABSENT", "contracts/consumer-profiles"),
 ];
 
-
 /// Prove each detector fires, on a tree this file builds.
 ///
 /// The index is constructed in memory rather than by scanning a directory: the
@@ -177,7 +176,9 @@ fn the_live_workspace_carries_no_undeclared_path_divergence() {
     let report = report();
     for violation in &report.violations {
         assert!(
-            KNOWN.iter().any(|needle| violation.message.contains(needle)),
+            KNOWN
+                .iter()
+                .any(|needle| violation.message.contains(needle)),
             "a path divergence the gate has never seen: `{}` names `{}`.\n\
              Either repair it, or record it in KNOWN as a deliberate decision.",
             violation.code,
@@ -216,9 +217,8 @@ fn path_audit_does_not_report_runtime_space_as_missing() {
         let snippet = span.and_then(|s| s.snippet.as_deref()).unwrap_or_default();
         // Doc comments (`//!`, `//`) mention runtime paths as documentation,
         // not as violations. Exclude them from the check.
-        let is_comment = snippet.starts_with("//!")
-            || snippet.starts_with("//")
-            || snippet.starts_with("/*");
+        let is_comment =
+            snippet.starts_with("//!") || snippet.starts_with("//") || snippet.starts_with("/*");
         assert!(
             is_comment || (!snippet.starts_with('/') && !snippet.starts_with('~')),
             "runtime-space path reported as a missing git path: {snippet}"
@@ -232,7 +232,9 @@ fn path_audit_is_included_in_the_workspace_audit() {
     // focused surface. A rule reachable from one projection is a rule nobody runs.
     let full = cynic_audit_engine::run_workspace_audit(&workspace_root());
     assert!(
-        full.evaluated_rules.iter().any(|spec| spec.id == "PATH-001"),
+        full.evaluated_rules
+            .iter()
+            .any(|spec| spec.id == "PATH-001"),
         "PATH-001 missing from the default workspace rule set"
     );
 }
@@ -265,9 +267,7 @@ fn rule_id_recovery_handles_both_code_shapes() {
     let report = run_path_audit(&workspace_root());
     for violation in &report.violations {
         assert!(
-            Path::new(&violation.code)
-                .extension()
-                .is_none_or(|_| true),
+            Path::new(&violation.code).extension().is_none_or(|_| true),
             "unexpected code shape {}",
             violation.code
         );

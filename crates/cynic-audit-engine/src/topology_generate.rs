@@ -107,7 +107,9 @@ impl fmt::Display for GenerateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::SsotMissing => write!(f, "{TOPOLOGY_DOC} is absent"),
-            Self::SsotUnparseable(details) => write!(f, "{TOPOLOGY_DOC} is not valid JSON: {details}"),
+            Self::SsotUnparseable(details) => {
+                write!(f, "{TOPOLOGY_DOC} is not valid JSON: {details}")
+            }
             Self::Io(details) => write!(f, "{details}"),
             Self::MissingLayer(name) => write!(
                 f,
@@ -281,11 +283,7 @@ pub fn render(root: &Path) -> Result<Generated, GenerateError> {
         .keys()
         .filter(|name| !crate_is_justified(&observed, &index, name))
         .count();
-    let loc_total: usize = observed
-        .edges
-        .keys()
-        .map(|name| loc_of(&index, name))
-        .sum();
+    let loc_total: usize = observed.edges.keys().map(|name| loc_of(&index, name)).sum();
 
     let mut document = Map::new();
     put(&mut document, "schema", "cynic.crate_topology.v1");
@@ -334,7 +332,9 @@ pub fn render(root: &Path) -> Result<Generated, GenerateError> {
             (
                 "edges".into(),
                 Value::Array(
-                    debt.iter().map(|edge| Value::String(edge.clone())).collect(),
+                    debt.iter()
+                        .map(|edge| Value::String(edge.clone()))
+                        .collect(),
                 ),
             ),
             ("reasons".into(), Value::Object(reasons)),
@@ -487,10 +487,7 @@ fn crate_policies(committed: &Value) -> Result<BTreeMap<String, String>, Generat
 /// grouping reads in the order a human expects; membership itself is never
 /// authored, because it is a restatement of `crates.<name>.layer` and a
 /// restatement is a second place to be wrong.
-fn layer_membership(
-    committed: &Value,
-    policy: &BTreeMap<String, String>,
-) -> Map<String, Value> {
+fn layer_membership(committed: &Value, policy: &BTreeMap<String, String>) -> Map<String, Value> {
     let mut order: Vec<String> = committed
         .get("layers")
         .and_then(Value::as_object)
@@ -521,7 +518,10 @@ fn layer_membership(
         .map(|layer| {
             let mut names = members.remove(&layer).unwrap_or_default();
             names.sort();
-            (layer, Value::Array(names.into_iter().map(Value::String).collect()))
+            (
+                layer,
+                Value::Array(names.into_iter().map(Value::String).collect()),
+            )
         })
         .collect()
 }
@@ -663,10 +663,7 @@ fn debt_edges(
 /// so a reason for an edge that is no longer tolerated is as much a defect as a
 /// tolerated edge with none — both mean the record and the decision have come
 /// apart.
-fn debt_reasons(
-    committed: &Value,
-    debt: &[String],
-) -> Result<Map<String, Value>, GenerateError> {
+fn debt_reasons(committed: &Value, debt: &[String]) -> Result<Map<String, Value>, GenerateError> {
     let empty = Map::new();
     let declared = committed
         .get("layer_debt")

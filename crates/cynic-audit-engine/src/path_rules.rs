@@ -38,12 +38,7 @@ struct Candidate {
 }
 
 impl Candidate {
-    fn violation(
-        &self,
-        code: &str,
-        message: String,
-        remediation: &str,
-    ) -> AuditViolation {
+    fn violation(&self, code: &str, message: String, remediation: &str) -> AuditViolation {
         AuditViolation {
             code: code.to_string(),
             message,
@@ -178,7 +173,6 @@ fn validate(raw: &str, directories: &BTreeSet<String>, files: &BTreeSet<String>)
     (directories.contains(first) || files.contains(first)).then(|| candidate.to_string())
 }
 
-
 /// Paths the authority places outside the git tree.
 ///
 /// `infra/directory-tree.json` is explicit about this: the `git_sources` layer
@@ -212,7 +206,10 @@ fn runtime_space(index: &WorkspaceSourceIndex) -> std::collections::BTreeSet<Str
 }
 
 /// Recursively collect every relative path-like string in a JSON value.
-fn collect_relative_paths(value: &serde_json::Value, found: &mut std::collections::BTreeSet<String>) {
+fn collect_relative_paths(
+    value: &serde_json::Value,
+    found: &mut std::collections::BTreeSet<String>,
+) {
     match value {
         serde_json::Value::String(text) => {
             let candidate = text.trim().trim_end_matches('/');
@@ -308,11 +305,11 @@ fn quoted_paths(
     // reports itself unless excluded. A detector that flags its own fixtures
     // cannot converge, and a gate that cannot converge gets switched off.
     // A rule may not report its own fixture: the examples in this file are
-// deliberately counterexamples, and counting them as workspace findings is a
-// false positive produced by the auditor describing itself. Keyed on the FILE
-// NAME rather than a path, because a path-keyed exclusion silently stops
-// matching the next time the file is extracted — which is exactly what happened
-// when audit_engine moved to cynic-audit-engine.
+    // deliberately counterexamples, and counting them as workspace findings is a
+    // false positive produced by the auditor describing itself. Keyed on the FILE
+    // NAME rather than a path, because a path-keyed exclusion silently stops
+    // matching the next time the file is extracted — which is exactly what happened
+    // when audit_engine moved to cynic-audit-engine.
     if file.relative_path.ends_with("path_rules.rs") {
         return found;
     }
@@ -345,7 +342,6 @@ fn quoted_paths(
     found
 }
 
-
 /// `PATH-001` — a path declared by a normative contract must exist.
 ///
 /// This is the rule that makes `infra/directory-tree.json` falsifiable. Today it
@@ -362,7 +358,7 @@ impl AuditRule for DeclaredPathExistenceRule {
                 "Every repository-relative path declared by a normative authority file must exist \
                  in the working tree. A declared path that resolves to nothing is a silent \
                  divergence between the contract and observed state."
-                .to_string(),
+                    .to_string(),
             category: AuditCategory::PathSanitation,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,
@@ -417,7 +413,7 @@ impl AuditRule for RustPathReferenceRule {
                 "Every repository-relative path literal in Rust source, including doc comments, \
                  must resolve. A default constructed from an absent directory is a live path into \
                  nothing."
-                .to_string(),
+                    .to_string(),
             category: AuditCategory::PathSanitation,
             severity: AuditSeverity::Critical,
             automated_remediation_available: false,
@@ -467,7 +463,7 @@ impl AuditRule for PathSsotIgnoreRule {
             description:
                 "The canonical path registry must not appear in .gitignore. Being tracked today \
                  does not make the ignore rule inert tomorrow."
-                .to_string(),
+                    .to_string(),
             category: AuditCategory::PathSanitation,
             severity: AuditSeverity::Critical,
             automated_remediation_available: true,
@@ -521,7 +517,29 @@ mod tests {
     }
 
     fn dirs() -> BTreeSet<String> {
-        set(&["crates", "infra", "docs", "contracts", "vault", "archive", "programs", "specs", "bounty", "scripts", "tests", "references", "recruiter", "verify", "apps", ".cortex", ".hermes", ".github", ".agents", "protocols", "evidence"])
+        set(&[
+            "crates",
+            "infra",
+            "docs",
+            "contracts",
+            "vault",
+            "archive",
+            "programs",
+            "specs",
+            "bounty",
+            "scripts",
+            "tests",
+            "references",
+            "recruiter",
+            "verify",
+            "apps",
+            ".cortex",
+            ".hermes",
+            ".github",
+            ".agents",
+            "protocols",
+            "evidence",
+        ])
     }
 
     fn files() -> BTreeSet<String> {
@@ -531,41 +549,535 @@ mod tests {
     #[test]
     fn accepts_repository_relative_paths() {
         assert_eq!(
-            validate("crates/cynic-host/src/lib.rs", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(),
+            validate(
+                "crates/cynic-host/src/lib.rs",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .as_deref(),
             Some("crates/cynic-host/src/lib.rs")
         );
-        assert_eq!(validate("contracts/foundation.json", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("contracts/foundation.json"));
+        assert_eq!(
+            validate(
+                "contracts/foundation.json",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .as_deref(),
+            Some("contracts/foundation.json")
+        );
     }
 
     #[test]
     fn rejects_runtime_space_paths() {
         // The declared runtime tree must never be reported as a missing git path.
-        assert!(validate("/var/lib/cynic/evidence", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("/etc/cynic/secrets", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("~/cynic/vault", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("${GIT_WORKING_TREE}/crates", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(
+            validate(
+                "/var/lib/cynic/evidence",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "/etc/cynic/secrets",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "~/cynic/vault",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "${GIT_WORKING_TREE}/crates",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn rejects_non_paths() {
-        assert!(validate("cynic_protocol::AuditSeverity", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("source/repositories/CYNIC", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("crates/*", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("mode", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(
+            validate(
+                "cynic_protocol::AuditSeverity",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "source/repositories/CYNIC",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "crates/*",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "mode",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
         // A directory declared with a trailing slash must normalise, not vanish
         // and not be reported missing.
-        assert_eq!(validate("infra/", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("infra"));
+        assert_eq!(
+            validate(
+                "infra/",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .as_deref(),
+            Some("infra")
+        );
         // Single-segment declarations are limited to real top-level files.
-        assert_eq!(validate("Cargo.toml", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).as_deref(), Some("Cargo.toml"));
-        assert!(validate("README.md", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert_eq!(
+            validate(
+                "Cargo.toml",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .as_deref(),
+            Some("Cargo.toml")
+        );
+        assert!(
+            validate(
+                "README.md",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
         // Format placeholders and parent traversal are templates, not paths.
-        assert!(validate("archive/{}", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
-        assert!(validate("crates/../Cargo.toml", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(
+            validate(
+                "archive/{}",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
+        assert!(
+            validate(
+                "crates/../Cargo.toml",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
         // A Rust item path that starts with a crate-directory name is a module
         // reference. This exact shape is emitted by
         // `infra/runtime-authority.json` and was a false positive.
-        assert!(validate("crates/cynic-protocol::agent_workload", &set(&["crates","infra","docs","contracts","vault","archive","programs","specs","bounty","scripts","tests","references","recruiter","verify","apps",".cortex",".hermes",".github",".agents","protocols","evidence"]), &set(&["Cargo.toml","Makefile","rust-toolchain.toml"])).is_none());
+        assert!(
+            validate(
+                "crates/cynic-protocol::agent_workload",
+                &set(&[
+                    "crates",
+                    "infra",
+                    "docs",
+                    "contracts",
+                    "vault",
+                    "archive",
+                    "programs",
+                    "specs",
+                    "bounty",
+                    "scripts",
+                    "tests",
+                    "references",
+                    "recruiter",
+                    "verify",
+                    "apps",
+                    ".cortex",
+                    ".hermes",
+                    ".github",
+                    ".agents",
+                    "protocols",
+                    "evidence"
+                ]),
+                &set(&["Cargo.toml", "Makefile", "rust-toolchain.toml"])
+            )
+            .is_none()
+        );
     }
 
     #[test]

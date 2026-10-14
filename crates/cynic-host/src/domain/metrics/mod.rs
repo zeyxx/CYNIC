@@ -402,10 +402,7 @@ pub fn append_dog_metrics(
 }
 
 /// Append observation quality metrics from DogStats snapshots.
-pub fn append_observation_metrics(
-    out: &mut String,
-    snapshots: &[(String, cynic_eval::DogStats)],
-) {
+pub fn append_observation_metrics(out: &mut String, snapshots: &[(String, cynic_eval::DogStats)]) {
     use std::fmt::Write;
 
     // JSON valid rate per Dog (gauge)
@@ -437,17 +434,10 @@ pub fn append_observation_metrics(
     }
 
     // Total calls per Dog (counter)
-    let _ = writeln!(
-        out,
-        "# HELP cynic_dog_total Total evaluations per Dog"
-    );
+    let _ = writeln!(out, "# HELP cynic_dog_total Total evaluations per Dog");
     let _ = writeln!(out, "# TYPE cynic_dog_total counter");
     for (id, stats) in snapshots {
-        let _ = writeln!(
-            out,
-            "cynic_dog_total{{dog=\"{id}\"}} {}",
-            stats.total_calls
-        );
+        let _ = writeln!(out, "cynic_dog_total{{dog=\"{id}\"}} {}", stats.total_calls);
     }
 
     // Quality failures by mode (counter)

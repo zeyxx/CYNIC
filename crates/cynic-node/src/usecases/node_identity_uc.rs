@@ -2,7 +2,10 @@ use std::process::ExitCode;
 
 use serde::Serialize;
 
-use cynic_node_protocol::{NODE_IDENTITY_DESIRED_STATE_SCHEMA, NodeIdentityDecision, NodeIdentityDesiredState, NodeIdentityObservation, NodeIdentityPlan, reconcile_node_identity};
+use cynic_node_protocol::{
+    NODE_IDENTITY_DESIRED_STATE_SCHEMA, NodeIdentityDecision, NodeIdentityDesiredState,
+    NodeIdentityObservation, NodeIdentityPlan, reconcile_node_identity,
+};
 
 use crate::adapters::local_node_identity::LocalNodeIdentity;
 use crate::ports::node_identity_port::NodeIdentityPort;

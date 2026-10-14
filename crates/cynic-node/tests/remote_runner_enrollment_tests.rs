@@ -1,5 +1,5 @@
 use cynic_node::usecases::remote_runner_enrollment_uc::{
-    execute_remote_runner_enrollment, REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA,
+    REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA, execute_remote_runner_enrollment,
 };
 use cynic_protocol::compute::RemoteRunnerSpec;
 use cynic_types::fleet_mesh::{
@@ -68,8 +68,7 @@ fn test_remote_runner_enrollment_happy_path() {
         wireguard_pubkey: "abcd1234abcd1234abcd1234abcd1234abcd1234==".to_string(),
     };
 
-    let report = execute_remote_runner_enrollment(&spec, &mock)
-        .expect("enrollment should succeed");
+    let report = execute_remote_runner_enrollment(&spec, &mock).expect("enrollment should succeed");
 
     assert_eq!(report.schema, REMOTE_RUNNER_ENROLLMENT_REPORT_SCHEMA);
     assert_eq!(report.node_name, "runpod-gpu-node-01");
@@ -92,8 +91,7 @@ fn test_remote_runner_enrollment_validation_failures() {
         gpu_model: None,
         wireguard_pubkey: "abcd1234abcd1234abcd1234abcd1234abcd1234==".to_string(),
     };
-    let err = execute_remote_runner_enrollment(&spec_bad_name, &mock)
-        .unwrap_err();
+    let err = execute_remote_runner_enrollment(&spec_bad_name, &mock).unwrap_err();
     assert!(err.contains("invalid_node_name"));
 
     // 0 vCPUs
@@ -106,8 +104,7 @@ fn test_remote_runner_enrollment_validation_failures() {
         gpu_model: None,
         wireguard_pubkey: "abcd1234abcd1234abcd1234abcd1234abcd1234==".to_string(),
     };
-    let err = execute_remote_runner_enrollment(&spec_zero_vcpu, &mock)
-        .unwrap_err();
+    let err = execute_remote_runner_enrollment(&spec_zero_vcpu, &mock).unwrap_err();
     assert!(err.contains("invalid_capacity"));
 
     // Key too short
@@ -120,7 +117,6 @@ fn test_remote_runner_enrollment_validation_failures() {
         gpu_model: None,
         wireguard_pubkey: "short_key".to_string(),
     };
-    let err = execute_remote_runner_enrollment(&spec_short_key, &mock)
-        .unwrap_err();
+    let err = execute_remote_runner_enrollment(&spec_short_key, &mock).unwrap_err();
     assert!(err.contains("invalid_wireguard_pubkey"));
 }

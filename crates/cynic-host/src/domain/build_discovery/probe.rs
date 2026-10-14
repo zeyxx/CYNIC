@@ -77,7 +77,11 @@ fn workspace_member_names(ids: &[String]) -> std::collections::HashSet<String> {
         .collect()
 }
 
-fn is_workspace_member(pkg: &MetadataPackage, dirs: &std::collections::HashSet<String>, names: &std::collections::HashSet<String>) -> bool {
+fn is_workspace_member(
+    pkg: &MetadataPackage,
+    dirs: &std::collections::HashSet<String>,
+    names: &std::collections::HashSet<String>,
+) -> bool {
     if dirs.is_empty() && names.is_empty() {
         return true;
     }
@@ -371,13 +375,19 @@ mod tests {
             "cynic-kernel".to_string(),
         ];
         let dirs = member_dirs(&ids);
-        assert!(dirs.contains("/w/crates/cynic-cli"), "current path id yields its dir");
+        assert!(
+            dirs.contains("/w/crates/cynic-cli"),
+            "current path id yields its dir"
+        );
         assert!(
             dirs.contains("/w/crates/cynic-host"),
             "legacy parenthesised id yields its dir"
         );
         let names = workspace_member_names(&ids);
-        assert!(names.contains("cynic-cli"), "current path id yields its name");
+        assert!(
+            names.contains("cynic-cli"),
+            "current path id yields its name"
+        );
         assert!(names.contains("cynic-host"), "legacy id yields its name");
         assert!(names.contains("cynic-kernel"), "bare id yields its name");
         assert!(
@@ -403,12 +413,14 @@ mod tests {
             .unwrap();
         assert!(r.crates.is_empty());
         assert!(
-            r.residual_unknowns.contains(&"workspace_member_ids_unmatched".to_string()),
+            r.residual_unknowns
+                .contains(&"workspace_member_ids_unmatched".to_string()),
             "the cause must be named: {:?}",
             r.residual_unknowns
         );
         assert!(
-            !r.residual_unknowns.contains(&"no_workspace_crates".to_string()),
+            !r.residual_unknowns
+                .contains(&"no_workspace_crates".to_string()),
             "packages were present, so the workspace was not empty: {:?}",
             r.residual_unknowns
         );

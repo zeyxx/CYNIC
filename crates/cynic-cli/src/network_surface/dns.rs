@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
-use clap::Subcommand;
 use crate::network_surface::execution::NetworkCommands;
+use clap::Subcommand;
 
 use crate::network_surface::NetworkCommand;
 use crate::registry_path;
@@ -59,40 +59,48 @@ pub(crate) fn try_execute_dns(
             corefile_path,
             service_path,
             resolved_dropin_path,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsActivationStatus {
-            json: true,
-            registry: registry_path(registry),
-            hosts_path: hosts_path
-                .unwrap_or_else(|| runtime.dns_hosts_path.to_string_lossy().to_string()),
-            corefile_path: corefile_path
-                .unwrap_or_else(|| runtime.dns_corefile_path.to_string_lossy().to_string()),
-            service_path: service_path
-                .unwrap_or_else(|| runtime.dns_service_path.to_string_lossy().to_string()),
-            resolved_dropin_path: resolved_dropin_path
-                .unwrap_or_else(|| runtime.resolved_dropin_path.to_string_lossy().to_string()),
-            resolve_dns,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::DnsActivationStatus {
+                json: true,
+                registry: registry_path(registry),
+                hosts_path: hosts_path
+                    .unwrap_or_else(|| runtime.dns_hosts_path.to_string_lossy().to_string()),
+                corefile_path: corefile_path
+                    .unwrap_or_else(|| runtime.dns_corefile_path.to_string_lossy().to_string()),
+                service_path: service_path
+                    .unwrap_or_else(|| runtime.dns_service_path.to_string_lossy().to_string()),
+                resolved_dropin_path: resolved_dropin_path
+                    .unwrap_or_else(|| runtime.resolved_dropin_path.to_string_lossy().to_string()),
+                resolve_dns,
+            },
+        ),
         NetworkDnsCommand::Bundle {
             registry,
             output_dir,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsBundle {
-            json: true,
-            registry: registry_path(registry),
-            output_dir,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::DnsBundle {
+                json: true,
+                registry: registry_path(registry),
+                output_dir,
+            },
+        ),
         NetworkDnsCommand::Plan { .. } => {
-            crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsPlan { json: true })
+            crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsPlan {
+                json: true,
+            })
         }
         NetworkDnsCommand::Activate {
             registry,
             bundle_dir,
             yes,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsActivate {
-            json: true,
-            registry: registry_path(registry),
-            bundle_dir,
-            yes,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::DnsActivate {
+                json: true,
+                registry: registry_path(registry),
+                bundle_dir,
+                yes,
+            },
+        ),
     };
 
     Ok(exit)

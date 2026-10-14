@@ -35,8 +35,7 @@ impl HardwareBudget {
     /// `/proc/meminfo` text and the `CYNIC_GPU_VRAM_BYTES` override are read
     /// by the probe adapter and passed in.
     pub fn from_observed(meminfo_text: &str, gpu_vram_bytes: u64) -> Self {
-        let (mut total, mut available) =
-            cynic_types::proc_text::parse_meminfo_bytes(meminfo_text);
+        let (mut total, mut available) = cynic_types::proc_text::parse_meminfo_bytes(meminfo_text);
         // Fallback: assume 16 GiB if meminfo text carries no usable lines.
         if total == 0 {
             total = 16 * 1024 * 1024 * 1024;

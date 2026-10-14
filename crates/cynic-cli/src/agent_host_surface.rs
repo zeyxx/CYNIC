@@ -11,13 +11,13 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::Subcommand;
+use cynic_lifecycle::LocalArgvRunner;
+use cynic_protocol::AgentHostDesired;
+use cynic_proxmox::adapters::ProxmoxControlAdapter;
 use cynic_proxmox::agent_host::{
     AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
     plan_agent_host_vm,
 };
-use cynic_lifecycle::LocalArgvRunner;
-use cynic_proxmox::adapters::ProxmoxControlAdapter;
-use cynic_protocol::AgentHostDesired;
 
 use crate::cli_json::emit_pretty_json;
 

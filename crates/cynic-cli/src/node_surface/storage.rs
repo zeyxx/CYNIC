@@ -17,5 +17,6 @@ pub(crate) async fn execute_storage_reconcile(
         restart_window_seconds,
         max_restarts_per_window,
         apply,
-    ).await
+    )
+    .await
 }

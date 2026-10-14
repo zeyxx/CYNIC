@@ -124,11 +124,7 @@ pub fn development_surface_manifest() -> DevelopmentSurfaceManifest {
                 owner: "cynic-mcp",
                 responsibility: "Expose only compiled and policy-backed organism capabilities to agents.",
                 mutation_scope: "MCP/tool projections, not domain ownership",
-                canonical_commands: vec![
-                    "make check",
-
-                    "cynic commands --json",
-                ],
+                canonical_commands: vec!["make check", "cynic commands --json"],
                 exit_evidence: vec![
                     "agent_surface_projected",
                     "cynic.cli.agent_exposure_audit.v1",

@@ -130,7 +130,9 @@ fn no_unregistered_hardcoded_path_exists() {
         // it's a hidden directory match.
         let matches = allowed.iter().any(|a| {
             relative.starts_with(a)
-                || relative.strip_prefix('.').is_some_and(|rest| allowed.iter().any(|a| rest.starts_with(a)))
+                || relative
+                    .strip_prefix('.')
+                    .is_some_and(|rest| allowed.iter().any(|a| rest.starts_with(a)))
         });
         if !matches {
             panic!(

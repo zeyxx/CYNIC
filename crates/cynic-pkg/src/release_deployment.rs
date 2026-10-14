@@ -172,7 +172,10 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
         let temp_link = parent.join(format!(
             ".tmp-symlink-{}-{}",
             std::process::id(),
-            link_path.file_name().and_then(|n| n.to_str()).unwrap_or("link")
+            link_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("link")
         ));
 
         let _ = fs::remove_file(&temp_link);
@@ -220,7 +223,9 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
             .map_err(|e| format!("systemctl is-active {unit}: {e}"))?;
         let state = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if state != "active" {
-            return Err(format!("unit {unit} state after restart: '{state}' (expected active)"));
+            return Err(format!(
+                "unit {unit} state after restart: '{state}' (expected active)"
+            ));
         }
         Ok(state)
     }
@@ -229,7 +234,8 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
         if url.trim().is_empty() {
             return Ok(200);
         }
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
         loop {
             match http_status_code(url) {
                 Ok(code) if (200..300).contains(&code) => return Ok(code),
@@ -237,7 +243,9 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
                 Err(_) => {}
             }
             if std::time::Instant::now() >= deadline {
-                return Err(format!("health probe timed out after {timeout_secs}s: {url}"));
+                return Err(format!(
+                    "health probe timed out after {timeout_secs}s: {url}"
+                ));
             }
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
@@ -251,7 +259,10 @@ impl ReleaseDeployExecutorPort for LocalReleaseDeployExecutor {
         if !path.components().any(|c| c.as_os_str() == "releases") {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::PermissionDenied,
-                format!("refusing to remove non-release directory: {}", path.display()),
+                format!(
+                    "refusing to remove non-release directory: {}",
+                    path.display()
+                ),
             ));
         }
         fs::remove_dir_all(path)
@@ -305,25 +316,37 @@ fn http_status_code(url: &str) -> Result<u16, String> {
         .strip_prefix("http://")
         .map(|rest| {
             let mut parts = rest.splitn(2, '/');
-            (parts.next().unwrap_or(""), format!("/{}", parts.next().unwrap_or("")))
+            (
+                parts.next().unwrap_or(""),
+                format!("/{}", parts.next().unwrap_or("")),
+            )
         })
         .ok_or_else(|| format!("health probe supports http:// URLs only: {url}"))?;
     let mut host_parts = host_port.splitn(2, ':');
     let host = host_parts.next().unwrap_or("");
-    let port: u16 = host_parts.next().unwrap_or("80").parse().map_err(|_| format!("bad port in {url}"))?;
+    let port: u16 = host_parts
+        .next()
+        .unwrap_or("80")
+        .parse()
+        .map_err(|_| format!("bad port in {url}"))?;
     let addr = format!("{host}:{port}");
-    let mut stream = std::net::TcpStream::connect(&addr)
-        .map_err(|e| format!("health connect {addr}: {e}"))?;
+    let mut stream =
+        std::net::TcpStream::connect(&addr).map_err(|e| format!("health connect {addr}: {e}"))?;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(3)))
         .map_err(|e| e.to_string())?;
     use std::io::Write;
-    write!(stream, "GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n")
-        .map_err(|e| e.to_string())?;
+    write!(
+        stream,
+        "GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+    )
+    .map_err(|e| e.to_string())?;
     use std::io::BufRead;
     let mut reader = std::io::BufReader::new(&stream);
     let mut status_line = String::new();
-    reader.read_line(&mut status_line).map_err(|e| e.to_string())?;
+    reader
+        .read_line(&mut status_line)
+        .map_err(|e| e.to_string())?;
     status_line
         .split_whitespace()
         .nth(1)
@@ -367,8 +390,7 @@ pub fn apply_release_deployment<E: ReleaseDeployExecutorPort>(
     // Remember the rollback target BEFORE the switch: the release `current`
     // points at right now (None on first deploy). Reading it after the
     // switch would always return the new release itself.
-    let previous_target =
-        read_previous_target(executor, &plan.current_link, &plan.release_dir);
+    let previous_target = read_previous_target(executor, &plan.current_link, &plan.release_dir);
 
     // 3. Atomically switch /current symlink to the new release
     executor
@@ -523,7 +545,10 @@ fn rollback<E: ReleaseDeployExecutorPort>(
     }
     for activated in activated_units {
         if let Err(e) = executor.restart_unit(&activated.unit) {
-            return format!("{failure}; ROLLBACK FAILED restarting {}: {e}", activated.unit);
+            return format!(
+                "{failure}; ROLLBACK FAILED restarting {}: {e}",
+                activated.unit
+            );
         }
     }
     match executor.read_link(&plan.current_link) {
@@ -604,10 +629,7 @@ mod tests {
 
         let bin_on_disk = plan.release_dir.join("cynic");
         assert!(bin_on_disk.exists());
-        assert_eq!(
-            fs::read(&bin_on_disk).unwrap(),
-            b"binary-content-v0.8.0"
-        );
+        assert_eq!(fs::read(&bin_on_disk).unwrap(), b"binary-content-v0.8.0");
 
         let bin_link = plan.bin_dir.join("cynic");
         assert!(bin_link.exists());
@@ -656,7 +678,11 @@ mod tests {
         }
     }
 
-    fn staged_spec(root: &Path, version: &str, units: Vec<RestartUnitSpec>) -> (ReleaseDeploySpec, ReleaseDeployPlan) {
+    fn staged_spec(
+        root: &Path,
+        version: &str,
+        units: Vec<RestartUnitSpec>,
+    ) -> (ReleaseDeploySpec, ReleaseDeployPlan) {
         let source_bin = root.join(format!("src-cynic-{version}"));
         fs::write(&source_bin, format!("binary-content-{version}")).expect("write fake bin");
         let spec = ReleaseDeploySpec {
@@ -699,7 +725,10 @@ mod tests {
         assert_eq!(report.activated_units[0].active_state, "active");
         assert_eq!(report.activated_units[0].health_status, Some(200));
         assert!(report.rollback_target.is_none());
-        assert_eq!(*executor.restarted.borrow(), vec!["cynic-kernel.service".to_string()]);
+        assert_eq!(
+            *executor.restarted.borrow(),
+            vec!["cynic-kernel.service".to_string()]
+        );
     }
 
     #[test]
@@ -730,7 +759,10 @@ mod tests {
         };
         let err = apply_release_deployment(&spec_v2, &plan_v2, &executor, 1790000002)
             .expect_err("health failure must fail the deploy");
-        assert!(err.contains("health probe failed"), "unexpected error: {err}");
+        assert!(
+            err.contains("health probe failed"),
+            "unexpected error: {err}"
+        );
         assert!(err.contains("rolled back to"), "no rollback proof: {err}");
 
         // Read-back: current points at v0.9.0 again.
@@ -745,7 +777,10 @@ mod tests {
         let local = LocalReleaseDeployExecutor;
 
         let mut plans = Vec::new();
-        for (i, version) in ["0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4"].iter().enumerate() {
+        for (i, version) in ["0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4"]
+            .iter()
+            .enumerate()
+        {
             let (spec, plan) = staged_spec(&root, version, vec![]);
             apply_release_deployment(&spec, &plan, &local, 1790000001 + i as u64).expect("apply");
             plans.push(plan);
@@ -754,16 +789,30 @@ mod tests {
         let dirs = local.list_release_dirs(&root).expect("list");
         assert_eq!(dirs.len(), 3, "expected current + 2 kept, got {dirs:?}");
         assert!(dirs.contains(&plans[4].release_dir), "current must be kept");
-        assert!(dirs.contains(&plans[3].release_dir), "rollback target must be kept");
+        assert!(
+            dirs.contains(&plans[3].release_dir),
+            "rollback target must be kept"
+        );
     }
 
     #[test]
     fn refuses_to_restart_non_service_unit_names() {
         // Pure validation: refused before any systemctl invocation.
         assert!(is_plain_service_unit("cynic-kernel.service"));
-        assert!(is_plain_service_unit(cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME));
-        for bad in ["reboot.target", "../evil.service", "/bin/sh", "a;rm -rf", ""] {
-            assert!(!is_plain_service_unit(bad), "must refuse unit name: {bad:?}");
+        assert!(is_plain_service_unit(
+            cynic_network::dns::SERVICE_DNS_SERVICE_FILENAME
+        ));
+        for bad in [
+            "reboot.target",
+            "../evil.service",
+            "/bin/sh",
+            "a;rm -rf",
+            "",
+        ] {
+            assert!(
+                !is_plain_service_unit(bad),
+                "must refuse unit name: {bad:?}"
+            );
         }
     }
 
@@ -781,7 +830,11 @@ mod tests {
 
     #[test]
     fn missing_systemctl_fails_closed() {
-        let err = select_systemctl_path(|_| false).expect_err("must refuse without a systemctl binary");
-        assert!(err.contains("/usr/bin/systemctl"), "names searched paths: {err}");
+        let err =
+            select_systemctl_path(|_| false).expect_err("must refuse without a systemctl binary");
+        assert!(
+            err.contains("/usr/bin/systemctl"),
+            "names searched paths: {err}"
+        );
     }
 }

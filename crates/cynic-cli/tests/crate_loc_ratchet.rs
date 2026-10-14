@@ -147,7 +147,9 @@ fn god_object_ceiling_ratchet_holds() {
 
     let undeclared: Vec<String> = all
         .iter()
-        .filter(|(name, c)| c.on_disk > GOD_OBJECT_CEILING && !GOD_OBJECTS.iter().any(|(n, _)| n == name))
+        .filter(|(name, c)| {
+            c.on_disk > GOD_OBJECT_CEILING && !GOD_OBJECTS.iter().any(|(n, _)| n == name)
+        })
         .map(|(name, c)| format!("{name}: {} LOC now exceeds the ceiling", c.on_disk))
         .collect();
 
@@ -159,8 +161,12 @@ fn god_object_ceiling_ratchet_holds() {
          newly above the ceiling and not recorded:\n  {}\n\n\
          Extraction is the only way down: deleting files lowers the number but \
          discards the material, and wiring them into the build graph would make \
-         the alert vanish without reducing the debt.{}", 
-        if grew.is_empty() && stale.is_empty() && undeclared.is_empty() { "ok" } else { "VIOLATED" },
+         the alert vanish without reducing the debt.{}",
+        if grew.is_empty() && stale.is_empty() && undeclared.is_empty() {
+            "ok"
+        } else {
+            "VIOLATED"
+        },
         grew.join("\n  "),
         stale.join("\n  "),
         undeclared.join("\n  "),
@@ -178,7 +184,9 @@ fn legacy_debt_ratchet_holds() {
         let actual = all
             .iter()
             .find(|(n, _)| n == name)
-            .unwrap_or_else(|| panic!("{name}: recorded as holding dead mass but the crate is gone"))
+            .unwrap_or_else(|| {
+                panic!("{name}: recorded as holding dead mass but the crate is gone")
+            })
             .1
             .gap();
         if actual > *recorded {
@@ -208,8 +216,12 @@ fn legacy_debt_ratchet_holds() {
          newly above the {MATERIAL_GAP} LOC threshold and not recorded:\n  {}\n\n\
          The gap is mass that exists on disk but that no compilation root names. \
          Nothing reports it: not rustc, not the orphan ratchet's own error \
-         count, not any target in the canonical gate.{}", 
-        if grew.is_empty() && stale.is_empty() && undeclared.is_empty() { "ok" } else { "VIOLATED" },
+         count, not any target in the canonical gate.{}",
+        if grew.is_empty() && stale.is_empty() && undeclared.is_empty() {
+            "ok"
+        } else {
+            "VIOLATED"
+        },
         grew.join("\n  "),
         stale.join("\n  "),
         undeclared.join("\n  "),

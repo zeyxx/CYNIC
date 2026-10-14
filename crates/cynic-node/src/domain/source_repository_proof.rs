@@ -4,11 +4,13 @@ use cynic_host::{
     adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
     ports::evidence_store::ContentAddressedEvidenceStorePort,
 };
-use cynic_vcs::{SourceRepositoryBootstrapProofAuthority, SourceRepositoryBootstrapReport, SourceRepositoryBootstrapStatus};
 use cynic_protocol::{
     LeaseGuard, RUNTIME_PROOF_BUNDLE_SCHEMA, RUNTIME_PROOF_SCHEMA, RuntimeProof,
-    RuntimeProofBundle, RuntimeProofEvidence, 
-    build_evidence_envelope,
+    RuntimeProofBundle, RuntimeProofEvidence, build_evidence_envelope,
+};
+use cynic_vcs::{
+    SourceRepositoryBootstrapProofAuthority, SourceRepositoryBootstrapReport,
+    SourceRepositoryBootstrapStatus,
 };
 
 pub fn persist_local_proof(

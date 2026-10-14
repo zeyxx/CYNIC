@@ -10,9 +10,5 @@ pub(crate) fn execute_node_identity(
     apply: bool,
     _json: bool,
 ) -> ExitCode {
-    cynic_node::usecases::node_identity_uc::execute_node_identity(
-        node_id,
-        signing_key_path,
-        apply,
-    )
+    cynic_node::usecases::node_identity_uc::execute_node_identity(node_id, signing_key_path, apply)
 }

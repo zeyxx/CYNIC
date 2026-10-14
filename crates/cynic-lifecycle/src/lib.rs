@@ -13,9 +13,9 @@
 //!
 //! CLI injects [`LocalArgvRunner`]; tests inject [`MapArgvRunner`].
 
-mod apply;
 pub mod activation_evidence;
 pub mod activation_requests;
+mod apply;
 pub mod diagnostics;
 pub mod domain;
 pub mod evidence_cli;

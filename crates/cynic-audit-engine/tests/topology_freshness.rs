@@ -38,7 +38,9 @@ fn workspace_root() -> PathBuf {
 
 fn render() -> serde_json::Value {
     topology_generate::render(&workspace_root())
-        .unwrap_or_else(|error| panic!("the topology generator rejected the committed document: {error}"))
+        .unwrap_or_else(|error| {
+            panic!("the topology generator rejected the committed document: {error}")
+        })
         .document
 }
 
@@ -47,8 +49,12 @@ fn the_committed_document_is_what_the_generator_produces() {
     let root = workspace_root();
     let rendered = topology_generate::render_text(&root)
         .unwrap_or_else(|error| panic!("the topology generator failed: {error}"));
-    let committed = topology_generate::committed(&root)
-        .unwrap_or_else(|error| panic!("reading {} failed: {error}", topology_generate::TOPOLOGY_DOC));
+    let committed = topology_generate::committed(&root).unwrap_or_else(|error| {
+        panic!(
+            "reading {} failed: {error}",
+            topology_generate::TOPOLOGY_DOC
+        )
+    });
 
     if rendered == committed {
         return;

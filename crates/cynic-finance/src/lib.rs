@@ -9,21 +9,21 @@
 //! - `ledger` — append-only ledger with double-entry invariants
 //! - `exchange` — measured exchange rate table
 
-pub mod types;
-pub mod ports;
-pub mod ledger;
 pub mod exchange;
+pub mod ledger;
+pub mod ports;
 pub mod rate_calculator;
+pub mod types;
 
-pub use types::{
-    ResourceUnit, ResourceTransaction, ResourceLedger, TransactionDirection,
-    ResourceMetadata, ResourceType, LEDGER_TRANSACTION_SCHEMA,
-};
-pub use ports::{
-    ComputeMeter, GpuMeter, StorageMeter, NetworkMeter, EnergyMeter,
-    TokenMeter, ContextMeter, TimeMeter, ActionMeter, MeterError,
-};
+pub use exchange::{EXCHANGE_RATE_TABLE_SCHEMA, ExchangeRate, ExchangeRateTable};
 pub use ledger::LedgerEngine;
-pub use exchange::{ExchangeRate, ExchangeRateTable, EXCHANGE_RATE_TABLE_SCHEMA};
-pub use rate_calculator::{compute_exchange_rates, RateSample};
+pub use ports::{
+    ActionMeter, ComputeMeter, ContextMeter, EnergyMeter, GpuMeter, MeterError, NetworkMeter,
+    StorageMeter, TimeMeter, TokenMeter,
+};
+pub use rate_calculator::{RateSample, compute_exchange_rates};
 pub use types::EXCHANGE_RATE_SCHEMA;
+pub use types::{
+    LEDGER_TRANSACTION_SCHEMA, ResourceLedger, ResourceMetadata, ResourceTransaction, ResourceType,
+    ResourceUnit, TransactionDirection,
+};

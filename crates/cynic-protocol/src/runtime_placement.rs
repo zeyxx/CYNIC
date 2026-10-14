@@ -492,10 +492,7 @@ pub fn validate_candidate_admissibility(
     load_tier: crate::capacity::LoadTier,
 ) -> Result<(), String> {
     if load_tier == crate::capacity::LoadTier::Saturated {
-        Err(format!(
-            "candidate_{}_host_saturated",
-            candidate_node_id
-        ))
+        Err(format!("candidate_{}_host_saturated", candidate_node_id))
     } else {
         Ok(())
     }

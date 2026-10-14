@@ -62,9 +62,7 @@ fn named_in(body: &str, known: &BTreeSet<String>, self_name: &str) -> BTreeSet<S
         if name.is_empty() || name == self_name {
             continue;
         }
-        let is_declaration = line[name.len()..]
-            .trim_start()
-            .starts_with('=')
+        let is_declaration = line[name.len()..].trim_start().starts_with('=')
             || line[name.len()..].trim_start().starts_with(".workspace");
         if is_declaration && known.contains(&name) {
             found.insert(name);
@@ -440,7 +438,13 @@ mod tests {
     /// a name in here and not for a name outside it, so this set IS the
     /// definition of what counts as a dependency edge.
     fn known() -> BTreeSet<String> {
-        set(&["cynic-protocol", "cynic-host", "cynic-cli", "reqwest", "serde"])
+        set(&[
+            "cynic-protocol",
+            "cynic-host",
+            "cynic-cli",
+            "reqwest",
+            "serde",
+        ])
     }
 
     /// WHY: an over-greedy edge extractor manufactures architecture violations out
@@ -480,7 +484,10 @@ cynic_protocol_note = \"cynic-protocol looks fine\"
     #[test]
     fn topological_order_places_every_dependency_first() {
         let edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::from([
-            ("cynic-cli".to_string(), set(&["cynic-kernel", "cynic-protocol"])),
+            (
+                "cynic-cli".to_string(),
+                set(&["cynic-kernel", "cynic-protocol"]),
+            ),
             ("cynic-kernel".to_string(), set(&["cynic-protocol"])),
             ("cynic-protocol".to_string(), set(&[])),
         ]);

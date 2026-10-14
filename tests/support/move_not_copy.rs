@@ -308,7 +308,8 @@ fn civil_from_days(epoch_day: i64) -> (i64, u32, u32) {
 /// The date the rule is evaluated against: `TODAY_ENV` when set, else system UTC.
 pub fn today() -> Date {
     if let Ok(forced) = std::env::var(TODAY_ENV) {
-        return Date::parse(&forced).unwrap_or_else(|error| panic!("{TODAY_ENV}={forced:?}: {error}"));
+        return Date::parse(&forced)
+            .unwrap_or_else(|error| panic!("{TODAY_ENV}={forced:?}: {error}"));
     }
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -518,10 +519,7 @@ fn reexport_name(line: &str) -> Option<String> {
     if last.is_empty() || !last.chars().next()?.is_ascii_alphabetic() && !last.starts_with('_') {
         return None;
     }
-    if !last
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
+    if !last.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         return None;
     }
     Some(last.to_string())
@@ -542,7 +540,15 @@ fn top_level_pub_item(line: &str) -> Option<(String, ItemKind)> {
         None => rest,
     };
     for keyword in [
-        "struct", "enum", "union", "trait", "fn", "const", "static", "type", "macro_rules",
+        "struct",
+        "enum",
+        "union",
+        "trait",
+        "fn",
+        "const",
+        "static",
+        "type",
+        "macro_rules",
     ] {
         let Some(after) = rest.strip_prefix(keyword) else {
             continue;
@@ -757,11 +763,7 @@ pub fn read_workspace(root: &Path) -> Workspace {
         }
     }
     for (name, dir) in &names {
-        let dir_label = dir
-            .strip_prefix(root)
-            .unwrap_or(dir)
-            .display()
-            .to_string();
+        let dir_label = dir.strip_prefix(root).unwrap_or(dir).display().to_string();
         let manifest = fs::read_to_string(dir.join("Cargo.toml")).unwrap_or_default();
         let mut view = CrateView {
             name: name.clone(),
@@ -878,7 +880,11 @@ pub struct Violation {
 
 impl fmt::Display for Violation {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{} {} — {}", self.code, self.subject, self.message)
+        write!(
+            formatter,
+            "{} {} — {}",
+            self.code, self.subject, self.message
+        )
     }
 }
 
@@ -1138,7 +1144,13 @@ pub fn evaluate_copies(census: &Census, quarantine: &Quarantine, today: Date) ->
                 overlap.dependents
             ),
         );
-        out.extend(under_loan(finding, quarantine, today, &overlap.crate_name, "Cargo.toml"));
+        out.extend(under_loan(
+            finding,
+            quarantine,
+            today,
+            &overlap.crate_name,
+            "Cargo.toml",
+        ));
     }
 
     for copy in census.file_copies.iter().filter(|entry| entry.is_copy()) {
@@ -1161,7 +1173,13 @@ pub fn evaluate_copies(census: &Census, quarantine: &Quarantine, today: Date) ->
                 copy.dep
             ),
         );
-        out.extend(under_loan(finding, quarantine, today, &copy.crate_name, &copy.path));
+        out.extend(under_loan(
+            finding,
+            quarantine,
+            today,
+            &copy.crate_name,
+            &copy.path,
+        ));
     }
 
     for fork in census.type_forks.iter().filter(|entry| entry.is_fork()) {
@@ -1185,10 +1203,20 @@ pub fn evaluate_copies(census: &Census, quarantine: &Quarantine, today: Date) ->
                 fork.dep
             ),
         );
-        out.extend(under_loan(finding, quarantine, today, &fork.crate_name, "Cargo.toml"));
+        out.extend(under_loan(
+            finding,
+            quarantine,
+            today,
+            &fork.crate_name,
+            "Cargo.toml",
+        ));
     }
 
-    for fracture in census.port_fractures.iter().filter(|entry| entry.is_fracture()) {
+    for fracture in census
+        .port_fractures
+        .iter()
+        .filter(|entry| entry.is_fracture())
+    {
         // Subjected to the FIRST declaring crate so a loan names one place, and
         // reported against every crate that holds the second declaration.
         let owner_crate = fracture.crates[0].clone();
@@ -1209,7 +1237,13 @@ pub fn evaluate_copies(census: &Census, quarantine: &Quarantine, today: Date) ->
                 display_list(&fracture.crates)
             ),
         );
-        out.extend(under_loan(finding, quarantine, today, &owner_crate, "Cargo.toml"));
+        out.extend(under_loan(
+            finding,
+            quarantine,
+            today,
+            &owner_crate,
+            "Cargo.toml",
+        ));
     }
 
     for entry in &quarantine.entries {
@@ -1287,10 +1321,9 @@ fn under_loan(
 /// dance can silence is not a rule.
 fn stale_quarantine_violations(entry: &QuarantineEntry, census: &Census) -> Vec<Violation> {
     let subject = format!("crates/{}/src/{}", entry.crate_name, entry.path);
-    let still_a_copy = census
-        .file_copies
-        .iter()
-        .any(|copy| copy.crate_name == entry.crate_name && copy.path == entry.path && copy.is_copy());
+    let still_a_copy = census.file_copies.iter().any(|copy| {
+        copy.crate_name == entry.crate_name && copy.path == entry.path && copy.is_copy()
+    });
     if still_a_copy {
         return Vec::new();
     }
@@ -1445,7 +1478,10 @@ pub fn evaluate_quarantine(quarantine: &Quarantine, today: Date) -> Vec<Violatio
                 RULE_QUARANTINE_INTEGRITY,
                 "NO-EXPIRY",
                 &subject,
-                format!("expires {:?}: {error}. Every entry must carry an explicit date", entry.expires),
+                format!(
+                    "expires {:?}: {error}. Every entry must carry an explicit date",
+                    entry.expires
+                ),
             )),
             Ok(expires) => {
                 let age = expires.epoch_day - today.epoch_day;
@@ -1502,7 +1538,7 @@ pub enum Provenance {
         reason: String,
     },
     /// A deliberate rewrite of something that does exist. `note` must say what
-        /// was rewritten and why a move was not possible.
+    /// was rewritten and why a move was not possible.
     Rewrite {
         /// What was rewritten, from where, and why.
         note: String,
@@ -1698,21 +1734,21 @@ pub fn inline_provenance(manifest: &str) -> Result<Option<Provenance>, String> {
             Provenance::Extraction { from }
         }
         "new-capability" => {
-            let reason = pairs
-                .remove("reason")
-                .ok_or_else(|| "kind = \"new-capability\" needs `reason = \"<why>\"`".to_string())?;
+            let reason = pairs.remove("reason").ok_or_else(|| {
+                "kind = \"new-capability\" needs `reason = \"<why>\"`".to_string()
+            })?;
             Provenance::NewCapability { reason }
         }
         "rewrite" => {
-            let note = pairs
-                .remove("note")
-                .ok_or_else(|| "kind = \"rewrite\" needs `note = \"<what and why>\"`".to_string())?;
+            let note = pairs.remove("note").ok_or_else(|| {
+                "kind = \"rewrite\" needs `note = \"<what and why>\"`".to_string()
+            })?;
             Provenance::Rewrite { note }
         }
         other => {
             return Err(format!(
                 "unknown provenance kind {other:?}; expected extraction, new-capability or rewrite"
-            ))
+            ));
         }
     };
     if !pairs.is_empty() {
@@ -1910,15 +1946,90 @@ pub fn evaluate_provenance(workspace: &Workspace, ledger: &Ledger) -> Vec<Violat
 
 /// Words that are not a domain object, however emphatically they are capitalised.
 const STOP_WORDS: &[&str] = &[
-    "the", "and", "for", "with", "from", "that", "this", "into", "when", "why", "how", "its", "it",
-    "not", "but", "has", "have", "was", "were", "are", "been", "than", "then", "them", "they",
-    "their", "there", "here", "where", "which", "while", "will", "would", "should", "could",
-    "crate", "module", "code", "thing", "stuff", "need", "needs", "needed", "because", "about",
-    "only", "also", "just", "more", "most", "some", "such", "each", "other", "another", "same",
-    "own", "owner", "layer", "boundary", "seam", "port", "ports", "contract", "contracts",
-    "architecture", "architectural", "separation", "concern", "concerns", "responsibility",
-    "responsibilities", "because", "purpose", "reason", "justification", "independent",
-    "independently", "compile", "compilation", "build", "rebuild", "reusable", "reuse",
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "that",
+    "this",
+    "into",
+    "when",
+    "why",
+    "how",
+    "its",
+    "it",
+    "not",
+    "but",
+    "has",
+    "have",
+    "was",
+    "were",
+    "are",
+    "been",
+    "than",
+    "then",
+    "them",
+    "they",
+    "their",
+    "there",
+    "here",
+    "where",
+    "which",
+    "while",
+    "will",
+    "would",
+    "should",
+    "could",
+    "crate",
+    "module",
+    "code",
+    "thing",
+    "stuff",
+    "need",
+    "needs",
+    "needed",
+    "because",
+    "about",
+    "only",
+    "also",
+    "just",
+    "more",
+    "most",
+    "some",
+    "such",
+    "each",
+    "other",
+    "another",
+    "same",
+    "own",
+    "owner",
+    "layer",
+    "boundary",
+    "seam",
+    "port",
+    "ports",
+    "contract",
+    "contracts",
+    "architecture",
+    "architectural",
+    "separation",
+    "concern",
+    "concerns",
+    "responsibility",
+    "responsibilities",
+    "because",
+    "purpose",
+    "reason",
+    "justification",
+    "independent",
+    "independently",
+    "compile",
+    "compilation",
+    "build",
+    "rebuild",
+    "reusable",
+    "reuse",
 ];
 
 /// Does this text name a domain object? At least one identifier-shaped token of
@@ -1945,7 +2056,10 @@ pub fn names_a_domain_object(reason: &str) -> bool {
         token.chars().count() >= 3
             && !STOP_WORDS.contains(&token.as_str())
             && token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-            && token.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            && token
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic())
     })
 }
 
@@ -1955,7 +2069,8 @@ pub fn names_a_domain_object(reason: &str) -> bool {
 
 /// A small synthetic workspace, so the rules can be tested without the real tree.
 pub fn fixture_workspace(label: &str) -> PathBuf {
-    let base = std::env::temp_dir().join(format!("cynic-mnc-fixture-{}-{label}", std::process::id()));
+    let base =
+        std::env::temp_dir().join(format!("cynic-mnc-fixture-{}-{label}", std::process::id()));
     let _ = fs::remove_dir_all(&base);
     fs::create_dir_all(base.join("crates")).unwrap_or_else(|error| panic!("{error}"));
     base
@@ -1970,7 +2085,8 @@ pub fn write_fixture_crate(
 ) -> PathBuf {
     let dir = base.join("crates").join(name);
     fs::create_dir_all(dir.join("src")).unwrap_or_else(|error| panic!("{error}"));
-    let mut manifest = format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\n\n[dependencies]\n");
+    let mut manifest =
+        format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\n\n[dependencies]\n");
     for (dep, path) in deps {
         manifest.push_str(&format!("{dep} = {{ path = \"{path}\" }}\n"));
     }
@@ -1991,7 +2107,9 @@ pub fn padding(lines: usize, marker: &str) -> String {
     let mut out = String::new();
     for index in 0..lines {
         out.push_str(&format!("// {marker} filler line {index}\n"));
-        out.push_str(&format!("pub fn {marker}_helper_{index}() -> u8 {{ {index} }}\n"));
+        out.push_str(&format!(
+            "pub fn {marker}_helper_{index}() -> u8 {{ {index} }}\n"
+        ));
     }
     out
 }

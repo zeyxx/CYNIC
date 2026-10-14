@@ -1,7 +1,10 @@
 use std::path::Path;
 
-use cynic_protocol::{SecurityEvidenceState};
-use cynic_node_protocol::{PRE_OS_PLATFORM_OBSERVATION_SCHEMA, PreOsArtifactManifest, PreOsControlKind, PreOsPlatformObservation};
+use cynic_node_protocol::{
+    PRE_OS_PLATFORM_OBSERVATION_SCHEMA, PreOsArtifactManifest, PreOsControlKind,
+    PreOsPlatformObservation,
+};
+use cynic_protocol::SecurityEvidenceState;
 use sha2::{Digest, Sha256};
 
 use crate::ports::{

@@ -136,7 +136,9 @@ fn every_temporary_rule_states_its_removal_condition() {
     for r in rules() {
         if r["status"] == "temporary" {
             assert!(
-                r.get("until").and_then(Value::as_str).is_some_and(|s| s.len() > 20),
+                r.get("until")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| s.len() > 20),
                 "Publication Violation: `{}` is temporary without a removal condition. \
                  Temporary is only meaningful with an end.",
                 r["path"]
@@ -267,7 +269,10 @@ fn read_back_has_execution_steps_not_only_content_steps() {
     let steps = c["read_back"]["steps"]
         .as_array()
         .expect("read_back.steps is an array");
-    let ids: Vec<&str> = steps.iter().map(|s| s["id"].as_str().unwrap_or_default()).collect();
+    let ids: Vec<&str> = steps
+        .iter()
+        .map(|s| s["id"].as_str().unwrap_or_default())
+        .collect();
     for required in [
         "no_forbidden_literal",
         "no_undeclared_path",
@@ -315,11 +320,18 @@ fn contamination_of_published_content_stays_measured() {
             (stem.len() > 4).then_some(stem)
         })
         .collect();
-    assert!(!stems.is_empty(), "no usable stem could be derived from the redaction patterns");
+    assert!(
+        !stems.is_empty(),
+        "no usable stem could be derived from the redaction patterns"
+    );
 
     let contaminated: Vec<String> = tracked_paths()
         .into_iter()
-        .filter(|p| rule_for(p).map(|r| r["status"] != "exclude").unwrap_or(false))
+        .filter(|p| {
+            rule_for(p)
+                .map(|r| r["status"] != "exclude")
+                .unwrap_or(false)
+        })
         .filter(|p| {
             fs::read_to_string(workspace_root().join(p))
                 .map(|body| stems.iter().any(|s| body.contains(s.as_str())))

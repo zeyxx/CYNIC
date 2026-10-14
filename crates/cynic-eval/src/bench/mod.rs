@@ -6,6 +6,7 @@
 
 pub mod bench_basket_launcher;
 pub mod forge;
+pub mod retrieval_gain;
 
 pub use bench_basket_launcher::{
     BasketItem, BasketItemResult, BasketLaunchReport, BasketPlan, BenchLaunchError,
@@ -14,4 +15,9 @@ pub use bench_basket_launcher::{
 pub use forge::{
     FORGE_PROFILE_SCHEMA, ForgeProfileError, ForgeProfileReport, alias_from_artifact_id,
     forge_profile_from_benchmark_report, write_loopback_profile,
+};
+pub use retrieval_gain::{
+    BenchConfig, BenchReport, FIXTURE_SCHEMA_V1, Fixture, LabeledQuery, QueryScores,
+    REPORT_SCHEMA_V1, TemplatedEmbedder, TextPipeline, VectorCacheRecord, grade_hit,
+    load_vector_cache, reciprocal_rank, run_bench, save_vector_cache, truncate_front,
 };

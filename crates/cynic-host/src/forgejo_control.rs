@@ -7,16 +7,12 @@ use crate::repo_access::{
 };
 
 use cynic_vcs::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec, ForgejoTokenStatusReport,
-    FORGEJO_TOKEN_STATUS_SCHEMA, plan_forgejo_token_convergence,
+    FORGEJO_TOKEN_STATUS_SCHEMA, ForgejoTokenAuthState, ForgejoTokenObservation, ForgejoTokenSpec,
+    ForgejoTokenStatusReport, plan_forgejo_token_convergence,
 };
-use cynic_vcs::{
-    ForgejoDesiredState, ForgejoPlan, build_forgejo_plan, forgejo_token_spec,
-};
+use cynic_vcs::{ForgejoDesiredState, ForgejoPlan, build_forgejo_plan, forgejo_token_spec};
 
-use cynic_network::transport_security::{
-    NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence,
-};
+use cynic_network::transport_security::{NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence};
 
 use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 

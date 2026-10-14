@@ -72,9 +72,9 @@ pub use crate::one_shot_capability::{
 };
 pub use crate::organic_opportunity::*;
 pub use crate::outcomes::*;
-pub use crate::policy::*;
 pub use crate::phi::*;
 pub use crate::plane::Plane;
+pub use crate::policy::*;
 pub use crate::provider::*;
 pub use crate::residual_unknown::*;
 pub use crate::resource_allocation::*;

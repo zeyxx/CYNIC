@@ -26,15 +26,11 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
     let decision = cynic_host::source_sync::reconcile(&observation);
     let plan = cynic_host::source_sync::plan(&decision);
     if apply {
-        let admission = cynic_host::adapters::source_admission_adapter::admit_source_sync(
-            root, &decision,
-        );
+        let admission =
+            cynic_host::adapters::source_admission_adapter::admit_source_sync(root, &decision);
         if !admission.admitted {
-            let coherence = sync_coherence::project_sync_coherence_vector(
-                &observation,
-                &decision,
-                None,
-            );
+            let coherence =
+                sync_coherence::project_sync_coherence_vector(&observation, &decision, None);
             let report = sync_coherence::SourceSyncReport {
                 schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
                 coherence,
@@ -60,11 +56,8 @@ pub(crate) fn execute_sync(root: &Path, apply: bool, json: bool) -> ExitCode {
             } else {
                 None
             };
-            let coherence = sync_coherence::project_sync_coherence_vector(
-                &observation,
-                &decision,
-                read_back,
-            );
+            let coherence =
+                sync_coherence::project_sync_coherence_vector(&observation, &decision, read_back);
             let report = sync_coherence::SourceSyncReport {
                 schema: sync_coherence::SOURCE_SYNC_REPORT_SCHEMA,
                 coherence,

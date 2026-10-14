@@ -2,8 +2,8 @@ use super::{
     policy::reconcile_build_cache,
     port::{BuildCacheMutationPort, BuildCacheObservationPort},
     types::{
-        BUILD_CACHE_REPORT_SCHEMA, BuildCacheDecision, BuildCacheDesiredState, BuildCacheObservation,
-        BuildCachePathState, BuildCacheReport,
+        BUILD_CACHE_REPORT_SCHEMA, BuildCacheDecision, BuildCacheDesiredState,
+        BuildCacheObservation, BuildCachePathState, BuildCacheReport,
     },
 };
 
@@ -86,7 +86,15 @@ where
         }
     }
 
-    reconcile_from_observation(desired, apply, observer, mutation, before.clone(), before, None)
+    reconcile_from_observation(
+        desired,
+        apply,
+        observer,
+        mutation,
+        before.clone(),
+        before,
+        None,
+    )
 }
 
 /// The historical non-canonical then canonical flow, entered either with the
@@ -200,7 +208,9 @@ where
         mutation,
         before,
         current,
-        prefix_evidence.into_iter().reduce(|left, right| format!("{left}|{right}")),
+        prefix_evidence
+            .into_iter()
+            .reduce(|left, right| format!("{left}|{right}")),
     )
 }
 

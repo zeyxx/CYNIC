@@ -11,9 +11,9 @@ pub mod discovery;
 pub mod dns;
 pub mod dns_resolver;
 pub mod firewall_policy;
+pub mod fleet_membership;
 pub mod freebox;
 pub mod mesh_plan;
-pub mod fleet_membership;
 pub mod plane_vocabulary;
 pub mod port;
 pub mod probe;
@@ -29,8 +29,6 @@ pub mod watchdog_alerter;
 pub use adapters::finance::NetworkFinanceMeter;
 pub use adapters::headscale::{HeadscaleClient, HeadscaleConfig};
 pub use adapters::host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
-
-
 
 // Backward compatibility module aliases
 pub use adapters::finance as finance_adapters;

@@ -17,15 +17,11 @@ use serde_json::Value;
 use tokio::process::Child;
 
 use crate::sweep::HardwareBudget;
-use crate::sweep::empirical_store::{
-    BenchmarkProvenance, EmpiricalProfileEntry, OomSafetyStatus,
-};
-use crate::sweep::memory_estimator::{
-    ModelArchDescriptor, can_admit_model_configuration,
-};
+use crate::sweep::empirical_store::{BenchmarkProvenance, EmpiricalProfileEntry, OomSafetyStatus};
+use crate::sweep::memory_estimator::{ModelArchDescriptor, can_admit_model_configuration};
+use crate::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 use crate::sweep::stream_metrics::compute_stream_dynamics;
 use crate::sweep::types::{BenchmarkScenario, StreamDynamicsReport};
-use crate::sweep::port::{EmpiricalStoreError, EmpiricalStorePort};
 
 use super::matrix_sweep_executor::config_to_llama_argv;
 

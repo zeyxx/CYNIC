@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_eval::convergence::{
-    CausalConvergenceEpoch, CausalEpochIndexEntry, ConvergenceStatus,
-};
+use cynic_eval::convergence::{CausalConvergenceEpoch, CausalEpochIndexEntry, ConvergenceStatus};
 use cynic_protocol::EvidenceEnvelope;
 
 use crate::domain::services::{ServicePolicy, ServiceUnitPolicy};

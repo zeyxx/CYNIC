@@ -9,9 +9,7 @@ use cynic_protocol::organic_opportunity::{
     EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::rate_classify::{
-    RateTrend, WindowedCount, CountWindows, Thresholds,
-};
+use cynic_protocol::rate_classify::{CountWindows, RateTrend, Thresholds, WindowedCount};
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 

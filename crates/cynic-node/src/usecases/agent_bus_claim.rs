@@ -219,14 +219,26 @@ mod tests {
         let claim = manager.claim(&task).await.unwrap();
         assert_eq!(claim.claim_id, "claim_t1");
         assert_eq!(claim.status, ClaimStatus::Active);
-        manager.release("claim_t1", Proof {
-            parent_task_id: "t1".to_string(),
-            child_task_id: "t1".to_string(),
-            scope: Scope { kind: ScopeKind::File, path: "src/foo.rs".to_string() },
-            consumed_budget: Budget { actions: 0, wall_seconds: 60 },
-            output_hash: Hash32([0u8; 32]),
-            timestamp_unix_s: 0,
-        }).await.unwrap();
+        manager
+            .release(
+                "claim_t1",
+                Proof {
+                    parent_task_id: "t1".to_string(),
+                    child_task_id: "t1".to_string(),
+                    scope: Scope {
+                        kind: ScopeKind::File,
+                        path: "src/foo.rs".to_string(),
+                    },
+                    consumed_budget: Budget {
+                        actions: 0,
+                        wall_seconds: 60,
+                    },
+                    output_hash: Hash32([0u8; 32]),
+                    timestamp_unix_s: 0,
+                },
+            )
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

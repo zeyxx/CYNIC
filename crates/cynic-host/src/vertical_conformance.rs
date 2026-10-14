@@ -7,11 +7,11 @@ use cynic_eval::convergence::{
 };
 use cynic_protocol::{FrameworkSpec, framework_spec};
 
-use cynic_build::BuildConformanceEvidence;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;
 use crate::runtime_layout::current_runtime_layout;
 use crate::source_control::observe_source_worktree;
+use cynic_build::BuildConformanceEvidence;
 
 /// A single conformance gate and its observed outcome.
 ///

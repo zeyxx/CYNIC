@@ -45,7 +45,14 @@ pub fn build_record_poh_ix(
     data.extend_from_slice(&merkle_root);
     data.extend_from_slice(&round_digest);
 
-    let pda = derive_pda_digest(&[b"cynic_poh", node_authority.as_bytes(), &epoch.to_le_bytes()], program_id);
+    let pda = derive_pda_digest(
+        &[
+            b"cynic_poh",
+            node_authority.as_bytes(),
+            &epoch.to_le_bytes(),
+        ],
+        program_id,
+    );
 
     AnchorInstructionPayload {
         schema: ANCHOR_CLIENT_SCHEMA_V1,

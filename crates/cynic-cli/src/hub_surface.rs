@@ -276,18 +276,27 @@ pub(crate) fn execute_hub_command(command: HubCommand) -> ExitCode {
                 yes,
                 json,
             }),
-            HubJobCommand::Poll { id, namespace, json } => {
-                exec::execute_hub_job_poll(&id, namespace.as_deref(), json)
-            }
-            HubJobCommand::List { all, namespace, json } => {
-                exec::execute_hub_job_list(all, namespace.as_deref(), json)
-            }
-            HubJobCommand::Logs { id, namespace, json } => {
-                exec::execute_hub_job_logs(&id, namespace.as_deref(), json)
-            }
-            HubJobCommand::Cancel { id, namespace, yes, json } => {
-                exec::execute_hub_job_cancel(&id, namespace.as_deref(), yes, json)
-            }
+            HubJobCommand::Poll {
+                id,
+                namespace,
+                json,
+            } => exec::execute_hub_job_poll(&id, namespace.as_deref(), json),
+            HubJobCommand::List {
+                all,
+                namespace,
+                json,
+            } => exec::execute_hub_job_list(all, namespace.as_deref(), json),
+            HubJobCommand::Logs {
+                id,
+                namespace,
+                json,
+            } => exec::execute_hub_job_logs(&id, namespace.as_deref(), json),
+            HubJobCommand::Cancel {
+                id,
+                namespace,
+                yes,
+                json,
+            } => exec::execute_hub_job_cancel(&id, namespace.as_deref(), yes, json),
         },
         HubCommand::Sched { command } => match command {
             HubSchedCommand::Submit {

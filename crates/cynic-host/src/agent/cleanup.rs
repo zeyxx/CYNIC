@@ -27,9 +27,13 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
     /// Observe disk state via SSH commands.
     pub fn observe(&self) -> Result<CleanupObservation, String> {
-        let df_output = self
-            .runner
-            .run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, "df", "-B1", "/"]);
+        let df_output = self.runner.run(&[
+            "ssh",
+            cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
+            "df",
+            "-B1",
+            "/",
+        ]);
         let parts: Vec<&str> = df_output.stdout.split_whitespace().collect();
         if parts.len() < 10 {
             return Err(format!("unexpected df output: {}", df_output.stdout));
@@ -90,7 +94,11 @@ impl<R: ArgvRunner> CleanupAgent<R> {
 
         for item in &decision.safe_to_delete {
             let rm_cmd = format!("rm -rf {}", item.path);
-            let output = self.runner.run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, &rm_cmd]);
+            let output = self.runner.run(&[
+                "ssh",
+                cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
+                &rm_cmd,
+            ]);
             if output.exit_code == Some(0) {
                 deleted.push(item.path.clone());
             } else {
@@ -98,9 +106,13 @@ impl<R: ArgvRunner> CleanupAgent<R> {
             }
         }
 
-        let df_after = self
-            .runner
-            .run(&["ssh", cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET, "df", "-B1", "/"]);
+        let df_after = self.runner.run(&[
+            "ssh",
+            cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
+            "df",
+            "-B1",
+            "/",
+        ]);
         let parts: Vec<&str> = df_after.stdout.split_whitespace().collect();
         let disk_used_percent_after = if parts.len() >= 10 {
             let total: u64 = parts[8].parse().unwrap_or(1);

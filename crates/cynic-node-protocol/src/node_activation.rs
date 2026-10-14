@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::bootstrap_federation::{FederatedBootstrapObservation, FederatedBootstrapPhase};
 use crate::deployment_epoch::{DeploymentEpoch, DeploymentPhase};
-use cynic_protocol::error_catalog::CynicErrorCode;
-use cynic_protocol::health_signal::HealthSignalPayload;
 use crate::runtime_takeover_activation::{
     RuntimeTakeoverActivationObservation, RuntimeTakeoverActivationRequest,
 };
+use cynic_protocol::error_catalog::CynicErrorCode;
+use cynic_protocol::health_signal::HealthSignalPayload;
 
 /// The three possible activation states for a node.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

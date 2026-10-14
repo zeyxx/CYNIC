@@ -217,7 +217,9 @@ fn observe_host() -> Option<HostObservation> {
                     .filter(|word| !word.starts_with('-') && *word != "sudo");
                 if let Some(program) = words.next() {
                     if program.starts_with('/') {
-                        observation.exec_starts.push((name.to_string(), PathBuf::from(program)));
+                        observation
+                            .exec_starts
+                            .push((name.to_string(), PathBuf::from(program)));
                     }
                 }
             }

@@ -21,9 +21,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
 use cynic_vcs::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
-    ForgejoTokenProvisionReport, ForgejoTokenSpec, FORGEJO_TOKEN_OBSERVATION_SCHEMA,
-    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoTokenAuthState, ForgejoTokenMetadata,
+    ForgejoTokenObservation, ForgejoTokenProvisionReport, ForgejoTokenSpec,
 };
 
 pub const FORGEJO_TOKEN_DIRECTORY: &str = "/etc/cynic/secrets";
@@ -361,7 +361,11 @@ pub fn provision_forgejo_token(
             let sha1_for_rollback = metadata.sha1.clone();
             ForgejoTokenProvisionReport {
                 schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
-                status: if converged { "completed".to_string() } else { "blocked".to_string() },
+                status: if converged {
+                    "completed".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 principal: spec.principal.clone(),
                 metadata: if converged && metadata.sha1 != "<unavailable>" {
                     Some(metadata.clone())
@@ -373,7 +377,11 @@ pub fn provision_forgejo_token(
                 } else {
                     None
                 },
-                action_taken: if converged { "created".to_string() } else { "blocked".to_string() },
+                action_taken: if converged {
+                    "created".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 rollback_intent: format!(
                     "revoke Forgejo token {} for principal '{}' via the same port",
                     sha1_for_rollback, spec.principal
@@ -461,11 +469,23 @@ pub fn rotate_forgejo_token(
             }
             ForgejoTokenProvisionReport {
                 schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
-                status: if converged { "completed".to_string() } else { "blocked".to_string() },
+                status: if converged {
+                    "completed".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 principal: spec.principal.clone(),
-                metadata: if converged { Some(metadata.clone()) } else { None },
+                metadata: if converged {
+                    Some(metadata.clone())
+                } else {
+                    None
+                },
                 token_metadata: if converged { Some(metadata) } else { None },
-                action_taken: if converged { "rotated".to_string() } else { "blocked".to_string() },
+                action_taken: if converged {
+                    "rotated".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 rollback_intent: format!(
                     "revoke replacement token for principal '{}' via the same port",
                     spec.principal

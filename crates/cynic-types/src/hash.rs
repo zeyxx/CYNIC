@@ -44,9 +44,9 @@ impl Serialize for Hash32 {
 impl<'de> Deserialize<'de> for Hash32 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s: String = serde::Deserialize::deserialize(deserializer)?;
-        let s = s.strip_prefix("sha256:").ok_or_else(|| {
-            serde::de::Error::custom("expected sha256: prefix")
-        })?;
+        let s = s
+            .strip_prefix("sha256:")
+            .ok_or_else(|| serde::de::Error::custom("expected sha256: prefix"))?;
         let bytes = hex::decode(s).map_err(serde::de::Error::custom)?;
         let mut arr = [0u8; 32];
         if bytes.len() != 32 {

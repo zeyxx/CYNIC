@@ -1,9 +1,9 @@
 use std::process::ExitCode;
 
+use crate::network_surface::execution::NetworkCommands;
 use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_host::adapters::local_network::LocalNetworkAdapter;
 use cynic_host::domain::network::freebox::FreeboxProbePort;
-use crate::network_surface::execution::NetworkCommands;
 use cynic_node::usecases::network_watchdog_uc::execute_network_watchdog;
 use cynic_node::usecases::notification_outbox_uc::InMemoryNotificationOutboxStore;
 use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
@@ -68,12 +68,14 @@ pub(crate) fn try_execute_base(
                 resolved_dropin_path: runtime.resolved_dropin_path.to_string_lossy().to_string(),
             },
         )),
-        NetworkCommand::Evidence { registry } => Ok(crate::network_surface::execution::execute_network_command(
-            &NetworkCommands::Evidence {
-                json: true,
-                registry: registry_path(registry),
-            },
-        )),
+        NetworkCommand::Evidence { registry } => {
+            Ok(crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::Evidence {
+                    json: true,
+                    registry: registry_path(registry),
+                },
+            ))
+        }
         NetworkCommand::ShadowProof {
             registry,
             resolve_dns,
@@ -86,12 +88,14 @@ pub(crate) fn try_execute_base(
                 observe_runtime,
             },
         )),
-        NetworkCommand::ActuationObservation { registry } => Ok(crate::network_surface::execution::execute_network_command(
-            &NetworkCommands::ActuationObservation {
-                json: true,
-                registry: registry_path(registry),
-            },
-        )),
+        NetworkCommand::ActuationObservation { registry } => {
+            Ok(crate::network_surface::execution::execute_network_command(
+                &NetworkCommands::ActuationObservation {
+                    json: true,
+                    registry: registry_path(registry),
+                },
+            ))
+        }
         NetworkCommand::Observe { json, freebox } => {
             let adapter = LocalNetworkAdapter;
             let report = adapter.observe_network();
@@ -327,11 +331,13 @@ fn execute_network_reconcile(
             registry,
             timeout_ms,
             apply,
-        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ReconcileObserved {
-            json: true,
-            registry: registry_path(registry),
-            timeout_ms,
-            apply,
-        }),
+        } => crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::ReconcileObserved {
+                json: true,
+                registry: registry_path(registry),
+                timeout_ms,
+                apply,
+            },
+        ),
     }
 }

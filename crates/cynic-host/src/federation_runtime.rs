@@ -10,7 +10,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::os_health::observe::OsHealthObserver as OsHealthObserve;
 use crate::peer_resolver_mesh::MeshPeerResolver;
-use cynic_node_protocol::emergence::{AutonomyMode, EmergenceState, PeerState, health_score_from_os};
+use cynic_node_protocol::emergence::{
+    AutonomyMode, EmergenceState, PeerState, health_score_from_os,
+};
 use cynic_node_protocol::federation::{FederationReconciliation, reconcile_federation};
 use cynic_node_protocol::local_autonomy::{AutonomyObservation, decide_autonomy};
 use cynic_node_protocol::node_control::NodeControlPlan;

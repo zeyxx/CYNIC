@@ -23,7 +23,8 @@ pub(crate) async fn execute_agent_workspace(
         max_claim_ttl_ms,
         max_retention_ms,
         apply,
-    ).await
+    )
+    .await
 }
 
 pub(crate) async fn execute_agent_workspace_lifecycle(
@@ -45,15 +46,22 @@ pub(crate) async fn execute_agent_workspace_lifecycle(
         renewal_window_ms,
         renewal_ttl_ms,
         apply,
-    ).await
+    )
+    .await
 }
 
 pub(crate) fn execute_agent_scheduler_step(observation: &str, state_root: &str) -> ExitCode {
-    cynic_node::usecases::agent_scheduler_step_uc::execute_agent_scheduler_step(observation, state_root)
+    cynic_node::usecases::agent_scheduler_step_uc::execute_agent_scheduler_step(
+        observation,
+        state_root,
+    )
 }
 
 pub(crate) fn execute_agent_workload_status(workload_id: &str, state_root: &str) -> ExitCode {
-    cynic_node::usecases::agent_workload_store_uc::execute_agent_workload_status(workload_id, state_root)
+    cynic_node::usecases::agent_workload_store_uc::execute_agent_workload_status(
+        workload_id,
+        state_root,
+    )
 }
 
 pub(crate) fn execute_agent_workload_transition(

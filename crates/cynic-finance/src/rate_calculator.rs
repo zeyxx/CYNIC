@@ -23,7 +23,12 @@ pub struct RateSample {
 }
 
 impl RateSample {
-    pub fn new(resource: ResourceUnit, resource_amount: f64, token_amount: f64, timestamp: u64) -> Self {
+    pub fn new(
+        resource: ResourceUnit,
+        resource_amount: f64,
+        token_amount: f64,
+        timestamp: u64,
+    ) -> Self {
         Self {
             resource,
             resource_amount,
@@ -38,9 +43,7 @@ impl RateSample {
 /// Groups samples by resource type, computes the median rate (tokens per resource unit),
 /// and assigns a confidence score based on sample count and variance.
 pub fn compute_exchange_rates(samples: &[RateSample]) -> ExchangeRateTable {
-    let mut table = ExchangeRateTable::new(
-        samples.last().map(|s| s.timestamp).unwrap_or(0),
-    );
+    let mut table = ExchangeRateTable::new(samples.last().map(|s| s.timestamp).unwrap_or(0));
 
     // Group samples by resource type
     let mut groups: HashMap<crate::types::ResourceType, Vec<&RateSample>> = HashMap::new();
@@ -111,8 +114,6 @@ pub fn compute_exchange_rates(samples: &[RateSample]) -> ExchangeRateTable {
 
     table
 }
-
-
 
 #[cfg(test)]
 mod tests {

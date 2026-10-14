@@ -65,16 +65,21 @@ impl NodeIdentity {
     /// Requires the `std` feature (not available in Solana/WASM/sandbox targets).
     #[cfg(feature = "std")]
     pub fn generate() -> Self {
-        let signing_key =
-            ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
+        let signing_key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let node_id = NodeId::from_ed25519(&signing_key.verifying_key());
-        Self { signing_key, node_id }
+        Self {
+            signing_key,
+            node_id,
+        }
     }
 
     /// Construct from an existing signing key — available in all targets.
     pub fn from_signing_key(signing_key: ed25519_dalek::SigningKey) -> Self {
         let node_id = NodeId::from_ed25519(&signing_key.verifying_key());
-        Self { signing_key, node_id }
+        Self {
+            signing_key,
+            node_id,
+        }
     }
 
     pub fn sign(&self, message: &[u8]) -> ed25519_dalek::Signature {

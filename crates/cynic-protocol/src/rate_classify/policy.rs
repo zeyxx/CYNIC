@@ -6,9 +6,7 @@
 //! and the typed retention policy; it performs no I/O and never authorizes
 //! eviction itself.
 
-use super::types::{
-    RateTrend, RateVerdict, WindowedCount, CountWindows, Thresholds,
-};
+use super::types::{CountWindows, RateTrend, RateVerdict, Thresholds, WindowedCount};
 
 /// Classify one observed pattern from its windowed counts and spans.
 ///
@@ -85,10 +83,7 @@ pub fn classify(observation: &WindowedCount, policy: &Thresholds) -> RateVerdict
 }
 
 /// Classify a batch, preserving observation order.
-pub fn classify_all(
-    observations: &[WindowedCount],
-    policy: &Thresholds,
-) -> Vec<RateVerdict> {
+pub fn classify_all(observations: &[WindowedCount], policy: &Thresholds) -> Vec<RateVerdict> {
     observations
         .iter()
         .map(|observation| classify(observation, policy))

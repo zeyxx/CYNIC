@@ -1,6 +1,8 @@
 use serde::Serialize;
 
-use cynic_network::transport_security::{TransportScope, TransportSecurityReport, TransportSecuritySurface};
+use cynic_network::transport_security::{
+    TransportScope, TransportSecurityReport, TransportSecuritySurface,
+};
 use cynic_protocol::SecurityEvidenceState;
 
 use crate::bridge;

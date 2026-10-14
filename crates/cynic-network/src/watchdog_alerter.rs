@@ -2,9 +2,9 @@
 
 use crate::types::{NetworkAlertLevel, NetworkWatchdogAssessment};
 use cynic_protocol::{
-    NOTIFICATION_OUTBOX_ENTRY_SCHEMA, 
-    NotificationChannel, NotificationContentClassification, NotificationDeliveryStatus,
-    NotificationOutboxEntry, NotificationReferencedEvent, NotificationReferencedEventKind,
+    NOTIFICATION_OUTBOX_ENTRY_SCHEMA, NotificationChannel, NotificationContentClassification,
+    NotificationDeliveryStatus, NotificationOutboxEntry, NotificationReferencedEvent,
+    NotificationReferencedEventKind,
 };
 
 /// Pure function reconciling a watchdog assessment into durable notification outbox entries.
@@ -74,8 +74,8 @@ pub fn reconcile_network_watchdog_outbox(
 mod tests {
     use super::*;
     use crate::types::{
-        DnsServiceAssessment, NETWORK_WATCHDOG_ASSESSMENT_SCHEMA, NetworkAlert,
-        NetworkAlertLevel, NetworkWatchdogAssessment, WireguardMeshAssessment,
+        DnsServiceAssessment, NETWORK_WATCHDOG_ASSESSMENT_SCHEMA, NetworkAlert, NetworkAlertLevel,
+        NetworkWatchdogAssessment, WireguardMeshAssessment,
     };
 
     #[test]

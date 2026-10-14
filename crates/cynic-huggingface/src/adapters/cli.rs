@@ -54,7 +54,10 @@ impl HfCliAdapter {
             argv.push("scheduled".into());
         }
         match &spec.kind {
-            HfJobKind::UvScript { script, script_args } => {
+            HfJobKind::UvScript {
+                script,
+                script_args,
+            } => {
                 argv.push("uv".into());
                 argv.push("run".into());
                 if let Some(schedule) = scheduled {
@@ -134,7 +137,11 @@ impl HfCliAdapter {
         let ok = code == 0;
         let remote_id = if ok && detached {
             let t = stdout.trim();
-            if t.is_empty() { None } else { Some(t.to_string()) }
+            if t.is_empty() {
+                None
+            } else {
+                Some(t.to_string())
+            }
         } else {
             None
         };
@@ -501,11 +508,7 @@ impl HfHubPort for HfCliAdapter {
         Ok(self.to_job_report(&argv, code, &stdout, &stderr, spec.detach))
     }
 
-    fn job_poll(
-        &self,
-        remote_id: &str,
-        namespace: Option<&str>,
-    ) -> Result<HfJobInfo, HfHubError> {
+    fn job_poll(&self, remote_id: &str, namespace: Option<&str>) -> Result<HfJobInfo, HfHubError> {
         if remote_id.trim().is_empty() {
             return Err(HfHubError::Rejected("remote_id required".into()));
         }
@@ -569,7 +572,11 @@ impl HfHubPort for HfCliAdapter {
         if remote_id.trim().is_empty() {
             return Err(HfHubError::Rejected("remote_id required".into()));
         }
-        let mut argv = vec!["jobs".to_string(), "logs".to_string(), remote_id.to_string()];
+        let mut argv = vec![
+            "jobs".to_string(),
+            "logs".to_string(),
+            remote_id.to_string(),
+        ];
         Self::namespaced(&mut argv, namespace);
         let arg_refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
         let (code, stdout, stderr) = self.run(&arg_refs)?;
@@ -583,7 +590,10 @@ impl HfHubPort for HfCliAdapter {
             message: if ok {
                 None
             } else {
-                Some(format!("hf jobs logs exit {code}: {}", Self::tail(&stderr, 400)))
+                Some(format!(
+                    "hf jobs logs exit {code}: {}",
+                    Self::tail(&stderr, 400)
+                ))
             },
         })
     }
@@ -596,7 +606,11 @@ impl HfHubPort for HfCliAdapter {
         if remote_id.trim().is_empty() {
             return Err(HfHubError::Rejected("remote_id required".into()));
         }
-        let mut argv = vec!["jobs".to_string(), "cancel".to_string(), remote_id.to_string()];
+        let mut argv = vec![
+            "jobs".to_string(),
+            "cancel".to_string(),
+            remote_id.to_string(),
+        ];
         Self::namespaced(&mut argv, namespace);
         let arg_refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
         let (code, stdout, stderr) = self.run(&arg_refs)?;

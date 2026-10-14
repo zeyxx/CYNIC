@@ -11,12 +11,12 @@ pub mod book;
 pub mod client_policy;
 pub mod controller;
 pub mod credential_sync;
-pub mod evidence_journal_file;
-pub mod local_spool;
 pub mod error;
+pub mod evidence_journal_file;
 pub mod finance_adapters;
 pub mod identity;
 pub mod lifecycle;
+pub mod local_spool;
 pub mod ports;
 pub mod projection;
 pub mod topology;
@@ -24,12 +24,18 @@ pub mod types;
 pub mod vector;
 pub mod wal;
 pub use book::{BookEntry, CynicLedger, GenericBookProjector, LedgerBook, TypedBook};
+pub use client_policy::*;
+pub use controller::*;
+pub use credential_sync::*;
 pub use error::StorageError;
+pub use identity::*;
+pub use lifecycle::*;
 pub use ports::{
     DomainProjector, ProjectionCoordinatorPort, StateTransaction, StoragePort, VectorStorePort,
     WalJournalPort,
 };
 pub use projection::SqliteProjectionAdapter;
+pub use topology::*;
 pub use types::{
     AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
@@ -37,12 +43,6 @@ pub use types::{
 };
 pub use vector::SimdVectorAdapter;
 pub use wal::WalFsAdapter;
-pub use client_policy::*;
-pub use controller::*;
-pub use credential_sync::*;
-pub use identity::*;
-pub use lifecycle::*;
-pub use topology::*;
 
 #[cfg(test)]
 mod tests {

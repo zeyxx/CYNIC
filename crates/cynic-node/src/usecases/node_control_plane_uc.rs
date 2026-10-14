@@ -1,4 +1,6 @@
-use cynic_node_protocol::{NodeControlDecision, NodeControlExecutionEvidence, NodeControlPlan, reconcile_node_control};
+use cynic_node_protocol::{
+    NodeControlDecision, NodeControlExecutionEvidence, NodeControlPlan, reconcile_node_control,
+};
 use serde::Serialize;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
@@ -468,8 +470,15 @@ mod tests {
     };
 
     use cynic_host::runtime_seed::RuntimeSeedApplyReport;
-    use cynic_protocol::{RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource, RuntimeArtifactTransportKind, RuntimeSeedObservation, RuntimeSeedRequest, SecurityEvidenceState};
-use cynic_node_protocol::{NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState, NodeControlObservation, NodeDesiredState};
+    use cynic_node_protocol::{
+        NODE_CONTROL_OBSERVATION_SCHEMA, NODE_DESIRED_STATE_SCHEMA, NodeControlConnectionState,
+        NodeControlObservation, NodeDesiredState,
+    };
+    use cynic_protocol::{
+        RUNTIME_SEED_OBSERVATION_SCHEMA, RUNTIME_SEED_REQUEST_SCHEMA, RuntimeArtifactSource,
+        RuntimeArtifactTransportKind, RuntimeSeedObservation, RuntimeSeedRequest,
+        SecurityEvidenceState,
+    };
 
     use super::*;
 

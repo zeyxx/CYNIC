@@ -1,7 +1,6 @@
 use serde::Serialize;
 
 use crate::adapters::local_observation::LocalHostObservationAdapter;
-use cynic_build::{BuildConformanceEvidence, BuildProof};
 use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus, SurfaceStatus};
 use crate::hardware_baseline::{HardwareBaselinePlan, plan_hardware_baseline};
 use crate::hardware_conformance::{HardwareConformanceReport, observe_hardware_conformance};
@@ -22,9 +21,10 @@ use crate::runtime_proof::{
 };
 use crate::usecases::{HostObservationReports, observe_host_with_resolution};
 use crate::vertical_conformance::{
-    HostConformanceGate,
-    VerticalConformanceReport, evaluate_vertical_conformance, observe_vertical_evidence,
+    HostConformanceGate, VerticalConformanceReport, evaluate_vertical_conformance,
+    observe_vertical_evidence,
 };
+use cynic_build::{BuildConformanceEvidence, BuildProof};
 
 #[derive(Debug, Serialize)]
 pub struct HostConformanceReport {

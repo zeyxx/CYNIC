@@ -9,19 +9,9 @@ pub(crate) fn execute_observe(
     fail_on_warning: bool,
     fail_on_critical: bool,
 ) -> ExitCode {
-    crate::network_surface::execution::execute_observe(
-        registry,
-        fail_on_warning,
-        fail_on_critical,
-    )
+    crate::network_surface::execution::execute_observe(registry, fail_on_warning, fail_on_critical)
 }
 
-pub(crate) fn execute_registry_observation(
-    registry: &str,
-    output: Option<&str>,
-) -> ExitCode {
-    crate::network_surface::execution::execute_registry_observation(
-        registry,
-        output,
-    )
+pub(crate) fn execute_registry_observation(registry: &str, output: Option<&str>) -> ExitCode {
+    crate::network_surface::execution::execute_registry_observation(registry, output)
 }

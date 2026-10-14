@@ -43,9 +43,10 @@ pub use python_cli_policy::{PythonCliPolicy, python_cli_policy};
 pub use python_tooling::observe_python_tooling;
 pub use registry::{ecosystem_provider_specs, provider_spec};
 pub use release_deployment::{
-    ActivatedUnitReport, apply_release_deployment, plan_release_deployment, DeployBinarySpec,
-    LocalReleaseDeployExecutor, ReleaseDeployExecutorPort, ReleaseDeployPlan, ReleaseDeployReport,
-    ReleaseDeploySpec, RestartUnitSpec, RELEASE_DEPLOY_REPORT_SCHEMA,
+    ActivatedUnitReport, DeployBinarySpec, LocalReleaseDeployExecutor,
+    RELEASE_DEPLOY_REPORT_SCHEMA, ReleaseDeployExecutorPort, ReleaseDeployPlan,
+    ReleaseDeployReport, ReleaseDeploySpec, RestartUnitSpec, apply_release_deployment,
+    plan_release_deployment,
 };
 pub use tooling_authority::{
     observe_python_install_authority, observe_tooling_authority, tooling_authority_status,

@@ -5,10 +5,10 @@ use cynic_protocol::{
     RuntimeProofEvidence,
 };
 
-use cynic_build::BuildConformanceEvidence;
 use crate::domain::shared::SurfaceStatus;
 use crate::usecases::HostObservationReports;
 use crate::vertical_conformance::VerticalConformanceReport;
+use cynic_build::BuildConformanceEvidence;
 
 pub fn host_identity_runtime_proof(observed: &HostObservationReports) -> RuntimeProof {
     let evidence = vec![

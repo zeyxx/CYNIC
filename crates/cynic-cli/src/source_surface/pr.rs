@@ -4,9 +4,9 @@ use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
 
+use crate::cli_json::emit_pretty_json;
 use cynic_vcs::pull_request::evaluate_pr_admission;
 use cynic_vcs_forgejo::forgejo_pr_port_from_registry;
-use crate::cli_json::emit_pretty_json;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum PrCommand {

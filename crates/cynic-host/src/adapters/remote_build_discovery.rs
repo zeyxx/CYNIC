@@ -54,8 +54,7 @@ impl<R: ArgvRunner> BuildDiscoveryObservationPort for RemoteBuildDiscoveryAdapte
             .unwrap_or_default()
             .as_secs();
 
-        let meta_stdout =
-            self.ssh_run(&cynic_protocol::cargo_metadata::cargo_metadata_argv())?;
+        let meta_stdout = self.ssh_run(&cynic_protocol::cargo_metadata::cargo_metadata_argv())?;
 
         let toolchain = self
             .ssh_run(&["rustc", "--version", "--verbose"])

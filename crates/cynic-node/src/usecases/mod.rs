@@ -1,5 +1,4 @@
 pub mod agent_host_placement_uc;
-pub mod compute_provisioning_uc;
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
 pub mod agent_workload_delivery_uc;
@@ -16,6 +15,7 @@ pub mod build_workload_observation_uc;
 pub mod build_workload_submission_uc;
 pub mod builder_http;
 pub mod builder_runtime;
+pub mod compute_provisioning_uc;
 pub mod coordination_observation_bridge;
 pub mod coordination_posture_uc;
 pub mod mesh_sync_uc;
@@ -25,6 +25,12 @@ pub mod network_watchdog_uc;
 // The federated mesh cluster declares together or not at all: resolver reads the
 // declared seed, and spof_observe/task_dispatch both consume the resolver.
 // Declaring one member alone produced E0433 for a module that does exist.
+pub mod agent_bus_claim;
+pub mod agent_bus_ledger;
+pub mod agent_bus_ports;
+pub mod agent_bus_types;
+pub mod agent_coordination_taxonomy;
+pub mod agent_coordination_uc;
 pub mod build_scheduler;
 pub mod federated_mesh_probe_uc;
 pub mod federated_mesh_resolver;
@@ -45,9 +51,3 @@ pub mod source_materialization_uc;
 pub mod source_repository_bootstrap_uc;
 pub mod storage_controller_uc;
 pub mod storage_lifecycle_uc;
-pub mod agent_bus_types;
-pub mod agent_bus_ledger;
-pub mod agent_bus_claim;
-pub mod agent_bus_ports;
-pub mod agent_coordination_uc;
-pub mod agent_coordination_taxonomy;

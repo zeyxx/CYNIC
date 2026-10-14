@@ -491,11 +491,7 @@ fn claim_event_log_dir() -> Option<std::path::PathBuf> {
         .filter(|o| o.status.success())
         .and_then(|o| {
             let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
+            if s.is_empty() { None } else { Some(s) }
         })
         .unwrap_or_else(|| {
             std::env::current_dir()
@@ -579,7 +575,6 @@ fn civil_from_days(z: i64) -> (i64, u64, u64) {
     let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
-
 
 /// The kernel guards PEER surfaces with credentials. Node-local arbitration —
 /// claim, release, status on this node — is not a peer surface, so an auth
@@ -1537,7 +1532,8 @@ mod tests {
         let mut doc = live_doc(now);
         let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "", now).unwrap_err();
         assert!(err.contains("no active local claim"), "unexpected: {err}");
-        let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
+        let err =
+            refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
         assert!(err.contains("held by tester"), "unexpected: {err}");
     }
 

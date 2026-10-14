@@ -349,9 +349,7 @@ pub fn outcome_spec() -> OutcomeSpec {
                     "cynic.development_surface_manifest.v1",
                     "cynic.outcome_spec.v1",
                 ],
-                validation_commands: vec![
-                    "cargo test -p cynic-protocol",
-                ],
+                validation_commands: vec!["cargo test -p cynic-protocol"],
                 non_goals: vec![
                     "centralize implementation responsibility in cynic-protocol",
                     "recreate the deleted axioms bureaucracy",
@@ -528,9 +526,7 @@ mod tests {
                 crate::runtime::types::RUNTIME_EXECUTION_PLAN_SCHEMA,
                 crate::runtime::types::RUNTIME_PROOF_BUNDLE_SCHEMA,
             ],
-            &[
-                "cynic runtime plan --json [--proof <path>]",
-            ],
+            &["cynic runtime plan --json [--proof <path>]"],
         );
         let prod = report
             .outcomes

@@ -356,7 +356,7 @@ mod tests {
                 explicit_apply: false,
                 satisfied_preconditions: vec!["source_commit_observed".into()],
             },
-        resource_budget: None,
+            resource_budget: None,
         }
     }
 

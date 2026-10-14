@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
+use crate::usecases::agent_bus_ledger::*;
+use crate::usecases::agent_bus_types::*;
 use axum::{
-    extract::{Path, State},
     Json,
+    extract::{Path, State},
     http::StatusCode,
 };
-use crate::usecases::agent_bus_types::*;
-use crate::usecases::agent_bus_ledger::*;
 
 pub async fn health() -> &'static str {
     "ok"
@@ -38,8 +38,14 @@ pub async fn create_task(
     };
 
     match ledger.create_task(task).await {
-        Ok(_) => (StatusCode::CREATED, Json(serde_json::json!({ "id": task_id, "status": "created" }))),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e }))),
+        Ok(_) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({ "id": task_id, "status": "created" })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e })),
+        ),
     }
 }
 
@@ -48,14 +54,20 @@ pub async fn get_task(
     Path(id): Path<String>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     match ledger.get_task(&id).await {
-        Some(task) => (StatusCode::OK, Json(serde_json::json!({
-            "id": task.id,
-            "status": task.status,
-            "subject": task.subject,
-            "body": task.body,
-            "result": task.result,
-        }))),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "not found" }))),
+        Some(task) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "id": task.id,
+                "status": task.status,
+                "subject": task.subject,
+                "body": task.body,
+                "result": task.result,
+            })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "not found" })),
+        ),
     }
 }
 

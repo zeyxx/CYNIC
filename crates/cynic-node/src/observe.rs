@@ -117,10 +117,7 @@ impl SyntheticNodeObservationContext {
 }
 
 impl NodeObservation {
-    pub fn registry_observation(
-        &self,
-        registry_path: &str,
-    ) -> cynic_build::RuntimeNodeObservation {
+    pub fn registry_observation(&self, registry_path: &str) -> cynic_build::RuntimeNodeObservation {
         let observed_at_unix_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
         let resolution = cynic_host::registry::resolve_host_profile_resolution(
             &self.hostname,

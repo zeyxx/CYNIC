@@ -20,10 +20,10 @@ pub mod domain;
 pub mod port;
 pub mod runner;
 
-pub mod contracts;
-pub mod askesis;
 #[cfg(test)]
 pub mod adapters;
+pub mod askesis;
+pub mod contracts;
 
 pub use crate::domain::{
     classify_record, generate_idempotency_key, policy_for_record_type, reconcile_zone,

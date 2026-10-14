@@ -47,7 +47,10 @@ fn proxmox_lxc_substrate_allocates_and_executes_container_command() {
             allowed_strategies: vec![SandboxStrategy::LxcUnprivileged],
         };
 
-        let allocation = adapter.allocate_runner("heavy-eval-1", &reqs).await.unwrap();
+        let allocation = adapter
+            .allocate_runner("heavy-eval-1", &reqs)
+            .await
+            .unwrap();
 
         assert_eq!(allocation.substrate, SubstrateKind::ProxmoxLxc);
         assert_eq!(allocation.strategy, SandboxStrategy::LxcUnprivileged);

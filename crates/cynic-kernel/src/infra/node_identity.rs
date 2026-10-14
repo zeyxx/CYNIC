@@ -133,7 +133,10 @@ mod tests {
 
     #[test]
     fn override_takes_precedence() {
-        assert_eq!(resolve_node_id(Some("test-node-override")), "test-node-override");
+        assert_eq!(
+            resolve_node_id(Some("test-node-override")),
+            "test-node-override"
+        );
     }
 
     #[test]

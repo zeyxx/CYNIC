@@ -4,11 +4,11 @@
 //! Provides TreasuryLedger: 4 ResourceLedger<TokenCyd>, one per credit type.
 
 use crate::peer::accounts::TreasuryAccount;
+use cynic_finance::ResourceUnit;
 use cynic_finance::ports::{MeterError, TokenMeter};
 use cynic_finance::types::{
     ResourceLedger, ResourceTransaction, ResourceType, TransactionDirection,
 };
-use cynic_finance::ResourceUnit;
 
 /// Token meter — measures CYD balance from a TreasuryAccount.
 pub struct ConsensusTokenMeter {

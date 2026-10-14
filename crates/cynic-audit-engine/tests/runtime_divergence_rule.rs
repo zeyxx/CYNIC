@@ -49,7 +49,9 @@ fn observation_with(
         observation.existing_exec_starts.insert(PathBuf::from(path));
     }
     for path in provenanced {
-        observation.provenanced_exec_starts.insert(PathBuf::from(path));
+        observation
+            .provenanced_exec_starts
+            .insert(PathBuf::from(path));
     }
     observation.unit_files.sort();
     observation.exec_starts.sort();
@@ -82,7 +84,12 @@ fn evaluate(
     files: &[(&str, &str)],
     exec_starts: &[(&str, &str)],
 ) -> Vec<cynic_protocol::AuditViolation> {
-    evaluate_with(files, exec_starts, &exec_starts.iter().map(|(_, p)| *p).collect::<Vec<_>>(), &[])
+    evaluate_with(
+        files,
+        exec_starts,
+        &exec_starts.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
+        &[],
+    )
 }
 
 fn codes(violations: &[cynic_protocol::AuditViolation]) -> BTreeSet<String> {
@@ -91,9 +98,7 @@ fn codes(violations: &[cynic_protocol::AuditViolation]) -> BTreeSet<String> {
 
 #[test]
 fn a_credential_in_a_unit_is_found_and_its_value_is_never_reported() {
-    let unit = format!(
-        "[Service]\nEnvironment=\"CYNIC_API_KEY_INTERNAL={SECRET_VALUE}\"\n"
-    );
+    let unit = format!("[Service]\nEnvironment=\"CYNIC_API_KEY_INTERNAL={SECRET_VALUE}\"\n");
     let violations = evaluate(&[("cynic-fixture.service", unit.as_str())], &[]);
     let codes = codes(&violations);
 
@@ -123,7 +128,8 @@ fn a_credential_in_a_unit_is_found_and_its_value_is_never_reported() {
 #[test]
 fn a_credential_file_reference_is_not_a_finding() {
     // The correct shape: the unit points at a file the principal owns.
-    let unit = "[Service]\nEnvironment=\"CYNIC_API_KEY_INTERNAL=/etc/cynic/secrets/kernel-runtime.env\"\n";
+    let unit =
+        "[Service]\nEnvironment=\"CYNIC_API_KEY_INTERNAL=/etc/cynic/secrets/kernel-runtime.env\"\n";
     let codes = codes(&evaluate(&[("cynic-fixture.service", unit)], &[]));
     assert!(
         !codes.contains("RUN-001-CREDENTIAL-IN-UNIT"),
@@ -133,7 +139,8 @@ fn a_credential_file_reference_is_not_a_finding() {
 
 #[test]
 fn a_short_or_uncredential_shaped_value_is_not_a_finding() {
-    let unit = "[Service]\nEnvironment=\"CYNIC_NODE_ID=local-kernel\"\nEnvironment=\"CYNIC_PORT=3030\"\n";
+    let unit =
+        "[Service]\nEnvironment=\"CYNIC_NODE_ID=local-kernel\"\nEnvironment=\"CYNIC_PORT=3030\"\n";
     let codes = codes(&evaluate(&[("cynic-fixture.service", unit)], &[]));
     assert!(
         !codes.contains("RUN-001-CREDENTIAL-IN-UNIT"),
@@ -150,7 +157,10 @@ fn a_unit_whose_execstart_is_absent_is_found() {
     // human reads. One unit had 3092 recorded restarts.
     let codes = codes(&evaluate_with(
         &[("cynic-fixture.service", "[Service]\n")],
-        &[("cynic-fixture.service", "/usr/local/lib/cynic/absent-binary")],
+        &[(
+            "cynic-fixture.service",
+            "/usr/local/lib/cynic/absent-binary",
+        )],
         &[],
         &[],
     ));
@@ -170,7 +180,8 @@ fn a_unit_outside_the_project_naming_space_is_out_of_scope() {
         &[("apparmor.service", "/usr/sbin/apparmor_parser")],
     ));
     assert!(
-        !codes.contains("RUN-001-CYNIC-UNIT-UNDECLARED") && !codes.contains("RUN-001-EXECSTART-ABSENT"),
+        !codes.contains("RUN-001-CYNIC-UNIT-UNDECLARED")
+            && !codes.contains("RUN-001-EXECSTART-ABSENT"),
         "an operating-system unit is out of scope; codes were {codes:?}"
     );
 }
@@ -227,10 +238,7 @@ fn the_observation_is_populated_from_the_filesystem_not_assumed() {
     use cynic_audit_engine::scanner::record_exec_start_facts;
     use std::fs;
 
-    let dir = std::env::temp_dir().join(format!(
-        "cynic-run001-seam-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("cynic-run001-seam-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("fixture dir");
 

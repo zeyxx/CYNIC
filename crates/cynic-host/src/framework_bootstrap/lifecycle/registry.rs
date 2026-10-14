@@ -441,7 +441,8 @@ impl<'a> LifecycleRegistry<'a> {
             .get("node_enrollment")
             .cloned()
             .and_then(|desired| {
-                serde_json::from_value::<cynic_node_protocol::NodeEnrollmentDesiredState>(desired).ok()
+                serde_json::from_value::<cynic_node_protocol::NodeEnrollmentDesiredState>(desired)
+                    .ok()
             });
         let authority_role = desired
             .as_ref()

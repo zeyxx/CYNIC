@@ -251,8 +251,7 @@ fn ephemeral_eligible(
                 entry.age_ms > max_age_ms || (pressure && entry.age_ms > grace_ms)
             }
             EphemeralKind::WorkloadWorkspace => {
-                entry.workload_terminal == Some(true)
-                    && (pressure || entry.age_ms > max_age_ms)
+                entry.workload_terminal == Some(true) && (pressure || entry.age_ms > max_age_ms)
             }
         })
         .cloned()
@@ -290,14 +289,14 @@ fn validate_policy(
             .noncanonical_cache_candidates
             .iter()
             .any(|candidate| !safe_relative(&candidate.relative_path))
-        {
-            return Err("build_cache_policy_invalid".to_string());
-        }
-        if let Some(retention) = &policy.ephemeral_retention {
-            validate_retention(retention)?;
-        }
-        Ok(())
-        }
+    {
+        return Err("build_cache_policy_invalid".to_string());
+    }
+    if let Some(retention) = &policy.ephemeral_retention {
+        validate_retention(retention)?;
+    }
+    Ok(())
+}
 
 fn validate_retention(retention: &EphemeralRetention) -> Result<(), String> {
     if retention.schema != "cynic.build_runner.ephemeral_retention.v1"
@@ -307,8 +306,7 @@ fn validate_retention(retention: &EphemeralRetention) -> Result<(), String> {
         return Err("build_cache_retention_invalid".to_string());
     }
     for scope in &retention.scopes {
-        let kind_ok =
-            scope.kind == "evidence_checkout" || scope.kind == "workload_workspace";
+        let kind_ok = scope.kind == "evidence_checkout" || scope.kind == "workload_workspace";
         let base_ok = scope.base == "state_root" || scope.base == "temporary_directory";
         let store_ok = scope.kind != "workload_workspace"
             || scope

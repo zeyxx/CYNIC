@@ -216,7 +216,10 @@ mod tests {
     fn display_names_the_consequence() {
         let drift = HostFamilyDrift::classify(Some("windows.windows11"));
         let text = drift.to_string();
-        assert!(text.contains("windows.windows11"), "message lost the family");
+        assert!(
+            text.contains("windows.windows11"),
+            "message lost the family"
+        );
         assert!(
             text.contains("default profile"),
             "message must state the silent substitution: {text}"
@@ -240,15 +243,21 @@ mod tests {
     #[test]
     fn registry_values_of_the_day_are_classified_correctly() {
         // Families actually present in infra/registry.json on 2026-10-07.
-        let resolved = ["linux.debian.systemd", "linux.proxmox.systemd", "linux.ubuntu.systemd"];
+        let resolved = [
+            "linux.debian.systemd",
+            "linux.proxmox.systemd",
+            "linux.ubuntu.systemd",
+        ];
         for family in resolved {
             assert!(HostFamilyDrift::classify(Some(family)).is_resolved());
         }
         // Nodes without a declared family must not be reported as drift.
         for node in ["cynic-host-cortex", "local-kernel", "forgejo"] {
-            assert!(!HostFamilyObservation::new(node, None)
-                .drift
-                .is_silent_fallback());
+            assert!(
+                !HostFamilyObservation::new(node, None)
+                    .drift
+                    .is_silent_fallback()
+            );
         }
     }
 

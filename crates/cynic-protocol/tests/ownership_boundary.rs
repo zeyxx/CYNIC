@@ -8,11 +8,11 @@
 //! Each assertion below is negative-controlled. A check that cannot fail is the defect
 //! this repository has already paid for twice.
 
-use cynic_protocol::ownership::{
-    purchase_weight_from_possession, ExitRight, GovernedPower, GovernanceDecision, MaterialClaim,
-    Revocation, SuccessorAcceptance,
-};
 use cynic_protocol::CynicErrorCode;
+use cynic_protocol::ownership::{
+    ExitRight, GovernanceDecision, GovernedPower, MaterialClaim, Revocation, SuccessorAcceptance,
+    purchase_weight_from_possession,
+};
 
 /// DISC-01: the holder of the largest material share holds no vote over a decision that
 /// affects another actor's material claim.
@@ -137,7 +137,10 @@ fn possession_cannot_be_converted_into_governance_weight() {
 /// named, so no code can require one.
 #[test]
 fn the_right_of_exit_has_no_counterparty() {
-    let exit = ExitRight::new("actor-1", vec!["own-artifacts".to_string(), "own-identity".to_string()]);
+    let exit = ExitRight::new(
+        "actor-1",
+        vec!["own-artifacts".to_string(), "own-identity".to_string()],
+    );
 
     assert_eq!(exit.holder, "actor-1");
     assert_eq!(exit.carries.len(), 2);
@@ -161,7 +164,10 @@ fn the_right_of_exit_has_no_counterparty() {
         keys.join(", ")
     );
     assert!(
-        !json.as_object().expect("object").contains_key("approved_by"),
+        !json
+            .as_object()
+            .expect("object")
+            .contains_key("approved_by"),
         "Exit must not be gateable. INV-02 admits no counterparty."
     );
 }

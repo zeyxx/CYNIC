@@ -113,9 +113,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             apply,
             json,
         } => execute_release(Path::new(&root), dry_run, apply, json),
-        SourceCommand::Sync { root, apply, json } => {
-            execute_sync(Path::new(&root), apply, json)
-        }
+        SourceCommand::Sync { root, apply, json } => execute_sync(Path::new(&root), apply, json),
         SourceCommand::Worktree {
             root,
             workspace_store,

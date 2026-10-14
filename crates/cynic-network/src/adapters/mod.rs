@@ -14,4 +14,3 @@ pub use dns_resolver::RegistryDnsResolver;
 pub use finance::NetworkFinanceMeter;
 pub use headscale::{HeadscaleClient, HeadscaleConfig};
 pub use host_probe::{LocalNetworkAdapter, LocalNetworkDiscoveryProbeAdapter};
-

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::LeaseGuard;
 use crate::lifecycle::{StorageObservation, StoragePhase, StoragePlan, StorageReclaimPolicy};
+use cynic_protocol::LeaseGuard;
 
 pub const STORAGE_CONTROLLER_RECORD_SCHEMA: &str = "cynic.storage_controller_record.v1";
 pub const STORAGE_OPERATION_SCHEMA: &str = "cynic.storage_operation.v1";
@@ -337,9 +337,7 @@ pub fn validate_storage_controller_record(record: &StorageControllerRecord) -> V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lifecycle::{
-        STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA, StorageDecision,
-    };
+    use crate::lifecycle::{STORAGE_OBSERVATION_SCHEMA, STORAGE_PLAN_SCHEMA, StorageDecision};
     #[test]
     fn mutation_creates_generation_bound_pending_operation() {
         let metadata = new_storage_metadata("artifacts");

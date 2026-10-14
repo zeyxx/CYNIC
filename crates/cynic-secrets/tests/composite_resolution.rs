@@ -4,8 +4,11 @@
 //! adapter behaviour. Uses MemorySecretProvider (no I/O) for determinism.
 
 use cynic_secrets::{
-    SecretClass, SecretProviderKind, SecretProviderPort, SecretStorePort, SecretReference,
-    adapters::{EncryptedFileSecretProvider, MemorySecretProvider, OsCredentialStoreSecretProvider, ProcessEnvironmentSecretProvider},
+    SecretClass, SecretProviderKind, SecretProviderPort, SecretReference, SecretStorePort,
+    adapters::{
+        EncryptedFileSecretProvider, MemorySecretProvider, OsCredentialStoreSecretProvider,
+        ProcessEnvironmentSecretProvider,
+    },
 };
 
 fn ref_(id: &str, locator: &str, provider: SecretProviderKind) -> SecretReference {
@@ -170,9 +173,15 @@ fn env_var_helper_resolves_env_var() {
 #[test]
 fn env_var_present_helper_detects_presence() {
     unsafe { std::env::remove_var("CYNIC_TEST_PRESENT_VAR") };
-    assert!(!cynic_secrets::env_var_present("test", "CYNIC_TEST_PRESENT_VAR"));
+    assert!(!cynic_secrets::env_var_present(
+        "test",
+        "CYNIC_TEST_PRESENT_VAR"
+    ));
 
     unsafe { std::env::set_var("CYNIC_TEST_PRESENT_VAR", "set") };
-    assert!(cynic_secrets::env_var_present("test", "CYNIC_TEST_PRESENT_VAR"));
+    assert!(cynic_secrets::env_var_present(
+        "test",
+        "CYNIC_TEST_PRESENT_VAR"
+    ));
     unsafe { std::env::remove_var("CYNIC_TEST_PRESENT_VAR") };
 }

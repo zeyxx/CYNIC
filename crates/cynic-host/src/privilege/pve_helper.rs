@@ -207,11 +207,7 @@ pub fn pve_helper_read_back_commands(
         ],
     )];
     for capability in catalog.capabilities.iter().filter(|c| c.requires_root) {
-        let mut probe = vec![
-            "sudo".to_string(),
-            "-n".to_string(),
-            "-l".to_string(),
-        ];
+        let mut probe = vec!["sudo".to_string(), "-n".to_string(), "-l".to_string()];
         probe.extend(policy.probe_argv(&capability.id));
         let role: &'static str =
             Box::leak(format!("prove_allowed_{}", capability.id).into_boxed_str());
@@ -334,7 +330,8 @@ mod tests {
         let with_caps = r#"{"schema":"cynic.host.pve_helper_policy.v1","subject":"cynic",
             "helper_path":"/usr/local/bin/cynic","sudoers_path":"/etc/sudoers.d/cynic",
             "pct_path":"/usr/sbin/pct","capabilities":[]}"#;
-        let parsed: PveHelperPolicy = serde_json::from_str(with_caps).expect("parses (ignores unknown)");
+        let parsed: PveHelperPolicy =
+            serde_json::from_str(with_caps).expect("parses (ignores unknown)");
         assert!(parsed.validate().is_ok());
     }
 
@@ -371,12 +368,7 @@ mod tests {
         let argv = policy.probe_argv("pct-destroy");
         assert_eq!(
             argv,
-            vec![
-                "/usr/local/bin/cynic",
-                "privilege",
-                "exec",
-                "pct-destroy"
-            ]
+            vec!["/usr/local/bin/cynic", "privilege", "exec", "pct-destroy"]
         );
     }
 
@@ -401,9 +393,8 @@ mod tests {
             assert!(
                 read_back.iter().any(|surface| {
                     surface.role == expected_role
-                        && invocation_argv(surface).ends_with(
-                            policy.probe_argv(&capability.id).as_slice()
-                        )
+                        && invocation_argv(surface)
+                            .ends_with(policy.probe_argv(&capability.id).as_slice())
                 }),
                 "missing allow-probe for {}",
                 capability.id

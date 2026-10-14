@@ -277,12 +277,12 @@ fn valid_source_capsule_reference(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::SecurityEvidenceState;
     use crate::source_materialization::{
         SOURCE_MATERIALIZATION_FORMAT, SOURCE_MATERIALIZATION_OBSERVATION_SCHEMA,
-        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, 
-        SourceMaterializationObservation, SourceMaterializationRequest,
+        SOURCE_MATERIALIZATION_REQUEST_SCHEMA, SourceMaterializationObservation,
+        SourceMaterializationRequest,
     };
+    use cynic_protocol::SecurityEvidenceState;
 
     fn request() -> DevelopmentGenesisBuildRequest {
         DevelopmentGenesisBuildRequest {

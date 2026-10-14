@@ -92,7 +92,10 @@ fn plane_address_resolution_prefers_canonical_key_over_legacy_alias() {
         cynic_network::plane_vocabulary::plane_address_in_map(&empty, "service"),
         None
     );
-    assert_eq!(cynic_network::plane_vocabulary::plane_address_in_map(&empty, "mesh"), None);
+    assert_eq!(
+        cynic_network::plane_vocabulary::plane_address_in_map(&empty, "mesh"),
+        None
+    );
 }
 
 #[test]

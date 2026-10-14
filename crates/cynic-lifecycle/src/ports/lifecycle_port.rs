@@ -66,12 +66,7 @@ impl LifecyclePort for LocalLifecycleAdapter {
         fleet_inventory_probe: Option<&Value>,
         env: Option<&Map<String, Value>>,
     ) -> Result<Value, String> {
-        crate::diagnostics::lifecycle_blockers(
-            registry,
-            fleet_probe,
-            fleet_inventory_probe,
-            env,
-        )
+        crate::diagnostics::lifecycle_blockers(registry, fleet_probe, fleet_inventory_probe, env)
     }
 
     fn activation_evidence_gaps(

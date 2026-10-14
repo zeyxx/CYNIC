@@ -18,7 +18,6 @@
 )]
 
 pub mod adapters;
-pub mod finance_adapters;
 pub(crate) mod announce;
 mod build_attestation;
 pub mod builder_activation;
@@ -31,8 +30,8 @@ pub mod dns_bundle;
 mod dns_contract;
 pub mod dns_plan;
 pub mod domain;
+pub mod finance_adapters;
 pub mod fleet_inventory;
-pub mod task_health;
 pub mod fleet_observability;
 pub mod inference_node_ops;
 pub mod inference_operations;
@@ -66,11 +65,11 @@ pub mod shutdown;
 pub(crate) mod source_change_transaction;
 pub(crate) mod supervise;
 pub(crate) mod system_probe;
+pub mod task_health;
 pub mod usecases;
 pub mod verify;
 pub mod watchdog;
 pub mod websocket;
-
 
 // Cross-crate surface, explicit.
 //

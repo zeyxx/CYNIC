@@ -8,7 +8,11 @@ use crate::usecases::agent_bus_types::*;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TaskEvent {
     Created(Task),
-    Updated { id: String, status: TaskStatus, result: Option<String> },
+    Updated {
+        id: String,
+        status: TaskStatus,
+        result: Option<String>,
+    },
 }
 
 #[async_trait::async_trait]

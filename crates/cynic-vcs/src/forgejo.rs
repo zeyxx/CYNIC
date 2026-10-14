@@ -1,4 +1,4 @@
-use cynic_network::{NetworkPathEvidence, NETWORK_PATH_EVIDENCE_SCHEMA};
+use cynic_network::{NETWORK_PATH_EVIDENCE_SCHEMA, NetworkPathEvidence};
 use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 use serde::{Deserialize, Serialize};
 

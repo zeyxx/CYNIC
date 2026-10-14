@@ -220,9 +220,7 @@ pub fn reconcile_git_topology(obs: &GitTopologyObservation) -> GitReconcileDecis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_vcs::git_topology::{
-        GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
-    };
+    use cynic_vcs::git_topology::{GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation};
 
     fn valid_entry(branch: &str) -> GitBranchEntry {
         GitBranchEntry {

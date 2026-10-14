@@ -122,9 +122,17 @@ mod tests {
     fn all_scope_lists_the_venv_without_nested_double_counting() {
         let tmp = fixture_root();
         let obs = observe_space_usage(tmp.path(), GcScope::All);
-        let venv = obs.targets.iter().find(|t| t.path == ".venv_data").expect("venv listed");
+        let venv = obs
+            .targets
+            .iter()
+            .find(|t| t.path == ".venv_data")
+            .expect("venv listed");
         assert_eq!(venv.bytes, 1024, "nested target/ pruned, not counted");
-        let target = obs.targets.iter().find(|t| t.path == "target").expect("target listed");
+        let target = obs
+            .targets
+            .iter()
+            .find(|t| t.path == "target")
+            .expect("target listed");
         assert_eq!(target.bytes, 512, "nested .venv_data pruned, not counted");
         assert_eq!(obs.total_bytes, 1024 + 512);
     }

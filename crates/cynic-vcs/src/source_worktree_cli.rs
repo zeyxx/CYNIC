@@ -9,9 +9,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::git_topology_observer::{count_dirty_files, observe_head_sha};
+use crate::observe_source_worktree_inventory;
 use crate::runner::VcsRunner;
 use crate::source_worktree::{ObservedWorktreeSnapshot, reconcile_worktree_convergence_pure};
-use crate::observe_source_worktree_inventory;
 
 /// Observe the worktree inventory and project it into convergence snapshots.
 ///

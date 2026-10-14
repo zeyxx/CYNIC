@@ -5,7 +5,6 @@ mod tests;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-
 pub use evidence::{
     AgentEvidenceDependency, AgentEvidenceLineage, AgentEvidenceRef, AgentEvidenceRelation,
     classify_agent_evidence_dependency, relate_agent_evidence,

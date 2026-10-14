@@ -104,7 +104,10 @@ fn load_policy() -> (cynic_protocol::secret_use::SecretUsePolicy, Option<PathBuf
     let declaration = resolve_declaration_path(None);
     match declaration {
         Some(path) => (load_policy_from_file(&path), Some(path)),
-        None => (cynic_protocol::secret_use::SecretUsePolicy::deny_all(), None),
+        None => (
+            cynic_protocol::secret_use::SecretUsePolicy::deny_all(),
+            None,
+        ),
     }
 }
 
@@ -322,7 +325,10 @@ pub(crate) fn execute_audit(limit: usize, json: bool) -> ExitCode {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
             let role = entry.get("role").and_then(|v| v.as_str()).unwrap_or("?");
-            let secret = entry.get("secret_id").and_then(|v| v.as_str()).unwrap_or("?");
+            let secret = entry
+                .get("secret_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
             let purpose = entry.get("purpose").and_then(|v| v.as_str()).unwrap_or("?");
             let reason = entry
                 .get("decision")

@@ -54,7 +54,10 @@ pub struct ExitRight {
 
 impl ExitRight {
     pub fn new(holder: impl Into<String>, carries: Vec<String>) -> Self {
-        Self { holder: holder.into(), carries }
+        Self {
+            holder: holder.into(),
+            carries,
+        }
     }
 }
 

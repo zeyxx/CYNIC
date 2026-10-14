@@ -202,8 +202,7 @@ mod tests {
         let limits = ResourceLimit::new()
             .with_max_memory_bytes(1024 * 1024 * 1024) // 1 GiB
             .with_max_cpu_cores(4.0);
-        let output =
-            ArgvRunner::run_with_limits(&["echo", "hello"], Some(&limits), None).unwrap();
+        let output = ArgvRunner::run_with_limits(&["echo", "hello"], Some(&limits), None).unwrap();
         assert!(output.success());
     }
 

@@ -91,14 +91,25 @@ const CYNIC_UNIT_PREFIXES: [&str; 4] = ["cynic-", "hermes-", "surreal", "cynic"]
 
 /// A unit is "owned" if the registry declares it, or if its name is in the
 /// project's own naming space. Everything else is explicitly out of scope.
-fn owned_units(index: &WorkspaceSourceIndex, host: &super::scanner::HostObservation) -> (BTreeSet<String>, BTreeSet<String>) {
+fn owned_units(
+    index: &WorkspaceSourceIndex,
+    host: &super::scanner::HostObservation,
+) -> (BTreeSet<String>, BTreeSet<String>) {
     let declared: BTreeSet<String> = declared_service_ids(index);
 
     let installed: BTreeSet<String> = host
         .unit_files
         .iter()
-        .filter_map(|path| path.file_stem().and_then(|s| s.to_str()).map(str::to_string))
-        .map(|stem| stem.trim_end_matches(".service").trim_end_matches(".timer").to_string())
+        .filter_map(|path| {
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .map(str::to_string)
+        })
+        .map(|stem| {
+            stem.trim_end_matches(".service")
+                .trim_end_matches(".timer")
+                .to_string()
+        })
         .filter(|stem| !stem.is_empty())
         .collect();
 
@@ -106,7 +117,9 @@ fn owned_units(index: &WorkspaceSourceIndex, host: &super::scanner::HostObservat
         .iter()
         .filter(|stem| {
             declared.contains(*stem)
-                || CYNIC_UNIT_PREFIXES.iter().any(|prefix| stem.starts_with(prefix))
+                || CYNIC_UNIT_PREFIXES
+                    .iter()
+                    .any(|prefix| stem.starts_with(prefix))
         })
         .cloned()
         .collect();
@@ -116,7 +129,11 @@ fn owned_units(index: &WorkspaceSourceIndex, host: &super::scanner::HostObservat
 
 fn declared_service_ids(index: &WorkspaceSourceIndex) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
-    for file in index.json_files.iter().filter(|f| f.relative_path == RULE_SSOT) {
+    for file in index
+        .json_files
+        .iter()
+        .filter(|f| f.relative_path == RULE_SSOT)
+    {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(&file.content) else {
             continue;
         };
@@ -171,7 +188,11 @@ fn unit_divergence(
         .unit_files
         .iter()
         .filter_map(|p| p.file_stem().and_then(|s| s.to_str()).map(str::to_string))
-        .map(|s| s.trim_end_matches(".service").trim_end_matches(".timer").to_string())
+        .map(|s| {
+            s.trim_end_matches(".service")
+                .trim_end_matches(".timer")
+                .to_string()
+        })
         .collect();
     let absent: Vec<&String> = declared.difference(&installed_stems).collect();
     if !absent.is_empty() {
@@ -221,7 +242,8 @@ fn unit_divergence(
 /// Scoped to the CYNIC install prefixes on purpose. The first version demanded
 /// provenance of `/usr/bin/bash` and `/usr/lib/systemd/systemd` — 176 of them —
 /// and a rule that flags the shell is a rule nobody reads.
-const CYNIC_BINARY_PREFIXES: [&str; 3] = ["/usr/local/bin/cynic", "/usr/local/lib/cynic", "/opt/cynic"];
+const CYNIC_BINARY_PREFIXES: [&str; 3] =
+    ["/usr/local/bin/cynic", "/usr/local/lib/cynic", "/opt/cynic"];
 
 fn is_cynic_binary(program: &Path) -> bool {
     let text = program.display().to_string();
@@ -259,14 +281,11 @@ fn cynic_binaries_without_provenance(
     )]
 }
 
-
 /// Credential values held in a unit file.
 ///
 /// Presence and the variable NAME only. The value never enters the report: a
 /// report that leaks a secret is a worse outcome than the one it documents.
-fn credentials_in_unit_files(
-    host: &super::scanner::HostObservation,
-) -> Vec<AuditViolation> {
+fn credentials_in_unit_files(host: &super::scanner::HostObservation) -> Vec<AuditViolation> {
     const CREDENTIAL_MARKERS: [&str; 4] = ["KEY", "TOKEN", "SECRET", "PASSWORD"];
     let mut found: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 

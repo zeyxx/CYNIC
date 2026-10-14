@@ -13,13 +13,13 @@ use cynic_host::lease_manager::LeaseManager;
 use cynic_host::node_identity_workflow::{NodeIdentityMaterial, NodeIdentityWorkflow};
 use cynic_host::peer_validator::PeerValidator;
 use cynic_host::plan_verifier::PlanVerifier;
+use cynic_node_protocol::node_control::{
+    ControlPlanVerificationStatus, NODE_DESIRED_STATE_SCHEMA, NodeDesiredState,
+};
 use cynic_protocol::RuntimeSeedRequest;
 use cynic_protocol::fleet_discovery::FleetNodeStatus;
 use cynic_protocol::fleet_heartbeat::{
     FleetHeartbeat, HeartbeatValidationResult, aggregate_authenticated_fleet_health,
-};
-use cynic_node_protocol::node_control::{
-    ControlPlanVerificationStatus, NODE_DESIRED_STATE_SCHEMA, NodeDesiredState,
 };
 use tempfile::tempdir;
 
@@ -233,7 +233,12 @@ fn trust_chain_full_vertical_e2e() {
         generation: 10,
         policy_digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
             .to_string(),
-        release: RuntimeSeedRequest::example("node-worker", "cynic-v0.2.0", "75b4cd4b", "/nonexistent/example-install-root"),
+        release: RuntimeSeedRequest::example(
+            "node-worker",
+            "cynic-v0.2.0",
+            "75b4cd4b",
+            "/nonexistent/example-install-root",
+        ),
         required_capabilities: vec!["build_runner".to_string()],
         required_services: vec![],
         paused: false,
