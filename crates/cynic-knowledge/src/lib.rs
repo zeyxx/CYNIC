@@ -10,12 +10,13 @@ pub use adapters::{
 pub use domain::{
     AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, AuthorityTier,
     BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
-    CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest, CrateGeometryRecord, DEFAULT_RRF_K,
-    DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk, DocumentTree, GIT_COMMIT_SCHEMA_V1,
-    GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, LexicalIndex, MarkdownLink,
-    SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode, SynthesisPrompt, SynthesisPromptBuilder,
-    WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry, authority_for, expand_hits_with_graph,
-    fuse_reciprocal_ranks,
+    ChunkEmbedder, ChunkVector, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
+    CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
+    DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
+    KnowledgeGraph, LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
+    SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
+    authority_for, cosine_similarity, expand_hits_with_graph, fuse_reciprocal_ranks, tokenize,
+    top_k_dense, vectorize_chunks,
 };
 
 use std::path::Path;
