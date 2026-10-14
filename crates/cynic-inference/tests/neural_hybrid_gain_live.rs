@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
 use cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge;
-use cynic_knowledge::{ChunkEmbedder, sync_workspace_corpus};
+use cynic_knowledge::{ChunkEmbedder, ChunkVector, sync_workspace_corpus};
 use serde::Deserialize;
 
 const TOP_K: usize = 5;
@@ -91,7 +91,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
 
     let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
     chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
-    let vectors = bridge
+    let raw_vectors = bridge
         .embed_batch(
             &chunks
                 .iter()
@@ -99,6 +99,14 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
                 .collect::<Vec<_>>(),
         )
         .expect("corpus vectors");
+    let vectors: Vec<ChunkVector> = chunks
+        .iter()
+        .zip(raw_vectors)
+        .map(|(chunk, vector)| ChunkVector {
+            chunk_id: chunk.chunk_id.clone(),
+            vector,
+        })
+        .collect();
 
     println!(
         "{:<24} {:>8} {:>8}  top1-hybrid",
