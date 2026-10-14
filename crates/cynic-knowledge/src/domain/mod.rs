@@ -9,6 +9,7 @@ pub mod graph_expansion;
 pub mod hybrid_rrf;
 pub mod scorer;
 pub mod synthesis;
+pub mod vector_cache;
 pub mod vectorizer;
 
 pub use ast::{
@@ -28,6 +29,10 @@ pub use hybrid_rrf::{DEFAULT_RRF_K, DenseHit, fuse_reciprocal_ranks};
 pub use scorer::{LexicalIndex, SearchHit, tokenize};
 pub use synthesis::{
     CitedSource, SYNTHESIS_PROMPT_SCHEMA_V1, SynthesisPrompt, SynthesisPromptBuilder,
+};
+pub use vector_cache::{
+    VECTOR_CACHE_SCHEMA_V1, VectorCacheRecord, load_vector_cache, save_vector_cache,
+    vectorize_chunks_cached,
 };
 pub use vectorizer::{
     ChunkEmbedder, ChunkVector, cosine_similarity, top_k_dense, vectorize_chunks,
