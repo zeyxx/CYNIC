@@ -139,6 +139,15 @@ pub(super) async fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
+    if let Some(root) = scheduler.shared_target_root.as_ref() {
+        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
+        // instead of recompiling cold in a throwaway directory.
+        let target_dir = shared_target_dir_for(root, &claimed.record.envelope.action.argv);
+        environment.insert(
+            "CARGO_TARGET_DIR".into(),
+            target_dir.to_string_lossy().into_owned(),
+        );
+    }
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -152,11 +161,26 @@ pub(super) async fn prepare(
             working_directory: workspace.workspace_root.clone(),
             environment,
             timeout: Duration::from_secs(scheduler.command_timeout_secs),
-            sandbox: sandbox_mode_for(scheduler, &workspace.workspace_root)?,
+            sandbox: sandbox_mode_for(
+                scheduler,
+                &workspace.workspace_root,
+                &claimed.record.envelope.action.argv,
+            )?,
         },
         workspace,
         provenance: source_provenance,
     })
+}
+
+/// Resolve the shared cargo target directory for a build: `<root>/<profile>`
+/// with `release` when `--release` is in argv, `debug` otherwise. Pure.
+fn shared_target_dir_for(root: &std::path::Path, argv: &[String]) -> std::path::PathBuf {
+    let profile = if argv.iter().any(|arg| arg == "--release") {
+        "release"
+    } else {
+        "debug"
+    };
+    root.join(profile)
 }
 
 /// Decide the execution isolation mode from scheduler config.
@@ -165,16 +189,25 @@ pub(super) async fn prepare(
 /// `Off` otherwise. When sandboxing is demanded but the spec cannot be
 /// resolved (no `PATH`, relative workspace), preparation fails closed with
 /// `build_sandbox_spec_unresolvable` — never silently downgraded to `Off`.
+///
+/// When `shared_target_root` is set, the spec reuses `<root>/<profile>`
+/// (profile from argv) so consecutive builds share warm artifacts instead
+/// of recompiling cold in a throwaway directory.
 fn sandbox_mode_for(
     scheduler: &BuildSchedulerConfig,
     workspace_root: &std::path::Path,
+    argv: &[String],
 ) -> Result<crate::ports::build_scheduler_port::BuildSandboxMode, String> {
     use crate::ports::build_scheduler_port::BuildSandboxMode;
     use cynic_sandbox::cargo::CargoSandboxSpec;
     if !scheduler.sandbox_bwrap {
         return Ok(BuildSandboxMode::Off);
     }
-    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), None)
+    let target_dir = scheduler
+        .shared_target_root
+        .as_ref()
+        .map(|root| shared_target_dir_for(root, argv));
+    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
         .map(BuildSandboxMode::Bwrap)
         .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())
 }
@@ -250,6 +283,25 @@ mod tests {
         assert_eq!(
             resolve_working_directory(Some("/tmp/elsewhere"), &root),
             Err("build_scheduler_working_directory_layout_mismatch".to_string())
+        );
+    }
+
+    #[test]
+    fn shared_target_dir_maps_release_and_debug_profiles() {
+        let root = std::path::Path::new("/var/lib/cynic/build-targets");
+        let release_argv = vec![
+            "cargo".to_string(),
+            "build".to_string(),
+            "--release".to_string(),
+        ];
+        let debug_argv = vec!["cargo".to_string(), "build".to_string()];
+        assert_eq!(
+            shared_target_dir_for(root, &release_argv),
+            PathBuf::from("/var/lib/cynic/build-targets/release")
+        );
+        assert_eq!(
+            shared_target_dir_for(root, &debug_argv),
+            PathBuf::from("/var/lib/cynic/build-targets/debug")
         );
     }
 }
