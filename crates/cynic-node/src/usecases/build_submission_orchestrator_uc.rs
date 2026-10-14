@@ -335,6 +335,7 @@ mod tests {
             request_id: "test-request-001".to_string(),
             requested_by: "test-agent".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: cynic_build::BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),

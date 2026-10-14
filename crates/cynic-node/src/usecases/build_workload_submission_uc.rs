@@ -170,6 +170,7 @@ mod tests {
             request_id: "check-aaaaaaaaaaaa-agent".to_string(),
             requested_by: "agent".to_string(),
             source_commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+            branch: None,
             source: cynic_build::BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),

@@ -556,6 +556,7 @@ mod tests {
             request_id: forgejo_workload_id(commit_sha),
             requested_by: "forgejo".to_string(),
             source_commit: commit_sha.to_string(),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -676,6 +677,7 @@ mod tests {
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
+            branch: None,
             source: BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
