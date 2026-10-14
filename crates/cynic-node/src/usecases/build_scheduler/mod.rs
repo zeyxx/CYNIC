@@ -1159,6 +1159,7 @@ mod tests {
             command_timeout_secs: 900,
             sandbox_bwrap: false,
             shared_target_root: None,
+            stable_workspace_root: None,
             release_publication: None,
         };
         (control, scheduler)
