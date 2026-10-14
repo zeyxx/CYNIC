@@ -182,6 +182,7 @@ impl EmbeddingBackend {
         }
         Ok(out)
     }
+}
 
 impl EmbeddingBackend {
     async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
