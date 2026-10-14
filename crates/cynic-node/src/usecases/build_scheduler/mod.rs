@@ -197,6 +197,9 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
+    // Footprint measurement scope: RSS and disk free bytes bracket the build.
+    let max_rss_before = measure_max_rss_kb();
+    let disk_free_before = measure_disk_free_bytes();
     // cpu_ms measurement scope: one meter per workload execution. Marks
     // bracket the build; the delta lands in the completion envelope's
     // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
@@ -384,6 +387,14 @@ async fn execute_claimed(
     // the completion envelope. None = unmeasured (explicit unknown).
     let cpu_end = cpu_meter.mark();
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
+    // Close the footprint measurement scope: RSS delta and disk free-byte
+    // delta bracket the build. None = unmeasured (explicit unknown).
+    let max_rss_kb = measure_max_rss_kb()
+        .map(|after| after.saturating_sub(max_rss_before.unwrap_or(0)));
+    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes()) {
+        (Some(before), Some(after)) => Some(before as i64 - after as i64),
+        _ => None,
+    };
     let latest = store
         .read(workload_id)
         .map_err(|error| error.code)?
@@ -445,6 +456,8 @@ async fn execute_claimed(
                     queue_wait_clamped,
                     load_tier: &load_tier,
                     capacity_unknowns: &capacity_unknowns,
+                    max_rss_kb,
+                    disk_delta_bytes,
                 });
                 receipt
             }
@@ -523,9 +536,45 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
     }
 }
 
+/// Measure peak resident set size (VmHWM) from `/proc/self/status`.
+/// Returns `kib` (kB). `None` when `/proc` is unavailable or the field
+/// is missing (non-Linux kernel, restricted procfs).
+fn measure_max_rss_kb() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if let Some(value) = line.strip_prefix("VmHWM:") {
+            let kb: u64 = value.trim().split_whitespace().next()?.parse().ok()?;
+            return Some(kb);
+        }
+    }
+    None
+}
+
+/// Measure free disk bytes on the root filesystem via `df -k /`.
+/// Returns `None` when `df` is unavailable or output is unexpected.
+fn measure_disk_free_bytes() -> Option<u64> {
+    let output = std::process::Command::new("df")
+        .arg("-k")
+        .arg("/")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let line = stdout.lines().nth(1)?;
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    if parts.len() >= 4 {
+        let kb: u64 = parts[3].parse().ok()?;
+        Some(kb * 1024)
+    } else {
+        None
+    }
+}
+
 /// Fields persisted into the settlement proof JSON. Additive across the
 /// scheduler-truths tasks: T1 reasons/timings, T2 stage and queue-wait
-/// timings, T3 capacity gate outcome.
+/// timings, T3 capacity gate outcome, T4 footprint (max RSS + disk delta).
 pub(crate) struct SettlementProofFields<'a> {
     pub workload_id: &'a str,
     pub status: &'a AgentCompletionStatus,
@@ -539,6 +588,8 @@ pub(crate) struct SettlementProofFields<'a> {
     pub queue_wait_clamped: bool,
     pub load_tier: &'a str,
     pub capacity_unknowns: &'a [String],
+    pub max_rss_kb: Option<u64>,
+    pub disk_delta_bytes: Option<i64>,
 }
 
 /// Build the canonical settlement proof body as JSON. Pure: the same facts
@@ -557,6 +608,8 @@ pub(crate) fn settlement_proof_body(fields: &SettlementProofFields<'_>) -> serde
         "queue_wait_clamped": fields.queue_wait_clamped,
         "load_tier": fields.load_tier,
         "capacity_unknowns": fields.capacity_unknowns,
+        "max_rss_kb": fields.max_rss_kb,
+        "disk_delta_bytes": fields.disk_delta_bytes,
     })
 }
 
@@ -725,6 +778,8 @@ mod tests {
             queue_wait_clamped: false,
             load_tier: "normal",
             capacity_unknowns: &["cpu_report_missing".to_string()],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref = settlement_proof_evidence_ref(&fields)
@@ -755,6 +810,8 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "normal",
             "capacity_unknowns": ["cpu_report_missing"],
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
@@ -860,6 +917,8 @@ mod tests {
                 "cpu_report_missing".to_string(),
                 "memory_report_missing".to_string(),
             ],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref =
@@ -881,6 +940,8 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "saturated",
             "capacity_unknowns": ["cpu_report_missing", "memory_report_missing"],
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
@@ -926,6 +987,8 @@ mod tests {
             queue_wait_clamped: false,
             load_tier: "headroom",
             capacity_unknowns: &[],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref = settlement_proof_evidence_ref(&fields)
@@ -948,6 +1011,8 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "headroom",
             "capacity_unknowns": Vec::<String>::new(),
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
