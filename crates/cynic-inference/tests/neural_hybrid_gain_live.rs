@@ -21,6 +21,10 @@ use serde::Deserialize;
 
 const TOP_K: usize = 5;
 const DENSE_K: usize = 20;
+/// Server batch ceiling (llama-server physical batch 512 tokens): inputs are
+/// front-truncated to stay under it. A measurement decision, not bridge
+/// behavior — the bridge must surface oversize inputs as errors, never clip.
+const MAX_EMBED_CHARS: usize = 1500;
 
 #[derive(Debug, Deserialize)]
 struct Fixture {
@@ -34,6 +38,18 @@ struct LabeledQuery {
     query: String,
     trap: bool,
     grades: HashMap<String, u32>,
+}
+
+fn truncate_front(text: &str) -> &str {
+    if text.len() <= MAX_EMBED_CHARS {
+        text
+    } else {
+        let mut end = MAX_EMBED_CHARS;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        &text[..end]
+    }
 }
 
 fn workspace_root() -> PathBuf {
@@ -95,7 +111,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
         .embed_batch(
             &chunks
                 .iter()
-                .map(|c| c.content.as_str())
+                .map(|c| truncate_front(c.content.as_str()))
                 .collect::<Vec<_>>(),
         )
         .expect("corpus vectors");
@@ -126,7 +142,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
             labeled.id
         );
         let query_vector = bridge
-            .embed_batch(std::slice::from_ref(&labeled.query.as_str()))
+            .embed_batch(std::slice::from_ref(&truncate_front(&labeled.query)))
             .expect("query vector");
         let hybrid_hits =
             index.search_hybrid(&labeled.query, &query_vector[0], &vectors, TOP_K, DENSE_K);
