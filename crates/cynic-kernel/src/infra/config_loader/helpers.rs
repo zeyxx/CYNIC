@@ -107,7 +107,7 @@ fn load_inference_config_from_path(
 /// Resolve the runtime registry path.
 /// Lookup order:
 /// 1. `CYNIC_REGISTRY_PATH` env var (explicit override)
-/// 2. `/etc/cynic/registry.json` (system-wide)
+/// 2. `<config>/registry.json` (system-wide)
 /// 3. `$XDG_CONFIG_HOME/cynic/registry.json` (user)
 pub(crate) fn resolve_runtime_registry_path(_override: Option<&str>) -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("CYNIC_REGISTRY_PATH") {
