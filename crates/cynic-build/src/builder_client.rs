@@ -138,14 +138,36 @@ fn submit_workload_inner(
         if let Ok(pres) = client.get(&proof_url).send() {
             if pres.status().is_success() {
                 if let Ok(pjson) = pres.json::<serde_json::Value>() {
-                    let state = pjson["state"].as_str().unwrap_or("unknown");
-                    if state != last_state {
-                        last_state = state.to_string();
-                    }
-
-                    if state == "completed" || state == "failed" {
+                    // Terminal states live in completion.status (snake_case),
+                    // not in a top-level "state" field: the proofs endpoint
+                    // returns the completion envelope, whose status is
+                    // completed/failed/blocked/... A blocked workload is
+                    // terminal — polling past it waits out the timeout.
+                    let completed = pjson
+                        .get("completion")
+                        .and_then(|completion| completion.get("status"))
+                        .and_then(|status| status.as_str())
+                        .map(|status| {
+                            matches!(
+                                status,
+                                "completed" | "failed" | "blocked" | "recovered_unattributed"
+                            )
+                        })
+                        .unwrap_or(false);
+                    let legacy = pjson
+                        .get("state")
+                        .and_then(|state| state.as_str())
+                        .map(|state| matches!(state, "completed" | "failed"))
+                        .unwrap_or(false);
+                    if completed || legacy {
                         return Ok(pjson);
                     }
+                    last_state = pjson
+                        .get("completion")
+                        .and_then(|completion| completion.get("status"))
+                        .and_then(|status| status.as_str())
+                        .unwrap_or(&last_state)
+                        .to_string();
                 }
             }
         }

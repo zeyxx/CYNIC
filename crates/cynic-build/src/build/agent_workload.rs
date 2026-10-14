@@ -254,7 +254,12 @@ pub fn compose_build_agent_workload(
             }],
             budget: AgentBudget {
                 context_tokens: 0,
-                actions: 1,
+                // Two consumes per workload lifecycle: one at submission
+                // (orchestrator authorizes the submit) and one at execution
+                // (scheduler reserves the run). A budget of 1 blocks every
+                // natively submitted build at prepare with
+                // action_not_admitted — observed live, zero completions.
+                actions: 2,
                 children: 0,
                 wall_time_ms: 900_000,
                 cpu_ms: None,
@@ -559,7 +564,7 @@ mod tests {
         .expect("release workload");
 
         assert_eq!(envelope.action.argv, vec!["make", "build-release"]);
-        assert_eq!(envelope.delegation.budget.actions, 1);
+        assert_eq!(envelope.delegation.budget.actions, 2);
         assert_eq!(
             build_agent_request_from_workload(&envelope).unwrap(),
             request
