@@ -280,8 +280,14 @@ Tracked under `docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md` (`cynic.spec.organic_ra
 - [ ] **11.6 MCP Native Exposure**: Wire `cynic_know_ask` into `cynic-mcp` with zero shell-fork overhead.
 - [x] **11.7 Epistemic CI Evaluation Harness**: Automated 10-question evaluation matrix with 0% hallucination gate.
 - [x] **11.8 Live Dense Endpoint (2026-10-13)**: `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding` (lxc/106, `10.10.10.106:8080`, DIM 768, systemd unit `llama-server-embedding.service`); declared in `infra/registry.json`; live smoke test `cynic-inference/tests/embedding_live.rs` (ignored by default, `dims=768`, 71 ms builder→106).
-- [ ] **11.9 Chunk Vectorizer + Cosine Index**: Batch-encode corpus chunks through `EmbeddingPort`, cache vectors, dense top-k feeding `fuse_reciprocal_ranks` (no pipeline exists yet — smoke test only).
-- [ ] **11.10 Retrieval Gain Measurement**: Re-run the 10-question bench BM25-only vs hybrid with graded relevance labels (labels do not exist yet).
+- [x] **11.9 Chunk Vectorizer + Cosine Index**: `vectorize_chunks` +
+  `top_k_dense` + `fuse_reciprocal_ranks` live in `cynic-knowledge`
+  (unit-covered); neural consumption via `SyncEmbeddingBridge` (PR 79,
+  unmerged). No cached-vector pipeline yet — vectors are computed per run.
+- [ ] **11.10 Retrieval Gain Measurement**: graded labels exist
+  (`retrieval_gain_labels.json`: 10 pairs / 1 trap / 9 scored). Measured
+  2026-10-14: BM25 MRR 0.222, hashed-stub hybrid 0.133 (delta -0.089).
+  Neural run pending (blocked on server 512-token batch; inputs truncated).
 
 ---
 
