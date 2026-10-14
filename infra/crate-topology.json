@@ -707,7 +707,8 @@
         "cynic-host",
         "cynic-lifecycle",
         "cynic-protocol",
-        "cynic-secrets"
+        "cynic-secrets",
+        "cynic-types"
       ],
       "dev_depends_on": [],
       "justified": true,

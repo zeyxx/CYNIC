@@ -26,6 +26,12 @@ impl CynicPaths {
     /// Défini par `infra/directory-tree.json:cynic_state.root`.
     pub const DEFAULT_STATE_ROOT: &'static str = "/var/lib/cynic";
 
+    /// Canonical log root for runtime logs.
+    pub const DEFAULT_LOG_ROOT: &'static str = "/var/log/cynic";
+
+    /// Canonical install directory for runtime binaries.
+    pub const DEFAULT_BINARY_DIR: &'static str = "/usr/local/bin";
+
     /// Résout la racine de configuration système.
     /// Ordre d'autorité :
     /// 1. Variable d'environnement `CYNIC_CONFIG_DIR` (dérivation explicite en test/dev).
@@ -83,6 +89,26 @@ impl CynicPaths {
         std::env::var("CYNIC_STATE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_STATE_ROOT))
+    }
+
+    /// Resolve the runtime log root (/var/log/cynic).
+    /// Authority order:
+    /// 1. `CYNIC_LOG_DIR` environment variable.
+    /// 2. `/var/log/cynic` (installed production norm).
+    pub fn log_dir() -> PathBuf {
+        std::env::var("CYNIC_LOG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_LOG_ROOT))
+    }
+
+    /// Resolve the runtime binary install directory (/usr/local/bin).
+    /// Authority order:
+    /// 1. `CYNIC_BINARY_DIR` environment variable.
+    /// 2. `/usr/local/bin` (installed production norm).
+    pub fn binary_dir() -> PathBuf {
+        std::env::var("CYNIC_BINARY_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_BINARY_DIR))
     }
 
     /// Résout le répertoire de configuration utilisateur (~/.config/cynic).

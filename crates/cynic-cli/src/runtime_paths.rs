@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RuntimeMode {
@@ -255,7 +256,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         .env_config_root
         .clone()
         .or_else(|| context.installed_config_root.clone())
-        .unwrap_or_else(|| PathBuf::from("/etc/cynic"));
+        .unwrap_or_else(CynicPaths::system_config_dir);
     RuntimePaths {
         registry_path: config_root.join("registry.json"),
         config_root: config_root.clone(),
@@ -398,18 +399,20 @@ fn infer_config_root(path: &Path, installed_config_root: Option<&Path>) -> PathB
     if path.file_name().and_then(|value| value.to_str()) == Some("registry.json")
         && path.parent().is_some()
     {
-        let parent = path.parent().unwrap_or_else(|| Path::new("/etc/cynic"));
+        let parent = path
+            .parent()
+            .unwrap_or_else(|| Path::new(CynicPaths::DEFAULT_SYSTEM_ROOT));
         if parent.ends_with("infra") {
             return installed_config_root
                 .map(Path::to_path_buf)
-                .unwrap_or_else(|| PathBuf::from("/etc/cynic"));
+                .unwrap_or_else(CynicPaths::system_config_dir);
         }
         return parent.to_path_buf();
     }
 
     installed_config_root
         .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("/etc/cynic"))
+        .unwrap_or_else(CynicPaths::system_config_dir)
 }
 
 fn find_registry_from(origin: Option<&Path>) -> Option<PathBuf> {

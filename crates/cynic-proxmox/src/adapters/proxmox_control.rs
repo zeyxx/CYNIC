@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 
 use crate::adapters::ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
 use cynic_protocol::provider::CredentialLeaseVerifierPort;
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProxmoxControlStatus {

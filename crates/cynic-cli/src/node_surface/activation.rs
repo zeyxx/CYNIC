@@ -10,11 +10,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::Subcommand;
 use serde::Serialize;
 
+use cynic_types::paths::CynicPaths;
+
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
 
-pub(crate) const DEFAULT_REGISTRY_PATH: &str = "/etc/cynic/registry.json";
+fn default_key_path() -> PathBuf {
+    CynicPaths::system_config_dir().join("node-identity.key")
+}
+
+fn default_cert_path() -> PathBuf {
+    CynicPaths::system_config_dir().join("node-identity.cert")
+}
 
 #[derive(Serialize)]
 struct IdentityInitReport {
@@ -47,14 +55,6 @@ struct CertVerifyReport {
     verified: bool,
     is_currently_valid: bool,
     status: &'static str,
-}
-
-fn default_key_path() -> PathBuf {
-    PathBuf::from("/etc/cynic/node-identity.key")
-}
-
-fn default_cert_path() -> PathBuf {
-    PathBuf::from("/etc/cynic/node-identity.cert")
 }
 
 fn current_unix_s() -> u64 {

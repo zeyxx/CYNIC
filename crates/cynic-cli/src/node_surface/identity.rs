@@ -5,6 +5,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 pub(crate) fn execute_node_identity(
     node_id: &str,
@@ -34,7 +35,7 @@ pub enum NodeIdentityCommand {
     Node {
         #[arg(long)]
         node_id: String,
-        #[arg(long, default_value = "/var/lib/cynic/identity/node-signing.key")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().join("identity/node-signing.key").display().to_string())]
         signing_key_path: String,
         #[arg(long)]
         apply: bool,

@@ -21,6 +21,7 @@ pub mod compute;
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 /// Unified node command — all node-level CLI surfaces.
 #[derive(Subcommand)]
@@ -78,7 +79,7 @@ pub enum NodeCommand {
     Observe {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long)]
         fail_on_warning: bool,
