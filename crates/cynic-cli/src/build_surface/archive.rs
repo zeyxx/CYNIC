@@ -250,7 +250,7 @@ mod tests {
             expires_at_ms,
             cancellation_generation: 0,
             max_lease_window_ms: 300_000,
-            granted_at_ms: expires_at_ms - 300_000,
+            granted_at_ms: expires_at_ms.saturating_sub(300_000),
         }
     }
 
