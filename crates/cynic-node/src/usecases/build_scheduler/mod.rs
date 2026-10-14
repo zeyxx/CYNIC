@@ -953,6 +953,40 @@ mod tests {
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
     }
 
+    /// T1: settlement proof body must carry footprint fields (max_rss_kb,
+    /// disk_delta_bytes) so resource consumption is auditable from persisted
+    /// evidence, not logs alone.
+    #[test]
+    fn settlement_body_carries_footprint_fields() {
+        let status = AgentCompletionStatus::Completed;
+        let fields = SettlementProofFields {
+            workload_id: "wl-footprint",
+            status: &status,
+            unknowns: &[],
+            elapsed: Duration::from_millis(10),
+            measured_cpu_ms: None,
+            settled_at_ms: 42,
+            prepare_ms: 1,
+            execute_ms: 9,
+            queue_wait_ms: 0,
+            queue_wait_clamped: false,
+            load_tier: "normal",
+            capacity_unknowns: &[],
+            max_rss_kb: Some(1_000),
+            disk_delta_bytes: Some(500),
+        };
+
+        let body = settlement_proof_body(&fields);
+        assert_eq!(
+            body["max_rss_kb"], 1000,
+            "max_rss_kb must be carried in settlement proof body"
+        );
+        assert_eq!(
+            body["disk_delta_bytes"], 500,
+            "disk_delta_bytes must be carried in settlement proof body"
+        );
+    }
+
     /// Fabricated CPU report with a known utilisation, mirroring the
     /// constructor pattern used by `cynic_protocol::capacity` tests.
     fn fabricated_cpu_report(util_pct: f64) -> cynic_protocol::cpu::CpuReport {
