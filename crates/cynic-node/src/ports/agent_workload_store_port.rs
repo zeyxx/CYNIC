@@ -34,4 +34,11 @@ pub trait AgentWorkloadStorePort: Send + Sync {
         next: &AgentWorkloadRecord,
         committed_at_ms: u64,
     ) -> Result<DurableAgentWorkloadRecord, AgentWorkloadStoreError>;
+
+    fn archive_terminal(
+        &self,
+        workload_id: &str,
+        older_than_ms: u64,
+        now_ms: u64,
+    ) -> Result<Option<String>, AgentWorkloadStoreError>;
 }

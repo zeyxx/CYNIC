@@ -194,6 +194,39 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
         }
         Ok(read_back)
     }
+
+    fn archive_terminal(
+        &self,
+        workload_id: &str,
+        older_than_ms: u64,
+        now_ms: u64,
+    ) -> Result<Option<String>, AgentWorkloadStoreError> {
+        let root = self.workload_root(workload_id)?;
+        let latest = match read_latest(&root)? {
+            Some(record) => record,
+            None => return Ok(None),
+        };
+        if !latest.record.state.terminal() {
+            return Ok(None);
+        }
+        let age = now_ms.saturating_sub(latest.committed_at_ms);
+        if age < older_than_ms {
+            return Ok(None);
+        }
+        let archive_root = self.root.join("archive");
+        fs::create_dir_all(&archive_root)
+            .map_err(|_| error("workload_store_archive_create_failed"))?;
+        reject_non_directory(&archive_root)?;
+        let destination = archive_root.join(workload_id);
+        if destination.exists() {
+            return Err(error("workload_store_archive_already_exists"));
+        }
+        fs::rename(&root, &destination).map_err(|_| error("workload_store_archive_move_failed"))?;
+        if root.exists() {
+            return Err(error("workload_store_archive_read_back_failed"));
+        }
+        Ok(Some(destination.to_string_lossy().into_owned()))
+    }
 }
 
 fn read_latest(root: &Path) -> Result<Option<DurableAgentWorkloadRecord>, AgentWorkloadStoreError> {
