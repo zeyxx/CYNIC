@@ -116,6 +116,10 @@
       "status": "public"
     },
     {
+      "path": "vercel.json",
+      "status": "public"
+    },
+    {
       "path": "docs/foundation/WHITEPAPER.md",
       "status": "public"
     },
