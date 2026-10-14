@@ -111,6 +111,25 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
 
     let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
     chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
+    // Graduated calibration: chunk ids are content hashes, so taking the
+    // first N is a uniform random sample, not a directory-biased prefix.
+    // Sweep cheap (100, 1000), confirm full (0 = all).
+    let subset: usize = std::env::var("CYNIC_EMBED_SUBSET")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .unwrap_or(0);
+    if subset > 0 && subset < chunks.len() {
+        chunks.truncate(subset);
+    }
+    println!(
+        "NEURAL_CORPUS chunks={} (subset={})",
+        chunks.len(),
+        if subset > 0 {
+            subset.to_string()
+        } else {
+            "all".into()
+        }
+    );
     let corpus_start = std::time::Instant::now();
     let last_report = std::cell::Cell::new(0usize);
     // Truncation is deterministic, so vectors of truncated texts stay valid
