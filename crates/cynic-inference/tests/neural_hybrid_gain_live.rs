@@ -16,7 +16,10 @@ use std::path::PathBuf;
 
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
 use cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge;
-use cynic_knowledge::{ChunkEmbedder, ChunkVector, sync_workspace_corpus};
+use cynic_knowledge::{
+    ChunkEmbedder, VectorCacheRecord, load_vector_cache, save_vector_cache, sync_workspace_corpus,
+    vectorize_chunks_cached,
+};
 use serde::Deserialize;
 
 const TOP_K: usize = 5;
@@ -110,38 +113,49 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
     let corpus_start = std::time::Instant::now();
     let last_report = std::cell::Cell::new(0usize);
-    let raw_vectors = bridge
-        .embed_batch_reported(
-            &chunks
-                .iter()
-                .map(|c| truncate_front(c.content.as_str()))
-                .collect::<Vec<_>>(),
-            &|done, total| {
-                // Throttle to every ~10 lots: one line per ~320 chunks.
-                if done >= last_report.get() + 320 || done == total {
-                    last_report.set(done);
-                    println!(
-                        "EMBED {done}/{total} chunks ({}%) elapsed={:.0}s",
-                        done * 100 / total,
-                        corpus_start.elapsed().as_secs_f32()
-                    );
-                }
-            },
-        )
-        .expect("corpus vectors");
+    // Truncation is deterministic, so vectors of truncated texts stay valid
+    // under the full chunk's content-addressed id across runs.
+    struct Truncating<'a> {
+        bridge: &'a SyncEmbeddingBridge<EmbeddingBackend>,
+        last_report: &'a std::cell::Cell<usize>,
+        corpus_start: std::time::Instant,
+    }
+    impl ChunkEmbedder for Truncating<'_> {
+        fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            let truncated: Vec<&str> = texts.iter().map(|text| truncate_front(text)).collect();
+            self.bridge
+                .embed_batch_reported(&truncated, &|done, total| {
+                    if done >= self.last_report.get() + 320 || done == total {
+                        self.last_report.set(done);
+                        println!(
+                            "EMBED {done}/{total} chunks ({}%) elapsed={:.0}s",
+                            done * 100 / total,
+                            self.corpus_start.elapsed().as_secs_f32()
+                        );
+                    }
+                })
+        }
+    }
+    let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
+    let vector_cache_file = root.join(format!("target/eval_vectors_{model}.json"));
+    let mut vector_cache = load_vector_cache(&vector_cache_file, &model)
+        .unwrap_or_else(|| VectorCacheRecord::new(&model));
+    let adapter = Truncating {
+        bridge: &bridge,
+        last_report: &last_report,
+        corpus_start,
+    };
+    let (vectors, reused, embedded) =
+        vectorize_chunks_cached(&adapter, &chunks, &mut vector_cache, &|_, _| {})
+            .expect("corpus vectors");
+    save_vector_cache(&vector_cache_file, &vector_cache).expect("persist vector cache");
     println!(
-        "EMBED done: {} vectors in {:.0}s",
-        raw_vectors.len(),
+        "EMBED done: {} vectors ({} reused, {} embedded) in {:.0}s",
+        vectors.len(),
+        reused,
+        embedded,
         corpus_start.elapsed().as_secs_f32()
     );
-    let vectors: Vec<ChunkVector> = chunks
-        .iter()
-        .zip(raw_vectors)
-        .map(|(chunk, vector)| ChunkVector {
-            chunk_id: chunk.chunk_id.clone(),
-            vector,
-        })
-        .collect();
 
     println!(
         "{:<24} {:>8} {:>8}  top1-hybrid",
