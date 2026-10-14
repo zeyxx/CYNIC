@@ -7,7 +7,11 @@ mod source_prepare;
 use std::time::{Duration, Instant};
 
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
+use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+use cynic_protocol::capacity::{
+    CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
+};
 use cynic_protocol::AgentCompletionStatus;
 use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
 use tokio_util::sync::CancellationToken;
@@ -63,12 +67,54 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
     plan_build_queue(candidates).ordered
 }
 
+/// Pure capacity gate for admission: admit a claim unless the assessment
+/// is `Saturated`. Unknown measurements (Normal + residual unknowns)
+/// proceed — the policy default never refuses on unmeasured capacity.
+fn admit_claim_under_capacity(assessment: &CapacityAssessmentV1) -> bool {
+    assessment.state != LoadTier::Saturated
+}
+
+/// Canonical tier name for proofs and logs. Mirrors the serde snake_case
+/// representation of `LoadTier` without serialising the whole assessment.
+fn load_tier_str(tier: &LoadTier) -> &'static str {
+    match tier {
+        LoadTier::Headroom => "headroom",
+        LoadTier::Normal => "normal",
+        LoadTier::Saturated => "saturated",
+    }
+}
+
+/// One capacity assessment per scheduler tick. Local observation via the
+/// existing `cynic-host` adapter (already a `cynic-node` dependency);
+/// on observation failure the unmeasured path yields Normal + explicit
+/// unknowns, and the policy default proceeds per `assess_load_tier`.
+fn measure_capacity_assessment() -> CapacityAssessmentV1 {
+    let policy = LoadPolicy::with_legacy_defaults("build-scheduler");
+    match LocalCapacityAdapter::new().assess_capacity(&policy) {
+        Ok(assessment) => assessment,
+        Err(_) => assess_load_tier(None, None, &policy),
+    }
+}
+
 async fn run_iteration(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
     shutdown: &CancellationToken,
 ) -> Result<(), String> {
+    // Capacity gate at admission (T4): measure once per tick. A Saturated host
+    // skips claiming entirely — records stay queued; refusal is per-iteration
+    // so a later tick may claim once headroom returns.
+    let capacity = measure_capacity_assessment();
+    let load_tier = load_tier_str(&capacity.state).to_string();
+    let capacity_unknowns = capacity.residual_unknowns.clone();
+    if !admit_claim_under_capacity(&capacity) {
+        tracing::info!(
+            tier = %load_tier,
+            "build scheduler tick skipped: host capacity saturated"
+        );
+        return Ok(());
+    }
     let durables = store.durable_records().map_err(|error| error.code)?;
     for workload_id in queue_ordered_ids(&durables, &control.node_id) {
         if shutdown.is_cancelled() {
@@ -101,7 +147,16 @@ async fn run_iteration(
                 claimed.revision,
             );
         }
-        execute_claimed(control, scheduler, store, claimed, shutdown).await?;
+        execute_claimed(
+            control,
+            scheduler,
+            store,
+            claimed,
+            shutdown,
+            &load_tier,
+            &capacity_unknowns,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -112,6 +167,8 @@ async fn execute_claimed(
     store: &LocalAgentWorkloadStore,
     claimed: DurableAgentWorkloadRecord,
     shutdown: &CancellationToken,
+    load_tier: &str,
+    capacity_unknowns: &[String],
 ) -> Result<(), String> {
     let guard = claimed
         .record
@@ -373,18 +430,20 @@ async fn execute_claimed(
                     final_record_digest = %receipt.final_record_digest,
                     "hermetic parcel settled successfully"
                 );
-                persist_settlement_proof(
+                persist_settlement_proof(&SettlementProofFields {
                     workload_id,
-                    &status,
-                    &settlement_unknowns,
-                    settlement_elapsed,
+                    status: &status,
+                    unknowns: &settlement_unknowns,
+                    elapsed: settlement_elapsed,
                     measured_cpu_ms,
-                    receipt.settled_at_ms,
+                    settled_at_ms: receipt.settled_at_ms,
                     prepare_ms,
                     execute_ms,
                     queue_wait_ms,
                     queue_wait_clamped,
-                );
+                    load_tier: &load_tier,
+                    capacity_unknowns: &capacity_unknowns,
+                });
                 receipt
             }
             Err(err) => {
@@ -462,66 +521,55 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
     }
 }
 
+/// Fields persisted into the settlement proof JSON. Additive across the
+/// scheduler-truths tasks: T1 reasons/timings, T2 stage and queue-wait
+/// timings, T3 capacity gate outcome.
+pub(crate) struct SettlementProofFields<'a> {
+    pub workload_id: &'a str,
+    pub status: &'a AgentCompletionStatus,
+    pub unknowns: &'a [String],
+    pub elapsed: Duration,
+    pub measured_cpu_ms: Option<u64>,
+    pub settled_at_ms: u64,
+    pub prepare_ms: u64,
+    pub execute_ms: u64,
+    pub queue_wait_ms: u64,
+    pub queue_wait_clamped: bool,
+    pub load_tier: &'a str,
+    pub capacity_unknowns: &'a [String],
+}
+
 /// Build the canonical settlement proof evidence ref. Pure: serializes the
 /// settlement facts to canonical JSON and digests them with SHA3-512.
 pub(crate) fn settlement_proof_evidence_ref(
-    workload_id: &str,
-    status: &AgentCompletionStatus,
-    unknowns: &[String],
-    elapsed: Duration,
-    measured_cpu_ms: Option<u64>,
-    settled_at_ms: u64,
-    prepare_ms: u64,
-    execute_ms: u64,
-    queue_wait_ms: u64,
-    queue_wait_clamped: bool,
+    fields: &SettlementProofFields<'_>,
 ) -> Result<String, serde_json::Error> {
     let proof = serde_json::json!({
-        "workload_id": workload_id,
-        "status": status,
-        "unknowns": unknowns,
-        "elapsed_ms": elapsed.as_millis(),
-        "measured_cpu_ms": measured_cpu_ms,
-        "settled_at_ms": settled_at_ms,
-        "prepare_ms": prepare_ms,
-        "execute_ms": execute_ms,
-        "queue_wait_ms": queue_wait_ms,
-        "queue_wait_clamped": queue_wait_clamped,
+        "workload_id": fields.workload_id,
+        "status": fields.status,
+        "unknowns": fields.unknowns,
+        "elapsed_ms": fields.elapsed.as_millis(),
+        "measured_cpu_ms": fields.measured_cpu_ms,
+        "settled_at_ms": fields.settled_at_ms,
+        "prepare_ms": fields.prepare_ms,
+        "execute_ms": fields.execute_ms,
+        "queue_wait_ms": fields.queue_wait_ms,
+        "queue_wait_clamped": fields.queue_wait_clamped,
+        "load_tier": fields.load_tier,
+        "capacity_unknowns": fields.capacity_unknowns,
     });
     cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-settlement:{digest}"))
 }
 
-fn persist_settlement_proof(
-    workload_id: &str,
-    status: &AgentCompletionStatus,
-    unknowns: &[String],
-    elapsed: Duration,
-    measured_cpu_ms: Option<u64>,
-    settled_at_ms: u64,
-    prepare_ms: u64,
-    execute_ms: u64,
-    queue_wait_ms: u64,
-    queue_wait_clamped: bool,
-) {
-    let evidence_ref = settlement_proof_evidence_ref(
-        workload_id,
-        status,
-        unknowns,
-        elapsed,
-        measured_cpu_ms,
-        settled_at_ms,
-        prepare_ms,
-        execute_ms,
-        queue_wait_ms,
-        queue_wait_clamped,
-    )
-    .unwrap_or_else(|_| format!("scheduler-settlement:{workload_id}"));
+fn persist_settlement_proof(fields: &SettlementProofFields<'_>) {
+    let evidence_ref = settlement_proof_evidence_ref(fields)
+        .unwrap_or_else(|_| format!("scheduler-settlement:{}", fields.workload_id));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_settlement"],
         &[evidence_ref],
     ) {
-        tracing::warn!(%error, workload_id, "scheduler settlement proof read-back unavailable");
+        tracing::warn!(%error, workload_id = %fields.workload_id, "scheduler settlement proof read-back unavailable");
     }
 }
 
@@ -703,9 +751,14 @@ mod tests {
     fn saturated_tier_skips_claim() {
         let policy = LoadPolicy::with_legacy_defaults("test-node");
 
-        // CPU 92% > saturation threshold (85%) ⇒ Saturated.
-        let cpu_saturated =
-            assess_load_tier(Some(&fabricated_cpu_report(92.0)), None, &policy);
+        // CPU 92% > saturation threshold (85%) ⇒ Saturated. Both reports are
+        // required: with memory unmeasured, assess_load_tier stays prudent
+        // (Normal + unknowns) — Saturated is never asserted on half evidence.
+        let cpu_saturated = assess_load_tier(
+            Some(&fabricated_cpu_report(92.0)),
+            Some(&fabricated_memory_report(28, 4)),
+            &policy,
+        );
         assert_eq!(cpu_saturated.state, LoadTier::Saturated);
         assert!(
             !admit_claim_under_capacity(&cpu_saturated),
@@ -799,7 +852,7 @@ mod tests {
         let expected_proof = serde_json::json!({
             "workload_id": "wl-capacity",
             "status": "completed",
-            "unknowns": [] as [String; 0],
+            "unknowns": Vec::<String>::new(),
             "elapsed_ms": 10_u64,
             "measured_cpu_ms": serde_json::Value::Null,
             "settled_at_ms": 42_u64,
