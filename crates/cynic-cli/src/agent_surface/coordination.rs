@@ -111,6 +111,12 @@ pub(crate) fn execute_identify(
     let Some(base) = kernel_base else {
         // No kernel reachable or resolvable: self-attested local identity.
         // credential_kind marks the absence of kernel attestation explicitly.
+        append_claim_event(
+            "identify_local",
+            agent_id,
+            "*",
+            serde_json::json!({"credential_kind": "local_unattested"}),
+        );
         return Ok(AgentIdentifyReport {
             schema: AGENT_IDENTIFY_REPORT_SCHEMA,
             status: "identified",
@@ -209,6 +215,12 @@ pub(crate) fn execute_register(
         return Err(format!("register failed: {error}"));
     }
 
+    append_claim_event(
+        "register",
+        agent_id,
+        "*",
+        serde_json::json!({"intent": intent}),
+    );
     Ok(())
 }
 
@@ -283,6 +295,26 @@ pub(crate) fn execute_claim(
     }
 
     let lease = body.get("lease").cloned().unwrap_or_default();
+    let lease_id = lease
+        .get("lease_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let fencing_token = lease
+        .get("fencing_token")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    append_claim_event(
+        "claim_kernel",
+        agent_id,
+        target,
+        serde_json::json!({
+            "lease_id": lease_id,
+            "fencing_token": fencing_token,
+            "claim_type": claim_type.unwrap_or("file"),
+        }),
+    );
 
     Ok(AgentClaimReport {
         schema: AGENT_CLAIM_REPORT_SCHEMA,
@@ -290,15 +322,8 @@ pub(crate) fn execute_claim(
         agent_id: agent_id.to_string(),
         target: target.to_string(),
         claim_type: claim_type.unwrap_or("file").to_string(),
-        lease_id: lease
-            .get("lease_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        fencing_token: lease
-            .get("fencing_token")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
+        lease_id,
+        fencing_token,
         ttl_seconds: body
             .get("ttl_seconds")
             .and_then(|v| v.as_u64())
@@ -369,6 +394,16 @@ pub(crate) fn execute_release(
         return Err(format!("release failed: {error}"));
     }
 
+    append_claim_event(
+        "release_kernel",
+        agent_id,
+        target,
+        serde_json::json!({
+            "lease_id": lease_id,
+            "proof_refs": proof_refs,
+        }),
+    );
+
     Ok(AgentReleaseReport {
         schema: AGENT_RELEASE_REPORT_SCHEMA,
         status: "released",
@@ -424,6 +459,116 @@ where
         .join()
         .map_err(|_| "blocking kernel request panicked on worker thread".to_string())?
 }
+
+// ─── Claim event log ───────────────────────────────────────────────────────
+//
+// WHY: the claim lifecycle must produce durable, timestamped evidence — not
+// just a current-state snapshot. A bare `.agent-claims.json` cannot answer
+// "why did coordination fail?" after the fact. Every claim, release, TTL
+// expiry, and kernel fallback must persist as an append-only record so the
+// system observes its own failures through persisted events, not through the
+// good behaviour of the agents it coordinates.
+//
+// HOW: one JSONL file per day at `data_system/vault/captures/agent-claims-YYYY-MM-DD.jsonl`.
+// `*.jsonl` is already gitignored (`.gitignore:81`), so the log lives outside
+// Git by construction. Each line is a self-contained JSON object validated
+// against `contracts/agent-claim-event.json`.
+
+/// Schema identifier for the claim event log.
+pub(crate) const CLAIM_EVENT_SCHEMA: &str = "cynic.agent.claim_event.v1";
+
+/// Resolve the event log directory from the workspace root.
+///
+/// Walks up from the current directory to find the git root, then uses
+/// `data_system/vault/captures/`. Returns the captures directory path
+/// (the caller composes the dated filename).
+fn claim_event_log_dir() -> Option<std::path::PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if root.is_empty() {
+        return None;
+    }
+    let dir = std::path::PathBuf::from(root)
+        .join("data_system")
+        .join("vault")
+        .join("captures");
+    // Best-effort directory creation; the event log must never block a
+    // claim or release. If the directory cannot be created, the event
+    // is silently dropped (the local claims file still records state).
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+/// Append one claim event to the daily JSONL log.
+///
+/// WHY: coordination failures must be observable after the fact. An agent
+/// that ignores the claim protocol or forgets to release leaves no trace
+/// in a state-only snapshot. The event log is the durable audit trail.
+///
+/// HOW: append a single JSON line to `agent-claims-<YYYY-MM-DD>.jsonl`.
+/// Never reads the file — append-only, O(1) per event, no lock needed
+/// for single-writer CLI invocations.
+pub(crate) fn append_claim_event(
+    event_type: &str,
+    agent_id: &str,
+    target: &str,
+    detail: serde_json::Value,
+) {
+    let Some(dir) = claim_event_log_dir() else {
+        return;
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    // Date in UTC from unix seconds (no chrono dependency).
+    let days_since_epoch = now / 86_400;
+    let (y, m, d) = civil_from_days(days_since_epoch as i64);
+    let filename = format!("agent-claims-{y:04}-{m:02}-{d:02}.jsonl");
+    let path = dir.join(filename);
+
+    let event = serde_json::json!({
+        "schema": CLAIM_EVENT_SCHEMA,
+        "event": event_type,
+        "agent_id": agent_id,
+        "target": target,
+        "timestamp_unix_s": now,
+        "detail": detail,
+    });
+    if let Ok(line) = serde_json::to_string(&event) {
+        // Best-effort append: never block the caller.
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "{line}")
+            });
+    }
+}
+
+/// Convert days-since-epoch to (year, month, day) using the civil calendar
+/// algorithm (Howard Hinnant). No chrono dependency needed for the CLI.
+fn civil_from_days(z: i64) -> (i64, u64, u64) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
 
 /// The kernel guards PEER surfaces with credentials. Node-local arbitration —
 /// claim, release, status on this node — is not a peer surface, so an auth
@@ -607,6 +752,15 @@ fn execute_claim_local(
                 }
             }
             let revision = store_claims_doc(&mut doc)?;
+            append_claim_event(
+                "claim_local_heartbeat",
+                agent_id,
+                target,
+                serde_json::json!({
+                    "lease_id": holder_id_owned,
+                    "revision": revision,
+                }),
+            );
             return Ok(AgentClaimReport {
                 schema: AGENT_CLAIM_REPORT_SCHEMA,
                 status: "claimed",
@@ -665,6 +819,18 @@ fn execute_claim_local(
         None => doc["claims"] = serde_json::json!([entry]),
     }
     let revision = store_claims_doc(&mut doc)?;
+
+    append_claim_event(
+        "claim_local",
+        agent_id,
+        target,
+        serde_json::json!({
+            "lease_id": claim_id,
+            "revision": revision,
+            "claim_type": kind,
+            "ttl_seconds": ttl,
+        }),
+    );
 
     Ok(AgentClaimReport {
         schema: AGENT_CLAIM_REPORT_SCHEMA,
@@ -752,6 +918,15 @@ fn execute_release_local(
         ));
     }
     store_claims_doc(&mut doc)?;
+    append_claim_event(
+        "release_local",
+        agent_id,
+        target,
+        serde_json::json!({
+            "lease_id": if lease_id.is_empty() { matched_lease.clone() } else { lease_id.to_string() },
+            "proof_refs": proof_refs,
+        }),
+    );
     Ok(AgentReleaseReport {
         schema: AGENT_RELEASE_REPORT_SCHEMA,
         status: "released",
@@ -856,6 +1031,16 @@ pub(crate) fn execute_status(
         .collect();
 
     let total = active_claims.len();
+
+    append_claim_event(
+        "status_query",
+        agent_id,
+        "*",
+        serde_json::json!({
+            "total_claims": total,
+            "source": "kernel",
+        }),
+    );
 
     Ok(AgentStatusReport {
         schema: AGENT_STATUS_REPORT_SCHEMA,
