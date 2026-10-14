@@ -166,9 +166,13 @@ const EMBED_BATCH_MAX: usize = 128;
 /// Calibration lever (crate-visible): lot size follows `CYNIC_EMBED_LOT_SIZE`
 /// (default 32) so batch/ubatch sweeps can run without recompiling.
 pub(crate) fn lot_size() -> usize {
-    std::env::var("CYNIC_EMBED_LOT_SIZE")
-        .ok()
-        .and_then(|raw| raw.parse::<usize>().ok())
+    parse_lot_size(std::env::var("CYNIC_EMBED_LOT_SIZE").ok().as_deref())
+}
+
+/// Pure parser behind `lot_size`: out-of-range and non-numeric inputs fall
+/// back to the default, so calibration sweeps can never break requests.
+fn parse_lot_size(raw: Option<&str>) -> usize {
+    raw.and_then(|text| text.parse::<usize>().ok())
         .filter(|size| (1..=EMBED_BATCH_MAX).contains(size))
         .unwrap_or(EMBED_BATCH_SIZE)
 }
@@ -277,20 +281,10 @@ mod tests {
 
     #[test]
     fn lot_size_follows_env_with_safe_bounds() {
-        // SAFETY: this process alone touches CYNIC_EMBED_LOT_SIZE, and the
-        // test restores the environment before returning.
-        unsafe {
-            std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
-            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "8");
-            assert_eq!(lot_size(), 8);
-            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "0");
-            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "9999");
-            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-            std::env::set_var("CYNIC_EMBED_LOT_SIZE", "not-a-number");
-            assert_eq!(lot_size(), EMBED_BATCH_SIZE);
-            std::env::remove_var("CYNIC_EMBED_LOT_SIZE");
-        }
+        assert_eq!(parse_lot_size(None), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("8")), 8);
+        assert_eq!(parse_lot_size(Some("0")), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("9999")), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("not-a-number")), EMBED_BATCH_SIZE);
     }
 }
