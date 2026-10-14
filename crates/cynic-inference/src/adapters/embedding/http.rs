@@ -172,7 +172,7 @@ impl EmbeddingBackend {
     pub async fn embed_batch_reported(
         &self,
         texts: &[&str],
-        report: &dyn Fn(usize, usize),
+        report: &(dyn Fn(usize, usize) + Sync),
     ) -> Result<Vec<Embedding>, EmbeddingError> {
         let mut out = Vec::with_capacity(texts.len());
         for lot in texts.chunks(EMBED_BATCH_SIZE) {
