@@ -953,6 +953,7 @@ dependencies = [
  "cynic-eval",
  "cynic-finance",
  "cynic-huggingface",
+ "cynic-knowledge",
  "cynic-network",
  "cynic-protocol",
  "cynic-secrets",
