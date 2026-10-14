@@ -244,6 +244,53 @@ fn glob_segments(pattern: &[&str], path: &[&str]) -> bool {
     }
 }
 
+/// Rendered public tree: `(path, redacted content)` pairs sorted by path.
+///
+/// Pure. Refuses a non-admitted plan outright: rendering from a blocked plan
+/// would publish a decision nobody made. Every substitution declared by the
+/// contract's redactions is applied as a regular expression; an invalid
+/// pattern is an error, never a silent skip.
+pub fn render_publication(
+    contract: &PublicationContract,
+    plan: &PublicationPlan,
+    files: &[(String, String)],
+) -> Result<Vec<(String, String)>, String> {
+    if !plan.is_admitted() {
+        return Err("render_refused:plan_not_admitted".to_string());
+    }
+    let mut rendered: Vec<(String, String)> = Vec::new();
+    for decision in &plan.published {
+        let content = files
+            .iter()
+            .find(|(path, _)| path == &decision.path)
+            .map(|(_, content)| content.clone())
+            .unwrap_or_default();
+        rendered.push((decision.path.clone(), apply_redactions(contract, &content)?));
+    }
+    rendered.sort_by(|a, b| a.0.cmp(&b.0));
+    rendered.dedup_by(|a, b| a.0 == b.0);
+    Ok(rendered)
+}
+
+/// Applies every declared redaction substitution to `content`.
+fn apply_redactions(contract: &PublicationContract, content: &str) -> Result<String, String> {
+    let mut out = content.to_string();
+    for redaction in &contract.redactions {
+        for sub in &redaction.substitutions {
+            let re = regex::Regex::new(&sub.match_pattern).map_err(|e| {
+                format!(
+                    "render_refused:invalid_redaction_pattern:{}:{e}",
+                    redaction.name
+                )
+            })?;
+            out = re
+                .replace_all(&out, regex::NoExpand(sub.replace.as_str()))
+                .into_owned();
+        }
+    }
+    Ok(out)
+}
+
 /// Per-path publication decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicationPathDecision {
@@ -771,5 +818,85 @@ mod tests {
         let files = vec![("crates/a.rs".to_string(), "10.10.10.119".to_string())];
         let plan = plan_publication(&contract, &["crates/a.rs".to_string()], &files);
         assert!(plan.uncovered_literals.is_empty());
+    }
+
+    #[test]
+    fn render_refuses_blocked_plan() {
+        let contract = contract_with(
+            vec![rule("crates/**", PublicationPathStatus::Public)],
+            vec![],
+        );
+        let tracked = vec!["crates/a.rs".to_string(), "deny.toml".to_string()];
+        let plan = plan_publication(&contract, &tracked, &[]);
+        assert!(!plan.is_admitted());
+        assert_eq!(
+            render_publication(&contract, &plan, &[]),
+            Err("render_refused:plan_not_admitted".to_string())
+        );
+    }
+
+    #[test]
+    fn render_applies_redactions_and_sorts_paths() {
+        let contract = contract_with(
+            vec![
+                rule("crates/**", PublicationPathStatus::Public),
+                rule("docs/**", PublicationPathStatus::Exclude),
+            ],
+            vec![PublicationRedaction {
+                name: "infra_identities".to_string(),
+                kind: "literal_substitution".to_string(),
+                applies_to: "every published path".to_string(),
+                must_preserve_compilation: true,
+                substitutions: vec![PublicationSubstitution {
+                    match_pattern: "[a-z0-9-]+\\.synapse\\.cynic(:[0-9]+)?".to_string(),
+                    replace: "<node>.example.invalid".to_string(),
+                }],
+            }],
+        );
+        let tracked = vec![
+            "crates/b.rs".to_string(),
+            "crates/a.rs".to_string(),
+            "docs/x.md".to_string(),
+        ];
+        let files = vec![
+            (
+                "crates/a.rs".to_string(),
+                "ssh://forgejo@forgejo.synapse.cynic:22/x".to_string(),
+            ),
+            ("crates/b.rs".to_string(), "no literals".to_string()),
+            ("docs/x.md".to_string(), "forgejo.synapse.cynic".to_string()),
+        ];
+        let plan = plan_publication(&contract, &tracked, &files);
+        assert!(plan.is_admitted());
+        let rendered = render_publication(&contract, &plan, &files).expect("renders");
+        assert_eq!(rendered.len(), 2);
+        assert_eq!(rendered[0].0, "crates/a.rs");
+        assert_eq!(rendered[1].0, "crates/b.rs");
+        assert!(rendered[0].1.contains("<node>.example.invalid"));
+        assert!(!rendered[0].1.contains("synapse.cynic"));
+        assert_eq!(rendered[1].1, "no literals");
+    }
+
+    #[test]
+    fn render_rejects_invalid_redaction_pattern() {
+        let contract = contract_with(
+            vec![rule("crates/**", PublicationPathStatus::Public)],
+            vec![PublicationRedaction {
+                name: "broken".to_string(),
+                kind: "literal_substitution".to_string(),
+                applies_to: "every published path".to_string(),
+                must_preserve_compilation: true,
+                substitutions: vec![PublicationSubstitution {
+                    match_pattern: "([unclosed".to_string(),
+                    replace: "x".to_string(),
+                }],
+            }],
+        );
+        let tracked = vec!["crates/a.rs".to_string()];
+        let files = vec![("crates/a.rs".to_string(), "content".to_string())];
+        let plan = plan_publication(&contract, &tracked, &files);
+        assert!(plan.is_admitted());
+        let err = render_publication(&contract, &plan, &files).expect_err("must refuse");
+        assert!(err.starts_with("render_refused:invalid_redaction_pattern:broken:"));
     }
 }
