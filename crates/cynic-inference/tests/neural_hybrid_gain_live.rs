@@ -44,11 +44,11 @@ struct LabeledQuery {
     grades: HashMap<String, u32>,
 }
 
-fn truncate_front(text: &str) -> &str {
-    if text.len() <= MAX_EMBED_CHARS {
+fn truncate_front(text: &str, max_chars: usize) -> &str {
+    if text.len() <= max_chars {
         text
     } else {
-        let mut end = MAX_EMBED_CHARS;
+        let mut end = max_chars;
         while !text.is_char_boundary(end) {
             end -= 1;
         }
@@ -117,33 +117,70 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     // under the full chunk's content-addressed id across runs. Instruction
     // prefixes (EmbeddingGemma retrieval protocol) are part of the text
     // pipeline: any prefix change must invalidate the cache, hence the tag.
+    // Titles follow the card (`title: {filename} | text: {code}`); the MRL
+    // dimension applies after the cache, so one 768d cache serves every dim.
     let doc_prefix = std::env::var("CYNIC_EMBED_DOC_PREFIX").unwrap_or_default();
     let query_prefix = std::env::var("CYNIC_EMBED_QUERY_PREFIX").unwrap_or_default();
-    let pipeline = format!("trunc{MAX_EMBED_CHARS}/doc={doc_prefix}/query={query_prefix}");
+    let max_chars: usize = std::env::var("CYNIC_EMBED_MAX_CHARS")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .filter(|max| (256..=8000).contains(max))
+        .unwrap_or(MAX_EMBED_CHARS);
+    let trunc_dim: usize = std::env::var("CYNIC_EMBED_TRUNC_DIM")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .filter(|dim| (32..=4096).contains(dim))
+        .unwrap_or(0);
+    // Model-agnostic document template: `{body}` is the truncated chunk,
+    // `{filename}` its source file name. Default is the body alone; a model
+    // card protocol is expressed as data (e.g. Gemma's
+    // `"title: {filename} | text: {body}"`), never as framework behavior.
+    let doc_template =
+        std::env::var("CYNIC_EMBED_DOC_TEMPLATE").unwrap_or_else(|_| "{body}".into());
+    let pipeline =
+        format!("trunc{max_chars}/doc={doc_prefix}/query={query_prefix}/template={doc_template}");
     struct Truncating<'a> {
         bridge: &'a SyncEmbeddingBridge<EmbeddingBackend>,
         last_report: &'a std::cell::Cell<usize>,
         corpus_start: std::time::Instant,
         doc_prefix: &'a str,
+        max_chars: usize,
+        doc_template: &'a str,
     }
     impl ChunkEmbedder for Truncating<'_> {
         fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-            let owned: Vec<String> = texts
+            self.bridge.embed_batch_reported(texts, &|_, _| {})
+        }
+
+        fn embed_chunks(
+            &self,
+            chunks: &[cynic_knowledge::DocumentChunk],
+        ) -> Result<Vec<Vec<f32>>, String> {
+            let owned: Vec<String> = chunks
                 .iter()
-                .map(|text| format!("{}{}", self.doc_prefix, truncate_front(text)))
-                .collect();
-            let truncated: Vec<&str> = owned.iter().map(String::as_str).collect();
-            self.bridge
-                .embed_batch_reported(&truncated, &|done, total| {
-                    if done >= self.last_report.get() + 320 || done == total {
-                        self.last_report.set(done);
-                        println!(
-                            "EMBED {done}/{total} chunks ({}%) elapsed={:.0}s",
-                            done * 100 / total,
-                            self.corpus_start.elapsed().as_secs_f32()
-                        );
-                    }
+                .map(|chunk| {
+                    let body = truncate_front(&chunk.content, self.max_chars);
+                    let filename = chunk.source_path.rsplit('/').next().unwrap_or("none");
+                    format!(
+                        "{}{}",
+                        self.doc_prefix,
+                        self.doc_template
+                            .replace("{filename}", filename)
+                            .replace("{body}", body)
+                    )
                 })
+                .collect();
+            let titled: Vec<&str> = owned.iter().map(String::as_str).collect();
+            self.bridge.embed_batch_reported(&titled, &|done, total| {
+                if done >= self.last_report.get() + 320 || done == total {
+                    self.last_report.set(done);
+                    println!(
+                        "EMBED {done}/{total} chunks ({}%) elapsed={:.0}s",
+                        done * 100 / total,
+                        self.corpus_start.elapsed().as_secs_f32()
+                    );
+                }
+            })
         }
     }
     let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
@@ -155,11 +192,21 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
         last_report: &last_report,
         corpus_start,
         doc_prefix: &doc_prefix,
+        max_chars,
+        doc_template: &doc_template,
     };
-    let (vectors, reused, embedded) =
+    // Leading-dimension truncation applies after the cache (cosine divides by
+    // norms, so no renormalization is needed for ranking): one full-dim
+    // cache serves every truncation experiment. Queries and corpus share it.
+    let (mut vectors, reused, embedded) =
         vectorize_chunks_cached(&adapter, &chunks, &mut vector_cache, &|_, _| {})
             .expect("corpus vectors");
     save_vector_cache(&vector_cache_file, &vector_cache).expect("persist vector cache");
+    if trunc_dim > 0 {
+        for pair in &mut vectors {
+            pair.vector.truncate(trunc_dim);
+        }
+    }
     println!(
         "EMBED done: {} vectors ({} reused, {} embedded) in {:.0}s",
         vectors.len(),
@@ -185,10 +232,19 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
             "[{}] valid query must retrieve at least one hit",
             labeled.id
         );
-        let query_text = format!("{query_prefix}{}", truncate_front(&labeled.query));
+        let query_text = format!(
+            "{query_prefix}{}",
+            truncate_front(&labeled.query, max_chars)
+        );
         let query_vector = bridge
             .embed_batch(std::slice::from_ref(&query_text.as_str()))
             .expect("query vector");
+        let mut query_vector = query_vector;
+        if trunc_dim > 0 {
+            for vector in &mut query_vector {
+                vector.truncate(trunc_dim);
+            }
+        }
         let hybrid_hits =
             index.search_hybrid(&labeled.query, &query_vector[0], &vectors, TOP_K, DENSE_K);
         assert!(
