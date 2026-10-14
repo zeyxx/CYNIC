@@ -239,25 +239,31 @@ mod tests {
         }
     }
 
+    fn test_claim(expires_at_ms: u64) -> cynic_workload::AgentWorkloadClaim {
+        cynic_workload::AgentWorkloadClaim {
+            guard: cynic_protocol::LeaseGuard {
+                agent_id: "build-agent-1".into(),
+                target: "workload".into(),
+                lease_id: "lease-1".into(),
+                fencing_token: 1,
+            },
+            expires_at_ms,
+            cancellation_generation: 0,
+            max_lease_window_ms: 300_000,
+            granted_at_ms: expires_at_ms - 300_000,
+        }
+    }
+
     fn durable_record(
         workload_id: &str,
         idempotency_key: &str,
         state: AgentWorkloadState,
         committed_at_ms: u64,
-        claim: Option<(u64, u64)>, // (expires_at_ms, first_claim_ms)
+        claim: Option<u64>,
     ) -> cynic_workload::DurableAgentWorkloadRecord {
         let mut rec = test_record(workload_id, idempotency_key);
         rec.state = state;
-        rec.claim =
-            claim.map(
-                |(expires_at_ms, first_claim_ms)| cynic_workload::AgentWorkloadClaim {
-                    expires_at_ms,
-                    first_claim_ms,
-                    renewal_count: 0,
-                    last_renewal_ms: first_claim_ms,
-                    actor: "build-agent-1".into(),
-                },
-            );
+        rec.claim = claim.map(test_claim);
         cynic_workload::DurableAgentWorkloadRecord {
             schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
             revision: 1,
@@ -311,7 +317,7 @@ mod tests {
             "key-claimed",
             AgentWorkloadState::Completed,
             1_000,
-            Some((6_000, 1_500)),
+            Some(6_000),
         );
         store
             .compare_and_swap("workload-claimed", None, &terminal_claimed.record, 1_000)
