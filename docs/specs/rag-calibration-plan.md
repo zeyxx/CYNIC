@@ -154,6 +154,26 @@ with gold grades AND a trap sibling. Every addition re-runs L1 and must
 not move frozen L2 values by more than 0.01, or the freeze reopens.
 Target: 50 queries before any ML routing (Lex-Router's own floor).
 
+Minimums, grounded in our data (per-query sd≈0.43, bimodal 0/1):
+
+- Mean claims: ±0.05 needs ~250 queries (out of reach); ±0.10 needs
+  ~60. At n=18 the mean CI spans ±0.2 — never compare two means
+  directly.
+- Comparison claims (Wilcoxon): 6 unanimous discriminating pairs reach
+  p<0.05. Ties do not vote. At our 50% tie rate that means **30–40
+  queries (≈15–20 discriminating pairs)** to settle a fusion claim.
+- Growth runs in **batches of 6** (3 natural/adversarial pairs) aimed
+  at disagreement zones (margin<0.05, dense-win, bm25-win) — power
+  comes from informative queries, not volume. One L1 per batch (~90 s).
+- Double stop rule: **success** (p<0.05 with same sign on two corpora)
+  or **futility** (two batches without tightening — the effect is
+  absent, cut). The dear cost is writing and grading, not running:
+  batch, never drip-feed.
+- Flow: proposals (human or `llm:<model>`) → `cynic know grades review`
+  deterministic gate → human confirm → fixture. The gate checks
+  structure and trap discipline; semantic truth stays human until the
+  epistemic engine calibrates proposer weights (phase 3).
+
 ### 5.5 Statistics standard
 
 With n=18, means do not conclude — paired per-query deltas do. Every

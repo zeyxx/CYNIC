@@ -6,6 +6,7 @@
 
 pub mod bench_basket_launcher;
 pub mod forge;
+pub mod grade_proposal;
 pub mod retrieval_gain;
 
 pub use bench_basket_launcher::{
@@ -15,6 +16,9 @@ pub use bench_basket_launcher::{
 pub use forge::{
     FORGE_PROFILE_SCHEMA, ForgeProfileError, ForgeProfileReport, alias_from_artifact_id,
     forge_profile_from_benchmark_report, write_loopback_profile,
+};
+pub use grade_proposal::{
+    GRADE_PROPOSAL_SCHEMA_V1, GradeProposal, GradeVerdict, judge_grade_proposal,
 };
 pub use retrieval_gain::{
     BenchConfig, BenchReport, FIXTURE_SCHEMA_V1, Fixture, GOLD_DIAG_DEPTH, LabeledQuery,
