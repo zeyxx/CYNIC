@@ -381,7 +381,28 @@
           "default_route": false
         }
       ],
-      "services": [],
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
+          "scheme": "http",
+          "endpoint_host": "10.20.0.3",
+          "port": 8081,
+          "network_plane": "service",
+          "unit": "cynic-embedding-cortex.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://10.20.0.3:8081/health"
+          },
+          "model": "embeddinggemma-2-BF16.gguf",
+          "flags": "--embeddings -c 4096 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
+          "memory_guard": "MemoryMax=3G",
+          "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
+        }
+      ],
       "energy_profile": {
         "class": "always_on"
       }
