@@ -55,7 +55,7 @@ pub(crate) fn archive_terminal_workloads(
         if !apply {
             continue;
         }
-        match store.archive_terminal(workload_id, *older_than_ms, now_ms) {
+        match store.archive_terminal(workload_id, older_than_ms, now_ms) {
             Ok(Some(path)) => {
                 let read_back_absent = !std::path::Path::new(state_root).join(workload_id).exists();
                 archived.push(ArchivedWorkload {
