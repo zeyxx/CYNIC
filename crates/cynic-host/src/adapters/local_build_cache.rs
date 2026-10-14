@@ -513,6 +513,7 @@ fn read_workload_terminal(
         let Some(name) = name.to_str() else { continue };
         let Some(revision) = name
             .strip_prefix("revision-")
+            .and_then(|number| number.strip_suffix(".json"))
             .and_then(|number| number.parse::<u64>().ok())
         else {
             continue;
@@ -838,8 +839,11 @@ mod tests {
     fn write_record(root: &std::path::Path, workload_id: &str, state: &str) {
         let dir = root.join("wstore").join(workload_id);
         fs::create_dir_all(&dir).unwrap();
+        // Production filenames are `revision-{020}.json` (see the workload
+        // store's `revision_name`); the suffix must parse, not just the
+        // bare number.
         fs::write(
-            dir.join("revision-1"),
+            dir.join("revision-00000000000000000001.json"),
             format!(r#"{{"record":{{"state":"{state}"}}}}"#),
         )
         .unwrap();
@@ -925,6 +929,41 @@ mod tests {
             terminal("build-2222222222222222"),
             Some(None),
             "record-less workspace must read back unclassifiable"
+        );
+    }
+
+    #[test]
+    fn ephemeral_observe_reads_the_latest_revision() {
+        let root = tempfile::tempdir().unwrap();
+        let parent = root.path().join("ws");
+        fs::create_dir_all(parent.join("build-3333333333333333")).unwrap();
+        let dir = root.path().join("wstore").join("build-3333333333333333");
+        fs::create_dir_all(&dir).unwrap();
+        // An old live revision followed by a terminal one must read back
+        // terminal: the observer follows the highest revision number.
+        fs::write(
+            dir.join("revision-00000000000000000001.json"),
+            r#"{"record":{"state":"claimed"}}"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("revision-00000000000000000002.json"),
+            r#"{"record":{"state":"blocked"}}"#,
+        )
+        .unwrap();
+        let desired = retention_desired(root.path(), vec![workspace_scope()]);
+
+        let observation = LocalBuildCacheAdapter.observe(&desired);
+
+        let terminal = observation
+            .observed_ephemeral
+            .iter()
+            .find(|entry| entry.path.ends_with("build-3333333333333333"))
+            .map(|entry| entry.workload_terminal);
+        assert_eq!(
+            terminal,
+            Some(Some(true)),
+            "latest revision wins over older live revisions"
         );
     }
 
