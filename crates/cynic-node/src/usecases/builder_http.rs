@@ -145,6 +145,7 @@ async fn submit_workload(
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
         requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
@@ -406,6 +407,7 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
+        branch: Some(reref_name(&payload)),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
@@ -554,6 +556,7 @@ mod tests {
             request_id: forgejo_workload_id(commit_sha),
             requested_by: "forgejo".to_string(),
             source_commit: commit_sha.to_string(),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -674,6 +677,7 @@ mod tests {
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
+            branch: None,
             source: BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
