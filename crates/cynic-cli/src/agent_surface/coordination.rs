@@ -1144,6 +1144,15 @@ fn execute_status_from_claims_file(agent_id: &str) -> Result<AgentStatusReport, 
         .collect();
 
     let total = active_claims.len();
+    append_claim_event(
+        "status_query",
+        agent_id,
+        "*",
+        serde_json::json!({
+            "total_claims": total,
+            "source": "local_file",
+        }),
+    );
     Ok(AgentStatusReport {
         schema: AGENT_STATUS_REPORT_SCHEMA,
         status: if total > 0 { "active" } else { "idle" },
