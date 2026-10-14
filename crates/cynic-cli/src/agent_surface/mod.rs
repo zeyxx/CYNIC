@@ -6,6 +6,8 @@
 //!   - cynic agent claim      — claim a scope for exclusive editing
 //!   - cynic agent release    — release an active claim
 //!   - cynic agent status     — query active claims
+//!   - cynic agent heartbeat  — refresh the TTL of a live local claim
+//!   - cynic agent events     — read back the append-only claim event log
 //!   - cynic agent intent seal|verify — seal or verify transmission records
 
 use std::process::ExitCode;
@@ -15,8 +17,9 @@ use clap::Subcommand;
 use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
-    execute_claim, execute_identify, execute_register, execute_release, execute_status,
-    resolve_builder_endpoint, resolve_git_remote, resolve_kernel_base,
+    execute_claim, execute_events, execute_heartbeat, execute_identify, execute_register,
+    execute_release, execute_status, resolve_builder_endpoint, resolve_git_remote,
+    resolve_kernel_base,
 };
 use self::intent::{IntentCommand, execute_intent};
 
@@ -133,6 +136,36 @@ pub(crate) enum AgentCommand {
         /// Kernel REST base override (else CYNIC_KERNEL_BASE env, else registry).
         #[arg(long)]
         kernel_base: Option<String>,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Refresh the TTL of a live local claim (native heartbeat)
+    Heartbeat {
+        /// Agent ID holding the claim
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Target that was claimed
+        #[arg(long)]
+        target: String,
+        /// Lease ID from claim response (optional; agent + target match when empty)
+        #[arg(long, default_value = "")]
+        lease_id: String,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read back the append-only claim event log
+    Events {
+        /// Agent ID filter ("*" for all agents)
+        #[arg(long, env = "CYNIC_AGENT_ID", default_value = "*")]
+        agent_id: String,
+        /// Target filter ("*" for all targets)
+        #[arg(long, default_value = "*")]
+        target: String,
+        /// Maximum events returned (tail of the log, chronological order)
+        #[arg(long, default_value = "50")]
+        limit: usize,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -274,6 +307,36 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             }
             Err(error) => {
                 eprintln!("agent status failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Heartbeat {
+            agent_id,
+            target,
+            lease_id,
+            json: _,
+        } => match execute_heartbeat(&agent_id, &target, &lease_id) {
+            Ok(report) => {
+                emit_pretty_json(&report);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent heartbeat failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Events {
+            agent_id,
+            target,
+            limit,
+            json: _,
+        } => match execute_events(&agent_id, &target, limit) {
+            Ok(report) => {
+                emit_pretty_json(&report);
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("agent events failed: {}", error);
                 ExitCode::FAILURE
             }
         },
