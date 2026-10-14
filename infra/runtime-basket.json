@@ -152,18 +152,6 @@
       "note": "DEAD: zero external consumers. Recorded so the count stays honest; candidate for deletion."
     },
     {
-      "id": "cynic-topology",
-      "crate": "cynic-host",
-      "binary": "cynic-topology",
-      "audience": "tooling",
-      "install_path": null,
-      "roles": [],
-      "consumers": [
-        "infra/crate-topology.json generator (--check / --write)"
-      ],
-      "note": "Refuses to write a document ARCH-004 would flag. The reference implementation for every other comparator in this repository."
-    },
-    {
       "id": "cynic-pool",
       "crate": "cynic-pool",
       "binary": "cynic-pool",
