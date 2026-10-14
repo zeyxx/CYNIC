@@ -185,4 +185,17 @@ fn hybrid_rrf_gain_over_bm25_is_measured() {
         "MEAN MRR over {measured} queries: bm25={mean_bm25:.3} hybrid={mean_hybrid:.3} delta={:.3}",
         mean_hybrid - mean_bm25
     );
+    // Persist the means beside the harness cache so a proof run leaves
+    // readable evidence even though passing-test stdout is captured.
+    let report = serde_json::json!({
+        "schema": "cynic.hybrid_gain_measure.v1",
+        "measured_queries": measured,
+        "mean_mrr_bm25": mean_bm25,
+        "mean_mrr_hybrid": mean_hybrid,
+        "delta_hybrid_minus_bm25": mean_hybrid - mean_bm25,
+    });
+    let _ = std::fs::write(
+        root.join("target/hybrid_gain_measure.json"),
+        serde_json::to_string_pretty(&report).unwrap_or_default(),
+    );
 }
