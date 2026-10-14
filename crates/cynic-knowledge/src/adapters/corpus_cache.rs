@@ -4,8 +4,11 @@ use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
 use crate::adapters::git::extract_git_history;
-use crate::adapters::json_contract::parse_json_contract;
+use crate::adapters::json_contract::{
+    load_authority_overrides, parse_json_contract_with_authority,
+};
 use crate::adapters::markdown::parse_markdown_tree;
+use crate::domain::authority::authority_for;
 use crate::domain::cache::{CachedFileRecord, CorpusCacheRecord};
 use crate::domain::scorer::LexicalIndex;
 
@@ -62,6 +65,7 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
 
     let mut active_paths = Vec::new();
     let mut cache_dirty = false;
+    let authority_overrides = load_authority_overrides(root);
 
     // 1. Scan Markdown documentation files
     for entry in WalkDir::new(root)
@@ -144,7 +148,11 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
                 if !cache.is_file_fresh(&rel_path, mtime_secs, size_bytes) {
                     if let Ok(content) = fs::read_to_string(entry.path()) {
                         let hash = blake3::hash(content.as_bytes()).to_hex().to_string();
-                        let chunks = parse_json_contract(&rel_path, &content);
+                        let chunks = parse_json_contract_with_authority(
+                            &rel_path,
+                            &content,
+                            authority_for(&rel_path, &authority_overrides),
+                        );
                         cache.update_file(CachedFileRecord {
                             rel_path,
                             mtime_secs,
