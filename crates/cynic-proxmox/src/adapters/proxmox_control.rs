@@ -812,7 +812,7 @@ fn resolve_control_configuration() -> ResolvedProxmoxControl {
                     }
                 })
             })
-            .unwrap_or_else(|| PathBuf::from("/etc/cynic/secrets/proxmox-token")),
+            .unwrap_or_else(|| CynicPaths::secret_path("proxmox-token")),
         ca_file: optional_env("CYNIC_PROXMOX_CA_FILE")
             .or(file.ca_file)
             .or_else(|| registry.as_ref().and_then(|value| value.ca_ref.clone())),
@@ -855,7 +855,7 @@ fn load_registry_provider_control() -> Option<RegistryProviderControl> {
 fn load_control_file() -> ProxmoxControlFile {
     let path = optional_env("CYNIC_PROXMOX_CONFIG")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/etc/cynic/proxmox-control.toml"));
+        .unwrap_or_else(|| CynicPaths::system_config_dir().join("proxmox-control.toml"));
     std::fs::read_to_string(path)
         .ok()
         .and_then(|content| toml::from_str(&content).ok())
