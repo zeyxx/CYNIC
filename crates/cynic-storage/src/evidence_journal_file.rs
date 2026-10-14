@@ -1,7 +1,7 @@
 //! Cold-evidence journal file adapter (D1, layer L0).
 //!
 //! Append-only writer + offline verifier for `EvidenceJournalEntry`
-//! segments under a root directory (default `/var/lib/cynic/evidence`).
+//! segments under a root directory (default `<state>/evidence`).
 //!
 //! Layout: one JSONL segment per month (`evidence-YYYYMM.journal`). Each
 //! segment's first entry chains from the previous segment's final hash

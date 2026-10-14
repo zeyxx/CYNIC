@@ -802,9 +802,9 @@ fn resolve_control_configuration() -> ResolvedProxmoxControl {
                     let p = PathBuf::from(home).join(".config/cynic/secrets/proxmox-token");
                     if p.exists() {
                         eprintln!(
-                            "WARN: Using dev fallback for Proxmox token at {}. \
-                             Move to /etc/cynic/secrets/proxmox-token for production.",
-                            p.display()
+                            "WARN: Using dev fallback for Proxmox token at {}. Move to {} for production.",
+                            p.display(),
+                            CynicPaths::secret_path("proxmox-token").display()
                         );
                         Some(p)
                     } else {
