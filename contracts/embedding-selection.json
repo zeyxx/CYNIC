@@ -1,0 +1,74 @@
+{
+  "schema": "cynic.embedding_selection.v1",
+  "description": "Scoreboard and adoption gates for CYNIC embedding models. Measured slots stay null until the graded bench fills them; selection freezes only on full-corpus proof, reproduced twice.",
+  "version": "1.0.0",
+  "reference": {
+    "model": "embeddinggemma-2 BF16 (llama-server, cortex CPU)",
+    "subset_1000": {
+      "mrr_bm25": 0.574,
+      "mrr_dense": 0.226,
+      "mrr_hybrid_rrf": 0.431,
+      "mrr_hybrid_guard_0_1": 0.523
+    },
+    "full_corpus": {
+      "note": "RRF is corpus-fragile (±0.1 for 5 changed chunks); no single frozen value. BM25 0.574 is the drift anchor.",
+      "mrr_bm25": 0.574,
+      "mrr_dense": 0.457,
+      "mrr_hybrid_rrf_range": [0.434, 0.588],
+      "mrr_hybrid_guard_0_1": "corpus-conditional, rejected (Wilcoxon p~=0.59)",
+      "sentinel_rqc4_paraphrase_dense": 0.0
+    }
+  },
+  "criteria_weights": {
+    "mrr_hybrid_guard_0_1": 0.45,
+    "mrr_dense_isolated": 0.25,
+    "sentinel_rqc4_paraphrase_dense": 0.15,
+    "embed_throughput": 0.1,
+    "vault_fit_and_license": 0.1
+  },
+  "candidates": {
+    "B1_gemma2_q4": {
+      "repo": "ggml-org/embeddinggemma-2-GGUF",
+      "size_mb": 271,
+      "why": "Same weights as reference: isolates quantization cost. Free speed if quality holds.",
+      "measured": null
+    },
+    "B2_jina_nano_retrieval": {
+      "repo": "jinaai/jina-embeddings-v5-text-nano-retrieval",
+      "size_mb": 212,
+      "why": "Retrieval-tuned head on EuroBERT-210m; our task is retrieval. MMTEB 65.5.",
+      "instruction_risk": "Needs task prefixes (retrieval.query:/retrieval.passage:); disadvantaged if pipeline omits them. Covered by TextPipeline per-model config.",
+      "measured": null
+    },
+    "B3_jina_small_retrieval": {
+      "repo": "jinaai/jina-embeddings-v5-text-small-retrieval",
+      "size_mb": 596,
+      "why": "Best sub-1B quality (MMTEB 67.0, Qwen3-0.6B base). Quality ceiling.",
+      "instruction_risk": "Same prefix requirement as B2.",
+      "measured": null
+    },
+    "B4_qwen3_0_6b": {
+      "repo": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "size_mb": 596,
+      "why": "Raw backbone, Apache-2.0, MTEB ~67.8. Fallback if jina GGUF misbehaves.",
+      "instruction_risk": "Qwen3 instruction/chat template may interfere with plain-text embedding; verify template handling before measuring.",
+      "measured": null
+    },
+    "B0_minilm_floor": {
+      "repo": "second-state/All-MiniLM-L6-v2-Embedding-GGUF",
+      "size_mb": 23,
+      "why": "Floor baseline: quantifies what small costs.",
+      "measured": null
+    }
+  },
+  "adoption_gates": {
+    "adopt_iff": [
+      "mrr_hybrid_guard_0_1 strictly above reference on full corpus, twice",
+      "mrr_dense_isolated does not regress vs reference",
+      "sentinel RQC4 moves or documented reason it cannot"
+    ],
+    "screen_protocol": "subset-1000 first; full corpus only for models beating reference",
+    "per_model_pipeline": "prefixes and template via TextPipeline; cache separates automatically"
+  },
+  "frozen": null
+}
