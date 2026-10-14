@@ -66,6 +66,7 @@ mod tests {
                             cidr: Some("10.30.0.0/24".to_string()),
                             dns_zone: Some("labmesh.example".to_string()),
                             canonical: Some(true),
+                            interface: None,
                         },
                     )]),
                     reservations: Vec::new(),
@@ -86,6 +87,7 @@ mod tests {
                         services: vec![model::RegistryService {
                             name: Some("ssh".to_string()),
                             port: Some(22),
+                            network_plane: None,
                         }],
                     },
                     model::RegistryNode {
