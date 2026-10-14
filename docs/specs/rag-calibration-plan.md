@@ -99,3 +99,108 @@ normalization machinery — the most invasive axis, so it goes last.
 - No LLM judge in the loop before training-free signals plateau (cost).
 - No new fixture queries until the current 18 are all explained (no
   hiding misses in averages over more queries).
+
+## 5. Run economy: ladder, cut rules, relaunch triggers
+
+Measured costs (cortex CPU, EmbeddingGemma-2 BF16, ~12 chunks/s):
+
+| Rung | Corpus | Cold embed | Hot (cache hit) | Use |
+|---|---|---|---|---|
+| L0 smoke | subset 100 | ~15 s (est.) | seconds | Code-change gate |
+| L1 screen | subset 1000 | ~90 s | ~30 s | Axes, thresholds, models |
+| L2 freeze | full (~10.5k) | ~900 s | ~60–120 s | Freezing only |
+
+### 5.1 Ladder discipline
+
+- New/changed bench, fusion, or scorer code: L0 twice — outputs must be
+  bit-identical, else no bigger run (determinism gate).
+- New axis value (threshold, k, prefix): L1. Promote to L2 only on L1 win.
+- New model: L1 screen per contract gates; L2 only for models beating
+  reference.
+- L2 runs freeze exactly one decision each. No exploratory L2.
+- Reproducibility gate: same GGUF bytes, 3 runs, bit-identical means —
+  a model that wobbles is out before calibration starts.
+- Degradation gate: before adopting any model, a noise probe set (typos,
+  jargon, terse queries) must not regress vs reference. A model gaining
+  on clean queries but losing on noisy ones is not progress.
+
+### 5.2 Cut rules (when to abort a run)
+
+- L1 hybrid below BM25 by more than 0.10 with zero rescued queries:
+  dead axis, cut, do not promote.
+- Embed throughput collapses (>3× the ~12/s baseline): infra fault,
+  cut and diagnose (server, not the bench).
+- Determinism gate fails (L0 twice differ): cut everything, fix the
+  nondeterminism first — all prior means are suspect.
+- Full-corpus BM25 mean moves vs the frozen 0.574 by more than 0.02:
+  corpus drifted under our feet — cut, diff the corpus, re-baseline.
+
+### 5.3 Relaunch triggers (when cached numbers die)
+
+| Change | Invalidates | Action |
+|---|---|---|
+| `scorer.rs` / `hybrid_rrf.rs` fusion logic | ALL hybrid/dense numbers | Re-run L1 baseline + L2 freeze |
+| `retrieval_gain.rs` bench logic | ALL means | Re-run L1 baseline; L2 if frozen values move |
+| Fixture grades/queries | Affected queries only | Re-run L1; report per-query deltas |
+| Corpus content (chunk count delta) | ALL numbers | Re-baseline BM25 first (drift check §5.2) |
+| New embedding model | That model's columns only | Screen per contract; others stand |
+| Pipeline (prefix/template/max_chars) | That pipeline's vectors | Fresh cache file automatically; re-embed |
+
+### 5.4 Fixture growth protocol (the "more data" rule)
+
+Section 4's anti-goal stands with one door: new queries arrive in
+pairs — one natural phrasing, one adversarial (paraphrase/trap) — each
+with gold grades AND a trap sibling. Every addition re-runs L1 and must
+not move frozen L2 values by more than 0.01, or the freeze reopens.
+Target: 50 queries before any ML routing (Lex-Router's own floor).
+
+### 5.5 Statistics standard
+
+With n=18, means do not conclude — paired per-query deltas do. Every
+fusion claim reports wins/losses/ties plus the Wilcoxon signed-rank
+statistic (captures direction AND magnitude; the sign test ignores
+magnitude). Freeze requires p<0.05 AND same-sign wins on two corpora
+(subset + full). A mean gain with p>0.1 is noise, however pretty.
+
+### 5.6 Corpus pinning (learned 2026-10-14, the hard way)
+
+The corpus is the repo we edit: every doc/code edit moves chunk ids, and
+RRF top-5 swings ±0.1 for 5 changed chunks while BM25 holds 0.574 and
+dense holds. Consequences:
+
+- L2 freeze runs happen on a clean tree at a pinned commit. The report
+  already carries `corpus_chunks`; the run procedure records HEAD.
+- No file edits anywhere in the worktree between a baseline and its
+  challenger (same-corpus rule). Our own calibration docs outrank gold
+  (RQC2 fell 1.0→0.25 under our plan doc) — self-pollution is measured,
+  not excluded.
+- BM25 mean is the drift anchor: it held 0.574 across three corpora
+  (10560/10580/10585 chunks). Any run where it moves >0.02 is cut.
+- Subset screens undervalue dense (0.226 subset vs 0.457 full): model
+  screens report both, decide on full.
+
+## 6. Frozen verdicts (full corpus, deterministic code)
+
+| Claim | Subset-1000 | Full | Wilcoxon | Verdict |
+|---|---|---|---|---|
+| RRF beats BM25 | 0.431 < 0.574 | 0.434 / 0.588 (corpus-conditional!) | — | **NOT FROZEN**: value swings ±0.1 with corpus; RRF is knife-edge on ties |
+| Guard 0.1 beats RRF | 0.523 (+0.092) | +0.052 / -0.102 (corpus-conditional) | p≈0.31 / p≈0.59 | **REJECTED**: null on both corpora, sign flips with corpus |
+| Dense scales with corpus | 0.226 | 0.457 | — | **CONFIRMED**: subset starves dense; screens must note the bias |
+| BM25 stable across corpora | 0.574 | 0.574 ×3 | — | **CONFIRMED**: the drift anchor |
+
+Where the guard dies, per query (10585 corpus, 5 wins / 4 losses / 9 ties):
+fires-and-loses on RQ4/RQ6/RQ13 (dense was 1.0 — the one-sided gate
+ignores dense confidence); fires-and-wins on RQ2b/RQ2c/RQC3/RQC2.
+The specified next step is the two-sided gate (A3): fire only when BM25
+is confident AND dense is not. RQ2b stays flagged: both sides know the
+answer yet RRF ranks it #4 — an RRF-multiplier pathology (authority ×
+contract-floor reorder fused ranks), audited separately, not patched
+around.
+
+External review (my-stack specialist, 2026-10-14) adopted: Wilcoxon as
+standard (§5.5), RRF-k sweep stays A1, dense-margin stays A3, B1 first.
+Corrected, not adopted: gold@20 never replaced MRR@5 — the report
+carries both (graded top-5 + diagnostic depth). Added from review:
+degradation gate (typo/jargon/noise queries before adopting a model)
+and reproducibility gate (same GGUF, 3 runs, bit-identical) join §5.1;
+per-model instruction/prefix risks join the selection contract.
