@@ -51,6 +51,8 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
         }
         let (observed_ephemeral, ephemeral_skipped) =
             observe_ephemeral(desired, state_root, temporary_root);
+        let unlinked_checkouts =
+            observe_unlinked_checkouts(desired, state_root, &observed_ephemeral);
         BuildCacheObservation {
             schema: BUILD_CACHE_OBSERVATION_SCHEMA,
             node_id: desired.node_id.clone(),
@@ -63,7 +65,7 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
             observed_noncanonical_cache_paths,
             observed_ephemeral: observed_ephemeral.clone(),
             ephemeral_skipped,
-            unlinked_checkouts: Vec::new(),
+            unlinked_checkouts,
             unknowns,
         }
     }
@@ -472,6 +474,63 @@ fn observe_ephemeral(
     }
     observed.sort_by(|left, right| left.path.cmp(&right.path));
     (observed, skipped)
+}
+
+/// Observe evidence checkouts whose name matches no workload record in any
+/// configured workload store. A checkout is "linked" when a directory named
+/// after it exists under a workload store and contains at least one
+/// `revision-*.json` record. Unlinked checkouts are reported here — an
+/// observation surface for operators, never an eligibility input.
+fn observe_unlinked_checkouts(
+    desired: &BuildCacheDesiredState,
+    state_root: &Path,
+    observed: &[EphemeralEntry],
+) -> Vec<String> {
+    let store_paths: Vec<PathBuf> = desired
+        .ephemeral_scopes
+        .iter()
+        .filter(|scope| scope.kind == EphemeralKind::WorkloadWorkspace)
+        .filter_map(|scope| scope.workload_store_relative_path.as_ref())
+        .map(|relative| state_root.join(relative))
+        .collect();
+    let mut unlinked: Vec<String> = observed
+        .iter()
+        .filter(|entry| entry.kind == EphemeralKind::EvidenceCheckout)
+        .filter(|entry| {
+            let Some(name) = Path::new(&entry.path).file_name().and_then(|n| n.to_str())
+            else {
+                return false;
+            };
+            !store_paths.iter().any(|store| has_workload_record(store, name))
+        })
+        .map(|entry| entry.path.clone())
+        .collect();
+    unlinked.sort();
+    unlinked
+}
+
+/// Check whether a workload record directory exists and contains at least
+/// one `revision-*.json` file. Any doubt (missing directory, unreadable
+/// entry, unparseable name) resolves to `false` — the checkout is then
+/// reported as unlinked.
+fn has_workload_record(store: &Path, workload_id: &str) -> bool {
+    if workload_id.is_empty()
+        || workload_id.contains('/')
+        || workload_id.contains('\\0')
+    {
+        return false;
+    }
+    let record_dir = store.join(workload_id);
+    let Ok(entries) = fs::read_dir(&record_dir) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            return false;
+        };
+        name.starts_with("revision-") && name.ends_with(".json")
+    })
 }
 
 /// Strict name patterns: checkouts are `cynic-<hex>` evidence clones,
