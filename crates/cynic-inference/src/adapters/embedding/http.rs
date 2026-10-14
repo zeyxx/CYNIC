@@ -27,9 +27,16 @@ impl EmbeddingBackend {
         api_key: Option<String>,
         model: &str,
     ) -> Result<Self, BackendInitError> {
+        // Batched lots of long chunks can prefill well past 30 s on a
+        // CPU-only server: default 120 s, override with CYNIC_EMBED_TIMEOUT_MS.
+        let timeout_ms = std::env::var("CYNIC_EMBED_TIMEOUT_MS")
+            .ok()
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .filter(|ms| (1_000..=600_000).contains(ms))
+            .unwrap_or(120_000);
         Ok(Self {
             client: Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
+                .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(BackendInitError::from_http)?,
             base_url: base_url.trim_end_matches('/').to_string(),
@@ -188,9 +195,17 @@ impl EmbeddingBackend {
         report: &(dyn Fn(usize, usize) + Sync),
     ) -> Result<Vec<Embedding>, EmbeddingError> {
         let mut out = Vec::with_capacity(texts.len());
-        for lot in texts.chunks(lot_size()) {
+        let lots = texts.chunks(lot_size()).len();
+        for (lot_no, lot) in texts.chunks(lot_size()).enumerate() {
             let inputs = lot.iter().map(|text| (*text).to_string()).collect();
-            out.extend(self.post_batch(inputs).await?);
+            let mut batch = self.post_batch(inputs).await.map_err(|error| {
+                EmbeddingError::Protocol(format!(
+                    "lot {}/{lots} ({lot} inputs) failed: {error}",
+                    lot_no + 1,
+                    lot = lot.len()
+                ))
+            })?;
+            out.append(&mut batch);
             report(out.len(), texts.len());
         }
         Ok(out)
