@@ -244,7 +244,7 @@ pub fn derive_firewall_policy_from_registry(
             let plane_str = s
                 .get("network_plane")
                 .and_then(|v| v.as_str())
-                .unwrap_or("synapse");
+                .ok_or_else(|| format!("undeclared_service_plane:{canonical_node_id}/{name}"))?;
 
             let allowed_scope = match plane_str {
                 "service" => NetworkPlaneScope::ServiceOnly,
@@ -253,7 +253,11 @@ pub fn derive_firewall_policy_from_registry(
                 "cluster" | "mesh" | "all" => NetworkPlaneScope::ClusterMesh,
                 "loopback" => NetworkPlaneScope::LoopbackOnly,
                 "public" | "wan" => NetworkPlaneScope::PublicWan,
-                _ => NetworkPlaneScope::ServiceOnly,
+                unknown => {
+                    return Err(format!(
+                        "unknown_service_plane:{canonical_node_id}/{name}:{unknown}"
+                    ));
+                }
             };
 
             bindings.push(DynamicPortBinding {
@@ -466,7 +470,7 @@ mod tests {
                 {
                     "id": "cynic-builder",
                     "services": [
-                        { "name": "builder-daemon", "port": 9090, "network_plane": "synapse" }
+                        { "name": "builder-daemon", "port": 9090, "network_plane": "service" }
                     ]
                 }
             ]
@@ -486,5 +490,44 @@ mod tests {
         let bad_ruleset = "table inet other_filter { chain test { policy accept; } }";
         let bad_findings = audit_firewall_ruleset(&policy, bad_ruleset);
         assert!(!bad_findings.is_empty());
+    }
+
+    fn firewall_test_registry(service: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "network_policy": {
+                "canonical_service_plane": "service",
+                "planes": {
+                    "service": { "cidr": "10.10.10.0/24" },
+                    "admin": { "cidr": "192.168.100.0/24" }
+                }
+            },
+            "nodes": [
+                { "id": "probe-node", "services": [service] }
+            ]
+        })
+    }
+
+    #[test]
+    fn undeclared_service_plane_fails_closed() {
+        let reg = firewall_test_registry(serde_json::json!({ "name": "ghost", "port": 9999 }));
+        let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
+            .expect_err("undeclared plane must fail");
+        assert!(
+            error.contains("undeclared_service_plane:probe-node/ghost"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn unknown_service_plane_fails_closed() {
+        let reg = firewall_test_registry(
+            serde_json::json!({ "name": "ghost", "port": 9999, "network_plane": "synapse" }),
+        );
+        let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
+            .expect_err("unknown plane must fail");
+        assert!(
+            error.contains("unknown_service_plane:probe-node/ghost:synapse"),
+            "{error}"
+        );
     }
 }
