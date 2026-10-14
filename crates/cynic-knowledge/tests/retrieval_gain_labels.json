@@ -104,6 +104,56 @@
       }
     },
     {
+      "id": "RQ2b_DISK_CLEANUP",
+      "query": "builder disk cleanup remove old checkouts",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ2c_RETENTION_TTL",
+      "query": "retention ttl prune build caches",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ11_FAILOVER",
+      "query": "storage failover ordered fallback endpoints",
+      "trap": false,
+      "grades": {
+        "crates/cynic-storage/src/client_policy.rs": 2
+      }
+    },
+    {
+      "id": "RQ12_MEMORY_GUARD",
+      "query": "memory guard systemd service limit embedding server",
+      "trap": false,
+      "grades": {
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ13_TUNNEL",
+      "query": "ssh tunnel keepalive reverse forward builder",
+      "trap": false,
+      "grades": {
+        "crates/cynic-host/src/kernel_tunnel.rs": 2
+      }
+    },
+    {
+      "id": "RQC4_PARAPHRASE",
+      "query": "inquiries concepts different words same meaning retrieval",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
+    },
+    {
       "id": "RQ10_TRAP_KUBERNETES",
       "query": "deploy kubernetes helm chart cynic cluster pods",
       "trap": true,
