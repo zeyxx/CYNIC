@@ -145,7 +145,7 @@ impl ChunkEmbedder for TemplatedEmbedder<'_> {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LabeledQuery {
     pub id: String,
     pub query: String,
@@ -155,7 +155,7 @@ pub struct LabeledQuery {
     pub grades: HashMap<String, u32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Fixture {
     pub schema: String,
     pub queries: Vec<LabeledQuery>,
