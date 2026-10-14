@@ -1,6 +1,6 @@
-"""Shared tree hashing — used by the directory capturer (formerly also the
-windows_gemini tool-outputs manifest, retired T6). Single source of truth for
-the content-addressed tree digest.
+"""Shared tree hashing — used by both the directory capturer and the
+windows_gemini tool-outputs manifest. Single source of truth for the
+content-addressed tree digest.
 """
 
 from __future__ import annotations

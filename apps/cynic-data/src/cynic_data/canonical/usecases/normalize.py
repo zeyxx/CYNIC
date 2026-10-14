@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
 from dataclasses import dataclass, field
 
-from ..domain.session import session_content_hash
 from ..ports import CanonicalStorePort, NormalizerPort
 
 
@@ -27,7 +25,6 @@ class NormalizeReport:
     harness: str
     sessions_ok: int = 0
     sessions_failed: int = 0
-    sessions_skipped: int = 0
     totals: dict[str, int] = field(default_factory=dict)
     failures: list[tuple[str, str]] = field(default_factory=list)
 
@@ -40,20 +37,14 @@ def normalize_source(
     normalizer: NormalizerPort,
     store: CanonicalStorePort,
     progress_every: int = 250,
-    manifest_uid: str | None = None,
 ) -> NormalizeReport:
     """Normalize every session the adapter's bound source contains.
 
     The adapter enumerates its own sessions (``session_refs``); the application
     layer never passes ids it could not have known how to build.
-
-    Resume is free: a session whose stored content hash matches the fresh
-    normalization is skipped, never rewritten. A crash restarts cheap and
-    the run itself lands in the store ledger (``runs`` table).
     """
     report = NormalizeReport(harness=normalizer.harness)
     t0 = time.monotonic()
-    started_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     session_refs = normalizer.session_refs()
     _emit("start", harness=normalizer.harness, sessions=len(session_refs))
     if not session_refs:
@@ -65,10 +56,7 @@ def normalize_source(
         try:
             session = normalizer.normalize(session_ref)
             session.check()
-            if store.session_content_hash(session.session_uid) == session_content_hash(session):
-                report.sessions_skipped += 1
-                continue
-            store.write(session, manifest_uid)
+            store.write(session)
             report.sessions_ok += 1
             report.add(session.stats())
         except Exception as exc:  # noqa: BLE001 — a bad session must not abort the run
@@ -79,22 +67,10 @@ def normalize_source(
         if progress_every and i % progress_every == 0:
             _emit("progress", done=i, total=len(session_refs),
                   ok=report.sessions_ok, failed=report.sessions_failed,
-                  skipped=report.sessions_skipped,
                   elapsed_s=round(time.monotonic() - t0, 1))
     _emit("done", harness=normalizer.harness, ok=report.sessions_ok,
-          failed=report.sessions_failed, skipped=report.sessions_skipped,
-          elapsed_s=round(time.monotonic() - t0, 1),
+          failed=report.sessions_failed, elapsed_s=round(time.monotonic() - t0, 1),
           totals=report.totals)
-    store.record_run({
-        "run_uid": f"run:{started_iso}:{normalizer.harness}:{uuid.uuid4().hex[:8]}",
-        "harness": normalizer.harness,
-        "manifest_uid": manifest_uid,
-        "started_iso": started_iso,
-        "duration_s": round(time.monotonic() - t0, 1),
-        "sessions_ok": report.sessions_ok,
-        "sessions_failed": report.sessions_failed,
-        "sessions_skipped": report.sessions_skipped,
-    })
     return report
 
 

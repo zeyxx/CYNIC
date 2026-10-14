@@ -26,7 +26,7 @@ from ..domain.entities import (
     ToolCall,
     Turn,
 )
-from ..domain.session import NormalizedSession, session_content_hash
+from ..domain.session import NormalizedSession
 from .content_store import ContentBlobStore
 from .store_schema import SCHEMA_SQL
 
@@ -36,16 +36,6 @@ def _j(value) -> str | None:
     if value is None:
         return None
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
-
-
-def session_content_hash(session: NormalizedSession) -> str:
-    """Stable content hash of a normalized session (skip-if-unchanged + resume).
-
-    Delegates to the domain hash: one definition, used by store and usecase.
-    """
-    from ..domain.session import session_content_hash as _domain_hash
-
-    return _domain_hash(session)
 
 
 class SqliteCanonicalStore:
@@ -64,25 +54,6 @@ class SqliteCanonicalStore:
             self._con.execute("PRAGMA journal_mode = WAL;")
             self._con.execute("PRAGMA synchronous = NORMAL;")
         self._con.executescript(SCHEMA_SQL)
-        # Layer-2 gap fixes: lineage + resume. Guarded so old DBs migrate.
-        for ddl in (
-            "ALTER TABLE sessions ADD COLUMN content_hash TEXT",
-            "ALTER TABLE sessions ADD COLUMN manifest_uid TEXT",
-            """CREATE TABLE IF NOT EXISTS runs (
-                run_uid       TEXT PRIMARY KEY,
-                harness       TEXT NOT NULL,
-                manifest_uid  TEXT,
-                started_iso   TEXT NOT NULL,
-                duration_s    REAL NOT NULL,
-                sessions_ok   INTEGER NOT NULL,
-                sessions_failed INTEGER NOT NULL,
-                sessions_skipped INTEGER NOT NULL
-            )""",
-        ):
-            try:
-                self._con.execute(ddl)
-            except sqlite3.OperationalError:
-                pass  # column/table already present
         self._con.commit()
 
     def close(self) -> None:
@@ -118,18 +89,11 @@ class SqliteCanonicalStore:
 
     # -- write ---------------------------------------------------------------
 
-    def write(self, session: NormalizedSession, manifest_uid: str | None = None) -> None:
+    def write(self, session: NormalizedSession) -> None:
         cur = self._con.cursor()
         cur.execute(
-            "INSERT OR REPLACE INTO sessions (session_uid, harness, source_ref, native_meta, content_hash, manifest_uid) VALUES (?,?,?,?,?,?)",
-            (
-                session.session_uid,
-                session.harness,
-                session.source_ref,
-                _j(session.native_meta),
-                session_content_hash(session),
-                manifest_uid,
-            ),
+            "INSERT OR REPLACE INTO sessions (session_uid, harness, source_ref, native_meta) VALUES (?,?,?,?)",
+            (session.session_uid, session.harness, session.source_ref, _j(session.native_meta)),
         )
         # idempotent re-write: clear this session's rows first
         for table in ("turns", "tools", "reasoning", "edges", "states", "human_signals"):
@@ -179,28 +143,6 @@ class SqliteCanonicalStore:
         )
         self._con.commit()
 
-    def session_content_hash(self, session_uid: str) -> str | None:
-        row = self._con.execute(
-            "SELECT content_hash FROM sessions WHERE session_uid = ?", (session_uid,)
-        ).fetchone()
-        return row[0] if row else None
-
-    def record_run(self, run: dict) -> None:
-        self._con.execute(
-            "INSERT OR REPLACE INTO runs (run_uid, harness, manifest_uid, started_iso, duration_s, sessions_ok, sessions_failed, sessions_skipped) VALUES (?,?,?,?,?,?,?,?)",
-            (
-                run["run_uid"],
-                run["harness"],
-                run.get("manifest_uid"),
-                run["started_iso"],
-                run["duration_s"],
-                run["sessions_ok"],
-                run["sessions_failed"],
-                run["sessions_skipped"],
-            ),
-        )
-        self._con.commit()
-
     # -- read ----------------------------------------------------------------
 
     def read(self, session_uid: str) -> NormalizedSession | None:
@@ -230,7 +172,7 @@ class SqliteCanonicalStore:
         return s
 
     def count(self, table: str) -> int:
-        if table not in {"sessions", "turns", "tools", "reasoning", "edges", "states", "human_signals", "blobs", "runs"}:
+        if table not in {"sessions", "turns", "tools", "reasoning", "edges", "states", "human_signals", "blobs"}:
             raise ValueError(f"unknown table {table}")
         return self._con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 

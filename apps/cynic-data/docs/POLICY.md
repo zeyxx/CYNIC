@@ -1,7 +1,7 @@
 # CYNIC Data System — Governance & Operational Policy
 
 **Document Status**: Canonical Normative Contract  
-**Scope**: `apps/cynic-data`  
+**Scope**: `infra/data_system`  
 **Governing Authority**: CYNIC Constitutional & Data-Centric Architecture  
 
 ---

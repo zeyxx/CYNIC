@@ -15,7 +15,12 @@ import re
 
 import pytest
 
+from cynic_data.canonical.adapters.normalizers.antigravity import AntigravityNormalizer
+from cynic_data.canonical.adapters.normalizers.claude_code import ClaudeCodeNormalizer
+from cynic_data.canonical.adapters.normalizers.codex import CodexNormalizer
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
+from cynic_data.canonical.adapters.normalizers.omp import OmpNormalizer
+from cynic_data.canonical.adapters.normalizers.windows_gemini import WindowsGeminiNormalizer
 from cynic_data.canonical.domain.conservation import Fate, parse_fate
 
 # Adapters that must expose a contract, with a callable that builds them.
@@ -26,10 +31,15 @@ CONTRACTED = {
 
 # Adapters that still lack a contract. This list may only shrink; α6 is the
 # promotion mechanism, so a new harness lands here until its vertical is done.
-# Retirements also shrink it (T6 capsules in docs/specs/harness-*.md).
-# T6 emptied it (antigravity was the last entry, retired 2026-10-19):
-# every retired harness is capsule-documented, hermes holds a contract.
-UNCONTRACTED: dict = {}
+UNCONTRACTED = {
+    "omp": lambda: OmpNormalizer("/home/user/.omp/agent/sessions"),
+    "antigravity": lambda: AntigravityNormalizer(
+        "/var/lib/cynic/vault/archive/linux_sessions_2026/gemini_antigravity/conversations"
+    ),
+    "windows_gemini": lambda: WindowsGeminiNormalizer("/home/user/.gemini"),
+    "claude_code": lambda: ClaudeCodeNormalizer("/home/user/.claude/projects"),
+    "codex": lambda: CodexNormalizer("/home/user/.codex/sessions"),
+}
 
 
 @pytest.mark.parametrize("name", sorted(CONTRACTED))

@@ -46,26 +46,6 @@ def _first_valid(normalizer, files):
     return None
 
 
-def _first_with(normalizer, files, predicate):
-    """Return the first session that normalizes and satisfies predicate.
-
-    Some contract properties (tool link-back, native model) need a session
-    that actually contains the feature. Small corpora may start with trivial
-    sessions; callers skip when the corpus has none.
-    """
-    for f in files:
-        try:
-            sess = normalizer().normalize(f)
-        except Exception:
-            continue
-        try:
-            if predicate(sess):
-                return sess
-        except Exception:
-            continue
-    return None
-
-
 # ---------------------------------------------------------------- claude_code
 
 cc_mark = pytest.mark.skipif(not _cc_files(), reason="claude code archive not present")
@@ -96,13 +76,9 @@ def test_claude_code_reply_edges_are_native():
 
 @cc_mark
 def test_claude_code_tool_results_link_back():
-    sess = _first_with(
-        ClaudeCodeNormalizer,
-        _cc_files(),
-        lambda s: any(t.tool_name == "tool_result" for t in s.tools),
-    )
-    if sess is None:
-        pytest.skip("no tool_result session in corpus")
+    found = _first_valid(ClaudeCodeNormalizer, _cc_files())
+    assert found is not None
+    sess = found
     assert sess is not None
     results = [t for t in sess.tools if t.tool_name == "tool_result"]
     assert results, "expected tool results"
@@ -111,13 +87,9 @@ def test_claude_code_tool_results_link_back():
 
 @cc_mark
 def test_claude_code_preserves_native_model():
-    sess = _first_with(
-        ClaudeCodeNormalizer,
-        _cc_files(),
-        lambda s: any(t.native_model for t in s.turns),
-    )
-    if sess is None:
-        pytest.skip("no native_model session in corpus")
+    found = _first_valid(ClaudeCodeNormalizer, _cc_files())
+    assert found is not None
+    sess = found
     assert sess is not None
     models = {t.native_model for t in sess.turns if t.native_model}
     assert models, "message.model must be preserved on the turn"

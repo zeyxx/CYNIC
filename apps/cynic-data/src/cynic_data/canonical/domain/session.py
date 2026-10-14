@@ -7,9 +7,6 @@ not in the store and not in a script.
 
 from __future__ import annotations
 
-import dataclasses
-import hashlib
-import json
 from dataclasses import dataclass, field
 
 from ...kernel.contract import CANONICAL_CONTRACT, LayerContract
@@ -22,18 +19,6 @@ from .entities import (
     ToolCall,
     Turn,
 )
-
-
-def session_content_hash(session: NormalizedSession) -> str:
-    """Stable content hash of a normalized session (skip-if-unchanged + resume).
-
-    Enums serialize via str(); key order is fixed. Two byte-identical
-    normalizations produce the same hash on any run.
-    """
-    raw = json.dumps(
-        dataclasses.asdict(session), ensure_ascii=False, sort_keys=True, default=str
-    )
-    return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 @dataclass

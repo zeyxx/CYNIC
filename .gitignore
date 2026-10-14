@@ -77,7 +77,8 @@ cynic-demo.html
 # Generated evidence datasets, dumps, and experiment runs
 /evidence/
 /references/
-/data_system/
+/data_system/vault/
+/data_system/**/__pycache__/
 /scripts/
 /.agent-claims.json
 *.jsonl
