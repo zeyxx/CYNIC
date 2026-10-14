@@ -168,6 +168,25 @@ pub struct QueryScores {
     pub mrr_dense: f64,
     pub mrr_hybrid: f64,
     pub top1_hybrid: String,
+    /// 1-indexed rank of the best grade-2 hit within diagnostic depth
+    /// (None = absent: total miss, not a near-miss). Separates "gold at
+    /// rank 7" from "gold nowhere" — top-5 MRR alone cannot.
+    pub gold_rank_bm25: Option<usize>,
+    pub gold_rank_dense: Option<usize>,
+    pub gold_rank_hybrid: Option<usize>,
+}
+
+/// How deep each side is inspected for the gold-rank diagnostic. Grading
+/// still applies at top_k; this only extends the miss analysis.
+pub const GOLD_DIAG_DEPTH: usize = 20;
+
+/// 1-indexed rank of the first grade-2 hit in a ranking (`None` = absent
+/// within the inspected depth). Grades come from [`grade_hit`].
+pub fn gold_rank(paths: &[&str], grades: &std::collections::HashMap<String, u32>) -> Option<usize> {
+    paths
+        .iter()
+        .position(|path| grade_hit(path, grades) == 2)
+        .map(|idx| idx + 1)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -191,13 +210,21 @@ impl BenchReport {
 
     pub fn table(&self) -> String {
         let mut text = format!(
-            "{:<24} {:>8} {:>8} {:>8}  top1-hybrid\n",
-            "query", "MRR-bm25", "MRR-dens", "MRR-hybr"
+            "{:<24} {:>8} {:>8} {:>8}  {:>12}  top1-hybrid\n",
+            "query", "MRR-bm25", "MRR-dens", "MRR-hybr", "gold@20(b/d/h)"
         );
+        let rank = |rank: Option<usize>| rank.map(|r| r.to_string()).unwrap_or_else(|| "-".into());
         for row in &self.rows {
             text.push_str(&format!(
-                "{:<24} {:>8.3} {:>8.3} {:>8.3}  {}\n",
-                row.id, row.mrr_bm25, row.mrr_dense, row.mrr_hybrid, row.top1_hybrid
+                "{:<24} {:>8.3} {:>8.3} {:>8.3}  {:>4}/{:>3}/{:>3}  {}\n",
+                row.id,
+                row.mrr_bm25,
+                row.mrr_dense,
+                row.mrr_hybrid,
+                rank(row.gold_rank_bm25),
+                rank(row.gold_rank_dense),
+                rank(row.gold_rank_hybrid),
+                row.top1_hybrid
             ));
         }
         text.push_str(&format!(
@@ -295,7 +322,11 @@ pub fn run_bench(
         if labeled.trap {
             continue;
         }
-        let bm25_hits = index.search(&labeled.query, config.top_k);
+        // Diagnostic depth exceeds the graded top_k: grading still applies
+        // at top_k, the deeper lists only feed the gold-rank miss analysis.
+        let diag_depth = GOLD_DIAG_DEPTH.max(config.top_k);
+        let dense_depth = config.dense_k.max(GOLD_DIAG_DEPTH);
+        let bm25_hits = index.search(&labeled.query, diag_depth);
         if bm25_hits.is_empty() {
             return Err(format!("[{}] valid query retrieved nothing", labeled.id));
         }
@@ -311,31 +342,46 @@ pub fn run_bench(
         // fusion consumes the dense top-20, so grading only the top-5 would
         // understate the dense contribution (seen live: dense top-5 misses
         // that hybrid still promotes to rank 1).
-        let dense_hits = top_k_dense(&query_vectors[0], &chunks, &vectors, config.dense_k);
+        let dense_hits = top_k_dense(&query_vectors[0], &chunks, &vectors, dense_depth);
         let hybrid_hits = index.search_hybrid_guarded(
             &labeled.query,
             &query_vectors[0],
             &vectors,
-            config.top_k,
+            diag_depth,
             config.dense_k,
             config.guard_gap,
         );
         if hybrid_hits.is_empty() {
             return Err(format!("[{}] hybrid retrieved nothing", labeled.id));
         }
+        let grades_of = |paths: Vec<&str>| {
+            paths
+                .iter()
+                .map(|p| grade_hit(p, &labeled.grades))
+                .collect()
+        };
+        let bm25_paths: Vec<&str> = bm25_hits
+            .iter()
+            .map(|hit| hit.chunk.source_path.as_str())
+            .collect();
+        let dense_paths: Vec<&str> = dense_hits
+            .iter()
+            .map(|hit| hit.chunk.source_path.as_str())
+            .collect();
+        let hybrid_paths: Vec<&str> = hybrid_hits
+            .iter()
+            .map(|hit| hit.chunk.source_path.as_str())
+            .collect();
         let rr = |grades: Vec<u32>| reciprocal_rank(&grades);
-        let bm25_rr = rr(bm25_hits
-            .iter()
-            .map(|hit| grade_hit(&hit.chunk.source_path, &labeled.grades))
-            .collect());
-        let dense_rr = rr(dense_hits
-            .iter()
-            .map(|hit| grade_hit(&hit.chunk.source_path, &labeled.grades))
-            .collect());
-        let hybrid_rr = rr(hybrid_hits
-            .iter()
-            .map(|hit| grade_hit(&hit.chunk.source_path, &labeled.grades))
-            .collect());
+        let bm25_rr = rr(grades_of(
+            bm25_paths[..config.top_k.min(bm25_paths.len())].to_vec(),
+        ));
+        let dense_rr = rr(grades_of(
+            dense_paths[..config.top_k.min(dense_paths.len())].to_vec(),
+        ));
+        let hybrid_rr = rr(grades_of(
+            hybrid_paths[..config.top_k.min(hybrid_paths.len())].to_vec(),
+        ));
         sum_bm25 += bm25_rr;
         sum_dense += dense_rr;
         sum_hybrid += hybrid_rr;
@@ -348,6 +394,9 @@ pub fn run_bench(
                 .first()
                 .map(|hit| hit.chunk.source_path.clone())
                 .unwrap_or_else(|| "<none>".into()),
+            gold_rank_bm25: gold_rank(&bm25_paths, &labeled.grades),
+            gold_rank_dense: gold_rank(&dense_paths, &labeled.grades),
+            gold_rank_hybrid: gold_rank(&hybrid_paths, &labeled.grades),
         });
     }
     if rows.is_empty() {
@@ -434,6 +483,14 @@ mod tests {
         assert_eq!(grade_hit("x/a/b.md", &grades), 2);
         assert_eq!(grade_hit("c.md", &grades), 1);
         assert_eq!(grade_hit("other.md", &grades), 0);
+    }
+
+    #[test]
+    fn gold_rank_reports_first_grade_two_or_absence() {
+        let grades = HashMap::from([("gold.md".to_string(), 2), ("part.md".to_string(), 1)]);
+        assert_eq!(gold_rank(&["other.md", "x/gold.md"], &grades), Some(2));
+        assert_eq!(gold_rank(&["part.md", "other.md"], &grades), None);
+        assert_eq!(gold_rank(&[], &grades), None);
     }
 
     #[test]
