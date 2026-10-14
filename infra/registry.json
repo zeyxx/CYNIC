@@ -256,7 +256,8 @@
         "cidr": "100.64.0.0/10",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
-        "cidr_basis": "rfc6598"
+        "cidr_basis": "rfc6598",
+        "interface": "wg0"
       }
     },
     "reservations": [

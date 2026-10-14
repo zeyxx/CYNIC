@@ -161,7 +161,18 @@ pub fn derive_firewall_policy_from_registry(
         .and_then(|v| v.as_str())
         .ok_or_else(|| "missing admin plane cidr in registry (/network_policy/planes)".to_string())?
         .to_string();
-    let mesh_interface = "wg0".to_string();
+    let mesh_interface = ["mesh", "overlay", "wireguard"]
+        .iter()
+        .find_map(|key| {
+            registry
+                .pointer(&format!("/network_policy/planes/{}/interface", key))
+                .and_then(|v| v.as_str())
+        })
+        .ok_or_else(|| {
+            "missing mesh plane interface in registry (/network_policy/planes/*/interface)"
+                .to_string()
+        })?
+        .to_string();
 
     let planes = DynamicFirewallPlanes {
         service_cidr,
@@ -458,7 +469,7 @@ mod tests {
                 "planes": {
                     "service": { "cidr": "10.10.10.0/24" },
                     "admin": { "cidr": "192.168.100.0/24" },
-                    "mesh": { "cidr": "10.20.0.0/24" }
+                    "mesh": { "cidr": "10.20.0.0/24", "interface": "wg0" }
                 },
                 "wireguard": {
                     "nodes": [
@@ -498,7 +509,8 @@ mod tests {
                 "canonical_service_plane": "service",
                 "planes": {
                     "service": { "cidr": "10.10.10.0/24" },
-                    "admin": { "cidr": "192.168.100.0/24" }
+                    "admin": { "cidr": "192.168.100.0/24" },
+                    "mesh": { "cidr": "100.64.0.0/10", "interface": "wg0" }
                 }
             },
             "nodes": [
@@ -529,5 +541,27 @@ mod tests {
             error.contains("unknown_service_plane:probe-node/ghost:synapse"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn missing_mesh_interface_fails_closed() {
+        let reg = serde_json::json!({
+            "network_policy": {
+                "canonical_service_plane": "service",
+                "planes": {
+                    "service": { "cidr": "10.10.10.0/24" },
+                    "admin": { "cidr": "192.168.100.0/24" },
+                    "mesh": { "cidr": "100.64.0.0/10" }
+                }
+            },
+            "nodes": [
+                { "id": "probe-node", "services": [
+                    { "name": "svc", "port": 1111, "network_plane": "service" }
+                ] }
+            ]
+        });
+        let error = derive_firewall_policy_from_registry(&reg, "probe-node", 1000)
+            .expect_err("missing mesh interface must fail");
+        assert!(error.contains("missing mesh plane interface"), "{error}");
     }
 }
