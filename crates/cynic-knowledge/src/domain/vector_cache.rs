@@ -129,7 +129,7 @@ mod tests {
             10,
             vec!["# T".into()],
             content.into(),
-            AuthorityTier::L3Corpus,
+            AuthorityTier::L3Operation,
         )
     }
 
