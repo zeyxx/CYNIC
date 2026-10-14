@@ -9,6 +9,8 @@
 
 use std::path::PathBuf;
 
+use cynic_network::plane_vocabulary::{Plane, UNDERLAY_KEY};
+
 fn repo_registry_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../infra/registry.json")
 }
@@ -111,9 +113,12 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
             .unwrap_or("?");
         if let Some(network) = node.get("network").and_then(|net| net.as_object()) {
             for key in network.keys() {
+                // Authority is the canonical Plane model (service/admin/mesh/lan)
+                // plus the underlay alias — never a hardcoded trio. Lan covers
+                // operator workstations on the home LAN (non-fleet, non-mesh).
                 assert!(
-                    ["service", "admin", "mesh", "local"].contains(&key.as_str()),
-                    "node '{name}' network key '{key}' is outside the canonical trio vocabulary"
+                    Plane::from_name(key.as_str()).is_some() || key.as_str() == UNDERLAY_KEY,
+                    "node '{name}' network key '{key}' is outside the canonical plane vocabulary"
                 );
             }
         }
@@ -125,8 +130,8 @@ fn repo_registry_node_keys_use_canonical_trio_vocabulary() {
         for service in services {
             if let Some(plane) = service.get("network_plane").and_then(|p| p.as_str()) {
                 assert!(
-                    ["service", "admin", "mesh"].contains(&plane),
-                    "node '{name}' service network_plane '{plane}' is outside the trio"
+                    Plane::from_name(plane).is_some(),
+                    "node '{name}' service network_plane '{plane}' is outside the canonical plane vocabulary"
                 );
             }
         }
