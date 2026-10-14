@@ -315,7 +315,7 @@ mod tests {
         let mut terminal_claimed = durable_record(
             "workload-claimed",
             "key-claimed",
-            AgentWorkloadState::Completed,
+            AgentWorkloadState::Claimed,
             1_000,
             Some(6_000),
         );
