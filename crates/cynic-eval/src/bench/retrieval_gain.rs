@@ -75,6 +75,9 @@ pub struct BenchConfig {
     pub trunc_dim: usize,
     pub top_k: usize,
     pub dense_k: usize,
+    /// Guarded-fusion threshold: relative BM25 top1-top2 margin at or above
+    /// which the sparse ranking returns alone. `None` = plain RRF.
+    pub guard_gap: Option<f64>,
     /// Internal embed lots for progress granularity (transport batching
     /// stays a backend concern).
     pub embed_lot: usize,
@@ -309,12 +312,13 @@ pub fn run_bench(
         // understate the dense contribution (seen live: dense top-5 misses
         // that hybrid still promotes to rank 1).
         let dense_hits = top_k_dense(&query_vectors[0], &chunks, &vectors, config.dense_k);
-        let hybrid_hits = index.search_hybrid(
+        let hybrid_hits = index.search_hybrid_guarded(
             &labeled.query,
             &query_vectors[0],
             &vectors,
             config.top_k,
             config.dense_k,
+            config.guard_gap,
         );
         if hybrid_hits.is_empty() {
             return Err(format!("[{}] hybrid retrieved nothing", labeled.id));
@@ -439,6 +443,7 @@ mod tests {
             trunc_dim: 0,
             top_k: 5,
             dense_k: 20,
+            guard_gap: None,
             embed_lot: 32,
             pipeline: TextPipeline {
                 max_chars: 1000,

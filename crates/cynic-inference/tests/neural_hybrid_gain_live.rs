@@ -16,7 +16,8 @@
 //! `CYNIC_EMBED_TRUNC_DIM` (0 = full), `CYNIC_EMBED_DOC_PREFIX`,
 //! `CYNIC_EMBED_QUERY_PREFIX`, `CYNIC_EMBED_DOC_TEMPLATE` (default `{body}`),
 //! `CYNIC_EMBED_TOP_K` (default 5), `CYNIC_EMBED_DENSE_K` (default 20),
-//! `CYNIC_EMBED_LOT` (default 32).
+//! `CYNIC_EMBED_LOT` (default 32), `CYNIC_FUSION_GUARD` (absent = plain RRF;
+//! 0.0..=1.0 = BM25 top1-top2 margin at or above which sparse wins alone).
 
 use std::path::PathBuf;
 
@@ -45,6 +46,13 @@ fn env_usize(name: &str, min: usize, max: usize, default: usize) -> usize {
         .unwrap_or(default)
 }
 
+fn env_guard_gap() -> Option<f64> {
+    std::env::var("CYNIC_FUSION_GUARD")
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .filter(|gap: &f64| (0.0..=1.0).contains(gap))
+}
+
 #[test]
 #[ignore = "needs a live /v1/embeddings endpoint (CYNIC_EMBED_URL)"]
 fn neural_hybrid_gain_over_bm25_is_measured() {
@@ -70,6 +78,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
         trunc_dim: env_usize("CYNIC_EMBED_TRUNC_DIM", 32, 4096, 0),
         top_k: env_usize("CYNIC_EMBED_TOP_K", 1, 50, 5),
         dense_k: env_usize("CYNIC_EMBED_DENSE_K", 1, 200, 20),
+        guard_gap: env_guard_gap(),
         embed_lot: env_usize("CYNIC_EMBED_LOT", 1, 128, 32),
         pipeline,
         model: std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into()),
