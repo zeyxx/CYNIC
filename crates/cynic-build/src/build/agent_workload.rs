@@ -262,7 +262,14 @@ pub fn compose_build_agent_workload(
                 actions: 2,
                 children: 0,
                 wall_time_ms: 900_000,
-                cpu_ms: None,
+                // Delegated CPU headroom: the scheduler closes workloads
+                // with measured cpu_ms, and fits_within rejects measured
+                // CPU against an unbudgeted (None) cap — since Aug 2026
+                // every measured build failed settlement with
+                // completion_not_admitted. Measured CPU cannot exceed
+                // wall × runner cores; ×8 headroom over wall keeps wall
+                // the binding constraint. Revisit when pool runners land.
+                cpu_ms: Some(900_000 * 8),
             },
             expected_proofs: request.proof_requirements.clone(),
         },
