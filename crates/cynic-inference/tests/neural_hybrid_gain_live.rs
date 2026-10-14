@@ -235,10 +235,11 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     );
 
     println!(
-        "{:<24} {:>8} {:>8}  top1-hybrid",
-        "query", "MRR-bm25", "MRR-hybr"
+        "{:<24} {:>8} {:>8} {:>8}  top1-hybrid",
+        "query", "MRR-bm25", "MRR-dens", "MRR-hybr"
     );
     let mut sum_bm25 = 0.0;
+    let mut sum_dense = 0.0;
     let mut sum_hybrid = 0.0;
     let mut measured = 0usize;
     for labeled in &fixture.queries {
@@ -271,9 +272,18 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
             "[{}] hybrid must retrieve at least one hit",
             labeled.id
         );
+        // Isolated dense ranking: same vectors, no BM25, no fusion — the
+        // column that tells whether the dense side or the fusion is at fault.
+        let dense_hits = cynic_knowledge::top_k_dense(&query_vector[0], &chunks, &vectors, TOP_K);
 
         let bm25_rr = reciprocal_rank(
             &bm25_hits
+                .iter()
+                .map(|hit| grade_hit(&hit.chunk.source_path, &labeled.grades))
+                .collect::<Vec<_>>(),
+        );
+        let dense_rr = reciprocal_rank(
+            &dense_hits
                 .iter()
                 .map(|hit| grade_hit(&hit.chunk.source_path, &labeled.grades))
                 .collect::<Vec<_>>(),
@@ -285,6 +295,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
                 .collect::<Vec<_>>(),
         );
         sum_bm25 += bm25_rr;
+        sum_dense += dense_rr;
         sum_hybrid += hybrid_rr;
         measured += 1;
         let top1 = hybrid_hits
@@ -292,22 +303,24 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
             .map(|hit| hit.chunk.source_path.as_str())
             .unwrap_or("<none>");
         println!(
-            "{:<24} {:>8.3} {:>8.3}  {top1}",
-            labeled.id, bm25_rr, hybrid_rr
+            "{:<24} {:>8.3} {:>8.3} {:>8.3}  {top1}",
+            labeled.id, bm25_rr, dense_rr, hybrid_rr
         );
     }
 
     assert!(measured > 0, "fixture must contain non-trap queries");
     let mean_bm25 = sum_bm25 / measured as f64;
+    let mean_dense = sum_dense / measured as f64;
     let mean_hybrid = sum_hybrid / measured as f64;
     println!(
-        "NEURAL_MEAN MRR over {measured} queries: bm25={mean_bm25:.3} hybrid={mean_hybrid:.3} delta={:.3}",
+        "NEURAL_MEAN MRR over {measured} queries: bm25={mean_bm25:.3} dense={mean_dense:.3} hybrid={mean_hybrid:.3} delta={:.3}",
         mean_hybrid - mean_bm25
     );
     let report = serde_json::json!({
         "schema": "cynic.neural_hybrid_gain.v1",
         "measured_queries": measured,
         "mean_mrr_bm25": mean_bm25,
+        "mean_mrr_dense": mean_dense,
         "mean_mrr_hybrid": mean_hybrid,
         "delta_hybrid_minus_bm25": mean_hybrid - mean_bm25,
     });
