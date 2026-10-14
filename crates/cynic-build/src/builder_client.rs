@@ -53,7 +53,39 @@ pub fn resolve_builder_url() -> Result<String, String> {
 ///
 /// The caller decides how to render the result; this function only owns
 /// the HTTP boundary.
+///
+/// Runs the whole blocking sequence on a dedicated OS thread: the CLI runs
+/// under `#[tokio::main]`, and constructing (not just dropping) a
+/// `reqwest::blocking::Client` inside async context panics. Never move the
+/// client construction back out of the spawned closure.
 pub fn submit_workload(
+    commit: &str,
+    package: Option<&str>,
+    action: &str,
+    requested_by: &str,
+    builder_url: &str,
+    wait: bool,
+) -> Result<serde_json::Value, String> {
+    let commit = commit.to_string();
+    let package = package.map(str::to_string);
+    let action = action.to_string();
+    let requested_by = requested_by.to_string();
+    let builder_url = builder_url.to_string();
+    std::thread::spawn(move || {
+        submit_workload_inner(
+            &commit,
+            package.as_deref(),
+            &action,
+            &requested_by,
+            &builder_url,
+            wait,
+        )
+    })
+    .join()
+    .map_err(|_| "builder client thread panicked".to_string())?
+}
+
+fn submit_workload_inner(
     commit: &str,
     package: Option<&str>,
     action: &str,
