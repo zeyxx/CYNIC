@@ -140,6 +140,7 @@ mod tests {
                 substrate: None,
                 services: vec![],
                 network_links: vec![],
+                source_workspace_layout: None,
             }],
             fleet_desired: None,
         };
