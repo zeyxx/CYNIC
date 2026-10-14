@@ -27,6 +27,7 @@ impl BuildCacheObservationPort for LocalBuildCacheAdapter {
             }
         };
         let state_root = Path::new(&desired.state_root);
+        let temporary_root = Path::new(&desired.temporary_root);
         let canonical_target_state =
             directory_chain_state(state_root, canonical_target, &mut unknowns);
         let reclaim_profile_state =
