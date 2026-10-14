@@ -65,11 +65,22 @@ pub fn fuse_reciprocal_ranks<'a>(
         });
     }
 
-    // 4. Sort in descending order of fused score
+    // 4. Sort in descending order of fused score. Ties break on
+    // (path, span): HashMap iteration order is random per process, so an
+    // unstable tie order would make hybrid rankings nondeterministic
+    // across runs — unacceptable for a graded bench.
     fused.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                a.chunk.source_path.cmp(&b.chunk.source_path).then_with(|| {
+                    a.chunk
+                        .line_start
+                        .cmp(&b.chunk.line_start)
+                        .then_with(|| a.chunk.line_end.cmp(&b.chunk.line_end))
+                })
+            })
     });
 
     fused
@@ -132,5 +143,48 @@ mod tests {
             "docs/foundation/CONSTITUTION.md"
         );
         assert_eq!(fused[0].chunk.authority, AuthorityTier::L0Constitution);
+    }
+
+    #[test]
+    fn test_rrf_ties_break_deterministically_on_path() {
+        // Same authority, mirrored ranks: identical fused scores. The order
+        // must be path-ascending on every run, not HashMap-iteration order.
+        let mk = |path: &str| {
+            DocumentChunk::new(
+                path.into(),
+                1,
+                10,
+                Vec::new(),
+                "same content class".into(),
+                AuthorityTier::L3Operation,
+            )
+        };
+        let (zz, aa) = (mk("z.md"), mk("a.md"));
+        let sparse = vec![
+            SearchHit {
+                chunk: &zz,
+                score: 9.0,
+            },
+            SearchHit {
+                chunk: &aa,
+                score: 8.0,
+            },
+        ];
+        let dense = vec![
+            DenseHit {
+                chunk: &aa,
+                similarity: 0.9,
+            },
+            DenseHit {
+                chunk: &zz,
+                similarity: 0.8,
+            },
+        ];
+        for _ in 0..50 {
+            let fused = fuse_reciprocal_ranks(&sparse, &dense, 60.0);
+            assert_eq!(fused.len(), 2);
+            assert_eq!(fused[0].chunk.source_path, "a.md");
+            assert_eq!(fused[1].chunk.source_path, "z.md");
+        }
     }
 }
