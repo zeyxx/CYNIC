@@ -4,6 +4,7 @@ pub mod cache;
 pub mod chunk;
 pub mod commit;
 pub mod continuous_fusion;
+pub mod epistemic_grounding;
 pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
@@ -25,6 +26,12 @@ pub use chunk::{AuthorityTier, DocumentChunk};
 pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
 pub use continuous_fusion::{
     EmpiricalCdf, NormalizationStrategy, fuse_continuous_convex, min_max_normalize,
+};
+pub use epistemic_grounding::{
+    DEFAULT_EPISTEMIC_COVERAGE_THRESHOLD, DEFAULT_MIN_TERM_COVERAGE_RATIO,
+    EPISTEMIC_PROMPT_SCHEMA_V1, EpistemicAssemblyConfig, EpistemicCoverageVerdict, EpistemicSource,
+    UNCOVERED_REJECTION_TOKEN, assemble_epistemic_context, compute_term_coverage,
+    reorder_lost_in_the_middle, sort_by_topological_authority,
 };
 pub use geometry::{CrateGeometryRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry};
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};

@@ -16,7 +16,7 @@ pub struct LexicalIndex {
 }
 
 /// A matched search result with score and proof breadcrumbs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct SearchHit<'a> {
     pub chunk: &'a DocumentChunk,
     pub score: f64,
