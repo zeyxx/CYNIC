@@ -78,6 +78,11 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 BM25 0.5004 · dense 0.5918 · RRF 0.4361 · MinMax 0.5884 @0.80 ·
 ECDF 0.5269 @0.60 · routed 0.6113 / 0.5718 · Wilcoxon p=0.0039 (17/5/63).
 Runners: cortex + compute-01, Q8_0, slots 4+4, registry-resolved.
+MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
+re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
+identical to 768d on every decision. Google's −2.5 code points do not
+materialize on this workload; 256d adopted for future runs (3× lighter
+cache, faster cosine), frozen 768d artifacts untouched.
 
 ## 6. Next rungs (SOTA methods, cheapest first, one variable each)
 
