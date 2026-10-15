@@ -1198,6 +1198,48 @@ mod tests {
     //   2. measure_disk_free_bytes() runs `df -k /` (root fs), not the
     //      filesystem holding CARGO_TARGET_DIR.
 
+    /// RED: disk_delta must see writes to the effective target dir. Writing
+    /// a known 20 MB into the target dir inside the measured window must
+    /// produce a delta in the right order of magnitude (tens of MB), not
+    /// near zero. Mirrors the measure_disk_free_bytes_for +
+    /// effective_target_dir usage in execute_claimed (mod.rs).
+    #[test]
+    fn disk_delta_sees_writes_to_effective_target_dir() {
+        use std::io::Write;
+
+        let workspace_root = std::env::temp_dir().join(format!(
+            "cynic-delta-{}-{}",
+            std::process::id(),
+            QUEUE_SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&workspace_root).expect("create workspace root");
+
+        let target_dir = effective_target_dir(None, &workspace_root, &[]);
+        std::fs::create_dir_all(&target_dir).expect("create target dir");
+
+        let disk_free_before = measure_disk_free_bytes_for(&target_dir).expect("measure before");
+
+        let known_bytes = 20 * 1024 * 1024u64;
+        let file_path = target_dir.join("known_write.bin");
+        let buf = vec![0u8; 1024 * 1024];
+        let mut file = std::fs::File::create(&file_path).expect("create file");
+        for _ in 0..(known_bytes / (1024 * 1024)) {
+            file.write_all(&buf).expect("write");
+        }
+        drop(file);
+
+        let disk_free_after = measure_disk_free_bytes_for(&target_dir).expect("measure after");
+        let disk_delta_bytes = disk_free_before as i64 - disk_free_after as i64;
+
+        assert!(
+            disk_delta_bytes >= (known_bytes as i64) / 2,
+            "disk_delta must see the 20 MB write, got {disk_delta_bytes} bytes"
+        );
+
+        let _ = std::fs::remove_file(&file_path);
+        let _ = std::fs::remove_dir_all(&workspace_root);
+    }
+
     /// RED: measure_max_rss_kb must reflect the build child's memory, not
     /// the scheduler's own RSS. A child allocating ~50 MB must produce a
     /// measurement in the right order of magnitude (tens of MB), not ~768 KB.
