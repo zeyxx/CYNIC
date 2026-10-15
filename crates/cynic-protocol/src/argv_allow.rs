@@ -121,6 +121,8 @@ pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, St
         "cargo:build-release" => Ok(vec!["cargo:build-release".to_string()]),
         "cargo:test" => Ok(vec!["cargo:test".to_string()]),
         "cargo:run" => Ok(vec!["cargo:run".to_string()]),
+        "audit:crate" => Ok(vec!["audit:crate".to_string()]),
+        "audit:all" => Ok(vec!["audit:all".to_string()]),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),

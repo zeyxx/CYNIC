@@ -203,11 +203,16 @@ authority.check: secret.literals ## Read-only local validation of machine-readab
 		fi
 	done
 
-.PHONY: check
-check: ## Native validation via cynic audit crate (no make recursion, exit code is the gate)
+.PHONY: audit-crate
+audit-crate: ## Native crate audit (the honest name of what `check` runs)
 	@echo "==> cynic audit crate (native, 100% Rust)"
 	$(source_bin)
 	$(CYNIC_SOURCE_BIN) audit crate --json
+
+.PHONY: check
+check: ## DEPRECATED alias of audit-crate (kept one release, then removed)
+	@echo "==> DEPRECATED: \`make check\` is now \`make audit-crate\`" >&2
+	@$(MAKE) audit-crate
 
 .PHONY: audit
 audit: ## Native unified audit of all crates, architecture boundaries, and secrets

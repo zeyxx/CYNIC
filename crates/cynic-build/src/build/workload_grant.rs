@@ -286,6 +286,31 @@ pub fn validate_build_workload_grant(
 pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str> {
     match argv {
         [program, target] if program == "make" && target == "check" => Some("make:check"),
+        // Native audit argv resolves to the canonical name, not the alias:
+        // the action says what runs, `make:check` survives only as input.
+        [program, run, _q, _p, _cli, _dd, audit, crate_]
+            if program == "cargo"
+                && run == "run"
+                && audit == "audit"
+                && crate_ == "crate" =>
+        {
+            Some("audit:crate")
+        }
+        [program, run, _q, _p, _cli, _dd, audit, all_]
+            if program == "cargo" && run == "run" && audit == "audit" && all_ == "all" =>
+        {
+            Some("audit:all")
+        }
+        [program, tool, _ws, _targets]
+            if program == "cargo" && tool == "clippy" =>
+        {
+            Some("cargo:clippy")
+        }
+        [program, tool, _all, _check]
+            if program == "cargo" && tool == "fmt" =>
+        {
+            Some("cargo:fmt-check")
+        }
         [program, target] if program == "make" && target == "build" => Some("make:build"),
         [program, target] if program == "make" && target == "build-release" => {
             Some("make:build-release")
@@ -304,14 +329,35 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
 
 /// Translate a canonical build action into its argv representation.
 ///
-/// Inverse of [`canonical_build_action_from_argv`] for the 5 actions that have
+/// Inverse of [`canonical_build_action_from_argv`] for the actions that have
 /// a deterministic argv form. Returns `None` for actions admitted by policy
 /// (`cargo:run`, `cargo:test`, `make:build-host-exec`) that have no canonical
 /// argv — this asymmetry is the bounded-action gap measured in the build
 /// workflow audit: policy admits verbs the executor cannot construct.
 pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
     match action {
-        "make:check" => Some(vec!["make".to_string(), "check".to_string()]),
+        // Alias window: `make:check` named the Makefile target, but the target
+        // runs the native `cynic audit crate` surface. The argv says what runs.
+        "make:check" | "audit:crate" => Some(vec![
+            "cargo".to_string(),
+            "run".to_string(),
+            "-q".to_string(),
+            "-p".to_string(),
+            "cynic-cli".to_string(),
+            "--".to_string(),
+            "audit".to_string(),
+            "crate".to_string(),
+        ]),
+        "audit:all" => Some(vec![
+            "cargo".to_string(),
+            "run".to_string(),
+            "-q".to_string(),
+            "-p".to_string(),
+            "cynic-cli".to_string(),
+            "--".to_string(),
+            "audit".to_string(),
+            "all".to_string(),
+        ]),
         "make:build" => Some(vec!["make".to_string(), "build".to_string()]),
         "make:build-release" => Some(vec!["make".to_string(), "build-release".to_string()]),
         "cargo:check" => Some(vec!["cargo".to_string(), "check".to_string()]),
@@ -320,6 +366,20 @@ pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
             "cargo".to_string(),
             "build".to_string(),
             "--release".to_string(),
+        ]),
+        // Admitted but unwired: no gate calls them yet. Rows exist so the
+        // vocabulary names what cargo offers before a gate adopts it.
+        "cargo:clippy" => Some(vec![
+            "cargo".to_string(),
+            "clippy".to_string(),
+            "--workspace".to_string(),
+            "--all-targets".to_string(),
+        ]),
+        "cargo:fmt-check" => Some(vec![
+            "cargo".to_string(),
+            "fmt".to_string(),
+            "--all".to_string(),
+            "--check".to_string(),
         ]),
         "cargo:test" => Some(vec!["cargo".to_string(), "test".to_string()]),
         _ => None,
@@ -384,11 +444,14 @@ mod action_tests {
     #[test]
     fn every_translatable_argv_roundtrips_through_its_action() {
         let actions = [
-            "make:check",
+            "audit:crate",
+            "audit:all",
             "make:build",
             "make:build-release",
             "cargo:check",
             "cargo:build",
+            "cargo:clippy",
+            "cargo:fmt-check",
         ];
         for action in actions {
             let argv = canonical_argv_from_build_action(action)
@@ -402,6 +465,19 @@ mod action_tests {
         }
     }
 
+    /// Alias window: `make:check` still translates (old envelopes, old callers)
+    /// but resolves forward to the native argv and back to the canonical name.
+    /// When the alias is retired, delete this test with it.
+    #[test]
+    fn make_check_alias_forwards_to_native_and_resolves_canonical() {
+        let argv = canonical_argv_from_build_action("make:check")
+            .expect("alias must stay translatable during the window");
+        assert_eq!(argv[0], "cargo");
+        assert_eq!(
+            canonical_build_action_from_argv(&argv),
+            Some("audit:crate")
+        );
+    }
     /// Invariant: actions admitted by policy that have no canonical argv must
     /// return `None`. These are the known gaps; this test pins them so that
     /// adding a translation does not silently leave the gap.
