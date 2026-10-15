@@ -263,12 +263,14 @@ impl EmbeddingPort for EmbeddingBackend {
 impl EmbeddingBackend {
     /// Batched embedding with per-lot progress: `report(done, total)` fires
     /// after each round-trip so long corpora stay observable.
-    pub async fn embed_batch_reported(
+    /// Embeds a batch of texts using dynamic work-stealing pull across all endpoints.
+    /// This method is total by construction: it never aborts on single-lot errors,
+    /// returning `(results, errors)` so long measurement runs do not lose partial progress.
+    pub async fn embed_batch_total_reported(
         &self,
         texts: &[&str],
         report: &(dyn Fn(usize, usize) + Sync),
-    ) -> Result<Vec<Embedding>, EmbeddingError> {
-        let width = fanout_width();
+    ) -> (Vec<Option<Embedding>>, Vec<(usize, String)>) {
         let sublots: Vec<(usize, Vec<String>)> = texts
             .chunks(FANOUT_SUB_LOT)
             .enumerate()
@@ -276,7 +278,7 @@ impl EmbeddingBackend {
             .collect();
         let total_sublots = sublots.len();
         if total_sublots == 0 {
-            return Ok(Vec::new());
+            return (Vec::new(), Vec::new());
         }
 
         // Dynamic work-stealing pull queue across all endpoints with failover requeuing
@@ -290,7 +292,8 @@ impl EmbeddingBackend {
                 .collect(),
         ));
         let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
-        let errors = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
+        let errors: std::sync::Arc<tokio::sync::Mutex<Vec<Option<String>>>> =
+            std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
         let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         let mut worker_futures = Vec::new();
@@ -353,33 +356,65 @@ impl EmbeddingBackend {
         }
 
         // Run all workers concurrently until queue is empty
-        futures_util::future::try_join_all(worker_futures).await?;
+        let _ = futures_util::future::join_all(worker_futures).await;
 
-        // Check for any poisoned sub-lots that exhausted all failovers
+        // Collect per-lot errors
+        let mut recorded_errors = Vec::new();
         {
             let errs = errors.lock().await;
-            let failed_count = errs.iter().filter(|e| e.is_some()).count();
-            if failed_count > 0 {
-                let sample_err = errs
-                    .iter()
-                    .find_map(|e| e.as_ref())
-                    .cloned()
-                    .unwrap_or_default();
-                return Err(EmbeddingError::Protocol(format!(
-                    "{failed_count}/{total_sublots} sub-lots failed across cluster. Sample error: {sample_err}"
-                )));
+            for (sub_no, maybe_err) in errs.iter().enumerate() {
+                if let Some(err) = maybe_err {
+                    recorded_errors.push((sub_no, err.clone()));
+                }
             }
         }
 
         // Reassemble in exact deterministic sequence
         let mut final_results = results.lock().await;
         let mut out = Vec::with_capacity(texts.len());
-        for maybe_batch in final_results.iter_mut() {
-            if let Some(mut batch) = maybe_batch.take() {
-                out.append(&mut batch);
+        for (sub_no, maybe_batch) in final_results.iter_mut().enumerate() {
+            let lot_size = texts
+                .chunks(FANOUT_SUB_LOT)
+                .nth(sub_no)
+                .map(|c| c.len())
+                .unwrap_or(0);
+            if let Some(batch) = maybe_batch.take() {
+                for emb in batch {
+                    out.push(Some(emb));
+                }
+            } else {
+                for _ in 0..lot_size {
+                    out.push(None);
+                }
             }
         }
-        report(out.len(), texts.len());
+        report(out.iter().filter(|o| o.is_some()).count(), texts.len());
+        (out, recorded_errors)
+    }
+
+    /// Batched embedding with per-lot progress: `report(done, total)` fires
+    /// after each round-trip so long corpora stay observable.
+    /// Fails closed if any lot in the batch fails after 3 distributed attempts across endpoints.
+    pub async fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let (total_results, errors) = self.embed_batch_total_reported(texts, report).await;
+        if !errors.is_empty() {
+            let sample_err = errors[0].1.clone();
+            let total_sublots = (texts.len() + FANOUT_SUB_LOT - 1) / FANOUT_SUB_LOT;
+            return Err(EmbeddingError::Protocol(format!(
+                "{}/{} sub-lots failed across cluster. Sample error: {sample_err}",
+                errors.len(),
+                total_sublots
+            )));
+        }
+
+        let out = total_results
+            .into_iter()
+            .map(|opt| opt.expect("all items present when errors is empty"))
+            .collect();
         Ok(out)
     }
 }

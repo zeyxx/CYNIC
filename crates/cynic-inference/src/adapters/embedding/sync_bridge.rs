@@ -84,6 +84,49 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
         }
         Ok(vectors)
     }
+
+    /// Resilient embedding for evaluation harnesses: total by construction.
+    /// Preserves successfully calculated vectors even if isolated lots fail,
+    /// returning per-item results and an explicit manifest of per-lot failures.
+    pub fn embed_batch_resilient(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> (Vec<Option<Vec<f32>>>, Vec<(usize, String)>) {
+        use super::http::lot_size;
+        let mut vectors = Vec::with_capacity(texts.len());
+        let mut recorded_errors = Vec::new();
+
+        for (lot_idx, lot) in texts.chunks(lot_size()).enumerate() {
+            match self.runtime.block_on(self.backend.embed_batch(lot)) {
+                Ok(embeddings) => {
+                    for embedding in embeddings {
+                        if embedding.vector.len() != self.dimensions {
+                            recorded_errors.push((
+                                lot_idx,
+                                format!(
+                                    "sync bridge dimension drift: expected {}, got {}",
+                                    self.dimensions,
+                                    embedding.vector.len()
+                                ),
+                            ));
+                            vectors.push(None);
+                        } else {
+                            vectors.push(Some(embedding.vector));
+                        }
+                    }
+                }
+                Err(e) => {
+                    recorded_errors.push((lot_idx, e.to_string()));
+                    for _ in 0..lot.len() {
+                        vectors.push(None);
+                    }
+                }
+            }
+            report(vectors.iter().filter(|v| v.is_some()).count(), texts.len());
+        }
+        (vectors, recorded_errors)
+    }
 }
 
 #[cfg(test)]

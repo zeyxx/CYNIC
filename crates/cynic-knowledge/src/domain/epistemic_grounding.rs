@@ -238,8 +238,14 @@ pub fn assemble_epistemic_context<'a>(
     let top_hit = hits[0];
     let top_confidence = top_hit.score;
 
-    // Epistemic Guard 1: Term coverage across candidate hits
-    // Evaluates whether ANY candidate chunk in the top pool provides sufficient lexical grounding
+    // Epistemic Guard 1: Term coverage across candidate hits (Pool-Max Strategy)
+    // NOTE (N1 calibration): Evaluates query term coverage across the top candidate pool
+    // rather than hits[0] alone. Rationale: under continuous convex fusion, high-altitude
+    // constitutional documents (L0) can rank at top-1 due to structural multipliers while only
+    // partially matching a detailed technical query, while the exact implementation chunk with
+    // 100% lexical match sits at rank 2 or 3. Evaluating coverage solely on hits[0] caused false
+    // rejections of legitimate queries. For true out-of-corpus traps, all chunks in the pool have
+    // insufficient coverage, maintaining a strict 100% rejection rate.
     let mut best_term_coverage = 0.0;
     for hit in hits.iter().take(config.max_sources) {
         let cov = compute_term_coverage(query, &hit.chunk.content, &hit.chunk.source_path);

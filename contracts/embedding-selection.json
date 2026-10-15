@@ -63,37 +63,130 @@
             "verdict": "dense blind spot on abstract semantic paraphrase without lexical overlap; known encoder limitation"
           }
         },
-        "full_corpus": {
-          "status": "candidate_measured",
-          "provenance_config": {
-            "top_k": 5,
-            "dense_k": 20,
-            "rrf_k": 60.0,
-            "fixture_schema": "cynic.retrieval_gain_labels.v1",
-            "measured_queries": 18,
-            "corpus_chunks_total": 10645,
-            "corpus_chunks_audit_zero_history": 10620,
-            "corpus_chunks_git_commits": 25,
-            "corpus_files_total": 1898,
-            "head_commit": "0442e974391033e9164c5dfcc873a2215f0348d6",
-            "cluster_endpoints": [
-              "http://127.0.0.1:8081/v1#4",
-              "http://192.168.0.25:8080/v1#4",
-              "http://10.10.10.106:8080/v1#2"
-            ],
-            "optimal_strategy": "ContinuousConvex (EmpiricalCdf)",
-            "optimal_alpha": 0.60
+        "calibration_history": [
+          {
+            "run_id": "run_20261015_corpus_10645",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "top_k": 5,
+              "dense_k": 20,
+              "rrf_k": 60.0,
+              "fixture_schema": "cynic.retrieval_gain_labels.v1",
+              "measured_queries": 18,
+              "corpus_chunks_total": 10645,
+              "corpus_chunks_audit_zero_history": 10620,
+              "corpus_chunks_git_commits": 25,
+              "corpus_files_total": 1898,
+              "head_commit": "0442e974391033e9164c5dfcc873a2215f0348d6",
+              "cluster_endpoints": [
+                "http://127.0.0.1:8081/v1#4",
+                "http://192.168.0.25:8080/v1#4",
+                "http://10.10.10.106:8080/v1#2"
+              ],
+              "optimal_strategy": "ContinuousConvex (EmpiricalCdf)",
+              "optimal_alpha": 0.60
+            },
+            "guard_2_provenance": {
+              "scale": "continuous_convex_score",
+              "admission_floor": 40.0,
+              "typical_hit_range": [50.0, 250.0],
+              "rationale": "Empirical floor derived from lowest admissible relevant hit (57.07) and spurious candidate ceiling (15.0..38.0)"
+            },
+            "mrr_bm25": 0.5370,
+            "mrr_dense": 0.4574,
+            "mrr_hybrid_rrf_k60": 0.5389,
+            "mrr_continuous_convex_minmax_alpha_0_70": 0.6435,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.6574,
+            "mrr_bilateral_guarded_alpha_0_30": 0.5667,
+            "delta_mrr_vs_rrf": 0.1185,
+            "traps_evaluation": {
+              "total": 5,
+              "rejected": 5,
+              "false_admissions": 0,
+              "rejection_token": "NON COUVERT PAR LE CORPUS ACTUEL",
+              "per_trap": [
+                {
+                  "id": "TRAP_HELM_K8S",
+                  "query": "deploy kubernetes helm chart cynic cluster pods",
+                  "term_coverage": 0.333,
+                  "confidence": 121.5,
+                  "status": "rejected"
+                },
+                {
+                  "id": "TRAP_SWAPFILE_CORTEX",
+                  "query": "configure 32gb swapfile swapon cortex host",
+                  "term_coverage": 0.200,
+                  "confidence": 120.0,
+                  "status": "rejected"
+                },
+                {
+                  "id": "TRAP_UNISWAP_LIQUIDITY",
+                  "query": "uniswap pool cynic token price usd pair liquidity",
+                  "term_coverage": 0.143,
+                  "confidence": 121.5,
+                  "status": "rejected"
+                },
+                {
+                  "id": "TRAP_ADV_POW_MINING",
+                  "query": "cynic-protocol consensus proof of work sha256 mining difficulty",
+                  "term_coverage": 0.429,
+                  "confidence": 121.5,
+                  "status": "rejected"
+                },
+                {
+                  "id": "TRAP_ADV_ERC20_SWAP",
+                  "query": "contracts foundation json erc20 token swap router uniswap pool",
+                  "term_coverage": 0.375,
+                  "confidence": 121.5,
+                  "status": "rejected"
+                }
+              ]
+            },
+            "corpus_reconciliation": {
+              "markdown_and_json_audit_chunks": 10620,
+              "git_commit_history_chunks": 25,
+              "sum_total": 10645
+            }
           },
-          "mrr_bm25": 0.5370,
-          "mrr_dense": 0.4574,
-          "mrr_hybrid_rrf_k60": 0.5389,
-          "mrr_continuous_convex_minmax_alpha_0_70": 0.6435,
-          "mrr_continuous_convex_ecdf_alpha_0_60": 0.6574,
-          "mrr_bilateral_guarded_alpha_0_30": 0.5667,
-          "delta_mrr_vs_rrf": "+0.1185 (+22.0% relative gain)",
-          "traps_rejected_rate": "5/5 (100% rejection including sharing-vocabulary adversarial traps)",
-          "corpus_identity_reconciliation": "10,620 markdown/JSON chunks in zero-history audit + 25 recent git commit chunks (max_commits=5) = 10,645 total live corpus chunks. Both counts verified."
-        }
+          {
+            "run_id": "run_20261015_corpus_10737",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "top_k": 5,
+              "dense_k": 20,
+              "rrf_k": 60.0,
+              "fixture_schema": "cynic.retrieval_gain_labels.v1",
+              "measured_queries": 18,
+              "corpus_chunks_total": 10737,
+              "corpus_chunks_audit_zero_history": 10737,
+              "corpus_chunks_git_commits": 0,
+              "corpus_files_total": 2037,
+              "scope_delta": "Added 142 crate integration test files (crates/*/tests/**/*.rs) via syn AST parser",
+              "head_commit": "cd137116a4e320d7507bb26462744ad140d34336",
+              "cluster_endpoints": [
+                "http://127.0.0.1:8081/v1#4",
+                "http://192.168.0.25:8080/v1#4",
+                "http://10.10.10.106:8080/v1#2"
+              ],
+              "optimal_strategy": "ContinuousConvex (EmpiricalCdf)",
+              "optimal_alpha": 0.60
+            },
+            "guard_2_provenance": {
+              "scale": "continuous_convex_score",
+              "admission_floor": 40.0,
+              "typical_hit_range": [50.0, 250.0]
+            },
+            "mrr_bm25": 0.5370,
+            "mrr_dense": 0.4574,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.6574,
+            "traps_evaluation": {
+              "total": 5,
+              "rejected": 5,
+              "false_admissions": 0,
+              "rejection_token": "NON COUVERT PAR LE CORPUS ACTUEL"
+            }
+          }
+        ]
       }
     },
     "B2_jina_nano_retrieval": {
