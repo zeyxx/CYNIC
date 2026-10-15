@@ -64,17 +64,24 @@ Each gap carries: measured state (file:line, never prose), why the slice stopped
 
 **Acceptance:** observe runs with zero mutation (provable: no spawn/signal code path reachable); unknown stays unknown; output validates against the observation schema.
 
-## G5. `process_observation.rs` placement
+## G5. `process_observation.rs` placement — CLOSED: KEEP in host
 
-**Measured:** `crates/cynic-host/src/process_observation.rs`, 394 LOC, adjacent to supervision, unclassified (map §10.4).
+**Measured:** `crates/cynic-host/src/process_observation.rs`, 394 LOC. Closure proof (2026-10-15):
+outgoing = `crate::runtime_layout` (host-internal) + `std::process::Command` +
+`tokio::process` + serde/std — not std+protocol only. Incoming = 10 host
+modules (`service_supervisor_observation`, `storage_capabilities/local`,
+`runtime_layout`, `runtime_network_preflight`, `endpoint_observation`,
+`adapters/{local_disk,local_build_artefact,principal_manager,local_observation}`,
+`lib.rs`).
 
-**Why open:** needs import-closure proof before any move decision.
-
-**Options:**
-1. (R) Classify at S4 with closure proof: if it imports only std + protocol → move to `cynic-supervisor` as a probe adapter; else keep in host with a documented perimeter.
-2. Leave permanently in host. Owner: record KEEP with reason.
-
-**Acceptance:** closure listing (incoming + outgoing edges) attached to the decision; no dangling imports either way.
+**Decision:** KEEP. It is a generic command-capture utility
+(`capture_command`, `capture_argv`, `command_json`, `command_stdout`,
+`reexec_current_process_with_env`), shared across storage, network, and
+observation chains — not supervision-specific. Moving it to
+`cynic-supervisor` would drag host `runtime_layout` and tokio process
+spawning into the L1 effects crate and strand 10 importers. Perimeter:
+host-owned process-execution helper; supervision uses the typed
+`cynic-supervisor` spawn/stop ladder for CYNIC-owned children instead.
 
 ## G6. Kernel and MCP role migration
 
