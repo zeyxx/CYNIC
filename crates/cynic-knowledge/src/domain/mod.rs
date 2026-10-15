@@ -10,6 +10,7 @@ pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
 pub mod hybrid_rrf;
+pub mod query_routing;
 pub mod scorer;
 pub mod synthesis;
 pub mod vector_cache;
@@ -43,6 +44,7 @@ pub use geometry::{CrateGeometryRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceG
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use graph_expansion::expand_hits_with_graph;
 pub use hybrid_rrf::{DEFAULT_RRF_K, DenseHit, fuse_reciprocal_ranks};
+pub use query_routing::{QueryRoute, RoutingTable, route_query};
 pub use scorer::{LexicalIndex, SearchHit, bm25_margin, dense_margin, tokenize};
 pub use synthesis::{
     CitedSource, SYNTHESIS_PROMPT_SCHEMA_V1, SynthesisPrompt, SynthesisPromptBuilder,
