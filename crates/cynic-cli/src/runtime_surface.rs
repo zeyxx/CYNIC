@@ -24,7 +24,6 @@ mod network_preflight;
 mod paths;
 mod persistence;
 mod queue;
-mod registry_observation;
 mod report;
 mod resolver_plan;
 mod storage_topology;
@@ -492,7 +491,13 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                     apply,
                 },
         } => {
-            registry_observation::execute_registry_observation(json, registry, &observation, apply)
+            // Compat alias: canonical home is `network registry observe`.
+            crate::network_surface::registry::execute_registry_observe(
+                json,
+                registry,
+                &observation,
+                apply,
+            )
         }
         RuntimeCommand::Validate {
             json,
