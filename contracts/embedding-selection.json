@@ -185,6 +185,63 @@
               "false_admissions": 0,
               "rejection_token": "NON COUVERT PAR LE CORPUS ACTUEL"
             }
+          },
+          {
+            "run_id": "run_20261015_corpus_10772_trunc2500",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "top_k": 5,
+              "dense_k": 20,
+              "rrf_k": 60.0,
+              "fixture_schema": "cynic.retrieval_gain_labels.v1",
+              "fixture_queries_total": 47,
+              "measured_queries": 42,
+              "traps_excluded": 5,
+              "corpus_chunks_scored": 10772,
+              "corpus_chunks_audit_zero_history": 12001,
+              "pipeline_tag": "trunc2500/doc=/query=/template={body}",
+              "pipeline_max_chars": 2500,
+              "zero_truncation": true,
+              "measured_corpus_max_tokens": 1101,
+              "head_commit": "a32b64c5eaa60dc85ba224fc0b21e5ddee01bfaa",
+              "head_note": "bench harness (wilcoxon_signed_rank, full 0.00-1.00 sweep, trunc2500) ran as uncommitted working-tree changes over this commit",
+              "cluster_endpoints": [
+                "http://127.0.0.1:8081/v1#slots=2",
+                "http://192.168.0.25:8080/v1#slots=2"
+              ],
+              "runner_slot_law": "each runner enforces n_ctx/--parallel tokens per input; cortex -c 4096 --parallel 2 and compute-01 -c 4096 --parallel 2 give 2048-token slots",
+              "lxc106_excluded": "no admin access (ssh denied for cynic/titouan/user), ceiling unmeasurable, fails closed on long inputs",
+              "compute01_post_run": "restored to -c 8192 --parallel 4 (2048-token slots, 4 workers back); 1101-token probe returns 200",
+              "optimal_strategy": "ContinuousConvex (CandidateMinMax)",
+              "optimal_alpha": 0.50,
+              "optimal_runner_up": "ContinuousConvex (EmpiricalCdf) alpha 0.60 within 0.0020"
+            },
+            "mrr_bm25": 0.4810,
+            "mrr_dense": 0.4631,
+            "mrr_hybrid_rrf_k60": 0.4167,
+            "mrr_continuous_convex_minmax_alpha_0_50": 0.5337,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.5317,
+            "delta_mrr_best_vs_rrf": 0.1170,
+            "nonlinearity_note": "ECDF curve over alpha 0.00-1.00 step 0.05 is concave with interior optimum (0.275 at 0.00 rising to 0.532 at 0.60, falling to 0.467 at 1.00); sweep endpoints do not reproduce the pure arms because altitude multipliers and contract floors reorder fused candidates even at alpha 0/1",
+            "ecdf_curve_alpha_0_00_to_1_00_step_0_05": [0.2754, 0.2952, 0.3210, 0.3321, 0.3460, 0.3798, 0.4167, 0.4194, 0.4393, 0.4587, 0.4889, 0.5060, 0.5317, 0.5198, 0.5234, 0.5056, 0.4841, 0.4841, 0.4960, 0.4909, 0.4671],
+            "wilcoxon_best_ecdf_vs_rrf": {
+              "n_nonzero": 10,
+              "w_plus": 51.5,
+              "z": 2.419,
+              "p_two_sided": 0.0156,
+              "wins": 8,
+              "losses": 2,
+              "ties": 32,
+              "verdict": "significant at 0.05 on 10 decisive pairs; 32/42 ties (mostly double misses) bound the power",
+              "method": "paired signed-rank, normal approximation with continuity and tie corrections (cynic-eval wilcoxon_signed_rank, unit-tested)"
+            },
+            "blind_spots": {
+              "total_miss_queries": 6,
+              "ids": ["RQC1_CONSENSUS", "RQC4_PARAPHRASE", "RQ19_FOUNDATION_INVARIANTS", "RQ20_CLAIMS_LEASE", "RQ26_MACHINE_IDENTITY", "RQ28_EVIDENCE_RECEIPT"],
+              "reading": "no arm (BM25, dense, RRF, fusion) scores above 0; fixture grades point at content the index never surfaces in top-20; retrieval gap, not fusion failure; follow-up"
+            },
+            "rrf_regression_note": "ordinal RRF (0.4167) underperforms both pure arms on this 42-query fixture; rank fusion is fragile when sparse and dense top-20 disagree; continuous convex dominates at interior alpha",
+            "machine_report": "target/convex_sweep_report.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
           }
         ]
       }

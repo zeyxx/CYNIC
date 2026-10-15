@@ -449,6 +449,107 @@ pub fn run_bench(
     })
 }
 
+/// Paired Wilcoxon signed-rank test (two-sided, normal approximation).
+///
+/// Takes per-pair differences `a_i - b_i` (e.g. per-query reciprocal rank
+/// under fusion minus reciprocal rank under RRF). Zero differences are
+/// dropped (they carry no rank information), absolute values are ranked
+/// with averaged ties, and the normal approximation applies the continuity
+/// correction plus the tie correction on the variance. The approximation
+/// is valid for `n >= 10`; below that `z`/`p` are indicative only and the
+/// raw `w_plus` should be read against exact tables.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct WilcoxonResult {
+    /// Number of non-zero paired differences actually ranked.
+    pub n_nonzero: usize,
+    /// Sum of ranks carried by positive differences.
+    pub w_plus: f64,
+    /// Normal-approximation z-score (continuity-corrected, >= 0).
+    pub z: f64,
+    /// Two-sided p-value under the normal approximation.
+    pub p_two_sided: f64,
+}
+
+/// Standard normal CDF via the Abramowitz-Stegun 7.1.26 erf approximation
+/// (|error| <= 1.5e-7).
+pub fn normal_cdf(x: f64) -> f64 {
+    0.5 * (1.0 + erf_approx(x / std::f64::consts::SQRT_2))
+}
+
+fn erf_approx(x: f64) -> f64 {
+    let a1 = 0.254829592;
+    let a2 = -0.284496736;
+    let a3 = 1.421413741;
+    let a4 = -1.453152027;
+    let a5 = 1.061405429;
+    let p = 0.3275911;
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    let ax = x.abs();
+    let t = 1.0 / (1.0 + p * ax);
+    let poly = ((((a5 * t + a4) * t) + a3) * t + a2) * t + a1;
+    sign * (1.0 - poly * t * (-ax * ax).exp())
+}
+
+pub fn wilcoxon_signed_rank(paired_diffs: &[f64]) -> WilcoxonResult {
+    let mut ranked: Vec<(f64, f64)> = paired_diffs
+        .iter()
+        .filter(|d| **d != 0.0)
+        .map(|d| (d.abs(), if *d > 0.0 { 1.0 } else { -1.0 }))
+        .collect();
+    let n = ranked.len();
+    if n == 0 {
+        return WilcoxonResult {
+            n_nonzero: 0,
+            w_plus: 0.0,
+            z: 0.0,
+            p_two_sided: 1.0,
+        };
+    }
+    ranked.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Average ranks over ties; accumulate the variance tie correction.
+    let mut w_plus = 0.0;
+    let mut tie_correction = 0.0;
+    let mut i = 0;
+    while i < n {
+        let mut j = i;
+        while j < n && ranked[j].0 == ranked[i].0 {
+            j += 1;
+        }
+        let tie_count = (j - i) as f64;
+        let avg_rank = (i + 1 + j) as f64 / 2.0;
+        for k in i..j {
+            if ranked[k].1 > 0.0 {
+                w_plus += avg_rank;
+            }
+        }
+        tie_correction += (tie_count.powi(3) - tie_count) / 48.0;
+        i = j;
+    }
+
+    let nf = n as f64;
+    let mu = nf * (nf + 1.0) / 4.0;
+    let variance = nf * (nf + 1.0) * (2.0 * nf + 1.0) / 24.0 - tie_correction;
+    if variance <= 0.0 {
+        return WilcoxonResult {
+            n_nonzero: n,
+            w_plus,
+            z: 0.0,
+            p_two_sided: 1.0,
+        };
+    }
+    let sigma = variance.sqrt();
+    let gap = (w_plus - mu).abs() - 0.5; // continuity correction
+    let z = if gap <= 0.0 { 0.0 } else { gap / sigma };
+    let p_two_sided = (2.0 * (1.0 - normal_cdf(z))).clamp(0.0, 1.0);
+    WilcoxonResult {
+        n_nonzero: n,
+        w_plus,
+        z,
+        p_two_sided,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -548,5 +649,53 @@ mod tests {
         other.pipeline.query_prefix = "task: x | ".into();
         assert_ne!(other.vector_cache_filename(), plain);
         assert!(plain.contains("model-a"));
+    }
+
+    #[test]
+    fn normal_cdf_matches_reference_values() {
+        assert!((normal_cdf(0.0) - 0.5).abs() < 1e-6);
+        assert!((normal_cdf(1.96) - 0.975).abs() < 1e-3);
+        assert!((normal_cdf(-1.96) - 0.025).abs() < 1e-3);
+    }
+
+    #[test]
+    fn wilcoxon_all_zero_diffs_is_null() {
+        let result = wilcoxon_signed_rank(&[0.0, 0.0, 0.0]);
+        assert_eq!(result.n_nonzero, 0);
+        assert_eq!(result.w_plus, 0.0);
+        assert_eq!(result.z, 0.0);
+        assert_eq!(result.p_two_sided, 1.0);
+    }
+
+    #[test]
+    fn wilcoxon_all_positive_small_sample() {
+        // n = 5, ranks 1..5 all positive: W+ = 15, mu = 7.5.
+        // Exact two-sided p = 0.0625; the normal approximation must land
+        // in the same non-significant band.
+        let result = wilcoxon_signed_rank(&[0.2, 0.5, 0.25, 1.0, 0.1]);
+        assert_eq!(result.n_nonzero, 5);
+        assert_eq!(result.w_plus, 15.0);
+        assert!(result.p_two_sided > 0.05 && result.p_two_sided < 0.10);
+    }
+
+    #[test]
+    fn wilcoxon_perfectly_symmetric_is_null() {
+        let result = wilcoxon_signed_rank(&[1.0, -1.0, 0.5, -0.5]);
+        assert_eq!(result.n_nonzero, 4);
+        assert_eq!(result.w_plus, 5.0);
+        assert_eq!(result.z, 0.0);
+        assert!((result.p_two_sided - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn wilcoxon_strong_asymmetry_is_significant() {
+        // 12 positive diffs against 2 negative ones of small magnitude.
+        let mut diffs = vec![-0.1, -0.2];
+        diffs.extend([
+            0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.55, 0.65, 0.75, 0.85, 0.95, 1.0,
+        ]);
+        let result = wilcoxon_signed_rank(&diffs);
+        assert_eq!(result.n_nonzero, 14);
+        assert!(result.p_two_sided < 0.05);
     }
 }
