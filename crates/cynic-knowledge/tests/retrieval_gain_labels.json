@@ -718,6 +718,22 @@
       "grades": {
         "contracts/repository-governance.json": 2
       }
+    },
+    {
+      "id": "RQ95_RETRIEVED_CORROBORATED",
+      "query": "what makes a retrieved item lexically relevant or corroborated",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
+    },
+    {
+      "id": "RQ96_RRF_IDENTIFIERS",
+      "query": "rrf_score DEFAULT_RRF_K hybrid_rrf",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/hybrid_rrf.rs": 2
+      }
     }
   ]
 }
