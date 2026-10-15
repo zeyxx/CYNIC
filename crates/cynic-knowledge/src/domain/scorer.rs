@@ -138,7 +138,15 @@ impl LexicalIndex {
         limit: usize,
         dense_k: usize,
     ) -> Vec<SearchHit<'a>> {
-        self.search_hybrid_bilateral_guarded(query, query_vector, vectors, limit, dense_k, None, None)
+        self.search_hybrid_bilateral_guarded(
+            query,
+            query_vector,
+            vectors,
+            limit,
+            dense_k,
+            None,
+            None,
+        )
     }
 
     /// Guarded hybrid: when BM25 is confident (relative top1-top2 margin at
@@ -154,7 +162,15 @@ impl LexicalIndex {
         dense_k: usize,
         guard_gap: Option<f64>,
     ) -> Vec<SearchHit<'a>> {
-        self.search_hybrid_bilateral_guarded(query, query_vector, vectors, limit, dense_k, guard_gap, None)
+        self.search_hybrid_bilateral_guarded(
+            query,
+            query_vector,
+            vectors,
+            limit,
+            dense_k,
+            guard_gap,
+            None,
+        )
     }
 
     /// Bilateral guarded hybrid: when BM25 is confident (relative top1-top2 margin at
@@ -190,6 +206,28 @@ impl LexicalIndex {
         }
 
         let mut fused = fuse_reciprocal_ranks(&sparse, &dense, DEFAULT_RRF_K);
+        fused.truncate(limit);
+        fused
+    }
+
+    /// Continuous convex combination hybrid search (Chapter 5, L4).
+    /// Fuses normalized sparse (BM25) and dense (vector cosine) scores with weight `alpha`.
+    pub fn search_hybrid_convex<'a>(
+        &'a self,
+        query: &str,
+        query_vector: &[f32],
+        vectors: &[ChunkVector],
+        limit: usize,
+        dense_k: usize,
+        alpha: f64,
+        strategy: crate::domain::continuous_fusion::NormalizationStrategy,
+    ) -> Vec<SearchHit<'a>> {
+        let sparse = self.search(query, limit);
+        let dense = top_k_dense(query_vector, &self.chunks, vectors, dense_k);
+
+        let mut fused = crate::domain::continuous_fusion::fuse_continuous_convex(
+            &sparse, &dense, alpha, strategy,
+        );
         fused.truncate(limit);
         fused
     }
