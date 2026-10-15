@@ -17,7 +17,7 @@ const DEFAULT_REST_ADDR: &str = "127.0.0.1:3030";
 #[derive(Debug)]
 pub struct EmbeddingBackend {
     client: Client,
-    base_url: String,
+    base_urls: Vec<String>,
     api_key: Option<String>,
     model: String,
 }
@@ -35,19 +35,36 @@ impl EmbeddingBackend {
             .and_then(|raw| raw.parse::<u64>().ok())
             .filter(|ms| (1_000..=600_000).contains(ms))
             .unwrap_or(120_000);
+
+        let base_urls: Vec<String> = base_url
+            .split(',')
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if base_urls.is_empty() {
+            return Err(BackendInitError::from_http(
+                "no valid embedding base url provided",
+            ));
+        }
+
         Ok(Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(BackendInitError::from_http)?,
-            base_url: base_url.trim_end_matches('/').to_string(),
+            base_urls,
             api_key,
             model: model.to_string(),
         })
     }
 
     pub fn base_url(&self) -> &str {
-        &self.base_url
+        &self.base_urls[0]
+    }
+
+    pub fn base_urls(&self) -> &[String] {
+        &self.base_urls
     }
 
     pub async fn discover(host: &str, api_key: Option<String>, model: &str) -> Option<Self> {
@@ -107,7 +124,7 @@ impl BackendPort for EmbeddingBackend {
 
     async fn health(&self) -> BackendStatus {
         let start = Instant::now();
-        let url = self.base_url.replace("/v1", "/health");
+        let url = self.base_url().replace("/v1", "/health");
         match self.client.get(&url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 let latency = start.elapsed().as_millis() as f64;
@@ -227,18 +244,25 @@ impl EmbeddingBackend {
             .map(|(sub_no, lot)| (sub_no, lot.iter().map(|text| (*text).to_string()).collect()))
             .collect();
         let total_sublots = sublots.len();
+        let num_endpoints = self.base_urls.len().max(1);
+        let effective_width = width * num_endpoints;
         let mut out = Vec::with_capacity(texts.len());
-        let mut stream =
-            futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| async move {
-                let batch = self.post_batch(inputs).await.map_err(|error| {
-                    EmbeddingError::Protocol(format!(
-                        "sub-lot {}/{total_sublots} failed: {error}",
-                        sub_no + 1
-                    ))
-                })?;
+        let mut stream = futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| {
+            let target_url = self.base_urls[sub_no % num_endpoints].clone();
+            async move {
+                let batch = self
+                    .post_batch_to(&target_url, inputs)
+                    .await
+                    .map_err(|error| {
+                        EmbeddingError::Protocol(format!(
+                            "sub-lot {}/{total_sublots} on {target_url} failed: {error}",
+                            sub_no + 1
+                        ))
+                    })?;
                 Ok::<_, EmbeddingError>((sub_no, batch))
-            }))
-            .buffered(width);
+            }
+        }))
+        .buffered(effective_width);
         while let Some((_, mut batch)) = stream.next().await.transpose()? {
             out.append(&mut batch);
             report(out.len(), texts.len());
@@ -249,7 +273,15 @@ impl EmbeddingBackend {
 
 impl EmbeddingBackend {
     async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
-        let url = format!("{}/embeddings", self.base_url);
+        self.post_batch_to(self.base_url(), inputs).await
+    }
+
+    async fn post_batch_to(
+        &self,
+        base_url: &str,
+        inputs: Vec<String>,
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let url = format!("{base_url}/embeddings");
         let start = Instant::now();
 
         let req_body = EmbeddingRequest {
@@ -308,6 +340,21 @@ mod tests {
     fn from_env_defaults() {
         let backend = EmbeddingBackend::from_env().unwrap();
         assert!(backend.base_url().contains("8081"));
+        assert_eq!(backend.base_urls().len(), 1);
+    }
+
+    #[test]
+    fn parses_multiple_comma_separated_endpoints() {
+        let backend = EmbeddingBackend::new(
+            "http://127.0.0.1:8081/v1, http://192.168.0.25:8080/v1, http://10.10.10.106:8080/v1/",
+            None,
+            "test-model",
+        )
+        .unwrap();
+        assert_eq!(backend.base_urls().len(), 3);
+        assert_eq!(backend.base_urls()[0], "http://127.0.0.1:8081/v1");
+        assert_eq!(backend.base_urls()[1], "http://192.168.0.25:8080/v1");
+        assert_eq!(backend.base_urls()[2], "http://10.10.10.106:8080/v1");
     }
 
     #[test]
