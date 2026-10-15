@@ -14,6 +14,14 @@ pub struct SyncEmbeddingBridge<B: EmbeddingPort> {
     dimensions: usize,
 }
 
+impl<B: EmbeddingPort> std::fmt::Debug for SyncEmbeddingBridge<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SyncEmbeddingBridge")
+            .field("dimensions", &self.dimensions)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
     /// Probes the backend once (`probe_text`) to pin the vector dimension.
     pub fn probe(
