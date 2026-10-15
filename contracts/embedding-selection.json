@@ -426,6 +426,35 @@
               "reading": "unchanged set across all clean runs; all depth gaps, never absences"
             },
             "machine_report": "target/convex_sweep_report_12012_85q.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
+          },
+          {
+            "run_id": "run_20261015_routing_analysis_on_85q",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "kind": "analysis_only",
+              "base_vectors": "run_20261015_corpus_12013_85q (same corpus, same vectors, no re-embedding)",
+              "matrix_report": "target/convex_sweep_report.json (schema cynic.convex_sweep_report.v2: full alpha-per-query matrix plus per-query gold_doctype)",
+              "method": "per-gold-doctype alpha argmax on MinMax matrix; split-half cross-validation stratified by doctype; predictors compared in the loop"
+            },
+            "per_doctype_optima_minmax": {
+              "rs_n52": {"alpha": 0.90, "mrr": 0.6603, "pure_dense": 0.7154, "pure_bm25": 0.4013},
+              "json_n19": {"alpha": 0.00, "mrr": 0.8158, "reading": "optimum at 0.00 equals pure BM25; fusion only hurts JSON golds"},
+              "md_n14": {"alpha": 0.45, "mrr": 0.4545, "reading": "all arms weak on prose; RRF and fusion destroy perfect BM25 hits (RQC3, RQ65: BM25 1.0 becomes 0.0)"}
+            },
+            "routing_results": {
+              "oracle_in_sample": 0.6627,
+              "oracle_split_half_mean": 0.6491,
+              "bm25_top1_predictor_accuracy": 0.624,
+              "bm25_top1_realized": 0.5169,
+              "bm25_top1_verdict": "too weak and JSON-biased; misroutes erase the oracle gain",
+              "query_text_regex_accuracy": 0.635,
+              "query_text_realized_in_sample": 0.6357,
+              "query_text_split_half_mean": 0.6199,
+              "query_text_verdict": "generalizes out of sample; beats best global fusion (0.5990) and pure dense (0.5806)"
+            },
+            "deployment_rule": "classify query text (code tokens to rs, contract words to json, else md); json takes pure BM25, rs and md take their split-half MinMax alpha; recalibrate alphas per corpus via the v2 matrix procedure",
+            "caveats": ["predictor is a fixture-tuned regex, not a learned router", "md group small (n=14); prose recall itself needs chunking work", "alpha values stay fixture-relative"],
+            "machine_report": "target/convex_sweep_report.json (schema cynic.convex_sweep_report.v2)"
           }
         ]
       }
