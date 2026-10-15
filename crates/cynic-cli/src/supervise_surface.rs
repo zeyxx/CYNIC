@@ -52,6 +52,9 @@ pub enum SuperviseCommand {
         /// Contract `lifecycle.signals.stop.grace_seconds`.
         #[arg(long, default_value_t = cynic_protocol::supervision::SUPERVISOR_STOP_GRACE_SECS)]
         stop_grace_secs: u64,
+        /// Status heartbeat cadence (capped at 5 by the parent run loop).
+        #[arg(long, default_value_t = 5)]
+        heartbeat_interval_secs: u64,
         /// Declared role argv, everything after `--`.
         #[arg(last = true)]
         command: Vec<String>,
@@ -207,6 +210,7 @@ pub async fn dispatch(cmd: SuperviseCommand) -> ExitCode {
             max_delay_secs,
             min_uptime_secs,
             stop_grace_secs,
+            heartbeat_interval_secs,
             command,
         } => {
             if !SUPERVISED_ROLE_IDS.contains(&role.as_str()) {
@@ -232,6 +236,7 @@ pub async fn dispatch(cmd: SuperviseCommand) -> ExitCode {
                     min_uptime_secs,
                 },
                 stop_grace_secs,
+                heartbeat_interval_secs,
                 state_dir: std::path::PathBuf::from(state_dir),
                 status_file: std::path::PathBuf::from(
                     status_file.unwrap_or_else(|| default_status_file(&role)),
