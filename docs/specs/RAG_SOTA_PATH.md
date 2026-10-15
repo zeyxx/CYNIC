@@ -79,13 +79,33 @@ BM25 0.5004 · dense 0.5918 · RRF 0.4361 · MinMax 0.5884 @0.80 ·
 ECDF 0.5269 @0.60 · routed 0.6113 / 0.5718 · Wilcoxon p=0.0039 (17/5/63).
 Runners: cortex + compute-01, Q8_0, slots 4+4, registry-resolved.
 
-## 6. Next rungs (cheapest first, one variable each)
+## 6. Next rungs (SOTA methods, cheapest first, one variable each)
 
-1. Disagreement-zone fixture pairs (plan §5.4) — raise discriminating power
-   above the current 22/85 before any new axis.
-2. Model axis B (jina-v5-nano/small, Qwen3-0.6B screens) — only remaining
-   lever for the md/json encoder-side gaps; degradation + reproducibility
-   gates apply.
-3. Expansion axis C if B leaves RQ2-class vocabulary gaps.
-4. Confidence columns C1–C4 (spec Phase 2.3) and L3 MCP exposure — surface
-   work, gated on first-stage recall, not before.
+The meme that re-aimed this program: studying single scores in 2026 is the
+moon-shot — the field has named methods for every one of our blind spots,
+and the organic order applies them cheapest-first instead of admiring the
+problem. Each rung below names its SOTA reference, its target symptom, and
+its gate; training-free rungs come before any gradient step.
+
+1. **Disagreement-zone fixture pairs** (retrieval evaluation standard
+   practice: power comes from informative queries, not volume) — raise
+   discriminating power above the current 22/85. Gate: Wilcoxon n_nonzero
+   grows without moving frozen optima.
+2. **Cross-encoder rerank on fused top-20** (ms-marco-MiniLM / jina-reranker
+   pattern: cheap, no training, strongest published lever on prose recall)
+   — targets the md ≤0.42 gap directly. Gate: routed ECDF moves, zero new
+   BM25-perfect destructions, latency budget stated.
+3. **Model axis B screens** (jina-embeddings-v5 nano/small, Qwen3-Embedding
+   0.6B) — encoder-side lever for json/md gaps; degradation and
+   reproducibility gates from the plan apply unchanged.
+4. **Hard-negative contrastive fine-tune** (the fixture IS the training set:
+   `crates/cynic-knowledge/tests/retrieval_training_pairs.json`, positives
+   graded ≥1, negatives mined from our own dense top-30 misses) — InfoNCE on
+   EmbeddingGemma with in-batch + mined negatives. Gated on a training rig
+   (no CUDA today) and on rungs 1–3 plateauing; file-level positives are a
+   v1 approximation, chunk-level grades come first if noise dominates.
+5. **Late interaction (ColBERTv2) / learned sparse (SPLADE)** — only if the
+   fine-tuned bi-encoder still leaves identifier-heavy json gaps; index-size
+   and Vulkan-serving costs measured before adoption, not after.
+6. **Surface work** (confidence columns C1–C4, L3 MCP exposure) — gated on
+   first-stage recall, not before.
