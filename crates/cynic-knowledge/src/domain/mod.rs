@@ -22,7 +22,7 @@ pub use ast::{
 pub use authority::{
     AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, authority_for,
 };
-pub use cache::{CORPUS_CACHE_SCHEMA_V1, CachedFileRecord, CorpusCacheRecord};
+pub use cache::{CORPUS_CACHE_SCHEMA_V2, CachedFileRecord, CorpusCacheRecord};
 pub use chunk::{AuthorityTier, DocumentChunk};
 pub use chunk_quality::{
     CHAR_WINDOW_CHARS, CHAR_WINDOW_OVERLAP_CHARS, CHUNK_QUALITY_REPORT_SCHEMA_V1, ChunkAnomaly,
