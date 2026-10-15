@@ -5,7 +5,7 @@
 //! 2. P99 of chunk line count <= 75 lines.
 //! 3. Healthy chunk ratio >= 95% of total corpus.
 
-use cynic_knowledge::domain::chunk_quality::ChunkQualityReport;
+use cynic_knowledge::domain::chunk_quality::{ChunkQualityReport, MAX_CHUNK_CHARS};
 use cynic_knowledge::sync_workspace_corpus;
 use std::path::{Path, PathBuf};
 
@@ -51,27 +51,38 @@ fn audit_corpus_chunk_quality_and_bounds() {
         report.char_percentiles.max,
     );
 
-    // 1. Zero giant chunks exceeding 8000 characters
-    let severe_oversized: Vec<_> = report
+    // 1. Zero chunks exceeding the dense-model char budget (2,500)
+    let over_budget: Vec<_> = report
         .oversized_chunks
         .iter()
-        .filter(|a| a.char_length > 8000)
+        .filter(|a| a.char_length > MAX_CHUNK_CHARS)
         .collect();
     assert!(
-        severe_oversized.is_empty(),
-        "Detected {} severe giant chunks (> 8000 chars): {:?}",
-        severe_oversized.len(),
-        severe_oversized
+        over_budget.is_empty(),
+        "Detected {} chunks over char budget (> {MAX_CHUNK_CHARS} chars): {:?}",
+        over_budget.len(),
+        over_budget
+            .iter()
+            .map(|a| format!("{}:{} ({})", a.source_path, a.line_start, a.char_length))
+            .take(5)
+            .collect::<Vec<_>>()
     );
 
-    // 2. Line count P99 bound
+    // 2. Absolute max must fit inside the dense window
+    assert!(
+        report.char_percentiles.max <= MAX_CHUNK_CHARS,
+        "Max chunk size {} exceeds dense-model char budget {MAX_CHUNK_CHARS}",
+        report.char_percentiles.max
+    );
+
+    // 3. Line count P99 bound
     assert!(
         report.line_percentiles.p99 <= 75,
         "P99 line count must be <= 75 lines, got {}",
         report.line_percentiles.p99
     );
 
-    // 3. Healthy chunk ratio
+    // 4. Healthy chunk ratio
     assert!(
         report.healthy_ratio >= 0.90,
         "Healthy chunk ratio must be >= 90%, got {:.2}%",

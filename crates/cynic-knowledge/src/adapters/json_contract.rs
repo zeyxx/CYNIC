@@ -1,5 +1,6 @@
 use crate::domain::authority::{AUTHORITY_TIERS_REGISTRY_PATH, AuthorityOverrides};
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use crate::domain::chunk_quality::{MAX_CHUNK_CHARS, split_span_by_char_budget};
 use serde_json::Value;
 use std::path::Path;
 
@@ -71,26 +72,54 @@ pub fn parse_json_contract_with_authority(
             let line_count = line_end.saturating_sub(line_start) + 1;
             if line_count > 70 && line_end <= total_lines {
                 let mut curr_start = line_start;
-                let mut part = 1;
                 while curr_start <= line_end {
                     let curr_end = (curr_start + 50 - 1).min(line_end);
                     let window_slice = lines[curr_start - 1..curr_end].join("\n");
-                    chunks.push(DocumentChunk::new(
-                        source_path.to_string(),
-                        curr_start,
-                        curr_end,
-                        vec![
-                            title.clone(),
-                            format!("{key} (part {part}, lines {curr_start}-{curr_end})"),
-                        ],
-                        window_slice,
-                        authority,
-                    ));
+                    let window_refs: Vec<&str> = lines[curr_start - 1..curr_end].to_vec();
+                    let prefix = vec![title.clone()];
+
+                    if window_slice.len() > MAX_CHUNK_CHARS {
+                        for sub in split_span_by_char_budget(
+                            source_path,
+                            curr_start,
+                            curr_end,
+                            &prefix,
+                            &key,
+                            &window_refs,
+                            authority,
+                        ) {
+                            chunks.push(sub);
+                        }
+                    } else {
+                        chunks.push(DocumentChunk::new(
+                            source_path.to_string(),
+                            curr_start,
+                            curr_end,
+                            vec![
+                                title.clone(),
+                                format!("{key} (lines {curr_start}-{curr_end})"),
+                            ],
+                            window_slice,
+                            authority,
+                        ));
+                    }
                     if curr_end >= line_end {
                         break;
                     }
                     curr_start += 50 - 10;
-                    part += 1;
+                }
+            } else if chunk_content.len() > MAX_CHUNK_CHARS && line_end <= total_lines {
+                let window_refs: Vec<&str> = lines[line_start - 1..line_end].to_vec();
+                for sub in split_span_by_char_budget(
+                    source_path,
+                    line_start,
+                    line_end,
+                    &[title.clone()],
+                    &key,
+                    &window_refs,
+                    authority,
+                ) {
+                    chunks.push(sub);
                 }
             } else {
                 chunks.push(DocumentChunk::new(
