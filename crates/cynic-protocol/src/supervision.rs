@@ -277,6 +277,33 @@ impl SupervisorObservation {
     }
 }
 
+/// Wire schema for the parent status file envelope.
+pub const PARENT_STATUS_FILE_SCHEMA: &str = "cynic.supervisor_parent_status.v1";
+/// A status file older than this is stale: `observe` reports `Unknown` with
+/// a `supervisor_status_stale` residual instead of the file's state.
+pub const PARENT_STATUS_STALE_AFTER_MS: u128 = 5_000;
+
+/// Atomic status file written by a supervised parent (`spec` §5, option 1).
+/// `observe` reads this envelope, never the parent's memory. Freshness is
+/// judged on `observation.observed_at_unix_ms` age; `heartbeat_counter`
+/// serves watch mode and post-mortem forensics.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ParentStatusEnvelope {
+    pub schema: String,
+    pub heartbeat_counter: u64,
+    pub observation: SupervisorObservation,
+}
+
+impl ParentStatusEnvelope {
+    pub fn new(observation: SupervisorObservation) -> Self {
+        Self {
+            schema: PARENT_STATUS_FILE_SCHEMA.to_string(),
+            heartbeat_counter: 0,
+            observation,
+        }
+    }
+}
+
 /// Map a unit health status onto the generic lifecycle state (G3 decision:
 /// `degraded` blocks like `failed`; `unknown` stays unknown; `draining` is
 /// reserved for commanded stops and never produced here).

@@ -26,6 +26,7 @@ cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
 cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
+cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }

@@ -158,7 +158,10 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "supervise",
-                commands: vec!["cynic supervise observe [--role <id>]"],
+                commands: vec![
+                    "cynic supervise observe [--role <id>] [--status-file <path>]",
+                    "cynic supervise run --role <id> -- <command>",
+                ],
             },
             CommandDomain {
                 name: "discovery",

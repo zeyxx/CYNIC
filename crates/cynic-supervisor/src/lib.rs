@@ -5,8 +5,10 @@
 //! All processes run foreground; SysV double-fork is prohibited. Callers own
 //! clocks, backoff math, and read-back proof.
 
+pub mod parent;
 pub mod spawn;
 pub mod stop;
 
+pub use parent::{RoleRunConfig, RoleRunOutcome, run_role};
 pub use spawn::spawn_backend;
 pub use stop::graceful_stop;
