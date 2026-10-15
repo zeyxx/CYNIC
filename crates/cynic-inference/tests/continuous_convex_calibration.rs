@@ -72,6 +72,13 @@ fn test_continuous_convex_calibration_vs_rrf() {
     }
 
     let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "multi-endpoint".into());
+    // Dimension screen: truncate cached vectors to the leading N dims
+    // (Matryoshka). 0 = full dim. Cosine normalizes, so no renormalization
+    // step is needed for ranking.
+    let trunc_dim = std::env::var("CYNIC_TRUNC_DIM")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
     // Zero-truncation window: measured corpus max is 2 498 chars, so every
     // chunk reaches the dense model intact (fits the 2 048-token runners).
     let pipeline = TextPipeline {
@@ -82,7 +89,7 @@ fn test_continuous_convex_calibration_vs_rrf() {
     };
     let config = BenchConfig {
         subset,
-        trunc_dim: 0,
+        trunc_dim,
         top_k: 5,
         dense_k: 20,
         guard_gap: None,
