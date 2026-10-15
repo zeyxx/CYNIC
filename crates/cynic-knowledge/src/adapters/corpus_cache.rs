@@ -167,7 +167,7 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
         }
     }
 
-    // 3. Scan crates/*/src Rust source files
+    // 3. Scan crates/ Rust source and test files
     let crates_dir = root.join("crates");
     if crates_dir.exists() {
         for entry in WalkDir::new(crates_dir)
@@ -180,7 +180,8 @@ pub fn sync_workspace_corpus<P: AsRef<Path>>(
         {
             if entry.file_type().is_file()
                 && entry.path().extension().is_some_and(|ext| ext == "rs")
-                && entry.path().to_string_lossy().contains("/src/")
+                && (entry.path().to_string_lossy().contains("/src/")
+                    || entry.path().to_string_lossy().contains("/tests/"))
             {
                 let rel_path = entry
                     .path()
