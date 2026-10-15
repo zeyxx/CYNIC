@@ -235,13 +235,6 @@ fn clean_stable_workspace(
     }
     // Always prune stale registrations so a prior fallback removal (or a
     // manual rm -rf) cannot leave a registration that blocks re-creation.
-    let _ = std::process::Command::new("git")
-        .arg("-C")
-        .arg(repository_root)
-        .args(["worktree", "prune"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
     Ok(())
 }
 
