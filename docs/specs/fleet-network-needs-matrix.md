@@ -15,7 +15,6 @@
 | MANQUANT | observé absent, sonde nommée |
 | DIVERGENT | plusieurs vérités concurrentes, observées |
 | INCONNU | non probé ; la sonde manquante est nommée, pas le résultat |
-| PROUVÉ-SERVEUR | le servant répond (sonde dig) ; la conso par client reste à NET-02 |
 
 > **Règle sondes (2026-10-15)** : une vraie sonde vérifie en temps réel
 > (daemon/service vivant). Timers et crons = polling fragile, pas des
@@ -27,8 +26,8 @@
 
 | ID | Besoin | État | Fait observé / sonde |
 |---|---|---|---|
-| NET-01 | Zone canonique `service.cynic` servie fleet-wide | PROUVÉ-SERVEUR | PVE sert les 2 zones : `dig @10.10.10.1 forgejo.service.cynic` → 10.10.10.101 (sonde cortex 2026-10-14/15, canari embedding OK). Conso prouvée depuis cortex uniquement ; builder/CT = NET-02 |
-| NET-02 | Résolution homogène (même résolveur fleet) | DIVERGENT | cortex → 127.0.0.1:1053 local (forward PVE ; défaut OK les 2 zones, prouvé `getent` 2026-10-15) ; builder → Freebox 192.168.0.254 (hosts file) ; CT → DHCP 10.10.10.1. Builder/CT non prouvés : sonde = `dig @10.10.10.1` depuis chaque client |
+| NET-01 | Zone canonique `service.cynic` servie fleet-wide | EN PLACE | PVE sert les 2 zones (sonde dig 2026-10-14/15) et toute la fleet consomme par défaut (NET-02) |
+| NET-02 | Résolution homogène (même résolveur fleet) | EN PLACE | prouvé par défaut le 2026-10-15 : cortex via :1053 local, builder via 10.10.10.1 (drop-in), 6/6 CT via DHCP 10.10.10.1 (`getent` depuis PVE). Zéro hosts file restant |
 | NET-03 | Artefacts DNS générés (header, régénérables) | EN PLACE | bundle natif dual-zone (`network dns bundle`, 2026-10-14) : régénérable, installé sur PVE depuis le bundle, plus de drop manuel |
 | NET-04 | Vocabulaire registre unifié (fin `synapse.cynic`) | DIVERGENT | 9 refs `synapse.cynic` vs 16 `service.cynic` dans `infra/registry.json`. APRÈS NET-01 (jamais avant — cf. ordre de migration) |
 | NET-05 | Transport source via registre (zéro DNS système) | EN PLACE | prouvé builder : clone `ssh://forgejo@forgejo.synapse.cynic` OK, cargo lancé (commit a7a082a6) |
