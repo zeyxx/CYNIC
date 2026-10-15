@@ -516,7 +516,7 @@ mod tests {
         };
         let argv = vec!["cargo".to_string(), "build".to_string()];
         // Construct the env inline (build_execution_env was inlined).
-        let mut env = std::collections::BTreeMap::new();
+        let mut env: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
         if let Some(root) = scheduler.shared_target_root.as_ref() {
             let target_dir = shared_target_dir_for(root, &argv);
             env.insert(
@@ -540,7 +540,7 @@ mod tests {
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
         // Construct the env inline (build_execution_env was inlined).
-        let mut env = std::collections::BTreeMap::new();
+        let mut env: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
         if let Some(root) = scheduler.shared_target_root.as_ref() {
             let target_dir = shared_target_dir_for(root, &argv);
             env.insert(
