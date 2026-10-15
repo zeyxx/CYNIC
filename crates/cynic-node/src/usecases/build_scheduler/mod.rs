@@ -95,16 +95,10 @@ pub(crate) fn projected_rss_mb(build_jobs: Option<usize>) -> u64 {
     let jobs = build_jobs.unwrap_or(1);
     jobs as u64 * RSS_PER_JOB_MB
 }
-
-/// RSS cap gate for admission. Admits when no cap is configured or when
-/// projected RSS is within the cap. Refuses when projected RSS exceeds the
-/// cap (never OOM mid-flight). Boundary-inclusive: projected == cap admits.
-pub(crate) fn admit_build_under_rss_cap(projected_rss_mb: u64, max_rss_cap_mb: Option<u64>) -> bool {
-    match max_rss_cap_mb {
-        None => true,
-        Some(cap) => projected_rss_mb <= cap,
-    }
-}
+// NOTE: no local cap-gate helper here by design. Admission uses the measured
+// T6 predicate `decide_admit_parallel_slot` (cynic-protocol, H2); the call
+// site resolves `None` to `RSS_CAP_MB` before calling it. A second helper
+// would be a second authority over one decision.
 
 /// Admission decision with T6 predicate consultation results.
 ///
@@ -645,14 +639,13 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
 /// `getrusage(RUSAGE_CHILDREN)`. Returns `ru_maxrss` in kB (Linux).
 /// This reflects the largest waited-for descendant (rustc), not the
 /// scheduler's own RSS. `None` when `getrusage` is unavailable.
+/// Safe wrapper (`nix`) — the workspace forbids `unsafe` blocks.
 fn measure_max_rss_kb() -> Option<u64> {
-    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
-    let result = unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage) };
-    if result != 0 {
-        return None;
-    }
+    let usage =
+        nix::sys::resource::getrusage(nix::sys::resource::UsageWho::RUSAGE_CHILDREN).ok()?;
+    let peak_kb = usage.max_rss().max(0) as u64;
     // On Linux, ru_maxrss is in kilobytes.
-    Some(usage.ru_maxrss as u64)
+    Some(peak_kb)
 }
 
 /// Measure the total size of all files in `path` recursively (du-style).
@@ -1469,15 +1462,13 @@ mod tests {
         assert!(skipped.is_none(), "live claim must be skipped");
     }
 
-    // ── H2: RSS cap gate tests ──────────────────────────────────────────
+    // ── H2: RSS cap gate tests (against the single T6 authority) ──────────
 
     /// The gate must refuse admission when projected RSS exceeds the cap.
     #[test]
     fn rss_cap_gate_refuses_when_projected_exceeds_cap() {
-        let projected_rss_mb = 4096u64;
-        let max_rss_cap_mb = Some(2048u64);
         assert!(
-            !admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            !decide_admit_parallel_slot(2048, 4096),
             "projected RSS (4096 MB) exceeds cap (2048 MB) — must refuse"
         );
     }
@@ -1485,33 +1476,17 @@ mod tests {
     /// The gate must admit when projected RSS is under the cap.
     #[test]
     fn rss_cap_gate_admits_when_projected_under_cap() {
-        let projected_rss_mb = 1024u64;
-        let max_rss_cap_mb = Some(2048u64);
         assert!(
-            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            decide_admit_parallel_slot(2048, 1024),
             "projected RSS (1024 MB) under cap (2048 MB) — must admit"
         );
     }
 
-    /// The gate must admit when no cap is configured (None).
-    #[test]
-    fn rss_cap_gate_admits_when_no_cap_configured() {
-        let projected_rss_mb = 8192u64;
-        let max_rss_cap_mb: Option<u64> = None;
-        assert!(
-            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
-            "no cap configured — must always admit"
-        );
-    }
-
-    /// The gate must refuse when projected RSS equals the cap boundary
-    /// (strictly greater than cap = refuse; equal = admit).
+    /// The gate must admit when projected RSS equals the cap boundary.
     #[test]
     fn rss_cap_gate_admits_at_exact_cap_boundary() {
-        let projected_rss_mb = 2048u64;
-        let max_rss_cap_mb = Some(2048u64);
         assert!(
-            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            decide_admit_parallel_slot(2048, 2048),
             "projected RSS equals cap — must admit (boundary inclusive)"
         );
     }
