@@ -5,17 +5,24 @@
 //!
 //! Run with:
 //! ```bash
-//! CYNIC_EMBED_URL="http://127.0.0.1:8081/v1,http://192.168.0.25:8080/v1,http://10.10.10.106:8080/v1" \
+//! CYNIC_EMBED_URL="http://127.0.0.1:8081/v1#slots=2,http://192.168.0.25:8080/v1#slots=2" \
 //! CYNIC_EMBED_MODEL="multi-endpoint" \
-//! CYNIC_EMBED_SUBSET=1000 \
+//! CYNIC_EMBED_SUBSET=0 \
 //! cargo test -p cynic-inference --test continuous_convex_calibration -- --ignored --nocapture
 //! ```
+//! `CYNIC_EMBED_SUBSET=0` scores the whole corpus; any other value takes the
+//! first-N chunks by content-hash order (uniform sample, not a prefix).
+//!
+//! Physical slot law: each runner enforces `n_ctx / --parallel` tokens per
+//! input (cortex `-c 4096 --parallel 2` and compute-01 `-c 4096 --parallel 2`
+//! give 2 048-token slots; measured corpus max is 1 101 tokens). lxc106 is
+//! excluded: no admin access, ceiling unmeasurable, fails closed on long inputs.
 
 use std::path::PathBuf;
 
 use cynic_eval::bench::retrieval_gain::{
     BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline, VectorCacheRecord,
-    grade_chunk, load_vector_cache, reciprocal_rank, save_vector_cache,
+    grade_chunk, load_vector_cache, reciprocal_rank, save_vector_cache, wilcoxon_signed_rank,
 };
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
 use cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge;
@@ -65,8 +72,10 @@ fn test_continuous_convex_calibration_vs_rrf() {
     }
 
     let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "multi-endpoint".into());
+    // Zero-truncation window: measured corpus max is 2 498 chars, so every
+    // chunk reaches the dense model intact (fits the 2 048-token runners).
     let pipeline = TextPipeline {
-        max_chars: 1000,
+        max_chars: 2500,
         doc_prefix: String::new(),
         query_prefix: String::new(),
         doc_template: "{body}".into(),
@@ -134,8 +143,8 @@ fn test_continuous_convex_calibration_vs_rrf() {
         });
     }
 
-    // 1. Baseline: Pure BM25
-    let mrr_bm25: f64 = evaluated_queries
+    // 1-3. Baselines with per-query reciprocal ranks retained for paired tests.
+    let rr_bm25: Vec<f64> = evaluated_queries
         .iter()
         .map(|q| {
             let grades: Vec<u32> = q
@@ -146,11 +155,8 @@ fn test_continuous_convex_calibration_vs_rrf() {
                 .collect();
             reciprocal_rank(&grades)
         })
-        .sum::<f64>()
-        / evaluated_queries.len() as f64;
-
-    // 2. Baseline: Pure Dense
-    let mrr_dense: f64 = evaluated_queries
+        .collect();
+    let rr_dense: Vec<f64> = evaluated_queries
         .iter()
         .map(|q| {
             let grades: Vec<u32> = q
@@ -161,11 +167,8 @@ fn test_continuous_convex_calibration_vs_rrf() {
                 .collect();
             reciprocal_rank(&grades)
         })
-        .sum::<f64>()
-        / evaluated_queries.len() as f64;
-
-    // 3. Baseline: Ordinal RRF (k=60)
-    let mrr_rrf: f64 = evaluated_queries
+        .collect();
+    let rr_rrf: Vec<f64> = evaluated_queries
         .iter()
         .map(|q| {
             let fused = fuse_reciprocal_ranks(&q.sparse, &q.dense, DEFAULT_RRF_K);
@@ -176,8 +179,9 @@ fn test_continuous_convex_calibration_vs_rrf() {
                 .collect();
             reciprocal_rank(&grades)
         })
-        .sum::<f64>()
-        / evaluated_queries.len() as f64;
+        .collect();
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
+    let (mrr_bm25, mrr_dense, mrr_rrf) = (mean(&rr_bm25), mean(&rr_dense), mean(&rr_rrf));
 
     println!("BASELINES (N = {} queries):", evaluated_queries.len());
     println!("  - Pure BM25 (top-5):    MRR = {:.4}", mrr_bm25);
@@ -190,14 +194,16 @@ fn test_continuous_convex_calibration_vs_rrf() {
     println!("SWEEP: CONTINUOUS CONVEX COMBINATION S(d) = alpha * Dense + (1 - alpha) * BM25");
     println!("alpha | MinMax MRR | ECDF MRR | Delta vs RRF (MinMax) | Delta vs RRF (ECDF)");
 
-    let alphas = [
-        0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80,
-    ];
+    // Full non-linearity sweep: alpha in [0.00, 1.00] at 0.05 resolution.
+    let alphas: Vec<f64> = (0..=20).map(|i| i as f64 * 0.05).collect();
     let mut best_minmax = (0.0, 0.0);
     let mut best_ecdf = (0.0, 0.0);
+    let mut sweep_rows: Vec<(f64, f64, f64)> = Vec::with_capacity(alphas.len());
+    // Per-query ECDF reciprocal ranks per alpha, for the paired test.
+    let mut ecdf_rr_by_alpha: Vec<(f64, Vec<f64>)> = Vec::with_capacity(alphas.len());
 
     for &alpha in &alphas {
-        let mrr_minmax: f64 = evaluated_queries
+        let rr_minmax: Vec<f64> = evaluated_queries
             .iter()
             .map(|q| {
                 let fused = fuse_continuous_convex(
@@ -213,10 +219,9 @@ fn test_continuous_convex_calibration_vs_rrf() {
                     .collect();
                 reciprocal_rank(&grades)
             })
-            .sum::<f64>()
-            / evaluated_queries.len() as f64;
+            .collect();
 
-        let mrr_ecdf_score: f64 = evaluated_queries
+        let rr_ecdf: Vec<f64> = evaluated_queries
             .iter()
             .map(|q| {
                 let fused = fuse_continuous_convex(
@@ -232,15 +237,17 @@ fn test_continuous_convex_calibration_vs_rrf() {
                     .collect();
                 reciprocal_rank(&grades)
             })
-            .sum::<f64>()
-            / evaluated_queries.len() as f64;
+            .collect();
 
+        let (mrr_minmax, mrr_ecdf_score) = (mean(&rr_minmax), mean(&rr_ecdf));
         if mrr_minmax > best_minmax.1 {
             best_minmax = (alpha, mrr_minmax);
         }
         if mrr_ecdf_score > best_ecdf.1 {
             best_ecdf = (alpha, mrr_ecdf_score);
         }
+        sweep_rows.push((alpha, mrr_minmax, mrr_ecdf_score));
+        ecdf_rr_by_alpha.push((alpha, rr_ecdf));
 
         println!(
             "{:5.2} |   {:.4}   |  {:.4}  |       {:+0.4}         |      {:+0.4}",
@@ -260,7 +267,87 @@ fn test_continuous_convex_calibration_vs_rrf() {
         best_minmax.0, best_minmax.1, best_ecdf.0, best_ecdf.1
     );
 
-    // 4. Test Bilateral Guard with Continuous Convex Combination
+    // 4. Paired Wilcoxon signed-rank: best ECDF fusion vs ordinal RRF.
+    let best_rr_ecdf: &[f64] = &ecdf_rr_by_alpha
+        .iter()
+        .find(|(a, _)| *a == best_ecdf.0)
+        .expect("best ECDF alpha must be in sweep")
+        .1;
+    let paired_diffs: Vec<f64> = best_rr_ecdf
+        .iter()
+        .zip(rr_rrf.iter())
+        .map(|(fused, rrf)| fused - rrf)
+        .collect();
+    let wilcoxon = wilcoxon_signed_rank(&paired_diffs);
+    let wins = paired_diffs.iter().filter(|d| **d > 0.0).count();
+    let losses = paired_diffs.iter().filter(|d| **d < 0.0).count();
+    let ties = paired_diffs.len() - wins - losses;
+    println!(
+        "WILCOXON (paired, best ECDF alpha={:.2} vs RRF, N={} queries): W+ = {:.1}, n_nonzero = {}, wins/losses/ties = {}/{}/{}, z = {:.3}, p_two_sided = {:.4} ({})",
+        best_ecdf.0,
+        paired_diffs.len(),
+        wilcoxon.w_plus,
+        wilcoxon.n_nonzero,
+        wins,
+        losses,
+        ties,
+        wilcoxon.z,
+        wilcoxon.p_two_sided,
+        if wilcoxon.p_two_sided < 0.05 {
+            "SIGNIFICANT at 0.05"
+        } else {
+            "not significant at 0.05"
+        }
+    );
+
+    // 5. Machine-readable sweep report for the SSOT contract.
+    let report = serde_json::json!({
+        "schema": "cynic.convex_sweep_report.v1",
+        "corpus_chunks_scored": chunks.len(),
+        "measured_queries": evaluated_queries.len(),
+        "pipeline_tag": pipeline.tag(),
+        "model": model,
+        "endpoints_env": std::env::var("CYNIC_EMBED_URL").unwrap_or_default(),
+        "subset_env": subset,
+        "top_k": top_k,
+        "dense_k": dense_k,
+        "rrf_k": DEFAULT_RRF_K,
+        "mrr_bm25": mrr_bm25,
+        "mrr_dense": mrr_dense,
+        "mrr_rrf": mrr_rrf,
+        "sweep": sweep_rows.iter().map(|(a, mm, ec)| {
+            serde_json::json!({"alpha": a, "mrr_minmax": mm, "mrr_ecdf": ec})
+        }).collect::<Vec<_>>(),
+        "best_minmax": {"alpha": best_minmax.0, "mrr": best_minmax.1},
+        "best_ecdf": {"alpha": best_ecdf.0, "mrr": best_ecdf.1},
+        "wilcoxon_best_ecdf_vs_rrf": {
+            "n_nonzero": wilcoxon.n_nonzero,
+            "w_plus": wilcoxon.w_plus,
+            "z": wilcoxon.z,
+            "p_two_sided": wilcoxon.p_two_sided,
+            "wins": wins,
+            "losses": losses,
+            "ties": ties,
+        },
+        "per_query": evaluated_queries.iter().enumerate().map(|(i, q)| {
+            serde_json::json!({
+                "id": q.labeled.id,
+                "rr_bm25": rr_bm25[i],
+                "rr_dense": rr_dense[i],
+                "rr_rrf": rr_rrf[i],
+                "rr_best_ecdf": best_rr_ecdf[i],
+            })
+        }).collect::<Vec<_>>(),
+    });
+    let report_path = root.join("target/convex_sweep_report.json");
+    std::fs::write(
+        &report_path,
+        serde_json::to_string_pretty(&report).expect("report serializes"),
+    )
+    .expect("sweep report writes to target/");
+    println!("SWEEP REPORT: {}", report_path.display());
+
+    // 6. Test Bilateral Guard with Continuous Convex Combination
     println!(
         "-----------------------------------------------------------------------------------------"
     );
