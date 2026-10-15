@@ -279,11 +279,18 @@ impl EmbeddingBackend {
             return Ok(Vec::new());
         }
 
-        // Dynamic work-stealing pull queue across all endpoints
-        let queue = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::VecDeque::from(
-            sublots,
-        )));
+        // Dynamic work-stealing pull queue across all endpoints with failover requeuing
+        // Items: (sub_no, inputs, attempt_count)
+        let queue: std::sync::Arc<
+            tokio::sync::Mutex<std::collections::VecDeque<(usize, Vec<String>, usize)>>,
+        > = std::sync::Arc::new(tokio::sync::Mutex::new(
+            sublots
+                .into_iter()
+                .map(|(sub_no, inputs)| (sub_no, inputs, 0))
+                .collect(),
+        ));
         let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
+        let errors = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
         let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         let mut worker_futures = Vec::new();
@@ -293,6 +300,7 @@ impl EmbeddingBackend {
             for _ in 0..endpoint.slots {
                 let queue = queue.clone();
                 let results = results.clone();
+                let errors = errors.clone();
                 let completed = completed.clone();
                 let endpoint_url = endpoint.url.clone();
 
@@ -302,46 +310,42 @@ impl EmbeddingBackend {
                             let mut q = queue.lock().await;
                             q.pop_front()
                         };
-                        let (sub_no, inputs) = match maybe_lot {
+                        let (sub_no, inputs, attempts) = match maybe_lot {
                             Some(item) => item,
                             None => break, // Queue exhausted, worker exits cleanly
                         };
 
-                        let mut attempts = 0;
-                        let mut last_error = String::new();
-                        let mut success = false;
-
-                        while attempts < 3 {
-                            match self.post_batch_to(&endpoint_url, inputs.clone()).await {
-                                Ok(batch) => {
-                                    {
-                                        let mut res = results.lock().await;
-                                        res[sub_no] = Some(batch);
-                                    }
-                                    success = true;
-                                    break;
+                        match self.post_batch_to(&endpoint_url, inputs.clone()).await {
+                            Ok(batch) => {
+                                {
+                                    let mut res = results.lock().await;
+                                    res[sub_no] = Some(batch);
                                 }
-                                Err(error) => {
-                                    last_error = error.to_string();
-                                    attempts += 1;
-                                    tokio::time::sleep(std::time::Duration::from_millis(
-                                        50 * attempts as u64,
-                                    ))
-                                    .await;
+                                let done_lots = completed
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                    + 1;
+                                report((done_lots * FANOUT_SUB_LOT).min(texts.len()), texts.len());
+                            }
+                            Err(error) => {
+                                if attempts + 1 < 3 {
+                                    // S1 & S2 fix: Requeue sub-lot to shared queue so peer endpoints can steal it
+                                    let mut q = queue.lock().await;
+                                    q.push_back((sub_no, inputs, attempts + 1));
+                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                } else {
+                                    // Poisoned lot after 3 distributed attempts across endpoints
+                                    let mut errs = errors.lock().await;
+                                    errs[sub_no] = Some(format!(
+                                        "lot {} failed on {} after {} attempts: {}",
+                                        sub_no + 1,
+                                        endpoint_url,
+                                        attempts + 1,
+                                        error
+                                    ));
+                                    completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                             }
                         }
-
-                        if !success {
-                            return Err(EmbeddingError::Protocol(format!(
-                                "sub-lot {}/{total_sublots} on {endpoint_url} failed after 3 attempts: {last_error}",
-                                sub_no + 1
-                            )));
-                        }
-
-                        let done_lots =
-                            completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-                        report(done_lots * FANOUT_SUB_LOT, texts.len());
                     }
                     Ok::<(), EmbeddingError>(())
                 });
@@ -350,6 +354,22 @@ impl EmbeddingBackend {
 
         // Run all workers concurrently until queue is empty
         futures_util::future::try_join_all(worker_futures).await?;
+
+        // Check for any poisoned sub-lots that exhausted all failovers
+        {
+            let errs = errors.lock().await;
+            let failed_count = errs.iter().filter(|e| e.is_some()).count();
+            if failed_count > 0 {
+                let sample_err = errs
+                    .iter()
+                    .find_map(|e| e.as_ref())
+                    .cloned()
+                    .unwrap_or_default();
+                return Err(EmbeddingError::Protocol(format!(
+                    "{failed_count}/{total_sublots} sub-lots failed across cluster. Sample error: {sample_err}"
+                )));
+            }
+        }
 
         // Reassemble in exact deterministic sequence
         let mut final_results = results.lock().await;

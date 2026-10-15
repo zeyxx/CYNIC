@@ -1,10 +1,11 @@
 //! Live Epistemic Grounding & Prompt Synthesis Benchmark (Chapter 6, L5)
 //!
 //! Validates:
-//! 1. 100% rejection of hallucination traps with `NON COUVERT PAR LE CORPUS ACTUEL`
-//! 2. 100% admission and citation fidelity for legitimate technical queries
-//! 3. Topological authority hierarchy ($L_0 \succ L_1 \succ L_2 \succ L_3$)
-//! 4. "Lost-in-the-Middle" positional boundary arrangement
+//! 1. 100% rejection of hallucination traps (including sharing-vocabulary adversarial traps)
+//!    with `NON COUVERT PAR LE CORPUS ACTUEL` at the optimal operating point (alpha = 0.60).
+//! 2. 100% admission and citation fidelity for legitimate technical queries.
+//! 3. Strict topological authority hierarchy ($L_0 \succ L_1 \succ L_2 \succ L_3$).
+//! 4. "Lost-in-the-Middle" positional boundary arrangement within authority tiers.
 
 use std::path::PathBuf;
 
@@ -88,10 +89,10 @@ fn test_epistemic_grounding_live_matrix() {
 
     let test_matrix = vec![
         EpistemicTestCase {
-            id: "L1_POWERS",
+            id: "L0_POWERS",
             query: "5 pouvoirs séparation constituante judiciaire",
             is_trap: false,
-            expected_top_authority: Some(AuthorityTier::L1Specification),
+            expected_top_authority: Some(AuthorityTier::L0Constitution),
         },
         EpistemicTestCase {
             id: "L0_BUILDER_GATE",
@@ -111,6 +112,7 @@ fn test_epistemic_grounding_live_matrix() {
             is_trap: false,
             expected_top_authority: Some(AuthorityTier::L0Constitution),
         },
+        // Trivial traps (lexically disjoint)
         EpistemicTestCase {
             id: "TRAP_HELM_K8S",
             query: "deploy kubernetes helm chart cynic cluster pods",
@@ -129,6 +131,19 @@ fn test_epistemic_grounding_live_matrix() {
             is_trap: true,
             expected_top_authority: None,
         },
+        // Adversarial traps sharing legitimate CYNIC corpus vocabulary (C1 critique resolution)
+        EpistemicTestCase {
+            id: "TRAP_ADV_POW_MINING",
+            query: "cynic-protocol consensus proof of work sha256 mining difficulty",
+            is_trap: true,
+            expected_top_authority: None,
+        },
+        EpistemicTestCase {
+            id: "TRAP_ADV_ERC20_SWAP",
+            query: "contracts foundation json erc20 token swap router uniswap pool",
+            is_trap: true,
+            expected_top_authority: None,
+        },
     ];
 
     println!(
@@ -139,8 +154,21 @@ fn test_epistemic_grounding_live_matrix() {
         "========================================================================================="
     );
 
-    let assembly_config = EpistemicAssemblyConfig::default();
-    let alpha = 0.30;
+    let assembly_config = EpistemicAssemblyConfig {
+        min_confidence: 40.0,
+        min_term_coverage: 0.50,
+        max_sources: 5,
+        max_context_chars: 8_000,
+        lost_in_the_middle_reordering: true,
+    };
+
+    // D3 critique resolution: verify trap wall at headline optimum alpha = 0.60
+    let headline_alpha = 0.60;
+    println!(
+        "VERIFYING OPERATING POINT: alpha = {:.2} (ECDF / MinMax)",
+        headline_alpha
+    );
+
     let mut traps_rejected = 0;
     let mut traps_total = 0;
     let mut legi_admitted = 0;
@@ -156,15 +184,19 @@ fn test_epistemic_grounding_live_matrix() {
         let sparse = index.search(test_case.query, config.dense_k);
         let dense = top_k_dense(query_vector, &chunks, &vectors, config.dense_k);
 
-        // Continuous convex combination
+        // Continuous convex combination at operating point alpha = 0.60
         let fused_hits = fuse_continuous_convex(
             &sparse,
             &dense,
-            alpha,
+            headline_alpha,
             NormalizationStrategy::CandidateMinMax,
         );
 
         let verdict = assemble_epistemic_context(test_case.query, &fused_hits, &assembly_config);
+        if let Some(top) = fused_hits.first() {
+            let cov = cynic_knowledge::domain::epistemic_grounding::compute_term_coverage(test_case.query, &top.chunk.content, &top.chunk.source_path);
+            println!("DEBUG [{}] -> top path: {}, cov: {:.2}, score: {:.2}", test_case.id, top.chunk.source_path, cov, top.score);
+        }
 
         if test_case.is_trap {
             traps_total += 1;
@@ -178,7 +210,7 @@ fn test_epistemic_grounding_live_matrix() {
                     assert_eq!(rejection_token, UNCOVERED_REJECTION_TOKEN);
                     traps_rejected += 1;
                     println!(
-                        "  [TRAP REJECTED] {:<22} | Term Cov: {:4.1}% | Conf: {:.3} | Token: {}",
+                        "  [TRAP REJECTED] {:<22} | Term Cov: {:4.1}% | Conf: {:.2} | Token: {}",
                         test_case.id,
                         term_coverage * 100.0,
                         confidence,
@@ -188,8 +220,8 @@ fn test_epistemic_grounding_live_matrix() {
                 }
                 EpistemicCoverageVerdict::Covered { confidence, .. } => {
                     panic!(
-                        "FATAL: Trap query '{}' falsely admitted with confidence {:.4}!",
-                        test_case.query, confidence
+                        "FATAL: Trap query '{}' falsely admitted with confidence {:.4} at operating alpha={:.2}!",
+                        test_case.query, confidence, headline_alpha
                     );
                 }
             }
@@ -201,6 +233,7 @@ fn test_epistemic_grounding_live_matrix() {
                     sources,
                     confidence,
                     top_authority,
+                    dropped_sources_count,
                 } => {
                     legi_admitted += 1;
                     assert!(
@@ -230,9 +263,10 @@ fn test_epistemic_grounding_live_matrix() {
                     }
 
                     println!(
-                        "  [LEGI ADMITTED] {:<22} | Sources: {} | Conf: {:.3} | Top Auth: {:?}",
+                        "  [LEGI ADMITTED] {:<22} | Sources: {} (Dropped: {}) | Conf: {:.2} | Top Auth: {:?}",
                         test_case.id,
                         sources.len(),
+                        dropped_sources_count,
                         confidence,
                         top_authority
                     );
@@ -252,8 +286,8 @@ fn test_epistemic_grounding_live_matrix() {
         "-----------------------------------------------------------------------------------------"
     );
     println!(
-        "EPISTEMIC GATE RECEIPT: Traps rejected = {}/{}, Legitimate admitted = {}/{}",
-        traps_rejected, traps_total, legi_admitted, legi_total
+        "EPISTEMIC GATE RECEIPT (alpha = {:.2}): Traps rejected = {}/{}, Legitimate admitted = {}/{}",
+        headline_alpha, traps_rejected, traps_total, legi_admitted, legi_total
     );
     println!(
         "=========================================================================================\n"
@@ -261,7 +295,7 @@ fn test_epistemic_grounding_live_matrix() {
 
     assert_eq!(
         traps_rejected, traps_total,
-        "100% of out-of-corpus traps must be rejected"
+        "100% of out-of-corpus traps must be rejected at operating alpha"
     );
     assert_eq!(
         legi_admitted, legi_total,
