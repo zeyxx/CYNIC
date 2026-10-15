@@ -14,7 +14,7 @@ mod dns;
 mod domain;
 mod mesh;
 mod provider_fallback;
-mod registry;
+pub(crate) mod registry;
 
 /// The service probe specs declared in `infra/registry.json`.
 ///

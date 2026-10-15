@@ -25,6 +25,10 @@ Status: design for review. No code.
   Follow-up (not this surface): migrate the existing
   `runtime registry observe` reader to the same home so the two
   operations on one file are not split across a dead family.
+  RESOLVED 2026-10-15: migrated to `network registry observe`;
+  behavior proved byte-identical on both spellings (planned and
+  applied), old spelling kept as compat alias, orphan
+  `runtime_surface/registry_observation.rs` deleted.
 - Pure core in `cynic-network::registry_maintenance` next to
   `reconcile_registry_observations`; thin CLI surface.
 - Source defaults to the repo file, target to

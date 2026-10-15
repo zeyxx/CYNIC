@@ -1,13 +1,23 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_network::{apply_registry_sync, RegistrySyncReport, MAX_REGISTRY_SYNC_BACKUPS};
+use cynic_network::{MAX_REGISTRY_SYNC_BACKUPS, RegistrySyncReport, apply_registry_sync};
 
 use crate::network_surface::NetworkCommand;
 use crate::runtime_paths::RuntimePaths;
 
 #[derive(Subcommand)]
 pub(crate) enum NetworkRegistryCommand {
+    Observe {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        observation: String,
+        #[arg(long)]
+        apply: bool,
+    },
     Sync {
         /// Declared registry file (the repo copy). Explicit: the binary
         /// cannot know the checkout location, so there is no default.
@@ -31,6 +41,12 @@ pub(crate) fn try_execute_registry(
     };
 
     let exit = match command {
+        NetworkRegistryCommand::Observe {
+            json,
+            registry,
+            observation,
+            apply,
+        } => execute_registry_observe(json, registry, &observation, apply),
         NetworkRegistryCommand::Sync {
             source,
             target,
@@ -38,6 +54,26 @@ pub(crate) fn try_execute_registry(
         } => execute_registry_sync(&source, target.as_deref(), yes),
     };
     Ok(exit)
+}
+
+pub(crate) fn execute_registry_observe(
+    json: bool,
+    registry: Option<String>,
+    observation: &str,
+    apply: bool,
+) -> ExitCode {
+    if !json {
+        return ExitCode::FAILURE;
+    }
+    let registry = crate::registry_path(registry);
+    match cynic_host::registry_observation::project_registry_observation(
+        &registry,
+        observation,
+        apply,
+    ) {
+        Ok(report) => crate::emit_json(&report, report.status != "applied"),
+        Err(error) => crate::fail(error),
+    }
 }
 
 fn file_digest(content: &[u8]) -> String {
