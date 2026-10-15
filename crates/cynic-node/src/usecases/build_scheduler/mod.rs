@@ -76,6 +76,28 @@ fn admit_claim_under_capacity(assessment: &CapacityAssessmentV1) -> bool {
     assessment.state != LoadTier::Saturated
 }
 
+/// Conservative per-job RSS estimate in MB. Each rustc process can
+/// consume several hundred MB; 512 MB is a safe lower-bound estimate
+/// for a typical CYNIC workspace crate.
+const RSS_PER_JOB_MB: u64 = 512;
+
+/// Project the peak RSS for a build based on the configured job count.
+/// `build_jobs = None` means cargo's default (1 job). Pure.
+pub(crate) fn projected_rss_mb(build_jobs: Option<usize>) -> u64 {
+    let jobs = build_jobs.unwrap_or(1);
+    jobs as u64 * RSS_PER_JOB_MB
+}
+
+/// RSS cap gate for admission. Admits when no cap is configured or when
+/// projected RSS is within the cap. Refuses when projected RSS exceeds the
+/// cap (never OOM mid-flight). Boundary-inclusive: projected == cap admits.
+pub(crate) fn admit_build_under_rss_cap(projected_rss_mb: u64, max_rss_cap_mb: Option<u64>) -> bool {
+    match max_rss_cap_mb {
+        None => true,
+        Some(cap) => projected_rss_mb <= cap,
+    }
+}
+
 /// Canonical tier name for proofs and logs. Mirrors the serde snake_case
 /// representation of `LoadTier` without serialising the whole assessment.
 fn load_tier_str(tier: &LoadTier) -> &'static str {
@@ -1186,6 +1208,8 @@ mod tests {
             shared_target_root: None,
             stable_workspace_root: None,
             release_publication: None,
+            build_jobs: None,
+            max_rss_cap_mb: None,
         };
         (control, scheduler)
     }
@@ -1361,5 +1385,73 @@ mod tests {
         let skipped = lifecycle::claim_if_available(&control, &scheduler, &store, &live)
             .expect("no store error");
         assert!(skipped.is_none(), "live claim must be skipped");
+    }
+
+    // ── H2: RSS cap gate tests ──────────────────────────────────────────
+
+    /// The gate must refuse admission when projected RSS exceeds the cap.
+    #[test]
+    fn rss_cap_gate_refuses_when_projected_exceeds_cap() {
+        let projected_rss_mb = 4096u64;
+        let max_rss_cap_mb = Some(2048u64);
+        assert!(
+            !admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            "projected RSS (4096 MB) exceeds cap (2048 MB) — must refuse"
+        );
+    }
+
+    /// The gate must admit when projected RSS is under the cap.
+    #[test]
+    fn rss_cap_gate_admits_when_projected_under_cap() {
+        let projected_rss_mb = 1024u64;
+        let max_rss_cap_mb = Some(2048u64);
+        assert!(
+            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            "projected RSS (1024 MB) under cap (2048 MB) — must admit"
+        );
+    }
+
+    /// The gate must admit when no cap is configured (None).
+    #[test]
+    fn rss_cap_gate_admits_when_no_cap_configured() {
+        let projected_rss_mb = 8192u64;
+        let max_rss_cap_mb: Option<u64> = None;
+        assert!(
+            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            "no cap configured — must always admit"
+        );
+    }
+
+    /// The gate must refuse when projected RSS equals the cap boundary
+    /// (strictly greater than cap = refuse; equal = admit).
+    #[test]
+    fn rss_cap_gate_admits_at_exact_cap_boundary() {
+        let projected_rss_mb = 2048u64;
+        let max_rss_cap_mb = Some(2048u64);
+        assert!(
+            admit_build_under_rss_cap(projected_rss_mb, max_rss_cap_mb),
+            "projected RSS equals cap — must admit (boundary inclusive)"
+        );
+    }
+
+    /// Projection: build_jobs=None must use JOBS=1 (single rustc process).
+    #[test]
+    fn projected_rss_uses_single_job_when_build_jobs_none() {
+        let projected = projected_rss_mb(None);
+        assert_eq!(
+            projected, RSS_PER_JOB_MB,
+            "build_jobs=None must project as 1 job"
+        );
+    }
+
+    /// Projection: build_jobs=4 must project as 4× the per-job estimate.
+    #[test]
+    fn projected_rss_scales_with_build_jobs() {
+        let projected = projected_rss_mb(Some(4));
+        assert_eq!(
+            projected,
+            4 * RSS_PER_JOB_MB,
+            "build_jobs=4 must project as 4× RSS_PER_JOB_MB"
+        );
     }
 }

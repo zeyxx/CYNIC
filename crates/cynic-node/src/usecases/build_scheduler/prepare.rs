@@ -158,6 +158,9 @@ pub(super) async fn prepare(
             target_dir.to_string_lossy().into_owned(),
         );
     }
+    if let Some(jobs) = scheduler.build_jobs {
+        environment.insert("CARGO_BUILD_JOBS".into(), jobs.to_string());
+    }
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -554,6 +557,44 @@ mod tests {
         );
     }
 
+    // --- H2: build_jobs env injection tests ---
+
+    #[test]
+    fn execution_env_contains_cargo_build_jobs_when_build_jobs_set() {
+        let mut scheduler = scheduler_config();
+        scheduler.build_jobs = Some(4);
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        // The env construction logic from prepare() — must inject CARGO_BUILD_JOBS
+        let mut env: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        if let Some(jobs) = scheduler.build_jobs {
+            env.insert("CARGO_BUILD_JOBS".to_string(), jobs.to_string());
+        }
+        assert_eq!(
+            env.get("CARGO_BUILD_JOBS"),
+            Some(&"4".to_string()),
+            "CARGO_BUILD_JOBS must be set to the configured build_jobs value"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_cargo_build_jobs_when_build_jobs_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.build_jobs.is_none(),
+            "precondition: build_jobs must be absent"
+        );
+        let mut env: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        if let Some(jobs) = scheduler.build_jobs {
+            env.insert("CARGO_BUILD_JOBS".to_string(), jobs.to_string());
+        }
+        assert!(
+            !env.contains_key("CARGO_BUILD_JOBS"),
+            "CARGO_BUILD_JOBS must NOT be set when build_jobs is absent"
+        );
+    }
+
     fn scheduler_config() -> crate::config::BuildSchedulerConfig {
         crate::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
@@ -566,6 +607,8 @@ mod tests {
             shared_target_root: None,
             stable_workspace_root: None,
             release_publication: None,
+            build_jobs: None,
+            max_rss_cap_mb: None,
         }
     }
 

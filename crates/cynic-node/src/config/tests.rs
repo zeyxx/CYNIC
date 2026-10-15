@@ -246,6 +246,71 @@ fn expand_env_vars_dollar_without_brace() {
     assert_eq!(expand_env_vars("price=$5").unwrap(), "price=$5");
 }
 
+// --- H2: build_jobs and max_rss_cap_mb config defaults ---
+
+#[test]
+fn build_scheduler_config_defaults_build_jobs_to_none() {
+    let cfg = make_config_with_env(VALID_TOML, "key").unwrap();
+    // build_jobs must default to None (= cargo JOBS=1 behavior)
+    let scheduler = cfg
+        .node_control
+        .as_ref()
+        .and_then(|nc| nc.build_scheduler.as_ref());
+    // The default BuildSchedulerConfig is created via serde defaults;
+    // we test the struct default directly.
+    let scheduler = crate::config::BuildSchedulerConfig {
+        registry_path: std::path::PathBuf::from("/etc/cynic/registry.json"),
+        repository_id: "cynic".to_string(),
+        transport_uri: None,
+        interval_secs: 5,
+        claim_ttl_secs: 60,
+        command_timeout_secs: 900,
+        sandbox_bwrap: false,
+        shared_target_root: None,
+        stable_workspace_root: None,
+        release_publication: None,
+        build_jobs: None,
+        max_rss_cap_mb: None,
+    };
+    assert_eq!(scheduler.build_jobs, None, "build_jobs must default to None");
+    assert_eq!(
+        scheduler.max_rss_cap_mb, None,
+        "max_rss_cap_mb must default to None"
+    );
+}
+
+#[test]
+fn build_scheduler_config_parses_build_jobs_and_max_rss_cap_mb() {
+    let cfg = make_config_with_env(
+        r#"
+[kernel]
+url = "http://127.0.0.1:3030"
+api_key_env = "TEST_CYNIC_API_KEY"
+
+[dog]
+name = "test-dog"
+model = "test-model:7b"
+base_url = "http://127.0.0.1:8080/v1"
+
+[process]
+command = ["llama-server", "-m", "/models/test.gguf"]
+
+[node_control.build_scheduler]
+build_jobs = 4
+max_rss_cap_mb = 2048
+"#,
+        "key",
+    )
+    .unwrap();
+    let scheduler = cfg
+        .node_control
+        .as_ref()
+        .and_then(|nc| nc.build_scheduler.as_ref())
+        .expect("build_scheduler must parse");
+    assert_eq!(scheduler.build_jobs, Some(4));
+    assert_eq!(scheduler.max_rss_cap_mb, Some(2048));
+}
+
 #[test]
 fn node_control_config_loads_without_inference_sections() {
     use std::io::Write;

@@ -104,6 +104,15 @@ pub struct BuildSchedulerConfig {
     pub stable_workspace_root: Option<PathBuf>,
     #[serde(default)]
     pub release_publication: Option<ReleasePublicationConfig>,
+    /// Maximum number of parallel cargo jobs (CARGO_BUILD_JOBS). `None`
+    /// preserves the default cargo behavior (JOBS=1).
+    #[serde(default)]
+    pub build_jobs: Option<usize>,
+    /// Maximum projected RSS in MB for admission. When projected RSS
+    /// exceeds this cap, the build is refused at admission (never OOM
+    /// mid-flight). `None` disables the gate.
+    #[serde(default)]
+    pub max_rss_cap_mb: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
