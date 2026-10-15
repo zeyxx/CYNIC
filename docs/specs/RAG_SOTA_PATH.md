@@ -145,7 +145,10 @@ its gate; training-free rungs come before any gradient step.
 2. **Cross-encoder rerank on fused top-20** (ms-marco-MiniLM / jina-reranker
    pattern: cheap, no training, strongest published lever on prose recall)
    — targets the md ≤0.42 gap directly. Gate: routed ECDF moves, zero new
-   BM25-perfect destructions, latency budget stated.
+   BM25-perfect destructions, latency budget stated. PROMOTED 2026-10-16:
+   the alpha-oracle study (below) proved the bottleneck is ranking inside
+   top-20 (union recall@20 = 0.933), not first-stage retrieval — rerank is
+   the scientifically correct next lever, headroom 0.583 → ~0.93.
 3. **Model axis B screens** (jina-embeddings-v5 nano/small, Qwen3-Embedding
    0.6B) — encoder-side lever for json/md gaps; degradation and
    reproducibility gates from the plan apply unchanged.
@@ -160,3 +163,24 @@ its gate; training-free rungs come before any gradient step.
    and Vulkan-serving costs measured before adoption, not after.
 6. **Surface work** (confidence columns C1–C4, L3 MCP exposure) — gated on
    first-stage recall, not before.
+
+## 7. Alpha-oracle study (2026-10-16, data-only, dump `target/diag_alpha_recall.json`)
+
+Question: the +0.10 oracle gap says per-query alpha is the headroom, but
+the doctype predictor failed — what unsupervised signal predicts the right
+alpha? Findings, all from existing artifacts plus one cheap local dump
+(90 queries × 2 arms × top-100 ranks/scores, cache reuse, zero re-embed):
+
+- Oracle per-query alpha (argmax over the 21-alpha matrix): ECDF 0.693
+  (+0.110), MinMax 0.789 (+0.092). The headroom is real.
+- Detection works: deviating queries (|a*−0.75|≥0.15, n=13) show mean
+  arm-disagreement 0.667 vs 0.357 for the rest. "Arms disagree → global
+  alpha is wrong here" is a valid unsupervised tripwire.
+- Direction FAILED: normalized top-1 margin picks the winning arm at 35%
+  (19/54) — worse than chance, BM25 margins are systematically larger by
+  scale. No unsupervised direction found. VERDICT: adaptivity blocked —
+  we can detect, not steer. Killed without a GPU minute.
+- Recall decomposition: dense recall@5/@20/@100 = 0.822/0.900/0.956;
+  BM25 = 0.667/0.767/0.900; UNION@20 = 0.933, UNION@100 = 1.000. Every
+  gold is retrievable; the bottleneck is ranking inside the top-20.
+  VERDICT: cross-encoder rerank (rung 2) promoted to next lever.
