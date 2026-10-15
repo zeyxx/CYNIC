@@ -235,38 +235,79 @@ impl EmbeddingBackend {
         report: &(dyn Fn(usize, usize) + Sync),
     ) -> Result<Vec<Embedding>, EmbeddingError> {
         let width = fanout_width();
-        // Fan sub-lots of 8 across WIDTH concurrent round-trips so every
-        // server slot stays fed; `buffered` preserves input order while
-        // polling WIDTH futures at once.
         let sublots: Vec<(usize, Vec<String>)> = texts
             .chunks(FANOUT_SUB_LOT)
             .enumerate()
             .map(|(sub_no, lot)| (sub_no, lot.iter().map(|text| (*text).to_string()).collect()))
             .collect();
         let total_sublots = sublots.len();
-        let num_endpoints = self.base_urls.len().max(1);
-        let effective_width = width * num_endpoints;
-        let mut out = Vec::with_capacity(texts.len());
-        let mut stream = futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| {
-            let target_url = self.base_urls[sub_no % num_endpoints].clone();
-            async move {
-                let batch = self
-                    .post_batch_to(&target_url, inputs)
-                    .await
-                    .map_err(|error| {
-                        EmbeddingError::Protocol(format!(
-                            "sub-lot {}/{total_sublots} on {target_url} failed: {error}",
-                            sub_no + 1
-                        ))
-                    })?;
-                Ok::<_, EmbeddingError>((sub_no, batch))
-            }
-        }))
-        .buffered(effective_width);
-        while let Some((_, mut batch)) = stream.next().await.transpose()? {
-            out.append(&mut batch);
-            report(out.len(), texts.len());
+        if total_sublots == 0 {
+            return Ok(Vec::new());
         }
+
+        // Dynamic work-stealing pull queue across all endpoints
+        let queue = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::VecDeque::from(
+            sublots,
+        )));
+        let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+        let mut worker_futures = Vec::new();
+
+        // Spawn `width` concurrent workers for each endpoint in the pool
+        for endpoint_url in &self.base_urls {
+            for _ in 0..width {
+                let queue = queue.clone();
+                let results = results.clone();
+                let completed = completed.clone();
+                let endpoint_url = endpoint_url.clone();
+
+                worker_futures.push(async move {
+                    loop {
+                        let maybe_lot = {
+                            let mut q = queue.lock().await;
+                            q.pop_front()
+                        };
+                        let (sub_no, inputs) = match maybe_lot {
+                            Some(item) => item,
+                            None => break, // Queue exhausted, worker exits cleanly
+                        };
+
+                        let batch = self.post_batch_to(&endpoint_url, inputs).await.map_err(
+                            |error| {
+                                EmbeddingError::Protocol(format!(
+                                    "sub-lot {}/{total_sublots} on {endpoint_url} failed: {error}",
+                                    sub_no + 1
+                                ))
+                            },
+                        )?;
+
+                        {
+                            let mut res = results.lock().await;
+                            res[sub_no] = Some(batch);
+                        }
+
+                        let done_lots =
+                            completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                        report(done_lots * FANOUT_SUB_LOT, texts.len());
+                    }
+                    Ok::<(), EmbeddingError>(())
+                });
+            }
+        }
+
+        // Run all workers concurrently until queue is empty
+        futures_util::future::try_join_all(worker_futures).await?;
+
+        // Reassemble in exact deterministic sequence
+        let mut final_results = results.lock().await;
+        let mut out = Vec::with_capacity(texts.len());
+        for maybe_batch in final_results.iter_mut() {
+            if let Some(mut batch) = maybe_batch.take() {
+                out.append(&mut batch);
+            }
+        }
+        report(out.len(), texts.len());
         Ok(out)
     }
 }
