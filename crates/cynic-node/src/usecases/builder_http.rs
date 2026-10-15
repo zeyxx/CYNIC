@@ -152,10 +152,11 @@ pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, S
         "check" => Ok("cargo:check"),
         "audit" => Ok("audit:crate"),
         "audit-all" => Ok("audit:all"),
-        "build" => Ok("make:build"),
-        "build-release" => Ok("make:build-release"),
+        "build" => Ok("cargo:build"),
+        "build-release" => Ok("cargo:build-release"),
+        "test" => Ok("cargo:test"),
         other => Err(format!(
-            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release)"
+            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
         )),
     }
 }
@@ -696,11 +697,11 @@ mod tests {
     /// link (e.g. mapping + argv but not the composition gate) cannot recur.
     #[test]
     fn submit_action_chains_through_admission_and_argv() {
-        for verb in ["check", "build", "build-release", "audit", "audit-all"] {
+        for verb in ["check", "build", "build-release", "audit", "audit-all", "test"] {
             let action = submit_action_to_canonical(verb).expect("known submit verb");
             let mut request = push_request(&"d".repeat(40));
             request.action = action.to_string();
-            if action == "make:build-release" {
+            if action == "cargo:build-release" {
                 // Composition requires publication intent plus the two
                 // release proofs for release builds: equip the request so
                 // the chain test exercises the real release path.
@@ -773,8 +774,13 @@ mod tests {
         assert_eq!(submit_action_to_canonical("check"), Ok("cargo:check"));
         assert_eq!(submit_action_to_canonical("audit"), Ok("audit:crate"));
         assert_eq!(submit_action_to_canonical("audit-all"), Ok("audit:all"));
-        assert_eq!(submit_action_to_canonical("build"), Ok("make:build"));
-        assert!(submit_action_to_canonical("test").is_err());
+        assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
+        assert_eq!(
+            submit_action_to_canonical("build-release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));
+        assert!(submit_action_to_canonical("deploy").is_err());
         assert!(submit_action_to_canonical("").is_err());
     }
 
