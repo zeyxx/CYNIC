@@ -557,7 +557,7 @@
           },
           {
             "run_id": "run_20261016_q8_prefix_wave4_87q",
-            "status": "adopted_reference",
+            "status": "superseded_by_wave5",
             "provenance_config": {
               "kind": "model_card_protocol",
               "pipeline": "EmbeddingGemma-2 card, full asymmetric protocol: query prefix 'task: search result | query: '; doc template 'title: {filename} | text: {body}' (title: none fallback)",
@@ -592,6 +592,45 @@
               "freeze_check": "old-85 reproduction within 0.01 on all arms (RRF and ECDF exact; BM25 delta 0.0030; dense delta 0.0094 from live-workspace corpus drift); 87-mean moves are the predicted selection effect of two admitted BM25-wins. Freeze holds per rag-calibration-plan section 5.4."
             },
             "machine_report": "target/convex_sweep_report_wave4_87q.json (schema cynic.convex_sweep_report.v2; same file also installed as the current target/convex_sweep_report.json)"
+          },
+          {
+            "run_id": "run_20261016_q8_prefix_wave5_90q",
+            "status": "adopted_reference",
+            "provenance_config": {
+              "kind": "model_card_protocol",
+              "pipeline": "EmbeddingGemma-2 card, full asymmetric protocol: query prefix 'task: search result | query: '; doc template 'title: {filename} | text: {body}' (title: none fallback)",
+              "runners": "cortex + compute-01 Q8_0 slots 4+4 (single-queue fanout, proven 11/5 live)",
+              "model_tag": "q8-prefix-v1 (cache reuse; drifted chunks re-embedded under the same tag)",
+              "corpus_chunks_scored": 12028,
+              "measured_queries": 90,
+              "traps_excluded": 5,
+              "head_commit": "dd6c5fa5"
+            },
+            "mrr_bm25": 0.5152,
+            "mrr_dense": 0.6844,
+            "mrr_hybrid_rrf_k60": 0.4596,
+            "mrr_continuous_convex_minmax_alpha_0_80": 0.6967,
+            "mrr_continuous_convex_ecdf_alpha_0_75": 0.583,
+            "delta_mrr_best_vs_rrf": 0.2371,
+            "nonlinearity_note": "ECDF concave eighth run in a row; interior optimum frozen at 0.75",
+            "wilcoxon_best_ecdf_vs_rrf": {
+              "n_nonzero": 36,
+              "w_plus": 559.0,
+              "z": 3.558,
+              "p_two_sided": 0.0004,
+              "wins": 30,
+              "losses": 6,
+              "ties": 54,
+              "verdict": "eighth consecutive significant run; power did NOT grow (37 to 36): two admitted ties vote nothing, RQ89 flipped win to tie from corpus drift",
+              "method": "paired signed-rank per empirical-retrieval-calibration references/wilcoxon-signed-rank.md (continuity and tie corrections, unit-tested)"
+            },
+            "fixture_wave_5": {
+              "admitted": ["RQ97_HARDWARE_CALIBRATION (1.00 / 1.00 tie)", "RQ98_GENERATED_ARTIFACT (1.00 / 1.00 tie)", "RQ99_CRATE_RULES_OWNERS (bm25 0.00 / dense 0.20, ECDF-vs-RRF tie)"],
+              "rejected": "E2 paraphrase v1+v2 (double miss); v3 with near-verbatim doc vocabulary unlocked dense 0.20",
+              "freeze_check": "old-87 reproduction delta <= 0.003 on all arms (dense and RRF exact). Freeze holds per rag-calibration-plan section 5.4.",
+              "power_lesson": "Screen wave 6 on the FUSED-vs-RRF margin, not the pure-arm margin: a dense-win that fusion destroys adds no Wilcoxon vote. Futility clock: one batch without tightening (two cuts the line)."
+            },
+            "machine_report": "target/convex_sweep_report_wave5_90q.json (schema cynic.convex_sweep_report.v2; same file also installed as the current target/convex_sweep_report.json)"
           }
         ]
       }
@@ -637,8 +676,8 @@
     "status": "frozen_method",
     "frozen_at_run": "run_20261015_corpus_12013_85q",
     "strategy": "ContinuousConvex (EmpiricalCdf); deployment arm is MinMax alpha 0.80 (highest realized, prefix pipeline)",
-    "alpha": "calibrated per corpus via full 0.00-1.00 sweep argmax; reference MinMax 0.80 and ECDF 0.75 on the 87-query fixture with task prefixes (alpha values are fixture-relative, the concave interior-optimum shape is the frozen claim)",
-    "evidence": "7 consecutive significant paired Wilcoxon vs RRF (p=0.0156, 0.0139, 0.0064, 0.0073, 0.0039, 0.0003, 0.0003); wave-4 reference n_nonzero=37, wins 31, losses 6, ties 50",
+    "alpha": "calibrated per corpus via full 0.00-1.00 sweep argmax; reference MinMax 0.80 and ECDF 0.75 on the 90-query fixture with task prefixes (alpha values are fixture-relative, the concave interior-optimum shape is the frozen claim)",
+    "evidence": "8 consecutive significant paired Wilcoxon vs RRF (p=0.0156, 0.0139, 0.0064, 0.0073, 0.0039, 0.0003, 0.0003, 0.0004); wave-5 reference n_nonzero=36, wins 30, losses 6, ties 54",
     "not_frozen": ["exact alpha value", "BM25-vs-dense arm order (fixture-relative)", "bilateral guard (sign-unstable, excluded)", "mixed BF16/Q4 vector-space noise (single-weight rerun done: Q8 uniform, then task prefixes adopted)", "per-doctype routing (killed by prefix pipeline: realized below global; route_query kept as instrumentation only)"],
     "pipeline_protocol": "EmbeddingGemma-2 card: query prefix 'task: search result | query: '; docs 'title: {filename} | text: {body}'"
   }
