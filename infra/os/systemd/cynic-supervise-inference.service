@@ -1,0 +1,30 @@
+[Unit]
+Description=CYNIC supervised parent — inference role (llama-server)
+After=network-online.target
+Wants=network-online.target
+# No double ownership: direct spawn refuses while this parent holds the role
+# (refuse-when-parented); the standalone unit must never run beside it.
+Conflicts=llama-server.service
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+# projection_class: operator_projection
+# Supervised parent (docs/design/supervised-parent-scope.md step 2).
+# Holds the llama-server child handle; the backend argv is declared by
+# deployment via the llama env file. Standalone pidfile spawn refuses while
+# this parent runs; the detach backend burns at the removal step.
+Type=simple
+WorkingDirectory=/var/lib/cynic
+EnvironmentFile=/etc/cynic/llama-server.env
+ExecStart=/bin/bash -lc 'cd /usr/local/lib/llama && exec /usr/local/bin/cynic supervise run --role inference -- "${LLAMA_SERVER_BIN:?}" -m "${LLAMA_MODEL_PATH:?}" --host "${LLAMA_HOST:-127.0.0.1}" --port "${LLAMA_PORT:-8080}" --ctx-size "${LLAMA_CTX_SIZE:-4096}" ${LLAMA_EXTRA_ARGS:-}'
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+MemoryMax=8G
+CPUQuota=400%
+
+[Install]
+WantedBy=default.target

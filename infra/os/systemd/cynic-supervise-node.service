@@ -1,0 +1,37 @@
+[Unit]
+Description=CYNIC supervised parent — node role
+After=network-online.target cynic-kernel.service
+Wants=network-online.target cynic-kernel.service
+# No double ownership: the standalone role unit must never run beside the parent.
+Conflicts=cynic-node.service
+# Crash-looping parent must stop trying, never churn boot or the host.
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+# projection_class: operator_projection
+# Supervised parent (docs/design/supervised-parent-scope.md step 1).
+# Holds the node child handle; restarts follow the contract backoff (5/60/10,
+# bound 5). Standalone cynic-node.service is the fallback until the removal
+# condition is met — never enable both.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic
+ExecStart=/usr/local/bin/cynic supervise run --role node -- /usr/local/bin/cynic daemon node --config /etc/cynic/node-control.toml
+EnvironmentFile=-/etc/cynic/env
+Environment="CYNIC_REGISTRY=/etc/cynic/registry.json"
+Environment="CYNIC_INFERENCE_CONFIG=/etc/cynic/inference.toml"
+Environment="CYNIC_CONFIG_ROOT=/etc/cynic"
+Environment="CYNIC_STATE_ROOT=/var/lib/cynic"
+Environment="CYNIC_LOG_ROOT=/var/log/cynic"
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target
