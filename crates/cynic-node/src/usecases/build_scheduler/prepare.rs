@@ -16,7 +16,8 @@ use crate::{
         http_runtime_artifact_transport::HttpRuntimeArtifactTransport,
         local_agent_workload_store::LocalAgentWorkloadStore,
         local_build_workload_grant_store::LocalBuildWorkloadGrantStore,
-        local_build_workspace::LocalBuildWorkspace, registry::RegistryAgentWorkspaceLayoutAdapter,
+        local_build_workspace::LocalBuildWorkspace,
+        registry::{RegistryAgentWorkspaceLayoutAdapter, recompute_layout_digest},
     },
     config::{BuildSchedulerConfig, NodeControlConfig},
     ports::{
@@ -208,28 +209,40 @@ fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::Pat
 /// worktree is removed through `git worktree remove` so the repository
 /// worktree registry keeps no stale entry that would block re-creation at
 /// the same path; anything else falls back to a plain recursive removal.
+/// After any removal (or when the path is already absent), `git worktree
+/// prune` runs to clear stale `.git/worktrees` registrations left by a
+/// prior fallback removal — otherwise the next `git worktree add` at the
+/// same path fails with "already used by worktree" (C2).
 fn clean_stable_workspace(
     repository_root: &std::path::Path,
     workspace: &std::path::Path,
 ) -> Result<(), String> {
-    if !workspace.exists() {
-        return Ok(());
+    if workspace.exists() {
+        let git_removed = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repository_root)
+            .args(["worktree", "remove", "--force"])
+            .arg(workspace)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false);
+        if !git_removed {
+            fs::remove_dir_all(workspace)
+                .map_err(|_| "build_workspace_stable_clean_failed".to_string())?;
+        }
     }
-    let git_removed = std::process::Command::new("git")
+    // Always prune stale registrations so a prior fallback removal (or a
+    // manual rm -rf) cannot leave a registration that blocks re-creation.
+    let _ = std::process::Command::new("git")
         .arg("-C")
         .arg(repository_root)
-        .args(["worktree", "remove", "--force"])
-        .arg(workspace)
+        .args(["worktree", "prune"])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
-    if git_removed {
-        return Ok(());
-    }
-    fs::remove_dir_all(workspace)
-        .map_err(|_| "build_workspace_stable_clean_failed".to_string())
+        .status();
+    Ok(())
 }
 
 /// Apply the stable-workspace override when the scheduler configures one:
@@ -237,9 +250,9 @@ fn clean_stable_workspace(
 /// from argv exactly like `shared_target_root`) instead of the
 /// registry-resolved per-workload path, and the previous tree at that path
 /// is cleaned first. Without the setting the registry layout passes
-/// through unchanged. The registry layout evidence digest keeps describing
-/// the registry-declared authority inputs; the workspace path actually
-/// used is recorded in the execution request and its read-back.
+/// through unchanged. After the override the evidence digest is recomputed
+/// so it describes the actual workspace path that will be used, not the
+/// registry-declared path (C1).
 fn apply_stable_workspace(
     mut layout: AgentWorkspaceLayout,
     scheduler: &BuildSchedulerConfig,
@@ -249,10 +262,46 @@ fn apply_stable_workspace(
         None => return Ok(layout),
         Some(root) => root,
     };
+    validate_stable_workspace_root(root, &layout.repository_root)?;
     let workspace_root = stable_workspace_for(root, profile_for_argv(argv));
     clean_stable_workspace(&layout.repository_root, &workspace_root)?;
     layout.workspace_root = workspace_root;
+    // Recompute the evidence digest so it describes the actual workspace
+    // path after the override, not the registry-declared path (C1).
+    layout.evidence_digest = recompute_layout_digest(
+        &layout,
+        "", // node_id not needed for the resolved-layout digest
+        "", // repository_id not needed for the resolved-layout digest
+        "", // workspace_id not needed for the resolved-layout digest
+    )?;
     Ok(layout)
+}
+
+/// Validate the stable-workspace root against trivial misuse (M1/M2/M3, I3):
+/// M1 — the root must be absolute; M2 — the root must not be an existing
+/// file; M3 — the root must not equal the repository root; I3 — the root
+/// must not be inside the repository (a worktree inside its own repository
+/// would corrupt the git index).
+fn validate_stable_workspace_root(
+    root: &std::path::Path,
+    repository_root: &std::path::Path,
+) -> Result<(), String> {
+    if !root.is_absolute() {
+        return Err("build_workspace_stable_root_not_absolute".into());
+    }
+    if root.is_file() {
+        return Err("build_workspace_stable_root_is_file".into());
+    }
+    let canonical_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let canonical_repo =
+        std::fs::canonicalize(repository_root).unwrap_or_else(|_| repository_root.to_path_buf());
+    if canonical_root == canonical_repo {
+        return Err("build_workspace_stable_root_equals_repository".into());
+    }
+    if canonical_root.starts_with(&canonical_repo) {
+        return Err("build_workspace_stable_root_inside_repository".into());
+    }
+    Ok(())
 }
 
 /// Decide the execution isolation mode from scheduler config.
@@ -292,12 +341,20 @@ fn current_unix_ms() -> u64 {
         .min(u128::from(u64::MAX)) as u64
 }
 
+/// Number of CAS retries in `reserve_action`. The concurrent `monitor_claim`
+/// task renews the claim every second (when renewal is due), bumping the
+/// revision. A slow prepare — e.g. the stable-workspace clean (C2) — widens
+/// the window in which a renewal can land between the read and the CAS.
+/// Three retries exhaust on a busy system; thirty gives the reservation
+/// room to absorb renewals without failing the build (C3).
+const RESERVE_ACTION_MAX_RETRIES: usize = 30;
+
 fn reserve_action(
     store: &LocalAgentWorkloadStore,
     workload_id: &str,
     guard: &LeaseGuard,
 ) -> Result<(DurableAgentWorkloadRecord, u64), String> {
-    for _ in 0..3 {
+    for _ in 0..RESERVE_ACTION_MAX_RETRIES {
         let latest = store
             .read(workload_id)
             .map_err(|error| error.code)?
@@ -536,5 +593,172 @@ mod tests {
         let scheduler = scheduler_config();
         let applied = apply_stable_workspace(layout.clone(), &scheduler, &[]).unwrap();
         assert_eq!(applied, layout);
+    }
+
+    // --- C1: digest reflects actual workspace path after override ---
+
+    #[test]
+    fn stable_workspace_digest_reflects_actual_workspace_path() {
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        scheduler.stable_workspace_root = Some(PathBuf::from("/var/lib/cynic/stable"));
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let applied = apply_stable_workspace(layout, &scheduler, &argv).unwrap();
+        // The digest must NOT be the registry layout digest — it must
+        // describe the actual stable workspace path.
+        assert_ne!(
+            applied.evidence_digest, "sha256:registry",
+            "digest must be recomputed after the stable-workspace override"
+        );
+        assert!(
+            applied.evidence_digest.starts_with("sha256:"),
+            "digest must be a valid sha256 digest"
+        );
+        // The digest must change when the workspace path changes.
+        let mut scheduler2 = scheduler_config();
+        scheduler2.stable_workspace_root = Some(PathBuf::from("/var/lib/cynic/other"));
+        let applied2 = apply_stable_workspace(registry_layout(), &scheduler2, &argv).unwrap();
+        assert_ne!(
+            applied.evidence_digest, applied2.evidence_digest,
+            "different workspace paths must produce different digests"
+        );
+    }
+
+    // --- C2: clean fallback leaves no stale git registration ---
+
+    #[test]
+    fn stable_workspace_clean_prunes_stale_git_registration() {
+        let case = tempfile::tempdir().unwrap();
+        let repository = case.path().join("repository");
+        let workspace = case.path().join("stable").join("debug");
+        std::fs::create_dir_all(repository.join(".git")).unwrap();
+        git(&["init", "-q"], &repository);
+        git(&["config", "user.email", "t@t"], &repository);
+        git(&["config", "user.name", "t"], &repository);
+        std::fs::write(repository.join("f"), b"x").unwrap();
+        git(&["add", "f"], &repository);
+        git(&["commit", "-qm", "init"], &repository);
+        std::fs::create_dir_all(workspace.parent().unwrap()).unwrap();
+        // Create a worktree at the stable path.
+        assert!(
+            git(
+                &[
+                    "worktree", "add", "--detach", "-q",
+                    workspace.to_str().unwrap(), "HEAD"
+                ],
+                &repository
+            ),
+            "worktree creation must succeed"
+        );
+        assert!(workspace.exists());
+        // Simulate the fallback: remove the directory without git, leaving
+        // the registration behind.
+        fs::remove_dir_all(&workspace).unwrap();
+        assert!(!workspace.exists());
+        // The registration is still there — verify that re-add fails.
+        assert!(
+            !git(
+                &[
+                    "worktree", "add", "--detach", "-q",
+                    workspace.to_str().unwrap(), "HEAD"
+                ],
+                &repository
+            ),
+            "re-add must fail while the stale registration exists"
+        );
+        // clean_stable_workspace must prune the stale registration.
+        clean_stable_workspace(&repository, &workspace).unwrap();
+        // After the clean, re-add must succeed.
+        assert!(
+            git(
+                &[
+                    "worktree", "add", "--detach", "-q",
+                    workspace.to_str().unwrap(), "HEAD"
+                ],
+                &repository
+            ),
+            "re-add after clean must succeed"
+        );
+    }
+
+    // --- C3: reserve_action retries widened ---
+
+    #[test]
+    fn reserve_action_retries_are_widened_for_concurrent_renewals() {
+        // The retry count must be large enough to absorb concurrent
+        // monitor_claim renewals during a slow prepare. Three retries
+        // exhaust on a busy system; the constant must be at least 30.
+        assert!(
+            RESERVE_ACTION_MAX_RETRIES >= 30,
+            "reserve_action must retry at least 30 times to handle concurrent renewals (C3)"
+        );
+    }
+
+    // --- I3: root-inside-repo guard ---
+
+    #[test]
+    fn stable_workspace_root_inside_repository_is_rejected() {
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        // Set stable root inside the repository.
+        scheduler.stable_workspace_root = Some(
+            PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC/stable")
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let result = apply_stable_workspace(layout, &scheduler, &argv);
+        assert_eq!(
+            result.unwrap_err(),
+            "build_workspace_stable_root_inside_repository"
+        );
+    }
+
+    // --- M1: absolute root guard ---
+
+    #[test]
+    fn stable_workspace_root_relative_is_rejected() {
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        scheduler.stable_workspace_root = Some(PathBuf::from("relative/path"));
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let result = apply_stable_workspace(layout, &scheduler, &argv);
+        assert_eq!(
+            result.unwrap_err(),
+            "build_workspace_stable_root_not_absolute"
+        );
+    }
+
+    // --- M2: file-at-path guard ---
+
+    #[test]
+    fn stable_workspace_root_is_file_is_rejected() {
+        let case = tempfile::tempdir().unwrap();
+        let file_path = case.path().join("a_file");
+        std::fs::write(&file_path, b"x").unwrap();
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        scheduler.stable_workspace_root = Some(file_path);
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let result = apply_stable_workspace(layout, &scheduler, &argv);
+        assert_eq!(
+            result.unwrap_err(),
+            "build_workspace_stable_root_is_file"
+        );
+    }
+
+    // --- M3: root==repo guard ---
+
+    #[test]
+    fn stable_workspace_root_equals_repository_is_rejected() {
+        let layout = registry_layout();
+        let mut scheduler = scheduler_config();
+        scheduler.stable_workspace_root = Some(
+            PathBuf::from("/var/lib/cynic/state/source/repositories/CYNIC")
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let result = apply_stable_workspace(layout, &scheduler, &argv);
+        assert_eq!(
+            result.unwrap_err(),
+            "build_workspace_stable_root_equals_repository"
+        );
     }
 }
