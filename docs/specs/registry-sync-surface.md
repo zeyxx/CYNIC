@@ -80,9 +80,10 @@ Status: design for review. No code.
    the runtime copy a pure render? (Bigger change, not proposed.)
 3. Fleet scope: cortex only, or each host syncs its own copy (builder
    reads checkouts; LXCs carry no copy)? Unresolved.
-4. Provider nondeterminism note: DNS bundle content varies with the
-   caller's PATH (dnsmasq visibility). Document the required PATH in
-   the runbook; not part of this surface.
+4. Provider nondeterminism note: RESOLVED 2026-10-15 — deterministic
+   PATH-dependent selection, documented as an operator note in
+   `docs/specs/dns-dual-zone-bundle.md` (run DNS commands with the
+   system PATH).
 
 ## Acceptance
 

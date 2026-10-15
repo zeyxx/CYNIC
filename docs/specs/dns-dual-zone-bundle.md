@@ -44,3 +44,14 @@ compat zone breaks the builder clone path.
   assembly is deleted.
 - Existing bundle tests updated; one test pins that both files exist
   and carry their own zone suffix.
+
+## Operator note: provider selection follows the caller's PATH
+
+Proven 2026-10-15: the bundle emits the CoreDNS config when `dnsmasq`
+is not visible on the caller's `PATH`, even on a host where dnsmasq is
+installed (observed on cortex, whose user `PATH` lacks `/usr/sbin`).
+This is deterministic, not a flip-flop: provider observation uses
+`find_on_path`, so the same host renders `dnsmasq.conf` under one
+`PATH` and `Corefile` under another. Rule: run DNS bundle/activate
+commands with the system `PATH` (include `/usr/sbin`). Bundle tests
+that assert provider-specific files must sanitize `PATH` first.
