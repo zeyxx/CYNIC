@@ -532,6 +532,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn execution_env_has_cargo_target_dir_when_shared_target_root_configured() {
+        let root = PathBuf::from("/var/lib/cynic/build-targets");
+        let scheduler = crate::config::BuildSchedulerConfig {
+            shared_target_root: Some(root.clone()),
+            ..scheduler_config()
+        };
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("CARGO_TARGET_DIR"),
+            Some(&"/var/lib/cynic/build-targets/debug".to_string()),
+            "CARGO_TARGET_DIR must be set to <root>/<profile> when shared_target_root is configured"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_cargo_target_dir_when_shared_target_root_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.shared_target_root.is_none(),
+            "precondition: shared_target_root must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert!(
+            !env.contains_key("CARGO_TARGET_DIR"),
+            "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
+        );
+    }
+
     fn scheduler_config() -> crate::config::BuildSchedulerConfig {
         crate::config::BuildSchedulerConfig {
             registry_path: PathBuf::from("/tmp/x"),
