@@ -14,10 +14,39 @@ use crate::ports::inference_port::BackendPort;
 
 const DEFAULT_REST_ADDR: &str = "127.0.0.1:3030";
 
+/// Specification of an embedding endpoint with its physical concurrent slot capacity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndpointSpec {
+    pub url: String,
+    pub slots: usize,
+}
+
+impl EndpointSpec {
+    pub fn parse(raw: &str, default_slots: usize) -> Self {
+        let trimmed = raw.trim();
+        if let Some((url_part, hash_part)) = trimmed.split_once('#') {
+            let url = url_part.trim_end_matches('/').to_string();
+            let slots = hash_part
+                .strip_prefix("slots=")
+                .unwrap_or(hash_part)
+                .parse::<usize>()
+                .ok()
+                .filter(|&s| (1..=16).contains(&s))
+                .unwrap_or(default_slots);
+            Self { url, slots }
+        } else {
+            Self {
+                url: trimmed.trim_end_matches('/').to_string(),
+                slots: default_slots,
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct EmbeddingBackend {
     client: Client,
-    base_urls: Vec<String>,
+    endpoints: Vec<EndpointSpec>,
     api_key: Option<String>,
     model: String,
 }
@@ -36,13 +65,14 @@ impl EmbeddingBackend {
             .filter(|ms| (1_000..=600_000).contains(ms))
             .unwrap_or(120_000);
 
-        let base_urls: Vec<String> = base_url
+        let default_slots = fanout_width();
+        let endpoints: Vec<EndpointSpec> = base_url
             .split(',')
-            .map(|s| s.trim().trim_end_matches('/').to_string())
-            .filter(|s| !s.is_empty())
+            .map(|s| EndpointSpec::parse(s, default_slots))
+            .filter(|e| !e.url.is_empty())
             .collect();
 
-        if base_urls.is_empty() {
+        if endpoints.is_empty() {
             return Err(BackendInitError::from_http(
                 "no valid embedding base url provided",
             ));
@@ -53,18 +83,22 @@ impl EmbeddingBackend {
                 .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(BackendInitError::from_http)?,
-            base_urls,
+            endpoints,
             api_key,
             model: model.to_string(),
         })
     }
 
     pub fn base_url(&self) -> &str {
-        &self.base_urls[0]
+        &self.endpoints[0].url
     }
 
-    pub fn base_urls(&self) -> &[String] {
-        &self.base_urls
+    pub fn base_urls(&self) -> Vec<String> {
+        self.endpoints.iter().map(|e| e.url.clone()).collect()
+    }
+
+    pub fn endpoints(&self) -> &[EndpointSpec] {
+        &self.endpoints
     }
 
     pub async fn discover(host: &str, api_key: Option<String>, model: &str) -> Option<Self> {
@@ -254,13 +288,13 @@ impl EmbeddingBackend {
 
         let mut worker_futures = Vec::new();
 
-        // Spawn `width` concurrent workers for each endpoint in the pool
-        for endpoint_url in &self.base_urls {
-            for _ in 0..width {
+        // Spawn `endpoint.slots` concurrent workers for each endpoint according to physical capacity
+        for endpoint in &self.endpoints {
+            for _ in 0..endpoint.slots {
                 let queue = queue.clone();
                 let results = results.clone();
                 let completed = completed.clone();
-                let endpoint_url = endpoint_url.clone();
+                let endpoint_url = endpoint.url.clone();
 
                 worker_futures.push(async move {
                     loop {
@@ -396,6 +430,20 @@ mod tests {
         assert_eq!(backend.base_urls()[0], "http://127.0.0.1:8081/v1");
         assert_eq!(backend.base_urls()[1], "http://192.168.0.25:8080/v1");
         assert_eq!(backend.base_urls()[2], "http://10.10.10.106:8080/v1");
+    }
+
+    #[test]
+    fn parses_custom_slot_capacities() {
+        let backend = EmbeddingBackend::new(
+            "http://127.0.0.1:8081/v1#4, http://192.168.0.25:8080/v1#slots=4, http://10.10.10.106:8080/v1#2",
+            None,
+            "test-model",
+        )
+        .unwrap();
+        assert_eq!(backend.endpoints().len(), 3);
+        assert_eq!(backend.endpoints()[0].slots, 4);
+        assert_eq!(backend.endpoints()[1].slots, 4);
+        assert_eq!(backend.endpoints()[2].slots, 2);
     }
 
     #[test]
