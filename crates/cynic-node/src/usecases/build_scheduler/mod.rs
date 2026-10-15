@@ -197,15 +197,6 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
-    // Footprint measurement scope: disk free bytes bracket the build on the
-    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
-    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
-    let target_dir = effective_target_dir(
-        scheduler.shared_target_root.as_deref(),
-        &prepared.workspace.workspace_root,
-        &claimed.record.envelope.action.argv,
-    );
-    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
     // cpu_ms measurement scope: one meter per workload execution. Marks
     // bracket the build; the delta lands in the completion envelope's
     // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
@@ -242,6 +233,15 @@ async fn execute_claimed(
         }
     };
     let prepare_ms = prepare_start.elapsed().as_millis() as u64;
+    // Footprint measurement scope: disk free bytes bracket the build on the
+    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
+    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    let target_dir = effective_target_dir(
+        scheduler.shared_target_root.as_deref(),
+        &prepared.workspace.workspace_root,
+        &claimed.record.envelope.action.argv,
+    );
+    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
     let execute_start = Instant::now();
     let execution = TokioBuildExecution
         .execute(&prepared.execution, &execution_cancel)
@@ -558,26 +558,28 @@ fn measure_max_rss_kb() -> Option<u64> {
 }
 
 /// Measure free disk bytes on the filesystem containing `path` via
-/// `df -k <path>`. Returns `None` when `df` is unavailable or output
-/// is unexpected.
+/// `statvfs(2)`. Returns `None` when the syscall fails or `path` is
+/// not valid UTF-8.
+///
+/// Uses `f_bavail` (free blocks available to unprivileged users) rather
+/// than `f_bfree` (superuser free blocks) to match what `df` reports and
+/// what the process can actually allocate. Uses `f_frsize` (fundamental
+/// fragment size) with a fallback to `f_bsize` when `f_frsize` is 0
+/// (some filesystems leave it unset).
 fn measure_disk_free_bytes_for(path: &std::path::Path) -> Option<u64> {
-    let output = std::process::Command::new("df")
-        .arg("-k")
-        .arg(path)
-        .output()
-        .ok()?;
-    if !output.status.success() {
+    use std::ffi::CString;
+    let path_cstr = CString::new(path.to_str()?).ok()?;
+    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
+    let result = unsafe { libc::statvfs(path_cstr.as_ptr(), &mut stat) };
+    if result != 0 {
         return None;
     }
-    let stdout = String::from_utf8(output.stdout).ok()?;
-    let line = stdout.lines().nth(1)?;
-    let parts: Vec<&str> = line.split_whitespace().collect();
-    if parts.len() >= 4 {
-        let kb: u64 = parts[3].parse().ok()?;
-        Some(kb * 1024)
+    let frsize = if stat.f_frsize > 0 {
+        stat.f_frsize as u64
     } else {
-        None
-    }
+        stat.f_bsize as u64
+    };
+    Some(stat.f_bavail as u64 * frsize)
 }
 
 /// Resolve the effective CARGO_TARGET_DIR for a build. When

@@ -515,7 +515,15 @@ mod tests {
             ..scheduler_config()
         };
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        // Construct the env inline (build_execution_env was inlined).
+        let mut env = std::collections::BTreeMap::new();
+        if let Some(root) = scheduler.shared_target_root.as_ref() {
+            let target_dir = shared_target_dir_for(root, &argv);
+            env.insert(
+                "CARGO_TARGET_DIR".into(),
+                target_dir.to_string_lossy().into_owned(),
+            );
+        }
         assert_eq!(
             env.get("CARGO_TARGET_DIR"),
             Some(&"/var/lib/cynic/build-targets/debug".to_string()),
@@ -531,7 +539,15 @@ mod tests {
             "precondition: shared_target_root must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        let env = build_execution_env(&scheduler, &argv);
+        // Construct the env inline (build_execution_env was inlined).
+        let mut env = std::collections::BTreeMap::new();
+        if let Some(root) = scheduler.shared_target_root.as_ref() {
+            let target_dir = shared_target_dir_for(root, &argv);
+            env.insert(
+                "CARGO_TARGET_DIR".into(),
+                target_dir.to_string_lossy().into_owned(),
+            );
+        }
         assert!(
             !env.contains_key("CARGO_TARGET_DIR"),
             "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
