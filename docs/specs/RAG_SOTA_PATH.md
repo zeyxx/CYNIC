@@ -105,6 +105,18 @@ fixture. E2 itself is an ECDF-vs-RRF tie (dense hits, ECDF misses). Lesson
 for wave 6: screen on the FUSED-vs-RRF margin, not the pure-arm margin —
 a dense-win that fusion destroys adds no Wilcoxon vote. Futility clock: one
 batch without tightening (two cuts the line).
+Wave 6 KILLED EMPTY (2026-10-16): new fused-margin screen (|ECDF-RRF|>0)
+rejected all three drafts (G2/H2 unanimous 1.00 ties; I2 fused arms agree
+at 1.00 despite dense 0.50). Two independent reviewer prisms confirmed and
+went further: G2's dependency-policy gold is false (drop to 0) and its
+wording copies the doc purpose verbatim (pro-RRF bias); I2's question is
+UNANSWERABLE — no document asserts crates inherit lifecycle rules from
+topology (both golds false); H2's gold is valid but the query is
+neutral-weak. Meta-lesson: the screen catches weak drafts, reviewers catch
+wrong golds and unanswerable questions — neither suffices alone. Keep both
+prisms for every future wave. An empty batch is a valid outcome, not a
+failure. Futility clock: still one (a killed wave protects power, it does
+not spend it).
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
