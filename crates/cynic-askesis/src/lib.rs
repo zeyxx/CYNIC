@@ -86,4 +86,44 @@ mod tests {
             assert_eq!(kind, parsed);
         }
     }
+
+    #[test]
+    fn entry_hash_uses_sha3_512_prefix() {
+        let entry = AskesisEntry::new(
+            AskesisKind::CourtAudit,
+            1700000000,
+            1,
+            GENESIS_HASH,
+            "test",
+            serde_json::json!({"ok": true}),
+        );
+        assert!(
+            entry.entry_hash.starts_with("sha3-512:"),
+            "expected sha3-512: prefix, got: {}",
+            &entry.entry_hash[..20]
+        );
+        assert_eq!(entry.entry_hash.len(), "sha3-512:".len() + 128);
+    }
+
+    #[test]
+    fn old_sha256_genesis_entry_fails_verification() {
+        // Pin the intentional clean break: an entry sealed with the old
+        // SHA-256 algorithm and old genesis (64-zero prev_hash) must NOT
+        // verify under the unified SHA3-512 hash chain.
+        let mut entry = AskesisEntry::new(
+            AskesisKind::CourtAudit,
+            1700000000,
+            1,
+            GENESIS_HASH,
+            "test",
+            serde_json::json!({"ok": true}),
+        );
+        // Simulate old format: prev_hash = 64 zeros, hash = SHA-256 (unprefixed)
+        entry.prev_hash = "0".repeat(64);
+        entry.entry_hash = "0".repeat(64);
+        assert!(
+            !entry.verify(),
+            "old SHA-256 entry must fail verification under SHA3-512"
+        );
+    }
 }

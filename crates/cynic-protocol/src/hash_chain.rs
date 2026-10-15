@@ -13,6 +13,11 @@
 //! - `cynic-consensus` peer WAL entries
 //! - `cynic-protocol` evidence journal
 //! - `cynic-askesis` append-only log
+//! - `cynic-lifecycle` kernel release proof
+//!
+//! **Intentional clean break**: all migrated chains use SHA3-512 with
+//! `genesis` as the genesis prev-hash. Old SHA-256 entries with 64-zero
+//! genesis do NOT verify under the new code — no migration path exists.
 
 use crate::digest::digest_bytes;
 
