@@ -155,6 +155,11 @@ Ordre critique dépendant : G8 → G3/G4/G5 → G1 → G2 → G7 → G6/G9/G10 �
 
 ## 4. Décisions ouvertes (D-TLS1..n) à trancher avant code
 
+> **TRANCHÉ 2026-10-15 (opérateur, batch)** : les 6 recommandations
+> ci-dessous sont approuvées telles quelles. L'implémentation suit
+> l'ordre §5 ; les frictions opérationnelles seront traitées
+> organiquement après.
+
 D-TLS1. Racine CA : génération hors-ligne manuelle (HumanAdmin, script
    one-shot audité) vs service interne signant via OneShotCapability ?
    Recommandation : hors-ligne manuelle pour la RACINE (simple, rare),
