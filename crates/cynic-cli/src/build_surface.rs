@@ -57,7 +57,9 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
-        /// Action to execute: check, test, build, build-release.
+        /// Action to execute: check (compiles), audit (crate audit), audit-all,
+        /// build, build-release. Names what runs; unknown verbs are refused.
+        /// Note: --package is currently ignored by every action (warned).
         #[arg(long, default_value = "check")]
         action: String,
         /// Agent or requester identifier.
