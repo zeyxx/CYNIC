@@ -34,6 +34,8 @@ pub struct BuildAgentRequest {
     pub request_id: String,
     pub requested_by: String,
     pub source_commit: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     pub source: BuildSourceReference,
     pub action: String,
     pub desired_role: String,
@@ -271,6 +273,7 @@ mod tests {
             request_id: "validate-abc".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),

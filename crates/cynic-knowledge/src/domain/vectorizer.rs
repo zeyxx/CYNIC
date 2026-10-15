@@ -12,6 +12,14 @@ use crate::domain::hybrid_rrf::DenseHit;
 /// Minimal embedding backend: one batch call, dense vectors out.
 pub trait ChunkEmbedder {
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String>;
+
+    /// Chunk-aware entry: defaults to `embed_batch` over contents, but lets
+    /// adapters format per-chunk input texts (titles, instruction prefixes)
+    /// from chunk metadata without changing the trait for existing backends.
+    fn embed_chunks(&self, chunks: &[DocumentChunk]) -> Result<Vec<Vec<f32>>, String> {
+        let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
+        self.embed_batch(&texts)
+    }
 }
 
 /// A chunk keyed by its stable BLAKE3 id, paired with its dense vector.
@@ -27,8 +35,7 @@ pub fn vectorize_chunks(
     embedder: &dyn ChunkEmbedder,
     chunks: &[DocumentChunk],
 ) -> Result<Vec<ChunkVector>, String> {
-    let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
-    let vectors = embedder.embed_batch(&texts)?;
+    let vectors = embedder.embed_chunks(chunks)?;
     if vectors.len() != chunks.len() {
         return Err(format!(
             "embedder returned {} vectors for {} chunks",

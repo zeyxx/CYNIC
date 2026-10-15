@@ -91,6 +91,11 @@ pub struct BuildCacheObservation {
     /// missing workload record). Listed, never eligible, never blocking:
     /// an unclassifiable directory must not wedge the canonical reclaim.
     pub ephemeral_skipped: Vec<String>,
+    /// Evidence checkouts whose name matches no workload record in any
+    /// configured workload store. Observation only — the pure decision
+    /// (eligibility) is untouched; this field is a bypass-trail surface for
+    /// operators to spot orphaned checkouts.
+    pub unlinked_checkouts: Vec<String>,
     pub unknowns: Vec<String>,
 }
 

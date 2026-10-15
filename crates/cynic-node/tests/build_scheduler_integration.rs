@@ -70,6 +70,8 @@ fn signed_build_grant_derivation_and_verification() {
         mandate_binding: None,
         input: None,
         resource_budget: None,
+        source_commit: None,
+        branch: None,
         action,
         delegation: AgentDelegationEnvelope {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),

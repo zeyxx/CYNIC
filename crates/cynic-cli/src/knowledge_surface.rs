@@ -78,6 +78,18 @@ pub enum KnowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Review HITL grade proposals against the deterministic gate, and
+    /// optionally merge accepted ones into the retrieval fixture.
+    Grades {
+        /// JSON file with an array of grade proposals.
+        file: PathBuf,
+        /// Merge accepted proposals into the fixture (otherwise dry-run).
+        #[arg(long)]
+        apply: bool,
+        /// Output verdicts as JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -515,6 +527,85 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     }
                     ExitCode::SUCCESS
                 }
+            }
+        }
+        KnowCommand::Grades { file, apply, json } => {
+            use cynic_eval::bench::{FIXTURE_SCHEMA_V1, Fixture, judge_grade_proposal};
+            let raw = match std::fs::read_to_string(&file) {
+                Ok(raw) => raw,
+                Err(e) => {
+                    eprintln!("cannot read {}: {e}", file.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            let proposals: Vec<cynic_eval::bench::GradeProposal> = match serde_json::from_str(&raw)
+            {
+                Ok(proposals) => proposals,
+                Err(e) => {
+                    eprintln!("invalid proposals JSON: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let fixture_path =
+                repo_root.join("crates/cynic-knowledge/tests/retrieval_gain_labels.json");
+            let fixture_raw = match std::fs::read_to_string(&fixture_path) {
+                Ok(raw) => raw,
+                Err(e) => {
+                    eprintln!("cannot read {}: {e}", fixture_path.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            let mut fixture: Fixture = match serde_json::from_str(&fixture_raw) {
+                Ok(fixture) => fixture,
+                Err(e) => {
+                    eprintln!("invalid fixture JSON: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if fixture.schema != FIXTURE_SCHEMA_V1 {
+                eprintln!("fixture schema mismatch: {}", fixture.schema);
+                return ExitCode::FAILURE;
+            }
+            let mut verdicts = Vec::new();
+            let mut accepted = 0usize;
+            for proposal in &proposals {
+                let verdict = judge_grade_proposal(proposal, &fixture);
+                if verdict.accept {
+                    accepted += 1;
+                    if apply {
+                        // Gate passed; the duplicate check runs again inside.
+                        if let Err(e) = fixture.insert_labeled(proposal) {
+                            eprintln!("skip {}: {e}", proposal.id);
+                            continue;
+                        }
+                    }
+                }
+                verdicts.push(verdict);
+            }
+            if apply && accepted > 0 {
+                let out = serde_json::to_string_pretty(&fixture).unwrap_or_default();
+                if let Err(e) = std::fs::write(&fixture_path, out) {
+                    eprintln!("cannot write {}: {e}", fixture_path.display());
+                    return ExitCode::FAILURE;
+                }
+            }
+            if json {
+                crate::emit_json(&verdicts, false)
+            } else {
+                for verdict in &verdicts {
+                    if verdict.accept {
+                        println!("[accept] {}", verdict.id);
+                    } else {
+                        println!("[reject] {}: {}", verdict.id, verdict.reasons.join("; "));
+                    }
+                }
+                println!(
+                    "{} proposal(s), {} accepted{}",
+                    verdicts.len(),
+                    accepted,
+                    if apply { ", merged" } else { " (dry-run)" }
+                );
+                ExitCode::SUCCESS
             }
         }
     }

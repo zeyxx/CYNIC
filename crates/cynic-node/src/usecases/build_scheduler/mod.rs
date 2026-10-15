@@ -59,6 +59,8 @@ pub fn queue_ordered_ids(records: &[DurableAgentWorkloadRecord], node_id: &str) 
             workload_id: durable.record.envelope.workload_id.clone(),
             idempotency_key: durable.record.envelope.idempotency_key.clone(),
             committed_at_ms: durable.committed_at_ms,
+            source_commit: durable.record.envelope.source_commit.clone(),
+            branch: durable.record.envelope.branch.clone(),
             terminal: durable.record.state.terminal(),
             is_build: canonical_build_action_from_argv(&durable.record.envelope.action.argv)
                 .is_some(),
@@ -195,6 +197,9 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
+    // Footprint measurement scope: RSS and disk free bytes bracket the build.
+    let max_rss_before = measure_max_rss_kb();
+    let disk_free_before = measure_disk_free_bytes();
     // cpu_ms measurement scope: one meter per workload execution. Marks
     // bracket the build; the delta lands in the completion envelope's
     // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
@@ -382,6 +387,14 @@ async fn execute_claimed(
     // the completion envelope. None = unmeasured (explicit unknown).
     let cpu_end = cpu_meter.mark();
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
+    // Close the footprint measurement scope: RSS delta and disk free-byte
+    // delta bracket the build. None = unmeasured (explicit unknown).
+    let max_rss_kb = measure_max_rss_kb()
+        .map(|after| after.saturating_sub(max_rss_before.unwrap_or(0)));
+    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes()) {
+        (Some(before), Some(after)) => Some(before as i64 - after as i64),
+        _ => None,
+    };
     let latest = store
         .read(workload_id)
         .map_err(|error| error.code)?
@@ -430,7 +443,7 @@ async fn execute_claimed(
                     final_record_digest = %receipt.final_record_digest,
                     "hermetic parcel settled successfully"
                 );
-                persist_settlement_proof(&SettlementProofFields {
+                persist_settlement_proof(store, &SettlementProofFields {
                     workload_id,
                     status: &status,
                     unknowns: &settlement_unknowns,
@@ -443,6 +456,8 @@ async fn execute_claimed(
                     queue_wait_clamped,
                     load_tier: &load_tier,
                     capacity_unknowns: &capacity_unknowns,
+                    max_rss_kb,
+                    disk_delta_bytes,
                 });
                 receipt
             }
@@ -521,9 +536,45 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
     }
 }
 
+/// Measure peak resident set size (VmHWM) from `/proc/self/status`.
+/// Returns `kib` (kB). `None` when `/proc` is unavailable or the field
+/// is missing (non-Linux kernel, restricted procfs).
+fn measure_max_rss_kb() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if let Some(value) = line.strip_prefix("VmHWM:") {
+            let kb: u64 = value.trim().split_whitespace().next()?.parse().ok()?;
+            return Some(kb);
+        }
+    }
+    None
+}
+
+/// Measure free disk bytes on the root filesystem via `df -k /`.
+/// Returns `None` when `df` is unavailable or output is unexpected.
+fn measure_disk_free_bytes() -> Option<u64> {
+    let output = std::process::Command::new("df")
+        .arg("-k")
+        .arg("/")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let line = stdout.lines().nth(1)?;
+    let parts: Vec<&str> = line.split_whitespace().collect();
+    if parts.len() >= 4 {
+        let kb: u64 = parts[3].parse().ok()?;
+        Some(kb * 1024)
+    } else {
+        None
+    }
+}
+
 /// Fields persisted into the settlement proof JSON. Additive across the
 /// scheduler-truths tasks: T1 reasons/timings, T2 stage and queue-wait
-/// timings, T3 capacity gate outcome.
+/// timings, T3 capacity gate outcome, T4 footprint (max RSS + disk delta).
 pub(crate) struct SettlementProofFields<'a> {
     pub workload_id: &'a str,
     pub status: &'a AgentCompletionStatus,
@@ -537,14 +588,14 @@ pub(crate) struct SettlementProofFields<'a> {
     pub queue_wait_clamped: bool,
     pub load_tier: &'a str,
     pub capacity_unknowns: &'a [String],
+    pub max_rss_kb: Option<u64>,
+    pub disk_delta_bytes: Option<i64>,
 }
 
-/// Build the canonical settlement proof evidence ref. Pure: serializes the
-/// settlement facts to canonical JSON and digests them with SHA3-512.
-pub(crate) fn settlement_proof_evidence_ref(
-    fields: &SettlementProofFields<'_>,
-) -> Result<String, serde_json::Error> {
-    let proof = serde_json::json!({
+/// Build the canonical settlement proof body as JSON. Pure: the same facts
+/// feed both the evidence digest and the durable sidecar.
+pub(crate) fn settlement_proof_body(fields: &SettlementProofFields<'_>) -> serde_json::Value {
+    serde_json::json!({
         "workload_id": fields.workload_id,
         "status": fields.status,
         "unknowns": fields.unknowns,
@@ -557,19 +608,40 @@ pub(crate) fn settlement_proof_evidence_ref(
         "queue_wait_clamped": fields.queue_wait_clamped,
         "load_tier": fields.load_tier,
         "capacity_unknowns": fields.capacity_unknowns,
-    });
+        "max_rss_kb": fields.max_rss_kb,
+        "disk_delta_bytes": fields.disk_delta_bytes,
+    })
+}
+
+/// Build the canonical settlement proof evidence ref. Pure: serializes the
+/// settlement facts to canonical JSON and digests them with SHA3-512.
+pub(crate) fn settlement_proof_evidence_ref(
+    fields: &SettlementProofFields<'_>,
+) -> Result<String, serde_json::Error> {
+    let proof = settlement_proof_body(fields);
     cynic_protocol::digest_json(&proof)
         .map(|digest| format!("scheduler-settlement:{digest}"))
 }
 
-fn persist_settlement_proof(fields: &SettlementProofFields<'_>) {
-    let evidence_ref = settlement_proof_evidence_ref(fields)
+fn persist_settlement_proof(
+    store: &dyn crate::ports::agent_workload_store_port::AgentWorkloadStorePort,
+    fields: &SettlementProofFields<'_>,
+) {
+    let proof = settlement_proof_body(fields);
+    let evidence_ref = cynic_protocol::digest_json(&proof)
+        .map(|digest| format!("scheduler-settlement:{digest}"))
         .unwrap_or_else(|_| format!("scheduler-settlement:{}", fields.workload_id));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_settlement"],
         &[evidence_ref],
     ) {
         tracing::warn!(%error, workload_id = %fields.workload_id, "scheduler settlement proof read-back unavailable");
+    }
+    // Durable body next to the record it explains: the digest alone cannot
+    // answer WHY a build died. Best-effort — never fails the settlement.
+    let file_name = format!("settlement-{}.json", fields.settled_at_ms);
+    if let Err(error) = store.append_evidence(fields.workload_id, &file_name, &proof) {
+        tracing::warn!(?error, workload_id = %fields.workload_id, "scheduler settlement body unavailable");
     }
 }
 
@@ -706,6 +778,8 @@ mod tests {
             queue_wait_clamped: false,
             load_tier: "normal",
             capacity_unknowns: &["cpu_report_missing".to_string()],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref = settlement_proof_evidence_ref(&fields)
@@ -736,6 +810,8 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "normal",
             "capacity_unknowns": ["cpu_report_missing"],
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
@@ -841,6 +917,8 @@ mod tests {
                 "cpu_report_missing".to_string(),
                 "memory_report_missing".to_string(),
             ],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref =
@@ -862,6 +940,8 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "saturated",
             "capacity_unknowns": ["cpu_report_missing", "memory_report_missing"],
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(
@@ -907,6 +987,8 @@ mod tests {
             queue_wait_clamped: false,
             load_tier: "headroom",
             capacity_unknowns: &[],
+            max_rss_kb: None,
+            disk_delta_bytes: None,
         };
 
         let evidence_ref = settlement_proof_evidence_ref(&fields)
@@ -929,9 +1011,45 @@ mod tests {
             "queue_wait_clamped": false,
             "load_tier": "headroom",
             "capacity_unknowns": Vec::<String>::new(),
+            "max_rss_kb": serde_json::Value::Null,
+            "disk_delta_bytes": serde_json::Value::Null,
         });
         let expected_digest = cynic_protocol::digest_json(&expected_proof).expect("digest");
         assert_eq!(digest, expected_digest, "empty settlement proof digest mismatch");
+    }
+
+    /// T1: settlement proof body must carry footprint fields (max_rss_kb,
+    /// disk_delta_bytes) so resource consumption is auditable from persisted
+    /// evidence, not logs alone.
+    #[test]
+    fn settlement_body_carries_footprint_fields() {
+        let status = AgentCompletionStatus::Completed;
+        let fields = SettlementProofFields {
+            workload_id: "wl-footprint",
+            status: &status,
+            unknowns: &[],
+            elapsed: Duration::from_millis(10),
+            measured_cpu_ms: None,
+            settled_at_ms: 42,
+            prepare_ms: 1,
+            execute_ms: 9,
+            queue_wait_ms: 0,
+            queue_wait_clamped: false,
+            load_tier: "normal",
+            capacity_unknowns: &[],
+            max_rss_kb: Some(1_000),
+            disk_delta_bytes: Some(500),
+        };
+
+        let body = settlement_proof_body(&fields);
+        assert_eq!(
+            body["max_rss_kb"], 1000,
+            "max_rss_kb must be carried in settlement proof body"
+        );
+        assert_eq!(
+            body["disk_delta_bytes"], 500,
+            "disk_delta_bytes must be carried in settlement proof body"
+        );
     }
 
     /// Fabricated CPU report with a known utilisation, mirroring the
@@ -1040,6 +1158,7 @@ mod tests {
             claim_ttl_secs: 60,
             command_timeout_secs: 900,
             sandbox_bwrap: false,
+            shared_target_root: None,
             release_publication: None,
         };
         (control, scheduler)

@@ -14,9 +14,10 @@ pub use domain::{
     CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
     DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
     KnowledgeGraph, LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
-    SynthesisPrompt, SynthesisPromptBuilder, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry,
-    authority_for, cosine_similarity, expand_hits_with_graph, fuse_reciprocal_ranks, tokenize,
-    top_k_dense, vectorize_chunks,
+    SynthesisPrompt, SynthesisPromptBuilder, VectorCacheRecord, WORKSPACE_GEOMETRY_SCHEMA_V1,
+    WorkspaceGeometry, authority_for, bm25_margin, cosine_similarity, expand_hits_with_graph,
+    fuse_reciprocal_ranks, load_vector_cache, save_vector_cache, tokenize, top_k_dense,
+    vectorize_chunks, vectorize_chunks_cached,
 };
 
 use std::path::Path;

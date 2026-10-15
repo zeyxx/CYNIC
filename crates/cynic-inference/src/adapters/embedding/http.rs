@@ -2,6 +2,7 @@
 //! Default target: local llama-server on :8081 with Qwen3-Embedding.
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -27,9 +28,16 @@ impl EmbeddingBackend {
         api_key: Option<String>,
         model: &str,
     ) -> Result<Self, BackendInitError> {
+        // Batched lots of long chunks can prefill well past 30 s on a
+        // CPU-only server: default 120 s, override with CYNIC_EMBED_TIMEOUT_MS.
+        let timeout_ms = std::env::var("CYNIC_EMBED_TIMEOUT_MS")
+            .ok()
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .filter(|ms| (1_000..=600_000).contains(ms))
+            .unwrap_or(120_000);
         Ok(Self {
             client: Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
+                .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(BackendInitError::from_http)?,
             base_url: base_url.trim_end_matches('/').to_string(),
@@ -125,9 +133,9 @@ impl BackendPort for EmbeddingBackend {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct EmbeddingRequest {
-    input: String,
+    input: Vec<String>,
     model: String,
 }
 
@@ -148,14 +156,104 @@ struct EmbeddingUsage {
     prompt_tokens: Option<u32>,
 }
 
+/// One `/v1/embeddings` round-trip per call: the server batches the whole
+/// array on its continuous-batch engine, so one call of N inputs costs ~one
+/// prefill instead of N round-trips.
+const EMBED_BATCH_SIZE: usize = 32;
+/// Upper clamp: beyond this the server-side physical batch (not ours) does
+/// the splitting, so bigger lots only add latency, never throughput.
+const EMBED_BATCH_MAX: usize = 128;
+/// Sub-lot per in-flight request: small enough to fit one server slot, so
+/// WIDTH of them keep every slot fed without queueing behind a giant lot.
+const FANOUT_SUB_LOT: usize = 8;
+/// Default concurrent in-flight requests; the sequential client starves the
+/// server (GPU ~10% busy observed live), so fan-out is the throughput lever.
+const FANOUT_DEFAULT_WIDTH: usize = 4;
+const FANOUT_MAX_WIDTH: usize = 8;
+
+/// Calibration lever (crate-visible): lot size follows `CYNIC_EMBED_LOT_SIZE`
+/// (default 32) so batch/ubatch sweeps can run without recompiling.
+pub(crate) fn lot_size() -> usize {
+    parse_lot_size(std::env::var("CYNIC_EMBED_LOT_SIZE").ok().as_deref())
+}
+
+/// Pure parser behind `lot_size`: out-of-range and non-numeric inputs fall
+/// back to the default, so calibration sweeps can never break requests.
+fn parse_lot_size(raw: Option<&str>) -> usize {
+    raw.and_then(|text| text.parse::<usize>().ok())
+        .filter(|size| (1..=EMBED_BATCH_MAX).contains(size))
+        .unwrap_or(EMBED_BATCH_SIZE)
+}
+
+/// Concurrent in-flight requests; 1 restores strict sequential behavior.
+fn parse_fanout_width(raw: Option<&str>) -> usize {
+    raw.and_then(|text| text.parse::<usize>().ok())
+        .filter(|width| (1..=FANOUT_MAX_WIDTH).contains(width))
+        .unwrap_or(FANOUT_DEFAULT_WIDTH)
+}
+
+fn fanout_width() -> usize {
+    parse_fanout_width(std::env::var("CYNIC_EMBED_WIDTH").ok().as_deref())
+}
+
 #[async_trait]
 impl EmbeddingPort for EmbeddingBackend {
     async fn embed(&self, text: &str) -> Result<Embedding, EmbeddingError> {
+        let mut out = self.post_batch(vec![text.to_string()]).await?;
+        out.pop()
+            .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))
+    }
+
+    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingError> {
+        self.embed_batch_reported(texts, &|_, _| {}).await
+    }
+}
+
+impl EmbeddingBackend {
+    /// Batched embedding with per-lot progress: `report(done, total)` fires
+    /// after each round-trip so long corpora stay observable.
+    pub async fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let width = fanout_width();
+        // Fan sub-lots of 8 across WIDTH concurrent round-trips so every
+        // server slot stays fed; `buffered` preserves input order while
+        // polling WIDTH futures at once.
+        let sublots: Vec<(usize, Vec<String>)> = texts
+            .chunks(FANOUT_SUB_LOT)
+            .enumerate()
+            .map(|(sub_no, lot)| (sub_no, lot.iter().map(|text| (*text).to_string()).collect()))
+            .collect();
+        let total_sublots = sublots.len();
+        let mut out = Vec::with_capacity(texts.len());
+        let mut stream =
+            futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| async move {
+                let batch = self.post_batch(inputs).await.map_err(|error| {
+                    EmbeddingError::Protocol(format!(
+                        "sub-lot {}/{total_sublots} failed: {error}",
+                        sub_no + 1
+                    ))
+                })?;
+                Ok::<_, EmbeddingError>((sub_no, batch))
+            }))
+            .buffered(width);
+        while let Some((_, mut batch)) = stream.next().await.transpose()? {
+            out.append(&mut batch);
+            report(out.len(), texts.len());
+        }
+        Ok(out)
+    }
+}
+
+impl EmbeddingBackend {
+    async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
         let url = format!("{}/embeddings", self.base_url);
         let start = Instant::now();
 
         let req_body = EmbeddingRequest {
-            input: text.to_string(),
+            input: inputs,
             model: self.model.clone(),
         };
 
@@ -186,23 +284,19 @@ impl EmbeddingPort for EmbeddingBackend {
             .await
             .map_err(|error| EmbeddingError::Protocol(format!("JSON parse error: {error}")))?;
 
-        let data = parsed
-            .data
-            .into_iter()
-            .next()
-            .ok_or_else(|| EmbeddingError::Protocol("empty response".into()))?;
-
-        let dimensions = data.embedding.len();
         // `#[serde(default)]` on an Option is None, so an absent counter is None. It was
         // `u32` with the same attribute, which made a missing field indistinguishable from a
         // backend that legitimately reported zero.
         let prompt_tokens = parsed.usage.and_then(|usage| usage.prompt_tokens);
-
-        Ok(Embedding {
-            vector: data.embedding,
-            dimensions,
-            prompt_tokens,
-        })
+        Ok(parsed
+            .data
+            .into_iter()
+            .map(|data| Embedding {
+                dimensions: data.embedding.len(),
+                vector: data.embedding,
+                prompt_tokens,
+            })
+            .collect())
     }
 }
 
@@ -214,5 +308,22 @@ mod tests {
     fn from_env_defaults() {
         let backend = EmbeddingBackend::from_env().unwrap();
         assert!(backend.base_url().contains("8081"));
+    }
+
+    #[test]
+    fn lot_size_follows_env_with_safe_bounds() {
+        assert_eq!(parse_lot_size(None), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("8")), 8);
+        assert_eq!(parse_lot_size(Some("0")), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("9999")), EMBED_BATCH_SIZE);
+        assert_eq!(parse_lot_size(Some("not-a-number")), EMBED_BATCH_SIZE);
+    }
+
+    #[test]
+    fn fanout_width_defaults_and_clamps() {
+        assert_eq!(parse_fanout_width(None), FANOUT_DEFAULT_WIDTH);
+        assert_eq!(parse_fanout_width(Some("1")), 1);
+        assert_eq!(parse_fanout_width(Some("0")), FANOUT_DEFAULT_WIDTH);
+        assert_eq!(parse_fanout_width(Some("99")), FANOUT_DEFAULT_WIDTH);
     }
 }

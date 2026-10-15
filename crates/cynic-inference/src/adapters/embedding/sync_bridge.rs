@@ -50,20 +50,39 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
 
 impl<B: EmbeddingPort> cynic_knowledge::ChunkEmbedder for SyncEmbeddingBridge<B> {
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-        let embeddings = self
-            .runtime
-            .block_on(self.backend.embed_batch(texts))
-            .map_err(|e| e.to_string())?;
-        for embedding in &embeddings {
-            if embedding.vector.len() != self.dimensions {
-                return Err(format!(
-                    "sync bridge dimension drift: expected {}, got {}",
-                    self.dimensions,
-                    embedding.vector.len()
-                ));
+        self.embed_batch_reported(texts, &|_, _| {})
+    }
+}
+
+impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
+    /// `embed_batch` with live progress: `report(done, total)` fires after
+    /// each lot, so long corpora stay observable to operators. Lots stay at
+    /// or under the backend round-trip size, so reporting adds no requests.
+    pub fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &dyn Fn(usize, usize),
+    ) -> Result<Vec<Vec<f32>>, String> {
+        use super::http::lot_size;
+        let mut vectors = Vec::with_capacity(texts.len());
+        for lot in texts.chunks(lot_size()) {
+            let embeddings = self
+                .runtime
+                .block_on(self.backend.embed_batch(lot))
+                .map_err(|e| e.to_string())?;
+            for embedding in &embeddings {
+                if embedding.vector.len() != self.dimensions {
+                    return Err(format!(
+                        "sync bridge dimension drift: expected {}, got {}",
+                        self.dimensions,
+                        embedding.vector.len()
+                    ));
+                }
             }
+            vectors.extend(embeddings.into_iter().map(|e| e.vector));
+            report(vectors.len(), texts.len());
         }
-        Ok(embeddings.into_iter().map(|e| e.vector).collect())
+        Ok(vectors)
     }
 }
 
@@ -103,6 +122,26 @@ mod tests {
     #[test]
     fn bridge_rejects_empty_probe_vector() {
         assert!(SyncEmbeddingBridge::probe(FixedBackend { dimensions: 0 }, "probe").is_err());
+    }
+
+    #[test]
+    fn bridge_reports_progress_ending_at_total() {
+        let bridge =
+            SyncEmbeddingBridge::probe(FixedBackend { dimensions: 2 }, "probe").expect("probe");
+        let texts: Vec<&str> = (0..70).map(|_| "abc").collect();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let vectors = bridge
+            .embed_batch_reported(&texts, &|done, total| {
+                seen.borrow_mut().push((done, total));
+            })
+            .expect("reported batch");
+        assert_eq!(vectors.len(), 70);
+        let seen = seen.borrow();
+        assert!(!seen.is_empty(), "progress must fire at least once");
+        assert_eq!(*seen.last().unwrap(), (70, 70));
+        for (done, total) in seen.iter() {
+            assert!(*done <= *total, "progress must never exceed total");
+        }
     }
 
     #[test]

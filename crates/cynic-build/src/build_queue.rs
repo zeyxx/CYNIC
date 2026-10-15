@@ -19,6 +19,14 @@ pub struct QueuedCandidate {
     /// counted separately so silence is impossible.
     pub terminal: bool,
     pub is_build: bool,
+    /// Source commit SHA captured at admission; preserved for fair-queue
+    /// ordering by branch (Task 8). None for legacy candidates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_commit: Option<String>,
+    /// Branch name captured at admission; preserved for fair-queue ordering
+    /// by branch (Task 8). None for legacy candidates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +87,8 @@ mod tests {
             committed_at_ms: at_ms,
             terminal: false,
             is_build: true,
+            source_commit: None,
+            branch: None,
         }
     }
 
@@ -105,6 +115,23 @@ mod tests {
         assert_eq!(plan.ordered, vec!["w-ok".to_string()]);
         assert_eq!(plan.terminal_skipped, 1);
         assert_eq!(plan.non_build_skipped, 1);
+    }
+
+    #[test]
+    fn queue_plan_preserves_branch_and_commit_fields() {
+        let mut first = candidate("w-first", "key:a", 100);
+        first.source_commit = Some("a".repeat(40));
+        first.branch = Some("feature/first".to_string());
+        let mut second = candidate("w-second", "key:b", 200);
+        second.source_commit = Some("b".repeat(40));
+        second.branch = Some("feature/second".to_string());
+        let plan = plan_build_queue(vec![second.clone(), first.clone()]);
+
+        assert_eq!(plan.ordered, vec!["w-first".to_string(), "w-second".to_string()]);
+        assert_eq!(first.source_commit, Some("a".repeat(40)));
+        assert_eq!(first.branch, Some("feature/first".to_string()));
+        assert_eq!(second.source_commit, Some("b".repeat(40)));
+        assert_eq!(second.branch, Some("feature/second".to_string()));
     }
 
     #[test]

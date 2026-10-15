@@ -138,7 +138,29 @@ impl LexicalIndex {
         limit: usize,
         dense_k: usize,
     ) -> Vec<SearchHit<'a>> {
+        self.search_hybrid_guarded(query, query_vector, vectors, limit, dense_k, None)
+    }
+
+    /// Guarded hybrid: when BM25 is confident (relative top1-top2 margin at
+    /// or above `guard_gap`), dense noise cannot demote the lexical winner
+    /// and the sparse ranking returns alone. `None` disables the guard
+    /// (plain RRF). Fewer than 2 sparse hits means no margin to assess, so
+    /// those queries always fuse — recall first when lexical is thin.
+    pub fn search_hybrid_guarded<'a>(
+        &'a self,
+        query: &str,
+        query_vector: &[f32],
+        vectors: &[ChunkVector],
+        limit: usize,
+        dense_k: usize,
+        guard_gap: Option<f64>,
+    ) -> Vec<SearchHit<'a>> {
         let sparse = self.search(query, limit);
+        if let Some(gap) = guard_gap {
+            if bm25_margin(&sparse) >= gap {
+                return sparse;
+            }
+        }
         let dense = top_k_dense(query_vector, &self.chunks, vectors, dense_k);
         let mut fused = fuse_reciprocal_ranks(&sparse, &dense, DEFAULT_RRF_K);
         fused.truncate(limit);
@@ -148,6 +170,17 @@ impl LexicalIndex {
     /// Returns the total number of indexed chunks.
     pub fn chunk_count(&self) -> usize {
         self.chunks.len()
+    }
+}
+
+/// Relative BM25 confidence margin: (top1 - top2) / top1. Zero when the top
+/// score is null or when fewer than 2 hits exist — no evidence, no claim.
+pub fn bm25_margin(hits: &[SearchHit<'_>]) -> f64 {
+    match hits {
+        [first, second, ..] if first.score > 0.0 => {
+            ((first.score - second.score) / first.score).max(0.0)
+        }
+        _ => 0.0,
     }
 }
 
@@ -210,6 +243,45 @@ pub fn is_technical_code_query(query: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bm25_margin_is_relative_gap_and_zero_without_evidence() {
+        let chunk = |name: &str| {
+            DocumentChunk::new(
+                name.into(),
+                1,
+                2,
+                Vec::new(),
+                "body".into(),
+                AuthorityTier::L3Operation,
+            )
+        };
+        let (a, b, c, d) = (chunk("a.md"), chunk("b.md"), chunk("c.md"), chunk("d.md"));
+        let hits = vec![
+            SearchHit {
+                chunk: &a,
+                score: 10.0,
+            },
+            SearchHit {
+                chunk: &b,
+                score: 6.0,
+            },
+        ];
+        assert!((bm25_margin(&hits) - 0.4).abs() < 1e-9);
+        assert_eq!(bm25_margin(&hits[..1]), 0.0);
+        assert_eq!(bm25_margin(&[]), 0.0);
+        let zeros = vec![
+            SearchHit {
+                chunk: &c,
+                score: 0.0,
+            },
+            SearchHit {
+                chunk: &d,
+                score: 0.0,
+            },
+        ];
+        assert_eq!(bm25_margin(&zeros), 0.0);
+    }
 
     #[test]
     fn test_matrix_reranker_prioritizes_l0_constitution_over_l3_operation() {

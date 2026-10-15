@@ -1,6 +1,6 @@
 {
   "schema": "cynic.retrieval_gain_labels.v1",
-  "note": "Graded relevance fixture for 11.10. Grades: 2 = exact answer, 1 = related, 0 = noise (default). Traps are measured only. Rerun after slice 3 (hybrid) and compare MRR/nDCG on this exact fixture.",
+  "note": "Graded relevance fixture for 11.10. Grades: 2 = exact answer, 1 = related, 0 = noise (default). Traps are measured only. Rerun after slice 3 (hybrid) and compare MRR/nDCG on this exact fixture. RQ4-RQ9 graded 2026-10-14 against live paths; RQC1-3 are conceptual queries where dense may beat lexical.",
   "queries": [
     {
       "id": "RQ1_MERGE_GATE",
@@ -33,37 +33,125 @@
       "id": "RQ4_POWERS",
       "query": "5 pouvoirs separation constituante judiciaire",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "docs/specs/cynic-government-architecture.md": 2
+      }
     },
     {
       "id": "RQ5_ADMISSION",
       "query": "memory admission formula weights kv activations",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "contracts/inference-calibration.json": 2
+      }
     },
     {
       "id": "RQ6_BANDWIDTH",
       "query": "Ahmad Osman bandwidth tiers",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "crates/cynic-inference/src/math/roofline.rs": 2,
+        "docs/design/cynic-agent-isolation-plan.md": 1
+      }
     },
     {
       "id": "RQ7_PATHS",
       "query": "CynicPaths state dir var lib cynic",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "crates/cynic-types/src/paths.rs": 2
+      }
     },
     {
       "id": "RQ8_TOPOLOGY",
       "query": "crate topology workspace geometry fan-in",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "docs/design/CANONICAL_CRATE_MAP.md": 2,
+        "contracts/source-lifecycle.json": 1
+      }
     },
     {
       "id": "RQ9_TEMPORAL",
       "query": "TemporalContract temporal reconciliation",
       "trap": false,
-      "grades": {}
+      "grades": {
+        "crates/cynic-protocol/src/temporal.rs": 2
+      }
+    },
+    {
+      "id": "RQC1_CONSENSUS",
+      "query": "how do mesh peers reach consensus",
+      "trap": false,
+      "grades": {
+        "docs/specs/cynic-stage2-peer-and-ledger.md": 2
+      }
+    },
+    {
+      "id": "RQC2_WHY_HYBRID",
+      "query": "why combine sparse lexical and dense semantic retrieval",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
+    },
+    {
+      "id": "RQC3_MEMORY_COLUMNS",
+      "query": "memory item confidence columns retrieved admitted proof",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
+    },
+    {
+      "id": "RQ2b_DISK_CLEANUP",
+      "query": "builder disk cleanup remove old checkouts",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ2c_RETENTION_TTL",
+      "query": "retention ttl prune build caches",
+      "trap": false,
+      "grades": {
+        "contracts/builder-retention.json": 2,
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ11_FAILOVER",
+      "query": "storage failover ordered fallback endpoints",
+      "trap": false,
+      "grades": {
+        "crates/cynic-storage/src/client_policy.rs": 2
+      }
+    },
+    {
+      "id": "RQ12_MEMORY_GUARD",
+      "query": "memory guard systemd service limit embedding server",
+      "trap": false,
+      "grades": {
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ13_TUNNEL",
+      "query": "ssh tunnel keepalive reverse forward builder",
+      "trap": false,
+      "grades": {
+        "crates/cynic-host/src/kernel_tunnel.rs": 2
+      }
+    },
+    {
+      "id": "RQC4_PARAPHRASE",
+      "query": "inquiries concepts different words same meaning retrieval",
+      "trap": false,
+      "grades": {
+        "docs/specs/ORGANIC_RAG_BOTTOM_UP_SPEC.md": 2
+      }
     },
     {
       "id": "RQ10_TRAP_KUBERNETES",

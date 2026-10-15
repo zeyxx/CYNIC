@@ -52,6 +52,15 @@ pub struct AgentWorkloadEnvelope {
     /// mutation admission will fail closed when the binding is absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mandate_binding: Option<WorkloadMandateBinding>,
+    /// Source commit SHA captured at admission; links build-* workloads to
+    /// their cynic-<sha> checkout for unlinked_checkouts observation.
+    /// None for legacy envelopes submitted before this field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_commit: Option<String>,
+    /// Branch name captured at admission; enables fair-queue ordering by
+    /// branch once Task 8 lands. None for legacy envelopes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input: Option<AgentWorkloadInput>,
     pub action: AgentBoundedAction,
