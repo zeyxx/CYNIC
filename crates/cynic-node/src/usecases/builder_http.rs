@@ -18,8 +18,10 @@ use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, compose_build_agent_workload,
+    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
+    COLLISION_WINDOW_MS, compose_build_agent_workload,
 };
+use std::sync::Mutex;
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, MutationAdmission,
     SecurityEvidenceState, admit_build_mutation,
@@ -49,6 +51,11 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
+    /// H4 duplicate-submit collision counter (Task 5). Records every
+    /// submission event; the pure `CollisionCounter` logic determines
+    /// which events collide on idempotency key or source commit within
+    /// the trailing 24h window.
+    collisions: Arc<Mutex<CollisionCounter>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,10 +99,15 @@ pub struct AcceptanceProof {
     pub status: &'static str,
 }
 
-pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) -> Router {
-    let state = AppState { config, store };
+pub fn app(
+    config: BuilderHttpConfig,
+    store: Arc<dyn AgentWorkloadStorePort>,
+    collisions: Arc<Mutex<CollisionCounter>>,
+) -> Router {
+    let state = AppState { config, store, collisions };
     Router::new()
         .route("/health", get(health))
+        .route("/status", get(status))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
@@ -196,6 +208,7 @@ async fn submit_workload(
     }
 
     let workload_id = envelope.workload_id.clone();
+    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -238,6 +251,41 @@ async fn submit_workload(
 
 async fn health() -> (StatusCode, &'static str) {
     (StatusCode::OK, "ok")
+}
+
+/// Record a submission event into the H4 collision counter (Task 5).
+/// Called for every submission (accepted or duplicate) so the pure
+/// `CollisionCounter` logic can determine which events collide on
+/// idempotency key or source commit within the trailing 24h window.
+fn record_submission(
+    state: &AppState,
+    idempotency_key: &str,
+    source_commit: &str,
+    observed_at_ms: u64,
+) {
+    if let Ok(mut counter) = state.collisions.lock() {
+        counter.record(CollisionEvent {
+            idempotency_key: idempotency_key.to_string(),
+            source_commit: source_commit.to_string(),
+            observed_at_ms,
+        });
+    }
+}
+
+/// H4 status surface (Task 5): exposes the duplicate-submit collision
+/// counter over the trailing 24h window. The counter is pure logic in
+/// `cynic-build`; this endpoint is the read-back surface the measurement
+/// plan requires.
+async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let now_ms = Utc::now().timestamp_millis() as u64;
+    let counter = state.collisions.lock().unwrap_or_else(|e| e.into_inner());
+    Json(serde_json::json!({
+        "schema": "cynic.builder.collision_status.v1",
+        "generated_at_ms": now_ms,
+        "window_ms": COLLISION_WINDOW_MS,
+        "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
+        "total_recorded_events": counter.total_events(),
+    }))
 }
 
 async fn get_proof(
@@ -460,6 +508,7 @@ async fn webhook_forgejo(
     // the request digest, so identical pushes address the same record and a
     // second delivery replays instead of duplicating.
     let workload_id = envelope.workload_id.clone();
+    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -520,7 +569,8 @@ pub async fn run_http_server(
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let app = app(config, store);
+    let collisions = Arc::new(Mutex::new(CollisionCounter::new()));
+    let app = app(config, store, collisions);
     let listener = tokio::net::TcpListener::bind(listen_addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
