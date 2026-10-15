@@ -75,16 +75,22 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 | json fusion harms (0.816 BM25 alone) | dense noise on identifier-heavy structured text | routed around; encoder-side fix open (model axis B) |
 | 63/85 ties in Wilcoxon | fixture saturation on decided queries | disagreement-zone query pairs (plan §5.4) |
 
-## 5. Current SOTA position (Q8-uniform, 85 queries + 5 traps, 12 020 chunks)
+## 5. Current SOTA position (Q8-uniform, 87 queries + 5 traps, 12 028 chunks)
 
-BM25 0.4984 · dense 0.6906 · RRF 0.4396 · MinMax 0.6965 @0.80 ·
-ECDF 0.5725 @0.75 · Wilcoxon p=0.0003 (31/6/48, n_nonzero 37).
+BM25 0.5128 · dense 0.6828 · RRF 0.4525 · MinMax 0.6977 @0.80 ·
+ECDF 0.5824 @0.75 · Wilcoxon p=0.0003 (31/6/50, n_nonzero 37).
 Pipeline: query prefix `task: search result | query: `, docs
 `title: {filename} | text: {body}`. Runners: cortex + compute-01, Q8_0,
 slots 4+4, registry-resolved. Cluster fanout proven live (128-text probe:
 16 sublots → cortex 11, compute 5; per-endpoint pools with headroom-guarded
 stealing — the old shared queue starved every peer past the first).
 Deployment: global MinMax alpha 0.80; MRL-256d adopted for future runs.
+Wave 4 (2026-10-16, fixture 85→87): RQ95 (BM25-win paraphrase, 1.00/0.50)
+and RQ96 (identifier tie, 1.00/1.00) admitted via pure-arm screen; A2
+rejected ×3 (checklist memory passage unreachable by rephrase — depth
+diagnosis open, not a 4th rephrase). Freeze check: old-85 reproduction
+within 0.01 on all arms (RRF/ECDF exact, dense Δ 0.0094 = live-workspace
+corpus drift); 87-mean moves are the predicted selection effect. Freeze holds.
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
