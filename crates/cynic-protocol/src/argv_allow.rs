@@ -178,4 +178,42 @@ mod tests {
         assert_eq!(obs.verdict, "would_deny");
         assert_eq!(obs.argv, vec!["rm", "-rf", "/x"]);
     }
+
+    /// Task P: direct cargo actions are self-admitting (no make: wrapper).
+    #[test]
+    fn cargo_build_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build"),
+            Ok(vec!["cargo:build".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_build_release_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build-release"),
+            Ok(vec!["cargo:build-release".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_test_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:test"),
+            Ok(vec!["cargo:test".to_string()])
+        );
+    }
+
+    #[test]
+    fn make_build_release_admits_cargo_build_release_not_cargo_build() {
+        let actions = canonical_build_actions("make:build-release").expect("known gate");
+        assert!(actions.contains(&"cargo:build-release".to_string()));
+        assert!(!actions.contains(&"cargo:build".to_string()));
+    }
+
+    #[test]
+    fn make_build_admits_cargo_build() {
+        let actions = canonical_build_actions("make:build").expect("known gate");
+        assert!(actions.contains(&"cargo:build".to_string()));
+    }
 }

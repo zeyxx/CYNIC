@@ -145,7 +145,6 @@ async fn submit_workload(
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
         requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
-        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
@@ -407,7 +406,6 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
-        branch: Some(reref_name(&payload)),
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
@@ -527,10 +525,51 @@ pub async fn run_http_server(
     Ok(())
 }
 
+/// Map a CLI submit action to the canonical build action used internally.
+///
+/// Returns `None` for unknown actions so the submit handler can refuse
+/// with a reason instead of dying mid-flight.
+pub(crate) fn map_submit_action(action: &str) -> Option<&'static str> {
+    match action {
+        "check" => Some("make:check"),
+        "build" => Some("cargo:build"),
+        "build-release" => Some("cargo:build-release"),
+        "test" => Some("cargo:test"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use uuid::Uuid;
+
+    #[test]
+    fn submit_action_build_maps_to_cargo_build() {
+        assert_eq!(map_submit_action("build"), Some("cargo:build"));
+    }
+
+    #[test]
+    fn submit_action_build_release_maps_to_cargo_build_release() {
+        assert_eq!(map_submit_action("build-release"), Some("cargo:build-release"));
+    }
+
+    #[test]
+    fn submit_action_test_maps_to_cargo_test() {
+        assert_eq!(map_submit_action("test"), Some("cargo:test"));
+    }
+
+    #[test]
+    fn submit_action_check_maps_to_make_check_unchanged() {
+        assert_eq!(map_submit_action("check"), Some("make:check"));
+    }
+
+    #[test]
+    fn submit_action_unknown_is_refused() {
+        assert_eq!(map_submit_action("deploy"), None);
+        assert_eq!(map_submit_action(""), None);
+        assert_eq!(map_submit_action("make:build"), None);
+    }
 
     #[test]
     fn workload_id_has_forgejo_prefix() {
@@ -556,7 +595,6 @@ mod tests {
             request_id: forgejo_workload_id(commit_sha),
             requested_by: "forgejo".to_string(),
             source_commit: commit_sha.to_string(),
-            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -677,7 +715,6 @@ mod tests {
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
-            branch: None,
             source: BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
