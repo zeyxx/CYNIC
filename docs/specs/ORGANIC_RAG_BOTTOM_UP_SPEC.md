@@ -1,7 +1,8 @@
 # Organic Bottom-Up RAG Specification & Implementation Checklist
 
 **Schema:** `cynic.spec.organic_rag.v1`  
-**Status:** Normative & Operational  
+**Status:** Normative & Operational — phases status current as of 2026-10-15,
+executed path in `RAG_SOTA_PATH.md`  
 **Authority:** `contracts/foundation.json`, `contracts/inference-calibration.json`  
 
 ---
@@ -73,27 +74,25 @@ The system replaces ad-hoc LLM prompting with a strictly grounded, deterministic
 
 ### Phase 3: Dense + Sparse Hybrid Retrieval (L2 Semantic)
 - [x] **3.1 Sovereign Embedding Model Integration:**
-  - `embeddinggemma-2-bf16` served by llama-server on `cynic-lxc-embedding`
-    (lxc/106, `10.10.10.106:8080`, DIM 768); consumed through
-    `cynic-inference::SyncEmbeddingBridge` (PR 79, unmerged at time of writing;
-    private runtime, dimensions pinned at probe, drift refused) implementing
-    knowledge's sync `ChunkEmbedder`.
-  - Server constraint observed live: physical batch 512 tokens — inputs above
-    it fail with HTTP 500, so measurement inputs are front-truncated.
+  - `embeddinggemma-2-Q8_0` (Unsloth, DIM 768) served by llama-server on
+    cortex (`127.0.0.1:8081`, slots 4) and compute-01 (`192.168.0.25:8080`,
+    slots 4), resolved from `infra/registry.json` by
+    `cynic-inference::EmbeddingBackend::from_env` (PR 104); lxc/106 excluded
+    (no admin access, ceiling unmeasurable). Same-file cross-runner cosine
+    0.99994 — uniform space, end-to-end reproduction is the gate.
+  - Server constraint live: runner enforces n_ctx/--parallel tokens per
+    input (slot law); both runners run `-c 8192 --parallel 4`
+    (2048-token slots). Long inputs fail closed, never truncate.
 - [x] **3.2 Reciprocal Rank Fusion (RRF):**
   - Combine Sparse BM25 ranks and Dense Vector cosine similarity:
     $$RRF(d) = \sum_{m \in \{BM25, Dense\}} \frac{1}{k + rank_m(d)}$$
-  - Measured on the graded fixture (`retrieval_gain_labels.json`,
-    10 pairs / 1 trap / 9 scored, `target/*_gain_measure.json` reports):
-
-    | Backend | Mean MRR (9 queries) | Delta vs BM25 |
-    |---|---|---|
-    | BM25 only | 0.222 | — |
-    | Hybrid + hashed-token stub | 0.133 | -0.089 |
-    | Hybrid + neural (EmbeddingGemma-2) | pending | pending |
-  - Reading: fusion mechanics proven deterministic; the stub dense signal
-    degrades ranking, so the neural run is the one that decides whether dense
-    earns its keep. Gain direction stays warn-only until a neural delta lands.
+  - Measured on the graded fixture (85 queries + 5 traps, 12 020 chunks,
+    Q8-uniform, `contracts/embedding-selection.json` entries 1–9):
+    BM25 0.5004, dense 0.5918, RRF k=60 0.4361, convex MinMax 0.5884 @0.80,
+    convex ECDF 0.5269 @0.60, Wilcoxon ECDF-vs-RRF p=0.0039 (5th significant
+    run). Convex method frozen; per-doctype routing live in
+    `cynic-knowledge::domain::query_routing` (routed 0.6113/0.5718 over
+    global). Full executed path: `RAG_SOTA_PATH.md`.
 
 ### Phase 4: Production-Grade Oracle & Agent Exposure (L3 Surface)
 - [ ] **4.1 In-Tree MCP Exposure (`cynic-mcp`):**
