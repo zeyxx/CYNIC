@@ -84,14 +84,26 @@ impl ProcessLocalRuntime {
     }
 
     fn kill_pid(pid: u32) {
-        let _ = Command::new("kill")
-            .args(["-TERM", &pid.to_string()])
-            .status();
-        thread::sleep(Duration::from_millis(400));
-        if Path::new(&format!("/proc/{pid}")).is_dir() {
-            let _ = Command::new("kill")
-                .args(["-KILL", &pid.to_string()])
-                .status();
+        // Direct signal delivery, no shell. Same ladder as before: SIGTERM,
+        // 400ms grace, then SIGKILL if still alive. `rustix` keeps this
+        // `unsafe`-free per the workspace `unsafe_code = "forbid"` lint.
+        #[cfg(unix)]
+        {
+            use rustix::process::{Pid, Signal, kill_process};
+            if let Some(target) = Pid::from_raw(pid as i32) {
+                let _ = kill_process(target, Signal::TERM);
+            }
+            thread::sleep(Duration::from_millis(400));
+            if Path::new(&format!("/proc/{pid}")).is_dir() {
+                if let Some(target) = Pid::from_raw(pid as i32) {
+                    let _ = kill_process(target, Signal::KILL);
+                }
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            // Pidfile liveness is unix-bound (/proc); no shell fallback.
+            let _ = pid;
         }
     }
 
@@ -207,39 +219,26 @@ impl ProcessLocalRuntime {
     }
 
     fn fetch_models_for_wait(url: &str) -> (String, Vec<String>) {
-        let out = Command::new("curl")
-            .args([
-                "-sS",
-                "-m",
-                "2",
-                "-o",
-                "-",
-                "-H",
-                "Accept: application/json",
-            ])
-            .arg(url)
-            .output()
-            .ok();
-
-        let body = out
-            .as_ref()
-            .and_then(|o| String::from_utf8(o.stdout.clone()).ok())
-            .unwrap_or_default();
-
-        if out.is_none() {
-            return ("".to_string(), Vec::new());
-        }
-
-        let code = Command::new("curl")
-            .args(["-sS", "-m", "2", "-o", "/dev/null", "-w", "%{http_code}"])
-            .arg(url)
-            .output()
+        // Single typed HTTP probe, no shell. Same observable contract as the
+        // former two-`curl` version: 2s timeout, `(code, model_ids)` pair, and
+        // `"000"` when the server is unreachable (curl's own connect-failure
+        // code, which the wait loop treats as not-ready).
+        let response = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()
             .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .unwrap_or_else(|| "".into())
-            .trim()
-            .to_string();
-
+            .and_then(|client| {
+                client
+                    .get(url)
+                    .header("Accept", "application/json")
+                    .send()
+                    .ok()
+            });
+        let Some(response) = response else {
+            return ("000".to_string(), Vec::new());
+        };
+        let code = response.status().as_u16().to_string();
+        let body = response.text().unwrap_or_default();
         let ids = model_readiness::parse_model_ids(&body);
         (code, ids)
     }

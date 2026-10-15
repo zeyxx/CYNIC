@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 async-trait.workspace = true
 axum.workspace = true
+rustix = { version = "1", features = ["process"] }
 cynic-network = { path = "../cynic-network" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-finance = { path = "../cynic-finance" }
