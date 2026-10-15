@@ -9,6 +9,9 @@ pub mod parent;
 pub mod spawn;
 pub mod stop;
 
-pub use parent::{RoleRunConfig, RoleRunOutcome, run_role};
+pub use parent::{
+    DEFAULT_SUPERVISE_STATE_DIR, INFERENCE_ROLE_ID, RoleRunConfig, RoleRunOutcome, is_role_parented,
+    run_role,
+};
 pub use spawn::spawn_backend;
 pub use stop::graceful_stop;
