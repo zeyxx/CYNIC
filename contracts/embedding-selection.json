@@ -306,6 +306,66 @@
             },
             "bilateral_guard_note": "guard flipped sign across rebuilds (+0.03 before, -0.03 now vs BM25); not robust on this fixture, no longer part of the adoption claim",
             "machine_report": "target/convex_sweep_report_12011.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
+          },
+          {
+            "run_id": "run_20261015_corpus_12012_64q",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "top_k": 5,
+              "dense_k": 20,
+              "rrf_k": 60.0,
+              "fixture_schema": "cynic.retrieval_gain_labels.v1",
+              "fixture_queries_total": 69,
+              "measured_queries": 64,
+              "traps_excluded": 5,
+              "new_queries_selection_rule": "30 authored (15 identifier, 15 paraphrase), gold verified in corpus, blind arms-only screen kept 22 with at least one arm scoring in top-5; 8 double-miss dropped before any fusion ran; 42 legacy queries untouched",
+              "corpus_chunks_scored": 12012,
+              "corpus_cache_schema": "cynic.knowledge.corpus_cache.v2",
+              "pipeline_tag": "trunc2500/doc=/query=/template={body}",
+              "pipeline_max_chars": 2500,
+              "zero_truncation": "v2 cache, slots 2048, corpus max 1101 tokens",
+              "head_commit": "a914aa25",
+              "head_note": "run tree equals a914aa25 plus uncommitted fixture additions (test data only) and miss_diagnosis env filter (diagnostic harness only); no scoring code changed",
+              "cluster_endpoints": [
+                "http://127.0.0.1:8081/v1#slots=2",
+                "http://192.168.0.25:8080/v1#slots=2"
+              ],
+              "runner_slot_law": "each runner enforces n_ctx/--parallel tokens per input; 2048-token slots both runners",
+              "lxc106_excluded": "no admin access, ceiling unmeasurable",
+              "vector_space_limitation": "cortex BF16 plus compute-01 Q4 share one cache under model tag multi-endpoint; assignment by timing; MRR noise unquantified; single-weight rerun still open",
+              "optimal_strategy": "ContinuousConvex (CandidateMinMax)",
+              "optimal_alpha": 0.90,
+              "optimal_runner_up": "ContinuousConvex (EmpiricalCdf) alpha 0.60 at 0.5031"
+            },
+            "mrr_bm25": 0.4818,
+            "mrr_dense": 0.5284,
+            "mrr_hybrid_rrf_k60": 0.4089,
+            "mrr_continuous_convex_minmax_alpha_0_90": 0.5456,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.5031,
+            "delta_mrr_best_vs_rrf": 0.1367,
+            "fixture_composition_effect": "dense now beats BM25 (0.5284 vs 0.4818) partly because 15 authored paraphrase queries are dense-friendly; arm order is fixture-relative, disclosed, not a claim about the arms in general",
+            "nonlinearity_note": "ECDF concave again, interior optimum 0.60 third run in a row (0.320 at 0.00 rising to 0.503 at 0.60, falling to 0.443 at 1.00); MinMax optimum 0.90 two runs in a row after 0.50 on the contaminated corpus",
+            "ecdf_curve_alpha_0_00_to_1_00_step_0_05": [0.3198, 0.3284, 0.3505, 0.3661, 0.3844, 0.4073, 0.4320, 0.4461, 0.4510, 0.4510, 0.4888, 0.4924, 0.5031, 0.5013, 0.4964, 0.4982, 0.4836, 0.4706, 0.4776, 0.4724, 0.4432],
+            "minmax_curve_alpha_0_00_to_1_00_step_0_05": [0.4174, 0.4331, 0.4424, 0.4516, 0.4542, 0.4620, 0.4737, 0.4823, 0.4992, 0.5049, 0.5148, 0.5078, 0.5216, 0.5393, 0.5310, 0.5354, 0.5419, 0.5365, 0.5456, 0.5378, 0.5286],
+            "strategy_stability_note": "ECDF optimum at 0.60 in 3 of 3 runs across two corpus rebuilds and a 42-to-64 fixture expansion; MinMax peak higher but optimum less stable; ECDF stays the SSOT strategy",
+            "wilcoxon_best_ecdf_vs_rrf": {
+              "n_nonzero": 16,
+              "w_plus": 121.0,
+              "z": 2.726,
+              "p_two_sided": 0.0064,
+              "wins": 13,
+              "losses": 3,
+              "ties": 48,
+              "tie_anatomy": "21 both-perfect, 7 total-miss, 20 partial",
+              "verdict": "significant at 0.05 third run in a row; n_nonzero = 16 still below the 30 needed to freeze; further power must come from disagreement-type probes under the same preregistered rule, or the freeze bar stays unmet",
+              "method": "paired signed-rank per empirical-retrieval-calibration references/wilcoxon-signed-rank.md (continuity and tie corrections, unit-tested)"
+            },
+            "blind_spots": {
+              "total_miss_queries": 7,
+              "ids": ["RQC1_CONSENSUS", "RQ12_MEMORY_GUARD", "RQC4_PARAPHRASE", "RQ19_FOUNDATION_INVARIANTS", "RQ20_CLAIMS_LEASE", "RQ26_MACHINE_IDENTITY", "RQ28_EVIDENCE_RECEIPT"],
+              "reading": "unchanged set; all depth gaps, never absences"
+            },
+            "machine_report": "target/convex_sweep_report_12011_64q.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
           }
         ]
       }

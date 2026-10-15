@@ -374,6 +374,182 @@
       "query": "contracts foundation json erc20 token swap router uniswap pool",
       "trap": true,
       "grades": {}
+    },
+    {
+      "id": "RQ38_GIT_TOPOLOGY",
+      "query": "GitBranchState GitTopologyObservation GitBranchEntry",
+      "trap": false,
+      "grades": {
+        "crates/cynic-vcs/src/git_topology.rs": 2
+      }
+    },
+    {
+      "id": "RQ39_FLEET_MEMBERSHIP",
+      "query": "DeclaredMember DeclaredState MembershipDifference",
+      "trap": false,
+      "grades": {
+        "crates/cynic-network/src/fleet_membership/mod.rs": 2
+      }
+    },
+    {
+      "id": "RQ40_DEBT_TAXONOMY",
+      "query": "debt taxonomy roi formula frozen iteration",
+      "trap": false,
+      "grades": {
+        "contracts/debt-taxonomy.json": 2
+      }
+    },
+    {
+      "id": "RQ41_PRUNING",
+      "query": "pruning debloat policy crates modules dependencies",
+      "trap": false,
+      "grades": {
+        "contracts/pruning-policy.json": 2
+      }
+    },
+    {
+      "id": "RQ42_OWNERSHIP",
+      "query": "ownership contract declares boundary governed system",
+      "trap": false,
+      "grades": {
+        "contracts/ownership.json": 2
+      }
+    },
+    {
+      "id": "RQ43_RELEASE_VERSIONING",
+      "query": "release tagging versioning public projection",
+      "trap": false,
+      "grades": {
+        "contracts/release-versioning.json": 2
+      }
+    },
+    {
+      "id": "RQ44_BUILD_PLACEMENT",
+      "query": "build placement policy authorized build nodes",
+      "trap": false,
+      "grades": {
+        "contracts/build-placement.json": 2
+      }
+    },
+    {
+      "id": "RQ45_OBSERVABILITY_LOOP",
+      "query": "observability feedback loop runtime component",
+      "trap": false,
+      "grades": {
+        "contracts/observability-loop.json": 2
+      }
+    },
+    {
+      "id": "RQ46_FRAMEWORK_SPEC",
+      "query": "framework_spec FrameworkSpec sovereign agentic OS runtime",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/framework.rs": 2
+      }
+    },
+    {
+      "id": "RQ47_BUILD_PROOF",
+      "query": "BuildProofCard BuildProofPhase proof request",
+      "trap": false,
+      "grades": {
+        "crates/cynic-build/src/build_proof.rs": 2
+      }
+    },
+    {
+      "id": "RQ48_MCP_SERVER",
+      "query": "CynicMcpServer HarnessProgressionArgs ping",
+      "trap": false,
+      "grades": {
+        "crates/cynic-mcp/src/server.rs": 2
+      }
+    },
+    {
+      "id": "RQ49_WILCOXON",
+      "query": "wilcoxon_signed_rank paired z p_two_sided",
+      "trap": false,
+      "grades": {
+        "crates/cynic-eval/src/bench/retrieval_gain.rs": 2
+      }
+    },
+    {
+      "id": "RQ50_CHAR_BUDGET",
+      "query": "MAX_CHUNK_CHARS split_span_by_char_budget overlap",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/chunk_quality.rs": 2
+      }
+    },
+    {
+      "id": "RQ52_PUBLICATION",
+      "query": "public repository generated artifact projection",
+      "trap": false,
+      "grades": {
+        "contracts/publication.json": 2
+      }
+    },
+    {
+      "id": "RQ53_CHAT_SURFACE",
+      "query": "how do operators chat with the runtime from the terminal",
+      "trap": false,
+      "grades": {
+        "crates/cynic-cli/src/chat_surface.rs": 2
+      }
+    },
+    {
+      "id": "RQ55_CHUNKER_UPGRADE",
+      "query": "why must old cached fragments be discarded when chunking rules change",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/cache.rs": 2
+      }
+    },
+    {
+      "id": "RQ60_WINDOWING_MD",
+      "query": "how do long markdown sections keep physical line coordinates",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/adapters/markdown.rs": 2
+      }
+    },
+    {
+      "id": "RQ61_LEDGER_BLOCK",
+      "query": "what blocks the audit when new debt is not registered",
+      "trap": false,
+      "grades": {
+        "crates/cynic-audit-engine/src/debt_ledger.rs": 2
+      }
+    },
+    {
+      "id": "RQ62_RESILIENT_BATCH",
+      "query": "how do long measurement runs survive isolated lot failures",
+      "trap": false,
+      "grades": {
+        "crates/cynic-inference/src/adapters/embedding/sync_bridge.rs": 2
+      }
+    },
+    {
+      "id": "RQ65_MEMORY_SHARED",
+      "query": "systemd memory cap embedding server shared workstation",
+      "trap": false,
+      "grades": {
+        "docs/specs/checklist.md": 2
+      }
+    },
+    {
+      "id": "RQ66_EPISTEMIC_TOKEN",
+      "query": "exact rejection sentence when evidence is absent from corpus",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/epistemic_grounding.rs": 2
+      }
+    },
+    {
+      "id": "RQ67_CLAIMS_FLOW",
+      "query": "how do agents claim scopes before mutating shared state",
+      "trap": false,
+      "grades": {
+        "contracts/claims.json": 2
+      }
     }
   ]
 }
