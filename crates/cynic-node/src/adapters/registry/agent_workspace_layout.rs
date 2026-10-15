@@ -154,8 +154,8 @@ pub fn recompute_layout_digest(
         node_id,
         repository_id,
         workspace_id,
-        layout.repository_root,
-        layout.workspace_root,
+        layout.repository_root.clone(),
+        layout.workspace_root.clone(),
         layout.dedicated,
         &layout.required_principal,
     ))
