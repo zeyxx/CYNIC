@@ -52,7 +52,6 @@ fn diagnose_total_miss_queries() {
     assert_eq!(fixture.schema, FIXTURE_SCHEMA_V1);
 
     let backend = EmbeddingBackend::from_env().expect("CYNIC_EMBED_URL must be set");
-    let engine = backend.base_urls().join(",");
     let bridge = SyncEmbeddingBridge::probe(backend, "CYNIC miss diagnosis")
         .expect("embedding probe must succeed");
 
@@ -80,8 +79,8 @@ fn diagnose_total_miss_queries() {
         model: model.clone(),
     };
     let vector_cache_path = root.join(config.vector_cache_filename());
-    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag(), &engine)
-        .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag(), &engine));
+    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
+        .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag()));
     let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|_, _| {});
     let (vectors, reused, embedded) =
         vectorize_chunks_cached(&templated, &chunks, &mut vector_cache, &|_, _| {})
@@ -93,15 +92,11 @@ fn diagnose_total_miss_queries() {
         embedded
     );
 
-    let diag_ids: Vec<String> = match std::env::var("CYNIC_DIAG_IDS") {
-        Ok(list) => list.split(',').map(|s| s.trim().to_string()).collect(),
-        Err(_) => MISS_IDS.iter().map(|s| s.to_string()).collect(),
-    };
-    for miss_id in diag_ids {
+    for miss_id in MISS_IDS {
         let labeled = fixture
             .queries
             .iter()
-            .find(|q| q.id == miss_id)
+            .find(|q| q.id == *miss_id)
             .expect("miss id must exist in fixture");
         println!("\n=== {}: {:?} ===", labeled.id, labeled.query);
 
