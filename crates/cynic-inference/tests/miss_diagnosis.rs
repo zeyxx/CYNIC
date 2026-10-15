@@ -92,11 +92,15 @@ fn diagnose_total_miss_queries() {
         embedded
     );
 
-    for miss_id in MISS_IDS {
+    let diag_ids: Vec<String> = match std::env::var("CYNIC_DIAG_IDS") {
+        Ok(list) => list.split(',').map(|s| s.trim().to_string()).collect(),
+        Err(_) => MISS_IDS.iter().map(|s| s.to_string()).collect(),
+    };
+    for miss_id in diag_ids {
         let labeled = fixture
             .queries
             .iter()
-            .find(|q| q.id == *miss_id)
+            .find(|q| q.id == miss_id)
             .expect("miss id must exist in fixture");
         println!("\n=== {}: {:?} ===", labeled.id, labeled.query);
 
