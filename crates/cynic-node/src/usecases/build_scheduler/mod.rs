@@ -734,6 +734,7 @@ mod tests {
     use super::*;
     use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
     use crate::usecases::build_admission::admit_build_check;
+    use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -1229,6 +1230,7 @@ mod tests {
             release_publication: None,
             build_jobs: None,
             max_rss_cap_mb: None,
+            sccache: None,
         };
         (control, scheduler)
     }
@@ -1506,9 +1508,15 @@ mod tests {
             release_publication: None,
             build_jobs: Some(2),
             max_rss_cap_mb: Some(100),
+            sccache: None,
         };
         let capacity = CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
             state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
             residual_unknowns: vec![],
         };
         assert!(
@@ -1534,9 +1542,15 @@ mod tests {
             release_publication: None,
             build_jobs: Some(1),
             max_rss_cap_mb: Some(4096),
+            sccache: None,
         };
         let capacity = CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
             state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
             residual_unknowns: vec![],
         };
         assert!(
