@@ -304,6 +304,31 @@ impl ParentStatusEnvelope {
     }
 }
 
+/// Wire schema for the parent command file (mutation requests to a parent).
+pub const PARENT_COMMAND_FILE_SCHEMA: &str = "cynic.supervisor_parent_command.v1";
+/// The only mutation command a parent accepts in step 5.
+pub const PARENT_COMMAND_STOP: &str = "stop";
+
+/// Mutation request a parent consumes exactly once (atomic delete after read).
+/// Step 5 supports `stop` only; starting is `run` foreground or the systemd
+/// unit — a `start` arm would duplicate `run`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ParentCommand {
+    pub schema: String,
+    pub command: String,
+    pub requested_at_ms: u128,
+}
+
+impl ParentCommand {
+    pub fn stop(requested_at_ms: u128) -> Self {
+        Self {
+            schema: PARENT_COMMAND_FILE_SCHEMA.to_string(),
+            command: PARENT_COMMAND_STOP.to_string(),
+            requested_at_ms,
+        }
+    }
+}
+
 /// Map a unit health status onto the generic lifecycle state (G3 decision:
 /// `degraded` blocks like `failed`; `unknown` stays unknown; `draining` is
 /// reserved for commanded stops and never produced here).
@@ -469,6 +494,16 @@ mod tests {
     #[test]
     fn supervised_role_ids_match_contract() {
         assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp", "inference"]);
+    }
+
+    #[test]
+    fn parent_stop_command_names_the_only_mutation() {
+        let cmd = ParentCommand::stop(42);
+        assert_eq!(cmd.schema, PARENT_COMMAND_FILE_SCHEMA);
+        assert_eq!(cmd.command, PARENT_COMMAND_STOP);
+        let roundtrip: ParentCommand =
+            serde_json::from_slice(&serde_json::to_vec(&cmd).unwrap()).unwrap();
+        assert_eq!(roundtrip, cmd);
     }
 
     #[test]

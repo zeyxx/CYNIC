@@ -56,6 +56,25 @@ pub enum SuperviseCommand {
         #[arg(last = true)]
         command: Vec<String>,
     },
+    /// Request a supervised parent to stop its child (bounded mutation).
+    Stop {
+        /// Declared role id to stop (`node`, `kernel`, `mcp`, `inference`).
+        #[arg(long)]
+        role: String,
+        /// State directory holding the parent lock and command file.
+        #[arg(long, default_value = "/var/lib/cynic/supervise")]
+        state_dir: String,
+        /// Status file to read back the stop proof.
+        #[arg(long)]
+        status_file: Option<String>,
+        /// Seconds to wait for the Stopped read-back before failing.
+        #[arg(long, default_value_t = 30)]
+        timeout_secs: u64,
+        /// Explicit mutation consent: without it, the command only prints
+        /// what it would do.
+        #[arg(long)]
+        apply: bool,
+    },
 }
 
 /// Default status file path for a role (Linux instantiation of the spec).
@@ -128,6 +147,44 @@ pub(crate) fn observe_roles(
         .collect())
 }
 
+/// Write a stop request for the parent to consume exactly once.
+pub(crate) fn request_stop(state_dir: &str, role_id: &str) -> Result<String, String> {
+    let path = std::path::PathBuf::from(state_dir).join(format!("supervise-{role_id}.cmd.json"));
+    let cmd = cynic_protocol::supervision::ParentCommand::stop(now_unix_ms());
+    let payload = serde_json::to_vec(&cmd).map_err(|e| format!("command encode failed: {e}"))?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("state dir failed: {e}"))?;
+    }
+    // Refuse to queue behind a request the parent has not consumed yet.
+    if path.exists() {
+        return Err(format!(
+            "stop already requested for role '{role_id}'; parent has not consumed it yet"
+        ));
+    }
+    std::fs::write(&path, &payload).map_err(|e| format!("command write failed: {e}"))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Wait for the Stopped read-back proof, polling the status file.
+/// Returns the final observation on proof, `None` on timeout.
+pub(crate) async fn await_stopped(
+    status_file: &str,
+    timeout_secs: u64,
+) -> Option<SupervisorObservation> {
+    let deadline = now_unix_ms().saturating_add((timeout_secs as u128).saturating_mul(1000));
+    loop {
+        if let Some(envelope) = read_parent_status(status_file) {
+            if envelope.observation.state == cynic_protocol::supervision::SupervisorState::Stopped {
+                return Some(envelope.observation);
+            }
+        }
+        if now_unix_ms() >= deadline {
+            return None;
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
 pub async fn dispatch(cmd: SuperviseCommand) -> ExitCode {
     match cmd {
         SuperviseCommand::Observe { role, status_file } => {
@@ -190,12 +247,50 @@ pub async fn dispatch(cmd: SuperviseCommand) -> ExitCode {
                 }
             }
         }
+        SuperviseCommand::Stop {
+            role,
+            state_dir,
+            status_file,
+            timeout_secs,
+            apply,
+        } => {
+            if !SUPERVISED_ROLE_IDS.contains(&role.as_str()) {
+                eprintln!(
+                    "unknown role '{role}'; declared roles: {}",
+                    SUPERVISED_ROLE_IDS.join(", ")
+                );
+                return ExitCode::FAILURE;
+            }
+            let status_path = status_file.unwrap_or_else(|| default_status_file(&role));
+            if !apply {
+                println!(
+                    "would request stop for role '{role}' (command file under {state_dir}); re-run with --apply"
+                );
+                return ExitCode::SUCCESS;
+            }
+            match request_stop(&state_dir, &role) {
+                Ok(_) => match await_stopped(&status_path, timeout_secs).await {
+                    Some(observation) => crate::cli_json::emit_pretty_json(&observation),
+                    None => {
+                        eprintln!(
+                            "stop requested for role '{role}' but no Stopped read-back within {timeout_secs}s"
+                        );
+                        ExitCode::FAILURE
+                    }
+                },
+                Err(message) => {
+                    eprintln!("{message}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::supervision::{ParentStatusEnvelope, SupervisorState};
 
     #[test]
     fn observe_all_roles_reports_explicit_unknown() {
@@ -219,7 +314,6 @@ mod tests {
 
     #[test]
     fn observe_reads_fresh_parent_status_file() {
-        use cynic_protocol::supervision::{ParentStatusEnvelope, SupervisorState};
         let dir = std::env::temp_dir().join("cynic-observe-test");
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("node.status.json");
@@ -238,6 +332,45 @@ mod tests {
         assert_eq!(observations.len(), 1);
         assert_eq!(observations[0].state, SupervisorState::Active);
         assert_eq!(observations[0].restart_count, 3);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stop_request_writes_once_then_refuses_double() {
+        let dir = std::env::temp_dir().join("cynic-stop-req-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = request_stop(dir.to_str().unwrap(), "node").unwrap();
+        assert!(std::path::Path::new(&path).exists());
+        let second = request_stop(dir.to_str().unwrap(), "node");
+        assert!(second.unwrap_err().contains("already requested"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn await_stopped_proves_from_status_file() {
+        let dir = std::env::temp_dir().join("cynic-await-stop-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("node.status.json");
+        // Missing file + zero timeout: no proof.
+        assert!(await_stopped(path.to_str().unwrap(), 0).await.is_none());
+        // A Stopped envelope is immediate proof.
+        let obs = SupervisorObservation {
+            schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+            role_id: "node".to_string(),
+            state: SupervisorState::Stopped,
+            restart_count: 1,
+            last_exit_reason: Some("stop_requested".to_string()),
+            observed_at_unix_ms: now_unix_ms(),
+            residual_unknowns: Vec::new(),
+        };
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&ParentStatusEnvelope::new(obs)).unwrap(),
+        )
+        .unwrap();
+        let proof = await_stopped(path.to_str().unwrap(), 5).await.unwrap();
+        assert_eq!(proof.state, SupervisorState::Stopped);
+        assert_eq!(proof.last_exit_reason, Some("stop_requested".to_string()));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
