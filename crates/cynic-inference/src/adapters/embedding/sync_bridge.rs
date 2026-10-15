@@ -66,7 +66,7 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
     /// `embed_batch_reported` trait impl: whole slice in one call so cluster
     /// fanout keeps a single shared queue (chunking starves endpoints);
     /// `report` fires per completed sublot from the workers.
-    pub fn embed_batch_reported(
+    fn embed_batch_reported(
         &self,
         texts: &[&str],
         report: &(dyn Fn(usize, usize) + Sync),

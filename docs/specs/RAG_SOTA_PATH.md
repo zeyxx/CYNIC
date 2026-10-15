@@ -35,10 +35,12 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 - **MinMax peaks higher, ECDF is the stable arm**: MinMax optimum wandered
   (0.50/0.90/0.90/0.80) while ECDF stayed concave with an interior optimum.
   Significance is tested on ECDF vs RRF.
-- **Per-doctype routing beats global fusion** (live split-half, predictor in
-  the loop): MinMax routed 0.6113 vs 0.5884 global; ECDF routed 0.5718 vs
-  0.5269 global. Deployment rule in the contract: json → pure BM25
-  (fusion harms), rs/md → their xval alphas, recalibrated per corpus.
+- **Per-doctype routing beats global fusion** — SUPERSEDED by run 10 (task
+  prefixes). Under prefixes the predictor-in-loop realized 0.6558 vs global
+  0.6965 (MinMax) and 0.5704 vs 0.5725 (ECDF): per-group alphas dilute a
+  strong global. The json→pure-BM25 rule died first (json at alpha 0.45
+  reaches 0.8395 under prefixes). `route_query` stays compiled with its
+  unit tests as instrumentation; deployment is global MinMax alpha 0.80.
 - **Q8-uniform is the SSOT vector space**: same-file cross-runner cosine
   0.99994 (heterogeneous-hardware residual, 47× tighter than the mixed
   0.99721); bit-identity across devices is unachievable and not required —
@@ -75,14 +77,24 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 
 ## 5. Current SOTA position (Q8-uniform, 85 queries + 5 traps, 12 020 chunks)
 
-BM25 0.5004 · dense 0.5918 · RRF 0.4361 · MinMax 0.5884 @0.80 ·
-ECDF 0.5269 @0.60 · routed 0.6113 / 0.5718 · Wilcoxon p=0.0039 (17/5/63).
-Runners: cortex + compute-01, Q8_0, slots 4+4, registry-resolved.
+BM25 0.4984 · dense 0.6906 · RRF 0.4396 · MinMax 0.6965 @0.80 ·
+ECDF 0.5725 @0.75 · Wilcoxon p=0.0003 (31/6/48, n_nonzero 37).
+Pipeline: query prefix `task: search result | query: `, docs
+`title: {filename} | text: {body}`. Runners: cortex + compute-01, Q8_0,
+slots 4+4, registry-resolved. Deployment: global MinMax alpha 0.80;
+MRL-256d adopted for future runs.
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
 materialize on this workload; 256d adopted for future runs (3× lighter
 cache, faster cosine), frozen 768d artifacts untouched.
+Task prefixes (2026-10-16, EmbeddingGemma-2 card protocol, full re-embed,
+run 10): dense 0.6906 (+0.0988), MinMax 0.6965 @0.80 (+0.1081), ECDF
+0.5725 @0.75 (+0.0456), Wilcoxon p=0.0003, n_nonzero 37 (31/6/48). The
+pipeline fields existed for this since day one — the largest single gain
+of the program. KILLED in the same run: per-doctype routing (realized
+0.6558 < global 0.6965; prefixes lifted json to 0.8395 at alpha 0.45,
+so the json→pure-BM25 rule and its justification died).
 
 ## 6. Next rungs (SOTA methods, cheapest first, one variable each)
 
