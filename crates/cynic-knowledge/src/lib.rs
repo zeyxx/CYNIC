@@ -9,7 +9,7 @@ pub use adapters::{
 };
 pub use domain::{
     AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, AuthorityTier,
-    BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
+    BrokenReference, CORPUS_CACHE_SCHEMA_V2, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
     ChunkEmbedder, ChunkVector, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
     CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
     DocumentTree, EpistemicAssemblyConfig, EpistemicCoverageVerdict, EpistemicSource,

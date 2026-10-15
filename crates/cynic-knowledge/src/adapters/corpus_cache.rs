@@ -22,14 +22,22 @@ const IGNORED_DIRS: &[&str] = &[
     "shared-target",
 ];
 
-/// Loads a corpus cache from a JSON file path on disk.
+/// Loads a corpus cache from a JSON file path on disk. Returns `None` for
+/// missing, unreadable, or schema-stale caches: a chunker upgrade must
+/// re-parse, never reuse fragments cut by retired rules.
 pub fn load_corpus_cache<P: AsRef<Path>>(path: P) -> Option<CorpusCacheRecord> {
+    use crate::domain::cache::CORPUS_CACHE_SCHEMA_V2;
+
     let p = path.as_ref();
     if !p.is_file() {
         return None;
     }
     let data = fs::read_to_string(p).ok()?;
-    serde_json::from_str(&data).ok()
+    let record: CorpusCacheRecord = serde_json::from_str(&data).ok()?;
+    if record.schema != CORPUS_CACHE_SCHEMA_V2 {
+        return None;
+    }
+    Some(record)
 }
 
 /// Saves a corpus cache to a JSON file path atomically via temporary sibling.

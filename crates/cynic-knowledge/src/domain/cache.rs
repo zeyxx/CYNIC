@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use crate::domain::chunk::DocumentChunk;
 
-pub const CORPUS_CACHE_SCHEMA_V1: &str = "cynic.knowledge.corpus_cache.v1";
+/// Current corpus cache schema. v2 = windowed chunker with character budget
+/// (no chunk above MAX_CHUNK_CHARS); v1 caches hold pre-windowing giants
+/// and are rejected on load so stale fragments can never poison measurement.
+pub const CORPUS_CACHE_SCHEMA_V2: &str = "cynic.knowledge.corpus_cache.v2";
 
 /// A single cached file containing its physical signature and pre-computed chunks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,7 +35,7 @@ pub struct CorpusCacheRecord {
 impl CorpusCacheRecord {
     pub fn new(head_commit: Option<String>) -> Self {
         Self {
-            schema: CORPUS_CACHE_SCHEMA_V1.to_string(),
+            schema: CORPUS_CACHE_SCHEMA_V2.to_string(),
             generated_at_secs: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
