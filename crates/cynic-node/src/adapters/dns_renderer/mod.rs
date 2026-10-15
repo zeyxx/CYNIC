@@ -122,6 +122,32 @@ mod tests {
     }
 
     #[test]
+    fn renders_compat_hosts_with_legacy_suffix() {
+        use cynic_network::dns::map_names_to_compat_zone;
+
+        let renderer = SynapseDnsRenderer::new("service.cynic");
+        let topology = vec![crate::ports::network_interfaces_port::RegistryNodeRecord {
+            node: "forgejo".to_string(),
+            ip: "10.10.10.101".to_string(),
+            names: vec!["forgejo".to_string(), "forgejo.service.cynic".to_string()],
+        }];
+        let compat: Vec<_> = topology
+            .iter()
+            .map(
+                |record| crate::ports::network_interfaces_port::RegistryNodeRecord {
+                    node: record.node.clone(),
+                    ip: record.ip.clone(),
+                    names: map_names_to_compat_zone(&record.names, "service.cynic"),
+                },
+            )
+            .collect();
+        let payload = renderer.render_hosts(&compat).expect("render compat");
+        assert!(payload.contains("forgejo.synapse.cynic"));
+        assert!(!payload.contains("service.cynic"));
+        assert!(payload.contains("forgejo"));
+    }
+
+    #[test]
     fn renders_canonical_plan_and_templates() {
         let renderer = SynapseDnsRenderer::new("test.zone");
         let plan = renderer.activation_plan().expect("plan");
