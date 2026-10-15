@@ -18,6 +18,7 @@ members = [
     "crates/cynic-zeroclaw-solana",
     "crates/cynic-market",
     "crates/cynic-storage",
+    "crates/cynic-supervisor",
     "crates/cynic-mcp",
     "crates/cynic-vcs",
     "crates/cynic-vcs-forgejo",

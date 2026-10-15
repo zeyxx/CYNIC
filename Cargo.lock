@@ -961,6 +961,7 @@ dependencies = [
  "cynic-types",
  "futures-util",
  "reqwest 0.13.5",
+ "rustix 1.1.5",
  "serde",
  "serde_json",
  "tempfile",
@@ -1193,6 +1194,7 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
+ "cynic-supervisor",
  "cynic-types",
  "cynic-vcs",
  "cynic-workload",
@@ -1376,6 +1378,16 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+]
+
+[[package]]
+name = "cynic-supervisor"
+version = "0.8.0"
+dependencies = [
+ "cynic-protocol",
+ "libc",
+ "process-wrap",
+ "tokio",
 ]
 
 [[package]]
