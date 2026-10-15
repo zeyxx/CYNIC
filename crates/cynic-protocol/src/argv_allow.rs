@@ -127,6 +127,15 @@ pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, St
     }
 }
 
+/// True when `requested_action` is admitted by the canonical build-action
+/// policy above. Single source of truth for action admission: build
+/// scheduling, request composition, and release admission all consult this
+/// predicate, so a policy addition cannot be silently refused downstream
+/// (Task P missed the composition gate when adding the cargo actions).
+pub fn is_canonical_build_action(requested_action: &str) -> bool {
+    canonical_build_actions(requested_action).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,5 +229,35 @@ mod tests {
     fn make_build_admits_cargo_build() {
         let actions = canonical_build_actions("make:build").expect("known gate");
         assert!(actions.contains(&"cargo:build".to_string()));
+    }
+
+    /// Task P fix round 1: the admission predicate is the single source of
+    /// truth shared by the composition gate — it must mirror the policy
+    /// set exactly, no more (unknown actions refused) and no fewer (every
+    /// policy action admitted, including cargo:run which policy admits
+    /// even though it has no canonical argv).
+    #[test]
+    fn admission_predicate_mirrors_policy_exactly() {
+        for action in [
+            "make:check",
+            "make:build",
+            "make:build-release",
+            "cargo:check",
+            "cargo:build",
+            "cargo:build-release",
+            "cargo:test",
+            "cargo:run",
+        ] {
+            assert!(
+                is_canonical_build_action(action),
+                "{action} is admitted by policy"
+            );
+        }
+        for action in ["cargo:deploy", "make:deploy", "bash -c make check", ""] {
+            assert!(
+                !is_canonical_build_action(action),
+                "{action} is not admitted by policy"
+            );
+        }
     }
 }

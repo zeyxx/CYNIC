@@ -93,10 +93,7 @@ fn assess(
     if request.source.revision != request.source_commit {
         blockers.push("build_source_revision_mismatch".to_string());
     }
-    if !matches!(
-        request.action.as_str(),
-        "make:check" | "make:build" | "make:build-release"
-    ) {
+    if !cynic_protocol::argv_allow::is_canonical_build_action(&request.action) {
         blockers.push("build_agent_request_action_not_allowed".to_string());
     }
     if request.desired_role != "build_runner" {
