@@ -14,12 +14,12 @@ pub use domain::{
     CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
     DocumentTree, EpistemicAssemblyConfig, EpistemicCoverageVerdict, EpistemicSource,
     GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
-    LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
-    SynthesisPrompt, SynthesisPromptBuilder, UNCOVERED_REJECTION_TOKEN, VectorCacheRecord,
-    WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry, assemble_epistemic_context, authority_for,
-    bm25_margin, cosine_similarity, dense_margin, expand_hits_with_graph, fuse_reciprocal_ranks,
-    load_vector_cache, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,
-    vectorize_chunks_cached,
+    LexicalIndex, MarkdownLink, QueryRoute, RoutingTable, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit,
+    SectionNode, SynthesisPrompt, SynthesisPromptBuilder, UNCOVERED_REJECTION_TOKEN,
+    VectorCacheRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry, assemble_epistemic_context,
+    authority_for, bm25_margin, cosine_similarity, dense_margin, expand_hits_with_graph,
+    fuse_reciprocal_ranks, load_vector_cache, route_query, save_vector_cache, tokenize,
+    top_k_dense, vectorize_chunks, vectorize_chunks_cached,
 };
 
 use std::path::Path;

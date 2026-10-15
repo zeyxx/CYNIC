@@ -38,15 +38,12 @@ pub struct RoutingTable {
 }
 
 impl RoutingTable {
-    /// Alphas measured on the 85-query fixture under the task-prefix
-    /// pipeline (full-data argmax, `target/convex_sweep_report_prefix_85q.json`
-    /// matrix): rs 0.80, json 0.45, md 0.55. Recalibrates per corpus —
-    /// only the criterion (argmax over the same fixture) is frozen.
+    /// Alphas measured on the 85-query fixture (full-data argmax).
     pub fn measured_defaults() -> Self {
         Self {
-            alpha_rs: 0.80,
-            alpha_json: 0.45,
-            alpha_md: 0.55,
+            alpha_rs: 0.90,
+            alpha_json: 0.00,
+            alpha_md: 0.45,
         }
     }
 
@@ -231,8 +228,8 @@ mod tests {
     #[test]
     fn measured_defaults_match_contract() {
         let table = RoutingTable::measured_defaults();
-        assert_eq!(table.alpha_for(QueryRoute::Rs), 0.80);
-        assert_eq!(table.alpha_for(QueryRoute::Json), 0.45);
-        assert_eq!(table.alpha_for(QueryRoute::Md), 0.55);
+        assert_eq!(table.alpha_for(QueryRoute::Rs), 0.90);
+        assert_eq!(table.alpha_for(QueryRoute::Json), 0.00);
+        assert_eq!(table.alpha_for(QueryRoute::Md), 0.45);
     }
 }
