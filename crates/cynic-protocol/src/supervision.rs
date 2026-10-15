@@ -74,9 +74,9 @@ pub fn service_supervisor_status(
 /// Wire schema for supervisor observations (`cynic supervise observe` emits these).
 pub const SUPERVISOR_OBSERVATION_SCHEMA: &str = "cynic.supervisor_observation.v1";
 /// Declared supervisor roles from `contracts/supervisor-contract.json`
-/// `process_model.child_roles`. Mirrored here as the materialised contract (Layer-0);
+/// `lifecycle.roles`. Mirrored here as the materialised contract (Layer-0);
 /// a coherence test pins this list against the JSON source.
-pub const SUPERVISED_ROLE_IDS: &[&str] = &["node", "kernel", "mcp", "inference"];
+pub const SUPERVISED_ROLE_IDS: &[&str] = &["node", "kernel", "mcp"];
 /// Backoff defaults from the contract `lifecycle.restart.backoff` section.
 pub const SUPERVISOR_BACKOFF_INITIAL_SECS: u64 = 5;
 pub const SUPERVISOR_BACKOFF_MAX_SECS: u64 = 60;
@@ -246,84 +246,6 @@ pub fn decide_restart(
     }
 }
 
-/// Wire schema for builder drain receipts (`POST /admin/drain` persists one
-/// per transition; the evidence store is the audit trail).
-pub const DRAIN_RECEIPT_SCHEMA: &str = "cynic.node.drain_receipt.v1";
-
-/// Pure drain choice. The caller owns the store read, the receipt persist,
-/// the waiter sleep, and the final `exit(0)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DrainDecision {
-    /// Enter draining; `in_flight` workloads must finish first.
-    StartDraining { in_flight: usize },
-    /// Still draining; keep waiting.
-    Wait { in_flight: usize },
-    /// No in-flight work left; persist the drained receipt, then exit(0).
-    Complete,
-    /// Already stopped; nothing to do.
-    AlreadyStopped,
-}
-
-/// Pure drain transition over the shared [`SupervisorState`] lifecycle:
-/// `Active -> Draining -> Stopped` (no new state: `draining` is already the
-/// commanded-stop vocabulary). Any state that is neither draining nor
-/// stopped starts draining — refusing new work is always the safe direction,
-/// including from `Unknown` (unobservable store) and `Failed`.
-pub fn decide_drain(current: SupervisorState, in_flight: usize) -> DrainDecision {
-    match current {
-        SupervisorState::Draining => {
-            if in_flight == 0 {
-                DrainDecision::Complete
-            } else {
-                DrainDecision::Wait { in_flight }
-            }
-        }
-        SupervisorState::Stopped => DrainDecision::AlreadyStopped,
-        _ => DrainDecision::StartDraining { in_flight },
-    }
-}
-
-/// Pure admission gate while draining: a commanded stop never admits new
-/// work. Total by construction — only `Draining` refuses; every other state
-/// admits (a stopped process exits before serving anyway).
-pub fn drain_blocks_admission(current: SupervisorState) -> bool {
-    current == SupervisorState::Draining
-}
-
-/// One drain receipt payload, persisted per transition as
-/// [`DRAIN_RECEIPT_SCHEMA`]. State names are the byte-stable
-/// [`SupervisorState::as_str`] spellings; the caller wraps this in an
-/// evidence envelope (subject, producer, and provenance are transport facts,
-/// not decision facts, so they stay out of the pure core).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct DrainReceipt {
-    pub schema: String,
-    pub node_id: String,
-    pub transition_from: String,
-    pub transition_to: String,
-    pub in_flight: usize,
-    pub observed_at_unix_ms: u128,
-}
-
-impl DrainReceipt {
-    pub fn new(
-        node_id: &str,
-        from: SupervisorState,
-        to: SupervisorState,
-        in_flight: usize,
-        observed_at_unix_ms: u128,
-    ) -> Self {
-        Self {
-            schema: DRAIN_RECEIPT_SCHEMA.to_string(),
-            node_id: node_id.to_string(),
-            transition_from: from.as_str().to_string(),
-            transition_to: to.as_str().to_string(),
-            in_flight,
-            observed_at_unix_ms,
-        }
-    }
-}
-
 /// Read-only supervisor observation for one role, per
 /// `contracts/supervisor-contract.json` `observation.required_fields`.
 /// Emitted by `cynic supervise observe`; never constructed by mutation paths.
@@ -382,31 +304,6 @@ impl ParentStatusEnvelope {
     }
 }
 
-/// Wire schema for the parent command file (mutation requests to a parent).
-pub const PARENT_COMMAND_FILE_SCHEMA: &str = "cynic.supervisor_parent_command.v1";
-/// The only mutation command a parent accepts in step 5.
-pub const PARENT_COMMAND_STOP: &str = "stop";
-
-/// Mutation request a parent consumes exactly once (atomic delete after read).
-/// Step 5 supports `stop` only; starting is `run` foreground or the systemd
-/// unit — a `start` arm would duplicate `run`.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ParentCommand {
-    pub schema: String,
-    pub command: String,
-    pub requested_at_ms: u128,
-}
-
-impl ParentCommand {
-    pub fn stop(requested_at_ms: u128) -> Self {
-        Self {
-            schema: PARENT_COMMAND_FILE_SCHEMA.to_string(),
-            command: PARENT_COMMAND_STOP.to_string(),
-            requested_at_ms,
-        }
-    }
-}
-
 /// Map a unit health status onto the generic lifecycle state (G3 decision:
 /// `degraded` blocks like `failed`; `unknown` stays unknown; `draining` is
 /// reserved for commanded stops and never produced here).
@@ -421,152 +318,6 @@ pub fn unit_status_state(status: &str) -> SupervisorState {
         "degraded" => SupervisorState::Failed,
         "unknown" => SupervisorState::Unknown,
         _ => SupervisorState::Unknown,
-    }
-}
-
-/// Wire schema for consumer ledger entries (`cynic supervise watch` appends
-/// these, one JSON object per line).
-pub const WATCH_LEDGER_ENTRY_SCHEMA: &str = "cynic.supervisor_watch_ledger.v1";
-
-/// What the consumer read from the status file. The caller owns file I/O;
-/// this enum carries only the outcome so `decide_watch` stays pure.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WatchInput<'a> {
-    /// A parsed envelope.
-    Envelope(&'a ParentStatusEnvelope),
-    /// No file at the status path.
-    Missing,
-    /// A file that does not parse; carries why, not the bytes.
-    Corrupt(String),
-}
-
-/// Consumer decision. The consumer observes and records only: `Stale` never
-/// implies the child is dead (a silent parent says nothing about its child),
-/// and `Unknown` never becomes `Failed` without a terminal envelope.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WatchDecision {
-    Fresh,
-    Stale,
-    Unknown,
-    TerminalExpected,
-    TerminalFailed,
-}
-
-impl WatchDecision {
-    /// Ledger-stable decision name.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Fresh => "fresh",
-            Self::Stale => "stale",
-            Self::Unknown => "unknown",
-            Self::TerminalExpected => "terminal_expected",
-            Self::TerminalFailed => "terminal_failed",
-        }
-    }
-}
-
-/// One consumer verdict: the decision plus the reason that produced it.
-/// Reasons are reader-facing strings; the decision is the machine contract.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WatchVerdict {
-    pub decision: WatchDecision,
-    pub reason: String,
-}
-
-/// Pure consumer choice. Terminal envelopes win over age (a `stopped` file
-/// that keeps aging is still an expected end, not a missed beat); anything
-/// else is fresh within `stale_after_ms`, stale past it. Missing and corrupt
-/// inputs are `Unknown` with the reason preserved, never coerced.
-pub fn decide_watch(
-    now_unix_ms: u128,
-    input: WatchInput<'_>,
-    stale_after_ms: u128,
-) -> WatchVerdict {
-    match input {
-        WatchInput::Missing => WatchVerdict {
-            decision: WatchDecision::Unknown,
-            reason: "status_file_missing".to_string(),
-        },
-        WatchInput::Corrupt(reason) => WatchVerdict {
-            decision: WatchDecision::Unknown,
-            reason,
-        },
-        WatchInput::Envelope(envelope) => match envelope.observation.state {
-            SupervisorState::Stopped => WatchVerdict {
-                decision: WatchDecision::TerminalExpected,
-                reason: "parent_reported_stopped".to_string(),
-            },
-            SupervisorState::Failed => WatchVerdict {
-                decision: WatchDecision::TerminalFailed,
-                reason: "parent_reported_failed".to_string(),
-            },
-            _ => {
-                let age_ms = now_unix_ms.saturating_sub(envelope.observation.observed_at_unix_ms);
-                if age_ms <= stale_after_ms {
-                    WatchVerdict {
-                        decision: WatchDecision::Fresh,
-                        reason: "heartbeat_within_bound".to_string(),
-                    }
-                } else {
-                    WatchVerdict {
-                        decision: WatchDecision::Stale,
-                        reason: "heartbeat_age_exceeded_bound".to_string(),
-                    }
-                }
-            }
-        },
-    }
-}
-
-/// One ledger line: the verdict plus the envelope facts that support it.
-/// `heartbeat_age_ms`, `heartbeat_counter`, `observed_state`, and
-/// `restart_count` are `None` exactly when no envelope was read.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct WatchLedgerEntry {
-    pub schema: String,
-    pub role_id: String,
-    pub decided_at_unix_ms: u128,
-    pub decision: WatchDecision,
-    pub reason: String,
-    pub heartbeat_age_ms: Option<u128>,
-    pub heartbeat_counter: Option<u64>,
-    pub observed_state: Option<SupervisorState>,
-    pub restart_count: Option<u32>,
-    pub residual_unknowns: Vec<String>,
-}
-
-impl WatchLedgerEntry {
-    /// Build the entry from a verdict; the caller supplies the envelope
-    /// facts (or `None` when the verdict came from `Missing`/`Corrupt`).
-    pub fn new(
-        role_id: &str,
-        decided_at_unix_ms: u128,
-        verdict: &WatchVerdict,
-        envelope: Option<&ParentStatusEnvelope>,
-        now_unix_ms: u128,
-    ) -> Self {
-        let (heartbeat_age_ms, heartbeat_counter, observed_state, restart_count) = match envelope {
-            Some(env) => (
-                Some(now_unix_ms.saturating_sub(env.observation.observed_at_unix_ms)),
-                Some(env.heartbeat_counter),
-                Some(env.observation.state),
-                Some(env.observation.restart_count),
-            ),
-            None => (None, None, None, None),
-        };
-        Self {
-            schema: WATCH_LEDGER_ENTRY_SCHEMA.to_string(),
-            role_id: role_id.to_string(),
-            decided_at_unix_ms,
-            decision: verdict.decision.clone(),
-            reason: verdict.reason.clone(),
-            heartbeat_age_ms,
-            heartbeat_counter,
-            observed_state,
-            restart_count,
-            residual_unknowns: Vec::new(),
-        }
     }
 }
 
@@ -668,63 +419,6 @@ mod tests {
     }
 
     #[test]
-    fn decide_drain_covers_all_branches() {
-        use SupervisorState as S;
-        // Active with work starts draining and names the in-flight count.
-        assert_eq!(
-            decide_drain(S::Active, 3),
-            DrainDecision::StartDraining { in_flight: 3 }
-        );
-        // Unknown and Failed still start draining: refusing new work is the
-        // safe direction when the store is unobservable or the last run died.
-        assert_eq!(
-            decide_drain(S::Unknown, 0),
-            DrainDecision::StartDraining { in_flight: 0 }
-        );
-        assert_eq!(
-            decide_drain(S::Failed, 1),
-            DrainDecision::StartDraining { in_flight: 1 }
-        );
-        // Draining waits while work remains, completes at zero.
-        assert_eq!(
-            decide_drain(S::Draining, 2),
-            DrainDecision::Wait { in_flight: 2 }
-        );
-        assert_eq!(decide_drain(S::Draining, 0), DrainDecision::Complete);
-        // Stopped is terminal.
-        assert_eq!(decide_drain(S::Stopped, 0), DrainDecision::AlreadyStopped);
-    }
-
-    #[test]
-    fn drain_blocks_admission_only_while_draining() {
-        use SupervisorState as S;
-        assert!(drain_blocks_admission(S::Draining));
-        for state in [
-            S::Planned,
-            S::Starting,
-            S::Active,
-            S::Stopped,
-            S::Failed,
-            S::Unknown,
-        ] {
-            assert!(!drain_blocks_admission(state), "state: {}", state.as_str());
-        }
-    }
-
-    #[test]
-    fn drain_receipt_names_the_transition() {
-        use SupervisorState as S;
-        let receipt = DrainReceipt::new("node-1", S::Active, S::Draining, 2, 1_700_000_000_000);
-        assert_eq!(receipt.schema, DRAIN_RECEIPT_SCHEMA);
-        assert_eq!(receipt.transition_from, "active");
-        assert_eq!(receipt.transition_to, "draining");
-        assert_eq!(receipt.in_flight, 2);
-        let roundtrip: DrainReceipt =
-            serde_json::from_slice(&serde_json::to_vec(&receipt).unwrap()).unwrap();
-        assert_eq!(roundtrip, receipt);
-    }
-
-    #[test]
     fn supervisor_state_names_match_contract() {
         let cases = [
             (SupervisorState::Planned, "planned"),
@@ -774,17 +468,7 @@ mod tests {
 
     #[test]
     fn supervised_role_ids_match_contract() {
-        assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp", "inference"]);
-    }
-
-    #[test]
-    fn parent_stop_command_names_the_only_mutation() {
-        let cmd = ParentCommand::stop(42);
-        assert_eq!(cmd.schema, PARENT_COMMAND_FILE_SCHEMA);
-        assert_eq!(cmd.command, PARENT_COMMAND_STOP);
-        let roundtrip: ParentCommand =
-            serde_json::from_slice(&serde_json::to_vec(&cmd).unwrap()).unwrap();
-        assert_eq!(roundtrip, cmd);
+        assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp"]);
     }
 
     #[test]
@@ -797,126 +481,5 @@ mod tests {
         for raw in ["activating", "inactive", "failed", "", "Active"] {
             assert_eq!(unit_status_state(raw), S::Unknown, "input: {raw}");
         }
-    }
-
-    fn watch_envelope(state: SupervisorState, observed_at_unix_ms: u128) -> ParentStatusEnvelope {
-        ParentStatusEnvelope {
-            schema: PARENT_STATUS_FILE_SCHEMA.to_string(),
-            heartbeat_counter: 7,
-            observation: SupervisorObservation {
-                schema: SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
-                role_id: "node".to_string(),
-                state,
-                restart_count: 1,
-                last_exit_reason: None,
-                observed_at_unix_ms,
-                residual_unknowns: Vec::new(),
-            },
-        }
-    }
-
-    #[test]
-    fn decide_watch_covers_all_branches() {
-        use SupervisorState as S;
-        use WatchDecision as D;
-        // Fresh within the bound, stale past it.
-        let env = watch_envelope(S::Active, 1_000);
-        let v = decide_watch(1_000 + 9_999, WatchInput::Envelope(&env), 10_000);
-        assert_eq!(v.decision, D::Fresh);
-        let v = decide_watch(1_000 + 10_001, WatchInput::Envelope(&env), 10_000);
-        assert_eq!(v.decision, D::Stale);
-        // Terminal wins over age: an old stopped file is an expected end.
-        let env = watch_envelope(S::Stopped, 1_000);
-        let v = decide_watch(1_000 + 999_999, WatchInput::Envelope(&env), 10_000);
-        assert_eq!(v.decision, D::TerminalExpected);
-        let env = watch_envelope(S::Failed, 1_000);
-        let v = decide_watch(1_000, WatchInput::Envelope(&env), 10_000);
-        assert_eq!(v.decision, D::TerminalFailed);
-        // Missing and corrupt never coerce.
-        let v = decide_watch(5_000, WatchInput::Missing, 10_000);
-        assert_eq!(v.decision, D::Unknown);
-        assert_eq!(v.reason, "status_file_missing");
-        let v = decide_watch(5_000, WatchInput::Corrupt("not_json".to_string()), 10_000);
-        assert_eq!(v.decision, D::Unknown);
-        assert_eq!(v.reason, "not_json");
-    }
-
-    #[test]
-    fn watch_ledger_entry_binds_envelope_facts() {
-        use SupervisorState as S;
-        use WatchDecision as D;
-        let env = watch_envelope(S::Active, 1_000);
-        let verdict = decide_watch(1_500, WatchInput::Envelope(&env), 10_000);
-        assert_eq!(verdict.decision, D::Fresh);
-        let entry = WatchLedgerEntry::new("node", 1_500, &verdict, Some(&env), 1_500);
-        assert_eq!(entry.schema, WATCH_LEDGER_ENTRY_SCHEMA);
-        assert_eq!(entry.heartbeat_age_ms, Some(500));
-        assert_eq!(entry.heartbeat_counter, Some(7));
-        assert_eq!(entry.observed_state, Some(S::Active));
-        assert_eq!(entry.restart_count, Some(1));
-        // No envelope, no facts — never a zero-filled pretence.
-        let verdict = decide_watch(1_500, WatchInput::Missing, 10_000);
-        let entry = WatchLedgerEntry::new("node", 1_500, &verdict, None, 1_500);
-        assert_eq!(entry.heartbeat_age_ms, None);
-        assert_eq!(entry.heartbeat_counter, None);
-        assert_eq!(entry.observed_state, None);
-        assert_eq!(entry.restart_count, None);
-        // Byte-stable decision names for the ledger.
-        assert_eq!(D::Fresh.as_str(), "fresh");
-        assert_eq!(D::TerminalExpected.as_str(), "terminal_expected");
-    }
-}
-
-/// Closed set of supervision backends (contracts/supervisor.json/vocabulary.kinds).
-///
-/// L0 owns the kind vocabulary; each kind's execution stays in its adapter
-/// (node embedded child, inference local runtime, host service observation).
-/// New backends extend this enum AND the contract mapping together — never one alone.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub enum SupervisorKind {
-    SystemdSystem,
-    SystemdUser,
-    OpenRc,
-    Process,
-    Docker,
-    EmbeddedChild,
-}
-
-impl SupervisorKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::SystemdSystem => "systemd-system",
-            Self::SystemdUser => "systemd-user",
-            Self::OpenRc => "openrc",
-            Self::Process => "process",
-            Self::Docker => "docker",
-            Self::EmbeddedChild => "embedded-child",
-        }
-    }
-
-    pub fn all() -> [Self; 6] {
-        [
-            Self::SystemdSystem,
-            Self::SystemdUser,
-            Self::OpenRc,
-            Self::Process,
-            Self::Docker,
-            Self::EmbeddedChild,
-        ]
-    }
-}
-
-#[cfg(test)]
-mod supervision_kind_tests {
-    use super::*;
-    use std::collections::BTreeSet;
-
-    #[test]
-    fn supervisor_kind_strings_are_distinct_contract_spellings() {
-        let all = SupervisorKind::all();
-        let strings: BTreeSet<_> = all.iter().map(|k| k.as_str()).collect();
-        assert_eq!(strings.len(), 6, "one distinct contract spelling per kind");
-        assert!(strings.contains("systemd-system"));
-        assert!(strings.contains("embedded-child"));
     }
 }

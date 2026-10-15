@@ -11,16 +11,8 @@ default-run = "cynic"
 name = "cynic"
 path = "src/main.rs"
 
-[features]
-# Off by default: the canonical reader binary stays read-only. Enabling this
-# compiles the explicit `--apply` SSOT writer for operators who regenerate
-# the derived half of the topology document.
-default = []
-topology_write = []
-
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
-uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
@@ -32,9 +24,8 @@ cynic-kernel = { path = "../cynic-kernel" }
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
+cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
-cynic-fleet = { path = "../cynic-fleet" }
-cynic-tui = { path = "../cynic-tui" }
 cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-proxmox = { path = "../cynic-proxmox" }
@@ -42,6 +33,7 @@ cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
+cynic-vcs-forgejo = { path = "../cynic-vcs-forgejo" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
@@ -51,16 +43,24 @@ cynic-pkg = { path = "../cynic-pkg" }
 cynic-eval = { path = "../cynic-eval" }
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
+cynic-domain-porkbun = { path = "../cynic-domain-porkbun" }
+cynic-domain-cloudflare = { path = "../cynic-domain-cloudflare" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-intel = { path = "../cynic-intel" }
+cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
+cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
-cynic-traces = { path = "../cynic-traces" }
+cynic-discovery-host = { path = "../cynic-discovery-host" }
+cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
+cynic-surreal = { path = "../cynic-surreal" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }
+ratatui = { version = "0.29", default-features = true }
+crossterm = "0.28"
 chrono.workspace = true
 walkdir.workspace = true
-reqwest = { version = "0.12", features = ["blocking", "json", "multipart"] }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 # node_activation_surface hashes an identity public key for its report digest.
 # Versions match cynic-node / cynic-protocol so the CLI does not pull a second
 # copy of sha2 into the graph.
