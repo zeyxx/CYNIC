@@ -52,10 +52,26 @@ Status: design for review. No code.
 - Consequence for the merge rule: wholesale declared replacement plus
   `observed` preservation is sufficient; no per-key migration needed.
 
+## Resolved reserves (2026-10-15, operator-approved direction)
+
+1. First sync (target absent): create it, and say so in the proof
+   (`created: true`). No special flag; absence is not an error.
+2. Backup retention: keep the 5 most recent `.bak-<sha>` beside the
+   target, prune older after a successful write. Bounded, no policy file.
+3. `observed` validation: shape-strict (must be an object with a
+   `nodes` object; malformed blocks the sync, fail closed). Node
+   membership is advisory: observed nodes missing from declared are
+   kept and listed in the proof as warnings, never deleted, never
+   blocking.
+4. Stale observed nodes: preserved byte-identical plus reported. Deletion
+   of observed state is a separate explicit operation, never a side
+   effect of sync.
+
 ## Open questions for review
 
-1. Exact runtime-only key set: is `observed` the only section a sync
-   must preserve? Historical study below must confirm.
+1. Exact runtime-only key set: ANSWERED by history — `observed` is the
+   only runtime section (never a live repo key). Others, if they ever
+   appear, must be registered here before a sync preserves them.
 2. Direction: should reconcile write into the repo file instead, making
    the runtime copy a pure render? (Bigger change, not proposed.)
 3. Fleet scope: cortex only, or each host syncs its own copy (builder

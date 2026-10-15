@@ -14,6 +14,7 @@ mod dns;
 mod domain;
 mod mesh;
 mod provider_fallback;
+mod registry;
 
 /// The service probe specs declared in `infra/registry.json`.
 ///
@@ -197,6 +198,12 @@ pub(crate) enum NetworkCommand {
     Reconcile {
         #[command(subcommand)]
         command: NetworkReconcileCommand,
+    },
+    /// Synchronize the runtime registry copy from a declared registry file
+    /// Declared keys replaced wholesale; the observed section is preserved.
+    Registry {
+        #[command(subcommand)]
+        command: registry::NetworkRegistryCommand,
     },
     /// Declarative Zero-Trust nftables firewall policy and audit
     Firewall {
@@ -452,6 +459,7 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
         .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
         .or_else(|cmd| domain::try_execute_domain(cmd, &runtime))
+        .or_else(|cmd| registry::try_execute_registry(cmd, &runtime))
         .map_or_else(
             |cmd| match actuator::try_execute_actuator(cmd) {
                 Ok(code) => return code,
