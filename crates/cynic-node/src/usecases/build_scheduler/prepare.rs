@@ -184,7 +184,7 @@ pub(super) async fn prepare(
 
 /// Derive the cargo profile name from argv: `release` when `--release` is
 /// present, `debug` otherwise. Pure.
-fn profile_for_argv(argv: &[String]) -> &'static str {
+pub(crate) fn profile_for_argv(argv: &[String]) -> &'static str {
     if argv.iter().any(|arg| arg == "--release") {
         "release"
     } else {

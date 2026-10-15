@@ -197,9 +197,15 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
-    // Footprint measurement scope: RSS and disk free bytes bracket the build.
-    let max_rss_before = measure_max_rss_kb();
-    let disk_free_before = measure_disk_free_bytes();
+    // Footprint measurement scope: disk free bytes bracket the build on the
+    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
+    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    let target_dir = effective_target_dir(
+        scheduler.shared_target_root.as_deref(),
+        &prepared.workspace.workspace_root,
+        &claimed.record.envelope.action.argv,
+    );
+    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
     // cpu_ms measurement scope: one meter per workload execution. Marks
     // bracket the build; the delta lands in the completion envelope's
     // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
@@ -387,11 +393,12 @@ async fn execute_claimed(
     // the completion envelope. None = unmeasured (explicit unknown).
     let cpu_end = cpu_meter.mark();
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
-    // Close the footprint measurement scope: RSS delta and disk free-byte
-    // delta bracket the build. None = unmeasured (explicit unknown).
-    let max_rss_kb = measure_max_rss_kb()
-        .map(|after| after.saturating_sub(max_rss_before.unwrap_or(0)));
-    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes()) {
+    // Close the footprint measurement scope: RSS via RUSAGE_CHILDREN
+    // (max of the build child tree, not the scheduler's own RSS) and
+    // disk free-byte delta on the target dir's filesystem.
+    // None = unmeasured (explicit unknown).
+    let max_rss_kb = measure_max_rss_kb();
+    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes_for(&target_dir)) {
         (Some(before), Some(after)) => Some(before as i64 - after as i64),
         _ => None,
     };
@@ -536,26 +543,27 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
     }
 }
 
-/// Measure peak resident set size (VmHWM) from `/proc/self/status`.
-/// Returns `kib` (kB). `None` when `/proc` is unavailable or the field
-/// is missing (non-Linux kernel, restricted procfs).
+/// Measure peak resident set size of the build child process tree via
+/// `getrusage(RUSAGE_CHILDREN)`. Returns `ru_maxrss` in kB (Linux).
+/// This reflects the largest waited-for descendant (rustc), not the
+/// scheduler's own RSS. `None` when `getrusage` is unavailable.
 fn measure_max_rss_kb() -> Option<u64> {
-    let status = std::fs::read_to_string("/proc/self/status").ok()?;
-    for line in status.lines() {
-        if let Some(value) = line.strip_prefix("VmHWM:") {
-            let kb: u64 = value.trim().split_whitespace().next()?.parse().ok()?;
-            return Some(kb);
-        }
+    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+    let result = unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage) };
+    if result != 0 {
+        return None;
     }
-    None
+    // On Linux, ru_maxrss is in kilobytes.
+    Some(usage.ru_maxrss as u64)
 }
 
-/// Measure free disk bytes on the root filesystem via `df -k /`.
-/// Returns `None` when `df` is unavailable or output is unexpected.
-fn measure_disk_free_bytes() -> Option<u64> {
+/// Measure free disk bytes on the filesystem containing `path` via
+/// `df -k <path>`. Returns `None` when `df` is unavailable or output
+/// is unexpected.
+fn measure_disk_free_bytes_for(path: &std::path::Path) -> Option<u64> {
     let output = std::process::Command::new("df")
         .arg("-k")
-        .arg("/")
+        .arg(path)
         .output()
         .ok()?;
     if !output.status.success() {
@@ -569,6 +577,21 @@ fn measure_disk_free_bytes() -> Option<u64> {
         Some(kb * 1024)
     } else {
         None
+    }
+}
+
+/// Resolve the effective CARGO_TARGET_DIR for a build. When
+/// `shared_target_root` is set, the target dir is `<root>/<profile>`.
+/// Otherwise, fall back to the workspace root's `target` dir (cargo's
+/// default). Pure.
+fn effective_target_dir(
+    shared_target_root: Option<&std::path::Path>,
+    workspace_root: &std::path::Path,
+    argv: &[String],
+) -> std::path::PathBuf {
+    match shared_target_root {
+        Some(root) => root.join(prepare::profile_for_argv(argv)),
+        None => workspace_root.join("target"),
     }
 }
 
@@ -1163,6 +1186,79 @@ mod tests {
             release_publication: None,
         };
         (control, scheduler)
+    }
+
+    // ── T1 fix round 1 RED tests ─────────────────────────────────────────
+    // These tests pin correct footprint measurement semantics. They FAIL
+    // on the current code because:
+    //   1. measure_max_rss_kb() reads /proc/self/status (the scheduler's
+    //      own ~768 KB RSS), not the build child process tree.
+    //   2. measure_disk_free_bytes() runs `df -k /` (root fs), not the
+    //      filesystem holding CARGO_TARGET_DIR.
+
+    /// RED: measure_max_rss_kb must reflect the build child's memory, not
+    /// the scheduler's own RSS. A child allocating ~50 MB must produce a
+    /// measurement in the right order of magnitude (tens of MB), not ~768 KB.
+    #[test]
+    fn measure_max_rss_kb_reflects_child_memory_not_self() {
+        use std::process::Command;
+        // Spawn a child that allocates and touches ~50 MB.
+        let child = Command::new("sh")
+            .arg("-c")
+            .arg("python3 -c \"import ctypes; ctypes.string_at(50 * 1024 * 1024)\" 2>/dev/null || dd if=/dev/zero bs=1M count=50 2>/dev/null | wc -c")
+            .output()
+            .expect("spawn child");
+        assert!(child.status.success(), "child must succeed");
+        // The child has exited; RUSAGE_CHILDREN now includes it.
+        // The current measure_max_rss_kb() reads /proc/self/status which
+        // is the test process's own RSS (a few MB at most), NOT the child's.
+        // After the fix, this function will use getrusage(RUSAGE_CHILDREN)
+        // and must report the child's peak (tens of MB).
+        let measured = measure_max_rss_kb().expect("measurement must succeed");
+        // The child touched ~50 MB. The measurement must be at least 10 MB
+        // (order of magnitude). The current code returns ~768 KB (the test
+        // binary's own RSS), which fails this assertion.
+        assert!(
+            measured > 10_000,
+            "measure_max_rss_kb must reflect child memory (tens of MB), got {measured} kB"
+        );
+    }
+
+    /// RED: measure_disk_free_bytes must reflect the filesystem holding the
+    /// target dir, not the root filesystem. Writing a known byte count to
+    /// the target dir must be visible in the delta.
+    #[test]
+    fn measure_disk_free_bytes_reflects_target_dir_filesystem() {
+        let tmp = std::env::temp_dir().join(format!(
+            "cynic-disk-test-{}-{}",
+            std::process::id(),
+            QUEUE_SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&tmp).expect("create tmp dir");
+        // Write a known 20 MB file to the target dir.
+        let known_bytes = 20 * 1024 * 1024u64;
+        let file_path = tmp.join("known_write.bin");
+        let buf = vec![0u8; 1024 * 1024];
+        use std::io::Write;
+        let mut file = std::fs::File::create(&file_path).expect("create file");
+        for _ in 0..(known_bytes / (1024 * 1024)) {
+            file.write_all(&buf).expect("write");
+        }
+        drop(file);
+        // Measure free bytes on the target dir's filesystem.
+        let free_before = measure_disk_free_bytes_for(&tmp).expect("measure before");
+        // Delete the file — free bytes must increase.
+        std::fs::remove_file(&file_path).expect("remove file");
+        let free_after = measure_disk_free_bytes_for(&tmp).expect("measure after");
+        // The current measure_disk_free_bytes() runs `df -k /` which may
+        // not be the same filesystem as tmp. After the fix, it measures
+        // the target dir's filesystem and must see the 20 MB delta.
+        let delta = free_after as i64 - free_before as i64;
+        assert!(
+            delta >= (known_bytes as i64) / 2,
+            "disk delta must see the 20 MB write, got {delta} bytes"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     /// Regression: an EXPIRED lease must be reclaimable, a LIVE lease must be
