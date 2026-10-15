@@ -60,9 +60,12 @@ Status: design for review. No code.
    the runtime copy a pure render? (Bigger change, not proposed.)
 3. Fleet scope: cortex only, or each host syncs its own copy (builder
    reads checkouts; LXCs carry no copy)? Unresolved.
-4. Provider nondeterminism note: DNS bundle content varies with the
-   caller's PATH (dnsmasq visibility). Document the required PATH in
-   the runbook; not part of this surface.
+4. Provider nondeterminism note: RESOLVED 2026-10-15 — deterministic
+   PATH-dependent selection (proven: the bundle emits CoreDNS config when
+   `dnsmasq` is not visible on the caller's `PATH`, even where dnsmasq is
+   installed). Rule: run DNS bundle/activate commands with the system
+   PATH (include `/usr/sbin`); bundle tests asserting provider-specific
+   files must sanitize `PATH` first.
 
 ## Acceptance
 
