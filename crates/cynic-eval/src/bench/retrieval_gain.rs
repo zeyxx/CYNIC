@@ -104,9 +104,11 @@ impl BenchConfig {
 pub struct TemplatedEmbedder<'a> {
     inner: &'a dyn ChunkEmbedder,
     pipeline: &'a TextPipeline,
+    /// Progress granularity only: the backend fans out over one shared queue
+    /// regardless of this value, so it never fragments work across endpoints.
     lot: usize,
     done: std::cell::Cell<usize>,
-    report: &'a dyn Fn(usize, usize),
+    report: &'a (dyn Fn(usize, usize) + Sync),
 }
 
 impl<'a> TemplatedEmbedder<'a> {
@@ -114,7 +116,7 @@ impl<'a> TemplatedEmbedder<'a> {
         inner: &'a dyn ChunkEmbedder,
         pipeline: &'a TextPipeline,
         lot: usize,
-        report: &'a dyn Fn(usize, usize),
+        report: &'a (dyn Fn(usize, usize) + Sync),
     ) -> Self {
         Self {
             inner,
@@ -132,18 +134,18 @@ impl ChunkEmbedder for TemplatedEmbedder<'_> {
     }
 
     fn embed_chunks(&self, chunks: &[DocumentChunk]) -> Result<Vec<Vec<f32>>, String> {
+        // Single call over all chunks: the backend fans out over ONE shared
+        // queue, so every endpoint steals work. Chunking here would hand each
+        // call a handful of sublots and deterministically starve every
+        // endpoint but the first-spawned — never chunk before fanout.
+        // Progress still flows per sublot through the backend report.
         let rendered: Vec<String> = chunks
             .iter()
             .map(|chunk| self.pipeline.doc_text(chunk))
             .collect();
-        let mut out = Vec::new();
-        let total = rendered.len();
-        for lot in rendered.chunks(self.lot) {
-            let refs: Vec<&str> = lot.iter().map(String::as_str).collect();
-            out.extend(self.inner.embed_batch(&refs)?);
-            self.done.set(self.done.get() + lot.len());
-            (self.report)(self.done.get(), total);
-        }
+        let refs: Vec<&str> = rendered.iter().map(String::as_str).collect();
+        let out = self.inner.embed_batch_reported(&refs, self.report)?;
+        self.done.set(self.done.get() + refs.len());
         Ok(out)
     }
 }
@@ -311,7 +313,7 @@ pub fn run_bench(
     config: &BenchConfig,
     backend: &dyn ChunkEmbedder,
     vector_cache: &mut VectorCacheRecord,
-    report: &dyn Fn(usize, usize),
+    report: &(dyn Fn(usize, usize) + Sync),
 ) -> Result<BenchReport, String> {
     assert_eq!(
         fixture.schema, FIXTURE_SCHEMA_V1,

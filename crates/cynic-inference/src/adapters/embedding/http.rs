@@ -77,7 +77,7 @@ impl EmbeddingBackend {
             ));
         }
 
-        Ok(Self {
+        let backend = Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
@@ -85,7 +85,18 @@ impl EmbeddingBackend {
             endpoints,
             api_key,
             model: model.to_string(),
-        })
+        };
+        eprintln!(
+            "embedding endpoints ({}): {}",
+            backend.endpoints.len(),
+            backend
+                .endpoints
+                .iter()
+                .map(|e| format!("{}#slots={}", e.url, e.slots))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        Ok(backend)
     }
 
     pub fn base_url(&self) -> &str {
@@ -301,6 +312,14 @@ impl EmbeddingPort for EmbeddingBackend {
     async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingError> {
         self.embed_batch_reported(texts, &|_, _| {}).await
     }
+
+    async fn embed_batch_fanout(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        self.embed_batch_reported(texts, report).await
+    }
 }
 
 impl EmbeddingBackend {
@@ -324,16 +343,30 @@ impl EmbeddingBackend {
             return (Vec::new(), Vec::new());
         }
 
-        // Dynamic work-stealing pull queue across all endpoints with failover requeuing
-        // Items: (sub_no, inputs, attempt_count)
-        let queue: std::sync::Arc<
-            tokio::sync::Mutex<std::collections::VecDeque<(usize, Vec<String>, usize)>>,
-        > = std::sync::Arc::new(tokio::sync::Mutex::new(
-            sublots
-                .into_iter()
-                .map(|(sub_no, inputs)| (sub_no, inputs, 0))
-                .collect(),
-        ));
+        // Per-endpoint pools with headroom-guarded stealing. A single shared
+        // queue drains entirely into the first-spawned endpoint's workers on
+        // small batches (join_all polls them first), so every peer after the
+        // first went idle while the queue emptied — measured, not theorized.
+        // Here each endpoint pops from its own pool; stealing from a peer
+        // pool only happens while that peer holds a FIFO head start equal to
+        // its worker count, so equal-capacity endpoints keep balanced shares
+        // and a slow/failing endpoint's pool is still consumed by the rest.
+        let mut pools: Vec<std::collections::VecDeque<(usize, Vec<String>, usize)>> =
+            (0..self.endpoints.len())
+                .map(|e| {
+                    sublots
+                        .iter()
+                        .enumerate()
+                        .filter(|(idx, _)| idx % self.endpoints.len() == e)
+                        .map(|(_, (sub_no, inputs))| (*sub_no, inputs.clone(), 0usize))
+                        .collect()
+                })
+                .collect();
+        let headroom: Vec<usize> = self.endpoints.iter().map(|e| e.slots).collect();
+        // Highest capacity first: the strongest endpoint may steal earliest.
+        let mut order: Vec<usize> = (0..self.endpoints.len()).collect();
+        order.sort_by_key(|e| std::cmp::Reverse(self.endpoints[*e].slots));
+
         let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
         let errors: std::sync::Arc<tokio::sync::Mutex<Vec<Option<String>>>> =
             std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
@@ -341,10 +374,13 @@ impl EmbeddingBackend {
 
         let mut worker_futures = Vec::new();
 
-        // Spawn `endpoint.slots` concurrent workers for each endpoint according to physical capacity
-        for endpoint in &self.endpoints {
+        let shared_pools = std::sync::Arc::new(tokio::sync::Mutex::new(std::mem::take(&mut pools)));
+
+        for &ep_idx in &order {
+            let endpoint = &self.endpoints[ep_idx];
             for _ in 0..endpoint.slots {
-                let queue = queue.clone();
+                let pools = shared_pools.clone();
+                let headroom = std::sync::Arc::new(headroom.clone());
                 let results = results.clone();
                 let errors = errors.clone();
                 let completed = completed.clone();
@@ -353,12 +389,24 @@ impl EmbeddingBackend {
                 worker_futures.push(async move {
                     loop {
                         let maybe_lot = {
-                            let mut q = queue.lock().await;
-                            q.pop_front()
+                            let mut guard = pools.lock().await;
+                            let mine = guard[ep_idx].front().is_some();
+                            let worker_count = headroom[ep_idx].max(1);
+                            // Own pool drains first down to its head start;
+                            // below that a faster peer with idle workers steals.
+                            let keep_own = mine && guard[ep_idx].len() > worker_count;
+                            if keep_own {
+                                guard[ep_idx].pop_front()
+                            } else {
+                                guard
+                                    .iter_mut()
+                                    .find(|p| !p.is_empty())
+                                    .and_then(|p| p.pop_front())
+                            }
                         };
                         let (sub_no, inputs, attempts) = match maybe_lot {
                             Some(item) => item,
-                            None => break, // Queue exhausted, worker exits cleanly
+                            None => break, // All pools exhausted, worker exits cleanly
                         };
 
                         match self.post_batch_to(&endpoint_url, inputs.clone()).await {
@@ -374,9 +422,23 @@ impl EmbeddingBackend {
                             }
                             Err(error) => {
                                 if attempts + 1 < 3 {
-                                    // S1 & S2 fix: Requeue sub-lot to shared queue so peer endpoints can steal it
-                                    let mut q = queue.lock().await;
-                                    q.push_back((sub_no, inputs, attempts + 1));
+                                    // Requeue to this endpoint's pool only when
+                                    // its length still exceeds the peer head start
+                                    // — a failing pool must not hog the retry.
+                                    let mut guard = pools.lock().await;
+                                    let worker_count = headroom[ep_idx].max(1);
+                                    let target = if guard[ep_idx].len() >= worker_count {
+                                        ep_idx
+                                    } else {
+                                        guard
+                                            .iter()
+                                            .enumerate()
+                                            .find(|(i, p)| !p.is_empty() && *i != ep_idx)
+                                            .map(|(i, _)| i)
+                                            .unwrap_or(ep_idx)
+                                    };
+                                    guard[target].push_back((sub_no, inputs, attempts + 1));
+                                    drop(guard);
                                     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                                 } else {
                                     // Poisoned lot after 3 distributed attempts across endpoints

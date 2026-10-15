@@ -81,11 +81,14 @@ fn test_continuous_convex_calibration_vs_rrf() {
         .unwrap_or(0);
     // Zero-truncation window: measured corpus max is 2 498 chars, so every
     // chunk reaches the dense model intact (fits the 2 048-token runners).
+    // Pipeline from env (model-card protocols as data): prefixes off by
+    // default; any value lands in the cache tag, so prefixed vectors never
+    // mix with bare ones.
     let pipeline = TextPipeline {
         max_chars: 2500,
-        doc_prefix: String::new(),
-        query_prefix: String::new(),
-        doc_template: "{body}".into(),
+        doc_prefix: std::env::var("CYNIC_DOC_PREFIX").unwrap_or_default(),
+        query_prefix: std::env::var("CYNIC_QUERY_PREFIX").unwrap_or_default(),
+        doc_template: std::env::var("CYNIC_DOC_TEMPLATE").unwrap_or("{body}".into()),
     };
     let config = BenchConfig {
         subset,
@@ -103,7 +106,11 @@ fn test_continuous_convex_calibration_vs_rrf() {
     let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
         .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag()));
 
-    let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|_, _| {});
+    let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|done, total| {
+        if done % 320 == 0 || done == total {
+            eprintln!("embed {done}/{total}");
+        }
+    });
     let (vectors, _reused, _embedded) =
         vectorize_chunks_cached(&templated, &chunks, &mut vector_cache, &|_, _| {})
             .expect("vectorization must succeed");
