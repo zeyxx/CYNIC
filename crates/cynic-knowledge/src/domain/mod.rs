@@ -3,6 +3,7 @@ pub mod authority;
 pub mod cache;
 pub mod chunk;
 pub mod commit;
+pub mod continuous_fusion;
 pub mod geometry;
 pub mod graph;
 pub mod graph_expansion;
@@ -22,6 +23,9 @@ pub use authority::{
 pub use cache::{CORPUS_CACHE_SCHEMA_V1, CachedFileRecord, CorpusCacheRecord};
 pub use chunk::{AuthorityTier, DocumentChunk};
 pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
+pub use continuous_fusion::{
+    EmpiricalCdf, NormalizationStrategy, fuse_continuous_convex, min_max_normalize,
+};
 pub use geometry::{CrateGeometryRecord, WORKSPACE_GEOMETRY_SCHEMA_V1, WorkspaceGeometry};
 pub use graph::{BrokenReference, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph};
 pub use graph_expansion::expand_hits_with_graph;
