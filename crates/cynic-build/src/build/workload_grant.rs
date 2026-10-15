@@ -291,11 +291,13 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
             Some("make:build-release")
         }
         [program, target, ..] if program == "cargo" && target == "check" => Some("cargo:check"),
+        [program, target] if program == "cargo" && target == "build" => Some("cargo:build"),
         [program, target, release]
             if program == "cargo" && target == "build" && release == "--release" =>
         {
-            Some("cargo:build")
+            Some("cargo:build-release")
         }
+        [program, target, ..] if program == "cargo" && target == "test" => Some("cargo:test"),
         _ => None,
     }
 }
@@ -313,11 +315,13 @@ pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
         "make:build" => Some(vec!["make".to_string(), "build".to_string()]),
         "make:build-release" => Some(vec!["make".to_string(), "build-release".to_string()]),
         "cargo:check" => Some(vec!["cargo".to_string(), "check".to_string()]),
-        "cargo:build" => Some(vec![
+        "cargo:build" => Some(vec!["cargo".to_string(), "build".to_string()]),
+        "cargo:build-release" => Some(vec![
             "cargo".to_string(),
             "build".to_string(),
             "--release".to_string(),
         ]),
+        "cargo:test" => Some(vec!["cargo".to_string(), "test".to_string()]),
         _ => None,
     }
 }
@@ -403,12 +407,67 @@ mod action_tests {
     /// adding a translation does not silently leave the gap.
     #[test]
     fn untranslatable_admitted_actions_return_none() {
-        for action in ["cargo:run", "cargo:test", "make:build-host-exec"] {
+        for action in ["cargo:run", "make:build-host-exec"] {
             assert_eq!(
                 canonical_argv_from_build_action(action),
                 None,
                 "action {action} is admitted by policy but has no argv"
             );
         }
+    }
+
+    /// Task P: cargo build (debug) is a distinct canonical action from
+    /// cargo build --release. The old mapping collapsed both into
+    /// "cargo:build" (release), making debug builds impossible to express.
+    #[test]
+    fn cargo_build_without_release_maps_to_cargo_build() {
+        assert_eq!(
+            canonical_build_action_from_argv(&["cargo".to_string(), "build".to_string()]),
+            Some("cargo:build")
+        );
+    }
+
+    #[test]
+    fn cargo_build_release_maps_to_cargo_build_release() {
+        assert_eq!(
+            canonical_build_action_from_argv(&[
+                "cargo".to_string(),
+                "build".to_string(),
+                "--release".to_string()
+            ]),
+            Some("cargo:build-release")
+        );
+    }
+
+    #[test]
+    fn cargo_test_maps_to_cargo_test() {
+        assert_eq!(
+            canonical_build_action_from_argv(&["cargo".to_string(), "test".to_string()]),
+            Some("cargo:test")
+        );
+    }
+
+    #[test]
+    fn cargo_build_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:build").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "build"]);
+        assert_eq!(canonical_build_action_from_argv(&argv), Some("cargo:build"));
+    }
+
+    #[test]
+    fn cargo_build_release_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:build-release").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "build", "--release"]);
+        assert_eq!(
+            canonical_build_action_from_argv(&argv),
+            Some("cargo:build-release")
+        );
+    }
+
+    #[test]
+    fn cargo_test_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:test").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "test"]);
+        assert_eq!(canonical_build_action_from_argv(&argv), Some("cargo:test"));
     }
 }

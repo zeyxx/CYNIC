@@ -112,14 +112,28 @@ pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, St
             .into_iter()
             .map(str::to_string)
             .collect()),
-        "make:build-release" => Ok(["make:build-release", "cargo:build"]
+        "make:build-release" => Ok(["make:build-release", "cargo:build-release"]
             .into_iter()
             .map(str::to_string)
             .collect()),
+        "cargo:check" => Ok(vec!["cargo:check".to_string()]),
+        "cargo:build" => Ok(vec!["cargo:build".to_string()]),
+        "cargo:build-release" => Ok(vec!["cargo:build-release".to_string()]),
+        "cargo:test" => Ok(vec!["cargo:test".to_string()]),
+        "cargo:run" => Ok(vec!["cargo:run".to_string()]),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),
     }
+}
+
+/// True when `requested_action` is admitted by the canonical build-action
+/// policy above. Single source of truth for action admission: build
+/// scheduling, request composition, and release admission all consult this
+/// predicate, so a policy addition cannot be silently refused downstream
+/// (Task P missed the composition gate when adding the cargo actions).
+pub fn is_canonical_build_action(requested_action: &str) -> bool {
+    canonical_build_actions(requested_action).is_ok()
 }
 
 #[cfg(test)]
@@ -177,5 +191,73 @@ mod tests {
         assert_eq!(obs.schema, ARGV_OBSERVATION_SCHEMA);
         assert_eq!(obs.verdict, "would_deny");
         assert_eq!(obs.argv, vec!["rm", "-rf", "/x"]);
+    }
+
+    /// Task P: direct cargo actions are self-admitting (no make: wrapper).
+    #[test]
+    fn cargo_build_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build"),
+            Ok(vec!["cargo:build".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_build_release_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build-release"),
+            Ok(vec!["cargo:build-release".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_test_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:test"),
+            Ok(vec!["cargo:test".to_string()])
+        );
+    }
+
+    #[test]
+    fn make_build_release_admits_cargo_build_release_not_cargo_build() {
+        let actions = canonical_build_actions("make:build-release").expect("known gate");
+        assert!(actions.contains(&"cargo:build-release".to_string()));
+        assert!(!actions.contains(&"cargo:build".to_string()));
+    }
+
+    #[test]
+    fn make_build_admits_cargo_build() {
+        let actions = canonical_build_actions("make:build").expect("known gate");
+        assert!(actions.contains(&"cargo:build".to_string()));
+    }
+
+    /// Task P fix round 1: the admission predicate is the single source of
+    /// truth shared by the composition gate — it must mirror the policy
+    /// set exactly, no more (unknown actions refused) and no fewer (every
+    /// policy action admitted, including cargo:run which policy admits
+    /// even though it has no canonical argv).
+    #[test]
+    fn admission_predicate_mirrors_policy_exactly() {
+        for action in [
+            "make:check",
+            "make:build",
+            "make:build-release",
+            "cargo:check",
+            "cargo:build",
+            "cargo:build-release",
+            "cargo:test",
+            "cargo:run",
+        ] {
+            assert!(
+                is_canonical_build_action(action),
+                "{action} is admitted by policy"
+            );
+        }
+        for action in ["cargo:deploy", "make:deploy", "bash -c make check", ""] {
+            assert!(
+                !is_canonical_build_action(action),
+                "{action} is not admitted by policy"
+            );
+        }
     }
 }

@@ -29,6 +29,7 @@ pub mod capability_lease;
 pub mod capability_responsibility;
 pub mod capacity;
 pub mod cleanup;
+pub mod build_latency;
 pub mod compute;
 pub mod constitutional_court;
 pub mod constitutional_law;

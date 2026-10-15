@@ -18,8 +18,10 @@ use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, compose_build_agent_workload,
+    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
+    COLLISION_WINDOW_MS, compose_build_agent_workload,
 };
+use std::sync::Mutex;
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, MutationAdmission,
     SecurityEvidenceState, admit_build_mutation,
@@ -49,6 +51,7 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
+    collisions: Arc<Mutex<CollisionCounter>>,
     evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
 }
 
@@ -93,7 +96,11 @@ pub struct AcceptanceProof {
     pub status: &'static str,
 }
 
-pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) -> Router {
+pub fn app(
+    config: BuilderHttpConfig,
+    store: Arc<dyn AgentWorkloadStorePort>,
+    collisions: Arc<Mutex<CollisionCounter>>,
+) -> Router {
     let evidence =
         cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore::new(
             std::path::PathBuf::from(&config.state_root).join("evidence"),
@@ -101,10 +108,12 @@ pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) ->
     let state = AppState {
         config,
         store,
+        collisions,
         evidence,
     };
     Router::new()
         .route("/health", get(health))
+        .route("/status", get(status))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
@@ -166,11 +175,14 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: match payload.action.as_str() {
-            "build" => "make:build".to_string(),
-            "build-release" => "make:build-release".to_string(),
-            _ => "make:check".to_string(),
-        },
+        action: map_submit_action(&payload.action)
+            .ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("unsupported build action: {}", payload.action),
+                )
+            })?
+            .to_string(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -203,6 +215,7 @@ async fn submit_workload(
     }
 
     let workload_id = envelope.workload_id.clone();
+    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -245,6 +258,41 @@ async fn submit_workload(
 
 async fn health() -> (StatusCode, &'static str) {
     (StatusCode::OK, "ok")
+}
+
+/// Record a submission event into the H4 collision counter (Task 5).
+/// Called for every submission (accepted or duplicate) so the pure
+/// `CollisionCounter` logic can determine which events collide on
+/// idempotency key or source commit within the trailing 24h window.
+fn record_submission(
+    state: &AppState,
+    idempotency_key: &str,
+    source_commit: &str,
+    observed_at_ms: u64,
+) {
+    if let Ok(mut counter) = state.collisions.lock() {
+        counter.record(CollisionEvent {
+            idempotency_key: idempotency_key.to_string(),
+            source_commit: source_commit.to_string(),
+            observed_at_ms,
+        });
+    }
+}
+
+/// H4 status surface (Task 5): exposes the duplicate-submit collision
+/// counter over the trailing 24h window. The counter is pure logic in
+/// `cynic-build`; this endpoint is the read-back surface the measurement
+/// plan requires.
+async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
+    let now_ms = Utc::now().timestamp_millis() as u64;
+    let counter = state.collisions.lock().unwrap_or_else(|e| e.into_inner());
+    Json(serde_json::json!({
+        "schema": "cynic.builder.collision_status.v1",
+        "generated_at_ms": now_ms,
+        "window_ms": COLLISION_WINDOW_MS,
+        "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
+        "total_recorded_events": counter.total_events(),
+    }))
 }
 
 async fn get_proof(
@@ -496,7 +544,7 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
-        branch: Some(reref_name(&payload)),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
@@ -546,6 +594,7 @@ async fn webhook_forgejo(
     // the request digest, so identical pushes address the same record and a
     // second delivery replays instead of duplicating.
     let workload_id = envelope.workload_id.clone();
+    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -606,7 +655,8 @@ pub async fn run_http_server(
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let app = app(config, store);
+    let collisions = Arc::new(Mutex::new(CollisionCounter::new()));
+    let app = app(config, store, collisions);
     let listener = tokio::net::TcpListener::bind(listen_addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -616,10 +666,83 @@ pub async fn run_http_server(
     Ok(())
 }
 
+/// Map a CLI submit action to the canonical build action used internally.
+///
+/// Returns `None` for unknown actions so the submit handler can refuse
+/// with a reason instead of dying mid-flight.
+pub(crate) fn map_submit_action(action: &str) -> Option<&'static str> {
+    match action {
+        "check" => Some("make:check"),
+        "build" => Some("cargo:build"),
+        "build-release" => Some("cargo:build-release"),
+        "test" => Some("cargo:test"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use uuid::Uuid;
+
+    use cynic_build::{admit_build_agent_request, canonical_argv_from_build_action};
+
+    #[test]
+    fn submit_action_build_maps_to_cargo_build() {
+        assert_eq!(map_submit_action("build"), Some("cargo:build"));
+    }
+
+    #[test]
+    fn submit_action_build_release_maps_to_cargo_build_release() {
+        assert_eq!(map_submit_action("build-release"), Some("cargo:build-release"));
+    }
+
+    #[test]
+    fn submit_action_test_maps_to_cargo_test() {
+        assert_eq!(map_submit_action("test"), Some("cargo:test"));
+    }
+
+    #[test]
+    fn submit_action_check_maps_to_make_check_unchanged() {
+        assert_eq!(map_submit_action("check"), Some("make:check"));
+    }
+
+    #[test]
+    fn submit_action_unknown_is_refused() {
+        assert_eq!(map_submit_action("deploy"), None);
+        assert_eq!(map_submit_action(""), None);
+        assert_eq!(map_submit_action("make:build"), None);
+    }
+
+    /// Task P fix round 1: a submit verb must survive the whole chain —
+    /// mapping -> composition admission -> argv construction — without a
+    /// blocker. Pins the composition gate to the same action set the mapping
+    /// and argv translators accept, so a narrow green that fixes only one
+    /// link (e.g. mapping + argv but not the composition gate) cannot recur.
+    #[test]
+    fn submit_action_chains_through_admission_and_argv() {
+        for verb in ["check", "build", "build-release", "test"] {
+            let action = map_submit_action(verb).expect("known submit verb");
+            let mut request = push_request(&"d".repeat(40));
+            request.action = action.to_string();
+            let admission = admit_build_agent_request(&request);
+            assert!(
+                !admission
+                    .blockers
+                    .contains(&"build_agent_request_action_not_allowed".to_string()),
+                "verb {verb} -> action {action} refused by composition gate"
+            );
+            assert!(
+                admission.blockers.is_empty(),
+                "verb {verb} -> action {action} blocked: {:?}",
+                admission.blockers
+            );
+            assert!(
+                canonical_argv_from_build_action(action).is_some(),
+                "action {action} must have a canonical argv"
+            );
+        }
+    }
 
     #[test]
     fn record_shape_carries_resolved_and_unresolved_evidence() {

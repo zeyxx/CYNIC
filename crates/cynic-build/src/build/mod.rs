@@ -396,7 +396,7 @@ mod tests {
     fn release_build_expands_to_its_exact_make_and_cargo_actions() {
         assert_eq!(
             canonical_build_actions("make:build-release").expect("release build"),
-            vec!["make:build-release", "cargo:build"]
+            vec!["make:build-release", "cargo:build-release"]
         );
     }
 
