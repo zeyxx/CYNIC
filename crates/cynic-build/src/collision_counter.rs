@@ -26,9 +26,23 @@ pub struct CollisionEvent {
 /// time order. The first occurrence of a key (or commit) is not a collision;
 /// every repeat is.
 pub fn count_collisions(events: &[CollisionEvent], now_ms: u64, window_ms: u64) -> u64 {
-    // TDD RED stub — always returns 0 so the tests fail.
-    let _ = (events, now_ms, window_ms);
-    0
+    let cutoff = now_ms.saturating_sub(window_ms);
+    let mut sorted: Vec<&CollisionEvent> = events
+        .iter()
+        .filter(|e| e.observed_at_ms >= cutoff && e.observed_at_ms <= now_ms)
+        .collect();
+    sorted.sort_by_key(|e| e.observed_at_ms);
+    let mut seen_keys: HashSet<&str> = HashSet::new();
+    let mut seen_commits: HashSet<&str> = HashSet::new();
+    let mut collisions = 0u64;
+    for event in sorted {
+        let key_dup = !seen_keys.insert(event.idempotency_key.as_str());
+        let commit_dup = !seen_commits.insert(event.source_commit.as_str());
+        if key_dup || commit_dup {
+            collisions += 1;
+        }
+    }
+    collisions
 }
 
 /// Stateful collision counter for the live submission surface. Records events
