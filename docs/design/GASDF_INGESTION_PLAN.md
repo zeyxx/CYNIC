@@ -34,7 +34,11 @@ What we keep is the **physical reality**: quote → co-sign → submit → burn 
 
 ## 2. Observed baseline (bottom-up first, no abstraction yet)
 
-Before any predicate, measure on Solana mainnet/devnet, captured and hashed:
+Verified toolchain (2026-10-16, local): `solana-cli 4.2.0` (Agave),
+`anchor-cli 1.2.1`; GASdf prototype already on `@solana/kit ^8.5.0` +
+`helius-sdk ^2.0.5`. Baselines reuse this stack, no downgrade.
+
+Before any predicate, measure on Solana devnet first, captured and hashed:
 
 1. Cost of a minimal sponsored transaction ( lamports in / out, 10 samples).
 2. Cost of fee-payer funding + refill cadence.
@@ -67,8 +71,9 @@ its own pipeline. CYNIC records Program ID, seeds, and bump policy in
 
 ## 5. Phases
 
-- **Phase 0 — one real tx**: quote + submit + co-sign + Helius Sender + burn proof
-  recorded. No Redis, no DB, no yield. Gate: on-chain signature + explorer link
+- **Phase 0 — one real tx (devnet first)**: quote + submit + co-sign via the
+  GASdf repo stack (Kit sender path, Helius Sender) + burn proof recorded.
+  No Redis, no DB, no yield. Gate: on-chain signature + explorer link
   (orbmarkets.io per prototype rule) in the ledger.
 - **Phase 1 — token registry and slippage**: data-driven accepted tokens via
   `crates/cynic-protocol/tests/fixtures/gasdf/*.json`; K-score gating deferred or stubbed to a registry of
