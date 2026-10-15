@@ -58,6 +58,7 @@ pub mod fleet_discovery;
 pub mod fleet_heartbeat;
 pub mod framework;
 pub mod freshness;
+pub mod gasdf;
 pub mod hardening;
 pub mod health_signal;
 pub mod host_substrate;

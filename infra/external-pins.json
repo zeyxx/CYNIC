@@ -47,6 +47,22 @@
       "data_demanded": [
         "/trenches tab data contract against TrenchScanner API"
       ]
+    },
+    {
+      "slug": "gasdf",
+      "repo": "zeyxx/GASdf",
+      "url": "https://github.com/zeyxx/GASdf",
+      "sha": "86d917fbe97b4fdbb0cc70cc976ff89871919388",
+      "observed_at": "2026-10-16",
+      "purpose": "Gasless relay prototype referential (Phase 0: 1 real on-chain tx). Contractual extraction only; suringenierie (Redis, PostgreSQL, yield, E-Score, holder tiers) is not absorbed. Serves as observed baseline for the Rust port.",
+      "data_demanded": [
+        "Quote flow: request shape, fee-payer reservation, TTL — src/routes/quote.js, src/services/fee-payer-pool.js",
+        "Submit flow: transaction validation (Ed25519), fee-payer co-sign, Helius Sender submission — src/routes/submit.js, src/services/validator.js, src/services/signer.js",
+        "Fee-payer invariant treasury.publicKey === feePayer.publicKey — CLAUDE.md absolute rule",
+        "Burn economics ratios 76.4/23.6 and dual burn channel — ARCHITECTURE.md (burn phase)",
+        "Token gate tiers (K-score thresholds, min 40) — src/services/token-gate.js, ARCHITECTURE.md Token Gating",
+        "Constants and limits (MTU 1232, max accounts, Jito tip 0.0002 SOL) — TODO.md, src/constants.js"
+      ]
     }
   ]
 }

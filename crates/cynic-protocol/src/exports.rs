@@ -56,6 +56,7 @@ pub use crate::fleet_discovery::*;
 pub use crate::fleet_heartbeat::*;
 pub use crate::framework::*;
 pub use crate::freshness::*;
+pub use crate::gasdf::*;
 pub use crate::health_signal::reconcile_health_signal;
 pub use crate::health_signal::types::*;
 pub use crate::inference_matrix::*;

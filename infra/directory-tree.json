@@ -139,7 +139,10 @@
           "repo/": "Repository (alternate).",
           "peer/": "Peer state.",
           "storage-lifecycle/": "Storage lifecycle.",
-          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}."
+          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}.",
+          "projects/": "Adopted external-project local state. Pattern: /var/lib/cynic/projects/<slug>/. Declared in infra/external-project-registry.json; never hardcoded elsewhere.",
+          "projects/<slug>/evidence/": "Append-only pull results and ledger slices for one adopted project.",
+          "projects/<slug>/state/": "Rebuildable snapshots (health, counters) for one adopted project."
         }
       }
     },
