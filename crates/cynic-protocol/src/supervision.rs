@@ -277,6 +277,23 @@ impl SupervisorObservation {
     }
 }
 
+/// Map a unit health status onto the generic lifecycle state (G3 decision:
+/// `degraded` blocks like `failed`; `unknown` stays unknown; `draining` is
+/// reserved for commanded stops and never produced here).
+///
+/// Total by construction: the `_` arm preserves today's `else` branch —
+/// unnormalised provider output (raw systemd states such as `activating`
+/// or `inactive`) maps to `Unknown`, which callers pair with an explicit
+/// residual unknown. Nothing is coerced to active.
+pub fn unit_status_state(status: &str) -> SupervisorState {
+    match status {
+        "active" => SupervisorState::Active,
+        "degraded" => SupervisorState::Failed,
+        "unknown" => SupervisorState::Unknown,
+        _ => SupervisorState::Unknown,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,5 +442,17 @@ mod tests {
     #[test]
     fn supervised_role_ids_match_contract() {
         assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp"]);
+    }
+
+    #[test]
+    fn unit_status_state_maps_health_to_lifecycle() {
+        use SupervisorState as S;
+        assert_eq!(unit_status_state("active"), S::Active);
+        assert_eq!(unit_status_state("degraded"), S::Failed);
+        assert_eq!(unit_status_state("unknown"), S::Unknown);
+        // Unnormalised provider output never coerces to active.
+        for raw in ["activating", "inactive", "failed", "", "Active"] {
+            assert_eq!(unit_status_state(raw), S::Unknown, "input: {raw}");
+        }
     }
 }
