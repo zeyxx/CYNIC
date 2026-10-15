@@ -77,6 +77,8 @@ fn test_envelope() -> AgentWorkloadEnvelope {
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
+        source_commit: None,
+        branch: None,
         input: None,
         resource_budget: None,
         action,
