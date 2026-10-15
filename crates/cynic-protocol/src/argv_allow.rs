@@ -112,10 +112,15 @@ pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, St
             .into_iter()
             .map(str::to_string)
             .collect()),
-        "make:build-release" => Ok(["make:build-release", "cargo:build"]
+        "make:build-release" => Ok(["make:build-release", "cargo:build-release"]
             .into_iter()
             .map(str::to_string)
             .collect()),
+        "cargo:check" => Ok(vec!["cargo:check".to_string()]),
+        "cargo:build" => Ok(vec!["cargo:build".to_string()]),
+        "cargo:build-release" => Ok(vec!["cargo:build-release".to_string()]),
+        "cargo:test" => Ok(vec!["cargo:test".to_string()]),
+        "cargo:run" => Ok(vec!["cargo:run".to_string()]),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),

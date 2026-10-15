@@ -145,6 +145,7 @@ async fn submit_workload(
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
         requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
@@ -155,11 +156,14 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: match payload.action.as_str() {
-            "build" => "make:build".to_string(),
-            "build-release" => "make:build-release".to_string(),
-            _ => "make:check".to_string(),
-        },
+        action: map_submit_action(&payload.action)
+            .ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("unsupported build action: {}", payload.action),
+                )
+            })?
+            .to_string(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -406,6 +410,7 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
+        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
@@ -595,6 +600,7 @@ mod tests {
             request_id: forgejo_workload_id(commit_sha),
             requested_by: "forgejo".to_string(),
             source_commit: commit_sha.to_string(),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -715,6 +721,7 @@ mod tests {
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
+            branch: None,
             source: BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,

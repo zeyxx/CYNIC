@@ -291,11 +291,13 @@ pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str>
             Some("make:build-release")
         }
         [program, target, ..] if program == "cargo" && target == "check" => Some("cargo:check"),
+        [program, target] if program == "cargo" && target == "build" => Some("cargo:build"),
         [program, target, release]
             if program == "cargo" && target == "build" && release == "--release" =>
         {
-            Some("cargo:build")
+            Some("cargo:build-release")
         }
+        [program, target, ..] if program == "cargo" && target == "test" => Some("cargo:test"),
         _ => None,
     }
 }
@@ -313,11 +315,13 @@ pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
         "make:build" => Some(vec!["make".to_string(), "build".to_string()]),
         "make:build-release" => Some(vec!["make".to_string(), "build-release".to_string()]),
         "cargo:check" => Some(vec!["cargo".to_string(), "check".to_string()]),
-        "cargo:build" => Some(vec![
+        "cargo:build" => Some(vec!["cargo".to_string(), "build".to_string()]),
+        "cargo:build-release" => Some(vec![
             "cargo".to_string(),
             "build".to_string(),
             "--release".to_string(),
         ]),
+        "cargo:test" => Some(vec!["cargo".to_string(), "test".to_string()]),
         _ => None,
     }
 }
