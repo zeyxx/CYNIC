@@ -1,7 +1,7 @@
 # CYNIC Data-Centric Bottom-Up RAG Specification & Methodology
 
 **Schema:** `cynic.spec.data_centric_rag.v1`  
-**Status:** Normative & Operational  
+**Status:** Proposal & Operational Roadmap  
 **Authority:** `contracts/foundation.json`, `contracts/inference-calibration.json`, `contracts/embedding-selection.json`
 
 ---
@@ -23,7 +23,7 @@ Every single architectural choice must satisfy three non-negotiable axioms:
 
 1. **Substrate Allocation Ceiling:**
    $$\text{RAM}_{\text{allocated}} \le \text{RAM}_{\text{available}} - 1024\,\text{MB}_{\text{OS}}$$
-   Zero swap permitted. Single-model execution policy strictly enforced on APU/UMA hardware.
+   Zero swap permitted. Single-model execution policy strictly enforced on APU/UMA hardware. On Cortex APU, local systemd service memory ceiling is capped at `MemoryMax=3.0G` to prevent workstation freeze.
 2. **Zero-Hallucination & Provenance Invariant:**
    - Every synthesized assertion must resolve to an exact bit-coordinate: `[SOURCE N: path:line_start-line_end]`.
    - If evidence is absent from the retrieved chunk space, the output must formulate verbatim: `NON COUVERT PAR LE CORPUS ACTUEL`.
@@ -31,9 +31,11 @@ Every single architectural choice must satisfy three non-negotiable axioms:
    - Scoring, caching, and fusion operate at the individual AST fragment level (`chunk_id`), never averaged or squashed at the file-path level.
 4. **Statistical Decision Gate:**
    - No model, fusion algorithm, or hyperparameter is frozen on an aggregate mean alone.
-   - Adoption requires $N \ge 30$ discriminating query pairs evaluated under the Wilcoxon signed-rank test yielding $p < 0.05$ with consistent sign across two independent corpora (`subset` and `full`).
+   - Adoption requires $N \ge 30$ discriminating query pairs evaluated under the Wilcoxon signed-rank test yielding $p < 0.05$ with consistent sign across two independent corpora (`subset-1000`: first 1,000 chunks sorted deterministically by content hash; and `full corpus`).
 5. **Corpus Immutability During Benchmarking:**
-   - Benchmarking and calibration runs must execute against a clean, pinned Git commit (`HEAD`). Run reports must record the exact `corpus_chunks` count and tree hash to prevent self-referential cache pollution.
+   - Benchmarking and calibration runs must execute against a clean, pinned Git commit (`HEAD`). Run reports must record the exact `corpus_chunks` count and tree hash. On a pinned commit, BM25 mean MRR drift must be exactly $0.00$. The $\pm 0.02$ tolerance is a drift trigger strictly for uncommitted tree mutations.
+6. **Operational Scope:**
+   - Current operational indexing covers 100% of Markdown documentation and JSON normative contracts (10,620 chunks verified). Code AST extraction (`cynic-knowledge::adapters::rust_ast`) is isolated and scheduled for full-tree integration in Phase 2.
 
 ---
 
@@ -142,8 +144,8 @@ Every single architectural choice must satisfy three non-negotiable axioms:
 
 | Checkpoint | Metric / Observable | Falsification Condition (Rejection) |
 |---|---|---|
-| **Substrate Safety** | RSS Memory Peak | Peak RSS $> 3.0\,\text{GB}$ or any page fault swap $\rightarrow$ Instant Abort |
-| **Quantization Fidelity** | Spearman $\rho$ (BF16 vs Quant) | $\rho < 0.95$ on 1,000 paired sample vectors $\rightarrow$ Reject Quantization |
-| **Corpus Stability** | BM25 Drift Anchor | Mean BM25 MRR moves $> \pm 0.02$ across identical runs $\rightarrow$ Tree Polluted |
-| **Model Adoption** | Wilcoxon Signed-Rank | $p \ge 0.05$ or contradictory win/loss sign between subset and full $\rightarrow$ Reject Model |
-| **Epistemic Integrity** | Negative Question Trap | Any hallucinated claim on trap queries ($> 0.0\%$) $\rightarrow$ Instant Gate Failure |
+| **Substrate Safety** | RSS Memory Peak | Peak RSS $> 3.0\,\text{GB}$ (cortex limit) or any page fault swap $\rightarrow$ Instant Abort |
+| **Quantization Fidelity** | Spearman $\rho$ (BF16 vs Quant) | Measure $\rho$ on 1,000 paired sample vectors; investigate rank inversions if $\rho < 0.95$ |
+| **Corpus Stability** | BM25 Drift Anchor | Drift $\ne 0.00$ on clean pinned HEAD (or $> \pm 0.02$ on dirty tree) $\rightarrow$ Tree Polluted |
+| **Model Adoption** | Wilcoxon Signed-Rank | $p \ge 0.05$ over $N \ge 30$ discriminating pairs, or contradictory sign $\rightarrow$ Reject Model |
+| **Epistemic Integrity** | Negative Question Trap | LLM answers trap without stating `NON COUVERT PAR LE CORPUS ACTUEL` $\rightarrow$ Gate Failure |

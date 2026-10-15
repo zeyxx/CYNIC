@@ -34,14 +34,34 @@
       "why": "Same weights as reference: isolates quantization cost. Free speed if quality holds.",
       "measured": {
         "subset_1000": {
+          "status": "candidate_measured",
+          "provenance_config": {
+            "top_k": 5,
+            "dense_k": 20,
+            "rrf_k": 60.0,
+            "bm25_guard_gap": 0.1,
+            "dense_guard_gap": 0.05,
+            "fixture_schema": "cynic.retrieval_gain_labels.v1",
+            "measured_queries": 18
+          },
           "mrr_bm25": 0.574,
           "mrr_dense": 0.233,
           "mrr_hybrid_rrf": 0.349,
           "mrr_hybrid_guard_0_1": 0.481,
           "mrr_hybrid_bilateral_guard": 0.491,
+          "paired_wilcoxon_subset": {
+            "discriminating_pairs": 1,
+            "wins": 1,
+            "losses": 0,
+            "ties": 17,
+            "p_value_note": "n_discriminating=1 is unpowered (p~=0.50); status remains candidate, not frozen"
+          },
           "throughput_chunks_per_sec": 23.2,
           "embed_secs_1000": 43.1,
-          "sentinel_rqc4_paraphrase_dense": 0.0
+          "sentinel_rqc4_paraphrase_dense": {
+            "score": 0.0,
+            "verdict": "dense blind spot on abstract semantic paraphrase without lexical overlap; known encoder limitation"
+          }
         },
         "full_corpus": null
       }

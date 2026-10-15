@@ -179,6 +179,9 @@ pub struct QueryScores {
     pub gold_rank_hybrid: Option<usize>,
 }
 
+/// Relevant grade representing exact grounded answers (2 = gold, 1 = related, 0 = noise).
+pub const GOLD_GRADE: u32 = 2;
+
 /// How deep each side is inspected for the gold-rank diagnostic. Grading
 /// still applies at top_k; this only extends the miss analysis.
 pub const GOLD_DIAG_DEPTH: usize = 20;
@@ -188,7 +191,7 @@ pub const GOLD_DIAG_DEPTH: usize = 20;
 pub fn gold_rank(paths: &[&str], grades: &std::collections::HashMap<String, u32>) -> Option<usize> {
     paths
         .iter()
-        .position(|path| grade_hit(path, grades) == 2)
+        .position(|path| grade_hit(path, grades) == GOLD_GRADE)
         .map(|idx| idx + 1)
 }
 
@@ -397,12 +400,12 @@ pub fn run_bench(
 
         let find_gold = |hits: &[cynic_knowledge::SearchHit<'_>]| {
             hits.iter()
-                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == 2)
+                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == GOLD_GRADE)
                 .map(|idx| idx + 1)
         };
         let find_dense_gold = |hits: &[cynic_knowledge::DenseHit<'_>]| {
             hits.iter()
-                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == 2)
+                .position(|hit| grade_chunk(hit.chunk, &labeled.grades) == GOLD_GRADE)
                 .map(|idx| idx + 1)
         };
 
