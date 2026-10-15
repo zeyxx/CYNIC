@@ -14,6 +14,7 @@ pub mod observation;
 pub mod source;
 pub mod storage;
 pub mod host;
+pub mod hypervisor;
 pub mod compute;
 
 
@@ -148,6 +149,12 @@ pub enum NodeCommand {
     Compute {
         #[command(subcommand)]
         command: compute::NodeComputeCommand,
+    },
+
+    /// Plan or observe hypervisor VM placement and preflight (node substrate family).
+    Hypervisor {
+        #[command(subcommand)]
+        command: hypervisor::NodeHypervisorCommand,
     },
 
     // === Peer ===
@@ -352,6 +359,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
 
         // === Compute Substrates & Hybrid Mesh ===
         NodeCommand::Compute { command } => compute::dispatch(command).await,
+
+        // === Hypervisor Placement & Preflight (migrated from `agent host`) ===
+        NodeCommand::Hypervisor { command } => hypervisor::execute_node_hypervisor(command),
 
         // === Peer ===
         NodeCommand::Peer { command } => {
