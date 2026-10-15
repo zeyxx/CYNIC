@@ -9,6 +9,10 @@ use std::time::{Duration, Instant};
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+use cynic_protocol::build_latency::{
+    SCCACHE_ADOPT_THRESHOLD, RSS_CAP_MB,
+    decide_admit_parallel_slot, decide_reuse_stable_checkout, decide_require_sccache,
+};
 use cynic_protocol::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
@@ -102,19 +106,65 @@ pub(crate) fn admit_build_under_rss_cap(projected_rss_mb: u64, max_rss_cap_mb: O
     }
 }
 
-/// Combined admission decision for a scheduler tick. Wires the RSS cap
-/// gate alongside the load-tier gate: both must admit for the tick to
-/// proceed. This is the single call site in `run_iteration` — the pure
-/// functions above are only reachable through this decision.
+/// Admission decision with T6 predicate consultation results.
+///
+/// Each field mirrors one frozen predicate from `cynic_protocol::build_latency`:
+/// - `stable_checkout_reuse` ← `decide_reuse_stable_checkout`
+/// - `parallel_slot_admitted` ← `decide_admit_parallel_slot`
+/// - `sccache_required` ← `decide_require_sccache`
+///
+/// `admitted` is the composite gate: capacity + RSS cap must both admit.
+/// The predicate fields inform behavior and are logged on refusal.
+pub(crate) struct AdmissionDecision {
+    pub admitted: bool,
+    pub stable_checkout_reuse: bool,
+    pub parallel_slot_admitted: bool,
+    pub sccache_required: bool,
+}
+
+/// Combined admission decision for a scheduler tick. Consults all three
+/// T6 predicates at the decision point so behavior changes only where a
+/// predicate says so. The load-tier gate and RSS-cap gate must both admit;
+/// the stable-checkout and sccache predicates inform behavior and are
+/// logged on refusal.
+///
+/// Predicate wiring:
+/// - H1 `decide_reuse_stable_checkout`: stable root configured ⇒ reuse.
+/// - H2 `decide_admit_parallel_slot`: projected RSS ≤ cap ⇒ admit.
+///   `RSS_CAP_MB` is the default cap; `max_rss_cap_mb` overrides it.
+/// - H3 `decide_require_sccache`: measured hit rate ≥ floor ⇒ required.
+///   Consulted only when `sccache_measured_hit_rate` is `Some`.
 pub(crate) fn should_admit_build(
     assessment: &CapacityAssessmentV1,
     scheduler: &BuildSchedulerConfig,
-) -> bool {
+) -> AdmissionDecision {
+    let refused = |parallel_slot_admitted| AdmissionDecision {
+        admitted: false,
+        stable_checkout_reuse: false,
+        parallel_slot_admitted,
+        sccache_required: false,
+    };
     if !admit_claim_under_capacity(assessment) {
-        return false;
+        return refused(false);
     }
     let projected = projected_rss_mb(scheduler.build_jobs);
-    admit_build_under_rss_cap(projected, scheduler.max_rss_cap_mb)
+    let rss_cap = scheduler.max_rss_cap_mb.unwrap_or(RSS_CAP_MB);
+    let parallel_slot_admitted = decide_admit_parallel_slot(rss_cap, projected);
+    if !parallel_slot_admitted {
+        return refused(false);
+    }
+    let stable_root_configured = scheduler.stable_workspace_root.is_some();
+    let stable_checkout_reuse = decide_reuse_stable_checkout(stable_root_configured);
+    let sccache_required = scheduler
+        .sccache_measured_hit_rate
+        .map(|measured| decide_require_sccache(SCCACHE_ADOPT_THRESHOLD, measured))
+        .unwrap_or(false);
+    AdmissionDecision {
+        admitted: true,
+        stable_checkout_reuse,
+        parallel_slot_admitted,
+        sccache_required,
+    }
 }
 
 /// Canonical tier name for proofs and logs. Mirrors the serde snake_case
@@ -151,10 +201,14 @@ async fn run_iteration(
     let capacity = measure_capacity_assessment();
     let load_tier = load_tier_str(&capacity.state).to_string();
     let capacity_unknowns = capacity.residual_unknowns.clone();
-    if !should_admit_build(&capacity, scheduler) {
+    let decision = should_admit_build(&capacity, scheduler);
+    if !decision.admitted {
         tracing::info!(
             tier = %load_tier,
-            "build scheduler tick skipped: host capacity saturated or RSS cap exceeded"
+            stable_checkout_reuse = %decision.stable_checkout_reuse,
+            parallel_slot_admitted = %decision.parallel_slot_admitted,
+            sccache_required = %decision.sccache_required,
+            "build scheduler tick skipped: admission predicate refused"
         );
         return Ok(());
     }
@@ -1235,6 +1289,7 @@ mod tests {
             build_jobs: None,
             max_rss_cap_mb: None,
             sccache: None,
+            sccache_measured_hit_rate: None,
         };
         (control, scheduler)
     }
@@ -1513,6 +1568,7 @@ mod tests {
             build_jobs: Some(2),
             max_rss_cap_mb: Some(100),
             sccache: None,
+            sccache_measured_hit_rate: None,
         };
         let capacity = CapacityAssessmentV1 {
             schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
@@ -1524,7 +1580,7 @@ mod tests {
             residual_unknowns: vec![],
         };
         assert!(
-            !should_admit_build(&capacity, &scheduler),
+            !should_admit_build(&capacity, &scheduler).admitted,
             "admission must refuse when projected RSS exceeds cap"
         );
     }
@@ -1547,6 +1603,7 @@ mod tests {
             build_jobs: Some(1),
             max_rss_cap_mb: Some(4096),
             sccache: None,
+            sccache_measured_hit_rate: None,
         };
         let capacity = CapacityAssessmentV1 {
             schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
@@ -1558,8 +1615,117 @@ mod tests {
             residual_unknowns: vec![],
         };
         assert!(
-            should_admit_build(&capacity, &scheduler),
+            should_admit_build(&capacity, &scheduler).admitted,
             "admission must admit when projected RSS is under cap"
+        );
+    }
+
+    // ── T6: predicate wiring tests ────────────────────────────────────────
+
+    fn headroom_capacity() -> CapacityAssessmentV1 {
+        CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
+            state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
+            residual_unknowns: vec![],
+        }
+    }
+
+    /// H1: `decide_reuse_stable_checkout` is consulted at the admission
+    /// decision point. When the stable root is configured the predicate
+    /// returns true and the decision records reuse; when absent, false.
+    #[test]
+    fn admission_consults_reuse_stable_checkout_predicate() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.stable_workspace_root = Some(PathBuf::from("/tmp/stable"));
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            decision.stable_checkout_reuse,
+            "stable root configured ⇒ predicate must report reuse"
+        );
+        scheduler.stable_workspace_root = None;
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.stable_checkout_reuse,
+            "stable root absent ⇒ predicate must report no reuse"
+        );
+    }
+
+    /// H2: `decide_admit_parallel_slot` gates admission. When no cap is
+    /// configured the predicate's `RSS_CAP_MB` is the default; projected
+    /// RSS above it must refuse.
+    #[test]
+    fn admission_uses_predicate_rss_cap_as_default() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.build_jobs = Some(10);
+        scheduler.max_rss_cap_mb = None;
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(
+            !decision.admitted,
+            "projected RSS {} MB exceeds default cap {} MB — must refuse",
+            projected_rss_mb(scheduler.build_jobs),
+            RSS_CAP_MB,
+        );
+        assert!(!decision.parallel_slot_admitted);
+    }
+
+    /// H2: `decide_admit_parallel_slot` boundary — projected == cap admits.
+    #[test]
+    fn admission_parallel_slot_boundary_inclusive() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.build_jobs = Some(1);
+        scheduler.max_rss_cap_mb = Some(projected_rss_mb(scheduler.build_jobs));
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(decision.parallel_slot_admitted);
+    }
+
+    /// H3: `decide_require_sccache` is consulted when a measured hit rate
+    /// is present. At or above the threshold ⇒ required; below ⇒ not.
+    #[test]
+    fn admission_consults_require_sccache_predicate() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.sccache_measured_hit_rate = Some(0.90);
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            decision.sccache_required,
+            "hit rate {} >= {} ⇒ sccache required",
+            0.90,
+            SCCACHE_ADOPT_THRESHOLD,
+        );
+        scheduler.sccache_measured_hit_rate = Some(0.10);
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.sccache_required,
+            "hit rate {} < {} ⇒ sccache not required",
+            0.10,
+            SCCACHE_ADOPT_THRESHOLD,
+        );
+    }
+
+    /// H3: when no measured hit rate is present the sccache predicate is
+    /// not consulted and `sccache_required` stays false.
+    #[test]
+    fn admission_sccache_not_consulted_when_unmeasured() {
+        let capacity = headroom_capacity();
+        let scheduler = scheduler_configs().1;
+        assert!(scheduler.sccache_measured_hit_rate.is_none());
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.sccache_required,
+            "unmeasured hit rate ⇒ predicate not consulted"
         );
     }
 }

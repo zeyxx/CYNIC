@@ -120,6 +120,11 @@ pub struct BuildSchedulerConfig {
     /// Absent = behavior unchanged (plain rustc, no wrapper).
     #[serde(default)]
     pub sccache: Option<SccacheConfig>,
+    /// Measured sccache hit rate for admission decisions. `None` means
+    /// unmeasured — the sccache predicate is not consulted. When set,
+    /// `decide_require_sccache` is consulted at admission time.
+    #[serde(default)]
+    pub sccache_measured_hit_rate: Option<f64>,
 }
 
 /// sccache rollout configuration for scheduler builds.

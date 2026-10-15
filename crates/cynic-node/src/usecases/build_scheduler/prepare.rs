@@ -686,6 +686,7 @@ mod tests {
             build_jobs: None,
             max_rss_cap_mb: None,
             sccache: None,
+            sccache_measured_hit_rate: None,
         }
     }
 
