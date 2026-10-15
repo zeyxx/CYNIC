@@ -307,18 +307,36 @@ impl EmbeddingBackend {
                             None => break, // Queue exhausted, worker exits cleanly
                         };
 
-                        let batch = self.post_batch_to(&endpoint_url, inputs).await.map_err(
-                            |error| {
-                                EmbeddingError::Protocol(format!(
-                                    "sub-lot {}/{total_sublots} on {endpoint_url} failed: {error}",
-                                    sub_no + 1
-                                ))
-                            },
-                        )?;
+                        let mut attempts = 0;
+                        let mut last_error = String::new();
+                        let mut success = false;
 
-                        {
-                            let mut res = results.lock().await;
-                            res[sub_no] = Some(batch);
+                        while attempts < 3 {
+                            match self.post_batch_to(&endpoint_url, inputs.clone()).await {
+                                Ok(batch) => {
+                                    {
+                                        let mut res = results.lock().await;
+                                        res[sub_no] = Some(batch);
+                                    }
+                                    success = true;
+                                    break;
+                                }
+                                Err(error) => {
+                                    last_error = error.to_string();
+                                    attempts += 1;
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        50 * attempts as u64,
+                                    ))
+                                    .await;
+                                }
+                            }
+                        }
+
+                        if !success {
+                            return Err(EmbeddingError::Protocol(format!(
+                                "sub-lot {}/{total_sublots} on {endpoint_url} failed after 3 attempts: {last_error}",
+                                sub_no + 1
+                            )));
                         }
 
                         let done_lots =
