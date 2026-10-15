@@ -16,8 +16,15 @@ Status: design for review. No code.
 
 ## Proposal
 
-- Nest: `cynic runtime registry sync` (runtime family: path resolution +
-  conformance; no new top-level per taxonomy law).
+- Nest: `cynic network registry sync` (network family owns the
+  maintenance core in `cynic-network::registry_maintenance` and is the
+  primary consumer of the file for mesh, DNS, and firewall derivation;
+  no new top-level per taxonomy law).
+- NOTE 2026-10-15: first drafted under `runtime`; rejected — the
+  runtime family is dying and new commands must not nest there.
+  Follow-up (not this surface): migrate the existing
+  `runtime registry observe` reader to the same home so the two
+  operations on one file are not split across a dead family.
 - Pure core in `cynic-network::registry_maintenance` next to
   `reconcile_registry_observations`; thin CLI surface.
 - Source defaults to the repo file, target to
