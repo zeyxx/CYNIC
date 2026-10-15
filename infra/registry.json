@@ -398,11 +398,11 @@
             "url": "http://10.20.0.3:8081/health"
           },
           "model": "embeddinggemma-2-Q8_0.gguf",
-          "flags": "--embeddings -c 4096 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 2",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
           "memory_guard": "MemoryMax=3G",
           "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
-          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 4096 --parallel 2 gives 2048-token slots",
-          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=2",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=4",
           "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
         }
       ],
