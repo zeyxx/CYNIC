@@ -550,6 +550,174 @@
       "grades": {
         "contracts/claims.json": 2
       }
+    },
+    {
+      "id": "RQ68_RUG_RISK",
+      "query": "RugRiskAssessment RugSignal RugRiskTokenView",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/rug_risk.rs": 2
+      }
+    },
+    {
+      "id": "RQ69_KSCORE",
+      "query": "KScore HolderClass KScoreConfigSnapshot",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/kscore.rs": 2
+      }
+    },
+    {
+      "id": "RQ70_AGENT_MODE",
+      "query": "AgentScope AgentMode AgentBudgets",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/agent_citizenship.rs": 2
+      }
+    },
+    {
+      "id": "RQ71_REASONING_ADAPTER",
+      "query": "ReasoningAdapter AutoresearchPort trait",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/autoresearch_port.rs": 2
+      }
+    },
+    {
+      "id": "RQ72_CLI_FACTORY",
+      "query": "resolve_runner_host ssh_build_runner prove_build_blocking",
+      "trap": false,
+      "grades": {
+        "crates/cynic-node/src/cli_factory.rs": 2
+      }
+    },
+    {
+      "id": "RQ73_STIMULUS",
+      "query": "build_token_stimulus TokenData",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/stimulus.rs": 2
+      }
+    },
+    {
+      "id": "RQ74_GATE",
+      "query": "run_gates LifecycleGateReport ArgvRunner",
+      "trap": false,
+      "grades": {
+        "crates/cynic-lifecycle/src/gate.rs": 2
+      }
+    },
+    {
+      "id": "RQ76_GENESIS",
+      "query": "how is the initial state of the ledger ensemble established",
+      "trap": false,
+      "grades": {
+        "crates/cynic-consensus/src/peer/genesis.rs": 2
+      }
+    },
+    {
+      "id": "RQ81_CANONICAL_ACTORS",
+      "query": "who are the canonical actors of the system",
+      "trap": false,
+      "grades": {
+        "docs/foundation/WHITEPAPER.md": 2
+      }
+    },
+    {
+      "id": "RQ83_COMMAND_SURFACE",
+      "query": "HostCommandSurface HostCommandInvocation how are host commands exposed to agents",
+      "trap": false,
+      "grades": {
+        "crates/cynic-host/src/command_surface.rs": 2
+      }
+    },
+    {
+      "id": "RQ84_AGENT_MATRIX",
+      "query": "AgentKind AgentReadiness how is agent availability tracked",
+      "trap": false,
+      "grades": {
+        "crates/cynic-host/src/agent_matrix.rs": 2
+      }
+    },
+    {
+      "id": "RQ85_COMPLIANCE",
+      "query": "SessionCompliance score_session how are sessions scored for compliance",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/compliance.rs": 2
+      }
+    },
+    {
+      "id": "RQ86_ENRICHMENT",
+      "query": "TokenData HolderType how is token holder context enriched",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/domain_enrichment.rs": 2
+      }
+    },
+    {
+      "id": "RQ87_SAFETY_DOG",
+      "query": "SolanaSafetyVerdict SolanaSafetyReport what verdicts protect transactions",
+      "trap": false,
+      "grades": {
+        "crates/cynic-intel/src/solana_safety_dog.rs": 2
+      }
+    },
+    {
+      "id": "RQ88_DNS_BUNDLE",
+      "query": "DnsBundleReport build_dns_bundle how are DNS bundles assembled",
+      "trap": false,
+      "grades": {
+        "crates/cynic-node/src/dns_bundle.rs": 2
+      }
+    },
+    {
+      "id": "RQ89_BUILDER_ACTIVATION",
+      "query": "BuilderActivationInput BuilderActivationDecision how are builders admitted",
+      "trap": false,
+      "grades": {
+        "crates/cynic-node/src/builder_activation.rs": 2
+      }
+    },
+    {
+      "id": "RQ90_MYCELIUM",
+      "query": "mycelium node federation strict peer to peer policy",
+      "trap": false,
+      "grades": {
+        "contracts/federation-mycelium-policy.json": 2
+      }
+    },
+    {
+      "id": "RQ91_MEASURE",
+      "query": "measure arbitration allocate governance power measurement needs",
+      "trap": false,
+      "grades": {
+        "contracts/measure-arbitration.json": 2
+      }
+    },
+    {
+      "id": "RQ92_RELAY",
+      "query": "relay policy message forwarding between nodes",
+      "trap": false,
+      "grades": {
+        "contracts/relay-policy.json": 2
+      }
+    },
+    {
+      "id": "RQ93_STAGING",
+      "query": "staging model promotion gates before release",
+      "trap": false,
+      "grades": {
+        "contracts/staging-model.json": 2
+      }
+    },
+    {
+      "id": "RQ94_REPO_GOV",
+      "query": "repository governance source topology rules",
+      "trap": false,
+      "grades": {
+        "contracts/repository-governance.json": 2
+      }
     }
   ]
 }
