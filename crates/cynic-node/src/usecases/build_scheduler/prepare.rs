@@ -415,6 +415,74 @@ mod tests {
         );
     }
 
+    // --- Fix round 2: rebase admission-bound working_directory ---
+
+    #[test]
+    fn rebase_admission_bound_dir_onto_stable_root() {
+        // Admission binds action.working_directory to the per-build registry
+        // path. After apply_stable_workspace overrides layout.workspace_root,
+        // the admission-bound path must be rebased to follow the override
+        // (pass None so resolve assigns the stable root).
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let stable = PathBuf::from("/var/lib/cynic/build-workspaces/debug");
+        let rebased = rebase_working_directory(
+            original.to_str(),
+            &original,
+            &stable,
+        );
+        assert_eq!(
+            rebased, None,
+            "admission-bound dir equal to original root must rebase to None"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &stable),
+            Ok(stable),
+            "rebased resolve must assign the stable root"
+        );
+    }
+
+    #[test]
+    fn rebase_foreign_dir_still_fails_closed() {
+        // A desired path that equals neither the original nor the stable
+        // root must still fail closed — the rebase must not mask it.
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let stable = PathBuf::from("/var/lib/cynic/build-workspaces/debug");
+        let foreign = "/tmp/elsewhere";
+        let rebased = rebase_working_directory(Some(foreign), &original, &stable);
+        assert_eq!(
+            rebased,
+            Some(foreign),
+            "foreign dir must pass through unchanged"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &stable),
+            Err("build_scheduler_working_directory_layout_mismatch".to_string()),
+            "foreign dir must still fail closed"
+        );
+    }
+
+    #[test]
+    fn rebase_override_off_keeps_unchanged_behavior() {
+        // When override is off, original_root == stable_root. A desired
+        // dir equal to the original must still resolve to the original —
+        // the rebase must not change behavior when there is no override.
+        let original = PathBuf::from("/var/lib/cynic/state/source/workspaces/cynic/workload-1");
+        let rebased = rebase_working_directory(
+            original.to_str(),
+            &original,
+            &original,
+        );
+        assert_eq!(
+            rebased, None,
+            "desired==original must rebase to None even when override is off"
+        );
+        assert_eq!(
+            resolve_working_directory(rebased, &original),
+            Ok(original),
+            "rebase with override off must still resolve to the original root"
+        );
+    }
+
     #[test]
     fn shared_target_dir_maps_release_and_debug_profiles() {
         let root = std::path::Path::new("/var/lib/cynic/build-targets");
