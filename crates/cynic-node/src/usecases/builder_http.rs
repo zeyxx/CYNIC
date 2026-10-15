@@ -549,6 +549,8 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
+    use cynic_build::{admit_build_agent_request, canonical_argv_from_build_action};
+
     #[test]
     fn submit_action_build_maps_to_cargo_build() {
         assert_eq!(map_submit_action("build"), Some("cargo:build"));
@@ -574,6 +576,36 @@ mod tests {
         assert_eq!(map_submit_action("deploy"), None);
         assert_eq!(map_submit_action(""), None);
         assert_eq!(map_submit_action("make:build"), None);
+    }
+
+    /// Task P fix round 1: a submit verb must survive the whole chain —
+    /// mapping -> composition admission -> argv construction — without a
+    /// blocker. Pins the composition gate to the same action set the mapping
+    /// and argv translators accept, so a narrow green that fixes only one
+    /// link (e.g. mapping + argv but not the composition gate) cannot recur.
+    #[test]
+    fn submit_action_chains_through_admission_and_argv() {
+        for verb in ["check", "build", "build-release", "test"] {
+            let action = map_submit_action(verb).expect("known submit verb");
+            let mut request = push_request(&"d".repeat(40));
+            request.action = action.to_string();
+            let admission = admit_build_agent_request(&request);
+            assert!(
+                !admission
+                    .blockers
+                    .contains(&"build_agent_request_action_not_allowed".to_string()),
+                "verb {verb} -> action {action} refused by composition gate"
+            );
+            assert!(
+                admission.blockers.is_empty(),
+                "verb {verb} -> action {action} blocked: {:?}",
+                admission.blockers
+            );
+            assert!(
+                canonical_argv_from_build_action(action).is_some(),
+                "action {action} must have a canonical argv"
+            );
+        }
     }
 
     #[test]

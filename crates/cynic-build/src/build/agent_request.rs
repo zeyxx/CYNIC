@@ -321,6 +321,56 @@ mod tests {
         );
     }
 
+    /// Task P fix round 1: `cynic build submit --action build` maps to
+    /// `cargo:build`, but the composition gate only admitted the make:*
+    /// operator intents, so every cargo submit was rejected with
+    /// `build_agent_request_action_not_allowed` (observed 400 on the
+    /// canary). The gate must admit the direct cargo actions.
+    #[test]
+    fn cargo_build_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:build".to_string();
+        let admission = admit_build_agent_request(&request);
+        assert_eq!(admission.status, "admitted");
+        assert!(
+            !admission
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
+    #[test]
+    fn cargo_check_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:check".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn cargo_test_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:test".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn cargo_build_release_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:build-release".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn non_canonical_action_is_still_blocked() {
+        let mut request = request(true);
+        request.action = "cargo:deploy".to_string();
+        assert!(
+            admit_build_agent_request(&request)
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
     #[test]
     fn canonical_artifact_build_is_admissible() {
         let mut request = request(true);
