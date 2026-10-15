@@ -15,10 +15,10 @@ Live truth, PVE host:
 - CYNIC instance (`/etc/cynic/dns/dnsmasq-pve.conf`, hand-written
   2026-10-14, port 1053): authoritative DNS only, no DHCP.
 - Static CT addresses live in pct configs (`/etc/pve/lxc/*.conf`):
-  .40/.101/.102/.103/.106 static, CT 105 on dhcp (holds the single
-  lease, .119). Registry `reservations` (8 entries) agrees on all
-  statics but ALSO reserves dead `.100` and lists `.119` as if static
-  while live is DHCP-held.
+  all static since 2026-10-15 (CT 105 was last, DHCP-held `.119`
+  → static `10.10.10.119/24` via pct, live address unchanged).
+  Registry `reservations` (8 entries) agrees on all statics except
+  dead `.100`.
 - Leases file has exactly 1 entry. Everything else is static.
 
 What a declared DHCP section would need: range, router, dns-server
