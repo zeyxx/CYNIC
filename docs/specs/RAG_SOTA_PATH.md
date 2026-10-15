@@ -88,7 +88,12 @@ Deployment: global MinMax alpha 0.80; MRL-256d adopted for future runs.
 Wave 4 (2026-10-16, fixture 85→87): RQ95 (BM25-win paraphrase, 1.00/0.50)
 and RQ96 (identifier tie, 1.00/1.00) admitted via pure-arm screen; A2
 rejected ×3 (checklist memory passage unreachable by rephrase — depth
-diagnosis open, not a 4th rephrase). Freeze check: old-85 reproduction
+diagnosis open, not a 4th rephrase). Depth verdict (2026-10-16): dense
+reaches the passage at rank 62 (1 hit in top-100) — a top-5 problem, not
+invisibility; BM25 finds NOTHING in top-100 despite shared vocabulary
+(unit, 3G, recompile all in the passage — likely split across chunks or
+outranked). So: paraphrase work is closed on A2; the passage needs
+rerank-side rescue (rung 2) or a corpus-side anchor, never a 4th rephrase. Freeze check: old-85 reproduction
 within 0.01 on all arms (RRF/ECDF exact, dense Δ 0.0094 = live-workspace
 corpus drift); 87-mean moves are the predicted selection effect. Freeze holds.
 Wave 5 (2026-10-16, fixture 87→90): RQ97 + RQ98 (ties 1.00/1.00, admitted
