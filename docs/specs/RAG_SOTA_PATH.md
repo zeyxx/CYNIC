@@ -75,10 +75,10 @@ contract entries 1–9 (`run_20261015_q8_uniform_85q` latest).
 | json fusion harms (0.816 BM25 alone) | dense noise on identifier-heavy structured text | routed around; encoder-side fix open (model axis B) |
 | 63/85 ties in Wilcoxon | fixture saturation on decided queries | disagreement-zone query pairs (plan §5.4) |
 
-## 5. Current SOTA position (Q8-uniform, 87 queries + 5 traps, 12 028 chunks)
+## 5. Current SOTA position (Q8-uniform, 90 queries + 5 traps, 12 028 chunks)
 
-BM25 0.5128 · dense 0.6828 · RRF 0.4525 · MinMax 0.6977 @0.80 ·
-ECDF 0.5824 @0.75 · Wilcoxon p=0.0003 (31/6/50, n_nonzero 37).
+BM25 0.5152 · dense 0.6844 · RRF 0.4596 · MinMax 0.6967 @0.80 ·
+ECDF 0.5830 @0.75 · Wilcoxon p=0.0004 (30/6/54, n_nonzero 36).
 Pipeline: query prefix `task: search result | query: `, docs
 `title: {filename} | text: {body}`. Runners: cortex + compute-01, Q8_0,
 slots 4+4, registry-resolved. Cluster fanout proven live (128-text probe:
@@ -91,6 +91,15 @@ rejected ×3 (checklist memory passage unreachable by rephrase — depth
 diagnosis open, not a 4th rephrase). Freeze check: old-85 reproduction
 within 0.01 on all arms (RRF/ECDF exact, dense Δ 0.0094 = live-workspace
 corpus drift); 87-mean moves are the predicted selection effect. Freeze holds.
+Wave 5 (2026-10-16, fixture 87→90): RQ97 + RQ98 (ties 1.00/1.00, admitted
+for depth) and RQ99 (dense-win 0.00/0.20, the only discriminating one).
+Freeze check tighter: old-87 Δ ≤ 0.003 on all arms (dense and RRF exact).
+Power did NOT grow: n_nonzero 37→36 — the two ties vote nothing, and RQ89
+flipped win→tie (ECDF 0.20→0.00) from live-workspace corpus drift, not the
+fixture. E2 itself is an ECDF-vs-RRF tie (dense hits, ECDF misses). Lesson
+for wave 6: screen on the FUSED-vs-RRF margin, not the pure-arm margin —
+a dense-win that fusion destroys adds no Wilcoxon vote. Futility clock: one
+batch without tightening (two cuts the line).
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
