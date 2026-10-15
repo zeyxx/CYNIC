@@ -65,15 +65,18 @@ pub(super) async fn prepare(
             &control.node_id,
         )
         .map_err(|error| error.code)?;
+    // Capture the original registry-resolved root before the stable-workspace
+    // override. Admission binds `action.working_directory` to this path;
+    // after the override it must be rebased to follow the stable root.
+    let original_root = layout.workspace_root.clone();
     let layout = apply_stable_workspace(
         layout,
         scheduler,
         &claimed.record.envelope.action.argv,
     )?;
-    let _desired_working_directory = resolve_working_directory(
-        claimed.record.envelope.action.working_directory.as_deref(),
-        &layout.workspace_root,
-    )?;
+    let desired = claimed.record.envelope.action.working_directory.as_deref();
+    let rebased = rebase_working_directory(desired, &original_root, &layout.workspace_root);
+    let _desired_working_directory = resolve_working_directory(rebased, &layout.workspace_root)?;
 
     let runner = LocalArgvRunner;
     let snapshot_root = control.agent_workload_state_root.join("source/snapshots");
@@ -383,6 +386,33 @@ pub(super) fn resolve_working_directory(
         None => Ok(layout_root.clone()),
         Some(explicit) if PathBuf::from(explicit) == *layout_root => Ok(layout_root.clone()),
         Some(_) => Err("build_scheduler_working_directory_layout_mismatch".into()),
+    }
+}
+
+/// Rebase an admission-bound working directory onto the (possibly
+/// overridden) stable root.
+///
+/// Admission binds `action.working_directory` to the per-build registry
+/// workspace path. `apply_stable_workspace` then overrides
+/// `layout.workspace_root` with the stable path, so the admission-bound
+/// directory no longer matches and `resolve_working_directory` fails with
+/// `build_scheduler_working_directory_layout_mismatch`.
+///
+/// When the desired directory equals `original_root` — i.e. it was bound by
+/// admission, not forced by the operator — it is rebased to follow the
+/// override by returning `None`, which makes `resolve_working_directory`
+/// assign the stable root. A desired path that equals neither the original
+/// nor the stable root is returned unchanged so `resolve_working_directory`
+/// fails closed on it.
+pub(super) fn rebase_working_directory<'a>(
+    desired: Option<&'a str>,
+    original_root: &std::path::Path,
+    _stable_root: &std::path::Path,
+) -> Option<&'a str> {
+    if desired.map(PathBuf::from) == Some(original_root.to_path_buf()) {
+        None
+    } else {
+        desired
     }
 }
 
