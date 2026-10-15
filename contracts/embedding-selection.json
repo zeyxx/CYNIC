@@ -470,6 +470,45 @@
             "verdict": "routed fusion beats best global fusion on both strategies with the measured rule compiled in; routing is implementable, not just analytical",
             "md_falsification": "chunk-size hypothesis for prose failures DIED on measurement: same file and sizes score dense 1.0 (RQC2) and 0.0 (RQC3, RQC4); failures are vocabulary mismatch (RQ12: 0/7 query terms in gold) and conceptual paraphrase gap, not chunking defect; no chunker churn without a size-correlated cause",
             "machine_report": "test output ROUTED lines (deterministic over target/convex_sweep_report.json v2)"
+          },
+          {
+            "run_id": "run_20261015_q8_uniform_85q",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "kind": "single_space_proof",
+              "runners": "cortex plus compute-01, both serving embeddinggemma-2-Q8_0.gguf (Unsloth); same-file cross-runner cosine 0.99994 (heterogeneous hardware residual, 47x tighter than mixed BF16/Q4 at 0.99721; bit-identity unachievable cross-device)",
+              "model_tag": "q8-uniform (fresh vector cache, full 12020-chunk re-embed, no reuse)",
+              "corpus_chunks_scored": 12020,
+              "measured_queries": 85,
+              "traps_excluded": 5,
+              "cluster": "explicit env URLs slots 2+2 (registry wiring landed after this run; registry now records slots 2+4 for future runs)",
+              "head_commit": "75dbfe02",
+              "head_note": "run tree equals 75dbfe02 in all scoring code"
+            },
+            "mrr_bm25": 0.5004,
+            "mrr_dense": 0.5918,
+            "mrr_hybrid_rrf_k60": 0.4361,
+            "mrr_continuous_convex_minmax_alpha_0_80": 0.5884,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.5269,
+            "delta_mrr_best_vs_rrf": 0.1523,
+            "nonlinearity_note": "ECDF concave fifth run in a row, interior optimum back at 0.60 under the uniform space (was 0.75 mixed); optimum location stays fixture-relative, shape stays frozen",
+            "ecdf_curve_alpha_0_00_to_1_00_step_0_05": [0.3647, 0.3696, 0.3873, 0.399, 0.4147, 0.432, 0.4427, 0.4496, 0.4596, 0.4625, 0.5116, 0.5178, 0.5269, 0.5233, 0.5161, 0.52, 0.5212, 0.5124, 0.4992, 0.489, 0.4816],
+            "minmax_curve_alpha_0_00_to_1_00_step_0_05": [0.4329, 0.4447, 0.459, 0.4694, 0.4743, 0.4763, 0.4978, 0.5006, 0.5175, 0.5175, 0.5361, 0.5557, 0.5678, 0.5871, 0.5665, 0.5704, 0.5884, 0.5861, 0.5855, 0.5835, 0.5739],
+            "wilcoxon_best_ecdf_vs_rrf": {
+              "n_nonzero": 22,
+              "w_plus": 215.5,
+              "z": 2.886,
+              "p_two_sided": 0.0039,
+              "wins": 17,
+              "losses": 5,
+              "ties": 63,
+              "verdict": "significant at 0.05 fifth run in a row, first in a uniform vector space; frozen method reproduced end to end",
+              "method": "paired signed-rank per empirical-retrieval-calibration references/wilcoxon-signed-rank.md (continuity and tie corrections, unit-tested)"
+            },
+            "live_routed_minmax": {"split_half": [0.6238, 0.5988], "mean": 0.6113, "best_global": 0.5884},
+            "live_routed_ecdf": {"split_half": [0.5603, 0.5833], "mean": 0.5718, "best_global": 0.5269},
+            "routed_verdict": "routing reproduces above global fusion under the uniform space on both strategies; Q8 adopted as SSOT runner config",
+            "machine_report": "target/convex_sweep_report_q8_85q.json (schema cynic.convex_sweep_report.v2, matrix plus gold_doctype included)"
           }
         ]
       }

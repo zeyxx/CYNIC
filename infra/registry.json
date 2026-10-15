@@ -397,9 +397,12 @@
             "kind": "http",
             "url": "http://10.20.0.3:8081/health"
           },
-          "model": "embeddinggemma-2-BF16.gguf",
-          "flags": "--embeddings -c 4096 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 4096 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 2",
           "memory_guard": "MemoryMax=3G",
+          "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 4096 --parallel 2 gives 2048-token slots",
+          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=2",
           "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
         }
       ],
@@ -690,6 +693,13 @@
           "health": {
             "kind": "http",
             "url": "http://10.10.10.106:8080/health"
+          },
+          "exclusion": {
+            "status": "excluded",
+            "since": "2026-10-15",
+            "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
+            "reentry": "admin access restored plus ceiling measured via the 1101-token probe, then bench_endpoint assigned",
+            "note": "no bench_endpoint key by design: excluded runners never join the cluster"
           }
         }
       ],
@@ -897,7 +907,12 @@
           "health": {
             "kind": "http",
             "url": "http://192.168.0.25:8080/health"
-          }
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 8 -ngl 99 -fa on --parallel 4",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
         }
       ],
       "energy_profile": {

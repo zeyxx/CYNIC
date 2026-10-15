@@ -135,14 +135,58 @@ impl EmbeddingBackend {
         None
     }
 
+    /// Resolves the embedding cluster from the workspace registry.
+    ///
+    /// Walks up from the current directory to the workspace root (the first
+    /// ancestor holding `infra/registry.json`) and collects the
+    /// `bench_endpoint` of every `embedding-server` service. Services
+    /// without one (excluded runners) never join. Returns `None` when no
+    /// registry resolves, letting the caller fall back further.
+    fn endpoints_from_registry() -> Option<String> {
+        let mut dir = std::env::current_dir().ok()?;
+        loop {
+            let candidate = dir.join("infra/registry.json");
+            if candidate.is_file() {
+                let data = std::fs::read_to_string(candidate).ok()?;
+                let registry: serde_json::Value = serde_json::from_str(&data).ok()?;
+                let endpoints: Vec<String> = registry
+                    .get("nodes")?
+                    .as_array()?
+                    .iter()
+                    .flat_map(|n| {
+                        n.get("services")
+                            .and_then(|s| s.as_array())
+                            .map(|a| a.iter().cloned().collect::<Vec<_>>())
+                            .unwrap_or_default()
+                    })
+                    .filter(|s| s.get("name").and_then(|n| n.as_str()) == Some("embedding-server"))
+                    .filter_map(|s| s.get("bench_endpoint")?.as_str().map(str::to_string))
+                    .filter(|e| !e.is_empty())
+                    .collect();
+                return (!endpoints.is_empty()).then(|| endpoints.join(","));
+            }
+            if !dir.pop() {
+                return None;
+            }
+        }
+    }
+
     pub fn from_env() -> Result<Self, BackendInitError> {
-        let base_url = std::env::var("CYNIC_EMBED_URL").unwrap_or_else(|_| {
-            let rest =
-                std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| DEFAULT_REST_ADDR.into());
-            let host = rest.split(':').next().unwrap_or("127.0.0.1");
-            let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
-            format!("http://{host}:{port}/v1")
-        });
+        // Explicit URL wins. Otherwise resolve the cluster from the
+        // workspace registry (infra/registry.json, `bench_endpoint` on each
+        // embedding-server service; excluded services carry none and stay
+        // out by construction). Last resort is the historical single default.
+        let base_url = std::env::var("CYNIC_EMBED_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
+            .or_else(|| Self::endpoints_from_registry())
+            .unwrap_or_else(|| {
+                let rest =
+                    std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| DEFAULT_REST_ADDR.into());
+                let host = rest.split(':').next().unwrap_or("127.0.0.1");
+                let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
+                format!("http://{host}:{port}/v1")
+            });
         let api_key = cynic_secrets::env_var("sovereign-api-key", "SOVEREIGN_API_KEY");
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
         Self::new(&base_url, api_key, &model)
@@ -485,9 +529,32 @@ mod tests {
 
     #[test]
     fn from_env_defaults() {
+        // Explicit URL wins over the workspace registry; pin it so this
+        // unit test never depends on the checkout it runs in.
+        unsafe { std::env::set_var("CYNIC_EMBED_URL", "http://127.0.0.1:8081/v1") };
         let backend = EmbeddingBackend::from_env().unwrap();
+        unsafe { std::env::remove_var("CYNIC_EMBED_URL") };
         assert!(backend.base_url().contains("8081"));
         assert_eq!(backend.base_urls().len(), 1);
+    }
+
+    #[test]
+    fn resolves_cluster_from_registry() {
+        // The workspace registry carries bench_endpoint per embedding-server
+        // service; excluded runners carry none and stay out.
+        let resolved = EmbeddingBackend::endpoints_from_registry().unwrap();
+        assert!(
+            resolved.contains("127.0.0.1:8081"),
+            "cortex joins: {resolved}"
+        );
+        assert!(
+            resolved.contains("192.168.0.25:8080"),
+            "compute-01 joins: {resolved}"
+        );
+        assert!(
+            !resolved.contains("10.10.10.106"),
+            "lxc106 stays out: {resolved}"
+        );
     }
 
     #[test]
