@@ -295,6 +295,17 @@ base_url = "http://127.0.0.1:8080/v1"
 [process]
 command = ["llama-server", "-m", "/models/test.gguf"]
 
+[node_control]
+kernel_url = "http://127.0.0.1:3030"
+node_id = "test-node"
+signing_key_path = "/tmp/x"
+enrollment_request_path = "/tmp/x"
+enrollment_grant_path = "/tmp/x"
+enrollment_authority_public_key_path = "/tmp/x"
+enrollment_token_path = "/tmp/x"
+enrollment_seed_id = "test"
+enrollment_role = "build_runner"
+
 [node_control.build_scheduler]
 build_jobs = 4
 max_rss_cap_mb = 2048
