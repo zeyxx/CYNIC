@@ -148,18 +148,20 @@ pub(crate) fn observe_roles(
 }
 
 /// Write a stop request for the parent to consume exactly once.
+/// Fails fast with a named error when no live parent holds the role, so the
+/// operator never waits a full timeout on nothing. Re-requesting overwrites
+/// the single slot (stop is idempotent); the parent deletes on consume.
 pub(crate) fn request_stop(state_dir: &str, role_id: &str) -> Result<String, String> {
+    if !cynic_supervisor::is_role_parented(std::path::Path::new(state_dir), role_id) {
+        return Err(format!(
+            "no supervised parent holds role '{role_id}'; nothing to stop"
+        ));
+    }
     let path = std::path::PathBuf::from(state_dir).join(format!("supervise-{role_id}.cmd.json"));
     let cmd = cynic_protocol::supervision::ParentCommand::stop(now_unix_ms());
     let payload = serde_json::to_vec(&cmd).map_err(|e| format!("command encode failed: {e}"))?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("state dir failed: {e}"))?;
-    }
-    // Refuse to queue behind a request the parent has not consumed yet.
-    if path.exists() {
-        return Err(format!(
-            "stop already requested for role '{role_id}'; parent has not consumed it yet"
-        ));
     }
     std::fs::write(&path, &payload).map_err(|e| format!("command write failed: {e}"))?;
     Ok(path.to_string_lossy().into_owned())
@@ -336,13 +338,26 @@ mod tests {
     }
 
     #[test]
-    fn stop_request_writes_once_then_refuses_double() {
+    fn stop_request_needs_live_parent_and_rewrites_idempotently() {
+        // No parent: fail fast, no file written.
         let dir = std::env::temp_dir().join("cynic-stop-req-test");
         let _ = std::fs::remove_dir_all(&dir);
-        let path = request_stop(dir.to_str().unwrap(), "node").unwrap();
-        assert!(std::path::Path::new(&path).exists());
-        let second = request_stop(dir.to_str().unwrap(), "node");
-        assert!(second.unwrap_err().contains("already requested"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let err = request_stop(dir.to_str().unwrap(), "node").unwrap_err();
+        assert!(
+            err.contains("no supervised parent holds role"),
+            "got: {err}"
+        );
+        // Live parent lock: request written, re-request overwrites the slot.
+        let lock = format!(
+            r#"{{"pid":{},"epoch":"test-epoch","started_at_ms":0}}"#,
+            std::process::id()
+        );
+        std::fs::write(dir.join("supervise-node.lock"), lock).unwrap();
+        let first = request_stop(dir.to_str().unwrap(), "node").unwrap();
+        let second = request_stop(dir.to_str().unwrap(), "node").unwrap();
+        assert_eq!(first, second);
+        assert!(std::path::Path::new(&first).exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

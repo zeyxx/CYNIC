@@ -15,8 +15,8 @@ use std::{
 };
 
 use cynic_protocol::supervision::{
-    ParentStatusEnvelope, RestartDecision, RestartPolicy, SupervisorObservation, SupervisorState,
-    decide_restart,
+    decide_restart, ParentStatusEnvelope, RestartDecision, RestartPolicy, SupervisorObservation,
+    SupervisorState,
 };
 use process_wrap::tokio::ChildWrapper;
 
@@ -28,6 +28,35 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const TAKEOVER_GRACE: Duration = Duration::from_secs(10);
 /// Command-file poll step inside restart-delay waits.
 const CMD_POLL_STEP: Duration = Duration::from_secs(1);
+
+/// One poll step that also listens for shutdown signals (Unix).
+/// Returns `true` when SIGTERM/SIGINT arrived during the step, so the parent
+/// stops the child gracefully instead of dying and orphaning it.
+#[cfg(unix)]
+async fn wait_step(
+    term: Option<&mut tokio::signal::unix::Signal>,
+    int: Option<&mut tokio::signal::unix::Signal>,
+) -> bool {
+    async fn recv_or_pending(sig: Option<&mut tokio::signal::unix::Signal>) {
+        if let Some(sig) = sig {
+            let _ = sig.recv().await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    }
+    tokio::select! {
+        _ = recv_or_pending(term) => true,
+        _ = recv_or_pending(int) => true,
+        _ = tokio::time::sleep(CMD_POLL_STEP) => false,
+    }
+}
+
+/// Non-Unix step: plain sleep, no signal trap (platform scope, spec A10).
+#[cfg(not(unix))]
+async fn wait_step(_term: (), _int: ()) -> bool {
+    tokio::time::sleep(CMD_POLL_STEP).await;
+    false
+}
 
 /// Parent configuration for one role. The command argv is declared by the
 /// caller (systemd unit); the parent never invents it.
@@ -84,7 +113,8 @@ fn cmd_path(state_dir: &Path, role_id: &str) -> PathBuf {
 }
 
 /// Consume a pending stop request exactly once (atomic delete after read).
-/// Unknown commands are left for a future step, never executed.
+/// Unknown commands and wrong-schema files are left for a future step,
+/// never executed.
 fn consume_stop_request(state_dir: &Path, role_id: &str) -> bool {
     let path = cmd_path(state_dir, role_id);
     let raw = match std::fs::read(&path) {
@@ -95,11 +125,23 @@ fn consume_stop_request(state_dir: &Path, role_id: &str) -> bool {
         Ok(cmd) => cmd,
         Err(_) => return false,
     };
-    if cmd.command != cynic_protocol::supervision::PARENT_COMMAND_STOP {
+    if cmd.schema != cynic_protocol::supervision::PARENT_COMMAND_FILE_SCHEMA
+        || cmd.command != cynic_protocol::supervision::PARENT_COMMAND_STOP
+    {
         return false;
     }
     let _ = std::fs::remove_file(&path);
     true
+}
+
+/// Refresh lock liveness so `is_role_parented` keeps reporting a running
+/// parent (its freshness check reads lock mtime). Called on every status
+/// heartbeat; the lock content is unchanged, only mtime moves.
+fn touch_lock(state_dir: &Path, role_id: &str) {
+    let path = lock_path(state_dir, role_id);
+    if let Ok(raw) = std::fs::read(&path) {
+        let _ = write_atomic(&path, &raw);
+    }
 }
 
 fn restarts_path(state_dir: &Path, role_id: &str) -> PathBuf {
@@ -180,8 +222,8 @@ fn acquire_lock(state_dir: &Path, role_id: &str) -> io::Result<Option<String>> {
         epoch: format!("{}-{}", std::process::id(), now_ms()),
         started_at_ms: now_ms(),
     };
-    let payload = serde_json::to_vec(&lock)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    let payload =
+        serde_json::to_vec(&lock).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     match std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -259,12 +301,25 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
     let takeover = acquire_lock(&cfg.state_dir, &cfg.role_id)?;
     let mut history = load_history(&cfg.state_dir, &cfg.role_id);
     let mut counter: u64 = 0;
+    // Heartbeat cadence is coupled to the `is_role_parented` freshness bound
+    // (2x the default 5s interval): a slower heartbeat would read as unparented.
+    let heartbeat_every = cfg.heartbeat_interval_secs.clamp(1, 5);
+    #[cfg(unix)]
+    let mut sigterm =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
+    #[cfg(unix)]
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
     let mut residuals: Vec<String> = takeover.into_iter().collect();
     let mut last_exit: Option<String> = None;
 
-    // Expire history outside the policy window (min_uptime bounds stability).
+    // Expire history outside the policy window. The window covers a full
+    // backoff sequence with margin (sum of capped delays is ~155s at
+    // 5/60/5; 60x min_uptime gives 600s), so GiveUp holds across parent
+    // restarts without remembering ancient failures forever.
     if now_ms().saturating_sub(history.window_start_ms)
-        > (cfg.policy.min_uptime_secs as u128).saturating_mul(1000).saturating_mul(60)
+        > (cfg.policy.min_uptime_secs as u128)
+            .saturating_mul(1000)
+            .saturating_mul(60)
     {
         history = RestartHistory::default();
     }
@@ -275,11 +330,7 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
     loop {
         let attempt = history.count;
         let started = now_ms();
-        let mut child = spawn_backend(
-            &cfg.command,
-            cfg.working_dir.as_deref(),
-            &cfg.env,
-        )?;
+        let mut child = spawn_backend(&cfg.command, cfg.working_dir.as_deref(), &cfg.env)?;
         publish(
             &cfg.status_file,
             &mut counter,
@@ -297,20 +348,42 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
         // Wait for the child, heartbeating and watching for stop requests.
         // Poll-based (no `select!` borrow of the child): `try_wait` borrows
         // end immediately, so `graceful_stop` can take the child later.
-        let heartbeat_every = cfg.heartbeat_interval_secs.max(1);
         let mut elapsed_secs: u64 = 0;
         let status = loop {
             if let Some(status) = child.try_wait()? {
                 break status;
             }
-            tokio::time::sleep(CMD_POLL_STEP).await;
+            #[cfg(unix)]
+            let signaled = wait_step(sigterm.as_mut(), sigint.as_mut()).await;
+            #[cfg(not(unix))]
+            let signaled = wait_step((), ()).await;
+            if signaled {
+                graceful_stop(&mut child, cfg.stop_grace_secs).await?;
+                publish(
+                    &cfg.status_file,
+                    &mut counter,
+                    SupervisorObservation {
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                            .to_string(),
+                        role_id: cfg.role_id.clone(),
+                        state: SupervisorState::Stopped,
+                        restart_count: attempt,
+                        last_exit_reason: Some("signal_shutdown".to_string()),
+                        observed_at_unix_ms: now_ms(),
+                        residual_unknowns: Vec::new(),
+                    },
+                )?;
+                release_lock(&cfg.state_dir, &cfg.role_id);
+                return Ok(RoleRunOutcome::Clean);
+            }
             elapsed_secs = elapsed_secs.saturating_add(1);
             if elapsed_secs % heartbeat_every == 0 {
                 publish(
                     &cfg.status_file,
                     &mut counter,
                     SupervisorObservation {
-                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                            .to_string(),
                         role_id: cfg.role_id.clone(),
                         state: SupervisorState::Active,
                         restart_count: attempt,
@@ -319,6 +392,7 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                         residual_unknowns: residuals.clone(),
                     },
                 )?;
+                touch_lock(&cfg.state_dir, &cfg.role_id);
             }
             if consume_stop_request(&cfg.state_dir, &cfg.role_id) {
                 graceful_stop(&mut child, cfg.stop_grace_secs).await?;
@@ -326,7 +400,8 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                     &cfg.status_file,
                     &mut counter,
                     SupervisorObservation {
-                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                            .to_string(),
                         role_id: cfg.role_id.clone(),
                         state: SupervisorState::Stopped,
                         restart_count: attempt,
@@ -370,7 +445,8 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                     &cfg.status_file,
                     &mut counter,
                     SupervisorObservation {
-                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                            .to_string(),
                         role_id: cfg.role_id.clone(),
                         state: SupervisorState::Failed,
                         restart_count: history.count,
@@ -380,14 +456,22 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                     },
                 )?;
                 // Interruptible backoff wait: a stop request during the delay
-                // stops without spawning again.
+                // stops without spawning again; a signal stops immediately.
                 let mut waited: u64 = 0;
                 let mut stopped_early = false;
                 while waited < delay_secs {
-                    let step = CMD_POLL_STEP.min(Duration::from_secs(delay_secs - waited));
-                    tokio::time::sleep(step).await;
-                    waited = waited.saturating_add(step.as_secs().max(1));
-                    if consume_stop_request(&cfg.state_dir, &cfg.role_id) {
+                    #[cfg(unix)]
+                    let signaled = wait_step(sigterm.as_mut(), sigint.as_mut()).await;
+                    #[cfg(not(unix))]
+                    let signaled = wait_step((), ()).await;
+                    waited = waited.saturating_add(1);
+                    if signaled {
+                        last_exit = Some("signal_shutdown".to_string());
+                    }
+                    if signaled || consume_stop_request(&cfg.state_dir, &cfg.role_id) {
+                        if !signaled {
+                            last_exit = Some("stop_requested".to_string());
+                        }
                         stopped_early = true;
                         break;
                     }
@@ -397,7 +481,8 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                         &cfg.status_file,
                         &mut counter,
                         SupervisorObservation {
-                            schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                            schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                                .to_string(),
                             role_id: cfg.role_id.clone(),
                             state: SupervisorState::Stopped,
                             restart_count: history.count,
@@ -415,7 +500,8 @@ pub async fn run_role(cfg: &RoleRunConfig) -> io::Result<RoleRunOutcome> {
                     &cfg.status_file,
                     &mut counter,
                     SupervisorObservation {
-                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+                        schema: cynic_protocol::supervision::SUPERVISOR_OBSERVATION_SCHEMA
+                            .to_string(),
                         role_id: cfg.role_id.clone(),
                         state: SupervisorState::Failed,
                         restart_count: history.count,
@@ -442,10 +528,7 @@ fn release_lock(state_dir: &Path, role_id: &str) {
 }
 
 /// Stop a running child with the shared ladder (re-exported for CLI stop arms later).
-pub async fn stop_child(
-    child: &mut Box<dyn ChildWrapper>,
-    timeout_secs: u64,
-) -> io::Result<()> {
+pub async fn stop_child(child: &mut Box<dyn ChildWrapper>, timeout_secs: u64) -> io::Result<()> {
     graceful_stop(child, timeout_secs).await
 }
 
@@ -489,7 +572,9 @@ mod tests {
         let second = acquire_lock(&dir, "node");
         let err = second.unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::AlreadyExists);
-        assert!(err.to_string().contains("supervisor_parent_holds_role:node"));
+        assert!(err
+            .to_string()
+            .contains("supervisor_parent_holds_role:node"));
         release_lock(&dir, "node");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -609,6 +694,43 @@ mod stop_drill_tests {
         );
         // Lock released: a new parent may take over.
         assert!(!lock_path(&dir, "node").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod signal_step_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn wait_step_returns_false_without_signal() {
+        #[cfg(unix)]
+        let out = wait_step(None, None).await;
+        #[cfg(not(unix))]
+        let out = wait_step((), ()).await;
+        assert!(!out);
+    }
+
+    #[test]
+    fn consume_rejects_wrong_schema_and_unknown_command() {
+        let dir = std::env::temp_dir().join("cynic-consume-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = cmd_path(&dir, "node");
+        std::fs::write(
+            &path,
+            r#"{"schema":"bogus","command":"stop","requested_at_ms":0}"#,
+        )
+        .unwrap();
+        assert!(!consume_stop_request(&dir, "node"));
+        assert!(path.exists(), "unconsumed file must stay");
+        std::fs::write(
+            &path,
+            r#"{"schema":"cynic.supervisor_parent_command.v1","command":"reboot","requested_at_ms":0}"#,
+        )
+        .unwrap();
+        assert!(!consume_stop_request(&dir, "node"));
+        assert!(path.exists(), "unknown command must stay");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
