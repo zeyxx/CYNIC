@@ -188,7 +188,10 @@
           },
           {
             "run_id": "run_20261015_corpus_10772_trunc2500",
-            "status": "candidate_measured",
+            "status": "superseded",
+            "superseded_by": "run_20261015_corpus_12011_v2fresh",
+            "supersede_reason": "stale v1 eval-corpus cache retained pre-windowing giants (foundation.json 17k chars) whose dense inputs were truncated at 2500; schema-gated v2 load plus fresh sync invalidate it; all numbers below preserved untouched",
+            "artifact_note": "shared target/convex_sweep_report.json was overwritten by the successor run; per-run machine archives start at run 4",
             "provenance_config": {
               "top_k": 5,
               "dense_k": 20,
@@ -242,6 +245,67 @@
             },
             "rrf_regression_note": "ordinal RRF (0.4167) underperforms both pure arms on this 42-query fixture; rank fusion is fragile when sparse and dense top-20 disagree; continuous convex dominates at interior alpha",
             "machine_report": "target/convex_sweep_report.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
+          },
+          {
+            "run_id": "run_20261015_corpus_12011_v2fresh",
+            "status": "candidate_measured",
+            "supersedes": "run_20261015_corpus_10772_trunc2500 (stale-cache contamination, see its supersede_reason)",
+            "provenance_config": {
+              "top_k": 5,
+              "dense_k": 20,
+              "rrf_k": 60.0,
+              "fixture_schema": "cynic.retrieval_gain_labels.v1",
+              "fixture_queries_total": 47,
+              "measured_queries": 42,
+              "traps_excluded": 5,
+              "corpus_chunks_scored": 12011,
+              "corpus_cache_schema": "cynic.knowledge.corpus_cache.v2",
+              "measured_corpus_max_chars": 2498,
+              "measured_corpus_max_tokens": 1101,
+              "pipeline_tag": "trunc2500/doc=/query=/template={body}",
+              "pipeline_max_chars": 2500,
+              "zero_truncation": "proven: v2 cache holds 12011 chunks, max 2498 chars, max 1101 tokens, slots 2048",
+              "head_commit": "a914aa25",
+              "head_note": "run tree equals a914aa25 in all linked code; v2 schema observed in the written cache proves the bump compiled in",
+              "cluster_endpoints": [
+                "http://127.0.0.1:8081/v1#slots=2",
+                "http://192.168.0.25:8080/v1#slots=2"
+              ],
+              "runner_slot_law": "each runner enforces n_ctx/--parallel tokens per input; cortex -c 4096 --parallel 2 and compute-01 -c 4096 --parallel 2 give 2048-token slots",
+              "lxc106_excluded": "no admin access (ssh denied for cynic/titouan/user), ceiling unmeasurable, fails closed on long inputs",
+              "vector_space_limitation": "cortex serves BF16 weights, compute-01 serves Q4 weights; both share one cache file under model tag multi-endpoint and work-stealing assigns lots by timing, so MRR carries unquantified assignment noise; single-weight rerun proposed, not yet run",
+              "optimal_strategy": "ContinuousConvex (CandidateMinMax)",
+              "optimal_alpha": 0.90,
+              "optimal_runner_up": "ContinuousConvex (EmpiricalCdf) alpha 0.60 at 0.5179, within 0.0138"
+            },
+            "mrr_bm25": 0.4583,
+            "mrr_dense": 0.4750,
+            "mrr_hybrid_rrf_k60": 0.4048,
+            "mrr_continuous_convex_minmax_alpha_0_90": 0.5317,
+            "mrr_continuous_convex_ecdf_alpha_0_60": 0.5179,
+            "delta_mrr_best_vs_rrf": 0.1269,
+            "nonlinearity_note": "ECDF curve over alpha 0.00-1.00 step 0.05 is concave with interior optimum (0.258 at 0.00 rising to 0.518 at 0.60, falling to 0.467 at 1.00); sweep endpoints do not reproduce the pure arms because altitude multipliers and contract floors reorder fused candidates even at alpha 0/1",
+            "ecdf_curve_alpha_0_00_to_1_00_step_0_05": [0.2575, 0.2714, 0.3052, 0.3183, 0.3341, 0.3679, 0.4016, 0.4230, 0.4393, 0.4413, 0.4980, 0.5020, 0.5179, 0.5147, 0.5095, 0.5083, 0.4881, 0.4841, 0.4948, 0.4929, 0.4671],
+            "minmax_curve_alpha_0_00_to_1_00_step_0_05": [0.3845, 0.4103, 0.4246, 0.4325, 0.4345, 0.4425, 0.4651, 0.4770, 0.4960, 0.5048, 0.5226, 0.5079, 0.5147, 0.5187, 0.5226, 0.5175, 0.5274, 0.5179, 0.5317, 0.5198, 0.5079],
+            "strategy_robustness_note": "MinMax optimum moved 0.50 to 0.90 across corpus rebuilds while ECDF optimum held 0.60 in both runs; ECDF is the stabler SSOT strategy even where MinMax peaks marginally higher",
+            "wilcoxon_best_ecdf_vs_rrf": {
+              "n_nonzero": 10,
+              "w_plus": 52.0,
+              "z": 2.461,
+              "p_two_sided": 0.0139,
+              "wins": 8,
+              "losses": 2,
+              "ties": 32,
+              "verdict": "significant at 0.05 on 10 decisive pairs; 32/42 ties bound the power; freeze needs n_nonzero >= 30 via new discriminating queries, not reruns",
+              "method": "paired signed-rank per empirical-retrieval-calibration references/wilcoxon-signed-rank.md (continuity and tie corrections, unit-tested)"
+            },
+            "blind_spots": {
+              "total_miss_queries": 7,
+              "ids": ["RQC1_CONSENSUS", "RQ12_MEMORY_GUARD", "RQC4_PARAPHRASE", "RQ19_FOUNDATION_INVARIANTS", "RQ20_CLAIMS_LEASE", "RQ26_MACHINE_IDENTITY", "RQ28_EVIDENCE_RECEIPT"],
+              "reading": "RQ12 joined after the fresh sync (rechunking rank shift); all 7 are depth gaps (gold at ranks 8-75 or dense-only misses), never absences; RQ26 query terms (ed25519) occur 0 times in the gold doc, a genuine dense-only probe kept as known-hard"
+            },
+            "bilateral_guard_note": "guard flipped sign across rebuilds (+0.03 before, -0.03 now vs BM25); not robust on this fixture, no longer part of the adoption claim",
+            "machine_report": "target/convex_sweep_report_12011.json (schema cynic.convex_sweep_report.v1, per-query RR included)"
           }
         ]
       }
