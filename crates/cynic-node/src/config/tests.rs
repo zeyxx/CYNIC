@@ -90,8 +90,8 @@ fn parse_config_serde_defaults() {
     assert_eq!(cfg.dog.timeout_secs, 60);
     assert_eq!(cfg.kernel.heartbeat_interval_secs, 40);
     assert_eq!(cfg.restart.max_attempts, 5);
-    assert_eq!(cfg.restart.initial_delay_secs, 2);
-    assert_eq!(cfg.restart.max_delay_secs, 120);
+    assert_eq!(cfg.restart.initial_delay_secs, 5);
+    assert_eq!(cfg.restart.max_delay_secs, 60);
     assert_eq!(cfg.restart.min_uptime_secs, 10);
     assert_eq!(cfg.health.interval_secs, 15);
     assert_eq!(cfg.health.verify_interval_secs, 60);

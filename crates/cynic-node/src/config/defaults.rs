@@ -14,12 +14,14 @@ pub(super) fn default_max_attempts() -> u32 {
     5
 }
 
+/// Contract `lifecycle.restart.backoff.initial_seconds` (S5b adopts 5s).
 pub(super) fn default_initial_delay_secs() -> u64 {
-    2
+    5
 }
 
+/// Contract `lifecycle.restart.backoff.max_seconds` (S5b adopts 60s).
 pub(super) fn default_max_delay_secs() -> u64 {
-    120
+    60
 }
 
 pub(super) fn default_min_uptime_secs() -> u64 {
