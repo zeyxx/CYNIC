@@ -2,7 +2,6 @@
 //! Default target: local llama-server on :8081 with Qwen3-Embedding.
 
 use async_trait::async_trait;
-use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
