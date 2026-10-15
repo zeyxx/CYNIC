@@ -575,8 +575,10 @@ fn persist_settlement_proof(
     fields: &SettlementProofFields<'_>,
 ) {
     let proof = settlement_proof_body(fields);
-    let evidence_ref = cynic_protocol::digest_json(&proof)
-        .map(|digest| format!("scheduler-settlement:{digest}"))
+    // Single digest path: the pure helper above is the only constructor.
+    // (Previously duplicated inline, leaving the helper test-only and the
+    // lib red under deny(dead_code).)
+    let evidence_ref = settlement_proof_evidence_ref(fields)
         .unwrap_or_else(|_| format!("scheduler-settlement:{}", fields.workload_id));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_settlement"],
