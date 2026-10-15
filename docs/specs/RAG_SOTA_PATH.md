@@ -81,8 +81,10 @@ BM25 0.4984 · dense 0.6906 · RRF 0.4396 · MinMax 0.6965 @0.80 ·
 ECDF 0.5725 @0.75 · Wilcoxon p=0.0003 (31/6/48, n_nonzero 37).
 Pipeline: query prefix `task: search result | query: `, docs
 `title: {filename} | text: {body}`. Runners: cortex + compute-01, Q8_0,
-slots 4+4, registry-resolved. Deployment: global MinMax alpha 0.80;
-MRL-256d adopted for future runs.
+slots 4+4, registry-resolved. Cluster fanout proven live (128-text probe:
+16 sublots → cortex 11, compute 5; per-endpoint pools with headroom-guarded
+stealing — the old shared queue starved every peer past the first).
+Deployment: global MinMax alpha 0.80; MRL-256d adopted for future runs.
 MRL-256 screen (2026-10-15, `CYNIC_TRUNC_DIM=256`, pure re-rank, zero
 re-embed): dense 0.5918, MinMax 0.5884, ECDF 0.5278, Wilcoxon p=0.0039 —
 identical to 768d on every decision. Google's −2.5 code points do not
