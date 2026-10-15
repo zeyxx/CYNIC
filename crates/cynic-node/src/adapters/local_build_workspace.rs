@@ -39,7 +39,7 @@ impl<R: ArgvRunner> BuildWorkspacePort for LocalBuildWorkspace<'_, R> {
             match self.update_in_place(&layout.workspace_root, source_commit) {
                 Ok(()) => false,
                 Err(_) => {
-                    self.remove_workspace(&layout.workspace_root)?;
+                    self.remove_workspace(repository, &layout.workspace_root)?;
                     self.create_worktree(repository, &layout.workspace_root, source_commit)?;
                     true
                 }
@@ -160,11 +160,14 @@ impl<R: ArgvRunner> LocalBuildWorkspace<'_, R> {
     /// back to a plain recursive removal.
     fn remove_workspace(
         &self,
+        repository: &str,
         workspace: &std::path::Path,
     ) -> Result<(), AgentWorkspacePortError> {
         let workspace = path_text(workspace)?;
         let remove = self.runner.run(&[
             self.git_bin,
+            "-C",
+            repository,
             "worktree",
             "remove",
             "--force",
@@ -173,6 +176,14 @@ impl<R: ArgvRunner> LocalBuildWorkspace<'_, R> {
         if !remove.success() {
             fs::remove_dir_all(workspace)
                 .map_err(|_| error("build_workspace_remove_failed"))?;
+            // Clean up stale worktree registration left by the corrupt tree.
+            let _ = self.runner.run(&[
+                self.git_bin,
+                "-C",
+                repository,
+                "worktree",
+                "prune",
+            ]);
         }
         Ok(())
     }
@@ -242,6 +253,14 @@ mod tests {
         }
     }
 
+    fn head_sha(repo: &std::path::Path) -> String {
+        let out = std::process::Command::new("git")
+            .args(["-C", repo.to_str().unwrap(), "rev-parse", "HEAD"])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
     #[test]
     fn second_prepare_same_sha_reuses_checkout() {
         // H1b: second prepare of the same SHA must reuse the existing
@@ -251,12 +270,16 @@ mod tests {
         let repository = case.path().join("repository");
         let workspace = case.path().join("stable").join("debug");
         init_repo(&repository);
-        let commit = "HEAD";
+        let commit = head_sha(&repository);
         let runner = LocalArgvRunner;
         let port = LocalBuildWorkspace::new(&runner, "git");
         let layout = layout(&repository, &workspace);
+        git(
+            &["remote", "add", "origin", repository.to_str().unwrap()],
+            &repository,
+        );
         // First prepare: creates the worktree.
-        let first = port.prepare(&layout, commit).unwrap();
+        let first = port.prepare(&layout, &commit).unwrap();
         assert!(first.created, "first prepare must create the worktree");
         // Add a sentinel file with a known mtime.
         std::fs::create_dir_all(&workspace).unwrap();
@@ -267,7 +290,7 @@ mod tests {
             .modified()
             .unwrap();
         // Second prepare: must reuse the existing checkout.
-        let second = port.prepare(&layout, commit).unwrap();
+        let second = port.prepare(&layout, &commit).unwrap();
         assert!(
             !second.created,
             "second prepare must NOT re-create the worktree"
@@ -305,16 +328,21 @@ mod tests {
         let runner = LocalArgvRunner;
         let port = LocalBuildWorkspace::new(&runner, "git");
         let layout = layout(&repository, &workspace);
+        let first_commit = head_sha(&repository);
+        git(
+            &["remote", "add", "origin", repository.to_str().unwrap()],
+            &repository,
+        );
         // First prepare: creates the worktree at the initial commit.
-        let first = port.prepare(&layout, "HEAD").unwrap();
+        let first = port.prepare(&layout, &first_commit).unwrap();
         assert!(first.created);
         // Make a new commit in the repository.
         std::fs::write(repository.join("g"), b"y").unwrap();
         git(&["add", "g"], &repository);
         git(&["commit", "-qm", "second"], &repository);
-        let new_commit = "HEAD";
+        let new_commit = head_sha(&repository);
         // Second prepare: must update in place.
-        let second = port.prepare(&layout, new_commit).unwrap();
+        let second = port.prepare(&layout, &new_commit).unwrap();
         assert!(
             !second.created,
             "second prepare must NOT re-create the worktree"
@@ -347,19 +375,22 @@ mod tests {
         let repository = case.path().join("repository");
         let workspace = case.path().join("stable").join("debug");
         init_repo(&repository);
+        let commit = head_sha(&repository);
         let runner = LocalArgvRunner;
         let port = LocalBuildWorkspace::new(&runner, "git");
         let layout = layout(&repository, &workspace);
         // First prepare: creates the worktree.
-        let first = port.prepare(&layout, "HEAD").unwrap();
+        let first = port.prepare(&layout, &commit).unwrap();
         assert!(first.created);
-        // Corrupt the workspace by removing .git.
+        // Corrupt the workspace by removing .git (a file in a worktree).
         let git_dir = workspace.join(".git");
-        if git_dir.exists() {
+        if git_dir.is_dir() {
             std::fs::remove_dir_all(&git_dir).unwrap();
+        } else if git_dir.exists() {
+            std::fs::remove_file(&git_dir).unwrap();
         }
         // Second prepare: must fall back to clean recreate.
-        let second = port.prepare(&layout, "HEAD").unwrap();
+        let second = port.prepare(&layout, &commit).unwrap();
         assert!(
             second.created,
             "corrupt workspace must be recreated from scratch"
