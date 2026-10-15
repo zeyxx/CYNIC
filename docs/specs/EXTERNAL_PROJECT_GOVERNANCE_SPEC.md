@@ -47,11 +47,31 @@ a way to read it.
   exchange.
 - It is quarantined on repeated contract violations or stale pin.
 
+## 6b. Graduation maturity (stages, not paperwork)
+
+1. `observed` — surfaces read, zero coupling.
+2. `usable` — repeated successful contract exchanges.
+3. `viable` — proven utility AND monetary self-sufficiency (pays for
+   itself). Light stack allowed: no direct-Rust mandate, no workspace
+   coupling. CYNIC acts as frictionless scientific engine (proofs,
+   measures, DevOps/Data/ML runs, compute, recursive agents).
+4. `standard` — the app is its users' standard (external adoption,
+   not internal demo).
+5. `native` — installable OS capability. Only after `standard` PLUS:
+   two real consumers, CYNIC on devnet, `no_std`/std split landed.
+
+Early stages optimize agility and iteration speed. Native integration
+is earned by viability, never granted by architecture.
+
 ## 7. Anti-coupling ratchets
 
 - No external runtime dependency in CYNIC crates.
 - No direct DB/Redis/WS client baked into domain modules.
 - Stack-specific code lives behind adapters or in the project itself.
+- No project-named crate in the workspace (`cynic-<project>` is forbidden).
+  A project adapter graduates to a generic OS capability only when ALL hold:
+  1. at least two real consumers, 2. CYNIC present on devnet,
+  3. `no_std`/std split landed. Until then the adapter lives in the project.
 
 ## 8. Pending decisions
 
