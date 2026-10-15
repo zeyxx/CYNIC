@@ -1,6 +1,5 @@
+use crate::domain::chunk::{AuthorityTier, DocumentChunk};
 use serde::{Deserialize, Serialize};
-
-use crate::domain::chunk::DocumentChunk;
 
 pub const CHUNK_QUALITY_REPORT_SCHEMA_V1: &str = "cynic.knowledge.chunk_quality_report.v1";
 
@@ -160,6 +159,91 @@ fn compute_percentiles(sorted: &[usize]) -> ChunkLengthPercentiles {
         max: sorted[n - 1],
         mean,
     }
+}
+
+/// Hard character ceiling for any emitted chunk. Above this, a chunk suffers
+/// dense-model truncation on the physical runners (batch 2048 tokens).
+pub const MAX_CHUNK_CHARS: usize = 2_500;
+
+/// Target character payload per organic sub-window.
+pub const CHAR_WINDOW_CHARS: usize = 2_000;
+
+/// Character budget of contextual overlap between adjacent sub-windows.
+pub const CHAR_WINDOW_OVERLAP_CHARS: usize = 200;
+
+/// Splits a line-aligned span into character-budgeted chunks.
+///
+/// Second-stage guard of the organic chunker: the first stage bounds a chunk by
+/// line count, which is not a size guarantee when single lines are hundreds of
+/// characters long (compact JSON contracts, dense markdown tables). This stage
+/// re-walks the span at line boundaries and never exceeds `MAX_CHUNK_CHARS`.
+///
+/// Splitting happens only at line boundaries; measured longest single line in
+/// the CYNIC corpus is 1 287 characters, so no word is ever bisected.
+pub fn split_span_by_char_budget(
+    rel_path: &str,
+    line_start: usize,
+    line_end: usize,
+    hierarchy_prefix: &[String],
+    signature: &str,
+    file_lines: &[&str],
+    authority: AuthorityTier,
+) -> Vec<DocumentChunk> {
+    let span_len = line_end.saturating_sub(line_start) + 1;
+    if file_lines.len() < line_end {
+        return Vec::new();
+    }
+
+    let mut chunks = Vec::new();
+    let mut win_start = line_start;
+
+    while win_start <= line_end {
+        // Grow the window until the char budget is reached.
+        let mut cursor = win_start;
+        let mut budget = 0usize;
+        while cursor <= line_end {
+            let line_len = file_lines[cursor - 1].len() + 1;
+            if budget + line_len > CHAR_WINDOW_CHARS && cursor > win_start {
+                break;
+            }
+            budget += line_len;
+            cursor += 1;
+        }
+        let win_end = cursor.min(line_end);
+        let content = file_lines[win_start - 1..win_end].join("\n");
+
+        let mut hierarchy = hierarchy_prefix.to_vec();
+        let label = if span_len > 1 || win_end > win_start {
+            format!("{signature} (chars, lines {win_start}-{win_end})")
+        } else {
+            signature.to_string()
+        };
+        hierarchy.push(label);
+
+        chunks.push(DocumentChunk::new(
+            rel_path.to_string(),
+            win_start,
+            win_end,
+            hierarchy,
+            content,
+            authority,
+        ));
+
+        if win_end >= line_end {
+            break;
+        }
+
+        // Step back enough lines to cover the overlap budget (>= 1 line).
+        let mut next_start = win_end;
+        let mut overlap = 0usize;
+        while next_start > win_start && overlap < CHAR_WINDOW_OVERLAP_CHARS {
+            next_start -= 1;
+            overlap += file_lines[next_start - 1].len() + 1;
+        }
+        win_start = next_start.max(win_start + 1);
+    }
+
+    chunks
 }
 
 #[cfg(test)]

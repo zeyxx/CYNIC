@@ -24,6 +24,11 @@ pub use authority::{
 };
 pub use cache::{CORPUS_CACHE_SCHEMA_V1, CachedFileRecord, CorpusCacheRecord};
 pub use chunk::{AuthorityTier, DocumentChunk};
+pub use chunk_quality::{
+    CHAR_WINDOW_CHARS, CHAR_WINDOW_OVERLAP_CHARS, CHUNK_QUALITY_REPORT_SCHEMA_V1, ChunkAnomaly,
+    ChunkLengthPercentiles, ChunkQualityReport, DEFAULT_MAX_CHUNK_CHARS, DEFAULT_MIN_CHUNK_CHARS,
+    MAX_CHUNK_CHARS, split_span_by_char_budget,
+};
 pub use commit::{GIT_COMMIT_SCHEMA_V1, GitCommitRecord};
 pub use continuous_fusion::{
     EmpiricalCdf, NormalizationStrategy, fuse_continuous_convex, min_max_normalize,
