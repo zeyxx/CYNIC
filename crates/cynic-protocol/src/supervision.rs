@@ -71,9 +71,12 @@ pub fn service_supervisor_status(
     (status, active_count, degraded_count, unknown_count)
 }
 
-/// Canonical supervisor lifecycle states from `contracts/supervisor-contract.json`.
-/// Unknown is explicit data, never fabricated as active.
+/// Wire schema for supervisor observations (`cynic supervise observe` emits these).
 pub const SUPERVISOR_OBSERVATION_SCHEMA: &str = "cynic.supervisor_observation.v1";
+/// Declared supervisor roles from `contracts/supervisor-contract.json`
+/// `lifecycle.roles`. Mirrored here as the materialised contract (Layer-0);
+/// a coherence test pins this list against the JSON source.
+pub const SUPERVISED_ROLE_IDS: &[&str] = &["node", "kernel", "mcp"];
 /// Backoff defaults from the contract `lifecycle.restart.backoff` section.
 pub const SUPERVISOR_BACKOFF_INITIAL_SECS: u64 = 5;
 pub const SUPERVISOR_BACKOFF_MAX_SECS: u64 = 60;
@@ -108,6 +111,22 @@ impl SupervisorState {
             Self::Failed => "failed",
             Self::Unknown => "unknown",
         }
+    }
+
+    /// Parse a contract state name. Returns `None` for anything outside the
+    /// 7 declared names; callers map `None` to `Unknown` with an explicit
+    /// residual unknown rather than coercing silently.
+    pub fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "planned" => Self::Planned,
+            "starting" => Self::Starting,
+            "active" => Self::Active,
+            "draining" => Self::Draining,
+            "stopped" => Self::Stopped,
+            "failed" => Self::Failed,
+            "unknown" => Self::Unknown,
+            _ => return None,
+        })
     }
 }
 
@@ -227,6 +246,37 @@ pub fn decide_restart(
     }
 }
 
+/// Read-only supervisor observation for one role, per
+/// `contracts/supervisor-contract.json` `observation.required_fields`.
+/// Emitted by `cynic supervise observe`; never constructed by mutation paths.
+/// `state` is `Unknown` with a non-empty `residual_unknowns` whenever no
+/// supervisor daemon holds live state for the role.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SupervisorObservation {
+    pub schema: String,
+    pub role_id: String,
+    pub state: SupervisorState,
+    pub restart_count: u32,
+    pub last_exit_reason: Option<String>,
+    pub observed_at_unix_ms: u128,
+    pub residual_unknowns: Vec<String>,
+}
+
+impl SupervisorObservation {
+    /// Explicit-unknown observation: no daemon holds this role yet.
+    pub fn unknown_role(role_id: &str, observed_at_unix_ms: u128, reason: &str) -> Self {
+        Self {
+            schema: SUPERVISOR_OBSERVATION_SCHEMA.to_string(),
+            role_id: role_id.to_string(),
+            state: SupervisorState::Unknown,
+            restart_count: 0,
+            last_exit_reason: None,
+            observed_at_unix_ms,
+            residual_unknowns: vec![reason.to_string()],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,5 +389,41 @@ mod tests {
             assert_eq!(state.as_str(), name);
         }
         assert_eq!(SupervisorState::default(), SupervisorState::Unknown);
+    }
+
+    #[test]
+    fn supervisor_state_parse_roundtrips_all_names() {
+        for name in [
+            "planned",
+            "starting",
+            "active",
+            "draining",
+            "stopped",
+            "failed",
+            "unknown",
+        ] {
+            let state = SupervisorState::parse(name)
+                .unwrap_or_else(|| panic!("parse({name}) should succeed"));
+            assert_eq!(state.as_str(), name);
+        }
+        assert_eq!(SupervisorState::parse(""), None);
+        assert_eq!(SupervisorState::parse("Active"), None);
+        assert_eq!(SupervisorState::parse("degraded"), None);
+    }
+
+    #[test]
+    fn unknown_role_observation_is_explicit() {
+        let obs = SupervisorObservation::unknown_role("node", 1_700_000_000_000, "no_daemon");
+        assert_eq!(obs.schema, SUPERVISOR_OBSERVATION_SCHEMA);
+        assert_eq!(obs.role_id, "node");
+        assert_eq!(obs.state, SupervisorState::Unknown);
+        assert_eq!(obs.restart_count, 0);
+        assert_eq!(obs.last_exit_reason, None);
+        assert_eq!(obs.residual_unknowns, vec!["no_daemon".to_string()]);
+    }
+
+    #[test]
+    fn supervised_role_ids_match_contract() {
+        assert_eq!(SUPERVISED_ROLE_IDS, &["node", "kernel", "mcp"]);
     }
 }
