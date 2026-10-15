@@ -201,6 +201,8 @@ fn test_continuous_convex_calibration_vs_rrf() {
     let mut sweep_rows: Vec<(f64, f64, f64)> = Vec::with_capacity(alphas.len());
     // Per-query ECDF reciprocal ranks per alpha, for the paired test.
     let mut ecdf_rr_by_alpha: Vec<(f64, Vec<f64>)> = Vec::with_capacity(alphas.len());
+    // Per-query MinMax reciprocal ranks per alpha, for per-doctype routing.
+    let mut minmax_rr_by_alpha: Vec<(f64, Vec<f64>)> = Vec::with_capacity(alphas.len());
 
     for &alpha in &alphas {
         let rr_minmax: Vec<f64> = evaluated_queries
@@ -248,6 +250,7 @@ fn test_continuous_convex_calibration_vs_rrf() {
         }
         sweep_rows.push((alpha, mrr_minmax, mrr_ecdf_score));
         ecdf_rr_by_alpha.push((alpha, rr_ecdf));
+        minmax_rr_by_alpha.push((alpha, rr_minmax));
 
         println!(
             "{:5.2} |   {:.4}   |  {:.4}  |       {:+0.4}         |      {:+0.4}",
@@ -302,7 +305,9 @@ fn test_continuous_convex_calibration_vs_rrf() {
 
     // 5. Machine-readable sweep report for the SSOT contract.
     let report = serde_json::json!({
-        "schema": "cynic.convex_sweep_report.v1",
+        // v2 adds the full alpha-per-query matrix plus per-query gold_doctype
+        // for per-data-type routing; v1 archives keep only best columns.
+        "schema": "cynic.convex_sweep_report.v2",
         "corpus_chunks_scored": chunks.len(),
         "measured_queries": evaluated_queries.len(),
         "pipeline_tag": pipeline.tag(),
@@ -330,13 +335,23 @@ fn test_continuous_convex_calibration_vs_rrf() {
             "ties": ties,
         },
         "per_query": evaluated_queries.iter().enumerate().map(|(i, q)| {
+            let mut doctypes: Vec<&str> = q.labeled.grades.iter()
+                .filter(|(_, g)| **g == 2)
+                .map(|(p, _)| p.rsplit('.').next().unwrap_or("?"))
+                .collect();
+            doctypes.sort_unstable();
+            doctypes.dedup();
             serde_json::json!({
                 "id": q.labeled.id,
+                "gold_doctype": doctypes.join("+"),
                 "rr_bm25": rr_bm25[i],
                 "rr_dense": rr_dense[i],
                 "rr_rrf": rr_rrf[i],
                 "rr_best_ecdf": best_rr_ecdf[i],
             })
+        }).collect::<Vec<_>>(),
+        "matrix": minmax_rr_by_alpha.iter().zip(ecdf_rr_by_alpha.iter()).map(|((a, mm), (_, ec))| {
+            serde_json::json!({"alpha": a, "rr_minmax": mm, "rr_ecdf": ec})
         }).collect::<Vec<_>>(),
     });
     let report_path = root.join("target/convex_sweep_report.json");
