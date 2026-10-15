@@ -1202,6 +1202,7 @@ dependencies = [
  "hmac",
  "http",
  "libc",
+ "nix",
  "notify",
  "process-wrap",
  "reqwest 0.13.5",

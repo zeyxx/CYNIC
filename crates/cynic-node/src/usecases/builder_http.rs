@@ -17,10 +17,9 @@ use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
-    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF,
-    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildReleasePublicationIntent, BuildSourceReference, CollisionCounter,
-    CollisionEvent, COLLISION_WINDOW_MS, compose_build_agent_workload,
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
+    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
+    COLLISION_WINDOW_MS, compose_build_agent_workload,
 };
 use std::sync::Mutex;
 use cynic_protocol::{
@@ -685,7 +684,10 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
-    use cynic_build::{admit_build_agent_request, canonical_argv_from_build_action};
+    use cynic_build::{
+        admit_build_agent_request, canonical_argv_from_build_action,
+        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
+    };
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
