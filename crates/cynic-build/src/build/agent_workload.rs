@@ -389,7 +389,19 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(envelope.action.argv, vec!["make", "check"]);
+        assert_eq!(
+            envelope.action.argv,
+            vec![
+                "cargo",
+                "run",
+                "-q",
+                "-p",
+                "cynic-cli",
+                "--",
+                "audit",
+                "crate"
+            ]
+        );
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
         assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
         assert_eq!(

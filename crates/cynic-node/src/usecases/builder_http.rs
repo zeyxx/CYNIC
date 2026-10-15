@@ -17,9 +17,10 @@ use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
-    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
-    COLLISION_WINDOW_MS, compose_build_agent_workload,
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF,
+    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
+    BuildAgentRequest, BuildReleasePublicationIntent, BuildSourceReference, CollisionCounter,
+    CollisionEvent, COLLISION_WINDOW_MS, compose_build_agent_workload,
 };
 use std::sync::Mutex;
 use cynic_protocol::{
@@ -697,6 +698,20 @@ mod tests {
             let action = submit_action_to_canonical(verb).expect("known submit verb");
             let mut request = push_request(&"d".repeat(40));
             request.action = action.to_string();
+            if action == "make:build-release" {
+                // Composition requires publication intent plus the two
+                // release proofs for release builds: equip the request so
+                // the chain test exercises the real release path.
+                request.release_publication = Some(BuildReleasePublicationIntent {
+                    schema: BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
+                    release_id: "v9.9.9-test".to_string(),
+                    release_epoch: 1,
+                });
+                request.proof_requirements.extend([
+                    "release_binary_artifact_read_back".to_string(),
+                    "signed_release_basket_read_back".to_string(),
+                ]);
+            }
             let admission = admit_build_agent_request(&request);
             assert!(
                 !admission
