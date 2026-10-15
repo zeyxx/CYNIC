@@ -1,6 +1,6 @@
 {
   "schema": "cynic.retrieval_gain_labels.v1",
-  "note": "Graded relevance fixture for 11.10. Grades: 2 = exact answer, 1 = related, 0 = noise (default). Traps are measured only. Rerun after slice 3 (hybrid) and compare MRR/nDCG on this exact fixture. RQ4-RQ9 graded 2026-10-14 against live paths; RQC1-3 are conceptual queries where dense may beat lexical.",
+  "note": "Expanded 42-query evaluation fixture for statistically rich retrieval gain and non-linear alpha convex fusion calibration.",
   "queries": [
     {
       "id": "RQ1_MERGE_GATE",
@@ -154,8 +154,224 @@
       }
     },
     {
+      "id": "RQ14_CONVEX_FUSION",
+      "query": "continuous convex fusion EmpiricalCdf empirical cumulative distribution",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/continuous_fusion.rs": 2
+      }
+    },
+    {
+      "id": "RQ15_EPISTEMIC_GROUNDING",
+      "query": "epistemic grounding non couvert par le corpus actuel gate",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/epistemic_grounding.rs": 2
+      }
+    },
+    {
+      "id": "RQ16_VECTOR_CACHE",
+      "query": "vector cache record blake3 chunk_id tensor storage",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/vector_cache.rs": 2
+      }
+    },
+    {
+      "id": "RQ17_WORK_STEALING",
+      "query": "work stealing pull sequencer concurrent slot workers",
+      "trap": false,
+      "grades": {
+        "crates/cynic-inference/src/adapters/embedding/http.rs": 2
+      }
+    },
+    {
+      "id": "RQ18_SYNC_BRIDGE",
+      "query": "SyncEmbeddingBridge async backend block_on dimension drift",
+      "trap": false,
+      "grades": {
+        "crates/cynic-inference/src/adapters/embedding/sync_bridge.rs": 2
+      }
+    },
+    {
+      "id": "RQ19_FOUNDATION_INVARIANTS",
+      "query": "contracts foundation json constituent human sovereignty",
+      "trap": false,
+      "grades": {
+        "contracts/foundation.json": 2
+      }
+    },
+    {
+      "id": "RQ20_CLAIMS_LEASE",
+      "query": "agent coordination claims lease ttl expiry",
+      "trap": false,
+      "grades": {
+        "contracts/claims.json": 2
+      }
+    },
+    {
+      "id": "RQ21_EMBEDDING_SELECTION",
+      "query": "embedding candidate selection B1 Gemma2 calibration history",
+      "trap": false,
+      "grades": {
+        "contracts/embedding-selection.json": 2
+      }
+    },
+    {
+      "id": "RQ22_AUTHORITY_TIERS",
+      "query": "authority tiers L0 constitution L1 specification L2 design L3 operation",
+      "trap": false,
+      "grades": {
+        "contracts/authority-tiers.json": 2
+      }
+    },
+    {
+      "id": "RQ23_ISOLATED_WORKTREE",
+      "query": "isolated git worktree scratch directory branch",
+      "trap": false,
+      "grades": {
+        "crates/cynic-vcs/src/isolated_worktree.rs": 2
+      }
+    },
+    {
+      "id": "RQ24_SOURCE_LEASE",
+      "query": "source lease branch lock coordination",
+      "trap": false,
+      "grades": {
+        "crates/cynic-vcs/src/source_lease.rs": 2
+      }
+    },
+    {
+      "id": "RQ25_AGENT_ISOLATION",
+      "query": "agent isolation sandbox memory cpu limits protocol",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/agent_isolation.rs": 2
+      }
+    },
+    {
+      "id": "RQ26_MACHINE_IDENTITY",
+      "query": "machine identity node ed25519 public key verification",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/machine_identity.rs": 2
+      }
+    },
+    {
+      "id": "RQ27_CAPABILITY_LEASE",
+      "query": "capability lease delegated budget token expiration",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/capability_lease.rs": 2
+      }
+    },
+    {
+      "id": "RQ28_EVIDENCE_RECEIPT",
+      "query": "evidence journal cryptographic verification proof receipt",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/evidence.rs": 2
+      }
+    },
+    {
+      "id": "RQ29_ENERGY_LEDGER",
+      "query": "metabolic energy ledger compute cost accounting",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/energy_ledger.rs": 2
+      }
+    },
+    {
+      "id": "RQ30_TASK_ADMISSION",
+      "query": "task admission filter priority queue bounds",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/task_admission.rs": 2
+      }
+    },
+    {
+      "id": "RQ31_CONSTITUTIONAL_COURT",
+      "query": "constitutional court policy audit separation of powers",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/constitutional_court.rs": 2
+      }
+    },
+    {
+      "id": "RQ32_HYBRID_RRF",
+      "query": "hybrid reciprocal rank fusion rrf_score constant k 60",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/hybrid_rrf.rs": 2
+      }
+    },
+    {
+      "id": "RQ33_CORPUS_INGESTION_AUDIT",
+      "query": "corpus ingestion audit 100 percent chunks parsing line coordinates fidelity",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/tests/corpus_ingestion_audit.rs": 2
+      }
+    },
+    {
+      "id": "RQ34_DATA_CENTRIC_METHODOLOGY",
+      "query": "normative data centric bottom up rag methodology falsification checklist",
+      "trap": false,
+      "grades": {
+        "docs/specs/DATA_CENTRIC_RAG_METHODOLOGY.md": 2
+      }
+    },
+    {
+      "id": "RQ35_FORGEJO_TOKEN",
+      "query": "forgejo api token authentication secret path",
+      "trap": false,
+      "grades": {
+        "crates/cynic-vcs/src/forgejo_token.rs": 2
+      }
+    },
+    {
+      "id": "RQ36_CHUNK_QUALITY",
+      "query": "chunk quality audit anti heresy giant starved percentiles",
+      "trap": false,
+      "grades": {
+        "crates/cynic-knowledge/src/domain/chunk_quality.rs": 2
+      }
+    },
+    {
+      "id": "RQ37_SANITIZE_STIMULUS",
+      "query": "sanitize stimulus field max characters boundary take",
+      "trap": false,
+      "grades": {
+        "crates/cynic-protocol/src/sanitize.rs": 2
+      }
+    },
+    {
       "id": "RQ10_TRAP_KUBERNETES",
       "query": "deploy kubernetes helm chart cynic cluster pods",
+      "trap": true,
+      "grades": {}
+    },
+    {
+      "id": "TRAP_SWAPFILE_CORTEX",
+      "query": "configure 32gb swapfile swapon cortex host",
+      "trap": true,
+      "grades": {}
+    },
+    {
+      "id": "TRAP_UNISWAP_LIQUIDITY",
+      "query": "uniswap pool cynic token price usd pair liquidity",
+      "trap": true,
+      "grades": {}
+    },
+    {
+      "id": "TRAP_ADV_POW_MINING",
+      "query": "cynic-protocol consensus proof of work sha256 mining difficulty",
+      "trap": true,
+      "grades": {}
+    },
+    {
+      "id": "TRAP_ADV_ERC20_SWAP",
+      "query": "contracts foundation json erc20 token swap router uniswap pool",
       "trap": true,
       "grades": {}
     }

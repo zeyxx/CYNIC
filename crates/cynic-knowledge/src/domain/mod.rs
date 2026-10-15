@@ -2,6 +2,7 @@ pub mod ast;
 pub mod authority;
 pub mod cache;
 pub mod chunk;
+pub mod chunk_quality;
 pub mod commit;
 pub mod continuous_fusion;
 pub mod epistemic_grounding;
