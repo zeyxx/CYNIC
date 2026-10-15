@@ -274,15 +274,17 @@ async fn execute_claimed(
         }
     };
     let prepare_ms = prepare_start.elapsed().as_millis() as u64;
-    // Footprint measurement scope: disk free bytes bracket the build on the
-    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
-    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    // Footprint measurement scope: target-dir growth (du-style) brackets the
+    // build on the effective CARGO_TARGET_DIR. RSS is measured after the build
+    // via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    // NOTE: target-dir growth is approximate under concurrency because multiple
+    // builds may share the same target dir.
     let target_dir = effective_target_dir(
         scheduler.shared_target_root.as_deref(),
         &prepared.workspace.workspace_root,
         &claimed.record.envelope.action.argv,
     );
-    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
+    let target_dir_size_before = measure_target_dir_size_bytes(&target_dir);
     let execute_start = Instant::now();
     let execution = TokioBuildExecution
         .execute(&prepared.execution, &execution_cancel)
@@ -436,11 +438,12 @@ async fn execute_claimed(
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
     // Close the footprint measurement scope: RSS via RUSAGE_CHILDREN
     // (max of the build child tree, not the scheduler's own RSS) and
-    // disk free-byte delta on the target dir's filesystem.
+    // target-dir growth (du-style: size of effective target dir before/after
+    // the execute window). Approximate under concurrency (shared target).
     // None = unmeasured (explicit unknown).
     let max_rss_kb = measure_max_rss_kb();
-    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes_for(&target_dir)) {
-        (Some(before), Some(after)) => Some(before as i64 - after as i64),
+    let disk_delta_bytes = match (target_dir_size_before, measure_target_dir_size_bytes(&target_dir)) {
+        (Some(before), Some(after)) => Some(after as i64 - before as i64),
         _ => None,
     };
     let latest = store
@@ -598,29 +601,30 @@ fn measure_max_rss_kb() -> Option<u64> {
     Some(usage.ru_maxrss as u64)
 }
 
-/// Measure free disk bytes on the filesystem containing `path` via
-/// `statvfs(2)`. Returns `None` when the syscall fails or `path` is
-/// not valid UTF-8.
+/// Measure the total size of all files in `path` recursively (du-style).
+/// Returns `None` when the path doesn't exist or can't be read.
 ///
-/// Uses `f_bavail` (free blocks available to unprivileged users) rather
-/// than `f_bfree` (superuser free blocks) to match what `df` reports and
-/// what the process can actually allocate. Uses `f_frsize` (fundamental
-/// fragment size) with a fallback to `f_bsize` when `f_frsize` is 0
-/// (some filesystems leave it unset).
-fn measure_disk_free_bytes_for(path: &std::path::Path) -> Option<u64> {
-    use std::ffi::CString;
-    let path_cstr = CString::new(path.to_str()?).ok()?;
-    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
-    let result = unsafe { libc::statvfs(path_cstr.as_ptr(), &mut stat) };
-    if result != 0 {
+/// This replaces the old statvfs-based free-space delta, which was erratic
+/// under multi-agent load because neighbors' writes polluted the measurement.
+/// Target-dir growth is approximate under concurrency: multiple builds may
+/// share the same target dir, so the delta includes any writes by other
+/// processes to that directory.
+fn measure_target_dir_size_bytes(path: &std::path::Path) -> Option<u64> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if metadata.is_file() {
+        return Some(metadata.len());
+    }
+    if !metadata.is_dir() {
         return None;
     }
-    let frsize = if stat.f_frsize > 0 {
-        stat.f_frsize as u64
-    } else {
-        stat.f_bsize as u64
-    };
-    Some(stat.f_bavail as u64 * frsize)
+    let mut total = 0u64;
+    let entries = std::fs::read_dir(path).ok()?;
+    for entry in entries {
+        let entry = entry.ok()?;
+        let size = measure_target_dir_size_bytes(&entry.path())?;
+        total += size;
+    }
+    Some(total)
 }
 
 /// Resolve the effective CARGO_TARGET_DIR for a build. When
@@ -1235,19 +1239,24 @@ mod tests {
         (control, scheduler)
     }
 
-    // ── T1 fix round 1 RED tests ─────────────────────────────────────────
-    // These tests pin correct footprint measurement semantics. They FAIL
-    // on the current code because:
-    //   1. measure_max_rss_kb() reads /proc/self/status (the scheduler's
-    //      own ~768 KB RSS), not the build child process tree.
-    //   2. measure_disk_free_bytes() runs `df -k /` (root fs), not the
-    //      filesystem holding CARGO_TARGET_DIR.
+    // ── T1 fix round 1 tests ─────────────────────────────────────────────
+    // These tests pin correct footprint measurement semantics:
+    //   1. measure_max_rss_kb() uses getrusage(RUSAGE_CHILDREN) (the build
+    //      child tree peak), not /proc/self/status (the scheduler's own RSS).
+    //   2. disk_delta_bytes uses du-style target-dir growth (recursive size
+    //      of effective target dir before/after the execute window), not
+    //      statvfs free-space deltas which were erratic under multi-agent
+    //      load because neighbors' writes polluted the measurement.
 
     /// RED: disk_delta must see writes to the effective target dir. Writing
     /// a known 20 MB into the target dir inside the measured window must
     /// produce a delta in the right order of magnitude (tens of MB), not
-    /// near zero. Mirrors the measure_disk_free_bytes_for +
-    /// effective_target_dir usage in execute_claimed (mod.rs).
+    /// near zero. Uses du-style target-dir growth: the difference between
+    /// the directory size before and after the write.
+    ///
+    /// NOTE: This measurement is approximate under concurrency because
+    /// multiple builds may share the same target dir. The delta includes
+    /// any writes by other processes to that directory.
     #[test]
     fn disk_delta_sees_writes_to_effective_target_dir() {
         use std::io::Write;
@@ -1262,7 +1271,7 @@ mod tests {
         let target_dir = effective_target_dir(None, &workspace_root, &[]);
         std::fs::create_dir_all(&target_dir).expect("create target dir");
 
-        let disk_free_before = measure_disk_free_bytes_for(&target_dir).expect("measure before");
+        let size_before = measure_target_dir_size_bytes(&target_dir).expect("measure before");
 
         let known_bytes = 20 * 1024 * 1024u64;
         let file_path = target_dir.join("known_write.bin");
@@ -1273,8 +1282,8 @@ mod tests {
         }
         drop(file);
 
-        let disk_free_after = measure_disk_free_bytes_for(&target_dir).expect("measure after");
-        let disk_delta_bytes = disk_free_before as i64 - disk_free_after as i64;
+        let size_after = measure_target_dir_size_bytes(&target_dir).expect("measure after");
+        let disk_delta_bytes = size_after as i64 - size_before as i64;
 
         assert!(
             disk_delta_bytes >= (known_bytes as i64) / 2,
@@ -1313,11 +1322,11 @@ mod tests {
         );
     }
 
-    /// RED: measure_disk_free_bytes must reflect the filesystem holding the
-    /// target dir, not the root filesystem. Writing a known byte count to
-    /// the target dir must be visible in the delta.
+    /// Regression: measure_target_dir_size_bytes must reflect the target
+    /// dir's content, not the filesystem's free space. Adding a file to
+    /// the target dir must increase the measured size.
     #[test]
-    fn measure_disk_free_bytes_reflects_target_dir_filesystem() {
+    fn measure_target_dir_size_bytes_reflects_content() {
         let tmp = std::env::temp_dir().join(format!(
             "cynic-disk-test-{}-{}",
             std::process::id(),
@@ -1334,18 +1343,13 @@ mod tests {
             file.write_all(&buf).expect("write");
         }
         drop(file);
-        // Measure free bytes on the target dir's filesystem.
-        let free_before = measure_disk_free_bytes_for(&tmp).expect("measure before");
-        // Delete the file — free bytes must increase.
+        let size_before = measure_target_dir_size_bytes(&tmp).expect("measure before");
         std::fs::remove_file(&file_path).expect("remove file");
-        let free_after = measure_disk_free_bytes_for(&tmp).expect("measure after");
-        // The current measure_disk_free_bytes() runs `df -k /` which may
-        // not be the same filesystem as tmp. After the fix, it measures
-        // the target dir's filesystem and must see the 20 MB delta.
-        let delta = free_after as i64 - free_before as i64;
+        let size_after = measure_target_dir_size_bytes(&tmp).expect("measure after");
+        let delta = size_before as i64 - size_after as i64;
         assert!(
             delta >= (known_bytes as i64) / 2,
-            "disk delta must see the 20 MB write, got {delta} bytes"
+            "target dir size must see the 20 MB write, got {delta} bytes"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
