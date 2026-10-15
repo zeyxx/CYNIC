@@ -1,0 +1,52 @@
+{
+  "schema": "cynic.external_pins.v1",
+  "status": "normative",
+  "purpose": "Pinned third-party OSS checkouts used by CYNIC. Checkouts live outside git under directory-tree source/repositories/external; this file pins exact SHAs so data demands cite file:line of a frozen pin, never live GitHub.",
+  "checkout_layout": {
+    "installed": "/var/lib/cynic/source/repositories/external/<slug>",
+    "dev_fallback": "~/.local/share/cynic/src/external/<slug>",
+    "snapshots": "/var/lib/cynic/source/snapshots/external/<slug>-<sha>.tar",
+    "rule": "Read-only checkouts at pinned SHA. No git requests in loops; refresh only by explicit pin bump with new observed_at."
+  },
+  "pins": [
+    {
+      "slug": "trenchscanner",
+      "repo": "sollama58/TrenchScanner",
+      "url": "https://github.com/sollama58/TrenchScanner",
+      "sha": "cffd91c2d6ed065991863e04bb4f8a8db606d127",
+      "observed_at": "2026-10-15",
+      "purpose": "Paper week A/B signals and grading reference (curated alerts, labels, exit plan)",
+      "data_demanded": [
+        "CuratedAlert JSON (mint, createdAt ms, anchorPriceUsd, anchorMcapUsd, labelRule, freshQuote, model, confidence, narrativeVerdict) — apps/api/src/curatedFeed.ts (field is createdAt, verified 0 hits for alertAt in pin cffd91c)",
+        "CandidateOutcome verdicts incl. non-curated (hit2x, hit4x, hit10x, disqualified, stoppedAt, trailExit, profitSim EXIT_PLAN, runPeak24h) — packages/core/src/curation/labels.ts, profitSim.ts",
+        "TokenSnapshot minute series in window + extended watch — curatedFeed.ts withLatestSnapshots",
+        "TokenSage read id + rulesVersion per alert — apps/api/src/tokenSageView.ts",
+        "Meta: governorTarget, cooldown, championModel, trainingRunId — packages/core/src/curation/governor.ts, trainer.ts"
+      ]
+    },
+    {
+      "slug": "holdex",
+      "status": "deprecated",
+      "deprecated_reason": "Operator 2026-10-15: HolDex deprecated, out of paper-week scope.",
+      "repo": "sollama58/HolDex",
+      "url": "https://github.com/sollama58/HolDex",
+      "sha": "c4d3a6b7a7f989deb4856a4ec7f7a62d4c65745b",
+      "observed_at": "2026-10-15",
+      "purpose": "Distribution surface reference (DexScreener alternative, hosts /trenches tab)",
+      "data_demanded": [
+        "/trenches route shape consuming TrenchScanner API"
+      ]
+    },
+    {
+      "slug": "cultscreener",
+      "repo": "sollama58/CultScreener",
+      "url": "https://github.com/sollama58/CultScreener",
+      "sha": "db0a9ae44b0b74654dabd7540ceea2809941049c",
+      "observed_at": "2026-10-15",
+      "purpose": "Distribution surface reference (true cults view, /trenches tab host)",
+      "data_demanded": [
+        "/trenches tab data contract against TrenchScanner API"
+      ]
+    }
+  ]
+}
