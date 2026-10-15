@@ -455,6 +455,21 @@
             "deployment_rule": "classify query text (code tokens to rs, contract words to json, else md); json takes pure BM25, rs and md take their split-half MinMax alpha; recalibrate alphas per corpus via the v2 matrix procedure",
             "caveats": ["predictor is a fixture-tuned regex, not a learned router", "md group small (n=14); prose recall itself needs chunking work", "alpha values stay fixture-relative"],
             "machine_report": "target/convex_sweep_report.json (schema cynic.convex_sweep_report.v2)"
+          },
+          {
+            "run_id": "run_20261015_router_impl_live_proof",
+            "status": "candidate_measured",
+            "provenance_config": {
+              "kind": "code_plus_live_proof",
+              "router_code": "crates/cynic-knowledge/src/domain/query_routing.rs (route_query, RoutingTable, 5 unit tests green)",
+              "live_proof": "crates/cynic-inference/tests/routed_split_half.rs on the v2 matrix (predictor in the loop, no endpoints, deterministic)",
+              "base_vectors": "run_20261015_corpus_12013_85q (no re-embedding)"
+            },
+            "live_routed_minmax": {"split_half": [0.6238, 0.626], "mean": 0.6249, "best_global": 0.599},
+            "live_routed_ecdf": {"split_half": [0.544, 0.5543], "mean": 0.5492, "best_global": 0.5308},
+            "verdict": "routed fusion beats best global fusion on both strategies with the measured rule compiled in; routing is implementable, not just analytical",
+            "md_falsification": "chunk-size hypothesis for prose failures DIED on measurement: same file and sizes score dense 1.0 (RQC2) and 0.0 (RQC3, RQC4); failures are vocabulary mismatch (RQ12: 0/7 query terms in gold) and conceptual paraphrase gap, not chunking defect; no chunker churn without a size-correlated cause",
+            "machine_report": "test output ROUTED lines (deterministic over target/convex_sweep_report.json v2)"
           }
         ]
       }
