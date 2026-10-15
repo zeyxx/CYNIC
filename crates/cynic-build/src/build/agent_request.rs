@@ -109,7 +109,7 @@ fn assess(
         request.action.as_str(),
         request.release_publication.as_ref(),
     ) {
-        ("make:build-release", Some(intent)) => {
+        ("make:build-release" | "cargo:build-release", Some(intent)) => {
             blockers.extend(validate_release_publication_intent(intent));
             for proof in [
                 "release_binary_artifact_read_back",
@@ -120,7 +120,7 @@ fn assess(
                 }
             }
         }
-        ("make:build-release", None) => {
+        ("make:build-release" | "cargo:build-release", None) => {
             blockers.push("build_release_publication_intent_missing".to_string());
         }
         (_, Some(_)) => blockers.push("build_release_publication_intent_unexpected".to_string()),
@@ -351,10 +351,16 @@ mod tests {
     }
 
     #[test]
-    fn cargo_build_release_action_is_admitted() {
+    fn cargo_build_release_action_without_intent_is_blocked() {
         let mut request = request(true);
         request.action = "cargo:build-release".to_string();
-        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+        let admission = admit_build_agent_request(&request);
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"build_release_publication_intent_missing".to_string())
+        );
     }
 
     #[test]
