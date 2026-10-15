@@ -177,7 +177,7 @@ mod tests {
     fn payment_token_registry_parses() {
         let raw = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../infra/projects/gasdf/payment-tokens.json"
+            "/tests/fixtures/gasdf/payment-tokens.json"
         ))
         .expect("registry json readable");
         let reg: PaymentTokenRegistry = serde_json::from_str(&raw).expect("valid registry");
@@ -190,7 +190,7 @@ mod tests {
     fn plan_registry_parses() {
         let raw = fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../infra/projects/gasdf/plans.json"
+            "/tests/fixtures/gasdf/plans.json"
         ))
         .expect("plans json readable");
         let reg: PlanRegistry = serde_json::from_str(&raw).expect("valid plans");

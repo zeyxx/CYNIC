@@ -2,7 +2,8 @@
 
 > Status: foundation draft. Non-authoritative narrative; authority remains
 > `contracts/foundation.json`. Zero I/O pure-contract first; service lands later.
-> Companion: `infra/projects/gasdf/payment-tokens.json`, `infra/projects/gasdf/plans.json`.
+> Fixtures: `crates/cynic-protocol/tests/fixtures/gasdf/` (test data for pure
+> predicates, not OS contracts).
 
 ## 1. Purpose
 
@@ -74,7 +75,7 @@ from H4 build-latency science).
 
 ## 6. Registry contracts (dynamic, data-driven)
 
-### 6.1 Payment tokens — `infra/projects/gasdf/payment-tokens.json`
+### 6.1 Payment tokens — fixtures `tests/fixtures/gasdf/payment-tokens.json`
 
 Schema `cynic.gasdf.payment_tokens.v1`:
 
@@ -90,7 +91,7 @@ Schema `cynic.gasdf.payment_tokens.v1`:
 | `tokens[].min_amount` | integer (base units) | dust guard |
 | `tokens[].slippage_bps_default` | u16 | per-token default slippage |
 
-### 6.2 Plans — `infra/projects/gasdf/plans.json`
+### 6.2 Plans — fixtures `tests/fixtures/gasdf/plans.json`
 
 Schema `cynic.gasdf.plans.v1`: app-declared tiers priced in ASDF base units, with
 duration and enabled flag. GASdf only validates membership; pricing authority is

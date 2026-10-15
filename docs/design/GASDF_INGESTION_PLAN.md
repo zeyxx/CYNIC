@@ -71,7 +71,7 @@ its own pipeline. CYNIC records Program ID, seeds, and bump policy in
   recorded. No Redis, no DB, no yield. Gate: on-chain signature + explorer link
   (orbmarkets.io per prototype rule) in the ledger.
 - **Phase 1 — token registry and slippage**: data-driven accepted tokens via
-  `infra/projects/gasdf/*.json`; K-score gating deferred or stubbed to a registry of
+  `crates/cynic-protocol/tests/fixtures/gasdf/*.json`; K-score gating deferred or stubbed to a registry of
   allowed mints.
 - **Phase 2 — swap-to-ASDF + burn worker**: Jupiter route, burn worker,
   MTU/ALT mitigation if needed, all gated by measured baseline from §2.5.
