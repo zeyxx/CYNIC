@@ -345,9 +345,15 @@ fn sandbox_mode_for(
         .shared_target_root
         .as_ref()
         .map(|root| shared_target_dir_for(root, argv));
-    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
-        .map(BuildSandboxMode::Bwrap)
-        .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())
+    let mut spec = CargoSandboxSpec::resolve_from_host_env(
+        workspace_root.to_path_buf(),
+        target_dir,
+    )
+    .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
+    if let Some(sccache) = scheduler.sccache.as_ref() {
+        spec.sccache_cache_dir = Some(sccache.cache_dir.clone());
+    }
+    Ok(BuildSandboxMode::Bwrap(spec))
 }
 
 fn current_unix_ms() -> u64 {
