@@ -76,10 +76,14 @@ fn admit_claim_under_capacity(assessment: &CapacityAssessmentV1) -> bool {
     assessment.state != LoadTier::Saturated
 }
 
-/// Conservative per-job RSS estimate in MB. Each rustc process can
-/// consume several hundred MB; 512 MB is a safe lower-bound estimate
-/// for a typical CYNIC workspace crate.
-const RSS_PER_JOB_MB: u64 = 512;
+/// Conservative per-job RSS estimate in MB, grounded in measurement.
+/// Source: infra/build-policy.json → parallelism.measured_alternative.peak_rss_mib
+///   - single_job = 1166 MiB (measured on cynic-builder CT105, rustc 1.95.0)
+///   - two_jobs   = 1255 MiB (Δ +7.6% — second job shares target-dir pages)
+/// 1200 MB is a conservative per-job projection: it rounds up the measured
+/// single-job peak (1166) and stays below the two-job peak (1255), so any
+/// single-job build is admitted unless the cap is set below 1200.
+const RSS_PER_JOB_MB: u64 = 1200;
 
 /// Project the peak RSS for a build based on the configured job count.
 /// `build_jobs = None` means cargo's default (1 job). Pure.
@@ -96,6 +100,21 @@ pub(crate) fn admit_build_under_rss_cap(projected_rss_mb: u64, max_rss_cap_mb: O
         None => true,
         Some(cap) => projected_rss_mb <= cap,
     }
+}
+
+/// Combined admission decision for a scheduler tick. Wires the RSS cap
+/// gate alongside the load-tier gate: both must admit for the tick to
+/// proceed. This is the single call site in `run_iteration` — the pure
+/// functions above are only reachable through this decision.
+pub(crate) fn should_admit_build(
+    assessment: &CapacityAssessmentV1,
+    scheduler: &BuildSchedulerConfig,
+) -> bool {
+    if !admit_claim_under_capacity(assessment) {
+        return false;
+    }
+    let projected = projected_rss_mb(scheduler.build_jobs);
+    admit_build_under_rss_cap(projected, scheduler.max_rss_cap_mb)
 }
 
 /// Canonical tier name for proofs and logs. Mirrors the serde snake_case
@@ -132,10 +151,10 @@ async fn run_iteration(
     let capacity = measure_capacity_assessment();
     let load_tier = load_tier_str(&capacity.state).to_string();
     let capacity_unknowns = capacity.residual_unknowns.clone();
-    if !admit_claim_under_capacity(&capacity) {
+    if !should_admit_build(&capacity, scheduler) {
         tracing::info!(
             tier = %load_tier,
-            "build scheduler tick skipped: host capacity saturated"
+            "build scheduler tick skipped: host capacity saturated or RSS cap exceeded"
         );
         return Ok(());
     }
@@ -1452,6 +1471,77 @@ mod tests {
             projected,
             4 * RSS_PER_JOB_MB,
             "build_jobs=4 must project as 4× RSS_PER_JOB_MB"
+        );
+    }
+
+    // ── T3 fix round 1: grounded constant + admission-path integration ──
+
+    /// The grounded per-job RSS constant must reflect the measured peak RSS
+    /// on this builder (infra/build-policy.json: peak_rss_mib.single_job=1166).
+    /// A single job must project to at least 1166 MB.
+    #[test]
+    fn projected_rss_single_job_at_least_measured_peak() {
+        let projected = projected_rss_mb(Some(1));
+        assert!(
+            projected >= 1166,
+            "projected_rss_mb(Some(1)) = {} must be >= 1166 (measured peak_rss_mib.single_job)",
+            projected
+        );
+    }
+
+    /// Integration at the admission-path level: when projected RSS exceeds
+    /// the cap, the combined admission decision must refuse.
+    #[test]
+    fn admission_path_refuses_when_projected_rss_exceeds_cap() {
+        let scheduler = BuildSchedulerConfig {
+            registry_path: PathBuf::from("/tmp/x"),
+            repository_id: "test".to_string(),
+            transport_uri: None,
+            interval_secs: 5,
+            claim_ttl_secs: 60,
+            command_timeout_secs: 900,
+            sandbox_bwrap: false,
+            shared_target_root: None,
+            stable_workspace_root: None,
+            release_publication: None,
+            build_jobs: Some(2),
+            max_rss_cap_mb: Some(100),
+        };
+        let capacity = CapacityAssessmentV1 {
+            state: LoadTier::Headroom,
+            residual_unknowns: vec![],
+        };
+        assert!(
+            !should_admit_build(&capacity, &scheduler),
+            "admission must refuse when projected RSS exceeds cap"
+        );
+    }
+
+    /// Integration at the admission-path level: when projected RSS is under
+    /// the cap, the combined admission decision must admit.
+    #[test]
+    fn admission_path_admits_when_projected_rss_under_cap() {
+        let scheduler = BuildSchedulerConfig {
+            registry_path: PathBuf::from("/tmp/x"),
+            repository_id: "test".to_string(),
+            transport_uri: None,
+            interval_secs: 5,
+            claim_ttl_secs: 60,
+            command_timeout_secs: 900,
+            sandbox_bwrap: false,
+            shared_target_root: None,
+            stable_workspace_root: None,
+            release_publication: None,
+            build_jobs: Some(1),
+            max_rss_cap_mb: Some(4096),
+        };
+        let capacity = CapacityAssessmentV1 {
+            state: LoadTier::Headroom,
+            residual_unknowns: vec![],
+        };
+        assert!(
+            should_admit_build(&capacity, &scheduler),
+            "admission must admit when projected RSS is under cap"
         );
     }
 }
