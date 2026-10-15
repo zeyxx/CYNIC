@@ -1,22 +1,22 @@
 //! Pure policy predicates for build latency (Task 6).
 //!
 //! Each predicate encodes one winning threshold measured in Tasks 1-5.
-//! Zero I/O — orchestration stays in cynic-node.
+//! Zero I/O -- orchestration stays in cynic-node.
 
-// ── H1: stable checkout reuse ─────────────────────────────────────────────
+// -- H1: stable checkout reuse ----------------------------------------------
 
 /// Whether to reuse a stable workspace path for builds.
 ///
 /// H1 measured: persistent stable checkout + shared `CARGO_TARGET_DIR`
-/// gives **-51.6 %** execute on same SHA (92 929 ms → 44 985 ms).
+/// gives **-51.6 %** execute on same SHA (92 929 ms -> 44 985 ms).
 /// Source: Task 2 settlement sidecar, builder 10.10.10.119, 2026-10-14.
 pub fn decide_reuse_stable_checkout(stable_root_configured: bool) -> bool {
     stable_root_configured
 }
 
-// ── H2: parallel slot admission with RSS cap ──────────────────────────────
+// -- H2: parallel slot admission with RSS cap -------------------------------
 
-/// RSS cap in MB — H2 measured peak ~1.2-1.3 GB flat across JOBS 1/2/4 on
+/// RSS cap in MB -- H2 measured peak ~1.2-1.3 GB flat across JOBS 1/2/4 on
 /// 4-CPU/8GB builder. Cap set at **6144 MB** (6 GiB) for headroom.
 /// Source: Task 3 settlement sidecar, builder 10.10.10.119, 2026-10-14.
 pub const RSS_CAP_MB: u64 = 6144;
@@ -24,16 +24,16 @@ pub const RSS_CAP_MB: u64 = 6144;
 /// Whether to admit a parallel build slot given projected RSS.
 ///
 /// H2 measured: `jobs=2` is the sweet spot on 4-CPU/8GB
-/// (79 691 ms → 49 962 ms → 46 222 ms for J1/J2/J4).
+/// (79 691 ms -> 49 962 ms -> 46 222 ms for J1/J2/J4).
 /// RSS peak ~1.2-1.3 GB flat across JOBS, cap **6144 MB**.
 /// Source: Task 3 settlement sidecar, builder 10.10.10.119, 2026-10-14.
 pub fn decide_admit_parallel_slot(rss_cap_mb: u64, projected_mb: u64) -> bool {
     projected_mb <= rss_cap_mb
 }
 
-// ── H3: sccache adoption ─────────────────────────────────────────────────
+// -- H3: sccache adoption ----------------------------------------------------
 
-/// sccache adopt threshold — H3 measured cross-SHA Rust hit rate **~90 %**.
+/// sccache adopt threshold -- H3 measured cross-SHA Rust hit rate **~90 %**.
 /// Adopt threshold was **20 %**.
 /// Source: Task 4 sccache stats, builder 10.10.10.119, 2026-10-14.
 pub const SCCACHE_ADOPT_THRESHOLD: f64 = 0.20;
@@ -51,11 +51,11 @@ pub fn decide_require_sccache(hit_rate_floor: f64, measured_hit_rate: f64) -> bo
 mod tests {
     use super::*;
 
-    // ── H1: stable checkout reuse ─────────────────────────────────────────
+    // -- H1: stable checkout reuse -----------------------------------------
 
     #[test]
     fn h1_reuse_when_stable_root_configured() {
-        // H1: stable checkout gives -51.6 % execute (92 929 → 44 985 ms).
+        // H1: stable checkout gives -51.6 % execute (92 929 -> 44 985 ms).
         assert!(decide_reuse_stable_checkout(true));
     }
 
@@ -64,11 +64,11 @@ mod tests {
         assert!(!decide_reuse_stable_checkout(false));
     }
 
-    // ── H2: parallel slot admission with RSS cap ──────────────────────────
+    // -- H2: parallel slot admission with RSS cap ---------------------------
 
     #[test]
     fn h2_admit_when_projected_at_cap() {
-        // Boundary: projected == cap → admit.
+        // Boundary: projected == cap -> admit.
         assert!(decide_admit_parallel_slot(RSS_CAP_MB, RSS_CAP_MB));
     }
 
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn h2_reject_when_projected_above_cap() {
-        // Boundary: projected > cap → reject.
+        // Boundary: projected > cap -> reject.
         assert!(!decide_admit_parallel_slot(RSS_CAP_MB, RSS_CAP_MB + 1));
     }
 
@@ -95,11 +95,11 @@ mod tests {
         assert_eq!(RSS_CAP_MB, 6144);
     }
 
-    // ── H3: sccache adoption ─────────────────────────────────────────────
+    // -- H3: sccache adoption ------------------------------------------------
 
     #[test]
     fn h3_require_when_measured_at_threshold() {
-        // Boundary: measured == floor → require.
+        // Boundary: measured == floor -> require.
         assert!(decide_require_sccache(SCCACHE_ADOPT_THRESHOLD, 0.20));
     }
 
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn h3_no_require_when_measured_below_threshold() {
-        // Boundary: measured < floor → don't require.
+        // Boundary: measured < floor -> do not require.
         assert!(!decide_require_sccache(SCCACHE_ADOPT_THRESHOLD, 0.19));
     }
 
