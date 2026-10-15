@@ -12,6 +12,7 @@ axum.workspace = true
 rustix = { version = "1", features = ["process"] }
 cynic-network = { path = "../cynic-network" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-supervisor = { path = "../cynic-supervisor" }
 cynic-finance = { path = "../cynic-finance" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 cynic-secrets = { path = "../cynic-secrets" }

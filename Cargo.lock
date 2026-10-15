@@ -959,6 +959,7 @@ dependencies = [
  "cynic-network",
  "cynic-protocol",
  "cynic-secrets",
+ "cynic-supervisor",
  "cynic-types",
  "futures-util",
  "reqwest 0.13.5",

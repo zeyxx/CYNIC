@@ -109,6 +109,38 @@ fn holder_alive(pid: u32) -> bool {
     false
 }
 
+/// Default state directory for parent locks and restart history
+/// (Linux instantiation; override per host scope).
+pub const DEFAULT_SUPERVISE_STATE_DIR: &str = "/var/lib/cynic/supervise";
+/// Declared role id for the local inference backend under a parent.
+pub const INFERENCE_ROLE_ID: &str = "inference";
+
+/// Returns `true` when a live parent currently holds `role_id`: the lock
+/// file exists, parses, names a live holder, and is freshly heartbeated.
+/// Anything else (absent, corrupt, dead holder, stale) is not parented —
+/// callers report explicit unknown, never assume custody.
+pub fn is_role_parented(state_dir: &Path, role_id: &str) -> bool {
+    let path = lock_path(state_dir, role_id);
+    let raw = match std::fs::read(&path) {
+        Ok(raw) => raw,
+        Err(_) => return false,
+    };
+    let lock: ParentLock = match serde_json::from_slice(&raw) {
+        Ok(lock) => lock,
+        Err(_) => return false,
+    };
+    if !holder_alive(lock.pid) {
+        return false;
+    }
+    let fresh = std::fs::metadata(&path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.elapsed().ok())
+        .map(|d| d < HEARTBEAT_INTERVAL + HEARTBEAT_INTERVAL)
+        .unwrap_or(false);
+    fresh
+}
+
 /// Acquire the single-parent lock or fail with a named error.
 /// A lock whose holder is dead past the takeover grace is taken over;
 /// the takeover is reported to the caller for the first observation.
@@ -358,6 +390,18 @@ mod tests {
             max_delay_secs: 0,
             min_uptime_secs: u64::MAX,
         }
+    }
+
+    #[test]
+    fn is_role_parented_tracks_lock_lifetime() {
+        let dir = test_dir("parented-roundtrip");
+        assert!(!is_role_parented(&dir, "node"));
+        acquire_lock(&dir, "node").unwrap();
+        assert!(is_role_parented(&dir, "node"));
+        assert!(!is_role_parented(&dir, "kernel"));
+        release_lock(&dir, "node");
+        assert!(!is_role_parented(&dir, "node"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

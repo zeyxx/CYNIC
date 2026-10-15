@@ -13,18 +13,15 @@ Each gap carries: measured state (file:line, never prose), why the slice stopped
 
 ---
 
-## G1. Inference 24/7 custody (S3b)
+## G1. Inference 24/7 custody (S3b) — CLOSED for inference
 
-**Measured:** `crates/cynic-inference/src/adapters/local/process_supervisor.rs:449-456` spawns then `drop(child)`; pidfile is the post-exit proof of life. `cynic-supervisor::spawn_backend` returns a `KillOnDrop` handle: the child dies with the holder.
-
-**Why open:** converging spawn changes who the child outlives. No living parent exists yet on the process path (`systemd_user.rs` is a separate opt-in backend).
-
-**Options:**
-1. (R) Supervisor daemon holds inference handles; CLI `start` becomes request-to-supervise, pidfiles burn after proof. Owner: S3b slice, after `cynic supervise` parents one role.
-2. Keep detach forever; shared spawn covers node only, inference keeps its own spawn with the shared stop ladder. Owner: record as declared divergence.
-3. Migrate process users to `systemd_user` and burn the pidfile backend. Owner: inference lifecycle decision, needs linger/user-bus proof on every target host.
-
-**Acceptance:** one named holder per running `llama-server`; kill-holder-kills-child proven; CLI exit no longer load-bearing; `installed_runtime` green throughout.
+**Landed (parent step 2):** contract gains the `inference` child role;
+`cynic-supervisor::is_role_parented` is the single custody oracle;
+`ProcessLocalRuntime::start_with_readiness` refuses with
+`supervisor_parent_holds_role:inference` while a live parent holds the role.
+Standalone detach keeps working while no parent runs (removal step pending
+per the spec's removal-condition rule). Remaining G1 scope (kernel/MCP
+custody) lives in rollout steps 3–4.
 
 ## G2. Restart timing divergence
 
