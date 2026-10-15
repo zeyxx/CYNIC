@@ -661,9 +661,9 @@ dependencies = [
 name = "cynic-askesis"
 version = "0.8.0"
 dependencies = [
+ "cynic-protocol",
  "serde",
  "serde_json",
- "sha2 0.11.0",
 ]
 
 [[package]]
@@ -774,6 +774,7 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "cynic-finance",
+ "cynic-protocol",
  "ed25519-dalek",
  "hex",
  "serde",
@@ -824,7 +825,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
- "sha3",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -1202,6 +1202,7 @@ dependencies = [
  "hmac",
  "http",
  "libc",
+ "nix",
  "notify",
  "process-wrap",
  "reqwest 0.13.5",

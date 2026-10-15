@@ -9,7 +9,7 @@
 //! single-line appends followed by flush; no truncate, no rewrite.
 //!
 //! The adapter owns ONLY file mechanics; validation lives in the pure
-//! contract (`cynic_eval::evidence_journal`). Verification is fully
+//! contract (`cynic_protocol::evidence_journal`). Verification is fully
 //! offline: reading the files back and replaying the chain needs no DB,
 //! no network, no running kernel.
 

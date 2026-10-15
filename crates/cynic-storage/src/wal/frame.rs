@@ -1,12 +1,14 @@
 //! Binary WAL frame encoding, decoding, size validation, and cryptographic hashing.
+//!
+//! Uses the unified digest law from `cynic_protocol::digest` (SHA3-512).
 
 use bytes::Bytes;
-use sha3::{Digest, Sha3_512};
 use std::io::{self, Read};
 
 use super::crc::crc32c;
 use crate::error::StorageError;
 use crate::types::{CausalWitness, Hash512, PoHTick, SequenceNumber, WalEntry};
+use cynic_protocol::digest::digest_bytes;
 
 /// Magic bytes identifying a CYNIC WAL frame ("CYNW").
 pub const WAL_FRAME_MAGIC: [u8; 4] = [0x43, 0x59, 0x4E, 0x57];
@@ -47,6 +49,8 @@ const COMMIT_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_COMMIT_V1\0";
 const ENTRY_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_ENTRY_V1\0";
 
 /// Computes the Stage 1 commit hash covering event metadata and payload.
+///
+/// Uses the unified digest law (`digest_bytes` — SHA3-512).
 pub fn compute_commit_hash(
     seq: SequenceNumber,
     prev_hash: &Hash512,
@@ -56,51 +60,55 @@ pub fn compute_commit_hash(
     mandate_id: Option<&str>,
     proof_anchor: Option<&Hash512>,
 ) -> Hash512 {
-    let mut hasher = Sha3_512::new();
-    hasher.update(COMMIT_HASH_DOMAIN);
-    hasher.update(seq.0.to_be_bytes());
-    hasher.update(prev_hash.0);
-    hasher.update(poh_tick.0.to_be_bytes());
-    hasher.update((schema.len() as u16).to_be_bytes());
-    hasher.update(schema.as_bytes());
-    hasher.update((payload.len() as u32).to_be_bytes());
-    hasher.update(payload);
+    let mut input = Vec::new();
+    input.extend_from_slice(COMMIT_HASH_DOMAIN);
+    input.extend_from_slice(&seq.0.to_be_bytes());
+    input.extend_from_slice(&prev_hash.0);
+    input.extend_from_slice(&poh_tick.0.to_be_bytes());
+    input.extend_from_slice(&(schema.len() as u16).to_be_bytes());
+    input.extend_from_slice(schema.as_bytes());
+    input.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+    input.extend_from_slice(payload);
 
     if let Some(mid) = mandate_id {
-        hasher.update((mid.len() as u16).to_be_bytes());
-        hasher.update(mid.as_bytes());
+        input.extend_from_slice(&(mid.len() as u16).to_be_bytes());
+        input.extend_from_slice(mid.as_bytes());
     } else {
-        hasher.update(0u16.to_be_bytes());
+        input.extend_from_slice(&0u16.to_be_bytes());
     }
 
     if let Some(anchor) = proof_anchor {
-        hasher.update([1u8]);
-        hasher.update(anchor.0);
+        input.push(1u8);
+        input.extend_from_slice(&anchor.0);
     } else {
-        hasher.update([0u8]);
+        input.push(0u8);
     }
 
-    let result = hasher.finalize();
+    let hex = digest_bytes(&input);
+    let raw = hex::decode(hex.strip_prefix("sha3-512:").unwrap()).unwrap();
     let mut arr = [0u8; 64];
-    arr.copy_from_slice(&result);
+    arr.copy_from_slice(&raw);
     Hash512(arr)
 }
 
 /// Computes the Stage 2 entry hash binding commit hash to the cryptographic witness.
+///
+/// Uses the unified digest law (`digest_bytes` — SHA3-512).
 pub fn compute_entry_hash(
     commit_hash: &Hash512,
     principal_pubkey: &[u8; 32],
     signature: &[u8; 64],
 ) -> Hash512 {
-    let mut hasher = Sha3_512::new();
-    hasher.update(ENTRY_HASH_DOMAIN);
-    hasher.update(commit_hash.0);
-    hasher.update(principal_pubkey);
-    hasher.update(signature);
+    let mut input = Vec::new();
+    input.extend_from_slice(ENTRY_HASH_DOMAIN);
+    input.extend_from_slice(&commit_hash.0);
+    input.extend_from_slice(principal_pubkey);
+    input.extend_from_slice(signature);
 
-    let result = hasher.finalize();
+    let hex = digest_bytes(&input);
+    let raw = hex::decode(hex.strip_prefix("sha3-512:").unwrap()).unwrap();
     let mut arr = [0u8; 64];
-    arr.copy_from_slice(&result);
+    arr.copy_from_slice(&raw);
     Hash512(arr)
 }
 

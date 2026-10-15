@@ -8,8 +8,6 @@
 //! Canonical hashing is SHA3-512 per foundation.json, with the `sha3-512:`
 //! prefix.
 
-use sha3::{Digest, Sha3_512};
-
 use cynic_protocol::domain_ops::DomainOperation;
 
 /// Generate a deterministic idempotency key for a domain operation.
@@ -20,14 +18,13 @@ use cynic_protocol::domain_ops::DomainOperation;
 /// This is pure and deterministic: the same inputs always produce the same
 /// key, enabling safe retries without duplicate side effects.
 pub fn generate_idempotency_key(domain: &str, operation: DomainOperation, content: &str) -> String {
-    let mut hasher = Sha3_512::new();
-    hasher.update(domain.as_bytes());
-    hasher.update(b"\x00");
-    hasher.update(operation_as_str(operation).as_bytes());
-    hasher.update(b"\x00");
-    hasher.update(content.as_bytes());
-    let result = hasher.finalize();
-    format!("sha3-512:{}", hex::encode(result))
+    let mut input = Vec::new();
+    input.extend_from_slice(domain.as_bytes());
+    input.push(0x00);
+    input.extend_from_slice(operation_as_str(operation).as_bytes());
+    input.push(0x00);
+    input.extend_from_slice(content.as_bytes());
+    cynic_protocol::digest::digest_bytes(&input)
 }
 
 /// Pure string representation of a DomainOperation for key generation.
