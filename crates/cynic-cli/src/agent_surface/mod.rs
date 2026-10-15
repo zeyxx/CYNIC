@@ -185,9 +185,10 @@ pub(crate) enum AgentCommand {
         command: IntentCommand,
     },
     /// Plan or observe Proxmox agent host VM placement and conformance.
+    /// DEPRECATED alias of `cynic node hypervisor`. Delegates without duplication.
     Host {
         #[command(subcommand)]
-        command: crate::agent_host_surface::AgentHostCommand,
+        command: crate::node_surface::hypervisor::NodeHypervisorCommand,
     },
 }
 
@@ -355,6 +356,11 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             ExitCode::SUCCESS
         }
         AgentCommand::Intent { command } => execute_intent(command),
-        AgentCommand::Host { command } => crate::agent_host_surface::execute_agent_host(command),
+        AgentCommand::Host { command } => {
+            eprintln!(
+                "DEPRECATED: `cynic agent host` moves to `cynic node hypervisor` and will be removed next release."
+            );
+            crate::node_surface::hypervisor::execute_node_hypervisor(command)
+        }
     }
 }
