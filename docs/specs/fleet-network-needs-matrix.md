@@ -15,14 +15,21 @@
 | MANQUANT | observé absent, sonde nommée |
 | DIVERGENT | plusieurs vérités concurrentes, observées |
 | INCONNU | non probé ; la sonde manquante est nommée, pas le résultat |
+| PROUVÉ-SERVEUR | le servant répond (sonde dig) ; la conso par client reste à NET-02 |
+
+> **Règle sondes (2026-10-15)** : une vraie sonde vérifie en temps réel
+> (daemon/service vivant). Timers et crons = polling fragile, pas des
+> sondes. `watchdog` actuel = one-shot CLI manuel, aucune fraîcheur
+> continue : la liveness réseau continue est donc MANQUANTE partout
+> où seul le watchdog la couvrirait.
 
 ## Matrice
 
 | ID | Besoin | État | Fait observé / sonde |
 |---|---|---|---|
-| NET-01 | Zone canonique `service.cynic` servie fleet-wide | MANQUANT | `dig @10.10.10.1 forgejo.service.cynic` → vide ; seul cortex se sert (dnsmasq :1053 local). Bloqueur : root PVE pour `service.hosts` + `service.conf` + restart |
-| NET-02 | Résolution homogène (même résolveur fleet) | DIVERGENT | cortex → 127.0.0.1:1053 ; builder → Freebox 192.168.0.254 (hosts file) ; CT → DHCP 10.10.10.1. Repoint builder = root manquant |
-| NET-03 | Artefacts DNS générés (header, régénérables) | MANQUANT | `/etc/cynic/dns/synapse.hosts` = drop manuel du 4 sept, sans header, rien ne le régénère ; PVE n'a pas `service.hosts` du tout |
+| NET-01 | Zone canonique `service.cynic` servie fleet-wide | PROUVÉ-SERVEUR | PVE sert les 2 zones : `dig @10.10.10.1 forgejo.service.cynic` → 10.10.10.101 (sonde cortex 2026-10-14/15, canari embedding OK). Conso prouvée depuis cortex uniquement ; builder/CT = NET-02 |
+| NET-02 | Résolution homogène (même résolveur fleet) | DIVERGENT | cortex → 127.0.0.1:1053 local (forward PVE ; défaut OK les 2 zones, prouvé `getent` 2026-10-15) ; builder → Freebox 192.168.0.254 (hosts file) ; CT → DHCP 10.10.10.1. Builder/CT non prouvés : sonde = `dig @10.10.10.1` depuis chaque client |
+| NET-03 | Artefacts DNS générés (header, régénérables) | EN PLACE | bundle natif dual-zone (`network dns bundle`, 2026-10-14) : régénérable, installé sur PVE depuis le bundle, plus de drop manuel |
 | NET-04 | Vocabulaire registre unifié (fin `synapse.cynic`) | DIVERGENT | 9 refs `synapse.cynic` vs 16 `service.cynic` dans `infra/registry.json`. APRÈS NET-01 (jamais avant — cf. ordre de migration) |
 | NET-05 | Transport source via registre (zéro DNS système) | EN PLACE | prouvé builder : clone `ssh://forgejo@forgejo.synapse.cynic` OK, cargo lancé (commit a7a082a6) |
 | NET-06 | DHCP+DNS co-localisés PVE | EN PLACE | dnsmasq hôte sur `vmbr0`, range `.50-.200`, `dhcp-option dns-server 10.10.10.1`. Force à garder |
@@ -32,7 +39,7 @@
 | NET-10 | Identification des listeners fantômes | INCONNU | PVE `:80/:443/:4000/:3128/:85`, builder `:8081` loopback — propriétaires inconnus. Sonde : `ss -tlnp` avec root. AUCUNE règle avant ça |
 | NET-11 | Liveness overlay WireGuard (handshakes) | INCONNU | non probé. Sonde : `wg show <iface> dump` + `latest-handshakes` avec root |
 | NET-12 | Synchro temps (NTP/chrony) | INCONNU | non probé. Sonde : `timedatectl` / `chronyc tracking` par hôte. Fondamental distribué : certs, handshakes, preuves datées |
-| NET-13 | Section `observed.nodes` tenue par sondes | INCONNU | à vérifier : qui écrit `observed`, fraîcheur, preuve |
+| NET-13 | Section `observed.nodes` tenue par sondes | MANQUANT | clé présente mais vide (`observed.nodes: []` le 2026-10-15) ; rien n'écrit en continu. `network registry observe` existe (one-shot) ; la tenue continue exige un vivant temps réel, pas un cron |
 | NET-14 | Distribution secrets (token forgejo, clés) | INCONNU | `token_file` déclaré, présence par hôte non vérifiée. Sonde : existence + perms (jamais le contenu) |
 | NET-15 | Accès privilégié borné (membrane/PVE/builder) | MANQUANT | pas de sudo sans mot de passe (builder + PVE) ; `pct` exige priv ; tout apply ci-dessus est bloqué sans chemin root admis |
 
