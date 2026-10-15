@@ -149,15 +149,12 @@ pub(super) async fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
-    if let Some(root) = scheduler.shared_target_root.as_ref() {
-        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
-        // instead of recompiling cold in a throwaway directory.
-        let target_dir = shared_target_dir_for(root, &claimed.record.envelope.action.argv);
-        environment.insert(
-            "CARGO_TARGET_DIR".into(),
-            target_dir.to_string_lossy().into_owned(),
-        );
-    }
+    // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
+    // instead of recompiling cold in a throwaway directory.
+    environment.extend(build_execution_env(
+        scheduler,
+        &claimed.record.envelope.action.argv,
+    ));
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -180,6 +177,27 @@ pub(super) async fn prepare(
         workspace,
         provenance: source_provenance,
     })
+}
+
+/// Build the execution environment for a build child process.
+///
+/// When `shared_target_root` is configured, `CARGO_TARGET_DIR` is set to
+/// `<root>/<profile>` (profile derived from argv) so consecutive builds
+/// reuse a warm shared cargo cache. When absent, `CARGO_TARGET_DIR` is
+/// not set, leaving cargo's default target directory unchanged.
+pub(crate) fn build_execution_env(
+    scheduler: &BuildSchedulerConfig,
+    argv: &[String],
+) -> BTreeMap<String, String> {
+    let mut env = BTreeMap::new();
+    if let Some(root) = scheduler.shared_target_root.as_ref() {
+        let target_dir = shared_target_dir_for(root, argv);
+        env.insert(
+            "CARGO_TARGET_DIR".into(),
+            target_dir.to_string_lossy().into_owned(),
+        );
+    }
+    env
 }
 
 /// Derive the cargo profile name from argv: `release` when `--release` is
