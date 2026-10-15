@@ -17,7 +17,7 @@
 use std::path::PathBuf;
 
 use cynic_eval::bench::retrieval_gain::{
-    BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline,
+    BenchConfig, FIXTURE_SCHEMA_V1, Fixture, TemplatedEmbedder, TextPipeline, VectorCacheRecord,
     grade_chunk, load_vector_cache,
 };
 use cynic_inference::adapters::embedding::http::EmbeddingBackend;
@@ -49,7 +49,6 @@ fn test_export_training_pairs() {
     );
 
     let backend = EmbeddingBackend::from_env().expect("embedding endpoints must resolve");
-    let engine = backend.base_urls().join(",");
     let bridge = SyncEmbeddingBridge::probe(backend, "CYNIC training-pair export")
         .expect("embedding probe must succeed");
 
@@ -79,7 +78,7 @@ fn test_export_training_pairs() {
         model: model.clone(),
     };
     let vector_cache_path = root.join(config.vector_cache_filename());
-    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag(), &engine)
+    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
         .expect("Q8-uniform vector cache must exist from the frozen run");
     let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|_, _| {});
     let (vectors, _reused, embedded) =
