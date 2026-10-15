@@ -149,12 +149,15 @@ pub(super) async fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
-    // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
-    // instead of recompiling cold in a throwaway directory.
-    environment.extend(build_execution_env(
-        scheduler,
-        &claimed.record.envelope.action.argv,
-    ));
+    if let Some(root) = scheduler.shared_target_root.as_ref() {
+        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
+        // instead of recompiling cold in a throwaway directory.
+        let target_dir = shared_target_dir_for(root, &claimed.record.envelope.action.argv);
+        environment.insert(
+            "CARGO_TARGET_DIR".into(),
+            target_dir.to_string_lossy().into_owned(),
+        );
+    }
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -177,27 +180,6 @@ pub(super) async fn prepare(
         workspace,
         provenance: source_provenance,
     })
-}
-
-/// Build the execution environment for a build child process.
-///
-/// When `shared_target_root` is configured, `CARGO_TARGET_DIR` is set to
-/// `<root>/<profile>` (profile derived from argv) so consecutive builds
-/// reuse a warm shared cargo cache. When absent, `CARGO_TARGET_DIR` is
-/// not set, leaving cargo's default target directory unchanged.
-pub(crate) fn build_execution_env(
-    scheduler: &BuildSchedulerConfig,
-    argv: &[String],
-) -> BTreeMap<String, String> {
-    let mut env = BTreeMap::new();
-    if let Some(root) = scheduler.shared_target_root.as_ref() {
-        let target_dir = shared_target_dir_for(root, argv);
-        env.insert(
-            "CARGO_TARGET_DIR".into(),
-            target_dir.to_string_lossy().into_owned(),
-        );
-    }
-    env
 }
 
 /// Derive the cargo profile name from argv: `release` when `--release` is
@@ -224,45 +206,20 @@ fn stable_workspace_for(root: &std::path::Path, profile: &str) -> std::path::Pat
     root.join(profile)
 }
 
-/// Pre-build clean for a stable workspace: remove a previous workspace at
-/// the exact stable path so the next build starts from a clean tree, while
-/// the path itself stays stable so fingerprints survive. A git-registered
-/// worktree is removed through `git worktree remove` so the repository
-/// worktree registry keeps no stale entry that would block re-creation at
-/// the same path; anything else falls back to a plain recursive removal.
-/// After any removal (or when the path is already absent), `git worktree
-/// prune` runs to clear stale `.git/worktrees` registrations left by a
-/// prior fallback removal — otherwise the next `git worktree add` at the
-/// same path fails with "already used by worktree" (C2).
-fn clean_stable_workspace(
-    repository_root: &std::path::Path,
-    workspace: &std::path::Path,
-) -> Result<(), String> {
-    if workspace.exists() {
-        let git_removed = std::process::Command::new("git")
-            .arg("-C")
-            .arg(repository_root)
-            .args(["worktree", "remove", "--force"])
-            .arg(workspace)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false);
-        if !git_removed {
-            fs::remove_dir_all(workspace)
-                .map_err(|_| "build_workspace_stable_clean_failed".to_string())?;
-        }
+/// Prepare the stable workspace path for a build: ensure the parent
+/// directory exists. Unlike the previous `clean_stable_workspace`, this
+/// does NOT remove an existing checkout — the checkout is persisted
+/// across builds so unchanged sources keep their old mtimes and cargo
+/// fingerprints hit the warm shared target (H1b). The actual update
+/// (fetch + reset --hard) happens in `LocalBuildWorkspace::prepare`.
+fn prepare_stable_workspace(workspace: &std::path::Path) -> Result<(), String> {
+    let parent = workspace
+        .parent()
+        .ok_or_else(|| "build_workspace_parent_missing".to_string())?;
+    if !parent.exists() {
+        fs::create_dir_all(parent)
+            .map_err(|_| "build_workspace_parent_create_failed".to_string())?;
     }
-    // Always prune stale registrations so a prior fallback removal (or a
-    // manual rm -rf) cannot leave a registration that blocks re-creation.
-    let _ = std::process::Command::new("git")
-        .arg("-C")
-        .arg(repository_root)
-        .args(["worktree", "prune"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
     Ok(())
 }
 
@@ -285,7 +242,7 @@ fn apply_stable_workspace(
     };
     validate_stable_workspace_root(root, &layout.repository_root)?;
     let workspace_root = stable_workspace_for(root, profile_for_argv(argv));
-    clean_stable_workspace(&layout.repository_root, &workspace_root)?;
+    prepare_stable_workspace(&workspace_root)?;
     layout.workspace_root = workspace_root;
     // Recompute the evidence digest so it describes the actual workspace
     // path after the override, not the registry-declared path (C1).
@@ -656,23 +613,52 @@ mod tests {
     }
 
     #[test]
-    fn stable_workspace_clean_removes_previous_workspace() {
+    fn stable_workspace_prepare_does_not_remove_existing_workspace() {
+        // H1b: the stable workspace must persist across builds so unchanged
+        // sources keep old mtimes and cargo fingerprints hit the warm
+        // shared target. prepare_stable_workspace must NOT remove the
+        // checkout.
         let case = tempfile::tempdir().unwrap();
         let workspace = case.path().join("stable").join("debug");
         std::fs::create_dir_all(&workspace).unwrap();
-        std::fs::write(workspace.join("stale-artifact.bin"), b"stale").unwrap();
-        clean_stable_workspace(case.path(), &workspace).unwrap();
-        assert!(!workspace.exists());
+        std::fs::write(workspace.join("sentinel.txt"), b"keep-me").unwrap();
+        let sentinel = workspace.join("sentinel.txt");
+        let mtime_before = std::fs::metadata(&sentinel)
+            .unwrap()
+            .modified()
+            .unwrap();
+        prepare_stable_workspace(&workspace).unwrap();
+        assert!(
+            sentinel.exists(),
+            "sentinel file must survive prepare (no wipe)"
+        );
+        let mtime_after = std::fs::metadata(&sentinel)
+            .unwrap()
+            .modified()
+            .unwrap();
+        assert_eq!(
+            mtime_before, mtime_after,
+            "sentinel mtime must be unchanged (no re-materialization)"
+        );
     }
 
     #[test]
-    fn stable_workspace_clean_absent_path_is_noop() {
+    fn stable_workspace_prepare_creates_parent_directory() {
+        // prepare_stable_workspace must ensure the parent directory exists
+        // so the subsequent materialization can create the worktree.
         let case = tempfile::tempdir().unwrap();
-        clean_stable_workspace(case.path(), &case.path().join("absent")).unwrap();
+        let workspace = case.path().join("stable").join("debug");
+        assert!(!workspace.parent().unwrap().exists());
+        prepare_stable_workspace(&workspace).unwrap();
+        assert!(workspace.parent().unwrap().is_dir());
     }
 
     #[test]
-    fn stable_workspace_clean_removes_registered_git_worktree() {
+    fn stable_workspace_prepare_preserves_registered_git_worktree() {
+        // H1b: a registered git worktree at the stable path must survive
+        // prepare_stable_workspace. The worktree registration in
+        // .git/worktrees must persist so the next build can update the
+        // checkout in place instead of re-cloning.
         let case = tempfile::tempdir().unwrap();
         let repository = case.path().join("repository");
         let workspace = case.path().join("stable").join("debug");
@@ -699,23 +685,18 @@ mod tests {
             "worktree creation must succeed"
         );
         assert!(workspace.exists());
-        clean_stable_workspace(&repository, &workspace).unwrap();
-        assert!(!workspace.exists());
-        // The clean must leave no stale registration that blocks re-creation
-        // at the same stable path.
+        prepare_stable_workspace(&workspace).unwrap();
         assert!(
-            git(
-                &[
-                    "worktree",
-                    "add",
-                    "--detach",
-                    "-q",
-                    workspace.to_str().unwrap(),
-                    "HEAD"
-                ],
-                &repository
-            ),
-            "re-add after clean must succeed"
+            workspace.exists(),
+            "registered worktree must survive prepare (no wipe)"
+        );
+        // The .git/worktrees registration must persist.
+        assert!(
+            repository
+                .join(".git")
+                .join("worktrees")
+                .exists(),
+            "worktree registration must persist"
         );
     }
 
@@ -771,62 +752,7 @@ mod tests {
         );
     }
 
-    // --- C2: clean fallback leaves no stale git registration ---
-
-    #[test]
-    fn stable_workspace_clean_prunes_stale_git_registration() {
-        let case = tempfile::tempdir().unwrap();
-        let repository = case.path().join("repository");
-        let workspace = case.path().join("stable").join("debug");
-        std::fs::create_dir_all(repository.join(".git")).unwrap();
-        git(&["init", "-q"], &repository);
-        git(&["config", "user.email", "t@t"], &repository);
-        git(&["config", "user.name", "t"], &repository);
-        std::fs::write(repository.join("f"), b"x").unwrap();
-        git(&["add", "f"], &repository);
-        git(&["commit", "-qm", "init"], &repository);
-        std::fs::create_dir_all(workspace.parent().unwrap()).unwrap();
-        // Create a worktree at the stable path.
-        assert!(
-            git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "worktree creation must succeed"
-        );
-        assert!(workspace.exists());
-        // Simulate the fallback: remove the directory without git, leaving
-        // the registration behind.
-        fs::remove_dir_all(&workspace).unwrap();
-        assert!(!workspace.exists());
-        // The registration is still there — verify that re-add fails.
-        assert!(
-            !git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "re-add must fail while the stale registration exists"
-        );
-        // clean_stable_workspace must prune the stale registration.
-        clean_stable_workspace(&repository, &workspace).unwrap();
-        // After the clean, re-add must succeed.
-        assert!(
-            git(
-                &[
-                    "worktree", "add", "--detach", "-q",
-                    workspace.to_str().unwrap(), "HEAD"
-                ],
-                &repository
-            ),
-            "re-add after clean must succeed"
-        );
-    }
+    // --- H1b: corrupt workspace fallback tested in local_build_workspace.rs ---
 
     // --- C3: reserve_action retries widened ---
 

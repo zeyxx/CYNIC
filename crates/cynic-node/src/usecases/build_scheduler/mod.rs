@@ -197,6 +197,15 @@ async fn execute_claimed(
     }
 
     let started = Instant::now();
+    // Footprint measurement scope: disk free bytes bracket the build on the
+    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
+    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    let target_dir = effective_target_dir(
+        scheduler.shared_target_root.as_deref(),
+        &prepared.workspace.workspace_root,
+        &claimed.record.envelope.action.argv,
+    );
+    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
     // cpu_ms measurement scope: one meter per workload execution. Marks
     // bracket the build; the delta lands in the completion envelope's
     // consumed_budget.cpu_ms (None stays None when sysinfo cannot sample).
@@ -233,16 +242,6 @@ async fn execute_claimed(
         }
     };
     let prepare_ms = prepare_start.elapsed().as_millis() as u64;
-    // Footprint measurement scope: disk free bytes bracket the build on the
-    // filesystem holding the effective CARGO_TARGET_DIR. RSS is taken from
-    // the execution adapter's peak_memory_bytes (sampled from /proc/<pid>/status
-    // during the build) — no separate measurement needed.
-    let target_dir = effective_target_dir(
-        scheduler.shared_target_root.as_deref(),
-        &prepared.workspace.workspace_root,
-        &claimed.record.envelope.action.argv,
-    );
-    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
     let execute_start = Instant::now();
     let execution = TokioBuildExecution
         .execute(&prepared.execution, &execution_cancel)
@@ -271,13 +270,6 @@ async fn execute_claimed(
         &execution,
         Ok(read_back) if read_back.peak_memory_bytes.is_none()
     );
-    // Extract peak memory from the execution adapter (sampled from
-    // /proc/<pid>/status during the build). This is the build child's
-    // peak RSS, not the scheduler's own.
-    let peak_memory_bytes = match &execution {
-        Ok(read_back) => read_back.peak_memory_bytes,
-        Err(_) => None,
-    };
     let (status, evidence_refs, mut unknowns) = match execution {
         Ok(read_back) if read_back.exit_code == Some(0) => {
             let evidence = evidence::persist_success_proofs(
@@ -401,11 +393,11 @@ async fn execute_claimed(
     // the completion envelope. None = unmeasured (explicit unknown).
     let cpu_end = cpu_meter.mark();
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
-    // Close the footprint measurement scope: RSS from the execution
-    // adapter's peak_memory_bytes (build child tree peak, sampled from
-    // /proc/<pid>/status) and disk free-byte delta on the target dir's
-    // filesystem. None = unmeasured (explicit unknown).
-    let max_rss_kb = peak_memory_bytes.map(|b| b / 1024);
+    // Close the footprint measurement scope: RSS via RUSAGE_CHILDREN
+    // (max of the build child tree, not the scheduler's own RSS) and
+    // disk free-byte delta on the target dir's filesystem.
+    // None = unmeasured (explicit unknown).
+    let max_rss_kb = measure_max_rss_kb();
     let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes_for(&target_dir)) {
         (Some(before), Some(after)) => Some(before as i64 - after as i64),
         _ => None,
@@ -549,6 +541,20 @@ fn compute_queue_wait_ms(first_claim_ms: u64, committed_at_ms: u64) -> (u64, boo
     } else {
         (raw as u64, false)
     }
+}
+
+/// Measure peak resident set size of the build child process tree via
+/// `getrusage(RUSAGE_CHILDREN)`. Returns `ru_maxrss` in kB (Linux).
+/// This reflects the largest waited-for descendant (rustc), not the
+/// scheduler's own RSS. `None` when `getrusage` is unavailable.
+fn measure_max_rss_kb() -> Option<u64> {
+    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+    let result = unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage) };
+    if result != 0 {
+        return None;
+    }
+    // On Linux, ru_maxrss is in kilobytes.
+    Some(usage.ru_maxrss as u64)
 }
 
 /// Measure free disk bytes on the filesystem containing `path` via
@@ -1182,14 +1188,44 @@ mod tests {
         (control, scheduler)
     }
 
-    // ── T1 fix round 1 tests ─────────────────────────────────────────────
-    // These tests pin correct footprint measurement semantics.
-    // RSS: peak_memory_bytes comes from the execution adapter which samples
-    // /proc/<pid>/status (VmHWM) of the build child — not /proc/self/status.
-    // Disk: measure_disk_free_bytes_for runs df -k <target_dir>, not df -k /.
+    // ── T1 fix round 1 RED tests ─────────────────────────────────────────
+    // These tests pin correct footprint measurement semantics. They FAIL
+    // on the current code because:
+    //   1. measure_max_rss_kb() reads /proc/self/status (the scheduler's
+    //      own ~768 KB RSS), not the build child process tree.
+    //   2. measure_disk_free_bytes() runs `df -k /` (root fs), not the
+    //      filesystem holding CARGO_TARGET_DIR.
 
-    /// Disk: measure_disk_free_bytes_for must reflect the filesystem holding
-    /// the target dir, not the root filesystem. Writing a known byte count to
+    /// RED: measure_max_rss_kb must reflect the build child's memory, not
+    /// the scheduler's own RSS. A child allocating ~50 MB must produce a
+    /// measurement in the right order of magnitude (tens of MB), not ~768 KB.
+    #[test]
+    fn measure_max_rss_kb_reflects_child_memory_not_self() {
+        use std::process::Command;
+        // Spawn a child that allocates and touches ~50 MB.
+        let child = Command::new("sh")
+            .arg("-c")
+            .arg("python3 -c \"import ctypes; ctypes.string_at(50 * 1024 * 1024)\" 2>/dev/null || dd if=/dev/zero bs=1M count=50 2>/dev/null | wc -c")
+            .output()
+            .expect("spawn child");
+        assert!(child.status.success(), "child must succeed");
+        // The child has exited; RUSAGE_CHILDREN now includes it.
+        // The current measure_max_rss_kb() reads /proc/self/status which
+        // is the test process's own RSS (a few MB at most), NOT the child's.
+        // After the fix, this function will use getrusage(RUSAGE_CHILDREN)
+        // and must report the child's peak (tens of MB).
+        let measured = measure_max_rss_kb().expect("measurement must succeed");
+        // The child touched ~50 MB. The measurement must be at least 10 MB
+        // (order of magnitude). The current code returns ~768 KB (the test
+        // binary's own RSS), which fails this assertion.
+        assert!(
+            measured > 10_000,
+            "measure_max_rss_kb must reflect child memory (tens of MB), got {measured} kB"
+        );
+    }
+
+    /// RED: measure_disk_free_bytes must reflect the filesystem holding the
+    /// target dir, not the root filesystem. Writing a known byte count to
     /// the target dir must be visible in the delta.
     #[test]
     fn measure_disk_free_bytes_reflects_target_dir_filesystem() {
