@@ -265,4 +265,32 @@ S1/S2/S3a were first implemented on the shared checkout `agent/hermes/build-late
 
 ## 13. Next step
 
-Slice S4 design detail (observation vocabulary mapping), then operator `go` for S4 implementation. No code moves before that approval.
+### Landed after this map (2026-10-15, branch `agent/hermes/supervision-convergence`)
+
+- S5 done: `Backoff::next_delay` delegates to protocol `delay_for_attempt`.
+- S5b done (G2+G7 closed): node defaults `2/120` → contract `5/60` (`max_attempts 5`
+  kept as the declared bound); `spawn_with_retries` via `decide_restart`.
+- S6 done (G4+G9): `cynic supervise observe [--role] [--status-file]`,
+  `SupervisorState::parse`, `SupervisorObservation`, `SUPERVISED_ROLE_IDS`.
+- S7 done (G3+G10): `unit_status_state` mapping consumed by host convergence
+  (byte-identical outputs); `supervisor_state()` on `LocalRuntimeState`,
+  `BackendStatus`, and CLI derivation.
+- G5 closed: `process_observation.rs` KEEP in host (closure proof in gaps doc).
+- Parent steps 1–5 done (G1 inference closed, G6 closed): `parent.rs` run loop
+  (lock, restarts, status file), `supervise run`, wired `observe`, 4 systemd
+  units (node/kernel/inference/mcp), inference refuse-when-parented,
+  `supervise stop --apply` with read-back proof. No `start` arm: `run`
+  foreground and the systemd units already start.
+- S3b executes as parent step 2 (detach burns at the removal step, not before).
+- S4-real executes as S6+S7 (observation vocabulary already converged; only
+  the lifecycle mapping was missing).
+
+### Still open (not executable now)
+
+- G8 (foreign): `settlement_proof_evidence_ref` test-only caller breaks
+  `cynic-node --lib`; CLI proofs (`supervise_surface`, taxonomy,
+  `installed_runtime`) re-run after the owner's fix.
+- Soak + removals: parent crash rate vs child crash rate over 30 days 24/7,
+  then standalone/detach removal with its own `go` per step.
+- `cynic supervise stop` e2e against a live parent on the 24/7 host
+  (unit tests drill it; host drill pending deployment).
