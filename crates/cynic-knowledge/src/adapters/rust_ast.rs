@@ -62,17 +62,17 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
                     let (item_end, body_lines) = capture_item_body(&lines, idx);
                     doc_lines.extend(body_lines);
                     let signature = extract_signature(decl_line);
-                    let mut hierarchy = hierarchy_prefix.clone();
-                    hierarchy.push(signature);
-
-                    chunks.push(DocumentChunk::new(
-                        rel_path.to_string(),
+                    emit_rust_chunks(
+                        rel_path,
                         item_start,
                         item_end,
-                        hierarchy,
+                        &hierarchy_prefix,
+                        &signature,
                         doc_lines.join("\n"),
                         authority,
-                    ));
+                        &lines,
+                        &mut chunks,
+                    );
                     idx = item_end;
                     continue;
                 }
@@ -81,17 +81,17 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
             let item_start = idx + 1;
             let (item_end, body_lines) = capture_item_body(&lines, idx);
             let signature = extract_signature(trimmed);
-            let mut hierarchy = hierarchy_prefix.clone();
-            hierarchy.push(signature);
-
-            chunks.push(DocumentChunk::new(
-                rel_path.to_string(),
+            emit_rust_chunks(
+                rel_path,
                 item_start,
                 item_end,
-                hierarchy,
+                &hierarchy_prefix,
+                &signature,
                 body_lines.join("\n"),
                 authority,
-            ));
+                &lines,
+                &mut chunks,
+            );
             idx = item_end;
             continue;
         }
@@ -100,6 +100,79 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
     }
 
     chunks
+}
+
+const MAX_AST_CHUNK_LINES: usize = 70;
+const AST_WINDOW_SIZE: usize = 50;
+const AST_WINDOW_OVERLAP: usize = 10;
+const MIN_CONTEXT_CHARS: usize = 60;
+
+#[allow(clippy::too_many_arguments)]
+fn emit_rust_chunks(
+    rel_path: &str,
+    item_start: usize,
+    item_end: usize,
+    hierarchy_prefix: &[String],
+    signature: &str,
+    content: String,
+    authority: AuthorityTier,
+    file_lines: &[&str],
+    chunks: &mut Vec<DocumentChunk>,
+) {
+    let line_count = item_end.saturating_sub(item_start) + 1;
+    let trimmed_len = content.trim().len();
+
+    // 1. Starved micro-item enrichment
+    let final_content = if trimmed_len < MIN_CONTEXT_CHARS {
+        format!("// Context: {} ({})\n{}", rel_path, signature, content)
+    } else {
+        content
+    };
+
+    // 2. Windowed decomposition if chunk is oversized
+    if line_count > MAX_AST_CHUNK_LINES && file_lines.len() >= item_end {
+        let mut curr_start = item_start;
+        let mut part = 1;
+        while curr_start <= item_end {
+            let curr_end = (curr_start + AST_WINDOW_SIZE - 1).min(item_end);
+            let window_lines = &file_lines[curr_start - 1..curr_end];
+            let mut window_content = window_lines.join("\n");
+            if window_content.trim().len() < MIN_CONTEXT_CHARS {
+                window_content = format!(
+                    "// Context: {} ({} part {})\n{}",
+                    rel_path, signature, part, window_content
+                );
+            }
+            let mut hierarchy = hierarchy_prefix.to_vec();
+            hierarchy.push(format!("{} (lines {}-{})", signature, curr_start, curr_end));
+
+            chunks.push(DocumentChunk::new(
+                rel_path.to_string(),
+                curr_start,
+                curr_end,
+                hierarchy,
+                window_content,
+                authority,
+            ));
+
+            if curr_end >= item_end {
+                break;
+            }
+            curr_start += AST_WINDOW_SIZE - AST_WINDOW_OVERLAP;
+            part += 1;
+        }
+    } else {
+        let mut hierarchy = hierarchy_prefix.to_vec();
+        hierarchy.push(signature.to_string());
+        chunks.push(DocumentChunk::new(
+            rel_path.to_string(),
+            item_start,
+            item_end,
+            hierarchy,
+            final_content,
+            authority,
+        ));
+    }
 }
 
 /// Checks if a line initiates an extractable Rust declaration.
