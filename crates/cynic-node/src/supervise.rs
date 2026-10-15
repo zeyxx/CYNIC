@@ -87,16 +87,23 @@ impl Backoff {
 
     /// Increment the attempt counter and return the next delay (capped at `max_delay`).
     ///
-    /// Delay formula: `initial_delay * 2^(attempt - 1)` after increment.
+    /// Delay math is the shared canonical formula in
+    /// `cynic_protocol::supervision::delay_for_attempt`: `initial * 2^(attempt-1)`
+    /// after increment. Node keeps its own configured values here (see the
+    /// recorded `2/120` vs contract `5/60` divergence); only the formula is
+    /// shared, never the policy.
     pub(crate) fn next_delay(&mut self) -> Duration {
         self.attempt = self.attempt.saturating_add(1);
-        // 2^(attempt-1) — attempt is at least 1 after the increment above.
-        // Clamp the shift to prevent u64 overflow: 2^63 already exceeds any
-        // realistic delay, and Duration::saturating_mul handles overflow anyway.
-        let shift = (self.attempt - 1).min(30); // 2^30 ≈ 1 billion seconds, well past any cap
-        let multiplier = 1u32.checked_shl(shift).unwrap_or(u32::MAX);
-        let delay = self.initial_delay.saturating_mul(multiplier);
-        delay.min(self.max_delay)
+        let policy = cynic_protocol::supervision::RestartPolicy {
+            max_attempts: self.max_attempts,
+            initial_delay_secs: self.initial_delay.as_secs(),
+            max_delay_secs: self.max_delay.as_secs(),
+            min_uptime_secs: self.min_uptime.as_secs(),
+        };
+        Duration::from_secs(cynic_protocol::supervision::delay_for_attempt(
+            &policy,
+            self.attempt,
+        ))
     }
 
     /// Sleep for `next_delay()`, but cancel immediately if `shutdown` is triggered.
