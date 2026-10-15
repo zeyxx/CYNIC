@@ -51,11 +51,8 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
-    /// H4 duplicate-submit collision counter (Task 5). Records every
-    /// submission event; the pure `CollisionCounter` logic determines
-    /// which events collide on idempotency key or source commit within
-    /// the trailing 24h window.
     collisions: Arc<Mutex<CollisionCounter>>,
+    evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,13 +101,23 @@ pub fn app(
     store: Arc<dyn AgentWorkloadStorePort>,
     collisions: Arc<Mutex<CollisionCounter>>,
 ) -> Router {
-    let state = AppState { config, store, collisions };
+    let evidence =
+        cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore::new(
+            std::path::PathBuf::from(&config.state_root).join("evidence"),
+        );
+    let state = AppState {
+        config,
+        store,
+        collisions,
+        evidence,
+    };
     Router::new()
         .route("/health", get(health))
         .route("/status", get(status))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
+        .route("/records/{id}", get(get_record))
         .with_state(state)
 }
 
@@ -320,6 +327,85 @@ async fn get_proof(
         Ok(None) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
+}
+
+/// Read back one workload's execution record: the stored envelope plus every
+/// evidence envelope its completion references, resolved digest by digest.
+///
+/// Unresolvable digests are explicit `null` content with the digest named in
+/// `unresolved_evidence` — a record that exists is never a 404 because its
+/// evidence moved. Non-terminal records report state with empty evidence.
+async fn get_record(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
+
+    let record = match state.store.read(&id) {
+        Ok(Some(record)) => record,
+        Ok(None) => return Err(StatusCode::NOT_FOUND),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+    let envelope = &record.record.envelope;
+    let mut evidence = Vec::new();
+    let mut unresolved = Vec::new();
+    let completion_status = record.record.completion.as_ref().map(|completion| {
+        for reference in &completion.evidence_refs {
+            match state.evidence.read(&reference.digest) {
+                Ok(Some(resolved)) => evidence.push(serde_json::json!({
+                    "kind": reference.kind,
+                    "digest": reference.digest,
+                    "envelope": resolved,
+                })),
+                _ => {
+                    unresolved.push(reference.digest.clone());
+                    evidence.push(serde_json::json!({
+                        "kind": reference.kind,
+                        "digest": reference.digest,
+                        "envelope": serde_json::Value::Null,
+                    }));
+                }
+            }
+        }
+        format!("{:?}", completion.status)
+    });
+    // The envelope stores the real argv, never the requested verb: resolve the
+    // canonical action name back from argv so the record says what ran.
+    let action = cynic_build::canonical_build_action_from_argv(&envelope.action.argv);
+    Ok(Json(shape_record_response(
+        &id,
+        &record.record.state,
+        action,
+        &envelope.action.argv,
+        envelope.source_commit.as_deref(),
+        completion_status.as_deref(),
+        evidence,
+        unresolved,
+    )))
+}
+
+/// Pure record shaper: no store, no I/O. Tested without HTTP.
+fn shape_record_response(
+    workload_id: &str,
+    state: &AgentWorkloadState,
+    action: Option<&str>,
+    argv: &[String],
+    source_commit: Option<&str>,
+    completion_status: Option<&str>,
+    evidence: Vec<serde_json::Value>,
+    unresolved_evidence: Vec<String>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": "cynic.builder.record.v1",
+        "workload_id": workload_id,
+        "state": state,
+        "action": action,
+        "argv": argv,
+        "source_commit": source_commit,
+        "completion_status": completion_status,
+        "evidence": evidence,
+        "unresolved_evidence": unresolved_evidence,
+    })
 }
 
 fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
@@ -656,6 +742,41 @@ mod tests {
                 "action {action} must have a canonical argv"
             );
         }
+    }
+
+    #[test]
+    fn record_shape_carries_resolved_and_unresolved_evidence() {
+        let sha = "a".repeat(40);
+        let shaped = shape_record_response(
+            "wid-1",
+            &AgentWorkloadState::Completed,
+            Some("audit:crate"),
+            &["cargo".to_string()],
+            Some(sha.as_str()),
+            Some("Completed"),
+            vec![serde_json::json!({"kind": "k", "digest": "d", "envelope": {"exit_code": 0}})],
+            vec!["missing-digest".to_string()],
+        );
+        assert_eq!(shaped["schema"], "cynic.builder.record.v1");
+        assert_eq!(shaped["action"], "audit:crate");
+        assert_eq!(shaped["evidence"][0]["envelope"]["exit_code"], 0);
+        assert_eq!(shaped["unresolved_evidence"][0], "missing-digest");
+    }
+
+    #[test]
+    fn record_shape_for_non_terminal_has_no_completion() {
+        let shaped = shape_record_response(
+            "wid-2",
+            &AgentWorkloadState::Dispatched,
+            None,
+            &[],
+            None,
+            None,
+            vec![],
+            vec![],
+        );
+        assert!(shaped["completion_status"].is_null());
+        assert!(shaped["evidence"].as_array().unwrap().is_empty());
     }
 
     #[test]
