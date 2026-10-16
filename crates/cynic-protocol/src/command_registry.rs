@@ -62,6 +62,19 @@ pub fn registry_composed_actions() -> Result<Vec<String>, String> {
     Ok(registry_commands()?.into_keys().collect())
 }
 
+/// Build profile declared for `action` (`debug` or `release`), or `None`
+/// when the registry names no composable argv. Pure.
+pub fn registry_profile(action: &str) -> Option<String> {
+    let document: serde_json::Value =
+        serde_json::from_str(COMMAND_REGISTRY_JSON).ok()?;
+    document
+        .get("commands")?
+        .get(action)?
+        .get("profile")?
+        .as_str()
+        .map(str::to_string)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
