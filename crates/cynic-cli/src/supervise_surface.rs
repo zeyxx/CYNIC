@@ -78,6 +78,29 @@ pub enum SuperviseCommand {
         #[arg(long)]
         apply: bool,
     },
+    /// Watch one role's parent heartbeat and append ledger entries
+    /// (long-running consumer; records only, never restarts).
+    Watch {
+        /// Declared role id to watch (`node`, `kernel`, `mcp`, `inference`).
+        #[arg(long)]
+        role: String,
+        /// Status file the parent publishes.
+        #[arg(long)]
+        status_file: Option<String>,
+        /// Ledger file receiving one JSON line per recorded verdict.
+        #[arg(long, default_value = "/var/lib/cynic/supervise/watch-ledger.jsonl")]
+        ledger_file: String,
+        /// Seconds between status file polls.
+        #[arg(long, default_value_t = 5)]
+        poll_interval_secs: u64,
+        /// Milliseconds past which a heartbeat reads stale (2x the 5s
+        /// producer cadence cap).
+        #[arg(long, default_value_t = 10_000)]
+        stale_after_ms: u128,
+        /// Seconds between repeated fresh confirmations (bounds volume).
+        #[arg(long, default_value_t = 3_600)]
+        confirm_interval_secs: u64,
+    },
 }
 
 /// Default status file path for a role (Linux instantiation of the spec).
@@ -287,6 +310,39 @@ pub async fn dispatch(cmd: SuperviseCommand) -> ExitCode {
                 },
                 Err(message) => {
                     eprintln!("{message}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        SuperviseCommand::Watch {
+            role,
+            status_file,
+            ledger_file,
+            poll_interval_secs,
+            stale_after_ms,
+            confirm_interval_secs,
+        } => {
+            if !SUPERVISED_ROLE_IDS.contains(&role.as_str()) {
+                eprintln!(
+                    "unknown role '{role}'; declared roles: {}",
+                    SUPERVISED_ROLE_IDS.join(", ")
+                );
+                return ExitCode::FAILURE;
+            }
+            let cfg = cynic_supervisor::WatchConfig {
+                role_id: role.clone(),
+                status_file: std::path::PathBuf::from(
+                    status_file.unwrap_or_else(|| default_status_file(&role)),
+                ),
+                ledger_file: std::path::PathBuf::from(ledger_file),
+                poll_interval_secs,
+                stale_after_ms,
+                confirm_interval_secs,
+            };
+            match cynic_supervisor::watch_role(&cfg).await {
+                Ok(cynic_supervisor::WatchRunOutcome::Signaled) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("supervise watch failed: {error}");
                     ExitCode::FAILURE
                 }
             }

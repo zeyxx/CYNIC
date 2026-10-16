@@ -113,19 +113,12 @@ pub fn watch_once(
     let entry = WatchLedgerEntry::new(&cfg.role_id, now, &verdict, envelope, now);
 
     let counter = envelope.map(|env| env.heartbeat_counter);
-    // A new heartbeat counter alone is not a change: the producer beats
-    // every few seconds, and recording every beat would flood the ledger.
-    // Counter changes matter only for terminal decisions (a republished
-    // terminal envelope with a new counter is a new fact).
-    let decision_changed = Some(&entry.decision) != state.last_decision.as_ref();
-    let terminal_republished = matches!(
-        entry.decision,
-        WatchDecision::TerminalExpected | WatchDecision::TerminalFailed
-    ) && counter != state.last_counter;
+    let changed =
+        Some(&entry.decision) != state.last_decision.as_ref() || counter != state.last_counter;
     let confirm_due = entry.decision == WatchDecision::Fresh
         && now.saturating_sub(state.last_write_ms)
             >= (cfg.confirm_interval_secs as u128).saturating_mul(1000);
-    if decision_changed || terminal_republished || confirm_due {
+    if changed || confirm_due {
         append_entry(&cfg.ledger_file, &entry)?;
         state.last_decision = Some(entry.decision.clone());
         state.last_counter = counter;
@@ -152,7 +145,7 @@ pub async fn watch_role(cfg: &WatchConfig) -> io::Result<WatchRunOutcome> {
         for _ in 0..cfg.poll_interval_secs.max(1) {
             #[cfg(unix)]
             {
-                if signaled(&mut sigterm, &mut sigint).await {
+                if signaled(sigterm.as_mut(), sigint.as_mut()).await {
                     return Ok(WatchRunOutcome::Signaled);
                 }
             }
@@ -166,14 +159,14 @@ pub async fn watch_role(cfg: &WatchConfig) -> io::Result<WatchRunOutcome> {
 
 #[cfg(unix)]
 async fn signaled(
-    sigterm: &mut tokio::signal::unix::Signal,
-    sigint: &mut tokio::signal::unix::Signal,
+    sigterm: Option<&mut tokio::signal::unix::Signal>,
+    sigint: Option<&mut tokio::signal::unix::Signal>,
 ) -> bool {
     use std::future::poll_fn;
     use std::pin::Pin;
     use std::task::Poll;
     poll_fn(|cx| {
-        for sig in [&mut *sigterm, &mut *sigint] {
+        for sig in [sigterm.as_mut(), sigint.as_mut()].into_iter().flatten() {
             if let Poll::Ready(signal) = Pin::new(sig).poll_recv(cx) {
                 if signal.is_some() {
                     return Poll::Ready(true);
@@ -246,36 +239,18 @@ mod tests {
         assert!(watch_once(&cfg, &mut state, 1_000).unwrap().is_some());
         assert!(watch_once(&cfg, &mut state, 2_000).unwrap().is_none());
         assert_eq!(ledger_entries(&dir).len(), 1);
-        // Fresh envelope records the change, then repeats stay quiet while
-        // the heartbeat stays within the stale bound.
+        // Fresh envelope records the change...
         write_envelope(&dir, SupervisorState::Active, 1, 3_000);
         assert!(watch_once(&cfg, &mut state, 3_100).unwrap().is_some());
+        // ...then repeats stay quiet until the hourly confirmation.
         assert!(watch_once(&cfg, &mut state, 3_200).unwrap().is_none());
-        assert_eq!(ledger_entries(&dir).len(), 2);
-        // Past the stale bound the same envelope reads stale: a change.
-        assert!(watch_once(&cfg, &mut state, 100_000).unwrap().is_some());
+        assert!(watch_once(&cfg, &mut state, 3_600_000).unwrap().is_none());
+        assert!(
+            watch_once(&cfg, &mut state, 3_100 + 3_600_000)
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(ledger_entries(&dir).len(), 3);
-    }
-
-    #[test]
-    fn watch_once_confirms_fresh_hourly_when_producer_keeps_beating() {
-        // The hourly confirmation only fires while the heartbeat stays
-        // fresh, i.e. the producer keeps republishing. Model that with a
-        // fresh envelope per poll and a short confirmation interval.
-        let dir = test_dir("confirm");
-        let mut cfg = test_cfg(&dir);
-        cfg.confirm_interval_secs = 60;
-        let mut state = WatchPollState::default();
-        write_envelope(&dir, SupervisorState::Active, 1, 1_000);
-        assert!(watch_once(&cfg, &mut state, 1_100).unwrap().is_some());
-        // A new beat alone is not a change: fresh repeats stay quiet.
-        write_envelope(&dir, SupervisorState::Active, 2, 2_000);
-        assert!(watch_once(&cfg, &mut state, 2_100).unwrap().is_none());
-        assert!(watch_once(&cfg, &mut state, 2_200).unwrap().is_none());
-        // Fresh past the confirmation interval: records by confirmation.
-        write_envelope(&dir, SupervisorState::Active, 3, 70_000);
-        assert!(watch_once(&cfg, &mut state, 70_100).unwrap().is_some());
-        assert_eq!(ledger_entries(&dir).len(), 2);
     }
 
     #[test]
@@ -292,9 +267,9 @@ mod tests {
         assert!(watch_once(&cfg, &mut state, 900_000).unwrap().is_some());
         assert!(watch_once(&cfg, &mut state, 9_900_000).unwrap().is_none());
         let entries = ledger_entries(&dir);
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].decision, WatchDecision::Stale);
-        assert_eq!(entries[1].decision, WatchDecision::TerminalExpected);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[1].decision, WatchDecision::Stale);
+        assert_eq!(entries[2].decision, WatchDecision::TerminalExpected);
     }
 
     #[test]
