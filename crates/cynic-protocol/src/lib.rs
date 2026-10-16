@@ -122,5 +122,6 @@ pub mod window_journal;
 pub mod workload_identity;
 
 pub mod exports;
+pub mod retention;
 pub mod resource_budget;
 pub use exports::*;
