@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use clap::Subcommand;
 use serde::Serialize;
 
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
@@ -306,5 +307,65 @@ pub(crate) fn execute_host_audit(json: bool, max_commits: usize) -> ExitCode {
     match crate::node_host_audit::build_node_host_audit(max_commits) {
         Ok(report) => crate::emit_json(&report, false),
         Err(error) => crate::fail(error),
+    }
+}
+
+/// Node certificate arms: inspect a local enrollment certificate, or verify
+/// one against a kernel authority key.
+#[derive(Subcommand)]
+pub enum NodeCertCommand {
+    /// Inspect a local Node Enrollment Certificate.
+    Inspect {
+        #[arg(long)]
+        cert_path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Cryptographically verify a Node Enrollment Certificate against a Kernel authority public key.
+    Verify {
+        #[arg(long)]
+        kernel_pubkey_hex: String,
+        #[arg(long)]
+        cert_path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+/// Node CSR arms: create a self-signed Certificate Signing Request.
+#[derive(Subcommand)]
+pub enum NodeCsrCommand {
+    /// Create a self-signed Certificate Signing Request (CSR) for node enrollment.
+    Create {
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        role: String,
+        #[arg(long)]
+        key_path: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+pub(crate) fn execute_node_cert(command: NodeCertCommand) -> ExitCode {
+    match command {
+        NodeCertCommand::Inspect { cert_path, json } => execute_cert_inspect(cert_path, json),
+        NodeCertCommand::Verify {
+            kernel_pubkey_hex,
+            cert_path,
+            json,
+        } => execute_cert_verify(kernel_pubkey_hex, cert_path, json),
+    }
+}
+
+pub(crate) fn execute_node_csr(command: NodeCsrCommand) -> ExitCode {
+    match command {
+        NodeCsrCommand::Create {
+            node_id,
+            role,
+            key_path,
+            json,
+        } => execute_csr_create(node_id, role, key_path, json),
     }
 }
