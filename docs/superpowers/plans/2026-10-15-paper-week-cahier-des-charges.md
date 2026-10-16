@@ -214,6 +214,11 @@ Moteur : `scratch/paper-week/replay.py` (bras A tick-proxy vs B close, apparié)
   résiste au régime test pourri) ; ≥+50 % s'effondre au test. Verrouillé : drift ≤ +25 %.
 - Combiné G1 = établis OU (micro ET drift ≤25 %) : train 32,7 % (n=385) → test 31,1 % (n=386),
   +7pp vs baseline test (23,7 %). G2 (+sem1) : 31,9 %→30,5 % (plus de volume, un peu dilué).
+- CORPUS V2 (export-01, 1909 alertes, 1858 mesurées, jointure par seq — 88 paires même-seconde
+  gardées distinctes) : baseline 26,5 % identique ; G1 33,0 % (n=409) → 29,7 % (n=407) ;
+  WF 34,1/33,5/26,6. G1 tient, légèrement atténué sur régime frais.
+- Erreur d'ancre : bougie-réception vs mcap-signal médiane −16 % (p10 −72 %, p90 +59 %) — ancre bruitée.
+- Survie : 50 mints sans bougies (40 micro, appels T2-family) — biais flatteur pour T2, quantifié.
   Note d'honnêteté : le niveau +25 % a été confirmé (pas découvert) au test — walk-forward requis
   pour la stricte validité (fait ci-dessous, acquis).
 - Censure : 16 % d'alertes <2h d'observation (pics non formés) tirent tout vers le bas.
