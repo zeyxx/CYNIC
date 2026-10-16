@@ -193,9 +193,11 @@ impl<'a> BuildWorkflow<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::{BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation};
-    use cynic_protocol::vcs::SourceSnapshot;
+    use crate::build::{
+        BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
+    };
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
+    use cynic_protocol::vcs::SourceSnapshot;
 
     fn valid_observation() -> BuildRunnerObservation {
         BuildRunnerObservation {
@@ -262,7 +264,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -281,7 +283,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         )
@@ -302,7 +304,7 @@ mod tests {
             &lease,
             &dirty_snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -327,7 +329,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -351,7 +353,7 @@ mod tests {
             &rejected_lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -418,7 +420,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         );
@@ -449,7 +451,7 @@ mod tests {
             &lease,
             &snapshot,
             &recipe,
-            vec!["cargo".to_string(), "check".to_string()],
+            vec!["make".to_string(), "check".to_string()],
             "target/release/cynic".to_string(),
             2,
         )

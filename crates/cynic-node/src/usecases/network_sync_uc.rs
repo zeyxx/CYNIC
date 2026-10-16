@@ -21,9 +21,12 @@ pub const DEFAULT_NETWORK_SYNC_DNS_DIR: &str = "/etc/cynic/dns";
 /// The generated Synapse hosts file placement, overridable for tests and labs.
 ///
 /// A placement is a coordination claim: the writer and the reader must name the
-/// same path. `execute_network_sync` hard-coded it inline, so no caller could
-/// redirect it without editing this function. The default keeps the
-/// `/etc/cynic/dns` placement; `with_dns_dir` is the only way to move it.
+/// same path. The default follows the observed DNS provider context
+/// ([`crate::dns_contract::synapse_dns_hosts_path`]), so the sync writes where
+/// the bundle report says the hosts file lives — `/etc/cynic/dns` under
+/// dnsmasq, `/etc/coredns` under CoreDNS. `with_dns_dir` is the only way to
+/// move it elsewhere; [`DEFAULT_NETWORK_SYNC_DNS_DIR`] remains the fallback
+/// when the context yields no parent directory.
 #[derive(Debug, Clone)]
 pub struct NetworkSyncDnsTarget {
     pub dns_dir: String,
@@ -32,7 +35,7 @@ pub struct NetworkSyncDnsTarget {
 impl NetworkSyncDnsTarget {
     pub fn new() -> Self {
         Self {
-            dns_dir: DEFAULT_NETWORK_SYNC_DNS_DIR.to_string(),
+            dns_dir: default_dns_dir_from_provider_context(),
         }
     }
 
@@ -51,6 +54,19 @@ impl Default for NetworkSyncDnsTarget {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Resolve the default hosts directory from the observed DNS provider
+/// context, so the sync and the bundle report never disagree about where
+/// the hosts file lives. Falls back to [`DEFAULT_NETWORK_SYNC_DNS_DIR`]
+/// when the context path has no parent.
+fn default_dns_dir_from_provider_context() -> String {
+    let hosts = crate::dns_contract::synapse_dns_hosts_path();
+    std::path::Path::new(&hosts)
+        .parent()
+        .map(|parent| parent.to_string_lossy().to_string())
+        .filter(|dir| !dir.is_empty())
+        .unwrap_or_else(|| DEFAULT_NETWORK_SYNC_DNS_DIR.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,9 +187,9 @@ pub fn parse_registry_network_specs(
 
 /// Execute network sync on the current host.
 ///
-/// The generated hosts file goes to [`DEFAULT_NETWORK_SYNC_DNS_DIR`], the same
-/// placement the deployed node uses. Callers that must not write there (tests,
-/// a lab) pass [`NetworkSyncDnsTarget::with_dns_dir`] through
+/// The generated hosts file goes to the observed provider context's hosts
+/// directory (see [`NetworkSyncDnsTarget`]). Callers that must not write
+/// there (tests, a lab) pass [`NetworkSyncDnsTarget::with_dns_dir`] through
 /// [`execute_network_sync_with_target`]; the signature above is unchanged so no
 /// existing caller breaks.
 pub fn execute_network_sync(
@@ -345,19 +361,19 @@ mod tests {
         .expect("write registry");
     }
 
-    /// The default target must remain the deployed placement. The override is
-    /// only allowed to move the write; it is not allowed to change where an
-    /// unmodified caller writes.
+    /// The default target must follow the observed provider context. The
+    /// override is only allowed to move the write; it is not allowed to
+    /// change where an unmodified caller writes.
     #[test]
-    fn default_dns_target_is_the_deployed_placement() {
-        assert_eq!(
-            NetworkSyncDnsTarget::new().hosts_path(),
-            PathBuf::from("/etc/cynic/dns").join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME)
-        );
-        assert_eq!(
-            NetworkSyncDnsTarget::default().dns_dir,
-            DEFAULT_NETWORK_SYNC_DNS_DIR
-        );
+    fn default_dns_target_follows_provider_context() {
+        let context_hosts = crate::dns_contract::synapse_dns_hosts_path();
+        let context_dir = std::path::Path::new(&context_hosts)
+            .parent()
+            .expect("context hosts path has a parent")
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(NetworkSyncDnsTarget::new().hosts_path(), PathBuf::from(&context_dir).join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME));
+        assert_eq!(NetworkSyncDnsTarget::default().dns_dir, context_dir);
     }
 
     /// The override is the whole point: a caller that must not write
