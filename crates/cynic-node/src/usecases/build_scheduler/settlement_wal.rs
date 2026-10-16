@@ -95,4 +95,24 @@ impl SettlementWal {
     pub fn latest_sequence(&self) -> Result<cynic_storage::SequenceNumber, StorageError> {
         self.inner.latest_sequence()
     }
+
+    /// Boot gate: verify the chain inherited from previous runs and report
+    /// the resume sequence. Returns the latest sequence number when the
+    /// chain is valid, or a reason string when verification or sequencing
+    /// fails. The scheduler calls this once at startup so `verify_integrity`
+    /// and `latest_sequence` guard production, not just tests: a corrupt
+    /// inherited chain must fall back to settlements without audit log
+    /// (loudly) instead of appending onto a broken chain (silently).
+    pub fn verify_on_boot(&self) -> Result<u64, String> {
+        let report = self
+            .verify_integrity()
+            .map_err(|error| format!("settlement_wal_boot_verify_failed:{error:?}"))?;
+        if !report.is_valid {
+            return Err("settlement_wal_boot_chain_invalid".to_string());
+        }
+        let sequence = self
+            .latest_sequence()
+            .map_err(|error| format!("settlement_wal_boot_sequence_failed:{error:?}"))?;
+        Ok(sequence.0)
+    }
 }

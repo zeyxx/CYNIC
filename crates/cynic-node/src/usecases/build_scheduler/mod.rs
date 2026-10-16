@@ -49,7 +49,23 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
         );
         e
     })
-    .ok();
+    .ok()
+    .and_then(|wal| match wal.verify_on_boot() {
+        Ok(sequence) => {
+            tracing::info!(
+                sequence,
+                "settlement WAL chain verified — resuming audit log"
+            );
+            Some(wal)
+        }
+        Err(reason) => {
+            tracing::error!(
+                %reason,
+                "settlement_wal_boot_chain_rejected — settlements proceed without audit log"
+            );
+            None
+        }
+    });
     let interval = Duration::from_secs(scheduler.interval_secs);
     loop {
         if let Err(error) = run_iteration(&control, &scheduler, &store, wal.as_ref(), &shutdown).await {
