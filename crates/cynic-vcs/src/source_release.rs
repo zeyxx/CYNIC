@@ -238,7 +238,7 @@ mod tests {
             source_commit: "0123456789abcdef0123456789abcdef01234567".to_string(),
             build_runner_node_id: "cynic-builder".to_string(),
             retention_until_unix_ms: 20_000,
-            requested_action: "make:check".to_string(),
+            requested_action: "cargo:build-release".to_string(),
         }
     }
 

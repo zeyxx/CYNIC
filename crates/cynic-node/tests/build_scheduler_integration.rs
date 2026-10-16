@@ -36,7 +36,16 @@ fn signed_build_grant_derivation_and_verification() {
     let source_commit = "f03536eac0efdf2c1e8d353760345205d05909c8";
 
     let action = AgentBoundedAction {
-        argv: vec!["make".into(), "check".into()],
+        argv: vec![
+            "cargo".into(),
+            "run".into(),
+            "-q".into(),
+            "-p".into(),
+            "cynic-cli".into(),
+            "--".into(),
+            "audit".into(),
+            "crate".into(),
+        ],
         working_directory: Some("/source/workspaces/CYNIC".into()),
         input_digest: Some(format!("sha256:{}", "b".repeat(64))),
         mutates: true,
