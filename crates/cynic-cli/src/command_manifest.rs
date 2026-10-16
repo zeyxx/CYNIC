@@ -42,7 +42,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic forensics evidence [--json] [--boot-id <id>]",
                     "cynic forensics timeline --boot-id <id> [--json]",
-                    "cynic forensics post-mortem [--json] [--boot-id <id>]",
+                    "cynic forensics postmortem [--json] [--boot-id <id>]",
                     "cynic forensics status [--json]",
                     "cynic forensics services [--json] [--min-rate <rate>]",
                 ],
@@ -116,7 +116,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 commands: vec![
                     "cynic audit crate [--json]",
                     "cynic audit secret [--json]",
-                    "cynic audit node-host [--json]",
+                    "cynic audit node host [--json]",
                     "cynic audit paths [--json]",
                     "cynic audit branch [--json]",
                     "cynic audit all [--json]",
