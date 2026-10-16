@@ -9,6 +9,10 @@ use std::time::{Duration, Instant};
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+use cynic_protocol::build_latency::{
+    SCCACHE_ADOPT_THRESHOLD, RSS_CAP_MB,
+    decide_admit_parallel_slot, decide_reuse_stable_checkout, decide_require_sccache,
+};
 use cynic_protocol::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
@@ -102,19 +106,65 @@ pub(crate) fn admit_build_under_rss_cap(projected_rss_mb: u64, max_rss_cap_mb: O
     }
 }
 
-/// Combined admission decision for a scheduler tick. Wires the RSS cap
-/// gate alongside the load-tier gate: both must admit for the tick to
-/// proceed. This is the single call site in `run_iteration` — the pure
-/// functions above are only reachable through this decision.
+/// Admission decision with T6 predicate consultation results.
+///
+/// Each field mirrors one frozen predicate from `cynic_protocol::build_latency`:
+/// - `stable_checkout_reuse` ← `decide_reuse_stable_checkout`
+/// - `parallel_slot_admitted` ← `decide_admit_parallel_slot`
+/// - `sccache_required` ← `decide_require_sccache`
+///
+/// `admitted` is the composite gate: capacity + RSS cap must both admit.
+/// The predicate fields inform behavior and are logged on refusal.
+pub(crate) struct AdmissionDecision {
+    pub admitted: bool,
+    pub stable_checkout_reuse: bool,
+    pub parallel_slot_admitted: bool,
+    pub sccache_required: bool,
+}
+
+/// Combined admission decision for a scheduler tick. Consults all three
+/// T6 predicates at the decision point so behavior changes only where a
+/// predicate says so. The load-tier gate and RSS-cap gate must both admit;
+/// the stable-checkout and sccache predicates inform behavior and are
+/// logged on refusal.
+///
+/// Predicate wiring:
+/// - H1 `decide_reuse_stable_checkout`: stable root configured ⇒ reuse.
+/// - H2 `decide_admit_parallel_slot`: projected RSS ≤ cap ⇒ admit.
+///   `RSS_CAP_MB` is the default cap; `max_rss_cap_mb` overrides it.
+/// - H3 `decide_require_sccache`: measured hit rate ≥ floor ⇒ required.
+///   Consulted only when `sccache_measured_hit_rate` is `Some`.
 pub(crate) fn should_admit_build(
     assessment: &CapacityAssessmentV1,
     scheduler: &BuildSchedulerConfig,
-) -> bool {
+) -> AdmissionDecision {
+    let refused = |parallel_slot_admitted| AdmissionDecision {
+        admitted: false,
+        stable_checkout_reuse: false,
+        parallel_slot_admitted,
+        sccache_required: false,
+    };
     if !admit_claim_under_capacity(assessment) {
-        return false;
+        return refused(false);
     }
     let projected = projected_rss_mb(scheduler.build_jobs);
-    admit_build_under_rss_cap(projected, scheduler.max_rss_cap_mb)
+    let rss_cap = scheduler.max_rss_cap_mb.unwrap_or(RSS_CAP_MB);
+    let parallel_slot_admitted = decide_admit_parallel_slot(rss_cap, projected);
+    if !parallel_slot_admitted {
+        return refused(false);
+    }
+    let stable_root_configured = scheduler.stable_workspace_root.is_some();
+    let stable_checkout_reuse = decide_reuse_stable_checkout(stable_root_configured);
+    let sccache_required = scheduler
+        .sccache_measured_hit_rate
+        .map(|measured| decide_require_sccache(SCCACHE_ADOPT_THRESHOLD, measured))
+        .unwrap_or(false);
+    AdmissionDecision {
+        admitted: true,
+        stable_checkout_reuse,
+        parallel_slot_admitted,
+        sccache_required,
+    }
 }
 
 /// Canonical tier name for proofs and logs. Mirrors the serde snake_case
@@ -151,10 +201,14 @@ async fn run_iteration(
     let capacity = measure_capacity_assessment();
     let load_tier = load_tier_str(&capacity.state).to_string();
     let capacity_unknowns = capacity.residual_unknowns.clone();
-    if !should_admit_build(&capacity, scheduler) {
+    let decision = should_admit_build(&capacity, scheduler);
+    if !decision.admitted {
         tracing::info!(
             tier = %load_tier,
-            "build scheduler tick skipped: host capacity saturated or RSS cap exceeded"
+            stable_checkout_reuse = %decision.stable_checkout_reuse,
+            parallel_slot_admitted = %decision.parallel_slot_admitted,
+            sccache_required = %decision.sccache_required,
+            "build scheduler tick skipped: admission predicate refused"
         );
         return Ok(());
     }
@@ -274,15 +328,17 @@ async fn execute_claimed(
         }
     };
     let prepare_ms = prepare_start.elapsed().as_millis() as u64;
-    // Footprint measurement scope: disk free bytes bracket the build on the
-    // filesystem holding the effective CARGO_TARGET_DIR. RSS is measured
-    // after the build via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    // Footprint measurement scope: target-dir growth (du-style) brackets the
+    // build on the effective CARGO_TARGET_DIR. RSS is measured after the build
+    // via getrusage(RUSAGE_CHILDREN) — no "before" needed.
+    // NOTE: target-dir growth is approximate under concurrency because multiple
+    // builds may share the same target dir.
     let target_dir = effective_target_dir(
         scheduler.shared_target_root.as_deref(),
         &prepared.workspace.workspace_root,
         &claimed.record.envelope.action.argv,
     );
-    let disk_free_before = measure_disk_free_bytes_for(&target_dir);
+    let target_dir_size_before = measure_target_dir_size_bytes(&target_dir);
     let execute_start = Instant::now();
     let execution = TokioBuildExecution
         .execute(&prepared.execution, &execution_cancel)
@@ -436,11 +492,12 @@ async fn execute_claimed(
     let measured_cpu_ms = cpu_meter.cpu_ms_between(&cpu_start, &cpu_end);
     // Close the footprint measurement scope: RSS via RUSAGE_CHILDREN
     // (max of the build child tree, not the scheduler's own RSS) and
-    // disk free-byte delta on the target dir's filesystem.
+    // target-dir growth (du-style: size of effective target dir before/after
+    // the execute window). Approximate under concurrency (shared target).
     // None = unmeasured (explicit unknown).
     let max_rss_kb = measure_max_rss_kb();
-    let disk_delta_bytes = match (disk_free_before, measure_disk_free_bytes_for(&target_dir)) {
-        (Some(before), Some(after)) => Some(before as i64 - after as i64),
+    let disk_delta_bytes = match (target_dir_size_before, measure_target_dir_size_bytes(&target_dir)) {
+        (Some(before), Some(after)) => Some(after as i64 - before as i64),
         _ => None,
     };
     let latest = store
@@ -598,29 +655,30 @@ fn measure_max_rss_kb() -> Option<u64> {
     Some(usage.ru_maxrss as u64)
 }
 
-/// Measure free disk bytes on the filesystem containing `path` via
-/// `statvfs(2)`. Returns `None` when the syscall fails or `path` is
-/// not valid UTF-8.
+/// Measure the total size of all files in `path` recursively (du-style).
+/// Returns `None` when the path doesn't exist or can't be read.
 ///
-/// Uses `f_bavail` (free blocks available to unprivileged users) rather
-/// than `f_bfree` (superuser free blocks) to match what `df` reports and
-/// what the process can actually allocate. Uses `f_frsize` (fundamental
-/// fragment size) with a fallback to `f_bsize` when `f_frsize` is 0
-/// (some filesystems leave it unset).
-fn measure_disk_free_bytes_for(path: &std::path::Path) -> Option<u64> {
-    use std::ffi::CString;
-    let path_cstr = CString::new(path.to_str()?).ok()?;
-    let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
-    let result = unsafe { libc::statvfs(path_cstr.as_ptr(), &mut stat) };
-    if result != 0 {
+/// This replaces the old statvfs-based free-space delta, which was erratic
+/// under multi-agent load because neighbors' writes polluted the measurement.
+/// Target-dir growth is approximate under concurrency: multiple builds may
+/// share the same target dir, so the delta includes any writes by other
+/// processes to that directory.
+fn measure_target_dir_size_bytes(path: &std::path::Path) -> Option<u64> {
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if metadata.is_file() {
+        return Some(metadata.len());
+    }
+    if !metadata.is_dir() {
         return None;
     }
-    let frsize = if stat.f_frsize > 0 {
-        stat.f_frsize as u64
-    } else {
-        stat.f_bsize as u64
-    };
-    Some(stat.f_bavail as u64 * frsize)
+    let mut total = 0u64;
+    let entries = std::fs::read_dir(path).ok()?;
+    for entry in entries {
+        let entry = entry.ok()?;
+        let size = measure_target_dir_size_bytes(&entry.path())?;
+        total += size;
+    }
+    Some(total)
 }
 
 /// Resolve the effective CARGO_TARGET_DIR for a build. When
@@ -694,8 +752,10 @@ fn persist_settlement_proof(
     fields: &SettlementProofFields<'_>,
 ) {
     let proof = settlement_proof_body(fields);
-    let evidence_ref = cynic_protocol::digest_json(&proof)
-        .map(|digest| format!("scheduler-settlement:{digest}"))
+    // Single digest path: the pure helper above is the only constructor.
+    // (Previously duplicated inline, leaving the helper test-only and the
+    // lib red under deny(dead_code).)
+    let evidence_ref = settlement_proof_evidence_ref(fields)
         .unwrap_or_else(|_| format!("scheduler-settlement:{}", fields.workload_id));
     if let Err(error) = crate::adapters::agent_execution_runtime_observer::persist_capabilities(
         &["scheduler_settlement"],
@@ -734,6 +794,7 @@ mod tests {
     use super::*;
     use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
     use crate::usecases::build_admission::admit_build_check;
+    use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static QUEUE_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -1229,23 +1290,30 @@ mod tests {
             release_publication: None,
             build_jobs: None,
             max_rss_cap_mb: None,
+            sccache: None,
+            sccache_measured_hit_rate: None,
         };
         (control, scheduler)
     }
 
-    // ── T1 fix round 1 RED tests ─────────────────────────────────────────
-    // These tests pin correct footprint measurement semantics. They FAIL
-    // on the current code because:
-    //   1. measure_max_rss_kb() reads /proc/self/status (the scheduler's
-    //      own ~768 KB RSS), not the build child process tree.
-    //   2. measure_disk_free_bytes() runs `df -k /` (root fs), not the
-    //      filesystem holding CARGO_TARGET_DIR.
+    // ── T1 fix round 1 tests ─────────────────────────────────────────────
+    // These tests pin correct footprint measurement semantics:
+    //   1. measure_max_rss_kb() uses getrusage(RUSAGE_CHILDREN) (the build
+    //      child tree peak), not /proc/self/status (the scheduler's own RSS).
+    //   2. disk_delta_bytes uses du-style target-dir growth (recursive size
+    //      of effective target dir before/after the execute window), not
+    //      statvfs free-space deltas which were erratic under multi-agent
+    //      load because neighbors' writes polluted the measurement.
 
     /// RED: disk_delta must see writes to the effective target dir. Writing
     /// a known 20 MB into the target dir inside the measured window must
     /// produce a delta in the right order of magnitude (tens of MB), not
-    /// near zero. Mirrors the measure_disk_free_bytes_for +
-    /// effective_target_dir usage in execute_claimed (mod.rs).
+    /// near zero. Uses du-style target-dir growth: the difference between
+    /// the directory size before and after the write.
+    ///
+    /// NOTE: This measurement is approximate under concurrency because
+    /// multiple builds may share the same target dir. The delta includes
+    /// any writes by other processes to that directory.
     #[test]
     fn disk_delta_sees_writes_to_effective_target_dir() {
         use std::io::Write;
@@ -1260,7 +1328,7 @@ mod tests {
         let target_dir = effective_target_dir(None, &workspace_root, &[]);
         std::fs::create_dir_all(&target_dir).expect("create target dir");
 
-        let disk_free_before = measure_disk_free_bytes_for(&target_dir).expect("measure before");
+        let size_before = measure_target_dir_size_bytes(&target_dir).expect("measure before");
 
         let known_bytes = 20 * 1024 * 1024u64;
         let file_path = target_dir.join("known_write.bin");
@@ -1271,8 +1339,8 @@ mod tests {
         }
         drop(file);
 
-        let disk_free_after = measure_disk_free_bytes_for(&target_dir).expect("measure after");
-        let disk_delta_bytes = disk_free_before as i64 - disk_free_after as i64;
+        let size_after = measure_target_dir_size_bytes(&target_dir).expect("measure after");
+        let disk_delta_bytes = size_after as i64 - size_before as i64;
 
         assert!(
             disk_delta_bytes >= (known_bytes as i64) / 2,
@@ -1311,11 +1379,11 @@ mod tests {
         );
     }
 
-    /// RED: measure_disk_free_bytes must reflect the filesystem holding the
-    /// target dir, not the root filesystem. Writing a known byte count to
-    /// the target dir must be visible in the delta.
+    /// Regression: measure_target_dir_size_bytes must reflect the target
+    /// dir's content, not the filesystem's free space. Adding a file to
+    /// the target dir must increase the measured size.
     #[test]
-    fn measure_disk_free_bytes_reflects_target_dir_filesystem() {
+    fn measure_target_dir_size_bytes_reflects_content() {
         let tmp = std::env::temp_dir().join(format!(
             "cynic-disk-test-{}-{}",
             std::process::id(),
@@ -1332,18 +1400,13 @@ mod tests {
             file.write_all(&buf).expect("write");
         }
         drop(file);
-        // Measure free bytes on the target dir's filesystem.
-        let free_before = measure_disk_free_bytes_for(&tmp).expect("measure before");
-        // Delete the file — free bytes must increase.
+        let size_before = measure_target_dir_size_bytes(&tmp).expect("measure before");
         std::fs::remove_file(&file_path).expect("remove file");
-        let free_after = measure_disk_free_bytes_for(&tmp).expect("measure after");
-        // The current measure_disk_free_bytes() runs `df -k /` which may
-        // not be the same filesystem as tmp. After the fix, it measures
-        // the target dir's filesystem and must see the 20 MB delta.
-        let delta = free_after as i64 - free_before as i64;
+        let size_after = measure_target_dir_size_bytes(&tmp).expect("measure after");
+        let delta = size_before as i64 - size_after as i64;
         assert!(
             delta >= (known_bytes as i64) / 2,
-            "disk delta must see the 20 MB write, got {delta} bytes"
+            "target dir size must see the 20 MB write, got {delta} bytes"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -1506,13 +1569,20 @@ mod tests {
             release_publication: None,
             build_jobs: Some(2),
             max_rss_cap_mb: Some(100),
+            sccache: None,
+            sccache_measured_hit_rate: None,
         };
         let capacity = CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
             state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
             residual_unknowns: vec![],
         };
         assert!(
-            !should_admit_build(&capacity, &scheduler),
+            !should_admit_build(&capacity, &scheduler).admitted,
             "admission must refuse when projected RSS exceeds cap"
         );
     }
@@ -1534,14 +1604,130 @@ mod tests {
             release_publication: None,
             build_jobs: Some(1),
             max_rss_cap_mb: Some(4096),
+            sccache: None,
+            sccache_measured_hit_rate: None,
         };
         let capacity = CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
             state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
             residual_unknowns: vec![],
         };
         assert!(
-            should_admit_build(&capacity, &scheduler),
+            should_admit_build(&capacity, &scheduler).admitted,
             "admission must admit when projected RSS is under cap"
+        );
+    }
+
+    // ── T6: predicate wiring tests ────────────────────────────────────────
+
+    fn headroom_capacity() -> CapacityAssessmentV1 {
+        CapacityAssessmentV1 {
+            schema: cynic_protocol::capacity::CAPACITY_ASSESSMENT_SCHEMA,
+            state: LoadTier::Headroom,
+            cpu_util_pct: None,
+            mem_used_pct: None,
+            available_ram_bytes: 0,
+            policy_id: "build-scheduler".to_string(),
+            residual_unknowns: vec![],
+        }
+    }
+
+    /// H1: `decide_reuse_stable_checkout` is consulted at the admission
+    /// decision point. When the stable root is configured the predicate
+    /// returns true and the decision records reuse; when absent, false.
+    #[test]
+    fn admission_consults_reuse_stable_checkout_predicate() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.stable_workspace_root = Some(PathBuf::from("/tmp/stable"));
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            decision.stable_checkout_reuse,
+            "stable root configured ⇒ predicate must report reuse"
+        );
+        scheduler.stable_workspace_root = None;
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.stable_checkout_reuse,
+            "stable root absent ⇒ predicate must report no reuse"
+        );
+    }
+
+    /// H2: `decide_admit_parallel_slot` gates admission. When no cap is
+    /// configured the predicate's `RSS_CAP_MB` is the default; projected
+    /// RSS above it must refuse.
+    #[test]
+    fn admission_uses_predicate_rss_cap_as_default() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.build_jobs = Some(10);
+        scheduler.max_rss_cap_mb = None;
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(
+            !decision.admitted,
+            "projected RSS {} MB exceeds default cap {} MB — must refuse",
+            projected_rss_mb(scheduler.build_jobs),
+            RSS_CAP_MB,
+        );
+        assert!(!decision.parallel_slot_admitted);
+    }
+
+    /// H2: `decide_admit_parallel_slot` boundary — projected == cap admits.
+    #[test]
+    fn admission_parallel_slot_boundary_inclusive() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.build_jobs = Some(1);
+        scheduler.max_rss_cap_mb = Some(projected_rss_mb(scheduler.build_jobs));
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(decision.parallel_slot_admitted);
+    }
+
+    /// H3: `decide_require_sccache` is consulted when a measured hit rate
+    /// is present. At or above the threshold ⇒ required; below ⇒ not.
+    #[test]
+    fn admission_consults_require_sccache_predicate() {
+        let capacity = headroom_capacity();
+        let mut scheduler = scheduler_configs().1;
+        scheduler.sccache_measured_hit_rate = Some(0.90);
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            decision.sccache_required,
+            "hit rate {} >= {} ⇒ sccache required",
+            0.90,
+            SCCACHE_ADOPT_THRESHOLD,
+        );
+        scheduler.sccache_measured_hit_rate = Some(0.10);
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.sccache_required,
+            "hit rate {} < {} ⇒ sccache not required",
+            0.10,
+            SCCACHE_ADOPT_THRESHOLD,
+        );
+    }
+
+    /// H3: when no measured hit rate is present the sccache predicate is
+    /// not consulted and `sccache_required` stays false.
+    #[test]
+    fn admission_sccache_not_consulted_when_unmeasured() {
+        let capacity = headroom_capacity();
+        let scheduler = scheduler_configs().1;
+        assert!(scheduler.sccache_measured_hit_rate.is_none());
+        let decision = should_admit_build(&capacity, &scheduler);
+        assert!(decision.admitted);
+        assert!(
+            !decision.sccache_required,
+            "unmeasured hit rate ⇒ predicate not consulted"
         );
     }
 }

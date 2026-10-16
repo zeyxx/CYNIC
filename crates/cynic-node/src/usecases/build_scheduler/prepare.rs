@@ -149,18 +149,12 @@ pub(super) async fn prepare(
         "CYNIC_BUILD_ADMISSION_VERIFIER".into(),
         verifier.to_string_lossy().into_owned(),
     );
-    if let Some(root) = scheduler.shared_target_root.as_ref() {
-        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
-        // instead of recompiling cold in a throwaway directory.
-        let target_dir = shared_target_dir_for(root, &claimed.record.envelope.action.argv);
-        environment.insert(
-            "CARGO_TARGET_DIR".into(),
-            target_dir.to_string_lossy().into_owned(),
-        );
-    }
-    if let Some(jobs) = scheduler.build_jobs {
-        environment.insert("CARGO_BUILD_JOBS".into(), jobs.to_string());
-    }
+    // Cargo/sccache env, pure and unit-testable: shared target dir,
+    // bounded jobs, and the optional sccache wrapper rollout.
+    environment.extend(build_execution_env(
+        scheduler,
+        &claimed.record.envelope.action.argv,
+    ));
     source_provenance.extend([
         consumed.record_digest.clone(),
         digest_json(&signed).map_err(|_| "build_grant_digest_failed".to_string())?,
@@ -183,6 +177,48 @@ pub(super) async fn prepare(
         workspace,
         provenance: source_provenance,
     })
+}
+
+/// Assemble the cargo/sccache slice of the bounded build execution
+/// environment. Pure: the same scheduler config + argv always yields the
+/// same map.
+///
+/// - `shared_target_root` set ⇒ `CARGO_TARGET_DIR=<root>/<profile>` so
+///   consecutive builds reuse a warm shared target (profile from argv).
+/// - `build_jobs` set ⇒ `CARGO_BUILD_JOBS=<n>`; absent preserves cargo's
+///   default job count.
+/// - `sccache` stanza present ⇒ `RUSTC_WRAPPER=<binary>` (cargo routes
+///   every rustc invocation through sccache) + `SCCACHE_DIR=<dir>` (the
+///   persistent cache). Absent = behavior unchanged (plain rustc).
+///
+/// The map is the bounded passthrough: off-mode execs it directly
+/// (`TokioBuildExecution`), bwrap forwards every entry via `--setenv`
+/// (`cynic_sandbox::cargo::build_cargo_sandbox_argv`).
+pub(super) fn build_execution_env(
+    scheduler: &BuildSchedulerConfig,
+    argv: &[String],
+) -> BTreeMap<String, String> {
+    let mut env = BTreeMap::new();
+    if let Some(root) = scheduler.shared_target_root.as_ref() {
+        // Warm shared cargo cache: consecutive builds reuse <root>/<profile>
+        // instead of recompiling cold in a throwaway directory.
+        let target_dir = shared_target_dir_for(root, argv);
+        env.insert(
+            "CARGO_TARGET_DIR".into(),
+            target_dir.to_string_lossy().into_owned(),
+        );
+    }
+    if let Some(jobs) = scheduler.build_jobs {
+        env.insert("CARGO_BUILD_JOBS".into(), jobs.to_string());
+    }
+    if let Some(sccache) = scheduler.sccache.as_ref() {
+        env.insert("RUSTC_WRAPPER".into(), sccache.binary.clone());
+        env.insert(
+            "SCCACHE_DIR".into(),
+            sccache.cache_dir.to_string_lossy().into_owned(),
+        );
+    }
+    env
 }
 
 /// Derive the cargo profile name from argv: `release` when `--release` is
@@ -309,9 +345,15 @@ fn sandbox_mode_for(
         .shared_target_root
         .as_ref()
         .map(|root| shared_target_dir_for(root, argv));
-    CargoSandboxSpec::resolve_from_host_env(workspace_root.to_path_buf(), target_dir)
-        .map(BuildSandboxMode::Bwrap)
-        .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())
+    let mut spec = CargoSandboxSpec::resolve_from_host_env(
+        workspace_root.to_path_buf(),
+        target_dir,
+    )
+    .ok_or_else(|| "build_sandbox_spec_unresolvable".to_string())?;
+    if let Some(sccache) = scheduler.sccache.as_ref() {
+        spec.sccache_cache_dir = Some(sccache.cache_dir.clone());
+    }
+    Ok(BuildSandboxMode::Bwrap(spec))
 }
 
 fn current_unix_ms() -> u64 {
@@ -518,15 +560,7 @@ mod tests {
             ..scheduler_config()
         };
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        // Construct the env inline (build_execution_env was inlined).
-        let mut env: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-        if let Some(root) = scheduler.shared_target_root.as_ref() {
-            let target_dir = shared_target_dir_for(root, &argv);
-            env.insert(
-                "CARGO_TARGET_DIR".into(),
-                target_dir.to_string_lossy().into_owned(),
-            );
-        }
+        let env = build_execution_env(&scheduler, &argv);
         assert_eq!(
             env.get("CARGO_TARGET_DIR"),
             Some(&"/var/lib/cynic/build-targets/debug".to_string()),
@@ -542,15 +576,7 @@ mod tests {
             "precondition: shared_target_root must be absent"
         );
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        // Construct the env inline (build_execution_env was inlined).
-        let mut env: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-        if let Some(root) = scheduler.shared_target_root.as_ref() {
-            let target_dir = shared_target_dir_for(root, &argv);
-            env.insert(
-                "CARGO_TARGET_DIR".into(),
-                target_dir.to_string_lossy().into_owned(),
-            );
-        }
+        let env = build_execution_env(&scheduler, &argv);
         assert!(
             !env.contains_key("CARGO_TARGET_DIR"),
             "CARGO_TARGET_DIR must NOT be set when shared_target_root is absent"
@@ -564,12 +590,7 @@ mod tests {
         let mut scheduler = scheduler_config();
         scheduler.build_jobs = Some(4);
         let argv = vec!["cargo".to_string(), "build".to_string()];
-        // The env construction logic from prepare() — must inject CARGO_BUILD_JOBS
-        let mut env: std::collections::BTreeMap<String, String> =
-            std::collections::BTreeMap::new();
-        if let Some(jobs) = scheduler.build_jobs {
-            env.insert("CARGO_BUILD_JOBS".to_string(), jobs.to_string());
-        }
+        let env = build_execution_env(&scheduler, &argv);
         assert_eq!(
             env.get("CARGO_BUILD_JOBS"),
             Some(&"4".to_string()),
@@ -584,14 +605,69 @@ mod tests {
             scheduler.build_jobs.is_none(),
             "precondition: build_jobs must be absent"
         );
-        let mut env: std::collections::BTreeMap<String, String> =
-            std::collections::BTreeMap::new();
-        if let Some(jobs) = scheduler.build_jobs {
-            env.insert("CARGO_BUILD_JOBS".to_string(), jobs.to_string());
-        }
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
         assert!(
             !env.contains_key("CARGO_BUILD_JOBS"),
             "CARGO_BUILD_JOBS must NOT be set when build_jobs is absent"
+        );
+    }
+
+    // --- Task 7: sccache env injection tests ---
+
+    #[test]
+    fn execution_env_contains_rustc_wrapper_and_sccache_dir_when_sccache_stanza_present() {
+        let mut scheduler = scheduler_config();
+        scheduler.sccache = Some(crate::config::SccacheConfig {
+            cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
+            binary: "sccache".to_string(),
+        });
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("RUSTC_WRAPPER"),
+            Some(&"sccache".to_string()),
+            "RUSTC_WRAPPER must route rustc through sccache when the stanza is present"
+        );
+        assert_eq!(
+            env.get("SCCACHE_DIR"),
+            Some(&"/var/lib/cynic/sccache-cache".to_string()),
+            "SCCACHE_DIR must point at the configured cache dir"
+        );
+    }
+
+    #[test]
+    fn execution_env_rustc_wrapper_uses_configured_binary_when_set() {
+        let mut scheduler = scheduler_config();
+        scheduler.sccache = Some(crate::config::SccacheConfig {
+            cache_dir: PathBuf::from("/var/lib/cynic/sccache-cache"),
+            binary: "/usr/local/bin/sccache".to_string(),
+        });
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert_eq!(
+            env.get("RUSTC_WRAPPER"),
+            Some(&"/usr/local/bin/sccache".to_string()),
+            "RUSTC_WRAPPER must use the configured binary path"
+        );
+    }
+
+    #[test]
+    fn execution_env_has_no_sccache_when_stanza_absent() {
+        let scheduler = scheduler_config();
+        assert!(
+            scheduler.sccache.is_none(),
+            "precondition: sccache stanza must be absent"
+        );
+        let argv = vec!["cargo".to_string(), "build".to_string()];
+        let env = build_execution_env(&scheduler, &argv);
+        assert!(
+            !env.contains_key("RUSTC_WRAPPER"),
+            "RUSTC_WRAPPER must NOT be set when the sccache stanza is absent"
+        );
+        assert!(
+            !env.contains_key("SCCACHE_DIR"),
+            "SCCACHE_DIR must NOT be set when the sccache stanza is absent"
         );
     }
 
@@ -609,6 +685,8 @@ mod tests {
             release_publication: None,
             build_jobs: None,
             max_rss_cap_mb: None,
+            sccache: None,
+            sccache_measured_hit_rate: None,
         }
     }
 

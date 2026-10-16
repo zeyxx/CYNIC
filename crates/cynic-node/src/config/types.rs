@@ -113,6 +113,33 @@ pub struct BuildSchedulerConfig {
     /// mid-flight). `None` disables the gate.
     #[serde(default)]
     pub max_rss_cap_mb: Option<u64>,
+    /// Optional sccache rollout stanza. When present, scheduler builds
+    /// compile through sccache: the execution env gains `RUSTC_WRAPPER`
+    /// (cargo routes every rustc invocation through the wrapper) and
+    /// `SCCACHE_DIR` (the persistent cache shared across builds).
+    /// Absent = behavior unchanged (plain rustc, no wrapper).
+    #[serde(default)]
+    pub sccache: Option<SccacheConfig>,
+    /// Measured sccache hit rate for admission decisions. `None` means
+    /// unmeasured — the sccache predicate is not consulted. When set,
+    /// `decide_require_sccache` is consulted at admission time.
+    #[serde(default)]
+    pub sccache_measured_hit_rate: Option<f64>,
+}
+
+/// sccache rollout configuration for scheduler builds.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SccacheConfig {
+    /// Directory of the persistent sccache cache. Defaults to the builder
+    /// warm cache shared across builds.
+    #[serde(default = "defaults::default_sccache_cache_dir")]
+    pub cache_dir: PathBuf,
+    /// sccache binary for `RUSTC_WRAPPER`. Default `"sccache"` resolves
+    /// via `PATH` on the executor host (and inside bwrap via the
+    /// reconstructed bound `PATH`); pin an absolute path to freeze the
+    /// exact binary.
+    #[serde(default = "defaults::default_sccache_binary")]
+    pub binary: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
