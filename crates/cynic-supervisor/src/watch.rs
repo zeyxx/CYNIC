@@ -166,7 +166,7 @@ async fn signaled(
     use std::pin::Pin;
     use std::task::Poll;
     poll_fn(|cx| {
-        for sig in [sigterm, sigint] {
+        for sig in [&mut *sigterm, &mut *sigint] {
             if let Poll::Ready(signal) = Pin::new(sig).poll_recv(cx) {
                 if signal.is_some() {
                     return Poll::Ready(true);
