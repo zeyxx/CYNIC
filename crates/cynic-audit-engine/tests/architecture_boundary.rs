@@ -52,10 +52,30 @@ fn audit_engine_has_no_uncontrolled_async_runtimes() {
     );
 }
 
+/// A pattern occurrence is a real I/O usage only when followed by an
+/// identifier character (`reqwest::Client`, `tokio::spawn`). A trailing
+/// quote or comma means the pattern is merely NAMED — as in
+/// RETIRED_LAYER_BOUNDARY_STRINGS, which keeps the retired denylist
+/// greppable precisely so nobody reintroduces it blindly.
+fn is_usage(content: &str, pattern: &str) -> bool {
+    content.match_indices(pattern).any(|(idx, _)| {
+        content[idx + pattern.len()..].chars().next().is_some_and(|next| {
+            next.is_ascii_alphanumeric() || next == '_' || next == ':' || next == '('
+        })
+    })
+}
+
 #[test]
 fn audit_engine_has_no_process_spawn_in_domain_core() {
     let src_dir = crate_root().join("src");
-    let forbidden_patterns = ["std::process::Command", "reqwest::", "tokio::spawn"];
+    // Match USAGE, not mention: RETIRED_LAYER_BOUNDARY_STRINGS in rules.rs
+    // names "std::process::Command" (no trailing identifier) precisely so
+    // the retirement stays greppable. A bare contains() false-positives on
+    // that constant; is_usage() requires the pattern to continue into an
+    // identifier (Command::new, reqwest::Client, tokio::spawn) and ignores
+    // mere mentions.
+    // (Checked: no `use std::process::Command` import exists in src/.)
+    let forbidden_patterns = ["Command::", "reqwest::", "tokio::spawn"];
 
     for entry in walkdir::WalkDir::new(&src_dir)
         .into_iter()
@@ -68,7 +88,7 @@ fn audit_engine_has_no_process_spawn_in_domain_core() {
         let content = strip_retired_denylist(&content);
         for pattern in &forbidden_patterns {
             assert!(
-                !content.contains(pattern),
+                !is_usage(&content, pattern),
                 "cynic-audit-engine domain core {} contains forbidden I/O: {}",
                 entry.path().display(),
                 pattern
