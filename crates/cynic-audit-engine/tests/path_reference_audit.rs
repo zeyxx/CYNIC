@@ -117,7 +117,6 @@ fn index_with(json_body: &str, rust_body: &str) -> cynic_audit_engine::Workspace
 
 #[test]
 fn each_declared_path_detector_fires_on_a_tree_that_owes_one() {
-    use cynic_audit_engine::rules::AuditRule;
     use cynic_audit_engine::scanner::WorkspaceSourceIndex;
 
     // A JSON declaring a path that does not exist, and a Rust file citing one.

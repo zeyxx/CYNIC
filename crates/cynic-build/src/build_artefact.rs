@@ -10,8 +10,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::disk::{DiskFilesystem, PhysicalDisk};
-
 pub const BUILD_ARTEFACT_REPORT_SCHEMA: &str = "cynic.build_artefact_report.v1";
 pub const BUILD_ARTEFACT_GC_PLAN_SCHEMA: &str = "cynic.build_artefact_gc_plan.v1";
 pub const BUILD_ARTEFACT_GC_RESULT_SCHEMA: &str = "cynic.build_artefact_gc_result.v1";

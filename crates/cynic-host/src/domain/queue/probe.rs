@@ -5,7 +5,7 @@ use cynic_build::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
 use cynic_protocol::queue::{
     BoundedAction, CanonicalQueuePolicy, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueuePolicy,
-    QueueReason, reason_rank,
+    QueueReason,
 };
 use cynic_protocol::retention::RetentionPlan;
 
@@ -111,8 +111,7 @@ pub fn build_queue_plan(
 mod tests {
     use super::*;
     use cynic_protocol::retention::{
-        RetentionItem, RetentionKind, RetentionPolicy, RetentionPlan, RetentionScope,
-        RETENTION_PLAN_SCHEMA,
+        RetentionItem, RetentionPlan, RETENTION_PLAN_SCHEMA,
     };
     use cynic_build::build_discovery::{
         BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
@@ -292,6 +291,7 @@ mod tests {
 #[cfg(test)]
 mod extension_tests {
     use super::*;
+    use cynic_protocol::queue::reason_rank;
 
     #[test]
     fn unknown_gc_code_becomes_other_not_a_mislabeled_orphan() {

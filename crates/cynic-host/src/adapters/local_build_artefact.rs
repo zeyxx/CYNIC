@@ -15,13 +15,11 @@ use crate::domain::build_artefact::{
     plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
     RetentionItemExecution, RetentionObserver, RetentionObservation, RetentionPlan,
     RetentionPlanner, RetentionPolicy, RetentionResult, RETENTION_OBSERVATION_SCHEMA,
-    RETENTION_PLAN_SCHEMA, RETENTION_RESULT_SCHEMA,
+    RETENTION_RESULT_SCHEMA,
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
-use cynic_build::build_artefact::CheckoutEntry;
-use cynic_protocol::disk::bytes_to_human;
-use cynic_protocol::retention::{PressureSignal, RetentionKind};
+use cynic_protocol::retention::PressureSignal;
 
 const CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
 

@@ -15,11 +15,10 @@ use crate::domain::build_artefact::{
     plan_build_artefacts, RetentionError, RetentionExecutor, RetentionItem,
     RetentionItemExecution, RetentionObservation, RetentionPlan, RetentionPlanner,
     RetentionPolicy, RetentionResult, RetentionObserver, RETENTION_OBSERVATION_SCHEMA,
-    RETENTION_PLAN_SCHEMA, RETENTION_RESULT_SCHEMA,
+    RETENTION_RESULT_SCHEMA,
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use cynic_lifecycle::ArgvRunner;
-use cynic_protocol::disk::bytes_to_human;
 use cynic_protocol::retention::PressureSignal;
 
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {

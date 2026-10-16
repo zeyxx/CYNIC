@@ -8,10 +8,7 @@ use cynic_build::build_discovery::{
 };
 use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;
-use cynic_protocol::retention::{
-    RetentionItem, RetentionKind, RetentionPolicy, RetentionPlan, RetentionScope,
-    RETENTION_PLAN_SCHEMA,
-};
+use cynic_protocol::retention::{RetentionItem, RetentionPlan};
 
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,

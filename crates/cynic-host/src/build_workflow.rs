@@ -15,7 +15,6 @@ use cynic_vcs::source_control::SourceSnapshot;
 
 use cynic_build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_lifecycle::ArgvRunner;
 
 /// Runtime configuration for the build workflow.
 pub struct BuildWorkflowConfig<'a> {
@@ -177,7 +176,6 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use cynic_build::BuildRunnerObservation;
-    use cynic_build::build::BUILD_RECIPE_SCHEMA;
     use cynic_lifecycle::MapArgvRunner;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_vcs::SourceSnapshot;
