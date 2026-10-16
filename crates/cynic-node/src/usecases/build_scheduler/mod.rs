@@ -3,7 +3,6 @@ mod lifecycle;
 mod prepare;
 mod release_publication;
 mod source_prepare;
-mod wal;
 
 use std::time::{Duration, Instant};
 
@@ -559,21 +558,6 @@ async fn execute_claimed(
                     max_rss_kb,
                     disk_delta_bytes,
                 });
-                // Emit one unified WAL entry for this settlement.
-                // Failure to append fails the settlement loudly — never silent.
-                let evidence_strings: Vec<String> = evidence_refs
-                    .iter()
-                    .map(|r| format!("{}:{}", r.kind, r.digest))
-                    .collect();
-                emit_settlement_wal(
-                    store,
-                    &control.node_id,
-                    workload_id,
-                    &status,
-                    &receipt.final_record_digest,
-                    &evidence_strings,
-                    receipt.settled_at_ms,
-                )?;
                 receipt
             }
             Err(err) => {
@@ -778,41 +762,6 @@ fn persist_settlement_proof(
     if let Err(error) = store.append_evidence(fields.workload_id, &file_name, &proof) {
         tracing::warn!(?error, workload_id = %fields.workload_id, "scheduler settlement body unavailable");
     }
-}
-
-/// Emit one unified WAL entry for a settled build.
-///
-/// Uses the `SettlementWalEmitter` to seal a hash-chained entry and persists
-/// it as a durable sidecar. Failure to append fails the settlement loudly
-/// (returns `Err`) — never silent.
-///
-/// The entry captures the settlement transition: workload_id, status,
-/// workload_digest (from the settlement receipt), and evidence refs.
-fn emit_settlement_wal(
-    store: &dyn crate::ports::agent_workload_store_port::AgentWorkloadStorePort,
-    node_id: &str,
-    workload_id: &str,
-    status: &AgentCompletionStatus,
-    workload_digest: &str,
-    evidence_refs: &[String],
-    settled_at_ms: u64,
-) -> Result<wal::SettlementWalEntry, String> {
-    let mut emitter = wal::SettlementWalEmitter::new();
-    let entry = emitter.seal_entry(
-        node_id.to_string(),
-        workload_id.to_string(),
-        format!("{status:?}").to_lowercase(),
-        workload_digest.to_string(),
-        evidence_refs.to_vec(),
-        settled_at_ms,
-    );
-    let body = serde_json::to_value(&entry)
-        .map_err(|e| format!("settlement_wal_encode_failed:{e}"))?;
-    let file_name = format!("wal-settlement-{settled_at_ms}.json");
-    store
-        .append_evidence(workload_id, &file_name, &body)
-        .map_err(|e| format!("settlement_wal_append_failed:{}", e.code))?;
-    Ok(entry)
 }
 
 fn persist_recovery_proof(workload_id: &str, prior_revision: u64, new_revision: u64) {
