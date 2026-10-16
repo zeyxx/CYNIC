@@ -179,7 +179,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: false,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
