@@ -1,65 +1,91 @@
-//! Local build artefact observation — binds `RetentionObserver` to the
+//! Local build artefact observation — binds `BuildArtefactObservationPort` to the
 //! host's own `/var/lib/cynic/checkouts` tree (no SSH). It reads `/proc`-less
 //! substrate via `capture_command` (lsblk/df/du/git) and reuses the pure
-//! `parse_checkout_list` / `parse_df_pressure` parsers shared with the
-//! remote adapter so the two never diverge.
+//! `parse_checkout_list` / `parse_df_pressure` / `build_gc_plan` parsers shared
+//! with the remote adapter so the two never diverge.
+
 use std::fs;
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
-use crate::domain::build_artefact::{
-    RETENTION_OBSERVATION_SCHEMA, RETENTION_RESULT_SCHEMA, RetentionError, RetentionExecutor,
-    RetentionItem, RetentionItemExecution, RetentionObservation, RetentionObserver, RetentionPlan,
-    RetentionPlanner, RetentionPolicy, RetentionResult, plan_build_artefacts,
+use crate::domain::build_artefact::port::{
+    BuildArtefactGcExecutionPort, BuildArtefactObservationPort,
 };
+use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
+use cynic_build::build_artefact::{
+    BUILD_ARTEFACT_GC_RESULT_SCHEMA, BUILD_ARTEFACT_REPORT_SCHEMA, BuildArtefactGcPlan,
+    BuildArtefactGcResult, BuildArtefactGcStepExecution, BuildArtefactReport,
+};
 use cynic_protocol::disk::bytes_to_human;
-use cynic_protocol::retention::PressureSignal;
-use cynic_types::paths::CynicPaths;
 
-fn checkouts_base() -> PathBuf {
-    CynicPaths::state_dir().join("checkouts")
+/// Default checkout base — the documented production placement, kept behind
+/// [`LocalBuildArtefactAdapter::with_checkouts_base`] so a test or a relocated
+/// runtime can inject another root without touching the convention.
+pub const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+
+/// Local checkout observation bound to a caller-supplied base.
+///
+/// The default carries [`DEFAULT_CHECKOUTS_BASE`] (`/var/lib/cynic/checkouts`),
+/// so every existing call site keeps the production placement unchanged; the
+/// override exists for tests and for a future injected `state_root`. The base
+/// is a field, not a type parameter: the observation port is the same type
+/// whether it reads the production root or an override.
+#[derive(Debug, Clone)]
+pub struct LocalBuildArtefactAdapter {
+    checkouts_base: Arc<str>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LocalBuildArtefactAdapter;
-
-impl RetentionObserver for LocalBuildArtefactAdapter {
-    fn observe(&self) -> Result<RetentionObservation, RetentionError> {
-        Self::observe_inner(false)
+impl Default for LocalBuildArtefactAdapter {
+    fn default() -> Self {
+        Self {
+            checkouts_base: Arc::from(DEFAULT_CHECKOUTS_BASE),
+        }
     }
 }
 
 impl LocalBuildArtefactAdapter {
-    /// Classification-only observation: skips recursive `du` and network
-    /// `ls-remote` (sizes read 0, `remote_exists` unset). For consumers
-    /// that need orphan/age classification but not sizes.
-    pub fn observe_shallow() -> Result<RetentionObservation, RetentionError> {
-        Self::observe_inner(true)
+    /// Bind the adapter to an explicit checkout base.
+    pub fn with_checkouts_base(base: impl Into<Arc<str>>) -> Self {
+        Self {
+            checkouts_base: base.into(),
+        }
+    }
+}
+
+impl BuildArtefactObservationPort for LocalBuildArtefactAdapter {
+    fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
+        self.observe_inner(false)
     }
 
-    fn observe_inner(shallow: bool) -> Result<RetentionObservation, RetentionError> {
+    fn observe_build_artefacts_shallow(&self) -> Result<BuildArtefactReport, String> {
+        self.observe_inner(true)
+    }
+
+    fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
+        build_gc_plan(report)
+    }
+}
+
+impl LocalBuildArtefactAdapter {
+    fn observe_inner(&self, shallow: bool) -> Result<BuildArtefactReport, String> {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
         let physical_disks = observe_physical_disks();
         let filesystems = observe_filesystems();
-        let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
+        let (checkouts_raw, remote_shas) = self.observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
-        // Paths a live unit executes from. A daemon running out of a
-        // reclaimable tree would be killed by the purge it triggered.
-        let unit_executables = crate::adapters::live_service_paths::observe_unit_executables();
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
         let total_checkout_human = bytes_to_human(total_checkout_bytes);
         // target/ size is rolled into checkouts for now - separate once builder exposes it
-        let checkouts_base = checkouts_base();
-        let df_out = capture_command("df", &["-k", &checkouts_base.to_string_lossy()])
+        let df_out = capture_command("df", &["-k", &self.checkouts_base])
             .ok()
             .filter(|c| c.success)
             .map(|c| c.stdout)
@@ -73,69 +99,82 @@ impl LocalBuildArtefactAdapter {
         let root_owned = checkouts.iter().filter(|c| c.is_root_owned).count();
         let pressure = parse_df_pressure(&df_out, root_owned);
 
-        // Convert CheckoutEntry → RetentionItem
-        let items: Vec<RetentionItem> = checkouts
-            .iter()
-            .map(|co| RetentionItem {
-                id: format!("checkout:{}", co.sha.chars().take(8).collect::<String>()),
-                path: co.path.clone(),
-                size_bytes: co.size_bytes,
-                age: co.age_secs.map(std::time::Duration::from_secs),
-                reason: String::new(),
-                requires_privilege: co.is_root_owned,
-                argv: vec![],
-                is_orphan: Some(co.is_orphan),
-                is_root_owned: Some(co.is_root_owned),
-                is_live_service_path: Some(
-                    crate::adapters::live_service_paths::is_live_service_path(
-                        std::path::Path::new(&co.path),
-                        &unit_executables,
-                    ),
-                ),
-                remote_exists: co.remote_exists,
-                sha: Some(co.sha.clone()),
-                branch: Some(co.branch.clone()),
-                owner_uid: Some(co.owner_uid),
-                owner_gid: Some(co.owner_gid),
-            })
-            .collect();
-
-        // Residual unknowns
+        // residual unknowns: missing base or unparsable lsblk
         let mut residual_unknowns = Vec::new();
-        if !checkouts_base.exists() {
-            residual_unknowns.push(format!(
-                "checkouts_base_missing:{}",
-                checkouts_base.display()
-            ));
+        if !Path::new(&*self.checkouts_base).exists() {
+            residual_unknowns.push(format!("checkouts_base_missing:{}", self.checkouts_base));
         }
         if physical_disks.is_empty() {
+            // not fatal - may be container without lsblk
             residual_unknowns.push("physical_disks_unknown".to_string());
         }
-        let _ = filesystems;
-        let _ = total_checkout_bytes;
+        if shallow {
+            // Shallow contract: classification without measurement. Sizes read
+            // 0 and remote refs are unprobed — named here, not hidden.
+            residual_unknowns.push("sizes_skipped:shallow_observe".to_string());
+            residual_unknowns.push("remote_shas_skipped:shallow_observe".to_string());
+        }
 
-        Ok(RetentionObservation {
-            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
+        Ok(BuildArtefactReport {
+            schema: BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
             timestamp,
-            items,
-            total_reclaimable_bytes: 0,
-            pressure: Some(PressureSignal {
-                use_pct: pressure.use_pct,
-                avail_bytes: pressure.avail_bytes,
-                is_pressured: pressure.is_pressured,
-            }),
+            physical_disks,
+            filesystems,
+            checkouts,
+            total_checkout_bytes,
+            total_checkout_human,
+            target_bytes: 0,
+            target_human: "0B".to_string(),
+            pressure,
+            residual_unknowns,
         })
     }
-}
 
-impl RetentionPlanner for LocalBuildArtefactAdapter {
-    fn plan(&self, obs: &RetentionObservation, policy: &RetentionPolicy) -> RetentionPlan {
-        plan_build_artefacts(obs, policy)
+    fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
+        build_gc_plan(report)
+    }
+
+    fn observe_checkouts_raw(&self, shallow: bool) -> (String, Vec<String>) {
+        let base: &str = &self.checkouts_base;
+        // Collect a pipe of "<path>|<sha>|<size>|<uid:gid>|<mtime_secs>|<remote 0/1>"
+        // then feed to pure parse_checkout_list. Remote shas come from one batch ls-remote.
+        // Shallow skips the network ls-remote and the recursive du: the pure
+        // parser falls back to list checks, sizes read 0.
+        let remote_shas = if shallow {
+            Vec::new()
+        } else {
+            fetch_remote_shas(base)
+        };
+        let mut lines = Vec::new();
+        let entries = fs::read_dir(base).ok();
+        let Some(entries) = entries else {
+            return (String::new(), remote_shas);
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let path_str = path.display().to_string();
+            let sha = git_sha(&path).unwrap_or_else(|| {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            });
+            let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
+            let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
+            // if remote_shas empty (no origin), leave flag but pure parser will fallback to list check
+            let line =
+                format!("{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}");
+            lines.push(line);
+        }
+        (lines.join("\n"), remote_shas)
     }
 }
 
-impl RetentionExecutor for LocalBuildArtefactAdapter {
-    fn execute(&self, plan: &RetentionPlan) -> Result<RetentionResult, RetentionError> {
+impl BuildArtefactGcExecutionPort for LocalBuildArtefactAdapter {
+    fn execute_gc(&self, plan: &BuildArtefactGcPlan) -> BuildArtefactGcResult {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
@@ -153,49 +192,14 @@ impl RetentionExecutor for LocalBuildArtefactAdapter {
             items_executed.push(exec);
         }
 
-        Ok(RetentionResult {
-            schema: RETENTION_RESULT_SCHEMA.to_string(),
+        BuildArtefactGcResult {
+            schema: BUILD_ARTEFACT_GC_RESULT_SCHEMA.to_string(),
             timestamp,
             success,
             items_executed,
             total_reclaimed_bytes,
-        })
-    }
-}
-
-fn execute_gc_item(item: &RetentionItem) -> RetentionItemExecution {
-    if item.argv.is_empty() {
-        return RetentionItemExecution {
-            item_id: item.id.clone(),
-            success: false,
-            exit_code: None,
-            stdout_tail: String::new(),
-            stderr_tail: "empty argv".to_string(),
-        };
-    }
-    let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
-        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
-    } else {
-        (
-            item.argv[0].as_str(),
-            item.argv[1..].iter().map(|s| s.as_str()).collect(),
-        )
-    };
-    match capture_command(bin, &args) {
-        Ok(o) => RetentionItemExecution {
-            item_id: item.id.clone(),
-            success: o.success,
-            exit_code: o.exit_code,
-            stdout_tail: tail(&o.stdout, 800),
-            stderr_tail: tail(&o.stderr, 800),
-        },
-        Err(e) => RetentionItemExecution {
-            item_id: item.id.clone(),
-            success: false,
-            exit_code: None,
-            stdout_tail: String::new(),
-            stderr_tail: e.to_string(),
-        },
+            total_reclaimed_human: bytes_to_human(total_reclaimed_bytes),
+        }
     }
 }
 
@@ -233,44 +237,6 @@ fn observe_filesystems() -> Vec<cynic_protocol::disk::DiskFilesystem> {
     parse_df_filesystems(&stdout)
 }
 
-fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
-    let remote_shas = if shallow {
-        Vec::new()
-    } else {
-        fetch_remote_shas()
-    };
-    let mut lines = Vec::new();
-    let entries = fs::read_dir(checkouts_base()).ok();
-    let Some(entries) = entries else {
-        return (String::new(), remote_shas);
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let path_str = path.display().to_string();
-        let sha = git_sha(&path).unwrap_or_else(|| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string()
-        });
-        let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
-        let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
-        let foreign = if contains_foreign_owned_entries(&path, uid) {
-            "1"
-        } else {
-            "0"
-        };
-        let line = format!(
-            "{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}|{foreign}"
-        );
-        lines.push(line);
-    }
-    (lines.join("\n"), remote_shas)
-}
-
 fn git_sha(path: &Path) -> Option<String> {
     let out = capture_command(
         "git",
@@ -298,10 +264,12 @@ fn file_meta(path: &Path, shallow: bool) -> (u64, u32, u32, u64) {
             (SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_secs())
-            .saturating_sub(d.as_secs())
+                .as_secs()
+                .saturating_sub(d.as_secs()))
         })
         .unwrap_or(0);
+    // size via du -sb if available, else walk. Shallow skips the recursive
+    // walk entirely: classification does not need it, sizes read 0.
     let size_bytes = if shallow {
         0
     } else {
@@ -317,42 +285,6 @@ fn file_meta(path: &Path, shallow: bool) -> (u64, u32, u32, u64) {
             .unwrap_or_else(|| walk_size(path))
     };
     (size_bytes, uid, gid, mtime_secs)
-}
-
-/// True when the tree holds at least one entry this account does not own.
-///
-/// The ROOT's ownership is not enough: `rm` walks the whole tree and
-/// fails on the first entry it cannot remove, so a tree rooted in an
-/// owned directory can still be unremovable. Measured: two checkouts
-/// rooted `cynic:cynic` holding 9580 and 21 foreign-owned entries, both
-/// planned as removable without privilege and both failing at delete.
-///
-/// The scan is bounded: it stops at the first foreign entry, and it
-/// prunes `.git` — that directory is a known source of root-owned pack
-/// files written by a privileged git operation, and it is reported
-/// through the same path.
-fn contains_foreign_owned_entries(path: &Path, owner_uid: u32) -> bool {
-    let mut stack = vec![path.to_path_buf()];
-    while let Some(cur) = stack.pop() {
-        let Ok(entries) = fs::read_dir(&cur) else {
-            continue;
-        };
-        for e in entries.flatten() {
-            let p = e.path();
-            if p.file_name().and_then(|n| n.to_str()) == Some(".git") {
-                continue;
-            }
-            if let Ok(m) = e.metadata() {
-                if m.uid() != owner_uid {
-                    return true;
-                }
-            }
-            if p.is_dir() && !p.is_symlink() {
-                stack.push(p);
-            }
-        }
-    }
-    false
 }
 
 fn walk_size(path: &Path) -> u64 {
@@ -376,15 +308,15 @@ fn walk_size(path: &Path) -> u64 {
     total
 }
 
-fn fetch_remote_shas() -> Vec<String> {
+fn fetch_remote_shas(base: &str) -> Vec<String> {
     // Try a known checkout with origin first, then bare ls-remote
-    let checkouts = checkouts_base().to_string_lossy().into_owned();
-    for base in [checkouts.as_str(), "."] {
-        let out = if base == "." {
+    for candidate in [base.to_string(), ".".to_string()] {
+        let out = if candidate == "." {
             capture_command("git", &["ls-remote", "origin"]).ok()
         } else {
+            // find first checkout that is a git repo
             let mut found = None;
-            if let Ok(entries) = fs::read_dir(base) {
+            if let Ok(entries) = fs::read_dir(&candidate) {
                 for e in entries.flatten() {
                     let p = e.path().join(".git");
                     if p.exists() {
@@ -412,6 +344,47 @@ fn fetch_remote_shas() -> Vec<String> {
     Vec::new()
 }
 
+fn execute_gc_item(
+    item: &cynic_build::build_artefact::BuildArtefactGcItem,
+) -> BuildArtefactGcStepExecution {
+    if item.argv.is_empty() {
+        return BuildArtefactGcStepExecution {
+            item_id: item.id.clone(),
+            label: item.label.clone(),
+            success: false,
+            exit_code: None,
+            stdout_tail: String::new(),
+            stderr_tail: "empty argv".to_string(),
+        };
+    }
+    let (bin, args): (&str, Vec<&str>) = if item.requires_privilege {
+        ("sudo", item.argv.iter().map(|s| s.as_str()).collect())
+    } else {
+        (
+            item.argv[0].as_str(),
+            item.argv[1..].iter().map(|s| s.as_str()).collect(),
+        )
+    };
+    match capture_command(bin, &args) {
+        Ok(o) => BuildArtefactGcStepExecution {
+            item_id: item.id.clone(),
+            label: item.label.clone(),
+            success: o.success,
+            exit_code: o.exit_code,
+            stdout_tail: tail(&o.stdout, 800),
+            stderr_tail: tail(&o.stderr, 800),
+        },
+        Err(e) => BuildArtefactGcStepExecution {
+            item_id: item.id.clone(),
+            label: item.label.clone(),
+            success: false,
+            exit_code: None,
+            stdout_tail: String::new(),
+            stderr_tail: e.to_string(),
+        },
+    }
+}
+
 fn tail(s: &str, n: usize) -> String {
     if s.len() <= n {
         s.to_string()
@@ -421,128 +394,68 @@ fn tail(s: &str, n: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+mod shallow_tests {
     use super::*;
+    use crate::domain::build_artefact::port::BuildArtefactObservationPort;
 
     #[test]
-    fn observe_returns_observation_with_items() {
-        let adapter = LocalBuildArtefactAdapter;
-        let obs = adapter.observe().expect("observe");
-        assert_eq!(obs.schema, RETENTION_OBSERVATION_SCHEMA);
-        // In a test environment, checkouts may or may not exist.
-        // The important thing is that observe() returns Ok.
-    }
-
-    #[test]
-    fn plan_filters_orphan_and_age() {
-        let obs = RetentionObservation {
-            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
-            timestamp: "2026-10-16T00:00:00Z".to_string(),
-            items: vec![
-                RetentionItem {
-                    id: "checkout:abc123".to_string(),
-                    path: "/var/lib/cynic/checkouts/old-orphan".to_string(),
-                    size_bytes: 5000,
-                    age: Some(std::time::Duration::from_secs(200_000)),
-                    reason: String::new(),
-                    requires_privilege: false,
-                    argv: vec![],
-                    is_orphan: Some(true),
-                    is_root_owned: Some(false),
-                    is_live_service_path: None,
-                    remote_exists: Some(false),
-                    sha: Some("abc123".to_string()),
-                    branch: Some("old-orphan".to_string()),
-                    owner_uid: Some(999),
-                    owner_gid: Some(990),
-                },
-                RetentionItem {
-                    id: "checkout:live123".to_string(),
-                    path: "/var/lib/cynic/checkouts/live".to_string(),
-                    size_bytes: 5000,
-                    age: Some(std::time::Duration::from_secs(1000)),
-                    reason: String::new(),
-                    requires_privilege: false,
-                    argv: vec![],
-                    is_orphan: Some(false),
-                    is_root_owned: Some(false),
-                    is_live_service_path: None,
-                    remote_exists: Some(true),
-                    sha: Some("live123".to_string()),
-                    branch: Some("live".to_string()),
-                    owner_uid: Some(999),
-                    owner_gid: Some(990),
-                },
-            ],
-            total_reclaimable_bytes: 0,
-            pressure: None,
-        };
-        let policy = cynic_protocol::retention::default_build_artefact_policy();
-        let adapter = LocalBuildArtefactAdapter;
-        let plan = adapter.plan(&obs, &policy);
-        assert_eq!(plan.items.len(), 1);
-        assert_eq!(plan.items[0].path, "/var/lib/cynic/checkouts/old-orphan");
-    }
-
-    /// Golden plan: full-field equivalence with the retired `build_gc_plan`
-    /// (reason strings, privilege, argv, totals). Retired logic pinned from
-    /// pre-migration `domain/build_artefact/probe.rs`.
-    #[test]
-    fn plan_golden_full_fields() {
-        fn item(id: &str, age_secs: u64, orphan: bool, root: bool) -> RetentionItem {
-            RetentionItem {
-                id: format!("checkout:{id}"),
-                path: format!("/var/lib/cynic/checkouts/{id}"),
-                size_bytes: 5000,
-                age: Some(std::time::Duration::from_secs(age_secs)),
-                reason: String::new(),
-                requires_privilege: false,
-                argv: vec![],
-                is_orphan: Some(orphan),
-                is_root_owned: Some(root),
-                is_live_service_path: None,
-                remote_exists: Some(!orphan),
-                sha: Some(id.to_string()),
-                branch: Some(id.to_string()),
-                owner_uid: Some(if root { 0 } else { 999 }),
-                owner_gid: Some(990),
-            }
+    fn shallow_skips_sizes_and_names_the_skips() {
+        let report = LocalBuildArtefactAdapter::default()
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe");
+        assert_eq!(report.total_checkout_bytes, 0);
+        assert!(report
+            .residual_unknowns
+            .iter()
+            .any(|u| u == "sizes_skipped:shallow_observe"));
+        assert!(report
+            .residual_unknowns
+            .iter()
+            .any(|u| u == "remote_shas_skipped:shallow_observe"));
+        // Classification survives without measurement: every entry still has
+        // an sha (live rev-parse) even though sizes read 0.
+        for checkout in &report.checkouts {
+            assert_eq!(checkout.size_bytes, 0);
+            assert!(!checkout.sha.is_empty());
         }
-        let obs = RetentionObservation {
-            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
-            timestamp: "2026-10-16T00:00:00Z".to_string(),
-            items: vec![
-                item("oldorphan", 200_000, true, false), // 55h orphan
-                item("agedroot", 200_000, false, true),  // 55h old + root
-                item("freshorphan", 1000, true, false),  // fresh orphan
-                item("boundary", 172_800, false, false), // exactly 48h: NOT old
-                item("live", 1000, false, false),        // fresh, kept
-            ],
-            total_reclaimable_bytes: 0,
-            pressure: None,
-        };
-        let plan = plan_build_artefacts(
-            &obs,
-            &cynic_protocol::retention::default_build_artefact_policy(),
+    }
+
+    /// The base is injected, not read from the production constant: an existing
+    /// override must observe that base, while the default still names the
+    /// production constant. A base that leaked back to the constant would show
+    /// up as the override missing (or the default empty).
+    #[test]
+    fn override_changes_which_base_is_observed() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().to_str().expect("utf8 base path");
+
+        let overridden = LocalBuildArtefactAdapter::with_checkouts_base(base)
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe on overridden base");
+        assert!(overridden.checkouts.is_empty());
+        assert!(
+            !overridden
+                .residual_unknowns
+                .iter()
+                .any(|u| u.contains("checkouts_base_missing")),
+            "an existing override must not report the base as missing: {:?}",
+            overridden.residual_unknowns
         );
-        assert_eq!(plan.items.len(), 3);
-        assert_eq!(
-            plan.items[0].reason, "orphan(no remote)+age 55h",
-            "orphan+old reason string"
-        );
-        assert_eq!(
-            plan.items[1].reason, "age 55h+root-owned",
-            "root-owned qualifier position"
-        );
-        assert!(plan.items[1].requires_privilege);
-        assert_eq!(plan.items[2].reason, "orphan(no remote)");
-        for it in &plan.items {
-            assert_eq!(
-                it.argv,
-                vec!["rm".to_string(), "-rf".to_string(), it.path.clone()],
-                "argv rm -rf path"
+
+        // The default still names the production constant — the override did
+        // not silently widen into the production base.
+        let defaulted = LocalBuildArtefactAdapter::default()
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe on default base");
+        if !Path::new(DEFAULT_CHECKOUTS_BASE).exists() {
+            assert!(
+                defaulted
+                    .residual_unknowns
+                    .iter()
+                    .any(|u| u == &format!("checkouts_base_missing:{DEFAULT_CHECKOUTS_BASE}")),
+                "the default must keep naming the production base: {:?}",
+                defaulted.residual_unknowns
             );
         }
-        assert_eq!(plan.total_reclaimable_bytes, 15_000);
     }
 }

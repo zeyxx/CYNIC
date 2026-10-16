@@ -21,7 +21,9 @@ use chrono::{DateTime, Utc};
 
 use cynic_protocol::fleet_disk::{FLEET_DISK_SCHEMA, FleetDiskNode, FleetDiskReport};
 
-use crate::adapters::local_disk::LocalDiskAdapter;
+use std::path::PathBuf;
+
+use crate::adapters::local_disk::{LocalDiskAdapterRooted, resolve_state_root};
 use crate::adapters::remote_disk::RemoteDiskAdapter;
 use crate::domain::disk::DiskReport;
 use crate::domain::disk::port::DiskObservationPort;
@@ -41,6 +43,7 @@ pub struct FleetDiskObserver<R: ArgvRunner> {
     registry_path: String,
     ssh_target_template: String,
     runner: Arc<R>,
+    state_root: PathBuf,
 }
 
 impl FleetDiskObserver<LocalArgvRunner> {
@@ -57,12 +60,22 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
             registry_path: registry_path.into(),
             ssh_target_template: "cynic@{ip}".to_string(),
             runner: Arc::new(runner),
+            state_root: resolve_state_root(),
         }
     }
 
     /// Set the SSH target template (default `cynic@{ip}`).
     pub fn with_ssh_target(mut self, template: impl Into<String>) -> Self {
         self.ssh_target_template = template.into();
+        self
+    }
+
+    /// Bind the fleet disk observation to an explicit state root, propagated
+    /// to the local disk adapter. The default keeps the resolved placement
+    /// (`$CYNIC_STATE_ROOT`, then the convention), so existing call sites
+    /// are unchanged.
+    pub fn with_state_root(mut self, root: impl Into<PathBuf>) -> Self {
+        self.state_root = root.into();
         self
     }
 
@@ -77,8 +90,8 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
 
     /// Observe disk on the local node (no SSH), falling back to an empty
     /// report on failure rather than fabricating data.
-    fn local_node_report() -> DiskReport {
-        match LocalDiskAdapter.observe_disk() {
+    fn local_node_report(&self) -> DiskReport {
+        match LocalDiskAdapterRooted::with_state_root(self.state_root.clone()).observe_disk() {
             Ok(report) => report,
             Err(_err) => DiskReport {
                 schema: HOST_DISK_REPORT_SCHEMA.to_string(),
@@ -110,7 +123,7 @@ impl<R: ArgvRunner> FleetDiskObserver<R> {
             let is_local = hostname == declared.node_id || hostname == declared.ip;
 
             let node: FleetDiskNode = if is_local {
-                let report = Self::local_node_report();
+                let report = self.local_node_report();
                 observed_nodes += 1;
                 FleetDiskNode::Observed {
                     node_id: declared.node_id.clone(),

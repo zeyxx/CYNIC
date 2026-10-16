@@ -8,22 +8,21 @@ use cynic_build::build_discovery::{
 };
 use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;
-use cynic_protocol::retention::{RetentionItem, RetentionPlan};
 
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
+use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
-use crate::domain::build_artefact::plan_build_artefacts;
 use crate::domain::queue::probe::build_queue_plan;
 use cynic_lifecycle::ArgvRunner;
-use std::time::Duration;
-use cynic_types::paths::CynicPaths;
+
+const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
 
 pub struct RemoteQueueAdapter<R: ArgvRunner> {
     runner: Arc<R>,
     ssh_target: String,
+    checkouts_base: String,
 }
 
 impl<R: ArgvRunner> RemoteQueueAdapter<R> {
@@ -35,7 +34,18 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         Ok(Self {
             runner,
             ssh_target: t,
+            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
         })
+    }
+
+    /// Bind the adapter to an explicit checkout base observed over SSH.
+    ///
+    /// The default keeps the production placement, so existing call sites are
+    /// unchanged; the override is what lets a test prove the base reaches the
+    /// argv instead of a constant leaking past the port.
+    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
+        self.checkouts_base = base.into();
+        self
     }
     fn ssh(&self, cmd: &[&str]) -> Result<String, String> {
         let mut argv = vec![
@@ -114,12 +124,10 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_else(|| "x86_64-unknown-linux-gnu".into());
         parse_cargo_metadata(&json, now_secs(), toolchain, host)
     }
-    fn observe_gc_plan(&self) -> RetentionPlan {
-        let checkouts_dir = CynicPaths::state_dir()
-            .join("checkouts")
-            .display()
-            .to_string();
-        let raw_list = self.ssh(&["ls", "-1", &checkouts_dir]).unwrap_or_default();
+    fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
+        let raw_list = self
+            .ssh(&["ls", "-1", &self.checkouts_base])
+            .unwrap_or_default();
         let remote_shas = self
             .ssh(&["git", "ls-remote", "origin"])
             .map(|s| {
@@ -130,7 +138,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_default();
         let mut lines = Vec::new();
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("{checkouts_dir}/{name}");
+            let path = format!("{}/{name}", self.checkouts_base);
             let sha = self
                 .ssh(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -155,48 +163,25 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         }
         let checkouts = parse_checkout_list(&lines.join("\n"), &remote_shas);
         let df_k = self
-            .ssh(&["df", "-k", &checkouts_dir])
+            .ssh(&["df", "-k", &self.checkouts_base])
             .or_else(|_| self.ssh(&["df", "-k", "/"]))
             .unwrap_or_default();
         let pressure =
             parse_df_pressure(&df_k, checkouts.iter().filter(|c| c.is_root_owned).count());
-
-        // Convert to RetentionObservation
-        let items: Vec<RetentionItem> = checkouts
-            .iter()
-            .map(|co| RetentionItem {
-                id: format!("checkout:{}", co.sha.chars().take(8).collect::<String>()),
-                path: co.path.clone(),
-                size_bytes: co.size_bytes,
-                age: co.age_secs.map(Duration::from_secs),
-                reason: String::new(),
-                requires_privilege: co.is_root_owned,
-                argv: vec![],
-                is_orphan: Some(co.is_orphan),
-                is_root_owned: Some(co.is_root_owned),
-                is_live_service_path: None,
-                remote_exists: co.remote_exists,
-                sha: Some(co.sha.clone()),
-                branch: Some(co.branch.clone()),
-                owner_uid: Some(co.owner_uid),
-                owner_gid: Some(co.owner_gid),
-            })
-            .collect();
-
-        let obs = cynic_protocol::retention::RetentionObservation {
-            schema: cynic_protocol::retention::RETENTION_OBSERVATION_SCHEMA.to_string(),
+        let report = cynic_build::build_artefact::BuildArtefactReport {
+            schema: cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
             timestamp: String::new(),
-            items,
-            total_reclaimable_bytes: 0,
-            pressure: Some(cynic_protocol::retention::PressureSignal {
-                use_pct: pressure.use_pct,
-                avail_bytes: pressure.avail_bytes,
-                is_pressured: pressure.is_pressured,
-            }),
+            physical_disks: vec![],
+            filesystems: vec![],
+            checkouts,
+            total_checkout_bytes: 0,
+            total_checkout_human: "0B".into(),
+            target_bytes: 0,
+            target_human: "0B".into(),
+            pressure,
+            residual_unknowns: vec![],
         };
-
-        let policy = cynic_protocol::retention::default_build_artefact_policy();
-        plan_build_artefacts(&obs, &policy)
+        build_gc_plan(&report)
     }
 }
 
@@ -205,4 +190,65 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_lifecycle::ArgvOutput;
+    use std::sync::Mutex;
+
+    /// A runner that records every argv it is handed, proving the base the
+    /// adapter built rather than asserting on a report that could not see it.
+    #[derive(Default)]
+    struct RecordingRunner {
+        seen: Mutex<Vec<Vec<String>>>,
+    }
+
+    impl ArgvRunner for RecordingRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
+            self.seen
+                .lock()
+                .expect("recording lock")
+                .push(argv.iter().map(|s| s.to_string()).collect());
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            }
+        }
+    }
+
+    #[test]
+    fn override_checkouts_base_reaches_remote_argv() {
+        let runner = Arc::new(RecordingRunner::default());
+        let adapter = RemoteQueueAdapter::new(runner.clone(), "cynic@10.0.0.1")
+            .unwrap()
+            .with_checkouts_base("/srv/overridden/checkouts");
+        // observe() falls back per observation on failure; a single stub that
+        // succeeds keeps the plan buildable and the argv inspectable.
+        let _ = adapter.observe();
+
+        let seen = runner.seen.lock().expect("recording lock").clone();
+        let rendered: Vec<String> = seen.iter().map(|argv| argv.join(" ")).collect();
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("ls -1 /srv/overridden/checkouts")),
+            "override base never reached the ls argv: {rendered:?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("df -k /srv/overridden/checkouts")),
+            "override base never reached the df argv: {rendered:?}"
+        );
+        assert!(
+            !rendered
+                .iter()
+                .any(|argv| argv.contains("/var/lib/cynic/checkouts")),
+            "the production constant leaked into the argv despite the override: {rendered:?}"
+        );
+    }
 }

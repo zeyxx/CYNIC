@@ -11,9 +11,28 @@ use super::types::{
     LabBundleReport, LabGuestBootstrapPreflight, LabImagePreflight, LabIsolationPlan, LabVmPlan,
 };
 use super::{guest_bootstrap_preflight, isolation_plan, vm_plan};
-use cynic_types::paths::CynicPaths;
+
+/// The deployed lab tree holding guest disks and cloud-init seeds.
+///
+/// Named so the literal appears once. A bundle that claims this tree while a
+/// deployment places its lab elsewhere is locally correct and globally
+/// incompatible, which is what `write_lab_bundle_with_root` exists to avoid.
+pub const DEFAULT_LAB_ROOT: &str = "/var/lib/cynic/lab";
 
 pub fn write_lab_bundle(registry_path: &str, output_dir: &str) -> Result<LabBundleReport, String> {
+    write_lab_bundle_with_root(registry_path, output_dir, DEFAULT_LAB_ROOT)
+}
+
+/// [`write_lab_bundle`] with an explicit lab root.
+///
+/// The default is the deployed lab tree; a caller that must not claim that
+/// placement (a test, a lab whose disks live elsewhere) passes its own root and
+/// every emitted `disk`/`seed` path follows it.
+pub fn write_lab_bundle_with_root(
+    registry_path: &str,
+    output_dir: &str,
+    lab_root: &str,
+) -> Result<LabBundleReport, String> {
     let registry = read_registry(registry_path)?;
     let nodes = registry
         .get("nodes")
@@ -39,7 +58,7 @@ pub fn write_lab_bundle(registry_path: &str, output_dir: &str) -> Result<LabBund
     for vm in &vms {
         write_file(
             output_dir.join("domains").join(format!("{}.xml", vm.name)),
-            libvirt_domain_xml(vm, &image, &isolation),
+            libvirt_domain_xml(vm, &image, &isolation, lab_root),
             output_dir,
             &mut files,
         )?;
@@ -178,15 +197,10 @@ fn libvirt_domain_xml(
     vm: &LabVmPlan,
     image: &LabImagePreflight,
     isolation: &LabIsolationPlan,
+    lab_root: &str,
 ) -> String {
-    let disk_path = CynicPaths::state_dir()
-        .join(format!("lab/disks/{}.qcow2", vm.name))
-        .display()
-        .to_string();
-    let seed_path = CynicPaths::state_dir()
-        .join(format!("lab/seeds/{}-seed.iso", vm.name))
-        .display()
-        .to_string();
+    let disk_path = format!("{lab_root}/disks/{}.qcow2", vm.name);
+    let seed_path = format!("{lab_root}/seeds/{}-seed.iso", vm.name);
     let base = image.path.as_deref().unwrap_or("<declare-base-image>");
     format!(
         r#"<domain type='kvm'>
@@ -236,12 +250,6 @@ fn libvirt_domain_xml(
 
 fn cloud_init_user_data(vm: &LabVmPlan, bootstrap: &LabGuestBootstrapPreflight) -> String {
     let user = bootstrap.ssh_user.as_deref().unwrap_or("cynic");
-    let lab_node_path = CynicPaths::system_config_dir()
-        .join("lab-node.json")
-        .display()
-        .to_string();
-    let config_dir = CynicPaths::system_config_dir().display().to_string();
-    let state_dir = CynicPaths::state_dir().display().to_string();
     format!(
         r#"#cloud-config
 hostname: {}
@@ -253,7 +261,7 @@ users:
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     ssh_authorized_keys: []
 write_files:
-  - path: {}
+  - path: /etc/cynic/lab-node.json
     permissions: '0644'
     content: |
       {{
@@ -262,16 +270,13 @@ write_files:
         "mesh_ip": "{}"
       }}
 runcmd:
-  - ['mkdir', '-p', '{}', '{}']
+  - ['mkdir', '-p', '/etc/cynic', '/var/lib/cynic']
 "#,
         vm.name,
         user,
-        lab_node_path,
         vm.id,
         vm.role,
-        vm.mesh_ip.as_deref().unwrap_or(""),
-        config_dir,
-        state_dir
+        vm.mesh_ip.as_deref().unwrap_or("")
     )
 }
 
