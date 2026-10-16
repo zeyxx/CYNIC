@@ -1,7 +1,7 @@
 use cynic_audit_engine::run_workspace_audit;
 use cynic_host::coordination_lease_store::CoordinationLeaseStore;
 use cynic_intel::futarchy::cpmm::{
-    calculate_prices_bps, create_market, execute_bet, resolve_market,
+    create_market, execute_bet, resolve_market,
 };
 use cynic_intel::futarchy::types::{MarketDecision, PredictionBet, ProposalStatus};
 use cynic_intel::futarchy::vault::LiquidityVault;

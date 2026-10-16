@@ -224,6 +224,7 @@ mod tests {
     use cynic_vcs::git_topology::{
         GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
     };
+    use super::super::verdict::GitVerdict;
 
     fn valid_entry(branch: &str) -> GitBranchEntry {
         GitBranchEntry {

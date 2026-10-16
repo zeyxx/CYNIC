@@ -279,6 +279,7 @@ mod tests {
 #[cfg(test)]
 mod extension_tests {
     use super::*;
+    use cynic_protocol::queue::reason_rank;
 
     #[test]
     fn unknown_gc_code_becomes_other_not_a_mislabeled_orphan() {

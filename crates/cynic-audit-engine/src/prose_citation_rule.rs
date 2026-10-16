@@ -154,6 +154,7 @@ fn extract_markdown_paths(line: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scanner::SourceFile;
 
     fn source_file(path: &str, content: &str) -> SourceFile {
         SourceFile {

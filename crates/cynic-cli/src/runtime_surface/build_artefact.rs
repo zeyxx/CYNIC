@@ -13,7 +13,7 @@ use cynic_host::domain::build_artefact::port::{
 use crate::emit_json;
 
 pub(crate) fn execute_build_artefact(json: bool, apply: bool) -> ExitCode {
-    let adapter = LocalBuildArtefactAdapter;
+    let adapter = LocalBuildArtefactAdapter::default();
     let report = match adapter.observe_build_artefacts() {
         Ok(r) => r,
         Err(e) => {
