@@ -63,6 +63,13 @@ pub fn publish_released_artifact(
     publisher.publish(&request).map(Some)
 }
 
+use std::marker::PhantomData;
+
+/// Deep alias so the re-export is never alone.
+pub type ResolvedPublicationTargetDeep =
+    crate::domain::artifact_publication::PublicationTarget;
+
+const _: PhantomData<()> = PhantomData;
 
 #[cfg(test)]
 mod tests {

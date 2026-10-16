@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use cynic_vcs::git_topology::{GitTopologyObservation, GitTopologyUnknown};
 use serde::{Deserialize, Serialize};
 
-use super::verdict::{GitBranchVerdict, verdict_for};
+use super::verdict::GitBranchVerdict;
+use super::verdict::verdict_for;
 
 pub use cynic_vcs::git_topology::GitBranchState;
 
@@ -223,7 +224,6 @@ mod tests {
     use cynic_vcs::git_topology::{
         GIT_TOPOLOGY_SCHEMA, GitBranchEntry, GitTopologyObservation,
     };
-    use super::super::verdict::GitVerdict;
 
     fn valid_entry(branch: &str) -> GitBranchEntry {
         GitBranchEntry {

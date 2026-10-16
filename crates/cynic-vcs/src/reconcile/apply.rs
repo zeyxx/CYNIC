@@ -4,7 +4,7 @@
 //! Enforces exclusive locking and idempotent pruning.
 
 use std::any::Any;
-use std::path::Path;
+use std::path::PathBuf;
 
 use crate::runner::ArgvRunner;
 use crate::source_worktree::{
@@ -13,7 +13,7 @@ use crate::source_worktree::{
 };
 
 pub trait VcsLockPort: Send + Sync {
-    fn acquire_lock(&self, repository_root: &Path) -> Result<Box<dyn Any>, String>;
+    fn acquire_lock(&self, repository_root: &PathBuf) -> Result<Box<dyn Any>, String>;
 }
 
 /// Executes a convergence plan and returns structured read-back proof.
@@ -194,7 +194,6 @@ pub fn apply_worktree_convergence<R: ArgvRunner>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use crate::runner::{ArgvOutput, MapArgvRunner};
     use crate::source_worktree::{
         WorktreeConvergenceAction, WorktreeConvergencePlan, WorktreeConvergenceSummary,

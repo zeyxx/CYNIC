@@ -308,6 +308,7 @@ impl ActionMeter for HostActionMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn energy_meter_first_reading_returns_unknown() {

@@ -2,8 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_types::paths::CynicPaths;
-
 pub const FORGEJO_TOKEN_OBSERVATION_SCHEMA: &str = "cynic.forgejo_token.observation.v1";
 pub const FORGEJO_TOKEN_SPEC_SCHEMA: &str = "cynic.forgejo_token.spec.v1";
 pub const FORGEJO_TOKEN_STATUS_SCHEMA: &str = "cynic.forgejo_token.status.v1";
@@ -41,9 +39,7 @@ impl Default for ForgejoTokenSpec {
             schema: FORGEJO_TOKEN_SPEC_SCHEMA.to_string(),
             principal: String::new(),
             api_url: String::new(),
-            target_path: CynicPaths::secret_path("forgejo-token")
-                .display()
-                .to_string(),
+            target_path: "/etc/cynic/secrets/forgejo-token".to_string(),
             mode: 0o640,
             scopes: vec![
                 "write:repository".to_string(),

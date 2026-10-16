@@ -5,13 +5,15 @@
 
 use std::path::PathBuf;
 
-use cynic_protocol::candidate_opportunity::{
-    EnergyEstimate, CANDIDATE_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
-    OpportunitySourceKind, CandidateOpportunity, SmallestNextStep,
+use cynic_protocol::organic_opportunity::{
+    EnergyEstimate, ORGANIC_OPPORTUNITY_SCHEMA, OpportunityClass, OpportunitySource,
+    OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
-use cynic_protocol::rate_classify::{RateTrend, WindowedCount, Thresholds};
+use cynic_protocol::rate_classify::{
+    RateTrend, WindowedCount, Thresholds,
+};
 
-use super::port::{CandidateOpportunityObserver, SourceObservationStatus};
+use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 
 /// Configuration for Pattern GC opportunity observation.
 #[derive(Debug, Clone)]
@@ -44,7 +46,7 @@ impl RateTrendObserver {
         observations: &[WindowedCount],
         policy: &Thresholds,
         _now_unix_s: u64,
-    ) -> Vec<CandidateOpportunity> {
+    ) -> Vec<OrganicOpportunity> {
         let mut opportunities = Vec::new();
 
         for observation in observations {
@@ -82,8 +84,8 @@ impl RateTrendObserver {
                 RateTrend::Unknown => 0.50,
             };
 
-            let opp = CandidateOpportunity {
-                schema: CANDIDATE_OPPORTUNITY_SCHEMA.to_string(),
+            let opp = OrganicOpportunity {
+                schema: ORGANIC_OPPORTUNITY_SCHEMA.to_string(),
                 opportunity_id: format!("opp:rate_classify:{}", &digest[..16.min(digest.len())]),
                 scope: format!("pattern/{}", assessment.key),
                 sources: vec![OpportunitySource {
@@ -112,7 +114,7 @@ impl RateTrendObserver {
     }
 }
 
-impl CandidateOpportunityObserver for RateTrendObserver {
+impl OrganicOpportunityObserver for RateTrendObserver {
     fn observer_name(&self) -> &'static str {
         "rate_classify_observer"
     }
@@ -121,7 +123,7 @@ impl CandidateOpportunityObserver for RateTrendObserver {
         OpportunitySourceKind::RateTrend
     }
 
-    fn observe(&self) -> SourceObservationStatus<Vec<CandidateOpportunity>> {
+    fn observe(&self) -> SourceObservationStatus<Vec<OrganicOpportunity>> {
         let path = &self.config.pattern_report_path;
         if !path.exists() {
             return SourceObservationStatus::Unavailable {
