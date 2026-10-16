@@ -24,8 +24,8 @@
         "rest",
         "websocket"
       ],
-      "status": "observed",
-      "evidence_ref": "gasdf-observed-20261016",
+      "status": "usable",
+      "evidence_ref": "gasdf-phase0-20261016",
       "roots": {
         "referential": "/var/lib/cynic/source/repositories/external/gasdf",
         "state": "/var/lib/cynic/projects/gasdf",
