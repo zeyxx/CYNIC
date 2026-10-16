@@ -45,6 +45,7 @@ pub mod cycle_transition;
 pub mod detection;
 pub mod development;
 pub mod digest;
+pub mod hash_chain;
 pub mod discovery;
 pub mod domain_ops;
 pub mod domain_tasks;
