@@ -220,6 +220,11 @@ Moteur : `scratch/paper-week/replay.py` (bras A tick-proxy vs B close, apparié)
 - Erreur d'ancre : bougie-réception vs mcap-signal médiane −16 % (p10 −72 %, p90 +59 %) — ancre bruitée.
   CORRIGÉE : ancre exécutable (close bougie-réception) → baseline 31,2 %, G1 35,5 % (n=816).
   Le gate survit aux deux ancres ; seule la hauteur change.
+- DÉCISION v3 (2026-10-16) : parsing Telegram probablement fautif à la base (modèles None skippés,
+  ordres implicites, champs devinés) — PAS de rebuild sur ce corpus. V3 se construira sur ses champs
+  machine-readable (bulk) : features nommées (firstBuyersHolding, holderCount, freshGapPct, ageMinutes,
+  devBuySupplyPct, bundledSupplyPct, copycatRisk...), ancres règle-4 (quotes Jupiter), labels,
+  fills. Notre apport = protocole + gates + verify, pas le parsing.
 - Survie : 50 mints sans bougies (40 micro, appels T2-family) — biais flatteur pour T2, quantifié.
   Note d'honnêteté : le niveau +25 % a été confirmé (pas découvert) au test — walk-forward requis
   pour la stricte validité (fait ci-dessous, acquis).
