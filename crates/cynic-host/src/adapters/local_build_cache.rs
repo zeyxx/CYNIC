@@ -8,7 +8,7 @@ use sysinfo::Disks;
 use crate::domain::disk::build_runner::{
     BUILD_CACHE_OBSERVATION_SCHEMA, BuildCacheDesiredState, BuildCacheMutationPort,
     BuildCacheObservation, BuildCacheObservationPort, BuildCachePathState, EphemeralEntry,
-    EphemeralKind, EphemeralScope,
+    EphemeralKind,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -670,6 +670,7 @@ fn available_bytes(path: &Path) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::disk::build_runner::EphemeralScope;
     use std::os::unix::fs::symlink;
 
     #[test]

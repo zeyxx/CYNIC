@@ -15,7 +15,6 @@ use cynic_vcs::source_control::SourceSnapshot;
 
 use cynic_build::{BuildProof, BuildRequest, OsIdentity, StdFilesystem, run_build};
 use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
-use cynic_lifecycle::ArgvRunner;
 
 /// Runtime configuration for the build workflow.
 pub struct BuildWorkflowConfig<'a> {
@@ -177,7 +176,6 @@ mod tests {
     use super::*;
     use crate::build_evidence::{BuildLeaseVerificationPort, BuildRunnerObservationPort};
     use cynic_build::BuildRunnerObservation;
-    use cynic_build::build::BUILD_RECIPE_SCHEMA;
     use cynic_lifecycle::MapArgvRunner;
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_vcs::SourceSnapshot;
@@ -216,27 +214,12 @@ mod tests {
     }
 
     fn valid_recipe() -> BuildRecipe {
-        BuildRecipe {
-            schema: BUILD_RECIPE_SCHEMA.to_string(),
-            action: "make:check".to_string(),
-            target_profile: "debug".to_string(),
-            // The action MUST appear in allowed_actions: validate_build_recipe
-            // refuses any recipe whose action is not explicitly admitted, which
-            // is the point of the allow-list. The previous fixture declared
-            // action "make:check" against allowed ["cargo:check"] and was
-            // therefore rejected as build_recipe_action_not_in_allowed_actions.
-            allowed_actions: vec!["make:check".to_string(), "cargo:check".to_string()],
-            target_crates: vec!["cynic-protocol".to_string()],
-            excluded_crates: vec![],
-            toolchain_override: None,
-            env_overrides: vec![],
-            rust_min_stack: 536_870_912,
-            cargo_incremental: false,
-            memory_limit_bytes: None,
-            max_parallel_jobs: 1,
-            timeout_secs: 600,
-            evidence_refs: vec![],
-        }
+        // Derive from the canonical constructor instead of restating every field.
+        // Only the fields this test actually exercises are overridden.
+        let mut recipe =
+            cynic_build::build_recipe("audit:crate").expect("audit:crate is a canonical recipe");
+        recipe.target_crates = vec!["cynic-protocol".to_string()];
+        recipe
     }
 
     struct FakeObservationAdapter {

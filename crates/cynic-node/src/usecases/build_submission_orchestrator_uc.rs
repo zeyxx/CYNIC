@@ -344,7 +344,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["build_grant_read_back".to_string()],

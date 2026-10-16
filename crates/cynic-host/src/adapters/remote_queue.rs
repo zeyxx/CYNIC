@@ -8,14 +8,17 @@ use cynic_build::build_discovery::{
 };
 use cynic_protocol::branch_graph::{BRANCH_GRAPH_SCHEMA, BranchGraph};
 use cynic_protocol::queue::QueuePlan;
+use cynic_protocol::retention::{RetentionItem, RetentionPlan};
 
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use crate::domain::build_artefact::probe::{build_gc_plan, parse_checkout_list, parse_df_pressure};
+use crate::domain::build_artefact::parse::{parse_checkout_list, parse_df_pressure};
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
+use crate::domain::build_artefact::plan_build_artefacts;
 use crate::domain::queue::probe::build_queue_plan;
 use cynic_lifecycle::ArgvRunner;
+use std::time::Duration;
 
 pub struct RemoteQueueAdapter<R: ArgvRunner> {
     runner: Arc<R>,
@@ -110,7 +113,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_else(|| "x86_64-unknown-linux-gnu".into());
         parse_cargo_metadata(&json, now_secs(), toolchain, host)
     }
-    fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
+    fn observe_gc_plan(&self) -> RetentionPlan {
         let raw_list = self
             .ssh(&["ls", "-1", "/var/lib/cynic/checkouts"])
             .unwrap_or_default();
@@ -154,20 +157,42 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_default();
         let pressure =
             parse_df_pressure(&df_k, checkouts.iter().filter(|c| c.is_root_owned).count());
-        let report = cynic_build::build_artefact::BuildArtefactReport {
-            schema: cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
+
+        // Convert to RetentionObservation
+        let items: Vec<RetentionItem> = checkouts
+            .iter()
+            .map(|co| RetentionItem {
+                id: format!("checkout:{}", co.sha.chars().take(8).collect::<String>()),
+                path: co.path.clone(),
+                size_bytes: co.size_bytes,
+                age: co.age_secs.map(Duration::from_secs),
+                reason: String::new(),
+                requires_privilege: co.is_root_owned,
+                argv: vec![],
+                is_orphan: Some(co.is_orphan),
+                is_root_owned: Some(co.is_root_owned),
+                remote_exists: co.remote_exists,
+                sha: Some(co.sha.clone()),
+                branch: Some(co.branch.clone()),
+                owner_uid: Some(co.owner_uid),
+                owner_gid: Some(co.owner_gid),
+            })
+            .collect();
+
+        let obs = cynic_protocol::retention::RetentionObservation {
+            schema: cynic_protocol::retention::RETENTION_OBSERVATION_SCHEMA.to_string(),
             timestamp: String::new(),
-            physical_disks: vec![],
-            filesystems: vec![],
-            checkouts,
-            total_checkout_bytes: 0,
-            total_checkout_human: "0B".into(),
-            target_bytes: 0,
-            target_human: "0B".into(),
-            pressure,
-            residual_unknowns: vec![],
+            items,
+            total_reclaimable_bytes: 0,
+            pressure: Some(cynic_protocol::retention::PressureSignal {
+                use_pct: pressure.use_pct,
+                avail_bytes: pressure.avail_bytes,
+                is_pressured: pressure.is_pressured,
+            }),
         };
-        build_gc_plan(&report)
+
+        let policy = cynic_protocol::retention::default_build_artefact_policy();
+        plan_build_artefacts(&obs, &policy)
     }
 }
 

@@ -146,6 +146,25 @@ fn default_build_action() -> String {
     "check".to_string()
 }
 
+/// Map a CLI submit verb to its canonical build action.
+///
+/// Pure so the honesty rule is testable without HTTP: `check` compiles,
+/// audits are explicit, unknown verbs are refused instead of silently
+/// becoming whatever the old default was.
+pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, String> {
+    match action {
+        "check" => Ok("cargo:check"),
+        "audit" => Ok("audit:crate"),
+        "audit-all" => Ok("audit:all"),
+        "build" => Ok("cargo:build"),
+        "build-release" => Ok("cargo:build-release"),
+        "test" => Ok("cargo:test"),
+        other => Err(format!(
+            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
+        )),
+    }
+}
+
 async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
@@ -179,13 +198,8 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: map_submit_action(&payload.action)
-            .ok_or_else(|| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    format!("unsupported build action: {}", payload.action),
-                )
-            })?
+        action: submit_action_to_canonical(payload.action.as_str())
+            .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?
             .to_string(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
@@ -557,10 +571,10 @@ async fn webhook_forgejo(
             authority_ref: "forgejo".into(),
             snapshot: None,
         },
-        // Canonical gate action: the recipe table admits make:check /
-        // make:build / make:build-release only. A push triggers the full
-        // canonical check gate, never an ad-hoc cargo invocation.
-        action: "make:check".into(),
+        // Canonical gate action: a push triggers the full audit gate
+        // (`audit:crate`, the native spelling of what `make:check`
+        // aliased), never an ad-hoc cargo invocation.
+        action: "audit:crate".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -670,53 +684,15 @@ pub async fn run_http_server(
     Ok(())
 }
 
-/// Map a CLI submit action to the canonical build action used internally.
-///
-/// Returns `None` for unknown actions so the submit handler can refuse
-/// with a reason instead of dying mid-flight.
-pub(crate) fn map_submit_action(action: &str) -> Option<&'static str> {
-    match action {
-        "check" => Some("make:check"),
-        "build" => Some("cargo:build"),
-        "build-release" => Some("cargo:build-release"),
-        "test" => Some("cargo:test"),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use uuid::Uuid;
 
-    use cynic_build::{admit_build_agent_request, canonical_argv_from_build_action};
-
-    #[test]
-    fn submit_action_build_maps_to_cargo_build() {
-        assert_eq!(map_submit_action("build"), Some("cargo:build"));
-    }
-
-    #[test]
-    fn submit_action_build_release_maps_to_cargo_build_release() {
-        assert_eq!(map_submit_action("build-release"), Some("cargo:build-release"));
-    }
-
-    #[test]
-    fn submit_action_test_maps_to_cargo_test() {
-        assert_eq!(map_submit_action("test"), Some("cargo:test"));
-    }
-
-    #[test]
-    fn submit_action_check_maps_to_make_check_unchanged() {
-        assert_eq!(map_submit_action("check"), Some("make:check"));
-    }
-
-    #[test]
-    fn submit_action_unknown_is_refused() {
-        assert_eq!(map_submit_action("deploy"), None);
-        assert_eq!(map_submit_action(""), None);
-        assert_eq!(map_submit_action("make:build"), None);
-    }
+    use cynic_build::{
+        admit_build_agent_request, canonical_argv_from_build_action,
+        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
+    };
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
@@ -725,10 +701,24 @@ mod tests {
     /// link (e.g. mapping + argv but not the composition gate) cannot recur.
     #[test]
     fn submit_action_chains_through_admission_and_argv() {
-        for verb in ["check", "build", "build-release", "test"] {
-            let action = map_submit_action(verb).expect("known submit verb");
+        for verb in ["check", "build", "build-release", "audit", "audit-all", "test"] {
+            let action = submit_action_to_canonical(verb).expect("known submit verb");
             let mut request = push_request(&"d".repeat(40));
             request.action = action.to_string();
+            if action == "cargo:build-release" {
+                // Composition requires publication intent plus the two
+                // release proofs for release builds: equip the request so
+                // the chain test exercises the real release path.
+                request.release_publication = Some(BuildReleasePublicationIntent {
+                    schema: BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
+                    release_id: "v9.9.9-test".to_string(),
+                    release_epoch: 1,
+                });
+                request.proof_requirements.extend([
+                    "release_binary_artifact_read_back".to_string(),
+                    "signed_release_basket_read_back".to_string(),
+                ]);
+            }
             let admission = admit_build_agent_request(&request);
             assert!(
                 !admission
@@ -784,6 +774,21 @@ mod tests {
     }
 
     #[test]
+    fn submit_verbs_map_to_honest_canonical_actions() {
+        assert_eq!(submit_action_to_canonical("check"), Ok("cargo:check"));
+        assert_eq!(submit_action_to_canonical("audit"), Ok("audit:crate"));
+        assert_eq!(submit_action_to_canonical("audit-all"), Ok("audit:all"));
+        assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
+        assert_eq!(
+            submit_action_to_canonical("build-release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));
+        assert!(submit_action_to_canonical("deploy").is_err());
+        assert!(submit_action_to_canonical("").is_err());
+    }
+
+    #[test]
     fn workload_id_has_forgejo_prefix() {
         let id = format!("forgejo-{}", Uuid::new_v4());
         assert!(id.starts_with("forgejo-"));
@@ -816,7 +821,7 @@ mod tests {
                 authority_ref: "forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -940,7 +945,7 @@ mod tests {
                 authority_ref: "forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -958,6 +963,11 @@ mod tests {
         let envelope =
             cynic_build::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
                 .expect("webhook request composes a bounded workload");
-        assert_eq!(envelope.action.argv, vec!["make", "check"]);
+        // Slice semantics changed deliberately: `make:check` composes the native
+        // audit argv (vocabulary honesty), not the Makefile wrapper.
+        assert_eq!(
+            envelope.action.argv,
+            vec!["cargo", "run", "-q", "-p", "cynic-cli", "--", "audit", "crate"]
+        );
     }
 }

@@ -592,7 +592,7 @@ impl<R: ArgvRunner> AgentHostObservationPort for ProxmoxSshAgentHostObserver<'_,
 mod tests {
     use super::*;
     use cynic_lifecycle::{ArgvOutput, ArgvRunner};
-    use cynic_protocol::{AgentHostDesired, agent_host_sandbox::AgentHostHarness};
+    use cynic_protocol::AgentHostDesired;
 
     // ---- Mock runner -------------------------------------------------------
 

@@ -99,28 +99,20 @@ impl ArgvObservation {
     }
 }
 
-/// Canonical build-gate actions: `make:*` operator intents expand to the exact
-/// nested cargo gates the builder may execute. Pure mapping owned by the argv
-/// admission domain so build scheduling and source release share one source.
+/// Canonical build-gate actions: native `cargo:*` intents plus the audit
+/// actions. The retired `make:*` spellings are refused: they name Makefile
+/// targets that do not exist, so no argv they admit can execute. Pure
+/// mapping owned by the argv admission domain so build scheduling and
+/// source release share one source.
 pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
     match requested_action {
-        "make:check" => Ok(["make:check", "cargo:check", "cargo:run", "cargo:test"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build" => Ok(["make:build", "cargo:build"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build-release" => Ok(["make:build-release", "cargo:build-release"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
         "cargo:check" => Ok(vec!["cargo:check".to_string()]),
         "cargo:build" => Ok(vec!["cargo:build".to_string()]),
         "cargo:build-release" => Ok(vec!["cargo:build-release".to_string()]),
         "cargo:test" => Ok(vec!["cargo:test".to_string()]),
         "cargo:run" => Ok(vec!["cargo:run".to_string()]),
+        "audit:crate" => Ok(vec!["audit:crate".to_string()]),
+        "audit:all" => Ok(vec!["audit:all".to_string()]),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),
@@ -219,29 +211,26 @@ mod tests {
     }
 
     #[test]
-    fn make_build_release_admits_cargo_build_release_not_cargo_build() {
-        let actions = canonical_build_actions("make:build-release").expect("known gate");
-        assert!(actions.contains(&"cargo:build-release".to_string()));
-        assert!(!actions.contains(&"cargo:build".to_string()));
+    fn retired_make_spellings_are_refused() {
+        // `make:*` names Makefile targets that do not exist (the workspace
+        // has zero `^build` targets), so the actions they admit can never
+        // execute. Submit maps to the native `cargo:*` spellings; direct
+        // requests with the retired spellings are refused at admission.
+        for action in ["make:check", "make:build", "make:build-release"] {
+            assert!(
+                canonical_build_actions(action).is_err(),
+                "{action} must be refused"
+            );
+            assert!(
+                !is_canonical_build_action(action),
+                "{action} is not admitted by policy"
+            );
+        }
     }
 
-    #[test]
-    fn make_build_admits_cargo_build() {
-        let actions = canonical_build_actions("make:build").expect("known gate");
-        assert!(actions.contains(&"cargo:build".to_string()));
-    }
-
-    /// Task P fix round 1: the admission predicate is the single source of
-    /// truth shared by the composition gate — it must mirror the policy
-    /// set exactly, no more (unknown actions refused) and no fewer (every
-    /// policy action admitted, including cargo:run which policy admits
-    /// even though it has no canonical argv).
     #[test]
     fn admission_predicate_mirrors_policy_exactly() {
         for action in [
-            "make:check",
-            "make:build",
-            "make:build-release",
             "cargo:check",
             "cargo:build",
             "cargo:build-release",

@@ -8,6 +8,7 @@
 //!   - cynic agent status     — query active claims
 //!   - cynic agent heartbeat  — refresh the TTL of a live local claim
 //!   - cynic agent events     — read back the append-only claim event log
+//!   - cynic agent session context — session evidence for agent boots
 //!   - cynic agent intent seal|verify — seal or verify transmission records
 
 use std::process::ExitCode;
@@ -28,6 +29,40 @@ pub mod intent;
 pub mod render;
 pub mod scan;
 pub mod types;
+
+/// Session sub-arms. `context` is the only arm; the noun level exists so
+/// the leaf never needs a hyphen.
+#[derive(Subcommand)]
+pub(crate) enum SessionCommand {
+    /// Return lightweight non-blocking session context evidence for agent boots
+    Context {
+        /// Print JSON output (default true)
+        #[arg(long, default_value = "true")]
+        json: bool,
+        /// Registry path used to resolve the builder endpoint.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+    },
+}
+
+pub(crate) fn execute_session(command: SessionCommand) -> ExitCode {
+    match command {
+        SessionCommand::Context { json: _, registry } => {
+            let report = serde_json::json!({
+                "schema": "cynic.agent.session_context.v1",
+                "status": "observed",
+                "git_sha": env!("CYNIC_GIT_SHA"),
+                "version": env!("CARGO_PKG_VERSION"),
+                "canonical_service_plane": "synapse",
+                "builder": resolve_builder_endpoint(&registry).unwrap_or("unknown".to_string()),
+                "git_remote": resolve_git_remote(),
+                "active_claims_file": ".agent-claims.json",
+            });
+            emit_pretty_json(&report);
+            ExitCode::SUCCESS
+        }
+    }
+}
 
 #[derive(Subcommand)]
 pub(crate) enum AgentCommand {
@@ -170,14 +205,10 @@ pub(crate) enum AgentCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Return lightweight non-blocking session context evidence for agent boots
-    SessionContext {
-        /// Print JSON output (default true)
-        #[arg(long, default_value = "true")]
-        json: bool,
-        /// Registry path used to resolve the builder endpoint.
-        #[arg(long, default_value = "infra/registry.json")]
-        registry: String,
+    /// Session evidence for agent boots (nested arm, no hyphen).
+    Session {
+        #[command(subcommand)]
+        command: SessionCommand,
     },
     /// Seal or verify intent transmission records (nested arm, no new top level)
     Intent {
@@ -185,9 +216,10 @@ pub(crate) enum AgentCommand {
         command: IntentCommand,
     },
     /// Plan or observe Proxmox agent host VM placement and conformance.
+    /// DEPRECATED alias of `cynic node hypervisor`. Delegates without duplication.
     Host {
         #[command(subcommand)]
-        command: crate::agent_host_surface::AgentHostCommand,
+        command: crate::node_surface::hypervisor::NodeHypervisorCommand,
     },
 }
 
@@ -340,21 +372,13 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::SessionContext { json: _, registry } => {
-            let report = serde_json::json!({
-                "schema": "cynic.agent.session_context.v1",
-                "status": "observed",
-                "git_sha": env!("CYNIC_GIT_SHA"),
-                "version": env!("CARGO_PKG_VERSION"),
-                "canonical_service_plane": "synapse",
-                "builder": resolve_builder_endpoint(&registry).unwrap_or("unknown".to_string()),
-                "git_remote": resolve_git_remote(),
-                "active_claims_file": ".agent-claims.json",
-            });
-            emit_pretty_json(&report);
-            ExitCode::SUCCESS
-        }
+        AgentCommand::Session { command } => execute_session(command),
         AgentCommand::Intent { command } => execute_intent(command),
-        AgentCommand::Host { command } => crate::agent_host_surface::execute_agent_host(command),
+        AgentCommand::Host { command } => {
+            eprintln!(
+                "DEPRECATED: `cynic agent host` moves to `cynic node hypervisor` and will be removed next release."
+            );
+            crate::node_surface::hypervisor::execute_node_hypervisor(command)
+        }
     }
 }
