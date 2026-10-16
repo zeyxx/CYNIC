@@ -98,6 +98,17 @@
       "notes": "JS tooling"
     },
     {
+      "id": "helius-sdk-ts",
+      "min_version": "3.3.0",
+      "notes": "GASdf relay consumer (Kit-native). Sender path via helius.tx; Priority Fee API 401 observed — fallback applies."
+    },
+    {
+      "id": "helius-crate-rs",
+      "min_version": "1.0.0",
+      "required": false,
+      "notes": "Approved, no Rust consumer yet (solana-sdk 3.0 stack). Install into a sender crate at graduation; never speculatively."
+    },
+    {
       "id": "systemd",
       "min_version": null,
       "required": true,
