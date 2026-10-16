@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn time_meter_returns_elapsed() {
         let meter = HostTimeMeter::new();
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let seconds = meter.measure_seconds("agent-1").unwrap();
         assert!(seconds >= 0);
     }
