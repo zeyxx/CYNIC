@@ -30,13 +30,26 @@ pub struct LocalBuildArtefactAdapter;
 
 impl RetentionObserver for LocalBuildArtefactAdapter {
     fn observe(&self) -> Result<RetentionObservation, RetentionError> {
+        Self::observe_inner(false)
+    }
+}
+
+impl LocalBuildArtefactAdapter {
+    /// Classification-only observation: skips recursive `du` and network
+    /// `ls-remote` (sizes read 0, `remote_exists` unset). For consumers
+    /// that need orphan/age classification but not sizes.
+    pub fn observe_shallow() -> Result<RetentionObservation, RetentionError> {
+        Self::observe_inner(true)
+    }
+
+    fn observe_inner(shallow: bool) -> Result<RetentionObservation, RetentionError> {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
         let physical_disks = observe_physical_disks();
         let filesystems = observe_filesystems();
-        let (checkouts_raw, remote_shas) = observe_checkouts_raw(false);
+        let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
 
@@ -403,18 +416,76 @@ mod tests {
             total_reclaimable_bytes: 0,
             pressure: None,
         };
-        let policy = RetentionPolicy {
-            kind: RetentionKind::BuildArtefact,
-            max_age: Some(std::time::Duration::from_secs(48 * 3600)),
-            pressure_trigger: None,
-            preserve_count: 0,
-            preserve_profiles: vec![],
-            grace_period: None,
-            scopes: vec![],
-        };
+        let policy = cynic_protocol::retention::default_build_artefact_policy();
         let adapter = LocalBuildArtefactAdapter;
         let plan = adapter.plan(&obs, &policy);
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].path, "/var/lib/cynic/checkouts/old-orphan");
+    }
+
+    /// Golden plan: full-field equivalence with the retired `build_gc_plan`
+    /// (reason strings, privilege, argv, totals). Retired logic pinned from
+    /// pre-migration `domain/build_artefact/probe.rs`.
+    #[test]
+    fn plan_golden_full_fields() {
+        fn item(id: &str, age_secs: u64, orphan: bool, root: bool) -> RetentionItem {
+            RetentionItem {
+                id: format!("checkout:{id}"),
+                path: format!("/var/lib/cynic/checkouts/{id}"),
+                size_bytes: 5000,
+                age: Some(std::time::Duration::from_secs(age_secs)),
+                reason: String::new(),
+                requires_privilege: false,
+                argv: vec![],
+                is_orphan: Some(orphan),
+                is_root_owned: Some(root),
+                remote_exists: Some(!orphan),
+                sha: Some(id.to_string()),
+                branch: Some(id.to_string()),
+                owner_uid: Some(if root { 0 } else { 999 }),
+                owner_gid: Some(990),
+            }
+        }
+        let obs = RetentionObservation {
+            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
+            timestamp: "2026-10-16T00:00:00Z".to_string(),
+            items: vec![
+                item("oldorphan", 200_000, true, false), // 55h orphan
+                item("agedroot", 200_000, false, true),  // 55h old + root
+                item("freshorphan", 1000, true, false),  // fresh orphan
+                item("boundary", 172_800, false, false), // exactly 48h: NOT old
+                item("live", 1000, false, false),        // fresh, kept
+            ],
+            total_reclaimable_bytes: 0,
+            pressure: None,
+        };
+        let plan = plan_build_artefacts(
+            &obs,
+            &cynic_protocol::retention::default_build_artefact_policy(),
+        );
+        assert_eq!(plan.items.len(), 3);
+        assert_eq!(
+            plan.items[0].reason,
+            "orphan(no remote)+age 55h",
+            "orphan+old reason string"
+        );
+        assert_eq!(
+            plan.items[1].reason, "age 55h+root-owned",
+            "root-owned qualifier position"
+        );
+        assert!(plan.items[1].requires_privilege);
+        assert_eq!(plan.items[2].reason, "orphan(no remote)");
+        for it in &plan.items {
+            assert_eq!(
+                it.argv,
+                vec![
+                    "rm".to_string(),
+                    "-rf".to_string(),
+                    it.path.clone()
+                ],
+                "argv rm -rf path"
+            );
+        }
+        assert_eq!(plan.total_reclaimable_bytes, 15_000);
     }
 }

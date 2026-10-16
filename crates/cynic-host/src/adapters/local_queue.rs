@@ -57,20 +57,10 @@ impl LocalQueueAdapter {
         // A discovery that succeeded partially still names its gaps — those
         // propagate to the plan so callers can tell live from guessed.
         unknowns.extend(discovery.residual_unknowns.iter().cloned());
-        let gc_plan = match LocalBuildArtefactAdapter.observe() {
+        let gc_plan = match LocalBuildArtefactAdapter::observe_shallow() {
             Ok(obs) => {
-                let policy = RetentionPolicy {
-                    kind: RetentionKind::BuildArtefact,
-                    max_age: Some(Duration::from_secs(48 * 3600)),
-                    pressure_trigger: None,
-                    preserve_count: 0,
-                    preserve_profiles: vec![],
-                    grace_period: None,
-                    scopes: vec![RetentionScope {
-                        root: "/var/lib/cynic/checkouts".to_string(),
-                        patterns: vec![],
-                    }],
-                };
+                let policy =
+                    cynic_protocol::retention::default_build_artefact_policy();
                 LocalBuildArtefactAdapter.plan(&obs, &policy)
             }
             Err(e) => {

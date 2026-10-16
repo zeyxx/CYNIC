@@ -16,6 +16,27 @@ pub const BUILD_ARTEFACT_GC_PLAN_SCHEMA: &str = "cynic.build_artefact_gc_plan.v1
 pub const BUILD_ARTEFACT_GC_RESULT_SCHEMA: &str = "cynic.build_artefact_gc_result.v1";
 pub const FLEET_BUILD_ARTEFACT_SCHEMA: &str = "cynic.fleet_build_artefact.v1";
 
+/// Single source for the build-artefact GC age threshold (48h).
+/// All call sites must use this constructor — no inline `48 * 3600`.
+pub const BUILD_ARTEFACT_MAX_AGE_SECS: u64 = 48 * 3600;
+
+/// Canonical build-artefact retention policy. Single construction site;
+/// the planner (`plan_build_artefacts`) reads `max_age` from here.
+pub fn default_build_artefact_policy() -> RetentionPolicy {
+    RetentionPolicy {
+        kind: RetentionKind::BuildArtefact,
+        max_age: Some(Duration::from_secs(BUILD_ARTEFACT_MAX_AGE_SECS)),
+        pressure_trigger: None,
+        preserve_count: 0,
+        preserve_profiles: vec![],
+        grace_period: None,
+        scopes: vec![RetentionScope {
+            root: "/var/lib/cynic/checkouts".to_string(),
+            patterns: vec![],
+        }],
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RetentionKind {
@@ -164,234 +185,6 @@ pub trait RetentionExecutor {
 mod tests {
     use super::*;
 
-    // Reference implementation of the retired build_gc_plan logic.
-    // This is the equivalence target: the trio planner must produce the same
-    // plan for the same observation input.
-    fn reference_gc_plan(
-        checkouts: &[(String, String, u64, u32, u64, bool, bool)], // (path, sha, size, uid, age_secs, is_orphan, is_root_owned)
-    ) -> Vec<(String, String, u64, String, bool, Vec<String>)> {
-        // (id, path, size_bytes, reason, requires_privilege, argv)
-        let mut items = Vec::new();
-        for (path, sha, size_bytes, uid, age_secs, is_orphan, is_root_owned) in checkouts {
-            let mut reasons = Vec::new();
-            if *is_orphan {
-                reasons.push("orphan(no remote)".to_string());
-            }
-            let is_old = *age_secs > 48 * 3600;
-            if is_old {
-                reasons.push(format!("age {}h", *age_secs / 3600));
-            }
-            if reasons.is_empty() {
-                continue;
-            }
-            if *is_root_owned {
-                reasons.push("root-owned".to_string());
-            }
-            let reason = reasons.join("+");
-            let id = format!("checkout:{}", sha.chars().take(8).collect::<String>());
-            let requires_privilege = *is_root_owned;
-            let argv = vec!["rm".to_string(), "-rf".to_string(), path.clone()];
-            items.push((id, path.clone(), *size_bytes, reason, requires_privilege, argv));
-        }
-        items
-    }
-
-    fn make_observation(
-        checkouts: &[(String, String, u64, u32, u64, bool, bool)],
-    ) -> RetentionObservation {
-        let items: Vec<RetentionItem> = checkouts
-            .iter()
-            .map(|(path, sha, size_bytes, uid, age_secs, is_orphan, is_root_owned)| {
-                RetentionItem {
-                    id: format!("checkout:{}", sha.chars().take(8).collect::<String>()),
-                    path: path.clone(),
-                    size_bytes: *size_bytes,
-                    age: Some(Duration::from_secs(*age_secs)),
-                    reason: String::new(),
-                    requires_privilege: *is_root_owned,
-                    argv: vec![],
-                    is_orphan: Some(*is_orphan),
-                    is_root_owned: Some(*is_root_owned),
-                    remote_exists: Some(!*is_orphan),
-                    sha: Some(sha.clone()),
-                    branch: Some(path.rsplit('/').next().unwrap_or(path).to_string()),
-                    owner_uid: Some(*uid),
-                    owner_gid: Some(990),
-                }
-            })
-            .collect();
-        RetentionObservation {
-            schema: RETENTION_OBSERVATION_SCHEMA.to_string(),
-            timestamp: "2026-10-16T00:00:00Z".to_string(),
-            items,
-            total_reclaimable_bytes: 0,
-            pressure: None,
-        }
-    }
-
-    fn make_policy() -> RetentionPolicy {
-        RetentionPolicy {
-            kind: RetentionKind::BuildArtefact,
-            max_age: Some(Duration::from_secs(48 * 3600)),
-            pressure_trigger: None,
-            preserve_count: 0,
-            preserve_profiles: vec![],
-            grace_period: None,
-            scopes: vec![],
-        }
-    }
-
-    // The trio planner implementation under test.
-    struct BuildArtefactRetentionPlanner;
-
-    impl RetentionPlanner for BuildArtefactRetentionPlanner {
-        fn plan(&self, obs: &RetentionObservation, policy: &RetentionPolicy) -> RetentionPlan {
-            let mut items = Vec::new();
-            let mut total = 0u64;
-            for item in &obs.items {
-                let mut reasons = Vec::new();
-                if item.is_orphan == Some(true) {
-                    reasons.push("orphan(no remote)".to_string());
-                }
-                let is_old = item
-                    .age
-                    .and_then(|a| policy.max_age.map(|max| a > max))
-                    .unwrap_or(false);
-                if is_old {
-                    if let Some(age) = item.age {
-                        reasons.push(format!("age {}h", age.as_secs() / 3600));
-                    }
-                }
-                if reasons.is_empty() {
-                    continue;
-                }
-                if item.is_root_owned == Some(true) {
-                    reasons.push("root-owned".to_string());
-                }
-                let reason = reasons.join("+");
-                total += item.size_bytes;
-                items.push(RetentionItem {
-                    id: item.id.clone(),
-                    path: item.path.clone(),
-                    size_bytes: item.size_bytes,
-                    age: item.age,
-                    reason,
-                    requires_privilege: item.requires_privilege,
-                    argv: vec![
-                        "rm".to_string(),
-                        "-rf".to_string(),
-                        item.path.clone(),
-                    ],
-                    is_orphan: item.is_orphan,
-                    is_root_owned: item.is_root_owned,
-                    remote_exists: item.remote_exists,
-                    sha: item.sha.clone(),
-                    branch: item.branch.clone(),
-                    owner_uid: item.owner_uid,
-                    owner_gid: item.owner_gid,
-                });
-            }
-            RetentionPlan {
-                schema: RETENTION_PLAN_SCHEMA.to_string(),
-                items,
-                total_reclaimable_bytes: total,
-                policy_version: "v1".to_string(),
-            }
-        }
-    }
-
-    #[test]
-    fn trio_plan_matches_retired_implementation_orphan_and_age() {
-        let checkouts = vec![
-            (
-                "/var/lib/cynic/checkouts/old-orphan".to_string(),
-                "abc123".to_string(),
-                5000u64,
-                999u32,
-                200_000u64,
-                true,
-                false,
-            ),
-            (
-                "/var/lib/cynic/checkouts/live".to_string(),
-                "live123".to_string(),
-                5000u64,
-                999u32,
-                1000u64,
-                false,
-                false,
-            ),
-            (
-                "/var/lib/cynic/checkouts/aged-root".to_string(),
-                "aged01".to_string(),
-                10000u64,
-                0u32,
-                100_000u64,
-                false,
-                true,
-            ),
-        ];
-        let expected = reference_gc_plan(&checkouts);
-        let obs = make_observation(&checkouts);
-        let policy = make_policy();
-        let planner = BuildArtefactRetentionPlanner;
-        let plan = planner.plan(&obs, &policy);
-        assert_eq!(plan.items.len(), expected.len());
-        for (item, (id, path, size_bytes, reason, requires_privilege, argv)) in
-            plan.items.iter().zip(expected.iter())
-        {
-            assert_eq!(item.id, *id);
-            assert_eq!(item.path, *path);
-            assert_eq!(item.size_bytes, *size_bytes);
-            assert_eq!(item.reason, *reason);
-            assert_eq!(item.requires_privilege, *requires_privilege);
-            assert_eq!(item.argv, *argv);
-        }
-    }
-
-    #[test]
-    fn trio_plan_matches_retired_implementation_empty() {
-        let checkouts: Vec<(String, String, u64, u32, u64, bool, bool)> = vec![];
-        let expected = reference_gc_plan(&checkouts);
-        let obs = make_observation(&checkouts);
-        let policy = make_policy();
-        let planner = BuildArtefactRetentionPlanner;
-        let plan = planner.plan(&obs, &policy);
-        assert_eq!(plan.items.len(), 0);
-        assert_eq!(plan.items.len(), expected.len());
-    }
-
-    #[test]
-    fn trio_plan_matches_retired_implementation_all_reclaimable() {
-        let checkouts = vec![
-            (
-                "/var/lib/cynic/checkouts/orphan1".to_string(),
-                "orphan1".to_string(),
-                1000u64,
-                999u32,
-                100u64,
-                true,
-                false,
-            ),
-            (
-                "/var/lib/cynic/checkouts/aged1".to_string(),
-                "aged001".to_string(),
-                2000u64,
-                999u32,
-                200_000u64,
-                false,
-                false,
-            ),
-        ];
-        let expected = reference_gc_plan(&checkouts);
-        let obs = make_observation(&checkouts);
-        let policy = make_policy();
-        let planner = BuildArtefactRetentionPlanner;
-        let plan = planner.plan(&obs, &policy);
-        assert_eq!(plan.items.len(), 2);
-        assert_eq!(plan.items.len(), expected.len());
-        assert_eq!(plan.total_reclaimable_bytes, 3000);
-    }
 
     #[test]
     fn retention_trio_traits_exist_and_are_grepable() {
@@ -401,12 +194,13 @@ mod tests {
         fn assert_planner<T: RetentionPlanner>() {}
         fn assert_executor<T: RetentionExecutor>() {}
         assert_observer::<BuildArtefactRetentionObserver>();
-        assert_planner::<BuildArtefactRetentionPlanner>();
+        assert_planner::<BuildArtefactRetentionPlannerStub>();
         assert_executor::<BuildArtefactRetentionExecutor>();
     }
 
     // Stub implementations for the trait existence test.
     struct BuildArtefactRetentionObserver;
+    struct BuildArtefactRetentionPlannerStub;
     struct BuildArtefactRetentionExecutor;
 
     impl RetentionObserver for BuildArtefactRetentionObserver {
@@ -419,6 +213,28 @@ mod tests {
                 pressure: None,
             })
         }
+    }
+
+    impl RetentionPlanner for BuildArtefactRetentionPlannerStub {
+        fn plan(&self, _obs: &RetentionObservation, _policy: &RetentionPolicy) -> RetentionPlan {
+            RetentionPlan {
+                schema: RETENTION_PLAN_SCHEMA.to_string(),
+                items: vec![],
+                total_reclaimable_bytes: 0,
+                policy_version: String::new(),
+            }
+        }
+    }
+
+    #[test]
+    fn default_policy_pins_single_48h_source() {
+        let policy = default_build_artefact_policy();
+        assert_eq!(policy.kind, RetentionKind::BuildArtefact);
+        assert_eq!(
+            policy.max_age,
+            Some(Duration::from_secs(BUILD_ARTEFACT_MAX_AGE_SECS))
+        );
+        assert_eq!(BUILD_ARTEFACT_MAX_AGE_SECS, 48 * 3600);
     }
 
     impl RetentionExecutor for BuildArtefactRetentionExecutor {

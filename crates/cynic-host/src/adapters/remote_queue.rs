@@ -194,18 +194,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             }),
         };
 
-        let policy = RetentionPolicy {
-            kind: RetentionKind::BuildArtefact,
-            max_age: Some(Duration::from_secs(48 * 3600)),
-            pressure_trigger: None,
-            preserve_count: 0,
-            preserve_profiles: vec![],
-            grace_period: None,
-            scopes: vec![RetentionScope {
-                root: "/var/lib/cynic/checkouts".to_string(),
-                patterns: vec![],
-            }],
-        };
+        let policy = cynic_protocol::retention::default_build_artefact_policy();
         plan_build_artefacts(&obs, &policy)
     }
 }

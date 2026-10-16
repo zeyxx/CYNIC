@@ -84,18 +84,7 @@ pub(crate) fn execute_build_artefact(json: bool, apply: bool) -> ExitCode {
 }
 
 fn build_artefact_policy() -> RetentionPolicy {
-    RetentionPolicy {
-        kind: RetentionKind::BuildArtefact,
-        max_age: Some(std::time::Duration::from_secs(48 * 3600)),
-        pressure_trigger: None,
-        preserve_count: 0,
-        preserve_profiles: vec![],
-        grace_period: None,
-        scopes: vec![RetentionScope {
-            root: "/var/lib/cynic/checkouts".to_string(),
-            patterns: vec![],
-        }],
-    }
+    cynic_protocol::retention::default_build_artefact_policy()
 }
 
 fn print_observation_human(obs: &cynic_protocol::retention::RetentionObservation) {
