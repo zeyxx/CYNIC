@@ -296,14 +296,17 @@ S1/S2/S3a were first implemented on the shared checkout `agent/hermes/build-late
   (`agent session-context`, `node agent-*`, `audit node-host`, ...),
   all present on `origin/main` (e.g. surface-registry fragments).
   Reassign to vocabulary owner; re-run after their fix.
-- Soak + removals: STARTED 2026-10-16 on builder (always-on LXC 105):
-  parent PID 2842241, role `node`, sacrificial child `sleep infinity`,
-  state `/var/lib/cynic/supervise-soak`, baseline `active`/heartbeat 2/
-  restarts 0. Daily watchdog cron `e25dc85d1ee8` (`soak_watch.sh`,
-  local-only) — INACTIVE until Hermes gateway started. Metric: parent
-  crash rate vs child crash rate over 30 days; then standalone/detach
-  removal with its own `go` per step. Role label is a placeholder: this
-  soaks the parent, not a real node.
+- Soak + removals: LIVE 2026-10-16 on builder (always-on LXC 105) as the
+  watch-pattern reference pair (`docs/design/supervision-watch-pattern.md`):
+  systemd producer `cynic-supervise-soak-node.service` + consumer
+  `cynic-supervise-watch-soak-node.service` (both `NRestarts=0`),
+  sacrificial child `sleep infinity`, state
+  `/var/lib/cynic/supervise-soak`, ledger `watch.jsonl` (change +
+  hourly-fresh only — counter flood fixed live). Daily watchdog cron
+  `e25dc85d1ee8` (`soak_watch.sh`, local-only) — INACTIVE until Hermes
+  gateway started. Metric: parent crash rate vs child crash rate over
+  30 days; then standalone/detach removal with its own `go` per step.
+  Role label is a placeholder: this soaks the parent, not a real node.
 - `cynic supervise stop` e2e: DONE 2026-10-16 on builder via native
   `cynic build trigger` (workspace `converged` at `54b3f595`): parent
   `active` (heartbeat 2) → `stop --apply` → `stopped`
