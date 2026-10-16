@@ -7,7 +7,7 @@ pub mod registry;
 pub mod topology;
 pub mod types;
 
-pub use bundle::write_lab_bundle;
+pub use bundle::{write_lab_bundle, write_lab_bundle_with_root};
 use context::lab_context;
 use image::image_preflight;
 pub use image::{build_lab_image_report, resolve_lab_image_sha256};
@@ -114,7 +114,8 @@ pub fn write_guest_bootstrap_bundle(
 mod tests {
     use super::image::{build_lab_image_report, parse_sha256_sums, parse_sha256sum_stdout};
     use super::{
-        build_lab_plan, build_lab_provision_report, write_guest_bootstrap_bundle, write_lab_bundle,
+        build_lab_plan, build_lab_provision_report, write_guest_bootstrap_bundle,
+        write_lab_bundle, write_lab_bundle_with_root,
     };
 
     #[test]
@@ -184,6 +185,68 @@ mod tests {
         assert!(out.join("network.xml").is_file());
         assert!(out.join("domains/lab-kernel.xml").is_file());
         assert!(out.join("cloud-init/lab-kernel-user-data.yaml").is_file());
+        std::fs::remove_dir_all(out).expect("cleanup");
+    }
+
+    /// The lab root is a placement: every emitted disk and seed path must
+    /// follow the root the caller declares, not the literal the generator
+    /// used to hold. A deployment whose lab tree is not the default can then
+    /// describe it without editing the generator, and the default stays the
+    /// deployed tree.
+    #[test]
+    fn lab_root_override_moves_disk_and_seed_paths() {
+        let registry = format!(
+            "{}/../../infra/registries/lab.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let out = std::env::temp_dir().join(format!(
+            "cynic-lab-bundle-root-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ));
+
+        write_lab_bundle_with_root(&registry, out.to_str().expect("path"), "/srv/lab")
+            .expect("bundle with lab root");
+
+        let domain = std::fs::read_to_string(out.join("domains/lab-kernel.xml")).expect("domain xml");
+        assert!(domain.contains("<source file='/srv/lab/disks/lab-kernel.qcow2'/>"));
+        assert!(domain.contains("<source file='/srv/lab/seeds/lab-kernel-seed.iso'/>"));
+        // The base image is a registry input, not a generator output: it stays
+        // where the registry declares it, under the lab tree the override
+        // replaced for the computed disk/seed paths.
+        assert!(domain.contains(
+            "<baseImage>/var/lib/cynic/lab/images/ubuntu-24.04-server-cloudimg-amd64.img</baseImage>"
+        ));
+        std::fs::remove_dir_all(out).expect("cleanup");
+    }
+
+    /// The default root keeps the deployed placement, so an unmodified caller
+    /// emits exactly the tree it did before the literal was named.
+    #[test]
+    fn lab_bundle_default_root_is_the_deployed_lab_tree() {
+        let registry = format!(
+            "{}/../../infra/registries/lab.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let out = std::env::temp_dir().join(format!(
+            "cynic-lab-bundle-default-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ));
+
+        write_lab_bundle(&registry, out.to_str().expect("path")).expect("bundle");
+
+        let domain = std::fs::read_to_string(out.join("domains/lab-kernel.xml")).expect("domain xml");
+        assert!(domain.contains(
+            "<source file='/var/lib/cynic/lab/disks/lab-kernel.qcow2'/>"
+        ));
+        assert!(domain.contains(
+            "<source file='/var/lib/cynic/lab/seeds/lab-kernel-seed.iso'/>"
+        ));
         std::fs::remove_dir_all(out).expect("cleanup");
     }
 

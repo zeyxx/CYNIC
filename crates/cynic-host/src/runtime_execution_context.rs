@@ -7,7 +7,7 @@ use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus}
 use crate::process_observation::command_json;
 use crate::repo_access::{current_project_root, current_repo_access_status};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
-use crate::runtime_layout::HostRuntimeLayout;
+use crate::runtime_layout::{HostRuntimeLayout, default_installed_cli_dir};
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };
@@ -173,7 +173,11 @@ fn observe_process_identity() -> ProcessIdentity {
 
 fn observe_runtime_paths(layout: &HostRuntimeLayout) -> RuntimePathEvidence {
     RuntimePathEvidence {
-        installed_cli: path_status("/usr/local/bin/cynic"),
+        // Resolved from the layout, not written inline: the layout is the single
+        // resolver for runtime placements, and a second literal here is a
+        // competing claim about the same tree. A deployment whose CLI is not in
+        // the derived default describes it with CYNIC_CLI_DIR.
+        installed_cli: path_status(layout.cli_path("cynic")),
         config_root: path_status(&layout.config_dir),
         state_root: path_status(&layout.state_dir),
         log_root: path_status(&layout.log_dir),
@@ -560,5 +564,50 @@ mod tests {
         assert_eq!(evidence.cynic_env.get("CYNIC_TEST_API_KEY"), Some(&true));
         assert_eq!(evidence.sandbox_env.get("CODEX_SANDBOX_TOKEN"), Some(&true));
         assert!(!rendered.contains(secret_value));
+    }
+
+    fn layout_with_cli_dir(cli_dir: &str) -> HostRuntimeLayout {
+        HostRuntimeLayout {
+            config_dir: "/etc/cynic".to_string(),
+            helper_dir: "/usr/local/libexec/cynic".to_string(),
+            sudoers_dir: "/etc/sudoers.d".to_string(),
+            service_unit_dir: "/etc/systemd/system".to_string(),
+            runtime_home_dir: "/var/lib/cynic".to_string(),
+            state_dir: "/var/lib/cynic".to_string(),
+            log_dir: "/var/log/cynic".to_string(),
+            host_exec_bundle_dir: "/var/lib/cynic/staging/host-exec".to_string(),
+            network_actuator_bundle_dir: "/var/lib/cynic/staging/network".to_string(),
+            dns_bundle_dir: "/var/lib/cynic/staging/dns".to_string(),
+            provider_fallback_bundle_dir: "/var/lib/cynic/staging/provider".to_string(),
+            cli_dir: cli_dir.to_string(),
+        }
+    }
+
+    /// The probe must report the CLI the layout resolves, not a literal frozen
+    /// at the call site. Before this, `observe_runtime_paths` wrote
+    /// `/usr/local/bin/cynic` inline, so a layout whose CLI lives elsewhere
+    /// reported a path the deployment does not use. The layout is the only
+    /// authority for the placement; the probe reads it.
+    #[test]
+    fn installed_cli_path_is_resolved_from_the_layout() {
+        let paths = observe_runtime_paths(&layout_with_cli_dir("/opt/cynic/bin"));
+
+        assert_eq!(paths.installed_cli.path, "/opt/cynic/bin/cynic");
+        assert_eq!(paths.installed_cli.exists, false);
+    }
+
+    /// The default layout keeps the deployed placement, so an unmodified
+    /// deployment observes the same path it did before the literal moved.
+    /// Derives from the authority rather than from `from_env`, so an ambient
+    /// `CYNIC_*` variable in the test process cannot move the assertion.
+    #[test]
+    fn installed_cli_path_defaults_to_the_deployed_placement() {
+        let authority = crate::runtime_authority::default_runtime_authority_paths();
+        let layout = layout_with_cli_dir(&default_installed_cli_dir(&authority));
+
+        assert_eq!(
+            observe_runtime_paths(&layout).installed_cli.path,
+            "/usr/local/bin/cynic"
+        );
     }
 }

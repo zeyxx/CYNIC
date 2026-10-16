@@ -17,9 +17,12 @@ use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use cynic_lifecycle::ArgvRunner;
 
+const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+
 pub struct RemoteQueueAdapter<R: ArgvRunner> {
     runner: Arc<R>,
     ssh_target: String,
+    checkouts_base: String,
 }
 
 impl<R: ArgvRunner> RemoteQueueAdapter<R> {
@@ -31,7 +34,18 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         Ok(Self {
             runner,
             ssh_target: t,
+            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
         })
+    }
+
+    /// Bind the adapter to an explicit checkout base observed over SSH.
+    ///
+    /// The default keeps the production placement, so existing call sites are
+    /// unchanged; the override is what lets a test prove the base reaches the
+    /// argv instead of a constant leaking past the port.
+    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
+        self.checkouts_base = base.into();
+        self
     }
     fn ssh(&self, cmd: &[&str]) -> Result<String, String> {
         let mut argv = vec![
@@ -112,7 +126,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
     }
     fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
         let raw_list = self
-            .ssh(&["ls", "-1", "/var/lib/cynic/checkouts"])
+            .ssh(&["ls", "-1", &self.checkouts_base])
             .unwrap_or_default();
         let remote_shas = self
             .ssh(&["git", "ls-remote", "origin"])
@@ -124,7 +138,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
             .unwrap_or_default();
         let mut lines = Vec::new();
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("/var/lib/cynic/checkouts/{name}");
+            let path = format!("{}/{name}", self.checkouts_base);
             let sha = self
                 .ssh(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -149,7 +163,7 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         }
         let checkouts = parse_checkout_list(&lines.join("\n"), &remote_shas);
         let df_k = self
-            .ssh(&["df", "-k", "/var/lib/cynic/checkouts"])
+            .ssh(&["df", "-k", &self.checkouts_base])
             .or_else(|_| self.ssh(&["df", "-k", "/"]))
             .unwrap_or_default();
         let pressure =
@@ -176,4 +190,65 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cynic_lifecycle::ArgvOutput;
+    use std::sync::Mutex;
+
+    /// A runner that records every argv it is handed, proving the base the
+    /// adapter built rather than asserting on a report that could not see it.
+    #[derive(Default)]
+    struct RecordingRunner {
+        seen: Mutex<Vec<Vec<String>>>,
+    }
+
+    impl ArgvRunner for RecordingRunner {
+        fn run(&self, argv: &[&str]) -> ArgvOutput {
+            self.seen
+                .lock()
+                .expect("recording lock")
+                .push(argv.iter().map(|s| s.to_string()).collect());
+            ArgvOutput {
+                exit_code: Some(0),
+                stdout: String::new(),
+                stderr: String::new(),
+                spawn_error: None,
+            }
+        }
+    }
+
+    #[test]
+    fn override_checkouts_base_reaches_remote_argv() {
+        let runner = Arc::new(RecordingRunner::default());
+        let adapter = RemoteQueueAdapter::new(runner.clone(), "cynic@10.0.0.1")
+            .unwrap()
+            .with_checkouts_base("/srv/overridden/checkouts");
+        // observe() falls back per observation on failure; a single stub that
+        // succeeds keeps the plan buildable and the argv inspectable.
+        let _ = adapter.observe();
+
+        let seen = runner.seen.lock().expect("recording lock").clone();
+        let rendered: Vec<String> = seen.iter().map(|argv| argv.join(" ")).collect();
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("ls -1 /srv/overridden/checkouts")),
+            "override base never reached the ls argv: {rendered:?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("df -k /srv/overridden/checkouts")),
+            "override base never reached the df argv: {rendered:?}"
+        );
+        assert!(
+            !rendered
+                .iter()
+                .any(|argv| argv.contains("/var/lib/cynic/checkouts")),
+            "the production constant leaked into the argv despite the override: {rendered:?}"
+        );
+    }
 }

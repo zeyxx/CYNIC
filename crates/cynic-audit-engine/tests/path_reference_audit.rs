@@ -99,30 +99,6 @@ const KNOWN: &[&str] = &[
     // reports belong under /var/lib/cynic/reports. Naming the path IS the
     // rule's content; the file places nothing.
     "crates/cynic-cli/src/runtime_surface/report/build.rs",
-    // Assumed hard-coded placement, not denied: the local build-artefact
-    // adapter observes CHECKOUTS_BASE (/var/lib/cynic/checkouts) with no
-    // injected override. Paying it means threading the resolved state_root
-    // through the observation port — real plumbing, out of scope for this
-    // pass. The rule keeps tracking it; this entry says the shortcut is
-    // known, not hidden.
-    "crates/cynic-host/src/adapters/local_build_artefact.rs",
-    // Same assumed shape with an environment escape hatch: the local disk
-    // adapter resolves CYNIC_STATE_ROOT, falling back to /var/lib/cynic.
-    // Paying it means injecting the resolved state_root instead of reading
-    // the environment at the adapter — same future plumbing as above.
-    "crates/cynic-host/src/adapters/local_disk.rs",
-    // Remote twin of the CHECKOUTS_BASE shortcut above: the remote
-    // build-artefact adapter lists /var/lib/cynic/checkouts over SSH with
-    // the base coded in the argv. Same payment direction (inject the
-    // resolved base); same assumed-until-then status.
-    "crates/cynic-host/src/adapters/remote_build_artefact.rs",
-    // Third twin of the same CHECKOUTS_BASE shortcut: the remote queue
-    // adapter lists the same base over SSH. One debt, three sites — all
-    // paid together when the resolved base is injected.
-    "crates/cynic-host/src/adapters/remote_queue.rs",
-    // Fourth site of the same CHECKOUTS_BASE shortcut: the agent cleanup
-    // sizes the checkouts over SSH. One debt, four sites.
-    "crates/cynic-host/src/agent/cleanup.rs",
     // Builder-canonical registry over SSH: the build-evidence observation
     // addresses /etc/cynic/registry.json on the runner — the same fleet
     // convention as BUILDER_CANONICAL_REGISTRY, referenced at the call
@@ -206,10 +182,11 @@ const KNOWN: &[&str] = &[
     // installed CLI (/usr/local/bin/cynic) as evidence. Reading a file to
     // prove what is installed is observation, not placement.
     "crates/cynic-host/src/host_bootstrap_evidence.rs",
-    // Assumed lab placement, same payment direction as CHECKOUTS_BASE:
-    // the lab bundle builds VM disk/seed paths under /var/lib/cynic/lab
-    // with format!. Paying it means injecting the resolved lab root;
-    // until then the shortcut is known, not hidden.
+    // Guest-VM convention, not a host placement: the cloud-init user-data
+    // template writes /etc/cynic/lab-node.json and creates /etc/cynic +
+    // /var/lib/cynic inside a fresh lab guest OS. The guest has no
+    // registry to consult; these paths are the guest contract, while the
+    // host-side lab root is injected (LabRoot). Deliberate, not hidden.
     "crates/cynic-host/src/lab/bundle.rs",
     // Read-only observation again: local autonomy checks existence of the
     // enrollment proof file and reports a boolean. Nothing placed.
@@ -235,11 +212,13 @@ const KNOWN: &[&str] = &[
     // resolve_runtime_paths fallback already recorded above — one
     // authority, two sides.
     "crates/cynic-host/src/runtime_authority.rs",
-    // Read-only proof input again: the execution context reports the
-    // installed CLI status as evidence. Note the neighbours already take
-    // the injected layout (config_dir, state_dir...) — only the CLI probe
-    // still names its path; unifying it with the layout is the same
-    // future injection as the CHECKOUTS_BASE debt.
+    // Identity comparison, not a placement: the execution boundary
+    // classifier checks whether the current executable IS the installed
+    // binary (/usr/local/bin/cynic) to tell installed_runtime apart from
+    // dev_worktree. Same observation family as host_bootstrap_evidence —
+    // proving what runs, placing nothing. (Injecting the expected exe
+    // path through the layout is the future payment, same as the CLI
+    // probe above.)
     "crates/cynic-host/src/runtime_execution_context.rs",
     // OS-imposed paths, not CYNIC conventions: the DNS drop-in lives
     // where the service manager demands
@@ -333,11 +312,6 @@ const KNOWN: &[&str] = &[
     // default_value filter) and falls back to /etc/cynic/node-control.toml.
     // Same explicit-first shape as every CLI default above.
     "crates/cynic-node/src/main.rs",
-    // Assumed real write, same payment direction as CHECKOUTS_BASE: the
-    // network sync renders the generated hosts file under /etc/cynic/dns
-    // (header says AUTO-GENERATED). Paying it means injecting the DNS dir;
-    // until then the shortcut is known, not hidden.
-    "crates/cynic-node/src/usecases/network_sync_uc.rs",
     // Twin of the host principal layout: cynic-pkg carries the same
     // default_runtime_principal_layout for packaging. One authority, two
     // crates — same decision (a future merge would keep one).

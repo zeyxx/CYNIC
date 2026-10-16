@@ -7,6 +7,7 @@
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
@@ -23,10 +24,39 @@ use cynic_build::build_artefact::{
 };
 use cynic_protocol::disk::bytes_to_human;
 
-const CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+/// Default checkout base — the documented production placement, kept behind
+/// [`LocalBuildArtefactAdapter::with_checkouts_base`] so a test or a relocated
+/// runtime can inject another root without touching the convention.
+pub const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LocalBuildArtefactAdapter;
+/// Local checkout observation bound to a caller-supplied base.
+///
+/// The default carries [`DEFAULT_CHECKOUTS_BASE`] (`/var/lib/cynic/checkouts`),
+/// so every existing call site keeps the production placement unchanged; the
+/// override exists for tests and for a future injected `state_root`. The base
+/// is a field, not a type parameter: the observation port is the same type
+/// whether it reads the production root or an override.
+#[derive(Debug, Clone)]
+pub struct LocalBuildArtefactAdapter {
+    checkouts_base: Arc<str>,
+}
+
+impl Default for LocalBuildArtefactAdapter {
+    fn default() -> Self {
+        Self {
+            checkouts_base: Arc::from(DEFAULT_CHECKOUTS_BASE),
+        }
+    }
+}
+
+impl LocalBuildArtefactAdapter {
+    /// Bind the adapter to an explicit checkout base.
+    pub fn with_checkouts_base(base: impl Into<Arc<str>>) -> Self {
+        Self {
+            checkouts_base: base.into(),
+        }
+    }
+}
 
 impl BuildArtefactObservationPort for LocalBuildArtefactAdapter {
     fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
@@ -50,12 +80,12 @@ impl LocalBuildArtefactAdapter {
 
         let physical_disks = observe_physical_disks();
         let filesystems = observe_filesystems();
-        let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
+        let (checkouts_raw, remote_shas) = self.observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
         let total_checkout_human = bytes_to_human(total_checkout_bytes);
         // target/ size is rolled into checkouts for now - separate once builder exposes it
-        let df_out = capture_command("df", &["-k", CHECKOUTS_BASE])
+        let df_out = capture_command("df", &["-k", &self.checkouts_base])
             .ok()
             .filter(|c| c.success)
             .map(|c| c.stdout)
@@ -71,8 +101,8 @@ impl LocalBuildArtefactAdapter {
 
         // residual unknowns: missing base or unparsable lsblk
         let mut residual_unknowns = Vec::new();
-        if !Path::new(CHECKOUTS_BASE).exists() {
-            residual_unknowns.push(format!("checkouts_base_missing:{CHECKOUTS_BASE}"));
+        if !Path::new(&*self.checkouts_base).exists() {
+            residual_unknowns.push(format!("checkouts_base_missing:{}", self.checkouts_base));
         }
         if physical_disks.is_empty() {
             // not fatal - may be container without lsblk
@@ -102,6 +132,44 @@ impl LocalBuildArtefactAdapter {
 
     fn plan_gc(&self, report: &BuildArtefactReport) -> BuildArtefactGcPlan {
         build_gc_plan(report)
+    }
+
+    fn observe_checkouts_raw(&self, shallow: bool) -> (String, Vec<String>) {
+        let base: &str = &self.checkouts_base;
+        // Collect a pipe of "<path>|<sha>|<size>|<uid:gid>|<mtime_secs>|<remote 0/1>"
+        // then feed to pure parse_checkout_list. Remote shas come from one batch ls-remote.
+        // Shallow skips the network ls-remote and the recursive du: the pure
+        // parser falls back to list checks, sizes read 0.
+        let remote_shas = if shallow {
+            Vec::new()
+        } else {
+            fetch_remote_shas(base)
+        };
+        let mut lines = Vec::new();
+        let entries = fs::read_dir(base).ok();
+        let Some(entries) = entries else {
+            return (String::new(), remote_shas);
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let path_str = path.display().to_string();
+            let sha = git_sha(&path).unwrap_or_else(|| {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
+            });
+            let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
+            let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
+            // if remote_shas empty (no origin), leave flag but pure parser will fallback to list check
+            let line =
+                format!("{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}");
+            lines.push(line);
+        }
+        (lines.join("\n"), remote_shas)
     }
 }
 
@@ -167,43 +235,6 @@ fn observe_filesystems() -> Vec<cynic_protocol::disk::DiskFilesystem> {
         }
     };
     parse_df_filesystems(&stdout)
-}
-
-fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
-    // Collect a pipe of "<path>|<sha>|<size>|<uid:gid>|<mtime_secs>|<remote 0/1>"
-    // then feed to pure parse_checkout_list. Remote shas come from one batch ls-remote.
-    // Shallow skips the network ls-remote and the recursive du: the pure
-    // parser falls back to list checks, sizes read 0.
-    let remote_shas = if shallow {
-        Vec::new()
-    } else {
-        fetch_remote_shas()
-    };
-    let mut lines = Vec::new();
-    let entries = fs::read_dir(CHECKOUTS_BASE).ok();
-    let Some(entries) = entries else {
-        return (String::new(), remote_shas);
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let path_str = path.display().to_string();
-        let sha = git_sha(&path).unwrap_or_else(|| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string()
-        });
-        let (size_bytes, uid, gid, mtime_secs) = file_meta(&path, shallow);
-        let remote_exists = if remote_shas.contains(&sha) { "1" } else { "0" };
-        // if remote_shas empty (no origin), leave flag but pure parser will fallback to list check
-        let line =
-            format!("{path_str}|{sha}|{size_bytes}|{uid}:{gid}|{mtime_secs}|{remote_exists}");
-        lines.push(line);
-    }
-    (lines.join("\n"), remote_shas)
 }
 
 fn git_sha(path: &Path) -> Option<String> {
@@ -277,15 +308,15 @@ fn walk_size(path: &Path) -> u64 {
     total
 }
 
-fn fetch_remote_shas() -> Vec<String> {
+fn fetch_remote_shas(base: &str) -> Vec<String> {
     // Try a known checkout with origin first, then bare ls-remote
-    for base in [CHECKOUTS_BASE, "."] {
-        let out = if base == "." {
+    for candidate in [base.to_string(), ".".to_string()] {
+        let out = if candidate == "." {
             capture_command("git", &["ls-remote", "origin"]).ok()
         } else {
             // find first checkout that is a git repo
             let mut found = None;
-            if let Ok(entries) = fs::read_dir(base) {
+            if let Ok(entries) = fs::read_dir(&candidate) {
                 for e in entries.flatten() {
                     let p = e.path().join(".git");
                     if p.exists() {
@@ -369,7 +400,7 @@ mod shallow_tests {
 
     #[test]
     fn shallow_skips_sizes_and_names_the_skips() {
-        let report = LocalBuildArtefactAdapter
+        let report = LocalBuildArtefactAdapter::default()
             .observe_build_artefacts_shallow()
             .expect("shallow observe");
         assert_eq!(report.total_checkout_bytes, 0);
@@ -386,6 +417,45 @@ mod shallow_tests {
         for checkout in &report.checkouts {
             assert_eq!(checkout.size_bytes, 0);
             assert!(!checkout.sha.is_empty());
+        }
+    }
+
+    /// The base is injected, not read from the production constant: an existing
+    /// override must observe that base, while the default still names the
+    /// production constant. A base that leaked back to the constant would show
+    /// up as the override missing (or the default empty).
+    #[test]
+    fn override_changes_which_base_is_observed() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().to_str().expect("utf8 base path");
+
+        let overridden = LocalBuildArtefactAdapter::with_checkouts_base(base)
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe on overridden base");
+        assert!(overridden.checkouts.is_empty());
+        assert!(
+            !overridden
+                .residual_unknowns
+                .iter()
+                .any(|u| u.contains("checkouts_base_missing")),
+            "an existing override must not report the base as missing: {:?}",
+            overridden.residual_unknowns
+        );
+
+        // The default still names the production constant — the override did
+        // not silently widen into the production base.
+        let defaulted = LocalBuildArtefactAdapter::default()
+            .observe_build_artefacts_shallow()
+            .expect("shallow observe on default base");
+        if !Path::new(DEFAULT_CHECKOUTS_BASE).exists() {
+            assert!(
+                defaulted
+                    .residual_unknowns
+                    .iter()
+                    .any(|u| u == &format!("checkouts_base_missing:{DEFAULT_CHECKOUTS_BASE}")),
+                "the default must keep naming the production base: {:?}",
+                defaulted.residual_unknowns
+            );
         }
     }
 }

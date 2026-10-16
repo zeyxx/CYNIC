@@ -10,7 +10,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
-use crate::runtime_authority::default_runtime_authority_paths;
+use crate::runtime_authority::{RuntimeAuthorityPaths, default_runtime_authority_paths};
+
+/// The installed CLI directory, derived once from the canonical runtime
+/// authority instead of being re-declared at each use site.
+///
+/// `HostRuntimeLayout` is the single resolver for runtime placements; an
+/// absolute CLI path written inline in a consumer (the execution-context
+/// probe) is a second, competing claim about the same tree. The default is the
+/// `bin` sibling of the helper tree: the registry declares the CLI at
+/// `/usr/local/bin/cynic` and the helpers at `/usr/local/libexec`, so both
+/// hang off the same install prefix. Deriving it keeps the placement anchored
+/// to the authority instead of to a literal that can drift from it.
+pub fn default_installed_cli_dir(authority: &RuntimeAuthorityPaths) -> String {
+    authority
+        .helper_root
+        .parent()
+        .unwrap_or_else(|| authority.helper_root.as_path())
+        .join("bin")
+        .display()
+        .to_string()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostCapabilities {
@@ -200,6 +220,12 @@ pub struct HostRuntimeLayout {
     pub network_actuator_bundle_dir: String,
     pub dns_bundle_dir: String,
     pub provider_fallback_bundle_dir: String,
+    /// Directory holding the installed CLI entrypoints (`cynic`, `cynic-node`,
+    /// …). Every other field here is a resolver result; this one was missing,
+    /// so consumers wrote the CLI path inline. Derives from
+    /// [`RuntimeAuthorityPaths`] and is overridable per deployment with
+    /// `CYNIC_CLI_DIR`.
+    pub cli_dir: String,
 }
 
 impl HostRuntimeLayout {
@@ -250,6 +276,7 @@ impl HostRuntimeLayout {
                 "CYNIC_PROVIDER_FALLBACK_BUNDLE_DIR",
                 &authority.provider_fallback_bundle_dir.display().to_string(),
             ),
+            cli_dir: env_path("CYNIC_CLI_DIR", &default_installed_cli_dir(&authority)),
         }
     }
 
@@ -267,6 +294,19 @@ impl HostRuntimeLayout {
     pub fn host_exec_helper_path(&self) -> String {
         PathBuf::from(&self.helper_dir)
             .join("cynic-host-exec")
+            .display()
+            .to_string()
+    }
+
+    /// Installed CLI entrypoint for a given binary name.
+    ///
+    /// The execution-context probe used to write `/usr/local/bin/cynic` inline,
+    /// a second claim about a tree this layout already resolves. The override
+    /// (`CYNIC_CLI_DIR`) is how a deployment whose CLI lives elsewhere is
+    /// described without editing the probe.
+    pub fn cli_path(&self, binary: &str) -> String {
+        PathBuf::from(&self.cli_dir)
+            .join(binary)
             .display()
             .to_string()
     }
@@ -726,6 +766,7 @@ mod tests {
             network_actuator_bundle_dir: "/tmp/cynic-network-actuator".to_string(),
             dns_bundle_dir: "/tmp/cynic-service-dns".to_string(),
             provider_fallback_bundle_dir: "/tmp/cynic-provider-fallback-hosts".to_string(),
+            cli_dir: "/usr/local/bin".to_string(),
         };
 
         assert_eq!(
@@ -736,6 +777,7 @@ mod tests {
             layout.network_actuator_sudoers_path(),
             "/opt/cynic/sudoers.d/cynic-network-actuator"
         );
+        assert_eq!(layout.cli_path("cynic"), "/usr/local/bin/cynic");
         assert_eq!(
             layout.state_dirs(),
             vec![

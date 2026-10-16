@@ -18,9 +18,12 @@ use cynic_build::build_artefact::BUILD_ARTEFACT_REPORT_SCHEMA;
 use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::disk::bytes_to_human;
 
+const DEFAULT_CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {
     runner: Arc<R>,
     ssh_target: String,
+    checkouts_base: String,
 }
 
 impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
@@ -29,7 +32,21 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
         if ssh_target.trim().is_empty() || ssh_target.starts_with('-') {
             return Err("invalid_ssh_target".to_string());
         }
-        Ok(Self { runner, ssh_target })
+        Ok(Self {
+            runner,
+            ssh_target,
+            checkouts_base: DEFAULT_CHECKOUTS_BASE.to_string(),
+        })
+    }
+
+    /// Bind the adapter to an explicit checkout base observed over SSH.
+    ///
+    /// The default keeps the production placement, so existing call sites are
+    /// unchanged; the override is what lets a test prove the base reaches the
+    /// argv instead of a constant leaking past the port.
+    pub fn with_checkouts_base(mut self, base: impl Into<String>) -> Self {
+        self.checkouts_base = base.into();
+        self
     }
 
     fn ssh_run(&self, remote_argv: &[&str]) -> Result<String, String> {
@@ -85,7 +102,7 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
 
         // Checkouts: list + per-dir meta via one ssh shell
         let raw_list = self
-            .ssh_run(&["ls", "-1", "/var/lib/cynic/checkouts"])
+            .ssh_run(&["ls", "-1", &self.checkouts_base])
             .unwrap_or_default();
         // For each checkout name, fetch sha/size/owner/age via ssh
         let mut lines = Vec::new();
@@ -99,7 +116,7 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
             .unwrap_or_default();
 
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("/var/lib/cynic/checkouts/{name}");
+            let path = format!("{}/{name}", self.checkouts_base);
             let sha = self
                 .ssh_run(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -130,7 +147,7 @@ impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
 
         let df_k = self
-            .ssh_run(&["df", "-k", "/var/lib/cynic/checkouts"])
+            .ssh_run(&["df", "-k", &self.checkouts_base])
             .or_else(|_| self.ssh_run(&["df", "-k", "/"]))
             .unwrap_or_default();
         let root_owned = checkouts.iter().filter(|c| c.is_root_owned).count();
@@ -188,5 +205,62 @@ mod tests {
         let adapter = RemoteBuildArtefactAdapter::new(Arc::new(base), "cynic@10.0.0.1").unwrap();
         let report = adapter.observe_build_artefacts().unwrap();
         assert_eq!(report.checkouts.len(), 0);
+    }
+
+    /// The override must reach the remote argv, not sit beside it: the
+    /// `ls`/`df` lines the adapter builds are read back from the injected
+    /// runner, so a base that failed to thread through would show up here as
+    /// the production constant instead of the override.
+    #[test]
+    fn override_checkouts_base_reaches_remote_argv() {
+        use std::sync::Mutex;
+
+        #[derive(Default)]
+        struct RecordingRunner {
+            seen: Mutex<Vec<Vec<String>>>,
+        }
+
+        impl cynic_lifecycle::ArgvRunner for RecordingRunner {
+            fn run(&self, argv: &[&str]) -> cynic_protocol::argv::ArgvOutput {
+                self.seen
+                    .lock()
+                    .expect("recording lock")
+                    .push(argv.iter().map(|s| s.to_string()).collect());
+                cynic_protocol::argv::ArgvOutput {
+                    exit_code: Some(0),
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    spawn_error: None,
+                }
+            }
+        }
+
+        let runner = Arc::new(RecordingRunner::default());
+        let adapter = RemoteBuildArtefactAdapter::new(runner.clone(), "cynic@10.0.0.1")
+            .unwrap()
+            .with_checkouts_base("/srv/overridden/checkouts");
+        let report = adapter.observe_build_artefacts().unwrap();
+        assert_eq!(report.checkouts.len(), 0);
+
+        let seen = runner.seen.lock().expect("recording lock").clone();
+        let rendered: Vec<String> = seen.iter().map(|argv| argv.join(" ")).collect();
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("ls -1 /srv/overridden/checkouts")),
+            "override base never reached the ls argv: {rendered:?}"
+        );
+        assert!(
+            rendered
+                .iter()
+                .any(|argv| argv.contains("df -k /srv/overridden/checkouts")),
+            "override base never reached the df argv: {rendered:?}"
+        );
+        assert!(
+            !rendered
+                .iter()
+                .any(|argv| argv.contains("/var/lib/cynic/checkouts")),
+            "the production constant leaked into the argv despite the override: {rendered:?}"
+        );
     }
 }
