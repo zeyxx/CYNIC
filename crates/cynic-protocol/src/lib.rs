@@ -17,6 +17,7 @@ pub mod allowance;
 
 pub mod argv;
 pub mod argv_allow;
+pub mod command_registry;
 pub mod artifact_release;
 pub mod audit;
 pub mod autoresearch;
