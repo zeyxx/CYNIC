@@ -287,10 +287,19 @@ S1/S2/S3a were first implemented on the shared checkout `agent/hermes/build-late
 
 ### Still open (not executable now)
 
-- G8 (foreign): `settlement_proof_evidence_ref` test-only caller breaks
-  `cynic-node --lib`; CLI proofs (`supervise_surface`, taxonomy,
-  `installed_runtime`) re-run after the owner's fix.
+- G8 (foreign, verdict 2026-10-16, proofs at `54b3f595` via native
+  `cynic build proof`): `cynic-node --lib` converges (scheduler-split fix
+  holds); `supervise_surface` 5/5, taxonomy guard 1/1, `installed_runtime`
+  4/4 all converge. Remaining red is pre-existing main-line debt, zero
+  from this slice: `no_cli_command_carries_a_hyphen`
+  (`tests/architecture_boundary.rs`) fails with 26 hyphenated arms
+  (`agent session-context`, `node agent-*`, `audit node-host`, ...),
+  all present on `origin/main` (e.g. surface-registry fragments).
+  Reassign to vocabulary owner; re-run after their fix.
 - Soak + removals: parent crash rate vs child crash rate over 30 days 24/7,
   then standalone/detach removal with its own `go` per step.
-- `cynic supervise stop` e2e against a live parent on the 24/7 host
+- `cynic supervise stop` e2e: DONE 2026-10-16 on builder via native
+  `cynic build trigger` (workspace `converged` at `54b3f595`): parent
+  `active` (heartbeat 2) → `stop --apply` → `stopped`
+  (`stop_requested`), parent+child dead per `ps`, `/tmp` cleaned.
   (unit tests drill it; host drill pending deployment).
