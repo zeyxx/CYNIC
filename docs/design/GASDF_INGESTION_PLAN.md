@@ -72,9 +72,14 @@ its own pipeline. CYNIC records Program ID, seeds, and bump policy in
 ## 5. Phases
 
 - **Phase 0 — one real tx (devnet first)**: quote + submit + co-sign via the
-  GASdf repo stack (Kit sender path, Helius Sender) + burn proof recorded.
-  No Redis, no DB, no yield. Gate: on-chain signature + explorer link
-  (orbmarkets.io per prototype rule) in the ledger.
+  GASdf repo stack (Kit sender path, Helius Sender) + proof recorded.
+  DONE 2026-10-16: 2 devnet txs finalized, evidence
+  `data_system/vault/captures/gasdf-phase0-20261016/`. No onchain program
+  yet — deferred until funds allow.
+- **MVP production**: quote TTL, Jupiter API pricing + swap (free tier),
+  Redis/DB allowed, strict per-tx cost ledger (lamports + CU onchain,
+  CYNIC compute offchain), circuit breaker armed. See GASdf
+  `docs/MVP_SCOPE.md` (operator-decided scope).
 - **Phase 1 — token registry and slippage**: data-driven accepted tokens via
   `crates/cynic-protocol/tests/fixtures/gasdf/*.json`; K-score gating deferred or stubbed to a registry of
   allowed mints.
