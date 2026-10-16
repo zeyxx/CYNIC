@@ -165,93 +165,10 @@ pub enum NodeCommand {
     },
 
     // === Agent ===
-    /// Plan or apply one lease-fenced source change in a sovereign agent worktree.
-    AgentWorkspace {
-        #[arg(long)]
-        request: String,
-        #[arg(long)]
-        result_file: Option<String>,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
-        registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long, default_value = "http://127.0.0.1:3030")]
-        kernel_endpoint: String,
-        #[arg(long, default_value_t = 3_600_000)]
-        max_claim_ttl_ms: u64,
-        #[arg(long, default_value_t = 604_800_000)]
-        max_retention_ms: u64,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Observe, plan, or collect one completed sovereign agent workspace.
-    AgentWorkspaceLifecycle {
-        #[arg(long)]
-        workload_id: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
-        registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long, default_value = "http://127.0.0.1:3030")]
-        kernel_endpoint: String,
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long, default_value_t = 300_000)]
-        renewal_window_ms: u64,
-        #[arg(long, default_value_t = 3_600_000)]
-        renewal_ttl_ms: u64,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Reconcile and durably journal one scheduler step without executing it.
-    AgentSchedulerStep {
-        #[arg(long)]
-        observation: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Read one append-only node-local workload record.
-    AgentWorkloadStatus {
-        #[arg(long)]
-        workload_id: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Plan or apply one revision-fenced workload state transition.
-    AgentWorkloadTransition {
-        #[arg(long)]
-        request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Verify a machine-signed build grant against its live durable workload record.
-    BuildWorkloadGrantVerify {
-        #[arg(long)]
-        grant: String,
-        #[arg(long)]
-        workload_record: String,
-        #[arg(long)]
-        authority_public_key: String,
-        #[arg(long)]
-        node_id: String,
-        #[arg(long)]
-        source_commit: String,
-        #[arg(long)]
-        action: String,
-        #[arg(long)]
-        json: bool,
+    /// Agent workspace, scheduler, workload, and build-grant arms.
+    Agent {
+        #[command(subcommand)]
+        command: agent::NodeAgentCommand,
     },
 
     // === Storage ===
@@ -369,24 +286,7 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         }
 
         // === Agent ===
-        NodeCommand::AgentWorkspace { request, result_file, registry, state_root, kernel_endpoint, max_claim_ttl_ms, max_retention_ms, apply, json: _ } => {
-            agent::execute_agent_workspace(&request, result_file.as_deref(), &registry, &state_root, &kernel_endpoint, max_claim_ttl_ms, max_retention_ms, apply).await
-        }
-        NodeCommand::AgentWorkspaceLifecycle { workload_id, registry, state_root, kernel_endpoint, agent_id, renewal_window_ms, renewal_ttl_ms, apply, json: _ } => {
-            agent::execute_agent_workspace_lifecycle(&workload_id, &registry, &state_root, &kernel_endpoint, &agent_id, renewal_window_ms, renewal_ttl_ms, apply).await
-        }
-        NodeCommand::AgentSchedulerStep { observation, state_root, json: _ } => {
-            agent::execute_agent_scheduler_step(&observation, &state_root)
-        }
-        NodeCommand::AgentWorkloadStatus { workload_id, state_root, json: _ } => {
-            agent::execute_agent_workload_status(&workload_id, &state_root)
-        }
-        NodeCommand::AgentWorkloadTransition { request, state_root, apply, json: _ } => {
-            agent::execute_agent_workload_transition(&request, &state_root, apply)
-        }
-        NodeCommand::BuildWorkloadGrantVerify { grant, workload_record, authority_public_key, node_id, source_commit, action, json: _ } => {
-            agent::execute_build_workload_grant_verify(&grant, &workload_record, &authority_public_key, &node_id, &source_commit, &action)
-        }
+        NodeCommand::Agent { command } => agent::execute_node_agent(command).await,
 
         // === Storage ===
         NodeCommand::StorageReconcile { state_dir, warmup_seconds, restart_window_seconds, max_restarts_per_window, apply, json: _ } => {
