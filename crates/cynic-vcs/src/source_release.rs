@@ -297,8 +297,11 @@ mod tests {
 
     #[test]
     fn caller_cannot_supply_nested_or_arbitrary_grant_actions() {
+        // cargo:build used to sit here, but it is a native action now and
+        // rightly admitted. A retired make:* spelling is the honest
+        // arbitrary action: the build authority must not recognise it.
         let mut request = release_request();
-        request.requested_action = "cargo:build".to_string();
+        request.requested_action = "make:build".to_string();
 
         let plan = plan_source_release(&request, &release_observation(), 10_000);
 
