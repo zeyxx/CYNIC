@@ -2,7 +2,10 @@ mod evidence;
 mod lifecycle;
 mod prepare;
 mod release_publication;
+mod settlement_wal;
 mod source_prepare;
+#[cfg(test)]
+mod settlement_wal_tests;
 
 use std::time::{Duration, Instant};
 
@@ -41,9 +44,13 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
             .agent_workload_state_root
             .join("agent-scheduler/workloads"),
     );
+    let wal = settlement_wal::SettlementWal::open(
+        control.agent_workload_state_root.join("wal"),
+    )
+    .ok();
     let interval = Duration::from_secs(scheduler.interval_secs);
     loop {
-        if let Err(error) = run_iteration(&control, &scheduler, &store, &shutdown).await {
+        if let Err(error) = run_iteration(&control, &scheduler, &store, wal.as_ref(), &shutdown).await {
             tracing::warn!(%error, "build scheduler iteration blocked");
         }
         tokio::select! {
@@ -187,6 +194,7 @@ async fn run_iteration(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
+    wal: Option<&settlement_wal::SettlementWal>,
     shutdown: &CancellationToken,
 ) -> Result<(), String> {
     // Capacity gate at admission (T4): measure once per tick. A Saturated host
@@ -243,6 +251,7 @@ async fn run_iteration(
             scheduler,
             store,
             claimed,
+            wal,
             shutdown,
             &load_tier,
             &capacity_unknowns,
@@ -257,6 +266,7 @@ async fn execute_claimed(
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
     claimed: DurableAgentWorkloadRecord,
+    wal: Option<&settlement_wal::SettlementWal>,
     shutdown: &CancellationToken,
     load_tier: &str,
     capacity_unknowns: &[String],
@@ -525,6 +535,24 @@ async fn execute_claimed(
             .unwrap_or(0);
         let (queue_wait_ms, queue_wait_clamped) =
             compute_queue_wait_ms(first_claim_ms, latest.committed_at_ms);
+        // Log-then-apply: append to WAL first, then settle the store.
+        // Append failure leaves the workload Claimed (retryable).
+        if let Some(wal) = wal {
+            let evidence_strings: Vec<String> = evidence_refs
+                .iter()
+                .map(|r| format!("{}:{}", r.kind, r.digest))
+                .collect();
+            if let Err(error) = wal.append_settlement(
+                &control.node_id,
+                workload_id,
+                &status,
+                &latest.record_digest,
+                &evidence_strings,
+                lifecycle::current_unix_ms(),
+            ) {
+                return Err(format!("settlement_wal_append_failed:{error}"));
+            }
+        }
         let _receipt = match lifecycle::finish(
             store,
             &latest,
