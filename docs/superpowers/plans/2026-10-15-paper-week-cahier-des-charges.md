@@ -218,6 +218,8 @@ Moteur : `scratch/paper-week/replay.py` (bras A tick-proxy vs B close, apparié)
   gardées distinctes) : baseline 26,5 % identique ; G1 33,0 % (n=409) → 29,7 % (n=407) ;
   WF 34,1/33,5/26,6. G1 tient, légèrement atténué sur régime frais.
 - Erreur d'ancre : bougie-réception vs mcap-signal médiane −16 % (p10 −72 %, p90 +59 %) — ancre bruitée.
+  CORRIGÉE : ancre exécutable (close bougie-réception) → baseline 31,2 %, G1 35,5 % (n=816).
+  Le gate survit aux deux ancres ; seule la hauteur change.
 - Survie : 50 mints sans bougies (40 micro, appels T2-family) — biais flatteur pour T2, quantifié.
   Note d'honnêteté : le niveau +25 % a été confirmé (pas découvert) au test — walk-forward requis
   pour la stricte validité (fait ci-dessous, acquis).
