@@ -92,9 +92,8 @@ fn observe_workload_federated(
     // 2. Remote reads via SSH in parallel / sequential loop
     for node in &nodes {
         let cmd = format!(
-            "cynic node agent workload status --workload-id {} --state-root {} --json",
-            workload_id,
-            state_root,
+            "cynic build workload observe --workload-id {} --local --json",
+            workload_id
         );
         let ssh_args = [
             "ssh",
