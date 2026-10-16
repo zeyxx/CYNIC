@@ -326,5 +326,3 @@ fn settlement_wal_wrapper_open_failure_is_loud() {
         "SettlementWal::open must fail on a non-directory path"
     );
 }
-
-}
