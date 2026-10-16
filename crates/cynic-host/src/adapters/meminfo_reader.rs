@@ -23,7 +23,6 @@
 //! - Errors are returned as `String` for simplicity.
 
 use std::fs;
-use std::path::Path;
 
 /// Memory report from /proc/meminfo.
 #[derive(Debug, Clone, PartialEq)]

@@ -13,12 +13,10 @@ use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use crate::domain::build_artefact::{RetentionObserver, RetentionPlanner};
+use crate::domain::build_artefact::RetentionPlanner;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use crate::process_observation::capture_command;
-use cynic_protocol::retention::{RetentionKind, RetentionPolicy, RetentionScope};
-use std::time::Duration;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalQueueAdapter;

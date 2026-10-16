@@ -194,7 +194,7 @@ impl<'a> BuildWorkflow<'a> {
 mod tests {
     use super::*;
     use crate::build::{
-        BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
+        BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
     };
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_protocol::vcs::SourceSnapshot;

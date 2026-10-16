@@ -20,7 +20,6 @@ use crate::domain::build_artefact::RetentionObserver;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
-use cynic_protocol::retention::RetentionError;
 
 fn poll_budget_ms() -> u64 {
     std::env::var("CYNIC_POLL_BUDGET_MS")
