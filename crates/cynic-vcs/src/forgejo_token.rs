@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ForgejoRepositoryPermission;
 
 pub const FORGEJO_TOKEN_OBSERVATION_SCHEMA: &str = "cynic.forgejo_token.observation.v1";
 pub const FORGEJO_TOKEN_SPEC_SCHEMA: &str = "cynic.forgejo_token.spec.v1";
