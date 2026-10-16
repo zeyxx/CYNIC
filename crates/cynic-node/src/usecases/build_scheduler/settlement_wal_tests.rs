@@ -327,41 +327,4 @@ fn settlement_wal_wrapper_open_failure_is_loud() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Log-then-apply integration test.
-//
-// Proves that when append_settlement fails, lifecycle::finish is never
-// called and the workload stays Claimed. This exercises the scheduler
-// wiring (execute_claimed), not just the storage layer.
-// ---------------------------------------------------------------------------
-
-#[test]
-fn log_then_apply_append_failure_leaves_workload_claimed() {
-    // This test verifies the ordering invariant in execute_claimed:
-    // WAL append happens BEFORE lifecycle::finish. If the append fails,
-    // the function returns Err and finish is never called.
-    //
-    // We simulate this by directly testing the code path: create a WAL,
-    // corrupt it so that append_settlement will fail, and verify that
-    // the append failure is detected and propagated as Err.
-
-    let dir = temp_wal_dir("log-then-apply");
-
-    // First, successfully create the WAL and append one entry.
-    let wal = SettlementWal::open(&dir).expect("open WAL");
-    wal.append_settlement(
-        "node-1",
-        "wl-lta-001",
-        &AgentCompletionStatus::Completed,
-        "sha3-512:lta-aaa",
-        &[],
-        1000,
-    )
-    .expect("initial append");
-
-    // The WAL append succeeded above. The log-then-apply ordering
-    // invariant (append failure → no finish call) is tested separately
-    // in the parent module's test suite where execute_claimed is
-    // directly accessible.
-    let _ = &dir;
 }
