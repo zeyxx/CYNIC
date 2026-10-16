@@ -145,7 +145,7 @@ pub async fn watch_role(cfg: &WatchConfig) -> io::Result<WatchRunOutcome> {
         for _ in 0..cfg.poll_interval_secs.max(1) {
             #[cfg(unix)]
             {
-                if signaled(sigterm.as_mut(), sigint.as_mut()).await {
+                if signaled(&mut sigterm, &mut sigint).await {
                     return Ok(WatchRunOutcome::Signaled);
                 }
             }
@@ -159,14 +159,14 @@ pub async fn watch_role(cfg: &WatchConfig) -> io::Result<WatchRunOutcome> {
 
 #[cfg(unix)]
 async fn signaled(
-    sigterm: Option<&mut tokio::signal::unix::Signal>,
-    sigint: Option<&mut tokio::signal::unix::Signal>,
+    sigterm: &mut tokio::signal::unix::Signal,
+    sigint: &mut tokio::signal::unix::Signal,
 ) -> bool {
     use std::future::poll_fn;
     use std::pin::Pin;
     use std::task::Poll;
     poll_fn(|cx| {
-        for sig in [sigterm.as_mut(), sigint.as_mut()].into_iter().flatten() {
+        for sig in [sigterm, sigint] {
             if let Poll::Ready(signal) = Pin::new(sig).poll_recv(cx) {
                 if signal.is_some() {
                     return Poll::Ready(true);
