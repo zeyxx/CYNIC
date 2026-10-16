@@ -9,7 +9,7 @@
         "mutate source tree during audit"
       ],
       "canonical_entrypoints": [
-        "cynic audit node-host [--json] [--max-commits <n>]"
+        "cynic audit node host [--json] [--max-commits <n>]"
       ],
       "domain_owner": "node_host_audit",
       "evidence": [
