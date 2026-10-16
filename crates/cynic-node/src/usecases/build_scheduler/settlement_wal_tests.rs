@@ -326,3 +326,33 @@ fn settlement_wal_wrapper_open_failure_is_loud() {
         "SettlementWal::open must fail on a non-directory path"
     );
 }
+
+#[test]
+fn settlement_wal_boot_gate_reports_resume_sequence() {
+    // The scheduler calls verify_on_boot once at startup: a fresh chain
+    // verifies with sequence 0, and after one settlement the gate reports 1.
+    // This test pins the production use of verify_integrity/latest_sequence
+    // (workspace denies dead_code: test-only methods break the lib build).
+    let dir = temp_wal_dir("boot-gate");
+    let wal = SettlementWal::open(&dir).expect("open WAL");
+    assert_eq!(
+        wal.verify_on_boot().expect("fresh chain verifies"),
+        0,
+        "fresh chain resumes at sequence 0"
+    );
+
+    wal.append_settlement(
+        "node-1",
+        "wl-boot-001",
+        &AgentCompletionStatus::Completed,
+        "sha256:bootdigest",
+        &[],
+        1_786_800_000_000,
+    )
+    .expect("append settlement");
+    assert_eq!(
+        wal.verify_on_boot().expect("chained WAL verifies"),
+        1,
+        "one settlement resumes at sequence 1"
+    );
+}

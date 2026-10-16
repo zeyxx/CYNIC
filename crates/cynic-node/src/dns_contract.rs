@@ -407,13 +407,6 @@ pub(crate) fn dns_forbidden_patterns() -> Vec<&'static str> {
     ]
 }
 
-pub(crate) fn dns_bundle_files() -> Vec<String> {
-    cynic_network::canonical_dns_bundle_files()
-        .into_iter()
-        .map(str::to_string)
-        .collect()
-}
-
 pub(crate) fn dns_bundle_config_filename() -> &'static str {
     dns_runtime_context().bundle_config_filename
 }
