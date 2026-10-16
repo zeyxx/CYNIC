@@ -58,7 +58,7 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         package: Option<String>,
         /// Action to execute: check (compiles), audit (crate audit), audit-all,
-        /// build, build-release. Names what runs; unknown verbs are refused.
+        /// build, build-release, test. Names what runs; unknown verbs are refused.
         /// Note: --package is currently ignored by every action (warned).
         #[arg(long, default_value = "check")]
         action: String,

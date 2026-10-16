@@ -17,10 +17,9 @@ use sha2::Sha256;
 use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
-    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF,
-    BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildReleasePublicationIntent, BuildSourceReference, CollisionCounter,
-    CollisionEvent, COLLISION_WINDOW_MS, compose_build_agent_workload,
+    BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
+    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
+    COLLISION_WINDOW_MS, compose_build_agent_workload,
 };
 use std::sync::Mutex;
 use cynic_protocol::{
@@ -153,10 +152,11 @@ pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, S
         "check" => Ok("cargo:check"),
         "audit" => Ok("audit:crate"),
         "audit-all" => Ok("audit:all"),
-        "build" => Ok("make:build"),
-        "build-release" => Ok("make:build-release"),
+        "build" => Ok("cargo:build"),
+        "build-release" => Ok("cargo:build-release"),
+        "test" => Ok("cargo:test"),
         other => Err(format!(
-            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release)"
+            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
         )),
     }
 }
@@ -567,10 +567,10 @@ async fn webhook_forgejo(
             authority_ref: "forgejo".into(),
             snapshot: None,
         },
-        // Canonical gate action: the recipe table admits make:check /
-        // make:build / make:build-release only. A push triggers the full
-        // canonical check gate, never an ad-hoc cargo invocation.
-        action: "make:check".into(),
+        // Canonical gate action: a push triggers the full audit gate
+        // (`audit:crate`, the native spelling of what `make:check`
+        // aliased), never an ad-hoc cargo invocation.
+        action: "audit:crate".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -685,7 +685,10 @@ mod tests {
     use super::*;
     use uuid::Uuid;
 
-    use cynic_build::{admit_build_agent_request, canonical_argv_from_build_action};
+    use cynic_build::{
+        admit_build_agent_request, canonical_argv_from_build_action,
+        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
+    };
 
     /// Task P fix round 1: a submit verb must survive the whole chain —
     /// mapping -> composition admission -> argv construction — without a
@@ -694,11 +697,11 @@ mod tests {
     /// link (e.g. mapping + argv but not the composition gate) cannot recur.
     #[test]
     fn submit_action_chains_through_admission_and_argv() {
-        for verb in ["check", "build", "build-release", "audit", "audit-all"] {
+        for verb in ["check", "build", "build-release", "audit", "audit-all", "test"] {
             let action = submit_action_to_canonical(verb).expect("known submit verb");
             let mut request = push_request(&"d".repeat(40));
             request.action = action.to_string();
-            if action == "make:build-release" {
+            if action == "cargo:build-release" {
                 // Composition requires publication intent plus the two
                 // release proofs for release builds: equip the request so
                 // the chain test exercises the real release path.
@@ -771,8 +774,13 @@ mod tests {
         assert_eq!(submit_action_to_canonical("check"), Ok("cargo:check"));
         assert_eq!(submit_action_to_canonical("audit"), Ok("audit:crate"));
         assert_eq!(submit_action_to_canonical("audit-all"), Ok("audit:all"));
-        assert_eq!(submit_action_to_canonical("build"), Ok("make:build"));
-        assert!(submit_action_to_canonical("test").is_err());
+        assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
+        assert_eq!(
+            submit_action_to_canonical("build-release"),
+            Ok("cargo:build-release")
+        );
+        assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));
+        assert!(submit_action_to_canonical("deploy").is_err());
         assert!(submit_action_to_canonical("").is_err());
     }
 
@@ -809,7 +817,7 @@ mod tests {
                 authority_ref: "forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -933,7 +941,7 @@ mod tests {
                 authority_ref: "forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],

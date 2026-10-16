@@ -1,5 +1,7 @@
 mod evidence;
+mod execute;
 mod lifecycle;
+mod measure;
 mod prepare;
 mod release_publication;
 mod settlement_wal;
@@ -7,11 +9,10 @@ mod source_prepare;
 #[cfg(test)]
 mod settlement_wal_tests;
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
-use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
 use cynic_protocol::build_latency::{
     SCCACHE_ADOPT_THRESHOLD, RSS_CAP_MB,
     decide_admit_parallel_slot, decide_reuse_stable_checkout, decide_require_sccache,
@@ -19,20 +20,13 @@ use cynic_protocol::build_latency::{
 use cynic_protocol::capacity::{
     CapacityAssessmentV1, LoadPolicy, LoadTier, assess_load_tier,
 };
-use cynic_protocol::AgentCompletionStatus;
-use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord, admit_agent_workload};
+use cynic_workload::{AgentWorkloadState, DurableAgentWorkloadRecord};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    adapters::{
-        local_agent_workload_store::LocalAgentWorkloadStore,
-        tokio_build_execution::TokioBuildExecution,
-    },
+    adapters::local_agent_workload_store::LocalAgentWorkloadStore,
     config::{BuildSchedulerConfig, NodeControlConfig},
-    ports::{
-        agent_workload_store_port::AgentWorkloadStorePort,
-        build_scheduler_port::{BuildExecutionError, BuildExecutionPort},
-    },
+    ports::agent_workload_store_port::AgentWorkloadStorePort,
 };
 
 pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
@@ -236,7 +230,7 @@ async fn run_iteration(
                 &current,
                 "cancellation_observed_before_execution",
             )?;
-            persist_cancellation_proof(&current.record.envelope.workload_id, current.revision);
+            measure::persist_cancellation_proof(&current.record.envelope.workload_id, current.revision);
             continue;
         }
         let recovery_candidate = current.record.claim.as_ref().is_some_and(|claim| {
@@ -248,13 +242,13 @@ async fn run_iteration(
             continue;
         };
         if recovery_candidate {
-            persist_recovery_proof(
+            measure::persist_recovery_proof(
                 &claimed.record.envelope.workload_id,
                 current.revision,
                 claimed.revision,
             );
         }
-        execute_claimed(
+        execute::execute_claimed(
             control,
             scheduler,
             store,
@@ -848,6 +842,7 @@ mod tests {
     use super::*;
     use crate::ports::agent_workload_store_port::AgentWorkloadStorePort;
     use crate::usecases::build_admission::admit_build_check;
+    use cynic_protocol::AgentCompletionStatus;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -946,7 +941,7 @@ mod tests {
             "build_execution_timeout".to_string(),
             "build_peak_memory_unobserved".to_string(),
         ];
-        let fields = SettlementProofFields {
+        let fields = measure::SettlementProofFields {
             workload_id: "test-workload-123",
             status: &status,
             unknowns: &unknowns,
@@ -963,7 +958,7 @@ mod tests {
             disk_delta_bytes: None,
         };
 
-        let evidence_ref = settlement_proof_evidence_ref(&fields)
+        let evidence_ref = measure::settlement_proof_evidence_ref(&fields)
             .expect("settlement proof evidence ref");
 
         // The evidence ref must start with the settlement prefix
@@ -1082,7 +1077,7 @@ mod tests {
     #[test]
     fn settlement_proof_persists_capacity_gate_outcome() {
         let status = AgentCompletionStatus::Completed;
-        let fields = SettlementProofFields {
+        let fields = measure::SettlementProofFields {
             workload_id: "wl-capacity",
             status: &status,
             unknowns: &[],
@@ -1103,7 +1098,7 @@ mod tests {
         };
 
         let evidence_ref =
-            settlement_proof_evidence_ref(&fields).expect("settlement proof evidence ref");
+            measure::settlement_proof_evidence_ref(&fields).expect("settlement proof evidence ref");
         let digest = evidence_ref
             .strip_prefix("scheduler-settlement:")
             .expect("settlement prefix");
@@ -1136,17 +1131,17 @@ mod tests {
     #[test]
     fn queue_wait_clamps_negative_raw_to_zero() {
         // Simulate clock skew: first claim timestamp is BEFORE committed_at
-        let (wait, clamped) = compute_queue_wait_ms(900, 1000);
+        let (wait, clamped) = measure::compute_queue_wait_ms(900, 1000);
         assert_eq!(wait, 0, "negative raw wait must clamp to 0");
         assert!(clamped, "clamped flag must be set when skew detected");
 
         // Normal case: claim after commit
-        let (wait, clamped) = compute_queue_wait_ms(1500, 1000);
+        let (wait, clamped) = measure::compute_queue_wait_ms(1500, 1000);
         assert_eq!(wait, 500, "normal wait must be preserved");
         assert!(!clamped, "clamped flag must be false when no skew");
 
         // Edge: exact same timestamp
-        let (wait, clamped) = compute_queue_wait_ms(1000, 1000);
+        let (wait, clamped) = measure::compute_queue_wait_ms(1000, 1000);
         assert_eq!(wait, 0, "zero wait must stay 0");
         assert!(!clamped, "zero wait is not skew");
     }
@@ -1155,7 +1150,7 @@ mod tests {
     /// valid evidence ref (None serializes to null in the JSON).
     #[test]
     fn settlement_proof_with_no_unknowns_and_no_cpu() {
-        let fields = SettlementProofFields {
+        let fields = measure::SettlementProofFields {
             workload_id: QA,
             status: &AgentCompletionStatus::Completed,
             unknowns: &[],
@@ -1172,7 +1167,7 @@ mod tests {
             disk_delta_bytes: None,
         };
 
-        let evidence_ref = settlement_proof_evidence_ref(&fields)
+        let evidence_ref = measure::settlement_proof_evidence_ref(&fields)
             .expect("settlement proof evidence ref");
 
         let digest = evidence_ref
@@ -1205,7 +1200,7 @@ mod tests {
     #[test]
     fn settlement_body_carries_footprint_fields() {
         let status = AgentCompletionStatus::Completed;
-        let fields = SettlementProofFields {
+        let fields = measure::SettlementProofFields {
             workload_id: "wl-footprint",
             status: &status,
             unknowns: &[],
@@ -1222,7 +1217,7 @@ mod tests {
             disk_delta_bytes: Some(500),
         };
 
-        let body = settlement_proof_body(&fields);
+        let body = measure::settlement_proof_body(&fields);
         assert_eq!(
             body["max_rss_kb"], 1000,
             "max_rss_kb must be carried in settlement proof body"
@@ -1352,7 +1347,7 @@ mod tests {
 
     // ── T1 fix round 1 tests ─────────────────────────────────────────────
     // These tests pin correct footprint measurement semantics:
-    //   1. measure_max_rss_kb() uses getrusage(RUSAGE_CHILDREN) (the build
+    //   1. measure::measure_max_rss_kb() uses getrusage(RUSAGE_CHILDREN) (the build
     //      child tree peak), not /proc/self/status (the scheduler's own RSS).
     //   2. disk_delta_bytes uses du-style target-dir growth (recursive size
     //      of effective target dir before/after the execute window), not
@@ -1379,10 +1374,10 @@ mod tests {
         ));
         std::fs::create_dir_all(&workspace_root).expect("create workspace root");
 
-        let target_dir = effective_target_dir(None, &workspace_root, &[]);
+        let target_dir = measure::effective_target_dir(None, &workspace_root, &[]);
         std::fs::create_dir_all(&target_dir).expect("create target dir");
 
-        let size_before = measure_target_dir_size_bytes(&target_dir).expect("measure before");
+        let size_before = measure::measure_target_dir_size_bytes(&target_dir).expect("measure before");
 
         let known_bytes = 20 * 1024 * 1024u64;
         let file_path = target_dir.join("known_write.bin");
@@ -1393,7 +1388,7 @@ mod tests {
         }
         drop(file);
 
-        let size_after = measure_target_dir_size_bytes(&target_dir).expect("measure after");
+        let size_after = measure::measure_target_dir_size_bytes(&target_dir).expect("measure after");
         let disk_delta_bytes = size_after as i64 - size_before as i64;
 
         assert!(
@@ -1419,11 +1414,11 @@ mod tests {
             .expect("spawn child");
         assert!(child.status.success(), "child must succeed");
         // The child has exited; RUSAGE_CHILDREN now includes it.
-        // The current measure_max_rss_kb() reads /proc/self/status which
+        // The current measure::measure_max_rss_kb() reads /proc/self/status which
         // is the test process's own RSS (a few MB at most), NOT the child's.
         // After the fix, this function will use getrusage(RUSAGE_CHILDREN)
         // and must report the child's peak (tens of MB).
-        let measured = measure_max_rss_kb().expect("measurement must succeed");
+        let measured = measure::measure_max_rss_kb().expect("measurement must succeed");
         // The child touched ~50 MB. The measurement must be at least 10 MB
         // (order of magnitude). The current code returns ~768 KB (the test
         // binary's own RSS), which fails this assertion.
@@ -1454,9 +1449,9 @@ mod tests {
             file.write_all(&buf).expect("write");
         }
         drop(file);
-        let size_before = measure_target_dir_size_bytes(&tmp).expect("measure before");
+        let size_before = measure::measure_target_dir_size_bytes(&tmp).expect("measure before");
         std::fs::remove_file(&file_path).expect("remove file");
-        let size_after = measure_target_dir_size_bytes(&tmp).expect("measure after");
+        let size_after = measure::measure_target_dir_size_bytes(&tmp).expect("measure after");
         let delta = size_before as i64 - size_after as i64;
         assert!(
             delta >= (known_bytes as i64) / 2,

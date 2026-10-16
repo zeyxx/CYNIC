@@ -109,7 +109,7 @@ fn assess(
         request.action.as_str(),
         request.release_publication.as_ref(),
     ) {
-        ("make:build-release", Some(intent)) => {
+        ("cargo:build-release", Some(intent)) => {
             blockers.extend(validate_release_publication_intent(intent));
             for proof in [
                 "release_binary_artifact_read_back",
@@ -120,7 +120,7 @@ fn assess(
                 }
             }
         }
-        ("make:build-release", None) => {
+        ("cargo:build-release", None) => {
             blockers.push("build_release_publication_intent_missing".to_string());
         }
         (_, Some(_)) => blockers.push("build_release_publication_intent_unexpected".to_string()),
@@ -279,7 +279,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized,
             proof_requirements: vec![
@@ -351,10 +351,16 @@ mod tests {
     }
 
     #[test]
-    fn cargo_build_release_action_is_admitted() {
+    fn cargo_build_release_action_without_intent_is_blocked() {
         let mut request = request(true);
         request.action = "cargo:build-release".to_string();
-        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+        let admission = admit_build_agent_request(&request);
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"build_release_publication_intent_missing".to_string())
+        );
     }
 
     #[test]
@@ -371,14 +377,14 @@ mod tests {
     #[test]
     fn canonical_artifact_build_is_admissible() {
         let mut request = request(true);
-        request.action = "make:build".to_string();
+        request.action = "cargo:build".to_string();
         assert_eq!(admit_build_agent_request(&request).status, "admitted");
     }
 
     #[test]
     fn canonical_release_build_is_admissible() {
         let mut request = request(true);
-        request.action = "make:build-release".to_string();
+        request.action = "cargo:build-release".to_string();
         request.proof_requirements = vec![
             "release_binary_artifact_read_back".to_string(),
             "signed_release_basket_read_back".to_string(),
@@ -451,9 +457,23 @@ mod tests {
     }
 
     #[test]
+    fn retired_make_spelling_is_refused_at_admission() {
+        let mut request = request(true);
+        request.action = "make:build".to_string();
+        let admission = admit_build_agent_request(&request);
+
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
+    #[test]
     fn release_build_without_publication_intent_is_blocked() {
         let mut request = request(true);
-        request.action = "make:build-release".to_string();
+        request.action = "cargo:build-release".to_string();
         let admission = admit_build_agent_request(&request);
 
         assert_eq!(admission.status, "blocked");

@@ -333,7 +333,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],

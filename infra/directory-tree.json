@@ -23,6 +23,7 @@
           "infra/runtime-authority.json": "Operational authority map: surfaces, installed state paths, service projections, canonical capabilities.",
           "infra/directory-tree.json": "THIS FILE — canonical filesystem arborescence. SSOT for all paths.",
           "infra/agent-source-protocol.json": "Source governance: remotes, commit convention, branch policy, PR flow, worktree isolation.",
+          "infra/command-registry.json": "SSOT for canonical build-action argv. Every composition site reads it; a command change is a data PR with proof.",
           "infra/storage-taxonomy.json": "Data classification K1-K8 with storage homes and retention stories.",
           "infra/surface-registry/": "Surface registry: which crate owns which CLI surface, commands, entrypoints, evidence schemas.",
           "contracts/": "Constitutional and evolutive policy contracts.",
