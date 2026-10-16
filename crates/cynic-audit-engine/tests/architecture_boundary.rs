@@ -5,6 +5,27 @@ fn crate_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
+/// Remove the `RETIRED_LAYER_BOUNDARY_STRINGS` declaration span (from the
+/// `pub const` line through its closing `];`) so the scanner sees uses,
+/// not the retired denylist itself.
+fn strip_retired_denylist(content: &str) -> String {
+    let mut out = Vec::new();
+    let mut skipping = false;
+    for line in content.lines() {
+        if line.contains("RETIRED_LAYER_BOUNDARY_STRINGS") {
+            skipping = true;
+        }
+        if skipping {
+            if line.contains("];") {
+                skipping = false;
+            }
+            continue;
+        }
+        out.push(line);
+    }
+    out.join("\n")
+}
+
 #[test]
 fn audit_engine_has_no_orchestrator_dependencies() {
     let cargo_toml_path = crate_root().join("Cargo.toml");
@@ -42,6 +63,9 @@ fn audit_engine_has_no_process_spawn_in_domain_core() {
         .filter(|e| e.path().extension().map(|ext| ext == "rs").unwrap_or(false))
     {
         let content = fs::read_to_string(entry.path()).expect("read source file");
+        // The retired-denylist constant names these tokens so the retirement
+        // stays greppable; it is a declaration, not a use — exclude it.
+        let content = strip_retired_denylist(&content);
         for pattern in &forbidden_patterns {
             assert!(
                 !content.contains(pattern),
