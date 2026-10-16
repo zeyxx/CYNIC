@@ -1,6 +1,6 @@
 //! Askesis entry types and content-addressing hashing.
 //!
-//! Uses the unified digest law from `cynic_protocol::digest` (SHA3-512).
+//! Uses the unified digest law from `cynic_protocol::digest` (SHA-256).
 
 use serde::{Deserialize, Serialize};
 
@@ -87,7 +87,7 @@ impl AskesisEntry {
         entry
     }
 
-    /// Compute content-addressed hash (SHA3-512 of canonical fields).
+    /// Compute content-addressed hash (SHA-256 of canonical fields).
     ///
     /// Uses the unified digest law (`digest_bytes`).
     pub fn compute_hash(&self) -> String {

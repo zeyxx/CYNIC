@@ -792,7 +792,7 @@ pub(crate) fn settlement_proof_body(fields: &SettlementProofFields<'_>) -> serde
 }
 
 /// Build the canonical settlement proof evidence ref. Pure: serializes the
-/// settlement facts to canonical JSON and digests them with SHA3-512.
+/// settlement facts to canonical JSON and digests them with SHA-256.
 pub(crate) fn settlement_proof_evidence_ref(
     fields: &SettlementProofFields<'_>,
 ) -> Result<String, serde_json::Error> {
@@ -1785,7 +1785,7 @@ mod tests {
             "node-1",
             "build-gate-ok",
             &AgentCompletionStatus::Completed,
-            "sha3-512:gate",
+            "sha256:gate",
             &["kind:digest".to_string()],
         )
         .await
@@ -1817,7 +1817,7 @@ mod tests {
             "node-1",
             "build-gate-fail",
             &AgentCompletionStatus::Completed,
-            "sha3-512:gate",
+            "sha256:gate",
             &[huge],
         )
         .await
@@ -1839,7 +1839,7 @@ mod tests {
             "node-1",
             "build-gate-none",
             &AgentCompletionStatus::Completed,
-            "sha3-512:gate",
+            "sha256:gate",
             &[],
         )
         .await

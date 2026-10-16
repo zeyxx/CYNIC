@@ -3,7 +3,8 @@
 //! Every hash chain in CYNIC follows the same pattern:
 //! - Each entry has content that gets hashed
 //! - Each entry includes the previous entry's hash
-//! - The hash uses the canonical SHA3-512 digest law
+//! - The hash uses the canonical SHA-256 digest law (Solana-aligned,
+//!   32-byte digests)
 //!
 //! This module provides the common seal/verify logic; each domain
 //! provides its own [`ChainLink`] implementation.
@@ -15,9 +16,9 @@
 //! - `cynic-askesis` append-only log
 //! - `cynic-lifecycle` kernel release proof
 //!
-//! **Intentional clean break**: all migrated chains use SHA3-512 with
-//! `genesis` as the genesis prev-hash. Old SHA-256 entries with 64-zero
-//! genesis do NOT verify under the new code — no migration path exists.
+//! **Intentional clean break (T13)**: all chains now use SHA-256 with
+//! `genesis` as the genesis prev-hash. Old SHA3-512 entries do NOT
+//! verify under the new code — no migration path exists.
 
 use crate::digest::digest_bytes;
 
@@ -36,9 +37,9 @@ pub trait ChainLink {
 
 /// Unified hash-chain operations.
 ///
-/// All hash chains in CYNIC use SHA3-512 as the digest law. The
-/// `seal` function computes the canonical hash for a new link;
-/// `verify` checks an entire chain from a genesis hash.
+/// All hash chains in CYNIC use SHA-256 as the digest law (Solana-aligned,
+/// 32-byte digests). The `seal` function computes the canonical hash for
+/// a new link; `verify` checks an entire chain from a genesis hash.
 pub struct HashChain;
 
 impl HashChain {
@@ -118,7 +119,7 @@ impl std::error::Error for ChainError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::digest::SHA3_PREFIX;
+    use crate::digest::SHA2_PREFIX;
 
     /// A minimal test link for unit tests.
     struct TestLink {
@@ -150,10 +151,11 @@ mod tests {
     }
 
     #[test]
-    fn seal_produces_prefixed_sha3_512() {
+    fn seal_produces_prefixed_sha256() {
         let link = make_link(1, "genesis");
         let sealed = HashChain::seal(&link);
-        assert!(sealed.starts_with(SHA3_PREFIX));
+        assert!(sealed.starts_with(SHA2_PREFIX));
+        assert_eq!(sealed.len(), SHA2_PREFIX.len() + 64);
         assert_eq!(sealed, link.entry_hash);
     }
 
@@ -183,7 +185,7 @@ mod tests {
         let genesis = "genesis";
         let mut l1 = make_link(1, genesis);
         // Tamper: change the stored hash but keep the chain input
-        l1.entry_hash = format!("{}{}", SHA3_PREFIX, "ab".repeat(64));
+        l1.entry_hash = format!("{}{}", SHA2_PREFIX, "ab".repeat(32));
         match HashChain::verify(genesis, &[l1]) {
             Err(ChainError::CorruptedEntry { .. }) => {}
             other => panic!("expected CorruptedEntry, got {other:?}"),

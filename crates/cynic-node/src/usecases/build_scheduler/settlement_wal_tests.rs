@@ -67,8 +67,8 @@ fn settlement_wal_appends_chained_entry() {
         "node-1",
         "wl-001",
         "completed",
-        "sha3-512:aaa",
-        &["proof:sha3-512:bbb".to_string()],
+        "sha256:aaa",
+        &["proof:sha256:bbb".to_string()],
         1000,
     )
     .expect("append first settlement");
@@ -81,7 +81,7 @@ fn settlement_wal_appends_chained_entry() {
         "node-1",
         "wl-002",
         "failed",
-        "sha3-512:ccc",
+        "sha256:ccc",
         &[],
         2000,
     )
@@ -121,7 +121,7 @@ fn settlement_wal_recovers_tail_on_restart() {
                 "node-1",
                 &format!("wl-{i:03}"),
                 "completed",
-                &format!("sha3-512:digest{i}"),
+                &format!("sha256:digest{i}"),
                 &[],
                 i as u64 * 1000,
             )
@@ -149,7 +149,7 @@ fn settlement_wal_recovers_tail_on_restart() {
             "node-1",
             "wl-004",
             "completed",
-            "sha3-512:digest4",
+            "sha256:digest4",
             &[],
             4000,
         )
@@ -178,7 +178,7 @@ fn settlement_wal_append_failure_leaves_workload_claimed() {
             "node-1",
             "wl-ok",
             "completed",
-            "sha3-512:ok",
+            "sha256:ok",
             &[],
             1000,
         )
@@ -226,8 +226,8 @@ fn settlement_wal_wrapper_open_and_append() {
             "node-1",
             "wl-wrap-001",
             &AgentCompletionStatus::Completed,
-            "sha3-512:wrap-aaa",
-            &["proof:sha3-512:wrap-bbb".to_string()],
+            "sha256:wrap-aaa",
+            &["proof:sha256:wrap-bbb".to_string()],
             5000,
         )
         .expect("SettlementWal::append_settlement");
@@ -252,7 +252,7 @@ fn settlement_wal_wrapper_append_chains_multiple() {
             "node-1",
             &format!("wl-chain-{i:03}"),
             &AgentCompletionStatus::Completed,
-            &format!("sha3-512:chain{i}"),
+            &format!("sha256:chain{i}"),
             &[],
             i * 1000,
         )
@@ -278,7 +278,7 @@ fn settlement_wal_wrapper_open_recovers_existing() {
             "node-1",
             "wl-reopen-001",
             &AgentCompletionStatus::Completed,
-            "sha3-512:reopen-aaa",
+            "sha256:reopen-aaa",
             &[],
             1000,
         )
@@ -304,7 +304,7 @@ fn settlement_wal_wrapper_open_recovers_existing() {
             "node-1",
             "wl-reopen-002",
             &AgentCompletionStatus::Completed,
-            "sha3-512:reopen-bbb",
+            "sha256:reopen-bbb",
             &[],
             2000,
         )

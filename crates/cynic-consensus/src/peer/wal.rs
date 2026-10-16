@@ -3,7 +3,7 @@
 //! Enforces the immutable Single Source of Truth (SSOT).
 //! Each entry is cryptographically linked via the unified hash-chain
 //! primitive (`cynic_protocol::hash_chain`):
-//!   entry_hash = SHA3-512(prev_hash + sequence + timestamp + canonical_json(tx))
+//!   entry_hash = SHA-256(prev_hash + sequence + timestamp + canonical_json(tx))
 //!
 //! Pure, zero I/O, deterministic.
 
@@ -73,7 +73,7 @@ impl WalEntry {
     }
 }
 
-/// Calculate the deterministic SHA3-512 hash of a WAL entry.
+/// Calculate the deterministic SHA-256 hash of a WAL entry.
 ///
 /// Uses the unified hash-chain primitive with the canonical digest law.
 pub fn calculate_entry_hash(
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn entry_hash_uses_sha3_512_prefix() {
+    fn entry_hash_uses_sha256_prefix() {
         let now = 1000;
         let admin = CitizenAccount::new_admin("cit_admin", "Operator", "pub", now);
         let tx1 = LedgerTransaction::new(
@@ -321,18 +321,18 @@ mod tests {
         );
         let entry = WalEntry::seal(GENESIS_PREV_HASH, tx1);
         assert!(
-            entry.entry_hash.starts_with("sha3-512:"),
-            "expected sha3-512: prefix, got: {}",
+            entry.entry_hash.starts_with("sha256:"),
+            "expected sha256: prefix, got: {}",
             &entry.entry_hash[..20]
         );
-        assert_eq!(entry.entry_hash.len(), "sha3-512:".len() + 128);
+        assert_eq!(entry.entry_hash.len(), "sha256:".len() + 64);
     }
 
     #[test]
-    fn old_sha256_genesis_entry_fails_verification() {
+    fn old_sha3_512_genesis_entry_fails_verification() {
         // Pin the intentional clean break: an entry sealed with the old
-        // SHA-256 algorithm and old genesis (64-zero prev_hash) must NOT
-        // verify under the unified SHA3-512 hash chain.
+        // SHA3-512 algorithm and old genesis (64-zero prev_hash) must NOT
+        // verify under the unified SHA-256 hash chain.
         let now = 1000;
         let admin = CitizenAccount::new_admin("cit_admin", "Operator", "pub", now);
         let tx1 = LedgerTransaction::new(
@@ -344,12 +344,12 @@ mod tests {
             LedgerTransactionPayload::CitizenRegistered { citizen: admin },
         );
         let mut entry = WalEntry::seal(GENESIS_PREV_HASH, tx1);
-        // Simulate old format: prev_hash = 64 zeros, hash = SHA-256 (unprefixed)
-        entry.prev_hash = "0".repeat(64);
-        entry.entry_hash = "0".repeat(64);
+        // Simulate old format: prev_hash = 128 zeros, hash = SHA3-512 (unprefixed)
+        entry.prev_hash = "0".repeat(128);
+        entry.entry_hash = "0".repeat(128);
         assert!(
             !entry.verify_integrity(GENESIS_PREV_HASH),
-            "old SHA-256 entry must fail verification under SHA3-512"
+            "old SHA3-512 entry must fail verification under SHA-256"
         );
     }
 }

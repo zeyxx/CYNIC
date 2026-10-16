@@ -98,7 +98,7 @@ mod tests {
     use cynic_protocol::evidence_journal::{EVIDENCE_EVENT_ENTRY_SEALED, compute_entry_hash};
 
     fn make_entry(node: &str, seq: u64, prev: &str, ts: i64) -> EvidenceJournalEntry {
-        let payload = format!("sha3-512:{node}-{seq}");
+        let payload = format!("sha256:{node}-{seq}");
         EvidenceJournalEntry {
             schema: cynic_protocol::evidence_journal::EVIDENCE_JOURNAL_SCHEMA.to_string(),
             sequence: seq,

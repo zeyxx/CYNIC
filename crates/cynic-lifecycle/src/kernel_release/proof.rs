@@ -1,10 +1,10 @@
 //! Kernel release proof — append-only hash-chained event log.
 //!
 //! Uses the unified hash-chain primitive (`cynic_protocol::hash_chain`)
-//! and digest law (`cynic_protocol::digest` — SHA3-512).
+//! and digest law (`cynic_protocol::digest` — SHA-256).
 //!
-//! **Intentional clean break from SHA-256**: entries sealed with the old
-//! SHA-256 algorithm (pre-T10) do NOT verify under SHA3-512. This is an
+//! **Intentional clean break (T13)**: entries sealed with the old
+//! SHA3-512 algorithm (pre-T13) do NOT verify under SHA-256. This is an
 //! intentional pre-production break with no migration path. Old persisted
 //! segments will fail verification on load.
 
@@ -117,23 +117,23 @@ mod tests {
     }
 
     #[test]
-    fn hash_uses_sha3_512_prefix() {
+    fn hash_uses_sha256_prefix() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.jsonl");
         let first = append_event(&path, event("a")).unwrap();
         assert!(
-            first.hash.starts_with("sha3-512:"),
-            "expected sha3-512: prefix, got: {}",
-            &first.hash[..20.min(first.hash.len())]
+            first.hash.starts_with("sha256:"),
+            "expected sha256: prefix, got: {}",
+            &first.hash[..20]
         );
-        assert_eq!(first.hash.len(), "sha3-512:".len() + 128);
+        assert_eq!(first.hash.len(), "sha256:".len() + 64);
     }
 
     #[test]
     fn old_sha256_genesis_entry_fails_verification() {
         // Pin the intentional clean break: an entry sealed with the old
         // SHA-256 algorithm and old genesis (empty-string prev_hash) must
-        // NOT verify under the unified SHA3-512 hash chain.
+        // NOT verify under the unified SHA-256 hash chain.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.jsonl");
 
@@ -147,11 +147,11 @@ mod tests {
         // Write it as a JSONL line
         std::fs::write(&path, serde_json::to_string(&old_event).unwrap() + "\n").unwrap();
 
-        // Verification must fail — the old SHA-256 hash does not match SHA3-512
+        // Verification must fail — the old SHA3-512 hash does not match SHA-256
         let result = load_and_verify(&path);
         assert!(
             result.is_err(),
-            "old SHA-256 entry must fail verification under SHA3-512"
+            "old SHA3-512 entry must fail verification under SHA-256"
         );
     }
 }

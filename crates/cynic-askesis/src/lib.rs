@@ -88,7 +88,7 @@ mod tests {
     }
 
     #[test]
-    fn entry_hash_uses_sha3_512_prefix() {
+    fn entry_hash_uses_sha256_prefix() {
         let entry = AskesisEntry::new(
             AskesisKind::CourtAudit,
             1700000000,
@@ -98,18 +98,18 @@ mod tests {
             serde_json::json!({"ok": true}),
         );
         assert!(
-            entry.entry_hash.starts_with("sha3-512:"),
-            "expected sha3-512: prefix, got: {}",
+            entry.entry_hash.starts_with("sha256:"),
+            "expected sha256: prefix, got: {}",
             &entry.entry_hash[..20]
         );
-        assert_eq!(entry.entry_hash.len(), "sha3-512:".len() + 128);
+        assert_eq!(entry.entry_hash.len(), "sha256:".len() + 64);
     }
 
     #[test]
     fn old_sha256_genesis_entry_fails_verification() {
         // Pin the intentional clean break: an entry sealed with the old
         // SHA-256 algorithm and old genesis (64-zero prev_hash) must NOT
-        // verify under the unified SHA3-512 hash chain.
+        // verify under the unified SHA-256 hash chain.
         let mut entry = AskesisEntry::new(
             AskesisKind::CourtAudit,
             1700000000,
@@ -123,7 +123,7 @@ mod tests {
         entry.entry_hash = "0".repeat(64);
         assert!(
             !entry.verify(),
-            "old SHA-256 entry must fail verification under SHA3-512"
+            "old SHA-256 entry must fail verification under SHA-256 (T13 flip: same algo, different genesis)"
         );
     }
 }
