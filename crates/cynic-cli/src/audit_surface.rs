@@ -21,9 +21,9 @@ pub(crate) enum AuditNodeCommand {
 pub(crate) fn execute_audit_node(command: AuditNodeCommand) -> ExitCode {
     match command {
         AuditNodeCommand::Host { json, max_commits } => {
-            match node_host_audit::build_node_host_audit(*max_commits) {
+            match node_host_audit::build_node_host_audit(max_commits) {
                 Ok(report) => {
-                    if *json {
+                    if json {
                         emit_json(&report, false)
                     } else {
                         println!("Node host audit: ok");
