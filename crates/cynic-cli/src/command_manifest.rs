@@ -235,8 +235,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "git",
                 commands: vec![
-                    "cynic git branch-graph [--json]",
-                    "cynic git branch-status [--root <path>] [--json]",
+                    "cynic git branch graph [--json]",
+                    "cynic git branch status [--root <path>] [--json]",
                     "cynic git reconcile [--root <path>] [--json]",
                     "cynic git hygiene [--root <path>] [--json]",
                 ],
