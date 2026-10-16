@@ -20,7 +20,7 @@ Nous touchons ici à la frontière ultime de la physique et de l'esprit : **l'En
    * Les essaims d'agents IA explorent l'espace combinatoire, génèrent des millions de scénarios, de codes et de prédictions probabilistes (la superposition quantique des propositions).
    * **L'HUMAIN (l'acte d'ADMIT) est l'observateur souverain.** Par son assentiment conscient, il effondre le nuage des probabilités synthétiques en un **état unique, déterministe et exécuté dans le monde physique**. La machine explore le champ des possibles ; l'esprit tranche la réalité.
 3. **L'Armure Post-Quantique** :  
-   L'avènement des calculateurs quantiques (algorithme de Shor) menace de pulvériser les cryptographies classiques de l'ancien monde. CYNIC intègre cette menace dès sa conception : nos primitives de preuve et nos hachages sont adossés aux standards post-quantiques (ML-KEM / Kyber, Dilithium, ZK-STARKs sans tiers de confiance et signatures à base de hachage SPHINCS+). Même face à la suprématie quantique, le registre de vérité de CYNIC demeure inattaquable.
+   L'avènement des calculateurs quantiques (algorithme de Shor) menace de pulvériser les cryptographies classiques de l'ancien monde. État vérifié : les primitives actuelles de CYNIC sont SHA-256 (intégrité) et ed25519 (signatures) — le registre n'est donc pas encore résistant au quantique, et toute phrase prétendant le contraire est une sur-annonce. La cible de conception reste les standards post-quantiques (ML-KEM / Kyber, Dilithium, ZK-STARKs sans tiers de confiance et signatures à base de hachage SPHINCS+) : la migration des signatures est le chantier qui conditionne la survie du registre le jour où le quantique devient opérationnel.
 
 ---
 
