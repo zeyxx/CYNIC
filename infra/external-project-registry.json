@@ -1,94 +1,118 @@
 {
-  "schema": "cynic.external_project_registry.v1",
-  "status": "normative",
-  "purpose": "Machine-readable ownership, adoption state and storage roots for projects CYNIC observes or partners with. Pin SHAs live ONLY in infra/external-pins.json; this file references them by slug.",
-  "roots": {
-    "production_state": "/var/lib/cynic",
-    "production_secret": "/etc/cynic/secrets",
-    "development_state": "~/.local/share/cynic",
-    "evidence": "data_system/vault/captures"
+ "schema": "cynic.external_project_registry.v1",
+ "status": "normative",
+ "purpose": "Machine-readable ownership, adoption state and storage roots for projects CYNIC observes or partners with. Pin SHAs live ONLY in infra/external-pins.json; this file references them by slug.",
+ "roots": {
+  "production_state": "/var/lib/cynic",
+  "production_secret": "/etc/cynic/secrets",
+  "development_state": "~/.local/share/cynic",
+  "evidence": "data_system/vault/captures"
+ },
+ "projects": [
+  {
+   "slug": "gasdf",
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "gasdf"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "contribution_mode": "direct (pre-existing CYNIC-era project)"
+   },
+   "adoption_mode": "referent",
+   "surfaces_declared": [
+    "rest",
+    "websocket"
+   ],
+   "status": "usable",
+   "evidence_ref": "gasdf-phase0-20261016",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/gasdf",
+    "state": "/var/lib/cynic/projects/gasdf",
+    "evidence": "data_system/vault/captures/gasdf-observed-20261016"
+   }
   },
-  "projects": [
-    {
-      "slug": "gasdf",
-      "pin": {
-        "file": "infra/external-pins.json",
-        "slug": "gasdf"
-      },
-      "ownership": {
-        "cynic_operator": "Titouan Corneloup",
-        "contribution_mode": "direct (pre-existing CYNIC-era project)"
-      },
-      "adoption_mode": "referent",
-      "surfaces_declared": [
-        "rest",
-        "websocket"
-      ],
-      "status": "usable",
-      "evidence_ref": "gasdf-phase0-20261016",
-      "roots": {
-        "referential": "/var/lib/cynic/source/repositories/external/gasdf",
-        "state": "/var/lib/cynic/projects/gasdf",
-        "evidence": "data_system/vault/captures/gasdf-observed-20261016"
-      }
-    },
-    {
-      "slug": "trenchscanner",
-      "pin": {
-        "file": "infra/external-pins.json",
-        "slug": "trenchscanner"
-      },
-      "ownership": {
-        "cynic_operator": "Titouan Corneloup",
-        "upstream_authority": "sollama58 (GCRtrd)",
-        "contribution_mode": "PR-based; acceptance at upstream discretion"
-      },
-      "adoption_mode": "contributed",
-      "surfaces_declared": [
-        "rest"
-      ],
-      "status": "observed",
-      "roots": {
-        "referential": "/var/lib/cynic/source/repositories/external/trenchscanner",
-        "state": "/var/lib/cynic/projects/trenchscanner"
-      }
-    },
-    {
-      "slug": "cultscreener",
-      "pin": {
-        "file": "infra/external-pins.json",
-        "slug": "cultscreener"
-      },
-      "ownership": {
-        "cynic_operator": "Titouan Corneloup",
-        "upstream_authority": "sollama58 (GCRtrd)",
-        "contribution_mode": "PR-based; acceptance at upstream discretion"
-      },
-      "adoption_mode": "contributed",
-      "surfaces_declared": [
-        "rest"
-      ],
-      "status": "observed",
-      "roots": {
-        "referential": "/var/lib/cynic/source/repositories/external/cultscreener",
-        "state": "/var/lib/cynic/projects/cultscreener"
-      }
-    },
-    {
-      "slug": "holddex",
-      "pin": {
-        "file": "infra/external-pins.json",
-        "slug": "holdex"
-      },
-      "ownership": {
-        "upstream_authority": "sollama58 (GCRtrd)",
-        "contribution_mode": "deprecated in CYNIC scope"
-      },
-      "adoption_mode": "observed",
-      "status": "quarantined",
-      "roots": {
-        "referential": "/var/lib/cynic/source/repositories/external/holdex"
-      }
-    }
-  ]
+  {
+   "slug": "trenchscanner",
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "trenchscanner"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "upstream_authority": "sollama58 (GCRtrd)",
+    "contribution_mode": "PR-based; acceptance at upstream discretion"
+   },
+   "adoption_mode": "contributed",
+   "surfaces_declared": [
+    "rest"
+   ],
+   "status": "observed",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/trenchscanner",
+    "state": "/var/lib/cynic/projects/trenchscanner"
+   }
+  },
+  {
+   "slug": "cultscreener",
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "cultscreener"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "upstream_authority": "sollama58 (GCRtrd)",
+    "contribution_mode": "PR-based; acceptance at upstream discretion"
+   },
+   "adoption_mode": "contributed",
+   "surfaces_declared": [
+    "rest"
+   ],
+   "status": "observed",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/cultscreener",
+    "state": "/var/lib/cynic/projects/cultscreener"
+   }
+  },
+  {
+   "slug": "holddex",
+   "pin": {
+    "file": "infra/external-pins.json",
+    "slug": "holdex"
+   },
+   "ownership": {
+    "upstream_authority": "sollama58 (GCRtrd)",
+    "contribution_mode": "deprecated in CYNIC scope"
+   },
+   "adoption_mode": "observed",
+   "status": "quarantined",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/holdex"
+   }
+  },
+  {
+   "slug": "kora",
+   "pin": {
+    "repo": "solana-foundation/kora",
+    "tag": "v2.0.5",
+    "sha": "cebb90463d787a210fefb71197e8d6a3dffada41"
+   },
+   "ownership": {
+    "cynic_operator": "Titouan Corneloup",
+    "upstream": "solana-foundation",
+    "contribution_mode": "operate-only (no fork, no PR planned)"
+   },
+   "adoption_mode": "referent",
+   "surfaces_declared": [
+    "json-rpc"
+   ],
+   "status": "adopting",
+   "evidence_ref": "gasdf-rebuild-20261016",
+   "roots": {
+    "referential": "/var/lib/cynic/source/repositories/external/kora",
+    "state": "/var/lib/cynic/projects/kora",
+    "evidence": "data_system/vault/captures/gasdf-rebuild-20261016"
+   }
+  }
+ ]
 }
