@@ -50,11 +50,9 @@ fn report() -> cynic_protocol::AuditReportV2 {
 /// are deleted here rather than satisfied: keeping them would mean deleting a
 /// source file to keep a test green, which is the opposite of the point.
 const KNOWN: &[&str] = &[
-    "crates/cynic-host/src/profiles/build_runner.rs",
-    "crates/cynic-node-protocol/src/node_service_unit.rs",
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
-    "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
+    "crates/cynic-vcs-forgejo/src/forgejo_webhook.rs",
     "crates/cynic-release/src/adapters/secret_lint/mod.rs",
     // Optional external input, gracefully Unavailable when absent: the
     // Autoresearch report is produced outside the repo, and the observer
@@ -78,7 +76,7 @@ const KNOWN: &[&str] = &[
     // convention, not a hidden placement — but unlike clap defaults the
     // shape is indistinguishable from a coded placement, so the rule is
     // right to track it and this entry records the decision explicitly.
-    "crates/cynic-cli/src/dependency/mod.rs",
+    "crates/cynic-cli/src/deps_surface_upgrade.rs",
     // Deliberate identity convention: default_key_path/default_cert_path
     // fall back to /etc/cynic/node-identity.key|.cert, always behind an
     // explicit key_path override (unwrap_or_else at every call site).
@@ -370,54 +368,20 @@ const KNOWN: &[&str] = &[
     // Named public token constants under the assumed secrets home
     // (FORGEJO_TOKEN_DIRECTORY/PATH). Same secrets convention as
     // credential.rs — named, public, reviewed by name.
-    "crates/cynic-vcs-providers/src/forgejo_token.rs",
+    "crates/cynic-vcs-forgejo/src/forgejo_token.rs",
     // Registry value first, convention last: token_file comes from the
     // SSOT binding, falling back to the conventional secrets path. Same
     // explicit-first shape; the registry outranks the default.
-    "crates/cynic-vcs-providers/src/registry_binding.rs",
+    "crates/cynic-vcs-forgejo/src/registry_binding.rs",
     // Injected path first, convention last: the port uses the provided
     // token_path, falling back to the conventional secrets path. Same
     // explicit-first shape as every default above.
     "crates/cynic-vcs/src/forgejo_port.rs",
-    // The membrane bundle renders the sudoers file for the single `cynic`
-    // binary. The executor IS the release binary the basket already
-    // deploys at /usr/local/bin/cynic — a named constant pointing at a
-    // registry-declared root (system_binaries). Rendering a file that
-    // names the binary it authorises necessarily names the binary.
-    "crates/cynic-host/src/bridge/bundle.rs",
-    // The machine-side capability catalog default: the repo copy first,
-    // then /etc/cynic/catalog.json on the host. A presence-ordered lookup
-    // over two registry-declared locations, same shape as the registry
-    // scan and the secret presence check.
-    "crates/cynic-host/src/privilege/capability_catalog.rs",
     // The Default trait itself: ForgejoTokenSpec::default carries the
     // conventional target_path. A Default impl is Rust's declared fallback
     // surface — same decision as the default_* functions, spelled the way
     // the language spells defaults.
     "crates/cynic-vcs/src/forgejo_token.rs",
-    // The helper the host policy points sudoers at: the installed CLI
-    // binary. Same convention as the membrane bundle above — the policy
-    // names the binary it authorises, and the binary lives at the
-    // registry-declared system_binaries root.
-    "crates/cynic-host/src/host_exec_policy.rs",
-    // The retention scope default: checkouts live under the runtime state
-    // root (/var/lib/cynic/checkouts), a sub-path of the declared
-    // runtime_state layer. A scope naming its own root is the scope.
-    "crates/cynic-protocol/src/retention.rs",
-    // The out-of-tree data root: the external project registry declares
-    // evidence captures under data_system/vault/captures, which lives at
-    // /home/user/Bureau/data_system — a SIBLING of the repository, not a
-    // subdirectory of it. The declaration is relative, so the rule
-    // resolves it against the repo root and finds nothing. The directory
-    // exists and holds the captures; the path is simply outside the tree.
-    //
-    // The durable fix is to declare the data root as a layer in
-    // infra/directory-tree.json, which is what runtime_space() reads to
-    // exempt out-of-tree paths. Until that amendment lands, this entry
-    // records the divergence explicitly. An absolute path in the registry
-    // would instead hardcode a host layout, which the registry rule
-    // forbids.
-    "data_system/vault/captures",
 ];
 
 /// The detectors, each against a tree this test builds, proving the code fires.
@@ -535,37 +499,18 @@ fn each_declared_path_detector_fires_on_a_tree_that_owes_one() {
 }
 
 /// The live workspace carries no divergence beyond the ones named above.
-///
-/// Every undeclared divergence is reported at once, not just the first one.
-/// The test asserted inside the loop, so it stopped at the first divergence
-/// and the reader could not tell a single stale entry from a dozen: each
-/// fix revealed exactly one more, and the work could not be sized. The
-/// rule is unchanged; only the reporting is.
 #[test]
 fn the_live_workspace_carries_no_undeclared_path_divergence() {
     let report = report();
-    let undeclared: Vec<String> = report
-        .violations
-        .iter()
-        .filter(|violation| {
-            !KNOWN
-                .iter()
-                .any(|needle| violation.message.contains(needle))
-        })
-        .map(|violation| format!("`{}` names `{}`", violation.code, violation.message))
-        .collect();
-
-    assert!(
-        undeclared.is_empty(),
-        "{} path divergence(s) the gate has never seen:\n{}\n\
-         Either repair them, or record them in KNOWN as deliberate decisions.",
-        undeclared.len(),
-        undeclared
-            .iter()
-            .map(|entry| format!("  - {entry}"))
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
+    for violation in &report.violations {
+        assert!(
+            KNOWN.iter().any(|needle| violation.message.contains(needle)),
+            "a path divergence the gate has never seen: `{}` names `{}`.\n\
+             Either repair it, or record it in KNOWN as a deliberate decision.",
+            violation.code,
+            violation.message
+        );
+    }
 }
 
 #[test]
