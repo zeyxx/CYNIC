@@ -140,7 +140,7 @@ mod tests {
     use crate::one_shot_authority::OneShotCapabilityAuthorityPort;
 
     fn fixture_capability(signing_key: &SigningKey) -> OneShotCapability {
-        let action_digest = cynic_build::build_runner_bootstrap_action_digest("make:build")
+        let action_digest = cynic_build::build_runner_bootstrap_action_digest("cargo:build")
             .expect("action digest for fixture");
         let mut capability = OneShotCapability {
             schema: cynic_protocol::ONE_SHOT_CAPABILITY_SCHEMA.to_string(),
@@ -196,7 +196,7 @@ mod tests {
         let authority =
             crate::one_shot_authority::LocalOneShotCapabilityAuthority::new(&pubkey_path, &root);
         let action_digest =
-            cynic_build::build_runner_bootstrap_action_digest("make:build").expect("action digest");
+            cynic_build::build_runner_bootstrap_action_digest("cargo:build").expect("action digest");
         let consumed = authority
             .verify_and_consume(
                 &capability,
