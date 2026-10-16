@@ -9,7 +9,7 @@ mod source_prepare;
 #[cfg(test)]
 mod settlement_wal_tests;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cynic_build::{QueuedCandidate, canonical_build_action_from_argv, plan_build_queue};
 use cynic_host::adapters::local_capacity::LocalCapacityAdapter;
