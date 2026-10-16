@@ -104,7 +104,7 @@ fn valid_recipe() -> BuildRecipe {
     // the recipe grew allowed_actions, rust_min_stack, cargo_incremental,
     // memory_limit_bytes and target_profile, and a literal fixture goes stale on
     // each addition. Only the fields this test actually exercises are overridden.
-    let mut recipe = build_recipe("make:check").expect("make:check is a canonical recipe");
+    let mut recipe = build_recipe("audit:crate").expect("audit:crate is a canonical recipe");
     recipe.target_crates = vec!["cynic-protocol".to_string()];
     recipe.evidence_refs = vec![];
     recipe
@@ -127,7 +127,16 @@ fn base_config<'a>(
         argv_runner,
         source_snapshot: valid_source_snapshot(),
         recipe: valid_recipe(),
-        argv: vec!["make".to_string(), "check".to_string()],
+        argv: vec![
+            "cargo".to_string(),
+            "run".to_string(),
+            "-q".to_string(),
+            "-p".to_string(),
+            "cynic-cli".to_string(),
+            "--".to_string(),
+            "audit".to_string(),
+            "crate".to_string(),
+        ],
         artifact_path: "target/release/cynic".to_string(),
         install_path: None,
         apply: false,
