@@ -239,17 +239,36 @@ mod tests {
         assert!(watch_once(&cfg, &mut state, 1_000).unwrap().is_some());
         assert!(watch_once(&cfg, &mut state, 2_000).unwrap().is_none());
         assert_eq!(ledger_entries(&dir).len(), 1);
-        // Fresh envelope records the change...
+        // Fresh envelope records the change, then repeats stay quiet while
+        // the heartbeat stays within the stale bound.
         write_envelope(&dir, SupervisorState::Active, 1, 3_000);
         assert!(watch_once(&cfg, &mut state, 3_100).unwrap().is_some());
-        // ...then repeats stay quiet until the hourly confirmation.
         assert!(watch_once(&cfg, &mut state, 3_200).unwrap().is_none());
-        assert!(watch_once(&cfg, &mut state, 3_600_000).unwrap().is_none());
-        assert!(
-            watch_once(&cfg, &mut state, 3_100 + 3_600_000)
-                .unwrap()
-                .is_some()
-        );
+        assert_eq!(ledger_entries(&dir).len(), 2);
+        // Past the stale bound the same envelope reads stale: a change.
+        assert!(watch_once(&cfg, &mut state, 100_000).unwrap().is_some());
+        assert_eq!(ledger_entries(&dir).len(), 3);
+    }
+
+    #[test]
+    fn watch_once_confirms_fresh_hourly_when_producer_keeps_beating() {
+        // The hourly confirmation only fires while the heartbeat stays
+        // fresh, i.e. the producer keeps republishing. Model that with a
+        // fresh envelope per poll and a short confirmation interval.
+        let dir = test_dir("confirm");
+        let mut cfg = test_cfg(&dir);
+        cfg.confirm_interval_secs = 60;
+        let mut state = WatchPollState::default();
+        write_envelope(&dir, SupervisorState::Active, 1, 1_000);
+        assert!(watch_once(&cfg, &mut state, 1_100).unwrap().is_some());
+        write_envelope(&dir, SupervisorState::Active, 2, 2_000);
+        assert!(watch_once(&cfg, &mut state, 2_100).unwrap().is_some());
+        // Same counter, still fresh, confirmation not due: quiet.
+        assert!(watch_once(&cfg, &mut state, 2_200).unwrap().is_none());
+        // Fresh with the same beat past the confirmation interval: records
+        // by confirmation, not by change.
+        write_envelope(&dir, SupervisorState::Active, 2, 70_000);
+        assert!(watch_once(&cfg, &mut state, 70_100).unwrap().is_some());
         assert_eq!(ledger_entries(&dir).len(), 3);
     }
 
@@ -267,9 +286,9 @@ mod tests {
         assert!(watch_once(&cfg, &mut state, 900_000).unwrap().is_some());
         assert!(watch_once(&cfg, &mut state, 9_900_000).unwrap().is_none());
         let entries = ledger_entries(&dir);
-        assert_eq!(entries.len(), 3);
-        assert_eq!(entries[1].decision, WatchDecision::Stale);
-        assert_eq!(entries[2].decision, WatchDecision::TerminalExpected);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].decision, WatchDecision::Stale);
+        assert_eq!(entries[1].decision, WatchDecision::TerminalExpected);
     }
 
     #[test]
