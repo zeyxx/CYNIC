@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use cynic_storage::topology::STORAGE_TOPOLOGY_REPORT_SCHEMA;
 use cynic_storage::topology::{StorageTopologyObserved, StorageTopologyReport};
 
 use crate::fleet_discovery::FleetDiscoveryAdapter;

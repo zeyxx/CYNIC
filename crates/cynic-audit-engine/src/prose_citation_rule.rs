@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 use cynic_protocol::{AuditCategory, AuditRuleSpec, AuditSeverity, AuditSpan, AuditViolation};
 
 use super::rules::AuditRule;
-use super::scanner::{SourceFile, WorkspaceSourceIndex};
+use super::scanner::WorkspaceSourceIndex;
 
 /// `PROSE-001` — a Rust source may not cite a `.md` path as authority.
 ///

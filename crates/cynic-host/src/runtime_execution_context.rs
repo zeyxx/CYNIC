@@ -7,7 +7,7 @@ use crate::domain::shared::{BoundaryKind, LifecycleDisposition, LifecycleStatus}
 use crate::process_observation::command_json;
 use crate::repo_access::{current_project_root, current_repo_access_status};
 use crate::runtime_harness::{RuntimeHarnessContext, conformance_context};
-use crate::runtime_layout::{HostRuntimeLayout, default_installed_cli_dir};
+use crate::runtime_layout::HostRuntimeLayout;
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };
@@ -603,7 +603,7 @@ mod tests {
     #[test]
     fn installed_cli_path_defaults_to_the_deployed_placement() {
         let authority = crate::runtime_authority::default_runtime_authority_paths();
-        let layout = layout_with_cli_dir(&default_installed_cli_dir(&authority));
+        let layout = layout_with_cli_dir(&crate::runtime_layout::default_installed_cli_dir(&authority));
 
         assert_eq!(
             observe_runtime_paths(&layout).installed_cli.path,

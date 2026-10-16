@@ -8,7 +8,7 @@ use cynic_finance::ports::{
 };
 use std::cell::Cell;
 use std::fs;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// CPU meter — reads from /proc/<pid>/stat.
 pub struct HostComputeMeter;
@@ -308,6 +308,7 @@ impl ActionMeter for HostActionMeter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn energy_meter_first_reading_returns_unknown() {
@@ -338,7 +339,7 @@ mod tests {
     #[test]
     fn time_meter_returns_elapsed() {
         let meter = HostTimeMeter::new();
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let seconds = meter.measure_seconds("agent-1").unwrap();
         assert!(seconds >= 0);
     }

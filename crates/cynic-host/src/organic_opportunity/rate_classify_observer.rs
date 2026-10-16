@@ -10,7 +10,7 @@ use cynic_protocol::organic_opportunity::{
     OpportunitySourceKind, OrganicOpportunity, SmallestNextStep,
 };
 use cynic_protocol::rate_classify::{
-    RateTrend, WindowedCount, CountWindows, Thresholds,
+    RateTrend, WindowedCount, Thresholds,
 };
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
@@ -169,6 +169,7 @@ impl OrganicOpportunityObserver for RateTrendObserver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_protocol::rate_classify::CountWindows;
 
     #[test]
     fn emerging_pattern_generates_emerging_opportunity() {

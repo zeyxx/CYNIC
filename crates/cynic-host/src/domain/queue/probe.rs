@@ -6,7 +6,7 @@ use cynic_build::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
 use cynic_protocol::queue::{
     BoundedAction, CanonicalQueuePolicy, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueuePolicy,
-    QueueReason, reason_rank,
+    QueueReason,
 };
 
 fn gc_reason(reason_str: &str) -> QueueReason {

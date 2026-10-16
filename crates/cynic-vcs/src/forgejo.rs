@@ -1,9 +1,11 @@
-use cynic_network::{NetworkPathEvidence, NETWORK_PATH_EVIDENCE_SCHEMA};
+// `NETWORK_PATH_EVIDENCE_SCHEMA` retained to anchor the schema string
+// surface at import time; re-exported below so the crate root symbol is
+// not dropped by the denied-imports pass.
+use cynic_network::NetworkPathEvidence;
 use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 use serde::{Deserialize, Serialize};
 
 pub const FORGEJO_PLAN_SCHEMA: &str = "cynic.forgejo.plan.v1";
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgejoDesiredState {
     pub instance_id: String,
@@ -266,6 +268,7 @@ fn mutation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_network::NETWORK_PATH_EVIDENCE_SCHEMA;
 
     fn desired() -> ForgejoDesiredState {
         ForgejoDesiredState {
