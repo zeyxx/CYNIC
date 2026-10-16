@@ -42,46 +42,21 @@ pub enum NodeCommand {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Initialize or display the local node Ed25519 signing keypair.
-    IdentityInit {
-        #[arg(long)]
-        key_path: Option<String>,
-        #[arg(long)]
-        json: bool,
+    /// Node identity arms: initialize/display the keypair, or observe/create
+    /// the node-local identity record.
+    Identity {
+        #[command(subcommand)]
+        command: identity::NodeIdentityCommand,
     },
-    /// Create a self-signed Certificate Signing Request (CSR) for node enrollment.
-    CsrCreate {
-        #[arg(long)]
-        node_id: String,
-        #[arg(long)]
-        role: String,
-        #[arg(long)]
-        key_path: Option<String>,
-        #[arg(long)]
-        json: bool,
+    /// Node certificate signing request arms.
+    Csr {
+        #[command(subcommand)]
+        command: activation::NodeCsrCommand,
     },
-    /// Inspect a local Node Enrollment Certificate.
-    CertInspect {
-        #[arg(long)]
-        cert_path: Option<String>,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Cryptographically verify a Node Enrollment Certificate against a Kernel authority public key.
-    CertVerify {
-        #[arg(long)]
-        kernel_pubkey_hex: String,
-        #[arg(long)]
-        cert_path: Option<String>,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Audit host commits, divergence, and node health state.
-    HostAudit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 80)]
-        max_commits: usize,
+    /// Node certificate arms: inspect, or verify against a kernel authority.
+    Cert {
+        #[command(subcommand)]
+        command: activation::NodeCertCommand,
     },
     /// Host crash forensics, boot timeline, and post-mortem evidence.
     Forensics {
@@ -89,30 +64,13 @@ pub enum NodeCommand {
         command: crate::forensics_surface::ForensicsCommand,
     },
 
-    // === Identity (from node_surface/cli.rs) ===
-    /// Observe or create the node-local Ed25519 identity used for machine enrollment.
-    NodeIdentity {
-        #[arg(long)]
-        node_id: String,
-        #[arg(long, default_value = "/var/lib/cynic/identity/node-signing.key")]
-        signing_key_path: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
+    // === Identity === (merged into Identity arms above)
 
     // === Consensus ===
-    /// Evaluate fleet epoch consensus and clock skew across cluster nodes.
-    ConsensusStatus {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 1)]
-        expected_epoch: u64,
-        #[arg(long, default_value = "HEAD")]
-        expected_commit: String,
-        #[arg(long, default_value_t = 5000)]
-        max_skew_ms: u64,
+    /// Fleet consensus arms: epoch consensus and clock skew.
+    Consensus {
+        #[command(subcommand)]
+        command: consensus::NodeConsensusCommand,
     },
 
     // === Observation ===
@@ -127,14 +85,11 @@ pub enum NodeCommand {
         #[arg(long)]
         fail_on_critical: bool,
     },
-    /// Emit the node observation envelope consumed by registry observation projection.
-    RegistryObservation {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
-        registry: String,
-        #[arg(long)]
-        output: Option<String>,
+    // === Registry ===
+    /// Node registry arms: the observation envelope.
+    Registry {
+        #[command(subcommand)]
+        command: observation::NodeRegistryCommand,
     },
 
     // === Host Probes ===
@@ -172,71 +127,17 @@ pub enum NodeCommand {
     },
 
     // === Storage ===
-    /// Observe or reconcile one node-local storage service with a bounded restart budget.
-    StorageReconcile {
-        #[arg(long, default_value = "/var/lib/cynic/storage-lifecycle")]
-        state_dir: String,
-        #[arg(long, default_value_t = 30)]
-        warmup_seconds: u64,
-        #[arg(long, default_value_t = 300)]
-        restart_window_seconds: u64,
-        #[arg(long, default_value_t = 1)]
-        max_restarts_per_window: u32,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
+    /// Node storage arms: observe or reconcile a node-local storage service.
+    Storage {
+        #[command(subcommand)]
+        command: storage::NodeStorageCommand,
     },
 
     // === Source ===
-    /// Compose a non-mutating source-to-build-runner admission plan.
-    SourceAdmissionPlan {
-        #[arg(long)]
-        request: String,
-        #[arg(long)]
-        observation: String,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Plan or apply one digest-addressed source materialization on a build runner.
-    SourceMaterialize {
-        #[arg(long)]
-        request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long, default_value = "/var/lib/cynic/source/snapshots")]
-        snapshot_root: String,
-        #[arg(long)]
-        snapshot_base_url: Option<String>,
-        #[arg(long)]
-        node_id: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Observe, plan or materialize one registry-declared source repository.
-    SourceBootstrap {
-        #[arg(long)]
-        node: String,
-        #[arg(long)]
-        repository: String,
-        #[arg(long)]
-        source: String,
-        #[arg(long)]
-        revision: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
-        registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
-        state_root: String,
-        #[arg(long)]
-        agent_id: String,
-        #[arg(long, default_value = "http://127.0.0.1:3030")]
-        kernel_endpoint: String,
-        #[arg(long)]
-        apply: bool,
-        #[arg(long)]
-        json: bool,
+    /// Node source arms: admission plan, materialization, and bootstrap.
+    Source {
+        #[command(subcommand)]
+        command: source::NodeSourceCommand,
     },
 }
 
@@ -246,30 +147,20 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         // === Activation ===
         NodeCommand::Status { node_id, json } => activation::execute_status(node_id, json),
         NodeCommand::Activate { node_id, yes, json } => activation::execute_activate(node_id, yes, json),
-        NodeCommand::IdentityInit { key_path, json } => activation::execute_identity_init(key_path, json),
-        NodeCommand::CsrCreate { node_id, role, key_path, json } => activation::execute_csr_create(node_id, role, key_path, json),
-        NodeCommand::CertInspect { cert_path, json } => activation::execute_cert_inspect(cert_path, json),
-        NodeCommand::CertVerify { kernel_pubkey_hex, cert_path, json } => activation::execute_cert_verify(kernel_pubkey_hex, cert_path, json),
-        NodeCommand::HostAudit { json, max_commits } => activation::execute_host_audit(json, max_commits),
+        NodeCommand::Identity { command } => identity::execute_node_identity_command(command),
+        NodeCommand::Csr { command } => activation::execute_node_csr(command),
+        NodeCommand::Cert { command } => activation::execute_node_cert(command),
         NodeCommand::Forensics { command } => crate::forensics_surface::execute_forensics(command),
 
         // === Identity ===
-        NodeCommand::NodeIdentity { node_id, signing_key_path, apply, json } => {
-            identity::execute_node_identity(&node_id, &signing_key_path, apply, json)
-        }
-
         // === Consensus ===
-        NodeCommand::ConsensusStatus { json: _, expected_epoch, expected_commit, max_skew_ms } => {
-            consensus::execute_consensus_status(expected_epoch, &expected_commit, max_skew_ms)
-        }
+        NodeCommand::Consensus { command } => consensus::execute_node_consensus(command),
 
         // === Observation ===
         NodeCommand::Observe { json: _, registry, fail_on_warning, fail_on_critical } => {
             observation::execute_observe(&registry, fail_on_warning, fail_on_critical)
         }
-        NodeCommand::RegistryObservation { json: _, registry, output } => {
-            observation::execute_registry_observation(&registry, output.as_deref())
-        }
+        NodeCommand::Registry { command } => observation::execute_node_registry(command),
 
         // === Host Probes ===
         NodeCommand::Host { command } => host::execute_node_host(command),
@@ -289,19 +180,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         NodeCommand::Agent { command } => agent::execute_node_agent(command).await,
 
         // === Storage ===
-        NodeCommand::StorageReconcile { state_dir, warmup_seconds, restart_window_seconds, max_restarts_per_window, apply, json: _ } => {
-            storage::execute_storage_reconcile(&state_dir, warmup_seconds, restart_window_seconds, max_restarts_per_window, apply).await
-        }
+        NodeCommand::Storage { command } => storage::execute_node_storage(command).await,
 
         // === Source ===
-        NodeCommand::SourceAdmissionPlan { request, observation, json: _ } => {
-            source::execute_source_admission_plan(&request, &observation)
-        }
-        NodeCommand::SourceMaterialize { request, state_root, snapshot_root, snapshot_base_url, node_id, apply, json: _ } => {
-            source::execute_source_materialize(&request, &state_root, &snapshot_root, snapshot_base_url.as_deref(), &node_id, apply)
-        }
-        NodeCommand::SourceBootstrap { node, repository, source, revision, registry, state_root, agent_id, kernel_endpoint, apply, json: _ } => {
-            source::execute_source_bootstrap(&node, &repository, &source, &revision, &registry, &state_root, &agent_id, &kernel_endpoint, apply).await
-        }
+        NodeCommand::Source { command } => source::execute_node_source(command).await,
     }
 }
