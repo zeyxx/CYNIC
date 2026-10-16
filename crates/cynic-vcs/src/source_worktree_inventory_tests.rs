@@ -6,7 +6,7 @@ use crate::source_worktree_inventory::{
     validate_source_worktree_inventory_observation,
 };
 
-const DIGEST: &str = "sha3-512:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const DIGEST: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 fn observation() -> SourceWorktreeInventoryObservation {
     SourceWorktreeInventoryObservation {
@@ -113,7 +113,7 @@ fn main_locked_and_bare_facts_are_representable() {
 fn entry_evidence_must_be_linked_to_observation_evidence() {
     let mut observed = observation();
     observed.entries[0].evidence_digest =
-        "sha3-512:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string();
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string();
 
     assert!(
         validate_source_worktree_inventory_observation(&observed)
@@ -261,7 +261,7 @@ fn validator_does_not_inspect_entries_beyond_the_declared_limit() {
     observed.evidence_refs.clear();
 
     for index in 0..=SOURCE_WORKTREE_INVENTORY_MAX_ENTRIES {
-        let digest = format!("sha3-512:{index:0128x}");
+        let digest = format!("sha256:{index:064x}");
         let mut entry = template.clone();
         entry.candidate_id = digest.clone();
         entry.evidence_digest = digest.clone();
@@ -284,7 +284,7 @@ fn validator_does_not_inspect_evidence_beyond_the_declared_limit() {
     for index in 1..8192 {
         observed
             .evidence_refs
-            .push(format!("sha3-512:{index:0128x}"));
+            .push(format!("sha256:{index:064x}"));
     }
     observed.evidence_refs.push("not-a-digest".to_string());
 

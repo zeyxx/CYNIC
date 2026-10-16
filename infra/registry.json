@@ -596,6 +596,24 @@
             "relative_path": "source/repositories/CYNIC/target"
           }
         ],
+        "ephemeral_retention": {
+          "schema": "cynic.build_runner.ephemeral_retention.v1",
+          "max_age_ms": 604800000,
+          "pressure_grace_ms": 3600000,
+          "scopes": [
+            {
+              "base": "state_root",
+              "relative_path": "checkouts",
+              "kind": "evidence_checkout"
+            },
+            {
+              "base": "state_root",
+              "relative_path": "source/workspaces",
+              "kind": "workload_workspace",
+              "workload_store_relative_path": "source/workspaces"
+            }
+          ]
+        },
         "bootstrap_containment": {
           "schema": "cynic.build_runner.bootstrap_containment.v1",
           "authority_class": "MachineEnrollment",

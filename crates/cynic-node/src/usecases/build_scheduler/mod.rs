@@ -4,7 +4,10 @@ mod lifecycle;
 mod measure;
 mod prepare;
 mod release_publication;
+mod settlement_wal;
 mod source_prepare;
+#[cfg(test)]
+mod settlement_wal_tests;
 
 use std::time::Duration;
 
@@ -35,9 +38,37 @@ pub async fn run_loop(control: NodeControlConfig, shutdown: CancellationToken) {
             .agent_workload_state_root
             .join("agent-scheduler/workloads"),
     );
+    let wal = settlement_wal::SettlementWal::open(
+        control.agent_workload_state_root.join("wal"),
+    )
+    .map_err(|e| {
+        tracing::error!(
+            error = %e,
+            path = %control.agent_workload_state_root.join("wal").display(),
+            "settlement_wal_open_failed — settlements proceed without audit log"
+        );
+        e
+    })
+    .ok()
+    .and_then(|wal| match wal.verify_on_boot() {
+        Ok(sequence) => {
+            tracing::info!(
+                sequence,
+                "settlement WAL chain verified — resuming audit log"
+            );
+            Some(wal)
+        }
+        Err(reason) => {
+            tracing::error!(
+                %reason,
+                "settlement_wal_boot_chain_rejected — settlements proceed without audit log"
+            );
+            None
+        }
+    });
     let interval = Duration::from_secs(scheduler.interval_secs);
     loop {
-        if let Err(error) = run_iteration(&control, &scheduler, &store, &shutdown).await {
+        if let Err(error) = run_iteration(&control, &scheduler, &store, wal.as_ref(), &shutdown).await {
             tracing::warn!(%error, "build scheduler iteration blocked");
         }
         tokio::select! {
@@ -181,6 +212,7 @@ async fn run_iteration(
     control: &NodeControlConfig,
     scheduler: &BuildSchedulerConfig,
     store: &LocalAgentWorkloadStore,
+    wal: Option<&settlement_wal::SettlementWal>,
     shutdown: &CancellationToken,
 ) -> Result<(), String> {
     // Capacity gate at admission (T4): measure once per tick. A Saturated host
@@ -237,6 +269,7 @@ async fn run_iteration(
             scheduler,
             store,
             claimed,
+            wal,
             shutdown,
             &load_tier,
             &capacity_unknowns,
@@ -245,6 +278,8 @@ async fn run_iteration(
     }
     Ok(())
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -1170,4 +1205,5 @@ mod tests {
             "unmeasured hit rate ⇒ predicate not consulted"
         );
     }
+
 }

@@ -75,7 +75,7 @@ impl RateTrendObserver {
                 "class": assessment.class,
                 "reasons": assessment.reasons,
             }))
-            .unwrap_or_else(|_| format!("sha3-512:{}", assessment.key));
+            .unwrap_or_else(|_| format!("sha256:{}", assessment.key));
 
             let confidence = match assessment.class {
                 RateTrend::Recurring => 0.90,

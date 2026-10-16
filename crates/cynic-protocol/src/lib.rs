@@ -45,6 +45,7 @@ pub mod cycle_transition;
 pub mod detection;
 pub mod development;
 pub mod digest;
+pub mod hash_chain;
 pub mod discovery;
 pub mod domain_ops;
 pub mod domain_tasks;
@@ -121,5 +122,6 @@ pub mod window_journal;
 pub mod workload_identity;
 
 pub mod exports;
+pub mod retention;
 pub mod resource_budget;
 pub use exports::*;

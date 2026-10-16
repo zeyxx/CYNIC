@@ -77,6 +77,7 @@ pub use crate::phi::*;
 pub use crate::plane::Plane;
 pub use crate::provider::*;
 pub use crate::residual_unknown::*;
+pub use crate::retention::*;
 pub use crate::resource_allocation::*;
 pub use crate::runtime::*;
 pub use crate::runtime_basket::*;
