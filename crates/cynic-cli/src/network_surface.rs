@@ -65,6 +65,28 @@ pub(crate) fn declared_service_probe_specs()
 }
 
 #[derive(Subcommand)]
+pub(crate) enum NetworkShadowCommand {
+    /// Drift between declared mesh and independently observed state.
+    Proof {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        observe_runtime: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkActuationCommand {
+    /// Host-owned actuation observation projection (mesh actuate wire arm).
+    Observation {
+        #[arg(long)]
+        registry: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 pub(crate) enum NetworkCommand {
     Chain {
         #[arg(long)]
@@ -90,22 +112,19 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         check_provider_connectivity: bool,
     },
-    /// Shadow proof: drift between declared mesh and independently observed
+    /// Shadow arms: drift between declared mesh and independently observed
     /// state. Fails when drift is detected — the honest counterpart of proof.
-    ShadowProof {
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long)]
-        resolve_dns: bool,
-        #[arg(long)]
-        observe_runtime: bool,
+    Shadow {
+        #[command(subcommand)]
+        command: NetworkShadowCommand,
     },
     /// Host-owned network actuation observation projection. This is the wire
     /// contract consumed by `mesh target actuate` (observer_bin argv) — the
-    /// name is load-bearing, do not rename.
-    ActuationObservation {
-        #[arg(long)]
-        registry: Option<String>,
+    /// full argv `network actuation observation` is load-bearing: rename the
+    /// arm only together with every `observation_argv` producer.
+    Actuation {
+        #[command(subcommand)]
+        command: NetworkActuationCommand,
     },
     Evidence {
         #[arg(long)]
