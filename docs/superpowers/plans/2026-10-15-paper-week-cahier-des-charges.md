@@ -176,10 +176,14 @@ Moteur : `scratch/paper-week/replay.py` (bras A tick-proxy vs B close, apparié)
 - SURVIE (courbes du 2x, ancre mcap, sans coûts) : 70 % des 2x avant 5 min, 87 % avant 15 min,
   95 % avant 30 min ; après = +1pp pour 2h30 de capital bloqué. Horizon optimal ≈ 30 min max.
   G1 strictement au-dessus à chaque t (20/24,5/26,8/28/28,3/28,7 % vs jetés 15–21 %).
-- VOLATILITÉ (première mesure) : vol réalisée 5 min pré-signal (couverture 30 %, tokens avec passé).
-  Quartile chaud sous-performe les deux moitiés (train 19 % vs 31–34 % ; test 21,5 % vs 21–29 %).
-  Un pré-signal agité = déjà parti/épuisé — même famille que drift et move-since.
-  HYPOTHÈSE (pas gate : couverture partielle, pas de WF).
+- VOLATILITÉ : vol 5 min pré-signal, quartile chaud sous-performe les deux moitiés
+  (train 19 % vs 31–34 % ; test 21,5 % vs 21–29 %, couverture 30 %). HYPOTHÈSE.
+- PENTES (2026-10-16) : pente de régression 15 min pré-signal — quartile raide GAGNE les deux moitiés
+  (train 37 % vs 22 % plat ; test 36 % vs 0 %, n=27/cellule — PISTE FRAGILE, couverture 13 %).
+  Nuance vs drift : la montée RÉGULIÈRE paie, le déplacement brutal (spike) tue.
+  Bêta vs marché pump.fun : flippe (train plat, test inversé) — pas de signal.
+  Sharpe G1+TP1,5/full par trade : train +0,08 (std 1,93 — loterie) / test −0,14.
+  Distribution en loterie : petits saignements + rares gros — la moyenne ment, la queue paie.
 - SPEC RUN LIVE (alpha réel — ce que le corpus ne contient pas) : fills exacts (prix, slippage, tip) ;
   latence tick (réception→décision→fill, ms) ; config du feed (flag par alerte) ; régime marché
   (tendance SOL, volume pump.fun) ; bourrasques (compte/min) ; labels résolus à 30 min (pics en 1–2 min).
