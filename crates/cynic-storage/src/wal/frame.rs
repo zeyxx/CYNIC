@@ -40,7 +40,7 @@ pub const MIN_FRAME_LEN: usize = 4  // magic
     + 2                             // mandate_id_len
     + 1                             // proof_anchor_present
     + 64                            // signature
-    + 32; // entry_hash (SHA-256) = 223 bytes
+    + 32; // entry_hash (SHA-256) = 195 bytes
 
 /// Domain separation string for Stage 1 commit hash.
 const COMMIT_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_COMMIT_V1\0";

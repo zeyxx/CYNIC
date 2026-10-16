@@ -18,7 +18,9 @@
 //!
 //! **Intentional clean break (T13)**: all chains now use SHA-256 with
 //! `genesis` as the genesis prev-hash. Old SHA3-512 entries do NOT
-//! verify under the new code — no migration path exists.
+//! verify under the new code — no migration path exists. Pre-T10
+//! SHA-256 entries do NOT verify either (genesis changed from 64-zero
+//! hex / empty string to `genesis`, and hashes are now `sha256:`-prefixed).
 
 use crate::digest::digest_bytes;
 
