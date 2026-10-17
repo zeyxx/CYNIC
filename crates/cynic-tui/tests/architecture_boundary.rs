@@ -28,7 +28,12 @@ fn no_dependency_on_higher_layer_crates() {
 #[test]
 fn kit_reads_no_files() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    for file in ["src/types.rs", "src/app.rs", "src/lib.rs"] {
+    for file in [
+        "src/types.rs",
+        "src/app.rs",
+        "src/conversation.rs",
+        "src/lib.rs",
+    ] {
         let content = std::fs::read_to_string(Path::new(manifest_dir).join(file)).unwrap();
         // `std::process::ExitCode` (return-code type) is allowed; only
         // process *spawning* is forbidden.
