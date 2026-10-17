@@ -211,5 +211,15 @@
     "primary_check": "make check",
     "new_contract_rule": "Do not add root contract forests. Add Rust types, tests, or a small field in this file only when runtime code needs it.",
     "deletion_rule": "Anything outside the authority map must prove current runtime use before it is kept."
-  }
+  },
+  "secret_authorities": [
+    {
+      "role": "HumanAdmin",
+      "class": "MachineEnrollment",
+      "purpose": "founder_ceremony",
+      "holder": "USB cynic-root/cynic-fleet-root (cynic-root-ca.key mode 400, offline)",
+      "fingerprint": "5E:A0:BA:5D:05:F3:0E:E3:2D:9B:5B:60:33:8D:C8:A3:A9:29:68:10:52:DF:02:50:C8:C9:6F:93:54:8C:78:72",
+      "steady_state": "root stays offline on USB; issuance is operator-run with USB mounted; intermediates per zone thereafter"
+    }
+  ]
 }

@@ -148,6 +148,10 @@
   {
    "id": "node_compute_provision",
    "path": "fragments/node_compute_provision.json"
+  },
+  {
+   "id": "node_cert_issue",
+   "path": "fragments/node_cert_issue.json"
   }
  ],
  "retired": [
