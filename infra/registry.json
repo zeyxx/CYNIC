@@ -256,7 +256,8 @@
         "cidr": "100.64.0.0/10",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
-        "cidr_basis": "rfc6598"
+        "cidr_basis": "rfc6598",
+        "interface": "wg0"
       }
     },
     "reservations": [
@@ -491,7 +492,8 @@
             "kind": "http",
             "path": "/health",
             "port": 8000
-          }
+          },
+          "network_plane": "service"
         },
         {
           "name": "runtime-artifact-store",
@@ -514,7 +516,8 @@
             "kind": "https",
             "path": "/health",
             "port": 8443
-          }
+          },
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -808,7 +811,8 @@
         {
           "name": "forgejo-backend",
           "scheme": "http",
-          "port": 3000
+          "port": 3000,
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -856,7 +860,8 @@
           "name": "headscale",
           "scheme": "http",
           "port": 8080,
-          "status": "planned"
+          "status": "planned",
+          "network_plane": "service"
         }
       ],
       "energy_profile": {

@@ -3,7 +3,12 @@
 //! Pure string & configuration generators. Zero I/O, zero network or filesystem calls.
 
 pub const DEFAULT_DNS_ZONE: &str = "service.cynic";
-pub const SERVICE_DNS_HOSTS_FILENAME: &str = "synapse.hosts";
+/// Legacy compat zone, kept while pre-migration callers exist
+/// (forge remote, baked search domains). Transitional: remove when the
+/// last `synapse.cynic` reference leaves the registry and call sites.
+pub const COMPAT_DNS_ZONE: &str = "synapse.cynic";
+pub const SERVICE_DNS_HOSTS_FILENAME: &str = "service.hosts";
+pub const COMPAT_DNS_HOSTS_FILENAME: &str = "synapse.hosts";
 pub const SERVICE_DNS_COREFILE_FILENAME: &str = "Corefile";
 pub const SERVICE_DNS_SERVICE_FILENAME: &str = "coredns-synapse.service";
 pub const SERVICE_DNS_RESOLVED_DROPIN_FILENAME: &str = "cynic-synapse-dns.conf";
@@ -15,6 +20,32 @@ pub struct DnsHostRecord {
     pub ip: String,
     pub fqdn: String,
     pub aliases: Vec<String>,
+}
+
+/// Bundle hosts filename for a zone: canonical file for the service
+/// zone, compat file for the legacy zone, canonical otherwise.
+pub fn hosts_filename_for_zone(zone: &str) -> &'static str {
+    if zone == COMPAT_DNS_ZONE {
+        COMPAT_DNS_HOSTS_FILENAME
+    } else {
+        SERVICE_DNS_HOSTS_FILENAME
+    }
+}
+
+/// Map record names onto the compat zone: FQDNs under the canonical zone
+/// move to the compat suffix, zone-less short names pass through shared.
+pub fn map_names_to_compat_zone(names: &[String], canonical_zone: &str) -> Vec<String> {
+    let suffix = format!(".{canonical_zone}");
+    names
+        .iter()
+        .map(|name| {
+            if let Some(bare) = name.strip_suffix(&suffix) {
+                format!("{bare}.{COMPAT_DNS_ZONE}")
+            } else {
+                name.clone()
+            }
+        })
+        .collect()
 }
 
 /// Renders a pure /etc/hosts or CoreDNS hosts file syntax.
@@ -65,6 +96,7 @@ Domains=~{zone}
 pub fn canonical_dns_bundle_files() -> Vec<&'static str> {
     vec![
         SERVICE_DNS_HOSTS_FILENAME,
+        COMPAT_DNS_HOSTS_FILENAME,
         SERVICE_DNS_COREFILE_FILENAME,
         SERVICE_DNS_SERVICE_FILENAME,
         SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
@@ -111,7 +143,45 @@ mod tests {
     #[test]
     fn canonical_bundle_file_list_is_stable() {
         let files = canonical_dns_bundle_files();
-        assert_eq!(files.len(), 6);
+        assert_eq!(files.len(), 7);
         assert!(files.contains(&"Corefile"));
+        assert!(files.contains(&SERVICE_DNS_HOSTS_FILENAME));
+        assert!(files.contains(&COMPAT_DNS_HOSTS_FILENAME));
+    }
+
+    #[test]
+    fn compat_mapping_moves_fqdn_suffix_and_keeps_shorts() {
+        let mapped = map_names_to_compat_zone(
+            &[
+                "forgejo".to_string(),
+                "forgejo.service.cynic".to_string(),
+                "other.example".to_string(),
+            ],
+            "service.cynic",
+        );
+        assert_eq!(
+            mapped,
+            vec![
+                "forgejo".to_string(),
+                "forgejo.synapse.cynic".to_string(),
+                "other.example".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn hosts_filename_follows_zone() {
+        assert_eq!(
+            hosts_filename_for_zone("service.cynic"),
+            SERVICE_DNS_HOSTS_FILENAME
+        );
+        assert_eq!(
+            hosts_filename_for_zone("synapse.cynic"),
+            COMPAT_DNS_HOSTS_FILENAME
+        );
+        assert_eq!(
+            hosts_filename_for_zone("labmesh"),
+            SERVICE_DNS_HOSTS_FILENAME
+        );
     }
 }

@@ -18,7 +18,9 @@ use crate::dns_contract::{
     dns_systemd_unit_for_zone, dns_target_paths_for_zone,
 };
 use crate::network_command_surface::NetworkCommandSurface;
-use crate::ports::network_interfaces_port::{DnsBundleRendererPort, RegistryTopologyPort};
+use crate::ports::network_interfaces_port::{
+    DnsBundleRendererPort, RegistryNodeRecord, RegistryTopologyPort,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DnsBundleReport {
@@ -58,6 +60,18 @@ pub fn build_dns_bundle(
     fs::write(
         out.join(SERVICE_DNS_HOSTS_FILENAME),
         renderer.render_hosts(&topology)?,
+    )?;
+    let compat_topology: Vec<RegistryNodeRecord> = topology
+        .iter()
+        .map(|record| RegistryNodeRecord {
+            node: record.node.clone(),
+            ip: record.ip.clone(),
+            names: cynic_network::dns::map_names_to_compat_zone(&record.names, &zone),
+        })
+        .collect();
+    fs::write(
+        out.join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME),
+        renderer.render_hosts(&compat_topology)?,
     )?;
     fs::write(
         out.join(dns_bundle_config_filename()),
@@ -137,7 +151,19 @@ mod tests {
         assert_eq!(report.schema, "cynic.organ_fleet.dns_activation_bundle.v1");
         assert!(out.path().join(SERVICE_DNS_MANIFEST_FILENAME).exists());
         assert!(out.path().join(SERVICE_DNS_HOSTS_FILENAME).exists());
-        assert_eq!(report.digests.len(), 5);
+        assert!(
+            out.path()
+                .join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME)
+                .exists()
+        );
+        let compat = std::fs::read_to_string(
+            out.path()
+                .join(cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME),
+        )
+        .expect("read compat hosts");
+        assert!(compat.contains("synapse.cynic"));
+        assert!(!compat.contains("service.cynic"));
+        assert_eq!(report.digests.len(), 6);
         assert!(
             report
                 .digests
