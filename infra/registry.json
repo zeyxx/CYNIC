@@ -384,7 +384,7 @@
       "services": [
         {
           "name": "embedding-server",
-          "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
+          "artifact": "llama-server (b76b133 2026-10-15, Vulkan build /usr/local/bin/llama-server; compute-01 peer ~/cynic/bin/llama-server same build)",
           "scheme": "http",
           "endpoint_host": "10.20.0.3",
           "port": 8081,
