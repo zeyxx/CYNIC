@@ -25,6 +25,25 @@ pub enum NodeFleetCommand {
         #[arg(long)]
         log: Option<String>,
     },
+    /// List observed listeners per node; optionally declare ghosts into
+    /// the repo registry (deploy to /etc stays an explicit operator step).
+    Services(NodeFleetServicesArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NodeFleetServicesArgs {
+    /// Registry path (else /etc/cynic/registry.json, else the repo registry).
+    #[arg(long)]
+    pub registry: Option<String>,
+    /// Write observed-but-undeclared listeners into the repo registry.
+    #[arg(long, default_value = "false")]
+    pub declare: bool,
+    /// Required to mutate: no implicit writes, ever.
+    #[arg(long, default_value = "false")]
+    pub yes: bool,
+    /// Print machine-readable JSON.
+    #[arg(long, default_value = "false")]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -275,7 +294,167 @@ pub fn execute_fleet(command: NodeFleetCommand) -> Result<ExitCode, String> {
             let report = load_report(registry.clone(), log.clone())?;
             Ok(fleet_dashboard(&report))
         })),
+        NodeFleetCommand::Services(args) => execute_services(args),
     }
+}
+
+/// List observed listeners; with `--declare --yes`, merge ghosts into
+/// the repo registry file (never /etc: deploy stays an operator step).
+fn execute_services(args: NodeFleetServicesArgs) -> Result<ExitCode, String> {
+    let report = load_report(args.registry.clone(), None)?;
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report.services).unwrap_or_default()
+        );
+    } else {
+        for service in &report.services {
+            println!(
+                "{} {}:{} {} {} {}",
+                service.node_id,
+                service.host,
+                service.port,
+                service.label,
+                service.model,
+                if service.declared {
+                    "declared"
+                } else {
+                    "GHOST"
+                },
+            );
+        }
+    }
+    if args.declare {
+        if !args.yes {
+            return Err("refusing to write without --yes".to_string());
+        }
+        let ghosts: Vec<&cynic_fleet::FleetServiceRow> =
+            report.services.iter().filter(|s| !s.declared).collect();
+        if ghosts.is_empty() {
+            println!("no ghosts to declare");
+            return Ok(ExitCode::SUCCESS);
+        }
+        declare_into_repo_registry(&report.registry_path, &ghosts)?;
+        println!(
+            "declared {} ghost(s) into {}; deploy with: sudo cp {} /etc/cynic/registry.json",
+            ghosts.len(),
+            report.registry_path,
+            report.registry_path
+        );
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Merge observed-but-undeclared listeners into the repo registry.
+/// Formatting-preserving: only the target node's `services` array span is
+/// replaced, so the diff shows exactly the declared entries. Refuses the
+/// system path outright: deploying to /etc is an operator `sudo cp`,
+/// never a side effect of a declare.
+fn declare_into_repo_registry(
+    registry_path: &str,
+    ghosts: &[&cynic_fleet::FleetServiceRow],
+) -> Result<(), String> {
+    if registry_path == "/etc/cynic/registry.json" {
+        return Err(
+            "refusing to write the system registry: re-run with --registry pointing at the repo file"
+                .to_string(),
+        );
+    }
+    let text = std::fs::read_to_string(registry_path)
+        .map_err(|e| format!("read registry {registry_path}: {e}"))?;
+    let mut out = text.clone();
+    for ghost in ghosts {
+        let id_marker = format!("\"id\": \"{}\"", ghost.node_id);
+        let node_start = out
+            .find(id_marker.as_str())
+            .ok_or(format!("node {} not in registry", ghost.node_id))?;
+        let services_key = "\"services\"";
+        let key_pos = out[node_start..]
+            .find(services_key)
+            .map(|p| node_start + p)
+            .ok_or("node has no services key")?;
+        let array_start = out[key_pos..]
+            .find('[')
+            .map(|p| key_pos + p)
+            .ok_or("services value is not an array")?;
+        let array_end = find_matching_bracket(&out, array_start)?;
+        let current: Vec<serde_json::Value> = serde_json::from_str(&out[array_start..=array_end])
+            .map_err(|e| format!("parse services array: {e}"))?;
+        if current
+            .iter()
+            .any(|s| s.get("port").and_then(|p| p.as_u64()) == Some(ghost.port as u64))
+        {
+            continue;
+        }
+        let indent: String = out[..key_pos]
+            .rfind('\n')
+            .map(|nl| {
+                out[nl + 1..key_pos]
+                    .chars()
+                    .take_while(|c| *c == ' ')
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut merged = current;
+        merged.push(serde_json::json!({
+            "name": format!("observed-{}", ghost.label),
+            "scheme": "http",
+            "endpoint_host": ghost.host,
+            "port": ghost.port,
+            "model": ghost.model,
+            "observed": true,
+            "declared_from": "cynic node fleet services --declare",
+        }));
+        let item_indent = format!("{indent}  ");
+        let mut rendered = String::from("[");
+        for (index, item) in merged.iter().enumerate() {
+            if index > 0 {
+                rendered.push(',');
+            }
+            rendered.push('\n');
+            rendered.push_str(&item_indent);
+            rendered.push_str(&serde_json::to_string(item).map_err(|e| format!("encode: {e}"))?);
+        }
+        rendered.push('\n');
+        rendered.push_str(&indent);
+        rendered.push(']');
+        out.replace_range(array_start..=array_end, &rendered);
+    }
+    std::fs::write(registry_path, out)
+        .map_err(|e| format!("write registry {registry_path}: {e}"))?;
+    Ok(())
+}
+
+/// Byte offset of the `]` matching the `[` at `open`.
+fn find_matching_bracket(text: &str, open: usize) -> Result<usize, String> {
+    let bytes = text.as_bytes();
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, byte) in bytes.iter().enumerate().skip(open) {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if *byte == b'\\' {
+                escaped = true;
+            } else if *byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => in_string = true,
+            b'[' => depth += 1,
+            b']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    Err("unbalanced brackets in services array".to_string())
 }
 
 /// Build-runners panel composed from the same registry projection as

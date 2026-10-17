@@ -877,7 +877,10 @@
       "network": {
         "lan": "192.168.0.25"
       },
-      "services": [],
+      "services": [
+        {"declared_from":"cynic node fleet services --declare","endpoint_host":"192.168.0.25","model":"embeddinggemma-2-Q8_0.gguf","name":"observed-embedding","observed":true,"port":8080,"scheme":"http"},
+        {"declared_from":"cynic node fleet services --declare","endpoint_host":"192.168.0.25","model":"LFM2.5-2.6B-Q4_K_M.gguf","name":"observed-chat","observed":true,"port":8088,"scheme":"http"}
+      ],
       "energy_profile": {
         "class": "always_on"
       },
