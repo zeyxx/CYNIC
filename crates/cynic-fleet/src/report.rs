@@ -2,7 +2,7 @@
 //! render the single-file HTML dashboard. No filesystem, no clock beyond
 //! `generated_unix_s` passed in by the caller.
 
-use crate::types::{FleetLogRow, FleetNodeRow, FleetReport, LogEntry, NodeEntry};
+use crate::types::{FleetLogRow, FleetNodeRow, FleetReport, FleetServiceRow, LogEntry, NodeEntry};
 
 pub const FLEET_REPORT_SCHEMA: &str = "cynic.fleet.report.v1";
 
@@ -12,6 +12,7 @@ pub fn assemble(
     registry_path: &str,
     generated_unix_s: u64,
     nodes: Vec<NodeEntry>,
+    services: Vec<FleetServiceRow>,
     entries: Vec<LogEntry>,
 ) -> FleetReport {
     let rows: Vec<FleetNodeRow> = nodes
@@ -46,6 +47,7 @@ pub fn assemble(
         generated_unix_s,
         registry_path: registry_path.to_string(),
         nodes: rows,
+        services,
         debts,
         infos,
     }
@@ -86,6 +88,22 @@ pub fn render_html(report: &FleetReport) -> String {
             escape_html(&node.authority_id),
         ));
     }
+    let mut service_rows = String::new();
+    for service in &report.services {
+        service_rows.push_str(&format!(
+            "<tr><td>{}</td><td>{}:{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+            escape_html(&service.node_id),
+            escape_html(&service.host),
+            service.port,
+            escape_html(&service.label),
+            escape_html(&service.model),
+            if service.declared {
+                "declared"
+            } else {
+                "GHOST"
+            },
+        ));
+    }
     let mut debt_rows = String::new();
     for debt in &report.debts {
         debt_rows.push_str(&format!(
@@ -105,11 +123,13 @@ pub fn render_html(report: &FleetReport) -> String {
         ));
     }
     format!(
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>CYNIC fleet dashboard</title>\n<style>\nbody{{font-family:monospace;max-width:72rem;margin:2rem auto;padding:0 1rem;background:#0d1117;color:#c9d1d9}}\ntable{{border-collapse:collapse;width:100%;margin-bottom:2rem}}\ntd,th{{border:1px solid #30363d;padding:.4rem .6rem;text-align:left}}\nth{{background:#161b22}}\ncode{{color:#7ee787}}\nh1{{color:#58a6ff}}\n</style>\n</head>\n<body>\n<h1>CYNIC fleet dashboard</h1>\n<p>generated {} from {}</p>\n<h2>Nodes ({})</h2>\n<table><tr><th>id</th><th>role</th><th>status</th><th>cert</th><th>authority</th></tr>\n{}</table>\n<h2>Open debts ({})</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n<h2>Latest activity</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n</body>\n</html>\n",
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>CYNIC fleet dashboard</title>\n<style>\nbody{{font-family:monospace;max-width:72rem;margin:2rem auto;padding:0 1rem;background:#0d1117;color:#c9d1d9}}\ntable{{border-collapse:collapse;width:100%;margin-bottom:2rem}}\ntd,th{{border:1px solid #30363d;padding:.4rem .6rem;text-align:left}}\nth{{background:#161b22}}\ncode{{color:#7ee787}}\nh1{{color:#58a6ff}}\n</style>\n</head>\n<body>\n<h1>CYNIC fleet dashboard</h1>\n<p>generated {} from {}</p>\n<h2>Nodes ({})</h2>\n<table><tr><th>id</th><th>role</th><th>status</th><th>cert</th><th>authority</th></tr>\n{}</table>\n<h2>Observed services ({})</h2>\n<table><tr><th>node</th><th>listener</th><th>label</th><th>model</th><th>registry</th></tr>\n{}</table>\n<h2>Open debts ({})</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n<h2>Latest activity</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n</body>\n</html>\n",
         report.generated_unix_s,
         escape_html(&report.registry_path),
         report.nodes.len(),
         node_rows,
+        report.services.len(),
+        service_rows,
         report.debts.len(),
         debt_rows,
         info_rows,
@@ -131,6 +151,14 @@ mod tests {
                 status: "observed".into(),
                 certificate_id: "sha256:abcdef12".into(),
                 authority_id: "ca".into(),
+            }],
+            vec![FleetServiceRow {
+                node_id: "n1".into(),
+                host: "10.0.0.9".into(),
+                port: 8080,
+                label: "embedding".into(),
+                model: "m.gguf".into(),
+                declared: false,
             }],
             vec![
                 LogEntry {

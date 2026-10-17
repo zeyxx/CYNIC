@@ -132,8 +132,127 @@ pub(crate) fn load_report(
         &registry_path,
         now_unix_s(),
         nodes,
+        probe_services(&value),
         log_entries,
     ))
+}
+
+/// Live service discovery (read-only): for every registry node with a
+/// known IP, TCP-probe declared service ports plus the usual inference
+/// set, then label each open port via `/v1/models` (or `/health`).
+/// Ghosts surface as `declared: false` rows — observed but unregistered.
+fn probe_services(registry: &serde_json::Value) -> Vec<cynic_fleet::FleetServiceRow> {
+    const CANDIDATE_PORTS: [u16; 7] = [8080, 8081, 8082, 8085, 8087, 8088, 11434];
+    let mut rows = Vec::new();
+    let nodes = registry
+        .get("nodes")
+        .and_then(|n| n.as_array())
+        .cloned()
+        .unwrap_or_default();
+    for node in &nodes {
+        let node_id = node
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
+        let mut hosts: Vec<String> = Vec::new();
+        if let Some(network) = node.get("network").and_then(|n| n.as_object()) {
+            for key in ["service", "lan", "admin"] {
+                if let Some(ip) = network.get(key).and_then(|v| v.as_str()) {
+                    if !ip.is_empty() && !hosts.contains(&ip.to_string()) {
+                        hosts.push(ip.to_string());
+                    }
+                }
+            }
+        }
+        let mut declared_ports: Vec<u16> = Vec::new();
+        if let Some(services) = node.get("services").and_then(|s| s.as_array()) {
+            for service in services {
+                if let Some(port) = service.get("port").and_then(|p| p.as_u64()) {
+                    let port = port as u16;
+                    if !declared_ports.contains(&port) {
+                        declared_ports.push(port);
+                    }
+                }
+            }
+        }
+        for host in &hosts {
+            let mut ports: Vec<u16> = declared_ports.clone();
+            for port in CANDIDATE_PORTS {
+                if !ports.contains(&port) {
+                    ports.push(port);
+                }
+            }
+            for port in ports {
+                if let Some((label, model)) = probe_listener(host, port) {
+                    rows.push(cynic_fleet::FleetServiceRow {
+                        node_id: node_id.clone(),
+                        host: host.clone(),
+                        port,
+                        label,
+                        model,
+                        declared: declared_ports.contains(&port),
+                    });
+                }
+            }
+        }
+    }
+    rows
+}
+
+/// TCP connect (600 ms) then minimal HTTP GET. Returns the label and the
+/// served model name, or nothing when the port is closed or silent.
+fn probe_listener(host: &str, port: u16) -> Option<(String, String)> {
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+    let addr: SocketAddr = format!("{host}:{port}").to_socket_addrs().ok()?.next()?;
+    let mut stream =
+        TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(600)).ok()?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_millis(1200)))
+        .ok()?;
+    let request = format!("GET /v1/models HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut body = String::new();
+    stream.read_to_string(&mut body).ok()?;
+    let payload = body.split("\r\n\r\n").nth(1).unwrap_or("");
+    let model = payload
+        .split("\"model\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').nth(1))
+        .unwrap_or("")
+        .to_string();
+    if model.is_empty() && !payload.contains("\"models\"") {
+        return probe_health(host, port);
+    }
+    let short = model.rsplit('/').next().unwrap_or(&model).to_string();
+    let label = if short.to_lowercase().contains("embed") {
+        "embedding".to_string()
+    } else {
+        "chat".to_string()
+    };
+    Some((label, short))
+}
+
+/// Fallback label for listeners without an OpenAI model list.
+fn probe_health(host: &str, port: u16) -> Option<(String, String)> {
+    use std::io::{Read, Write};
+    use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+    let addr: SocketAddr = format!("{host}:{port}").to_socket_addrs().ok()?.next()?;
+    let mut stream =
+        TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(600)).ok()?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_millis(1200)))
+        .ok()?;
+    let request = format!("GET /health HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut body = String::new();
+    stream.read_to_string(&mut body).ok()?;
+    if body.starts_with("HTTP/1.") && body.contains("200") {
+        Some(("http".to_string(), String::new()))
+    } else {
+        Some(("tcp".to_string(), String::new()))
+    }
 }
 
 pub fn execute_fleet(command: NodeFleetCommand) -> Result<ExitCode, String> {
@@ -221,6 +340,30 @@ fn fleet_dashboard(report: &cynic_fleet::FleetReport) -> cynic_tui::Dashboard {
             .collect(),
     }));
     dashboard.push(runners_panel(&report.registry_path));
+    dashboard.push(cynic_tui::Panel::Table(cynic_tui::TablePanel {
+        title: "observed services".to_string(),
+        headers: ["node", "listener", "label", "model", "registry"]
+            .iter()
+            .map(|h| h.to_string())
+            .collect(),
+        rows: report
+            .services
+            .iter()
+            .map(|s| {
+                vec![
+                    s.node_id.clone(),
+                    format!("{}:{}", s.host, s.port),
+                    s.label.clone(),
+                    s.model.clone(),
+                    if s.declared {
+                        "declared".to_string()
+                    } else {
+                        "GHOST".to_string()
+                    },
+                ]
+            })
+            .collect(),
+    }));
     dashboard.push(cynic_tui::Panel::Text(cynic_tui::TextPanel {
         title: "open debts".to_string(),
         lines: report

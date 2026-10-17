@@ -8,4 +8,4 @@ pub mod report;
 pub mod types;
 
 pub use report::{assemble, render_html, short_hash};
-pub use types::{FleetLogRow, FleetNodeRow, FleetReport, LogEntry, NodeEntry};
+pub use types::{FleetLogRow, FleetNodeRow, FleetReport, FleetServiceRow, LogEntry, NodeEntry};

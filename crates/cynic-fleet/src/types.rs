@@ -47,6 +47,19 @@ pub struct FleetReport {
     pub generated_unix_s: u64,
     pub registry_path: String,
     pub nodes: Vec<FleetNodeRow>,
+    pub services: Vec<FleetServiceRow>,
     pub debts: Vec<FleetLogRow>,
     pub infos: Vec<FleetLogRow>,
+}
+
+/// One observed listener: a TCP port that answered on a fleet host,
+/// labeled by what `/v1/models` (or `/health`) says it serves.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FleetServiceRow {
+    pub node_id: String,
+    pub host: String,
+    pub port: u16,
+    pub label: String,
+    pub model: String,
+    pub declared: bool,
 }
