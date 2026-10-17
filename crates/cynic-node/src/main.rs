@@ -84,7 +84,7 @@ async fn main() -> ExitCode {
     // supervision sections ([kernel]/[dog]/[process]) that control never
     // reads, which fails closed on hosts that carry no dog (e.g. builder).
     if args.len() > 1 && args[1] == "control" {
-        return control_main(config_path).await;
+        return control_main(&config_path).await;
     }
 
     if args.len() > 1 && args[1] == "--watchdog" {
@@ -126,7 +126,7 @@ async fn main() -> ExitCode {
         Vec::new()
     };
 
-    let exit = runtime_supervision::run_node(&client, config_path, cfg, &shutdown).await;
+    let exit = runtime_supervision::run_node(&client, &config_path, cfg, &shutdown).await;
     shutdown.cancel();
     for task in node_tasks {
         let _ = task.await;
