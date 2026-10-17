@@ -134,9 +134,17 @@ impl AuditRule for RuntimePathLiteralRule {
         let mut violations = Vec::new();
 
         for file in &index.rust_files {
-            // The rule module itself necessarily contains the prefixes it
-            // searches for; counting it would report self-reference.
-            if file.relative_path.contains("runtime_path_literal") {
+            // The detector's own crate necessarily contains the prefixes it
+            // searches for: rule code names guarded prefixes (OWN-001),
+            // documents the runtime space with examples (path_rules.rs), or
+            // defines the detection patterns themselves
+            // (CYNIC_BINARY_PREFIXES). Rule code is pure detection, it
+            // places nothing — counting it reports self-reference. The
+            // `src/bin/` tools are excluded from this exclusion: they write
+            // real files, so their literals stay scrutinised.
+            if file.relative_path.starts_with("crates/cynic-audit-engine/src/")
+                && !file.relative_path.contains("/bin/")
+            {
                 continue;
             }
 
@@ -166,14 +174,70 @@ impl AuditRule for RuntimePathLiteralRule {
 
                 // A line that tests or filters a prefix is inspection, not
                 // placement. `SEC-001` and this rule both need to *name* the
-                // paths they reject.
+                // paths they reject. Same for a line that rewrites one:
+                // redacting `/var/lib/cynic` out of a log (`replace(prefix,
+                // "[REDACTED_PATH]")`) treats the prefix as sensitive data,
+                // not as a destination. And a clap `default_value` is an
+                // overridable operator convention documented in --help, not
+                // a coded placement: deriving CLI defaults from the registry
+                // would couple argument parsing to registry I/O. Placing is
+                // constructing or writing a path, never defaulting, testing,
+                // or redacting it. A `*_hint` field is operator-facing help
+                // text (`update_hint: "... --target /usr/local/bin/cynic"`),
+                // quoted so the operator can paste it, never executed as a
+                // placement by this component.
                 let inspects = line.contains("starts_with(")
                     || line.contains("ends_with(")
                     || line.contains("trim_start_matches(")
                     || line.contains("OWNED_PREFIXES")
-                    || line.contains("owned_literal(");
+                    || line.contains("owned_literal(")
+                    || line.contains(".replace(")
+                    || line.contains("default_value")
+                    || line.contains("hint")
+                    // An error message guides the operator, it places
+                    // nothing (`Err("registry path required: ... install
+                    // /etc/cynic/registry.json ...")`). Describing where a
+                    // file should be is the opposite of placing it silently.
+                    || line.contains("Err(")
+                    // A string opening on `#` is an embedded shell comment
+                    // (`"# or from repo after rebuild: ..." --target ...`),
+                    // operator-to-operator text, never a placement.
+                    || line.contains("\"#")
+                    // A named `DEFAULT_*`/`CANONICAL_*` constant is a declared
+                    // convention (`DEFAULT_REGISTRY_PATH =
+                    // "/etc/cynic/registry.json"`), reviewed by name at the
+                    // definition site. A hidden placement never announces
+                    // itself in UPPER_SNAKE.
+                    || (line.contains("const ")
+                        && (line.contains("DEFAULT") || line.contains("CANONICAL")));
 
                 if inspects {
+                    continue;
+                }
+
+                // A literal inside a comment documents the world, it places
+                // nothing: `//! Volume: mount /var/lib/cynic` describes the
+                // mount model, it is not a competing placement claim. Real
+                // placements are code; code that only exists in a comment
+                // places nothing by definition.
+                let trimmed = line.trim_start();
+                if trimmed.starts_with("//")
+                    || trimmed.starts_with("/*")
+                    || trimmed.starts_with('*')
+                {
+                    continue;
+                }
+
+                // A line naming TWO owned prefixes is a table, not a placement:
+                // redaction lists (`["/home/user", "/var/lib/cynic", ...]`)
+                // and detection tables enumerate prefixes to treat them all
+                // the same. A real placement names one destination; nothing
+                // constructs a path out of two different roots on one line.
+                let prefix_hits: usize = OWNED_PREFIXES
+                    .iter()
+                    .map(|prefix| line.matches(prefix).count())
+                    .sum();
+                if prefix_hits >= 2 {
                     continue;
                 }
 

@@ -125,8 +125,8 @@
       "provider": "systemd",
       "owner": "crates/cynic-host",
       "file_paths": [
-        "infra/systemd/installed/cynic-kernel.service",
-        "infra/systemd/installed/cynic-node.service"
+        "infra/os/systemd/installed/cynic-kernel.service",
+        "infra/os/systemd/installed/cynic-node.service"
       ],
       "signals": [
         "User=cynic",
@@ -159,8 +159,8 @@
       "authority": "non_authoritative_operator_projection",
       "kind": "developer_or_operator_user_unit",
       "file_paths": [
-        "infra/systemd/cynic-kernel.service",
-        "infra/systemd/cynic-node.service"
+        "infra/os/systemd/cynic-kernel.service",
+        "infra/os/systemd/cynic-node.service"
       ],
       "signals": [
         "/home (operator-facing fallback only)",
