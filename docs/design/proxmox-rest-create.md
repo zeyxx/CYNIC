@@ -63,15 +63,14 @@ read_back: {status, onboot}, rollback: {attempted, result}}`
 - Template check is load-bearing, not cosmetic: 2 failures on a template
   name not present in the pool.
 
-## Open question for review
+## Resolved: token ACLs (measured 2026-10-18, pve root)
 
-Token ACL preflight (step 2): `cynic@pve!runtime` reads nodes/resources
-today (observe green). Whether it carries `VM.Allocate` is unmeasured.
-Needed on pve (root): the token's effective permissions
-(`pveum` ACL readout for the token identity). If unreadable without
-exercising, the spec falls back to: attempt create, treat 403 as the
-fail-closed finding (`token_forbidden:<scope>`), never retry, always
-rollback-check (no guest left behind).
+`cynic@pve` carries on `/`: `PVEVMAdmin` + `PVEDatastoreUser` + `PVEAuditor`.
+Token `runtime` has `privsep 0` (full user perms). `VM.Allocate` is covered,
+so the create path is authorized. Step 2 (ACL preflight) stays as a
+fail-closed gate: assert the role set at runtime, block with
+`token_missing_capability` on drift; a 403 at create time is still treated
+as the finding (`token_forbidden`), never retried, always rollback-checked.
 
 ## Non-goals
 
