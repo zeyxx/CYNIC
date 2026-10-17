@@ -1,1017 +1,1038 @@
 {
-  "version": 1,
-  "schema": "cynic.registry.v1.minimal",
-  "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
-  "peer_genesis": {
-    "schema": "cynic.peer_genesis.desired_state.v1",
-    "founder": {
-      "citizen_id": "cit_admin",
-      "name": "Sovereign Operator",
-      "public_key_ed25519": "0000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "offices": [
-      {
-        "office_id": "builder",
-        "title": "Build Runner",
-        "allowed_capabilities": [
-          "cargo_check",
-          "cargo_build",
-          "artifact_install"
-        ],
-        "forbidden_actions": [
-          "unbounded_mutation"
-        ]
-      },
-      {
-        "office_id": "auditor",
-        "title": "Architecture and Security Auditor",
-        "allowed_capabilities": [
-          "read_only_audit",
-          "metrics_evaluation",
-          "proof_verification"
-        ],
-        "forbidden_actions": [
-          "unbounded_mutation"
-        ]
-      },
-      {
-        "office_id": "scheduler",
-        "title": "Workload and Task Scheduler",
-        "allowed_capabilities": [
-          "workload_dispatch",
-          "lease_coordination"
-        ],
-        "forbidden_actions": [
-          "unbounded_mutation"
-        ]
-      },
-      {
-        "office_id": "coordinator",
-        "title": "Mesh and Network Coordinator",
-        "allowed_capabilities": [
-          "preauthkey_generation",
-          "node_revocation"
-        ],
-        "forbidden_actions": [
-          "unbounded_mutation"
-        ]
-      }
+ "version": 1,
+ "schema": "cynic.registry.v1.minimal",
+ "purpose": "Minimal runtime placement registry for the rebuilt low-layer organism.",
+ "peer_genesis": {
+  "schema": "cynic.peer_genesis.desired_state.v1",
+  "founder": {
+   "citizen_id": "cit_admin",
+   "name": "Sovereign Operator",
+   "public_key_ed25519": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "offices": [
+   {
+    "office_id": "builder",
+    "title": "Build Runner",
+    "allowed_capabilities": [
+     "cargo_check",
+     "cargo_build",
+     "artifact_install"
     ],
-    "initial_treasuries": [
-      {
-        "account_id": "treasury_community",
-        "denom": "CYN",
-        "initial_balance": 0
-      }
+    "forbidden_actions": [
+     "unbounded_mutation"
     ]
-  },
-  "provider_control": {
-    "schema": "cynic.provider_control.desired_state.v1",
-    "provider": "proxmox",
-    "endpoint": "https://pve.synapse.cynic:8006",
-    "token_identity": "cynic@pve!runtime",
-    "credential_ref": "/etc/cynic/secrets/proxmox-token",
-    "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
-    "credential_authority_public_key_ref": "/etc/cynic/identity/proxmox-credential-authority.pub"
-  },
-  "release_publication": {
-    "schema": "cynic.release_publication.desired_state.v1",
-    "storage_role": "storage_primary",
-    "service_name": "runtime-artifact-store",
-    "protocol": "generic_https_put_get",
-    "authentication_kind": "bearer_file",
-    "credential_path": "/var/lib/cynic/identity/artifact-store-token",
-    "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
-    "signer_identity": "cynic-release",
-    "signature_namespace": "cynic-runtime-seed"
-  },
-  "storage_registry": {
-    "schema": "cynic.storage_registry.v1",
-    "classes": [
-      {
-        "schema": "cynic.storage_class.v1",
-        "id": "artifact_store",
-        "provider": "proxmox",
-        "management_policy": [
-          "observe",
-          "update"
-        ],
-        "reclaim_policy": "retain",
-        "allow_expansion": true,
-        "allow_shrink": false,
-        "minimum_bytes": 10737418240,
-        "maximum_bytes": 1099511627776
-      },
-      {
-        "schema": "cynic.storage_class.v1",
-        "id": "model_vault",
-        "provider": "local",
-        "management_policy": [
-          "observe",
-          "update"
-        ],
-        "reclaim_policy": "retain",
-        "allow_expansion": true,
-        "allow_shrink": false,
-        "minimum_bytes": 10737418240,
-        "maximum_bytes": 1099511627776
-      },
-      {
-        "schema": "cynic.storage_class.v1",
-        "id": "archive_cold",
-        "provider": "local",
-        "management_policy": [
-          "observe",
-          "update"
-        ],
-        "reclaim_policy": "retain",
-        "allow_expansion": true,
-        "allow_shrink": false,
-        "minimum_bytes": 10737418240,
-        "maximum_bytes": 549755813888
-      }
+   },
+   {
+    "office_id": "auditor",
+    "title": "Architecture and Security Auditor",
+    "allowed_capabilities": [
+     "read_only_audit",
+     "metrics_evaluation",
+     "proof_verification"
     ],
-    "volumes": [
-      {
-        "schema": "cynic.storage_volume.v1",
-        "id": "storage_primary_artifacts",
-        "class_id": "artifact_store",
-        "provider_resource_id": "lxc/103:mp0",
-        "owner": "runtime-artifact-store"
-      },
-      {
-        "schema": "cynic.storage_volume.v1",
-        "id": "host_local_model_vault",
-        "class_id": "model_vault",
-        "provider_resource_id": "host-local:/var/lib/cynic/vault/models",
-        "owner": "cynic-inference"
-      },
-      {
-        "schema": "cynic.storage_volume.v1",
-        "id": "host_local_archive_cold",
-        "class_id": "archive_cold",
-        "provider_resource_id": "host-local:/var/lib/cynic/vault/archive",
-        "owner": "cynic-host"
-      }
-    ],
-    "claims": [
-      {
-        "schema": "cynic.storage_claim.v1",
-        "id": "runtime_artifact_store_claim",
-        "owner": "runtime-artifact-store",
-        "class_id": "artifact_store",
-        "requested_bytes": 8589934592,
-        "mode": "permanent",
-        "expires_at_ms": null
-      },
-      {
-        "schema": "cynic.storage_claim.v1",
-        "id": "model_vault_claim",
-        "owner": "cynic-inference",
-        "class_id": "model_vault",
-        "requested_bytes": 171798691840,
-        "mode": "permanent",
-        "expires_at_ms": null
-      },
-      {
-        "schema": "cynic.storage_claim.v1",
-        "id": "archive_cold_claim",
-        "owner": "cynic-host",
-        "class_id": "archive_cold",
-        "requested_bytes": 34359738368,
-        "mode": "permanent",
-        "expires_at_ms": null
-      }
-    ],
-    "bindings": [
-      {
-        "schema": "cynic.storage_binding.v1",
-        "id": "runtime_artifact_store_binding",
-        "volume_id": "storage_primary_artifacts",
-        "claim_id": "runtime_artifact_store_claim",
-        "mount_path": "/data",
-        "service": "runtime-artifact-store"
-      },
-      {
-        "schema": "cynic.storage_binding.v1",
-        "id": "model_vault_binding",
-        "volume_id": "host_local_model_vault",
-        "claim_id": "model_vault_claim",
-        "mount_path": "/var/lib/cynic/vault/models",
-        "service": "cynic-inference"
-      },
-      {
-        "schema": "cynic.storage_binding.v1",
-        "id": "archive_cold_binding",
-        "volume_id": "host_local_archive_cold",
-        "claim_id": "archive_cold_claim",
-        "mount_path": "/var/lib/cynic/vault/archive",
-        "service": "cynic-host"
-      }
+    "forbidden_actions": [
+     "unbounded_mutation"
     ]
-  },
-  "node_enrollment": {
-    "schema": "cynic.node_enrollment.desired_state.v1",
-    "authority_role": "kernel_primary",
-    "endpoint_service": "cynic-kernel",
-    "credential_delivery": "machine_enrollment_staging",
-    "public_key_delivery": "machine_enrollment_staging",
-    "authority_policy": {
-      "authority_id": "cynic-runtime-machine-enrollment",
-      "token_ttl_s": 900,
-      "renewal_authority_ttl_s": 2592000,
-      "max_grant_ttl_s": 86400,
-      "allowed_roles": [
-        "build_runner"
-      ],
-      "allowed_capabilities": [
-        "node_control",
-        "build_runner",
-        "kernel_to_node_workload_delivery_read_back",
-        "scheduler_claim_renewal",
-        "scheduler_cancellation_delivery",
-        "scheduler_crash_recovery",
-        "node_owned_build_grant_machine_signer",
-        "build_runner_signature_and_live_workload_verifier",
-        "scheduler_to_build_runner_execution_transport",
-        "build_completion_and_artifact_read_back",
-        "node_workspace_observer_wiring_and_proof"
-      ]
-    }
-  },
-  "network_policy": {
-    "canonical_service_plane": "service",
-    "planes": {
-      "service": {
-        "cidr": "10.10.10.0/24",
-        "dns_zone": "service.cynic",
-        "canonical": true
-      },
-      "admin": {
-        "cidr": "192.168.100.0/24",
-        "canonical": false,
-        "purpose": "bare-metal management and hypervisor control"
-      },
-      "mesh": {
-        "cidr": "100.64.0.0/10",
-        "canonical": false,
-        "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
-        "cidr_basis": "rfc6598",
-        "interface": "wg0"
-      }
-    },
-    "reservations": [
-      {
-        "name": "cynic-host-proxmox",
-        "dns": [
-          "cynic-host-proxmox.service.cynic"
-        ],
-        "service": "10.10.10.1",
-        "admin": "192.168.100.1"
-      },
-      {
-        "name": "local-kernel",
-        "dns": [
-          "kernel.service.cynic",
-          "local-kernel.service.cynic"
-        ],
-        "service": "10.10.10.100"
-      },
-      {
-        "name": "cynic-lxc-surrealdb",
-        "dns": [
-          "surrealdb.service.cynic",
-          "cynic-lxc-surrealdb.service.cynic"
-        ],
-        "service": "10.10.10.103"
-      },
-      {
-        "name": "cynic-builder",
-        "dns": [
-          "builder.service.cynic",
-          "cynic-builder.service.cynic"
-        ],
-        "service": "10.10.10.119"
-      },
-      {
-        "name": "forgejo",
-        "dns": [
-          "organ-forgejo.service.cynic",
-          "forgejo.service.cynic"
-        ],
-        "service": "10.10.10.101"
-      },
-      {
-        "name": "cynic-lxc-headscale",
-        "dns": [
-          "headscale.service.cynic",
-          "cynic-lxc-headscale.service.cynic"
-        ],
-        "service": "10.10.10.40"
-      },
-      {
-        "name": "cynic-lxc-embedding",
-        "dns": [
-          "embedding.service.cynic",
-          "cynic-lxc-embedding.service.cynic"
-        ],
-        "service": "10.10.10.106"
-      },
-      {
-        "name": "cynic-agent-host",
-        "dns": [
-          "agent-host.service.cynic",
-          "cynic-agent-host.service.cynic"
-        ],
-        "service": "10.10.10.102"
-      }
+   },
+   {
+    "office_id": "scheduler",
+    "title": "Workload and Task Scheduler",
+    "allowed_capabilities": [
+     "workload_dispatch",
+     "lease_coordination"
+    ],
+    "forbidden_actions": [
+     "unbounded_mutation"
     ]
-  },
-  "nodes": [
-    {
-      "id": "cynic-host-proxmox",
-      "name": "cynic-host-proxmox",
-      "aliases": [
-        "pve"
-      ],
-      "role": "hypervisor",
-      "host_family": "linux.proxmox.systemd",
-      "provider_controls": [
-        "proxmox"
-      ],
-      "status": "observed",
-      "deploy_target": false,
-      "transports": {
-        "ssh": {
-          "target": "proxmox-forge",
-          "trust": "ssh_trust_anchor"
-        }
-      },
-      "network": {
-        "admin": "192.168.100.1",
-        "service": "10.10.10.1"
-      },
-      "services": [],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "cynic-host-cortex",
-      "name": "cynic-host-cortex",
-      "aliases": [
-        "ubuntu"
-      ],
-      "role": "cortex_host",
-      "status": "candidate",
-      "deploy_target": false,
-      "network": {
-        "admin": "192.168.100.2"
-      },
-      "network_links": [
-        {
-          "plane": "admin",
-          "provider": "network-manager",
-          "interface": "enp42s0",
-          "connection": "Connexion filaire 1",
-          "address": "192.168.100.2/24",
-          "gateway": "192.168.100.1",
-          "routes": [
-            "10.10.10.0/24"
-          ],
-          "default_route": false
-        }
-      ],
-      "services": [
-        {
-          "name": "embedding-server",
-          "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
-          "scheme": "http",
-          "endpoint_host": "10.20.0.3",
-          "port": 8081,
-          "network_plane": "service",
-          "unit": "cynic-embedding-cortex.service",
-          "supervisor": {
-            "provider": "systemd-user"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://10.20.0.3:8081/health"
-          },
-          "model": "embeddinggemma-2-Q8_0.gguf",
-          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
-          "memory_guard": "MemoryMax=3G",
-          "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
-          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
-          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=4",
-          "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "local-kernel",
-      "name": "local-kernel",
-      "aliases": [
-        "cynic-kernel-primary",
-        "kernel",
-        "organ-kernel"
-      ],
-      "host_node_id": "cynic-host-cortex",
-      "role": "kernel_primary",
-      "network": {
-        "service": "10.10.10.100"
-      },
-      "status": "candidate",
-      "deploy_target": true,
-      "services": [
-        {
-          "name": "cynic-kernel",
-          "artifact": "cynic-kernel",
-          "scheme": "http",
-          "endpoint_host": "192.168.100.2",
-          "network_plane": "admin",
-          "port": 3030
-        }
-      ]
-    },
-    {
-      "id": "local-builder",
-      "name": "local-builder",
-      "role": null,
-      "status": "stub",
-      "aliases": [
-        "ubuntu"
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      },
-      "note": "Placeholder node — role and placement pending operator definition. Not a deployment target until a role is assigned.",
-      "network": {}
-    },
-    {
-      "id": "cynic-lxc-surrealdb",
-      "name": "cynic-lxc-surrealdb",
-      "aliases": [
-        "cynic-storage-primary",
-        "organ-surrealdb"
-      ],
-      "role": "storage_primary",
-      "host_family": "linux.debian.systemd",
-      "status": "candidate",
-      "deploy_target": true,
-      "proxmox_id": "lxc/103",
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-storage-primary.synapse.cynic",
-          "trust": "ssh_trust_anchor",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "root",
-            "credential_ref": "registry-machine-ssh-identity"
-          }
-        }
-      },
-      "network": {
-        "service": "10.10.10.103"
-      },
-      "services": [
-        {
-          "name": "surrealdb",
-          "artifact": "surreal",
-          "scheme": "http",
-          "port": 8000,
-          "unit": "surrealdb.service",
-          "supervisor": {
-            "provider": "systemd"
-          },
-          "health": {
-            "kind": "http",
-            "path": "/health",
-            "port": 8000
-          },
-          "network_plane": "service"
-        },
-        {
-          "name": "runtime-artifact-store",
-          "artifact": "external-runtime-artifact-store",
-          "install_authority": {
-            "channel": "external",
-            "provenance": "storage_primary_image"
-          },
-          "scheme": "https",
-          "endpoint_host": "cynic-storage-primary.synapse.cynic",
-          "port": 8443,
-          "base_path": "/runtime-releases",
-          "protocol": "generic_https_put_get",
-          "authentication_kind": "bearer_file",
-          "unit": "runtime-artifact-store.service",
-          "supervisor": {
-            "provider": "systemd"
-          },
-          "health": {
-            "kind": "https",
-            "path": "/health",
-            "port": 8443
-          },
-          "network_plane": "service"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "cynic-builder",
-      "name": "cynic-builder",
-      "role": "build_runner",
-      "host_family": "linux.ubuntu.systemd",
-      "status": "candidate",
-      "deploy_target": true,
-      "proxmox_id": "lxc/105",
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-builder-ssh",
-          "trust": "ssh_trust_anchor",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "root",
-            "credential_ref": "registry-machine-ssh-identity"
-          }
-        }
-      },
-      "network": {
-        "service": "10.10.10.119"
-      },
-      "source_workspace_layout": {
-        "repository_store": "source/repositories",
-        "workspace_store": "source/workspaces",
-        "principal": "cynic",
-        "dedicated_worktrees": true,
-        "repositories": [
-          {
-            "id": "cynic",
-            "relative_path": "CYNIC",
-            "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
-          }
-        ],
-        "vcs_provider": {
-          "schema": "cynic.source_lifecycle.v1",
-          "sovereign_ssot": {
-            "kind": "forgejo",
-            "api_url": "http://forgejo.synapse.cynic:3000",
-            "owner": "jeanterre13",
-            "repo": "CYNIC",
-            "token_env": "FORGEJO_TOKEN",
-            "token_file": "/etc/cynic/secrets/forgejo-token"
-          },
-          "relay": {
-            "kind": "github",
-            "api_url": "https://api.github.com",
-            "owner": "zeyxx",
-            "repo": "CYNIC",
-            "token_env": "GITHUB_TOKEN"
-          }
-        }
-      },
-      "build_lifecycle": {
-        "schema": "cynic.build_runner.resource_policy.v1",
-        "minimum_available_bytes": 4294967296,
-        "canonical_target_relative_path": "build-targets/bootstrap",
-        "canonical_cache_reclaim": {
-          "schema": "cynic.build_runner.cache_reclaim_policy.v1",
-          "trigger": "available_bytes_below_minimum",
-          "action": "rust_remove_bounded_profile",
-          "target_profile": "debug",
-          "preserve_profiles": [
-            "release"
-          ],
-          "rollback_intent": "none_reproducible_build_cache_only"
-        },
-        "noncanonical_cache_candidates": [
-          {
-            "base": "temporary_directory",
-            "relative_path": "cynic-cargo-targets"
-          },
-          {
-            "base": "state_root",
-            "relative_path": "source/repositories/CYNIC/target"
-          }
-        ],
-        "ephemeral_retention": {
-          "schema": "cynic.build_runner.ephemeral_retention.v1",
-          "max_age_ms": 604800000,
-          "pressure_grace_ms": 3600000,
-          "scopes": [
-            {
-              "base": "state_root",
-              "relative_path": "checkouts",
-              "kind": "evidence_checkout"
-            },
-            {
-              "base": "state_root",
-              "relative_path": "source/workspaces",
-              "kind": "workload_workspace",
-              "workload_store_relative_path": "source/workspaces"
-            }
-          ]
-        },
-        "bootstrap_containment": {
-          "schema": "cynic.build_runner.bootstrap_containment.v1",
-          "authority_class": "MachineEnrollment",
-          "adapter": "ssh_machine_enrollment",
-          "scope": "n_minus_one_seed_only",
-          "entrypoint": "cynic-host-exec build-runner-bootstrap",
-          "removal_requires": [
-            "node_substrate_provisioning_read_back",
-            "source_snapshot_transport_read_back",
-            "durable_workload_delivery_read_back",
-            "machine_enrollment_without_operator_transport",
-            "canonical_build_completion_read_back"
-          ]
-        }
-      },
-      "services": [
-        {
-          "name": "cynic-node",
-          "artifact": "cynic-node",
-          "scheme": "http",
-          "endpoint_host": "10.10.10.119",
-          "port": 9090,
-          "network_plane": "service",
-          "unit": "cynic-node.service",
-          "supervisor": {
-            "provider": "systemd"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://10.10.10.119:9090/health"
-          }
-        }
-      ],
-      "energy_profile": {
-        "class": "burst"
-      }
-    },
-    {
-      "id": "cynic-lxc-embedding",
-      "name": "cynic-lxc-embedding",
-      "role": "embedding_runner",
-      "host_family": "linux.debian.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "proxmox_id": "lxc/106",
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-builder-ssh",
-          "trust": "ssh_trust_anchor",
-          "principal": "root",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "root",
-            "credential_ref": "registry-machine-ssh-identity"
-          }
-        }
-      },
-      "network": {
-        "service": "10.10.10.106"
-      },
-      "services": [
-        {
-          "name": "embedding-server",
-          "artifact": "llama-server",
-          "scheme": "http",
-          "endpoint_host": "10.10.10.106",
-          "port": 8080,
-          "network_plane": "service",
-          "unit": "llama-server-embedding.service",
-          "supervisor": {
-            "provider": "systemd"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://10.10.10.106:8080/health"
-          },
-          "exclusion": {
-            "status": "excluded",
-            "since": "2026-10-15",
-            "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
-            "reentry": "admin access restored plus ceiling measured via the 1101-token probe, then bench_endpoint assigned",
-            "note": "no bench_endpoint key by design: excluded runners never join the cluster"
-          }
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "cynic-laptop-ax16pro",
-      "name": "cynic-laptop-ax16pro",
-      "aliases": [
-        "ax16pro",
-        "elitebook"
-      ],
-      "role": "workstation_portable",
-      "host_family": "windows-service",
-      "status": "observed",
-      "deploy_target": false,
-      "boot_persistence": false,
-      "energy_profile": {
-        "class": "portable_intermittent"
-      },
-      "transports": {
-        "ssh": {
-          "target": "cynic-laptop",
-          "trust": "ssh_trust_anchor",
-          "principal": "titouan",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "titouan",
-            "credential_ref": "laptop-ssh-authority"
-          },
-          "note": "OpenSSH for Windows 9.5 on 192.168.0.88, reverse DNS ax16pro.home. The account is a member of administrators, so sshd reads C:/ProgramData/ssh/administrators_authorized_keys under the Match Group administrators block and never reads the userprofile .ssh/authorized_keys. Enrolled 2026-10-07 by key cynic-laptop-authority."
-        }
-      },
-      "network": {
-        "lan": "192.168.0.88"
-      },
-      "observed_hardware": {
-        "manufacturer": "HP",
-        "model": "HP EliteBook 840 G3",
-        "system_family": "103C_5336AN HP EliteBook",
-        "cpu": "Intel Core i5-6300U, 2 cores, 4 logical",
-        "operating_system": "Microsoft Windows 11 Famille",
-        "storage": "1 disk, MasonSemi SSD, NVMe, 476.94 GB, GPT, Healthy, 41C",
-        "free_sata_controller": "Standard SATA AHCI Controller PCI VEN_8086 DEV_9D03 Status OK with zero disks attached, so an unused SATA port exists on this machine"
-      },
-      "storage_verification": {
-        "schema": "cynic.storage_write_verification.v1",
-        "performed_at_utc": "2026-10-07T13:20:00Z",
-        "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
-        "written_bytes": 2147483648,
-        "passes": [
-          { "pass": 1, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 },
-          { "pass": 2, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 }
-        ],
-        "verdict": "passed: the device stores and returns written data faithfully",
-        "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
-        "residual_unknown": "Endurance under sustained multi-hour load is not measured. Two passes over 2 GiB prove the device writes and reads correctly, not that it sustains 477 GB of daily use."
-      },
-      "services": []
-    },
-    {
-      "id": "cynic-agent-host",
-      "name": "cynic-agent-host",
-      "aliases": [
-        "agent-host"
-      ],
-      "role": "agent_host",
-      "host_family": "linux.ubuntu.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "proxmox_id": "lxc/102",
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-agent-host.synapse.cynic",
-          "trust": "ssh_trust_anchor"
-        }
-      },
-      "network": {
-        "service": "10.10.10.102"
-      },
-      "services": [],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "forgejo",
-      "name": "forgejo",
-      "aliases": [
-        "organ-forgejo",
-        "cynic-lxc-git"
-      ],
-      "role": "forge_primary",
-      "status": "candidate",
-      "deploy_target": true,
-      "proxmox_id": "lxc/101",
-      "boot_persistence": true,
-      "network": {
-        "local": "10.10.10.101",
-        "service": "10.10.10.101"
-      },
-      "services": [
-        {
-          "name": "forgejo-backend",
-          "scheme": "http",
-          "port": 3000,
-          "network_plane": "service"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      },
-      "transports": {
-        "ssh": {
-          "target": "forgejo.synapse.cynic",
-          "port": 22,
-          "principal": "forgejo",
-          "trust": "ssh_trust_anchor",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "forgejo",
-            "credential_ref": "registry-machine-ssh-identity"
-          },
-          "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.synapse.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, …); this target is the canonical one and the aliases are deliberately not copied here."
-        }
-      }
-    },
-    {
-      "id": "cynic-lxc-headscale",
-      "name": "cynic-lxc-headscale",
-      "aliases": [
-        "headscale",
-        "organ-headscale"
-      ],
-      "role": "mesh_coordinator",
-      "host_family": "linux.debian.systemd",
-      "status": "candidate",
-      "deploy_target": true,
-      "proxmox_id": "lxc/100",
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "headscale.synapse.cynic",
-          "trust": "ssh_trust_anchor"
-        }
-      },
-      "network": {
-        "service": "10.10.10.40"
-      },
-      "services": [
-        {
-          "name": "headscale",
-          "scheme": "http",
-          "port": 8080,
-          "status": "planned",
-          "network_plane": "service"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    },
-    {
-      "id": "cynic-compute-01",
-      "name": "cynic-compute-01",
-      "aliases": [
-        "compute-01",
-        "trixie-apu"
-      ],
-      "role": "embedding_runner",
-      "host_family": "linux.debian.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
-          "trust": "ssh_trust_anchor",
-          "principal": "titouan"
-        }
-      },
-      "network": {
-        "lan": "192.168.0.25",
-        "service": "192.168.0.25"
-      },
-      "observed_hardware": {
-        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
-        "operating_system": "Debian GNU/Linux 13 (trixie)",
-        "ram": "16 GB",
-        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
-      },
-      "services": [
-        {
-          "name": "embedding-server",
-          "artifact": "llama-server",
-          "scheme": "http",
-          "endpoint_host": "192.168.0.25",
-          "port": 8080,
-          "network_plane": "lan",
-          "unit": "cynic-embedding-node.service",
-          "supervisor": {
-            "provider": "systemd-user"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://192.168.0.25:8080/health"
-          },
-          "model": "embeddinggemma-2-Q8_0.gguf",
-          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
-          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
-          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
-          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      }
-    }
+   },
+   {
+    "office_id": "coordinator",
+    "title": "Mesh and Network Coordinator",
+    "allowed_capabilities": [
+     "preauthkey_generation",
+     "node_revocation"
+    ],
+    "forbidden_actions": [
+     "unbounded_mutation"
+    ]
+   }
   ],
-  "fleet_desired": {
-    "targets": [
-      {
-        "id": "cynic-builder",
-        "provider": "proxmox",
-        "resource_id": "lxc/105",
-        "role": "build_runner",
-        "desired_power": "running"
-      }
-    ]
-  },
-  "lifecycle": {
-    "kernel_release": {
-      "build_runner_role": "build_runner",
-      "deploy_target_role": "kernel_primary",
-      "host_bootstrap": {
-        "role_profiles": {
-          "kernel_primary": {
-            "target_stage": "h6_host_actionable",
-            "required_domains": [
-              "host",
-              "services",
-              "storage",
-              "kernel"
-            ],
-            "required_proof": [
-              "host_identity_observed",
-              "host_bootstrap_target_satisfied",
-              "kernel_service_observed",
-              "storage_health_observed"
-            ]
-          },
-          "build_runner": {
-            "target_stage": "h4_privilege_helpers_ready",
-            "required_domains": [
-              "host",
-              "toolchain",
-              "build"
-            ],
-            "required_proof": [
-              "host_identity_observed",
-              "host_bootstrap_target_satisfied",
-              "cargo_check_observed",
-              "binary_build_observed",
-              "build_resource_preflight_read_back",
-              "runtime_marker_read_back",
-              "node_control_config_read_back",
-              "node_service_active_read_back",
-              "bootstrap_completion_read_back"
-            ]
-          },
-          "storage_primary": {
-            "target_stage": "h5_services_projected",
-            "required_domains": [
-              "host",
-              "storage"
-            ],
-            "required_proof": [
-              "host_identity_observed",
-              "host_bootstrap_target_satisfied",
-              "storage_health_observed"
-            ]
-          },
-          "forge_primary": {
-            "target_stage": "h5_services_projected",
-            "required_domains": [
-              "host",
-              "services",
-              "network",
-              "forge"
-            ],
-            "required_proof": [
-              "host_identity_observed",
-              "host_bootstrap_target_satisfied",
-              "forgejo_backend_observed",
-              "forgejo_tls_identity_observed"
-            ]
-          }
-        }
-      },
-      "runtime_artifacts": [
-        "cynic",
-        "cynic-kernel",
-        "cynic-lxc-exec-bridge",
-        "cynic-mcp",
-        "cynic-node"
-      ]
-    }
+  "initial_treasuries": [
+   {
+    "account_id": "treasury_community",
+    "denom": "CYN",
+    "initial_balance": 0
+   }
+  ]
+ },
+ "provider_control": {
+  "schema": "cynic.provider_control.desired_state.v1",
+  "provider": "proxmox",
+  "endpoint": "https://pve.synapse.cynic:8006",
+  "token_identity": "cynic@pve!runtime",
+  "credential_ref": "/etc/cynic/secrets/proxmox-token",
+  "credential_lease_metadata_ref": "/etc/cynic/identity/proxmox-credential-lease.json",
+  "credential_authority_public_key_ref": "/etc/cynic/identity/proxmox-credential-authority.pub"
+ },
+ "release_publication": {
+  "schema": "cynic.release_publication.desired_state.v1",
+  "storage_role": "storage_primary",
+  "service_name": "runtime-artifact-store",
+  "protocol": "generic_https_put_get",
+  "authentication_kind": "bearer_file",
+  "credential_path": "/var/lib/cynic/identity/artifact-store-token",
+  "signing_key_path": "/var/lib/cynic/identity/release-signing-key",
+  "signer_identity": "cynic-release",
+  "signature_namespace": "cynic-runtime-seed"
+ },
+ "storage_registry": {
+  "schema": "cynic.storage_registry.v1",
+  "classes": [
+   {
+    "schema": "cynic.storage_class.v1",
+    "id": "artifact_store",
+    "provider": "proxmox",
+    "management_policy": [
+     "observe",
+     "update"
+    ],
+    "reclaim_policy": "retain",
+    "allow_expansion": true,
+    "allow_shrink": false,
+    "minimum_bytes": 10737418240,
+    "maximum_bytes": 1099511627776
+   },
+   {
+    "schema": "cynic.storage_class.v1",
+    "id": "model_vault",
+    "provider": "local",
+    "management_policy": [
+     "observe",
+     "update"
+    ],
+    "reclaim_policy": "retain",
+    "allow_expansion": true,
+    "allow_shrink": false,
+    "minimum_bytes": 10737418240,
+    "maximum_bytes": 1099511627776
+   },
+   {
+    "schema": "cynic.storage_class.v1",
+    "id": "archive_cold",
+    "provider": "local",
+    "management_policy": [
+     "observe",
+     "update"
+    ],
+    "reclaim_policy": "retain",
+    "allow_expansion": true,
+    "allow_shrink": false,
+    "minimum_bytes": 10737418240,
+    "maximum_bytes": 549755813888
+   }
+  ],
+  "volumes": [
+   {
+    "schema": "cynic.storage_volume.v1",
+    "id": "storage_primary_artifacts",
+    "class_id": "artifact_store",
+    "provider_resource_id": "lxc/103:mp0",
+    "owner": "runtime-artifact-store"
+   },
+   {
+    "schema": "cynic.storage_volume.v1",
+    "id": "host_local_model_vault",
+    "class_id": "model_vault",
+    "provider_resource_id": "host-local:/var/lib/cynic/vault/models",
+    "owner": "cynic-inference"
+   },
+   {
+    "schema": "cynic.storage_volume.v1",
+    "id": "host_local_archive_cold",
+    "class_id": "archive_cold",
+    "provider_resource_id": "host-local:/var/lib/cynic/vault/archive",
+    "owner": "cynic-host"
+   }
+  ],
+  "claims": [
+   {
+    "schema": "cynic.storage_claim.v1",
+    "id": "runtime_artifact_store_claim",
+    "owner": "runtime-artifact-store",
+    "class_id": "artifact_store",
+    "requested_bytes": 8589934592,
+    "mode": "permanent",
+    "expires_at_ms": null
+   },
+   {
+    "schema": "cynic.storage_claim.v1",
+    "id": "model_vault_claim",
+    "owner": "cynic-inference",
+    "class_id": "model_vault",
+    "requested_bytes": 171798691840,
+    "mode": "permanent",
+    "expires_at_ms": null
+   },
+   {
+    "schema": "cynic.storage_claim.v1",
+    "id": "archive_cold_claim",
+    "owner": "cynic-host",
+    "class_id": "archive_cold",
+    "requested_bytes": 34359738368,
+    "mode": "permanent",
+    "expires_at_ms": null
+   }
+  ],
+  "bindings": [
+   {
+    "schema": "cynic.storage_binding.v1",
+    "id": "runtime_artifact_store_binding",
+    "volume_id": "storage_primary_artifacts",
+    "claim_id": "runtime_artifact_store_claim",
+    "mount_path": "/data",
+    "service": "runtime-artifact-store"
+   },
+   {
+    "schema": "cynic.storage_binding.v1",
+    "id": "model_vault_binding",
+    "volume_id": "host_local_model_vault",
+    "claim_id": "model_vault_claim",
+    "mount_path": "/var/lib/cynic/vault/models",
+    "service": "cynic-inference"
+   },
+   {
+    "schema": "cynic.storage_binding.v1",
+    "id": "archive_cold_binding",
+    "volume_id": "host_local_archive_cold",
+    "claim_id": "archive_cold_claim",
+    "mount_path": "/var/lib/cynic/vault/archive",
+    "service": "cynic-host"
+   }
+  ]
+ },
+ "node_enrollment": {
+  "schema": "cynic.node_enrollment.desired_state.v1",
+  "authority_role": "kernel_primary",
+  "endpoint_service": "cynic-kernel",
+  "credential_delivery": "machine_enrollment_staging",
+  "public_key_delivery": "machine_enrollment_staging",
+  "authority_policy": {
+   "authority_id": "cynic-runtime-machine-enrollment",
+   "token_ttl_s": 900,
+   "renewal_authority_ttl_s": 2592000,
+   "max_grant_ttl_s": 86400,
+   "allowed_roles": [
+    "build_runner"
+   ],
+   "allowed_capabilities": [
+    "node_control",
+    "build_runner",
+    "kernel_to_node_workload_delivery_read_back",
+    "scheduler_claim_renewal",
+    "scheduler_cancellation_delivery",
+    "scheduler_crash_recovery",
+    "node_owned_build_grant_machine_signer",
+    "build_runner_signature_and_live_workload_verifier",
+    "scheduler_to_build_runner_execution_transport",
+    "build_completion_and_artifact_read_back",
+    "node_workspace_observer_wiring_and_proof"
+   ]
   }
+ },
+ "network_policy": {
+  "canonical_service_plane": "service",
+  "planes": {
+   "service": {
+    "cidr": "10.10.10.0/24",
+    "dns_zone": "service.cynic",
+    "canonical": true
+   },
+   "admin": {
+    "cidr": "192.168.100.0/24",
+    "canonical": false,
+    "purpose": "bare-metal management and hypervisor control"
+   },
+   "lan": {
+    "cidr": "192.168.0.0/24",
+    "canonical": false,
+    "purpose": "site LAN (DHCP); compute nodes without service-plane address"
+   },
+   "mesh": {
+    "cidr": "100.64.0.0/10",
+    "canonical": false,
+    "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
+    "cidr_basis": "rfc6598",
+    "interface": "wg0"
+   }
+  },
+  "reservations": [
+   {
+    "name": "cynic-host-proxmox",
+    "dns": [
+     "cynic-host-proxmox.service.cynic"
+    ],
+    "service": "10.10.10.1",
+    "admin": "192.168.100.1"
+   },
+   {
+    "name": "local-kernel",
+    "dns": [
+     "kernel.service.cynic",
+     "local-kernel.service.cynic"
+    ],
+    "service": "10.10.10.100"
+   },
+   {
+    "name": "cynic-lxc-surrealdb",
+    "dns": [
+     "surrealdb.service.cynic",
+     "cynic-lxc-surrealdb.service.cynic"
+    ],
+    "service": "10.10.10.103"
+   },
+   {
+    "name": "cynic-builder",
+    "dns": [
+     "builder.service.cynic",
+     "cynic-builder.service.cynic"
+    ],
+    "service": "10.10.10.119"
+   },
+   {
+    "name": "forgejo",
+    "dns": [
+     "organ-forgejo.service.cynic",
+     "forgejo.service.cynic"
+    ],
+    "service": "10.10.10.101"
+   },
+   {
+    "name": "cynic-lxc-headscale",
+    "dns": [
+     "headscale.service.cynic",
+     "cynic-lxc-headscale.service.cynic"
+    ],
+    "service": "10.10.10.40"
+   },
+   {
+    "name": "cynic-lxc-embedding",
+    "dns": [
+     "embedding.service.cynic",
+     "cynic-lxc-embedding.service.cynic"
+    ],
+    "service": "10.10.10.106"
+   },
+   {
+    "name": "cynic-agent-host",
+    "dns": [
+     "agent-host.service.cynic",
+     "cynic-agent-host.service.cynic"
+    ],
+    "service": "10.10.10.102"
+   },
+   {
+    "name": "cynic-compute-01",
+    "addresses": {
+     "lan": "192.168.0.25"
+    }
+   }
+  ]
+ },
+ "nodes": [
+  {
+   "id": "cynic-host-proxmox",
+   "name": "cynic-host-proxmox",
+   "aliases": [
+    "pve"
+   ],
+   "role": "hypervisor",
+   "host_family": "linux.proxmox.systemd",
+   "provider_controls": [
+    "proxmox"
+   ],
+   "status": "observed",
+   "deploy_target": false,
+   "transports": {
+    "ssh": {
+     "target": "proxmox-forge",
+     "trust": "ssh_trust_anchor"
+    }
+   },
+   "network": {
+    "admin": "192.168.100.1",
+    "service": "10.10.10.1"
+   },
+   "services": [],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "cynic-host-cortex",
+   "name": "cynic-host-cortex",
+   "aliases": [
+    "ubuntu"
+   ],
+   "role": "cortex_host",
+   "status": "candidate",
+   "deploy_target": false,
+   "network": {
+    "admin": "192.168.100.2"
+   },
+   "network_links": [
+    {
+     "plane": "admin",
+     "provider": "network-manager",
+     "interface": "enp42s0",
+     "connection": "Connexion filaire 1",
+     "address": "192.168.100.2/24",
+     "gateway": "192.168.100.1",
+     "routes": [
+      "10.10.10.0/24"
+     ],
+     "default_route": false
+    }
+   ],
+   "services": [
+    {
+     "name": "embedding-server",
+     "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
+     "scheme": "http",
+     "endpoint_host": "10.20.0.3",
+     "port": 8081,
+     "network_plane": "service",
+     "unit": "cynic-embedding-cortex.service",
+     "supervisor": {
+      "provider": "systemd-user"
+     },
+     "health": {
+      "kind": "http",
+      "url": "http://10.20.0.3:8081/health"
+     },
+     "model": "embeddinggemma-2-Q8_0.gguf",
+     "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
+     "memory_guard": "MemoryMax=3G",
+     "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
+     "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+     "bench_endpoint": "http://127.0.0.1:8081/v1#slots=4",
+     "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "local-kernel",
+   "name": "local-kernel",
+   "aliases": [
+    "cynic-kernel-primary",
+    "kernel",
+    "organ-kernel"
+   ],
+   "host_node_id": "cynic-host-cortex",
+   "role": "kernel_primary",
+   "network": {
+    "service": "10.10.10.100"
+   },
+   "status": "candidate",
+   "deploy_target": true,
+   "services": [
+    {
+     "name": "cynic-kernel",
+     "artifact": "cynic-kernel",
+     "scheme": "http",
+     "endpoint_host": "192.168.100.2",
+     "network_plane": "admin",
+     "port": 3030
+    }
+   ]
+  },
+  {
+   "id": "local-builder",
+   "name": "local-builder",
+   "role": null,
+   "status": "stub",
+   "aliases": [
+    "ubuntu"
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   },
+   "note": "Placeholder node \u2014 role and placement pending operator definition. Not a deployment target until a role is assigned.",
+   "network": {}
+  },
+  {
+   "id": "cynic-lxc-surrealdb",
+   "name": "cynic-lxc-surrealdb",
+   "aliases": [
+    "cynic-storage-primary",
+    "organ-surrealdb"
+   ],
+   "role": "storage_primary",
+   "host_family": "linux.debian.systemd",
+   "status": "candidate",
+   "deploy_target": true,
+   "proxmox_id": "lxc/103",
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "cynic-storage-primary.synapse.cynic",
+     "trust": "ssh_trust_anchor",
+     "enrollment_authority": {
+      "class": "machine_enrollment",
+      "principal": "root",
+      "credential_ref": "registry-machine-ssh-identity"
+     }
+    }
+   },
+   "network": {
+    "service": "10.10.10.103"
+   },
+   "services": [
+    {
+     "name": "surrealdb",
+     "artifact": "surreal",
+     "scheme": "http",
+     "port": 8000,
+     "unit": "surrealdb.service",
+     "supervisor": {
+      "provider": "systemd"
+     },
+     "health": {
+      "kind": "http",
+      "path": "/health",
+      "port": 8000
+     },
+     "network_plane": "service"
+    },
+    {
+     "name": "runtime-artifact-store",
+     "artifact": "external-runtime-artifact-store",
+     "install_authority": {
+      "channel": "external",
+      "provenance": "storage_primary_image"
+     },
+     "scheme": "https",
+     "endpoint_host": "cynic-storage-primary.synapse.cynic",
+     "port": 8443,
+     "base_path": "/runtime-releases",
+     "protocol": "generic_https_put_get",
+     "authentication_kind": "bearer_file",
+     "unit": "runtime-artifact-store.service",
+     "supervisor": {
+      "provider": "systemd"
+     },
+     "health": {
+      "kind": "https",
+      "path": "/health",
+      "port": 8443
+     },
+     "network_plane": "service"
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "cynic-builder",
+   "name": "cynic-builder",
+   "role": "build_runner",
+   "host_family": "linux.ubuntu.systemd",
+   "status": "candidate",
+   "deploy_target": true,
+   "proxmox_id": "lxc/105",
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "cynic-builder-ssh",
+     "trust": "ssh_trust_anchor",
+     "enrollment_authority": {
+      "class": "machine_enrollment",
+      "principal": "root",
+      "credential_ref": "registry-machine-ssh-identity"
+     }
+    }
+   },
+   "network": {
+    "service": "10.10.10.119"
+   },
+   "source_workspace_layout": {
+    "repository_store": "source/repositories",
+    "workspace_store": "source/workspaces",
+    "principal": "cynic",
+    "dedicated_worktrees": true,
+    "repositories": [
+     {
+      "id": "cynic",
+      "relative_path": "CYNIC",
+      "transport_uri": "ssh://forgejo@forgejo.synapse.cynic:22/jeanterre13/CYNIC.git"
+     }
+    ],
+    "vcs_provider": {
+     "schema": "cynic.source_lifecycle.v1",
+     "sovereign_ssot": {
+      "kind": "forgejo",
+      "api_url": "http://forgejo.synapse.cynic:3000",
+      "owner": "jeanterre13",
+      "repo": "CYNIC",
+      "token_env": "FORGEJO_TOKEN",
+      "token_file": "/etc/cynic/secrets/forgejo-token"
+     },
+     "relay": {
+      "kind": "github",
+      "api_url": "https://api.github.com",
+      "owner": "zeyxx",
+      "repo": "CYNIC",
+      "token_env": "GITHUB_TOKEN"
+     }
+    }
+   },
+   "build_lifecycle": {
+    "schema": "cynic.build_runner.resource_policy.v1",
+    "minimum_available_bytes": 4294967296,
+    "canonical_target_relative_path": "build-targets/bootstrap",
+    "canonical_cache_reclaim": {
+     "schema": "cynic.build_runner.cache_reclaim_policy.v1",
+     "trigger": "available_bytes_below_minimum",
+     "action": "rust_remove_bounded_profile",
+     "target_profile": "debug",
+     "preserve_profiles": [
+      "release"
+     ],
+     "rollback_intent": "none_reproducible_build_cache_only"
+    },
+    "noncanonical_cache_candidates": [
+     {
+      "base": "temporary_directory",
+      "relative_path": "cynic-cargo-targets"
+     },
+     {
+      "base": "state_root",
+      "relative_path": "source/repositories/CYNIC/target"
+     }
+    ],
+    "ephemeral_retention": {
+     "schema": "cynic.build_runner.ephemeral_retention.v1",
+     "max_age_ms": 604800000,
+     "pressure_grace_ms": 3600000,
+     "scopes": [
+      {
+       "base": "state_root",
+       "relative_path": "checkouts",
+       "kind": "evidence_checkout"
+      },
+      {
+       "base": "state_root",
+       "relative_path": "source/workspaces",
+       "kind": "workload_workspace",
+       "workload_store_relative_path": "source/workspaces"
+      }
+     ]
+    },
+    "bootstrap_containment": {
+     "schema": "cynic.build_runner.bootstrap_containment.v1",
+     "authority_class": "MachineEnrollment",
+     "adapter": "ssh_machine_enrollment",
+     "scope": "n_minus_one_seed_only",
+     "entrypoint": "cynic-host-exec build-runner-bootstrap",
+     "removal_requires": [
+      "node_substrate_provisioning_read_back",
+      "source_snapshot_transport_read_back",
+      "durable_workload_delivery_read_back",
+      "machine_enrollment_without_operator_transport",
+      "canonical_build_completion_read_back"
+     ]
+    }
+   },
+   "services": [
+    {
+     "name": "cynic-node",
+     "artifact": "cynic-node",
+     "scheme": "http",
+     "endpoint_host": "10.10.10.119",
+     "port": 9090,
+     "network_plane": "service",
+     "unit": "cynic-node.service",
+     "supervisor": {
+      "provider": "systemd"
+     },
+     "health": {
+      "kind": "http",
+      "url": "http://10.10.10.119:9090/health"
+     }
+    }
+   ],
+   "energy_profile": {
+    "class": "burst"
+   }
+  },
+  {
+   "id": "cynic-lxc-embedding",
+   "name": "cynic-lxc-embedding",
+   "role": "embedding_runner",
+   "host_family": "linux.debian.systemd",
+   "status": "observed",
+   "deploy_target": true,
+   "proxmox_id": "lxc/106",
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "cynic-builder-ssh",
+     "trust": "ssh_trust_anchor",
+     "principal": "root",
+     "enrollment_authority": {
+      "class": "machine_enrollment",
+      "principal": "root",
+      "credential_ref": "registry-machine-ssh-identity"
+     }
+    }
+   },
+   "network": {
+    "service": "10.10.10.106"
+   },
+   "services": [
+    {
+     "name": "embedding-server",
+     "artifact": "llama-server",
+     "scheme": "http",
+     "endpoint_host": "10.10.10.106",
+     "port": 8080,
+     "network_plane": "service",
+     "unit": "llama-server-embedding.service",
+     "supervisor": {
+      "provider": "systemd"
+     },
+     "health": {
+      "kind": "http",
+      "url": "http://10.10.10.106:8080/health"
+     },
+     "exclusion": {
+      "status": "excluded",
+      "since": "2026-10-15",
+      "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
+      "reentry": "admin access restored plus ceiling measured via the 1101-token probe, then bench_endpoint assigned",
+      "note": "no bench_endpoint key by design: excluded runners never join the cluster"
+     }
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "cynic-laptop-ax16pro",
+   "name": "cynic-laptop-ax16pro",
+   "aliases": [
+    "ax16pro",
+    "elitebook"
+   ],
+   "role": "workstation_portable",
+   "host_family": "windows-service",
+   "status": "observed",
+   "deploy_target": false,
+   "boot_persistence": false,
+   "energy_profile": {
+    "class": "portable_intermittent"
+   },
+   "transports": {
+    "ssh": {
+     "target": "cynic-laptop",
+     "trust": "ssh_trust_anchor",
+     "principal": "titouan",
+     "enrollment_authority": {
+      "class": "machine_enrollment",
+      "principal": "titouan",
+      "credential_ref": "laptop-ssh-authority"
+     },
+     "note": "OpenSSH for Windows 9.5 on 192.168.0.88, reverse DNS ax16pro.home. The account is a member of administrators, so sshd reads C:/ProgramData/ssh/administrators_authorized_keys under the Match Group administrators block and never reads the userprofile .ssh/authorized_keys. Enrolled 2026-10-07 by key cynic-laptop-authority."
+    }
+   },
+   "network": {
+    "lan": "192.168.0.88"
+   },
+   "observed_hardware": {
+    "manufacturer": "HP",
+    "model": "HP EliteBook 840 G3",
+    "system_family": "103C_5336AN HP EliteBook",
+    "cpu": "Intel Core i5-6300U, 2 cores, 4 logical",
+    "operating_system": "Microsoft Windows 11 Famille",
+    "storage": "1 disk, MasonSemi SSD, NVMe, 476.94 GB, GPT, Healthy, 41C",
+    "free_sata_controller": "Standard SATA AHCI Controller PCI VEN_8086 DEV_9D03 Status OK with zero disks attached, so an unused SATA port exists on this machine"
+   },
+   "storage_verification": {
+    "schema": "cynic.storage_write_verification.v1",
+    "performed_at_utc": "2026-10-07T13:20:00Z",
+    "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
+    "written_bytes": 2147483648,
+    "passes": [
+     {
+      "pass": 1,
+      "bytes_read": 2147483648,
+      "mismatches": 0,
+      "read_errors": 0
+     },
+     {
+      "pass": 2,
+      "bytes_read": 2147483648,
+      "mismatches": 0,
+      "read_errors": 0
+     }
+    ],
+    "verdict": "passed: the device stores and returns written data faithfully",
+    "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
+    "residual_unknown": "Endurance under sustained multi-hour load is not measured. Two passes over 2 GiB prove the device writes and reads correctly, not that it sustains 477 GB of daily use."
+   },
+   "services": []
+  },
+  {
+   "id": "cynic-agent-host",
+   "name": "cynic-agent-host",
+   "aliases": [
+    "agent-host"
+   ],
+   "role": "agent_host",
+   "host_family": "linux.ubuntu.systemd",
+   "status": "observed",
+   "deploy_target": true,
+   "proxmox_id": "lxc/102",
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "cynic-agent-host.synapse.cynic",
+     "trust": "ssh_trust_anchor"
+    }
+   },
+   "network": {
+    "service": "10.10.10.102"
+   },
+   "services": [],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "forgejo",
+   "name": "forgejo",
+   "aliases": [
+    "organ-forgejo",
+    "cynic-lxc-git"
+   ],
+   "role": "forge_primary",
+   "status": "candidate",
+   "deploy_target": true,
+   "proxmox_id": "lxc/101",
+   "boot_persistence": true,
+   "network": {
+    "local": "10.10.10.101",
+    "service": "10.10.10.101"
+   },
+   "services": [
+    {
+     "name": "forgejo-backend",
+     "scheme": "http",
+     "port": 3000,
+     "network_plane": "service"
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   },
+   "transports": {
+    "ssh": {
+     "target": "forgejo.synapse.cynic",
+     "port": 22,
+     "principal": "forgejo",
+     "trust": "ssh_trust_anchor",
+     "enrollment_authority": {
+      "class": "machine_enrollment",
+      "principal": "forgejo",
+      "credential_ref": "registry-machine-ssh-identity"
+     },
+     "note": "The SSH principal is `forgejo`, not `git`. Verified 2026-09-28: `git@` is refused while `forgejo@` is accepted, so the repository transport is ssh://forgejo@forgejo.synapse.cynic:22/<owner>/<repo>.git. The host also answers to eleven DNS aliases (organ-forgejo, cynic-lxc-git, \u2026); this target is the canonical one and the aliases are deliberately not copied here."
+    }
+   }
+  },
+  {
+   "id": "cynic-lxc-headscale",
+   "name": "cynic-lxc-headscale",
+   "aliases": [
+    "headscale",
+    "organ-headscale"
+   ],
+   "role": "mesh_coordinator",
+   "host_family": "linux.debian.systemd",
+   "status": "candidate",
+   "deploy_target": true,
+   "proxmox_id": "lxc/100",
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "headscale.synapse.cynic",
+     "trust": "ssh_trust_anchor"
+    }
+   },
+   "network": {
+    "service": "10.10.10.40"
+   },
+   "services": [
+    {
+     "name": "headscale",
+     "scheme": "http",
+     "port": 8080,
+     "status": "planned",
+     "network_plane": "service"
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  },
+  {
+   "id": "cynic-compute-01",
+   "name": "cynic-compute-01",
+   "aliases": [
+    "compute-01",
+    "trixie-apu"
+   ],
+   "role": "embedding_runner",
+   "host_family": "linux.debian.systemd",
+   "status": "observed",
+   "deploy_target": true,
+   "boot_persistence": true,
+   "transports": {
+    "ssh": {
+     "target": "cynic-compute-01.mgmt.cynic.home.arpa",
+     "trust": "ssh_trust_anchor",
+     "principal": "titouan"
+    }
+   },
+   "network": {
+    "lan": "192.168.0.25",
+    "service": "192.168.0.25"
+   },
+   "observed_hardware": {
+    "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+    "operating_system": "Debian GNU/Linux 13 (trixie)",
+    "ram": "16 GB",
+    "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+   },
+   "services": [
+    {
+     "name": "embedding-server",
+     "artifact": "llama-server",
+     "scheme": "http",
+     "endpoint_host": "192.168.0.25",
+     "port": 8080,
+     "network_plane": "lan",
+     "unit": "cynic-embedding-node.service",
+     "supervisor": {
+      "provider": "systemd-user"
+     },
+     "health": {
+      "kind": "http",
+      "url": "http://192.168.0.25:8080/health"
+     },
+     "model": "embeddinggemma-2-Q8_0.gguf",
+     "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
+     "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+     "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+     "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
+    }
+   ],
+   "energy_profile": {
+    "class": "always_on"
+   }
+  }
+ ],
+ "fleet_desired": {
+  "targets": [
+   {
+    "id": "cynic-builder",
+    "provider": "proxmox",
+    "resource_id": "lxc/105",
+    "role": "build_runner",
+    "desired_power": "running"
+   }
+  ]
+ },
+ "lifecycle": {
+  "kernel_release": {
+   "build_runner_role": "build_runner",
+   "deploy_target_role": "kernel_primary",
+   "host_bootstrap": {
+    "role_profiles": {
+     "kernel_primary": {
+      "target_stage": "h6_host_actionable",
+      "required_domains": [
+       "host",
+       "services",
+       "storage",
+       "kernel"
+      ],
+      "required_proof": [
+       "host_identity_observed",
+       "host_bootstrap_target_satisfied",
+       "kernel_service_observed",
+       "storage_health_observed"
+      ]
+     },
+     "build_runner": {
+      "target_stage": "h4_privilege_helpers_ready",
+      "required_domains": [
+       "host",
+       "toolchain",
+       "build"
+      ],
+      "required_proof": [
+       "host_identity_observed",
+       "host_bootstrap_target_satisfied",
+       "cargo_check_observed",
+       "binary_build_observed",
+       "build_resource_preflight_read_back",
+       "runtime_marker_read_back",
+       "node_control_config_read_back",
+       "node_service_active_read_back",
+       "bootstrap_completion_read_back"
+      ]
+     },
+     "storage_primary": {
+      "target_stage": "h5_services_projected",
+      "required_domains": [
+       "host",
+       "storage"
+      ],
+      "required_proof": [
+       "host_identity_observed",
+       "host_bootstrap_target_satisfied",
+       "storage_health_observed"
+      ]
+     },
+     "forge_primary": {
+      "target_stage": "h5_services_projected",
+      "required_domains": [
+       "host",
+       "services",
+       "network",
+       "forge"
+      ],
+      "required_proof": [
+       "host_identity_observed",
+       "host_bootstrap_target_satisfied",
+       "forgejo_backend_observed",
+       "forgejo_tls_identity_observed"
+      ]
+     }
+    }
+   },
+   "runtime_artifacts": [
+    "cynic",
+    "cynic-kernel",
+    "cynic-lxc-exec-bridge",
+    "cynic-mcp",
+    "cynic-node"
+   ]
+  }
+ }
 }

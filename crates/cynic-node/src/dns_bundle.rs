@@ -97,6 +97,7 @@ pub fn build_dns_bundle(
     // must describe the real bundle, not the canonical wishlist.
     let bundle_files = vec![
         SERVICE_DNS_HOSTS_FILENAME.to_string(),
+        cynic_network::dns::COMPAT_DNS_HOSTS_FILENAME.to_string(),
         dns_bundle_config_filename().to_string(),
         dns_bundle_service_filename().to_string(),
         SERVICE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
