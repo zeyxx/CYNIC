@@ -927,6 +927,12 @@
         "vulkan_compute_confirmed": true,
         "note": "llama-server CPU ~20% under embed load on 2026-10-17; inference on GPU",
         "observed_at": "2026-10-17"
+      },
+      "pending_maintenance": {
+        "item": "align Mesa RADV with cortex (25.2.x) via trixie-backports",
+        "reason": "reduce cross-engine numeric drift; current 25.0.7 vs cortex 25.2.8",
+        "blocked_on": "human with sudo on compute-01",
+        "strategic_note": "fleet supervisor should propose such updates automatically"
       }
     }
   ],
