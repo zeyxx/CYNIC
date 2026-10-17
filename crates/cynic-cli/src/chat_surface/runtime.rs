@@ -778,7 +778,10 @@ fn infer_default_chat_params() -> RuntimeChatParams {
 
     RuntimeChatParams {
         context_turns,
-        max_tokens,
+        // Bounded by default: a thinking model burns the whole budget in
+        // reasoning first. Long-form callers pass --profile deep or
+        // CYNIC_CHAT_MAX_TOKENS explicitly.
+        max_tokens: max_tokens.or(Some(512)),
         temperature,
         top_p,
         reasoning_profile,
