@@ -19,7 +19,9 @@ use crate::domain::build_artefact::{
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
+use cynic_protocol::disk::bytes_to_human;
 use cynic_protocol::retention::PressureSignal;
+use cynic_types::paths::CynicPaths;
 
 fn checkouts_base() -> PathBuf {
     CynicPaths::state_dir().join("checkouts")
