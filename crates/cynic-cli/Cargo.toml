@@ -11,6 +11,13 @@ default-run = "cynic"
 name = "cynic"
 path = "src/main.rs"
 
+[features]
+# Off by default: the canonical reader binary stays read-only. Enabling this
+# compiles the explicit `--apply` SSOT writer for operators who regenerate
+# the derived half of the topology document.
+default = []
+topology_write = []
+
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 serde.workspace = true
