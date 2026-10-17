@@ -5,6 +5,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 /// Agent workspace arms: one lease-fenced source change, and its lifecycle.
 #[derive(Subcommand)]
@@ -15,9 +16,9 @@ pub enum NodeAgentWorkspaceCommand {
         request: String,
         #[arg(long)]
         result_file: Option<String>,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long, default_value = "http://127.0.0.1:3030")]
         kernel_endpoint: String,
@@ -34,9 +35,9 @@ pub enum NodeAgentWorkspaceCommand {
     Lifecycle {
         #[arg(long)]
         workload_id: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long, default_value = "http://127.0.0.1:3030")]
         kernel_endpoint: String,
@@ -60,7 +61,7 @@ pub enum NodeAgentSchedulerCommand {
     Step {
         #[arg(long)]
         observation: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         json: bool,
@@ -74,7 +75,7 @@ pub enum NodeAgentWorkloadCommand {
     Status {
         #[arg(long)]
         workload_id: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         json: bool,
@@ -83,7 +84,7 @@ pub enum NodeAgentWorkloadCommand {
     Transition {
         #[arg(long)]
         request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         apply: bool,

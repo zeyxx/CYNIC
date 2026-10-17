@@ -11,6 +11,7 @@ use crate::runtime_layout::HostRuntimeLayout;
 use crate::runtime_network_preflight::{
     RuntimeNetworkPreflightReport, observe_runtime_network_preflight,
 };
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RuntimeExecutionContextReport {
@@ -173,7 +174,7 @@ fn observe_process_identity() -> ProcessIdentity {
 
 fn observe_runtime_paths(layout: &HostRuntimeLayout) -> RuntimePathEvidence {
     RuntimePathEvidence {
-        installed_cli: path_status("/usr/local/bin/cynic"),
+        installed_cli: path_status(CynicPaths::binary_dir().join("cynic")),
         config_root: path_status(&layout.config_dir),
         state_root: path_status(&layout.state_dir),
         log_root: path_status(&layout.log_dir),
@@ -219,7 +220,9 @@ fn classify_execution_boundary(
             reason: "sandbox-related environment variables are present",
         };
     }
-    if exe == "/usr/local/bin/cynic" && paths.config_root.exists && paths.state_root.exists {
+    let installed_cli = CynicPaths::binary_dir().join("cynic");
+    let installed_cli = installed_cli.display().to_string();
+    if exe == installed_cli && paths.config_root.exists && paths.state_root.exists {
         return ExecutionBoundary {
             kind: "installed_runtime",
             confidence: "high",
@@ -300,10 +303,10 @@ fn projection(
             LifecycleDisposition::NotDiscovered,
             BoundaryKind::Adopt,
             "execution context is not an installed runtime authority boundary".to_string(),
-            Some(
-                "compare this report with the same command run from the installed /usr/local/bin/cynic"
-                    .to_string(),
-            ),
+            Some(format!(
+                "compare this report with the same command run from the installed {}",
+                CynicPaths::binary_dir().join("cynic").display()
+            )),
         );
     }
 
@@ -323,10 +326,10 @@ fn projection(
         BoundaryKind::Adopt,
         "installed CLI or runtime authority paths are incomplete for this execution context"
             .to_string(),
-        Some(
-            "compare this report with the same command run from the installed /usr/local/bin/cynic"
-                .to_string(),
-        ),
+        Some(format!(
+            "compare this report with the same command run from the installed {}",
+            CynicPaths::binary_dir().join("cynic").display()
+        )),
     )
 }
 
@@ -335,8 +338,10 @@ fn next_actions(status: &str, canonical_next_command: Option<&str>) -> Vec<Strin
         return vec!["use this execution context as current fetch/runtime evidence".to_string()];
     }
     let mut actions = vec![
-        "compare this report with the same command run from the installed /usr/local/bin/cynic"
-            .to_string(),
+        format!(
+            "compare this report with the same command run from the installed {}",
+            CynicPaths::binary_dir().join("cynic").display()
+        ),
         "do not mutate host networking from a dev worktree or sandbox report".to_string(),
         "if installed runtime also reports blocked network, proceed to runtime resolver-plan before any apply surface".to_string(),
     ];
@@ -458,8 +463,9 @@ mod tests {
 
     #[test]
     fn classifies_installed_runtime_when_exe_and_paths_match() {
+        let installed_cli = CynicPaths::binary_dir().join("cynic").display().to_string();
         let boundary = classify_execution_boundary(
-            &process("/usr/local/bin/cynic"),
+            &process(&installed_cli),
             &paths(true),
             &EnvironmentEvidence {
                 cynic_env: BTreeMap::new(),

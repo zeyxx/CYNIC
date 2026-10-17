@@ -6,6 +6,7 @@ use std::{
 };
 
 use super::types::StandaloneCliInstallReport;
+use cynic_types::paths::CynicPaths;
 
 pub fn install_standalone_cli(
     source: Option<&str>,
@@ -156,7 +157,7 @@ fn default_cli_install_target() -> PathBuf {
     if let Ok(p) = std::env::var("CYNIC_STANDALONE_CLI") {
         return PathBuf::from(p);
     }
-    PathBuf::from("/usr/local/bin/cynic")
+    CynicPaths::binary_dir().join("cynic")
 }
 
 fn is_user_local_target(target: &Path) -> bool {

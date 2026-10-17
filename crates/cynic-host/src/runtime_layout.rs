@@ -8,6 +8,8 @@ use cynic_network::dns::{
 };
 use serde::{Deserialize, Serialize};
 
+use cynic_types::paths::CynicPaths;
+
 use crate::domain::package_provenance::PackageProvenancePolicy;
 use crate::process_observation::command_stdout;
 use crate::runtime_authority::default_runtime_authority_paths;
@@ -341,7 +343,10 @@ impl HostRuntimeLayout {
 
     pub fn dns_resolved_dropin_path(&self) -> String {
         match self.service_manager_kind().as_str() {
-            "openrc" => format!("/etc/cynic/resolver/openrc-service-dns.adapter-required").to_string(),
+            "openrc" => CynicPaths::system_config_dir()
+                .join("resolver/openrc-service-dns.adapter-required")
+                .to_string_lossy()
+                .to_string(),
             _ => format!("/etc/systemd/resolved.conf.d/{SERVICE_DNS_RESOLVED_DROPIN_FILENAME}").to_string(),
         }
     }

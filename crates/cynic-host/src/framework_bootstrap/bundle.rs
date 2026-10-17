@@ -3,6 +3,8 @@ use serde_json::json;
 use std::fs;
 use std::path::Path;
 
+use cynic_types::paths::CynicPaths;
+
 use crate::bridge;
 use crate::framework_bootstrap::bundle::files::{
     copy_registry, copy_runtime_artifact, copy_standalone_cli_if_available, write_executable_file,
@@ -289,7 +291,7 @@ pub fn write_framework_bootstrap_bundle_for_role(
             "sudoers is validated with visudo before verification",
             "direct shell/systemctl/package-manager sudo paths must remain denied",
             "standalone cynic entrypoint must not require CYNIC_PROJECT_ROOT or Python organs",
-            "verification emits evidence under /var/lib/cynic/bootstrap",
+            "verification emits evidence under <state>/bootstrap",
             "install verifies every seed artifact checksum before host mutation",
         ],
     })
@@ -321,7 +323,8 @@ fn render_storage_config(registry: &serde_json::Value, target_role: &str) -> Opt
     }
     let allow_loopback = target_role == "storage_primary";
     Some(format!(
-        "# Generated from infra/registry.json placement; contains no secret.\n[storage]\nurl = \"{scheme}://{host}:{port}\"\nallow_loopback = {allow_loopback}\nnamespace = \"cynic\"\ndatabase = \"main\"\nusername = \"cynic-runtime\"\nsecret_file = \"/etc/cynic/secrets/storage-runtime-password\"\n"
+        "# Generated from infra/registry.json placement; contains no secret.\n[storage]\nurl = \"{scheme}://{host}:{port}\"\nallow_loopback = {allow_loopback}\nnamespace = \"cynic\"\ndatabase = \"main\"\nusername = \"cynic-runtime\"\nsecret_file = \"{}\"\n",
+        CynicPaths::secret_path("storage-runtime-password").display()
     ))
 }
 

@@ -5,6 +5,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 pub(crate) fn execute_source_admission_plan(request: &str, observation: &str) -> ExitCode {
     cynic_node::usecases::source_admission_uc::execute_source_admission_plan(request, observation)
@@ -78,9 +79,9 @@ pub enum NodeSourceCommand {
     Materialize {
         #[arg(long)]
         request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
-        #[arg(long, default_value = "/var/lib/cynic/source/snapshots")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().join("source/snapshots").display().to_string())]
         snapshot_root: String,
         #[arg(long)]
         snapshot_base_url: Option<String>,
@@ -101,9 +102,9 @@ pub enum NodeSourceCommand {
         source: String,
         #[arg(long)]
         revision: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         agent_id: String,

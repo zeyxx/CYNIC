@@ -1,4 +1,4 @@
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 
 use crate::network_actuator_contract::NETWORK_ACTUATOR_HELPER_FILENAME;
 use crate::network_command_surface::{NetworkCommandSurface, argv_command};
@@ -53,7 +53,7 @@ pub(super) fn prove_profile_apply_command(
             "--profile".to_string(),
             "synapse-route".to_string(),
             "--registry".to_string(),
-            DEFAULT_REGISTRY_PATH.to_string(),
+            CynicPaths::registry_path().display().to_string(),
             "--apply".to_string(),
         ],
     )

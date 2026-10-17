@@ -5,7 +5,7 @@
 //! remote adapter so the two never diverge.
 use std::fs;
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
@@ -19,9 +19,13 @@ use crate::domain::build_artefact::{
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use crate::process_observation::capture_command;
+use cynic_protocol::disk::bytes_to_human;
 use cynic_protocol::retention::PressureSignal;
+use cynic_types::paths::CynicPaths;
 
-const CHECKOUTS_BASE: &str = "/var/lib/cynic/checkouts";
+fn checkouts_base() -> PathBuf {
+    CynicPaths::state_dir().join("checkouts")
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalBuildArtefactAdapter;
@@ -50,8 +54,10 @@ impl LocalBuildArtefactAdapter {
         let (checkouts_raw, remote_shas) = observe_checkouts_raw(shallow);
         let checkouts = parse_checkout_list(&checkouts_raw, &remote_shas);
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
-
-        let df_out = capture_command("df", &["-k", CHECKOUTS_BASE])
+        let total_checkout_human = bytes_to_human(total_checkout_bytes);
+        // target/ size is rolled into checkouts for now - separate once builder exposes it
+        let checkouts_base = checkouts_base();
+        let df_out = capture_command("df", &["-k", &checkouts_base.to_string_lossy()])
             .ok()
             .filter(|c| c.success)
             .map(|c| c.stdout)
@@ -88,8 +94,11 @@ impl LocalBuildArtefactAdapter {
 
         // Residual unknowns
         let mut residual_unknowns = Vec::new();
-        if !Path::new(CHECKOUTS_BASE).exists() {
-            residual_unknowns.push(format!("checkouts_base_missing:{CHECKOUTS_BASE}"));
+        if !checkouts_base.exists() {
+            residual_unknowns.push(format!(
+                "checkouts_base_missing:{}",
+                checkouts_base.display()
+            ));
         }
         if physical_disks.is_empty() {
             residual_unknowns.push("physical_disks_unknown".to_string());
@@ -223,7 +232,7 @@ fn observe_checkouts_raw(shallow: bool) -> (String, Vec<String>) {
         fetch_remote_shas()
     };
     let mut lines = Vec::new();
-    let entries = fs::read_dir(CHECKOUTS_BASE).ok();
+    let entries = fs::read_dir(checkouts_base()).ok();
     let Some(entries) = entries else {
         return (String::new(), remote_shas);
     };
@@ -318,7 +327,9 @@ fn walk_size(path: &Path) -> u64 {
 }
 
 fn fetch_remote_shas() -> Vec<String> {
-    for base in [CHECKOUTS_BASE, "."] {
+    // Try a known checkout with origin first, then bare ls-remote
+    let checkouts = checkouts_base().to_string_lossy().into_owned();
+    for base in [checkouts.as_str(), "."] {
         let out = if base == "." {
             capture_command("git", &["ls-remote", "origin"]).ok()
         } else {

@@ -15,12 +15,14 @@ use cynic_protocol::privilege::{
     CapabilityCatalog, CapabilityDecision, InstalledCapabilities, admit_capability,
     validate_install,
 };
+use cynic_types::paths::CynicPaths;
 
 /// Repository-relative default catalog.
 pub const DEFAULT_CATALOG_PATH: &str = "infra/capabilities/catalog.json";
 
-/// Node-local installed set, written by `cynic install`.
-pub const DEFAULT_INSTALLED_PATH: &str = "/etc/cynic/capabilities.installed.json";
+/// Node-local installed set, written by `cynic install`:
+/// `capabilities.installed.json` under the canonical system config directory,
+/// unless `CYNIC_CAPABILITY_INSTALLED` overrides it.
 
 /// The loaded pair, validated together.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,7 +112,7 @@ pub fn catalog_path_from_env() -> PathBuf {
 pub fn installed_path_from_env() -> PathBuf {
     std::env::var_os("CYNIC_CAPABILITY_INSTALLED")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_INSTALLED_PATH))
+        .unwrap_or_else(|| CynicPaths::system_config_dir().join("capabilities.installed.json"))
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@ use crate::ports::{
 use crate::profiles::HostProfile;
 use crate::registry::HostProfileResolution;
 use crate::runtime_context::observe_host_runtime_context_with_observer;
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HostBootstrapEvidenceReport {
@@ -67,7 +68,8 @@ pub fn observe_host_bootstrap_evidence_with_observer(
         build_bootstrap_chain_report_with_observer(profile, resolution.clone(), observed)?;
     let filesystem_policy = profile.desired_filesystem();
     let bridge = bridge_status();
-    let installed_cli_sha256 = file_sha256("/usr/local/bin/cynic");
+    let installed_cli_sha256 =
+        file_sha256(&CynicPaths::binary_dir().join("cynic").display().to_string());
     let managed_paths = filesystem_policy.managed_paths;
     let existing_paths = managed_paths
         .iter()

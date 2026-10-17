@@ -1,6 +1,7 @@
 //! Build CLI surface — thin facade over modular build workflows.
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 
 mod archive;
 mod invoice;
@@ -212,7 +213,7 @@ pub(crate) enum BuildCommand {
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
         /// The builder's state root (the registry's relative paths resolve under it).
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         /// The builder's temporary root.
         #[arg(long, default_value = "/tmp")]
