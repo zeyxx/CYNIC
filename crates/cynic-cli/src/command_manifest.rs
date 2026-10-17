@@ -213,6 +213,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node host disk clean [--apply] [--json]",
                     "cynic node host capacity [--json]",
                     "cynic node compute provision --vmid <n> --hostname <name> --template-volid <volid> [--ip-cidr <cidr> --gateway <ip> --nameserver <ip> --features <flag>] [--node <name>] [--apply [--hypervisor <ssh-target>]]",
+                    "cynic node bootstrap bundle --out <dir> [--role <role>] [--artifact-dir <dir>] [--registry <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -295,6 +296,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             CommandDomain {
                 name: "court",
                 commands: vec!["cynic court audit [--scope <surfaces>] [--json]"],
+            },
+            CommandDomain {
+                name: "coordination",
+                commands: vec![
+                    "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
+                    "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
+                ],
             },
             CommandDomain {
                 name: "build",

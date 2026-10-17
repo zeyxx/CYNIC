@@ -8,6 +8,7 @@
 
 pub mod activation;
 pub mod agent;
+pub mod bootstrap;
 pub mod consensus;
 pub mod identity;
 pub mod observation;
@@ -139,6 +140,13 @@ pub enum NodeCommand {
         #[command(subcommand)]
         command: source::NodeSourceCommand,
     },
+
+    // === Framework Bootstrap ===
+    /// Render a bring-up bundle for a fresh node (no local install).
+    Bootstrap {
+        #[command(subcommand)]
+        command: bootstrap::NodeBootstrapCommand,
+    },
 }
 
 /// Execute a unified node command.
@@ -184,5 +192,8 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
 
         // === Source ===
         NodeCommand::Source { command } => source::execute_node_source(command).await,
+
+        // === Framework Bootstrap ===
+        NodeCommand::Bootstrap { command } => bootstrap::execute_node_bootstrap(command),
     }
 }

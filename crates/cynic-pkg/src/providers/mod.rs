@@ -168,7 +168,11 @@ mod tests {
                 .iter()
                 .any(|arg| arg == "PATH=/home/test-principal/.local/bin")
         );
-        assert!(first.iter().any(|arg| arg == "hermes-agent"));
+        assert!(first.iter().any(|arg| arg == "hermes-agent==0.19.0"));
+        assert!(
+            !first.iter().any(|arg| arg == "hermes-agent"),
+            "bare latest refused"
+        );
         assert_eq!(
             first
                 .iter()

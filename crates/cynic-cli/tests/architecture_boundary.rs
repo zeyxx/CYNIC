@@ -75,12 +75,12 @@ fn cli_has_no_hidden_commands() {
 fn cli_exposes_framework_bootstrap_as_canonical_surface() {
     let root = crate_root();
     let main_rs = fs::read_to_string(root.join("src/main.rs")).expect("read main.rs");
-    let framework_surface = fs::read_to_string(root.join("src/bootstrap_surface/framework.rs"))
-        .expect("read bootstrap_surface/framework.rs");
+    let bootstrap_arm = fs::read_to_string(root.join("src/node_surface/bootstrap.rs"))
+        .expect("read node_surface/bootstrap.rs");
     let command_manifest =
         fs::read_to_string(root.join("src/command_manifest.rs")).expect("read command_manifest.rs");
     assert!(
-        framework_surface.contains("use cynic_host::framework_bootstrap;"),
+        bootstrap_arm.contains("cynic_host::framework_bootstrap"),
         "framework bootstrap must be owned by cynic-host, not the CLI"
     );
     assert!(
@@ -88,13 +88,8 @@ fn cli_exposes_framework_bootstrap_as_canonical_surface() {
         "main.rs must not own framework bootstrap wiring"
     );
     assert!(
-        command_manifest.contains("cynic bootstrap framework bundle --json --output-dir <dir>"),
-        "CLI manifest must expose the canonical framework bootstrap surface"
-    );
-    assert!(
-        command_manifest
-            .contains("cynic bootstrap framework install-cli --json [--apply] [--source <path>] [--target <path>]"),
-        "CLI manifest must expose the standalone CLI install surface"
+        command_manifest.contains("cynic node bootstrap bundle --out <dir>"),
+        "CLI manifest must expose the canonical node bootstrap surface"
     );
 }
 
@@ -365,17 +360,14 @@ fn cli_runtime_surface_is_split_out_of_main() {
         "network command handling must live in network_surface, not main.rs"
     );
     assert!(
-        main_rs.contains("mod bootstrap_surface;")
-            && !main_rs.contains("enum BootstrapCommand")
-            && !main_rs.contains("fn execute_bootstrap"),
-        "bootstrap command handling must live in bootstrap_surface, not main.rs"
+        lib_rs().contains("pub mod node_surface;")
+            && !main_rs.contains("enum NodeBootstrapCommand")
+            && !main_rs.contains("fn execute_node_bootstrap"),
+        "bootstrap command handling must live in node_surface::bootstrap, not main.rs"
     );
     assert!(
-        root.join("src/bootstrap_surface/host.rs").exists()
-            && root.join("src/bootstrap_surface/bridge.rs").exists()
-            && root.join("src/bootstrap_surface/constellation.rs").exists()
-            && root.join("src/bootstrap_surface/selection.rs").exists(),
-        "bootstrap surface must remain split by host, bridge, constellation, and selection responsibilities"
+        root.join("src/node_surface/bootstrap.rs").exists(),
+        "bootstrap arm must live in node_surface/bootstrap.rs (migrated from the deleted bootstrap_surface family)"
     );
     assert!(
         main_rs.contains("mod host_exec_alias_surface;")
@@ -846,35 +838,19 @@ fn cli_runtime_surface_is_a_facade_over_granular_modules() {
 #[test]
 fn cli_bootstrap_surface_is_granular_and_delegates_to_cynic_host() {
     let root = crate_root();
-    let bootstrap_surface = fs::read_to_string(root.join("src/bootstrap_surface.rs"))
-        .expect("read bootstrap_surface.rs");
-    let host_surface =
-        fs::read_to_string(root.join("src/bootstrap_surface/host.rs")).expect("read host.rs");
-    let bridge_surface =
-        fs::read_to_string(root.join("src/bootstrap_surface/bridge.rs")).expect("read bridge.rs");
-    let selection_surface = fs::read_to_string(root.join("src/bootstrap_surface/selection.rs"))
-        .expect("read selection.rs");
-
+    let bootstrap_arm = fs::read_to_string(root.join("src/node_surface/bootstrap.rs"))
+        .expect("read node_surface/bootstrap.rs");
     assert!(
-        bootstrap_surface.contains("mod host;")
-            && bootstrap_surface.contains("mod bridge;")
-            && bootstrap_surface.contains("mod constellation;")
-            && bootstrap_surface.contains("pub(crate) mod selection;"),
-        "bootstrap_surface.rs must stay a facade over granular modules"
+        bootstrap_arm.contains("NodeBootstrapCommand") && bootstrap_arm.contains("Bundle"),
+        "node bootstrap must expose a Bundle arm"
     );
     assert!(
-        host_surface.contains("use cynic_host::usecases::")
-            && host_surface.contains("execute_host_apply"),
-        "host bootstrap execution must delegate to cynic-host usecases"
+        bootstrap_arm.contains("write_framework_bootstrap_bundle_for_role"),
+        "node bootstrap execution must delegate to cynic-host framework_bootstrap"
     );
     assert!(
-        bridge_surface.contains("use cynic_host::bridge as host_exec_bridge;"),
-        "host-exec bridge behavior must be owned by cynic-host"
-    );
-    assert!(
-        selection_surface.contains("resolve_current_host_profile")
-            && selection_surface.contains("resolve_host_profile_resolution"),
-        "profile selection must use registry-backed cynic-host resolution"
+        !bootstrap_arm.contains("std::process::Command") && !bootstrap_arm.contains("fs::write"),
+        "node bootstrap facade must not spawn processes or write files itself"
     );
 }
 

@@ -67,7 +67,8 @@
         "cortex_host",
         "hypervisor",
         "kernel_primary",
-        "build_runner"
+        "build_runner",
+        "agent_host"
       ],
       "consumers": [
         "human operator",
@@ -85,7 +86,8 @@
         "cortex_host",
         "hypervisor",
         "kernel_primary",
-        "build_runner"
+        "build_runner",
+        "agent_host"
       ],
       "consumers": [
         "systemd cynic-node.service"

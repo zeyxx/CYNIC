@@ -95,13 +95,13 @@ pub static UV: ExternalCliProvider = ExternalCliProvider {
 
 pub static HERMES_AGENT: ExternalCliProvider = ExternalCliProvider {
     id: "hermes-agent",
-    argv: &["uv", "tool", "install", "--force", "hermes-agent"],
+    argv: &["uv", "tool", "install", "--force", "hermes-agent==0.19.0"],
     as_principal: true,
 };
 
 pub static CODEX_CLI: ExternalCliProvider = ExternalCliProvider {
     id: "codex-cli",
-    argv: &["npm", "i", "-g", "@openai/codex@latest"],
+    argv: &["npm", "i", "-g", "@openai/codex@0.154.0"],
     as_principal: false,
 };
 

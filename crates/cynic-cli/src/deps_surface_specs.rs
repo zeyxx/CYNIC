@@ -131,8 +131,8 @@ pub(crate) fn specs() -> Vec<DepSpec> {
             expected_tooling_provenance: Some(ToolingInstallProvenance::NpmGlobal),
             expected_python_provenance: None,
             check_hint: "codex --version",
-            update_hint: "npm i -g @openai/codex (external channel)",
-            update_commands: &["npm i -g @openai/codex@latest", "codex --version"],
+            update_hint: "npm i -g @openai/codex@0.154.0 (external channel, pinned)",
+            update_commands: &["npm i -g @openai/codex@0.154.0", "codex --version"],
         },
         DepSpec {
             id: "claude-code",

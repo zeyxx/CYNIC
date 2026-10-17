@@ -44,9 +44,13 @@ impl NodeIdentityWorkflow {
     }
 
     /// Generates a new Ed25519 keypair and persists the private key with strict 0600 permissions.
+    ///
+    /// FILE FORMAT: lowercase hex of the 32 secret bytes plus a trailing newline,
+    /// matching the node-side identity reader and the live fleet keys.
     pub fn generate_keypair(&self, key_path: &Path) -> Result<NodeIdentityMaterial, CryptoError> {
         let (private_key, public_key) = self.crypto.generate_keypair()?;
-        SecretStore::save_secret(key_path, &private_key)?;
+        let hex_secret = format!("{}\n", hex::encode(&private_key));
+        SecretStore::save_secret(key_path, hex_secret.as_bytes())?;
         let public_key_hex = hex::encode(&public_key);
         Ok(NodeIdentityMaterial {
             private_key,
@@ -61,7 +65,11 @@ impl NodeIdentityWorkflow {
         key_path: &Path,
     ) -> Result<NodeIdentityMaterial, CryptoError> {
         if key_path.exists() {
-            let private_key = SecretStore::load_secret(key_path)?;
+            let stored = SecretStore::load_secret(key_path)?;
+            let private_key =
+                hex::decode(String::from_utf8_lossy(&stored).trim()).map_err(|_| {
+                    CryptoError::InvalidKey("stored private key is not lowercase hex".to_string())
+                })?;
             if private_key.len() != 32 {
                 return Err(CryptoError::InvalidKey(
                     "stored private key is not 32 bytes".to_string(),

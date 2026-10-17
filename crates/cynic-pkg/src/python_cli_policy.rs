@@ -24,13 +24,13 @@ pub fn python_cli_policy(dep_id: &str) -> Option<PythonCliPolicy> {
             distribution: "hermes-agent",
             expected_tooling_provenance: ToolingInstallProvenance::UvTool,
             expected_python_provenance: PythonInstallProvenance::UvTool,
-            canonical_update_argv: &["uv", "tool", "install", "--force", "hermes-agent"],
-            canonical_update_command: "uv tool install --force hermes-agent",
+            canonical_update_argv: &["uv", "tool", "install", "--force", "hermes-agent==0.19.0"],
+            canonical_update_command: "uv tool install --force hermes-agent==0.19.0",
             canonical_update_commands: &[
-                "uv tool install --force hermes-agent",
+                "uv tool install --force hermes-agent==0.19.0",
                 "hermes --version",
             ],
-            update_authority_note: "payload is expected as uv-managed tool; canonical mutator is uv tool install --force",
+            update_authority_note: "payload is expected as uv-managed tool; canonical mutator pins hermes-agent==0.19.0 (PyPI max). Bare latest refused (supply-chain policy).",
         }),
         "huggingface-cli" => Some(PythonCliPolicy {
             dep_id: "huggingface-cli",
@@ -56,7 +56,7 @@ mod tests {
             python_cli_policy("hermes-agent").expect("hermes-agent policy must be present");
         assert_eq!(
             policy.canonical_update_command,
-            "uv tool install --force hermes-agent"
+            "uv tool install --force hermes-agent==0.19.0"
         );
         assert!(
             policy
