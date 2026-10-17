@@ -159,8 +159,39 @@ pub fn execute_fleet(command: NodeFleetCommand) -> Result<ExitCode, String> {
     }
 }
 
+/// Build-runners panel composed from the same registry projection as
+/// `cynic build runners`. Read-only; a resolution failure renders as one
+/// line instead of breaking the dashboard.
+fn runners_panel(registry_path: &str) -> cynic_tui::Panel {
+    let rows = match cynic_host::registry::resolve::list_runner_nodes(Some(registry_path)) {
+        Ok(runners) => runners
+            .iter()
+            .map(|runner| {
+                vec![
+                    if runner.default {
+                        format!("{} [default]", runner.node_id)
+                    } else {
+                        runner.node_id.clone()
+                    },
+                    runner.role.clone(),
+                    runner.ssh_target.clone(),
+                ]
+            })
+            .collect(),
+        Err(error) => vec![vec!["unresolvable".to_string(), error]],
+    };
+    cynic_tui::Panel::Table(cynic_tui::TablePanel {
+        title: "build runners".to_string(),
+        headers: ["id", "role", "ssh"]
+            .iter()
+            .map(|h| h.to_string())
+            .collect(),
+        rows,
+    })
+}
+
 /// Map the fleet projection onto the generic dashboard model. The only
-/// fleet-specific TUI code in the workspace (~30 lines); everything else is
+/// fleet-specific TUI code in the workspace; everything else is
 /// the shared `cynic-tui` kit.
 fn fleet_dashboard(report: &cynic_fleet::FleetReport) -> cynic_tui::Dashboard {
     let mut dashboard = cynic_tui::Dashboard::new(format!(
@@ -189,6 +220,7 @@ fn fleet_dashboard(report: &cynic_fleet::FleetReport) -> cynic_tui::Dashboard {
             })
             .collect(),
     }));
+    dashboard.push(runners_panel(&report.registry_path));
     dashboard.push(cynic_tui::Panel::Text(cynic_tui::TextPanel {
         title: "open debts".to_string(),
         lines: report
