@@ -75,10 +75,15 @@ DIRECTIVES IMPÉRATIVES :
         }
     }
 
-    /// Résout dynamiquement l'URL de l'endpoint d'inférence via CynicPaths et inference.toml.
+    /// Résout dynamiquement l'URL de l'endpoint d'inférence.
+    /// Ordre : unité locale supervisée (fichier rendez-vous du
+    /// superviseur, vérifié TCP), puis inference.toml, puis repli fixe.
     pub fn resolve_local_inference_endpoint() -> String {
         if let Ok(env_url) = std::env::var("CYNIC_INFERENCE_URL") {
             return env_url;
+        }
+        if let Some(live) = Self::read_supervised_endpoint() {
+            return live;
         }
         let cfg_path = cynic_types::CynicPaths::inference_config_path();
         if let Ok(content) = std::fs::read_to_string(&cfg_path) {
@@ -94,5 +99,39 @@ DIRECTIVES IMPÉRATIVES :
             }
         }
         "http://127.0.0.1:8088/v1/chat/completions".to_string()
+    }
+
+    /// Lit le rendez-vous publié par le superviseur local
+    /// (`{state}/supervised-inference-endpoint` : alias puis base `/v1`).
+    /// Ne retient que ce qui répond TCP, sinon rien (repli appelant).
+    fn read_supervised_endpoint() -> Option<String> {
+        let path = cynic_types::CynicPaths::state_dir().join("supervised-inference-endpoint");
+        let raw = std::fs::read_to_string(path).ok()?;
+        let mut lines = raw.lines();
+        lines.next()?;
+        let base = lines.next()?.trim().trim_end_matches('/');
+        if base.is_empty() {
+            return None;
+        }
+        let host_port = base
+            .strip_prefix("http://")
+            .or_else(|| base.strip_prefix("https://"))?;
+        if Self::tcp_reachable(host_port) {
+            Some(format!("{base}/chat/completions"))
+        } else {
+            None
+        }
+    }
+
+    fn tcp_reachable(host_port: &str) -> bool {
+        use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+        let addrs: Vec<SocketAddr> = host_port
+            .to_socket_addrs()
+            .map(|i| i.collect())
+            .unwrap_or_default();
+        let Some(addr) = addrs.into_iter().next() else {
+            return false;
+        };
+        TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(800)).is_ok()
     }
 }
