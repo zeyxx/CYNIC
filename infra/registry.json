@@ -776,6 +776,11 @@
       "services": [],
       "energy_profile": {
         "class": "always_on"
+      },
+      "enrollment": {
+        "certificate_id": "sha256:7898f3d950882c34a7fabab505d67508f2bf1cc3d969cf8e5779c3f139ba4128",
+        "authority_id": "cynic-fleet-root-ca",
+        "granted_unix_s": 1792237521
       }
     },
     {
@@ -851,6 +856,35 @@
       ],
       "energy_profile": {
         "class": "always_on"
+      }
+    },
+    {
+      "id": "cynic-compute-01",
+      "name": "cynic-compute-01",
+      "aliases": [
+        "compute-01"
+      ],
+      "role": "agent_host",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "transports": {
+        "ssh": {
+          "target": "titouan@192.168.0.25",
+          "trust": "ssh_trust_anchor"
+        }
+      },
+      "network": {
+        "lan": "192.168.0.25"
+      },
+      "services": [],
+      "energy_profile": {
+        "class": "always_on"
+      },
+      "enrollment": {
+        "certificate_id": "sha256:8e8ee83f3b8e92c7d1ac7219921718126bcce92eb0741317d44b366c9352603c",
+        "authority_id": "cynic-fleet-root-ca",
+        "granted_unix_s": 1792237526
       }
     }
   ],

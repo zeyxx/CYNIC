@@ -134,7 +134,9 @@
         "cynic-storage",
         "cynic-vcs",
         "cynic-vcs-forgejo",
-        "cynic-workload"
+        "cynic-workload",
+        "cynic-fleet",
+        "cynic-tui"
       ],
       "dev_depends_on": [],
       "justified": true,
@@ -886,6 +888,28 @@
       "kind": "binary",
       "layer": "L2",
       "loc": 448
+    },
+    "cynic-fleet": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L2",
+      "loc": 242
+    },
+    "cynic-tui": {
+      "consumers": [
+        "cynic-cli"
+      ],
+      "depends_on": [],
+      "dev_depends_on": [],
+      "justified": true,
+      "kind": "library",
+      "layer": "L4",
+      "loc": 213
     }
   },
   "extraction_order": [

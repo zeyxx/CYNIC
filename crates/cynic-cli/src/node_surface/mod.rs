@@ -9,6 +9,7 @@
 pub mod activation;
 pub mod agent;
 pub mod consensus;
+pub mod fleet;
 pub mod identity;
 pub mod observation;
 pub mod source;
@@ -139,6 +140,13 @@ pub enum NodeCommand {
         #[command(subcommand)]
         command: source::NodeSourceCommand,
     },
+
+    // === Fleet ===
+    /// Fleet-wide read-only projections (dashboard report).
+    Fleet {
+        #[command(subcommand)]
+        command: fleet::NodeFleetCommand,
+    },
 }
 
 /// Execute a unified node command.
@@ -184,5 +192,14 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
 
         // === Source ===
         NodeCommand::Source { command } => source::execute_node_source(command).await,
+
+        // === Fleet ===
+        NodeCommand::Fleet { command } => match fleet::execute_fleet(command) {
+            Ok(code) => code,
+            Err(e) => {
+                eprintln!("fleet: {e}");
+                ExitCode::FAILURE
+            }
+        },
     }
 }
