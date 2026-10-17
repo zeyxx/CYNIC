@@ -717,7 +717,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
- "crossterm",
  "cynic-askesis",
  "cynic-audit-engine",
  "cynic-build",
@@ -758,7 +757,6 @@ dependencies = [
  "cynic-zeroclaw-solana",
  "hex",
  "libc",
- "ratatui",
  "reqwest 0.12.28",
  "rustix 1.1.5",
  "serde",
