@@ -19,6 +19,20 @@ use reqwest::Certificate;
 use reqwest::blocking::Client;
 use serde_json::Value;
 
+/// Validate CA PEM bytes: must contain at least one PEM-armored certificate
+/// block AND parse. `Certificate::from_pem` alone accepts bare garbage
+/// (empty cert list), so the armor check is the real fail-closed gate.
+fn validate_ca_pem(pem: &[u8]) -> Result<(), String> {
+    if !pem
+        .windows(b"-----BEGIN CERTIFICATE-----".len())
+        .any(|w| w == b"-----BEGIN CERTIFICATE-----")
+    {
+        return Err("blocked_tls_invalid_ca:no_pem_block".to_string());
+    }
+    Certificate::from_pem(pem).map_err(|e| format!("blocked_tls_invalid_ca:{e}"))?;
+    Ok(())
+}
+
 use crate::agent_host::types::{AGENT_HOST_PREFLIGHT_REPORT_SCHEMA, AgentHostPreflightReport};
 
 // ---------------------------------------------------------------------------
@@ -108,7 +122,7 @@ impl ProxmoxRestAgentHostObserver {
         };
         // Validate the PEM now (pure parse, no runtime); the client itself is
         // built per-request inside a dedicated thread (see `get_json`).
-        super::proxmox_lxc_create::validate_ca_pem(pem)?;
+        validate_ca_pem(pem)?;
 
         Ok(Self {
             base_url: base_url.into().trim_end_matches('/').to_string(),
