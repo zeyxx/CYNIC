@@ -86,13 +86,23 @@ DIRECTIVES IMPÉRATIVES :
             return live;
         }
         let cfg_path = cynic_types::CynicPaths::inference_config_path();
-        if let Ok(content) = std::fs::read_to_string(&cfg_path) {
-            if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
-                if let Some(backends) = toml_val.get("backend").and_then(|b| b.as_array()) {
-                    for b in backends {
-                        if let Some(base_url) = b.get("base_url").and_then(|u| u.as_str()) {
-                            let trimmed = base_url.trim_end_matches('/');
-                            return format!("{}/chat/completions", trimmed);
+        // Système puis principal : le pair vivant peut n'être déclaré
+        // qu'au niveau principal (/etc exige un opérateur pour écrire).
+        let principal_cfg =
+            cynic_types::CynicPaths::state_dir().join(".config/cynic/inference.toml");
+        for path in [cfg_path, principal_cfg] {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
+                    if let Some(backends) = toml_val.get("backend").and_then(|b| b.as_array()) {
+                        for b in backends {
+                            if let Some(base_url) = b.get("base_url").and_then(|u| u.as_str()) {
+                                let trimmed = base_url.trim_end_matches('/');
+                                // Premier joignable gagne : un backend mort en
+                                // tête ne doit pas enterrer les pairs vivants.
+                                if Self::base_reachable(trimmed) {
+                                    return format!("{trimmed}/chat/completions");
+                                }
+                            }
                         }
                     }
                 }
@@ -113,14 +123,21 @@ DIRECTIVES IMPÉRATIVES :
         if base.is_empty() {
             return None;
         }
-        let host_port = base
-            .strip_prefix("http://")
-            .or_else(|| base.strip_prefix("https://"))?;
-        if Self::tcp_reachable(host_port) {
+        if Self::base_reachable(base) {
             Some(format!("{base}/chat/completions"))
         } else {
             None
         }
+    }
+
+    /// Un `base_url` http(s) est joignable si son hôte:port répond TCP.
+    fn base_reachable(base: &str) -> bool {
+        let host_port = base
+            .strip_prefix("http://")
+            .or_else(|| base.strip_prefix("https://"))
+            .unwrap_or(base);
+        let host_port = host_port.split('/').next().unwrap_or(host_port);
+        Self::tcp_reachable(host_port)
     }
 
     fn tcp_reachable(host_port: &str) -> bool {
