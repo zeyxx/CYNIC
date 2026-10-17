@@ -271,6 +271,115 @@ pub mod resolve {
         resolve_role_transport(&path, &registry, role, "framework_target")
     }
 
+    /// Resolve a runner by node id, name, or alias (e.g. a compat builder
+    /// alongside the default `build_runner` role). Same transport checks as
+    /// the role path; fails closed when the node or its SSH transport is
+    /// missing.
+    pub fn resolve_named_runner_transport(
+        registry_path: Option<&str>,
+        node_id: &str,
+    ) -> Result<ResolvedBuildRunnerTransport, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let node = registry
+            .nodes
+            .iter()
+            .find(|node| {
+                node.id.as_deref() == Some(node_id)
+                    || node.name.as_deref() == Some(node_id)
+                    || node.aliases.iter().any(|alias| alias == node_id)
+            })
+            .ok_or_else(|| "named_runner_node_missing".to_string())?;
+        let role = role_for_node(&registry, node_id)?;
+        resolve_role_transport(&path, &registry, &role, "named_runner").map(|mut transport| {
+            transport.node_id = node
+                .id
+                .clone()
+                .or_else(|| node.name.clone())
+                .unwrap_or_default();
+            transport.role = role;
+            transport
+        })
+    }
+
+    fn role_for_node(registry: &RegistryDocument, node_id: &str) -> Result<String, String> {
+        // Resolve through the unique role when exactly one node carries it;
+        // the named path reuses the role transport checks verbatim.
+        let roles: Vec<&str> = registry
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.id.as_deref() == Some(node_id)
+                    || node.name.as_deref() == Some(node_id)
+                    || node.aliases.iter().any(|alias| alias == node_id)
+            })
+            .filter_map(|node| node.role.as_deref().or(node.canonical_role.as_deref()))
+            .collect();
+        match roles.as_slice() {
+            [role] => Ok(role.to_string()),
+            _ => Err("named_runner_role_unresolvable".to_string()),
+        }
+    }
+
+    /// Projected runner entry for operator/agent discovery.
+    #[derive(Debug, Clone, serde::Serialize)]
+    pub struct RunnerEntry {
+        pub node_id: String,
+        pub role: String,
+        pub ssh_target: String,
+        pub trust: String,
+        pub enrollment_principal: String,
+        pub default: bool,
+    }
+
+    /// List every registry node whose role carries build duties, with the
+    /// default `build_runner` role flagged. Read-only projection; no probing.
+    pub fn list_runner_nodes(registry_path: Option<&str>) -> Result<Vec<RunnerEntry>, String> {
+        let path = resolve_registry_path(registry_path)?;
+        let registry = load_registry(&path)?;
+        let default_role = registry
+            .lifecycle
+            .as_ref()
+            .and_then(|lifecycle| lifecycle.kernel_release.as_ref())
+            .and_then(|release| release.build_runner_role.clone())
+            .unwrap_or_else(|| "build_runner".to_string());
+        let mut runners = Vec::new();
+        for node in &registry.nodes {
+            let role = match node.role.as_deref().or(node.canonical_role.as_deref()) {
+                Some(role) if role.contains("runner") => role.to_string(),
+                _ => continue,
+            };
+            let transport = node.transports.as_ref().and_then(|t| t.ssh.as_ref());
+            let Some(ssh) = transport else { continue };
+            let Some(target) = ssh.target.clone() else {
+                continue;
+            };
+            runners.push(RunnerEntry {
+                node_id: node
+                    .id
+                    .clone()
+                    .or_else(|| node.name.clone())
+                    .unwrap_or_default(),
+                role: role.clone(),
+                ssh_target: target,
+                trust: ssh.trust.clone().unwrap_or_default(),
+                enrollment_principal: ssh
+                    .enrollment_authority
+                    .as_ref()
+                    .and_then(|authority| authority.principal.clone())
+                    .unwrap_or_default(),
+                default: role == default_role,
+            });
+        }
+        runners.sort_by(|left, right| {
+            right
+                .default
+                .cmp(&left.default)
+                .then(left.node_id.cmp(&right.node_id))
+        });
+        Ok(runners)
+    }
+
     fn resolve_role_transport(
         path: &Path,
         registry: &RegistryDocument,

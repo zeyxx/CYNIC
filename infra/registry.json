@@ -886,6 +886,38 @@
         "authority_id": "cynic-fleet-root-ca",
         "granted_unix_s": 1792237526
       }
+    },
+    {
+      "id": "cynic-build-bookworm",
+      "name": "cynic-build-bookworm",
+      "aliases": [
+        "bookworm-104"
+      ],
+      "role": "build_runner_compat",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "proxmox_id": "lxc/104",
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "10.10.10.104",
+          "trust": "ssh_trust_anchor",
+          "enrollment_authority": {
+            "class": "machine_enrollment",
+            "principal": "cynic",
+            "credential_ref": "registry-machine-ssh-identity"
+          }
+        }
+      },
+      "network": {
+        "service": "10.10.10.104"
+      },
+      "services": [],
+      "energy_profile": {
+        "class": "always_on"
+      },
+      "note": "Bookworm (glibc 2.36) build runner for pve-compatible binaries."
     }
   ],
   "fleet_desired": {
