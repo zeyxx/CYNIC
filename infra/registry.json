@@ -252,6 +252,11 @@
         "canonical": false,
         "purpose": "bare-metal management and hypervisor control"
       },
+      "lan": {
+        "cidr": "192.168.0.0/24",
+        "canonical": false,
+        "purpose": "site LAN (DHCP); compute nodes without service-plane address"
+      },
       "mesh": {
         "cidr": "100.64.0.0/10",
         "canonical": false,
@@ -324,6 +329,12 @@
           "cynic-agent-host.service.cynic"
         ],
         "service": "10.10.10.102"
+      },
+      {
+        "name": "cynic-compute-01",
+        "addresses": {
+          "lan": "192.168.0.25"
+        }
       }
     ]
   },
