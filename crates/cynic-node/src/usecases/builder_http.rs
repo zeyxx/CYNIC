@@ -51,6 +51,10 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
+    /// H4 duplicate-submit collision counter (Task 5). Records every
+    /// submission event; the pure `CollisionCounter` logic determines
+    /// which events collide on idempotency key or source commit within
+    /// the trailing 24h window.
     collisions: Arc<Mutex<CollisionCounter>>,
     evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
 }

@@ -3,6 +3,8 @@
 /target-*/
 crates/*/target/
 crates/*/target-*/
+programs/*/target/
+programs/*/target-*/
 /verify_cargo/target/
 rustc-ice-*.txt
 *.pdb

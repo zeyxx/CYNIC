@@ -76,7 +76,9 @@
           "runtime/evidence/": "Runtime evidence: release-*.json.",
           "source/": "Source checkout and workspaces for agent workloads.",
           "source/repositories/CYNIC": "CYNIC repository checkout (canonical working tree for builds).",
+          "source/repositories/external/": "External OSS checkouts used by CYNIC (read-only, pinned by infra/external-pins.json). Never in git; one dir per slug.",
           "source/snapshots/": "Source snapshots.",
+          "source/snapshots/external/": "Frozen snapshots of external pins for capture freeze.",
           "source/workspaces/": "Isolated agent workspaces.",
           "identity/": "Machine identity and credential material.",
           "identity/node-signing.key": "Node signing key.",
@@ -114,6 +116,7 @@
           ".local/bin/": "User-local binaries (hf, sccache, etc.).",
           ".local/share/cynic/": "User-local share directory.",
           ".local/share/cynic/src/": "Source directory.",
+          ".local/share/cynic/src/external/": "Dev fallback for external OSS checkouts (CYNIC_STATE_ROOT dev).",
           ".local/share/cynic/bootstrap/": "Bootstrap scripts.",
           ".local/share/cynic/bootstrap/hf-cli-install.sh": "HF CLI install script.",
           ".rustup/": "Rustup installation.",
@@ -137,7 +140,10 @@
           "repo/": "Repository (alternate).",
           "peer/": "Peer state.",
           "storage-lifecycle/": "Storage lifecycle.",
-          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}."
+          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}.",
+          "projects/": "Adopted external-project local state. Pattern: /var/lib/cynic/projects/<slug>/. Declared in infra/external-project-registry.json; never hardcoded elsewhere.",
+          "projects/<slug>/evidence/": "Append-only pull results and ledger slices for one adopted project.",
+          "projects/<slug>/state/": "Rebuildable snapshots (health, counters) for one adopted project."
         }
       }
     },
@@ -233,6 +239,8 @@
       "runtime_state.reports.*": "K4 — distilled_analytics (derived)",
       "runtime_state.archive.*": "K4/K5 — distilled_analytics/artifacts",
       "runtime_state.vault.*": "K5 — artifacts_blobs",
+      "runtime_state.source/repositories/external.*": "K5 — artifacts_blobs (pinned third-party source, immutable at pin)",
+      "runtime_state.source/snapshots/external.*": "K5 — artifacts_blobs (frozen external snapshot)",
       "logs.*": "K3 — raw_telemetry",
       "operator_user.*": "K8-lite — non-secret identity (architect profiles)"
     }
