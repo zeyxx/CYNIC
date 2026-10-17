@@ -237,6 +237,7 @@ pub(crate) async fn build_chat_runtime(
 
             let source = match resolution.source {
                 ChatEndpointSource::Env => "env",
+                ChatEndpointSource::LocalSupervisor => "local_supervisor",
                 ChatEndpointSource::InferenceConfig => "inference_config",
                 ChatEndpointSource::Dns => "dns",
                 ChatEndpointSource::Ods => "ods",
