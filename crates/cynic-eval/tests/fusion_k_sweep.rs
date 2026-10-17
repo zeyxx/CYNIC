@@ -11,11 +11,11 @@
 use std::path::PathBuf;
 
 use cynic_eval::bench::retrieval_gain::{
-    FIXTURE_SCHEMA_V1, Fixture, TextPipeline, grade_chunk, reciprocal_rank,
+    grade_chunk, reciprocal_rank, Fixture, TextPipeline, FIXTURE_SCHEMA_V1,
 };
 use cynic_knowledge::{
-    ChunkVector, LexicalIndex, VectorCacheRecord, fuse_reciprocal_ranks, load_vector_cache,
-    sync_workspace_corpus, top_k_dense,
+    fuse_reciprocal_ranks, load_vector_cache, sync_workspace_corpus, top_k_dense, ChunkVector,
+    LexicalIndex, NormalizationStrategy, VectorCacheRecord,
 };
 
 fn workspace_root() -> PathBuf {
@@ -116,7 +116,13 @@ fn fusion_k_sweep_is_measured() {
     let index = LexicalIndex::build(chunks.clone());
 
     let ks = [60.0, 10.0, 5.0, 1.0];
-    let mut sums = vec![0.0; ks.len() + 2];
+    let alphas = [0.0, 0.25, 0.5, 0.75, 1.0];
+    let strategies = [
+        ("minmax", NormalizationStrategy::CandidateMinMax),
+        ("ecdf", NormalizationStrategy::EmpiricalCdf),
+        ("absband", NormalizationStrategy::AbsoluteBand),
+    ];
+    let mut sums = vec![0.0; ks.len() + 2 + alphas.len() * strategies.len()];
     let mut measured = 0usize;
     for labeled in &fixture.queries {
         if labeled.trap {
@@ -147,6 +153,19 @@ fn fusion_k_sweep_is_measured() {
             .collect();
         sums[ks.len()] += reciprocal_rank(&grade_dense);
         sums[ks.len() + 1] += reciprocal_rank(&grade_sparse);
+        for (ai, alpha) in alphas.iter().enumerate() {
+            for (si, (sname, strategy)) in strategies.iter().enumerate() {
+                let _ = sname;
+                let mut fused =
+                    cynic_knowledge::fuse_continuous_convex(&sparse, &dense, *alpha, *strategy);
+                fused.truncate(5);
+                let grades: Vec<u32> = fused
+                    .iter()
+                    .map(|hit| grade_chunk(hit.chunk, &labeled.grades))
+                    .collect();
+                sums[ks.len() + 2 + ai * strategies.len() + si] += reciprocal_rank(&grades);
+            }
+        }
         measured += 1;
     }
     let mut line = format!("SWEEP over {measured} queries:");
@@ -158,5 +177,13 @@ fn fusion_k_sweep_is_measured() {
         sums[ks.len()] / measured as f64,
         sums[ks.len() + 1] / measured as f64
     ));
+    for (ai, alpha) in alphas.iter().enumerate() {
+        for (si, (sname, _)) in strategies.iter().enumerate() {
+            line.push_str(&format!(
+                " convex_a={alpha}_{sname}: {:.3}",
+                sums[ks.len() + 2 + ai * strategies.len() + si] / measured as f64
+            ));
+        }
+    }
     println!("{line}");
 }
