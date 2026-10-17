@@ -220,6 +220,46 @@
       "holder": "USB cynic-root/cynic-fleet-root (cynic-root-ca.key mode 400, offline)",
       "fingerprint": "5E:A0:BA:5D:05:F3:0E:E3:2D:9B:5B:60:33:8D:C8:A3:A9:29:68:10:52:DF:02:50:C8:C9:6F:93:54:8C:78:72",
       "steady_state": "root stays offline on USB; issuance is operator-run with USB mounted; intermediates per zone thereafter"
+    },
+    {
+      "role": "PeerProjectService",
+      "class": "SolanaFeePayerKey",
+      "purpose": "sponsored_relay",
+      "holder": "/etc/cynic/secrets/gasdf/relay/mainnet-payer.json (0640 cynic:cynic, KMS prod 2026-10-18)",
+      "fingerprint": "Bcuw4Xb9wmjDUpTsADn8ZM9Rigdhehaf5jfbJndH4rcC",
+      "steady_state": "funds Kora fee-payer legs, channel deposits and vault rents; spends only via Kora policy"
+    },
+    {
+      "role": "PeerProjectService",
+      "class": "X402FacilitatorKey",
+      "purpose": "channel_open_settle_reclaim",
+      "holder": "/etc/cynic/secrets/gasdf/relay/facilitator-key.json (0640 cynic:cynic)",
+      "fingerprint": "4KaDNU2ey2LMpUq4RXeW2WWeXkL44rvKSrei7ZLnyqRt",
+      "steady_state": "fee-payer for channel opens and settlement; reclaims expired channels via cleanup manager"
+    },
+    {
+      "role": "PeerProjectService",
+      "class": "X402AuthorizerKey",
+      "purpose": "upto_settlement_vouchers",
+      "holder": "/etc/cynic/secrets/gasdf/relay/upto-authorizer.json (0640 cynic:cynic)",
+      "fingerprint": "HDMdYbNQ1tPdKsstHhHwRsyh4DEM9c3Ee9cTKMKjuYrK",
+      "steady_state": "server hot key signing upto settlement vouchers; never a fee payer"
+    },
+    {
+      "role": "PeerProjectService",
+      "class": "RelayTestUserKey",
+      "purpose": "relay_e2e_proof",
+      "holder": "/etc/cynic/secrets/gasdf/relay/flow2-user.json (0640 cynic:cynic)",
+      "fingerprint": "22XuHm3CV5JQH3hnc7i1FgmB36q1aoHskqtXt759PNJv",
+      "steady_state": "dev user key for E2E proof traffic only; holds test dust"
+    },
+    {
+      "role": "PeerProjectService",
+      "class": "RelayProviderCredential",
+      "purpose": "price_oracle_and_kora_auth",
+      "holder": "/etc/cynic/secrets/gasdf/relay/mainnet.env + signer.env (0640 cynic:cynic)",
+      "fingerprint": "presence-only: JUPITER_API_KEY, KORA_HMAC_SECRET, KORA_MAINNET_SIGNER_KEY",
+      "steady_state": "injected as env at launcher; never argv, never logs"
     }
   ]
 }
