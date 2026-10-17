@@ -3,7 +3,7 @@
 //! # Architecture
 //!
 //! Storage strictly adheres to Foundation §481 and §489:
-//! 1. **WAL is Source of Truth** (`INV-01`): The append-only, SHA-256 chained binary WAL is authoritative.
+//! 1. **WAL is Source of Truth** (`INV-01`): The append-only, SHA3-512 chained binary WAL is authoritative.
 //! 2. **Projections are Disposable**: Embedded state views (SurrealKV / SQLite) are derived caches.
 //! 3. **Zero External Daemon SPOF** (`INV-03`): Storage operates strictly in-process.
 
@@ -31,7 +31,7 @@ pub use ports::{
 };
 pub use projection::SqliteProjectionAdapter;
 pub use types::{
-    AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash256, IntegrityReport,
+    AxisToken, CausalWitness, CompactMetadataTensor, DistanceMetric, Hash512, IntegrityReport,
     MetadataTensor, OpaqueEnvelope, PoHTick, SequenceNumber, StorageCheckpoint, VectorEmbedding,
     WalAppendInput, WalEntry, WalReceipt,
 };
@@ -56,20 +56,20 @@ mod tests {
     }
 
     #[test]
-    fn hash256_canonical_roundtrip() {
-        let raw = [42u8; 32];
-        let hash = Hash256(raw);
+    fn hash512_canonical_roundtrip() {
+        let raw = [42u8; 64];
+        let hash = Hash512(raw);
         let hex_prefixed = hash.to_prefixed_hex();
-        assert!(hex_prefixed.starts_with("sha256:"));
+        assert!(hex_prefixed.starts_with("sha3-512:"));
 
-        let parsed = Hash256::from_prefixed_hex(&hex_prefixed).expect("roundtrip should succeed");
+        let parsed = Hash512::from_prefixed_hex(&hex_prefixed).expect("roundtrip should succeed");
         assert_eq!(parsed, hash);
     }
 
     #[test]
     fn hash512_rejects_missing_prefix() {
         let invalid = "00".repeat(64);
-        assert!(Hash256::from_prefixed_hex(&invalid).is_err());
+        assert!(Hash512::from_prefixed_hex(&invalid).is_err());
     }
 
     #[test]
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn metadata_tensor_extensibility() {
-        let mut tensor = MetadataTensor::new("cynic.test.v1", Hash256::GENESIS);
+        let mut tensor = MetadataTensor::new("cynic.test.v1", Hash512::GENESIS);
         tensor
             .continuous_axes
             .insert("metabolic.joules".to_string(), 42.5);
@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn compact_metadata_tensor_stack_inlined() {
-        let mut tensor = CompactMetadataTensor::new(1, Hash256::GENESIS);
+        let mut tensor = CompactMetadataTensor::new(1, Hash512::GENESIS);
         tensor.insert_continuous(0x0001, 14.2);
         tensor.insert_continuous(0x0002, 0.95);
         tensor.discrete_keys.push(0x0010);

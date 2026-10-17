@@ -1,13 +1,13 @@
 //! Pure queue planning — reconcile branch graph + discovery + GC plan into a QueuePlan.
 //! No I/O, no hard-coded argv: BoundedAction is derived from gc_plan items or branch name.
 
+use cynic_build::build_artefact::BuildArtefactGcPlan;
 use cynic_build::build_discovery::BuildDiscoveryReport;
 use cynic_protocol::branch_graph::{BranchGraph, is_root, is_stale};
 use cynic_protocol::queue::{
     BoundedAction, CanonicalQueuePolicy, QUEUE_PLAN_SCHEMA, QueueItem, QueuePlan, QueuePolicy,
-    QueueReason,
+    QueueReason, reason_rank,
 };
-use cynic_protocol::retention::RetentionPlan;
 
 fn gc_reason(reason_str: &str) -> QueueReason {
     let r = reason_str.to_ascii_lowercase();
@@ -34,7 +34,7 @@ fn gc_reason(reason_str: &str) -> QueueReason {
 pub fn build_queue_plan(
     branch_graph: &BranchGraph,
     discovery: &BuildDiscoveryReport,
-    gc_plan: &RetentionPlan,
+    gc_plan: &BuildArtefactGcPlan,
     now: u64,
 ) -> QueuePlan {
     let recipe_id = discovery
@@ -110,8 +110,8 @@ pub fn build_queue_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::retention::{
-        RetentionItem, RetentionPlan, RETENTION_PLAN_SCHEMA,
+    use cynic_build::build_artefact::{
+        BUILD_ARTEFACT_GC_PLAN_SCHEMA, BuildArtefactGcItem, BuildArtefactGcPlan,
     };
     use cynic_build::build_discovery::{
         BUILD_DISCOVERY_REPORT_SCHEMA, BuildDiscoveryReport, DiscoveredCrate, HostTriple, Toolchain,
@@ -168,15 +168,16 @@ mod tests {
         }
     }
 
-    fn gc_plan() -> RetentionPlan {
-        RetentionPlan {
-            schema: RETENTION_PLAN_SCHEMA.to_string(),
+    fn gc_plan() -> BuildArtefactGcPlan {
+        BuildArtefactGcPlan {
+            schema: BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
             items: vec![
-                RetentionItem {
+                BuildArtefactGcItem {
                     id: "checkout:abc123".to_string(),
+                    label: "orphan".to_string(),
                     path: "/var/lib/cynic/checkouts/old-orphan".to_string(),
+                    size_human: "1M".to_string(),
                     size_bytes: 1024,
-                    age: None,
                     reason: "orphan(no remote)".to_string(),
                     requires_privilege: false,
                     argv: vec![
@@ -184,19 +185,13 @@ mod tests {
                         "-rf".to_string(),
                         "/var/lib/cynic/checkouts/old-orphan".to_string(),
                     ],
-                    is_orphan: Some(true),
-                    is_root_owned: Some(false),
-                    remote_exists: Some(false),
-                    sha: Some("abc123".to_string()),
-                    branch: Some("old-orphan".to_string()),
-                    owner_uid: Some(999),
-                    owner_gid: Some(990),
                 },
-                RetentionItem {
+                BuildArtefactGcItem {
                     id: "checkout:def456".to_string(),
+                    label: "aged".to_string(),
                     path: "/var/lib/cynic/checkouts/aged-one".to_string(),
+                    size_human: "2M".to_string(),
                     size_bytes: 2048,
-                    age: None,
                     reason: "age 56h".to_string(),
                     requires_privilege: true,
                     argv: vec![
@@ -204,17 +199,10 @@ mod tests {
                         "-rf".to_string(),
                         "/var/lib/cynic/checkouts/aged-one".to_string(),
                     ],
-                    is_orphan: Some(false),
-                    is_root_owned: Some(true),
-                    remote_exists: Some(true),
-                    sha: Some("def456".to_string()),
-                    branch: Some("aged-one".to_string()),
-                    owner_uid: Some(0),
-                    owner_gid: Some(0),
                 },
             ],
             total_reclaimable_bytes: 3072,
-            policy_version: "BuildArtefact".to_string(),
+            total_reclaimable_human: "3M".to_string(),
         }
     }
 
@@ -276,11 +264,11 @@ mod tests {
             observed_at_unix_s: 0,
             residual_unknowns: vec![],
         };
-        let gc = RetentionPlan {
-            schema: RETENTION_PLAN_SCHEMA.to_string(),
+        let gc = BuildArtefactGcPlan {
+            schema: BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
             items: vec![],
             total_reclaimable_bytes: 0,
-            policy_version: "BuildArtefact".to_string(),
+            total_reclaimable_human: "0".into(),
         };
         let plan = build_queue_plan(&bg, &d, &gc, 1_000_000);
         assert!(plan.items.is_empty());
@@ -291,7 +279,6 @@ mod tests {
 #[cfg(test)]
 mod extension_tests {
     use super::*;
-    use cynic_protocol::queue::reason_rank;
 
     #[test]
     fn unknown_gc_code_becomes_other_not_a_mislabeled_orphan() {

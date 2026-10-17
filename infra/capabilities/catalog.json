@@ -316,54 +316,6 @@
       "requires_root": false,
       "mandatory": false,
       "purpose": "terminate a detached tmux session cleanly"
-    },
-    {
-      "id": "lxc-push-node-registry",
-      "domain": "hypervisor",
-      "argv_template": [
-        "/usr/sbin/pct",
-        "push",
-        "{vmid}",
-        "{source}",
-        "/etc/cynic/registry.json"
-      ],
-      "params": [
-        {
-          "name": "vmid",
-          "kind": "vmid"
-        },
-        {
-          "name": "source",
-          "kind": "local_path"
-        }
-      ],
-      "requires_root": true,
-      "mandatory": false,
-      "purpose": "push a staged fleet file into a CT (fixed dest /etc/cynic/registry.json, source staged on the hypervisor, verified by on-node readback)"
-    },
-    {
-      "id": "lxc-push-node-cert",
-      "domain": "hypervisor",
-      "argv_template": [
-        "/usr/sbin/pct",
-        "push",
-        "{vmid}",
-        "{source}",
-        "/etc/cynic/node-identity.cert"
-      ],
-      "params": [
-        {
-          "name": "vmid",
-          "kind": "vmid"
-        },
-        {
-          "name": "source",
-          "kind": "local_path"
-        }
-      ],
-      "requires_root": true,
-      "mandatory": false,
-      "purpose": "push a staged fleet file into a CT (fixed dest /etc/cynic/node-identity.cert, source staged on the hypervisor, verified by on-node readback)"
     }
   ]
 }

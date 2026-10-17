@@ -57,7 +57,7 @@ impl SensorySnapshot {
             "taken_at_unix_s": taken_at_unix_s,
             "payload": &payload,
         }))
-        .unwrap_or_else(|_| format!("sha256:{}", sense_str));
+        .unwrap_or_else(|_| format!("sha3-512:{}", sense_str));
 
         Self {
             schema: SENSORY_SNAPSHOT_SCHEMA.to_string(),
@@ -165,7 +165,7 @@ mod tests {
         let snapshot = SensorySnapshot::new("rtk", 1724000000, 10, payload);
 
         assert_eq!(snapshot.schema, SENSORY_SNAPSHOT_SCHEMA);
-        assert!(snapshot.evidence_digest.starts_with("sha256:"));
+        assert!(snapshot.evidence_digest.starts_with("sha3-512:"));
 
         let json = serde_json::to_string(&snapshot).unwrap();
         assert!(json.contains("token_metabolism"));

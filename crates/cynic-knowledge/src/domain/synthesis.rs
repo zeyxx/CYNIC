@@ -75,80 +75,24 @@ DIRECTIVES IMPÉRATIVES :
         }
     }
 
-    /// Résout dynamiquement l'URL de l'endpoint d'inférence.
-    /// Ordre : unité locale supervisée (fichier rendez-vous du
-    /// superviseur, vérifié TCP), puis inference.toml, puis repli fixe.
+    /// Résout dynamiquement l'URL de l'endpoint d'inférence via CynicPaths et inference.toml.
     pub fn resolve_local_inference_endpoint() -> String {
         if let Ok(env_url) = std::env::var("CYNIC_INFERENCE_URL") {
             return env_url;
         }
-        if let Some(live) = Self::read_supervised_endpoint() {
-            return live;
-        }
         let cfg_path = cynic_types::CynicPaths::inference_config_path();
-        // Système puis principal : le pair vivant peut n'être déclaré
-        // qu'au niveau principal (/etc exige un opérateur pour écrire).
-        let principal_cfg =
-            cynic_types::CynicPaths::state_dir().join(".config/cynic/inference.toml");
-        for path in [cfg_path, principal_cfg] {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
-                    if let Some(backends) = toml_val.get("backend").and_then(|b| b.as_array()) {
-                        for b in backends {
-                            if let Some(base_url) = b.get("base_url").and_then(|u| u.as_str()) {
-                                let trimmed = base_url.trim_end_matches('/');
-                                // Premier joignable gagne : un backend mort en
-                                // tête ne doit pas enterrer les pairs vivants.
-                                if Self::base_reachable(trimmed) {
-                                    return format!("{trimmed}/chat/completions");
-                                }
-                            }
+        if let Ok(content) = std::fs::read_to_string(&cfg_path) {
+            if let Ok(toml_val) = toml::from_str::<toml::Value>(&content) {
+                if let Some(backends) = toml_val.get("backend").and_then(|b| b.as_array()) {
+                    for b in backends {
+                        if let Some(base_url) = b.get("base_url").and_then(|u| u.as_str()) {
+                            let trimmed = base_url.trim_end_matches('/');
+                            return format!("{}/chat/completions", trimmed);
                         }
                     }
                 }
             }
         }
         "http://127.0.0.1:8088/v1/chat/completions".to_string()
-    }
-
-    /// Lit le rendez-vous publié par le superviseur local
-    /// (`{state}/supervised-inference-endpoint` : alias puis base `/v1`).
-    /// Ne retient que ce qui répond TCP, sinon rien (repli appelant).
-    fn read_supervised_endpoint() -> Option<String> {
-        let path = cynic_types::CynicPaths::state_dir().join("supervised-inference-endpoint");
-        let raw = std::fs::read_to_string(path).ok()?;
-        let mut lines = raw.lines();
-        lines.next()?;
-        let base = lines.next()?.trim().trim_end_matches('/');
-        if base.is_empty() {
-            return None;
-        }
-        if Self::base_reachable(base) {
-            Some(format!("{base}/chat/completions"))
-        } else {
-            None
-        }
-    }
-
-    /// Un `base_url` http(s) est joignable si son hôte:port répond TCP.
-    fn base_reachable(base: &str) -> bool {
-        let host_port = base
-            .strip_prefix("http://")
-            .or_else(|| base.strip_prefix("https://"))
-            .unwrap_or(base);
-        let host_port = host_port.split('/').next().unwrap_or(host_port);
-        Self::tcp_reachable(host_port)
-    }
-
-    fn tcp_reachable(host_port: &str) -> bool {
-        use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-        let addrs: Vec<SocketAddr> = host_port
-            .to_socket_addrs()
-            .map(|i| i.collect())
-            .unwrap_or_default();
-        let Some(addr) = addrs.into_iter().next() else {
-            return false;
-        };
-        TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(800)).is_ok()
     }
 }

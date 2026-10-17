@@ -277,7 +277,7 @@ impl ProjectionCoordinatorPort for SqliteProjectionAdapter {
 mod tests {
     use super::*;
     use crate::ports::WalJournalPort;
-    use crate::types::{CausalWitness, Hash256, PoHTick, WalAppendInput};
+    use crate::types::{CausalWitness, Hash512, PoHTick, WalAppendInput};
     use crate::wal::WalFsAdapter;
     use bytes::Bytes;
 
@@ -337,9 +337,9 @@ mod tests {
         let entry = WalEntry {
             sequence: SequenceNumber(1),
             poh_tick: PoHTick(1),
-            previous_hash: Hash256::GENESIS,
-            commit_hash: Hash256::GENESIS,
-            entry_hash: Hash256([9u8; 32]),
+            previous_hash: Hash512::GENESIS,
+            commit_hash: Hash512::GENESIS,
+            entry_hash: Hash512([9u8; 64]),
             schema: "cynic.test.account.v1".to_string(),
             payload: Bytes::from_static(b"payload"),
             witness: test_witness(),

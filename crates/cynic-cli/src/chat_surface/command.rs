@@ -28,28 +28,26 @@ pub(crate) fn execute_chat(args: &ChatArgs) -> ExitCode {
         return chat_tui::run_chat_tui(args.mock, args.ods, args.stream, args.model.as_deref());
     }
 
-    // execute_chat runs inside the CLI tokio runtime: never nest block_on.
-    // Blocking turns run on a helper thread against the current handle.
-    let handle = tokio::runtime::Handle::current();
-    let build_args = (args.mock, args.ods, args.model.clone());
-    let setup_handle = handle.clone();
-    let runtime = match std::thread::spawn(move || {
-        setup_handle.block_on(build_chat_runtime(
-            build_args.0,
-            build_args.1,
-            build_args.2.as_deref(),
-            false,
-        ))
-    })
-    .join()
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
     {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => {
-            eprintln!("chat: {e}");
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("tokio runtime: {e}");
             return ExitCode::FAILURE;
         }
-        Err(_) => {
-            eprintln!("chat setup thread failed");
+    };
+
+    let runtime = match rt.block_on(build_chat_runtime(
+        args.mock,
+        args.ods,
+        args.model.as_deref(),
+        false,
+    )) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("chat: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -141,19 +139,7 @@ pub(crate) fn execute_chat(args: &ChatArgs) -> ExitCode {
     };
 
     let sid = args.resume.clone().or(args.session_id.clone());
-    let turn_args = (sid, prompt.clone(), args.stream);
-    let turn_handle = handle.clone();
-    let report = match std::thread::spawn(move || {
-        turn_handle.block_on(service.turn(turn_args.0.as_deref(), &turn_args.1, turn_args.2))
-    })
-    .join()
-    {
-        Ok(report) => report,
-        Err(_) => {
-            eprintln!("chat turn thread failed");
-            return ExitCode::FAILURE;
-        }
-    };
+    let report = rt.block_on(service.turn(sid.as_deref(), &prompt, args.stream));
 
     if args.json {
         let code = emit_chat_json(&report);

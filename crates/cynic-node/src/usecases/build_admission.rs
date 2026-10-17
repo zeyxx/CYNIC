@@ -88,8 +88,6 @@ pub fn admit_build_check(
         idempotency_key: idempotency_key.clone(),
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
-        source_commit: Some(source_commit.to_string()),
-        branch: None,
         input: None,
         action: bounded,
         delegation: AgentDelegationEnvelope {

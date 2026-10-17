@@ -20,41 +20,63 @@ pub struct BuildRecipe {
     pub evidence_refs: Vec<String>,
 }
 
-/// Canonical recipe constructor: recipes exist only for registry-composed
-/// actions. The action set, the target profile and the admission scope all
-/// derive from `infra/command-registry.json` (via
-/// `cynic_protocol::command_registry`); the execution environment
-/// (stack, memory, parallelism) stays a code default per profile because it
-/// describes the runner, not the command.
 pub fn build_recipe(action: &str) -> Result<BuildRecipe, String> {
-    // A recipe exists exactly when the registry composes the action: a recipe
-    // is an execution commitment over registry data, not a vocabulary entry.
-    // (Unwired actions such as cargo:run compose no argv and get no recipe.)
-    if cynic_protocol::command_registry::registry_argv(action).is_none() {
-        return Err(format!("unsupported_canonical_build_action:{action}"));
+    match action {
+        "make:check" => Ok(BuildRecipe {
+            schema: BUILD_RECIPE_SCHEMA.to_string(),
+            action: "make:check".to_string(),
+            target_profile: "debug".to_string(),
+            allowed_actions: vec![
+                "make:check".to_string(),
+                "cargo:check".to_string(),
+                "cargo:run".to_string(),
+                "cargo:test".to_string(),
+            ],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: Some(4_294_967_296),
+            target_crates: vec![],
+            excluded_crates: vec![],
+            toolchain_override: None,
+            env_overrides: vec![],
+            max_parallel_jobs: 1,
+            timeout_secs: 600,
+            evidence_refs: vec![],
+        }),
+        "make:build" => Ok(BuildRecipe {
+            schema: BUILD_RECIPE_SCHEMA.to_string(),
+            action: "make:build".to_string(),
+            target_profile: "debug".to_string(),
+            allowed_actions: vec!["make:build".to_string(), "cargo:build".to_string()],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: Some(4_294_967_296),
+            target_crates: vec![],
+            excluded_crates: vec![],
+            toolchain_override: None,
+            env_overrides: vec![],
+            max_parallel_jobs: 1,
+            timeout_secs: 600,
+            evidence_refs: vec![],
+        }),
+        "make:build-release" => Ok(BuildRecipe {
+            schema: BUILD_RECIPE_SCHEMA.to_string(),
+            action: "make:build-release".to_string(),
+            target_profile: "release".to_string(),
+            allowed_actions: vec!["make:build-release".to_string(), "cargo:build".to_string()],
+            rust_min_stack: 536_870_912,
+            cargo_incremental: false,
+            memory_limit_bytes: Some(8_589_934_592),
+            target_crates: vec![],
+            excluded_crates: vec![],
+            toolchain_override: None,
+            env_overrides: vec![],
+            max_parallel_jobs: 1,
+            timeout_secs: 600,
+            evidence_refs: vec![],
+        }),
+        unsupported => Err(format!("unsupported_canonical_build_action:{unsupported}")),
     }
-    let target_profile = cynic_protocol::command_registry::registry_profile(action)
-        .ok_or_else(|| format!("unsupported_canonical_build_action:{action}"))?;
-    let (rust_min_stack, memory_limit_bytes) = match target_profile.as_str() {
-        "release" => (536_870_912usize, Some(8_589_934_592u64)),
-        _ => (536_870_912usize, Some(4_294_967_296u64)),
-    };
-    Ok(BuildRecipe {
-        schema: BUILD_RECIPE_SCHEMA.to_string(),
-        action: action.to_string(),
-        target_profile,
-        allowed_actions: vec![action.to_string()],
-        rust_min_stack,
-        cargo_incremental: false,
-        memory_limit_bytes,
-        target_crates: vec![],
-        excluded_crates: vec![],
-        toolchain_override: None,
-        env_overrides: vec![],
-        max_parallel_jobs: 1,
-        timeout_secs: 600,
-        evidence_refs: vec![],
-    })
 }
 
 pub fn validate_build_recipe(recipe: &BuildRecipe) -> Result<(), String> {
@@ -78,30 +100,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn native_recipes_come_from_the_registry() {
-        // Recipes compose only registry actions: the argv a recipe runs is
-        // declared in infra/command-registry.json, never restated here.
-        for action in ["audit:crate", "cargo:check", "cargo:build", "cargo:test"] {
-            let recipe = build_recipe(action).expect("registry recipe");
-            assert_eq!(recipe.action, action);
-            assert_eq!(recipe.target_profile, "debug");
-            assert!(recipe.allowed_actions.contains(&action.to_string()));
-            assert!(validate_build_recipe(&recipe).is_ok());
-        }
-        let release = build_recipe("cargo:build-release").expect("release recipe");
-        assert_eq!(release.target_profile, "release");
-        assert!(!release.cargo_incremental);
-        assert!(validate_build_recipe(&release).is_ok());
+    fn check_recipe_sets_deterministic_environment_and_stack() {
+        let recipe = build_recipe("make:check").expect("recipe");
+        assert_eq!(recipe.action, "make:check");
+        assert_eq!(recipe.rust_min_stack, 536_870_912);
+        assert!(!recipe.cargo_incremental);
+        assert!(recipe.allowed_actions.contains(&"cargo:check".to_string()));
+        assert!(validate_build_recipe(&recipe).is_ok());
     }
 
     #[test]
-    fn retired_make_recipes_are_refused() {
-        for action in ["make:check", "make:build", "make:build-release"] {
-            assert!(
-                build_recipe(action).is_err(),
-                "{action} must be refused"
-            );
-        }
+    fn release_recipe_sets_release_profile() {
+        let recipe = build_recipe("make:build-release").expect("release recipe");
+        assert_eq!(recipe.target_profile, "release");
+        assert_eq!(recipe.rust_min_stack, 536_870_912);
+        assert!(!recipe.cargo_incremental);
+        assert!(validate_build_recipe(&recipe).is_ok());
     }
 
     #[test]

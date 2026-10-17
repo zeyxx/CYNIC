@@ -1,5 +1,5 @@
 //! Filesystem-backed binary WAL adapter implementing `WalJournalPort`.
-//! Supports crash-recovery with torn-tail truncation, SHA-256 cryptographic verification,
+//! Supports crash-recovery with torn-tail truncation, SHA3-512 cryptographic verification,
 //! and fdatasync durability boundaries.
 
 pub mod crc;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use crate::error::StorageError;
 use crate::ports::WalJournalPort;
 use crate::types::{
-    Hash256, IntegrityReport, PoHTick, SequenceNumber, WalAppendInput, WalEntry, WalReceipt,
+    Hash512, IntegrityReport, PoHTick, SequenceNumber, WalAppendInput, WalEntry, WalReceipt,
 };
 use frame::{compute_commit_hash, compute_entry_hash, decode_frame, encode_frame};
 
@@ -22,7 +22,7 @@ use frame::{compute_commit_hash, compute_entry_hash, decode_frame, encode_frame}
 struct WalFsState {
     active_file: File,
     latest_sequence: SequenceNumber,
-    latest_entry_hash: Hash256,
+    latest_entry_hash: Hash512,
     latest_poh_tick: PoHTick,
     entries: Vec<WalEntry>,
 }
@@ -44,7 +44,7 @@ impl WalFsAdapter {
         let active_path = dir.join("active.seg");
         let mut entries = Vec::new();
         let mut latest_seq = SequenceNumber::GENESIS;
-        let mut latest_hash = Hash256::GENESIS;
+        let mut latest_hash = Hash512::GENESIS;
         let mut latest_poh = PoHTick(0);
         let mut valid_file_len = 0u64;
 
@@ -55,7 +55,7 @@ impl WalFsAdapter {
                 .map_err(|e| StorageError::Io(e.to_string()))?
                 .len();
             let mut reader = BufReader::new(&mut file);
-            let mut expected_prev_hash = Hash256::GENESIS;
+            let mut expected_prev_hash = Hash512::GENESIS;
 
             loop {
                 let frame_start_offset = reader
@@ -233,7 +233,7 @@ impl WalJournalPort for WalFsAdapter {
 
     fn verify_integrity(&self) -> Result<IntegrityReport, StorageError> {
         let state = self.state.read();
-        let mut expected_prev = Hash256::GENESIS;
+        let mut expected_prev = Hash512::GENESIS;
 
         for entry in &state.entries {
             if entry.previous_hash != expected_prev {
@@ -293,7 +293,7 @@ mod tests {
             principal_pubkey: [11u8; 32],
             signature: [22u8; 64],
             mandate_id: Some("mandate-test".to_string()),
-            proof_anchor: Some(Hash256([33u8; 32])),
+            proof_anchor: Some(Hash512([33u8; 64])),
         }
     }
 

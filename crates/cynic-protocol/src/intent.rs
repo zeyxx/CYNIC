@@ -9,10 +9,10 @@
 //! Domain predicates (conflict, admission, routing) belong to the Judicial
 //! layer and do not exist yet — their absence is stated, not hidden.
 //!
-//! Digest law: internal integrity hashing is SHA-256 via the QUALIFIED path
-//! `crate::digest::digest_json`. The crate-root `crate::digest_json`
-//! re-export (from `integrity`) is also SHA-256 after the T13 flip.
-//! See protocols/h1-intent.md §Digest ambiguity.
+//! Digest law: internal integrity hashing is SHA3-512 via the QUALIFIED path
+//! `crate::digest::digest_json`. Never the crate-root `crate::digest_json`
+//! re-export (that resolves to `integrity::digest_json`, SHA-256 for external
+//! contracts). See protocols/h1-intent.md §Digest ambiguity.
 //!
 //! Conventions (strings until a dispatcher consumes the namespace):
 //! emitter/promoter: "pole:<name>" | "human:<name>"
@@ -68,7 +68,7 @@ pub struct IntentTransmission {
     pub provenance_class: ProvenanceClass,
     /// Who/what produced the claim (non-empty).
     pub provenance_source: String,
-    /// SHA-256 digest over all fields above, via `crate::digest::digest_json`.
+    /// SHA3-512 digest over all fields above, via `crate::digest::digest_json`.
     pub digest: String,
 }
 
@@ -128,8 +128,8 @@ impl IntentTransmission {
                 if expected != self.digest {
                     violations.push("digest_mismatch".to_string());
                 }
-                if !self.digest.starts_with(crate::digest::SHA2_PREFIX) {
-                    violations.push("digest_must_carry_sha256_prefix".to_string());
+                if !self.digest.starts_with(crate::digest::SHA3_PREFIX) {
+                    violations.push("digest_must_carry_sha3_512_prefix".to_string());
                 }
             }
             Err(e) => violations.push(e),
@@ -213,12 +213,12 @@ mod tests {
     }
 
     #[test]
-    fn valid_transmission_passes_with_sha256_prefix() {
+    fn valid_transmission_passes_with_sha3_prefix() {
         let tx = valid_transmission();
         assert!(tx.validate().is_ok(), "valid record must pass");
         assert!(
-            tx.digest.starts_with(crate::digest::SHA2_PREFIX),
-            "digest must be sha256 (canonical after T13 flip)"
+            tx.digest.starts_with(crate::digest::SHA3_PREFIX),
+            "digest must be sha3-512, never the root sha256 re-export"
         );
     }
 
@@ -259,16 +259,15 @@ mod tests {
     }
 
     #[test]
-    fn root_digest_path_also_validates() {
-        // T13 flip: both the crate-root re-export and the qualified path
-        // produce the same canonical SHA-256 digest. Verify that a digest
-        // sealed via the crate-root integrity::digest_json also validates.
+    fn sha256_root_digest_is_rejected() {
+        // Guard against the glob-shadow trap: a digest sealed with the
+        // crate-root (sha256) function must NOT validate.
         let mut tx = valid_transmission();
         let payload = tx.digest_payload();
         tx.digest = crate::integrity::digest_json(&payload).expect("root digest must compute");
         assert!(tx.digest.starts_with("sha256:"));
-        // Both paths produce SHA-256; the digest must match and validate.
-        assert!(tx.validate().is_ok(), "sha256 root digest must validate after T13 flip");
+        let err = tx.validate().expect_err("sha256 digest must fail");
+        assert!(err.contains(&"digest_mismatch".to_string()));
     }
 
     #[test]

@@ -182,10 +182,10 @@ Parce que Hermes est un agent exécuté. Il doit être sandboxé et surveillé, 
 
 ---
 
-## 10. Pourquoi le SHA-256 pour PoH ?
+## 10. Pourquoi le SHA3-512 pour PoH ?
 
 ### 10.1 Pourquoi pas SHA-256 ?
-Parce que SHA-256 est vulnérable aux attaques par extension de longueur (length extension attacks). SHA-256 (Keccak) n'a pas cette faiblesse et offre une marge de sécurité supérieure.
+Parce que SHA-256 est vulnérable aux attaques par extension de longueur (length extension attacks). SHA3-512 (Keccak) n'a pas cette faiblesse et offre une marge de sécurité supérieure.
 
 ### 10.2 Pourquoi 512 bits ?
 Parce que les agents CYNIC ont une longue durée de vie. 256 bits pourrait suffire aujourd'hui mais pas dans 10 ans. 512 bits = marge pour l'avenir.
@@ -230,7 +230,7 @@ Résultat : même agent compromis = ne peut pas signer une transaction malveilla
 | Pourquoi Solana ? | Parce que settlement public = coordination économique permissionless |
 | Pourquoi quorum BFT ? | Parce qu'un agent unique ne valide pas ses propres extractions |
 | Pourquoi Joules ? | Parce que l'APU est DRAM-bound = énergie dominante |
-| Pourquoi SHA-256 ? | Parce que SHA-256 a des faiblesses connues |
+| Pourquoi SHA3-512 ? | Parce que SHA-256 a des faiblesses connues |
 | Pourquoi constitution ? | Parce que les invariants ne doivent pas être mutables par un agent |
 | Pourquoi signature séparée ? | Parce qu'un agent ne touche jamais de clé privée |
 

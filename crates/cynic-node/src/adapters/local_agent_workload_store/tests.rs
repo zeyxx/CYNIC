@@ -47,8 +47,6 @@ fn record(workload_id: &str, idempotency_key: &str) -> AgentWorkloadRecord {
         mandate_binding: None,
         input: None,
         resource_budget: None,
-        source_commit: None,
-        branch: None,
         action,
         delegation: AgentDelegationEnvelope {
             schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.into(),
@@ -170,53 +168,6 @@ fn archive_terminal_returns_none_for_missing_workload() {
         .archive_terminal("workload-missing", 500, 2_000)
         .expect("archive terminal missing");
     assert!(result.is_none());
-}
-
-#[test]
-fn append_evidence_stores_sidecar_next_to_record() {
-    let root = tempfile::tempdir().expect("tempdir");
-    let store = LocalAgentWorkloadStore::new(root.path());
-
-    store
-        .compare_and_swap("workload-evi", None, &record("workload-evi", "key-evi"), 1_000)
-        .expect("seed record");
-
-    let body = serde_json::json!({"workload_id": "workload-evi", "status": "failed"});
-    store
-        .append_evidence("workload-evi", "settlement-1.json", &body)
-        .expect("append evidence");
-
-    let bytes = std::fs::read(root.path().join("workload-evi").join("settlement-1.json"))
-        .expect("sidecar readable");
-    let read_back: serde_json::Value = serde_json::from_slice(&bytes).expect("sidecar json");
-    assert_eq!(read_back, body);
-}
-
-#[test]
-fn append_evidence_fails_closed_on_unknown_workload_and_unsafe_names() {
-    let root = tempfile::tempdir().expect("tempdir");
-    let store = LocalAgentWorkloadStore::new(root.path());
-
-    store
-        .compare_and_swap("workload-evi", None, &record("workload-evi", "key-evi"), 1_000)
-        .expect("seed record");
-
-    let body = serde_json::json!({});
-    assert_eq!(
-        store
-            .append_evidence("workload-missing", "settlement-1.json", &body)
-            .expect_err("unknown workload")
-            .code,
-        "workload_evidence_unknown_workload"
-    );
-    for unsafe_name in ["..", ".", "sub/evil.json", "no-extension"] {
-        assert!(
-            store
-                .append_evidence("workload-evi", unsafe_name, &body)
-                .is_err(),
-            "rejects {unsafe_name}"
-        );
-    }
 }
 
 #[test]

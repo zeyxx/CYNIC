@@ -190,7 +190,6 @@ mod tests {
                 cargo_home: std::path::PathBuf::from("/tmp"),
                 rustup_home: std::path::PathBuf::from("/tmp"),
                 extra_ro_binds: vec![],
-                sccache_cache_dir: None,
             }),
         };
         let cancellation = tokio_util::sync::CancellationToken::new();

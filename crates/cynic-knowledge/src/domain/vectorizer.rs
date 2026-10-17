@@ -13,6 +13,21 @@ use crate::domain::hybrid_rrf::DenseHit;
 pub trait ChunkEmbedder {
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String>;
 
+    /// Batch with per-call progress: `report(done, total)` fires as workers
+    /// complete sublots. Cluster backends override this so ONE shared queue
+    /// spans the whole slice; never chunk before fanout or the endpoints
+    /// after the first are starved by construction. The closure must be
+    /// `Sync` because receiving workers call it concurrently.
+    fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Vec<f32>>, String> {
+        let out = self.embed_batch(texts)?;
+        report(out.len(), texts.len());
+        Ok(out)
+    }
+
     /// Chunk-aware entry: defaults to `embed_batch` over contents, but lets
     /// adapters format per-chunk input texts (titles, instruction prefixes)
     /// from chunk metadata without changing the trait for existing backends.

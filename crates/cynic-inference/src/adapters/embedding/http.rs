@@ -2,7 +2,6 @@
 //! Default target: local llama-server on :8081 with Qwen3-Embedding.
 
 use async_trait::async_trait;
-use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -14,10 +13,39 @@ use crate::ports::inference_port::BackendPort;
 
 const DEFAULT_REST_ADDR: &str = "127.0.0.1:3030";
 
+/// Specification of an embedding endpoint with its physical concurrent slot capacity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EndpointSpec {
+    pub url: String,
+    pub slots: usize,
+}
+
+impl EndpointSpec {
+    pub fn parse(raw: &str, default_slots: usize) -> Self {
+        let trimmed = raw.trim();
+        if let Some((url_part, hash_part)) = trimmed.split_once('#') {
+            let url = url_part.trim_end_matches('/').to_string();
+            let slots = hash_part
+                .strip_prefix("slots=")
+                .unwrap_or(hash_part)
+                .parse::<usize>()
+                .ok()
+                .filter(|&s| (1..=16).contains(&s))
+                .unwrap_or(default_slots);
+            Self { url, slots }
+        } else {
+            Self {
+                url: trimmed.trim_end_matches('/').to_string(),
+                slots: default_slots,
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct EmbeddingBackend {
     client: Client,
-    base_url: String,
+    endpoints: Vec<EndpointSpec>,
     api_key: Option<String>,
     model: String,
 }
@@ -35,19 +63,52 @@ impl EmbeddingBackend {
             .and_then(|raw| raw.parse::<u64>().ok())
             .filter(|ms| (1_000..=600_000).contains(ms))
             .unwrap_or(120_000);
-        Ok(Self {
+
+        let default_slots = fanout_width();
+        let endpoints: Vec<EndpointSpec> = base_url
+            .split(',')
+            .map(|s| EndpointSpec::parse(s, default_slots))
+            .filter(|e| !e.url.is_empty())
+            .collect();
+
+        if endpoints.is_empty() {
+            return Err(BackendInitError::from_http(
+                "no valid embedding base url provided",
+            ));
+        }
+
+        let backend = Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(BackendInitError::from_http)?,
-            base_url: base_url.trim_end_matches('/').to_string(),
+            endpoints,
             api_key,
             model: model.to_string(),
-        })
+        };
+        eprintln!(
+            "embedding endpoints ({}): {}",
+            backend.endpoints.len(),
+            backend
+                .endpoints
+                .iter()
+                .map(|e| format!("{}#slots={}", e.url, e.slots))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        Ok(backend)
     }
 
     pub fn base_url(&self) -> &str {
-        &self.base_url
+        &self.endpoints[0].url
+    }
+
+    pub fn base_urls(&self) -> Vec<String> {
+        self.endpoints.iter().map(|e| e.url.clone()).collect()
+    }
+
+    pub fn endpoints(&self) -> &[EndpointSpec] {
+        &self.endpoints
     }
 
     pub async fn discover(host: &str, api_key: Option<String>, model: &str) -> Option<Self> {
@@ -85,14 +146,58 @@ impl EmbeddingBackend {
         None
     }
 
+    /// Resolves the embedding cluster from the workspace registry.
+    ///
+    /// Walks up from the current directory to the workspace root (the first
+    /// ancestor holding `infra/registry.json`) and collects the
+    /// `bench_endpoint` of every `embedding-server` service. Services
+    /// without one (excluded runners) never join. Returns `None` when no
+    /// registry resolves, letting the caller fall back further.
+    fn endpoints_from_registry() -> Option<String> {
+        let mut dir = std::env::current_dir().ok()?;
+        loop {
+            let candidate = dir.join("infra/registry.json");
+            if candidate.is_file() {
+                let data = std::fs::read_to_string(candidate).ok()?;
+                let registry: serde_json::Value = serde_json::from_str(&data).ok()?;
+                let endpoints: Vec<String> = registry
+                    .get("nodes")?
+                    .as_array()?
+                    .iter()
+                    .flat_map(|n| {
+                        n.get("services")
+                            .and_then(|s| s.as_array())
+                            .map(|a| a.iter().cloned().collect::<Vec<_>>())
+                            .unwrap_or_default()
+                    })
+                    .filter(|s| s.get("name").and_then(|n| n.as_str()) == Some("embedding-server"))
+                    .filter_map(|s| s.get("bench_endpoint")?.as_str().map(str::to_string))
+                    .filter(|e| !e.is_empty())
+                    .collect();
+                return (!endpoints.is_empty()).then(|| endpoints.join(","));
+            }
+            if !dir.pop() {
+                return None;
+            }
+        }
+    }
+
     pub fn from_env() -> Result<Self, BackendInitError> {
-        let base_url = std::env::var("CYNIC_EMBED_URL").unwrap_or_else(|_| {
-            let rest =
-                std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| DEFAULT_REST_ADDR.into());
-            let host = rest.split(':').next().unwrap_or("127.0.0.1");
-            let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
-            format!("http://{host}:{port}/v1")
-        });
+        // Explicit URL wins. Otherwise resolve the cluster from the
+        // workspace registry (infra/registry.json, `bench_endpoint` on each
+        // embedding-server service; excluded services carry none and stay
+        // out by construction). Last resort is the historical single default.
+        let base_url = std::env::var("CYNIC_EMBED_URL")
+            .ok()
+            .filter(|u| !u.is_empty())
+            .or_else(|| Self::endpoints_from_registry())
+            .unwrap_or_else(|| {
+                let rest =
+                    std::env::var("CYNIC_REST_ADDR").unwrap_or_else(|_| DEFAULT_REST_ADDR.into());
+                let host = rest.split(':').next().unwrap_or("127.0.0.1");
+                let port = std::env::var("CYNIC_EMBED_PORT").unwrap_or_else(|_| "8081".into());
+                format!("http://{host}:{port}/v1")
+            });
         let api_key = cynic_secrets::env_var("sovereign-api-key", "SOVEREIGN_API_KEY");
         let model = std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "qwen3-embed".into());
         Self::new(&base_url, api_key, &model)
@@ -107,7 +212,7 @@ impl BackendPort for EmbeddingBackend {
 
     async fn health(&self) -> BackendStatus {
         let start = Instant::now();
-        let url = self.base_url.replace("/v1", "/health");
+        let url = self.base_url().replace("/v1", "/health");
         match self.client.get(&url).send().await {
             Ok(resp) if resp.status().is_success() => {
                 let latency = start.elapsed().as_millis() as f64;
@@ -207,49 +312,229 @@ impl EmbeddingPort for EmbeddingBackend {
     async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Embedding>, EmbeddingError> {
         self.embed_batch_reported(texts, &|_, _| {}).await
     }
+
+    async fn embed_batch_fanout(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        self.embed_batch_reported(texts, report).await
+    }
 }
 
 impl EmbeddingBackend {
     /// Batched embedding with per-lot progress: `report(done, total)` fires
     /// after each round-trip so long corpora stay observable.
-    pub async fn embed_batch_reported(
+    /// Embeds a batch of texts using dynamic work-stealing pull across all endpoints.
+    /// This method is total by construction: it never aborts on single-lot errors,
+    /// returning `(results, errors)` so long measurement runs do not lose partial progress.
+    pub async fn embed_batch_total_reported(
         &self,
         texts: &[&str],
         report: &(dyn Fn(usize, usize) + Sync),
-    ) -> Result<Vec<Embedding>, EmbeddingError> {
-        let width = fanout_width();
-        // Fan sub-lots of 8 across WIDTH concurrent round-trips so every
-        // server slot stays fed; `buffered` preserves input order while
-        // polling WIDTH futures at once.
+    ) -> (Vec<Option<Embedding>>, Vec<(usize, String)>) {
         let sublots: Vec<(usize, Vec<String>)> = texts
             .chunks(FANOUT_SUB_LOT)
             .enumerate()
             .map(|(sub_no, lot)| (sub_no, lot.iter().map(|text| (*text).to_string()).collect()))
             .collect();
         let total_sublots = sublots.len();
-        let mut out = Vec::with_capacity(texts.len());
-        let mut stream =
-            futures_util::stream::iter(sublots.into_iter().map(|(sub_no, inputs)| async move {
-                let batch = self.post_batch(inputs).await.map_err(|error| {
-                    EmbeddingError::Protocol(format!(
-                        "sub-lot {}/{total_sublots} failed: {error}",
-                        sub_no + 1
-                    ))
-                })?;
-                Ok::<_, EmbeddingError>((sub_no, batch))
-            }))
-            .buffered(width);
-        while let Some((_, mut batch)) = stream.next().await.transpose()? {
-            out.append(&mut batch);
-            report(out.len(), texts.len());
+        if total_sublots == 0 {
+            return (Vec::new(), Vec::new());
         }
+
+        // Per-endpoint pools with headroom-guarded stealing. A single shared
+        // queue drains entirely into the first-spawned endpoint's workers on
+        // small batches (join_all polls them first), so every peer after the
+        // first went idle while the queue emptied — measured, not theorized.
+        // Here each endpoint pops from its own pool; stealing from a peer
+        // pool only happens while that peer holds a FIFO head start equal to
+        // its worker count, so equal-capacity endpoints keep balanced shares
+        // and a slow/failing endpoint's pool is still consumed by the rest.
+        let mut pools: Vec<std::collections::VecDeque<(usize, Vec<String>, usize)>> =
+            (0..self.endpoints.len())
+                .map(|e| {
+                    sublots
+                        .iter()
+                        .enumerate()
+                        .filter(|(idx, _)| idx % self.endpoints.len() == e)
+                        .map(|(_, (sub_no, inputs))| (*sub_no, inputs.clone(), 0usize))
+                        .collect()
+                })
+                .collect();
+        let headroom: Vec<usize> = self.endpoints.iter().map(|e| e.slots).collect();
+        // Highest capacity first: the strongest endpoint may steal earliest.
+        let mut order: Vec<usize> = (0..self.endpoints.len()).collect();
+        order.sort_by_key(|e| std::cmp::Reverse(self.endpoints[*e].slots));
+
+        let results = std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
+        let errors: std::sync::Arc<tokio::sync::Mutex<Vec<Option<String>>>> =
+            std::sync::Arc::new(tokio::sync::Mutex::new(vec![None; total_sublots]));
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+        let mut worker_futures = Vec::new();
+
+        let shared_pools = std::sync::Arc::new(tokio::sync::Mutex::new(std::mem::take(&mut pools)));
+
+        for &ep_idx in &order {
+            let endpoint = &self.endpoints[ep_idx];
+            for _ in 0..endpoint.slots {
+                let pools = shared_pools.clone();
+                let headroom = std::sync::Arc::new(headroom.clone());
+                let results = results.clone();
+                let errors = errors.clone();
+                let completed = completed.clone();
+                let endpoint_url = endpoint.url.clone();
+
+                worker_futures.push(async move {
+                    loop {
+                        let maybe_lot = {
+                            let mut guard = pools.lock().await;
+                            let mine = guard[ep_idx].front().is_some();
+                            let worker_count = headroom[ep_idx].max(1);
+                            // Own pool drains first down to its head start;
+                            // below that a faster peer with idle workers steals.
+                            let keep_own = mine && guard[ep_idx].len() > worker_count;
+                            if keep_own {
+                                guard[ep_idx].pop_front()
+                            } else {
+                                guard
+                                    .iter_mut()
+                                    .find(|p| !p.is_empty())
+                                    .and_then(|p| p.pop_front())
+                            }
+                        };
+                        let (sub_no, inputs, attempts) = match maybe_lot {
+                            Some(item) => item,
+                            None => break, // All pools exhausted, worker exits cleanly
+                        };
+
+                        match self.post_batch_to(&endpoint_url, inputs.clone()).await {
+                            Ok(batch) => {
+                                {
+                                    let mut res = results.lock().await;
+                                    res[sub_no] = Some(batch);
+                                }
+                                let done_lots = completed
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                    + 1;
+                                report((done_lots * FANOUT_SUB_LOT).min(texts.len()), texts.len());
+                            }
+                            Err(error) => {
+                                if attempts + 1 < 3 {
+                                    // Requeue to this endpoint's pool only when
+                                    // its length still exceeds the peer head start
+                                    // — a failing pool must not hog the retry.
+                                    let mut guard = pools.lock().await;
+                                    let worker_count = headroom[ep_idx].max(1);
+                                    let target = if guard[ep_idx].len() >= worker_count {
+                                        ep_idx
+                                    } else {
+                                        guard
+                                            .iter()
+                                            .enumerate()
+                                            .find(|(i, p)| !p.is_empty() && *i != ep_idx)
+                                            .map(|(i, _)| i)
+                                            .unwrap_or(ep_idx)
+                                    };
+                                    guard[target].push_back((sub_no, inputs, attempts + 1));
+                                    drop(guard);
+                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                } else {
+                                    // Poisoned lot after 3 distributed attempts across endpoints
+                                    let mut errs = errors.lock().await;
+                                    errs[sub_no] = Some(format!(
+                                        "lot {} failed on {} after {} attempts: {}",
+                                        sub_no + 1,
+                                        endpoint_url,
+                                        attempts + 1,
+                                        error
+                                    ));
+                                    completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                }
+                            }
+                        }
+                    }
+                    Ok::<(), EmbeddingError>(())
+                });
+            }
+        }
+
+        // Run all workers concurrently until queue is empty
+        let _ = futures_util::future::join_all(worker_futures).await;
+
+        // Collect per-lot errors
+        let mut recorded_errors = Vec::new();
+        {
+            let errs = errors.lock().await;
+            for (sub_no, maybe_err) in errs.iter().enumerate() {
+                if let Some(err) = maybe_err {
+                    recorded_errors.push((sub_no, err.clone()));
+                }
+            }
+        }
+
+        // Reassemble in exact deterministic sequence
+        let mut final_results = results.lock().await;
+        let mut out = Vec::with_capacity(texts.len());
+        for (sub_no, maybe_batch) in final_results.iter_mut().enumerate() {
+            let lot_size = texts
+                .chunks(FANOUT_SUB_LOT)
+                .nth(sub_no)
+                .map(|c| c.len())
+                .unwrap_or(0);
+            if let Some(batch) = maybe_batch.take() {
+                for emb in batch {
+                    out.push(Some(emb));
+                }
+            } else {
+                for _ in 0..lot_size {
+                    out.push(None);
+                }
+            }
+        }
+        report(out.iter().filter(|o| o.is_some()).count(), texts.len());
+        (out, recorded_errors)
+    }
+
+    /// Batched embedding with per-lot progress: `report(done, total)` fires
+    /// after each round-trip so long corpora stay observable.
+    /// Fails closed if any lot in the batch fails after 3 distributed attempts across endpoints.
+    pub async fn embed_batch_reported(
+        &self,
+        texts: &[&str],
+        report: &(dyn Fn(usize, usize) + Sync),
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let (total_results, errors) = self.embed_batch_total_reported(texts, report).await;
+        if !errors.is_empty() {
+            let sample_err = errors[0].1.clone();
+            let total_sublots = (texts.len() + FANOUT_SUB_LOT - 1) / FANOUT_SUB_LOT;
+            return Err(EmbeddingError::Protocol(format!(
+                "{}/{} sub-lots failed across cluster. Sample error: {sample_err}",
+                errors.len(),
+                total_sublots
+            )));
+        }
+
+        let out = total_results
+            .into_iter()
+            .map(|opt| opt.expect("all items present when errors is empty"))
+            .collect();
         Ok(out)
     }
 }
 
 impl EmbeddingBackend {
     async fn post_batch(&self, inputs: Vec<String>) -> Result<Vec<Embedding>, EmbeddingError> {
-        let url = format!("{}/embeddings", self.base_url);
+        self.post_batch_to(self.base_url(), inputs).await
+    }
+
+    async fn post_batch_to(
+        &self,
+        base_url: &str,
+        inputs: Vec<String>,
+    ) -> Result<Vec<Embedding>, EmbeddingError> {
+        let url = format!("{base_url}/embeddings");
         let start = Instant::now();
 
         let req_body = EmbeddingRequest {
@@ -306,8 +591,60 @@ mod tests {
 
     #[test]
     fn from_env_defaults() {
+        // Explicit URL wins over the workspace registry; pin it so this
+        // unit test never depends on the checkout it runs in.
+        unsafe { std::env::set_var("CYNIC_EMBED_URL", "http://127.0.0.1:8081/v1") };
         let backend = EmbeddingBackend::from_env().unwrap();
+        unsafe { std::env::remove_var("CYNIC_EMBED_URL") };
         assert!(backend.base_url().contains("8081"));
+        assert_eq!(backend.base_urls().len(), 1);
+    }
+
+    #[test]
+    fn resolves_cluster_from_registry() {
+        // The workspace registry carries bench_endpoint per embedding-server
+        // service; excluded runners carry none and stay out.
+        let resolved = EmbeddingBackend::endpoints_from_registry().unwrap();
+        assert!(
+            resolved.contains("127.0.0.1:8081"),
+            "cortex joins: {resolved}"
+        );
+        assert!(
+            resolved.contains("192.168.0.25:8080"),
+            "compute-01 joins: {resolved}"
+        );
+        assert!(
+            !resolved.contains("10.10.10.106"),
+            "lxc106 stays out: {resolved}"
+        );
+    }
+
+    #[test]
+    fn parses_multiple_comma_separated_endpoints() {
+        let backend = EmbeddingBackend::new(
+            "http://127.0.0.1:8081/v1, http://192.168.0.25:8080/v1, http://10.10.10.106:8080/v1/",
+            None,
+            "test-model",
+        )
+        .unwrap();
+        assert_eq!(backend.base_urls().len(), 3);
+        assert_eq!(backend.base_urls()[0], "http://127.0.0.1:8081/v1");
+        assert_eq!(backend.base_urls()[1], "http://192.168.0.25:8080/v1");
+        assert_eq!(backend.base_urls()[2], "http://10.10.10.106:8080/v1");
+    }
+
+    #[test]
+    fn parses_custom_slot_capacities() {
+        let backend = EmbeddingBackend::new(
+            "http://127.0.0.1:8081/v1#4, http://192.168.0.25:8080/v1#slots=4, http://10.10.10.106:8080/v1#2",
+            None,
+            "test-model",
+        )
+        .unwrap();
+        assert_eq!(backend.endpoints().len(), 3);
+        assert_eq!(backend.endpoints()[0].slots, 4);
+        assert_eq!(backend.endpoints()[1].slots, 4);
+        assert_eq!(backend.endpoints()[2].slots, 2);
     }
 
     #[test]

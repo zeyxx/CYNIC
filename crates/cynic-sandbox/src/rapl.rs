@@ -4,6 +4,7 @@
 //! Provides package-level and DRAM-level power measurements.
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub const RAPL_SCHEMA: &str = "cynic.sandbox.rapl.v1";
 

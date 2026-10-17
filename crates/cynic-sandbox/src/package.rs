@@ -4,6 +4,7 @@
 //! Does NOT install them — installation is a separate explicit capability action.
 
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::process::Command;
 
 pub const PACKAGE_OBSERVATION_SCHEMA: &str = "cynic.sandbox.package_observation.v1";

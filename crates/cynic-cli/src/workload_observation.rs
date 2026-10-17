@@ -92,7 +92,7 @@ fn observe_workload_federated(
     // 2. Remote reads via SSH in parallel / sequential loop
     for node in &nodes {
         let cmd = format!(
-            "cynic build workload observe --workload-id {} --local --json",
+            "cynic node agent-workload observe --workload-id {} --local --json",
             workload_id
         );
         let ssh_args = [
@@ -148,7 +148,7 @@ fn list_workloads_federated(
 
     // 2. Remote lists
     for node in &nodes {
-        let cmd = "cynic build workload list --local --json";
+        let cmd = "cynic node agent-workload list --local --json";
         let ssh_args = [
             "ssh",
             "-o",
@@ -352,8 +352,6 @@ mod tests {
             plan_digest: format!("sha256:{}", "a".repeat(64)),
             mandate_binding: None,
             input: None,
-            source_commit: None,
-            branch: None,
             action,
             delegation: AgentDelegationEnvelope {
                 schema: AGENT_DELEGATION_ENVELOPE_SCHEMA.to_string(),

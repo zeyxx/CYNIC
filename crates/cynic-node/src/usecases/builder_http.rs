@@ -18,10 +18,8 @@ use tokio_util::sync::CancellationToken;
 
 use cynic_build::{
     BUILD_AGENT_REQUEST_SCHEMA, BUILD_GRANT_READ_BACK_PROOF, BUILD_SOURCE_REFERENCE_SCHEMA,
-    BuildAgentRequest, BuildSourceReference, CollisionCounter, CollisionEvent,
-    COLLISION_WINDOW_MS, compose_build_agent_workload,
+    BuildAgentRequest, BuildSourceReference, compose_build_agent_workload,
 };
-use std::sync::Mutex;
 use cynic_protocol::{
     AGENT_CITIZENSHIP_SCHEMA, AgentBudgets, AgentCitizenshipRecord, AgentScope, MutationAdmission,
     SecurityEvidenceState, admit_build_mutation,
@@ -51,8 +49,6 @@ pub struct BuilderHttpConfig {
 struct AppState {
     config: BuilderHttpConfig,
     store: Arc<dyn AgentWorkloadStorePort>,
-    collisions: Arc<Mutex<CollisionCounter>>,
-    evidence: cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore,
 }
 
 #[derive(Debug, Deserialize)]
@@ -96,28 +92,13 @@ pub struct AcceptanceProof {
     pub status: &'static str,
 }
 
-pub fn app(
-    config: BuilderHttpConfig,
-    store: Arc<dyn AgentWorkloadStorePort>,
-    collisions: Arc<Mutex<CollisionCounter>>,
-) -> Router {
-    let evidence =
-        cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore::new(
-            std::path::PathBuf::from(&config.state_root).join("evidence"),
-        );
-    let state = AppState {
-        config,
-        store,
-        collisions,
-        evidence,
-    };
+pub fn app(config: BuilderHttpConfig, store: Arc<dyn AgentWorkloadStorePort>) -> Router {
+    let state = AppState { config, store };
     Router::new()
         .route("/health", get(health))
-        .route("/status", get(status))
         .route("/webhook/forgejo", post(webhook_forgejo))
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
-        .route("/records/{id}", get(get_record))
         .with_state(state)
 }
 
@@ -142,25 +123,6 @@ fn default_build_action() -> String {
     "check".to_string()
 }
 
-/// Map a CLI submit verb to its canonical build action.
-///
-/// Pure so the honesty rule is testable without HTTP: `check` compiles,
-/// audits are explicit, unknown verbs are refused instead of silently
-/// becoming whatever the old default was.
-pub(crate) fn submit_action_to_canonical(action: &str) -> Result<&'static str, String> {
-    match action {
-        "check" => Ok("cargo:check"),
-        "audit" => Ok("audit:crate"),
-        "audit-all" => Ok("audit:all"),
-        "build" => Ok("cargo:build"),
-        "build-release" => Ok("cargo:build-release"),
-        "test" => Ok("cargo:test"),
-        other => Err(format!(
-            "unsupported build action: {other} (expected check, audit, audit-all, build, build-release, test)"
-        )),
-    }
-}
-
 async fn submit_workload(
     State(state): State<AppState>,
     Json(payload): Json<AgentBuildSubmission>,
@@ -183,7 +145,6 @@ async fn submit_workload(
         request_id: format!("req-{}-{}", &commit_sha[..8], accepted_at_ms),
         requested_by: payload.requested_by.clone(),
         source_commit: commit_sha.clone(),
-        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: payload
@@ -194,9 +155,11 @@ async fn submit_workload(
             authority_ref: "agent_submission".into(),
             snapshot: None,
         },
-        action: submit_action_to_canonical(payload.action.as_str())
-            .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?
-            .to_string(),
+        action: match payload.action.as_str() {
+            "build" => "make:build".to_string(),
+            "build-release" => "make:build-release".to_string(),
+            _ => "make:check".to_string(),
+        },
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -229,7 +192,6 @@ async fn submit_workload(
     }
 
     let workload_id = envelope.workload_id.clone();
-    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -274,41 +236,6 @@ async fn health() -> (StatusCode, &'static str) {
     (StatusCode::OK, "ok")
 }
 
-/// Record a submission event into the H4 collision counter (Task 5).
-/// Called for every submission (accepted or duplicate) so the pure
-/// `CollisionCounter` logic can determine which events collide on
-/// idempotency key or source commit within the trailing 24h window.
-fn record_submission(
-    state: &AppState,
-    idempotency_key: &str,
-    source_commit: &str,
-    observed_at_ms: u64,
-) {
-    if let Ok(mut counter) = state.collisions.lock() {
-        counter.record(CollisionEvent {
-            idempotency_key: idempotency_key.to_string(),
-            source_commit: source_commit.to_string(),
-            observed_at_ms,
-        });
-    }
-}
-
-/// H4 status surface (Task 5): exposes the duplicate-submit collision
-/// counter over the trailing 24h window. The counter is pure logic in
-/// `cynic-build`; this endpoint is the read-back surface the measurement
-/// plan requires.
-async fn status(State(state): State<AppState>) -> Json<serde_json::Value> {
-    let now_ms = Utc::now().timestamp_millis() as u64;
-    let counter = state.collisions.lock().unwrap_or_else(|e| e.into_inner());
-    Json(serde_json::json!({
-        "schema": "cynic.builder.collision_status.v1",
-        "generated_at_ms": now_ms,
-        "window_ms": COLLISION_WINDOW_MS,
-        "collisions_in_window": counter.collisions_in_window(now_ms, COLLISION_WINDOW_MS),
-        "total_recorded_events": counter.total_events(),
-    }))
-}
-
 async fn get_proof(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -341,85 +268,6 @@ async fn get_proof(
         Ok(None) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
-}
-
-/// Read back one workload's execution record: the stored envelope plus every
-/// evidence envelope its completion references, resolved digest by digest.
-///
-/// Unresolvable digests are explicit `null` content with the digest named in
-/// `unresolved_evidence` — a record that exists is never a 404 because its
-/// evidence moved. Non-terminal records report state with empty evidence.
-async fn get_record(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    use cynic_host::ports::evidence_store::ContentAddressedEvidenceStorePort;
-
-    let record = match state.store.read(&id) {
-        Ok(Some(record)) => record,
-        Ok(None) => return Err(StatusCode::NOT_FOUND),
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    };
-    let envelope = &record.record.envelope;
-    let mut evidence = Vec::new();
-    let mut unresolved = Vec::new();
-    let completion_status = record.record.completion.as_ref().map(|completion| {
-        for reference in &completion.evidence_refs {
-            match state.evidence.read(&reference.digest) {
-                Ok(Some(resolved)) => evidence.push(serde_json::json!({
-                    "kind": reference.kind,
-                    "digest": reference.digest,
-                    "envelope": resolved,
-                })),
-                _ => {
-                    unresolved.push(reference.digest.clone());
-                    evidence.push(serde_json::json!({
-                        "kind": reference.kind,
-                        "digest": reference.digest,
-                        "envelope": serde_json::Value::Null,
-                    }));
-                }
-            }
-        }
-        format!("{:?}", completion.status)
-    });
-    // The envelope stores the real argv, never the requested verb: resolve the
-    // canonical action name back from argv so the record says what ran.
-    let action = cynic_build::canonical_build_action_from_argv(&envelope.action.argv);
-    Ok(Json(shape_record_response(
-        &id,
-        &record.record.state,
-        action,
-        &envelope.action.argv,
-        envelope.source_commit.as_deref(),
-        completion_status.as_deref(),
-        evidence,
-        unresolved,
-    )))
-}
-
-/// Pure record shaper: no store, no I/O. Tested without HTTP.
-fn shape_record_response(
-    workload_id: &str,
-    state: &AgentWorkloadState,
-    action: Option<&str>,
-    argv: &[String],
-    source_commit: Option<&str>,
-    completion_status: Option<&str>,
-    evidence: Vec<serde_json::Value>,
-    unresolved_evidence: Vec<String>,
-) -> serde_json::Value {
-    serde_json::json!({
-        "schema": "cynic.builder.record.v1",
-        "workload_id": workload_id,
-        "state": state,
-        "action": action,
-        "argv": argv,
-        "source_commit": source_commit,
-        "completion_status": completion_status,
-        "evidence": evidence,
-        "unresolved_evidence": unresolved_evidence,
-    })
 }
 
 fn verify_webhook_signature(secret: &str, body: &Bytes, signature: &str) -> bool {
@@ -558,7 +406,6 @@ async fn webhook_forgejo(
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "forgejo".into()),
         source_commit: commit_sha.clone(),
-        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: state.config.repository_id.clone(),
@@ -567,10 +414,10 @@ async fn webhook_forgejo(
             authority_ref: "forgejo".into(),
             snapshot: None,
         },
-        // Canonical gate action: a push triggers the full audit gate
-        // (`audit:crate`, the native spelling of what `make:check`
-        // aliased), never an ad-hoc cargo invocation.
-        action: "audit:crate".into(),
+        // Canonical gate action: the recipe table admits make:check /
+        // make:build / make:build-release only. A push triggers the full
+        // canonical check gate, never an ad-hoc cargo invocation.
+        action: "make:check".into(),
         desired_role: "build_runner".into(),
         mutation_authorized: true,
         proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -608,7 +455,6 @@ async fn webhook_forgejo(
     // the request digest, so identical pushes address the same record and a
     // second delivery replays instead of duplicating.
     let workload_id = envelope.workload_id.clone();
-    record_submission(&state, &workload_id, &commit_sha, accepted_at_ms as u64);
     if state.store.read(&workload_id).ok().flatten().is_some() {
         return Ok(Json(AcceptanceProof {
             schema: "cynic.builder.acceptance_proof.v1",
@@ -669,8 +515,7 @@ pub async fn run_http_server(
     listen_addr: SocketAddr,
     shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let collisions = Arc::new(Mutex::new(CollisionCounter::new()));
-    let app = app(config, store, collisions);
+    let app = app(config, store);
     let listener = tokio::net::TcpListener::bind(listen_addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -684,105 +529,6 @@ pub async fn run_http_server(
 mod tests {
     use super::*;
     use uuid::Uuid;
-
-    use cynic_build::{
-        admit_build_agent_request, canonical_argv_from_build_action,
-        BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA, BuildReleasePublicationIntent,
-    };
-
-    /// Task P fix round 1: a submit verb must survive the whole chain —
-    /// mapping -> composition admission -> argv construction — without a
-    /// blocker. Pins the composition gate to the same action set the mapping
-    /// and argv translators accept, so a narrow green that fixes only one
-    /// link (e.g. mapping + argv but not the composition gate) cannot recur.
-    #[test]
-    fn submit_action_chains_through_admission_and_argv() {
-        for verb in ["check", "build", "build-release", "audit", "audit-all", "test"] {
-            let action = submit_action_to_canonical(verb).expect("known submit verb");
-            let mut request = push_request(&"d".repeat(40));
-            request.action = action.to_string();
-            if action == "cargo:build-release" {
-                // Composition requires publication intent plus the two
-                // release proofs for release builds: equip the request so
-                // the chain test exercises the real release path.
-                request.release_publication = Some(BuildReleasePublicationIntent {
-                    schema: BUILD_RELEASE_PUBLICATION_INTENT_SCHEMA.to_string(),
-                    release_id: "v9.9.9-test".to_string(),
-                    release_epoch: 1,
-                });
-                request.proof_requirements.extend([
-                    "release_binary_artifact_read_back".to_string(),
-                    "signed_release_basket_read_back".to_string(),
-                ]);
-            }
-            let admission = admit_build_agent_request(&request);
-            assert!(
-                !admission
-                    .blockers
-                    .contains(&"build_agent_request_action_not_allowed".to_string()),
-                "verb {verb} -> action {action} refused by composition gate"
-            );
-            assert!(
-                admission.blockers.is_empty(),
-                "verb {verb} -> action {action} blocked: {:?}",
-                admission.blockers
-            );
-            assert!(
-                canonical_argv_from_build_action(action).is_some(),
-                "action {action} must have a canonical argv"
-            );
-        }
-    }
-
-    #[test]
-    fn record_shape_carries_resolved_and_unresolved_evidence() {
-        let sha = "a".repeat(40);
-        let shaped = shape_record_response(
-            "wid-1",
-            &AgentWorkloadState::Completed,
-            Some("audit:crate"),
-            &["cargo".to_string()],
-            Some(sha.as_str()),
-            Some("Completed"),
-            vec![serde_json::json!({"kind": "k", "digest": "d", "envelope": {"exit_code": 0}})],
-            vec!["missing-digest".to_string()],
-        );
-        assert_eq!(shaped["schema"], "cynic.builder.record.v1");
-        assert_eq!(shaped["action"], "audit:crate");
-        assert_eq!(shaped["evidence"][0]["envelope"]["exit_code"], 0);
-        assert_eq!(shaped["unresolved_evidence"][0], "missing-digest");
-    }
-
-    #[test]
-    fn record_shape_for_non_terminal_has_no_completion() {
-        let shaped = shape_record_response(
-            "wid-2",
-            &AgentWorkloadState::Dispatched,
-            None,
-            &[],
-            None,
-            None,
-            vec![],
-            vec![],
-        );
-        assert!(shaped["completion_status"].is_null());
-        assert!(shaped["evidence"].as_array().unwrap().is_empty());
-    }
-
-    #[test]
-    fn submit_verbs_map_to_honest_canonical_actions() {
-        assert_eq!(submit_action_to_canonical("check"), Ok("cargo:check"));
-        assert_eq!(submit_action_to_canonical("audit"), Ok("audit:crate"));
-        assert_eq!(submit_action_to_canonical("audit-all"), Ok("audit:all"));
-        assert_eq!(submit_action_to_canonical("build"), Ok("cargo:build"));
-        assert_eq!(
-            submit_action_to_canonical("build-release"),
-            Ok("cargo:build-release")
-        );
-        assert_eq!(submit_action_to_canonical("test"), Ok("cargo:test"));
-        assert!(submit_action_to_canonical("deploy").is_err());
-        assert!(submit_action_to_canonical("").is_err());
-    }
 
     #[test]
     fn workload_id_has_forgejo_prefix() {
@@ -808,7 +554,6 @@ mod tests {
             request_id: forgejo_workload_id(commit_sha),
             requested_by: "forgejo".to_string(),
             source_commit: commit_sha.to_string(),
-            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -817,7 +562,7 @@ mod tests {
                 authority_ref: "forgejo".to_string(),
                 snapshot: None,
             },
-            action: "audit:crate".to_string(),
+            action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -929,7 +674,6 @@ mod tests {
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| "forgejo".into()),
             source_commit: commit_sha.clone(),
-            branch: None,
             source: BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: config_repo,
@@ -941,7 +685,7 @@ mod tests {
                 authority_ref: "forgejo".into(),
                 snapshot: None,
             },
-            action: "audit:crate".to_string(),
+            action: "make:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![cynic_build::BUILD_GRANT_READ_BACK_PROOF.to_string()],
@@ -959,11 +703,6 @@ mod tests {
         let envelope =
             cynic_build::compose_build_agent_workload(&request, "cynic-builder", "/tmp/wf")
                 .expect("webhook request composes a bounded workload");
-        // Slice semantics changed deliberately: `make:check` composes the native
-        // audit argv (vocabulary honesty), not the Makefile wrapper.
-        assert_eq!(
-            envelope.action.argv,
-            vec!["cargo", "run", "-q", "-p", "cynic-cli", "--", "audit", "crate"]
-        );
+        assert_eq!(envelope.action.argv, vec!["make", "check"]);
     }
 }

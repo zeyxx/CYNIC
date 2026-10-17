@@ -12,7 +12,7 @@ use crate::dns_contract::{
     DnsPackagePrecondition, DnsProviderPolicySurface, DnsRequiredModes, DnsTargetPaths,
     SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME, SERVICE_DNS_README_FILENAME,
     SERVICE_DNS_RESOLVED_DROPIN_FILENAME, dns_activation_checks_for_zone,
-    dns_activation_readme_for_zone, dns_bundle_config_filename,
+    dns_activation_readme_for_zone, dns_bundle_config_filename, dns_bundle_files,
     dns_bundle_service_filename, dns_forbidden_patterns, dns_package_preconditions,
     dns_provider_config_for_zone, dns_provider_policy_surface_for_zone, dns_required_modes,
     dns_systemd_unit_for_zone, dns_target_paths_for_zone,
@@ -76,20 +76,10 @@ pub fn build_dns_bundle(
         dns_activation_readme_for_zone(&zone, probe_fqdn.clone()),
     )?;
 
-    // Digest exactly the files written above. The canonical list
-    // (dns_bundle_files) names CoreDNS spellings; on a host where the
-    // observed provider is dnsmasq the config is written as dnsmasq.conf,
-    // and digesting the canonical name fails with NotFound. The report
-    // must describe the real bundle, not the canonical wishlist.
-    let bundle_files = vec![
-        SERVICE_DNS_HOSTS_FILENAME.to_string(),
-        dns_bundle_config_filename().to_string(),
-        dns_bundle_service_filename().to_string(),
-        SERVICE_DNS_RESOLVED_DROPIN_FILENAME.to_string(),
-        SERVICE_DNS_README_FILENAME.to_string(),
-    ];
+    let bundle_files = dns_bundle_files();
     let digests = bundle_files
         .iter()
+        .filter(|name| name.as_str() != SERVICE_DNS_MANIFEST_FILENAME)
         .map(|name| {
             let bytes = fs::read(out.join(name))?;
             Ok::<_, std::io::Error>((

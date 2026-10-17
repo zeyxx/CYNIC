@@ -42,7 +42,7 @@ CYNIC internalise les propriétés fondamentales des architectures distribuées 
 
 ### 2.1 Audit Trail Immuable & Chaînage d'Événements
 - **Registre Cryptographique Local** : Le Kernel maintient un registre append-only d'événements (`ProofOfHistory`) où chaque entrée $E_i$ est chaînée cryptographiquement à l'entrée précédente :
-  $$\text{Hash}(E_i) = \text{SHA-256}(\text{Hash}(E_{i-1}) \parallel \text{Timestamp} \parallel \text{AgentID} \parallel \text{PayloadDigest})$$
+  $$\text{Hash}(E_i) = \text{SHA3-512}(\text{Hash}(E_{i-1}) \parallel \text{Timestamp} \parallel \text{AgentID} \parallel \text{PayloadDigest})$$
 - **Non-Répudiation & Intégrité** : Toute tentative de falsification ou de suppression d'un événement antérieur brise l'intégralité de la chaîne d'attestation, provoquant le verrouillage immédiat de la node (*fail-closed state*).
 
 ### 2.2 Arbres d'État et Preuves de Merkle Concurrentes

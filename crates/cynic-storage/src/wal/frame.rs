@@ -1,14 +1,12 @@
 //! Binary WAL frame encoding, decoding, size validation, and cryptographic hashing.
-//!
-//! Uses the unified digest law from `cynic_protocol::digest` (SHA-256).
 
 use bytes::Bytes;
+use sha3::{Digest, Sha3_512};
 use std::io::{self, Read};
 
 use super::crc::crc32c;
 use crate::error::StorageError;
-use crate::types::{CausalWitness, Hash256, PoHTick, SequenceNumber, WalEntry};
-use cynic_protocol::digest::digest_bytes;
+use crate::types::{CausalWitness, Hash512, PoHTick, SequenceNumber, WalEntry};
 
 /// Magic bytes identifying a CYNIC WAL frame ("CYNW").
 pub const WAL_FRAME_MAGIC: [u8; 4] = [0x43, 0x59, 0x4E, 0x57];
@@ -32,7 +30,7 @@ pub const MIN_FRAME_LEN: usize = 4  // magic
     + 4                             // header_crc32c
     + 8                             // sequence
     + 8                             // poh_tick
-    + 32                            // prev_hash (SHA-256)
+    + 64                            // prev_hash
     + 2                             // schema_len
     + 0                             // schema (min 0)
     + 0                             // payload (min 0)
@@ -40,7 +38,7 @@ pub const MIN_FRAME_LEN: usize = 4  // magic
     + 2                             // mandate_id_len
     + 1                             // proof_anchor_present
     + 64                            // signature
-    + 32; // entry_hash (SHA-256) = 195 bytes
+    + 64; // entry_hash = 255 bytes
 
 /// Domain separation string for Stage 1 commit hash.
 const COMMIT_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_COMMIT_V1\0";
@@ -49,67 +47,61 @@ const COMMIT_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_COMMIT_V1\0";
 const ENTRY_HASH_DOMAIN: &[u8] = b"CYNIC_WAL_ENTRY_V1\0";
 
 /// Computes the Stage 1 commit hash covering event metadata and payload.
-///
-/// Uses the unified digest law (`digest_bytes` — SHA-256).
 pub fn compute_commit_hash(
     seq: SequenceNumber,
-    prev_hash: &Hash256,
+    prev_hash: &Hash512,
     poh_tick: PoHTick,
     schema: &str,
     payload: &[u8],
     mandate_id: Option<&str>,
-    proof_anchor: Option<&Hash256>,
-) -> Hash256 {
-    let mut input = Vec::new();
-    input.extend_from_slice(COMMIT_HASH_DOMAIN);
-    input.extend_from_slice(&seq.0.to_be_bytes());
-    input.extend_from_slice(&prev_hash.0);
-    input.extend_from_slice(&poh_tick.0.to_be_bytes());
-    input.extend_from_slice(&(schema.len() as u16).to_be_bytes());
-    input.extend_from_slice(schema.as_bytes());
-    input.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-    input.extend_from_slice(payload);
+    proof_anchor: Option<&Hash512>,
+) -> Hash512 {
+    let mut hasher = Sha3_512::new();
+    hasher.update(COMMIT_HASH_DOMAIN);
+    hasher.update(seq.0.to_be_bytes());
+    hasher.update(prev_hash.0);
+    hasher.update(poh_tick.0.to_be_bytes());
+    hasher.update((schema.len() as u16).to_be_bytes());
+    hasher.update(schema.as_bytes());
+    hasher.update((payload.len() as u32).to_be_bytes());
+    hasher.update(payload);
 
     if let Some(mid) = mandate_id {
-        input.extend_from_slice(&(mid.len() as u16).to_be_bytes());
-        input.extend_from_slice(mid.as_bytes());
+        hasher.update((mid.len() as u16).to_be_bytes());
+        hasher.update(mid.as_bytes());
     } else {
-        input.extend_from_slice(&0u16.to_be_bytes());
+        hasher.update(0u16.to_be_bytes());
     }
 
     if let Some(anchor) = proof_anchor {
-        input.push(1u8);
-        input.extend_from_slice(&anchor.0);
+        hasher.update([1u8]);
+        hasher.update(anchor.0);
     } else {
-        input.push(0u8);
+        hasher.update([0u8]);
     }
 
-    let hex = digest_bytes(&input);
-    let raw = hex::decode(hex.strip_prefix("sha256:").unwrap()).unwrap();
-    let mut arr = [0u8; 32];
-    arr.copy_from_slice(&raw);
-    Hash256(arr)
+    let result = hasher.finalize();
+    let mut arr = [0u8; 64];
+    arr.copy_from_slice(&result);
+    Hash512(arr)
 }
 
 /// Computes the Stage 2 entry hash binding commit hash to the cryptographic witness.
-///
-/// Uses the unified digest law (`digest_bytes` — SHA-256).
 pub fn compute_entry_hash(
-    commit_hash: &Hash256,
+    commit_hash: &Hash512,
     principal_pubkey: &[u8; 32],
     signature: &[u8; 64],
-) -> Hash256 {
-    let mut input = Vec::new();
-    input.extend_from_slice(ENTRY_HASH_DOMAIN);
-    input.extend_from_slice(&commit_hash.0);
-    input.extend_from_slice(principal_pubkey);
-    input.extend_from_slice(signature);
+) -> Hash512 {
+    let mut hasher = Sha3_512::new();
+    hasher.update(ENTRY_HASH_DOMAIN);
+    hasher.update(commit_hash.0);
+    hasher.update(principal_pubkey);
+    hasher.update(signature);
 
-    let hex = digest_bytes(&input);
-    let raw = hex::decode(hex.strip_prefix("sha256:").unwrap()).unwrap();
-    let mut arr = [0u8; 32];
-    arr.copy_from_slice(&raw);
-    Hash256(arr)
+    let result = hasher.finalize();
+    let mut arr = [0u8; 64];
+    arr.copy_from_slice(&result);
+    Hash512(arr)
 }
 
 /// Errors occurring during frame decoding.
@@ -130,8 +122,8 @@ pub enum FrameDecodeError {
     /// Commit or entry cryptographic hash mismatch.
     CryptographicHashMismatch {
         sequence: SequenceNumber,
-        expected: Hash256,
-        actual: Hash256,
+        expected: Hash512,
+        actual: Hash512,
     },
     /// UTF-8 decode error.
     InvalidUtf8(std::str::Utf8Error),
@@ -313,8 +305,8 @@ pub fn decode_frame<R: Read>(reader: &mut R) -> Result<Option<WalEntry>, FrameDe
         });
     }
 
-    // 2. Read SequenceNumber(8) + PoHTick(8) + PrevHash(32) = 48 bytes
-    let mut seq_poh_prev = [0u8; 48];
+    // 2. Read SequenceNumber(8) + PoHTick(8) + PrevHash(64) = 80 bytes
+    let mut seq_poh_prev = [0u8; 80];
     reader.read_exact(&mut seq_poh_prev).map_err(|e| {
         if e.kind() == io::ErrorKind::UnexpectedEof {
             FrameDecodeError::TornTail { bytes_read: 14 }
@@ -325,9 +317,9 @@ pub fn decode_frame<R: Read>(reader: &mut R) -> Result<Option<WalEntry>, FrameDe
 
     let sequence = SequenceNumber(u64::from_be_bytes(seq_poh_prev[0..8].try_into().unwrap()));
     let poh_tick = PoHTick(u64::from_be_bytes(seq_poh_prev[8..16].try_into().unwrap()));
-    let mut prev_hash = [0u8; 32];
-    prev_hash.copy_from_slice(&seq_poh_prev[16..48]);
-    let previous_hash = Hash256(prev_hash);
+    let mut prev_hash = [0u8; 64];
+    prev_hash.copy_from_slice(&seq_poh_prev[16..80]);
+    let previous_hash = Hash512(prev_hash);
 
     // 3. Read SchemaLen(2)
     let mut schema_len_buf = [0u8; 2];
@@ -383,9 +375,9 @@ pub fn decode_frame<R: Read>(reader: &mut R) -> Result<Option<WalEntry>, FrameDe
     let mut anchor_present_buf = [0u8; 1];
     reader.read_exact(&mut anchor_present_buf)?;
     let proof_anchor = if anchor_present_buf[0] == 1 {
-        let mut anchor_bytes = [0u8; 32];
+        let mut anchor_bytes = [0u8; 64];
         reader.read_exact(&mut anchor_bytes)?;
-        Some(Hash256(anchor_bytes))
+        Some(Hash512(anchor_bytes))
     } else {
         None
     };
@@ -394,10 +386,10 @@ pub fn decode_frame<R: Read>(reader: &mut R) -> Result<Option<WalEntry>, FrameDe
     let mut signature = [0u8; 64];
     reader.read_exact(&mut signature)?;
 
-    // 7. Read EntryHashDigest(32)
-    let mut entry_hash_bytes = [0u8; 32];
+    // 7. Read EntryHashDigest(64)
+    let mut entry_hash_bytes = [0u8; 64];
     reader.read_exact(&mut entry_hash_bytes)?;
-    let entry_hash = Hash256(entry_hash_bytes);
+    let entry_hash = Hash512(entry_hash_bytes);
 
     // 8. Recompute hashes to verify cryptographic integrity
     let commit_hash = compute_commit_hash(
@@ -447,7 +439,7 @@ mod tests {
             principal_pubkey: [1u8; 32],
             signature: [2u8; 64],
             mandate_id: Some("mandate-001".to_string()),
-            proof_anchor: Some(Hash256([3u8; 32])),
+            proof_anchor: Some(Hash512([3u8; 64])),
         }
     }
 
@@ -457,7 +449,7 @@ mod tests {
         let payload = Bytes::from_static(b"hello cynic storage wal");
         let seq = SequenceNumber(1);
         let poh = PoHTick(100);
-        let prev = Hash256([0u8; 32]);
+        let prev = Hash512([0u8; 64]);
         let schema = "cynic.test.event.v1".to_string();
 
         let commit_hash = compute_commit_hash(
@@ -501,7 +493,7 @@ mod tests {
         let payload = Bytes::from_static(b"torn test");
         let seq = SequenceNumber(1);
         let poh = PoHTick(1);
-        let prev = Hash256([0u8; 32]);
+        let prev = Hash512([0u8; 64]);
         let schema = "test".to_string();
         let commit_hash = compute_commit_hash(seq, &prev, poh, &schema, &payload, None, None);
         let entry_hash =
@@ -535,15 +527,15 @@ mod tests {
         let witness = dummy_witness();
         let seq = SequenceNumber(1);
         let poh = PoHTick(1);
-        let prev = Hash256([0u8; 32]);
+        let prev = Hash512([0u8; 64]);
         let schema = "test".to_string();
 
         let entry = WalEntry {
             sequence: seq,
             poh_tick: poh,
             previous_hash: prev,
-            commit_hash: Hash256([0u8; 32]),
-            entry_hash: Hash256([0u8; 32]),
+            commit_hash: Hash512([0u8; 64]),
+            entry_hash: Hash512([0u8; 64]),
             schema,
             payload: Bytes::from(vec![0u8; MAX_PAYLOAD_LEN + 1]),
             witness,

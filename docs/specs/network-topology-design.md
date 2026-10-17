@@ -1,9 +1,5 @@
 # Plans réseau — alignement, métadonnées, SSOT — design Phase 0
 
-> **Statut : ARCHIVÉ** — snapshot historique (carte observée 2026-08-26),
-> périmé. Méthode gardée, carte remplacée par
-> `docs/specs/fleet-network-needs-matrix.md`. Ne plus exécuter.
-
 Statut : PROPOSITION EN RÉVISION après observation runtime. Grille d'analyse : skill `cynic-layer-model` (L0–L5,
 fail-closed, observabilité par surfaces existantes).
 Complément de `protocols/tls-fleet-design.md` (le TLS est UN attribut des

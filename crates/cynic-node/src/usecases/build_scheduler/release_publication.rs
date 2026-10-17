@@ -40,7 +40,7 @@ pub(super) async fn publish(
     evidence_store: &LocalContentAddressedEvidenceStore,
 ) -> Result<Option<AgentEvidenceRef>, String> {
     if cynic_build::canonical_build_action_from_argv(&envelope.action.argv)
-        != Some("cargo:build-release")
+        != Some("make:build-release")
     {
         return Ok(None);
     }

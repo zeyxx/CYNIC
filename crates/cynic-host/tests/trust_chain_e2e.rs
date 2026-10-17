@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use cynic_host::crypto::{CryptoProvider, Ed25519Provider};
 use cynic_host::lease_manager::LeaseManager;
-use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
+use cynic_host::node_identity_workflow::{NodeIdentityMaterial, NodeIdentityWorkflow};
 use cynic_host::peer_validator::PeerValidator;
 use cynic_host::plan_verifier::PlanVerifier;
 use cynic_protocol::RuntimeSeedRequest;

@@ -1,10 +1,5 @@
 # cynic-network-steward — Agent Definition
 
-> **Status**: `retired` — the curated path `infra/network/topology.json` never
-> existed (real file: `infra/os/network/topology.json`, stale, zero code
-> consumers). Role unheld. See `docs/specs/fleet-network-needs-matrix.md`
-> (NET-13). Kept as historical record.
-
 ## Role
 
 SSOT curator for `infra/network/topology.json`. Maintains the desired network topology, validates mutations, and generates signed projections.

@@ -10,7 +10,6 @@ use cynic_node::watchdog::peer_handshake::LocalPeerHandshakeObserver;
 
 use crate::cli_json::emit_pretty_json;
 use crate::network_surface::NetworkCommand;
-use crate::network_surface::{NetworkActuationCommand, NetworkShadowCommand};
 use crate::registry_path;
 use crate::runtime_paths::RuntimePaths;
 pub(crate) fn try_execute_base(
@@ -75,30 +74,24 @@ pub(crate) fn try_execute_base(
                 registry: registry_path(registry),
             },
         )),
-        NetworkCommand::Shadow { command } => match command {
-            NetworkShadowCommand::Proof {
-                registry,
+        NetworkCommand::ShadowProof {
+            registry,
+            resolve_dns,
+            observe_runtime,
+        } => Ok(crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::ShadowProof {
+                json: true,
+                registry: registry_path(registry),
                 resolve_dns,
                 observe_runtime,
-            } => Ok(crate::network_surface::execution::execute_network_command(
-                &NetworkCommands::ShadowProof {
-                    json: true,
-                    registry: registry_path(registry),
-                    resolve_dns,
-                    observe_runtime,
-                },
-            )),
-        },
-        NetworkCommand::Actuation { command } => match command {
-            NetworkActuationCommand::Observation { registry } => {
-                Ok(crate::network_surface::execution::execute_network_command(
-                    &NetworkCommands::ActuationObservation {
-                        json: true,
-                        registry: registry_path(registry),
-                    },
-                ))
-            }
-        },
+            },
+        )),
+        NetworkCommand::ActuationObservation { registry } => Ok(crate::network_surface::execution::execute_network_command(
+            &NetworkCommands::ActuationObservation {
+                json: true,
+                registry: registry_path(registry),
+            },
+        )),
         NetworkCommand::Observe { json, freebox } => {
             let adapter = LocalNetworkAdapter;
             let report = adapter.observe_network();

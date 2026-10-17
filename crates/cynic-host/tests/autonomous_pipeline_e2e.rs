@@ -25,7 +25,7 @@ use cynic_host::harness_progression::{
     HarnessProgressionEvidence, HarnessProgressionVerdict, ProofCategory,
     decide_harness_progression,
 };
-use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_lifecycle::{ArgvOutput, ArgvRunner, MapArgvRunner};
 use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState, SourceSnapshot};
 
 // ── Fake adapters ────────────────────────────────────────────────────────────
@@ -52,23 +52,14 @@ impl BuildLeaseVerificationPort for FakeLeaseAdapter {
     }
 }
 
-/// Build a MapArgvRunner that simulates a successful native audit on the remote.
+/// Build a MapArgvRunner that simulates a successful `make check` on the remote.
 fn build_fake_runner(commit: &str) -> MapArgvRunner {
     let proof_json = format!(
         r#"{{"schema":"cynic.build_pipeline_proof.v1","status":"executed","source_commit":"{commit}"}}"#
     );
     MapArgvRunner {
         responses: vec![(
-            vec![
-                "cargo".to_string(),
-                "run".to_string(),
-                "-q".to_string(),
-                "-p".to_string(),
-                "cynic-cli".to_string(),
-                "--".to_string(),
-                "audit".to_string(),
-                "crate".to_string(),
-            ],
+            vec!["make".to_string(), "check".to_string()],
             ArgvOutput {
                 exit_code: Some(0),
                 stdout: proof_json,
@@ -196,17 +187,8 @@ fn e2e_step2_build_workflow_executes_with_proof() {
         }),
         argv_runner: &runner,
         source_snapshot: valid_source_snapshot(),
-        recipe: cynic_build::build_recipe("audit:crate").expect("valid recipe"),
-        argv: vec![
-            "cargo".to_string(),
-            "run".to_string(),
-            "-q".to_string(),
-            "-p".to_string(),
-            "cynic-cli".to_string(),
-            "--".to_string(),
-            "audit".to_string(),
-            "crate".to_string(),
-        ],
+        recipe: cynic_build::build_recipe("make:check").expect("valid recipe"),
+        argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
         install_path: None,
         apply: true,
@@ -251,17 +233,8 @@ fn e2e_step2_build_workflow_blocks_on_dirty_source() {
         }),
         argv_runner: &runner,
         source_snapshot: dirty,
-        recipe: cynic_build::build_recipe("audit:crate").expect("valid recipe"),
-        argv: vec![
-            "cargo".to_string(),
-            "run".to_string(),
-            "-q".to_string(),
-            "-p".to_string(),
-            "cynic-cli".to_string(),
-            "--".to_string(),
-            "audit".to_string(),
-            "crate".to_string(),
-        ],
+        recipe: cynic_build::build_recipe("make:check").expect("valid recipe"),
+        argv: vec!["make".to_string(), "check".to_string()],
         artifact_path: "target/release/cynic".to_string(),
         install_path: None,
         apply: true,

@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cynic_network::dns::{
-    SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
+    SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
     SERVICE_DNS_SERVICE_FILENAME,
 };
 use serde::{Deserialize, Serialize};

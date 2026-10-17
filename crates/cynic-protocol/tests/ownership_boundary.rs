@@ -90,7 +90,7 @@ fn revocation_cannot_be_constructed_without_a_successor() {
     let acceptance = SuccessorAcceptance {
         successor_id: "actor-2".to_string(),
         obligation: "answer for defect D-1".to_string(),
-        evidence_refs: vec!["sha256:acceptance".to_string()],
+        evidence_refs: vec!["sha3-512:acceptance".to_string()],
     };
 
     let revocation = Revocation::new("capability-1", "breach of obligation", acceptance);

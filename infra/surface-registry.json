@@ -9,7 +9,7 @@
         "mutate source tree during audit"
       ],
       "canonical_entrypoints": [
-        "cynic audit node host [--json] [--max-commits <n>]"
+        "cynic audit node-host [--json] [--max-commits <n>]"
       ],
       "domain_owner": "node_host_audit",
       "evidence": [
@@ -470,13 +470,13 @@
       ],
       "canonical_entrypoints": [
         "cynic-node control --config /etc/cynic/node-control.toml",
-        "cynic node source bootstrap --node <node> --repository <id> --source <git-source> --revision <commit> [--registry <path>] [--state-root <path>] --agent-id <id> [--kernel-endpoint <url>] [--apply] [--json]",
-        "cynic node agent workspace change --request <transaction.json> [--result-file <path>] [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply] [--json]",
-        "cynic node agent workspace lifecycle --workload-id <id> --agent-id <id> [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply] [--json]",
-        "cynic node agent scheduler step --observation <scheduler-step.json> [--state-root <path>] [--json]",
-        "cynic node agent workload status --workload-id <id> [--state-root <path>] [--json]",
-        "cynic node agent workload transition --request <transition.json> [--state-root <path>] [--apply] [--json]",
-        "cynic node agent build workload grant verify --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release> [--json]"
+        "cynic-node source-bootstrap --json --node <node> --repository <id> --source <git-source> --revision <commit> [--registry <path>] [--state-root <path>] --apply",
+        "cynic-node agent-workspace --json --request <transaction.json> [--result-file <path>] [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] --apply",
+        "cynic-node agent-workspace-lifecycle --json --workload-id <id> --agent-id <id> [--registry <path>] [--state-root <path>] [--kernel-endpoint <url>] [--apply]",
+        "cynic-node agent-scheduler-step --json --observation <scheduler-step.json> [--state-root <path>]",
+        "cynic-node agent-workload-status --json --workload-id <id> [--state-root <path>]",
+        "cynic-node agent-workload-transition --json --request <transition.json> [--state-root <path>] [--apply]",
+        "cynic-node build-workload-grant-verify --json --grant <signed-grant.json> --workload-record <record.json> --authority-public-key <public-key> --node-id <node> --source-commit <commit> --action <make:check|make:build|make:build-release>"
       ],
       "domain_owner": "cynic-protocol::{agent_workload,build,release_publication,source_repository_bootstrap,runtime_seed}",
       "evidence": [
@@ -580,7 +580,7 @@
         "generate build grants directly"
       ],
       "canonical_entrypoints": [
-        "cynic node identity node --node-id <node> [--signing-key-path <path>] [--apply] [--json]"
+        "cynic-node node-identity --json --node-id <node> [--signing-key-path <path>] [--apply]"
       ],
       "domain_owner": "cynic-protocol::node_identity",
       "evidence": [
@@ -1343,8 +1343,8 @@
         "retain snapshots without an explicit expiry"
       ],
       "canonical_entrypoints": [
-        "cynic node source admission plan --request <release-request.json> --observation <release-observation.json> [--json]",
-        "cynic node source materialize --request <materialization-request.json> --node-id <node> [--state-root <path>] [--snapshot-root <path>] [--snapshot-base-url <https-base>] [--apply] [--json]"
+        "cynic-node source-admission-plan --json --request <release-request.json> --observation <release-observation.json>",
+        "cynic-node source-materialize --json --request <materialization-request.json> --node-id <node> [--state-root <path>] [--snapshot-root <path>] [--snapshot-base-url <https-base>] [--apply]"
       ],
       "domain_owner": "cynic-protocol::{source_control,source_release,source_materialization}",
       "evidence": [
@@ -1388,7 +1388,7 @@
         "claim convergence without post-restart read-back"
       ],
       "canonical_entrypoints": [
-        "cynic node storage reconcile [--state-dir <path>] [--warmup-seconds <n>] [--restart-window-seconds <n>] [--max-restarts-per-window <n>] [--apply] [--json]"
+        "cynic-node storage-reconcile --json [--state-dir <path>] [--apply]"
       ],
       "domain_owner": "domain::storage_lifecycle",
       "evidence": [

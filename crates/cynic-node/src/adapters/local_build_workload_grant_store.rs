@@ -212,7 +212,7 @@ mod tests {
                 cancellation_generation: 0,
                 issued_at_unix_s: 100,
                 expires_at_unix_s: 200,
-                allowed_actions: vec!["audit:crate".to_string()],
+                allowed_actions: vec!["make:check".to_string()],
                 evidence_refs: vec!["workload-record:proof".to_string()],
             },
             signature_hex: "e".repeat(128),

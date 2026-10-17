@@ -68,7 +68,8 @@ impl PeerState {
             schema: PEER_STATE_SCHEMA.to_string(),
             epoch: 0,
             last_sequence: 0,
-            last_tx_hash: crate::peer::GENESIS_PREV_HASH.to_string(),
+            last_tx_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string(),
             citizens: BTreeMap::new(),
             nodes: BTreeMap::new(),
             agents: BTreeMap::new(),

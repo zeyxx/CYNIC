@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::evidence_journal::EvidenceJournalEntry;
+use crate::evidence_journal::EvidenceJournalEntry;
 
 pub const EVIDENCE_PROJECTION_SCHEMA: &str = "cynic.evidence.projection_row.v1";
 
@@ -95,12 +95,12 @@ pub fn replay_plan(entries: &[EvidenceJournalEntry], existing_event_ids: &[Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_protocol::evidence_journal::{EVIDENCE_EVENT_ENTRY_SEALED, compute_entry_hash};
+    use crate::evidence_journal::{EVIDENCE_EVENT_ENTRY_SEALED, compute_entry_hash};
 
     fn make_entry(node: &str, seq: u64, prev: &str, ts: i64) -> EvidenceJournalEntry {
-        let payload = format!("sha256:{node}-{seq}");
+        let payload = format!("sha3-512:{node}-{seq}");
         EvidenceJournalEntry {
-            schema: cynic_protocol::evidence_journal::EVIDENCE_JOURNAL_SCHEMA.to_string(),
+            schema: crate::evidence_journal::EVIDENCE_JOURNAL_SCHEMA.to_string(),
             sequence: seq,
             node_id: node.to_string(),
             event_type: EVIDENCE_EVENT_ENTRY_SEALED.to_string(),

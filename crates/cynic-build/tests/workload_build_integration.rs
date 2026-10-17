@@ -77,8 +77,6 @@ fn test_envelope() -> AgentWorkloadEnvelope {
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
-        source_commit: None,
-        branch: None,
         input: None,
         resource_budget: None,
         action,
@@ -262,7 +260,6 @@ fn delivery() -> AgentWorkloadDelivery {
         request_id: "delivery-test".to_string(),
         requested_by: "agent-test".to_string(),
         source_commit: "a".repeat(40),
-        branch: None,
         source: BuildSourceReference {
             schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
             repository_id: "cynic".into(),

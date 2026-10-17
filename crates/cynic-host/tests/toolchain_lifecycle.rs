@@ -7,9 +7,10 @@
 //! All substrate observation is faked via a map argv runner — no real rustc
 //! needed (CYNIC §5: closed harness for proof).
 
-use cynic_host::toolchain::observe::ToolchainObservation;
+use cynic_host::toolchain::observe::{ToolchainObservation, ToolchainObservationPort};
 use cynic_host::toolchain::policy::{
-    ToolchainReconcileInput, ToolchainState, ToolchainTransition, reconcile_toolchain_full,
+    ToolchainDecision, ToolchainReconcileInput, ToolchainState, ToolchainTransition,
+    reconcile_toolchain_full,
 };
 use cynic_host::toolchain::specs::{ToolchainProofHistory, ToolchainRegistry};
 use cynic_lifecycle::{ArgvOutput, ArgvRunner};
