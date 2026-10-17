@@ -55,3 +55,15 @@ proves itself. No downtime, instant rollback (DNS/endpoint points back).
 ## Open before cutover
 
 - Consumer list of :3000/:4021 (unknown — measure: logs/conns on cortex).
+
+## Cutover record (2026-10-18)
+
+- Live proof: sponsored 1-ASDF swap through 107's kora, sig
+  `4ScTeGBWCiF628nc3Dryf1ec6AiZfscwqjWi7DBUEebuLLYEgTwE6NnQYK8VD4FrS3Lv88GzWjhjLtyHheFJFN4c`.
+- Blocker found and fixed: user's WSOL ATA missing → kora
+  `allow_create_account=false` rejected the send (chain state, identical
+  on both hosts). Created once with the user key (approved), rent ~0.002.
+- Clarified: `Bcuw...` is the kora fee-payer signer, the flow user is
+  `22XuH...` (`flow2-user.json`).
+- Cortex `gasdf-{relay,facilitator,kora-mainnet}` stopped; 107 serves.
+  Manual devnet kora :14000 stays on cortex (out of scope).
