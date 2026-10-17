@@ -384,7 +384,7 @@
       "services": [
         {
           "name": "embedding-server",
-          "artifact": "llama-server (b76b133 2026-10-15, Vulkan build /usr/local/bin/llama-server; compute-01 peer ~/cynic/bin/llama-server same build)",
+          "artifact": "llama-server (master 62df181, Vulkan build ~/.local/bin/llama-vk/)",
           "scheme": "http",
           "endpoint_host": "10.20.0.3",
           "port": 8081,
@@ -397,14 +397,26 @@
             "kind": "http",
             "url": "http://10.20.0.3:8081/health"
           },
-          "model": "embeddinggemma-2-BF16.gguf",
-          "flags": "--embeddings -c 4096 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -fa on -ngl 99 --parallel 4",
           "memory_guard": "MemoryMax=3G",
+          "libs": "/var/lib/cynic/vault/llama-bin/vulkan-b26 (persistent versioned; never /tmp RUNPATH)",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://127.0.0.1:8081/v1#slots=4",
           "access_note": "builder->10.20.0.3 blocked (Headscale ACL gap); served to builder via cortex-initiated reverse tunnel -R 8081 (see checklist 11.11)"
         }
       ],
       "energy_profile": {
         "class": "always_on"
+      },
+      "observed_gpu_stack": {
+        "gpu": "AMD Cezanne [Radeon Vega Mobile]",
+        "kernel": "7.0.0-38-generic",
+        "mesa_vulkan_drivers": "25.2.8-0ubuntu0.24.04.4",
+        "llama_server": "master 62df181",
+        "measured_embed_throughput_texts_per_s": 114.3,
+        "peer_numeric_drift_vs_compute_01": 0.002476,
+        "observed_at": "2026-10-17"
       }
     },
     {
@@ -596,24 +608,6 @@
             "relative_path": "source/repositories/CYNIC/target"
           }
         ],
-        "ephemeral_retention": {
-          "schema": "cynic.build_runner.ephemeral_retention.v1",
-          "max_age_ms": 604800000,
-          "pressure_grace_ms": 3600000,
-          "scopes": [
-            {
-              "base": "state_root",
-              "relative_path": "checkouts",
-              "kind": "evidence_checkout"
-            },
-            {
-              "base": "state_root",
-              "relative_path": "source/workspaces",
-              "kind": "workload_workspace",
-              "workload_store_relative_path": "source/workspaces"
-            }
-          ]
-        },
         "bootstrap_containment": {
           "schema": "cynic.build_runner.bootstrap_containment.v1",
           "authority_class": "MachineEnrollment",
@@ -690,6 +684,13 @@
           "health": {
             "kind": "http",
             "url": "http://10.10.10.106:8080/health"
+          },
+          "exclusion": {
+            "status": "excluded",
+            "since": "2026-10-15",
+            "reason": "no admin access from any known principal (cynic/titouan/user denied); ceiling unmeasurable; fails closed on long inputs",
+            "reentry": "admin access restored plus ceiling measured via the 1101-token probe, then bench_endpoint assigned",
+            "note": "no bench_endpoint key by design: excluded runners never join the cluster"
           }
         }
       ],
@@ -743,8 +744,18 @@
         "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
         "written_bytes": 2147483648,
         "passes": [
-          { "pass": 1, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 },
-          { "pass": 2, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 }
+          {
+            "pass": 1,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          },
+          {
+            "pass": 2,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          }
         ],
         "verdict": "passed: the device stores and returns written data faithfully",
         "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",
@@ -776,11 +787,6 @@
       "services": [],
       "energy_profile": {
         "class": "always_on"
-      },
-      "enrollment": {
-        "certificate_id": "sha256:7898f3d950882c34a7fabab505d67508f2bf1cc3d969cf8e5779c3f139ba4128",
-        "authority_id": "cynic-fleet-root-ca",
-        "granted_unix_s": 1792237521
       }
     },
     {
@@ -862,65 +868,66 @@
       "id": "cynic-compute-01",
       "name": "cynic-compute-01",
       "aliases": [
-        "compute-01"
+        "compute-01",
+        "trixie-apu"
       ],
-      "role": "agent_host",
+      "role": "embedding_runner",
       "host_family": "linux.debian.systemd",
       "status": "observed",
       "deploy_target": true,
-      "transports": {
-        "ssh": {
-          "target": "titouan@192.168.0.25",
-          "trust": "ssh_trust_anchor"
-        }
-      },
-      "network": {
-        "lan": "192.168.0.25"
-      },
-      "services": [
-        {"declared_from":"cynic node fleet services --declare","endpoint_host":"192.168.0.25","model":"embeddinggemma-2-Q8_0.gguf","name":"observed-embedding","observed":true,"port":8080,"scheme":"http"},
-        {"declared_from":"cynic node fleet services --declare","endpoint_host":"192.168.0.25","model":"LFM2.5-2.6B-Q4_K_M.gguf","name":"observed-chat","observed":true,"port":8088,"scheme":"http"}
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      },
-      "enrollment": {
-        "certificate_id": "sha256:8e8ee83f3b8e92c7d1ac7219921718126bcce92eb0741317d44b366c9352603c",
-        "authority_id": "cynic-fleet-root-ca",
-        "granted_unix_s": 1792237526
-      }
-    },
-    {
-      "id": "cynic-build-bookworm",
-      "name": "cynic-build-bookworm",
-      "aliases": [
-        "bookworm-104"
-      ],
-      "role": "build_runner_compat",
-      "host_family": "linux.debian.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "proxmox_id": "lxc/104",
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "10.10.10.104",
+          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
           "trust": "ssh_trust_anchor",
-          "enrollment_authority": {
-            "class": "machine_enrollment",
-            "principal": "cynic",
-            "credential_ref": "registry-machine-ssh-identity"
-          }
+          "principal": "titouan"
         }
       },
       "network": {
-        "service": "10.10.10.104"
+        "lan": "192.168.0.25",
+        "service": "192.168.0.25"
       },
-      "services": [],
+      "observed_hardware": {
+        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+        "operating_system": "Debian GNU/Linux 13 (trixie)",
+        "ram": "16 GB",
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 8080,
+          "network_plane": "lan",
+          "unit": "cynic-embedding-node.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:8080/health"
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
+        }
+      ],
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "Bookworm (glibc 2.36) build runner for pve-compatible binaries."
+      "observed_gpu_stack": {
+        "gpu": "AMD Lucienne APU",
+        "kernel": "6.12.111+deb13-amd64",
+        "mesa_vulkan_drivers": "25.0.7-2+deb13u1",
+        "measured_embed_throughput_texts_per_s": 16.3,
+        "vulkan_compute_confirmed": true,
+        "note": "llama-server CPU ~20% under embed load on 2026-10-17; inference on GPU",
+        "observed_at": "2026-10-17"
+      }
     }
   ],
   "fleet_desired": {
