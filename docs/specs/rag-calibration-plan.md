@@ -1,9 +1,13 @@
 # RAG Calibration Plan — Organic / Bottom-Up
 
 How CYNIC retrieval improves: data first, one variable at a time, each step
-gated by the graded bench (`cynic_eval::bench::retrieval_gain`, 18 graded
-queries + 1 trap). No default is baked in before full-corpus proof. No
-architecture is proposed before the numbers demand it.
+gated by the graded bench. No default is baked in before full-corpus proof.
+No architecture is proposed before the numbers demand it.
+
+> Standing as of 2026-10-14 (18 queries) below is history. Live position:
+> `RAG_SOTA_PATH.md` (9 runs, 85 queries, frozen convex method, per-doctype
+> routing, Q8-uniform space). This plan stays the ladder; the path doc is
+> the scoreboard.
 
 ## 0. Standing (measured, deterministic since RRF tie-break fix)
 

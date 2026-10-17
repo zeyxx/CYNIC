@@ -33,28 +33,28 @@ pub fn fuse_reciprocal_ranks<'a>(
     // 1. Process sparse (BM25) ranks (1-indexed)
     for (idx, hit) in sparse_hits.iter().enumerate() {
         let rank = (idx + 1) as f64;
-        let path = hit.chunk.source_path.as_str();
-        chunk_map.insert(path, hit.chunk);
+        let key = hit.chunk.chunk_id.as_str();
+        chunk_map.insert(key, hit.chunk);
         let score = 1.0 / (k + rank);
-        *rrf_scores.entry(path).or_insert(0.0) += score;
+        *rrf_scores.entry(key).or_insert(0.0) += score;
     }
 
     // 2. Process dense (vector) ranks (1-indexed)
     for (idx, hit) in dense_hits.iter().enumerate() {
         let rank = (idx + 1) as f64;
-        let path = hit.chunk.source_path.as_str();
-        chunk_map.insert(path, hit.chunk);
+        let key = hit.chunk.chunk_id.as_str();
+        chunk_map.insert(key, hit.chunk);
         let score = 1.0 / (k + rank);
-        *rrf_scores.entry(path).or_insert(0.0) += score;
+        *rrf_scores.entry(key).or_insert(0.0) += score;
     }
 
     // 3. Compute final weighted scores with CYNIC altitude and deprecation policy
     let mut fused = Vec::with_capacity(chunk_map.len());
-    for (path, &chunk) in &chunk_map {
-        let base_rrf = rrf_scores.get(path).copied().unwrap_or(0.0);
-        let contract_floor = evaluate_contract_floor(path);
+    for (key, &chunk) in &chunk_map {
+        let base_rrf = rrf_scores.get(key).copied().unwrap_or(0.0);
+        let contract_floor = evaluate_contract_floor(&chunk.source_path);
         let altitude = evaluate_altitude_multiplier(chunk.authority);
-        let deprecation = evaluate_deprecation_multiplier(path, &chunk.content);
+        let deprecation = evaluate_deprecation_multiplier(&chunk.source_path, &chunk.content);
 
         // Normalize RRF by 100.0 so scale matches human-inspectable BM25 numbers
         let final_score = (base_rrf * 100.0 + contract_floor) * altitude * deprecation;
