@@ -152,6 +152,24 @@
         "rc-service",
         "rc-update"
       ]
+    },
+    "gasdf_relay_units": {
+      "authority": "runtime_authority_adapter",
+      "kind": "installed_service_unit",
+      "provider": "systemd",
+      "owner": "peer-project gasdf (external, read-only mirror)",
+      "file_paths": [
+        "infra/os/systemd/gasdf-kora-mainnet.service",
+        "infra/os/systemd/gasdf-facilitator.service",
+        "infra/os/systemd/gasdf-relay.service"
+      ],
+      "signals": [
+        "User=cynic",
+        "Group=cynic",
+        "EnvironmentFile=/etc/cynic/secrets/gasdf/relay/mainnet.env",
+        "Requires=gasdf-kora-mainnet.service gasdf-facilitator.service"
+      ],
+      "rule": "Peer-project runtime supervised by the OS adapter; CYNIC does not own the code, only the supervision."
     }
   },
   "operator_projections": {
