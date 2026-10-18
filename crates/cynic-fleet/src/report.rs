@@ -76,10 +76,10 @@ fn escape_html(raw: &str) -> String {
 }
 
 /// Render the standalone HTML dashboard. No JS, no network, inline CSS.
-pub fn render_html(report: &FleetReport) -> String {
-    let mut node_rows = String::new();
-    for node in &report.nodes {
-        node_rows.push_str(&format!(
+fn node_rows(nodes: &[FleetNodeRow]) -> String {
+    let mut rows = String::new();
+    for node in nodes {
+        rows.push_str(&format!(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td><td>{}</td></tr>\n",
             escape_html(&node.id),
             escape_html(&node.role),
@@ -88,9 +88,13 @@ pub fn render_html(report: &FleetReport) -> String {
             escape_html(&node.authority_id),
         ));
     }
-    let mut service_rows = String::new();
-    for service in &report.services {
-        service_rows.push_str(&format!(
+    rows
+}
+
+fn service_rows(services: &[FleetServiceRow]) -> String {
+    let mut rows = String::new();
+    for service in services {
+        rows.push_str(&format!(
             "<tr><td>{}</td><td>{}:{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n",
             escape_html(&service.node_id),
             escape_html(&service.host),
@@ -104,24 +108,37 @@ pub fn render_html(report: &FleetReport) -> String {
             },
         ));
     }
-    let mut debt_rows = String::new();
-    for debt in &report.debts {
-        debt_rows.push_str(&format!(
+    rows
+}
+
+fn log_rows(entries: &[FleetLogRow]) -> String {
+    let mut rows = String::new();
+    for entry in entries {
+        rows.push_str(&format!(
             "<tr><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-            debt.ts_unix_s,
-            escape_html(&debt.agent),
-            escape_html(&debt.body),
+            entry.ts_unix_s,
+            escape_html(&entry.agent),
+            escape_html(&entry.body),
         ));
     }
-    let mut info_rows = String::new();
-    for info in report.infos.iter().rev().take(10) {
-        info_rows.push_str(&format!(
-            "<tr><td>{}</td><td>{}</td><td>{}</td></tr>\n",
-            info.ts_unix_s,
-            escape_html(&info.agent),
-            escape_html(&info.body),
-        ));
-    }
+    rows
+}
+
+pub fn render_html(report: &FleetReport) -> String {
+    let node_rows = node_rows(&report.nodes);
+    let service_rows = service_rows(&report.services);
+    let debt_rows = log_rows(&report.debts);
+    let info_rows: String = {
+        log_rows(
+            &report
+                .infos
+                .iter()
+                .rev()
+                .take(10)
+                .cloned()
+                .collect::<Vec<_>>(),
+        )
+    };
     format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>CYNIC fleet dashboard</title>\n<style>\nbody{{font-family:monospace;max-width:72rem;margin:2rem auto;padding:0 1rem;background:#0d1117;color:#c9d1d9}}\ntable{{border-collapse:collapse;width:100%;margin-bottom:2rem}}\ntd,th{{border:1px solid #30363d;padding:.4rem .6rem;text-align:left}}\nth{{background:#161b22}}\ncode{{color:#7ee787}}\nh1{{color:#58a6ff}}\n</style>\n</head>\n<body>\n<h1>CYNIC fleet dashboard</h1>\n<p>generated {} from {}</p>\n<h2>Nodes ({})</h2>\n<table><tr><th>id</th><th>role</th><th>status</th><th>cert</th><th>authority</th></tr>\n{}</table>\n<h2>Observed services ({})</h2>\n<table><tr><th>node</th><th>listener</th><th>label</th><th>model</th><th>registry</th></tr>\n{}</table>\n<h2>Open debts ({})</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n<h2>Latest activity</h2>\n<table><tr><th>ts</th><th>agent</th><th>body</th></tr>\n{}</table>\n</body>\n</html>\n",
         report.generated_unix_s,
