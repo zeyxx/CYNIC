@@ -42,11 +42,11 @@
         "BuildPort",
         "EvidencePort"
       ],
-      "port_wiring_status": "traits_defined (SourcePort, BuildPort, EvidencePort)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
       "port_status": {
-        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "defined (trait in cynic-build, adapter pending)",
-        "EvidencePort": "defined (trait in cynic-kernel, adapter pending)"
+        "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
+        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     },
     {
@@ -84,11 +84,11 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "traits_defined (SourcePort, BuildPort, EvidencePort)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
       "port_status": {
-        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "defined (trait in cynic-build, adapter pending)",
-        "EvidencePort": "defined (trait in cynic-kernel, adapter pending)"
+        "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
+        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     },
     {
@@ -127,11 +127,11 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "traits_defined (SourcePort, BuildPort, EvidencePort)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
       "port_status": {
-        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "defined (trait in cynic-build, adapter pending)",
-        "EvidencePort": "defined (trait in cynic-kernel, adapter pending)"
+        "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
+        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     }
   ],

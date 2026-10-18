@@ -12,8 +12,8 @@
       "direction": "bidirectional",
       "purpose": "Clone, fetch, branch, push, and PR operations on external repositories. Reuses CYNIC's source lifecycle (contracts/source-lifecycle.json) parameterized by remote.",
       "mutation_policy": "explicit_apply_only",
-      "status": "defined",
-      "notes": "Trait defined in cynic-vcs/src/external_source.rs. Adapters pending (Forgejo/GitHub)."
+      "status": "adapter_defined",
+      "notes": "Trait + adapter defined. Forgejo adapter in cynic-vcs-forgejo. GitHub adapter pending."
     },
     {
       "port_name": "BuildPort",
@@ -22,8 +22,8 @@
       "direction": "outbound",
       "purpose": "Run a project's observed build/test commands on the builder node (10.10.10.119) with read-back proof. Commands come from infra/external-projects.json (observed, not fabricated).",
       "mutation_policy": "read_only",
-      "status": "defined",
-      "notes": "Trait defined in cynic-build/src/external_build.rs. Adapter pending (builder command execution)."
+      "status": "adapter_defined",
+      "notes": "Trait + adapter defined. Local adapter in cynic-host. SSH/builder adapter pending."
     },
     {
       "port_name": "EvidencePort",
@@ -32,8 +32,8 @@
       "direction": "inbound",
       "purpose": "Ingest a project's findings/evidence into CYNIC's observation store (aegisscan findings -> CYNIC observation store).",
       "mutation_policy": "read_only",
-      "status": "defined",
-      "notes": "Trait defined in cynic-kernel/src/ports/external_evidence.rs. Adapter pending in cynic-host."
+      "status": "adapter_defined",
+      "notes": "Trait + adapter defined. Local adapter in cynic-host. Content-addressed store adapter pending."
     }
   ],
   "wiring_rules": [

@@ -25,6 +25,8 @@ pub mod development_genesis;
 pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
+pub mod external_build_adapter;
+pub mod external_evidence_adapter;
 pub mod federation_runtime;
 pub mod filesystem_observation;
 pub mod fleet_build_artefact_observer;
