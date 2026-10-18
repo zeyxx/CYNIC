@@ -9,7 +9,7 @@
 use std::process::Command;
 
 use cynic_vcs::external_source::{
-    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalProvider, ExternalPushProof,
+    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof,
     ExternalRepoRef, ExternalSourcePort,
 };
 use reqwest::blocking::Client;

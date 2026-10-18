@@ -11,8 +11,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use cynic_protocol::EvidenceEnvelope;
-
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
 pub const EXTERNAL_EVIDENCE_SCHEMA: &str = "cynic.kernel.external_evidence.v1";
