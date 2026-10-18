@@ -672,7 +672,7 @@
       "services": [
         {
           "name": "embedding-server",
-          "artifact": "llama-server",
+          "artifact": "llama-server-embed (embeddinggemma-2-Q8_0.gguf, CPU)",
           "scheme": "http",
           "endpoint_host": "10.10.10.106",
           "port": 8080,
@@ -696,7 +696,14 @@
       ],
       "energy_profile": {
         "class": "always_on"
-      }
+      },
+      "maintenance_log": [
+        {
+          "date": "2026-10-18",
+          "action": "model BF16 -> Q8_0 (310MB pushed via pct push); unit restarted, serves Q8_0",
+          "outcome": "/v1/models confirms embeddinggemma-2-Q8_0.gguf"
+        }
+      ]
     },
     {
       "id": "cynic-laptop-ax16pro",
@@ -935,7 +942,8 @@
           "peer_numeric_drift_after": 0.002476,
           "outcome": "drift unchanged bit-identical; drift is architectural (Vega vs Lucienne), not driver"
         }
-      ]
+      ],
+      "operator_note": "down 2026-10-18: laptop unplugged, awaiting power"
     }
   ],
   "fleet_desired": {
