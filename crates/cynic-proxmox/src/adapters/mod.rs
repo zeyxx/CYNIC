@@ -19,6 +19,7 @@ pub use ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
 pub use proxmox_clone::{LxcCloneObservation, LxcCloneOutcome, ProxmoxSshCloneAdapter};
 pub use proxmox_control::{
     ProxmoxControlAdapter, ProxmoxControlConfiguration, ProxmoxControlStatus,
+    build_clone_form, template_hygiene_blockers, validate_clone_ttl_hours,
 };
 pub use proxmox_disk_extension::ProxmoxSshDiskExtensionAdapter;
 pub use proxmox_lxc_compute_substrate::{ProxmoxLxcSubstrateAdapter, ProxmoxLxcSubstrateError};

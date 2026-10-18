@@ -74,6 +74,88 @@ impl<'a, R: ArgvRunner> ProxmoxSshCloneAdapter<'a, R> {
         ]
     }
 
+    /// Pure argv for the pre-template hygiene scan: list every watched
+    /// path inside the builder guest via `pct exec`. Output lines feed
+    /// `template_hygiene_blockers` (proxmox_control). No I/O here.
+    pub fn plan_template_hygiene_scan(&self, builder_vmid: u32) -> Vec<String> {
+        vec![
+            "ssh".to_string(),
+            "-o".to_string(),
+            "BatchMode=yes".to_string(),
+            "-o".to_string(),
+            "StrictHostKeyChecking=yes".to_string(),
+            self.ssh_target.clone(),
+            "sudo".to_string(),
+            "-n".to_string(),
+            "/usr/bin/pct".to_string(),
+            "exec".to_string(),
+            builder_vmid.to_string(),
+            "--".to_string(),
+            "find".to_string(),
+            "/etc/cynic/secrets".to_string(),
+            "/root/.ssh".to_string(),
+            "/home/cynic/.ssh".to_string(),
+            "/root/.bash_history".to_string(),
+            "/root/.zsh_history".to_string(),
+            "-print".to_string(),
+        ]
+    }
+
+    /// Run the hygiene scan; return the found paths (empty = clean guest).
+    /// A stopped or unreachable guest is an error, never "clean".
+    pub fn scan_template_hygiene(&self, builder_vmid: u32) -> Result<Vec<String>, String> {
+        let argv = self.plan_template_hygiene_scan(builder_vmid);
+        let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
+        let output = self.runner.run(&refs);
+        if !output.success() {
+            return Err(format!(
+                "proxmox_hygiene_scan_failed:{}",
+                output.spawn_error.as_deref().unwrap_or(&output.stderr)
+            ));
+        }
+        Ok(output
+            .stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect())
+    }
+
+    /// Pure argv for `pct template`: one-way conversion of a stopped clean
+    /// builder into a versioned template. The caller must have passed the
+    /// hygiene gate first — this method does not re-check.
+    pub fn plan_convert_template(&self, builder_vmid: u32) -> Vec<String> {
+        vec![
+            "ssh".to_string(),
+            "-o".to_string(),
+            "BatchMode=yes".to_string(),
+            "-o".to_string(),
+            "StrictHostKeyChecking=yes".to_string(),
+            self.ssh_target.clone(),
+            "sudo".to_string(),
+            "-n".to_string(),
+            "/usr/bin/pct".to_string(),
+            "template".to_string(),
+            builder_vmid.to_string(),
+        ]
+    }
+
+    /// Convert the builder into a template. Fails closed on pct error;
+    /// the caller proves `template: 1` with a config read-back.
+    pub fn convert_template(&self, builder_vmid: u32) -> Result<(), String> {
+        let argv = self.plan_convert_template(builder_vmid);
+        let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
+        let output = self.runner.run(&refs);
+        if !output.success() {
+            return Err(format!(
+                "proxmox_convert_template_failed:{}",
+                output.spawn_error.as_deref().unwrap_or(&output.stderr)
+            ));
+        }
+        Ok(())
+    }
+
     pub fn apply_clone(
         &self,
         source_vmid: u32,
@@ -229,5 +311,80 @@ mod tests {
         assert!(outcome.observation.network_isolated);
 
         assert!(adapter.destroy_clone(900105).is_ok());
+    }
+
+    #[test]
+    fn plans_hygiene_scan_with_exact_bounded_vector() {
+        let runner = MapArgvRunner::new(HashMap::new());
+        let adapter = ProxmoxSshCloneAdapter::new(&runner, "proxmox-pve").expect("adapter");
+        let plan = adapter.plan_template_hygiene_scan(113);
+
+        assert_eq!(
+            plan,
+            vec![
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "proxmox-pve",
+                "sudo",
+                "-n",
+                "/usr/bin/pct",
+                "exec",
+                "113",
+                "--",
+                "find",
+                "/etc/cynic/secrets",
+                "/root/.ssh",
+                "/home/cynic/.ssh",
+                "/root/.bash_history",
+                "/root/.zsh_history",
+                "-print",
+            ],
+        );
+    }
+
+    #[test]
+    fn plans_convert_template_with_exact_bounded_vector() {
+        let runner = MapArgvRunner::new(HashMap::new());
+        let adapter = ProxmoxSshCloneAdapter::new(&runner, "proxmox-pve").expect("adapter");
+        let plan = adapter.plan_convert_template(113);
+
+        assert_eq!(
+            plan,
+            vec![
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "proxmox-pve",
+                "sudo",
+                "-n",
+                "/usr/bin/pct",
+                "template",
+                "113",
+            ],
+        );
+    }
+
+    #[test]
+    fn scan_parses_found_paths_line_by_line() {
+        let mut outputs = HashMap::new();
+        outputs.insert(
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes proxmox-pve sudo -n /usr/bin/pct exec 113 -- find /etc/cynic/secrets /root/.ssh /home/cynic/.ssh /root/.bash_history /root/.zsh_history -print".to_string(),
+            ArgvOutput {
+                stdout: "/root/.bash_history\n/home/cynic/.ssh/authorized_keys\n".to_string(),
+                stderr: "".to_string(),
+                exit_code: Some(0),
+                spawn_error: None,
+            },
+        );
+        let runner = MapArgvRunner::new(outputs);
+        let adapter = ProxmoxSshCloneAdapter::new(&runner, "proxmox-pve").expect("adapter");
+
+        let found = adapter.scan_template_hygiene(113).expect("scan");
+        assert_eq!(found, vec!["/root/.bash_history", "/home/cynic/.ssh/authorized_keys"]);
     }
 }

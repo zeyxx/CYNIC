@@ -604,6 +604,46 @@ impl ProxmoxControlAdapter {
         }))
     }
 
+    /// Convert a stopped, hygiene-clean builder into a versioned template:
+    /// stop (polled), `POST .../template`, then config read-back proving
+    /// `template: 1`. Fails closed at every step; the caller must have
+    /// passed `template_hygiene_blockers` first.
+    pub async fn convert_template(
+        &self,
+        node: &str,
+        builder_vmid: u32,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", &builder_vmid.to_string())?;
+        let stop_payload = self
+            .post_form_json(
+                &format!("/api2/json/nodes/{node}/lxc/{builder_vmid}/status/stop"),
+                &[],
+            )
+            .await?;
+        let stop_upid = stop_payload["data"]
+            .as_str()
+            .ok_or_else(|| "Proxmox lxc stop response omitted data.upid".to_string())?;
+        self.wait_for_task(node, stop_upid, timeout).await?;
+        self.post_form_json(
+            &format!("/api2/json/nodes/{node}/lxc/{builder_vmid}/template"),
+            &[],
+        )
+        .await?;
+        let config = self.lxc_config(node, &builder_vmid.to_string()).await?;
+        if config["data"]["template"] != 1 {
+            return Err("proxmox_template_unverified:config_missing_template_flag".to_string());
+        }
+        Ok(json!({
+            "status": "completed",
+            "provider": "proxmox_lxc_template",
+            "node": node,
+            "vmid": builder_vmid,
+            "template": 1,
+        }))
+    }
+
     /// Poll a Proxmox UPID task until it stops. Returns Ok on `exitstatus`
     /// `OK`, Err on any other exit status, unknown status shape, or timeout.
     async fn wait_for_task(&self, node: &str, upid: &str, timeout: Duration) -> Result<(), String> {

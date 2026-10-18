@@ -17,7 +17,10 @@ use cynic_protocol::provider::{
     NodeSubstrateDesiredState, NodeSubstrateObservationPort, NodeSubstratePower,
     NodeSubstrateProvisioningSpec,
 };
-use cynic_proxmox::adapters::{ProxmoxControlAdapter, ProxmoxSshSubstrateAdapter};
+use cynic_proxmox::adapters::{
+    ProxmoxControlAdapter, ProxmoxSshCloneAdapter, ProxmoxSshSubstrateAdapter,
+    template_hygiene_blockers,
+};
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -56,6 +59,20 @@ pub enum NodeComputeCommand {
     },
     /// Provision a Proxmox LXC container through the sovereign substrate port.
     /// Emits the pure plan by default; --apply executes it over SSH.
+    Template {
+        /// Builder guest vmid to convert (must be stopped and hygiene-clean).
+        #[arg(long)]
+        vmid: u32,
+        /// Proxmox SSH target for the hygiene scan
+        /// (breakglass, never a hardcoded default).
+        #[arg(long)]
+        hypervisor: String,
+        /// Proxmox node name for the REST convert path. Defaults to `pve`.
+        #[arg(long, default_value = "pve")]
+        node: String,
+        #[arg(long, default_value_t = false)]
+        apply: bool,
+    },
     Provision {
         #[arg(long)]
         vmid: u32,
@@ -200,6 +217,14 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 }
             }
         }
+        NodeComputeCommand::Template {
+            vmid,
+            hypervisor,
+            node,
+            apply,
+        } => {
+            return apply_template(hypervisor, node, vmid, apply).await;
+        },
         NodeComputeCommand::Provision {
             vmid,
             hostname,
@@ -468,6 +493,100 @@ async fn apply_clone_rest(
         }
         Err(e) => {
             eprintln!("error: cloned but read-back failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Template flow: scan the builder guest for hygiene blockers, refuse on
+/// any hit, otherwise stop + convert to template and prove `template: 1`
+/// with a config read-back. Plan-only emits the scan argv without touching
+/// the hypervisor.
+async fn apply_template(hypervisor: String, node: String, vmid: u32, apply: bool) -> ExitCode {
+    let runner = LocalArgvRunner;
+    let scanner = match ProxmoxSshCloneAdapter::new(&runner, hypervisor) {
+        Ok(adapter) => adapter,
+        Err(e) => {
+            eprintln!("error: invalid hypervisor target: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !apply {
+        emit_json(
+            &serde_json::json!({
+                "schema": "cynic.node.compute.template.v1",
+                "status": "planned",
+                "channel": "ssh_scan",
+                "vmid": vmid,
+                "scan_argv": scanner.plan_template_hygiene_scan(vmid),
+                "convert_argv": scanner.plan_convert_template(vmid),
+            }),
+            false,
+        );
+        return ExitCode::SUCCESS;
+    }
+    let found = match scanner.scan_template_hygiene(vmid) {
+        Ok(found) => found,
+        Err(e) => {
+            eprintln!("error: hygiene scan failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let found_refs: Vec<&str> = found.iter().map(String::as_str).collect();
+    let blockers = template_hygiene_blockers(&found_refs);
+    if !blockers.is_empty() {
+        emit_json(
+            &serde_json::json!({
+                "schema": "cynic.node.compute.template.v1",
+                "status": "refused",
+                "reason": "template_hygiene_blockers",
+                "blockers": blockers,
+                "vmid": vmid,
+            }),
+            false,
+        );
+        return ExitCode::FAILURE;
+    }
+    if let Ok(rest) = ProxmoxControlAdapter::from_env(std::time::Duration::from_secs(5)) {
+        match rest
+            .convert_template(&node, vmid, std::time::Duration::from_secs(120))
+            .await
+        {
+            Ok(report) => {
+                emit_json(
+                    &serde_json::json!({
+                        "schema": "cynic.node.compute.template.v1",
+                        "status": "templated",
+                        "channel": "rest",
+                        "vmid": vmid,
+                        "node": node,
+                        "report": report,
+                    }),
+                    false,
+                );
+                return ExitCode::SUCCESS;
+            }
+            Err(e) => {
+                eprintln!("error: REST template convert failed: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    match scanner.convert_template(vmid) {
+        Ok(()) => {
+            emit_json(
+                &serde_json::json!({
+                    "schema": "cynic.node.compute.template.v1",
+                    "status": "templated",
+                    "channel": "ssh_breakglass",
+                    "vmid": vmid,
+                }),
+                false,
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: SSH template convert failed: {e}");
             ExitCode::FAILURE
         }
     }
