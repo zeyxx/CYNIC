@@ -81,8 +81,31 @@ impl HttpFreeboxProbeAdapter {
 
 impl FreeboxProbePort for HttpFreeboxProbeAdapter {
     fn probe_freebox_lan(&self, endpoint: &str) -> Result<FreeboxLanObservation, String> {
+        // reqwest::blocking::Client builds and drops a nested tokio runtime.
+        // Dropped inside this CLI's #[tokio::main] context it panics with
+        // "Cannot drop a runtime in a context where blocking is not allowed".
+        // Confine the whole client lifecycle to a plain OS thread (a raw
+        // thread::spawn, not spawn_blocking: the guard travels with the
+        // latter). Same convention as blocking_kernel_request.
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::probe_freebox_lan_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_probe_thread_panicked".to_string())?
+    }
+}
+
+impl HttpFreeboxProbeAdapter {
+    fn probe_freebox_lan_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<FreeboxLanObservation, String> {
         let client = reqwest::blocking::Client::builder()
-            .timeout(self.timeout)
+            .timeout(timeout)
             .build()
             .map_err(|e| format!("http_client_init_failed:{e}"))?;
 
@@ -103,7 +126,7 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
                         if let Ok(password) = Self::compute_password(token, challenge) {
                             let open_session_url = format!("{endpoint}/api/v10/login/session/");
                             let body = serde_json::json!({
-                                "app_id": self.app_id,
+                                "app_id": app_id,
                                 "password": password,
                             });
                             let session_resp = client
