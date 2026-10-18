@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
-use crate::{crate_audit, emit_json, fail, node_host_audit};
+use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
 
 pub(crate) mod host_checks;
 
@@ -124,6 +124,13 @@ pub(crate) enum AuditCommand {
         json: bool,
         #[arg(long)]
         kind: Option<String>,
+    },
+    /// Read-back of the external (non-CYNIC) project registry (infra/external-projects.json).
+    External {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
     },
 }
 
@@ -317,6 +324,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         }
         AuditCommand::Harness { json, kind } => {
             host_checks::execute_harness(*json, kind.as_deref())
+        }
+        AuditCommand::External { json, registry } => {
+            external_audit::execute(*json, registry.as_deref())
         }
     }
 }

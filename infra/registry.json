@@ -666,6 +666,43 @@
       ],
       "energy_profile": {
         "class": "burst"
+      },
+      "toolchains": {
+        "schema": "cynic.builder_toolchains.v1",
+        "provisioned_at": "2026-10-18",
+        "provisioned_by": "hermes (agent/hermes/aegis-consortium)",
+        "tools": [
+          {
+            "name": "go",
+            "version": "go1.27.2",
+            "install_path": "/opt/go",
+            "bin_path": "/opt/go/bin/go",
+            "symlink": "/usr/local/bin/go",
+            "purpose": "Build/test external Go projects (aegisscan, aegis-core) on the builder"
+          },
+          {
+            "name": "node",
+            "version": "v22.23.3",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/node",
+            "symlink": "/usr/local/bin/node",
+            "purpose": "Build/test external Node/TypeScript projects (ai-bus) on the builder"
+          },
+          {
+            "name": "npm",
+            "version": "10.9.9",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/npm",
+            "symlink": "/usr/local/bin/npm",
+            "purpose": "Package management for external Node/TypeScript projects"
+          }
+        ],
+        "notes": [
+          "Installed 2026-10-18 to close roadmap item 7 build/test observation gap.",
+          "Builder previously had rust/cargo only; Go and Node were absent.",
+          "Paths are durable under /opt; PATH wired via /usr/local/bin symlinks and /etc/profile.d/cynic-toolchains.sh.",
+          "Provisioning is formalized here (SSOT) so future agents discover available toolchains without probing."
+        ]
       }
     },
     {
@@ -767,8 +804,18 @@
         "method": "write a deterministic byte pattern to a temp file, flush to device, read back twice with an interval, compare sampled positions, then delete",
         "written_bytes": 2147483648,
         "passes": [
-          { "pass": 1, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 },
-          { "pass": 2, "bytes_read": 2147483648, "mismatches": 0, "read_errors": 0 }
+          {
+            "pass": 1,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          },
+          {
+            "pass": 2,
+            "bytes_read": 2147483648,
+            "mismatches": 0,
+            "read_errors": 0
+          }
         ],
         "verdict": "passed: the device stores and returns written data faithfully",
         "caveat": "Identity strings remain untrustworthy. MasonSemi is not a known manufacturer and the serial is 0000_0000_0000_0000_0000_0072_6000_0002, the same zero-filled pattern as the fraudulent proxmox NVMe. Unlike that device this one passes a real write test, so it is functionally sound, but the branding carries no provenance.",

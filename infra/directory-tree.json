@@ -193,6 +193,8 @@
       "mode": "0755",
       "key_paths": {
         "worktrees/": "Worktree management.",
+        "external/": "External (non-CYNIC) project clones. Pattern: ${HOME}/.cynic/external/<project-slug>. One canonical clone per slug; read-only by default. See infra/external-projects.json.",
+        "projects/": "(reserved) derived artifacts for external projects; never source.",
         "organs/hermes/x/": "Hermes organ data (historical)."
       }
     },

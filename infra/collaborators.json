@@ -1,0 +1,30 @@
+{
+  "schema": "cynic.collaborators.v1",
+  "status": "seed",
+  "purpose": "SSOT registry of collaborators on CYNIC-governed external projects. Trust is observed and promoted, never assumed.",
+  "updated_at": "2026-10-18",
+  "collaborators": [
+    {
+      "collaborator_id": "robinho100",
+      "display_name": "Robinho100",
+      "github_handle": "Robinho100",
+      "trust_level": "observed",
+      "projects": [
+        "aegisscan",
+        "aegis-core",
+        "ai-bus"
+      ],
+      "notes": "Seed collaborator. Owns the three Aegis consortium repositories. Trust starts at 'observed'; promotion requires proof (mirrors CYNIC office/capability model in infra/registry.json)."
+    }
+  ],
+  "trust_levels": [
+    "observed",
+    "trusted",
+    "core"
+  ],
+  "rules": [
+    "A new collaborator starts at 'observed' and cannot trigger mutations above 'read_only' until promoted with proof.",
+    "Promotion requires an observed proof record (commit, review, or attestation) referenced in notes.",
+    "Trust level is never inferred from GitHub handle or reputation; only from observed evidence."
+  ]
+}
