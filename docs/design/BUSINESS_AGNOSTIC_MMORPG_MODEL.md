@@ -14,7 +14,7 @@ CYNIC's inference vertical (`cynic-inference`) serves LLM completions across a h
 
 | Fragment | Location | Unit |
 |---|---|---|
-| Compute (CPU-ms) | `cynic-workload` | `Budget.cpu_ms` |
+| Compute (CPU-ms) | `cynic-workload` | `AgentBudget.cpu_ms` |
 | GPU (VRAM, layers) | `cynic-inference` | `vram_total`, `n_gpu_layers` |
 | Memory (RAM) | `infra/compute-policy.json` (future) | `ram_mb` |
 | Storage (disk) | `infra/compute-policy.json` (future) | `disk_mb` |
@@ -47,7 +47,7 @@ Every consumable in the system is a **Resource** — a typed, measurable, deplet
 
 | Resource | Symbol | Unit | Observable Source | MMORPG Analogy |
 |---|---|---|---|---|
-| Compute | `RES_COMPUTE` | CPU-ms | `cynic-workload` `Budget.cpu_ms` | Mana potion |
+| Compute | `RES_COMPUTE` | CPU-ms | `cynic-workload` `AgentBudget.cpu_ms` | Mana potion |
 | GPU Compute | `RES_GPU` | VRAM-GB × seconds | `cynic-inference` `vram_total`, `n_gpu_layers` | Arcane crystal |
 | Memory | `RES_MEMORY` | RAM-MB × seconds | `infra/compute-policy.json` `ram_mb` | Health crystal |
 | Storage | `RES_STORAGE` | Disk-MB | `infra/compute-policy.json` `disk_mb` | Inventory slot |
@@ -148,7 +148,7 @@ pub struct ExchangeRate {
 }
 ```
 
-Rates are **measured from observed usage**, not hardcoded. The `cynic-finance` `RateCalculator` computes rates from historical resource consumption and outcome quality.
+Rates are **measured from observed usage**, not hardcoded. The `cynic-finance` `RateCalculator` (future) computes rates from historical resource consumption and outcome quality.
 
 ### 5.2 Pricing: Dynamic Scarcity
 
@@ -215,7 +215,7 @@ Every CYNIC agent is a **Player** with:
 | `ResourceUnit` balance | `cynic-finance` ledger | Gold |
 | `MandateAccount` | `cynic-consensus` | Guild rank |
 | `AllowanceGrant` (future) | `cynic-consensus` | Inventory access |
-| `EScoreSignal` | `cynic-intel-escore` | Reputation |
+| `EScoreSignal` | `cynic-intel` | Reputation |
 | `AgentChannel.initiator_balance` | `cynic-channel` | Wallet |
 | Skill tree | `cynic-workload` `agent_skill` | Talent tree |
 | Level | Derived from `EScoreSignal` | Character level |
@@ -241,7 +241,7 @@ Every task is a **Quest** with difficulty, rewards, and deadlines:
 | `TaskClass` | `infra/compute-policy.json` | Quest type |
 | `ConstraintProfile` | `ConstraintProfile` | Difficulty + requirements |
 | `BudgetCap` | `cynic-finance` | Reward pool |
-| `time_min` (future) | `infra/compute-policy.json` | Quest timer |
+| `time_min` | `infra/compute-policy.json` | Quest timer |
 | `Priority` | `ConstraintProfile.priority` | Normal / Elite / Raid |
 | `FallbackPolicy` | `ConstraintProfile.fallback` | Fail / Retry / Degrade |
 
@@ -261,7 +261,7 @@ A **Guild** is a coordinated group of agents sharing resources and reputation:
 | Guild Property | CYNIC Source | MMORPG Analogy |
 |---|---|---|
 | Guild ID | `cynic-consensus` federation contract | Guild name |
-| Members | `cynic-protocol` agent registry | Guild roster |
+| Members | `cynic-protocol` agent registry (future) | Guild roster |
 | Shared treasury | `cynic-finance` `ResourceLedger` | Guild bank |
 | Guild rank | Derived from aggregate `EScoreSignal` | Guild level |
 | Federation contract | `cynic-consensus` | Guild charter |
@@ -274,7 +274,7 @@ A **Guild** is a coordinated group of agents sharing resources and reputation:
 |---|---|---|---|
 | Base model + training data | Fine-tuned model | Published model | `cynic-inference` `model_sync_pipeline` |
 | Model + validation | Verified model | Trusted model | `cynic-inference` `backend_verification` |
-| Agent + task history | Reputation signal | Authority | `cynic-intel-escore` `EScoreSignal` |
+| Agent + task history | Reputation signal | Authority | `cynic-intel` `EScoreSignal` |
 
 ### 6.6 Auction House as Resource Exchange
 
@@ -361,7 +361,7 @@ The model maps to existing CYNIC crates without requiring new code:
 
 ## 10. Open Questions
 
-1. **Rate oracle** — Who measures exchange rates? `cynic-finance` `RateCalculator` is the candidate, but the measurement cadence and authority model are undefined.
+1. **Rate oracle** — Who measures exchange rates? `cynic-finance` `RateCalculator` (future) is the candidate, but the measurement cadence and authority model are undefined.
 2. **Auction cadence** — Real-time (per-request) vs. batch (per-time-window)? Inference latency requirements may force real-time.
 3. **Reputation stake** — Should agents stake `ResourceUnit` as collateral for quest acceptance? Slashing on failure?
 4. **Cross-vertical settlement** — If inference pays storage, which ledger settles? `cynic-finance` is the candidate L2 domain crate.
