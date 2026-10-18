@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SRC = "/var/lib/cynic/vault/corpus/captures/hermes.dbdfbf8bb421cc92.sqlite"
+SRC = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite"
 CANON = "/home/user/.hermes/cache/scratch/canonical_hermes_frozen.sqlite"
 SILVER = "/var/lib/cynic/vault/corpus/silver/corpus_master.sqlite"
 
