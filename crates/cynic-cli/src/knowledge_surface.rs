@@ -413,7 +413,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                     .pop()
                     .ok_or_else(|| "query embed returned nothing".to_string())?;
                 Ok::<_, String>((chunks, vectors, query_vector))
-            })();
+            });
             // Owned triple keeps `chunks` alive for the borrow in `fused`.
             let dense_owned = match dense_data {
                 Ok(triple) => Some(triple),
