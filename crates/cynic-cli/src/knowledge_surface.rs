@@ -367,9 +367,22 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
                 };
                 let model =
                     std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
+                // Engine-bound key: the same model on two engines yields
+                // different vectors, so the engine URLs join the cache key
+                // instead of trusting the model name alone.
+                let engine_key: String = engine
+                    .chars()
+                    .map(|c| {
+                        if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                            c
+                        } else {
+                            '-'
+                        }
+                    })
+                    .collect();
                 let vector_cache_path = repo_root.join(
                     cynic_eval::bench::retrieval_gain::vector_cache_filename_for(
-                        &model,
+                        &format!("{model}@{engine_key}"),
                         &pipeline.tag(),
                     ),
                 );

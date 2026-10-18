@@ -81,6 +81,12 @@ pub fn load_vector_cache(
 /// Persist the record; errors are reported, never hidden, so a silent
 /// no-cache regression cannot masquerade as a cache hit rate of zero.
 pub fn save_vector_cache(path: &Path, record: &VectorCacheRecord) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|error| format!("vector cache mkdir: {error}"))?;
+        }
+    }
     let raw =
         serde_json::to_string(record).map_err(|error| format!("vector cache encode: {error}"))?;
     std::fs::write(path, raw).map_err(|error| format!("vector cache write: {error}"))
