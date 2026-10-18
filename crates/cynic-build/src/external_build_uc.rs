@@ -68,12 +68,13 @@ mod tests {
     struct MockPort {
         proof: ExternalBuildProof,
         command_result: BuildCommandOutput,
-        last_command: std::cell::RefCell<Option<(String, String)>>,
+        last_command: std::sync::Mutex<Option<(String, String)>>,
     }
 
     impl ExternalBuildPort for MockPort {
         fn run_command(&self, command: &str, work_dir: &str) -> BuildCommandOutput {
-            *self.last_command.borrow_mut() = Some((command.to_string(), work_dir.to_string()));
+            *self.last_command.lock().unwrap() =
+                Some((command.to_string(), work_dir.to_string()));
             self.command_result.clone()
         }
 
@@ -127,7 +128,7 @@ mod tests {
         let port = MockPort {
             proof: proof.clone(),
             command_result: success_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let req = sample_request();
         let result = run_external_build(&port, req);
@@ -147,7 +148,7 @@ mod tests {
         let port = MockPort {
             proof: inner_proof.clone(),
             command_result: success_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let mut req = sample_request();
         req.builder_node_id = "builder-9".to_string();
@@ -168,7 +169,7 @@ mod tests {
                 "x",
             ),
             command_result: success_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let req = sample_request();
         let result = run_external_command(&port, &req);
@@ -188,7 +189,7 @@ mod tests {
                 "x",
             ),
             command_result: fail_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let req = sample_request();
         let result = run_external_command(&port, &req);
@@ -207,7 +208,7 @@ mod tests {
                 "x",
             ),
             command_result: success_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let mut req = sample_request();
         req.commands = vec![];
@@ -227,11 +228,11 @@ mod tests {
                 "x",
             ),
             command_result: success_output(),
-            last_command: std::cell::RefCell::new(None),
+            last_command: std::sync::Mutex::new(None),
         };
         let req = sample_request();
         let _ = run_external_command(&port, &req);
-        let borrowed = port.last_command.borrow();
+        let borrowed = port.last_command.lock().unwrap();
         let (cmd, dir) = borrowed.as_ref().expect("port should have been called");
         assert_eq!(cmd, "make build");
         assert_eq!(dir, "/builder/work");
