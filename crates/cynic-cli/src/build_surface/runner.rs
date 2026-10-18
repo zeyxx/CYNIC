@@ -83,6 +83,50 @@ pub(crate) fn trigger_build(
     if !health.reachable {
         return Err(format!("build runner unreachable: {}", health.node_id));
     }
+    // Compute-awareness pre-flight (infra/compute-policy.json): refuse a
+    // dispatch the runner cannot hold instead of discovering it mid-build.
+    // Unmeasurable capacity is an explicit unknown, never a number.
+    let task_class = match phase {
+        BuildPhase::Check => "rust_check_light",
+        BuildPhase::Build => "rust_build",
+        BuildPhase::Activate => "rust_build",
+    };
+    match runner.probe_free_ram_bytes() {
+        Some(available) => {
+            let policy_path = std::path::Path::new(registry)
+                .parent()
+                .map(|parent| parent.join("compute-policy.json"));
+            if let Some(path) = policy_path {
+                if let Ok(raw) = std::fs::read_to_string(&path) {
+                    if let Ok(policy) = serde_json::from_str::<serde_json::Value>(&raw) {
+                        let floor_gb = policy
+                            .get("task_classes")
+                            .and_then(|classes| classes.get(task_class))
+                            .and_then(|class| class.get("floor"))
+                            .and_then(|floor| floor.get("free_gb"))
+                            .and_then(|value| value.as_f64())
+                            .unwrap_or(0.0);
+                        let floor_bytes = (floor_gb * 1024.0 * 1024.0 * 1024.0) as u64;
+                        if available < floor_bytes {
+                            return Err(format!(
+                                "runner {} below {} floor: {:.2} GB free < {:.2} GB required",
+                                health.node_id,
+                                task_class,
+                                available as f64 / 1_073_741_824.0,
+                                floor_gb
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            eprintln!(
+                "warning: runner {} capacity unmeasurable (unknown, not zero)",
+                health.node_id
+            );
+        }
+    }
     let log_path = match proof_log {
         Some(explicit) => explicit.to_string(),
         None => crate::build_proof_log::default_proof_log_path()?,
