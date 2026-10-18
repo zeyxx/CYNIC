@@ -472,18 +472,18 @@ mod tests {
     fn tier1_allows_push_protected() {
         // push_protected is forbidden by branch_pr policy, but we use direct_push
         // (custom policy) to isolate the trust_tier check.
-        let r = admit_external_source_operation(
+        // direct_push is not a known policy → blocked by mutation_policy, not trust_tier.
+        // To test tier1 allowing push_protected, we need a policy that permits it.
+        // Since all known policies forbid push_protected, we test tier1 vs tier2
+        // with the branch_pr policy — both should produce a blocker, but tier1's
+        // blocker should NOT contain "trust_tier 1" while tier2's should contain "trust_tier 2".
+        let _r = admit_external_source_operation(
             "aegisscan",
             "direct_push",
             "public",
             "push_protected",
             1,
         );
-        // direct_push is not a known policy → blocked by mutation_policy, not trust_tier.
-        // To test tier1 allowing push_protected, we need a policy that permits it.
-        // Since all known policies forbid push_protected, we test tier1 vs tier2
-        // with the branch_pr policy — both should produce a blocker, but tier1's
-        // blocker should NOT contain "trust_tier 1" while tier2's should contain "trust_tier 2".
         let r1 = admit_external_source_operation(
             "aegisscan",
             "branch_pr",
