@@ -88,12 +88,13 @@ What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too
   Webhook Receiver", 3478 "CYNIC DERP STUN", 80 "CYNIC Caddy ACME", 22 SSH
   (no comment), 3000 (no comment — ex-forgejo?), 51820 WireGuard (no
   comment). No shrinkage since Oct 6; the estate is wide open.
-- 8006 delete ATTEMPTED via approval intent (consumed, single-use spent):
-  Freebox API answered 403 — the app grant lacks settings/fw rights.
-  Fail-closed proven: explicit error, nothing half-done, rule intact.
-  Unblock: box UI → Gestion des accès → app `cynic` → allow settings
-  modification (or delete rule id 2 in 2 clicks), then propose a fresh
-  intent. Consumer of 8006 still UNKNOWN (2 days pveproxy = cortex only).
+- 8006 CLOSED 2026-10-18 ~19:00 via approval intent (fresh grant +
+  sealed token + execute-as-cynic; two spent intents taught: explicit
+  app_id, principal-consistent queue). Read-back: 8 rules → 2
+  (443 Headscale+Kernel, 80 Caddy ACME). Same session closed 22/SSH
+  (zero external logins in 2d auth), 3000 (port closed), 8443 (closed),
+  3478 (STUN silent), 51820 (no WG iface on pve) — each with its own
+  intent + receipt. Remaining exposure is deliberate, not drift.
 - Token sprawl (screenshot 2026-10-18) : SEVEN apps (`CYNIC Port Forward`,
   `CYNIC Admin` (HAS settings-modify), `CYNIC WiFi localizer`, `CYNIC
   signal monitor`, `CYNIC Organ Freebox` (HAS settings-modify), `CYNIC
