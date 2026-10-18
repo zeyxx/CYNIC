@@ -13,7 +13,7 @@
       "purpose": "Clone, fetch, branch, push, and PR operations on external repositories. Reuses CYNIC's source lifecycle (contracts/source-lifecycle.json) parameterized by remote.",
       "mutation_policy": "explicit_apply_only",
       "status": "adapter_defined",
-      "notes": "Trait + adapter defined. Forgejo adapter in cynic-vcs-forgejo. GitHub adapter pending."
+      "notes": "Trait + adapters defined. Forgejo + GitHub adapters in cynic-vcs-forgejo and cynic-host."
     },
     {
       "port_name": "BuildPort",
