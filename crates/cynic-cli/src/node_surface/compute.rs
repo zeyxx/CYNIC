@@ -18,8 +18,9 @@ use cynic_protocol::provider::{
     NodeSubstrateProvisioningSpec,
 };
 use cynic_proxmox::adapters::{
-    ProxmoxControlAdapter, ProxmoxSshCloneAdapter, ProxmoxSshSubstrateAdapter,
-    template_hygiene_blockers,
+    FleetLease, ObservedGuest, ProxmoxControlAdapter, ProxmoxSshCloneAdapter,
+    ProxmoxSshSubstrateAdapter, drop_lease, plan_sweep, read_leases, template_hygiene_blockers,
+    write_lease,
 };
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::process::ExitCode;
@@ -74,6 +75,21 @@ pub enum NodeComputeCommand {
         /// Proxmox node name for the REST convert path. Defaults to `pve`.
         #[arg(long, default_value = "pve")]
         node: String,
+        #[arg(long, default_value_t = false)]
+        apply: bool,
+    },
+    Sweep {
+        /// Proxmox node to sweep. Defaults to `pve`.
+        #[arg(long, default_value = "pve")]
+        node: String,
+        /// Fleet registry (infra/fleet.json): templates + static reservations.
+        /// Required, never defaulted.
+        #[arg(long)]
+        fleet_registry: String,
+        /// Runtime lease file. Defaults to $CYNIC_FLEET_LEASES or
+        /// ~/.local/share/cynic/fleet/leases.json.
+        #[arg(long)]
+        leases: Option<String>,
         #[arg(long, default_value_t = false)]
         apply: bool,
     },
@@ -229,6 +245,14 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             apply,
         } => {
             return apply_template(guest_host, hypervisor, node, vmid, apply).await;
+        },
+        NodeComputeCommand::Sweep {
+            node,
+            fleet_registry,
+            leases,
+            apply,
+        } => {
+            return apply_sweep(node, fleet_registry, leases, apply).await;
         },
         NodeComputeCommand::Provision {
             vmid,
@@ -480,6 +504,20 @@ async fn apply_clone_rest(
     };
     match rest.lxc_config(&node, &vmid.to_string()).await {
         Ok(_) => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_secs())
+                .unwrap_or(0);
+            let lease = FleetLease {
+                vmid,
+                expires_at: now + u64::from(ttl_hours) * 3600,
+                owner: "cynic-agent".to_string(),
+                purpose: hostname.clone(),
+            };
+            let leases_path = std::path::PathBuf::from(default_leases_path());
+            if let Err(error) = write_lease(&leases_path, &lease) {
+                eprintln!("warning: clone succeeded but lease unwritten: {error}");
+            }
             emit_json(
                 &serde_json::json!({
                     "schema": "cynic.node.compute.clone.v1",
@@ -501,6 +539,153 @@ async fn apply_clone_rest(
             ExitCode::FAILURE
         }
     }
+}
+
+/// Default runtime lease file when --leases is omitted.
+fn default_leases_path() -> String {
+    if let Ok(path) = std::env::var("CYNIC_FLEET_LEASES") {
+        return path;
+    }
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    format!("{home}/.local/share/cynic/fleet/leases.json")
+}
+
+/// Static vmids from the fleet registry: every template vmid plus every
+/// static reservation. The registry is SSOT; the CLI never hardcodes them.
+fn static_vmids_from_registry(path: &str) -> Result<Vec<u32>, String> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|error| format!("fleet_registry_unreadable:{path}:{error}"))?;
+    let registry: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|error| format!("fleet_registry_invalid:{path}:{error}"))?;
+    let mut vmids = Vec::new();
+    if let Some(templates) = registry.get("templates").and_then(|value| value.as_array()) {
+        for template in templates {
+            if let Some(vmid) = template.get("vmid").and_then(|value| value.as_u64()) {
+                vmids.push(vmid as u32);
+            }
+        }
+    }
+    if let Some(reserved) = registry
+        .get("static_reservations")
+        .and_then(|value| value.get("vmids"))
+        .and_then(|value| value.as_array())
+    {
+        for vmid in reserved {
+            if let Some(vmid) = vmid.as_u64() {
+                vmids.push(vmid as u32);
+            }
+        }
+    }
+    Ok(vmids)
+}
+
+/// Sweep flow: list guests (read-only observation), reconcile leases from
+/// the runtime file against the registry statics, emit the plan. With
+/// --apply, destroy expired leases (stop + delete + lease drop) and leave
+/// everything else untouched. Reports never act.
+async fn apply_sweep(
+    node: String,
+    fleet_registry: String,
+    leases_path: Option<String>,
+    apply: bool,
+) -> ExitCode {
+    let rest = match ProxmoxControlAdapter::from_env(std::time::Duration::from_secs(5)) {
+        Ok(rest) => rest,
+        Err(e) => {
+            eprintln!("error: sweep requires the REST API: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let statics = match static_vmids_from_registry(&fleet_registry) {
+        Ok(vmids) => vmids,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let leases_file = leases_path.unwrap_or_else(default_leases_path);
+    let leases_path_buf = std::path::PathBuf::from(&leases_file);
+    let leases = match read_leases(&leases_path_buf) {
+        Ok(leases) => leases,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let listed = match rest.list_lxc(&node).await {
+        Ok(envelope) => envelope,
+        Err(e) => {
+            eprintln!("error: REST lxc list failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut observed = Vec::new();
+    if let Some(guests) = listed.get("data").and_then(|value| value.as_array()) {
+        for guest in guests {
+            observed.push(ObservedGuest {
+                vmid: guest.get("vmid").and_then(|value| value.as_u64()).unwrap_or(0) as u32,
+                name: guest
+                    .get("name")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                status: guest
+                    .get("status")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                template: guest.get("template").and_then(|value| value.as_u64()).unwrap_or(0) == 1,
+            });
+        }
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let actions = plan_sweep(&observed, &leases, &statics, now);
+    if !apply {
+        emit_json(
+            &serde_json::json!({
+                "schema": "cynic.node.compute.sweep.v1",
+                "status": "planned",
+                "channel": "rest",
+                "node": node,
+                "actions": actions.iter().map(|action| format!("{action:?}")).collect::<Vec<_>>(),
+            }),
+            false,
+        );
+        return ExitCode::SUCCESS;
+    }
+    let mut destroyed = Vec::new();
+    for action in &actions {
+        if let cynic_proxmox::adapters::SweepAction::Destroy { vmid, .. } = action {
+            match rest
+                .destroy_lxc(&node, *vmid, std::time::Duration::from_secs(120))
+                .await
+            {
+                Ok(_) => {
+                    let _ = drop_lease(&leases_path_buf, *vmid);
+                    destroyed.push(*vmid);
+                }
+                Err(e) => {
+                    eprintln!("error: destroy {vmid} failed: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+    }
+    emit_json(
+        &serde_json::json!({
+            "schema": "cynic.node.compute.sweep.v1",
+            "status": "swept",
+            "channel": "rest",
+            "node": node,
+            "destroyed": destroyed,
+            "reported": actions.len() - destroyed.len(),
+        }),
+        false,
+    );
+    ExitCode::SUCCESS
 }
 
 /// Template flow: scan the builder guest for hygiene blockers, refuse on

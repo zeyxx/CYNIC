@@ -644,6 +644,60 @@ impl ProxmoxControlAdapter {
         }))
     }
 
+    /// List LXC guests on a node: `GET /nodes/{node}/lxc`. Returns the raw
+    /// envelope (`data` = array of `{vmid, name, status, template?}`).
+    pub async fn list_lxc(&self, node: &str) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        self.get_json(&format!("/api2/json/nodes/{node}/lxc")).await
+    }
+
+    /// Destroy a guest: stop (polled), `DELETE`, then verify absence via
+    /// config read-back (HTTP 500/absence = gone). Refusing to destroy a
+    /// template is the caller's job (sweep planner skips them).
+    pub async fn destroy_lxc(
+        &self,
+        node: &str,
+        vmid: u32,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", &vmid.to_string())?;
+        match self
+            .post_form_json(
+                &format!("/api2/json/nodes/{node}/lxc/{vmid}/status/stop"),
+                &[],
+            )
+            .await
+        {
+            Ok(stop_payload) => {
+                if let Some(upid) = stop_payload["data"].as_str() {
+                    self.wait_for_task(node, upid, timeout).await?;
+                }
+            }
+            // A stopped guest is already in the desired state; anything
+            // else aborts the destroy.
+            Err(error) if error.contains("not running") => {}
+            Err(error) => return Err(error),
+        }
+        let delete_payload = self
+            .delete_json(&format!("/api2/json/nodes/{node}/lxc/{vmid}"))
+            .await?;
+        // Destroy is asynchronous when PVE returns a UPID task; wait for it
+        // before verifying absence, otherwise the read-back races the task.
+        if let Some(upid) = delete_payload["data"].as_str() {
+            self.wait_for_task(node, upid, timeout).await?;
+        }
+        match self.lxc_config(node, &vmid.to_string()).await {
+            Ok(_) => Err("proxmox_destroy_unverified:guest_still_present".to_string()),
+            Err(_) => Ok(json!({
+                "status": "completed",
+                "provider": "proxmox_lxc_destroy",
+                "node": node,
+                "vmid": vmid,
+            })),
+        }
+    }
+
     /// Poll a Proxmox UPID task until it stops. Returns Ok on `exitstatus`
     /// `OK`, Err on any other exit status, unknown status shape, or timeout.
     async fn wait_for_task(&self, node: &str, upid: &str, timeout: Duration) -> Result<(), String> {
@@ -742,6 +796,17 @@ impl ProxmoxControlAdapter {
             .send()
             .await
             .map_err(|error| format!("Proxmox API GET {path} failed: {error}"))?;
+        response_json(response, path).await
+    }
+
+    async fn delete_json(&self, path: &str) -> Result<Value, String> {
+        let response = self
+            .client
+            .delete(format!("{}{}", self.base_url, path))
+            .header("Authorization", self.auth_header())
+            .send()
+            .await
+            .map_err(|error| format!("Proxmox API DELETE {path} failed: {error}"))?;
         response_json(response, path).await
     }
 
