@@ -106,7 +106,7 @@ pub mod vcs_ports;
 pub mod source_sync;
 pub mod source_worktree;
 pub mod space_gc;
-pub mod ssh_external_build_adapter;
+
 pub mod ssh_config;
 pub mod ssh_trust;
 pub mod storage_capabilities;

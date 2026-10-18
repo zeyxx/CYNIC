@@ -15,7 +15,7 @@ use cynic_build::external_build::{
 use cynic_build::ports::BuildCommandOutput;
 
 /// Local adapter: executes build/test commands on the current host.
-/// For builder execution, use SshExternalBuildAdapter (follow-up).
+/// For builder execution, use HttpExternalBuildAdapter (HTTP /exec).
 pub struct LocalExternalBuildAdapter;
 
 impl ExternalBuildPort for LocalExternalBuildAdapter {
