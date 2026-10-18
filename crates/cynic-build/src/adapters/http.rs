@@ -167,3 +167,249 @@ mod tests {
         assert!(!proof.overall_success);
     }
 }
+
+use crate::deploy::{
+    DeployKind, DeployPort, DeployRequest, DeployResult, DeployOutput,
+};
+
+/// Response body returned by `POST /deploy` on the builder.
+#[derive(Debug, Deserialize)]
+struct DeployHttpResponse {
+    success: Option<bool>,
+    artifact_ref: Option<String>,
+    error: Option<String>,
+    output: Option<DeployOutput>,
+}
+
+/// HTTP adapter for `DeployPort`: POSTs to the builder `/deploy` endpoint.
+pub struct HttpDeployAdapter {
+    /// Base URL of the builder (e.g. "http://10.10.10.119:9090").
+    pub builder_url: String,
+}
+
+impl HttpDeployAdapter {
+    pub fn new(builder_url: String) -> Self {
+        Self { builder_url }
+    }
+
+    pub fn from_resolved_url() -> Result<Self, String> {
+        let url = resolve_builder_url_with_health()?;
+        Ok(Self::new(url))
+    }
+
+    pub fn deploy_url(&self) -> String {
+        format!("{}/deploy", self.builder_url.trim_end_matches('/'))
+    }
+
+    fn post_deploy(&self, request: &DeployRequest) -> Result<DeployHttpResponse, String> {
+        let url = self.deploy_url();
+        let request = request.clone();
+        std::thread::spawn(move || {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .map_err(|e| format!("http client init failed: {e}"))?;
+            let res = client
+                .post(&url)
+                .json(&request)
+                .send()
+                .map_err(|e| format!("failed to POST /deploy to {url}: {e}"))?;
+            if !res.status().is_success() {
+                let status = res.status();
+                let body = res.text().unwrap_or_default();
+                return Err(format!("builder /deploy failed ({status}): {body}"));
+            }
+            res.json::<DeployHttpResponse>()
+                .map_err(|e| format!("failed to parse /deploy response: {e}"))
+        })
+        .join()
+        .map_err(|_| "builder /deploy thread panicked".to_string())?
+    }
+}
+
+impl DeployPort for HttpDeployAdapter {
+    fn deploy_artifact(&self, request: &DeployRequest) -> DeployResult {
+        let mut req = request.clone();
+        req.kind = DeployKind::Deploy;
+        let fallback = req.artifact_ref.clone();
+        match self.post_deploy(&req) {
+            Ok(resp) => DeployResult {
+                kind: DeployKind::Deploy,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: resp.artifact_ref.unwrap_or(fallback),
+                success: resp.success.unwrap_or(false),
+                output: resp.output,
+                error: resp.error,
+            },
+            Err(e) => DeployResult {
+                kind: DeployKind::Deploy,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: fallback,
+                success: false,
+                output: Some(DeployOutput {
+                    stdout: String::new(),
+                    stderr: e.clone(),
+                    exit_code: None,
+                }),
+                error: Some(e),
+            },
+        }
+    }
+
+    fn rollback(&self, request: &DeployRequest) -> DeployResult {
+        let mut req = request.clone();
+        req.kind = DeployKind::Rollback;
+        let fallback = req
+            .previous_artifact_ref
+            .clone()
+            .unwrap_or_else(|| req.artifact_ref.clone());
+        if req.previous_artifact_ref.is_none() {
+            req.previous_artifact_ref = Some(fallback.clone());
+        }
+        match self.post_deploy(&req) {
+            Ok(resp) => DeployResult {
+                kind: DeployKind::Rollback,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: resp.artifact_ref.unwrap_or(fallback),
+                success: resp.success.unwrap_or(false),
+                output: resp.output,
+                error: resp.error,
+            },
+            Err(e) => DeployResult {
+                kind: DeployKind::Rollback,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: fallback,
+                success: false,
+                output: Some(DeployOutput {
+                    stdout: String::new(),
+                    stderr: e.clone(),
+                    exit_code: None,
+                }),
+                error: Some(e),
+            },
+        }
+    }
+
+    fn health_check(&self, request: &DeployRequest) -> DeployResult {
+        let mut req = request.clone();
+        req.kind = DeployKind::HealthCheck;
+        let fallback = req.artifact_ref.clone();
+        match self.post_deploy(&req) {
+            Ok(resp) => DeployResult {
+                kind: DeployKind::HealthCheck,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: resp.artifact_ref.unwrap_or(fallback),
+                success: resp.success.unwrap_or(false),
+                output: resp.output,
+                error: resp.error,
+            },
+            Err(e) => DeployResult {
+                kind: DeployKind::HealthCheck,
+                target_host_id: request.target_host_id.clone(),
+                artifact_ref: fallback,
+                success: false,
+                output: Some(DeployOutput {
+                    stdout: String::new(),
+                    stderr: e.clone(),
+                    exit_code: None,
+                }),
+                error: Some(e),
+            },
+        }
+    }
+}
+
+// Implement DeployPort for the pre-existing external-build HTTP adapter too.
+impl DeployPort for HttpExternalBuildAdapter {
+    fn deploy_artifact(&self, request: &DeployRequest) -> DeployResult {
+        HttpDeployAdapter {
+            builder_url: self.builder_url.clone(),
+        }
+        .deploy_artifact(request)
+    }
+    fn rollback(&self, request: &DeployRequest) -> DeployResult {
+        HttpDeployAdapter {
+            builder_url: self.builder_url.clone(),
+        }
+        .rollback(request)
+    }
+    fn health_check(&self, request: &DeployRequest) -> DeployResult {
+        HttpDeployAdapter {
+            builder_url: self.builder_url.clone(),
+        }
+        .health_check(request)
+    }
+}
+
+pub type HttpDeploy = HttpDeployAdapter;
+pub type HttpDeploymentAdapter = HttpDeployAdapter;
+pub type HttpDeployPortAdapter = HttpDeployAdapter;
+pub type HttpDeployer = HttpDeployAdapter;
+
+#[cfg(test)]
+mod deploy_tests {
+    use super::*;
+    use crate::deploy::{DeployMutationPolicy, DeployRequest};
+
+    fn sample_request() -> DeployRequest {
+        DeployRequest {
+            target_host_id: "builder".to_string(),
+            artifact_ref: "sha256:abc".to_string(),
+            kind: DeployKind::Deploy,
+            mutation_policy: DeployMutationPolicy::ExplicitApplyOnly,
+            apply: true,
+            health_check_argv: Some(vec!["echo".to_string(), "healthy".to_string()]),
+            previous_artifact_ref: Some("sha256:def".to_string()),
+        }
+    }
+
+    #[test]
+    fn builder_url_stored() {
+        let adapter = HttpDeployAdapter::new("http://10.10.10.119:9090".to_string());
+        assert_eq!(adapter.builder_url, "http://10.10.10.119:9090");
+    }
+
+    #[test]
+    fn deploy_url_appends_deploy_suffix() {
+        let adapter = HttpDeployAdapter::new("http://10.10.10.119:9090".to_string());
+        assert_eq!(adapter.deploy_url(), "http://10.10.10.119:9090/deploy");
+    }
+
+    #[test]
+    fn deploy_url_strips_trailing_slash() {
+        let adapter = HttpDeployAdapter::new("http://10.10.10.119:9090/".to_string());
+        assert_eq!(adapter.deploy_url(), "http://10.10.10.119:9090/deploy");
+    }
+
+    #[test]
+    fn deploy_artifact_maps_connection_error() {
+        let adapter = HttpDeployAdapter::new("http://127.0.0.1:1".to_string());
+        let result = adapter.deploy_artifact(&sample_request());
+        assert!(!result.success);
+        assert!(result.error.is_some());
+        assert!(result.error.unwrap().contains("failed to POST /deploy"));
+    }
+
+    #[test]
+    fn rollback_maps_connection_error() {
+        let adapter = HttpDeployAdapter::new("http://127.0.0.1:1".to_string());
+        let result = adapter.rollback(&sample_request());
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("failed to POST /deploy"));
+    }
+
+    #[test]
+    fn health_check_maps_connection_error() {
+        let adapter = HttpDeployAdapter::new("http://127.0.0.1:1".to_string());
+        let result = adapter.health_check(&sample_request());
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("failed to POST /deploy"));
+    }
+
+    #[test]
+    fn external_build_adapter_also_deploys() {
+        let adapter = HttpExternalBuildAdapter::new("http://127.0.0.1:1".to_string());
+        let result = adapter.deploy_artifact(&sample_request());
+        assert!(!result.success);
+    }
+}

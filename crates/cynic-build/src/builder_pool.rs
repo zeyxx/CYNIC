@@ -141,9 +141,10 @@ pub fn select_builder_by_capability(
             b.capabilities
                 .as_ref()
                 .map(|caps| {
+                    let _ = required_gpu;
                     caps.cpu_cores >= required_cpu
                         && caps.ram_gb >= required_ram
-                        && (!required_gpu.is_empty() && !caps.gpu.is_empty())
+                        && !caps.gpu.is_empty()
                 })
                 .unwrap_or(false)
         })

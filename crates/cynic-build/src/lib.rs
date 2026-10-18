@@ -38,7 +38,7 @@ pub mod runner;
 pub mod runtime_release;
 pub mod types;
 
-pub use adapters::{HttpExternalBuildAdapter, LocalExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
+pub use adapters::{HttpDeployAdapter, HttpDeploy, HttpDeploymentAdapter, HttpDeployPortAdapter, HttpDeployer, HttpExternalBuildAdapter, LocalDeployAdapter, LocalDeploy, LocalDeploymentAdapter, LocalDeployPortAdapter, LocalDeployer, LocalExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
 pub use build::*;
 pub use build_artefact::*;
 pub use build_discovery::*;
