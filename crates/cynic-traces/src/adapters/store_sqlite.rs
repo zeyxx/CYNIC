@@ -225,134 +225,18 @@ impl CanonicalStorePort for SqliteCanonicalStore {
     type Error = StoreError;
 
     fn write(&self, session: &NormalizedSession) -> Result<(), StoreError> {
-        self.con.execute(
-            "INSERT OR REPLACE INTO sessions (session_uid, harness, source_ref, native_meta) VALUES (?,?,?,?)",
-            params![
-                session.session_uid,
-                session.harness,
-                session.source_ref,
-                json_map(&session.native_meta)
-            ],
-        )?;
-        // Idempotent re-write: clear this session's rows first.
-        for table in ["turns", "tools", "reasoning", "edges", "states", "human_signals"] {
-            self.con.execute(
-                &format!("DELETE FROM {table} WHERE session_uid = ?"),
-                params![session.session_uid],
-            )?;
-        }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO turns (turn_uid, session_uid, idx, role, content, timestamp_iso, native_model, native_fields) VALUES (?,?,?,?,?,?,?,?)",
-            )?;
-            for t in &session.turns {
-                stmt.execute(params![
-                    t.turn_uid,
-                    t.session_uid,
-                    t.index,
-                    t.role,
-                    self.put_payload(t.content.as_deref())?,
-                    t.timestamp_iso,
-                    t.native_model,
-                    json_map(&t.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-                ])?;
+        // One transaction per session: a mid-write failure rolls back instead
+        // of leaving a partial session. (Hardening beyond the Python port,
+        // which commits per statement — D7/D8 demand the stronger guarantee.)
+        self.con.execute_batch("BEGIN IMMEDIATE")?;
+        let outcome = write_inner(self, session);
+        match outcome {
+            Ok(()) => self.con.execute_batch("COMMIT").map_err(StoreError::from),
+            Err(e) => {
+                let _ = self.con.execute_batch("ROLLBACK");
+                Err(e)
             }
         }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO tools (exec_uid, session_uid, turn_uid, idx, tool_name, call_id, command_or_args, raw_output, exit_code, is_error, parent_exec_uid, timestamp_iso, native_fields) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            )?;
-            for t in &session.tools {
-                stmt.execute(params![
-                    t.exec_uid,
-                    t.session_uid,
-                    t.turn_uid,
-                    t.index,
-                    t.tool_name,
-                    t.call_id,
-                    self.put_payload(t.command_or_args.as_deref())?,
-                    self.put_payload(t.raw_output.as_deref())?,
-                    t.exit_code,
-                    i64::from(t.is_error),
-                    t.parent_exec_uid,
-                    t.timestamp_iso,
-                    json_map(&t.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
-                ])?;
-            }
-        }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO reasoning (trace_uid, session_uid, turn_uid, content, subject, model, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
-            )?;
-            for r in &session.reasoning {
-                stmt.execute(params![
-                    r.trace_uid,
-                    r.session_uid,
-                    r.turn_uid,
-                    self.put_payload(Some(&r.content))?,
-                    r.subject,
-                    r.model,
-                    r.timestamp_iso
-                ])?;
-            }
-        }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO edges (edge_uid, session_uid, kind, source_uids, target_uid, provenance, payload, timestamp_iso) VALUES (?,?,?,?,?,?,?,?)",
-            )?;
-            for e in &session.edges {
-                stmt.execute(params![
-                    e.edge_uid,
-                    e.session_uid,
-                    kind_str(e.kind),
-                    json_list(&e.source_uids).unwrap_or_else(|| "[]".to_owned()),
-                    e.target_uid,
-                    provenance_str(e.provenance),
-                    json_map(&e.payload.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
-                    e.timestamp_iso
-                ])?;
-            }
-        }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO states (snapshot_uid, session_uid, turn_uid, idx, model, cwd, sandbox_policy, approval_policy, context_prompt_tokens, context_nonmessage_tokens, cumulative_tokens, compacted, native_fields, timestamp_iso) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            )?;
-            for st in &session.states {
-                stmt.execute(params![
-                    st.snapshot_uid,
-                    st.session_uid,
-                    st.turn_uid,
-                    st.index,
-                    st.model,
-                    st.cwd,
-                    st.sandbox_policy,
-                    st.approval_policy,
-                    st.context_prompt_tokens,
-                    st.context_nonmessage_tokens,
-                    st.cumulative_tokens,
-                    st.compacted.map(i64::from),
-                    json_map(&st.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
-                    st.timestamp_iso
-                ])?;
-            }
-        }
-        {
-            let mut stmt = self.con.prepare(
-                "INSERT INTO human_signals (human_uid, session_uid, turn_uid, text, kind, markers, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
-            )?;
-            for h in &session.human {
-                stmt.execute(params![
-                    h.human_uid,
-                    h.session_uid,
-                    h.turn_uid,
-                    self.put_payload(h.text.as_deref())?,
-                    correction_str(h.kind),
-                    json_list(&h.markers),
-                    h.timestamp_iso
-                ])?;
-            }
-        }
-        Ok(())
     }
 
     fn read(&self, session_uid: &str) -> Result<Option<NormalizedSession>, StoreError> {
@@ -454,11 +338,12 @@ impl CanonicalStorePort for SqliteCanonicalStore {
             ))
         })? {
             let (edge_uid, sess_uid, kind, sources, target_uid, prov, payload, ts) = r?;
+            let source_uids: Vec<String> = serde_json::from_str(&sources)?;
             s.edges.push(Edge {
                 edge_uid,
                 session_uid: sess_uid,
                 kind: kind_from(&kind)?,
-                source_uids: serde_json::from_str(&sources).unwrap_or_default(),
+                source_uids,
                 target_uid,
                 provenance: provenance_from(&prov)?,
                 payload: parse_map(payload),
@@ -542,3 +427,134 @@ impl CanonicalStorePort for SqliteCanonicalStore {
             .query_row([], |r| r.get(0))?)
     }
 }
+
+fn write_inner(store: &SqliteCanonicalStore, session: &NormalizedSession) -> Result<(), StoreError> {
+        store.con.execute(
+            "INSERT OR REPLACE INTO sessions (session_uid, harness, source_ref, native_meta) VALUES (?,?,?,?)",
+            params![
+                session.session_uid,
+                session.harness,
+                session.source_ref,
+                json_map(&session.native_meta)
+            ],
+        )?;
+        // Idempotent re-write: clear this session's rows first.
+        for table in ["turns", "tools", "reasoning", "edges", "states", "human_signals"] {
+            store.con.execute(
+                &format!("DELETE FROM {table} WHERE session_uid = ?"),
+                params![session.session_uid],
+            )?;
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO turns (turn_uid, session_uid, idx, role, content, timestamp_iso, native_model, native_fields) VALUES (?,?,?,?,?,?,?,?)",
+            )?;
+            for t in &session.turns {
+                stmt.execute(params![
+                    t.turn_uid,
+                    t.session_uid,
+                    t.index,
+                    t.role,
+                    store.put_payload(t.content.as_deref())?,
+                    t.timestamp_iso,
+                    t.native_model,
+                    json_map(&t.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                ])?;
+            }
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO tools (exec_uid, session_uid, turn_uid, idx, tool_name, call_id, command_or_args, raw_output, exit_code, is_error, parent_exec_uid, timestamp_iso, native_fields) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            )?;
+            for t in &session.tools {
+                stmt.execute(params![
+                    t.exec_uid,
+                    t.session_uid,
+                    t.turn_uid,
+                    t.index,
+                    t.tool_name,
+                    t.call_id,
+                    store.put_payload(t.command_or_args.as_deref())?,
+                    store.put_payload(t.raw_output.as_deref())?,
+                    t.exit_code,
+                    i64::from(t.is_error),
+                    t.parent_exec_uid,
+                    t.timestamp_iso,
+                    json_map(&t.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                ])?;
+            }
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO reasoning (trace_uid, session_uid, turn_uid, content, subject, model, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
+            )?;
+            for r in &session.reasoning {
+                stmt.execute(params![
+                    r.trace_uid,
+                    r.session_uid,
+                    r.turn_uid,
+                    store.put_payload(Some(&r.content))?,
+                    r.subject,
+                    r.model,
+                    r.timestamp_iso
+                ])?;
+            }
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO edges (edge_uid, session_uid, kind, source_uids, target_uid, provenance, payload, timestamp_iso) VALUES (?,?,?,?,?,?,?,?)",
+            )?;
+            for e in &session.edges {
+                stmt.execute(params![
+                    e.edge_uid,
+                    e.session_uid,
+                    kind_str(e.kind),
+                    json_list(&e.source_uids).unwrap_or_else(|| "[]".to_owned()),
+                    e.target_uid,
+                    provenance_str(e.provenance),
+                    json_map(&e.payload.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
+                    e.timestamp_iso
+                ])?;
+            }
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO states (snapshot_uid, session_uid, turn_uid, idx, model, cwd, sandbox_policy, approval_policy, context_prompt_tokens, context_nonmessage_tokens, cumulative_tokens, compacted, native_fields, timestamp_iso) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            )?;
+            for st in &session.states {
+                stmt.execute(params![
+                    st.snapshot_uid,
+                    st.session_uid,
+                    st.turn_uid,
+                    st.index,
+                    st.model,
+                    st.cwd,
+                    st.sandbox_policy,
+                    st.approval_policy,
+                    st.context_prompt_tokens,
+                    st.context_nonmessage_tokens,
+                    st.cumulative_tokens,
+                    st.compacted.map(i64::from),
+                    json_map(&st.native_fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
+                    st.timestamp_iso
+                ])?;
+            }
+        }
+        {
+            let mut stmt = store.con.prepare(
+                "INSERT INTO human_signals (human_uid, session_uid, turn_uid, text, kind, markers, timestamp_iso) VALUES (?,?,?,?,?,?,?)",
+            )?;
+            for h in &session.human {
+                stmt.execute(params![
+                    h.human_uid,
+                    h.session_uid,
+                    h.turn_uid,
+                    store.put_payload(h.text.as_deref())?,
+                    correction_str(h.kind),
+                    json_list(&h.markers),
+                    h.timestamp_iso
+                ])?;
+            }
+        }
+        Ok(())
+    }

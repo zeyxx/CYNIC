@@ -14,6 +14,21 @@ use cynic_traces::ports::{CanonicalStorePort, NormalizerPort};
 use cynic_traces::usecases::normalize_source;
 use cynic_traces::{HermesNormalizer, SqliteCanonicalStore};
 
+// Absolute defaults are admitted debt (M3): every path below is overridable
+// via environment so CI and other machines do not depend on this host.
+fn source_path() -> String {
+    std::env::var("CYNIC_TRACES_SOURCE").unwrap_or_else(|_| SOURCE.into())
+}
+
+fn silver_path() -> String {
+    std::env::var("CYNIC_TRACES_SILVER").unwrap_or_else(|_| SILVER.into())
+}
+
+fn producer_src_path() -> String {
+    std::env::var("CYNIC_PRODUCER_SRC")
+        .unwrap_or_else(|_| "/home/user/.hermes/hermes-agent/hermes_state_common.py".into())
+}
+
 const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite";
 const SILVER: &str = "/var/lib/cynic/vault/corpus/silver/corpus_master.sqlite";
 
@@ -31,7 +46,8 @@ fn count(con: &rusqlite::Connection, sql: &str) -> i64 {
 
 #[test]
 fn full_load_conservation_proof() {
-    if !PathBuf::from(SOURCE).exists() {
+    let source = source_path();
+    if !PathBuf::from(&source).exists() {
         eprintln!("frozen capture absent, skipping conservation proof");
         return;
     }
@@ -41,7 +57,7 @@ fn full_load_conservation_proof() {
     let db_path = tmp.join("canonical.sqlite");
     let db_str = db_path.to_str().unwrap();
 
-    let normalizer = HermesNormalizer::new(SOURCE);
+    let normalizer = HermesNormalizer::new(&source);
     let refs = normalizer.session_refs();
     assert!(!refs.is_empty(), "frozen capture has no sessions");
 
@@ -55,7 +71,7 @@ fn full_load_conservation_proof() {
     assert_eq!(report.sessions_failed, 0);
 
     // ---- source vs canonical counts ----
-    let src = connect_ro(SOURCE);
+    let src = connect_ro(&source);
     let src_sessions: i64 =
         count(&src, "SELECT count(DISTINCT session_id) FROM messages");
     let src_msgs: i64 = count(&src, "SELECT count(*) FROM messages");
@@ -86,29 +102,41 @@ fn full_load_conservation_proof() {
 
     // ---- contract closure (alpha1–alpha4), Python-exact gates ----
     //
-    // The observed schema comes from the PRODUCER'S OWN SCHEMA_SQL (in the
-    // Hermes-Agent tree), never from the live store's sqlite_master: SQLite
-    // internals (sqlite_sequence, FTS shadows) are not producer tables, and
-    // the pin must break the day the producer bumps its schema.
-    const PRODUCER_SRC: &str = "/home/user/.hermes/hermes-agent/hermes_state_common.py";
-    let producer = std::fs::read_to_string(PRODUCER_SRC).unwrap();
-    let version_re = regex::Regex::new(r"(?m)^SCHEMA_VERSION\s*=\s*(\d+)").unwrap();
-    let producer_version: i64 = version_re
-        .captures(&producer)
-        .unwrap_or_else(|| panic!("SCHEMA_VERSION not found in producer source"))
-        .get(1)
-        .unwrap()
-        .as_str()
+    // The observed schema comes from the FROZEN producer snapshot
+    // (tests/parity/producer_schema.sql), never from a live path: the proof
+    // is hermetic. When the live producer source exists, its DDL must match
+    // the snapshot byte-for-byte — a mismatch means the producer bumped and
+    // the snapshot + contract must be re-derived (see tools/).
+    let parity_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity");
+    let snapshot = std::fs::read_to_string(parity_dir.join("producer_schema.sql")).unwrap();
+    let mut snapshot_lines = snapshot.lines();
+    let header = snapshot_lines.next().unwrap_or("");
+    let producer_version: i64 = header
+        .split("SCHEMA_VERSION = ")
+        .nth(1)
+        .unwrap_or_else(|| panic!("snapshot header has no SCHEMA_VERSION"))
+        .trim()
+        .trim_matches(|c| c == ')' || c == '.')
         .parse()
         .unwrap();
-    let ddl_re = regex::Regex::new(r#"(?ms)^SCHEMA_SQL\s*=\s*"""(.*?)"""#).unwrap();
-    let producer_ddl = ddl_re
-        .captures(&producer)
-        .unwrap_or_else(|| panic!("SCHEMA_SQL not found in producer source"))
-        .get(1)
-        .unwrap()
-        .as_str();
-    let observed = parse_ddl_columns(producer_ddl);
+    let snapshot_ddl: String = snapshot_lines.skip(1).collect::<Vec<_>>().join("\n");
+    let live_src = producer_src_path();
+    if PathBuf::from(&live_src).exists() {
+        let live_text = std::fs::read_to_string(&live_src).unwrap();
+        let ddl_re = regex::Regex::new(r#"(?ms)^SCHEMA_SQL\s*=\s*"""(.*?)"""#).unwrap();
+        let live_ddl = ddl_re
+            .captures(&live_text)
+            .unwrap_or_else(|| panic!("SCHEMA_SQL not found in {live_src}"))
+            .get(1)
+            .unwrap()
+            .as_str();
+        assert_eq!(
+            live_ddl.trim_end(),
+            snapshot_ddl.trim_end(),
+            "producer bumped its DDL: re-freeze with tools/snapshot_producer_schema.py and re-derive the contract"
+        );
+    }
+    let observed = parse_ddl_columns(&snapshot_ddl);
     let contract = contract::contract();
     assert_eq!(
         producer_version, contract.producer_schema_version,
@@ -164,8 +192,9 @@ fn full_load_conservation_proof() {
     }
 
     // ---- old silver vs new canonical (when present) ----
-    if PathBuf::from(SILVER).exists() {
-        let sil = connect_ro(SILVER);
+    let silver = silver_path();
+    if PathBuf::from(&silver).exists() {
+        let sil = connect_ro(&silver);
         let old_turns: i64 = count(
             &sil,
             "SELECT count(*) FROM dialogue_turns WHERE agent_family='hermes'",

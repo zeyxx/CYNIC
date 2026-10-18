@@ -13,6 +13,10 @@ use cynic_traces::ports::NormalizerPort;
 
 const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite";
 
+fn source_path() -> String {
+    std::env::var("CYNIC_TRACES_SOURCE").unwrap_or_else(|_| SOURCE.into())
+}
+
 fn parity_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/parity")
 }
@@ -110,13 +114,14 @@ fn first_diffs(
 
 #[test]
 fn rust_matches_python_session_json() {
-    if !PathBuf::from(SOURCE).exists() {
+    let source = source_path();
+    if !PathBuf::from(&source).exists() {
         eprintln!("frozen capture absent, skipping parity");
         return;
     }
     let dir = parity_dir();
     let manifest = std::fs::read_to_string(dir.join("sessions.txt")).unwrap();
-    let normalizer = HermesNormalizer::new(SOURCE);
+    let normalizer = HermesNormalizer::new(&source);
     for line in manifest.lines() {
         let (session_ref, file) = line.split_once('=').unwrap();
         let expected: serde_json::Value =
@@ -135,7 +140,8 @@ fn rust_matches_python_session_json() {
 
 #[test]
 fn rust_matches_python_stats_on_200_sessions() {
-    if !PathBuf::from(SOURCE).exists() {
+    let source = source_path();
+    if !PathBuf::from(&source).exists() {
         eprintln!("frozen capture absent, skipping parity");
         return;
     }
@@ -143,7 +149,7 @@ fn rust_matches_python_stats_on_200_sessions() {
     let expected: HashMap<String, HashMap<String, serde_json::Value>> =
         serde_json::from_str(&std::fs::read_to_string(dir.join("stats200.json")).unwrap())
             .unwrap();
-    let normalizer = HermesNormalizer::new(SOURCE);
+    let normalizer = HermesNormalizer::new(&source);
     let mut checked = 0;
     for (session_ref, want) in &expected {
         if want.contains_key("error") {
