@@ -68,7 +68,21 @@ Agents are the ONLY operators of the DMZ (no human shell — kills A7). Each age
 
 What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too), open routes, disable rules, or enter the guest. An agent that cannot complete without violating a boundary reports `blocked` with the exact missing capability — it does not improvise one.
 
-## 7. Tranches proposées
+## 7. Freebox observation (2026-10-18, vérifié live partiel)
+
+- Box : Freebox Server r2 en 192.168.0.254, `GET /api_version` → api 16.1,
+  `GET /api/v10/login/` répond (challenge émis) — le wrapper existant
+  (`HttpFreeboxProbeAdapter`, session + LAN browser) est compatible.
+- Manquant : `GET /api/v10/fw/redir/` (règles NAT/port-forwarding) —
+  extension lecture seule prévue, formes à vérifier live après pairing :
+  réponse attendue `{success, result: [{id, enabled, comment, lan_port,
+  wan_port_min/max, lan_ip, proto}]}` (à confirmer, pas supposé).
+- Bloquant : aucun token `freebox-app-token` (env vide, store vide) —
+  pairing requis (afficheur box, app `cynic`), puis stockage via ports secrets.
+- Dette : `cynic-cli network observe --freebox` panique (tokio runtime
+  drop, pré-existant) — diagnostic sous-agent en cours, territoire pair.
+
+## 8. Tranches proposées
 
 - T1: answer the unknowns (public ingress path, kernel bind, firewall rules audit) + resolve the `mainnet.env` tension (migrate or delete, with receipt).
 - T2: `vmbr1` + PVE firewall default-deny + KVM golden image (pinned stack, soaked), first boot with read-back.
