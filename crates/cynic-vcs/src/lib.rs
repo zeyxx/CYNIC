@@ -8,6 +8,7 @@ pub use cynic_protocol::vcs::{
 pub mod development_genesis;
 pub mod entry;
 pub mod external_source;
+pub mod external_source_uc;
 pub mod forgejo;
 pub mod forgejo_port;
 pub mod forgejo_token;
@@ -41,6 +42,7 @@ mod source_worktree_inventory_tests;
 use std::path::{Path, PathBuf};
 
 pub use development_genesis::*;
+pub use external_source_uc::*;
 pub use forgejo::*;
 pub use forgejo_port::{ForgejoObservationPort, build_forgejo_plan, forgejo_token_spec};
 pub use git_hygiene::*;
