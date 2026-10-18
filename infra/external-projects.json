@@ -34,9 +34,15 @@
         "observed_at": "2026-10-18",
         "observed_on": "builder 10.10.10.119 (go 1.27.2)",
         "build_result": "PASS (go build ./... exit 0)",
-        "test_result": "FAIL (go test ./... exit 1): 1 failing test TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild (context deadline exceeded) in internal/external; all other packages pass",
-        "notes": "Build baseline green on builder. One timing-sensitive test failure (grandchild kill). To be re-observed before declaring verified."
-      }
+        "test_result": "FAIL (flaky/timing-sensitive): TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild (context deadline exceeded) in internal/external; all other packages pass. Reproduced on builder twice. Not a build break.",
+        "notes": "Build baseline green on builder. One flaky/timing-sensitive test (grandchild kill). Not declared verified until test is stabilized or retried successfully."
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort",
+        "EvidencePort"
+      ],
+      "port_wiring_status": "not_started"
     },
     {
       "project_id": "aegis-core",
@@ -68,7 +74,12 @@
         "build_result": "PASS for ./internal/... (go build exit 0); FAIL desktop-backend (Windows-only build constraint: undefined lockInstance/unlockInstance on Linux)",
         "test_result": "FAIL (go test ./internal/... exit 1): 'authentication storage unavailable' in syncclient/syncserver; syncmodel, taskdata pass",
         "notes": "Sanitized boundary preserved: desktop-backend refuses to build on non-Windows. Test failures env-dependent (auth storage), consistent with refusal-by-construction. No native deployment attempted."
-      }
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort"
+      ],
+      "port_wiring_status": "not_started"
     },
     {
       "project_id": "ai-bus",
@@ -101,7 +112,12 @@
         "build_result": "PASS (npm ci exit 0; npm run build exit 0)",
         "test_result": "FAIL (npm test exit 1): 2 failing tests (strict fast-forward pull, normal push to fake local remote) \u2014 environment-dependent (git config/remote); 33 tests passed vs 33 failures on cortex",
         "notes": "Build baseline green on builder. Test failures are environment-dependent (git remote config). Project targets Windows 10/11 per README."
-      }
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort"
+      ],
+      "port_wiring_status": "not_started"
     }
   ],
   "rules": [

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.external_project_ports.v1",
+  "version": "0.1.0",
+  "status": "draft",
+  "purpose": "Defines the CYNIC ports that external (non-CYNIC) projects may consume or produce. Roadmap item 7: 'Add an external project through the same ports.' Each port is a trait in a cynic-* crate behind a port adapter. Wiring is gated on observation (build/test baseline verified) and read-back proof.",
+  "ports": [
+    {
+      "port_name": "SourcePort",
+      "owning_crate": "cynic-vcs",
+      "trait_name": "SourcePort",
+      "direction": "bidirectional",
+      "purpose": "Clone, fetch, branch, push, and PR operations on external repositories. Reuses CYNIC's source lifecycle (contracts/source-lifecycle.json) parameterized by remote.",
+      "mutation_policy": "explicit_apply_only",
+      "status": "candidate",
+      "notes": "Not yet wired. Requires a parameterized remote adapter (Forgejo/GitHub) and read-back proof."
+    },
+    {
+      "port_name": "BuildPort",
+      "owning_crate": "cynic-build",
+      "trait_name": "BuildPort",
+      "direction": "outbound",
+      "purpose": "Run a project's observed build/test commands on the builder node (10.10.10.119) with read-back proof. Commands come from infra/external-projects.json (observed, not fabricated).",
+      "mutation_policy": "read_only",
+      "status": "candidate",
+      "notes": "Not yet wired. Requires builder toolchain provisioning (done 2026-10-18) and a command execution adapter."
+    },
+    {
+      "port_name": "EvidencePort",
+      "owning_crate": "cynic-kernel",
+      "trait_name": "EvidencePort",
+      "direction": "inbound",
+      "purpose": "Ingest a project's findings/evidence into CYNIC's observation store (aegisscan findings -> CYNIC findings schema).",
+      "mutation_policy": "read_only",
+      "status": "candidate",
+      "notes": "Not yet wired. Requires schema mapping between aegisscan findings and CYNIC observation store."
+    }
+  ],
+  "wiring_rules": [
+    "A port is 'candidate' until wired and observed. Aspirational wiring is forbidden.",
+    "Port wiring requires: (1) build/test baseline observed on builder, (2) read-back proof, (3) contract updated.",
+    "aegis-core (sanitized) may only consume SourcePort and BuildPort. EvidencePort is not applicable (no findings produced).",
+    "No cynic-* crate may gain a dependency on an external project. External projects are leaf consumers only (Strict DAG).",
+    "Port traits must be pure (no I/O). I/O lives in adapters/ (FCIS)."
+  ],
+  "rules": [
+    "Ports are defined in domain crates behind port traits (FCIS).",
+    "Adapters implement the traits with concrete I/O (SSH, HTTP, filesystem).",
+    "The CLI surface (cynic audit external) projects port status but does not own logic.",
+    "Port wiring is gated on observation. No port is 'wired' without read-back proof."
+  ]
+}
