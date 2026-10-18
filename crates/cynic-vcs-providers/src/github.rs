@@ -36,9 +36,12 @@ impl GitHubExternalSourceAdapter {
         F: FnOnce(&Client) -> Result<T, String> + Send + 'static,
         T: Send + 'static,
     {
-        std::thread::spawn(f)
-            .join()
-            .map_err(|_| "reqwest blocking thread panicked".to_string())?
+        std::thread::spawn(|| {
+            let client = Client::new();
+            f(&client)
+        })
+        .join()
+        .map_err(|_| "reqwest blocking thread panicked".to_string())?
     }
 
     fn parse_owner_repo(&self, repo: &ExternalRepoRef) -> Result<(String, String), String> {
@@ -234,6 +237,7 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
         let title = title.to_string();
         let head_ref = head_ref.to_string();
         let base_ref = base_ref.to_string();
+        let project_id = repo.project_id.clone();
 
         Self::with_client(move |client| {
             let body = serde_json::json!({
@@ -259,7 +263,7 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
 
             Ok(ExternalPrProof {
                 schema: "cynic.vcs.external_pr_proof.v1",
-                project_id: repo.project_id.clone(),
+                project_id,
                 pr_number: pr.number,
                 html_url: pr.html_url,
                 head_ref: pr.head.label,
