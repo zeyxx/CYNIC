@@ -225,7 +225,7 @@ pub fn build_deploy_proof(
 ) -> DeployProof {
     let health_check_passed = match request.kind {
         DeployKind::HealthCheck => result.success,
-        _ => false,
+        _ => result.kind == DeployKind::HealthCheck && result.success,
     };
 
     DeployProof {
