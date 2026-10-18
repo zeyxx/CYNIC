@@ -7,6 +7,7 @@ pub use cynic_protocol::vcs::{
 // Internal modules
 pub mod development_genesis;
 pub mod entry;
+pub mod external_source;
 pub mod forgejo;
 pub mod forgejo_port;
 pub mod forgejo_token;

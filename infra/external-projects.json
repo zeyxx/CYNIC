@@ -42,7 +42,12 @@
         "BuildPort",
         "EvidencePort"
       ],
-      "port_wiring_status": "not_started"
+      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_status": {
+        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
+        "BuildPort": "candidate",
+        "EvidencePort": "candidate"
+      }
     },
     {
       "project_id": "aegis-core",
@@ -79,7 +84,11 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "not_started"
+      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_status": {
+        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
+        "BuildPort": "candidate"
+      }
     },
     {
       "project_id": "ai-bus",
@@ -117,7 +126,11 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "not_started"
+      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_status": {
+        "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
+        "BuildPort": "candidate"
+      }
     }
   ],
   "rules": [
