@@ -8,32 +8,32 @@
     {
       "port_name": "SourcePort",
       "owning_crate": "cynic-vcs",
-      "trait_name": "SourcePort",
+      "trait_name": "ExternalSourcePort",
       "direction": "bidirectional",
       "purpose": "Clone, fetch, branch, push, and PR operations on external repositories. Reuses CYNIC's source lifecycle (contracts/source-lifecycle.json) parameterized by remote.",
       "mutation_policy": "explicit_apply_only",
-      "status": "candidate",
-      "notes": "Not yet wired. Requires a parameterized remote adapter (Forgejo/GitHub) and read-back proof."
+      "status": "defined",
+      "notes": "Trait defined in cynic-vcs/src/external_source.rs. Adapters pending (Forgejo/GitHub)."
     },
     {
       "port_name": "BuildPort",
       "owning_crate": "cynic-build",
-      "trait_name": "BuildPort",
+      "trait_name": "ExternalBuildPort",
       "direction": "outbound",
       "purpose": "Run a project's observed build/test commands on the builder node (10.10.10.119) with read-back proof. Commands come from infra/external-projects.json (observed, not fabricated).",
       "mutation_policy": "read_only",
-      "status": "candidate",
-      "notes": "Not yet wired. Requires builder toolchain provisioning (done 2026-10-18) and a command execution adapter."
+      "status": "defined",
+      "notes": "Trait defined in cynic-build/src/external_build.rs. Adapter pending (builder command execution)."
     },
     {
       "port_name": "EvidencePort",
       "owning_crate": "cynic-kernel",
-      "trait_name": "EvidencePort",
+      "trait_name": "ExternalEvidencePort",
       "direction": "inbound",
-      "purpose": "Ingest a project's findings/evidence into CYNIC's observation store (aegisscan findings -> CYNIC findings schema).",
+      "purpose": "Ingest a project's findings/evidence into CYNIC's observation store (aegisscan findings -> CYNIC observation store).",
       "mutation_policy": "read_only",
-      "status": "candidate",
-      "notes": "Not yet wired. Requires schema mapping between aegisscan findings and CYNIC observation store."
+      "status": "defined",
+      "notes": "Trait defined in cynic-kernel/src/ports/external_evidence.rs. Adapter pending in cynic-host."
     }
   ],
   "wiring_rules": [
