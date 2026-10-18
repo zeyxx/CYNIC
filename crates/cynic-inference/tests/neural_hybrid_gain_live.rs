@@ -93,6 +93,7 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
     };
 
     let backend = EmbeddingBackend::from_env().expect("CYNIC_EMBED_URL must be set");
+    let engine = backend.base_urls().join(",");
     let bridge = SyncEmbeddingBridge::probe(backend, "CYNIC neural hybrid probe")
         .expect("embedding probe must succeed");
     println!("NEURAL_BACKEND dims={}", bridge.dimensions());
@@ -101,8 +102,9 @@ fn neural_hybrid_gain_over_bm25_is_measured() {
         &root.join(config.vector_cache_filename()),
         &config.model,
         &config.pipeline.tag(),
+        &engine,
     )
-    .unwrap_or_else(|| VectorCacheRecord::new(&config.model, &config.pipeline.tag()));
+    .unwrap_or_else(|| VectorCacheRecord::new(&config.model, &config.pipeline.tag(), &engine));
 
     let corpus_start = std::time::Instant::now();
     use std::sync::atomic::{AtomicUsize, Ordering};

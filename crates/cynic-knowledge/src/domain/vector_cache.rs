@@ -12,7 +12,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::chunk::DocumentChunk;
-use crate::domain::vectorizer::{ChunkEmbedder, ChunkVector, vectorize_chunks};
+use crate::domain::vectorizer::{vectorize_chunks, ChunkEmbedder, ChunkVector};
 
 pub const VECTOR_CACHE_SCHEMA_V1: &str = "cynic.knowledge.vector_cache.v1";
 
@@ -25,34 +25,57 @@ pub struct VectorCacheRecord {
     /// prefixes): any pipeline change invalidates, since equal chunk ids
     /// would otherwise serve vectors from different input texts.
     pub pipeline: String,
+    /// Engine endpoint that produced these vectors (normalized base URL).
+    /// Two engines serving the same model file still diverge numerically
+    /// (measured 2.5e-3 across Vulkan drivers/GPUs), so a cache is bound
+    /// to exactly one engine — never silently mixed. Older cache files
+    /// predate this field and deserialize it as empty (never usable until
+    /// re-stamped), so the upgrade path fails closed.
+    #[serde(default)]
+    pub engine: String,
     pub dim: usize,
     pub vectors: HashMap<String, Vec<f32>>,
 }
 
+/// Normalize an embedding endpoint into a stable engine identity:
+/// lowercase host, no trailing slash.
+pub fn normalize_engine(base_url: &str) -> String {
+    base_url.trim().trim_end_matches('/').to_lowercase()
+}
+
 impl VectorCacheRecord {
-    pub fn new(model: &str, pipeline: &str) -> Self {
+    pub fn new(model: &str, pipeline: &str, engine: &str) -> Self {
         Self {
             schema: VECTOR_CACHE_SCHEMA_V1.to_string(),
             model: model.to_string(),
             pipeline: pipeline.to_string(),
+            engine: normalize_engine(engine),
             dim: 0,
             vectors: HashMap::new(),
         }
     }
 
-    /// A record is usable only for its own model, pipeline, and schema;
-    /// anything else means recompute, never silent mixing.
-    pub fn usable_for(&self, model: &str, pipeline: &str) -> bool {
-        self.schema == VECTOR_CACHE_SCHEMA_V1 && self.model == model && self.pipeline == pipeline
+    /// A record is usable only for its own model, pipeline, engine, and
+    /// schema; anything else means recompute, never silent mixing.
+    pub fn usable_for(&self, model: &str, pipeline: &str, engine: &str) -> bool {
+        self.schema == VECTOR_CACHE_SCHEMA_V1
+            && self.model == model
+            && self.pipeline == pipeline
+            && self.engine == normalize_engine(engine)
     }
 }
 
 /// Load a cache file; `None` on missing file, corrupt JSON, or model/schema/
-/// pipeline mismatch — every case means "recompute", never "fail".
-pub fn load_vector_cache(path: &Path, model: &str, pipeline: &str) -> Option<VectorCacheRecord> {
+/// pipeline/engine mismatch — every case means "recompute", never "fail".
+pub fn load_vector_cache(
+    path: &Path,
+    model: &str,
+    pipeline: &str,
+    engine: &str,
+) -> Option<VectorCacheRecord> {
     let raw = std::fs::read_to_string(path).ok()?;
     let record: VectorCacheRecord = serde_json::from_str(&raw).ok()?;
-    record.usable_for(model, pipeline).then_some(record)
+    record.usable_for(model, pipeline, engine).then_some(record)
 }
 
 /// Persist the record; errors are reported, never hidden, so a silent
@@ -141,7 +164,7 @@ mod tests {
     #[test]
     fn cached_run_embeds_only_missing_and_reuses() {
         let embedder = CountingEmbedder(std::cell::Cell::new(0));
-        let mut cache = VectorCacheRecord::new("model-a", "pipe-a");
+        let mut cache = VectorCacheRecord::new("model-a", "pipe-a", "http://engine-a/v1");
         let chunks = vec![chunk_at("a.md", "alpha"), chunk_at("b.md", "beta")];
         let (first, reused, embedded) =
             vectorize_chunks_cached(&embedder, &chunks, &mut cache, &|_, _| {})
@@ -162,7 +185,7 @@ mod tests {
     #[test]
     fn edited_content_misses_and_model_scope_rejects() {
         let embedder = CountingEmbedder(std::cell::Cell::new(0));
-        let mut cache = VectorCacheRecord::new("model-a", "pipe-a");
+        let mut cache = VectorCacheRecord::new("model-a", "pipe-a", "http://engine-a/v1");
         let before = vec![chunk_at("a.md", "alpha")];
         vectorize_chunks_cached(&embedder, &before, &mut cache, &|_, _| {}).expect("seed");
         let after = vec![chunk_at("a.md", "alpha edited")];
@@ -171,8 +194,9 @@ mod tests {
                 .expect("edited content re-embeds");
         assert_eq!((reused, embedded), (0, 1));
 
-        assert!(cache.usable_for("model-a", "pipe-a"));
-        assert!(!cache.usable_for("model-b", "pipe-a"));
-        assert!(!cache.usable_for("model-a", "pipe-b"));
+        assert!(cache.usable_for("model-a", "pipe-a", "http://engine-a/v1"));
+        assert!(!cache.usable_for("model-b", "pipe-a", "http://engine-a/v1"));
+        assert!(!cache.usable_for("model-a", "pipe-b", "http://engine-a/v1"));
+        assert!(!cache.usable_for("model-a", "pipe-a", "http://engine-b/v1"));
     }
 }

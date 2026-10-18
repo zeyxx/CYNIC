@@ -87,6 +87,7 @@ fn fusion_k_sweep_is_measured() {
         &root.join(config_cache_filename(&root, &model, &pipeline)),
         &model,
         &pipeline.tag(),
+        &base_url,
     )
     .expect("vector cache from a full run must exist");
 

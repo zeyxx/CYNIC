@@ -86,6 +86,7 @@ fn engine_overlap_is_measured() {
         &root.join("target/eval_vectors_compute01.json"),
         &model,
         &pipeline.tag(),
+        &url_a,
     ) {
         Some(cache) => cache,
         None => {
@@ -98,6 +99,7 @@ fn engine_overlap_is_measured() {
                 &root.join(format!("target/eval_vectors_{model}_{hash:.8}.json")),
                 &model,
                 &pipeline.tag(),
+                &url_a,
             )
             .expect("compute-01 vector cache must exist")
         }
