@@ -96,6 +96,13 @@ pub enum NodeComputeCommand {
         /// cluster exposes a single node.
         #[arg(long)]
         node: Option<String>,
+        /// Clone from a versioned template vmid instead of creating from an
+        /// OS template. Requires --ttl-hours (ephemeral by design).
+        #[arg(long)]
+        clone_from: Option<u32>,
+        /// Clone TTL in hours (1-24). Only meaningful with --clone-from.
+        #[arg(long, default_value_t = 4)]
+        ttl_hours: u32,
         #[arg(long, default_value_t = false)]
         apply: bool,
     },
@@ -211,6 +218,8 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             onboot,
             hypervisor,
             node,
+            clone_from,
+            ttl_hours,
             apply,
         } => {
             let lxc_spec = LxcProvisioningSpec {
@@ -246,6 +255,31 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                 }),
             };
 
+            // Clone path: same grammar, other backend.
+
+            if let Some(template_vmid) = clone_from {
+                if !apply {
+                    emit_json(
+                        &serde_json::json!({
+                            "schema": "cynic.node.compute.clone.v1",
+                            "status": "planned",
+                            "channel": "rest",
+                            "vmid": vmid,
+                            "hostname": hostname,
+                            "clone_from": template_vmid,
+                            "ttl_hours": ttl_hours,
+                        }),
+                        false,
+                    );
+                    return ExitCode::SUCCESS;
+                }
+                if let Ok(rest) = ProxmoxControlAdapter::from_env(std::time::Duration::from_secs(5)) {
+                    return apply_clone_rest(rest, node, template_vmid, vmid, hostname, ttl_hours).await;
+                }
+                eprintln!("error: clone requires the REST API (no SSH breakglass for clones)");
+                return ExitCode::FAILURE;
+            }
+
             // Default path: emit the pure plan without touching the hypervisor.
             if !apply {
                 let plan = cynic_proxmox::lxc_provisioning::plan_lxc_provisioning(
@@ -264,6 +298,8 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
                     ExitCode::FAILURE
                 };
             }
+
+
 
             // Apply path: REST first (canonical), SSH breakglass fallback.
             // The REST executor posts the validated spec and polls the UPID
@@ -377,6 +413,61 @@ async fn apply_provision_rest(
         }
         Err(e) => {
             eprintln!("error: provisioned but read-back failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// REST clone path: clone the versioned template, poll the UPID task,
+/// read back the guest config as existence proof. Fails closed at every step.
+async fn apply_clone_rest(
+    rest: ProxmoxControlAdapter,
+    node: Option<String>,
+    template_vmid: u32,
+    vmid: u32,
+    hostname: String,
+    ttl_hours: u32,
+) -> ExitCode {
+    let node = match node {
+        Some(node) => node,
+        None => match resolve_single_proxmox_node(&rest).await {
+            Ok(node) => node,
+            Err(e) => {
+                eprintln!("error: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+    };
+    let cloned = match rest
+        .clone_lxc(&node, template_vmid, vmid, &hostname, ttl_hours, std::time::Duration::from_secs(120))
+        .await
+    {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("error: REST lxc clone failed: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match rest.lxc_config(&node, &vmid.to_string()).await {
+        Ok(_) => {
+            emit_json(
+                &serde_json::json!({
+                    "schema": "cynic.node.compute.clone.v1",
+                    "status": "provisioned",
+                    "channel": "rest",
+                    "vmid": vmid,
+                    "hostname": hostname,
+                    "node": node,
+                    "cloned_from": template_vmid,
+                    "ttl_hours": ttl_hours,
+                    "upid": cloned["upid"],
+                }),
+                false,
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: cloned but read-back failed: {e}");
             ExitCode::FAILURE
         }
     }
