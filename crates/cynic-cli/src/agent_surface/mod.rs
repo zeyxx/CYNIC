@@ -7,6 +7,7 @@
 //!   - cynic agent release    — release an active claim
 //!   - cynic agent status     — query active claims
 //!   - cynic agent heartbeat  — refresh the TTL of a live local claim
+//!   - cynic agent scope      — fail-closed mutation gate over active claims
 //!   - cynic agent events     — read back the append-only claim event log
 //!   - cynic agent intent seal|verify — seal or verify transmission records
 
@@ -18,8 +19,8 @@ use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
     execute_claim, execute_events, execute_heartbeat, execute_identify, execute_register,
-    execute_release, execute_status, execute_verify_scope, resolve_builder_endpoint,
-    resolve_git_remote, resolve_kernel_base,
+    execute_release, execute_scope, execute_status, resolve_builder_endpoint, resolve_git_remote,
+    resolve_kernel_base,
 };
 use self::intent::{execute_intent, IntentCommand};
 
@@ -172,7 +173,7 @@ pub(crate) enum AgentCommand {
     },
     /// Fail-closed mutation gate: refuse paths not covered by an active
     /// claim held by this agent (pre-commit hook and CI call this).
-    VerifyScope {
+    Scope {
         /// Agent ID holding the claims
         #[arg(long, env = "CYNIC_AGENT_ID")]
         agent_id: String,
@@ -353,11 +354,11 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        AgentCommand::VerifyScope {
+        AgentCommand::Scope {
             agent_id,
             paths,
             json: _,
-        } => match execute_verify_scope(&agent_id, &paths) {
+        } => match execute_scope(&agent_id, &paths) {
             Ok(report) => {
                 let covered =
                     report.get("status").and_then(|v| v.as_str()).unwrap_or("") == "covered";
@@ -369,7 +370,7 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
                 }
             }
             Err(error) => {
-                eprintln!("agent verify-scope failed: {}", error);
+                eprintln!("agent scope failed: {}", error);
                 ExitCode::FAILURE
             }
         },

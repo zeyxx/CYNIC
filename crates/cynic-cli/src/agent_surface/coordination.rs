@@ -1576,7 +1576,7 @@ mod tests {
 /// predicate as claim admission — never by a local copy of the rule.
 /// Covered = exact or ancestor scope; anything else is uncovered and
 /// the caller must claim before mutating. Read-only: never writes.
-pub(crate) fn execute_verify_scope(
+pub(crate) fn execute_scope(
     agent_id: &str,
     paths: &[String],
 ) -> Result<serde_json::Value, String> {
@@ -1615,7 +1615,7 @@ pub(crate) fn execute_verify_scope(
         }
     }
     Ok(serde_json::json!({
-        "schema": "cynic.cli.agent_verify_scope_report.v1",
+        "schema": "cynic.cli.agent_scope_report.v1",
         "status": if uncovered.is_empty() { "covered" } else { "uncovered" },
         "agent_id": agent_id,
         "covered": covered,
