@@ -17,6 +17,10 @@ pub mod domain;
 pub mod kernel;
 pub mod ports;
 pub mod session;
+pub mod usecases;
+
+pub use adapters::hermes::HermesNormalizer;
+pub use adapters::store_sqlite::{SqliteCanonicalStore, StoreError};
 
 pub use conservation::{ConceptResolution, ConservationContract, Fate};
 pub use domain::{

@@ -30,9 +30,13 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
 - Leçon E5 (float repr) : les flottants se comparent en epsilon, les
   entiers en exact — consigné dans le test de parité.
 
-### T4 — Magasin canonique + runner conservation [ ]
-- Writer SQLite Rust + runner α1–α4 machine sur le gel.
-- Porte de sortie : `verify_conservation.py` retraité (`HITL` : retrait du Python).
+### T4 — Magasin canonique + runner conservation [x]
+- Preuves : builder CONVERGED ; `tests/conservation_proof.rs` vert :
+  chargement complet du gel (2 795 sessions, 0 échec), comptes
+  source==canonique, clôture α1–α4 vide sur le DDL vivant, round-trip
+  store->entités sur échantillons, comparaison au vieux Silver.
+- `apps/cynic-data/verify_conservation.py` retraité (remplacé par la
+  preuve Rust).
 
 ### T5 — Guards ré-ancrés + non-vacuité en CI [ ]
 - Nouveaux ancres post-déménagement ; `check_nonvacuity` sur le pipeline Rust.

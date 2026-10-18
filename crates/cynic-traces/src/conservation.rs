@@ -193,6 +193,37 @@ impl ConservationContract {
             .collect()
     }
 
+    /// Fates for columns the producer no longer declares. Stale contract debt.
+    pub fn stale_fates(&self, observed: &HashMap<String, Vec<String>>) -> Vec<String> {
+        let mut known = HashSet::new();
+        for (table, cols) in observed {
+            for c in cols {
+                known.insert(format!("{table}.{c}"));
+            }
+        }
+        let mut stale: Vec<String> = self
+            .field_fate
+            .keys()
+            .filter(|k| !known.contains(*k))
+            .cloned()
+            .collect();
+        stale.sort();
+        stale
+    }
+
+    /// Out-of-scope entries must carry a non-empty reason — an empty string
+    /// would be a silent skip wearing a decision's clothes.
+    pub fn out_of_scope_without_reason(&self) -> Vec<String> {
+        let mut bad: Vec<String> = self
+            .out_of_scope
+            .iter()
+            .filter(|(_, r)| r.trim().is_empty())
+            .map(|(t, _)| t.clone())
+            .collect();
+        bad.sort();
+        bad
+    }
+
     pub fn concept(&self, name: &str) -> Option<&ConceptResolution> {
         self.concepts.iter().find(|c| c.concept == name)
     }
