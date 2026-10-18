@@ -42,10 +42,10 @@
         "BuildPort",
         "EvidencePort"
       ],
-      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_wiring_status": "in_progress (SourcePort + BuildPort traits defined)",
       "port_status": {
         "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "candidate",
+        "BuildPort": "defined (trait in cynic-build, adapter pending)",
         "EvidencePort": "candidate"
       }
     },
@@ -84,10 +84,10 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_wiring_status": "in_progress (SourcePort + BuildPort traits defined)",
       "port_status": {
         "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "candidate"
+        "BuildPort": "defined (trait in cynic-build, adapter pending)"
       }
     },
     {
@@ -126,10 +126,10 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "in_progress (SourcePort trait defined)",
+      "port_wiring_status": "in_progress (SourcePort + BuildPort traits defined)",
       "port_status": {
         "SourcePort": "defined (trait in cynic-vcs, adapter pending)",
-        "BuildPort": "candidate"
+        "BuildPort": "defined (trait in cynic-build, adapter pending)"
       }
     }
   ],

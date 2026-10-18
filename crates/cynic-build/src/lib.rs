@@ -14,6 +14,7 @@
 
 pub mod adapters;
 pub mod build;
+pub mod external_build;
 pub mod build_artefact;
 pub mod builder_client;
 pub mod build_discovery;
