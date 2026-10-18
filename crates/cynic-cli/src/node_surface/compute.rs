@@ -17,14 +17,50 @@ use cynic_protocol::provider::{
     NodeSubstrateDesiredState, NodeSubstrateObservationPort, NodeSubstratePower,
     NodeSubstrateProvisioningSpec,
 };
+use cynic_host::adapters::http_freebox_probe_adapter::HttpFreeboxProbeAdapter;
 use cynic_proxmox::adapters::{
-    FleetLease, ObservedGuest, ProxmoxControlAdapter, ProxmoxSshCloneAdapter,
-    ProxmoxSshSubstrateAdapter, drop_lease, plan_sweep, read_leases, template_hygiene_blockers,
+    DestructiveAction, DestructiveIntent, FleetLease, ObservedGuest, ProxmoxControlAdapter, ProxmoxSshCloneAdapter,
+    ProxmoxSshSubstrateAdapter, approve as approve_intent, consume as consume_intent, enqueue,
+    propose_intent, read_queue, drop_lease, plan_sweep, read_leases, template_hygiene_blockers,
     write_lease,
 };
 use cynic_sandbox::adapters::bwrap_substrate::LocalBwrapSubstrateAdapter;
 use std::process::ExitCode;
 use std::sync::Arc;
+
+/// Approval queue operations: propose, list, approve (+execute).
+#[derive(Subcommand, Debug, Clone)]
+pub enum ApprovalOp {
+    /// Propose a destructive intent. Kind is closed: `fw-redir:<id>` or `lxc:<vmid>`.
+    Propose {
+        #[arg(long)]
+        kind: String,
+        #[arg(long)]
+        reason: String,
+        #[arg(long, default_value = "operator")]
+        by: String,
+        #[arg(long, default_value_t = 24)]
+        ttl_hours: u64,
+    },
+    /// List intents (pending by default, `--all` for everything).
+    List {
+        #[arg(long, default_value_t = false)]
+        all: bool,
+    },
+    /// Approve an intent; with `--execute`, consume it and run the action now.
+    Approve {
+        #[arg(long)]
+        id: String,
+        #[arg(long, default_value_t = false)]
+        execute: bool,
+        /// Freebox LAN endpoint (required to execute fw-redir deletes).
+        #[arg(long)]
+        freebox_endpoint: Option<String>,
+        /// Proxmox node (required to execute lxc destroys).
+        #[arg(long)]
+        node: Option<String>,
+    },
+}
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum NodeComputeCommand {
@@ -92,6 +128,10 @@ pub enum NodeComputeCommand {
         leases: Option<String>,
         #[arg(long, default_value_t = false)]
         apply: bool,
+    },
+    Approval {
+        #[command(subcommand)]
+        op: ApprovalOp,
     },
     Provision {
         #[arg(long)]
@@ -253,6 +293,9 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
             apply,
         } => {
             return apply_sweep(node, fleet_registry, leases, apply).await;
+        },
+        NodeComputeCommand::Approval { op } => {
+            return apply_approval(op).await;
         },
         NodeComputeCommand::Provision {
             vmid,
@@ -537,6 +580,190 @@ async fn apply_clone_rest(
         Err(e) => {
             eprintln!("error: cloned but read-back failed: {e}");
             ExitCode::FAILURE
+        }
+    }
+}
+
+/// Approvals file shared by propose/list/approve.
+fn default_approvals_path() -> String {
+    if let Ok(path) = std::env::var("CYNIC_APPROVALS") {
+        return path;
+    }
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    format!("{home}/.local/share/cynic/approvals.json")
+}
+
+fn parse_destructive_kind(kind: &str) -> Result<DestructiveAction, String> {
+    let (prefix, value) = kind
+        .split_once(':')
+        .ok_or_else(|| "approval_kind_malformed:expected_prefix:id".to_string())?;
+    let id: u32 = value
+        .parse()
+        .map_err(|_| "approval_kind_malformed:id_not_numeric".to_string())?;
+    match prefix {
+        "fw-redir" => Ok(DestructiveAction::FreeboxFwRedirDelete { rule_id: id }),
+        "lxc" => Ok(DestructiveAction::ProxmoxLxcDestroy { vmid: id }),
+        _ => Err("approval_kind_unknown:closed_set_fw-redir_lxc".to_string()),
+    }
+}
+
+/// Approval flow: propose writes a pending intent; list renders the queue
+/// (the dashboard reads the same file); approve flips pending→approved;
+/// approve --execute consumes once and runs the typed action, failing
+/// closed on expiry, double-use, or executor error.
+async fn apply_approval(op: ApprovalOp) -> ExitCode {
+    let path = std::path::PathBuf::from(default_approvals_path());
+    match op {
+        ApprovalOp::Propose {
+            kind,
+            reason,
+            by,
+            ttl_hours,
+        } => match parse_destructive_kind(&kind) {
+            Ok(action) => match propose_intent(action, &reason, &by, ttl_hours) {
+                Ok(intent) => match enqueue(&path, &intent) {
+                    Ok(()) => {
+                        emit_json(
+                            &serde_json::json!({
+                                "schema": "cynic.node.compute.approval.v1",
+                                "status": "proposed",
+                                "intent": intent,
+                            }),
+                            false,
+                        );
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("error: {e}");
+                        ExitCode::FAILURE
+                    }
+                },
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            },
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        ApprovalOp::List { all } => match read_queue(&path) {
+            Ok(intents) => {
+                let shown: Vec<&DestructiveIntent> = if all {
+                    intents.iter().collect()
+                } else {
+                    intents
+                        .iter()
+                        .filter(|intent| {
+                            matches!(
+                                intent.status,
+                                cynic_proxmox::adapters::IntentStatus::Pending
+                            )
+                        })
+                        .collect()
+                };
+                emit_json(
+                    &serde_json::json!({
+                        "schema": "cynic.node.compute.approval.v1",
+                        "status": "listed",
+                        "intents": shown,
+                    }),
+                    false,
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        ApprovalOp::Approve {
+            id,
+            execute,
+            freebox_endpoint,
+            node,
+        } => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_secs())
+                .unwrap_or(0);
+            match approve_intent(&path, &id, now) {
+                Ok(intent) => {
+                    if !execute {
+                        emit_json(
+                            &serde_json::json!({
+                                "schema": "cynic.node.compute.approval.v1",
+                                "status": "approved",
+                                "intent": intent,
+                            }),
+                            false,
+                        );
+                        return ExitCode::SUCCESS;
+                    }
+                    match consume_intent(&path, &id, now) {
+                        Ok(action) => match execute_approved(action, freebox_endpoint, node).await
+                        {
+                            Ok(receipt) => {
+                                emit_json(
+                                    &serde_json::json!({
+                                        "schema": "cynic.node.compute.approval.v1",
+                                        "status": "executed",
+                                        "intent_id": id,
+                                        "receipt": receipt,
+                                    }),
+                                    false,
+                                );
+                                ExitCode::SUCCESS
+                            }
+                            Err(e) => {
+                                eprintln!("error: execution failed (intent consumed): {e}");
+                                ExitCode::FAILURE
+                            }
+                        },
+                        Err(e) => {
+                            eprintln!("error: {e}");
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+    }
+}
+
+/// Run an approved, consumed action. Only closed-set variants execute;
+/// anything else is a compile-time, not runtime, decision.
+async fn execute_approved(
+    action: DestructiveAction,
+    freebox_endpoint: Option<String>,
+    node: Option<String>,
+) -> Result<serde_json::Value, String> {
+    match action {
+        DestructiveAction::FreeboxFwRedirDelete { rule_id } => {
+            let endpoint = freebox_endpoint
+                .ok_or_else(|| "approval_execute_needs_freebox_endpoint".to_string())?;
+            let adapter = HttpFreeboxProbeAdapter::default();
+            adapter.delete_fw_redir(&endpoint, rule_id)?;
+            Ok(serde_json::json!({
+                "action": "freebox_fw_redir_delete",
+                "rule_id": rule_id,
+            }))
+        }
+        DestructiveAction::ProxmoxLxcDestroy { vmid } => {
+            let node = node.ok_or_else(|| "approval_execute_needs_node".to_string())?;
+            let rest = ProxmoxControlAdapter::from_env(std::time::Duration::from_secs(5))?;
+            let report = rest
+                .destroy_lxc(&node, vmid, std::time::Duration::from_secs(120))
+                .await?;
+            Ok(serde_json::json!({
+                "action": "proxmox_lxc_destroy",
+                "report": report,
+            }))
         }
     }
 }

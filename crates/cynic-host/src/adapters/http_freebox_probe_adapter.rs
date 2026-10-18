@@ -99,6 +99,64 @@ impl FreeboxProbePort for HttpFreeboxProbeAdapter {
 }
 
 impl HttpFreeboxProbeAdapter {
+    /// Delete a NAT/port-forwarding rule by id over an authenticated
+    /// session. Runs confined to a plain OS thread (same reqwest::blocking
+    /// constraint as the probe). Refuses without a stored app token.
+    pub fn delete_fw_redir(&self, endpoint: &str, rule_id: u32) -> Result<(), String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::delete_fw_redir_blocking(&inner_endpoint, inner_timeout, &inner_app_id, rule_id)
+        })
+        .join()
+        .map_err(|_| "freebox_delete_thread_panicked".to_string())?
+    }
+
+    fn delete_fw_redir_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+        rule_id: u32,
+    ) -> Result<(), String> {
+        let token = Self::resolve_app_token().ok_or_else(|| "freebox_app_token_missing".to_string())?;
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let challenge: String = client
+            .get(&format!("{endpoint}/api/v10/login/"))
+            .send()
+            .map_err(|e| format!("freebox_challenge_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/challenge")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| "freebox_challenge_missing".to_string())?
+            .to_string();
+        let password = Self::compute_password(&token, &challenge)?;
+        let session_token: String = client
+            .post(&format!("{endpoint}/api/v10/login/session/"))
+            .json(&serde_json::json!({ "app_id": app_id, "password": password }))
+            .send()
+            .map_err(|e| format!("freebox_session_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/session_token")
+            .and_then(|st| st.as_str())
+            .ok_or_else(|| "freebox_session_rejected".to_string())?
+            .to_string();
+        let delete_resp = client
+            .delete(&format!("{endpoint}/api/v10/fw/redir/{rule_id}/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_redir_delete_failed:{e}"))?;
+        if !delete_resp.status().is_success() {
+            return Err(format!("freebox_redir_delete_http_{}", delete_resp.status()));
+        }
+        Ok(())
+    }
+
     fn probe_freebox_lan_blocking(
         endpoint: &str,
         timeout: Duration,

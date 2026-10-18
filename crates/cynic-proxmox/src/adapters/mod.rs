@@ -5,6 +5,7 @@
 
 pub mod agent_host_observer;
 pub mod ed25519_credential_lease_verifier;
+pub mod approvals;
 pub mod fleet;
 pub mod proxmox_clone;
 pub mod proxmox_control;
@@ -16,6 +17,10 @@ pub use agent_host_observer::{
     AgentHostObservationPort, ProxmoxRestAgentHostObserver, ProxmoxSshAgentHostObserver,
 };
 
+pub use approvals::{
+    DestructiveAction, DestructiveIntent, IntentStatus, approve, consume, enqueue, propose_intent,
+    read_queue,
+};
 pub use ed25519_credential_lease_verifier::Ed25519CredentialLeaseVerifier;
 pub use fleet::{FleetLease, ObservedGuest, SweepAction, drop_lease, plan_sweep, read_leases, write_lease};
 pub use proxmox_clone::{LxcCloneObservation, LxcCloneOutcome, ProxmoxSshCloneAdapter};
