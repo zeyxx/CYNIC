@@ -36,6 +36,12 @@ runs become allocation.
 - B4. Free tier first: calibration burns no subscription quota.
   Subscription legs need explicit HITL (they spend weekly %).
 - B5. Re-measure monthly: models deprecate, quotas reset, behavior drifts.
+- B6. Every metered call logs full `usage` (prompt/completion/reasoning
+  tokens) to the consumption ledger (`kanban/evidence/model_consumption.jsonl`,
+  local only). Fixed fees are known ($10 Go, $4.99 AI Plus); our own
+  token flow is what makes unit cost computable. Probe prompts keep
+  `max_tokens` high enough not to truncate reasoning (v1 seed hit the
+  ceiling at 60 — blind spot noted, not hidden).
 
 ## Artifacts
 
