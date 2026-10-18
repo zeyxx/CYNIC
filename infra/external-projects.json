@@ -102,6 +102,39 @@
         "test_result": "FAIL (npm test exit 1): 2 failing tests (strict fast-forward pull, normal push to fake local remote) \u2014 environment-dependent (git config/remote); 33 tests passed vs 33 failures on cortex",
         "notes": "Build baseline green on builder. Test failures are environment-dependent (git remote config). Project targets Windows 10/11 per README."
       }
+    },
+    {
+      "project_id": "gasdf",
+      "display_name": "GASdf",
+      "repo_url": "https://github.com/zeyxx/GASdf.git",
+      "default_branch": "main",
+      "collaborator_ids": [
+        "zeyxx"
+      ],
+      "language_stack": "node",
+      "observed_manifests": [
+        "package.json",
+        "Dockerfile"
+      ],
+      "build_commands": [
+        "npm start",
+        "npm test"
+      ],
+      "test_commands": [
+        "npm test"
+      ],
+      "build_commands_status": "inferred_from_manifest_presence",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "notes": "Operator-owned gasless relay (Kora-backed, x402). Live clone NOT under ~/.cynic/external (declared divergence): /home/user/Bureau/SOLANA/asdf-forge/zeyxx/GASdf @ 0aef98c on feat/gasdf-launch-prep-2026-06-14 (2026-10-18). Stale twin: /home/user/Documents/gasdf-repo @ 43d0521 (2026-04-08, removal pending operator). Relay-107 (LXC relay-107) running 2026-10-18.",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "cortex (node v22.23.3 present)",
+        "build_result": "not run",
+        "test_result": "not run",
+        "notes": "Scripts from package.json (start/dev/test/lint/format); run on builder pending before verified."
+      }
     }
   ],
   "rules": [
