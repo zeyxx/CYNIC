@@ -63,8 +63,12 @@ pub enum NodeComputeCommand {
         /// Builder guest vmid to convert (must be stopped and hygiene-clean).
         #[arg(long)]
         vmid: u32,
-        /// Proxmox SSH target for the hygiene scan
-        /// (breakglass, never a hardcoded default).
+        /// Guest-direct SSH target for the hygiene scan
+        /// (caller-supplied address, never a hardcoded default).
+        #[arg(long)]
+        guest_host: String,
+        /// Proxmox SSH target for the SSH-breakglass convert fallback
+        /// (never a hardcoded default).
         #[arg(long)]
         hypervisor: String,
         /// Proxmox node name for the REST convert path. Defaults to `pve`.
@@ -219,11 +223,12 @@ pub async fn dispatch(cmd: NodeComputeCommand) -> ExitCode {
         }
         NodeComputeCommand::Template {
             vmid,
+            guest_host,
             hypervisor,
             node,
             apply,
         } => {
-            return apply_template(hypervisor, node, vmid, apply).await;
+            return apply_template(guest_host, hypervisor, node, vmid, apply).await;
         },
         NodeComputeCommand::Provision {
             vmid,
@@ -502,12 +507,18 @@ async fn apply_clone_rest(
 /// any hit, otherwise stop + convert to template and prove `template: 1`
 /// with a config read-back. Plan-only emits the scan argv without touching
 /// the hypervisor.
-async fn apply_template(hypervisor: String, node: String, vmid: u32, apply: bool) -> ExitCode {
+async fn apply_template(
+    guest_host: String,
+    hypervisor: String,
+    node: String,
+    vmid: u32,
+    apply: bool,
+) -> ExitCode {
     let runner = LocalArgvRunner;
-    let scanner = match ProxmoxSshCloneAdapter::new(&runner, hypervisor) {
+    let scanner = match ProxmoxSshCloneAdapter::new(&runner, guest_host) {
         Ok(adapter) => adapter,
         Err(e) => {
-            eprintln!("error: invalid hypervisor target: {e}");
+            eprintln!("error: invalid guest target: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -572,7 +583,14 @@ async fn apply_template(hypervisor: String, node: String, vmid: u32, apply: bool
             }
         }
     }
-    match scanner.convert_template(vmid) {
+    let converter = match ProxmoxSshCloneAdapter::new(&runner, hypervisor) {
+        Ok(adapter) => adapter,
+        Err(e) => {
+            eprintln!("error: invalid hypervisor target: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match converter.convert_template(vmid) {
         Ok(()) => {
             emit_json(
                 &serde_json::json!({
