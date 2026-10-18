@@ -82,9 +82,12 @@ What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too
   token stored `/etc/cynic/secrets/freebox-app-token` (600, cynic) —
   session opens, `fw/redir` readable.
 - RESOLVED A1: public IPv4 `82.65.26.228`; exactly ONE active NAT rule —
-  WAN 8006 → 192.168.0.37:8006 (pve, PVE web UI exposée à l'internet
-  entier, sans commentaire). Décision opérateur requise : restreindre
-  (IP allowlist box) ou fermer (accès via WG uniquement).
+  WAN 8006 → 192.168.0.37:8006 (pve). Consumer UNKNOWN (operator 2026-10-18:
+  "je sais pas") — decision DEFERRED pending measurement, rule stays but
+  is flagged `unresolved`, not accepted. Next: pveproxy access log
+  (`grep -oE '^[0-9.]+' /var/log/pveproxy/access.log | sort | uniq -c |
+  sort -rn | head`) to list proven remote consumers before choosing
+  close (WG-only) vs harden (TOTP + fail2ban).
 - Dette : `cynic-cli network observe --freebox` panique (tokio runtime
   drop, pré-existant) — diagnostic sous-agent en cours, territoire pair.
 
