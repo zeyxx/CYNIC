@@ -60,6 +60,9 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
             }
         },
         Command::Audit { command } => crate::audit_surface::execute_audit(&command),
+        Command::Collaborator { command } => {
+            crate::collaborator_surface::execute_collaborator(&command)
+        }
         Command::Chat {
             prompt,
             resume,

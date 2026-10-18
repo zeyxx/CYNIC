@@ -63,7 +63,11 @@ All promotions and demotions must be recorded in `infra/collaborators.json` with
 
 ## Current Status
 
-- OQ-4 is deferred. Promotion criteria are defined but not yet enforced in code.
-- Enforcement will require: (1) trust tier checks in `admit_external_source_operation`,
-  (2) promotion/demotion usecases in cynic-node, (3) CLI surface for promotion commands.
-- Current collaborators: robinho (trust_tier: 1, founder of aegisscan/aegis-core/ai-bus).
+- OQ-4 is **enforced in code** as of 2026-10-18.
+- Trust tier checks live in `cynic-vcs/src/external_source.rs` (`admit_external_source_operation` with `trust_tier` param).
+- Promotion/demotion usecase: `cynic-node/src/usecases/collaborator_trust_uc.rs` (`evaluate_trust_promotion`).
+- CLI surface: `cynic collaborator status|promote|demote` (see `cynic-cli/src/collaborator_surface.rs`).
+- Promotion requires: operator approval (`--yes`), evidence refs, and trust tier admission for the target operation.
+- Tier 2 → Tier 1 requires ≥3 evidence refs (PR track record).
+- Tier 3 → Tier 2 requires ≥1 evidence ref (read-back proof).
+- Current collaborators: titouan (trust_level: core), robinho100 (trust_level: observed).

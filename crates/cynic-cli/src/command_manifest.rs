@@ -127,6 +127,14 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "collaborator",
+                commands: vec![
+                    "cynic collaborator status [--json] [--registry <path>]",
+                    "cynic collaborator promote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
+                    "cynic collaborator demote <collaborator_id> --to-tier <tier> --yes [--evidence <ref>] [--operation <op>] [--registry <path>]",
+                ],
+            },
+            CommandDomain {
                 name: "secret",
                 commands: vec![
                     "cynic secret status [--json]",

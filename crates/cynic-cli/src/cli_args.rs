@@ -150,6 +150,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: AuditCommand,
     },
+    /// Collaborator trust tier governance: status, promote, demote.
+    Collaborator {
+        #[command(subcommand)]
+        command: crate::collaborator_surface::CollaboratorCommand,
+    },
     /// Fire-and-forget agent coordination log.
     Coordination {
         #[command(subcommand)]
