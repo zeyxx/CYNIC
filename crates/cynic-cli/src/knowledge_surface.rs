@@ -333,7 +333,18 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             model,
             json,
         } => {
-            let cache_path = cynic_types::CynicPaths::knowledge_cache_path();
+            let cache_path = {
+                let system_path = cynic_types::CynicPaths::system_knowledge_cache_path();
+                let system_usable = system_path
+                    .parent()
+                    .map(std::fs::create_dir_all)
+                    .is_some_and(|result| result.is_ok());
+                if system_usable {
+                    system_path
+                } else {
+                    cynic_types::CynicPaths::user_knowledge_cache_path()
+                }
+            };
             let (cache, index) =
                 cynic_knowledge::sync_workspace_corpus(&repo_root, Some(&cache_path), commits);
             // Measured default (90 graded queries: dense+policy MRR 0.574 vs
