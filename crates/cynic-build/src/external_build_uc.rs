@@ -12,10 +12,8 @@
 //! construction from live results.
 
 use crate::external_build::{
-    ExternalBuildKind, ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest,
-    ExternalCommandResult,
+    ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest, ExternalCommandResult,
 };
-use crate::ports::BuildCommandOutput;
 
 // ── Usecase: run full build proof ─────────────────────────────────────────────
 
@@ -62,7 +60,8 @@ pub fn run_external_command(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::external_build::build_external_proof;
+    use crate::external_build::{ExternalBuildKind, build_external_proof};
+    use crate::ports::BuildCommandOutput;
 
     // ── Mock port ──────────────────────────────────────────────────────────────
 
