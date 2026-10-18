@@ -46,6 +46,12 @@ pub enum ApprovalOp {
     List {
         #[arg(long, default_value_t = false)]
         all: bool,
+        /// With a Freebox endpoint, also show live NAT rules (read-only read-back).
+        #[arg(long)]
+        freebox_endpoint: Option<String>,
+        /// Freebox app_id as paired on the box display.
+        #[arg(long, default_value = "cynic")]
+        freebox_app_id: String,
     },
     /// Approve an intent; with `--execute`, consume it and run the action now.
     Approve {
@@ -56,6 +62,9 @@ pub enum ApprovalOp {
         /// Freebox LAN endpoint (required to execute fw-redir deletes).
         #[arg(long)]
         freebox_endpoint: Option<String>,
+        /// Freebox app_id as paired on the box display.
+        #[arg(long, default_value = "cynic")]
+        freebox_app_id: String,
         /// Proxmox node (required to execute lxc destroys).
         #[arg(long)]
         node: Option<String>,
@@ -648,7 +657,7 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        ApprovalOp::List { all } => match read_queue(&path) {
+        ApprovalOp::List { all, freebox_endpoint, freebox_app_id } => match read_queue(&path) {
             Ok(intents) => {
                 let shown: Vec<&DestructiveIntent> = if all {
                     intents.iter().collect()
@@ -663,11 +672,29 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
                         })
                         .collect()
                 };
+                let live_rules = freebox_endpoint.as_deref().map(|endpoint| {
+                    let adapter = HttpFreeboxProbeAdapter {
+                        timeout: std::time::Duration::from_secs(3),
+                        app_id: freebox_app_id,
+                    };
+                    adapter
+                        .list_fw_redirs(endpoint)
+                        .map(|rules| {
+                            rules
+                                .iter()
+                                .map(|(id, port, comment)| {
+                                    serde_json::json!({"id": id, "wan_port": port, "comment": comment})
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .map_err(|e| e.to_string())
+                });
                 emit_json(
                     &serde_json::json!({
                         "schema": "cynic.node.compute.approval.v1",
                         "status": "listed",
                         "intents": shown,
+                        "live_fw_rules": live_rules,
                     }),
                     false,
                 );
@@ -682,6 +709,7 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
             id,
             execute,
             freebox_endpoint,
+            freebox_app_id,
             node,
         } => {
             let now = std::time::SystemTime::now()
@@ -702,7 +730,7 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
                         return ExitCode::SUCCESS;
                     }
                     match consume_intent(&path, &id, now) {
-                        Ok(action) => match execute_approved(action, freebox_endpoint, node).await
+                        Ok(action) => match execute_approved(action, freebox_endpoint, freebox_app_id, node).await
                         {
                             Ok(receipt) => {
                                 emit_json(
@@ -741,17 +769,23 @@ async fn apply_approval(op: ApprovalOp) -> ExitCode {
 async fn execute_approved(
     action: DestructiveAction,
     freebox_endpoint: Option<String>,
+    freebox_app_id: String,
     node: Option<String>,
 ) -> Result<serde_json::Value, String> {
     match action {
         DestructiveAction::FreeboxFwRedirDelete { rule_id } => {
             let endpoint = freebox_endpoint
                 .ok_or_else(|| "approval_execute_needs_freebox_endpoint".to_string())?;
-            let adapter = HttpFreeboxProbeAdapter::default();
+            let adapter = HttpFreeboxProbeAdapter {
+                timeout: std::time::Duration::from_secs(3),
+                app_id: freebox_app_id,
+            };
             adapter.delete_fw_redir(&endpoint, rule_id)?;
+            let remaining = adapter.list_fw_redirs(&endpoint)?;
             Ok(serde_json::json!({
                 "action": "freebox_fw_redir_delete",
                 "rule_id": rule_id,
+                "remaining_rules": remaining.iter().map(|(id, port, comment)| serde_json::json!({"id": id, "wan_port": port, "comment": comment})).collect::<Vec<_>>(),
             }))
         }
         DestructiveAction::ProxmoxLxcDestroy { vmid } => {

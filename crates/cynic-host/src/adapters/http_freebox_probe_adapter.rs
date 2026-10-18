@@ -113,6 +113,74 @@ impl HttpFreeboxProbeAdapter {
         .map_err(|_| "freebox_delete_thread_panicked".to_string())?
     }
 
+    /// List NAT/port-forwarding rules (id, ports, comment) over an
+    /// authenticated session. Read-only; the approval read-back path.
+    pub fn list_fw_redirs(&self, endpoint: &str) -> Result<Vec<(u32, u16, String)>, String> {
+        let inner_endpoint = endpoint.to_string();
+        let inner_timeout = self.timeout;
+        let inner_app_id = self.app_id.clone();
+        std::thread::spawn(move || {
+            Self::list_fw_redirs_blocking(&inner_endpoint, inner_timeout, &inner_app_id)
+        })
+        .join()
+        .map_err(|_| "freebox_list_thread_panicked".to_string())?
+    }
+
+    fn list_fw_redirs_blocking(
+        endpoint: &str,
+        timeout: Duration,
+        app_id: &str,
+    ) -> Result<Vec<(u32, u16, String)>, String> {
+        let token = Self::resolve_app_token().ok_or_else(|| "freebox_app_token_missing".to_string())?;
+        let client = reqwest::blocking::Client::builder()
+            .timeout(timeout)
+            .build()
+            .map_err(|e| format!("http_client_init_failed:{e}"))?;
+        let challenge: String = client
+            .get(&format!("{endpoint}/api/v10/login/"))
+            .send()
+            .map_err(|e| format!("freebox_challenge_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/challenge")
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| "freebox_challenge_missing".to_string())?
+            .to_string();
+        let password = Self::compute_password(&token, &challenge)?;
+        let session_token: String = client
+            .post(&format!("{endpoint}/api/v10/login/session/"))
+            .json(&serde_json::json!({ "app_id": app_id, "password": password }))
+            .send()
+            .map_err(|e| format!("freebox_session_request_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result/session_token")
+            .and_then(|st| st.as_str())
+            .ok_or_else(|| "freebox_session_rejected".to_string())?
+            .to_string();
+        let rules: Vec<Value> = client
+            .get(&format!("{endpoint}/api/v10/fw/redir/"))
+            .header("X-Fbx-App-Auth", session_token)
+            .send()
+            .map_err(|e| format!("freebox_redir_list_failed:{e}"))?
+            .json::<Value>()
+            .map_err(|e| format!("freebox_json_parse_failed:{e}"))?
+            .pointer("/result")
+            .and_then(|r| r.as_array())
+            .ok_or_else(|| "freebox_redir_shape_unexpected".to_string())?
+            .clone();
+        Ok(rules
+            .iter()
+            .map(|r| {
+                (
+                    r.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                    r.get("wan_port_start").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                    r.get("comment").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                )
+            })
+            .collect())
+    }
+
     fn delete_fw_redir_blocking(
         endpoint: &str,
         timeout: Duration,
