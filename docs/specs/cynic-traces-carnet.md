@@ -27,12 +27,24 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   machine : 7 sessions JSON-identiques (plain, codex, compaction,
   corrections) + stats 200/200 sessions.
 - Contrat FIELD_FATE transcrit par machine depuis le Python (zéro recopie).
-- Leçon E5 (float repr) : les flottants se comparent en epsilon, les
-  entiers en exact — consigné dans le test de parité.
+- **E5 (T3)** : float repr — les flottants se comparent en epsilon, les
+  entiers en exact.
+- **E6 (T4)** : 1 167 insertions d'un coup, c'est trop pour une tranche —
+  les preuves portent la revue mais le volume la ralentit. Tranches
+  futures < 500 lignes de diff, quitte à multiplier les PR.
 
-### T4 — Magasin canonique + runner conservation [ ]
-- Writer SQLite Rust + runner α1–α4 machine sur le gel.
-- Porte de sortie : `verify_conservation.py` retraité (`HITL` : retrait du Python).
+### T4 — Magasin canonique + runner conservation [x]
+- Preuves : builder CONVERGED ; `tests/conservation_proof.rs` vert :
+  chargement complet du gel (2 795 sessions, 0 échec), comptes
+  source==canonique, clôture α1–α4 vide sur le DDL vivant, round-trip
+  store->entités sur échantillons, comparaison au vieux Silver.
+- `apps/cynic-data/verify_conservation.py` retraité (remplacé par la
+  preuve Rust).
+- Revue pré-merge (7 prismes) : `source_uids` malformé lève désormais
+  (fail-closed), preuve hermétique (snapshot DDL gelé + détecteur de
+  dérive), générateur de contrat versionné et rejouable, chemins
+  surchargeables par env, `write()` transactionnel, frontière
+  documentée dans `lib.rs`.
 
 ### T5 — Guards ré-ancrés + non-vacuité en CI [ ]
 - Nouveaux ancres post-déménagement ; `check_nonvacuity` sur le pipeline Rust.

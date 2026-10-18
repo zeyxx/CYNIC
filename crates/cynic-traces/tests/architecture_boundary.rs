@@ -67,6 +67,10 @@ fn adapters_own_all_io() {
         "src/adapters/hermes/contract.rs",
         "src/adapters/hermes/human.rs",
         "src/adapters/hermes/normalizer.rs",
+        "src/adapters/content_store.rs",
+        "src/adapters/store_schema.rs",
+        "src/adapters/store_sqlite.rs",
+        "src/usecases.rs",
     ] {
         let content = std::fs::read_to_string(Path::new(manifest_dir).join(file)).unwrap();
         for needle in ["std::process", "std::net", "tokio::spawn", "tokio::fs"] {

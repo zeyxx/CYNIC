@@ -1,6 +1,9 @@
-//! Hermes conservation contract — MACHINE-TRANSCRIBED from
-//! `apps/cynic-data/.../hermes_contract.py`. Do not hand-edit:
-//! re-run the generator. Prose rationale lives in the Python source.
+//! Hermes conservation contract — MACHINE-TRANSCRIBED.
+//!
+//! Do not hand-edit. Regenerate with:
+//!   PYTHONPATH=apps/cynic-data/src python3 crates/cynic-traces/tools/gen_hermes_contract.py
+//! Prose rationale lives in the Python source
+//! (apps/cynic-data/.../hermes_contract.py).
 
 use std::collections::HashMap;
 
