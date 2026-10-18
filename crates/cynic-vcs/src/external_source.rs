@@ -94,15 +94,50 @@ pub struct ExternalSourceAdmission {
     pub blockers: Vec<String>,
 }
 
+/// Check if the given trust tier permits the given operation.
+///
+/// Trust tiers (see docs/design/COLLABORATOR_TRUST_PROMOTION.md):
+/// - Tier 3 (Observer): read-only — clone, fetch, list_branches.
+/// - Tier 2 (Contributor): branch + PR — clone, fetch, list_branches,
+///   create_branch, push, create_pr.
+/// - Tier 1 (Maintainer): all operations — adds push_protected, merge.
+///
+/// Returns `true` if the operation is allowed at the given tier.
+fn trust_tier_allows(trust_tier: u8, operation: &str) -> bool {
+    match trust_tier {
+        // Tier 3 — Observer: read-only.
+        3 => matches!(operation, "clone" | "fetch" | "list_branches"),
+        // Tier 2 — Contributor: branch + PR.
+        2 => matches!(
+            operation,
+            "clone" | "fetch" | "list_branches" | "create_branch" | "push" | "create_pr"
+        ),
+        // Tier 1 — Maintainer: all operations.
+        1 => matches!(
+            operation,
+            "clone"
+                | "fetch"
+                | "list_branches"
+                | "create_branch"
+                | "push"
+                | "create_pr"
+                | "push_protected"
+                | "merge"
+        ),
+        _ => false,
+    }
+}
+
 /// Validate that a project is eligible for external source operations.
 ///
-/// Pure: no I/O. Checks mutation_policy allows the operation and sensitivity
-/// does not forbid it.
+/// Pure: no I/O. Checks trust tier allows the operation, mutation_policy
+/// allows the operation, and sensitivity does not forbid it.
 pub fn admit_external_source_operation(
     project_id: &str,
     mutation_policy: &str,
     sensitivity: &str,
     operation: &str,
+    trust_tier: u8,
 ) -> ExternalSourceAdmission {
     let mut blockers = Vec::new();
 
@@ -110,20 +145,22 @@ pub fn admit_external_source_operation(
         blockers.push("project_id is empty".to_string());
     }
 
+    if !trust_tier_allows(trust_tier, operation) {
+        blockers.push(format!(
+            "trust_tier {trust_tier} does not allow '{operation}'"
+        ));
+    }
+
     match mutation_policy {
         "read_only" => {
             if operation != "clone" && operation != "fetch" && operation != "list_branches" {
-                blockers.push(format!(
-                    "mutation_policy 'read_only' forbids '{operation}'"
-                ));
+                blockers.push(format!("mutation_policy 'read_only' forbids '{operation}'"));
             }
         }
         "branch_pr" => {
             // branch_pr allows clone, fetch, branch, push (to non-protected), pr_create
             if operation == "push_protected" || operation == "merge" {
-                blockers.push(format!(
-                    "mutation_policy 'branch_pr' forbids '{operation}'"
-                ));
+                blockers.push(format!("mutation_policy 'branch_pr' forbids '{operation}'"));
             }
         }
         "direct_push_forbidden" => {
@@ -202,57 +239,364 @@ pub trait ExternalSourcePort: Send + Sync {
 mod tests {
     use super::*;
 
+    // ── Existing tests (updated with trust_tier param) ──────────────────────────
+
     #[test]
     fn admit_read_only_allows_clone() {
-        let r = admit_external_source_operation("aegisscan", "read_only", "public", "clone");
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "clone", 3);
         assert!(r.admitted);
         assert!(r.blockers.is_empty());
     }
 
     #[test]
     fn admit_read_only_forbids_push() {
-        let r = admit_external_source_operation("aegisscan", "read_only", "public", "push");
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "push", 2);
         assert!(!r.admitted);
         assert!(!r.blockers.is_empty());
     }
 
     #[test]
     fn admit_branch_pr_allows_branch() {
-        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "create_branch");
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "create_branch", 2);
         assert!(r.admitted);
     }
 
     #[test]
     fn admit_branch_pr_forbids_merge() {
-        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge");
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 1);
         assert!(!r.admitted);
     }
 
     #[test]
     fn admit_sanitized_forbids_deploy() {
-        let r = admit_external_source_operation("aegis-core", "read_only", "sanitized", "deploy");
+        let r =
+            admit_external_source_operation("aegis-core", "read_only", "sanitized", "deploy", 3);
         assert!(!r.admitted);
         assert!(r.blockers.iter().any(|b| b.contains("sanitized")));
     }
 
     #[test]
     fn admit_sanitized_forbids_arm() {
-        let r = admit_external_source_operation("aegis-core", "read_only", "sanitized", "arm");
+        let r = admit_external_source_operation("aegis-core", "read_only", "sanitized", "arm", 3);
         assert!(!r.admitted);
     }
 
     #[test]
     fn admit_empty_project_id_blocked() {
-        let r = admit_external_source_operation("", "read_only", "public", "clone");
+        let r = admit_external_source_operation("", "read_only", "public", "clone", 3);
         assert!(!r.admitted);
         assert!(r.blockers.iter().any(|b| b.contains("project_id is empty")));
     }
 
     #[test]
     fn admit_unknown_policy_blocked() {
-        let r = admit_external_source_operation("aegisscan", "unknown_policy", "public", "clone");
+        let r =
+            admit_external_source_operation("aegisscan", "unknown_policy", "public", "clone", 3);
         assert!(!r.admitted);
     }
+
+    // ── Tier 3 (Observer) — read-only ─────────────────────────────────────────
+
+    #[test]
+    fn tier3_allows_clone() {
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "clone", 3);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier3_allows_fetch() {
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "fetch", 3);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier3_allows_list_branches() {
+        let r =
+            admit_external_source_operation("aegisscan", "read_only", "public", "list_branches", 3);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier3_forbids_create_branch() {
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "create_branch", 3);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+    }
+
+    #[test]
+    fn tier3_forbids_push() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "push", 3);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+    }
+
+    #[test]
+    fn tier3_forbids_create_pr() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "create_pr", 3);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+    }
+
+    #[test]
+    fn tier3_forbids_push_protected() {
+        let r = admit_external_source_operation(
+            "aegisscan",
+            "branch_pr",
+            "public",
+            "push_protected",
+            3,
+        );
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+    }
+
+    #[test]
+    fn tier3_forbids_merge() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 3);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+    }
+
+    // ── Tier 2 (Contributor) — branch + PR ────────────────────────────────────
+
+    #[test]
+    fn tier2_allows_clone() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "clone", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_allows_fetch() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "fetch", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_allows_list_branches() {
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "list_branches", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_allows_create_branch() {
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "create_branch", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_allows_push() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "push", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_allows_create_pr() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "create_pr", 2);
+        assert!(r.admitted);
+        assert!(r.blockers.is_empty());
+    }
+
+    #[test]
+    fn tier2_forbids_push_protected() {
+        let r = admit_external_source_operation(
+            "aegisscan",
+            "branch_pr",
+            "public",
+            "push_protected",
+            2,
+        );
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 2")));
+    }
+
+    #[test]
+    fn tier2_forbids_merge() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 2);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 2")));
+    }
+
+    // ── Tier 1 (Maintainer) — all operations ──────────────────────────────────
+
+    #[test]
+    fn tier1_allows_clone() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "clone", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_fetch() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "fetch", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_list_branches() {
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "list_branches", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_create_branch() {
+        let r =
+            admit_external_source_operation("aegisscan", "branch_pr", "public", "create_branch", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_push() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "push", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_create_pr() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "create_pr", 1);
+        assert!(r.admitted);
+    }
+
+    #[test]
+    fn tier1_allows_push_protected() {
+        // push_protected is forbidden by branch_pr policy, but we use direct_push
+        // (custom policy) to isolate the trust_tier check.
+        let r = admit_external_source_operation(
+            "aegisscan",
+            "direct_push",
+            "public",
+            "push_protected",
+            1,
+        );
+        // direct_push is not a known policy → blocked by mutation_policy, not trust_tier.
+        // To test tier1 allowing push_protected, we need a policy that permits it.
+        // Since all known policies forbid push_protected, we test tier1 vs tier2
+        // with the branch_pr policy — both should produce a blocker, but tier1's
+        // blocker should NOT contain "trust_tier 1" while tier2's should contain "trust_tier 2".
+        let r1 = admit_external_source_operation(
+            "aegisscan",
+            "branch_pr",
+            "public",
+            "push_protected",
+            1,
+        );
+        assert!(!r1.admitted);
+        assert!(!r1.blockers.iter().any(|b| b.contains("trust_tier 1")));
+        assert!(r1.blockers.iter().any(|b| b.contains("branch_pr")));
+    }
+
+    #[test]
+    fn tier1_forbids_nothing_by_tier() {
+        // With a permissive setup, tier1 should never add a trust_tier blocker.
+        // We verify by checking that tier1 with an unknown op (not in any list)
+        // produces a trust_tier blocker, while known ops with branch_pr produce
+        // only policy blockers.
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 1);
+        assert!(!r.admitted);
+        // merge is forbidden by branch_pr policy, not by trust_tier.
+        assert!(!r.blockers.iter().any(|b| b.contains("trust_tier")));
+    }
+
+    #[test]
+    fn tier1_vs_tier2_push_protected() {
+        // tier2 gets a trust_tier blocker for push_protected.
+        let r2 = admit_external_source_operation(
+            "aegisscan",
+            "branch_pr",
+            "public",
+            "push_protected",
+            2,
+        );
+        assert!(r2.blockers.iter().any(|b| b.contains("trust_tier 2")));
+        // tier1 does NOT get a trust_tier blocker for push_protected.
+        let r1 = admit_external_source_operation(
+            "aegisscan",
+            "branch_pr",
+            "public",
+            "push_protected",
+            1,
+        );
+        assert!(!r1.blockers.iter().any(|b| b.contains("trust_tier")));
+    }
+
+    #[test]
+    fn tier1_vs_tier2_merge() {
+        // tier2 gets a trust_tier blocker for merge.
+        let r2 = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 2);
+        assert!(r2.blockers.iter().any(|b| b.contains("trust_tier 2")));
+        // tier1 does NOT get a trust_tier blocker for merge.
+        let r1 = admit_external_source_operation("aegisscan", "branch_pr", "public", "merge", 1);
+        assert!(!r1.blockers.iter().any(|b| b.contains("trust_tier")));
+    }
+
+    // ── Invalid trust tiers ───────────────────────────────────────────────────
+
+    #[test]
+    fn tier0_blocks_everything() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "clone", 0);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 0")));
+    }
+
+    #[test]
+    fn tier4_blocks_everything() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "clone", 4);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 4")));
+    }
+
+    #[test]
+    fn tier255_blocks_everything() {
+        let r = admit_external_source_operation("aegisscan", "branch_pr", "public", "clone", 255);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 255")));
+    }
+
+    // ── Combined: trust_tier + mutation_policy ─────────────────────────────────
+
+    #[test]
+    fn tier3_read_only_combo() {
+        // Tier 3 + read_only: both allow clone → admitted.
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "clone", 3);
+        assert!(r.admitted);
+        // Tier 3 + read_only + push: both forbid → two blockers.
+        let r = admit_external_source_operation("aegisscan", "read_only", "public", "push", 3);
+        assert!(!r.admitted);
+        assert!(r.blockers.iter().any(|b| b.contains("trust_tier 3")));
+        assert!(r.blockers.iter().any(|b| b.contains("read_only")));
+    }
+
+    #[test]
+    fn tier2_direct_push_forbidden_combo() {
+        // Tier 2 allows push, but direct_push_forbidden forbids it.
+        let r = admit_external_source_operation(
+            "aegisscan",
+            "direct_push_forbidden",
+            "public",
+            "push",
+            2,
+        );
+        assert!(!r.admitted);
+        assert!(!r.blockers.iter().any(|b| b.contains("trust_tier 2")));
+        assert!(
+            r.blockers
+                .iter()
+                .any(|b| b.contains("direct_push_forbidden"))
+        );
+    }
+
+    // ── Port trait object safety ───────────────────────────────────────────────
 
     #[test]
     fn port_trait_object_safe() {
@@ -276,7 +620,10 @@ mod tests {
             fn fetch(&self, _repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
                 Ok(vec![])
             }
-            fn list_branches(&self, _repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
+            fn list_branches(
+                &self,
+                _repo: &ExternalRepoRef,
+            ) -> Result<Vec<ExternalBranch>, String> {
                 Ok(vec![])
             }
             fn create_branch(
@@ -324,14 +671,17 @@ mod tests {
             }
         }
         let port: Box<dyn ExternalSourcePort> = Box::new(MockPort);
-        assert!(port.clone_repo(
-            &ExternalRepoRef {
-                project_id: "test".to_string(),
-                remote_url: "https://example.com".to_string(),
-                default_branch: "main".to_string(),
-                provider: ExternalProvider::GitHub,
-            },
-            "/tmp/test"
-        ).is_ok());
+        assert!(
+            port.clone_repo(
+                &ExternalRepoRef {
+                    project_id: "test".to_string(),
+                    remote_url: "https://example.com".to_string(),
+                    default_branch: "main".to_string(),
+                    provider: ExternalProvider::GitHub,
+                },
+                "/tmp/test"
+            )
+            .is_ok()
+        );
     }
 }
