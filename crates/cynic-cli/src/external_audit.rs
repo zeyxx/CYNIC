@@ -9,6 +9,7 @@
 //! NEGATIVE BOUNDARY: read-only. Never mutates the registry, never clones,
 //! builds, or deploys an external project. No network I/O.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -32,6 +33,8 @@ pub struct ExternalProjectView {
     pub test_commands: Vec<String>,
     pub build_commands_status: Option<String>,
     pub ports_used: Vec<String>,
+    pub port_status: Option<BTreeMap<String, String>>,
+    pub port_wiring_status: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,6 +64,14 @@ fn str_vec(v: &Value, key: &str) -> Vec<String> {
 
 fn opt_str(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(|x| x.as_str()).map(str::to_string)
+}
+
+fn opt_str_map(v: &Value, key: &str) -> Option<BTreeMap<String, String>> {
+    v.get(key).and_then(|x| x.as_object()).map(|obj| {
+        obj.iter()
+            .filter_map(|(k, val)| val.as_str().map(|s| (k.clone(), s.to_string())))
+            .collect()
+    })
 }
 
 pub fn scan(registry_path: &Path) -> ExternalProjectsReport {
@@ -130,6 +141,8 @@ pub fn scan(registry_path: &Path) -> ExternalProjectsReport {
             test_commands: str_vec(p, "test_commands"),
             build_commands_status: opt_str(p, "build_commands_status"),
             ports_used: str_vec(p, "ports_used"),
+            port_status: opt_str_map(p, "port_status"),
+            port_wiring_status: opt_str(p, "port_wiring_status"),
         });
     }
 
@@ -166,6 +179,12 @@ pub fn render_text(report: &ExternalProjectsReport) {
         }
         if let Some(s) = &p.build_commands_status {
             println!("      build status: {}", s);
+        }
+        if let Some(ps) = &p.port_status {
+            println!("      port wiring: {}", p.port_wiring_status.as_deref().unwrap_or("unknown"));
+            for (port, status) in ps {
+                println!("        {} => {}", port, status);
+            }
         }
     }
     if !report.residual_unknowns.is_empty() {
