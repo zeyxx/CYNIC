@@ -1407,7 +1407,9 @@ dependencies = [
 name = "cynic-traces"
 version = "0.8.0"
 dependencies = [
+ "chrono",
  "regex",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.11.0",

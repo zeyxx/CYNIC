@@ -1,8 +1,9 @@
 //! `cynic-traces`: canonical entities for agent session traces.
 //!
-//! Tranche 2 owns the kernel (contracts, errors, stable ids), the
-//! conservation contract (FIELD_FATE closure, α1–α4 checkability), and the
-//! ports. Adapters and proof runners land in tranche 3 — no stubs here.
+//! Tranche 3 owns the Hermes reference vertical: NormalizerPort over the
+//! frozen capture, machine-transcribed conservation contract, strict port
+//! of the Python normalizer. Exit gate: Rust output == Python output on
+//! the gel (tests/hermes_parity.rs).
 //!
 //! Frozen capture adopted by tranche 1:
 //! `/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite`
@@ -10,6 +11,7 @@
 //! `4a2c4085ce1151aa7f8bad3103e80a64c1b6548a98423980242be9856a02a95b`,
 //! 314194 messages / 2795 sessions, integrity re-verified 2026-10-18).
 
+pub mod adapters;
 pub mod conservation;
 pub mod domain;
 pub mod kernel;
