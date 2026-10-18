@@ -751,7 +751,7 @@ dependencies = [
  "cynic-surreal",
  "cynic-types",
  "cynic-vcs",
- "cynic-vcs-forgejo",
+ "cynic-vcs-providers",
  "cynic-workload",
  "cynic-zeroclaw-solana",
  "hex",
@@ -912,7 +912,7 @@ dependencies = [
  "cynic-storage",
  "cynic-types",
  "cynic-vcs",
- "cynic-vcs-forgejo",
+ "cynic-vcs-providers",
  "cynic-workload",
  "ed25519-dalek",
  "hex",
@@ -951,14 +951,17 @@ version = "0.8.0"
 dependencies = [
  "async-trait",
  "axum",
+ "cynic-consensus",
  "cynic-eval",
  "cynic-finance",
  "cynic-huggingface",
  "cynic-knowledge",
  "cynic-network",
+ "cynic-pool",
  "cynic-protocol",
  "cynic-secrets",
  "cynic-types",
+ "cynic-workload",
  "futures-util",
  "reqwest 0.13.5",
  "serde",
@@ -1119,8 +1122,12 @@ dependencies = [
 name = "cynic-market"
 version = "0.8.0"
 dependencies = [
+ "cynic-consensus",
+ "cynic-finance",
  "cynic-intel",
+ "cynic-pool",
  "cynic-protocol",
+ "cynic-workload",
  "serde",
  "serde_json",
  "tempfile",
@@ -1184,6 +1191,7 @@ dependencies = [
  "cynic-host",
  "cynic-inference",
  "cynic-intel-soc",
+ "cynic-kernel",
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-market",
@@ -1261,6 +1269,9 @@ version = "0.2.0"
 dependencies = [
  "blake3",
  "chrono",
+ "cynic-consensus",
+ "cynic-finance",
+ "cynic-workload",
  "hex",
  "serde",
  "serde_json",
@@ -1423,7 +1434,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-vcs-forgejo"
+name = "cynic-vcs-providers"
 version = "0.8.0"
 dependencies = [
  "cynic-secrets",
@@ -1445,6 +1456,7 @@ name = "cynic-workload"
 version = "0.8.0"
 dependencies = [
  "cynic-consensus",
+ "cynic-finance",
  "cynic-protocol",
  "hex",
  "serde",
