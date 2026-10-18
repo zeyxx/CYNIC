@@ -383,8 +383,9 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 manifest,
                 url,
                 output,
+                token_file,
                 json,
-            } => pull_artifact(&manifest, &url, &output, json),
+            } => pull_artifact(&manifest, &url, &output, &token_file, json),
             BuildArtifactCommand::Release {
                 artifact,
                 manifest,

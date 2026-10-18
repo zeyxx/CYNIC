@@ -44,6 +44,9 @@ pub(crate) enum BuildArtifactCommand {
         /// Where to write the verified artifact.
         #[arg(long)]
         output: String,
+        /// File holding the bearer token (the store is private).
+        #[arg(long, default_value = "/etc/cynic/secrets/forgejo-token")]
+        token_file: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -164,6 +167,7 @@ pub fn pull_artifact(
     manifest_path: &str,
     url: &str,
     output: &str,
+    token_file: &str,
     json: bool,
 ) -> Result<(), String> {
     let raw =
@@ -174,11 +178,19 @@ pub fn pull_artifact(
         return Err(format!("manifest_schema_unknown: {}", manifest.schema));
     }
     let url = url.to_string();
+    let token = std::fs::read_to_string(token_file)
+        .map_err(|e| format!("token_unreadable: {e}"))?
+        .trim()
+        .to_string();
     // reqwest::blocking builds its own runtime: keep it off the caller's
     // async runtime (dropping it inside one panics) via a plain OS thread.
     let bytes = std::thread::spawn(move || {
         let response =
-            reqwest::blocking::get(&url).map_err(|e| format!("pull_unreachable: {e}"))?;
+            reqwest::blocking::Client::new()
+                .get(&url)
+                .header("Authorization", format!("token {token}"))
+                .send()
+                .map_err(|e| format!("pull_unreachable: {e}"))?;
         if !response.status().is_success() {
             return Err(format!("pull_refused: http {}", response.status()));
         }
