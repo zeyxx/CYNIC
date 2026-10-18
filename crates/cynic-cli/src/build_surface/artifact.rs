@@ -32,17 +32,44 @@ pub(crate) enum BuildArtifactCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Pull an artifact over HTTP(S) and refuse it unless the digest matches.
+    /// Pull an artifact from an explicit URL and refuse it unless the
+    /// digest matches the manifest.
     Pull {
         /// Path to the publication manifest JSON.
         #[arg(long)]
         manifest: String,
-        /// Store base URL (e.g. https://10.10.10.103:8443).
+        /// Exact download URL (release attachment, store path, ...).
         #[arg(long)]
-        base_url: String,
+        url: String,
         /// Where to write the verified artifact.
         #[arg(long)]
         output: String,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Publish a built artifact as a Forgejo release attachment (the store).
+    /// Creates the release for the tag when absent, uploads the artifact
+    /// and its manifest, prints the download URLs.
+    Release {
+        /// Path to the built artifact file.
+        #[arg(long)]
+        artifact: String,
+        /// Path to the publication manifest JSON (from publish).
+        #[arg(long)]
+        manifest: String,
+        /// Repository as owner/name.
+        #[arg(long)]
+        repo: String,
+        /// Release tag (e.g. runtime-v1 or the source commit).
+        #[arg(long)]
+        tag: String,
+        /// Forgejo API base (no trailing slash).
+        #[arg(long, default_value = "http://forgejo.synapse.cynic:3000/api/v1")]
+        api_base: String,
+        /// File holding the bearer token (never argv).
+        #[arg(long, default_value = "/etc/cynic/secrets/forgejo-token")]
+        token_file: String,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
@@ -135,7 +162,7 @@ pub fn publish_artifact(
 
 pub fn pull_artifact(
     manifest_path: &str,
-    base_url: &str,
+    url: &str,
     output: &str,
     json: bool,
 ) -> Result<(), String> {
@@ -146,11 +173,7 @@ pub fn pull_artifact(
     if manifest.schema != ARTIFACT_PUBLICATION_MANIFEST_SCHEMA {
         return Err(format!("manifest_schema_unknown: {}", manifest.schema));
     }
-    let url = format!(
-        "{}/{}",
-        base_url.trim_end_matches('/'),
-        manifest.artifact_remote_path.trim_start_matches('/')
-    );
+    let url = url.to_string();
     // reqwest::blocking builds its own runtime: keep it off the caller's
     // async runtime (dropping it inside one panics) via a plain OS thread.
     let bytes = std::thread::spawn(move || {
@@ -169,6 +192,109 @@ pub fn pull_artifact(
         println!("{}", serde_json::to_string(&manifest).unwrap_or_default());
     } else {
         println!("pulled {output} sha256={} bytes={}", manifest.sha256_hex, bytes.len());
+    }
+    Ok(())
+}
+
+/// Publish a built artifact as Forgejo release attachments. The local
+/// artifact is re-verified against its manifest before upload; the release
+/// is created for the tag when absent. All network I/O stays on a plain OS
+/// thread (see pull_artifact).
+pub fn release_artifact(
+    artifact_path: &str,
+    manifest_path: &str,
+    repo: &str,
+    tag: &str,
+    api_base: &str,
+    token_file: &str,
+    json: bool,
+) -> Result<(), String> {
+    let raw = std::fs::read_to_string(manifest_path)
+        .map_err(|e| format!("manifest_unreadable: {e}"))?;
+    let manifest: ArtifactPublicationManifest =
+        serde_json::from_str(&raw).map_err(|e| format!("manifest_unparsable: {e}"))?;
+    let local = std::fs::read(artifact_path).map_err(|e| format!("artifact_unreadable: {e}"))?;
+    verify_pulled_bytes(&manifest, &local)?;
+    let token = std::fs::read_to_string(token_file)
+        .map_err(|e| format!("token_unreadable: {e}"))?
+        .trim()
+        .to_string();
+    let api = api_base.trim_end_matches('/').to_string();
+    let repo = repo.to_string();
+    let tag = tag.to_string();
+    let artifact_name = std::path::Path::new(artifact_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("artifact")
+        .to_string();
+
+    let urls = std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::new();
+        let release_id: i64 = match client
+            .get(format!("{api}/repos/{repo}/releases/tags/{tag}"))
+            .header("Authorization", format!("token {token}"))
+            .send()
+            .map_err(|e| format!("release_lookup_unreachable: {e}"))?
+        {
+            found if found.status().is_success() => found
+                .json::<serde_json::Value>()
+                .map_err(|e| format!("release_lookup_unparsable: {e}"))?
+                .get("id")
+                .and_then(|v| v.as_i64())
+                .ok_or_else(|| "release_lookup_missing_id".to_string())?,
+            _ => client
+                .post(format!("{api}/repos/{repo}/releases"))
+                .header("Authorization", format!("token {token}"))
+                .json(&serde_json::json!({
+                    "tag_name": tag,
+                    "name": tag,
+                    "body": format!("Runtime artifact release {tag} (source {})", manifest.source_commit),
+                }))
+                .send()
+                .map_err(|e| format!("release_create_unreachable: {e}"))?
+                .error_for_status()
+                .map_err(|e| format!("release_create_refused: {e}"))?
+                .json::<serde_json::Value>()
+                .map_err(|e| format!("release_create_unparsable: {e}"))?
+                .get("id")
+                .and_then(|v| v.as_i64())
+                .ok_or_else(|| "release_create_missing_id".to_string())?,
+        };
+        let mut uploaded = Vec::new();
+        for (filename, bytes) in [
+            (artifact_name, local),
+            ("publication-manifest.json".to_string(), raw.into_bytes()),
+        ] {
+            let part = reqwest::blocking::multipart::Part::bytes(bytes).file_name(filename.clone());
+            let form = reqwest::blocking::multipart::Form::new().part("attachment", part);
+            let resp = client
+                .post(format!("{api}/repos/{repo}/releases/{release_id}/assets?name={filename}"))
+                .header("Authorization", format!("token {token}"))
+                .multipart(form)
+                .send()
+                .map_err(|e| format!("asset_upload_unreachable: {filename}: {e}"))?
+                .error_for_status()
+                .map_err(|e| format!("asset_upload_refused: {filename}: {e}"))?;
+            let url = resp
+                .json::<serde_json::Value>()
+                .map_err(|e| format!("asset_upload_unparsable: {filename}: {e}"))?
+                .get("browser_download_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            uploaded.push(url);
+        }
+        Ok::<Vec<String>, String>(uploaded)
+    })
+    .join()
+    .map_err(|_| "release_worker_panicked".to_string())??;
+
+    if json {
+        println!("{}", serde_json::to_string(&urls).unwrap_or_default());
+    } else {
+        for url in &urls {
+            println!("released {url}");
+        }
     }
     Ok(())
 }

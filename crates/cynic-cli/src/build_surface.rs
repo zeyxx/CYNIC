@@ -23,7 +23,7 @@ use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 use archive::{ArchiveReport, archive_terminal_workloads};
-use artifact::{pull_artifact, publish_artifact};
+use artifact::{publish_artifact, pull_artifact, release_artifact};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -381,10 +381,19 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             } => publish_artifact(&artifact, &remote_path, &source_commit, &publisher, &output, json),
             BuildArtifactCommand::Pull {
                 manifest,
-                base_url,
+                url,
                 output,
                 json,
-            } => pull_artifact(&manifest, &base_url, &output, json),
+            } => pull_artifact(&manifest, &url, &output, json),
+            BuildArtifactCommand::Release {
+                artifact,
+                manifest,
+                repo,
+                tag,
+                api_base,
+                token_file,
+                json,
+            } => release_artifact(&artifact, &manifest, &repo, &tag, &api_base, &token_file, json),
         },
         BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
