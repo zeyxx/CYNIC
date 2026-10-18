@@ -23,7 +23,7 @@
       "purpose": "Run a project's observed build/test commands on the builder node (10.10.10.119) with read-back proof. Commands come from infra/external-projects.json (observed, not fabricated).",
       "mutation_policy": "read_only",
       "status": "adapter_defined",
-      "notes": "Trait + adapter defined. Local adapter in cynic-host. SSH/builder adapter pending."
+      "notes": "Trait + adapters defined. Local + SSH adapters in cynic-host. HTTP builder client available (resolve_builder_url)."
     },
     {
       "port_name": "EvidencePort",

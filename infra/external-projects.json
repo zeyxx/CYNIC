@@ -42,10 +42,10 @@
         "BuildPort",
         "EvidencePort"
       ],
-      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports, SSH for build)",
       "port_status": {
         "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
-        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "BuildPort": "adapter_defined (SshExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
         "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     },
@@ -84,10 +84,10 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports, SSH for build)",
       "port_status": {
         "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
-        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "BuildPort": "adapter_defined (SshExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
         "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     },
@@ -127,10 +127,10 @@
         "SourcePort",
         "BuildPort"
       ],
-      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports)",
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports, SSH for build)",
       "port_status": {
         "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter in cynic-vcs-forgejo)",
-        "BuildPort": "adapter_defined (LocalExternalBuildAdapter in cynic-host)",
+        "BuildPort": "adapter_defined (SshExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
         "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
     }
