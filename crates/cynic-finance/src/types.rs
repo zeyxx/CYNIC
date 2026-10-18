@@ -195,6 +195,51 @@ impl ResourceTransaction {
     }
 }
 
+/// Build metrics for a single crate — records build, sync, and test timings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BuildMetrics {
+    /// Name of the crate measured.
+    pub crate_name: String,
+    /// Build time in milliseconds.
+    pub build_time_ms: u64,
+    /// Sync time in milliseconds.
+    pub sync_time_ms: u64,
+    /// Test time in milliseconds.
+    pub test_time_ms: u64,
+    /// Whether the build cache was hit.
+    pub cache_hit: bool,
+}
+
+impl BuildMetrics {
+    /// Creates a new `BuildMetrics` instance.
+    pub fn new(
+        crate_name: impl Into<String>,
+        build_time_ms: u64,
+        sync_time_ms: u64,
+        test_time_ms: u64,
+        cache_hit: bool,
+    ) -> Self {
+        Self {
+            crate_name: crate_name.into(),
+            build_time_ms,
+            sync_time_ms,
+            test_time_ms,
+            cache_hit,
+        }
+    }
+
+    /// Returns the total time (build + sync + test) in milliseconds.
+    pub fn total_time_ms(&self) -> u64 {
+        self.build_time_ms + self.sync_time_ms + self.test_time_ms
+    }
+}
+
+impl From<&BuildMetrics> for ResourceUnit {
+    fn from(metrics: &BuildMetrics) -> Self {
+        ResourceUnit::ComputeCpuMs(metrics.build_time_ms)
+    }
+}
+
 /// A resource ledger — append-only, monotone, idempotent, double-entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourceLedger {
@@ -247,5 +292,49 @@ impl ResourceLedger {
     /// Returns all entries.
     pub fn entries(&self) -> &[ResourceTransaction] {
         &self.entries
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_metrics_new() {
+        let m = BuildMetrics::new("cynic-finance", 1500, 200, 800, false);
+        assert_eq!(m.crate_name, "cynic-finance");
+        assert_eq!(m.build_time_ms, 1500);
+        assert_eq!(m.sync_time_ms, 200);
+        assert_eq!(m.test_time_ms, 800);
+        assert!(!m.cache_hit);
+    }
+
+    #[test]
+    fn build_metrics_total_time_ms() {
+        let m = BuildMetrics::new("cynic-core", 1000, 500, 300, true);
+        assert_eq!(m.total_time_ms(), 1800);
+    }
+
+    #[test]
+    fn build_metrics_to_resource_unit() {
+        let m = BuildMetrics::new("cynic-build", 2500, 100, 400, false);
+        let ru: ResourceUnit = (&m).into();
+        assert_eq!(ru, ResourceUnit::ComputeCpuMs(2500));
+        assert_eq!(ru.resource_type(), ResourceType::Compute);
+    }
+
+    #[test]
+    fn build_metrics_cache_hit_flag() {
+        let m = BuildMetrics::new("cynic-proto", 0, 50, 0, true);
+        assert!(m.cache_hit);
+        assert_eq!(m.total_time_ms(), 50);
+    }
+
+    #[test]
+    fn build_metrics_serialization_roundtrip() {
+        let m = BuildMetrics::new("cynic-test", 100, 20, 30, true);
+        let json = serde_json::to_string(&m).expect("serialize");
+        let deserialized: BuildMetrics = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(m, deserialized);
     }
 }
