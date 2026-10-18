@@ -9,8 +9,8 @@
 use std::process::Command;
 
 use cynic_vcs::external_source::{
-    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof,
-    ExternalRepoRef, ExternalSourcePort,
+    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
+    ExternalSourcePort,
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -103,7 +103,9 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
             .output()
             .map_err(|e| format!("git rev-parse error: {e}"))?;
 
-        let head_sha = String::from_utf8_lossy(&sha_output.stdout).trim().to_string();
+        let head_sha = String::from_utf8_lossy(&sha_output.stdout)
+            .trim()
+            .to_string();
 
         Ok(ExternalCloneResult {
             schema: "cynic.vcs.external_clone_proof.v1",
@@ -135,7 +137,8 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
             return Err(format!("Forgejo API error: {}", resp.status()));
         }
 
-        let branches: Vec<ForgejoBranch> = resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+        let branches: Vec<ForgejoBranch> =
+            resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
 
         Ok(branches
             .into_iter()

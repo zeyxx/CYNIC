@@ -19,11 +19,18 @@ pub struct ForgejoPrAdapter {
 
 impl ForgejoPrAdapter {
     pub fn new(api_base: String, owner: String, repo: String, token: Option<String>) -> Self {
-        Self { api_base, owner, repo, token }
+        Self {
+            api_base,
+            owner,
+            repo,
+            token,
+        }
     }
 
     fn auth_header(&self) -> Option<String> {
-        self.token.as_ref().map(|t| format!("Authorization: token {t}"))
+        self.token
+            .as_ref()
+            .map(|t| format!("Authorization: token {t}"))
     }
 
     fn curl_get(&self, url: &str) -> Result<serde_json::Value, String> {
@@ -73,7 +80,15 @@ impl ForgejoPrAdapter {
         body: Option<&str>,
     ) -> Result<serde_json::Value, String> {
         let mut cmd = Command::new("curl");
-        cmd.args(["-s", "-f", "-X", method, url, "-H", "Content-Type: application/json"]);
+        cmd.args([
+            "-s",
+            "-f",
+            "-X",
+            method,
+            url,
+            "-H",
+            "Content-Type: application/json",
+        ]);
         if let Some(b) = body {
             cmd.args(["-d", b]);
         }
@@ -99,23 +114,25 @@ impl ForgejoPrAdapter {
 fn parse_pr(item: &serde_json::Value) -> PullRequest {
     let str_path = |path: &[&str]| -> String {
         let mut v = item;
-        for &k in path { v = &v[k]; }
+        for &k in path {
+            v = &v[k];
+        }
         v.as_str().unwrap_or_default().to_string()
     };
     PullRequest {
-        number:        item["number"].as_u64().unwrap_or_default(),
-        title:         str_path(&["title"]),
+        number: item["number"].as_u64().unwrap_or_default(),
+        title: str_path(&["title"]),
         state: match item["state"].as_str().unwrap_or("open") {
             "closed" => PrState::Closed,
             _ => PrState::Open,
         },
-        head_ref:      str_path(&["head", "ref"]),
-        head_sha:      str_path(&["head", "sha"]),
-        base_ref:      str_path(&["base", "ref"]),
-        base_sha:      str_path(&["base", "sha"]),
-        mergeable:     item["mergeable"].as_bool().unwrap_or(true),
+        head_ref: str_path(&["head", "ref"]),
+        head_sha: str_path(&["head", "sha"]),
+        base_ref: str_path(&["base", "ref"]),
+        base_sha: str_path(&["base", "sha"]),
+        mergeable: item["mergeable"].as_bool().unwrap_or(true),
         has_conflicts: item["has_conflicts"].as_bool().unwrap_or(false),
-        html_url:      str_path(&["html_url"]),
+        html_url: str_path(&["html_url"]),
     }
 }
 
@@ -130,11 +147,22 @@ impl PrPort for ForgejoPrAdapter {
         Ok(items.iter().map(parse_pr).collect())
     }
 
-    fn open(&self, title: &str, head: &str, base: &str, body: &str) -> Result<PrCreateProof, String> {
-        let url = format!("{}/api/v1/repos/{}/{}/pulls", self.api_base, self.owner, self.repo);
+    fn open(
+        &self,
+        title: &str,
+        head: &str,
+        base: &str,
+        body: &str,
+    ) -> Result<PrCreateProof, String> {
+        let url = format!(
+            "{}/api/v1/repos/{}/{}/pulls",
+            self.api_base, self.owner, self.repo
+        );
         let payload = serde_json::json!({"title": title, "head": head, "base": base, "body": body});
         let res = self.curl_post(&url, &payload.to_string())?;
-        let pr_number = res["number"].as_u64().ok_or("missing PR number in response")?;
+        let pr_number = res["number"]
+            .as_u64()
+            .ok_or("missing PR number in response")?;
         let html_url = res["html_url"].as_str().unwrap_or_default().to_string();
         Ok(PrCreateProof {
             schema: PR_CREATE_PROOF_SCHEMA,
@@ -153,8 +181,19 @@ impl PrPort for ForgejoPrAdapter {
         );
         let payload = serde_json::json!({"Do": style});
         let mut cmd = Command::new("curl");
-        cmd.args(["-s", "-f", "-o", "/dev/null", "-X", "POST", &url,
-                  "-H", "Content-Type: application/json", "-d", &payload.to_string()]);
+        cmd.args([
+            "-s",
+            "-f",
+            "-o",
+            "/dev/null",
+            "-X",
+            "POST",
+            &url,
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            &payload.to_string(),
+        ]);
         if let Some(h) = self.auth_header() {
             cmd.args(["-H", &h]);
         }
@@ -205,7 +244,7 @@ impl PrPort for ForgejoPrAdapter {
                         closed: true,
                         branch_deleted: false,
                         message: format!("PR #{number} closed, branch delete failed: {e}"),
-                    })
+                    });
                 }
             }
         } else {

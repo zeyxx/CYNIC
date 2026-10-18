@@ -22,9 +22,9 @@ use zeroize::Zeroize;
 
 use cynic_types::paths::CynicPaths;
 use cynic_vcs::forgejo_token::{
-    ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
-    ForgejoTokenProvisionReport, ForgejoTokenSpec, FORGEJO_TOKEN_OBSERVATION_SCHEMA,
-    FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA,
+    FORGEJO_TOKEN_OBSERVATION_SCHEMA, FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA,
+    FORGEJO_TOKEN_SPEC_SCHEMA, ForgejoTokenAuthState, ForgejoTokenMetadata,
+    ForgejoTokenObservation, ForgejoTokenProvisionReport, ForgejoTokenSpec,
 };
 
 /// Canonical Forgejo token directory (secrets authority).
@@ -369,7 +369,11 @@ pub fn provision_forgejo_token(
             let sha1_for_rollback = metadata.sha1.clone();
             ForgejoTokenProvisionReport {
                 schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
-                status: if converged { "completed".to_string() } else { "blocked".to_string() },
+                status: if converged {
+                    "completed".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 principal: spec.principal.clone(),
                 metadata: if converged && metadata.sha1 != "<unavailable>" {
                     Some(metadata.clone())
@@ -381,7 +385,11 @@ pub fn provision_forgejo_token(
                 } else {
                     None
                 },
-                action_taken: if converged { "created".to_string() } else { "blocked".to_string() },
+                action_taken: if converged {
+                    "created".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 rollback_intent: format!(
                     "revoke Forgejo token {} for principal '{}' via the same port",
                     sha1_for_rollback, spec.principal
@@ -469,11 +477,23 @@ pub fn rotate_forgejo_token(
             }
             ForgejoTokenProvisionReport {
                 schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
-                status: if converged { "completed".to_string() } else { "blocked".to_string() },
+                status: if converged {
+                    "completed".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 principal: spec.principal.clone(),
-                metadata: if converged { Some(metadata.clone()) } else { None },
+                metadata: if converged {
+                    Some(metadata.clone())
+                } else {
+                    None
+                },
                 token_metadata: if converged { Some(metadata) } else { None },
-                action_taken: if converged { "rotated".to_string() } else { "blocked".to_string() },
+                action_taken: if converged {
+                    "rotated".to_string()
+                } else {
+                    "blocked".to_string()
+                },
                 rollback_intent: format!(
                     "revoke replacement token for principal '{}' via the same port",
                     spec.principal
@@ -587,8 +607,8 @@ fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, 
     if token_path != forgejo_token_path().display().to_string() {
         return Err("token API probe requires the canonical token path".to_string());
     }
-    let mut token =
-        std::fs::read_to_string(forgejo_token_path()).map_err(|e| format!("read token file: {e}"))?;
+    let mut token = std::fs::read_to_string(forgejo_token_path())
+        .map_err(|e| format!("read token file: {e}"))?;
     let token_value = token.trim().to_string();
     token.zeroize();
     let client = http_client()?;
