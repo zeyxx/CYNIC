@@ -45,7 +45,15 @@ pub(crate) fn trigger_build(
     let host = match host.filter(|value| !value.trim().is_empty()) {
         Some(explicit) => explicit.to_string(),
         None => match runner.filter(|value| !value.trim().is_empty()) {
-            Some(named) => cynic_node::cli_factory::resolve_named_runner_host(named, registry)?,
+            Some(named) => {
+                cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
+                    .into_iter()
+                    .find(|candidate| candidate.node_id == named)
+                    .map(|candidate| candidate.ssh_target)
+                    .ok_or_else(|| {
+                        format!("named runner {named} unresolvable in registry {registry}")
+                    })?
+            }
             None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
         },
     };
