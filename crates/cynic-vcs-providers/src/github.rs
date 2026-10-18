@@ -94,8 +94,13 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
         repo: &ExternalRepoRef,
         target_path: &str,
     ) -> Result<ExternalCloneResult, String> {
+        let (owner, repo_name) = self.parse_owner_repo(repo)?;
+        let auth_url = format!(
+            "https://x-access-token:{}@github.com/{}/{}.git",
+            self.token, owner, repo_name
+        );
         let output = Command::new("git")
-            .args(["clone", &repo.remote_url, target_path])
+            .args(["clone", &auth_url, target_path])
             .output()
             .map_err(|e| format!("git clone spawn error: {e}"))?;
 

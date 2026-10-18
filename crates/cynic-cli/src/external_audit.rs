@@ -22,7 +22,7 @@ use crate::{emit_json, fail, rust_source};
 // External audit orchestration imports
 use cynic_build::{ExternalBuildKind, HttpExternalBuildAdapter};
 use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
-use cynic_kernel::ports::external_evidence::{ExternalEvidenceBatch, ExternalEvidencePort};
+use cynic_kernel::ports::external_evidence::ExternalEvidenceBatch;
 use cynic_kernel::ports::external_evidence_adapter::LocalExternalEvidenceAdapter;
 use cynic_node::usecases::external_project_audit_uc::{
     audit_external_project, ExternalProjectAuditRequest,

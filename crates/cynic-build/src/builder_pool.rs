@@ -94,18 +94,23 @@ pub fn resolve_builder_pool_with_health(registry: &Value) -> Vec<BuilderEndpoint
 /// HTTP 200 OK. Any error (connection refused, timeout, non-2xx status,
 /// invalid URL) returns `false` — the builder is considered unhealthy.
 pub fn health_check(url: &str) -> bool {
-    let Ok(client) = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-    else {
-        return false;
-    };
-    let health_url = format!("{}/health", url.trim_end_matches('/'));
-    client
-        .get(&health_url)
-        .send()
-        .map(|resp| resp.status().is_success())
-        .unwrap_or(false)
+    let url = url.to_string();
+    std::thread::spawn(move || {
+        let Ok(client) = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        else {
+            return false;
+        };
+        let health_url = format!("{}/health", url.trim_end_matches('/'));
+        client
+            .get(&health_url)
+            .send()
+            .map(|resp| resp.status().is_success())
+            .unwrap_or(false)
+    })
+    .join()
+    .unwrap_or(false)
 }
 
 /// Select the first healthy builder from the pool.
