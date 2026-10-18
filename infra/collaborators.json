@@ -5,6 +5,28 @@
   "updated_at": "2026-10-18",
   "collaborators": [
     {
+      "collaborator_id": "titouan",
+      "display_name": "Titouan Corneloup",
+      "github_handle": "zeyxx",
+      "trust_level": "core",
+      "role": "constituent (human sovereign) + maintainer",
+      "projects": [
+        "cynic",
+        "aegisscan",
+        "aegis-core",
+        "ai-bus"
+      ],
+      "owns": [
+        "cynic"
+      ],
+      "maintains": [
+        "cynic-builder-toolchains",
+        "external-project-governance"
+      ],
+      "pow_metric": "commits, reviews, attestations, build/test proofs, deployment receipts",
+      "notes": "Human sovereign of CYNIC. Owner of CYNIC repo. Collaborator on Aegis consortium. Maintainer of builder toolchains and external project governance. Trust level 'core' (not 'observed') \u2014 operator is the constituent, not a guest."
+    },
+    {
       "collaborator_id": "robinho100",
       "display_name": "Robinho100",
       "github_handle": "Robinho100",
@@ -25,6 +47,7 @@
   "rules": [
     "A new collaborator starts at 'observed' and cannot trigger mutations above 'read_only' until promoted with proof.",
     "Promotion requires an observed proof record (commit, review, or attestation) referenced in notes.",
-    "Trust level is never inferred from GitHub handle or reputation; only from observed evidence."
+    "Trust level is never inferred from GitHub handle or reputation; only from observed evidence.",
+    "The operator (titouan) is the constituent (human sovereign) with trust_level 'core'. All other collaborators start at 'observed'."
   ]
 }

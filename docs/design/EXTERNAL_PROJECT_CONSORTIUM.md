@@ -268,5 +268,31 @@ with per-project `observation` objects. See `infra/external-projects.json`.
 - `~/.cynic/external/aegis-core` → `origin https://github.com/Robinho100/aegis-core.git`, branch `main`, HEAD `d82ca40`
 - `~/.cynic/external/ai-bus` → `origin https://github.com/Robinho100/ai-bus.git`, branch `main`, HEAD `dd87232`
 
+## 10. Ownership links registry (2026-10-18)
+
+`infra/ownership-links.json` is the SSOT of RELATIONS between operator,
+collaborators, external projects, and toolchains. It references by ID (foreign
+keys); no data duplication. It captures ownership, maintenance, and
+proof-of-work (PoW) metrics that model real interactions between
+interconnected systems (physics, culture, economy obey the same laws of
+friction).
+
+Contents:
+- `operator`: Titouan Corneloup (zeyxx), constituent (human sovereign), core trust.
+- `collaborators`: Robinho100 (observed trust).
+- `links`: 6 relations (operator↔collaborator, operator↔project×3, operator↔toolchain×2) with PoW metrics and friction signals.
+- `project_toolchains`: 3 entries (which toolchains each project consumes).
+- `toolchain_projects`: 3 entries (which projects each toolchain serves).
+
+Every link carries a `pow_metric` (measurable) and a `friction_signal` (first-class data, not noise). A link without a pow_metric is incomplete.
+
+Philosophy: technology must reconstruct the real from first principles. The
+sentiment of impasse and social friction are the variables that indicate where
+technology must act. This registry models those variables as observable,
+measurable links — not as abstract claims.
+
+Related: `infra/collaborators.json`, `infra/external-projects.json`,
+`infra/registry.json` (toolchains), `infra/workspace-paths.json`.
+
 Worktree: `~/.cynic/worktrees/agent-hermes-aegis-consortium` on
 `agent/hermes/aegis-consortium` (from `origin/main` @ `19111bc`).
