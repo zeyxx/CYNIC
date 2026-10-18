@@ -6,7 +6,7 @@ fn crate_root() -> PathBuf {
 }
 
 #[test]
-fn vcs_forgejo_never_depends_on_high_layer_crates() {
+fn vcs_providers_never_depends_on_high_layer_crates() {
     let cargo_toml_path = crate_root().join("Cargo.toml");
     let content = fs::read_to_string(&cargo_toml_path)
         .unwrap_or_else(|e| panic!("failed to read {:?}: {}", cargo_toml_path, e));
@@ -15,7 +15,7 @@ fn vcs_forgejo_never_depends_on_high_layer_crates() {
     for dep in &forbidden {
         assert!(
             !content.contains(dep),
-            "Architecture Violation: cynic-vcs-forgejo must NEVER depend on higher layer crate `{}`",
+            "Architecture Violation: cynic-vcs-providers must NEVER depend on higher layer crate `{}`",
             dep
         );
     }

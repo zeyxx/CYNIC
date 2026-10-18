@@ -39,7 +39,6 @@ pub mod fleet_network_observer;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
 pub mod git_topology_observer;
-pub mod github_external_source_adapter;
 pub mod hardware_baseline;
 pub mod hardware_baseline_apply;
 pub mod hardware_baseline_reconcile;

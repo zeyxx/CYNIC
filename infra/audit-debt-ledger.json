@@ -1150,13 +1150,13 @@
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-forgejo/src/forgejo_token.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_token.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
     },
     {
-      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-forgejo/src/forgejo_webhook_server.rs",
+      "identity": "ARCH-001-HOTSPOT|crates/cynic-vcs-providers/src/forgejo_webhook_server.rs",
       "count": 1,
       "rule": "ARCH-001",
       "severity": "debt"
@@ -1300,7 +1300,7 @@
       "severity": "critical"
     },
     {
-      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs-forgejo (L2)",
+      "identity": "ARCH-004-UPWARD-EDGE|cynic-host (L1) depends on cynic-vcs-providers (L2)",
       "count": 1,
       "rule": "ARCH-004",
       "severity": "critical"

@@ -1,11 +1,11 @@
 [package]
 # Artefact discovery is frozen: every binary is declared below.
 autobins = false
-name = "cynic-vcs-forgejo"
+name = "cynic-vcs-providers"
 version.workspace = true
 edition.workspace = true
 authors = ["CYNIC Sovereign Collective"]
-description = "Forgejo API adapters and runtime for CYNIC sovereign VCS"
+description = "External VCS provider adapters (Forgejo, GitHub) for CYNIC sovereign VCS"
 license = "MIT OR Apache-2.0"
 publish = false
 
