@@ -11,6 +11,9 @@ publish = false
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-intel = { path = "../cynic-intel" }
 cynic-finance = { path = "../cynic-finance" }
+cynic-consensus = { path = "../cynic-consensus" }
+cynic-pool = { path = "../cynic-pool" }
+cynic-workload = { path = "../cynic-workload" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

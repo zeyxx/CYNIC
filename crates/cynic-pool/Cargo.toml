@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 cynic-finance = { path = "../cynic-finance" }
 cynic-consensus = { path = "../cynic-consensus" }
+cynic-workload = { path = "../cynic-workload" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

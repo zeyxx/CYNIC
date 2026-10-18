@@ -19,6 +19,7 @@ cynic-eval = { path = "../cynic-eval" }
 cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-pool = { path = "../cynic-pool" }
 cynic-workload = { path = "../cynic-workload" }
+cynic-consensus = { path = "../cynic-consensus" }
 futures-util.workspace = true
 reqwest.workspace = true
 serde.workspace = true
