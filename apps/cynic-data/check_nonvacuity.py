@@ -28,7 +28,9 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# data_system lives at <repo>/infra/data_system
+# data_system lives at <repo>/apps/cynic-data (moved from infra/data_system).
+# GUARDS entries predating the move cannot resolve and report an error;
+# re-anchor the table to post-move commits (see Rust-rewrite spec).
 REPO = os.path.dirname(os.path.dirname(HERE))
 
 # commit -> (src files to revert, relative to src/, tests that MUST fail on the
@@ -70,7 +72,7 @@ GUARDS: dict[str, tuple[list[str], list[str]]] = {
 
 def _git_show(sha: str, path: str) -> str | None:
     r = subprocess.run(
-        ["git", "-C", REPO, "show", f"{sha}~1:infra/data_system/src/{path}"],
+        ["git", "-C", REPO, "show", f"{sha}~1:apps/cynic-data/src/{path}"],
         capture_output=True,
         text=True,
     )
