@@ -1,4 +1,5 @@
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use crate::domain::chunk_quality::{split_span_by_char_budget, MAX_CHUNK_CHARS};
 
 /// Parses a Rust source file and extracts semantic AST chunks (module docstrings,
 /// public structs, enums, functions, traits, and implementations).
@@ -22,16 +23,36 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
         idx += 1;
     }
     if !module_docs.is_empty() {
-        let mut hierarchy = hierarchy_prefix.clone();
-        hierarchy.push("Module Overview".to_string());
-        chunks.push(DocumentChunk::new(
-            rel_path.to_string(),
-            module_doc_start,
-            idx,
-            hierarchy,
-            module_docs.join("\n"),
-            authority,
-        ));
+        let hierarchy = {
+            let mut h = hierarchy_prefix.clone();
+            h.push("Module Overview".to_string());
+            h
+        };
+        // Char-budget guard: long module headers (policy preambles) must also
+        // fit the dense window, so route them through the same splitter.
+        let joined = module_docs.join("\n");
+        if joined.len() > MAX_CHUNK_CHARS {
+            for sub in split_span_by_char_budget(
+                rel_path,
+                module_doc_start,
+                idx,
+                &hierarchy_prefix,
+                "Module Overview",
+                &lines[module_doc_start - 1..idx],
+                authority,
+            ) {
+                chunks.push(sub);
+            }
+        } else {
+            chunks.push(DocumentChunk::new(
+                rel_path.to_string(),
+                module_doc_start,
+                idx,
+                hierarchy,
+                joined,
+                authority,
+            ));
+        }
     }
 
     // 2. Scan declarations and implementations
@@ -62,17 +83,17 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
                     let (item_end, body_lines) = capture_item_body(&lines, idx);
                     doc_lines.extend(body_lines);
                     let signature = extract_signature(decl_line);
-                    let mut hierarchy = hierarchy_prefix.clone();
-                    hierarchy.push(signature);
-
-                    chunks.push(DocumentChunk::new(
-                        rel_path.to_string(),
+                    emit_rust_chunks(
+                        rel_path,
                         item_start,
                         item_end,
-                        hierarchy,
+                        &hierarchy_prefix,
+                        &signature,
                         doc_lines.join("\n"),
                         authority,
-                    ));
+                        &lines,
+                        &mut chunks,
+                    );
                     idx = item_end;
                     continue;
                 }
@@ -81,17 +102,17 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
             let item_start = idx + 1;
             let (item_end, body_lines) = capture_item_body(&lines, idx);
             let signature = extract_signature(trimmed);
-            let mut hierarchy = hierarchy_prefix.clone();
-            hierarchy.push(signature);
-
-            chunks.push(DocumentChunk::new(
-                rel_path.to_string(),
+            emit_rust_chunks(
+                rel_path,
                 item_start,
                 item_end,
-                hierarchy,
+                &hierarchy_prefix,
+                &signature,
                 body_lines.join("\n"),
                 authority,
-            ));
+                &lines,
+                &mut chunks,
+            );
             idx = item_end;
             continue;
         }
@@ -100,6 +121,108 @@ pub fn parse_rust_file(rel_path: &str, content: &str) -> Vec<DocumentChunk> {
     }
 
     chunks
+}
+
+const MAX_AST_CHUNK_LINES: usize = 70;
+const AST_WINDOW_SIZE: usize = 50;
+const AST_WINDOW_OVERLAP: usize = 10;
+const MIN_CONTEXT_CHARS: usize = 60;
+
+#[allow(clippy::too_many_arguments)]
+fn emit_rust_chunks(
+    rel_path: &str,
+    item_start: usize,
+    item_end: usize,
+    hierarchy_prefix: &[String],
+    signature: &str,
+    content: String,
+    authority: AuthorityTier,
+    file_lines: &[&str],
+    chunks: &mut Vec<DocumentChunk>,
+) {
+    let line_count = item_end.saturating_sub(item_start) + 1;
+    let trimmed_len = content.trim().len();
+
+    // 1. Starved micro-item enrichment
+    let final_content = if trimmed_len < MIN_CONTEXT_CHARS {
+        format!("// Context: {} ({})\n{}", rel_path, signature, content)
+    } else {
+        content
+    };
+
+    // 2. Stage 1: line-bounded windowed decomposition for long items.
+    //     Stage 2 (char budget) handles windows whose lines are individually long.
+    if line_count > MAX_AST_CHUNK_LINES && file_lines.len() >= item_end {
+        let mut curr_start = item_start;
+        while curr_start <= item_end {
+            let curr_end = (curr_start + AST_WINDOW_SIZE - 1).min(item_end);
+            let mut window_content = file_lines[curr_start - 1..curr_end].join("\n");
+            if window_content.trim().len() < MIN_CONTEXT_CHARS {
+                window_content = format!(
+                    "// Context: {} ({} lines {}-{})\n{}",
+                    rel_path, signature, curr_start, curr_end, window_content
+                );
+            }
+
+            // Stage 2 guard: long lines can push a 50-line window past the char budget.
+            // No enrichment happened here (content is far above MIN_CONTEXT_CHARS),
+            // so the file slice and window_content are byte-identical.
+            if window_content.len() > MAX_CHUNK_CHARS {
+                let window_slice = &file_lines[curr_start - 1..curr_end];
+                for sub in split_span_by_char_budget(
+                    rel_path,
+                    curr_start,
+                    curr_end,
+                    hierarchy_prefix,
+                    signature,
+                    window_slice,
+                    authority,
+                ) {
+                    chunks.push(sub);
+                }
+            } else {
+                let mut hierarchy = hierarchy_prefix.to_vec();
+                hierarchy.push(format!("{} (lines {}-{})", signature, curr_start, curr_end));
+                chunks.push(DocumentChunk::new(
+                    rel_path.to_string(),
+                    curr_start,
+                    curr_end,
+                    hierarchy,
+                    window_content,
+                    authority,
+                ));
+            }
+
+            if curr_end >= item_end {
+                break;
+            }
+            curr_start += AST_WINDOW_SIZE - AST_WINDOW_OVERLAP;
+        }
+    } else if final_content.len() > MAX_CHUNK_CHARS && file_lines.len() >= item_end {
+        // Single short-line-count item whose lines are individually huge.
+        for sub in split_span_by_char_budget(
+            rel_path,
+            item_start,
+            item_end,
+            hierarchy_prefix,
+            signature,
+            file_lines,
+            authority,
+        ) {
+            chunks.push(sub);
+        }
+    } else {
+        let mut hierarchy = hierarchy_prefix.to_vec();
+        hierarchy.push(signature.to_string());
+        chunks.push(DocumentChunk::new(
+            rel_path.to_string(),
+            item_start,
+            item_end,
+            hierarchy,
+            final_content,
+            authority,
+        ));
+    }
 }
 
 /// Checks if a line initiates an extractable Rust declaration.
@@ -238,11 +361,9 @@ pub fn standalone_function() -> u32 {
             .iter()
             .find(|c| c.content.contains("pub struct CynicPaths"))
             .expect("struct chunk");
-        assert!(
-            struct_chunk
-                .content
-                .contains("/// Path resolution utility.")
-        );
+        assert!(struct_chunk
+            .content
+            .contains("/// Path resolution utility."));
         assert!(struct_chunk.content.contains("pub root: PathBuf"));
 
         // 3. Impl

@@ -1,7 +1,8 @@
 use crate::domain::ast::{
-    CodeBlock, DOCUMENT_TREE_SCHEMA_V1, DocumentTree, MarkdownLink, SectionNode,
+    CodeBlock, DocumentTree, MarkdownLink, SectionNode, DOCUMENT_TREE_SCHEMA_V1,
 };
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
+use crate::domain::chunk_quality::{split_span_by_char_budget, MAX_CHUNK_CHARS};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -236,14 +237,47 @@ fn flatten_tree_chunks(
 ) {
     for node in nodes {
         hierarchy.push(format!("{} {}", "#".repeat(node.level), node.title));
-        chunks.push(DocumentChunk::new(
-            source_path.to_string(),
-            node.line_start,
-            node.line_end,
-            hierarchy.clone(),
-            node.content.clone(),
-            authority,
-        ));
+        let label = hierarchy.last().cloned().unwrap_or_default();
+
+        // Char-budget guard: a markdown section with individually long lines
+        // (compact tables, dense reference lists) can blow past the dense
+        // model's window even with a modest line count.
+        if node.content.len() > MAX_CHUNK_CHARS {
+            let lines: Vec<&str> = node.content.split('\n').collect();
+            let mut emitted = 0usize;
+            for sub in split_span_by_char_budget(
+                source_path,
+                node.line_start,
+                node.line_end,
+                hierarchy,
+                &label,
+                &lines,
+                authority,
+            ) {
+                // Re-map sub-window offsets onto physical file line coordinates.
+                let span = sub.line_end - sub.line_start + 1;
+                let physical_start = node.line_start + emitted;
+                let physical_end = (physical_start + span - 1).min(node.line_end);
+                emitted += span;
+                chunks.push(DocumentChunk::new(
+                    source_path.to_string(),
+                    physical_start,
+                    physical_end,
+                    sub.section_hierarchy,
+                    sub.content,
+                    authority,
+                ));
+            }
+        } else {
+            chunks.push(DocumentChunk::new(
+                source_path.to_string(),
+                node.line_start,
+                node.line_end,
+                hierarchy.clone(),
+                node.content.clone(),
+                authority,
+            ));
+        }
         flatten_tree_chunks(source_path, authority, &node.children, hierarchy, chunks);
         hierarchy.pop();
     }
