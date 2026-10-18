@@ -127,7 +127,7 @@
       "mutation_policy": "read_only",
       "sensitivity": "public",
       "ports_used": [],
-      "notes": "Operator-owned gasless relay (Kora-backed, x402). Live clone NOT under ~/.cynic/external (declared divergence): /home/user/Bureau/SOLANA/asdf-forge/zeyxx/GASdf @ 0aef98c on feat/gasdf-launch-prep-2026-06-14 (2026-10-18). Stale twin: /home/user/Documents/gasdf-repo @ 43d0521 (2026-04-08, removal pending operator). Relay-107 (LXC relay-107) running 2026-10-18.",
+      "notes": "Operator-owned gasless relay (Kora-backed, x402). Live clone NOT under ~/.cynic/external (declared divergence): ${HOME}/Bureau/SOLANA/asdf-forge/zeyxx/GASdf @ 0aef98c on feat/gasdf-launch-prep-2026-06-14 (2026-10-18), 12 commits ahead of main. main @ 43d0521 is the 2026-04-08 hackathon snapshot (ancien code). Stale twin: ${HOME}/Documents/gasdf-repo @ 43d0521 (removal pending operator). Relay-107 running code version unverified.",
       "observation": {
         "observed_at": "2026-10-18",
         "observed_on": "cortex (node v22.23.3 present)",
