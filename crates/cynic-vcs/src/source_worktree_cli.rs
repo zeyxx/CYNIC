@@ -81,6 +81,12 @@ pub fn observe_worktree_convergence_snapshots(
             0
         };
 
+        let created_at_ms = std::fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64);
+
         snapshots.push(ObservedWorktreeSnapshot {
             path,
             branch,
@@ -90,6 +96,7 @@ pub fn observe_worktree_convergence_snapshots(
             git_prunable: entry.git_prunable == Some(true)
                 || entry.state == crate::source_worktree_inventory::SourceWorktreeInventoryEntryState::Malformed,
             prunable_reason: entry.prunable_reason.clone(),
+            created_at_ms,
         });
     }
 
@@ -106,7 +113,11 @@ pub fn plan_worktree_convergence(
     head_sha: String,
     snapshots: &[ObservedWorktreeSnapshot],
 ) -> crate::source_worktree::WorktreeConvergencePlan {
-    reconcile_worktree_convergence_pure(root_canonical, &default_branch, &head_sha, snapshots, &[])
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    reconcile_worktree_convergence_pure(root_canonical, &default_branch, &head_sha, snapshots, &[], now_ms)
 }
 
 /// Observe the inputs `plan_publication` needs: the tracked file list and
