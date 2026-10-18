@@ -16,7 +16,8 @@ fn no_dependency_on_higher_layer_crates() {
         "cynic-inference",
         "cynic-intel",
         "cynic-knowledge",
-        "rusqlite",
+        // rusqlite lives here legitimately (adapters own I/O, checked above);
+        // tokio stays out everywhere.
         "tokio",
     ] {
         assert!(
@@ -27,7 +28,7 @@ fn no_dependency_on_higher_layer_crates() {
 }
 
 #[test]
-fn no_io_in_sources() {
+fn no_io_in_pure_layers() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     for file in [
         "src/domain.rs",
@@ -49,6 +50,26 @@ fn no_io_in_sources() {
             "tokio::fs",
             "rusqlite",
         ] {
+            assert!(!content.contains(needle), "{file} must not contain {needle}");
+        }
+    }
+}
+
+#[test]
+fn adapters_own_all_io() {
+    // Tranche 3 owns I/O, and ONLY inside adapters/: the pure layers above
+    // must stay free of it (checked by no_io_in_pure_layers). Adapters may
+    // use rusqlite and std::fs — nothing else performs I/O.
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    for file in [
+        "src/adapters/mod.rs",
+        "src/adapters/hermes/mod.rs",
+        "src/adapters/hermes/contract.rs",
+        "src/adapters/hermes/human.rs",
+        "src/adapters/hermes/normalizer.rs",
+    ] {
+        let content = std::fs::read_to_string(Path::new(manifest_dir).join(file)).unwrap();
+        for needle in ["std::process", "std::net", "tokio::spawn", "tokio::fs"] {
             assert!(!content.contains(needle), "{file} must not contain {needle}");
         }
     }

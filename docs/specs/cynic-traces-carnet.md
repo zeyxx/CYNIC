@@ -22,11 +22,13 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
 - Preuves : PR #154 ; builder CONVERGED (`88715635`) ; 8/8 tests verts.
 - Zéro stub : le digest sha256 a été implémenté (pas de `panic!`).
 
-### T3 — Adaptateur Hermes (le vertical) [>]
-- NormalizerPort sur le gel `hermes_union.sqlite` (lecture seule, immutable).
-- Contrat FIELD_FATE Hermes extrait du normaliseur Python (pas inventé).
-- Porte de sortie : sortie Rust == sortie Python sur le gel (parité prouvée).
-- `HITL` : parité validée → tranche cochée.
+### T3 — Adaptateur Hermes (le vertical) [x]
+- Preuves : builder CONVERGED ; parité Rust==Python prouvée par
+  machine : 7 sessions JSON-identiques (plain, codex, compaction,
+  corrections) + stats 200/200 sessions.
+- Contrat FIELD_FATE transcrit par machine depuis le Python (zéro recopie).
+- Leçon E5 (float repr) : les flottants se comparent en epsilon, les
+  entiers en exact — consigné dans le test de parité.
 
 ### T4 — Magasin canonique + runner conservation [ ]
 - Writer SQLite Rust + runner α1–α4 machine sur le gel.
