@@ -17,7 +17,205 @@ use std::process::ExitCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{emit_json, rust_source};
+use crate::{emit_json, fail, rust_source};
+
+// External audit orchestration imports
+use cynic_build::{ExternalBuildKind, HttpExternalBuildAdapter};
+use cynic_host::adapters::local_evidence_store::LocalContentAddressedEvidenceStore;
+use cynic_kernel::ports::external_evidence::{ExternalEvidenceBatch, ExternalEvidencePort};
+use cynic_kernel::ports::external_evidence_adapter::LocalExternalEvidenceAdapter;
+use cynic_node::usecases::external_project_audit_uc::{
+    audit_external_project, ExternalProjectAuditRequest,
+};
+use cynic_vcs::{ExternalProvider, ExternalRepoRef, ExternalSourcePort};
+use cynic_vcs_providers::{ForgejoExternalSourceAdapter, GitHubExternalSourceAdapter};
+
+// ── External project audit orchestration ───────────────────────────────────────
+
+/// Instantiate adapters and run the full external project audit pipeline.
+///
+/// FCIS: this is a thin surface. It reads the registry, instantiates the
+/// three port adapters, constructs the request, and delegates to the pure
+/// orchestration usecase. No business logic lives here.
+#[allow(clippy::too_many_arguments)]
+pub fn execute_run(
+    json: bool,
+    project: Option<&str>,
+    builder_url: Option<&str>,
+    forgejo_url: Option<&str>,
+    forgejo_token: Option<&str>,
+    github_token: Option<&str>,
+    evidence_dir: Option<&str>,
+) -> ExitCode {
+    let root = rust_source::workspace_root();
+    let registry_path = root.join("infra/external-projects.json");
+
+    // Read the registry
+    let raw = match fs::read_to_string(&registry_path) {
+        Ok(s) => s,
+        Err(e) => return fail(format!("cannot read registry {}: {}", registry_path.display(), e)),
+    };
+
+    let value: Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => return fail(format!("invalid JSON in registry: {}", e)),
+    };
+
+    // Find the specified project
+    let project_id = match project {
+        Some(p) => p.to_string(),
+        None => return fail("--project is required with --run"),
+    };
+
+    let projects = value
+        .get("projects")
+        .and_then(|x| x.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let project_data = projects
+        .iter()
+        .find(|p| p.get("project_id").and_then(|x| x.as_str()) == Some(project_id.as_str()));
+
+    let project_data = match project_data {
+        Some(p) => p,
+        None => return fail(format!("project not found in registry: {}", project_id)),
+    };
+
+    // Extract project fields
+    let repo_url = str_field(project_data, "repo_url");
+    let default_branch = str_field(project_data, "default_branch");
+    let mut build_commands = str_vec(project_data, "build_commands");
+    let test_commands = str_vec(project_data, "test_commands");
+    build_commands.extend(test_commands);
+
+    // Determine provider from repo URL
+    let provider = if repo_url.contains("github.com") {
+        ExternalProvider::GitHub
+    } else if forgejo_url.is_some() {
+        ExternalProvider::Forgejo
+    } else {
+        return fail("cannot determine provider from repo URL (use --forgejo-url for Forgejo)");
+    };
+
+    // Instantiate source adapter
+    let source_port: Box<dyn ExternalSourcePort> = match provider {
+        ExternalProvider::GitHub => {
+            let token = match github_token
+                .map(|s| s.to_string())
+                .or_else(|| cynic_secrets::env_var("github-token", "GITHUB_TOKEN"))
+            {
+                Some(t) => t,
+                None => return fail("GITHUB_TOKEN is required for GitHub provider"),
+            };
+            Box::new(GitHubExternalSourceAdapter::new(
+                "https://api.github.com".to_string(),
+                token,
+            ))
+        }
+        ExternalProvider::Forgejo => {
+            let base = match forgejo_url {
+                Some(url) => url.to_string(),
+                None => return fail("--forgejo-url is required for Forgejo provider"),
+            };
+            let token = match forgejo_token
+                .map(|s| s.to_string())
+                .or_else(|| cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"))
+            {
+                Some(t) => t,
+                None => return fail("FORGEJO_TOKEN is required for Forgejo provider"),
+            };
+            Box::new(ForgejoExternalSourceAdapter::new(base, token))
+        }
+        _ => return fail("unsupported provider"),
+    };
+
+    // Instantiate build adapter
+    let build_port = match builder_url {
+        Some(url) => HttpExternalBuildAdapter::new(url.to_string()),
+        None => match HttpExternalBuildAdapter::from_resolved_url() {
+            Ok(adapter) => adapter,
+            Err(e) => return fail(e),
+        },
+    };
+
+    // Instantiate evidence adapter
+    let evidence_path = evidence_dir
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join(".cynic").join("evidence"));
+    let store = LocalContentAddressedEvidenceStore::new(&evidence_path);
+    let evidence_port = LocalExternalEvidenceAdapter::new(store);
+
+    // Construct evidence batches from registry observation data
+    let evidence_batches = construct_evidence_batches(project_data, &project_id);
+
+    // Build the audit request
+    let req = ExternalProjectAuditRequest {
+        project_id: project_id.clone(),
+        repo: ExternalRepoRef {
+            project_id: project_id.clone(),
+            remote_url: repo_url,
+            default_branch,
+            provider,
+        },
+        build_commands,
+        build_kind: ExternalBuildKind::Build,
+        builder_node_id: "cynic-builder".to_string(),
+        evidence_batches,
+    };
+
+    // Call the pure orchestration usecase
+    let report = audit_external_project(source_port.as_ref(), &build_port, &evidence_port, &req);
+
+    // Emit the report
+    let blocked = !report.overall_success;
+    if json {
+        emit_json(&report, blocked)
+    } else {
+        println!(
+            "External project audit: {} (overall: {})",
+            project_id,
+            if report.overall_success { "SUCCESS" } else { "FAILURE" }
+        );
+        println!(
+            "  Clone: {}",
+            if report.clone_result.success { "ok" } else { "failed" }
+        );
+        println!(
+            "  Build: {}/{} commands passed",
+            report.build_proof.commands_passed, report.build_proof.commands_run
+        );
+        println!(
+            "  Evidence: {}/{} batches ingested",
+            report.evidence_proof.batches_ingested,
+            report.evidence_proof.batches_ingested + report.evidence_proof.batches_failed
+        );
+        if blocked {
+            ExitCode::FAILURE
+        } else {
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// Construct evidence batches from the registry's observation data.
+fn construct_evidence_batches(project_data: &Value, project_id: &str) -> Vec<ExternalEvidenceBatch> {
+    if let Some(obs) = project_data.get("observation") {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        vec![ExternalEvidenceBatch {
+            project_id: project_id.to_string(),
+            producer: "cynic.audit.external.v1".to_string(),
+            subject: "build-observation".to_string(),
+            observed_at_unix_ms: now_ms,
+            provenance: vec![str_field(project_data, "repo_url")],
+            payload: obs.clone(),
+        }]
+    } else {
+        vec![]
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExternalProjectView {

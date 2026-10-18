@@ -27,6 +27,7 @@ use cynic_kernel::ports::external_evidence::{
 use cynic_vcs::{
     ExternalCloneResult, ExternalRepoRef, ExternalSourcePort, EXTERNAL_CLONE_PROOF_SCHEMA,
 };
+use serde::Serialize;
 
 /// Schema identifier for external project audit reports.
 pub const EXTERNAL_PROJECT_AUDIT_SCHEMA: &str = "cynic.node.external_project_audit.v1";
@@ -49,7 +50,7 @@ pub struct ExternalProjectAuditRequest {
 }
 
 /// Result of the full external project audit pipeline.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ExternalProjectAuditReport {
     /// Schema identifier.
     pub schema: &'static str,

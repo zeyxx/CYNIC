@@ -131,6 +131,27 @@ pub(crate) enum AuditCommand {
         json: bool,
         #[arg(long)]
         registry: Option<String>,
+        /// Run the full external project audit orchestration (clone → build → ingest).
+        #[arg(long)]
+        run: bool,
+        /// Project ID to audit (required with --run).
+        #[arg(long)]
+        project: Option<String>,
+        /// Builder URL (defaults to resolved pool URL).
+        #[arg(long)]
+        builder_url: Option<String>,
+        /// Forgejo base URL (for Forgejo provider).
+        #[arg(long)]
+        forgejo_url: Option<String>,
+        /// Forgejo API token (for Forgejo provider).
+        #[arg(long)]
+        forgejo_token: Option<String>,
+        /// GitHub API token (for GitHub provider).
+        #[arg(long)]
+        github_token: Option<String>,
+        /// Evidence store directory (defaults to .cynic/evidence).
+        #[arg(long)]
+        evidence_dir: Option<String>,
     },
 }
 
@@ -325,8 +346,30 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         AuditCommand::Harness { json, kind } => {
             host_checks::execute_harness(*json, kind.as_deref())
         }
-        AuditCommand::External { json, registry } => {
-            external_audit::execute(*json, registry.as_deref())
+        AuditCommand::External {
+            json,
+            registry,
+            run,
+            project,
+            builder_url,
+            forgejo_url,
+            forgejo_token,
+            github_token,
+            evidence_dir,
+        } => {
+            if *run {
+                external_audit::execute_run(
+                    *json,
+                    project.as_deref(),
+                    builder_url.as_deref(),
+                    forgejo_url.as_deref(),
+                    forgejo_token.as_deref(),
+                    github_token.as_deref(),
+                    evidence_dir.as_deref(),
+                )
+            } else {
+                external_audit::execute(*json, registry.as_deref())
+            }
         }
     }
 }
