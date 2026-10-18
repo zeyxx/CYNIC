@@ -33,7 +33,7 @@
       "purpose": "Ingest a project's findings/evidence into CYNIC's observation store (aegisscan findings -> CYNIC observation store).",
       "mutation_policy": "read_only",
       "status": "adapter_defined",
-      "notes": "Trait + adapter defined. Local adapter in cynin-kernel. Content-addressed store adapter pending."
+      "notes": "Trait + adapter defined. Local adapter in cynic-kernel. LocalExternalEvidenceAdapter<S> wraps any ContentAddressedEvidenceStorePort, bridging ExternalEvidencePort to the content-addressed store. Sufficient — no dedicated adapter needed."
     }
   ],
   "wiring_rules": [
