@@ -152,6 +152,10 @@
   {
    "id": "node_compute_provision",
    "path": "fragments/node_compute_provision.json"
+  },
+  {
+   "id": "audit_external",
+   "path": "fragments/audit_external.json"
   }
  ],
  "retired": [
