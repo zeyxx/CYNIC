@@ -167,7 +167,7 @@ pub struct ExecResponse {
 ///
 /// SECURITY: this endpoint runs on the builder's service-plane network and
 /// intentionally has no authentication — the same trust boundary as
-/// `/workloads/submit`. It exists so `HttpExternalBuildAdapter` in cynic-host
+/// `/workloads/submit`. It exists so `HttpExternalBuildAdapter` in cynic-build
 /// can drive external builds over HTTP instead of SSH. The command is executed
 /// via `sh -c` with `current_dir` set to `work_dir` when non-empty.
 async fn exec(

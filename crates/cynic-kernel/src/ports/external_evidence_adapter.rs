@@ -1,12 +1,13 @@
-//! External evidence adapter for cynic-host.
+//! External evidence adapter for cynic-kernel.
 //!
 //! WHY: implements ExternalEvidencePort by wrapping the content-addressed
-//! evidence store. All I/O lives here (adapter layer, FCIS).
+//! evidence store. All I/O lives behind the store port (FCIS).
 //! HOW: delegates persistence to ContentAddressedEvidenceStorePort.
 //! NEGATIVE BOUNDARY: no domain logic, no admission — those live in
 //! cynic-kernel::ports::external_evidence.
 
-use cynic_kernel::ports::external_evidence::{
+use crate::ports::evidence_store::ContentAddressedEvidenceStorePort;
+use crate::ports::external_evidence::{
     ExternalEvidenceBatch, ExternalEvidenceIngestionResult, ExternalEvidencePort,
 };
 use cynic_protocol::EvidenceEnvelope;
@@ -18,7 +19,7 @@ pub struct LocalExternalEvidenceAdapter<S> {
 
 impl<S> LocalExternalEvidenceAdapter<S>
 where
-    S: crate::ports::evidence_store::ContentAddressedEvidenceStorePort,
+    S: ContentAddressedEvidenceStorePort,
 {
     pub fn new(store: S) -> Self {
         Self { store }
@@ -27,7 +28,7 @@ where
 
 impl<S> ExternalEvidencePort for LocalExternalEvidenceAdapter<S>
 where
-    S: crate::ports::evidence_store::ContentAddressedEvidenceStorePort,
+    S: ContentAddressedEvidenceStorePort,
 {
     fn ingest(&self, batch: &ExternalEvidenceBatch) -> ExternalEvidenceIngestionResult {
         // Build an EvidenceEnvelope from the batch

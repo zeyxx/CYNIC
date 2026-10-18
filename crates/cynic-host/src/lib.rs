@@ -25,8 +25,7 @@ pub mod development_genesis;
 pub mod infra;
 pub mod endpoint_observation;
 pub mod execution;
-pub mod external_build_adapter;
-pub mod external_evidence_adapter;
+
 pub mod federation_runtime;
 pub mod filesystem_observation;
 pub mod fleet_build_artefact_observer;
@@ -49,7 +48,6 @@ pub mod harness_progression;
 pub mod host_bootstrap_evidence;
 pub mod host_exec_cli;
 pub mod host_exec_policy;
-pub mod http_external_build_adapter;
 mod identity_database;
 pub mod inference_observation;
 pub mod install_contract;

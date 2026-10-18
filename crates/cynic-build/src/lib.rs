@@ -37,7 +37,7 @@ pub mod runner;
 pub mod runtime_release;
 pub mod types;
 
-pub use adapters::{MemFilesystem, OsIdentity, StdFilesystem};
+pub use adapters::{HttpExternalBuildAdapter, LocalExternalBuildAdapter, MemFilesystem, OsIdentity, StdFilesystem};
 pub use build::*;
 pub use build_artefact::*;
 pub use build_discovery::*;

@@ -1,9 +1,3 @@
-use cynic_protocol::EvidenceEnvelope;
-
-pub trait ContentAddressedEvidenceStorePort: Send + Sync {
-    fn persist(&self, envelope: &EvidenceEnvelope) -> Result<String, String>;
-
-    fn read(&self, _digest: &str) -> Result<Option<EvidenceEnvelope>, String> {
-        Err("evidence_read_not_supported".to_string())
-    }
-}
+// ContentAddressedEvidenceStorePort moved to cynic-kernel (pure trait, zero I/O).
+// Re-exported here for existing cynin-host and cynin-node consumers.
+pub use cynic_kernel::ports::evidence_store::ContentAddressedEvidenceStorePort;
