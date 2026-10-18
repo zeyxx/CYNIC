@@ -19,16 +19,26 @@ use serde::Deserialize;
 pub struct ForgejoExternalSourceAdapter {
     pub base_url: String,
     pub token: String,
-    pub client: Client,
 }
 
 impl ForgejoExternalSourceAdapter {
     pub fn new(base_url: String, token: String) -> Self {
-        Self {
-            base_url,
-            token,
-            client: Client::new(),
-        }
+        Self { base_url, token }
+    }
+
+    /// Run a closure with a reqwest blocking client on a dedicated OS thread.
+    ///
+    /// reqwest::blocking::Client cannot be constructed inside an async runtime
+    /// context (it panics at construction). This confines the entire client
+    /// lifecycle (construction, request, drop) to a plain OS thread.
+    fn with_client<T, F>(f: F) -> Result<T, String>
+    where
+        F: FnOnce(&Client) -> Result<T, String> + Send + 'static,
+        T: Send + 'static,
+    {
+        std::thread::spawn(f)
+            .join()
+            .map_err(|_| "reqwest blocking thread panicked".to_string())?
     }
 
     /// Parse "owner/repo" from a Forgejo remote URL.
@@ -125,32 +135,35 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
     fn list_branches(&self, repo: &ExternalRepoRef) -> Result<Vec<ExternalBranch>, String> {
         let (owner, repo_name) = self.parse_owner_repo(repo)?;
         let url = self.api_url(&format!("/repos/{owner}/{repo_name}/branches"));
+        let token = self.token.clone();
+        let default_branch = repo.default_branch.clone();
 
-        let resp = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("token {}", self.token))
-            .send()
-            .map_err(|e| format!("HTTP error: {e}"))?;
+        Self::with_client(move |client| {
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("token {token}"))
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
 
-        if !resp.status().is_success() {
-            return Err(format!("Forgejo API error: {}", resp.status()));
-        }
+            if !resp.status().is_success() {
+                return Err(format!("Forgejo API error: {}", resp.status()));
+            }
 
-        let branches: Vec<ForgejoBranch> =
-            resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+            let branches: Vec<ForgejoBranch> =
+                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
 
-        Ok(branches
-            .into_iter()
-            .map(|b| {
-                let is_default = b.name == repo.default_branch;
-                ExternalBranch {
-                    name: b.name,
-                    head_sha: b.commit.id,
-                    is_default,
-                }
-            })
-            .collect())
+            Ok(branches
+                .into_iter()
+                .map(|b| {
+                    let is_default = b.name == default_branch;
+                    ExternalBranch {
+                        name: b.name,
+                        head_sha: b.commit.id,
+                        is_default,
+                    }
+                })
+                .collect())
+        })
     }
 
     fn create_branch(
@@ -161,28 +174,32 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
     ) -> Result<ExternalBranch, String> {
         let (owner, repo_name) = self.parse_owner_repo(repo)?;
         let url = self.api_url(&format!("/repos/{owner}/{repo_name}/branches"));
+        let token = self.token.clone();
+        let branch_name = branch_name.to_string();
+        let from_sha = from_sha.to_string();
 
-        let body = serde_json::json!({
-            "new_branch_name": branch_name,
-            "old_branch_name": from_sha,
-        });
+        Self::with_client(move |client| {
+            let body = serde_json::json!({
+                "new_branch_name": branch_name,
+                "old_branch_name": from_sha,
+            });
 
-        let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("token {}", self.token))
-            .json(&body)
-            .send()
-            .map_err(|e| format!("HTTP error: {e}"))?;
+            let resp = client
+                .post(&url)
+                .header("Authorization", format!("token {token}"))
+                .json(&body)
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
 
-        if !resp.status().is_success() {
-            return Err(format!("Forgejo API error: {}", resp.status()));
-        }
+            if !resp.status().is_success() {
+                return Err(format!("Forgejo API error: {}", resp.status()));
+            }
 
-        Ok(ExternalBranch {
-            name: branch_name.to_string(),
-            head_sha: from_sha.to_string(),
-            is_default: false,
+            Ok(ExternalBranch {
+                name: branch_name.to_string(),
+                head_sha: from_sha.to_string(),
+                is_default: false,
+            })
         })
     }
 
@@ -213,34 +230,40 @@ impl ExternalSourcePort for ForgejoExternalSourceAdapter {
     ) -> Result<ExternalPrProof, String> {
         let (owner, repo_name) = self.parse_owner_repo(repo)?;
         let url = self.api_url(&format!("/repos/{owner}/{repo_name}/pulls"));
+        let token = self.token.clone();
+        let title = title.to_string();
+        let head_ref = head_ref.to_string();
+        let base_ref = base_ref.to_string();
 
-        let body = serde_json::json!({
-            "title": title,
-            "head": head_ref,
-            "base": base_ref,
-        });
+        Self::with_client(move |client| {
+            let body = serde_json::json!({
+                "title": title,
+                "head": head_ref,
+                "base": base_ref,
+            });
 
-        let resp = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("token {}", self.token))
-            .json(&body)
-            .send()
-            .map_err(|e| format!("HTTP error: {e}"))?;
+            let resp = client
+                .post(&url)
+                .header("Authorization", format!("token {token}"))
+                .json(&body)
+                .send()
+                .map_err(|e| format!("HTTP error: {e}"))?;
 
-        if !resp.status().is_success() {
-            return Err(format!("Forgejo API error: {}", resp.status()));
-        }
+            if !resp.status().is_success() {
+                return Err(format!("Forgejo API error: {}", resp.status()));
+            }
 
-        let pr: ForgejoPullRequest = resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+            let pr: ForgejoPullRequest =
+                resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
 
-        Ok(ExternalPrProof {
-            schema: "cynic.vcs.external_pr_proof.v1",
-            project_id: repo.project_id.clone(),
-            pr_number: pr.number,
-            html_url: pr.html_url,
-            head_ref: pr.head.label,
-            base_ref: pr.base.label,
+            Ok(ExternalPrProof {
+                schema: "cynic.vcs.external_pr_proof.v1",
+                project_id: repo.project_id.clone(),
+                pr_number: pr.number,
+                html_url: pr.html_url,
+                head_ref: pr.head.label,
+                base_ref: pr.base.label,
+            })
         })
     }
 }
