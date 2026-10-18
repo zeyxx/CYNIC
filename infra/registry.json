@@ -703,7 +703,14 @@
           "action": "model BF16 -> Q8_0 (310MB pushed via pct push); unit restarted, serves Q8_0",
           "outcome": "/v1/models confirms embeddinggemma-2-Q8_0.gguf"
         }
-      ]
+      ],
+      "observed_gpu_stack": {
+        "backend": "CPU (no GPU passthrough)",
+        "model": "embeddinggemma-2-Q8_0.gguf",
+        "peer_numeric_drift_vs_cortex": 0.002476,
+        "peer_numeric_drift_vs_compute_01": 0.002479,
+        "observed_at": "2026-10-18"
+      }
     },
     {
       "id": "cynic-laptop-ax16pro",
@@ -933,7 +940,8 @@
         "measured_embed_throughput_texts_per_s": 20.4,
         "vulkan_compute_confirmed": true,
         "note": "llama-server CPU ~20% under embed load on 2026-10-17; inference on GPU",
-        "observed_at": "2026-10-18"
+        "observed_at": "2026-10-18 rebooted",
+        "peer_numeric_drift_vs_cortex": 0.001112
       },
       "maintenance_log": [
         {
@@ -941,9 +949,13 @@
           "action": "Mesa 25.0.7 -> 26.1.6 via trixie-backports + service restart",
           "peer_numeric_drift_after": 0.002476,
           "outcome": "drift unchanged bit-identical; drift is architectural (Vega vs Lucienne), not driver"
+        },
+        {
+          "date": "2026-10-18",
+          "action": "operator repowered laptop; 3-engine drift remeasured",
+          "outcome": "compute01/cortex 0.001112 (was 0.002476), compute01/lxc 0.002479, cortex/lxc 0.002476; drift is state-dependent, range 1-2.5e-3"
         }
-      ],
-      "operator_note": "down 2026-10-18: laptop unplugged, awaiting power"
+      ]
     }
   ],
   "fleet_desired": {
