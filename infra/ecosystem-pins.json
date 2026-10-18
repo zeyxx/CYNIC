@@ -109,6 +109,21 @@
       "notes": "Approved, no Rust consumer yet (solana-sdk 3.0 stack). Install into a sender crate at graduation; never speculatively."
     },
     {
+      "id": "solana-kit-ts",
+      "min_version": "6.4.0",
+      "notes": "GASdf relay + sender (Kit-native). Peer of helius-sdk-ts 3.3.0. Live branch carried 8.5.0 (incompatible) — merge decision 2026-10-18: align on 6.4.x."
+    },
+    {
+      "id": "solana-web3js-ts",
+      "min_version": "1.95.0",
+      "notes": "GASdf relay legacy path (sender 1.95.0, live 1.99.0 — same ^1 range, no conflict)."
+    },
+    {
+      "id": "solana-spl-token-ts",
+      "min_version": "0.4.8",
+      "notes": "GASdf relay token ops (sender 0.4.8, live 0.4.15 — same ^0.4 range, no conflict)."
+    },
+    {
       "id": "systemd",
       "min_version": null,
       "required": true,
