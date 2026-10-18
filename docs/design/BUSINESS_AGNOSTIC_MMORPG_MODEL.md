@@ -15,11 +15,11 @@ CYNIC's inference vertical (`cynic-inference`) serves LLM completions across a h
 | Fragment | Location | Unit |
 |---|---|---|
 | Compute (CPU-ms) | `cynic-workload` | `Budget.cpu_ms` |
-| GPU (VRAM, layers) | `cynic-inference` | `vram_gb`, `gpu_layers` |
-| Memory (RAM) | `infra/compute-policy.json` | `ram_mb` |
-| Storage (disk) | `infra/compute-policy.json` | `disk_mb` |
+| GPU (VRAM, layers) | `cynic-inference` | `vram_total`, `n_gpu_layers` |
+| Memory (RAM) | `infra/compute-policy.json` (future) | `ram_mb` |
+| Storage (disk) | `infra/compute-policy.json` (future) | `disk_mb` |
 | Network (bandwidth) | `cynic-network` | unstructured |
-| Latency | `cynic-inference` | `tg_tok_per_s` (proxy) |
+| Latency | `infra/inference-profiles.json` | `tg_tok_per_s` (proxy) |
 | Cost (energy, tokens) | `cynic-finance` | `ResourceUnit` (emerging) |
 | Authority | `cynic-consensus` | `MandateAccount` |
 
@@ -48,15 +48,15 @@ Every consumable in the system is a **Resource** — a typed, measurable, deplet
 | Resource | Symbol | Unit | Observable Source | MMORPG Analogy |
 |---|---|---|---|---|
 | Compute | `RES_COMPUTE` | CPU-ms | `cynic-workload` `Budget.cpu_ms` | Mana potion |
-| GPU Compute | `RES_GPU` | VRAM-GB × seconds | `cynic-inference` `vram_gb`, `gpu_layers` | Arcane crystal |
+| GPU Compute | `RES_GPU` | VRAM-GB × seconds | `cynic-inference` `vram_total`, `n_gpu_layers` | Arcane crystal |
 | Memory | `RES_MEMORY` | RAM-MB × seconds | `infra/compute-policy.json` `ram_mb` | Health crystal |
 | Storage | `RES_STORAGE` | Disk-MB | `infra/compute-policy.json` `disk_mb` | Inventory slot |
 | Bandwidth | `RES_BANDWIDTH` | Bytes transferred | `cynic-network` | Scroll of teleportation |
-| Latency Budget | `RES_LATENCY` | Milliseconds | `cynic-inference` `tg_tok_per_s` | Swiftness buff |
+| Latency Budget | `RES_LATENCY` | Milliseconds | `infra/inference-profiles.json` `tg_tok_per_s` | Swiftness buff |
 | Energy | `RES_ENERGY` | Watt-hours | `cynic-host` probes | Stamina |
 | Tokens | `RES_TOKEN` | `ResourceUnit` | `cynic-finance` ledger | Gold |
-| Context Window | `RES_CONTEXT` | Tokens | `cynic-inference` `ctx_target` | Spell slot |
-| Time | `RES_TIME` | Seconds | `cynic-workload` `time_min` | Cooldown timer |
+| Context Window | `RES_CONTEXT` | Tokens | `infra/inference-profiles.json` `ctx_target` | Spell slot |
+| Time | `RES_TIME` | Seconds | `cynic-workload` `time_min` (future) | Cooldown timer |
 | Actions | `RES_ACTION` | Count | `cynic-finance` `ActionMeter` | Action points |
 
 ### 3.2 Resource Properties
@@ -94,7 +94,7 @@ Constraints are typed requirements that gate resource consumption. They are the 
 
 | Constraint | Symbol | Unit | Source | MMORPG Analogy |
 |---|---|---|---|---|
-| SLA Deadline | `CON_SLA` | Timestamp | `cynic-workload` `time_min` | Quest timer |
+| SLA Deadline | `CON_SLA` | Timestamp | `cynic-workload` `time_min` (future) | Quest timer |
 | Throughput Floor | `CON_TPUT` | tokens/s | `infra/inference-profiles.json` `tg_tok_per_s` | DPS requirement |
 | Quality Floor | `CON_QUAL` | score [0,1] | `cynic-inference` `token_entropy` | Accuracy buff |
 | Availability | `CON_AVAIL` | % uptime | `infra/compute-policy.json` `live_guard` | Uptime requirement |
@@ -214,7 +214,7 @@ Every CYNIC agent is a **Player** with:
 | `agent_id` | `cynic-protocol` | Character name |
 | `ResourceUnit` balance | `cynic-finance` ledger | Gold |
 | `MandateAccount` | `cynic-consensus` | Guild rank |
-| `AllowanceGrant` | `cynic-consensus` | Inventory access |
+| `AllowanceGrant` (future) | `cynic-consensus` | Inventory access |
 | `EScoreSignal` | `cynic-intel-escore` | Reputation |
 | `AgentChannel.initiator_balance` | `cynic-channel` | Wallet |
 | Skill tree | `cynic-workload` `agent_skill` | Talent tree |
@@ -241,7 +241,7 @@ Every task is a **Quest** with difficulty, rewards, and deadlines:
 | `TaskClass` | `infra/compute-policy.json` | Quest type |
 | `ConstraintProfile` | `ConstraintProfile` | Difficulty + requirements |
 | `BudgetCap` | `cynic-finance` | Reward pool |
-| `time_min` | `infra/compute-policy.json` | Quest timer |
+| `time_min` (future) | `infra/compute-policy.json` | Quest timer |
 | `Priority` | `ConstraintProfile.priority` | Normal / Elite / Raid |
 | `FallbackPolicy` | `ConstraintProfile.fallback` | Fail / Retry / Degrade |
 
@@ -299,10 +299,10 @@ The model is **business-agnostic**: any vertical can adopt it by registering its
 | Item (Mana) | GPU VRAM (`RES_GPU`) |
 | Item (Health) | RAM (`RES_MEMORY`) |
 | Item (Gold) | `ResourceUnit` (`cynic-finance`) |
-| Quest | Inference request (`chat_service` → `inference_gateway`) |
+| Quest | Inference request (`chat_service` → `inference_gateway`, future) |
 | Quest timer | SLA deadline (`time_min`) |
-| Auction | Routing policy (`routing_policy` → `fleet_routing`) |
-| Guild | Inference fleet (`cynic-inference` `fleet_routing`) |
+| Auction | Routing policy (`routing_policy` → `fleet_node`) |
+| Guild | Inference fleet (`cynic-inference` `fleet_node`) |
 | Crafting | Model publishing (`model_sync_pipeline`) |
 
 ### 7.2 Storage Vertical (Future)
@@ -323,7 +323,7 @@ The model is **business-agnostic**: any vertical can adopt it by registering its
 | Item (Teleport scroll) | Bandwidth (`RES_BANDWIDTH`) |
 | Item (Swiftness) | Latency budget (`RES_LATENCY`) |
 | Quest | Packet delivery SLA |
-| Guild | Mesh network (`cynic-network` `fleet-network-architecture`) |
+| Guild | Mesh network (`cynic-network` `FleetNetworkReport`) |
 
 ---
 
@@ -341,7 +341,7 @@ The model maps to existing CYNIC crates without requiring new code:
 | Pool rewards | `cynic-pool` | `reward.rs`, `difficulty.rs` |
 | Workload / quests | `cynic-workload` | `workspace_claim.rs`, `settlement.rs` |
 | Inference resources | `cynic-inference` | `math/roofline.rs`, `config_loader.rs` |
-| Authority | `cynic-consensus` | `MandateAccount`, `AllowanceGrant` |
+| Authority | `cynic-consensus` | `MandateAccount`, `AllowanceGrant` (future) |
 | Reputation | `cynic-intel` | `EScoreSignal` |
 | Task classes | `infra/compute-policy.json` | `task_classes` |
 | Model profiles | `infra/inference-profiles.json` | `profiles` |
