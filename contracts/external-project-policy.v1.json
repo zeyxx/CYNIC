@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract_id": "cynic.external_project_policy.v1",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "draft",
   "purpose": "Schema for a per-project policy entry in infra/external-projects.json. Defines the minimum fields required to govern an external (non-CYNIC) project through CYNIC's agentic OS ports.",
   "required": [
@@ -94,12 +94,36 @@
     },
     "notes": {
       "type": "string"
+    },
+    "maintenance": {
+      "type": "object",
+      "properties": {
+        "cadence": {
+          "type": "string",
+          "description": "How often dependency drift is reported (e.g. monthly)."
+        },
+        "channel": {
+          "type": "string",
+          "description": "How drift is observed (e.g. npm-outdated-report, cargo-outdated-report)."
+        },
+        "owner": {
+          "type": "string",
+          "description": "collaborator_id responsible for applying bumps in the product repo."
+        },
+        "bump_policy": {
+          "type": "string",
+          "enum": ["report-only", "human-applied"],
+          "description": "report-only emits findings; human-applied means the owner bumps after review. Automated bumps are forbidden."
+        }
+      },
+      "description": "Dependency maintenance subscription for this project. Observation only; CYNIC never bumps product deps itself."
     }
   },
   "rules": [
     "Default for a newly added project: mutation_policy=read_only, sensitivity=public.",
     "aegis-core (sanitized) must never be deployed by CYNIC; read-only observation + build/test only.",
     "ports_used must be empty until a port is wired and observed; aspirational entries are forbidden.",
-    "build/test commands must be observed on the builder before status=verified."
+    "build/test commands must be observed on the builder before status=verified.",
+    "maintenance.bump_policy defaults to report-only; no automated dependency bumps without recorded human consent."
   ]
 }
