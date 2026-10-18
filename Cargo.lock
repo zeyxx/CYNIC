@@ -899,6 +899,7 @@ dependencies = [
  "cynic-forensics",
  "cynic-inference",
  "cynic-intel",
+ "cynic-kernel",
  "cynic-lifecycle",
  "cynic-lxc",
  "cynic-network",
