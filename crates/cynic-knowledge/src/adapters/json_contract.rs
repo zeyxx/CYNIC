@@ -1,6 +1,6 @@
-use crate::domain::authority::{AuthorityOverrides, AUTHORITY_TIERS_REGISTRY_PATH};
+use crate::domain::authority::{AUTHORITY_TIERS_REGISTRY_PATH, AuthorityOverrides};
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
-use crate::domain::chunk_quality::{split_span_by_char_budget, MAX_CHUNK_CHARS};
+use crate::domain::chunk_quality::{MAX_CHUNK_CHARS, split_span_by_char_budget};
 use serde_json::Value;
 use std::path::Path;
 

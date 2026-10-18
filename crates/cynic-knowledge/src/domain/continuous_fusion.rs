@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use crate::domain::chunk::DocumentChunk;
 use crate::domain::hybrid_rrf::DenseHit;
 use crate::domain::scorer::{
-    evaluate_altitude_multiplier, evaluate_contract_floor, evaluate_deprecation_multiplier,
-    SearchHit,
+    SearchHit, evaluate_altitude_multiplier, evaluate_contract_floor,
+    evaluate_deprecation_multiplier,
 };
 
 /// Strategy used to project raw score distributions into commensurable $[0.0, 1.0]$ intervals.

@@ -123,6 +123,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit conformance [--profile <name>] [--node <name>] [--registry <path>] [--json]",
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
+                    "cynic audit external [--json] [--registry <path>]",
                 ],
             },
             CommandDomain {
@@ -183,6 +184,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic network mesh coordination [--registry <path>] [--endpoint <url>] [--api-key <token>] [--check-health]",
                     "cynic network provider fallback <status|hosts> [--registry <path>] [--hosts-path <path>] [--check-connectivity] [--output-dir <dir>]",
                     "cynic network actuator <status|bundle|plan|apply> [--registry <path>] [--output-dir <dir> | --bundle-dir <dir>] [--profile <name>] [--apply]",
+                ],
+            },
+            CommandDomain {
+                name: "host",
+                commands: vec![
+                    "cynic host <bridge|membrane|transport|ssh|bootstrap|runner|capability|principal|seed|storage|hardware|service|network|request> <verb> [flags] [--apply]",
+                    "cynic host bridge <bundle|plan|install|status> [--bundle-dir <dir>] [--apply]",
+                    "cynic host service reconcile --node <node> --registry <path> <unit> --apply",
+                    "cynic host network <baseline|actuate> --profile <name> --target <node> --registry <path> [--apply]",
                 ],
             },
             CommandDomain {

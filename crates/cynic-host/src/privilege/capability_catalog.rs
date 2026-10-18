@@ -15,12 +15,14 @@ use cynic_protocol::privilege::{
     CapabilityCatalog, CapabilityDecision, InstalledCapabilities, admit_capability,
     validate_install,
 };
+use cynic_types::paths::CynicPaths;
 
 /// Repository-relative default catalog.
 pub const DEFAULT_CATALOG_PATH: &str = "infra/capabilities/catalog.json";
 
-/// Node-local installed set, written by `cynic install`.
-pub const DEFAULT_INSTALLED_PATH: &str = "/etc/cynic/capabilities.installed.json";
+/// Node-local installed set, written by `cynic install`:
+/// `capabilities.installed.json` under the canonical system config directory,
+/// unless `CYNIC_CAPABILITY_INSTALLED` overrides it.
 
 /// The loaded pair, validated together.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,7 +124,7 @@ pub fn catalog_path_from_env() -> PathBuf {
 pub fn installed_path_from_env() -> PathBuf {
     std::env::var_os("CYNIC_CAPABILITY_INSTALLED")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_INSTALLED_PATH))
+        .unwrap_or_else(|| CynicPaths::system_config_dir().join("capabilities.installed.json"))
 }
 
 #[cfg(test)]
@@ -216,6 +218,141 @@ mod tests {
 
         let error = CapabilityView::load(&catalog, &installed).expect_err("must fail");
         assert!(error.0.contains("catalog_empty"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Bilateral proof for the B2 host-operation capabilities: the repository
+    /// catalog loads, every new capability admits with well-typed params, and
+    /// every rendered argv targets the single `cynic host` surface.
+    #[test]
+    fn repo_catalog_admits_host_capabilities() {
+        let root =
+            std::fs::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(".."))
+                .expect("workspace root must resolve");
+        let catalog_path = root.join("infra/capabilities/catalog.json");
+        let installed_path = root.join("infra/capabilities/catalog.installed.json");
+        let installed_contents;
+        if installed_path.exists() {
+            installed_contents = std::fs::read_to_string(&installed_path).expect("read installed");
+        } else {
+            installed_contents = installed_json(
+                "\"node-control\",\"bridge-install\",\"pve-helper-install\",\"principal-prepare\",\"runtime-seed-reconcile\",\"service-reconcile\",\"network-actuate\",\"network-baseline-apply\",\"storage-identity-enroll\",\"storage-schema-migrate\",\"hardware-baseline-enroll\",\"ssh-trust-admit\"",
+            );
+        }
+        let dir = std::env::temp_dir().join(format!("cynic-cap-repo-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let installed = dir.join("installed.json");
+        write(&installed, &installed_contents);
+
+        let view = CapabilityView::load(&catalog_path, &installed).expect("repo catalog must load");
+        assert!(
+            view.catalog.capabilities.len() >= 27,
+            "unexpected capability count: {}",
+            view.catalog.capabilities.len()
+        );
+
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let registry = root.join("infra/registry.json");
+        let manifest_str = manifest.display().to_string();
+        let registry_str = registry.display().to_string();
+        let hex64 = "a".repeat(64);
+        let cases: Vec<(&str, Vec<(String, String)>)> = vec![
+            ("bridge-install", vec![]),
+            (
+                "pve-helper-install",
+                vec![
+                    ("policy".to_string(), manifest_str.clone()),
+                    ("bundle_dir".to_string(), manifest_str.clone()),
+                ],
+            ),
+            ("principal-prepare", vec![]),
+            (
+                "runtime-seed-reconcile",
+                vec![("request".to_string(), registry_str.clone())],
+            ),
+            (
+                "service-reconcile",
+                vec![
+                    ("node".to_string(), "cortex".to_string()),
+                    ("registry".to_string(), registry_str.clone()),
+                    ("unit".to_string(), "cynic-node.service".to_string()),
+                ],
+            ),
+            (
+                "network-actuate",
+                vec![
+                    ("profile".to_string(), "synapse-route".to_string()),
+                    ("target".to_string(), "cortex".to_string()),
+                    ("registry".to_string(), registry_str.clone()),
+                ],
+            ),
+            (
+                "network-baseline-apply",
+                vec![
+                    ("profile".to_string(), "synapse-route".to_string()),
+                    ("target".to_string(), "cortex".to_string()),
+                    ("registry".to_string(), registry_str.clone()),
+                ],
+            ),
+            (
+                "storage-identity-enroll",
+                vec![
+                    ("endpoint".to_string(), "cortex:8006".to_string()),
+                    ("namespace".to_string(), "cynic".to_string()),
+                    ("database".to_string(), "cynic".to_string()),
+                    ("admin_user".to_string(), "root".to_string()),
+                    ("username".to_string(), "cynic".to_string()),
+                ],
+            ),
+            (
+                "storage-schema-migrate",
+                vec![
+                    ("endpoint".to_string(), "cortex:8006".to_string()),
+                    ("namespace".to_string(), "cynic".to_string()),
+                    ("database".to_string(), "cynic".to_string()),
+                    ("admin_user".to_string(), "root".to_string()),
+                    ("schema_file".to_string(), manifest_str.clone()),
+                ],
+            ),
+            ("hardware-baseline-enroll", vec![]),
+            (
+                "ssh-trust-admit",
+                vec![
+                    ("host".to_string(), "cortex".to_string()),
+                    ("fingerprint".to_string(), hex64),
+                    ("attestation_source".to_string(), "direct-ssh".to_string()),
+                ],
+            ),
+        ];
+        assert_eq!(cases.len(), 11, "one case per new capability");
+        for (id, params) in &cases {
+            match view.admit(id, params) {
+                CapabilityDecision::Admitted {
+                    capability_id,
+                    argv,
+                    requires_root,
+                    ..
+                } => {
+                    assert_eq!(&capability_id, id);
+                    assert!(requires_root, "{id} must require root");
+                    assert!(
+                        argv.len() >= 3 && argv[0] == "/usr/local/bin/cynic" && argv[1] == "host",
+                        "{id} must render through the single binary: {argv:?}"
+                    );
+                }
+                CapabilityDecision::Blocked { blockers } => {
+                    panic!("{id} must admit, blocked by: {blockers:?}")
+                }
+            }
+        }
+
+        let rules = view.catalog.sudoers_rules("cynic", "/usr/local/bin/cynic");
+        for (id, _) in &cases {
+            assert!(
+                rules.iter().any(|rule| rule.contains(id)),
+                "sudoers membrane must cover {id}"
+            );
+        }
         std::fs::remove_dir_all(&dir).ok();
     }
 }

@@ -139,6 +139,7 @@ pub struct NetworkMeshService {
     pub name: String,
     pub port: Option<u16>,
     pub protocol: String,
+    pub plane: Option<String>,
 }
 
 /// A route in the fleet mesh.

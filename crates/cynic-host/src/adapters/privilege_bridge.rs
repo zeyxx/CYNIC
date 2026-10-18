@@ -11,40 +11,32 @@ pub(super) fn observe(spec: &PrivilegeBridgeInstallSpec) -> PrivilegeBridgeObser
         command_stdout(&layout.getent_bin(), &["passwd", &spec.subject]).is_some();
     let authority_uid = identity_id("passwd", &spec.authority_user, 2);
     let authority_gid = identity_id("group", &spec.authority_group, 2);
-    let helper_metadata = fs::metadata(&spec.helper_target).ok();
-    let projection_metadata = fs::metadata(&spec.projection_target).ok();
-    let projection_content = fs::read_to_string(&spec.projection_target).ok();
+    let executor_metadata = fs::metadata(&spec.executor).ok();
+    let membrane_metadata = fs::metadata(&spec.membrane_target).ok();
+    let membrane_content = fs::read_to_string(&spec.membrane_target).ok();
     let provider_available = provider_available(&spec.provider);
 
     PrivilegeBridgeObservedState {
         subject_present,
         provider_available,
-        helper_present: helper_metadata.is_some(),
-        helper_executable: helper_metadata
+        executor_present: executor_metadata.is_some(),
+        executor_executable: executor_metadata
             .as_ref()
             .is_some_and(|metadata| metadata.permissions().mode() & 0o111 != 0),
-        helper_mode_matches: helper_metadata
+        membrane_present: membrane_metadata.is_some(),
+        membrane_mode_matches: membrane_metadata
             .as_ref()
-            .is_some_and(|metadata| metadata.permissions().mode() & 0o7777 == spec.helper_mode),
-        helper_authority_owned: metadata_owned_by(
-            helper_metadata.as_ref(),
+            .is_some_and(|metadata| metadata.permissions().mode() & 0o7777 == spec.membrane_mode),
+        membrane_authority_owned: metadata_owned_by(
+            membrane_metadata.as_ref(),
             authority_uid,
             authority_gid,
         ),
-        projection_present: projection_metadata.is_some(),
-        projection_mode_matches: projection_metadata
-            .as_ref()
-            .is_some_and(|metadata| metadata.permissions().mode() & 0o7777 == spec.projection_mode),
-        projection_authority_owned: metadata_owned_by(
-            projection_metadata.as_ref(),
-            authority_uid,
-            authority_gid,
-        ),
-        projection_valid: provider_available
-            && validate_projection(&spec.provider, &spec.projection_target),
-        invocation_policy_bounded: projection_content.as_deref()
-            == Some(spec.expected_projection.as_str()),
-        bounded_helper_noninteractive: prove_bounded_invocation(spec),
+        membrane_valid: provider_available
+            && validate_projection(&spec.provider, &spec.membrane_target),
+        invocation_policy_bounded: membrane_content.as_deref()
+            == Some(spec.expected_membrane.as_str()),
+        membrane_probe_executed: prove_bounded_invocation(spec),
         unrestricted_shell_denied: prove_unrestricted_shell_denied(spec),
     }
 }

@@ -20,6 +20,7 @@ use crate::domain::build_artefact::{
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use cynic_lifecycle::ArgvRunner;
 use cynic_protocol::retention::PressureSignal;
+use cynic_types::paths::CynicPaths;
 
 pub struct RemoteBuildArtefactAdapter<R: ArgvRunner> {
     runner: Arc<R>,
@@ -61,6 +62,10 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
 
 impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
     fn observe(&self) -> Result<RetentionObservation, RetentionError> {
+        let checkouts_dir = CynicPaths::state_dir()
+            .join("checkouts")
+            .display()
+            .to_string();
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
@@ -86,7 +91,7 @@ impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
             .unwrap_or_default();
 
         let raw_list = self
-            .ssh_run(&["ls", "-1", "/var/lib/cynic/checkouts"])
+            .ssh_run(&["ls", "-1", &checkouts_dir])
             .unwrap_or_default();
         let mut lines = Vec::new();
         let remote_shas = self
@@ -99,7 +104,7 @@ impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
             .unwrap_or_default();
 
         for name in raw_list.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-            let path = format!("/var/lib/cynic/checkouts/{name}");
+            let path = format!("{checkouts_dir}/{name}");
             let sha = self
                 .ssh_run(&["git", "-C", &path, "rev-parse", "HEAD"])
                 .map(|s| s.trim().to_string())
@@ -130,7 +135,7 @@ impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
         let total_checkout_bytes: u64 = checkouts.iter().map(|c| c.size_bytes).sum();
 
         let df_k = self
-            .ssh_run(&["df", "-k", "/var/lib/cynic/checkouts"])
+            .ssh_run(&["df", "-k", &checkouts_dir])
             .or_else(|_| self.ssh_run(&["df", "-k", "/"]))
             .unwrap_or_default();
         let root_owned = checkouts.iter().filter(|c| c.is_root_owned).count();

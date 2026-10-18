@@ -11,6 +11,7 @@ use crate::deps_surface_report::build_deps_report;
 use cynic_host::domain::ecosystem_package::{
     apply_for_dep, has_auto_handler, resolve_principal_install_layout,
 };
+use cynic_types::paths::CynicPaths;
 
 pub(crate) fn execute_deps_upgrade(
     json: bool,
@@ -317,7 +318,7 @@ fn default_user_cli_target() -> PathBuf {
     if let Ok(path) = std::env::var("CYNIC_STANDALONE_CLI") {
         return PathBuf::from(path);
     }
-    PathBuf::from("/usr/local/bin/cynic")
+    CynicPaths::binary_dir().join("cynic")
 }
 
 fn tail(s: &str, max: usize) -> String {

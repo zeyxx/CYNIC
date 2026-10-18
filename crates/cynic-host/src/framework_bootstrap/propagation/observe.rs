@@ -2,9 +2,14 @@ use crate::{adapters::remote_execution::SshRemoteExecutionAdapter, ports::Remote
 use cynic_lifecycle::ArgvRunner;
 
 use super::types::{FrameworkPropagationObservation, FrameworkPropagationProbe};
+use cynic_types::paths::CynicPaths;
 
-const RUNTIME_MARKER: &str = "/var/lib/cynic/runtime/current/.cynic-runtime-release.json";
-const NODE_OBSERVATION: &str = "/var/lib/cynic/bootstrap/node-registry-observation.json";
+pub(super) fn default_runtime_marker_path() -> std::path::PathBuf {
+    CynicPaths::state_dir().join("runtime/current/.cynic-runtime-release.json")
+}
+pub(super) fn default_node_observation_path() -> std::path::PathBuf {
+    CynicPaths::state_dir().join("bootstrap/node-registry-observation.json")
+}
 
 #[allow(dead_code)]
 pub(super) fn observe_framework_propagation(
@@ -77,7 +82,7 @@ pub(super) fn observe_framework_propagation_with_transport(
     let (runtime_marker_status, runtime_marker, marker_probe) = observe_json(
         "runtime_marker",
         ssh_target,
-        RUNTIME_MARKER,
+        &default_runtime_marker_path().display().to_string(),
         runner,
         transport,
     );
@@ -85,7 +90,7 @@ pub(super) fn observe_framework_propagation_with_transport(
     let (node_observation_status, node_observation, node_probe) = observe_json(
         "node_observation",
         ssh_target,
-        NODE_OBSERVATION,
+        &default_node_observation_path().display().to_string(),
         runner,
         transport,
     );

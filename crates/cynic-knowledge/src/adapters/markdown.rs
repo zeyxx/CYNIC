@@ -1,8 +1,8 @@
 use crate::domain::ast::{
-    CodeBlock, DocumentTree, MarkdownLink, SectionNode, DOCUMENT_TREE_SCHEMA_V1,
+    CodeBlock, DOCUMENT_TREE_SCHEMA_V1, DocumentTree, MarkdownLink, SectionNode,
 };
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
-use crate::domain::chunk_quality::{split_span_by_char_budget, MAX_CHUNK_CHARS};
+use crate::domain::chunk_quality::{MAX_CHUNK_CHARS, split_span_by_char_budget};
 use regex::Regex;
 use std::sync::LazyLock;
 

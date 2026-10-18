@@ -7,7 +7,7 @@
 use cynic_build::build_artefact::{CheckoutEntry, DiskPressure};
 use cynic_protocol::disk::bytes_to_human;
 
-/// Parse `ls -1 /var/lib/cynic/checkouts` + `du -sb` + `stat` lines into CheckoutEntry.
+/// Parse `ls -1 <checkouts>` + `du -sb` + `stat` lines into CheckoutEntry.
 /// Each line: "<path>|<sha>|<size_bytes>|<uid>:<gid>|<mtime_secs>|<remote_exists 0/1>"
 /// Pure, no FS touch.
 pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEntry> {
@@ -62,7 +62,7 @@ pub fn parse_checkout_list(raw: &str, remote_shas: &[String]) -> Vec<CheckoutEnt
     out
 }
 
-/// Parse `df -k /var/lib/cynic` avail/use% into DiskPressure. Pure.
+/// Parse `df -k <state root>` avail/use% into DiskPressure. Pure.
 pub fn parse_df_pressure(df_output: &str, root_owned_count: usize) -> DiskPressure {
     let mut avail_bytes = 0u64;
     let mut use_pct = 0u8;

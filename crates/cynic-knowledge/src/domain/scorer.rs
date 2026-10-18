@@ -1,6 +1,6 @@
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
-use crate::domain::hybrid_rrf::{fuse_reciprocal_ranks, DenseHit, DEFAULT_RRF_K};
-use crate::domain::vectorizer::{top_k_dense, ChunkVector};
+use crate::domain::hybrid_rrf::{DEFAULT_RRF_K, DenseHit, fuse_reciprocal_ranks};
+use crate::domain::vectorizer::{ChunkVector, top_k_dense};
 use std::collections::HashMap;
 
 /// Pure in-memory BM25 lexical search and ranking engine.

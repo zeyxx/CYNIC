@@ -64,7 +64,10 @@ pub(crate) fn trigger_build(
         host,
         user.to_string(),
         checkout_base.to_string(),
-        ssot_url.to_string(),
+        // Registry-driven source: an explicit --ssot-url wins, otherwise the
+        // clone URI comes from source_workspace_layout.repositories. Never the
+        // hardcoded default — the runner cannot resolve it.
+        cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
         package,
         sccache_dir.to_string(),
     );

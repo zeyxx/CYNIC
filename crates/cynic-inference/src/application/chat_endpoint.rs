@@ -19,6 +19,7 @@ use crate::config_loader::{
 };
 use crate::infra::model_layout::default_ods_probe_bases;
 use crate::infra::principal_paths::PrincipalPaths;
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -362,7 +363,7 @@ pub fn inference_config_candidates() -> Vec<std::path::PathBuf> {
     }
     let principal = PrincipalPaths::resolve();
     out.push(principal.config_dir.join("inference.toml"));
-    out.push(std::path::PathBuf::from("/etc/cynic/inference.toml"));
+    out.push(CynicPaths::inference_config_path());
     out
 }
 
@@ -539,7 +540,7 @@ pub fn resolve_chat_api_key(backend_name: Option<&str>) -> Option<String> {
     let principal = PrincipalPaths::resolve();
     for path in [
         principal.config_dir.join("llama-api-key"),
-        std::path::PathBuf::from("/etc/cynic/llama-api-key"),
+        CynicPaths::secret_path("llama-api-key"),
     ] {
         if let Ok(raw) = std::fs::read_to_string(&path) {
             let k = raw.trim().to_string();

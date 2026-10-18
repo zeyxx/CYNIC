@@ -6,6 +6,7 @@ use crate::build_surface::BuildCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
+use crate::host_surface::HostCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
 use crate::network_surface::NetworkCommand;
 use crate::node_surface::NodeCommand;
@@ -104,6 +105,11 @@ pub(crate) enum Command {
     Git {
         #[command(subcommand)]
         command: GitCommand,
+    },
+    /// Local substrate operations (staging + capability-gated mutation).
+    Host {
+        #[command(subcommand)]
+        command: HostCommand,
     },
     /// Judge extracted patches (diff vs origin/main) — data-centric gate before adding.
     Judge {

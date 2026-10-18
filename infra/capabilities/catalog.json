@@ -318,52 +318,327 @@
       "purpose": "terminate a detached tmux session cleanly"
     },
     {
-      "id": "lxc-push-node-registry",
-      "domain": "hypervisor",
+      "id": "bridge-install",
+      "domain": "host-bridge",
       "argv_template": [
-        "/usr/sbin/pct",
-        "push",
-        "{vmid}",
-        "{source}",
-        "/etc/cynic/registry.json"
+        "/usr/local/bin/cynic",
+        "host",
+        "bridge",
+        "install",
+        "--apply"
       ],
-      "params": [
-        {
-          "name": "vmid",
-          "kind": "vmid"
-        },
-        {
-          "name": "source",
-          "kind": "local_path"
-        }
-      ],
+      "params": [],
       "requires_root": true,
       "mandatory": false,
-      "purpose": "push a staged fleet file into a CT (fixed dest /etc/cynic/registry.json, source staged on the hypervisor, verified by on-node readback)"
+      "purpose": "install the root-owned privilege bridge from a staged bundle"
     },
     {
-      "id": "lxc-push-node-cert",
+      "id": "pve-helper-install",
       "domain": "hypervisor",
       "argv_template": [
-        "/usr/sbin/pct",
-        "push",
-        "{vmid}",
-        "{source}",
-        "/etc/cynic/node-identity.cert"
+        "/usr/local/bin/cynic",
+        "host",
+        "membrane",
+        "install",
+        "--apply",
+        "--yes",
+        "--policy",
+        "{policy}",
+        "--bundle-dir",
+        "{bundle_dir}"
       ],
       "params": [
         {
-          "name": "vmid",
-          "kind": "vmid"
+          "name": "policy",
+          "kind": "absolute_path"
         },
         {
-          "name": "source",
+          "name": "bundle_dir",
           "kind": "local_path"
         }
       ],
       "requires_root": true,
       "mandatory": false,
-      "purpose": "push a staged fleet file into a CT (fixed dest /etc/cynic/node-identity.cert, source staged on the hypervisor, verified by on-node readback)"
+      "purpose": "install the generated pve sudoers membrane (consent-gated)"
+    },
+    {
+      "id": "principal-prepare",
+      "domain": "host-principal",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "principal",
+        "prepare",
+        "--apply"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "create the runtime principal (user/group/home/state)"
+    },
+    {
+      "id": "runtime-seed-reconcile",
+      "domain": "runtime-seed",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "seed",
+        "reconcile",
+        "--request",
+        "{request}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "request",
+          "kind": "absolute_path"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "run the seed rotation ceremony against a signed request"
+    },
+    {
+      "id": "service-reconcile",
+      "domain": "host-service",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "service",
+        "reconcile",
+        "--node",
+        "{node}",
+        "--registry",
+        "{registry}",
+        "{unit}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "node",
+          "kind": "path_segment"
+        },
+        {
+          "name": "registry",
+          "kind": "absolute_path"
+        },
+        {
+          "name": "unit",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "reconcile a systemd unit to declared state"
+    },
+    {
+      "id": "network-actuate",
+      "domain": "network",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "network",
+        "actuate",
+        "--profile",
+        "{profile}",
+        "--target",
+        "{target}",
+        "--registry",
+        "{registry}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "profile",
+          "kind": "path_segment"
+        },
+        {
+          "name": "target",
+          "kind": "path_segment"
+        },
+        {
+          "name": "registry",
+          "kind": "absolute_path"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "actuate a network profile against an observed target"
+    },
+    {
+      "id": "network-baseline-apply",
+      "domain": "network",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "network",
+        "baseline",
+        "--profile",
+        "{profile}",
+        "--target",
+        "{target}",
+        "--registry",
+        "{registry}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "profile",
+          "kind": "path_segment"
+        },
+        {
+          "name": "target",
+          "kind": "path_segment"
+        },
+        {
+          "name": "registry",
+          "kind": "absolute_path"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "apply the network baseline (mutating side; observe without --apply)"
+    },
+    {
+      "id": "storage-identity-enroll",
+      "domain": "storage",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "storage",
+        "enroll",
+        "--endpoint",
+        "{endpoint}",
+        "--namespace",
+        "{namespace}",
+        "--database",
+        "{database}",
+        "--admin-user",
+        "{admin_user}",
+        "--username",
+        "{username}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "endpoint",
+          "kind": "endpoint"
+        },
+        {
+          "name": "namespace",
+          "kind": "path_segment"
+        },
+        {
+          "name": "database",
+          "kind": "path_segment"
+        },
+        {
+          "name": "admin_user",
+          "kind": "path_segment"
+        },
+        {
+          "name": "username",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "enroll the storage runtime identity (root + interactive admin secret)"
+    },
+    {
+      "id": "storage-schema-migrate",
+      "domain": "storage",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "storage",
+        "migrate",
+        "--endpoint",
+        "{endpoint}",
+        "--namespace",
+        "{namespace}",
+        "--database",
+        "{database}",
+        "--admin-user",
+        "{admin_user}",
+        "--schema-file",
+        "{schema_file}",
+        "--apply"
+      ],
+      "params": [
+        {
+          "name": "endpoint",
+          "kind": "endpoint"
+        },
+        {
+          "name": "namespace",
+          "kind": "path_segment"
+        },
+        {
+          "name": "database",
+          "kind": "path_segment"
+        },
+        {
+          "name": "admin_user",
+          "kind": "path_segment"
+        },
+        {
+          "name": "schema_file",
+          "kind": "absolute_path"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "migrate the storage schema (root + interactive admin secret)"
+    },
+    {
+      "id": "hardware-baseline-enroll",
+      "domain": "host-baseline",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "hardware",
+        "enroll",
+        "--apply"
+      ],
+      "params": [],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "record the hardware baseline for attestation"
+    },
+    {
+      "id": "ssh-trust-admit",
+      "domain": "ssh-trust",
+      "argv_template": [
+        "/usr/local/bin/cynic",
+        "host",
+        "ssh",
+        "admit",
+        "--host",
+        "{host}",
+        "--fingerprint",
+        "{fingerprint}",
+        "--attestation-source",
+        "{attestation_source}",
+        "--yes"
+      ],
+      "params": [
+        {
+          "name": "host",
+          "kind": "endpoint"
+        },
+        {
+          "name": "fingerprint",
+          "kind": "sha256_hex"
+        },
+        {
+          "name": "attestation_source",
+          "kind": "path_segment"
+        }
+      ],
+      "requires_root": true,
+      "mandatory": false,
+      "purpose": "admit an SSH host key into the system trust store"
     }
   ]
 }

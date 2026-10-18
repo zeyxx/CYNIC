@@ -10,6 +10,10 @@
    "path": "fragments/host_bootstrap.json"
   },
   {
+   "id": "host",
+   "path": "fragments/host.json"
+  },
+  {
    "id": "bootstrap_host_exec_bridge",
    "path": "fragments/bootstrap_host_exec_bridge.json"
   },
@@ -150,8 +154,8 @@
    "path": "fragments/node_compute_provision.json"
   },
   {
-   "id": "node_cert_issue",
-   "path": "fragments/node_cert_issue.json"
+   "id": "audit_external",
+   "path": "fragments/audit_external.json"
   }
  ],
  "retired": [

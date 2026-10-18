@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use cynic_types::paths::CynicPaths;
 use sha2::{Digest, Sha256};
 
 use super::types::{StoragePrimaryBundleReport, StoragePrimaryPlanReport};
@@ -24,8 +25,10 @@ pub fn write_activation_bundle(
     let schema =
         fs::read(schema_source).map_err(|error| format!("storage schema read failed: {error}"))?;
     let storage_toml = format!(
-        "# Generated from infra/registry.json; contains no secret.\n[storage]\nurl = \"{}\"\nallow_loopback = false\nnamespace = \"cynic\"\ndatabase = \"main\"\nusername = \"{}\"\nsecret_file = \"/etc/cynic/secrets/storage-runtime-password\"\n",
-        desired.endpoint, desired.runtime_identity
+        "# Generated from infra/registry.json; contains no secret.\n[storage]\nurl = \"{}\"\nallow_loopback = false\nnamespace = \"cynic\"\ndatabase = \"main\"\nusername = \"{}\"\nsecret_file = \"{}\"\n",
+        desired.endpoint,
+        desired.runtime_identity,
+        CynicPaths::secret_path("storage-runtime-password").display()
     );
     let files = [
         ("schema.surql", schema),

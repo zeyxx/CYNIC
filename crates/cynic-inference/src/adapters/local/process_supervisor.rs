@@ -21,6 +21,7 @@ use crate::infra::principal_paths::PrincipalPaths;
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
+use cynic_types::paths::CynicPaths;
 
 const SUPERVISOR_SURFACE: &str = "process";
 
@@ -214,7 +215,7 @@ impl ProcessLocalRuntime {
         let principal = PrincipalPaths::resolve();
         for key_path in [
             principal.config_dir.join("llama-api-key"),
-            PathBuf::from("/etc/cynic/llama-api-key"),
+            CynicPaths::secret_path("llama-api-key"),
         ] {
             if key_path.is_file() {
                 argv.push("--api-key-file".into());

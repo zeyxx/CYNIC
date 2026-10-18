@@ -22,9 +22,15 @@ impl CynicPaths {
     /// Répertoire canonique des secrets machine (permissions 0640 cynic:cynic).
     pub const DEFAULT_SECRETS_DIRNAME: &'static str = "secrets";
 
-    /// Racine d'état persistant runtime principal (cynic_state).
-    /// Défini par `infra/directory-tree.json:cynic_state.root`.
+    /// Canonical persistent state root (cynic_state).
+    /// Defined by `infra/directory-tree.json:cynic_state.root`.
     pub const DEFAULT_STATE_ROOT: &'static str = "/var/lib/cynic";
+
+    /// Canonical log root for runtime logs.
+    pub const DEFAULT_LOG_ROOT: &'static str = "/var/log/cynic";
+
+    /// Canonical install directory for runtime binaries.
+    pub const DEFAULT_BINARY_DIR: &'static str = "/usr/local/bin";
 
     /// Résout la racine de configuration système.
     /// Ordre d'autorité :
@@ -78,11 +84,31 @@ impl CynicPaths {
             .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_STORAGE_FILENAME))
     }
 
-    /// Résout la racine d'état persistant principal (/var/lib/cynic).
+    /// Resolve the primary persistent state root (/var/lib/cynic).
     pub fn state_dir() -> PathBuf {
         std::env::var("CYNIC_STATE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_STATE_ROOT))
+    }
+
+    /// Resolve the runtime log root (/var/log/cynic).
+    /// Authority order:
+    /// 1. `CYNIC_LOG_DIR` environment variable.
+    /// 2. `/var/log/cynic` (installed production norm).
+    pub fn log_dir() -> PathBuf {
+        std::env::var("CYNIC_LOG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_LOG_ROOT))
+    }
+
+    /// Resolve the runtime binary install directory (/usr/local/bin).
+    /// Authority order:
+    /// 1. `CYNIC_BINARY_DIR` environment variable.
+    /// 2. `/usr/local/bin` (installed production norm).
+    pub fn binary_dir() -> PathBuf {
+        std::env::var("CYNIC_BINARY_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_BINARY_DIR))
     }
 
     /// Résout le répertoire de configuration utilisateur (~/.config/cynic).

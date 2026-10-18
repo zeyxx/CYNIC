@@ -60,11 +60,11 @@ fn proof_requirements_with_context(
                     context.default_bundle_dir.clone(),
                 ],
             )],
-            expected: "bundle contains manifest.json, cynic-network-actuator, network-actuator.policy.json and cynic-network-actuator.sudoers",
+            expected: "bundle contains manifest.json and network-actuator.policy.json",
             evidence_source: "default_bundle_dir",
         },
         NetworkActuatorProofRequirement {
-            check: "helper_and_policy_installed",
+            check: "executor_and_policy_ready",
             commands: vec![crate::network_command_surface::argv_command(
                 "status",
                 vec![
@@ -78,14 +78,14 @@ fn proof_requirements_with_context(
                     "--json".to_string(),
                 ],
             )],
-            expected: "helper, policy and sudoers are installed with expected modes",
+            expected: "executor present, policy and membrane have expected modes",
             evidence_source: "local_filesystem",
         },
     ];
 
     for denial in &root_policy.denial_contract {
         let commands = match denial.rule {
-            "commands outside sudoers_rule fail non-interactively" => {
+            "commands outside the membrane admission fail non-interactively" => {
                 vec![crate::network_command_surface::argv_command(
                     "deny_route",
                     vec![
@@ -97,7 +97,7 @@ fn proof_requirements_with_context(
                     ],
                 )]
             }
-            "raw ip/wg/nmcli invocations are never present in sudoers" => {
+            "raw ip/wg/nmcli invocations are never present in the membrane" => {
                 vec![crate::network_command_surface::argv_command(
                     "deny_wireguard",
                     vec![
@@ -108,7 +108,7 @@ fn proof_requirements_with_context(
                     ],
                 )]
             }
-            "shell execution through the helper is forbidden" => {
+            "shell execution outside the membrane is forbidden" => {
                 vec![crate::network_command_surface::argv_command(
                     "deny_shell",
                     vec![
@@ -204,14 +204,14 @@ mod tests {
                 })
         }));
         assert!(requirements.iter().any(|item| {
-            item.check == "raw ip/wg/nmcli invocations are never present in sudoers"
+            item.check == "raw ip/wg/nmcli invocations are never present in the membrane"
                 && item.commands.iter().any(|command| {
                     crate::network_command_surface::render_command(command)
                         .contains("/portable/bin/wg")
                 })
         }));
         assert!(requirements.iter().any(|item| {
-            item.check == "shell execution through the helper is forbidden"
+            item.check == "shell execution outside the membrane is forbidden"
                 && item.commands.iter().any(|command| {
                     crate::network_command_surface::render_command(command)
                         .contains("/portable/bin/sh")

@@ -380,6 +380,8 @@ mod tests {
 
     #[test]
     fn hmac_signature_verifies_and_rejects() {
+        use hmac::KeyInit;
+
         let secret = "test-secret";
         let body = br#"{"after":"abc"}"#;
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();

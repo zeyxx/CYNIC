@@ -6,14 +6,13 @@
 //! blocking call so the surface never spawns a tokio runtime itself.
 
 use cynic_build::build_proof::{BuildProofReport, BuildProofRequest};
-use cynic_host::registry::resolve::{
-    resolve_build_runner_transport, resolve_named_runner_transport,
-};
+use cynic_host::registry::resolve::resolve_build_runner_transport;
+use cynic_host::registry::resolve::resolve_source_transport_uri;
 
 use crate::adapters::ssh_build_proof::SshBuildProof;
 use crate::ports::build_proof_port::BuildProofPort;
 use crate::ports::build_runner_adapter::{
-    DEFAULT_CHECKOUT_BASE, DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner,
+    DEFAULT_SSOT_URL, LocalCommandRunner, SshBuildRunner, default_checkout_base,
 };
 
 /// Resolve the SSH target for a build trigger.
@@ -30,14 +29,20 @@ pub fn resolve_runner_host(host: Option<&str>, registry: &str) -> Result<String,
     }
 }
 
-/// Resolve a named runner (node id, name, or alias) from the fleet registry.
-/// Fails closed when the node or its SSH transport is missing.
-pub fn resolve_named_runner_host(runner: &str, registry: &str) -> Result<String, String> {
-    resolve_named_runner_transport(Some(registry), runner)
-        .map_err(|error| {
-            format!("named runner {runner} unresolvable in registry {registry}: {error}")
-        })
-        .map(|transport| transport.ssh_target)
+/// Resolve the source-of-truth clone URI for a build trigger.
+///
+/// An explicit `--ssot-url` wins; otherwise the URI is resolved from the
+/// registry's `source_workspace_layout.repositories` for the sovereign
+/// `cynic` repository. Fails closed when the registry cannot answer — a
+/// clone must never silently fall back to a hardcoded default the runner
+/// cannot resolve.
+pub fn resolve_ssot_url(ssot_url: &str, registry: &str) -> Result<String, String> {
+    match ssot_url.trim() {
+        explicit if !explicit.is_empty() => Ok(explicit.to_string()),
+        _ => resolve_source_transport_uri(Some(registry), "cynic").map_err(|error| {
+            format!("build source unresolvable in registry {registry}: {error}")
+        }),
+    }
 }
 
 /// Construct the `SshBuildRunner` for a CLI build trigger.
@@ -57,7 +62,7 @@ pub fn ssh_build_runner(
         host,
         user,
         checkout_base: if checkout_base.is_empty() {
-            DEFAULT_CHECKOUT_BASE.to_string()
+            default_checkout_base().display().to_string()
         } else {
             checkout_base
         },

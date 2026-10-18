@@ -2,6 +2,7 @@
 //! are synchronized across service config, password file, and live auth.
 
 use cynic_storage::credential_sync::{StorageCredentialObservation, StorageCredentialSpec};
+use cynic_types::paths::CynicPaths;
 
 /// Port for observing storage credential state.
 pub trait StorageCredentialSyncPort {
@@ -86,10 +87,10 @@ impl StorageCredentialSyncPort for StorageCredentialSyncAdapter {
         };
 
         // 4. Password file presence and content match.
-        let password_file_present =
-            std::path::Path::new("/etc/cynic/secrets/storage-runtime-password").exists();
+        let password_file = CynicPaths::secret_path("storage-runtime-password");
+        let password_file_present = password_file.exists();
         let password_file_matches = if password_file_present {
-            std::fs::read_to_string("/etc/cynic/secrets/storage-runtime-password")
+            std::fs::read_to_string(&password_file)
                 .map(|s| s.trim() == spec.password)
                 .unwrap_or(false)
         } else {

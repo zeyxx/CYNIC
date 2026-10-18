@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use cynic_types::paths::CynicPaths;
 use serde_json::Value;
 
 pub const DEFAULT_NODE_PUBLIC_KEY: &str = "workload-identity-unavailable";
@@ -40,7 +41,7 @@ pub fn default_queue_dir(home: Option<PathBuf>) -> PathBuf {
 
     match home {
         Some(path) if !path.starts_with("/home/") => path.join("node"),
-        _ => PathBuf::from("/var/lib/cynic/node"),
+        _ => CynicPaths::state_dir().join("node"),
     }
 }
 

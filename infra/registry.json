@@ -252,11 +252,17 @@
         "canonical": false,
         "purpose": "bare-metal management and hypervisor control"
       },
+      "lan": {
+        "cidr": "192.168.0.0/24",
+        "canonical": false,
+        "purpose": "site LAN (DHCP); compute nodes without service-plane address"
+      },
       "mesh": {
         "cidr": "100.64.0.0/10",
         "canonical": false,
         "purpose": "WireGuard encrypted full-mesh overlay (RFC 6598 CGNAT; immune to RFC 1918 LAN collisions)",
-        "cidr_basis": "rfc6598"
+        "cidr_basis": "rfc6598",
+        "interface": "wg0"
       }
     },
     "reservations": [
@@ -323,6 +329,12 @@
           "cynic-agent-host.service.cynic"
         ],
         "service": "10.10.10.102"
+      },
+      {
+        "name": "cynic-compute-01",
+        "addresses": {
+          "lan": "192.168.0.25"
+        }
       }
     ]
   },
@@ -500,7 +512,8 @@
             "kind": "http",
             "path": "/health",
             "port": 8000
-          }
+          },
+          "network_plane": "service"
         },
         {
           "name": "runtime-artifact-store",
@@ -523,7 +536,8 @@
             "kind": "https",
             "path": "/health",
             "port": 8443
-          }
+          },
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -643,6 +657,43 @@
       ],
       "energy_profile": {
         "class": "burst"
+      },
+      "toolchains": {
+        "schema": "cynic.builder_toolchains.v1",
+        "provisioned_at": "2026-10-18",
+        "provisioned_by": "hermes (agent/hermes/aegis-consortium)",
+        "tools": [
+          {
+            "name": "go",
+            "version": "go1.27.2",
+            "install_path": "/opt/go",
+            "bin_path": "/opt/go/bin/go",
+            "symlink": "/usr/local/bin/go",
+            "purpose": "Build/test external Go projects (aegisscan, aegis-core) on the builder"
+          },
+          {
+            "name": "node",
+            "version": "v22.23.3",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/node",
+            "symlink": "/usr/local/bin/node",
+            "purpose": "Build/test external Node/TypeScript projects (ai-bus) on the builder"
+          },
+          {
+            "name": "npm",
+            "version": "10.9.9",
+            "install_path": "/opt/node",
+            "bin_path": "/opt/node/bin/npm",
+            "symlink": "/usr/local/bin/npm",
+            "purpose": "Package management for external Node/TypeScript projects"
+          }
+        ],
+        "notes": [
+          "Installed 2026-10-18 to close roadmap item 7 build/test observation gap.",
+          "Builder previously had rust/cargo only; Go and Node were absent.",
+          "Paths are durable under /opt; PATH wired via /usr/local/bin symlinks and /etc/profile.d/cynic-toolchains.sh.",
+          "Provisioning is formalized here (SSOT) so future agents discover available toolchains without probing."
+        ]
       }
     },
     {
@@ -823,7 +874,8 @@
         {
           "name": "forgejo-backend",
           "scheme": "http",
-          "port": 3000
+          "port": 3000,
+          "network_plane": "service"
         }
       ],
       "energy_profile": {
@@ -871,7 +923,64 @@
           "name": "headscale",
           "scheme": "http",
           "port": 8080,
-          "status": "planned"
+          "status": "planned",
+          "network_plane": "service"
+        }
+      ],
+      "energy_profile": {
+        "class": "always_on"
+      }
+    },
+    {
+      "id": "cynic-compute-01",
+      "name": "cynic-compute-01",
+      "aliases": [
+        "compute-01",
+        "trixie-apu"
+      ],
+      "role": "embedding_runner",
+      "host_family": "linux.debian.systemd",
+      "status": "observed",
+      "deploy_target": true,
+      "boot_persistence": true,
+      "transports": {
+        "ssh": {
+          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
+          "trust": "ssh_trust_anchor",
+          "principal": "titouan"
+        }
+      },
+      "network": {
+        "lan": "192.168.0.25",
+        "service": "192.168.0.25"
+      },
+      "observed_hardware": {
+        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
+        "operating_system": "Debian GNU/Linux 13 (trixie)",
+        "ram": "16 GB",
+        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
+      },
+      "services": [
+        {
+          "name": "embedding-server",
+          "artifact": "llama-server",
+          "scheme": "http",
+          "endpoint_host": "192.168.0.25",
+          "port": 8080,
+          "network_plane": "lan",
+          "unit": "cynic-embedding-node.service",
+          "supervisor": {
+            "provider": "systemd-user"
+          },
+          "health": {
+            "kind": "http",
+            "url": "http://192.168.0.25:8080/health"
+          },
+          "model": "embeddinggemma-2-Q8_0.gguf",
+          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
+          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
+          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
+          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
         }
       ],
       "energy_profile": {

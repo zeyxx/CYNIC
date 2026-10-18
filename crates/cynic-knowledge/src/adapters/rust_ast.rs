@@ -1,5 +1,5 @@
 use crate::domain::chunk::{AuthorityTier, DocumentChunk};
-use crate::domain::chunk_quality::{split_span_by_char_budget, MAX_CHUNK_CHARS};
+use crate::domain::chunk_quality::{MAX_CHUNK_CHARS, split_span_by_char_budget};
 
 /// Parses a Rust source file and extracts semantic AST chunks (module docstrings,
 /// public structs, enums, functions, traits, and implementations).
@@ -361,9 +361,11 @@ pub fn standalone_function() -> u32 {
             .iter()
             .find(|c| c.content.contains("pub struct CynicPaths"))
             .expect("struct chunk");
-        assert!(struct_chunk
-            .content
-            .contains("/// Path resolution utility."));
+        assert!(
+            struct_chunk
+                .content
+                .contains("/// Path resolution utility.")
+        );
         assert!(struct_chunk.content.contains("pub root: PathBuf"));
 
         // 3. Impl

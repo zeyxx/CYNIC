@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use clap::Subcommand;
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_types::paths::CynicPaths;
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -17,7 +17,7 @@ pub enum NetworkCommands {
         #[arg(long, default_value_t = 180)]
         max_handshake_age_secs: u64,
         /// Registry path used to derive allowed services and topology.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
     },
     /// Reconcile discovered cluster network observations into registry.json observed section.
@@ -26,7 +26,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive desired state and write observed status.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// TCP probe timeout in milliseconds.
         #[arg(long, default_value_t = 500)]
@@ -41,7 +41,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive firewall policy.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Target node ID to compile policy for (defaults to local node).
         #[arg(long)]
@@ -56,7 +56,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive Synapse topology.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Output directory containing bundle files and manifest.
         #[arg(long)]
@@ -74,7 +74,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive optional DNS resolution checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Hosts path to validate.
         #[arg(long, default_value_t = current_runtime_layout().dns_hosts_path())]
@@ -96,7 +96,7 @@ pub enum NetworkCommands {
     DnsActivate {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long)]
         bundle_dir: String,
@@ -110,14 +110,14 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive network checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
     },
     /// Emit the host-owned network actuation observation projection.
     ActuationObservation {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
     },
     /// Emit local activation status for the bounded network-actuator surface.
@@ -126,13 +126,13 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive network checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
     },
     /// Emit the install bundle for the bounded network-actuator surface.
     ActuatorBundle {
         /// Registry path used to derive runtime checks and allowed profiles.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Output directory containing helper, policy, sudoers and manifest.
         #[arg(long)]
@@ -141,7 +141,7 @@ pub enum NetworkCommands {
     /// Emit a non-mutating activation plan for the bounded network-actuator surface.
     ActuatorPlan {
         /// Registry path used to derive runtime checks and allowed profiles.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Directory expected to contain the actuator bundle.
         #[arg(long, default_value_t = current_runtime_layout().network_actuator_bundle_dir)]
@@ -150,7 +150,7 @@ pub enum NetworkCommands {
     /// Execute one bounded network actuator profile. Intended for the root-owned helper path.
     Apply {
         /// Registry path used to derive runtime checks and concrete commands.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Allowed profile name.
         #[arg(long)]
@@ -165,7 +165,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive mesh intent.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Override registry mesh provider for planning only.
         #[arg(long)]
@@ -177,7 +177,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive mesh intent.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Override registry mesh provider for bundling only.
         #[arg(long)]
@@ -258,7 +258,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive declared mesh peers.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Optional explicit coordination control plane endpoint (e.g. http://10.10.10.40:8080).
         #[arg(long)]
@@ -324,7 +324,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive fallback route and service checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Provider fallback hosts file to validate.
         #[arg(long, default_value_t = current_runtime_layout().provider_fallback_hosts_path())]
@@ -339,7 +339,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive fallback host entries.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Output directory containing provider-fallback.hosts and manifest context.
         #[arg(long)]
@@ -351,7 +351,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used by both Python and Rust paths.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Resolve DNS in the Python mesh status surface.
         #[arg(long)]
@@ -366,7 +366,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive runtime checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Also validate DNS resolution semantics.
         #[arg(long)]
@@ -396,7 +396,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive runtime checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Also validate DNS resolution semantics.
         #[arg(long)]
@@ -426,7 +426,7 @@ pub enum NetworkCommands {
         #[arg(long)]
         json: bool,
         /// Registry path used to derive runtime checks.
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Also validate DNS resolution semantics.
         #[arg(long)]
@@ -1355,7 +1355,7 @@ mod tests {
         let cmd = NetworkCommands::SecurityAudit {
             json: true,
             max_handshake_age_secs: 180,
-            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+            registry: CynicPaths::registry_path().display().to_string(),
         };
         let code = execute_network_command(&cmd);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -1365,7 +1365,7 @@ mod tests {
     fn reconcile_observed_dry_run_executes_without_panic() {
         let cmd = NetworkCommands::ReconcileObserved {
             json: true,
-            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+            registry: CynicPaths::registry_path().display().to_string(),
             timeout_ms: 100,
             apply: false,
         };
@@ -1377,7 +1377,7 @@ mod tests {
     fn firewall_policy_executes_without_panic() {
         let cmd = NetworkCommands::FirewallPolicy {
             json: true,
-            registry: cynic_host::registry::DEFAULT_REGISTRY_PATH.to_string(),
+            registry: CynicPaths::registry_path().display().to_string(),
             node_id: None,
             audit: false,
         };

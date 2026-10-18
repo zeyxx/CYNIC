@@ -19,6 +19,7 @@ thiserror = "2.0.18"
 async-trait.workspace = true
 
 [dev-dependencies]
+cynic-types = { path = "../cynic-types" }
 tempfile = "3"
 
 [lints]
