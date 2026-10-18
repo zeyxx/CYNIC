@@ -94,8 +94,24 @@ What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too
   Unblock: box UI → Gestion des accès → app `cynic` → allow settings
   modification (or delete rule id 2 in 2 clicks), then propose a fresh
   intent. Consumer of 8006 still UNKNOWN (2 days pveproxy = cortex only).
-- Dette : `cynic-cli network observe --freebox` panique (tokio runtime
-  drop, pré-existant) — diagnostic sous-agent en cours, territoire pair.
+- Token sprawl (screenshot 2026-10-18) : SEVEN apps (`CYNIC Port Forward`,
+  `CYNIC Admin` (HAS settings-modify), `CYNIC WiFi localizer`, `CYNIC
+  signal monitor`, `CYNIC Organ Freebox` (HAS settings-modify), `CYNIC
+  Node`, `CYNIC cortex` (today, read-only)). Owners/dates scattered
+  (May/June/Oct), no inventory — structural gap, same family as the NAT
+  rules without comments.
+- Legacy `/home/user/.freebox_token` (664 world-readable!, June 12,
+  81 bytes in 2 segments — not the 64-char token format) migrated to
+  `/etc/cynic/secrets/freebox-organ-token` (600) and shredded. Identity
+  unconfirmed (3 app_id attempts → 403); no further guessing.
+  Cleanest path: grant settings-modify to `CYNIC cortex` in box UI and
+  revoke the dead apps, keeping ONE admin path + the read probe.
+- Side find: `/etc/cynic/secrets/gasdf/helius-api-key` EXISTS (37 B,
+  Oct 16 02:06) though the Oct 16 baseline recorded it missing — presence
+  only, never read; subscription work may now reference it via ports.
+- Panic CLI fixé 2026-10-18 (thread confinement, `dcc3cb5a`) — `network
+  observe --freebox` vérifié live ; reste 2 panics frères + 2 latents
+  (territoire pair).
 
 ## 8. Tranches proposées
 
