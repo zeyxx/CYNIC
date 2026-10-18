@@ -160,6 +160,7 @@ mod tests {
             commands: vec!["echo one".to_string(), "echo two".to_string()],
             work_dir: String::new(),
             kind: ExternalBuildKind::Build,
+            builder_node_id: "test-builder".to_string(),
         };
         let proof = adapter.run_build_proof(&request, "test-builder");
         assert_eq!(proof.commands_run, 2);

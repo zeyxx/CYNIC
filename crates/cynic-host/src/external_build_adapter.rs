@@ -9,8 +9,8 @@
 use std::process::Command;
 
 use cynic_build::external_build::{
-    ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest, build_external_proof,
-    ExternalCommandResult,
+    ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest, ExternalCommandResult,
+    build_external_proof,
 };
 use cynic_build::ports::BuildCommandOutput;
 
@@ -94,6 +94,7 @@ mod tests {
             commands: vec!["echo ok".to_string()],
             work_dir: String::new(),
             kind: ExternalBuildKind::Build,
+            builder_node_id: "local".to_string(),
         };
         let proof = adapter.run_build_proof(&request, "local");
         assert!(proof.overall_success);

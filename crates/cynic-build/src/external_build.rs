@@ -32,6 +32,8 @@ pub struct ExternalBuildRequest {
     pub work_dir: String,
     /// Whether this is a build or a test run.
     pub kind: ExternalBuildKind,
+    /// Target builder node identifier.
+    pub builder_node_id: String,
 }
 
 /// Build vs test distinction.
@@ -189,7 +191,11 @@ mod tests {
     fn admit_with_empty_commands_blocked() {
         let r = admit_external_build("aegisscan", &[], "observed_on_builder", "public");
         assert!(!r.admitted);
-        assert!(r.blockers.iter().any(|b| b.contains("no build/test commands")));
+        assert!(
+            r.blockers
+                .iter()
+                .any(|b| b.contains("no build/test commands"))
+        );
     }
 
     #[test]
@@ -206,23 +212,31 @@ mod tests {
 
     #[test]
     fn admit_empty_project_id_blocked() {
-        let r = admit_external_build("", &["go build ./...".to_string()], "observed_on_builder", "public");
+        let r = admit_external_build(
+            "",
+            &["go build ./...".to_string()],
+            "observed_on_builder",
+            "public",
+        );
         assert!(!r.admitted);
     }
 
     #[test]
     fn build_proof_all_pass() {
-        let results = vec![
-            ExternalCommandResult {
-                command: "go build ./...".to_string(),
-                exit_code: Some(0),
-                stdout: "".to_string(),
-                stderr: "".to_string(),
-                spawn_error: None,
-                success: true,
-            },
-        ];
-        let proof = build_external_proof("aegisscan", ExternalBuildKind::Build, results, "cynic-builder");
+        let results = vec![ExternalCommandResult {
+            command: "go build ./...".to_string(),
+            exit_code: Some(0),
+            stdout: "".to_string(),
+            stderr: "".to_string(),
+            spawn_error: None,
+            success: true,
+        }];
+        let proof = build_external_proof(
+            "aegisscan",
+            ExternalBuildKind::Build,
+            results,
+            "cynic-builder",
+        );
         assert!(proof.overall_success);
         assert_eq!(proof.commands_run, 1);
         assert_eq!(proof.commands_passed, 1);
@@ -249,7 +263,12 @@ mod tests {
                 success: false,
             },
         ];
-        let proof = build_external_proof("aegisscan", ExternalBuildKind::Test, results, "cynic-builder");
+        let proof = build_external_proof(
+            "aegisscan",
+            ExternalBuildKind::Test,
+            results,
+            "cynic-builder",
+        );
         assert!(!proof.overall_success);
         assert_eq!(proof.commands_run, 2);
         assert_eq!(proof.commands_passed, 1);
@@ -258,7 +277,12 @@ mod tests {
 
     #[test]
     fn build_proof_empty_commands_not_success() {
-        let proof = build_external_proof("aegisscan", ExternalBuildKind::Build, vec![], "cynic-builder");
+        let proof = build_external_proof(
+            "aegisscan",
+            ExternalBuildKind::Build,
+            vec![],
+            "cynic-builder",
+        );
         assert!(!proof.overall_success);
         assert_eq!(proof.commands_run, 0);
     }
@@ -280,12 +304,7 @@ mod tests {
                 request: &ExternalBuildRequest,
                 builder_node_id: &str,
             ) -> ExternalBuildProof {
-                build_external_proof(
-                    &request.project_id,
-                    request.kind,
-                    vec![],
-                    builder_node_id,
-                )
+                build_external_proof(&request.project_id, request.kind, vec![], builder_node_id)
             }
         }
         let port: Box<dyn ExternalBuildPort> = Box::new(MockPort);
