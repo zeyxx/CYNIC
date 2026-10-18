@@ -9,8 +9,8 @@
 use std::process::Command;
 
 use cynic_vcs::external_source::{
-    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalProvider, ExternalPushProof,
-    ExternalRepoRef, ExternalSourcePort,
+    ExternalBranch, ExternalCloneResult, ExternalPrProof, ExternalPushProof, ExternalRepoRef,
+    ExternalSourcePort,
 };
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -43,7 +43,11 @@ impl GitHubExternalSourceAdapter {
     }
 
     fn api_url(&self, path: &str) -> String {
-        format!("{}/{}", self.base_url.trim_end_matches('/'), path.trim_start_matches('/'))
+        format!(
+            "{}/{}",
+            self.base_url.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        )
     }
 }
 
@@ -99,7 +103,9 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
             .output()
             .map_err(|e| format!("git rev-parse error: {e}"))?;
 
-        let head_sha = String::from_utf8_lossy(&sha_output.stdout).trim().to_string();
+        let head_sha = String::from_utf8_lossy(&sha_output.stdout)
+            .trim()
+            .to_string();
 
         Ok(ExternalCloneResult {
             schema: "cynic.vcs.external_clone_proof.v1",
@@ -132,7 +138,8 @@ impl ExternalSourcePort for GitHubExternalSourceAdapter {
             return Err(format!("GitHub API error: {}", resp.status()));
         }
 
-        let branches: Vec<GitHubBranch> = resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
+        let branches: Vec<GitHubBranch> =
+            resp.json().map_err(|e| format!("JSON parse error: {e}"))?;
 
         Ok(branches
             .into_iter()
