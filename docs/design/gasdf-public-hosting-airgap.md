@@ -81,13 +81,19 @@ What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too
 - Pairing done 2026-10-18 (app `cynic`, track granted on box display);
   token stored `/etc/cynic/secrets/freebox-app-token` (600, cynic) —
   session opens, `fw/redir` readable.
-- RESOLVED A1: public IPv4 `82.65.26.228`; exactly ONE active NAT rule —
-  WAN 8006 → 192.168.0.37:8006 (pve). Consumer UNKNOWN (operator 2026-10-18:
-  "je sais pas") — decision DEFERRED pending measurement, rule stays but
-  is flagged `unresolved`, not accepted. Next: pveproxy access log
-  (`grep -oE '^[0-9.]+' /var/log/pveproxy/access.log | sort | uniq -c |
-  sort -rn | head`) to list proven remote consumers before choosing
-  close (WG-only) vs harden (TOTP + fail2ban).
+- RESOLVED A1 (corrected 18:35 — the "single rule" claim was a 1500-char
+  truncation artifact; full list read live): public IPv4 `82.65.26.228`
+  with EIGHT active forwards, all → 192.168.0.37 (pve):
+  8006 PVE UI (no comment), 443 "CYNIC Headscale + Kernel", 8443 "CYNIC
+  Webhook Receiver", 3478 "CYNIC DERP STUN", 80 "CYNIC Caddy ACME", 22 SSH
+  (no comment), 3000 (no comment — ex-forgejo?), 51820 WireGuard (no
+  comment). No shrinkage since Oct 6; the estate is wide open.
+- 8006 delete ATTEMPTED via approval intent (consumed, single-use spent):
+  Freebox API answered 403 — the app grant lacks settings/fw rights.
+  Fail-closed proven: explicit error, nothing half-done, rule intact.
+  Unblock: box UI → Gestion des accès → app `cynic` → allow settings
+  modification (or delete rule id 2 in 2 clicks), then propose a fresh
+  intent. Consumer of 8006 still UNKNOWN (2 days pveproxy = cortex only).
 - Dette : `cynic-cli network observe --freebox` panique (tokio runtime
   drop, pré-existant) — diagnostic sous-agent en cours, territoire pair.
 
