@@ -4,12 +4,14 @@ use clap::Subcommand;
 use cynic_types::paths::CynicPaths;
 
 mod archive;
+mod artifact;
 mod invoice;
 mod reclaim;
 mod runner;
 mod services;
 
 pub(crate) use invoice::BuildProofsCommand;
+pub(crate) use artifact::BuildArtifactCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
@@ -21,6 +23,7 @@ use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 use archive::{ArchiveReport, archive_terminal_workloads};
+use artifact::{pull_artifact, publish_artifact};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -128,6 +131,11 @@ pub(crate) enum BuildCommand {
     Proofs {
         #[command(subcommand)]
         command: BuildProofsCommand,
+    },
+    /// Publish or pull runtime artifacts with fail-closed digest verification.
+    Artifact {
+        #[command(subcommand)]
+        command: BuildArtifactCommand,
     },
     /// Aggregate pipeline proofs for one commit into a metabolic invoice.
     Invoice {
@@ -361,6 +369,22 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 proof_log,
                 json,
             } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        },
+        BuildCommand::Artifact { command } => match command {
+            BuildArtifactCommand::Publish {
+                artifact,
+                remote_path,
+                source_commit,
+                publisher,
+                output,
+                json,
+            } => publish_artifact(&artifact, &remote_path, &source_commit, &publisher, &output, json),
+            BuildArtifactCommand::Pull {
+                manifest,
+                base_url,
+                output,
+                json,
+            } => pull_artifact(&manifest, &base_url, &output, json),
         },
         BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
