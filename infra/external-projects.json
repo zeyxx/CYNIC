@@ -133,6 +133,48 @@
         "BuildPort": "adapter_defined (HttpExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
         "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
       }
+    },
+    {
+      "project_id": "hexyl",
+      "display_name": "Hexyl",
+      "repo_url": "https://github.com/sharkdp/hexyl.git",
+      "default_branch": "master",
+      "collaborator_ids": [
+        "sharkdp"
+      ],
+      "language_stack": "rust",
+      "observed_manifests": [
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "build_commands": [
+        "cargo build"
+      ],
+      "test_commands": [
+        "cargo test"
+      ],
+      "build_commands_status": "observed_on_builder",
+      "mutation_policy": "read_only",
+      "sensitivity": "public",
+      "ports_used": [],
+      "notes": "Command-line hex viewer. Pure Rust CLI with no runtime dependencies beyond libc. Clone: ~/.cynic/external/hexyl @ 6ecc29b.",
+      "observation": {
+        "observed_at": "2026-10-18",
+        "observed_on": "builder 10.10.10.119 (cargo 1.95.0, rustc 1.95.0)",
+        "build_result": "PASS (cargo build exit 0)",
+        "test_result": "PASS (cargo test exit 0): 56 tests passed (10 unit + 5 main + 41 integration + 0 doc)"
+      },
+      "ports_candidate": [
+        "SourcePort",
+        "BuildPort",
+        "EvidencePort"
+      ],
+      "port_wiring_status": "adapters_defined (traits + adapters for all 3 ports, SSH + GitHub)",
+      "port_status": {
+        "SourcePort": "adapter_defined (ForgejoExternalSourceAdapter + GitHubExternalSourceAdapter)",
+        "BuildPort": "adapter_defined (HttpExternalBuildAdapter + LocalExternalBuildAdapter in cynic-host)",
+        "EvidencePort": "adapter_defined (LocalExternalEvidenceAdapter in cynic-host)"
+      }
     }
   ],
   "rules": [
