@@ -42,6 +42,14 @@ runs become allocation.
   token flow is what makes unit cost computable. Probe prompts keep
   `max_tokens` high enough not to truncate reasoning (v1 seed hit the
   ceiling at 60 — blind spot noted, not hidden).
+- B7. Server exports ground the ledger: opencode console request logs
+  (`origin: opencode-console-export`, cost/cache/TTFT per request) and
+  console gauges (`origin: opencode-console-screenshot`, rolling/weekly/
+  monthly %) are ingested as reference rows, never mixed with client
+  rows except through the `origin` filter. Standing rule learned
+  2026-10-19: at 85% monthly Go, metered Go models are off-limits and
+  traffic goes to `:free`/`-free` (still $0 at cap), `nous :free`, or
+  Antigravity while its weekly quota holds.
 
 ## Artifacts
 
