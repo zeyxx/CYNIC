@@ -336,7 +336,121 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             let cache_path = cynic_types::CynicPaths::knowledge_cache_path();
             let (cache, index) =
                 cynic_knowledge::sync_workspace_corpus(&repo_root, Some(&cache_path), commits);
-            let hits = index.search(&question, limit);
+            // Measured default (90 graded queries: dense+policy MRR 0.574 vs
+            // BM25 0.518): dense retrieval with policy multipliers when an
+            // embedding engine resolves, lexical BM25 otherwise. The vector
+            // cache is engine-bound — a foreign engine recomputes instead
+            // of silently mixing vectors.
+            let dense_data: Result<
+                (
+                    Vec<cynic_knowledge::DocumentChunk>,
+                    Vec<cynic_knowledge::ChunkVector>,
+                    Vec<f32>,
+                ),
+                String,
+            > = tokio::task::block_in_place(|| {
+                let backend =
+                    cynic_inference::adapters::embedding::http::EmbeddingBackend::from_env()
+                        .map_err(|e| format!("no embedding engine: {e}"))?;
+                let engine = backend.base_urls().join(",");
+                let bridge =
+                    cynic_inference::adapters::embedding::sync_bridge::SyncEmbeddingBridge::probe(
+                        backend,
+                        "know ask dense retrieval",
+                    )
+                    .map_err(|e| format!("embedding probe failed: {e}"))?;
+                let pipeline = cynic_eval::bench::retrieval_gain::TextPipeline {
+                    max_chars: 1000,
+                    doc_prefix: String::new(),
+                    query_prefix: String::new(),
+                    doc_template: "{body}".into(),
+                };
+                let model =
+                    std::env::var("CYNIC_EMBED_MODEL").unwrap_or_else(|_| "unknown-model".into());
+                // Engine-bound key: the same model on two engines yields
+                // different vectors, so the engine URLs join the cache key
+                // instead of trusting the model name alone.
+                let engine_key: String = engine
+                    .chars()
+                    .map(|c| {
+                        if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                            c
+                        } else {
+                            '-'
+                        }
+                    })
+                    .collect();
+                let vector_cache_path = repo_root.join(
+                    cynic_eval::bench::retrieval_gain::vector_cache_filename_for(
+                        &format!("{model}@{engine_key}"),
+                        &pipeline.tag(),
+                    ),
+                );
+                let mut vector_cache = cynic_knowledge::load_vector_cache(
+                    &vector_cache_path,
+                    &model,
+                    &pipeline.tag(),
+                    &engine,
+                )
+                .unwrap_or_else(|| {
+                    cynic_knowledge::VectorCacheRecord::new(&model, &pipeline.tag(), &engine)
+                });
+                let mut chunks: Vec<_> = cache.chunks_by_path().into_values().flatten().collect();
+                chunks.sort_by(|a, b| a.chunk_id.cmp(&b.chunk_id));
+                let templated = cynic_eval::bench::retrieval_gain::TemplatedEmbedder::new(
+                    &bridge,
+                    &pipeline,
+                    32,
+                    &|_, _| {},
+                );
+                let (vectors, reused, embedded) = cynic_knowledge::vectorize_chunks_cached(
+                    &templated,
+                    &chunks,
+                    &mut vector_cache,
+                    &|_, _| {},
+                )
+                .map_err(|e| format!("corpus vectorization failed: {e}"))?;
+                if embedded > 0 {
+                    if let Err(e) =
+                        cynic_knowledge::save_vector_cache(&vector_cache_path, &vector_cache)
+                    {
+                        eprintln!("warning: vector cache save failed: {e}");
+                    }
+                    eprintln!("dense index: {reused} reused, {embedded} embedded");
+                }
+                let query_text = pipeline.query_text(&question);
+                let mut query_vectors =
+                    cynic_knowledge::ChunkEmbedder::embed_batch(&templated, &[query_text.as_str()])
+                        .map_err(|e| format!("query embed failed: {e}"))?;
+                let query_vector = query_vectors
+                    .pop()
+                    .ok_or_else(|| "query embed returned nothing".to_string())?;
+                Ok::<_, String>((chunks, vectors, query_vector))
+            });
+            // Owned triple keeps `chunks` alive for the borrow in `fused`.
+            let dense_owned = match dense_data {
+                Ok(triple) => Some(triple),
+                Err(e) => {
+                    eprintln!("dense retrieval unavailable ({e}); falling back to BM25");
+                    None
+                }
+            };
+            let hits: Vec<cynic_knowledge::SearchHit<'_>> = match &dense_owned {
+                Some((dense_chunks, dense_vectors, dense_query)) => {
+                    let dense =
+                        cynic_knowledge::top_k_dense(dense_query, dense_chunks, dense_vectors, 20);
+                    let empty_sparse: Vec<cynic_knowledge::SearchHit<'_>> = Vec::new();
+                    let mut fused = cynic_knowledge::fuse_continuous_convex(
+                        &empty_sparse,
+                        &dense,
+                        1.0,
+                        cynic_knowledge::NormalizationStrategy::CandidateMinMax,
+                    );
+                    fused.truncate(limit);
+                    fused
+                }
+                None => index.search(&question, limit),
+            };
 
             // Phase 11.3: Graph-RAG Traversal (link chunks to parent contracts and governing specs)
             let manifest = cynic_knowledge::scan_corpus_manifest(&repo_root);
@@ -530,7 +644,7 @@ pub async fn execute_know_command(command: KnowCommand) -> ExitCode {
             }
         }
         KnowCommand::Grades { file, apply, json } => {
-            use cynic_eval::bench::{FIXTURE_SCHEMA_V1, Fixture, judge_grade_proposal};
+            use cynic_eval::bench::{judge_grade_proposal, Fixture, FIXTURE_SCHEMA_V1};
             let raw = match std::fs::read_to_string(&file) {
                 Ok(raw) => raw,
                 Err(e) => {

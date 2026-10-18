@@ -2,9 +2,10 @@
 //!
 //! Order (first usable wins):
 //! 1. Breakglass `CYNIC_CHAT_ENDPOINT` (explicit operator override only)
-//! 2. CYNIC inference config (`inference.toml` — principal runtime config then /etc)
-//! 3. Synapse DNS names (`inference.service.cynic`, `llama.service.cynic`, …)
-//! 4. ODS / local OpenAI-compat discovery (when `--ods` or as last probe)
+//! 2. Live supervised local unit (`inference start`)
+//! 3. CYNIC inference config (`inference.toml` — principal runtime config then /etc)
+//! 4. Synapse DNS names (`inference.service.cynic`, `llama.service.cynic`, …)
+//! 5. ODS / local OpenAI-compat discovery (when `--ods` or as last probe)
 //!
 //! Never silently falls back to mock.
 
@@ -25,6 +26,8 @@ use cynic_types::paths::CynicPaths;
 pub enum ChatEndpointSource {
     /// Explicit CYNIC_CHAT_ENDPOINT breakglass.
     Env,
+    /// Live supervised local unit (`inference start`), endpoint from supervisor status.
+    LocalSupervisor,
     /// From CYNIC inference.toml SSOT.
     InferenceConfig,
     /// Resolved via synapse DNS network.
@@ -97,7 +100,13 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
         return res;
     }
 
-    // 3. CYNIC inference.toml (authority plane)
+    // 3. Live supervised local unit beats static config: the supervisor
+    //    knows the real endpoint (port, pid). Silent failure falls through.
+    if let Some(res) = resolve_from_local_supervisor(&mut candidates, &dns_zone).await {
+        return res;
+    }
+
+    // 4. CYNIC inference.toml (authority plane)
     if let Some((loaded, path)) = load_chat_inference_config() {
         for b in &loaded.backends {
             candidates.push(format!("config:{} -> {}", b.name, b.base_url));
@@ -139,7 +148,7 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
         }
     }
 
-    // 4. Synapse DNS network
+    // 5. Synapse DNS network
     let dns_names = dns_inference_hostnames(&dns_zone);
     for host in &dns_names {
         candidates.push(format!("dns:{host}"));
@@ -184,14 +193,14 @@ pub async fn resolve_chat_endpoint(prefer_ods: bool) -> ChatEndpointResolution {
         }
     }
 
-    // 5. Peer discovery as last-resort (when not already preferred above)
+    // 6. Peer discovery as last-resort (when not already preferred above)
     if !want_ods
         && let Some(res) = resolve_from_peer_discovery(&mut candidates, &dns_zone, false).await
     {
         return res;
     }
 
-    // 6. Last resort loopback bases
+    // 7. Last resort loopback bases
     for base in default_ods_probe_bases() {
         candidates.push(base.clone());
         if let Some((ep, model)) = probe_openai_base(&base).await {
@@ -237,6 +246,57 @@ pub fn dns_inference_hostnames(zone: &str) -> Vec<String> {
         format!("ods.{zone}"),
         format!("chat.{zone}"),
     ]
+}
+
+/// Resolve from the live supervised local unit when one is active.
+/// Silent `None` on any failure so static config still applies.
+async fn resolve_from_local_supervisor(
+    candidates: &mut Vec<String>,
+    dns_zone: &str,
+) -> Option<ChatEndpointResolution> {
+    let status = crate::application::local_runtime_service::LocalRuntimeServiceAny::from_env()
+        .status()
+        .ok()?;
+    candidates.push(format!(
+        "supervisor:{} ({})",
+        status.unit.as_deref().unwrap_or("none"),
+        match status.state {
+            crate::domain::local_runtime::LocalRuntimeState::Active => "active",
+            crate::domain::local_runtime::LocalRuntimeState::Activating => "activating",
+            crate::domain::local_runtime::LocalRuntimeState::Failed => "failed",
+            crate::domain::local_runtime::LocalRuntimeState::Inactive => "inactive",
+            crate::domain::local_runtime::LocalRuntimeState::Unknown => "unknown",
+        }
+    ));
+    if !matches!(
+        status.state,
+        crate::domain::local_runtime::LocalRuntimeState::Active
+    ) {
+        return None;
+    }
+    let endpoint = status.endpoint?;
+    let api_key = resolve_chat_api_key(None);
+    let model = resolve_chat_model_id(&endpoint, api_key.as_deref(), None).await;
+    Some(ChatEndpointResolution {
+        schema: "cynic.chat.endpoint.v1",
+        ready: true,
+        source: ChatEndpointSource::LocalSupervisor,
+        endpoint: Some(endpoint),
+        model,
+        backend_name: status.alias,
+        api_key,
+        detail: format!(
+            "supervised local unit {} (pid {})",
+            status.unit.as_deref().unwrap_or("unknown"),
+            status
+                .main_pid
+                .map(|pid| pid.to_string())
+                .unwrap_or_else(|| "?".to_string())
+        ),
+        candidates: candidates.clone(),
+        dns_zone: dns_zone.to_string(),
+        config_path: None,
+    })
 }
 
 /// Live peer discovery (ODS or any OpenAI-compat). Product-agnostic.

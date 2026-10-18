@@ -31,6 +31,7 @@ pub(crate) fn trigger_build(
     commit: &str,
     phase: &str,
     host: Option<&str>,
+    runner: Option<&str>,
     registry: &str,
     user: &str,
     network_mode: &str,
@@ -41,7 +42,21 @@ pub(crate) fn trigger_build(
     proof_log: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let host = cynic_node::cli_factory::resolve_runner_host(host.as_deref(), registry)?;
+    let host = match host.filter(|value| !value.trim().is_empty()) {
+        Some(explicit) => explicit.to_string(),
+        None => match runner.filter(|value| !value.trim().is_empty()) {
+            Some(named) => {
+                cynic_host::registry::resolve::list_runner_nodes(Some(registry))?
+                    .into_iter()
+                    .find(|candidate| candidate.node_id == named)
+                    .map(|candidate| candidate.ssh_target)
+                    .ok_or_else(|| {
+                        format!("named runner {named} unresolvable in registry {registry}")
+                    })?
+            }
+            None => cynic_node::cli_factory::resolve_runner_host(None, registry)?,
+        },
+    };
     let phase = match phase {
         "check" => BuildPhase::Check,
         "build" => BuildPhase::Build,
@@ -113,6 +128,27 @@ pub(crate) fn trigger_build(
                 .as_deref()
                 .unwrap_or("no reason recorded")
         ));
+    }
+    Ok(())
+}
+
+pub(crate) fn list_runners(registry: &str, json: bool) -> Result<(), String> {
+    let runners = cynic_host::registry::resolve::list_runner_nodes(Some(registry))?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&runners).map_err(|error| error.to_string())?
+        );
+        return Ok(());
+    }
+    for runner in &runners {
+        println!(
+            "{}{} role={} ssh={}",
+            runner.node_id,
+            if runner.default { " [default]" } else { "" },
+            runner.role,
+            runner.ssh_target
+        );
     }
     Ok(())
 }

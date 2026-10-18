@@ -10,7 +10,7 @@
 
 mod signer;
 
-pub use signer::{CapabilitySigningPort, LocalCapabilitySigningKey};
+pub use signer::{CapabilitySigningPort, LocalCapabilitySigningKey, load_ed25519_seed};
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;

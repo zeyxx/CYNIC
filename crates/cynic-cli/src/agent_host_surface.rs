@@ -1,4 +1,4 @@
-//! Hypervisor VM placement and conformance CLI surface (node substrate family).
+//! Agent host VM placement and conformance CLI surface.
 //!
 //! Thin projection only: parse CLI args → resolve observer via canonical adapter
 //! → call domain use-case → emit JSON or human text.
@@ -6,9 +6,6 @@
 //! No secret reading, no endpoint defaulting, no Proxmox policy in this file.
 //! All credential and endpoint resolution is delegated to
 //! `cynic_proxmox::adapters::ProxmoxControlAdapter` (the canonical authority).
-//!
-//! Canonical home since the `agent host` migration: `cynic node hypervisor`.
-//! The former `cynic agent host` path is a deprecated alias delegating here.
 
 use std::process::ExitCode;
 use std::time::Duration;
@@ -63,7 +60,7 @@ fn resolve_agent_host_observer(
 }
 
 #[derive(Subcommand)]
-pub enum NodeHypervisorCommand {
+pub(crate) enum AgentHostCommand {
     /// Plan agent host VM placement and conformance on Proxmox
     Plan {
         /// Proxmox SSH target (used only when REST is unavailable)
@@ -105,9 +102,9 @@ pub enum NodeHypervisorCommand {
     },
 }
 
-pub fn execute_node_hypervisor(command: NodeHypervisorCommand) -> ExitCode {
+pub(crate) fn execute_agent_host(command: AgentHostCommand) -> ExitCode {
     match command {
-        NodeHypervisorCommand::Plan {
+        AgentHostCommand::Plan {
             hypervisor,
             vmid,
             vcpus,
@@ -190,7 +187,7 @@ pub fn execute_node_hypervisor(command: NodeHypervisorCommand) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        NodeHypervisorCommand::Observe { hypervisor, json } => {
+        AgentHostCommand::Observe { hypervisor, json } => {
             let desired = AgentHostDesired {
                 hypervisor_target: hypervisor.clone(),
                 ..Default::default()

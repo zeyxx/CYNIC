@@ -439,7 +439,16 @@ impl EmbeddingBackend {
                                     };
                                     guard[target].push_back((sub_no, inputs, attempts + 1));
                                     drop(guard);
-                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                    // WiFi-class dropouts last seconds, not
+                                    // milliseconds: back off exponentially per
+                                    // attempt so a transient link loss survives
+                                    // instead of poisoning the lot.
+                                    let backoff_ms =
+                                        500u64.saturating_mul(1 << attempts.min(4));
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        backoff_ms,
+                                    ))
+                                    .await;
                                 } else {
                                     // Poisoned lot after 3 distributed attempts across endpoints
                                     let mut errs = errors.lock().await;
