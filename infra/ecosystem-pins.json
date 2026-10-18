@@ -1,19 +1,19 @@
 {
   "schema": "cynic.ecosystem_pins.v1",
   "status": "normative",
-  "purpose": "Minimum observed versions / capability pins for operator tech-watch. Compared by cynic deps; upgrades go through universal ecosystem providers under human consent.",
+  "purpose": "Minimum observed versions / capability pins for operator tech-watch. Compared by cynic dependency; upgrades go through universal ecosystem providers under human consent.",
   "policy": {
     "auto_upgrade": false,
     "mutation": "human_validated_apply",
     "pin_meaning": "min_acceptable — observed below pin is status=stale; missing required is status=missing",
-    "upgrade_flow": "cynic deps upgrade --yes  (or --apply --confirm <token>). Channels: scripted | external | distro_managed. Principal-owned tools install as runtime user cynic.",
+    "upgrade_flow": "cynic dependency upgrade --yes  (or --apply --confirm <token>). Channels: scripted | external | distro_managed. Principal-owned tools install as runtime user cynic.",
     "principal": "runtime_user=cynic; layout $CYNIC_RUNTIME_LAYOUT_DEFAULT; override CYNIC_RUNTIME_USER / CYNIC_PRINCIPAL_HOME"
   },
   "pins": [
     {
       "id": "cynic",
       "min_capability": "inference-start",
-      "notes": "Scripted: cynic deps upgrade --yes --only cynic → /usr/local/bin/cynic"
+      "notes": "Scripted: cynic dependency upgrade --yes --only cynic → /usr/local/bin/cynic"
     },
     {
       "id": "llama.cpp",
