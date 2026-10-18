@@ -24,6 +24,7 @@ Authority: contracts/foundation.json §docs
    - `AGENT_FLEET_HOSTING_DESIGN.md` — Isolated agent fleet hosting architecture.
    - `MULTI_AGENT_ISOLATION_DESIGN.md` — Worktree and agent sandbox boundaries.
    - `session-report-knowledge-canon.md` — Epistemic distillation and knowledge base.
+   - `CI_EVOLUTION.md` — CI suite survivability, the five adoption metrics, and the branch-protection step.
 
 ---
 
