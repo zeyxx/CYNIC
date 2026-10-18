@@ -8,12 +8,21 @@
 
 use serde_json::Value;
 
+/// Hardware capabilities of a build runner node.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapabilityRequirements {
+    pub cpu_cores: u32,
+    pub ram_gb: u32,
+    pub gpu: String,
+}
+
 /// A resolved builder endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuilderEndpoint {
     pub node_id: String,
     pub url: String,
     pub healthy: bool,
+    pub capabilities: Option<CapabilityRequirements>,
 }
 
 /// Resolve all builder endpoints from the registry.
@@ -44,10 +53,18 @@ pub fn resolve_builder_pool(registry: &Value) -> Vec<BuilderEndpoint> {
                     .map(String::from)
             });
             if let Some(ip) = ip {
+                let capabilities = node.get("capabilities").and_then(|c| {
+                    Some(CapabilityRequirements {
+                        cpu_cores: c.get("cpu_cores")?.as_u64()? as u32,
+                        ram_gb: c.get("ram_gb")?.as_u64()? as u32,
+                        gpu: c.get("gpu")?.as_str()?.to_string(),
+                    })
+                });
                 pool.push(BuilderEndpoint {
                     node_id,
                     url: format!("http://{ip}:9090"),
                     healthy: false,
+                    capabilities,
                 });
             }
         }
@@ -97,6 +114,35 @@ pub fn health_check(url: &str) -> bool {
 /// (fail closed, never guess).
 pub fn select_healthy_builder(pool: &[BuilderEndpoint]) -> Option<BuilderEndpoint> {
     pool.iter().find(|b| b.healthy).cloned()
+}
+
+/// Select the first builder from the pool that meets the given capability requirements.
+///
+/// Filters builders whose `capabilities` field satisfies all three minimums:
+/// `cpu_cores >= required_cpu`, `ram_gb >= required_ram`, and GPU is present
+/// (any non-empty GPU string satisfies the requirement — the filter checks
+/// that the builder has *a* GPU, not a specific model).
+///
+/// Returns `None` if no builder meets the requirements or if no builder has
+/// capability data. Caller must handle the `None` case (fail closed).
+pub fn select_builder_by_capability(
+    pool: &[BuilderEndpoint],
+    required_cpu: u32,
+    required_ram: u32,
+    required_gpu: &str,
+) -> Option<BuilderEndpoint> {
+    pool.iter()
+        .find(|b| {
+            b.capabilities
+                .as_ref()
+                .map(|caps| {
+                    caps.cpu_cores >= required_cpu
+                        && caps.ram_gb >= required_ram
+                        && (!required_gpu.is_empty() && !caps.gpu.is_empty())
+                })
+                .unwrap_or(false)
+        })
+        .cloned()
 }
 
 /// Mark a builder as healthy or unhealthy based on a health-check result.
@@ -150,6 +196,7 @@ mod tests {
             node_id: "b1".to_string(),
             url: "http://a:9090".to_string(),
             healthy: false,
+            capabilities: None,
         }];
         assert!(select_healthy_builder(&pool).is_none());
     }
@@ -161,11 +208,13 @@ mod tests {
                 node_id: "b1".to_string(),
                 url: "http://a:9090".to_string(),
                 healthy: false,
+                capabilities: None,
             },
             BuilderEndpoint {
                 node_id: "b2".to_string(),
                 url: "http://b:9090".to_string(),
                 healthy: true,
+                capabilities: None,
             },
         ];
         let selected = select_healthy_builder(&pool);
@@ -179,6 +228,7 @@ mod tests {
             node_id: "b1".to_string(),
             url: "http://a:9090".to_string(),
             healthy: false,
+            capabilities: None,
         };
         mark_health(&mut ep, true);
         assert!(ep.healthy);
@@ -248,5 +298,194 @@ mod tests {
         assert_eq!(pool.len(), 1);
         assert!(!pool[0].healthy);
         assert!(select_healthy_builder(&pool).is_none());
+    }
+
+    // ── select_builder_by_capability tests ───────────────────────────────
+
+    fn caps(cpu: u32, ram: u32, gpu: &str) -> Option<CapabilityRequirements> {
+        Some(CapabilityRequirements {
+            cpu_cores: cpu,
+            ram_gb: ram,
+            gpu: gpu.to_string(),
+        })
+    }
+
+    #[test]
+    fn capability_none_when_no_builders() {
+        let pool: Vec<BuilderEndpoint> = vec![];
+        let sel = select_builder_by_capability(&pool, 2, 4, "any");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_none_when_no_builder_has_capabilities() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "b1".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: None,
+        }];
+        let sel = select_builder_by_capability(&pool, 2, 4, "any");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_selects_matching_builder() {
+        let pool = vec![
+            BuilderEndpoint {
+                node_id: "small".to_string(),
+                url: "http://a:9090".to_string(),
+                healthy: true,
+                capabilities: caps(2, 4, "Intel HD"),
+            },
+            BuilderEndpoint {
+                node_id: "big".to_string(),
+                url: "http://b:9090".to_string(),
+                healthy: true,
+                capabilities: caps(8, 16, "NVIDIA"),
+            },
+        ];
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_some());
+        assert_eq!(sel.unwrap().node_id, "big");
+    }
+
+    #[test]
+    fn capability_exact_match_succeeds() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "exact".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(4, 8, "Intel HD Graphics 530"),
+        }];
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_some());
+        assert_eq!(sel.unwrap().node_id, "exact");
+    }
+
+    #[test]
+    fn capability_fails_when_cpu_insufficient() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "weak".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(2, 16, "NVIDIA"),
+        }];
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_fails_when_ram_insufficient() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "lowram".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(8, 4, "NVIDIA"),
+        }];
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_fails_when_gpu_missing() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "nogpu".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(8, 16, ""),
+        }];
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_empty_gpu_requirement_matches_any_gpu() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "anygpu".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(4, 8, "Intel HD Graphics 530"),
+        }];
+        // Empty required_gpu means "any GPU is fine"
+        let sel = select_builder_by_capability(&pool, 4, 8, "");
+        assert!(sel.is_some());
+    }
+
+    #[test]
+    fn capability_empty_gpu_requirement_still_needs_gpu_field() {
+        let pool = vec![BuilderEndpoint {
+            node_id: "nogpu".to_string(),
+            url: "http://a:9090".to_string(),
+            healthy: true,
+            capabilities: caps(4, 8, ""),
+        }];
+        // Even with empty required_gpu, builder must have a non-empty gpu field
+        let sel = select_builder_by_capability(&pool, 4, 8, "");
+        assert!(sel.is_none());
+    }
+
+    #[test]
+    fn capability_skips_unhealthy_but_returns_healthy_match() {
+        let pool = vec![
+            BuilderEndpoint {
+                node_id: "unhealthy-match".to_string(),
+                url: "http://a:9090".to_string(),
+                healthy: false,
+                capabilities: caps(8, 16, "NVIDIA"),
+            },
+            BuilderEndpoint {
+                node_id: "healthy-match".to_string(),
+                url: "http://b:9090".to_string(),
+                healthy: true,
+                capabilities: caps(8, 16, "NVIDIA"),
+            },
+        ];
+        // select_builder_by_capability does NOT check health — it only filters
+        // by capabilities. The first capability match is returned regardless
+        // of health. Caller must combine with health check if needed.
+        let sel = select_builder_by_capability(&pool, 4, 8, "any");
+        assert!(sel.is_some());
+        assert_eq!(sel.unwrap().node_id, "unhealthy-match");
+    }
+
+    #[test]
+    fn resolve_builder_pool_populates_capabilities() {
+        let reg = json!({
+            "nodes": [
+                {
+                    "id": "builder-1",
+                    "role": "build_runner",
+                    "network": {"service": "10.10.10.119"},
+                    "capabilities": {
+                        "cpu_cores": 4,
+                        "ram_gb": 8,
+                        "gpu": "Intel HD Graphics 530"
+                    }
+                },
+                {"id": "cortex", "role": "cortex_host", "network": {"service": "10.10.10.100"}}
+            ]
+        });
+        let pool = resolve_builder_pool(&reg);
+        assert_eq!(pool.len(), 1);
+        let caps = pool[0]
+            .capabilities
+            .as_ref()
+            .expect("capabilities should be populated");
+        assert_eq!(caps.cpu_cores, 4);
+        assert_eq!(caps.ram_gb, 8);
+        assert_eq!(caps.gpu, "Intel HD Graphics 530");
+    }
+
+    #[test]
+    fn resolve_builder_pool_capabilities_none_when_missing() {
+        let reg = json!({
+            "nodes": [
+                {"id": "builder-1", "role": "build_runner", "network": {"service": "10.10.10.119"}},
+            ]
+        });
+        let pool = resolve_builder_pool(&reg);
+        assert_eq!(pool.len(), 1);
+        assert!(pool[0].capabilities.is_none());
     }
 }

@@ -703,6 +703,11 @@
           "Paths are durable under /opt; PATH wired via /usr/local/bin symlinks and /etc/profile.d/cynic-toolchains.sh.",
           "Provisioning is formalized here (SSOT) so future agents discover available toolchains without probing."
         ]
+      },
+      "capabilities": {
+        "cpu_cores": 4,
+        "ram_gb": 8,
+        "gpu": "Intel HD Graphics 530"
       }
     },
     {
