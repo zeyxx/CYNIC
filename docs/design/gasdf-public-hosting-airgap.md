@@ -20,7 +20,8 @@ deploy pipeline; CYNIC never holds GASdf secrets.
 | Mainnet fee-payer material on cortex | `/etc/cynic/secrets/gasdf/relay/mainnet.env` exists (presence only, never read) — tension with the peer model, see §5 |
 | 6 competing network SSOTs | `network-topology-design.md` §1.2 (S1–S6 drift); `infra/fleet.json` (mine, 2026-10-18) adds ephemeral scope — must reference, not duplicate |
 
-Explicit unknowns: where the public IP terminates (ISP box NAT? not observed — operator input needed); current kernel REST bind (archived doc said `0.0.0.0:3030`, not re-verified); PVE firewall rulesets content (options read, rules not listed).
+Explicit unknowns: kernel bind (not re-verified); PVE firewall ruleset
+content (options read, rules not listed).
 
 ## 2. Attack surfaces
 
@@ -77,8 +78,13 @@ What agents NEVER do: hold GASdf keys (A6 — the peer boundary binds agents too
   extension lecture seule prévue, formes à vérifier live après pairing :
   réponse attendue `{success, result: [{id, enabled, comment, lan_port,
   wan_port_min/max, lan_ip, proto}]}` (à confirmer, pas supposé).
-- Bloquant : aucun token `freebox-app-token` (env vide, store vide) —
-  pairing requis (afficheur box, app `cynic`), puis stockage via ports secrets.
+- Pairing done 2026-10-18 (app `cynic`, track granted on box display);
+  token stored `/etc/cynic/secrets/freebox-app-token` (600, cynic) —
+  session opens, `fw/redir` readable.
+- RESOLVED A1: public IPv4 `82.65.26.228`; exactly ONE active NAT rule —
+  WAN 8006 → 192.168.0.37:8006 (pve, PVE web UI exposée à l'internet
+  entier, sans commentaire). Décision opérateur requise : restreindre
+  (IP allowlist box) ou fermer (accès via WG uniquement).
 - Dette : `cynic-cli network observe --freebox` panique (tokio runtime
   drop, pré-existant) — diagnostic sous-agent en cours, territoire pair.
 
