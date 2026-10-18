@@ -11,6 +11,8 @@ description = "Session-trace ingestion: canonical entities for agent trajectorie
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+regex.workspace = true
+sha2.workspace = true
 
 [lints]
 workspace = true
