@@ -10,7 +10,7 @@
 //! NEGATIVE BOUNDARY: no domain logic, no admission — those live in
 //! cynic-build::external_build.
 
-use cynic_build::builder_client::resolve_builder_url;
+use cynic_build::builder_client::resolve_builder_url_with_health;
 use cynic_build::external_build::{
     ExternalBuildPort, ExternalBuildProof, ExternalBuildRequest, ExternalCommandResult,
     build_external_proof,
@@ -29,7 +29,7 @@ struct ExecResponse {
 /// HTTP adapter: executes build/test commands on a remote builder via HTTP.
 ///
 /// The builder URL is either supplied explicitly or resolved dynamically via
-/// [`resolve_builder_url`] (CYNIC_BUILDER_URL env, then infra/registry.json).
+/// [`resolve_builder_url_with_health`] (CYNIC_BUILDER_URL env, then pool + health-check).
 pub struct HttpExternalBuildAdapter {
     /// Base URL of the builder (e.g. "http://10.10.10.119:9090").
     pub builder_url: String,
@@ -40,9 +40,9 @@ impl HttpExternalBuildAdapter {
         Self { builder_url }
     }
 
-    /// Resolve the builder URL dynamically and construct the adapter.
+    /// Resolve the builder URL dynamically (pool + health-check) and construct the adapter.
     pub fn from_resolved_url() -> Result<Self, String> {
-        let url = resolve_builder_url()?;
+        let url = resolve_builder_url_with_health()?;
         Ok(Self::new(url))
     }
 

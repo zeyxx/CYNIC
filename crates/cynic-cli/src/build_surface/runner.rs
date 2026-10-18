@@ -9,7 +9,7 @@ use cynic_node::ports::build_runner::{BuildPhase, BuildRunnerPort, BuildTrigger,
 use cynic_vcs::SourceSnapshot;
 
 pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
-    cynic_build::resolve_builder_url()
+    cynic_build::resolve_builder_url_with_health()
 }
 
 pub(crate) fn submit_build(
