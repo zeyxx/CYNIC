@@ -241,27 +241,27 @@ Still open (gated on builder observation):
 
 ## 9. Observation results (2026-10-18)
 
-Build/test observed on cortex (go 1.27.2, node v22.23.3, npm 10.9.9). The
-builder (10.10.10.119) was probed via SSH and has **rust/cargo only** — no
-go, no node/npm. Consequence: external Go/Node project observation runs on
-cortex until Go/Node are provisioned on the builder; the builder remains SSOT
-for Rust/cargo gates only. This is a gap to track, not a failure of this
-work.
+Build/test observed on the builder (10.10.10.119) after provisioning Go 1.27.2
+and Node v22.23.3 (2026-10-18). The builder previously had rust/cargo only;
+Go and Node were installed under /opt with symlinks in /usr/local/bin and
+/etc/profile.d/cynic-toolchains.sh. Formalized in infra/registry.json
+(cynic-builder.toolchains).
 
 | Project | Build | Tests | Verdict |
 |---------|-------|-------|---------|
 | aegisscan | PASS (`go build ./...`) | FAIL (1/many): `TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild` (context deadline exceeded) in `internal/external`; all other packages pass | build baseline green; one timing-sensitive test failure, to re-observe |
 | aegis-core | PASS (`./internal/...`); FAIL desktop-backend (Windows-only build constraint) | FAIL (`authentication storage unavailable` in syncclient/syncserver) | sanitized boundary preserved (no Linux desktop build, no deploy attempted) |
-| ai-bus | FAIL (`npm ci` OK, `npm run build` exit 2: missing @types/node, node:sqlite/fs/promises type decls) | FAIL (ERR_MODULE_NOT_FOUND ×33, no dist/) | targets Windows 10/11; Linux baseline not green; observed, not corrected (read-only policy) |
+| ai-bus | PASS (`npm ci` + `npm run build`) | FAIL (2/many): strict fast-forward pull, normal push to fake local remote (env-dependent git config) | build baseline green on builder; 33 tests pass |
 
 Notes:
 - aegisscan's single test failure is timing-related (grandchild kill); not a
   build break. Re-observe before declaring verified.
 - aegis-core test failures are environment-dependent (auth storage), consistent
   with refusal-by-construction. No native deployment attempted.
-- ai-bus requires Windows or dependency fixes; left as observed.
+- ai-bus test failures are environment-dependent (git remote config). Build
+  green on builder (was failing on cortex due to missing types).
 
-Registry updated: `build_commands_status = observed_on_cortex` for all three,
+Registry updated: `build_commands_status = observed_on_builder` for all three,
 with per-project `observation` objects. See `infra/external-projects.json`.
 
 - `~/.cynic/external/aegisscan` → `origin https://github.com/Robinho100/aegisscan.git`, branch `master`, HEAD `8758ad3`

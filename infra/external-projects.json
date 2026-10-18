@@ -25,17 +25,17 @@
       "test_commands": [
         "go test ./..."
       ],
-      "build_commands_status": "observed_on_cortex",
+      "build_commands_status": "observed_on_builder",
       "mutation_policy": "read_only",
       "sensitivity": "public",
       "ports_used": [],
       "notes": "Modular local-first pentest engine. Runs without Claude/Codex/AI Bus/Internet; IA is an optional front layer (strict boundary, docs/AI_INTEGRATION.md). Clone: ~/.cynic/external/aegisscan @ 8758ad3.",
       "observation": {
         "observed_at": "2026-10-18",
-        "observed_on": "cortex (go 1.27.2) \u2014 builder lacks go toolchain",
+        "observed_on": "builder 10.10.10.119 (go 1.27.2)",
         "build_result": "PASS (go build ./... exit 0)",
         "test_result": "FAIL (go test ./... exit 1): 1 failing test TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild (context deadline exceeded) in internal/external; all other packages pass",
-        "notes": "Build baseline verified. One flaky/timing-sensitive test failure in internal/external (binary transport grandchild kill). To be re-observed before declaring verified."
+        "notes": "Build baseline green on builder. One timing-sensitive test failure (grandchild kill). To be re-observed before declaring verified."
       }
     },
     {
@@ -57,17 +57,17 @@
       "test_commands": [
         "go test ./..."
       ],
-      "build_commands_status": "observed_on_cortex",
+      "build_commands_status": "observed_on_builder",
       "mutation_policy": "read_only",
       "sensitivity": "sanitized",
       "ports_used": [],
       "notes": "Sanitized collaboration source (SOURCE-INVENTORY.json with SHA-256). Security boundary is refusal by construction (STOP 64, B1/B7). No private deployment config may be added; CYNIC treats as read-only observation + build/test only, never deploy. Clone: ~/.cynic/external/aegis-core @ d82ca40.",
       "observation": {
         "observed_at": "2026-10-18",
-        "observed_on": "cortex (go 1.27.2) \u2014 builder lacks go toolchain; dotnet absent everywhere (Windows-only desktop-backend)",
-        "build_result": "PASS for ./internal/... (go build exit 0); FAIL for cmd/aegis-desktop-backend (Windows-only lock_windows.go build constraint; undefined lockInstance/unlockInstance on Linux)",
-        "test_result": "FAIL (go test ./internal/... exit 1): multiple 'authentication storage unavailable' failures in internal/syncclient and internal/syncserver; internal/syncmodel, internal/taskdata pass",
-        "notes": "Sanitized boundary preserved: desktop-backend refuses to build on non-Windows. Test failures are environment-dependent (auth storage), consistent with refusal-by-construction. No native deployment attempted."
+        "observed_on": "builder 10.10.10.119 (go 1.27.2)",
+        "build_result": "PASS for ./internal/... (go build exit 0); FAIL desktop-backend (Windows-only build constraint: undefined lockInstance/unlockInstance on Linux)",
+        "test_result": "FAIL (go test ./internal/... exit 1): 'authentication storage unavailable' in syncclient/syncserver; syncmodel, taskdata pass",
+        "notes": "Sanitized boundary preserved: desktop-backend refuses to build on non-Windows. Test failures env-dependent (auth storage), consistent with refusal-by-construction. No native deployment attempted."
       }
     },
     {
@@ -90,17 +90,17 @@
       "test_commands": [
         "npm test"
       ],
-      "build_commands_status": "observed_on_cortex",
+      "build_commands_status": "observed_on_builder",
       "mutation_policy": "read_only",
       "sensitivity": "public",
       "ports_used": [],
       "notes": "Local Windows app: Claude Code CLI <-> Codex CLI over localhost MCP bus. Linear turn chain, read-only workspace access for agents. Clone: ~/.cynic/external/ai-bus @ dd87232.",
       "observation": {
         "observed_at": "2026-10-18",
-        "observed_on": "cortex (node v22, npm 10) \u2014 builder lacks node/npm",
-        "build_result": "FAIL: npm ci OK (18 pkgs); npm run build exit 2 (missing @types/node, node:sqlite/node:fs/promises type declarations)",
-        "test_result": "FAIL: npm test exit 1 (ERR_MODULE_NOT_FOUND across 33 tests; no dist/ produced because build failed)",
-        "notes": "Project targets Windows 10/11 (README). Linux build fails on missing node type definitions and node:sqlite. Build/test baseline not green on Linux; requires Windows environment or dependency fix. Observed, not corrected (read-only policy)."
+        "observed_on": "builder 10.10.10.119 (node v22.23.3, npm 10.9.9)",
+        "build_result": "PASS (npm ci exit 0; npm run build exit 0)",
+        "test_result": "FAIL (npm test exit 1): 2 failing tests (strict fast-forward pull, normal push to fake local remote) \u2014 environment-dependent (git config/remote); 33 tests passed vs 33 failures on cortex",
+        "notes": "Build baseline green on builder. Test failures are environment-dependent (git remote config). Project targets Windows 10/11 per README."
       }
     }
   ],
@@ -111,8 +111,8 @@
     "build/test commands must be observed (run on the builder with read-back proof) before being marked verified; until then status=inferred_from_manifest_presence."
   ],
   "observation_environment": {
-    "builder_10_10_10_119_toolchains": "rust/cargo only (observed 2026-10-18 via ssh); go and node/npm absent",
+    "builder_10_10_10_119_toolchains": "rust/cargo (native) + go 1.27.2 + node v22.23.3 + npm 10.9.9 (provisioned 2026-10-18, see infra/registry.json toolchains)",
     "cortex_toolchains": "go 1.27.2, node v22.23.3, npm 10.9.9",
-    "consequence": "External project build/test observation for Go/Node projects is performed on cortex, not on the builder, until Go/Node are provisioned on the builder. Builder remains SSOT for Rust/cargo gates only."
+    "consequence": "External project build/test observation now runs on the builder (SSOT) for Go/Node as well as Rust. Go/Node provisioned 2026-10-18 under /opt with symlinks in /usr/local/bin and /etc/profile.d/cynic-toolchains.sh."
   }
 }
