@@ -8,7 +8,7 @@ use crate::domain::shared::{
     SubstrateBundleFile, SubstrateDomainContract, SubstrateEvidence, SurfaceContract,
     SurfaceStatus,
 };
-use crate::install_contract::{MODE_0755, root_owned_path};
+use crate::install_contract::{MODE_0440, MODE_0755, root_owned_path};
 use crate::ports::HostOperation;
 use crate::runtime_layout::current_runtime_layout;
 
@@ -17,11 +17,12 @@ const DEFAULT_DENIED_SHELL_BIN: &str = "/bin/sh";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrivilegePolicy {
     pub sudoers_subject: String,
-    pub helper_dir: String,
+    pub executor: String,
+    pub membrane_target: String,
+    pub membrane_admission: String,
     pub config_dir: String,
     pub sudoers_dir: String,
     pub denial_proof_required: bool,
-    pub dedicated_helpers: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,7 +33,8 @@ pub struct PrivilegeStatusReport {
     pub next_boundary_kind: BoundaryKind,
     pub next_boundary_reason: String,
     pub next_command: Option<String>,
-    pub helper_dir_present: bool,
+    pub executor_present: bool,
+    pub membrane_present: bool,
     pub sudoers_projection_present: bool,
     pub denial_proof_ready: bool,
     pub evidences: Vec<SubstrateEvidence>,
@@ -65,7 +67,8 @@ pub struct PrivilegeApplyReport {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrivilegeObservedState {
-    pub helper_dir_present: bool,
+    pub executor_present: bool,
+    pub membrane_present: bool,
     pub sudoers_projection_present: bool,
     pub denial_proof_ready: bool,
 }
@@ -128,30 +131,30 @@ impl PrivilegePolicy {
                 id: "privilege_policy_declared".to_string(),
                 status: SurfaceStatus::Planned,
                 detail: format!(
-                    "sudoers_subject={} helper_dir={} helpers={}",
-                    self.sudoers_subject,
-                    self.helper_dir,
-                    self.dedicated_helpers.join(",")
+                    "sudoers_subject={} executor={} membrane={}",
+                    self.sudoers_subject, self.executor, self.membrane_target
                 ),
             }],
         }
     }
 
     pub fn bundle(&self) -> PrivilegeBundleReport {
-        let mut files = self
-            .dedicated_helpers
-            .iter()
-            .map(|helper| SubstrateBundleFile {
-                logical_name: "helper-binary".to_string(),
-                install_path: format!("{}/{}", self.helper_dir, helper),
+        // No helper binary is bundled: the executor is basket-managed and the
+        // bridge owns the membrane file. The domain plan declares the membrane
+        // file and its parent dir so planning stays honest about what apply
+        // must verify, not install.
+        let files = vec![
+            SubstrateBundleFile {
+                logical_name: "membrane".to_string(),
+                install_path: self.membrane_target.clone(),
+                mode: MODE_0440.octal.to_string(),
+            },
+            SubstrateBundleFile {
+                logical_name: "sudoers-dir".to_string(),
+                install_path: self.sudoers_dir.clone(),
                 mode: MODE_0755.octal.to_string(),
-            })
-            .collect::<Vec<_>>();
-        files.push(SubstrateBundleFile {
-            logical_name: "sudoers-dir".to_string(),
-            install_path: self.sudoers_dir.clone(),
-            mode: MODE_0755.octal.to_string(),
-        });
+            },
+        ];
         PrivilegeBundleReport {
             status: SurfaceStatus::Planned,
             files,
@@ -175,20 +178,17 @@ impl PrivilegePolicy {
                     vec!["id".to_string(), self.sudoers_subject.clone()],
                 ),
                 argv_command(
-                    "check_helper_dir",
+                    "check_executor",
                     vec![
                         "test".to_string(),
-                        "-d".to_string(),
-                        self.helper_dir.clone(),
+                        "-x".to_string(),
+                        self.executor.clone(),
                     ],
                 ),
             ],
             install_commands: self.install_commands(),
             postflight: vec![
-                validate_sudoers_command(
-                    "validate_sudoers",
-                    format!("{}/<projection>", self.sudoers_dir),
-                ),
+                validate_sudoers_command("validate_sudoers", self.membrane_target.clone()),
                 argv_command(
                     "prove_subject_sudo",
                     vec![
@@ -250,8 +250,8 @@ impl PrivilegePolicy {
             dry_run,
             commands: self.install_commands(),
             proofs_required: vec![
-                format!("test -d {}", self.helper_dir),
-                format!("visudo -cf {}/<projection>", self.sudoers_dir),
+                format!("test -x {}", self.executor),
+                format!("visudo -cf {}", self.membrane_target),
             ],
             denial_proofs_required: activation_plan
                 .denial_checks
@@ -262,7 +262,8 @@ impl PrivilegePolicy {
     }
 
     pub fn status(&self, observed: &PrivilegeObservedState) -> PrivilegeStatusReport {
-        let status = if observed.helper_dir_present
+        let status = if observed.executor_present
+            && observed.membrane_present
             && observed.sudoers_projection_present
             && (!self.denial_proof_required || observed.denial_proof_ready)
         {
@@ -271,7 +272,10 @@ impl PrivilegePolicy {
             SurfaceStatus::Blocked
         };
         let lifecycle_status =
-            if !observed.helper_dir_present || !observed.sudoers_projection_present {
+            if !observed.executor_present
+                || !observed.membrane_present
+                || !observed.sudoers_projection_present
+            {
                 LifecycleStatus::Missing
             } else if self.denial_proof_required && !observed.denial_proof_ready {
                 LifecycleStatus::PrincipalMismatch
@@ -283,7 +287,7 @@ impl PrivilegePolicy {
                 "privilege boundary is present, denial proof is satisfied, and the surface is observable",
             ),
             LifecycleStatus::Missing => LifecycleProjection::missing_adopt(
-                "helper directory or sudoers projection is missing",
+                "executor, membrane or sudoers projection is missing",
                 Some("cynic host bootstrap privilege --json".to_string()),
             ),
             LifecycleStatus::PrincipalMismatch => LifecycleProjection::principal_mismatch_adopt(
@@ -303,18 +307,28 @@ impl PrivilegePolicy {
             next_boundary_kind: projection.next_boundary_kind,
             next_boundary_reason: projection.next_boundary_reason,
             next_command: projection.next_command,
-            helper_dir_present: observed.helper_dir_present,
+            executor_present: observed.executor_present,
+            membrane_present: observed.membrane_present,
             sudoers_projection_present: observed.sudoers_projection_present,
             denial_proof_ready: observed.denial_proof_ready,
             evidences: vec![
                 SubstrateEvidence {
-                    id: "privilege_helper_dir".to_string(),
-                    status: if observed.helper_dir_present {
+                    id: "privilege_executor".to_string(),
+                    status: if observed.executor_present {
                         SurfaceStatus::Active
                     } else {
                         SurfaceStatus::Blocked
                     },
-                    detail: self.helper_dir.clone(),
+                    detail: self.executor.clone(),
+                },
+                SubstrateEvidence {
+                    id: "privilege_membrane".to_string(),
+                    status: if observed.membrane_present {
+                        SurfaceStatus::Active
+                    } else {
+                        SurfaceStatus::Blocked
+                    },
+                    detail: self.membrane_target.clone(),
                 },
                 SubstrateEvidence {
                     id: "privilege_denial_proof".to_string(),
@@ -333,11 +347,6 @@ impl PrivilegePolicy {
         vec![
             install_dir_command(
                 "prepare_directory",
-                self.helper_dir.clone(),
-                root_owned_path(MODE_0755),
-            ),
-            install_dir_command(
-                "prepare_directory",
                 self.config_dir.clone(),
                 root_owned_path(MODE_0755),
             ),
@@ -351,10 +360,6 @@ impl PrivilegePolicy {
 
     pub fn apply_operations(&self) -> Vec<HostOperation> {
         vec![
-            HostOperation::EnsureDir {
-                path: self.helper_dir.clone(),
-                mode: MODE_0755.unix,
-            },
             HostOperation::EnsureDir {
                 path: self.config_dir.clone(),
                 mode: MODE_0755.unix,
@@ -385,11 +390,12 @@ mod tests {
     fn policy() -> PrivilegePolicy {
         PrivilegePolicy {
             sudoers_subject: "cynic".to_string(),
-            helper_dir: "/opt/cynic/libexec".to_string(),
+            executor: "/portable/bin/cynic".to_string(),
+            membrane_target: "/portable/etc/sudoers.d/cynic".to_string(),
+            membrane_admission: "/portable/bin/cynic privilege exec".to_string(),
             config_dir: "/opt/cynic/etc".to_string(),
             sudoers_dir: "/opt/cynic/sudoers.d".to_string(),
             denial_proof_required: true,
-            dedicated_helpers: vec!["cynic-host-exec".to_string()],
         }
     }
 
@@ -415,6 +421,28 @@ mod tests {
     }
 
     #[test]
+    fn bundle_declares_membrane_instead_of_helper_binaries() {
+        let bundle = policy().bundle();
+
+        assert!(
+            bundle
+                .files
+                .iter()
+                .all(|file| !file.logical_name.contains("helper")),
+            "no helper binary in the bundle: {:?}",
+            bundle.files
+        );
+        assert!(
+            bundle
+                .files
+                .iter()
+                .any(|file| file.install_path == "/portable/etc/sudoers.d/cynic"),
+            "membrane file must be declared: {:?}",
+            bundle.files
+        );
+    }
+
+    #[test]
     fn apply_report_uses_injected_denial_proof_context() {
         let report = policy().apply_report_with_context(true, &context());
         let rendered = report.denial_proofs_required.join("\n");
@@ -427,7 +455,8 @@ mod tests {
     #[test]
     fn status_requires_denial_proof_when_enabled() {
         let report = policy().status(&PrivilegeObservedState {
-            helper_dir_present: true,
+            executor_present: true,
+            membrane_present: true,
             sudoers_projection_present: true,
             denial_proof_ready: false,
         });

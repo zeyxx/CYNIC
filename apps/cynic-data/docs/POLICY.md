@@ -2,6 +2,7 @@
 
 **Document Status**: Canonical Normative Contract  
 **Scope**: `infra/data_system`  
+**Scope**: `apps/cynic-data`  
 **Governing Authority**: CYNIC Constitutional & Data-Centric Architecture  
 
 ---

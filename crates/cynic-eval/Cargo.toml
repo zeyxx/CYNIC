@@ -8,6 +8,7 @@ description = "CYNIC evaluation domain — evidence envelopes, dog scoring, judg
 publish = false
 
 [dependencies]
+cynic-knowledge = { path = "../cynic-knowledge" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }

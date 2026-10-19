@@ -1,7 +1,7 @@
 //! Pure credential sync decision — whether SurrealDB runtime credentials
 //! are synchronized across service config, password file, and live auth.
 //!
-//! Known bug this resolves: `/etc/cynic/secrets/storage-runtime-password`
+//! Known bug this resolves: `<secrets>/storage-runtime-password`
 //! contained a hash (`06e57f...`) instead of the plaintext password (`cynic`).
 //! `/health` returns 200 WITHOUT auth (false positive); `/rpc` fails with
 //! `-u user:pass` when the password is wrong — root cause of

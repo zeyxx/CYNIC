@@ -47,6 +47,7 @@ fn observed(
         observed_noncanonical_cache_paths: Vec::new(),
         observed_ephemeral: ephemeral,
         ephemeral_skipped: Vec::new(),
+        unlinked_checkouts: Vec::new(),
         unknowns: Vec::new(),
     }
 }

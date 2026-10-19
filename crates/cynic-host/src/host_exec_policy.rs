@@ -305,7 +305,7 @@ fn default_policy_version() -> String {
 }
 
 fn default_helper_path() -> String {
-    "/usr/local/libexec/cynic-host-exec".to_string()
+    "/usr/local/bin/cynic".to_string()
 }
 
 fn default_sudoers_subject() -> String {
@@ -324,7 +324,7 @@ mod tests {
     fn policy() -> HostExecPolicyDocument {
         serde_json::from_str(
             r#"{
-              "helper_path": "/usr/local/libexec/cynic-host-exec",
+              "helper_path": "/usr/local/bin/cynic",
               "sudoers_subject": "cynic",
               "max_timeout_seconds": 60,
               "allowed_purposes": {

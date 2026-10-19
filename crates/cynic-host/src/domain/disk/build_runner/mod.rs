@@ -46,6 +46,7 @@ mod tests {
             observed_noncanonical_cache_paths: Vec::new(),
             observed_ephemeral: Vec::new(),
             ephemeral_skipped: Vec::new(),
+            unlinked_checkouts: Vec::new(),
             unknowns: Vec::new(),
         };
 

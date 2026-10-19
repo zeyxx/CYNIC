@@ -2,22 +2,26 @@ pub mod adapters;
 pub mod domain;
 
 pub use adapters::{
-    GitExtractError, extract_git_history, load_authority_overrides, load_corpus_cache,
-    load_workspace_geometry, parse_document_tree, parse_git_log_output, parse_json_contract,
+    extract_git_history, load_authority_overrides, load_corpus_cache, load_workspace_geometry,
+    parse_document_tree, parse_git_log_output, parse_json_contract,
     parse_json_contract_with_authority, parse_markdown_tree, parse_rust_file, save_corpus_cache,
-    sync_workspace_corpus,
+    sync_workspace_corpus, GitExtractError,
 };
 pub use domain::{
-    AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1, AuthorityOverrides, AuthorityTier,
-    BrokenReference, CORPUS_CACHE_SCHEMA_V1, CORPUS_MANIFEST_SCHEMA_V1, CachedFileRecord,
+    assemble_epistemic_context, authority_for, bm25_margin, cosine_similarity, dense_margin,
+    expand_hits_with_graph, fuse_continuous_convex, fuse_reciprocal_ranks, load_vector_cache,
+    normalize_engine,
+    route_query, save_vector_cache, tokenize, top_k_dense, vectorize_chunks,
+    vectorize_chunks_cached, AuthorityOverrides, AuthorityTier, BrokenReference, CachedFileRecord,
     ChunkEmbedder, ChunkVector, CitedSource, CodeBlock, CorpusCacheRecord, CorpusManifest,
-    CrateGeometryRecord, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1, DenseHit, DocumentChunk,
-    DocumentTree, GIT_COMMIT_SCHEMA_V1, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
-    KnowledgeGraph, LexicalIndex, MarkdownLink, SYNTHESIS_PROMPT_SCHEMA_V1, SearchHit, SectionNode,
-    SynthesisPrompt, SynthesisPromptBuilder, VectorCacheRecord, WORKSPACE_GEOMETRY_SCHEMA_V1,
-    WorkspaceGeometry, authority_for, cosine_similarity, expand_hits_with_graph,
-    fuse_reciprocal_ranks, load_vector_cache, save_vector_cache, tokenize, top_k_dense,
-    vectorize_chunks, vectorize_chunks_cached,
+    CrateGeometryRecord, DenseHit, DocumentChunk, DocumentTree, EpistemicAssemblyConfig,
+    EpistemicCoverageVerdict, EpistemicSource, GitCommitRecord, KnowledgeEdge, KnowledgeEdgeKind,
+    KnowledgeGraph, LexicalIndex, MarkdownLink, NormalizationStrategy, QueryRoute, RoutingTable,
+    SearchHit, SectionNode, SynthesisPrompt, SynthesisPromptBuilder, VectorCacheRecord,
+    WorkspaceGeometry, AUTHORITY_TIERS_REGISTRY_PATH, AUTHORITY_TIERS_SCHEMA_V1,
+    CORPUS_CACHE_SCHEMA_V2, CORPUS_MANIFEST_SCHEMA_V1, DEFAULT_RRF_K, DOCUMENT_TREE_SCHEMA_V1,
+    GIT_COMMIT_SCHEMA_V1, SYNTHESIS_PROMPT_SCHEMA_V1, UNCOVERED_REJECTION_TOKEN,
+    WORKSPACE_GEOMETRY_SCHEMA_V1,
 };
 
 use std::path::Path;

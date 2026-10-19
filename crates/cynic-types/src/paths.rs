@@ -22,9 +22,15 @@ impl CynicPaths {
     /// Répertoire canonique des secrets machine (permissions 0640 cynic:cynic).
     pub const DEFAULT_SECRETS_DIRNAME: &'static str = "secrets";
 
-    /// Racine d'état persistant runtime principal (cynic_state).
-    /// Défini par `infra/directory-tree.json:cynic_state.root`.
+    /// Canonical persistent state root (cynic_state).
+    /// Defined by `infra/directory-tree.json:cynic_state.root`.
     pub const DEFAULT_STATE_ROOT: &'static str = "/var/lib/cynic";
+
+    /// Canonical log root for runtime logs.
+    pub const DEFAULT_LOG_ROOT: &'static str = "/var/log/cynic";
+
+    /// Canonical install directory for runtime binaries.
+    pub const DEFAULT_BINARY_DIR: &'static str = "/usr/local/bin";
 
     /// Résout la racine de configuration système.
     /// Ordre d'autorité :
@@ -78,11 +84,31 @@ impl CynicPaths {
             .unwrap_or_else(|_| Self::system_config_dir().join(Self::DEFAULT_STORAGE_FILENAME))
     }
 
-    /// Résout la racine d'état persistant principal (/var/lib/cynic).
+    /// Resolve the primary persistent state root (/var/lib/cynic).
     pub fn state_dir() -> PathBuf {
         std::env::var("CYNIC_STATE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_STATE_ROOT))
+    }
+
+    /// Resolve the runtime log root (/var/log/cynic).
+    /// Authority order:
+    /// 1. `CYNIC_LOG_DIR` environment variable.
+    /// 2. `/var/log/cynic` (installed production norm).
+    pub fn log_dir() -> PathBuf {
+        std::env::var("CYNIC_LOG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_LOG_ROOT))
+    }
+
+    /// Resolve the runtime binary install directory (/usr/local/bin).
+    /// Authority order:
+    /// 1. `CYNIC_BINARY_DIR` environment variable.
+    /// 2. `/usr/local/bin` (installed production norm).
+    pub fn binary_dir() -> PathBuf {
+        std::env::var("CYNIC_BINARY_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(Self::DEFAULT_BINARY_DIR))
     }
 
     /// Résout le répertoire de configuration utilisateur (~/.config/cynic).
@@ -107,16 +133,18 @@ impl CynicPaths {
             .unwrap_or_else(|_| PathBuf::from("/tmp/cynic-cache"))
     }
 
-    /// Résout le chemin du cache de connaissance souverain (corpus_cache.json).
-    /// Si /var/lib/cynic/knowledge n'est pas inscriptible par l'utilisateur courant,
-    /// repli automatique et propre sur ~/.cache/cynic/corpus_cache.json.
-    pub fn knowledge_cache_path() -> PathBuf {
-        let system_path = Self::state_dir().join("knowledge/corpus_cache.json");
-        if let Some(parent) = system_path.parent() {
-            if std::fs::create_dir_all(parent).is_ok() {
-                return system_path;
-            }
-        }
+    /// Preferred system path of the sovereign knowledge cache
+    /// (corpus_cache.json). Pure: performs no I/O and creates nothing.
+    /// Callers running with I/O rights ensure the parent directory and
+    /// fall back to [`Self::user_knowledge_cache_path`] when the system
+    /// location is not writable.
+    pub fn system_knowledge_cache_path() -> PathBuf {
+        Self::state_dir().join("knowledge/corpus_cache.json")
+    }
+
+    /// Per-user fallback of the sovereign knowledge cache
+    /// (~/.cache/cynic/corpus_cache.json). Pure.
+    pub fn user_knowledge_cache_path() -> PathBuf {
         Self::user_cache_dir().join("corpus_cache.json")
     }
 

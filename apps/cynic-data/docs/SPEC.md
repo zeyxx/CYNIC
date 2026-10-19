@@ -2,6 +2,7 @@
 
 **Document Status**: Specification & Requirements Baseline  
 **Scope**: `infra/data_system`  
+**Scope**: `apps/cynic-data`  
 
 ---
 

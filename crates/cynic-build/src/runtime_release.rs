@@ -95,7 +95,7 @@ pub fn admit_runtime_release(
         violations.push("runtime_release_workload_not_terminal".to_string());
     }
     if canonical_build_action_from_argv(&delivery.envelope.action.argv)
-        != Some("make:build-release")
+        != Some("cargo:build-release")
     {
         violations.push("runtime_release_workload_action_mismatch".to_string());
     }
@@ -326,6 +326,7 @@ mod tests {
             request_id: "release-build-a".to_string(),
             requested_by: "release-agent".to_string(),
             source_commit: source_commit.clone(),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -334,7 +335,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:build-release".to_string(),
+            action: "cargo:build-release".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![

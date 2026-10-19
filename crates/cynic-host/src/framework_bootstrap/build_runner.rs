@@ -19,6 +19,7 @@ use crate::{
     },
 };
 use cynic_lifecycle::ArgvRunner;
+use cynic_types::paths::CynicPaths;
 
 pub const BUILD_RUNNER_BOOTSTRAP_PLAN_SCHEMA: &str = "cynic.build_runner.bootstrap_plan.v1";
 
@@ -271,14 +272,17 @@ pub fn bootstrap_admission_from_proof(
     registry_path: &Path,
     registry_digest: String,
 ) -> cynic_build::BuildRunnerBootstrapAdmission {
+    // Scope names only: nothing composes argv from this list (the bootstrap
+    // executes fixed git plans plus the real `build-host-exec` Makefile
+    // target). Retired make:* spellings are absent: they name Makefile
+    // targets that do not exist.
     let allowed_actions = match plan.target_phase.as_str() {
         "check" => vec![
-            "make:check".to_string(),
             "cargo:check".to_string(),
             "cargo:run".to_string(),
             "cargo:test".to_string(),
         ],
-        "build" => vec!["make:build".to_string(), "cargo:build".to_string()],
+        "build" => vec!["cargo:build".to_string()],
         _ => Vec::new(),
     };
     cynic_build::BuildRunnerBootstrapAdmission {
@@ -376,7 +380,8 @@ pub fn observe_build_runner_bootstrap(
     // Role observation: le nœud exécutant le bootstrap doit avoir le rôle
     // build_runner dans le registry. Empêche un agent de builder localement
     // sur un nœud kernel_primary (cortex) en forgeant un node_id erroné.
-    let local_role = std::fs::read_to_string("/etc/cynic/node-role").ok();
+    let local_role =
+        std::fs::read_to_string(CynicPaths::system_config_dir().join("node-role")).ok();
     let local_role_matches = local_role
         .as_deref()
         .is_some_and(|r| r.trim() == "build_runner");
@@ -453,6 +458,35 @@ pub fn reconcile_build_runner_bootstrap(
 mod tests {
     use super::*;
     use cynic_lifecycle::ArgvOutput;
+    #[test]
+    fn admission_scope_names_no_retired_make_spellings() {
+        // Scope names only (nothing composes argv from them), but a reader
+        // must never conclude make:* is live: pin their absence.
+        for phase in ["check", "build"] {
+            let plan = plan_build_runner_bootstrap(&BuildRunnerBootstrapRequest {
+                node_id: "builder".to_string(),
+                source_commit: "a".repeat(40),
+                source_bundle_digest: format!("sha256:{}", "b".repeat(64)),
+                target_phase: phase.to_string(),
+            });
+            let admission = bootstrap_admission_from_proof(
+                &plan,
+                std::path::Path::new("/registry.json"),
+                "digest".to_string(),
+            );
+            assert!(
+                !admission.allowed_actions.is_empty(),
+                "{phase} phase must admit a scope"
+            );
+            for action in &admission.allowed_actions {
+                assert!(
+                    !action.starts_with("make:"),
+                    "{action} is retired and must not appear in scope"
+                );
+            }
+        }
+    }
+
     #[test]
     fn forbids_activation_in_the_rust_bootstrap_boundary() {
         let plan = plan_build_runner_bootstrap(&BuildRunnerBootstrapRequest {

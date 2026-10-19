@@ -7,10 +7,14 @@ use std::{
 use cynic_workload::{
     AGENT_EXECUTION_RUNTIME_OBSERVATION_SCHEMA, AgentExecutionRuntimeObservation,
 };
+use cynic_types::paths::CynicPaths;
 use sha2::{Digest, Sha256};
 
-pub const DEFAULT_AGENT_EXECUTION_RUNTIME_PROOF: &str =
-    "/var/lib/cynic/agent-scheduler/runtime-proof.json";
+fn configured_path() -> PathBuf {
+    std::env::var_os("CYNIC_AGENT_EXECUTION_RUNTIME_PROOF")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| CynicPaths::state_dir().join("agent-scheduler/runtime-proof.json"))
+}
 
 /// Read the node-owned execution proof supplied by the deployed scheduler.
 /// An absent or malformed proof never promotes the runtime to readiness.
@@ -129,10 +133,4 @@ pub fn persist_capabilities(
         return Err("node_owned_agent_execution_proof_read_back_missing".to_string());
     }
     Ok(read_back)
-}
-
-fn configured_path() -> PathBuf {
-    std::env::var_os("CYNIC_AGENT_EXECUTION_RUNTIME_PROOF")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_AGENT_EXECUTION_RUNTIME_PROOF))
 }

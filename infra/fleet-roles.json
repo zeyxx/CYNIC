@@ -1,0 +1,88 @@
+{
+  "schema": "cynic.fleet_roles.v1",
+  "status": "measured-partial",
+  "purpose": "Single matrix of fleet roles versus expected components. Observed versions are measured 2026-10-17; anything not measured is marked unknown, never assumed.",
+  "federation_assessment": "No complete sovereign federation yet. In place: Headscale+WireGuard mesh (no Tailscale SaaS), registry-driven planes (service/admin/mesh), machine enrollment, node-local membership tick (works without kernel), remote runner enrollment via PreAuthKey, runtime artifact deployment with rollback intent. Missing: live fleet heartbeat loop (types only), several roles still candidate, federation doc still draft.",
+  "roles": [
+    {
+      "role": "hypervisor",
+      "nodes": ["cynic-host-proxmox"],
+      "node_status": "observed",
+      "expected_components": ["cynic", "pct", "qm"],
+      "measured": {"cynic": "unknown", "note": "hypervisor cynic version not probed 2026-10-17"}
+    },
+    {
+      "role": "agent_host",
+      "nodes": ["cynic-agent-host"],
+      "node_status": "observed",
+      "expected_components": ["cynic", "hermes-agent", "tmux", "git"],
+      "measured": {"cynic": "0.8.0", "hermes-agent": "0.21.0-git-63279301", "tmux": "present", "git": "present", "session": "cynic-agent-hermes-test active, log-captured"}
+    },
+    {
+      "role": "cortex_host",
+      "nodes": ["cynic-host-cortex"],
+      "node_status": "candidate",
+      "expected_components": ["cynic", "hermes-agent", "llama-server"],
+      "measured": {"cynic": "0.8.0", "hermes-agent-user": "v0.22.0+159.gc5fc095-fork", "hermes-agent-principal": "0.19.0-noncanonical", "note": "4 concurrent Hermes sessions; RAM saturated 8.6/13Gi, 0 swap"}
+    },
+    {
+      "role": "build_runner",
+      "nodes": ["cynic-builder"],
+      "node_status": "candidate",
+      "expected_components": ["cynic", "cargo", "rustc"],
+      "measured": {"cynic": "unknown", "note": "builder is proof SSOT for merges; version probe pending"}
+    },
+    {
+      "role": "storage_primary",
+      "nodes": ["cynic-lxc-surrealdb"],
+      "node_status": "candidate",
+      "expected_components": ["cynic", "surrealdb"],
+      "measured": {"cynic": "unknown", "note": "not probed 2026-10-17"}
+    },
+    {
+      "role": "embedding_runner",
+      "nodes": ["cynic-lxc-embedding"],
+      "node_status": "observed",
+      "expected_components": ["llama-server"],
+      "measured": {"note": "lxc106 admin-unreachable from cortex 2026-10-15; flags unmeasurable, excluded from calibration cluster"}
+    },
+    {
+      "role": "forge_primary",
+      "nodes": ["forgejo"],
+      "node_status": "candidate",
+      "expected_components": ["forgejo"],
+      "measured": {"note": "source SSOT; version probe pending"}
+    },
+    {
+      "role": "mesh_coordinator",
+      "nodes": ["cynic-lxc-headscale"],
+      "node_status": "candidate",
+      "expected_components": ["headscale"],
+      "measured": {"note": "replaces Tailscale SaaS; version probe pending"}
+    },
+    {
+      "role": "kernel_primary",
+      "nodes": ["local-kernel"],
+      "node_status": "candidate",
+      "expected_components": ["cynic-kernel"],
+      "measured": {"note": "not deployed as proof gate yet"}
+    },
+    {
+      "role": "workstation_portable",
+      "nodes": ["cynic-laptop-ax16pro"],
+      "node_status": "observed",
+      "expected_components": ["cynic"],
+      "measured": {"note": "pool intent: future build runner, needs scheduler slots + fair-queuing first"}
+    }
+  ],
+  "alignment_loop": "desired (ecosystem-pins + supply-chain-policy + this matrix) -> observed (observe_node, mesh_probe, watchdog, dependency status per node) -> reconciled (runtime_artifact_deployment with rollback intent + receipt) -> drift to outbox. No silent auto-apply.",
+  "consumers": [
+    "crates/cynic-node/src/usecases/runtime_artifact_deployment_uc.rs",
+    "crates/cynic-node/src/usecases/agent_host_placement_uc.rs",
+    "crates/cynic-cli/src/dependency_surface.rs"
+  ],
+  "coherence_contract": {
+    "test": "planned",
+    "description": "Every role names only nodes present in registry.json; every expected component names an ecosystem-pins id or a node-native tool. Test to be added in the supervision tranche."
+  }
+}

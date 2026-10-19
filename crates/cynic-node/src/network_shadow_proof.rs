@@ -183,7 +183,7 @@ fn build_shadow_proof_report(inputs: ShadowProofReportInputs) -> NetworkShadowPr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+    use cynic_types::paths::CynicPaths;
     use serde_json::json;
 
     #[test]
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn report_builder_marks_drift_status_from_inputs() {
         let report = build_shadow_proof_report(ShadowProofReportInputs {
-            registry: DEFAULT_REGISTRY_PATH.to_string(),
+            registry: CynicPaths::registry_path().display().to_string(),
             rust: ShadowProofRust {
                 dns_bundle: RustDnsBundle {
                     activation_plan: json!({}),

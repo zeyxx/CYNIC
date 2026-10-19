@@ -129,10 +129,10 @@ mod tests {
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../infra/registry.json"),
             &ServiceRef {
                 node: "forgejo".into(),
-                service: "forgejo-api-tls".into(),
+                service: "forgejo-backend".into(),
             },
         )
         .unwrap();
-        assert_eq!(endpoint.endpoint, "https://forgejo.service.cynic");
+        assert_eq!(endpoint.endpoint, "http://organ-forgejo.service.cynic:3000");
     }
 }
