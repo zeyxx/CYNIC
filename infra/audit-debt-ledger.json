@@ -1546,7 +1546,7 @@
       "severity": "warning"
     },
     {
-      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` \u2014 code must cite machine-readable authority (contract, Rust type, or test), never prose",
+      "identity": "PROSE-001-MD-AUTHORITY|crates/cynic-secrets/src/adapters/file.rs:35 cites markdown as authority: `AGENTS.md` — code must cite machine-readable authority (contract, Rust type, or test), never prose",
       "count": 1,
       "rule": "PROSE-001",
       "severity": "warning"

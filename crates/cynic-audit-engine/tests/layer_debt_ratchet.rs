@@ -94,8 +94,6 @@ fn manifest_debt() -> (Vec<String>, usize) {
 /// agree with itself. Two copies in two files means paying debt is a visible
 /// act and adding debt is a diff in both.
 const BASELINE_EDGES: &[&str] = &[
-    "ARCH-004-UPWARD-EDGE cynic-discovery-host (L1) depends on cynic-build (L2)",
-    "ARCH-004-UPWARD-EDGE cynic-discovery-host (L1) depends on cynic-discovery (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-build (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-eval (L2)",
     "ARCH-004-UPWARD-EDGE cynic-host (L1) depends on cynic-finance (L2)",
