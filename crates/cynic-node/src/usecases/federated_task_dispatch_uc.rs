@@ -231,6 +231,7 @@ mod tests {
             "Benchmark Qwen 2B",
             serde_json::json!({}),
             "agent_1",
+            0,
         );
 
         let receipt = dispatcher.dispatch(task, None, 300).unwrap();

@@ -9,6 +9,8 @@ pub mod cgroup_isolation;
 pub mod fleet_branch_graph_observer;
 pub mod fleet_build_discovery_observer;
 pub mod fleet_queue_observer;
+pub mod fresh_data_metadata_adapter;
+pub mod fresh_data_probe_adapter;
 pub mod fs_window_journal;
 pub mod http_freebox_probe_adapter;
 pub mod local_branch_graph;

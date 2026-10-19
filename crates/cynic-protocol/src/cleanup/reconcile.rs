@@ -12,7 +12,7 @@
 use crate::cleanup::types::*;
 
 /// Pure decision function from observation to strategy.
-pub fn reconcile_cleanup(obs: &CleanupObservation) -> CleanupDecision {
+pub fn reconcile_cleanup(obs: &CleanupObservation, now_unix_s: u64) -> CleanupDecision {
     let mut safe_to_delete = Vec::new();
     let mut needs_review = Vec::new();
     let keep = Vec::new();
@@ -28,11 +28,7 @@ pub fn reconcile_cleanup(obs: &CleanupObservation) -> CleanupDecision {
                 let is_stale = item
                     .last_modified_unix_s
                     .map(|t| {
-                        let now = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs();
-                        now.saturating_sub(t) > 30 * 24 * 60 * 60
+                        now_unix_s.saturating_sub(t) > 30 * 24 * 60 * 60
                     })
                     .unwrap_or(false);
                 if is_stale {
@@ -99,7 +95,7 @@ mod tests {
             reclaimable_bytes: 2_500_000_000,
         };
 
-        let decision = reconcile_cleanup(&obs);
+        let decision = reconcile_cleanup(&obs, 1724000000 + 31 * 24 * 60 * 60);
         assert_eq!(decision.safe_to_delete.len(), 2);
         assert!(decision.needs_review.is_empty());
         assert_eq!(decision.estimated_savings_bytes, 2_500_000_000);
@@ -124,7 +120,7 @@ mod tests {
             reclaimable_bytes: 500_000_000,
         };
 
-        let decision = reconcile_cleanup(&obs);
+        let decision = reconcile_cleanup(&obs, 0);
         assert!(decision.safe_to_delete.is_empty());
         assert_eq!(decision.needs_review.len(), 1);
     }
@@ -152,7 +148,7 @@ mod tests {
             reclaimable_bytes: 0,
         };
 
-        let decision = reconcile_cleanup(&obs);
+        let decision = reconcile_cleanup(&obs, now);
         assert!(decision.safe_to_delete.is_empty());
         assert_eq!(decision.needs_review.len(), 1);
     }
@@ -176,7 +172,7 @@ mod tests {
             reclaimable_bytes: 3_000_000_000,
         };
 
-        let decision = reconcile_cleanup(&obs);
+        let decision = reconcile_cleanup(&obs, 1724000000 + 31 * 24 * 60 * 60);
         assert_eq!(decision.safe_to_delete.len(), 1);
         assert_eq!(decision.estimated_savings_bytes, 3_000_000_000);
     }

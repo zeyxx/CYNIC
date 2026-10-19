@@ -70,7 +70,7 @@ impl CourtB {
         mandate: &CourtMandate,
     ) -> Result<CourtLoopResult, String> {
         let surfaces = scope.unwrap_or_else(|| mandate.scope.clone());
-        let mut report = CourtAuditReport::new(surfaces.clone(), &self.phase);
+        let mut report = CourtAuditReport::new(surfaces.clone(), &self.phase, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_default());
 
         let observation = self.observe_surfaces(&surfaces);
         let violations = self.derive_violations(&observation);
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn render_human_report_does_not_panic() {
-        let report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "test");
+        let report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "test", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_default());
         render_human_report(&report);
     }
 }
