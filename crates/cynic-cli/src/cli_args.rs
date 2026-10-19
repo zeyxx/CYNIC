@@ -55,6 +55,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: crate::discovery_surface::DiscoveryCommand,
     },
+    /// Fresh-data — probe providers, models, quota, and freshness.
+    Fresh {
+        #[command(subcommand)]
+        command: crate::fresh_data_surface::FreshDataCommand,
+    },
     /// Explain stable CYNIC error codes and their operator remediation.
     Errors {
         #[arg(long)]

@@ -2,19 +2,34 @@ use std::sync::Arc;
 
 use tempfile::tempdir;
 
+use super::session::handshake_path;
 use super::{NodeMessage, PendingStimulus, PendingVerdict, WebSocketClient};
 use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
+use crate::adapters::workload_request_signer::WorkloadRequestSigner;
 
 fn test_client(queue_dir: &std::path::Path) -> WebSocketClient {
     WebSocketClient::new(
         "ws://127.0.0.1:3030/events/ws".to_string(),
         "api-key".to_string(),
+        None,
         "node-public-key".to_string(),
         "node-a".to_string(),
         Arc::new(LocalRuntimeFederationQueueStore::new(
             queue_dir.to_path_buf(),
         )),
     )
+}
+
+fn test_signer(dir: &std::path::Path) -> WorkloadRequestSigner {
+    let key_path = dir.join("signing.key");
+    std::fs::write(&key_path, hex::encode([7_u8; 32])).expect("write signing key");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))
+            .expect("signing key perms");
+    }
+    WorkloadRequestSigner::new(key_path).expect("workload signer")
 }
 
 fn test_stimulus(stimulus_id: &str, queued_at: i64) -> PendingStimulus {
@@ -93,4 +108,115 @@ async fn dequeue_updates_persistent_queue_files() {
         .await
         .expect("remaining stimulus");
     assert_eq!(remaining.stimulus_id, "stim-2");
+}
+
+#[test]
+fn handshake_path_extracts_ws_route() {
+    assert_eq!(
+        handshake_path("ws://127.0.0.1:3030/events/ws"),
+        "/events/ws"
+    );
+    assert_eq!(
+        handshake_path("wss://kernel.example:443/events/ws"),
+        "/events/ws"
+    );
+    assert_eq!(handshake_path("ws://127.0.0.1:3030"), "/events/ws");
+}
+
+#[test]
+fn unsigned_handshake_request_carries_no_workload_signature() {
+    let dir = tempdir().expect("tempdir");
+    let client = test_client(dir.path());
+    let request = client.build_request().expect("build request");
+    assert!(!request.headers().contains_key("x-cynic-signature"));
+    assert!(!request.headers().contains_key("x-cynic-timestamp"));
+    assert!(!request.headers().contains_key("x-cynic-public-key"));
+}
+
+#[test]
+fn signed_handshake_request_carries_verifiable_workload_signature() {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let dir = tempdir().expect("tempdir");
+    let signer = test_signer(dir.path());
+    let queue_dir = dir.path().join("queue");
+    let client = WebSocketClient::new(
+        "ws://127.0.0.1:3030/events/ws".to_string(),
+        "api-key".to_string(),
+        Some(signer),
+        "node-public-key".to_string(),
+        "node-a".to_string(),
+        Arc::new(LocalRuntimeFederationQueueStore::new(queue_dir)),
+    );
+    let request = client.build_request().expect("build request");
+    let headers = request.headers();
+    let timestamp = headers["x-cynic-timestamp"]
+        .to_str()
+        .expect("timestamp header")
+        .to_string();
+    let signature_hex = headers["x-cynic-signature"]
+        .to_str()
+        .expect("signature header")
+        .to_string();
+    let public_key_hex = headers["x-cynic-public-key"]
+        .to_str()
+        .expect("public key header")
+        .to_string();
+
+    let payload = format!("{timestamp}GET|/events/ws|").into_bytes();
+    let public_key_bytes: [u8; 32] = hex::decode(&public_key_hex)
+        .expect("public key hex")
+        .try_into()
+        .expect("public key length");
+    let signature_bytes: [u8; 64] = hex::decode(&signature_hex)
+        .expect("signature hex")
+        .try_into()
+        .expect("signature length");
+    VerifyingKey::from_bytes(&public_key_bytes)
+        .expect("public key")
+        .verify(&payload, &Signature::from_bytes(&signature_bytes))
+        .expect("workload signature verifies");
+}
+
+#[test]
+fn a_signed_handshake_carries_the_public_key_in_both_header_names() {
+    // The kernel resolves the signer from X-Node-Public-Key, but its REST
+    // middleware reads X-Cynic-Public-Key and rejects the request before the
+    // WebSocket handler runs. Both layers must see the same key.
+    let dir = tempdir().expect("tempdir");
+    let signer = test_signer(dir.path());
+    let queue_dir = dir.path().join("queue");
+    let client = WebSocketClient::new(
+        "ws://127.0.0.1:3030/events/ws".to_string(),
+        "api-key".to_string(),
+        Some(signer),
+        "node-public-key".to_string(),
+        "node-a".to_string(),
+        Arc::new(LocalRuntimeFederationQueueStore::new(queue_dir)),
+    );
+    let request = client.build_request().expect("build request");
+    let headers = request.headers();
+
+    let cynic_key = headers["x-cynic-public-key"].to_str().expect("cynic key");
+    let node_key = headers["x-node-public-key"].to_str().expect("node key");
+    assert_eq!(
+        cynic_key, node_key,
+        "both kernel layers must resolve the same signer"
+    );
+    // The signed key is the one that signs, not the configured placeholder.
+    assert_ne!(cynic_key, "node-public-key");
+}
+
+#[test]
+fn handshake_path_drops_the_query_string() {
+    // The kernel signs the URI path only. A query in the URL would make
+    // every signed request unverifiable.
+    assert_eq!(
+        handshake_path("ws://127.0.0.1:3030/events/ws?token=abc"),
+        "/events/ws"
+    );
+    assert_eq!(
+        handshake_path("ws://127.0.0.1:3030/events/ws#frag"),
+        "/events/ws"
+    );
 }

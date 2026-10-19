@@ -303,12 +303,12 @@ pub struct CourtAuditReport {
 }
 
 impl CourtAuditReport {
-    pub fn new(surfaces: Vec<SurfaceType>, phase: &str) -> Self {
+    pub fn new(surfaces: Vec<SurfaceType>, phase: &str, timestamp: String) -> Self {
         Self {
             schema: COURT_AUDIT_SCHEMA.to_string(),
             surfaces_scanned: surfaces,
             phase: phase.to_string(),
-            timestamp: timestamp_now(),
+            timestamp,
             violations: Vec::new(),
             unknowns: Vec::new(),
             coherence_score: 100.0,
@@ -389,13 +389,6 @@ impl CourtMandate {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-fn timestamp_now() -> String {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs().to_string())
-        .unwrap_or_default()
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -445,14 +438,14 @@ mod tests {
 
     #[test]
     fn court_audit_report_empty() {
-        let report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "manual");
+        let report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "manual", "0".to_string());
         assert_eq!(report.coherence_score, 100.0);
         assert_eq!(report.blocking_count(), 0);
     }
 
     #[test]
     fn court_audit_report_with_violation() {
-        let mut report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "manual");
+        let mut report = CourtAuditReport::new(SurfaceType::ALL.to_vec(), "manual", "0".to_string());
         report.add_violation(PolicyViolation {
             code: CynicErrorCode::new("COURT", 1),
             nature: ViolationNature::Blocked,

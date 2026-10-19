@@ -73,7 +73,7 @@ fn execute_audit(
         scope.unwrap_or_else(|| cynic_protocol::constitutional_court::SurfaceType::ALL.to_vec());
 
     let mut report =
-        cynic_protocol::constitutional_court::CourtAuditReport::new(surfaces.clone(), "manual");
+        cynic_protocol::constitutional_court::CourtAuditReport::new(surfaces.clone(), "manual", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_default());
 
     // Phase A: demonstration report (no real audit logic yet).
     // In Phase C this will be driven by cynic-inference.

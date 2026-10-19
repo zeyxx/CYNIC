@@ -45,6 +45,7 @@ pub mod deps_surface_report;
 pub mod deps_surface_specs;
 pub mod deps_surface_upgrade;
 pub mod discovery_surface;
+pub mod fresh_data_surface;
 pub mod doctor;
 pub mod external_audit;
 pub mod federation_surface;

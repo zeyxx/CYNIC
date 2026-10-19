@@ -1046,10 +1046,13 @@ mod tests {
             stable_workspace_root: None,
             release_publication: None,
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
             shared_target_root: None,
             stable_workspace_root: None,
 >>>>>>> origin/agent/hermes/cd-couche-b-smoke
+=======
+>>>>>>> origin/agent/hermes/fleet-chat-inference-2
             build_jobs: None,
             max_rss_cap_mb: None,
             sccache: None,

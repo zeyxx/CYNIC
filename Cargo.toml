@@ -82,6 +82,10 @@ toml = "0.8"
 arc-swap = "1"
 zeroize = "1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+# FIPS 204 ML-DSA-44: post-quantum workload signature for the hybrid
+# handshake. Only the ml-dsa-44 parameter set is enabled; the other sets
+# stay off so the binary does not carry unused code.
+fips204 = { version = "0.4", default-features = false, features = ["default-rng", "ml-dsa-44"] }
 regex = "1"
 anyhow = "1"
 getrandom = "0.2"

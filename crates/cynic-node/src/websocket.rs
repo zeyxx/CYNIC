@@ -23,6 +23,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message;
 
+use crate::adapters::workload_request_signer::WorkloadRequestSigner;
 use crate::ports::runtime_federation_queue_store_port::RuntimeFederationQueueStorePort;
 
 pub use protocol::{NodeMessage, PendingStimulus, PendingVerdict};
@@ -43,6 +44,8 @@ pub struct WebSocketClient {
     kernel_url: String,
     /// API key for Bearer token authentication
     api_key: String,
+    /// Workload request signer for X-Cynic-* handshake headers (None = unsigned)
+    signer: Option<WorkloadRequestSigner>,
     /// Node's Ed25519 public key (base64)
     node_public_key: String,
     /// Node identity (name/id)
@@ -63,6 +66,7 @@ impl WebSocketClient {
     pub fn new(
         kernel_url: String,
         api_key: String,
+        signer: Option<WorkloadRequestSigner>,
         node_public_key: String,
         node_identity: String,
         queue_store: Arc<dyn RuntimeFederationQueueStorePort>,
@@ -70,6 +74,7 @@ impl WebSocketClient {
         Self {
             kernel_url,
             api_key,
+            signer,
             node_public_key,
             node_identity,
             queue_store,

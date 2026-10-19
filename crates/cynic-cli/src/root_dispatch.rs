@@ -114,6 +114,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Discovery { command } => crate::discovery_surface::execute_discovery(command),
+        Command::Fresh { command } => crate::fresh_data_surface::execute_fresh_data(command),
         Command::Secret { command } => crate::secret_surface::execute_secret_command(command),
         Command::Privilege { command } => {
             crate::privilege_surface::execute_privilege_command(command)

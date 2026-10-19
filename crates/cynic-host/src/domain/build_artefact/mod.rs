@@ -15,6 +15,18 @@ pub use cynic_protocol::retention::{
 };
 pub use parse::{parse_checkout_list, parse_df_pressure};
 
+/// Single source for GC removal argv. Pure: path in, argv out.
+/// Plans carry the built argv (the queue reuses it verbatim);
+/// executors rebuild it from path through this same helper.
+/// Never inline `["rm", "-rf", path]` anywhere else.
+pub fn gc_argv(path: &str) -> Vec<String> {
+    vec![
+        "rm".to_string(),
+        "-rf".to_string(),
+        path.to_string(),
+    ]
+}
+
 /// Pure planner: orphan or old are reclaimable; root-owned is extra signal.
 /// Shared between local and remote adapters.
 pub fn plan_build_artefacts(
@@ -52,11 +64,7 @@ pub fn plan_build_artefacts(
             age: item.age,
             reason,
             requires_privilege: item.is_root_owned == Some(true),
-            argv: vec![
-                "rm".to_string(),
-                "-rf".to_string(),
-                item.path.clone(),
-            ],
+            argv: gc_argv(&item.path),
             is_orphan: item.is_orphan,
             is_root_owned: item.is_root_owned,
             remote_exists: item.remote_exists,
@@ -71,5 +79,22 @@ pub fn plan_build_artefacts(
         items,
         total_reclaimable_bytes: total,
         policy_version: format!("{:?}", policy.kind),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gc_argv_builds_rm_rf_triple() {
+        assert_eq!(
+            gc_argv("/var/lib/cynic/checkouts/old-orphan"),
+            vec![
+                "rm".to_string(),
+                "-rf".to_string(),
+                "/var/lib/cynic/checkouts/old-orphan".to_string(),
+            ]
+        );
     }
 }
