@@ -6,6 +6,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
+mod divergence;
 mod pr;
 mod release;
 mod release_deployment_cli;
@@ -20,6 +21,7 @@ use release_deployment_cli::execute_deploy;
 use sync::{execute_publish, execute_status, execute_sync};
 use worktree::execute_worktree;
 use worktree_allocation::execute_allocate_worktree;
+use divergence::execute_divergence;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum SourceCommand {
@@ -90,6 +92,13 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         restart_unit: Vec<String>,
     },
+    /// Compare Forgejo main vs GitHub main SHAs (read-only).
+    Divergence {
+        #[arg(long, default_value = ".")]
+        root: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Plan the public projection of the private tree from contracts/publication.json.
     Publish {
         #[arg(long, default_value = ".")]
@@ -156,6 +165,7 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             &restart_unit,
         ),
         SourceCommand::Publish { root, json } => execute_publish(Path::new(&root), json),
+        SourceCommand::Divergence { root, json } => execute_divergence(Path::new(&root), json),
     }
 }
 

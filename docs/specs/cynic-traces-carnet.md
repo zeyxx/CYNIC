@@ -79,6 +79,12 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   `docs/specs/harness-codex.md` (5 types de lignes, nommage natif,
   écart de provenance 193 sessions / 94 fichiers gelés consigné).
   Données intactes (193 sessions silver + 94+95 fichiers).
+- `cursor, vscode, kiro, amp, qwen, droid, opencode` : SANS OBJET —
+  prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
+  seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
+  `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
+- Restent : `omp` (~90 sessions), `claude_code` (106),
+  `antigravity` (500, vertical partiel).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
 - Gated derrière T1–T6 (loi de Gall). Implémente R1–R6 du delta géodésique
