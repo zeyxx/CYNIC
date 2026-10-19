@@ -77,10 +77,13 @@ pub use domain::token_entropy::{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> origin/agent/hermes/shannon-integration
 =======
 >>>>>>> origin/agent/hermes/shannon-wiring-main
+=======
+>>>>>>> origin/agent/hermes/shannon-wiring-main-fix
     assess_token_uncertainty, token_entropy_from_logits,
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel,
     TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
