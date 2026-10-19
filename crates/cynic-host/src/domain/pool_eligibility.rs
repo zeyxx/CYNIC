@@ -298,7 +298,8 @@ mod tests {
         assert!(!report.eligible);
         assert!(report.tools[0]
             .detail
-            .unwrap()
+            .clone()
+            .unwrap_or_default()
             .contains("older than required"));
     }
 
