@@ -55,6 +55,7 @@ pub(crate) fn archive_terminal_workloads(
         if !apply {
             continue;
         }
+        match store.archive_terminal(workload_id, *older_than_ms, now_ms) {
         match store.archive_terminal(workload_id, older_than_ms, now_ms) {
             Ok(Some(path)) => {
                 let read_back_absent = !std::path::Path::new(state_root).join(workload_id).exists();
@@ -241,6 +242,13 @@ mod tests {
         }
     }
 
+    fn test_claim(expires_at_ms: u64) -> cynic_workload::AgentWorkloadClaim {
+        cynic_workload::AgentWorkloadClaim {
+            guard: cynic_protocol::LeaseGuard {
+                agent_id: "build-agent-1".into(),
+                target: "workload".into(),
+                lease_id: "lease-1".into(),
+                fencing_token: 1,
     fn test_claim(
         workload_id: &str,
         fencing_token: u64,
@@ -256,6 +264,7 @@ mod tests {
             expires_at_ms,
             cancellation_generation: 0,
             max_lease_window_ms: 300_000,
+            granted_at_ms: expires_at_ms - 300_000,
             granted_at_ms: expires_at_ms.saturating_sub(300_000),
         }
     }
@@ -269,6 +278,7 @@ mod tests {
     ) -> cynic_workload::DurableAgentWorkloadRecord {
         let mut rec = test_record(workload_id, idempotency_key);
         rec.state = state;
+        rec.claim = claim.map(test_claim);
         rec.claim = claim.map(|exp| test_claim(workload_id, rec.last_fencing_token, exp));
         cynic_workload::DurableAgentWorkloadRecord {
             schema: cynic_workload::DURABLE_AGENT_WORKLOAD_RECORD_SCHEMA.to_string(),
@@ -321,6 +331,7 @@ mod tests {
         let mut terminal_claimed = durable_record(
             "workload-claimed",
             "key-claimed",
+            AgentWorkloadState::Completed,
             AgentWorkloadState::Claimed,
             1_000,
             Some(6_000),

@@ -1,6 +1,7 @@
 # CYNIC Data System — Technical Specifications & Requirements (Cahier des Charges)
 
 **Document Status**: Specification & Requirements Baseline  
+**Scope**: `infra/data_system`  
 **Scope**: `apps/cynic-data`  
 
 ---
