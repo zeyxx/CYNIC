@@ -744,11 +744,8 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
-<<<<<<< HEAD
-=======
  "cynic-supervisor",
  "cynic-surreal",
->>>>>>> origin/agent/hermes/supervision-convergence
  "cynic-tui",
  "cynic-types",
  "cynic-vcs",
@@ -1357,8 +1354,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "cynic-supervisor"
 version = "0.8.0"
 dependencies = [
@@ -1384,9 +1379,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
->>>>>>> origin/agent/hermes/supervision-convergence
-=======
 name = "cynic-types"
 version = "0.8.0"
 dependencies = [
@@ -1395,7 +1387,6 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
->>>>>>> origin/recovery/main-convergence-20261013
 name = "cynic-traces"
 version = "0.8.0"
 dependencies = [

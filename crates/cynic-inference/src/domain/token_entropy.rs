@@ -55,23 +55,11 @@ pub struct TokenUncertaintyParams {
 impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
             exploration_top_probability: 0.6,
-=======
             exploration_top_probability: 0.25,
->>>>>>> origin/agent/hermes/shannon-information-primitive
-=======
             exploration_top_probability: 0.25,
->>>>>>> origin/agent/hermes/shannon-integration
-=======
             exploration_top_probability: 0.25,
->>>>>>> origin/agent/hermes/shannon-wiring-main
-=======
             exploration_top_probability: 0.6,
->>>>>>> origin/agent/hermes/shannon-wiring-main-fix
             exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }

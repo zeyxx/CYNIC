@@ -129,12 +129,9 @@ impl<R: ArgvRunner> RemoteQueueAdapter<R> {
         parse_cargo_metadata(&json, now_secs(), toolchain, host)
     }
     fn observe_gc_plan(&self) -> cynic_build::build_artefact::BuildArtefactGcPlan {
-<<<<<<< HEAD
         let raw_list = self
             .ssh(&["ls", "-1", &self.checkouts_base])
             .unwrap_or_default();
-=======
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     fn observe_gc_plan(&self) -> RetentionPlan {
         let checkouts_dir = CynicPaths::state_dir()
             .join("checkouts")

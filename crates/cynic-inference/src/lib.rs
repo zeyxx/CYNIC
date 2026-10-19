@@ -74,23 +74,11 @@ pub use domain::model_store::{ModelArtifact, ModelStoreReport};
 pub use domain::summarization::{SummarizationError, SummarizeRequest, SummarizeResponse};
 pub use domain::token_entropy::{
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel, TokenUncertaintyParams,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> origin/agent/hermes/shannon-integration
-=======
->>>>>>> origin/agent/hermes/shannon-wiring-main
-=======
->>>>>>> origin/agent/hermes/shannon-wiring-main-fix
     assess_token_uncertainty, token_entropy_from_logits,
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel,
     TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
     token_entropy_from_probabilities,
-=======
     assess_token_uncertainty, token_entropy_from_logits, token_entropy_from_probabilities,
->>>>>>> origin/agent/hermes/shannon-information-primitive
 };
 
 // Infrastructure (I/O primitives)

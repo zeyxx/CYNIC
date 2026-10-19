@@ -69,14 +69,11 @@ pub(crate) enum TaskCommand {
 }
 
 pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
-<<<<<<< HEAD
-=======
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build tokio runtime");
 
->>>>>>> origin/agent/hermes/fleet-chat-inference-2
     match command {
         TaskCommand::List {
             json,

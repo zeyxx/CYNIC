@@ -36,14 +36,11 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-<<<<<<< HEAD
 # apps/cynic-data lives at <repo>/apps/cynic-data (moved from infra/data_system).
-=======
 # data_system lives at <repo>/infra/data_system
 # data_system lives at <repo>/apps/cynic-data (moved from infra/data_system).
 # GUARDS entries predating the move cannot resolve and report an error;
 # re-anchor the table to post-move commits (see Rust-rewrite spec).
->>>>>>> origin/agent/hermes/scheduler-truths-t5
 REPO = os.path.dirname(os.path.dirname(HERE))
 
 OLD_SRC = "infra/data_system/src/"
@@ -136,10 +133,8 @@ GUARDS: dict[str, dict] = {
 }
 
 
-<<<<<<< HEAD
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True)
-=======
 def _git_show(sha: str, path: str) -> str | None:
     r = subprocess.run(
         ["git", "-C", REPO, "show", f"{sha}~1:infra/data_system/src/{path}"],
@@ -148,7 +143,6 @@ def _git_show(sha: str, path: str) -> str | None:
         text=True,
     )
     return r.stdout if r.returncode == 0 else None
->>>>>>> origin/agent/hermes/scheduler-truths-t5
 
 
 def _resolve(sha: str, path: str) -> tuple[str | None, str]:

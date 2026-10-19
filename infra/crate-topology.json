@@ -31,12 +31,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-<<<<<<< HEAD
       "loc": 6342
-=======
       "loc": 5894
       "loc": 6516
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-build": {
       "consumers": [
@@ -56,12 +53,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 13020
-=======
       "loc": 9905
       "loc": 10255
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-channel": {
       "consumers": [
@@ -119,12 +113,9 @@
       "justified": true,
       "kind": "binary",
       "layer": "L4",
-<<<<<<< HEAD
       "loc": 45693
-=======
       "loc": 37613
       "loc": 38984
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-consensus": {
       "consumers": [
@@ -144,12 +135,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 2736
-=======
       "loc": 2598
       "loc": 2666
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-discovery": {
       "consumers": [
@@ -179,9 +167,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 3984
-=======
       "loc": 3034
       "loc": 3031
     },
@@ -199,7 +185,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 497
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-eval": {
       "consumers": [
@@ -218,12 +203,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 10719
-=======
       "loc": 9654
       "loc": 10340
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-finance": {
       "consumers": [
@@ -306,9 +288,7 @@
       "justified": true,
       "kind": "binary",
       "layer": "L1",
-<<<<<<< HEAD
       "loc": 90755
-=======
       "loc": 88496
       "loc": 90023
     },
@@ -323,7 +303,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 1697
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-inference": {
       "consumers": [
@@ -347,12 +326,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 18018
-=======
       "loc": 14078
       "loc": 16401
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-intel": {
       "consumers": [
@@ -419,12 +395,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L1",
-<<<<<<< HEAD
       "loc": 6558
-=======
       "loc": 3984
       "loc": 6472
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-lifecycle": {
       "consumers": [
@@ -550,12 +523,9 @@
       "justified": true,
       "kind": "binary",
       "layer": "L3",
-<<<<<<< HEAD
       "loc": 62030
-=======
       "loc": 57152
       "loc": 61029
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-node-protocol": {
       "consumers": [
@@ -651,12 +621,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L0",
-<<<<<<< HEAD
       "loc": 39700
-=======
       "loc": 37675
       "loc": 39451
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-proxmox": {
       "consumers": [
@@ -758,8 +725,6 @@
       "depends_on": [
         "cynic-consensus",
         "cynic-finance",
-<<<<<<< HEAD
-=======
         "cynic-protocol"
       ],
       "dev_depends_on": [],
@@ -774,7 +739,6 @@
         "cynic-cli"
       ],
       "depends_on": [
->>>>>>> origin/agent/hermes/single-binary-topology-writer
         "cynic-protocol",
         "cynic-secrets"
       ],
@@ -848,12 +812,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 10218
-=======
       "loc": 8914
       "loc": 9079
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-vcs-providers": {
       "consumers": [
@@ -869,12 +830,9 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-<<<<<<< HEAD
       "loc": 2892
-=======
       "loc": 1979
       "loc": 1980
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-workload": {
       "consumers": [
@@ -896,12 +854,9 @@
       "justified": true,
       "kind": "library",
       "layer": "cross_cutting",
-<<<<<<< HEAD
       "loc": 6383
-=======
       "loc": 6286
       "loc": 6299
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     },
     "cynic-zeroclaw-solana": {
       "consumers": [
@@ -920,11 +875,8 @@
     }
   },
   "extraction_order": [
-<<<<<<< HEAD
     "cynic-fleet",
-=======
     "cynic-askesis",
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     "cynic-forensics",
     "cynic-traces",
     "cynic-tui",
@@ -1174,9 +1126,7 @@
   "measured": {
     "acyclic": true,
     "binaries": 5,
-<<<<<<< HEAD
     "crates": 41,
-=======
     "crates": 44,
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
@@ -1185,7 +1135,6 @@
     "runtime_edges": 171,
     "binaries": 6,
     "crates": 44,
->>>>>>> origin/agent/hermes/single-binary-topology-writer
     "dev_edges": 4,
     "loc_basis": "every .rs file under crates/<name>/, tests and examples included, blank lines counted",
     "loc_total": 388431,

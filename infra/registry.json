@@ -1136,8 +1136,6 @@
         ],
         "note": "Toolchain complete 2026-10-19: rustc/cargo 1.95.0, node v22.23.3, cc 14.2.0 (build-essential), python3. Capacity probe run #27 green: 12+8+0 tests passed, 416G free, 16 cores. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
       }
-<<<<<<< HEAD
-=======
     },
     {
       "id": "cynic-compute-01",
@@ -1217,7 +1215,6 @@
           "outcome": "compute01/cortex 0.001112 (was 0.002476), compute01/lxc 0.002479, cortex/lxc 0.002476; drift is state-dependent, range 1-2.5e-3"
         }
       ]
->>>>>>> origin/pr104
     }
   ],
   "fleet_desired": {
