@@ -24,6 +24,20 @@ use std::collections::BTreeSet;
 /// Schema identifier of the eligibility report.
 pub const POOL_ELIGIBILITY_SCHEMA: &str = "cynic.pool.eligibility.v1";
 
+/// How a required tool is proven present on a host.
+///
+/// A build toolchain is not only executables: `libssl-dev` is a set of
+/// headers, visible only through `pkg-config`. Probing only `PATH` would
+/// report a present system library as missing.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolKind {
+    /// An executable resolvable in `PATH` (e.g. `cargo`).
+    Binary,
+    /// A pkg-config module (e.g. `openssl` for the `libssl-dev` headers).
+    PkgConfig,
+}
+
 /// A tool a node must provide to serve a pool label.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -36,6 +50,9 @@ pub struct ToolRequirement {
     /// False when the tool is optional (probed, but not a blocker).
     #[serde(default = "default_true")]
     pub required: bool,
+    /// How the tool is proven present. Defaults to a binary in `PATH`.
+    #[serde(default)]
+    pub kind: ToolKind,
 }
 
 fn default_true() -> bool {
@@ -50,6 +67,9 @@ pub struct ToolObservation {
     pub present: bool,
     pub path: Option<String>,
     pub version: Option<String>,
+    /// How the observation was made.
+    #[serde(default)]
+    pub kind: ToolKind,
 }
 
 /// Per-tool verdict, combining requirement and observation.
@@ -222,7 +242,12 @@ pub fn evaluate_pool_eligibility(
             detail: None,
         };
         if !check.present {
-            check.detail = Some(format!("{} not found in PATH", requirement.name));
+            check.detail = Some(match requirement.kind {
+                ToolKind::Binary => format!("{} not found in PATH", requirement.name),
+                ToolKind::PkgConfig => {
+                    format!("pkg-config module {} not found", requirement.name)
+                }
+            });
         } else if let Some(minimum) = &requirement.min_version {
             match observation.and_then(|o| o.version.as_deref()) {
                 Some(banner) => {
@@ -303,6 +328,7 @@ mod tests {
             name: name.to_string(),
             min_version: None,
             required: true,
+            kind: ToolKind::Binary,
         }
     }
 
@@ -330,6 +356,7 @@ mod tests {
             present,
             path: present.then(|| format!("/usr/bin/{name}")),
             version: version.map(|value| value.to_string()),
+            kind: ToolKind::Binary,
         }
     }
 
@@ -397,6 +424,65 @@ mod tests {
     }
 
     #[test]
+    fn pkg_config_module_is_accepted_without_a_path() {
+        let declaration = PoolDeclaration {
+            labels: labels(&["cynic/build"]),
+            required_tools: vec![ToolRequirement {
+                name: "openssl".to_string(),
+                min_version: None,
+                required: true,
+                kind: ToolKind::PkgConfig,
+            }],
+        };
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &enrolled(),
+            &labels(&["cynic/build"]),
+            &[ToolObservation {
+                name: "openssl".to_string(),
+                present: true,
+                path: None,
+                version: Some("3.5.7".to_string()),
+                kind: ToolKind::PkgConfig,
+            }],
+        );
+        assert!(report.eligible, "reasons: {:?}", report.reasons);
+    }
+
+    #[test]
+    fn missing_pkg_config_module_is_ineligible() {
+        let declaration = PoolDeclaration {
+            labels: labels(&["cynic/build"]),
+            required_tools: vec![ToolRequirement {
+                name: "openssl".to_string(),
+                min_version: None,
+                required: true,
+                kind: ToolKind::PkgConfig,
+            }],
+        };
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &enrolled(),
+            &labels(&["cynic/build"]),
+            &[ToolObservation {
+                name: "openssl".to_string(),
+                present: false,
+                path: None,
+                version: None,
+                kind: ToolKind::PkgConfig,
+            }],
+        );
+        assert!(!report.eligible);
+        assert!(report.tools[0]
+            .detail
+            .clone()
+            .unwrap_or_default()
+            .contains("pkg-config module"));
+    }
+
+    #[test]
     fn version_token_is_extracted_from_a_prose_banner() {
         assert_eq!(
             extract_version("cargo 1.95.0 (f2d3ce0bd 2026-03-21)").as_deref(),
@@ -434,6 +520,7 @@ mod tests {
                 name: "cargo".to_string(),
                 min_version: Some("1.95.0".to_string()),
                 required: true,
+                kind: ToolKind::Binary,
             }],
         };
         let report = evaluate_pool_eligibility(
