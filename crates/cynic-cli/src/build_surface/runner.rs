@@ -135,7 +135,7 @@ pub(crate) fn trigger_build(
         // clone URI comes from source_workspace_layout.repositories. Never the
         // hardcoded default — the runner cannot resolve it.
         cynic_node::cli_factory::resolve_ssot_url(ssot_url, registry)?,
-        package,
+        package.clone(),
         sccache_dir.to_string(),
     );
     let health = runner.observe_runner();
