@@ -547,6 +547,7 @@ mod tests {
                 name: "cargo".to_string(),
                 min_version: Some("1.95.0".to_string()),
                 required: true,
+                kind: ToolKind::Binary,
             }],
         };
         let report = evaluate_pool_eligibility(
