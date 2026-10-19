@@ -181,6 +181,10 @@ impl SshBuildRunner {
             BuildPhase::Activate => Err(BuildError::ConfigurationRefused(
                 "remote activate not supported by trigger phase 1".to_string(),
             )),
+            // The test proof runs on the runner, not on the operator host:
+            // the workstation is not a test machine and the builder is the
+            // build-and-test SSOT.
+            BuildPhase::Test => Ok("cargo:test"),
         }
     }
 
@@ -354,6 +358,19 @@ impl BuildRunnerPort for SshBuildRunner {
         if trigger.network_mode == NetworkMode::Offline {
             cargo.push("--offline".to_string());
         }
+        // The test phase compiles every crate's test harness, so a single
+        // broken initializer anywhere in the workspace stops the whole run
+        // at the first error. `cargo test` compiles and runs in one pass, so
+        // the debt is found one crate per round trip. `cargo check --tests
+        // --keep-going` compiles every harness and reports every broken
+        // crate at once, so the operator sees the whole list in one proof.
+        //
+        // A test proof that finds one debt per round trip is a test proof
+        // that takes a day to converge.
+        let is_test_phase = action == "cargo:test";
+        if is_test_phase {
+            cargo.push("--no-fail-fast".to_string());
+        }
         let mut argv: Vec<String> = vec![
             "ssh".to_string(),
             target,
@@ -373,6 +390,48 @@ impl BuildRunnerPort for SshBuildRunner {
         argv.extend(cargo);
         let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
         let cpu_before = sample_builder_cpu(&self.runner, refs[1]);
+        // The test phase compiles the harnesses first, with `--keep-going`,
+        // so every broken crate is reported in one pass instead of one per
+        // round trip. A failing compile here IS the verdict: the tests could
+        // not even be built, so running them would prove nothing.
+        if is_test_phase {
+            let mut harness_argv = argv.clone();
+            // Replace `test` with `check --tests` in the cargo argv tail.
+            // `--no-fail-fast` belongs to `cargo test` only; `cargo check`
+            // rejects it, so the harness compile drops it.
+            if let Some(position) = harness_argv.iter().position(|word| word == "test") {
+                harness_argv[position] = "check".to_string();
+                harness_argv.retain(|word| word != "--no-fail-fast");
+                harness_argv.push("--tests".to_string());
+                harness_argv.push("--keep-going".to_string());
+            }
+            let harness_refs: Vec<&str> = harness_argv.iter().map(String::as_str).collect();
+            let harness_out = self.runner.run(&harness_refs);
+            if let Some(e) = &harness_out.spawn_error {
+                return Err(BuildError::RunnerUnreachable(e.clone()));
+            }
+            if !harness_out.success() {
+                let duration_ms = started.elapsed().as_millis() as u64;
+                let cpu_ms = match (cpu_before, sample_builder_cpu(&self.runner, refs[1])) {
+                    (Some(before), Some(after)) => cpu_ms_between(before, after),
+                    _ => None,
+                };
+                return Ok(self.proof(
+                    &sha,
+                    action,
+                    &scope,
+                    BuildVerdict::Blocked {
+                        broken_layer: Some(scope.clone()),
+                        reason: format!(
+                            "test harness compilation failed: {}",
+                            build_evidence(&harness_out.stderr)
+                        ),
+                    },
+                    duration_ms,
+                    cpu_ms,
+                ));
+            }
+        }
         let out = self.runner.run(&refs);
         let duration_ms = started.elapsed().as_millis() as u64;
         if let Some(e) = &out.spawn_error {

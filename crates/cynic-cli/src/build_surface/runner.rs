@@ -127,6 +127,7 @@ pub(crate) fn trigger_build(
         "check" => BuildPhase::Check,
         "build" => BuildPhase::Build,
         "activate" => BuildPhase::Activate,
+        "test" => BuildPhase::Test,
         other => return Err(format!("invalid build phase: {other}")),
     };
     let network_mode = match network_mode {
@@ -173,6 +174,9 @@ pub(crate) fn trigger_build(
         BuildPhase::Check => "rust_check_light",
         BuildPhase::Build => "rust_build",
         BuildPhase::Activate => "rust_build",
+        // The test phase compiles the test harness and runs it: heavier than
+        // a check, lighter than a release build.
+        BuildPhase::Test => "rust_test",
     };
     let action_name = match phase {
         BuildPhase::Check => "cargo:check",

@@ -1,1 +1,77 @@
+<<<<<<< HEAD
 {"$cynic": "compute-policy-registry", "$schema": "cynic.compute_policy.v1", "live_guard": {"rule": "Before dispatching a task class to a node, read back free RAM/disk on that node in the same session; a node below the class floor is skipped even if statically routed to it.", "static_routing_is_not_availability": "The routing table below names the competent node per task class. Competence is not availability: only a live read-back admits the dispatch."}, "purpose": "Single source of truth routing agent task classes to fleet nodes by resource cost. Observed 2026-10-18: a full cynic-cli link was launched on cortex (13GB, 2GB free) while the builder (8GB, 6GB free) sat idle. Static competence without live availability wastes the fleet.", "routing": [{"node": "cynic-builder", "reason": "SSOT compiler; cortex never links (rustc 1.96 ICE, RAM pressure).", "task_class": "rust_build"}, {"node": "cortex", "reason": "Fast iteration, no link step, but check live RAM first.", "task_class": "rust_check_light"}, {"node": "cynic-compute-01", "reason": "GPU-adjacent embedding throughput; falls back to cortex engine when down.", "task_class": "embedding_bulk"}, {"node": "cortex", "reason": "No corpus transfer; short queries only.", "task_class": "embedding_probe"}], "task_classes": {"embedding_bulk": {"disk_mb": 500, "floor": {"free_gb": 1}, "ram_mb": 2000, "time_min": 45}, "embedding_probe": {"disk_mb": 10, "floor": {"free_gb": 1}, "ram_mb": 200, "time_min": 2}, "rust_build": {"disk_mb": 4000, "floor": {"free_gb": 4}, "ram_mb": 6000, "time_min": 10}, "rust_check_light": {"disk_mb": 1000, "floor": {"free_gb": 2}, "ram_mb": 3000, "time_min": 5}}, "placement": {"lambda": 0.0, "mu_ms": 60000, "note": "lambda 0 = pure velocity by default; pressure counted only when the operator prices it. mu_ms prices one held slot at one check-minute for fair share."}}
+=======
+{
+  "$cynic": "compute-policy-registry",
+  "$schema": "cynic.compute_policy.v1",
+  "live_guard": {
+    "rule": "Before dispatching a task class to a node, read back free RAM/disk on that node in the same session; a node below the class floor is skipped even if statically routed to it.",
+    "static_routing_is_not_availability": "The routing table below names the competent node per task class. Competence is not availability: only a live read-back admits the dispatch."
+  },
+  "purpose": "Single source of truth routing agent task classes to fleet nodes by resource cost. Observed 2026-10-18: a full cynic-cli link was launched on cortex (13GB, 2GB free) while the builder (8GB, 6GB free) sat idle. Static competence without live availability wastes the fleet.",
+  "routing": [
+    {
+      "node": "cynic-builder",
+      "reason": "SSOT compiler; cortex never links (rustc 1.96 ICE, RAM pressure).",
+      "task_class": "rust_build"
+    },
+    {
+      "node": "cortex",
+      "reason": "Fast iteration, no link step, but check live RAM first.",
+      "task_class": "rust_check_light"
+    },
+    {
+      "node": "cynic-compute-01",
+      "reason": "GPU-adjacent embedding throughput; falls back to cortex engine when down.",
+      "task_class": "embedding_bulk"
+    },
+    {
+      "node": "cortex",
+      "reason": "No corpus transfer; short queries only.",
+      "task_class": "embedding_probe"
+    }
+  ],
+  "task_classes": {
+    "embedding_bulk": {
+      "disk_mb": 500,
+      "floor": {
+        "free_gb": 1
+      },
+      "ram_mb": 2000,
+      "time_min": 45
+    },
+    "embedding_probe": {
+      "disk_mb": 10,
+      "floor": {
+        "free_gb": 1
+      },
+      "ram_mb": 200,
+      "time_min": 2
+    },
+    "rust_build": {
+      "disk_mb": 4000,
+      "floor": {
+        "free_gb": 4
+      },
+      "ram_mb": 6000,
+      "time_min": 10
+    },
+    "rust_check_light": {
+      "disk_mb": 1000,
+      "floor": {
+        "free_gb": 2
+      },
+      "ram_mb": 3000,
+      "time_min": 5
+    },
+    "rust_test": {
+      "disk_mb": 1500,
+      "floor": {
+        "free_gb": 3
+      },
+      "ram_mb": 4000,
+      "time_min": 8
+    }
+  }
+}
+>>>>>>> origin/agent/hermes/cd-couche-b-smoke

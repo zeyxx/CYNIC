@@ -1045,6 +1045,11 @@ mod tests {
             shared_target_root: None,
             stable_workspace_root: None,
             release_publication: None,
+<<<<<<< HEAD
+=======
+            shared_target_root: None,
+            stable_workspace_root: None,
+>>>>>>> origin/agent/hermes/cd-couche-b-smoke
             build_jobs: None,
             max_rss_cap_mb: None,
             sccache: None,

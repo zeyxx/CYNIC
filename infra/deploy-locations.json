@@ -1,0 +1,164 @@
+{
+  "schema": "cynic.deploy_locations.v1",
+  "status": "normative",
+  "purpose": "Single Source of Truth for WHERE the cynic binary lives on each fleet machine and HOW it is deployed there. Data, not code. The previous binary-locations registry declared one path, one sha256 and one status per machine; measurement on 2026-10-19 proved all three false (the declared sha256 944753f2... exists on NO machine, and every machine carries TWO binaries in different profiles). This file replaces it and carries the measured truth.",
+  "supersedes": {
+    "removed_registry": "binary-locations.json (removed by this change)",
+    "reason": "declared sha256 and sha_baked matched no live binary on any of the three machines; the single-path model hid a two-binary-per-machine reality",
+    "measured_at": "2026-10-19",
+    "note": "the superseded registry was deleted by this change; it is named here as a value, not as a live path reference"
+  },
+  "path_authority": {
+    "rule": "Every path below is DERIVED from infra/directory-tree.json (canonical filesystem arborescence, authority rank 4) or from the runtime_paths expansion rules it declares. No path is invented here.",
+    "directory_tree": "infra/directory-tree.json",
+    "expansions": {
+      "${state_root}": "/var/lib/cynic (infra/directory-tree.json:runtime_state.root) — the cynic principal home on a deployed node",
+      "${home}": "the principal's home directory on that machine",
+      "${binary_dir}": "/usr/local/bin (infra/directory-tree.json:system_binaries.root) — root-owned, NOT writable by the cynic principal"
+    }
+  },
+  "binary": {
+    "name": "cynic",
+    "source": "cargo build --release --bin cynic",
+    "target_profile": "release",
+    "identity_surface": "cynic version --json",
+    "identity_fields": [
+      "git_sha",
+      "build_profile",
+      "build_proof_sha"
+    ]
+  },
+  "machines": [
+    {
+      "hostname": "builder",
+      "registry_node_id": "cynic-builder",
+      "os": "Ubuntu 24.04 (LXC)",
+      "ssh_target": "cynic-builder-ssh",
+      "principal": "cynic",
+      "deploy_path": "${state_root}/bin/cynic",
+      "deploy_path_resolved": "/var/lib/cynic/bin/cynic",
+      "path_owner": "cynic:cynic",
+      "layout": "symlink",
+      "layout_detail": {
+        "release_dir": "/var/lib/cynic/releases/<tag>",
+        "current_link": "/var/lib/cynic/current",
+        "bin_link": "/var/lib/cynic/bin/cynic -> /var/lib/cynic/current/cynic",
+        "swap": "symlink rename (atomic)"
+      },
+      "backup_pattern": "binary.bak-<sha>",
+      "readback": {
+        "sha256_command": "sha256sum /var/lib/cynic/bin/cynic",
+        "identity_command": "/var/lib/cynic/bin/cynic version --json",
+        "smoke_command": "/var/lib/cynic/bin/cynic source status --json",
+        "smoke_expect": "exit code 0"
+      },
+      "services_using": [
+        {
+          "unit": "cynic-node.service",
+          "exec": "/var/lib/cynic/bin/cynic-node",
+          "note": "the cynic-node daemon, not the cynic CLI; a cynic CLI deploy does not restart it"
+        }
+      ],
+      "measured": {
+        "observed_at": "2026-10-19",
+        "deploy_path_sha256": "998ddf12236bb715cd307618a134f38381debfefadba0d5054989a03c7c13f7e",
+        "deploy_path_git_sha": "42e56f5f1f19b7cd7ef0560255129bf7a439f82f",
+        "deploy_path_profile": "release",
+        "other_binary": {
+          "path": "/usr/local/bin/cynic",
+          "sha256": "cd62eaed44641343539c68b732b208e67cdf76cf5296a96bd3a78a67f96fe791",
+          "git_sha": "9d2f3cf08df26949633123586fa945de8f2ae80a",
+          "profile": "debug",
+          "owner": "root:root",
+          "writable_by_principal": false,
+          "disposition": "stale root-owned copy; NOT the deployed binary; leave alone (no principal can write it)"
+        }
+      }
+    },
+    {
+      "hostname": "cortex",
+      "registry_node_id": "cynic-host-cortex",
+      "os": "Ubuntu 24.04",
+      "ssh_target": "local",
+      "principal": "user",
+      "deploy_path": "${home}/.local/bin/cynic",
+      "deploy_path_resolved": "${home}/.local/bin/cynic",
+      "path_owner": "user:user",
+      "layout": "flat",
+      "layout_detail": {
+        "swap": "atomic rename over the live file (no release/ tree on this machine)",
+        "note": "cortex is the operator workstation: the CLI is used directly from PATH, there is no daemon"
+      },
+      "backup_pattern": "cynic.bak-<sha>",
+      "readback": {
+        "sha256_command": "sha256sum ${home}/.local/bin/cynic",
+        "identity_command": "${home}/.local/bin/cynic version --json",
+        "smoke_command": "${home}/.local/bin/cynic source status --json",
+        "smoke_expect": "exit code 0"
+      },
+      "services_using": [],
+      "measured": {
+        "observed_at": "2026-10-19",
+        "deploy_path_sha256": "998ddf12236bb715cd307618a134f38381debfefadba0d5054989a03c7c13f7e",
+        "deploy_path_git_sha": "42e56f5f1f19b7cd7ef0560255129bf7a439f82f",
+        "deploy_path_profile": "release",
+        "other_binary": {
+          "path": "/usr/local/bin/cynic",
+          "sha256": "6da2745fee7f4c276513c2efd7d168b635728833eadacea5b44d192d81aac12f",
+          "git_sha": "0bbbccb7f2ffaddd49f488be2d754ee9cbe85b66",
+          "profile": "debug",
+          "owner": "root:root",
+          "writable_by_principal": false,
+          "disposition": "stale root-owned copy; the operator has sudo NOPASSWD:ALL but the deployed path needs no privilege"
+        }
+      }
+    },
+    {
+      "hostname": "cynic-agent-host",
+      "registry_node_id": "cynic-agent-host",
+      "os": "Ubuntu 24.04 (LXC)",
+      "ssh_target": "cynic-agent-host.synapse.cynic",
+      "ssh_target_fallback": "cynic@10.10.10.102",
+      "ssh_target_note": "the registry alias resolves only inside the mesh DNS; it fails from cortex and from builder. The IP form works from both. Try the alias, then the fallback.",
+      "principal": "cynic",
+      "deploy_path": "${state_root}/bin/cynic",
+      "deploy_path_resolved": "/var/lib/cynic/bin/cynic",
+      "path_owner": "cynic:cynic",
+      "layout": "flat",
+      "layout_detail": {
+        "swap": "atomic rename over the live file (no releases/ or current/ tree on this machine)",
+        "note": "no service consumes the cynic CLI here; the binary is the agent-host entry point"
+      },
+      "backup_pattern": "binary.bak-<sha>",
+      "readback": {
+        "sha256_command": "sha256sum /var/lib/cynic/bin/cynic",
+        "identity_command": "/var/lib/cynic/bin/cynic version --json",
+        "smoke_command": "/var/lib/cynic/bin/cynic source status --json",
+        "smoke_expect": "exit code 0"
+      },
+      "services_using": [],
+      "privilege_note": "no sudo grant at all on this machine (sudo requires a password): any deploy step needing privilege is blocked here. The principal-owned deploy path needs none.",
+      "measured": {
+        "observed_at": "2026-10-19",
+        "deploy_path_sha256": "15987545151d9550f5f5d42acc8ccfe4c9815cb2dca96a494f2d86aefa86b014",
+        "deploy_path_git_sha": "56317c91a1200abb44d9c64070734b14cb139119",
+        "deploy_path_profile": "debug",
+        "other_binary": {
+          "path": "/usr/local/bin/cynic",
+          "sha256": "b8e3e6b6124659f3d2f25ec9fd2cabae1b5f630f33b611e054af3b79e269f4bf",
+          "git_sha": "ce0d6a2ab0a6622144cd02b611a5e9f44f20c8c7",
+          "profile": "release",
+          "owner": "root:root",
+          "writable_by_principal": false,
+          "disposition": "stale root-owned copy; NOT writable by the principal"
+        }
+      }
+    }
+  ],
+  "anti_rules": [
+    "No machine-local absolute path outside infra/directory-tree.json — derive from ${state_root} / ${home} / ${binary_dir}",
+    "No hostname outside infra/registry.json node ids",
+    "A declared sha256 must be a MEASURED value, never a copy of another machine's",
+    "One deploy path per machine — the one the principal can write and the services use"
+  ]
+}
