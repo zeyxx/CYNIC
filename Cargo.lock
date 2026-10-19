@@ -722,18 +722,13 @@ dependencies = [
  "cynic-build",
  "cynic-consensus",
  "cynic-discovery",
- "cynic-discovery-host",
- "cynic-domain-cloudflare",
  "cynic-domain-ops",
- "cynic-domain-porkbun",
  "cynic-eval",
  "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
- "cynic-huggingface",
  "cynic-inference",
  "cynic-intel",
- "cynic-intel-futarchy",
  "cynic-intel-soc",
  "cynic-kernel",
  "cynic-knowledge",
@@ -748,7 +743,6 @@ dependencies = [
  "cynic-sandbox",
  "cynic-secrets",
  "cynic-storage",
- "cynic-surreal",
  "cynic-tui",
  "cynic-types",
  "cynic-vcs",
@@ -788,31 +782,11 @@ dependencies = [
 name = "cynic-discovery"
 version = "0.8.0"
 dependencies = [
- "cynic-protocol",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cynic-discovery-host"
-version = "0.8.0"
-dependencies = [
  "cynic-build",
- "cynic-discovery",
  "cynic-host",
- "serde",
-]
-
-[[package]]
-name = "cynic-domain-cloudflare"
-version = "0.8.0"
-dependencies = [
- "cynic-domain-ops",
  "cynic-protocol",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -823,22 +797,10 @@ dependencies = [
  "cynic-protocol",
  "cynic-secrets",
  "hex",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "cynic-domain-porkbun"
-version = "0.8.0"
-dependencies = [
- "cynic-domain-ops",
- "cynic-protocol",
- "cynic-secrets",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
@@ -946,15 +908,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cynic-huggingface"
-version = "0.8.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "cynic-inference"
 version = "0.8.0"
 dependencies = [
@@ -963,7 +916,6 @@ dependencies = [
  "cynic-consensus",
  "cynic-eval",
  "cynic-finance",
- "cynic-huggingface",
  "cynic-knowledge",
  "cynic-network",
  "cynic-pool",
@@ -1001,17 +953,6 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "cynic-intel-futarchy"
-version = "0.8.0"
-dependencies = [
- "chrono",
- "cynic-intel",
- "cynic-protocol",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1392,8 +1333,10 @@ dependencies = [
  "cynic-consensus",
  "cynic-finance",
  "cynic-protocol",
+ "cynic-secrets",
  "hex",
  "parking_lot",
+ "reqwest 0.13.5",
  "rusqlite",
  "serde",
  "serde_json",
@@ -1401,19 +1344,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
-]
-
-[[package]]
-name = "cynic-surreal"
-version = "0.8.0"
-dependencies = [
- "cynic-protocol",
- "cynic-secrets",
- "reqwest 0.13.5",
- "serde",
- "serde_json",
- "tracing",
- "walkdir",
 ]
 
 [[package]]
