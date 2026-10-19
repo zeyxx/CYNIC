@@ -739,7 +739,7 @@ mod tests {
             .expect("cargo argv logged")
             .join(" ");
         assert!(cargo.contains("cargo check"));
-        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/checkouts/cynic-bbbbbbbbbbbb/target"));
+        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/checkouts/cynic-aaaaaaaaaaaa/target"));
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
