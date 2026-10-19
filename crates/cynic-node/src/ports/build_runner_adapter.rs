@@ -361,10 +361,10 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!(
-                "CARGO_TARGET_DIR={}",
-                default_shared_target_dir().display()
-            ),
+            // Per-checkout target dir: isolation between parallel builds.
+            // Cross-commit economy comes from sccache (content-keyed), not
+            // from a shared mutable target that parallel builds corrupt.
+            format!("CARGO_TARGET_DIR={dir}/target"),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
             argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
@@ -457,11 +457,60 @@ impl SshBuildRunner {
     /// output is `None` — the caller records the unknown, never a number.
     pub fn probe_free_ram_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        let out = self.runner.run(&[
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            target.as_str(),
+            "free",
+            "-b",
+        ]);
         if !out.success() {
             return None;
         }
         cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+    }
+
+    /// True when the runner carries the pinned sccache wrapper binary.
+    /// Absence is a fact (fall back to unwrapped), never an error.
+    pub fn probe_sccache_available(&self) -> bool {
+        let target = self.ssh_target();
+        let bin = default_sccache_bin().display().to_string();
+        self.runner
+            .run(&[
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=10",
+                target.as_str(),
+                "test",
+                "-x",
+                bin.as_str(),
+            ])
+            .success()
+    }
+
+    /// Total RAM bytes, or None when unmeasurable. Same fail-closed
+    /// semantics as the free probe: unknown, never zero.
+    pub fn probe_total_ram_bytes(&self) -> Option<u64> {
+        let target = self.ssh_target();
+        let out = self.runner.run(&[
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            target.as_str(),
+            "free",
+            "-b",
+        ]);
+        if !out.success() {
+            return None;
+        }
+        cynic_protocol::capacity::parse_mem_total_bytes(&out.stdout)
     }
 }
 
@@ -729,7 +778,7 @@ mod tests {
             .expect("cargo argv logged")
             .join(" ");
         assert!(cargo.contains("cargo check"));
-        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
+        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/checkouts/cynic-aaaaaaaaaaaa/target"));
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));
@@ -908,6 +957,28 @@ mod tests {
         assert!(health.cache_warm);
         assert_eq!(health.toolchain, "rustc 1.95.0");
         assert_eq!(health.node_id, "runner-1");
+    }
+
+    #[test]
+    fn sccache_probe_reports_wrapper_presence() {
+        let fake = FakeRunner::with(vec![ok("")]);
+        let (runner, handle) = test_runner(fake);
+        assert!(runner.probe_sccache_available());
+        let logged = handle
+            .argv_log()
+            .iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(logged.contains("test -x"));
+    }
+
+    #[test]
+    fn sccache_probe_absence_is_false_not_error() {
+        let fake = FakeRunner::with(vec![fail("no such file")]);
+        let (runner, _) = test_runner(fake);
+        assert!(!runner.probe_sccache_available());
     }
 
     #[test]
