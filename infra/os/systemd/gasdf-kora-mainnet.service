@@ -1,0 +1,23 @@
+[Unit]
+Description=GASdf Kora — mainnet sponsored-tx signer (14001)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# projection_class: operator_projection
+# Sponsored-transaction signer for the gasdf relay. Policy: kora-mainnet.toml.
+Type=simple
+User=cynic
+Group=cynic
+WorkingDirectory=/var/lib/cynic/projects/kora
+ExecStart=/var/lib/cynic/projects/kora/run-mainnet.sh
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

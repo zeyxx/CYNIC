@@ -33,6 +33,8 @@ cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
 cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
+cynic-fleet = { path = "../cynic-fleet" }
+cynic-tui = { path = "../cynic-tui" }
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-proxmox = { path = "../cynic-proxmox" }
 cynic-node-protocol = { path = "../cynic-node-protocol" }
@@ -62,11 +64,9 @@ cynic-surreal = { path = "../cynic-surreal" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }
-ratatui = { version = "0.29", default-features = true }
-crossterm = "0.28"
 chrono.workspace = true
 walkdir.workspace = true
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.12", features = ["blocking", "json", "multipart"] }
 # node_activation_surface hashes an identity public key for its report digest.
 # Versions match cynic-node / cynic-protocol so the CLI does not pull a second
 # copy of sha2 into the graph.

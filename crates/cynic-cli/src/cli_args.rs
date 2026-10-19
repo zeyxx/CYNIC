@@ -3,7 +3,6 @@ use clap::{Parser, Subcommand};
 use crate::agent_surface::AgentCommand;
 use crate::audit_surface::AuditCommand;
 use crate::build_surface::BuildCommand;
-use crate::coordination_surface::CoordinationCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;

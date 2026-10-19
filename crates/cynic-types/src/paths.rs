@@ -133,16 +133,18 @@ impl CynicPaths {
             .unwrap_or_else(|_| PathBuf::from("/tmp/cynic-cache"))
     }
 
-    /// Résout le chemin du cache de connaissance souverain (corpus_cache.json).
-    /// Si /var/lib/cynic/knowledge n'est pas inscriptible par l'utilisateur courant,
-    /// repli automatique et propre sur ~/.cache/cynic/corpus_cache.json.
-    pub fn knowledge_cache_path() -> PathBuf {
-        let system_path = Self::state_dir().join("knowledge/corpus_cache.json");
-        if let Some(parent) = system_path.parent() {
-            if std::fs::create_dir_all(parent).is_ok() {
-                return system_path;
-            }
-        }
+    /// Preferred system path of the sovereign knowledge cache
+    /// (corpus_cache.json). Pure: performs no I/O and creates nothing.
+    /// Callers running with I/O rights ensure the parent directory and
+    /// fall back to [`Self::user_knowledge_cache_path`] when the system
+    /// location is not writable.
+    pub fn system_knowledge_cache_path() -> PathBuf {
+        Self::state_dir().join("knowledge/corpus_cache.json")
+    }
+
+    /// Per-user fallback of the sovereign knowledge cache
+    /// (~/.cache/cynic/corpus_cache.json). Pure.
+    pub fn user_knowledge_cache_path() -> PathBuf {
         Self::user_cache_dir().join("corpus_cache.json")
     }
 

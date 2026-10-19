@@ -111,10 +111,17 @@ fn execute_domain(desired_state_path: &str, apply: bool, ns_cutover_confirmed: b
     let secrets = CompositeSecretProvider::default();
 
     // Porkbun registrar — credentials resolved through the SecretProvider port.
-    // V1 fallback: same SecretReference used for both key and secret (Porkbun API key).
+    // The adapter needs api_key + api_secret. `credential_secret` carries the
+    // second reference; when absent we keep the historical single-credential
+    // fallback (both resolve to the same env/file value) for backwards compat.
+    let credential_secret_ref = desired
+        .registrar
+        .credential_secret
+        .as_ref()
+        .unwrap_or(&desired.registrar.credential);
     let registrar = match PorkbunRegistrar::from_secret_refs(
         &desired.registrar.credential,
-        &desired.registrar.credential,
+        credential_secret_ref,
         &secrets,
     ) {
         Ok(r) => r,

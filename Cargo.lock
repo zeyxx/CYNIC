@@ -717,7 +717,6 @@ version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
- "crossterm",
  "cynic-askesis",
  "cynic-audit-engine",
  "cynic-build",
@@ -728,6 +727,7 @@ dependencies = [
  "cynic-domain-ops",
  "cynic-domain-porkbun",
  "cynic-eval",
+ "cynic-fleet",
  "cynic-forensics",
  "cynic-host",
  "cynic-huggingface",
@@ -749,6 +749,7 @@ dependencies = [
  "cynic-secrets",
  "cynic-storage",
  "cynic-surreal",
+ "cynic-tui",
  "cynic-types",
  "cynic-vcs",
  "cynic-vcs-providers",
@@ -756,7 +757,6 @@ dependencies = [
  "cynic-zeroclaw-solana",
  "hex",
  "libc",
- "ratatui",
  "reqwest 0.12.28",
  "rustix 1.1.5",
  "serde",
@@ -877,6 +877,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cynic-fleet"
+version = "0.8.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cynic-forensics"
 version = "0.8.0"
 dependencies = [
@@ -891,6 +899,7 @@ name = "cynic-host"
 version = "0.8.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "cynic-audit-engine",
  "cynic-build",
@@ -1313,6 +1322,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "thiserror 2.0.21",
+ "tokio",
  "toml",
  "walkdir",
 ]
@@ -1404,6 +1414,26 @@ dependencies = [
  "serde_json",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "cynic-traces"
+version = "0.8.0"
+dependencies = [
+ "chrono",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
+name = "cynic-tui"
+version = "0.8.0"
+dependencies = [
+ "crossterm",
+ "ratatui",
 ]
 
 [[package]]
@@ -3208,6 +3238,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "percent-encoding",
  "pin-project-lite",

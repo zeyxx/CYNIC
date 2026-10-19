@@ -37,6 +37,16 @@
         "ai-bus"
       ],
       "notes": "Seed collaborator. Owns the three Aegis consortium repositories. Trust starts at 'observed'; promotion requires proof (mirrors CYNIC office/capability model in infra/registry.json)."
+    },
+    {
+      "collaborator_id": "zeyxx",
+      "display_name": "Titouan Corneloup",
+      "github_handle": "zeyxx",
+      "trust_level": "core",
+      "projects": [
+        "gasdf"
+      ],
+      "notes": "Human operator: constituent + maintainer, owns CYNIC and the GASdf product repo. Core by doctrine (external-project-governance §4), not by inference. Relay-107 operator, 2026-10-18 ingress closure approvals."
     }
   ],
   "trust_levels": [

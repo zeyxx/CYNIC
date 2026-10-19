@@ -63,6 +63,7 @@ pub fn reconcile_source_worktrees(
             dirty_file_count: 0,
             git_prunable: prunable,
             prunable_reason: reason,
+            created_at_ms: None,
         });
     }
 
@@ -76,6 +77,7 @@ pub fn reconcile_source_worktrees(
         main_head_sha,
         &snapshots,
         &empty_leases,
+        inventory.observed_at_ms,
     )
 }
 

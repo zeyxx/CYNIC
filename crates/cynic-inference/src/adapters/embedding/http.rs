@@ -187,9 +187,16 @@ impl EmbeddingBackend {
         // workspace registry (infra/registry.json, `bench_endpoint` on each
         // embedding-server service; excluded services carry none and stay
         // out by construction). Last resort is the historical single default.
-        let base_url = std::env::var("CYNIC_EMBED_URL")
+        let explicit = std::env::var("CYNIC_EMBED_URL")
             .ok()
-            .filter(|u| !u.is_empty())
+            .filter(|u| !u.is_empty());
+        Self::from_explicit(explicit)
+    }
+
+    /// Pure constructor: explicit URL wins, otherwise registry, otherwise
+    /// the historical single default. No env mutation; unit-testable.
+    pub fn from_explicit(explicit: Option<String>) -> Result<Self, BackendInitError> {
+        let base_url = explicit
             .or_else(|| Self::endpoints_from_registry())
             .unwrap_or_else(|| {
                 let rest =
@@ -439,7 +446,16 @@ impl EmbeddingBackend {
                                     };
                                     guard[target].push_back((sub_no, inputs, attempts + 1));
                                     drop(guard);
-                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                    // WiFi-class dropouts last seconds, not
+                                    // milliseconds: back off exponentially per
+                                    // attempt so a transient link loss survives
+                                    // instead of poisoning the lot.
+                                    let backoff_ms =
+                                        500u64.saturating_mul(1 << attempts.min(4));
+                                    tokio::time::sleep(std::time::Duration::from_millis(
+                                        backoff_ms,
+                                    ))
+                                    .await;
                                 } else {
                                     // Poisoned lot after 3 distributed attempts across endpoints
                                     let mut errs = errors.lock().await;
@@ -593,9 +609,8 @@ mod tests {
     fn from_env_defaults() {
         // Explicit URL wins over the workspace registry; pin it so this
         // unit test never depends on the checkout it runs in.
-        unsafe { std::env::set_var("CYNIC_EMBED_URL", "http://127.0.0.1:8081/v1") };
-        let backend = EmbeddingBackend::from_env().unwrap();
-        unsafe { std::env::remove_var("CYNIC_EMBED_URL") };
+        let backend =
+            EmbeddingBackend::from_explicit(Some("http://127.0.0.1:8081/v1".to_string())).unwrap();
         assert!(backend.base_url().contains("8081"));
         assert_eq!(backend.base_urls().len(), 1);
     }

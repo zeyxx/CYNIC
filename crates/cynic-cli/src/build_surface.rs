@@ -4,21 +4,26 @@ use clap::Subcommand;
 use cynic_types::paths::CynicPaths;
 
 mod archive;
+mod artifact;
 mod invoice;
 mod reclaim;
 mod runner;
 mod services;
 
 pub(crate) use invoice::BuildProofsCommand;
+pub(crate) use artifact::BuildArtifactCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
-use runner::{prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build};
+use runner::{
+    list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
+};
 use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 use archive::{ArchiveReport, archive_terminal_workloads};
+use artifact::{publish_artifact, pull_artifact, release_artifact};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -88,6 +93,11 @@ pub(crate) enum BuildCommand {
         /// runner SSH target is resolved from the fleet registry.
         #[arg(long)]
         host: Option<String>,
+        /// Named runner (node id, name, or alias) from the fleet registry,
+        /// e.g. a compat builder. Ignored when --host is set; otherwise the
+        /// default `build_runner` role is used.
+        #[arg(long)]
+        runner: Option<String>,
         /// Path to the fleet registry JSON used for runner resolution.
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -121,6 +131,11 @@ pub(crate) enum BuildCommand {
     Proofs {
         #[command(subcommand)]
         command: BuildProofsCommand,
+    },
+    /// Publish or pull runtime artifacts with fail-closed digest verification.
+    Artifact {
+        #[command(subcommand)]
+        command: BuildArtifactCommand,
     },
     /// Aggregate pipeline proofs for one commit into a metabolic invoice.
     Invoice {
@@ -187,6 +202,15 @@ pub(crate) enum BuildCommand {
         /// SSH target for remote kind (e.g. cynic@10.0.0.1).
         #[arg(long)]
         target: Option<String>,
+    },
+    /// List build runners declared in the fleet registry (read-only).
+    Runners {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Path to the fleet registry JSON used for runner resolution.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
     },
     /// Archive terminal workload records (dry-run + --apply).
     Store {
@@ -307,6 +331,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             commit,
             phase,
             host,
+            runner,
             registry,
             user,
             network_mode,
@@ -320,6 +345,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &commit,
             &phase,
             host.as_deref(),
+            runner.as_deref(),
             &registry,
             &user,
             &network_mode,
@@ -343,6 +369,32 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 proof_log,
                 json,
             } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        },
+        BuildCommand::Artifact { command } => match command {
+            BuildArtifactCommand::Publish {
+                artifact,
+                remote_path,
+                source_commit,
+                publisher,
+                output,
+                json,
+            } => publish_artifact(&artifact, &remote_path, &source_commit, &publisher, &output, json),
+            BuildArtifactCommand::Pull {
+                manifest,
+                url,
+                output,
+                token_file,
+                json,
+            } => pull_artifact(&manifest, &url, &output, &token_file, json),
+            BuildArtifactCommand::Release {
+                artifact,
+                manifest,
+                repo,
+                tag,
+                api_base,
+                token_file,
+                json,
+            } => release_artifact(&artifact, &manifest, &repo, &tag, &api_base, &token_file, json),
         },
         BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
@@ -387,6 +439,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 _ => Err("build discover failed".to_string()),
             }
         }
+        BuildCommand::Runners { json, registry } => list_runners(&registry, json),
         BuildCommand::Proof {
             commit,
             package,
