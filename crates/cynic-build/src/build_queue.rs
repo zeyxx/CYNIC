@@ -127,7 +127,10 @@ mod tests {
         second.branch = Some("feature/second".to_string());
         let plan = plan_build_queue(vec![second.clone(), first.clone()]);
 
-        assert_eq!(plan.ordered, vec!["w-first".to_string(), "w-second".to_string()]);
+        assert_eq!(
+            plan.ordered,
+            vec!["w-first".to_string(), "w-second".to_string()]
+        );
         assert_eq!(first.source_commit, Some("a".repeat(40)));
         assert_eq!(first.branch, Some("feature/first".to_string()));
         assert_eq!(second.source_commit, Some("b".repeat(40)));

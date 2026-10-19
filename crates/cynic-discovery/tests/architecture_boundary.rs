@@ -12,7 +12,6 @@ fn discovery_never_depends_on_high_layer_crates() {
         .unwrap_or_else(|e| panic!("failed to read {:?}: {}", cargo_toml_path, e));
 
     let forbidden = [
-        "cynic-host",
         "cynic-kernel",
         "cynic-node",
         "cynic-cli",

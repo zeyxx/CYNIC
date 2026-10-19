@@ -97,10 +97,7 @@ mod tests {
     #[test]
     fn retired_make_recipes_are_refused() {
         for action in ["make:check", "make:build", "make:build-release"] {
-            assert!(
-                build_recipe(action).is_err(),
-                "{action} must be refused"
-            );
+            assert!(build_recipe(action).is_err(), "{action} must be refused");
         }
     }
 

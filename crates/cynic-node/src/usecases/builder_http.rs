@@ -122,6 +122,7 @@ pub fn app(
         .route("/workloads/submit", post(submit_workload))
         .route("/proofs/{id}", get(get_proof))
         .route("/records/{id}", get(get_record))
+        .route("/exec", post(exec))
         .with_state(state)
 }
 
@@ -144,6 +145,57 @@ fn default_cargo_package() -> Option<String> {
 
 fn default_build_action() -> String {
     "check".to_string()
+}
+
+/// Request body for `POST /exec`.
+#[derive(Debug, Deserialize)]
+pub struct ExecRequest {
+    pub command: String,
+    #[serde(default)]
+    pub work_dir: String,
+}
+
+/// Response body for `POST /exec`.
+#[derive(Debug, Serialize)]
+pub struct ExecResponse {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// Execute a shell command on the builder and return its output.
+///
+/// SECURITY: this endpoint runs on the builder's service-plane network and
+/// intentionally has no authentication — the same trust boundary as
+/// `/workloads/submit`. It exists so `HttpExternalBuildAdapter` in cynic-build
+/// can drive external builds over HTTP instead of SSH. The command is executed
+/// via `sh -c` with `current_dir` set to `work_dir` when non-empty.
+async fn exec(
+    State(_state): State<AppState>,
+    Json(payload): Json<ExecRequest>,
+) -> Result<Json<ExecResponse>, (StatusCode, String)> {
+    if payload.command.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "command must not be empty".to_string(),
+        ));
+    }
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.arg("-c").arg(&payload.command);
+    if !payload.work_dir.is_empty() {
+        cmd.current_dir(&payload.work_dir);
+    }
+    match cmd.output().await {
+        Ok(output) => Ok(Json(ExecResponse {
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        })),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("exec spawn error: {e}"),
+        )),
+    }
 }
 
 /// Map a CLI submit verb to its canonical build action.
@@ -771,6 +823,47 @@ mod tests {
         );
         assert!(shaped["completion_status"].is_null());
         assert!(shaped["evidence"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn exec_request_deserializes_command_and_work_dir() {
+        let json = serde_json::json!({"command": "cargo check", "work_dir": "/tmp/repo"});
+        let req: ExecRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.command, "cargo check");
+        assert_eq!(req.work_dir, "/tmp/repo");
+    }
+
+    #[test]
+    fn exec_request_work_dir_defaults_to_empty() {
+        let json = serde_json::json!({"command": "ls -la"});
+        let req: ExecRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.command, "ls -la");
+        assert!(req.work_dir.is_empty());
+    }
+
+    #[test]
+    fn exec_response_serializes_exit_code_stdout_stderr() {
+        let resp = ExecResponse {
+            exit_code: Some(0),
+            stdout: "ok".to_string(),
+            stderr: String::new(),
+        };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert_eq!(json["exit_code"], 0);
+        assert_eq!(json["stdout"], "ok");
+        assert!(json["stderr"].as_str().unwrap().is_empty());
+    }
+
+    #[test]
+    fn exec_response_serializes_nonzero_exit() {
+        let resp = ExecResponse {
+            exit_code: Some(2),
+            stdout: String::new(),
+            stderr: "error".to_string(),
+        };
+        let json = serde_json::to_value(&resp).unwrap();
+        assert_eq!(json["exit_code"], 2);
+        assert_eq!(json["stderr"], "error");
     }
 
     #[test]

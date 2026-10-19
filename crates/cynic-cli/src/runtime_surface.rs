@@ -438,7 +438,7 @@ pub(crate) enum ForgejoTokenMode {
 /// Select an adapter only after a future capability resolver proves both
 /// transport reachability and credential injection. Until then this surface is
 /// deliberately fail-closed rather than pretending local-only is dynamic.
-pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_forgejo::ForgejoTokenApiPort> {
+pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_providers::ForgejoTokenApiPort> {
     let api_url = std::env::var("CYNIC_FORGEJO_API_URL")
         .or_else(|_| std::env::var("FORGEJO_API_URL"))
         .or_else(|_| std::env::var("FORGEJO_URL"))
@@ -481,7 +481,7 @@ pub(crate) fn forgejo_token_adapter_selector() -> Box<dyn cynic_vcs_forgejo::For
         });
 
     Box::new(
-        cynic_vcs_forgejo::forgejo_token::HttpForgejoTokenApiAdapter {
+        cynic_vcs_providers::forgejo_token::HttpForgejoTokenApiAdapter {
             api_base: api_url,
             principal: "jeanterre13".to_string(),
             authorization_token: cynic_secrets::env_var("forgejo-token", "FORGEJO_TOKEN"),
@@ -596,9 +596,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             ),
             RuntimeStorageCommand::Ping { json: _, endpoint } => {
                 let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
-                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_surreal::SurrealHttpClient::new(config);
-                match cynic_surreal::SurrealStoragePort::check_health(&client) {
+                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_storage::SurrealHttpClient::new(config);
+                match cynic_storage::SurrealStoragePort::check_health(&client) {
                     Ok(report) => emit_json(&report, !report.healthy),
                     Err(e) => fail(e),
                 }
@@ -609,9 +609,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 endpoint,
             } => {
                 let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
-                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_surreal::SurrealHttpClient::new(config);
-                match cynic_surreal::SurrealStoragePort::execute_sql(&client, &sql) {
+                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_storage::SurrealHttpClient::new(config);
+                match cynic_storage::SurrealStoragePort::execute_sql(&client, &sql) {
                     Ok(results) => emit_json(&results, false),
                     Err(e) => fail(e),
                 }

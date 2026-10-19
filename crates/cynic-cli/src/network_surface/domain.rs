@@ -17,9 +17,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use cynic_domain_cloudflare::CloudflareClient;
-use cynic_domain_ops::{env_secret, parse_desired_state, run_domain_ops};
-use cynic_domain_porkbun::PorkbunRegistrar;
+use cynic_domain_ops::{CloudflareClient, PorkbunRegistrar, env_secret, parse_desired_state, run_domain_ops};
 use cynic_protocol::domain_ops::ProofStatus;
 use cynic_secrets::CompositeSecretProvider;
 

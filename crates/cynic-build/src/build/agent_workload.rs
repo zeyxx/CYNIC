@@ -583,7 +583,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(envelope.source_commit, Some(request.source_commit.clone()));
-        assert_eq!(envelope.branch, Some("feature/scheduler-truths".to_string()));
+        assert_eq!(
+            envelope.branch,
+            Some("feature/scheduler-truths".to_string())
+        );
     }
 
     #[test]

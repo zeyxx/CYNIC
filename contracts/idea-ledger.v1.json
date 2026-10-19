@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_id": "cynic.idea_ledger.v1",
+  "version": "1.0.0",
+  "status": "draft",
+  "purpose": "Schema for infra/idea-ledger.json: registry of CYNIC ideas with lifecycle status, freshness, consumption, and compounding links.",
+  "required": [
+    "schema",
+    "status",
+    "ideas"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "cynic.idea_ledger.v1",
+      "description": "Schema identifier for the idea ledger document."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "seed",
+        "growing",
+        "mature",
+        "abandoned"
+      ],
+      "description": "Lifecycle status of the idea ledger."
+    },
+    "ideas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "idea_id",
+          "title",
+          "description",
+          "domain",
+          "status",
+          "freshness",
+          "consumed_by",
+          "compounds",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "idea_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "Stable idea identifier."
+          },
+          "title": {
+            "type": "string",
+            "description": "Human-readable idea title."
+          },
+          "description": {
+            "type": "string",
+            "description": "Idea description."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Idea domain."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "growing",
+              "mature",
+              "abandoned"
+            ],
+            "description": "Lifecycle status of the idea."
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "stale",
+              "orphan"
+            ],
+            "description": "Freshness of the idea."
+          },
+          "consumed_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Consumers that have consumed this idea."
+          },
+          "compounds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ideas this idea compounds with."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp of creation."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp of last update."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

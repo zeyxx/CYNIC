@@ -1,11 +1,11 @@
-//! Pull Request management surface delegating to cynic-vcs & cynic-vcs-forgejo.
+//! Pull Request management surface delegating to cynic-vcs & cynic-vcs-providers.
 
 use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
 
 use cynic_vcs::pull_request::{evaluate_pr_admission, evaluate_pr_close};
-use cynic_vcs_forgejo::forgejo_pr_port_from_registry;
+use cynic_vcs_providers::forgejo_pr_port_from_registry;
 use crate::cli_json::emit_pretty_json;
 
 #[derive(Debug, Subcommand)]

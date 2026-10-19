@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use cynic_huggingface::HfLocalPaths;
+use crate::hf::HfLocalPaths;
 
 pub use crate::domain::model_layout_report::{ModelLayoutEnvKeys, ModelLayoutReport};
 

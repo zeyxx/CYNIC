@@ -52,7 +52,7 @@ fn report() -> cynic_protocol::AuditReportV2 {
 const KNOWN: &[&str] = &[
     "crates/cynic-host/src/organic_opportunity/worktree_observer.rs",
     "crates/cynic-inference/src/domain/chat.rs",
-    "crates/cynic-vcs-forgejo/src/forgejo_webhook.rs",
+    "crates/cynic-vcs-providers/src/forgejo_webhook.rs",
     "crates/cynic-release/src/adapters/secret_lint/mod.rs",
     // Optional external input, gracefully Unavailable when absent: the
     // Autoresearch report is produced outside the repo, and the observer
@@ -368,11 +368,11 @@ const KNOWN: &[&str] = &[
     // Named public token constants under the assumed secrets home
     // (FORGEJO_TOKEN_DIRECTORY/PATH). Same secrets convention as
     // credential.rs — named, public, reviewed by name.
-    "crates/cynic-vcs-forgejo/src/forgejo_token.rs",
+    "crates/cynic-vcs-providers/src/forgejo_token.rs",
     // Registry value first, convention last: token_file comes from the
     // SSOT binding, falling back to the conventional secrets path. Same
     // explicit-first shape; the registry outranks the default.
-    "crates/cynic-vcs-forgejo/src/registry_binding.rs",
+    "crates/cynic-vcs-providers/src/registry_binding.rs",
     // Injected path first, convention last: the port uses the provided
     // token_path, falling back to the conventional secrets path. Same
     // explicit-first shape as every default above.

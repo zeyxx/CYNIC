@@ -31,7 +31,6 @@ cynic-kernel = { path = "../cynic-kernel" }
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
-cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
 cynic-fleet = { path = "../cynic-fleet" }
 cynic-tui = { path = "../cynic-tui" }
@@ -41,7 +40,7 @@ cynic-node-protocol = { path = "../cynic-node-protocol" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-storage = { path = "../cynic-storage" }
 cynic-vcs = { path = "../cynic-vcs" }
-cynic-vcs-forgejo = { path = "../cynic-vcs-forgejo" }
+cynic-vcs-providers = { path = "../cynic-vcs-providers" }
 cynic-build = { path = "../cynic-build" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-network = { path = "../cynic-network" }
@@ -51,16 +50,11 @@ cynic-pkg = { path = "../cynic-pkg" }
 cynic-eval = { path = "../cynic-eval" }
 cynic-askesis = { path = "../cynic-askesis" }
 cynic-domain-ops = { path = "../cynic-domain-ops" }
-cynic-domain-porkbun = { path = "../cynic-domain-porkbun" }
-cynic-domain-cloudflare = { path = "../cynic-domain-cloudflare" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-intel = { path = "../cynic-intel" }
-cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
 cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
-cynic-discovery-host = { path = "../cynic-discovery-host" }
 cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
-cynic-surreal = { path = "../cynic-surreal" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }

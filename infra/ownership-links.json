@@ -1,0 +1,194 @@
+{
+  "schema": "cynic.ownership_links.v1",
+  "status": "seed",
+  "purpose": "SSOT of RELATIONS between operator, collaborators, external projects, and toolchains. References by ID (foreign keys); no data duplication. Captures ownership, maintenance, and proof-of-work (PoW) metrics that model real interactions between interconnected systems.",
+  "updated_at": "2026-10-18",
+  "philosophy": "Systems are interconnected: physics, culture, and economy obey the same laws of friction. Proof-of-work (PoW) is the real metric that models these interactions. Technology must reconstruct the real from first principles. The sentiment of impasse and social friction are the variables that indicate where technology must act. This registry models those variables as observable, measurable links — not as abstract claims.",
+  "operator": {
+    "operator_id": "titouan",
+    "display_name": "Titouan Corneloup",
+    "github_handle": "zeyxx",
+    "role": "constituent (human sovereign)",
+    "trust_level": "core",
+    "owns": [
+      "cynic"
+    ],
+    "collaborates_on": [
+      "aegisscan",
+      "aegis-core",
+      "ai-bus"
+    ],
+    "maintains": [
+      "cynic-builder-toolchains",
+      "external-project-governance",
+      "cynic-inference"
+    ],
+    "pow_metric": "commits, reviews, attestations, build/test proofs, deployment receipts",
+    "notes": "Human sovereign of CYNIC. Owner of the CYNIC repository. Collaborator on the Aegis consortium (Robinho100). Maintainer of builder toolchains and external project governance."
+  },
+  "collaborators": [
+    {
+      "collaborator_id": "robinho100",
+      "display_name": "Robinho100",
+      "github_handle": "Robinho100",
+      "trust_level": "observed",
+      "owns": [
+        "aegisscan",
+        "aegis-core",
+        "ai-bus"
+      ],
+      "pow_metric": "commits, releases, security boundaries (STOP 64, B1/B7 refusal semantics), source inventory (SHA-256)",
+      "promotion_requires": "observed proof record (commit, review, or attestation) referenced in notes",
+      "notes": "Seed collaborator. Owns the three Aegis consortium repositories. Trust starts at 'observed'; promotion requires proof."
+    }
+  ],
+  "links": [
+    {
+      "link_id": "op-titouan--collab-robinho100",
+      "from": "operator:titouan",
+      "to": "collaborator:robinho100",
+      "relation": "collaborates_with",
+      "projects": [
+        "aegisscan",
+        "aegis-core",
+        "ai-bus"
+      ],
+      "trust_level": "observed",
+      "pow_metric": "joint commits, shared source inventory, cross-project integration (aegisscan ↔ ai-bus HTTP/JSON)",
+      "friction_signal": "collaboration boundary: sanitized source (aegis-core) vs public source (aegisscan, ai-bus)",
+      "notes": "Collaboration link. Trust observed, not assumed. Promotion requires proof."
+    },
+    {
+      "link_id": "op-titouan--project-aegisscan",
+      "from": "operator:titouan",
+      "to": "project:aegisscan",
+      "relation": "maintains",
+      "toolchains": [
+        "go"
+      ],
+      "maintenance_policy": "build_on_builder",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass + test_pass on builder (go build ./..., go test ./...)",
+      "friction_signal": "1 timing-sensitive test failure (TestBinaryTransport_PipesHeldOpen_KillsLeftoverGrandchild)",
+      "notes": "Operator maintains build/test baseline on builder. Read-only policy (no mutation without proof)."
+    },
+    {
+      "link_id": "op-titouan--project-aegis-core",
+      "from": "operator:titouan",
+      "to": "project:aegis-core",
+      "relation": "maintains",
+      "toolchains": [
+        "go"
+      ],
+      "maintenance_policy": "build_on_builder_read_only",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass (./internal/...) + refusal-by-construction preserved",
+      "friction_signal": "sanitized boundary (STOP 64, B1/B7) — no native deployment, no private config",
+      "notes": "Operator maintains build baseline. Sanitized: read-only observation + build/test only, never deploy."
+    },
+    {
+      "link_id": "op-titouan--project-ai-bus",
+      "from": "operator:titouan",
+      "to": "project:ai-bus",
+      "relation": "maintains",
+      "toolchains": [
+        "node",
+        "npm"
+      ],
+      "maintenance_policy": "build_on_builder",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass (npm ci + tsc) + test_pass (npm test)",
+      "friction_signal": "2 env-dependent test failures (git remote config); targets Windows 10/11",
+      "notes": "Operator maintains build baseline on builder. Build green after Go/Node provisioning."
+    },
+    {
+      "link_id": "op-titouan--toolchain-go",
+      "from": "operator:titouan",
+      "to": "toolchain:go",
+      "relation": "provisions",
+      "provisioned_at": "2026-10-18",
+      "install_path": "/opt/go",
+      "pow_metric": "go version go1.27.2 (builder) == go 1.27.2 (cortex)",
+      "notes": "Provisioned to close build/test observation gap for external Go projects."
+    },
+    {
+      "link_id": "op-titouan--toolchain-node",
+      "from": "operator:titouan",
+      "to": "toolchain:node",
+      "relation": "provisions",
+      "provisioned_at": "2026-10-18",
+      "install_path": "/opt/node",
+      "pow_metric": "node v22.23.3 + npm 10.9.9 (builder) == node v22.23.3 (cortex)",
+      "notes": "Provisioned to close build/test observation gap for external Node projects."
+    }
+  ],
+  "project_toolchains": [
+    {
+      "project_id": "aegisscan",
+      "toolchains": [
+        "go"
+      ],
+      "maintainer": "operator:titouan",
+      "maintenance_policy": "build_on_builder",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass + test_pass on builder"
+    },
+    {
+      "project_id": "aegis-core",
+      "toolchains": [
+        "go"
+      ],
+      "maintainer": "operator:titouan",
+      "maintenance_policy": "build_on_builder_read_only",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass (./internal/...) + refusal-by-construction preserved"
+    },
+    {
+      "project_id": "ai-bus",
+      "toolchains": [
+        "node",
+        "npm"
+      ],
+      "maintainer": "operator:titouan",
+      "maintenance_policy": "build_on_builder",
+      "update_cadence": "on_demand",
+      "pow_metric": "build_pass (npm ci + tsc) + test_pass (npm test)"
+    }
+  ],
+  "toolchain_projects": [
+    {
+      "toolchain": "go",
+      "projects": [
+        "aegisscan",
+        "aegis-core"
+      ],
+      "provisioned_by": "operator:titouan",
+      "provisioned_at": "2026-10-18"
+    },
+    {
+      "toolchain": "node",
+      "projects": [
+        "ai-bus"
+      ],
+      "provisioned_by": "operator:titouan",
+      "provisioned_at": "2026-10-18"
+    },
+    {
+      "toolchain": "npm",
+      "projects": [
+        "ai-bus"
+      ],
+      "provisioned_by": "operator:titouan",
+      "provisioned_at": "2026-10-18"
+    }
+  ],
+  "rules": [
+    "This registry is the SSOT of RELATIONS. It references by ID (foreign keys).",
+    "No data duplication: collaborator details live in collaborators.json, project details in external-projects.json, toolchain details in registry.json.",
+    "A link without a pow_metric is incomplete — every relation must be measurable.",
+    "Friction signals (test failures, env-dependencies, boundaries) are first-class data, not noise.",
+    "Trust is observed and promoted, never assumed. Promotion requires proof.",
+    "The operator (titouan) is the constituent (human sovereign) and maintains all external project governance.",
+    "PoW metrics model real interactions between interconnected systems (physics, culture, economy)."
+  ]
+}

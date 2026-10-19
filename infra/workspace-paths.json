@@ -43,6 +43,8 @@
     "registry": "infra/external-projects.json",
     "collaborators_registry": "infra/collaborators.json",
     "policy_schema": "contracts/external-project-policy.v1.json",
+    "ports_schema": "contracts/external-project-ports.v1.json",
+    "ownership_links": "infra/ownership-links.json",
     "default_mutation_policy": "read_only",
     "default_sensitivity": "public"
   },

@@ -468,6 +468,7 @@ mod tests {
                     provider: cynic_protocol::secret_reference::SecretProvider::ProcessEnvironment,
                     locator: "PORKBUN_API_KEY".to_string(),
                 },
+                credential_secret: None,
             },
             dns_authority: ProviderConfig {
                 provider: "cloudflare".to_string(),
@@ -477,6 +478,7 @@ mod tests {
                     provider: cynic_protocol::secret_reference::SecretProvider::ProcessEnvironment,
                     locator: "CF_API_TOKEN".to_string(),
                 },
+                credential_secret: None,
             },
             proxy_policy: ProxyPolicy::default(),
             expected_nameservers: expected_ns.iter().map(|s| s.to_string()).collect(),
