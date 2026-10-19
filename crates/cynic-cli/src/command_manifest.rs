@@ -319,6 +319,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build run --json",
                     "cynic build submit --json",
                     "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build pool eligibility [--node <id>] [--observed-labels a,b] [--json]",
                     "cynic build proofs list [--commit <sha>] [--limit N] [--json]",
                     "cynic build invoice --json",
                     "cynic build proof --json",

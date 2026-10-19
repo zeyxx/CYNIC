@@ -18,6 +18,7 @@ pub mod local_build_discovery;
 pub mod local_capacity;
 pub mod local_causal_epoch_index;
 pub mod local_command_runner;
+pub mod local_toolchain_probe;
 pub mod local_cpu;
 pub mod local_disk;
 pub mod local_evidence_store;
