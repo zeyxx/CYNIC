@@ -64,9 +64,11 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   (5 failed), 311058ac (4 failed), 7c64d2e2 (7 failed) — toutes
   non-vacuous. Full run : OK 6 + 1 known-vacuous.
 
-### T6 — Retrait des normaliseurs Python, un par un [>]
-- Un `HITL` par harness (windows, codex, cursor, vscode, kiro, gemini,
-  amp, qwen, droid, opencode). Jamais en lot.
+### T6 — Retrait des normaliseurs Python, un par un [x]
+But : zéro chaîne Python résiduelle hors `hermes` (soldé 2026-10-19).
+Chaque retrait = capsule `docs/specs/harness-*.md` + preuves (suite
+Python + builder), données intactes.
+- Règle tenue : un `HITL` par harness, jamais en lot.
 - `windows_gemini` (premier, HITL opérateur) : normaliseur 598 lignes +
   capture + runner + 3 tests supprimés ; registre UNCONTRACTED nettoyé ;
   capsule savoir `docs/specs/harness-windows-gemini.md` (RAG-ingérable,
@@ -83,7 +85,15 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
   seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
   `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
-- Restent : `antigravity` (500, vertical partiel).
+- `antigravity` (cinquième et dernier, HITL opérateur) : normaliseur
+  595 lignes (FIELD_FATE 76 lignes, famille PROTOBUST : protobuf sans
+  schéma marché à la main, edges DERIVED — aucune liaison call/result
+  dans le corpus) + capture + runner + 3 tests supprimés ; registre
+  UNCONTRACTED **vidé** (dernière entrée). Données intactes (500
+  sessions silver `antigravity_gemini` + 502 fichiers gelés, seule
+  source — pas de live). Vérifié : zéro dépendance Rust (le
+  `AntigravityCli` de cynic-eval est l'exécuteur d'agent, pas ce
+  normaliseur). T6 SOLDÉ : plus aucune chaîne Python hors `hermes`.
 - `claude_code` (quatrième, HITL opérateur) : normaliseur 333 lignes
   (sans FIELD_FATE ; 5 tests contractuels + sweep supprimés avec
   `test_normalizers_contract.py`) + capture + runner supprimés ; registre

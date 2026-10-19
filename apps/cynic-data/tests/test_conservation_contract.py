@@ -15,7 +15,6 @@ import re
 
 import pytest
 
-from cynic_data.canonical.adapters.normalizers.antigravity import AntigravityNormalizer
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.domain.conservation import Fate, parse_fate
 
@@ -28,11 +27,9 @@ CONTRACTED = {
 # Adapters that still lack a contract. This list may only shrink; α6 is the
 # promotion mechanism, so a new harness lands here until its vertical is done.
 # Retirements also shrink it (T6 capsules in docs/specs/harness-*.md).
-UNCONTRACTED = {
-    "antigravity": lambda: AntigravityNormalizer(
-        "/var/lib/cynic/vault/archive/linux_sessions_2026/gemini_antigravity/conversations"
-    ),
-}
+# T6 emptied it (antigravity was the last entry, retired 2026-10-19):
+# every retired harness is capsule-documented, hermes holds a contract.
+UNCONTRACTED: dict = {}
 
 
 @pytest.mark.parametrize("name", sorted(CONTRACTED))
