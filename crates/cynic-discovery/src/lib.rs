@@ -5,7 +5,7 @@
 //! `federation_authz`), this module provides the types to declare, observe,
 //! and aggregate capabilities.
 //!
-//! Phase A: types only. Phase B: adapters in `cynic-discovery-host`.
+//! Phase A: types only. Phase B: adapters in the `host` module.
 //! Phase C: `/capabilities` endpoint in `cynic-kernel`.
 
 pub mod event;
