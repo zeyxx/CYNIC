@@ -114,9 +114,8 @@
   {
    "slug": "kora",
    "pin": {
-    "repo": "solana-foundation/kora",
-    "tag": "v2.0.5",
-    "sha": "cebb90463d787a210fefb71197e8d6a3dffada41"
+    "file": "infra/external-pins.json",
+    "slug": "kora"
    },
    "ownership": {
     "cynic_operator": "Titouan Corneloup",
