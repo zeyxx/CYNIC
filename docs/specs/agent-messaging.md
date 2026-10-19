@@ -119,5 +119,18 @@ read path, and the retention story for zero gain. Extension wins.
   reuse) is a later tranche, not this one.
 - D3: `msg_id` uniqueness is sender-generated UUID, not
   content-addressed; duplicates are possible, receivers dedupe by id.
-- D4: paper survey (2024-2026 MAS messaging) not run — tooling failure
-  2026-10-19, recorded as residual unknown, not as coverage.
+- D4: paper survey (run 2026-10-19 via agy/OpenAlex+arXiv, evening session).
+  Axe receipts/custody: Kadaboina 2026 (Zenodo 20644821), Alshammari &
+  Bahsi 2026 (arXiv:2608.28542), Le Bihan et al. 2025 (arXiv:2507.17403),
+  Liu 2026 (arXiv:2609.03425) — custody transfer + explicit delivery/read
+  receipts beyond A2A push. Axe envelopes/triage: Finin et al. 1994
+  (KQML, CIKM), Labrou/Finin/Peng 1999 (FIPA-ACL semantics), Ehtesham et
+  al. 2025 (arXiv:2505.02279), Touheed 2026 (arXiv:2606.00962) — blind
+  intent envelopes, schema-conformance triage without opening content.
+  Axe append-only transport: Gelernter 1985 (Linda/blackboard), Meyer
+  2023 (arXiv:2308.13836, fork/duplicate detection on shared prefix
+  logs). Axe brokerless relay: custody-transfer model + Kermarrec et
+  al. 2020 (gossip). Design consequences applied: sender-rejected
+  receipts, summary/priority triage envelope, receipts as new lines,
+  phase-2 relay over signed peer tx. Full survey text lives outside the
+  repo (session output); re-run before phase 2 if flows diverge.

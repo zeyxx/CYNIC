@@ -1,4 +1,5 @@
-//! Fire-and-forget coordination surface: `cynic coordination append|read`.
+//! Fire-and-forget coordination surface: `cynic coordination append|read`
+//! plus addressed messaging (`send|inbox|ack`) on the same log.
 //!
 //! Thin projection over [`crate::coordination_log`]. Append never waits for
 //! anyone; read converges by reading. Both resolve the log the same way:
@@ -10,7 +11,8 @@ use std::process::ExitCode;
 use clap::Subcommand;
 
 use crate::coordination_log::{
-    CoordinationEntry, append_entry, default_coordination_log_path, read_entries,
+    CoordinationEntry, MsgReceipt, ReceiptState, admit_addressed_append, admit_receipt,
+    append_entry, default_coordination_log_path, read_entries,
 };
 use crate::emit_json;
 
@@ -46,6 +48,77 @@ pub(crate) enum CoordinationCommand {
         /// Newest N entries (0 = all).
         #[arg(long, default_value = "0")]
         limit: usize,
+        /// Explicit log path (else CYNIC_COORDINATION_LOG, else local share).
+        #[arg(long)]
+        log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Send an addressed message. Prints the msg_id proof, never waits.
+    Send {
+        /// Addressee: agent:<id> or role:<role>.
+        #[arg(long)]
+        to: String,
+        /// Entry kind (free string, conventions).
+        #[arg(long, default_value = "info")]
+        kind: String,
+        /// Triage summary, max 140 chars. Shown without opening the body.
+        #[arg(long)]
+        summary: String,
+        /// Full body.
+        #[arg(long)]
+        body: String,
+        /// Triage priority 0-3 (default 1).
+        #[arg(long, default_value = "1")]
+        priority: u8,
+        /// Answer to this msg_id (causal thread).
+        #[arg(long)]
+        in_reply_to: Option<String>,
+        /// Reference anchors. Repeatable.
+        #[arg(long)]
+        r#ref: Vec<String>,
+        /// Who sends (else CYNIC_AGENT_ID).
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent: Option<String>,
+        /// Explicit log path (else CYNIC_COORDINATION_LOG, else local share).
+        #[arg(long)]
+        log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inbox: addressed-to-me plus broadcast, summary-first. Body only with --full.
+    Inbox {
+        /// My agent id (else CYNIC_AGENT_ID).
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent: Option<String>,
+        /// Only messages with no opened receipt.
+        #[arg(long)]
+        unopened: bool,
+        /// Include full bodies, not just summaries.
+        #[arg(long)]
+        full: bool,
+        /// Newest N entries (0 = all).
+        #[arg(long, default_value = "0")]
+        limit: usize,
+        /// Explicit log path (else CYNIC_COORDINATION_LOG, else local share).
+        #[arg(long)]
+        log: Option<String>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Acknowledge a message: appends the receipt line. Monotonic only.
+    Ack {
+        /// The msg_id to acknowledge.
+        msg_id: String,
+        /// Receipt state: delivered or opened.
+        #[arg(long, default_value = "delivered")]
+        state: String,
+        /// Who acknowledges (else CYNIC_AGENT_ID).
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent: Option<String>,
         /// Explicit log path (else CYNIC_COORDINATION_LOG, else local share).
         #[arg(long)]
         log: Option<String>,
@@ -173,6 +246,200 @@ pub(crate) fn execute_coordination(command: CoordinationCommand) -> ExitCode {
                 }
             }
             ExitCode::SUCCESS
+        }
+        CoordinationCommand::Send {
+            to,
+            kind,
+            summary,
+            body,
+            priority,
+            in_reply_to,
+            r#ref,
+            agent,
+            log,
+            json,
+        } => {
+            let log_path = match resolve_log(log.as_deref()) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("coordination send failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let mut entry =
+                CoordinationEntry::new(&agent.unwrap_or_default(), &kind, &body, r#ref, now_unix_s());
+            entry.to = Some(to);
+            entry.msg_id = Some(uuid::Uuid::new_v4().to_string());
+            entry.summary_1line = Some(summary);
+            entry.priority = Some(priority);
+            entry.in_reply_to = in_reply_to;
+            let violations = admit_addressed_append(&entry);
+            if !violations.is_empty() {
+                eprintln!("coordination send refused: {}", violations.join(", "));
+                return ExitCode::FAILURE;
+            }
+            match append_entry(&log_path, &entry) {
+                Ok(()) => {
+                    if json {
+                        emit_json(&entry, false);
+                    } else {
+                        println!("sent {} to {}", entry.msg_id.as_deref().unwrap_or("?"), entry.to.as_deref().unwrap_or("?"));
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("coordination send failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        CoordinationCommand::Inbox {
+            agent,
+            unopened,
+            full,
+            limit,
+            log,
+            json,
+        } => {
+            let me = agent.unwrap_or_default();
+            let log_path = match resolve_log(log.as_deref()) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("coordination inbox failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let (entries, skipped) = read_entries(&log_path, None, 0);
+            let mut opened: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+            for entry in &entries {
+                if let (Some(id), Some(receipt)) = (&entry.msg_id, &entry.receipt) {
+                    if receipt.state == ReceiptState::Opened {
+                        opened.insert(id.clone());
+                    }
+                }
+            }
+            let mut mine: Vec<&CoordinationEntry> = entries
+                .iter()
+                .filter(|e| e.receipt.is_none())
+                .filter(|e| match &e.to {
+                    None => true,
+                    Some(to) => {
+                        to == &format!("agent:{me}")
+                            || to == &me
+                            || (*to == "role:all" && e.msg_id.is_some())
+                    }
+                })
+                .filter(|e| {
+                    !unopened
+                        || e.msg_id.as_ref().is_none_or(|id| !opened.contains(id))
+                })
+                .collect();
+            if limit > 0 && mine.len() > limit {
+                mine.drain(..mine.len() - limit);
+            }
+            if json {
+                emit_json(
+                    &serde_json::json!({
+                        "agent": me,
+                        "entries": mine,
+                        "skipped_lines": skipped,
+                        "log": log_path,
+                    }),
+                    false,
+                );
+            } else {
+                for entry in &mine {
+                    let summary = entry.summary_1line.as_deref().unwrap_or(&entry.body);
+                    let id = entry.msg_id.as_deref().unwrap_or("-");
+                    let pri = entry.priority.unwrap_or(1);
+                    let opened_mark = entry
+                        .msg_id
+                        .as_ref()
+                        .is_some_and(|mid| opened.contains(mid));
+                    println!(
+                        "{} p{} {} {} [{}]{}",
+                        id,
+                        pri,
+                        entry.agent,
+                        entry.kind,
+                        summary,
+                        if opened_mark { " (opened)" } else { "" }
+                    );
+                    if full {
+                        println!("  {}", entry.body);
+                    }
+                }
+                if skipped > 0 {
+                    eprintln!("warning: {skipped} corrupt line(s) skipped");
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        CoordinationCommand::Ack {
+            msg_id,
+            state,
+            agent,
+            log,
+            json,
+        } => {
+            let by = agent.unwrap_or_default();
+            let want = match state.to_ascii_lowercase().as_str() {
+                "delivered" => ReceiptState::Delivered,
+                "opened" => ReceiptState::Opened,
+                other => {
+                    eprintln!("coordination ack refused: unknown state {other}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let log_path = match resolve_log(log.as_deref()) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("coordination ack failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let (entries, _) = read_entries(&log_path, None, 0);
+            if !entries
+                .iter()
+                .any(|e| e.msg_id.as_deref() == Some(msg_id.as_str()) && e.receipt.is_none())
+            {
+                eprintln!("coordination ack refused: unknown msg_id {msg_id}");
+                return ExitCode::FAILURE;
+            }
+            let already_opened = entries.iter().any(|e| {
+                e.msg_id.as_deref() == Some(msg_id.as_str())
+                    && e.receipt.as_ref().is_some_and(|r| r.state == ReceiptState::Opened)
+            });
+            if already_opened && want == ReceiptState::Delivered {
+                eprintln!("coordination ack refused: receipt already opened for {msg_id}");
+                return ExitCode::FAILURE;
+            }
+            let mut entry = CoordinationEntry::new(&by, "info", &format!("ack {msg_id}"), vec![], now_unix_s());
+            entry.msg_id = Some(msg_id.clone());
+            entry.receipt = Some(MsgReceipt {
+                by: by.clone(),
+                ts_unix_s: now_unix_s(),
+                state: want,
+            });
+            let violations = admit_receipt(&entry, &by);
+            if !violations.is_empty() {
+                eprintln!("coordination ack refused: {}", violations.join(", "));
+                return ExitCode::FAILURE;
+            }
+            match append_entry(&log_path, &entry) {
+                Ok(()) => {
+                    if json {
+                        emit_json(&entry, false);
+                    } else {
+                        println!("acked {msg_id} as {}", state.to_ascii_lowercase());
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("coordination ack failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
         }
         CoordinationCommand::Ledger {
             json,
