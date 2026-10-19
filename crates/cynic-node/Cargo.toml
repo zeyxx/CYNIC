@@ -34,6 +34,7 @@ sha2.workspace = true
 hex.workspace = true
 base64.workspace = true
 ed25519-dalek.workspace = true
+fips204.workspace = true
 rusqlite = { version = "0.34", features = ["bundled"] }
 zeroize.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
