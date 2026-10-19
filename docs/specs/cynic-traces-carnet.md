@@ -73,6 +73,12 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   FIELD_FATE complet, 4 racines sources, réparations `_load_chat`).
   Données intactes (34 sessions silver + 69k fichiers vault). Perte
   assumée : ingestion restante impossible sans vertical Rust (T7).
+- `codex` (deuxième, HITL opérateur) : normaliseur 332 lignes (sans
+  FIELD_FATE ; 5 tests contractuels supprimés) + capture + runner
+  supprimés ; registre UNCONTRACTED + doc `ports.py` nettoyés ; capsule
+  `docs/specs/harness-codex.md` (5 types de lignes, nommage natif,
+  écart de provenance 193 sessions / 94 fichiers gelés consigné).
+  Données intactes (193 sessions silver + 94+95 fichiers).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
 - Gated derrière T1–T6 (loi de Gall). Implémente R1–R6 du delta géodésique
