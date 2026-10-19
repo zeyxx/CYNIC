@@ -296,7 +296,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "federation",
-                commands: vec!["cynic federation status [--json]"],
+                commands: vec!["cynic federation status [--json]", "cynic federation enroll status [--json]"],
             },
             CommandDomain {
                 name: "mask",
