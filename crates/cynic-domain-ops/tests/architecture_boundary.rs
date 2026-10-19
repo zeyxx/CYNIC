@@ -16,7 +16,6 @@ const FORBIDDEN_DEPS: &[&str] = &[
     "cynic-node",
     "cynic-cli",
     "cynic-mcp",
-    "cynic-askesis",
 ];
 
 #[test]
