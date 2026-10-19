@@ -1,10 +1,12 @@
 //! Build CLI surface — thin facade over modular build workflows.
 
 use clap::Subcommand;
+use std::path::Path;
 use cynic_types::paths::CynicPaths;
 
 mod archive;
 mod artifact;
+mod forgejo;
 mod invoice;
 mod reclaim;
 mod runner;
@@ -23,6 +25,7 @@ use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
 use archive::{ArchiveReport, archive_terminal_workloads};
+use forgejo::{execute_runner_token, execute_runs};
 use artifact::{publish_artifact, pull_artifact, release_artifact};
 
 /// CLI arguments for the build surface.
@@ -251,9 +254,20 @@ pub(crate) enum BuildCommand {
         local: bool,
         #[arg(long)]
         json: bool,
-    },
-}
-
+        },
+        /// Issue a repo-scoped Actions runner registration token via Forgejo API.
+        RunnerToken {
+            /// Emit machine-readable JSON.
+            #[arg(long)]
+            json: bool,
+        },
+        /// List recent Actions workflow runs.
+        Runs {
+            /// Emit machine-readable JSON.
+            #[arg(long)]
+            json: bool,
+        },
+    }
 /// Render the archive report (JSON or text).
 fn render_archive_report(report: &ArchiveReport, json: bool) {
     if json {
@@ -490,6 +504,20 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                     apply,
                     json,
                 )
+            }
+        }
+        BuildCommand::RunnerToken { json } => {
+            let code = execute_runner_token(Path::new("."), json);
+            match code {
+                c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                _ => Err("build runner-token failed".to_string()),
+            }
+        }
+        BuildCommand::Runs { json } => {
+            let code = execute_runs(Path::new("."), json);
+            match code {
+                c if c == std::process::ExitCode::SUCCESS => Ok(()),
+                _ => Err("build runs failed".to_string()),
             }
         }
     }
