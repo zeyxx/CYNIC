@@ -16,10 +16,13 @@
 
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD
 use cynic_protocol::runner_capacity::{
     RUNNER_STALENESS_SECS, RunnerCapacitySnapshot, RunnerUsability, decide_runner_usability,
 };
 
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
 pub const BUILD_PLACEMENT_SCHEMA: &str = "cynic.build_placement.v1";
 /// Minimum proof samples before a median is trusted. Below this the
 /// runner is ranked by headroom only and the outcome is recorded.
@@ -61,6 +64,7 @@ pub struct PlacementDecision {
 }
 
 /// Rank candidates for `task_class`. `floor_ram_bytes` is the class floor
+<<<<<<< HEAD
 /// from compute-policy; `lambda` trades velocity against pressure (0 =
 /// pure velocity); `mu_ms` is the fair-share cost of one held slot.
 ///
@@ -68,18 +72,26 @@ pub struct PlacementDecision {
 /// are eligible, and their RAM figures come from the snapshot, never from
 /// a cold probe. An absent runner is incapable with the observe command,
 /// never silently skipped.
+=======
+/// from compute-policy. `lambda` trades velocity against pressure (0 =
+/// pure velocity); `mu_ms` is the fair-share cost of one held slot.
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
 pub fn place_build(
     task_class: &str,
     floor_ram_bytes: u64,
     lambda: f64,
     mu_ms: u64,
     runners: Vec<RunnerSnapshot>,
+<<<<<<< HEAD
     capacity: &[RunnerCapacitySnapshot],
     now_unix_s: u64,
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
 ) -> PlacementDecision {
     let mut ranked: Vec<PlacementRank> = runners
         .into_iter()
         .map(|runner| {
+<<<<<<< HEAD
             let Some(snap) = capacity.iter().find(|s| s.runner_id == runner.node_id) else {
                 return PlacementRank {
                     node_id: runner.node_id,
@@ -101,6 +113,9 @@ pub fn place_build(
                 RunnerUsability::Usable => {}
             }
             let Some(free) = snap.free_ram_bytes else {
+=======
+            let Some(free) = runner.free_ram_bytes else {
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
                 return PlacementRank {
                     node_id: runner.node_id,
                     capable: false,
@@ -118,7 +133,10 @@ pub fn place_build(
                     )],
                 };
             }
+<<<<<<< HEAD
             let total = snap.total_ram_bytes.or(runner.total_ram_bytes);
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
             let mut reasons = Vec::new();
             let duration_ms = match (runner.median_ms, runner.samples) {
                 (Some(median), samples) if samples >= MIN_SAMPLES => median,
@@ -127,7 +145,11 @@ pub fn place_build(
                     0
                 }
             };
+<<<<<<< HEAD
             let pressure_ms = match (total, lambda > 0.0) {
+=======
+            let pressure_ms = match (runner.total_ram_bytes, lambda > 0.0) {
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
                 (Some(total), true) if total > 0 => {
                     let used = 1.0 - (free as f64 / total as f64);
                     let hot = (used - HOT_THRESHOLD).max(0.0) / (1.0 - HOT_THRESHOLD);
@@ -193,6 +215,7 @@ mod tests {
         }
     }
 
+<<<<<<< HEAD
     const NOW: u64 = 1_000_000;
 
     fn snap(node: &str, free_gb: Option<u64>, observed: u64) -> RunnerCapacitySnapshot {
@@ -228,12 +251,21 @@ mod tests {
             &capacity,
             NOW,
         );
+=======
+    #[test]
+    fn unmeasurable_is_incapable_never_zero() {
+        let decision = place_build("rust_build", 4 * 1024 * 1024 * 1024, 0.0, 0, vec![
+            runner("blind", None, Some(10_000), 10),
+            runner("seen", Some(8), Some(200_000), 10),
+        ]);
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         assert_eq!(decision.chosen.as_deref(), Some("seen"));
         assert!(!decision.ranked[1].capable);
     }
 
     #[test]
     fn below_floor_refuses() {
+<<<<<<< HEAD
         let capacity = capacity_for(&[("thin", Some(2), NOW), ("fat", Some(8), NOW)]);
         let decision = place_build(
             "rust_build",
@@ -247,6 +279,12 @@ mod tests {
             &capacity,
             NOW,
         );
+=======
+        let decision = place_build("rust_build", 4 * 1024 * 1024 * 1024, 0.0, 0, vec![
+            runner("thin", Some(2), Some(1_000), 10),
+            runner("fat", Some(8), Some(300_000), 10),
+        ]);
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         assert_eq!(decision.chosen.as_deref(), Some("fat"));
     }
 
@@ -254,21 +292,28 @@ mod tests {
     fn queue_wait_beats_faster_runner() {
         let mut busy = runner("fast", Some(8), Some(30_000), 10);
         busy.queued_ms = 300_000;
+<<<<<<< HEAD
         let capacity = capacity_for(&[("fast", Some(8), NOW), ("slow", Some(8), NOW)]);
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         let decision = place_build(
             "rust_check_light",
             1024 * 1024 * 1024,
             0.0,
             0,
             vec![busy, runner("slow", Some(8), Some(60_000), 10)],
+<<<<<<< HEAD
             &capacity,
             NOW,
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         );
         assert_eq!(decision.chosen.as_deref(), Some("slow"));
     }
 
     #[test]
     fn distrusted_median_explores_by_headroom_order() {
+<<<<<<< HEAD
         let capacity = capacity_for(&[("new", Some(12), NOW), ("old", Some(8), NOW)]);
         let decision = place_build(
             "rust_build",
@@ -282,6 +327,12 @@ mod tests {
             &capacity,
             NOW,
         );
+=======
+        let decision = place_build("rust_build", 4 * 1024 * 1024 * 1024, 0.0, 0, vec![
+            runner("new", Some(12), Some(5_000), 2),
+            runner("old", Some(8), Some(200_000), 40),
+        ]);
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         assert_eq!(decision.chosen.as_deref(), Some("new"));
         assert!(decision.ranked[0]
             .reasons
@@ -293,13 +344,17 @@ mod tests {
     fn agent_holding_slots_yields() {
         let mut holder = runner("held", Some(12), Some(30_000), 10);
         holder.agent_in_flight = 2;
+<<<<<<< HEAD
         let capacity = capacity_for(&[("held", Some(12), NOW), ("free", Some(8), NOW)]);
+=======
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
         let decision = place_build(
             "rust_check_light",
             1024 * 1024 * 1024,
             0.0,
             60_000,
             vec![holder, runner("free", Some(8), Some(60_000), 10)],
+<<<<<<< HEAD
             &capacity,
             NOW,
         );
@@ -374,4 +429,9 @@ mod tests {
         assert!(!thin.capable);
         assert!(thin.reasons.iter().any(|r| r.contains("below")));
     }
+=======
+        );
+        assert_eq!(decision.chosen.as_deref(), Some("free"));
+    }
+>>>>>>> ce111171 (Placement scoring, per-checkout targets, sccache auto-enable)
 }
