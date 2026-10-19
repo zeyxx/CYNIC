@@ -1,0 +1,170 @@
+name: CYNIC F-Gate (Forgejo)
+
+on:
+  push:
+    branches: [main, "sync/*", "agent/*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
+  RUSTFLAGS: "-C debuginfo=0"
+
+jobs:
+  verify:
+    name: Layer 0-4 Verification Gate
+    runs-on: [cynic/build]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure Rust toolchain (bare runner)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustc --version
+          cargo --version
+
+      - name: Validate Foundation & Infra JSON Contracts
+        id: validate_json
+        run: |
+          python3 - <<'PY'
+          import json
+          files = [
+            "contracts/foundation.json",
+            "infra/runtime-authority.json",
+            "infra/registry.json",
+            "infra/agent-exposure.json",
+            "infra/ecosystem-pins.json",
+          ]
+          for f in files:
+              with open(f, encoding="utf-8") as fh:
+                  json.load(fh)
+              print(f"OK {f}")
+          PY
+
+      - name: Check Workspace Compilation
+        id: check_compile
+        run: cargo check --workspace
+
+      - name: Run Core Types Test Suite
+        id: test_core_types
+        continue-on-error: true
+        run: cargo test -p cynic-types
+
+      - name: Run Knowledge Test Suite
+        id: test_knowledge
+        continue-on-error: true
+        run: cargo test -p cynic-knowledge
+
+      - name: Run Inference Test Suite
+        id: test_inference
+        continue-on-error: true
+        run: cargo test -p cynic-inference
+
+      - name: Run Canonical Paths Coherence Test
+        id: test_canonical_paths
+        continue-on-error: true
+        run: cargo test -p cynic-cli --test canonical_paths_coherence
+
+      - name: Aggregate Test Suite Verdict
+        if: always()
+        env:
+          JSON_VALIDATION_OUTCOME: ${{ steps.validate_json.outcome }}
+          COMPILE_OUTCOME: ${{ steps.check_compile.outcome }}
+          CORE_TYPES_OUTCOME: ${{ steps.test_core_types.outcome }}
+          KNOWLEDGE_OUTCOME: ${{ steps.test_knowledge.outcome }}
+          INFERENCE_OUTCOME: ${{ steps.test_inference.outcome }}
+          CANONICAL_PATHS_OUTCOME: ${{ steps.test_canonical_paths.outcome }}
+        run: |
+          set -u
+
+          hard_gate_failed=0
+          for entry in "validate_json:${JSON_VALIDATION_OUTCOME}" \
+                       "check_compile:${COMPILE_OUTCOME}"; do
+            gate="${entry%%:*}"
+            outcome="${entry#*:}"
+            if [ "${outcome}" != "success" ]; then
+              hard_gate_failed=1
+              printf '  %-18s %s (hard gate)\n' "${gate}" "${outcome}"
+            fi
+          done
+
+          failed_suites=""
+          skipped_suites=""
+          for suite in core_types knowledge inference canonical_paths; do
+            var="$(printf '%s_OUTCOME' "${suite}" | tr '[:lower:]' '[:upper:]')"
+            outcome="${!var}"
+            printf '  %-18s %s\n' "${suite}" "${outcome}"
+            case "${outcome}" in
+              failure|timed_out) failed_suites="${failed_suites} ${suite}" ;;
+              skipped) skipped_suites="${skipped_suites} ${suite}" ;;
+            esac
+          done
+
+          if [ "${hard_gate_failed}" -eq 1 ]; then
+            echo "::error::Aggregate verdict: FAIL — a hard gate did not succeed, so the suites did not all execute."
+          fi
+          if [ -n "${failed_suites}" ]; then
+            echo "::error::Aggregate verdict: FAIL — failing suites:${failed_suites}"
+          fi
+          if [ -n "${skipped_suites}" ] && [ "${hard_gate_failed}" -eq 0 ]; then
+            echo "::warning::Aggregate verdict: suites skipped without a broken hard gate:${skipped_suites}"
+          fi
+
+          if [ "${hard_gate_failed}" -eq 1 ] || [ -n "${failed_suites}" ]; then
+            echo "Aggregate verdict: FAIL"
+            verdict="FAIL"
+          else
+            echo "Aggregate verdict: PASS — every executed test suite succeeded."
+            verdict="PASS"
+          fi
+
+          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
+            "${verdict}" "${GITHUB_SHA:-unknown}" "${GITHUB_RUN_ID:-local}" "$(date -u +%FT%TZ)" \
+            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
+            "${KNOWLEDGE_OUTCOME}" "${INFERENCE_OUTCOME}" "${CANONICAL_PATHS_OUTCOME}" \
+            > gate-receipt.json
+          cat gate-receipt.json
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            {
+              echo "## F-gate receipt"
+              echo '```json'
+              cat gate-receipt.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          fi
+
+          if [ "${verdict}" = "FAIL" ]; then
+            exit 1
+          fi
+
+      - name: Upload Gate Receipt
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-receipt-${{ github.run_id }}
+          path: gate-receipt.json
+          retention-days: 90
+
+      - name: Echo Gate Receipt (fallback)
+        if: always()
+        run: |
+          if [ -f gate-receipt.json ]; then
+            echo "GATE_RECEIPT_BEGIN"
+            cat gate-receipt.json
+            echo "GATE_RECEIPT_END"
+          else
+            echo "gate-receipt.json missing"
+          fi
