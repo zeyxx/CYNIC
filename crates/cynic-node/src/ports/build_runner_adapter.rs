@@ -457,7 +457,16 @@ impl SshBuildRunner {
     /// output is `None` — the caller records the unknown, never a number.
     pub fn probe_free_ram_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        let out = self.runner.run(&[
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            target.as_str(),
+            "free",
+            "-b",
+        ]);
         if !out.success() {
             return None;
         }
@@ -470,7 +479,17 @@ impl SshBuildRunner {
         let target = self.ssh_target();
         let bin = default_sccache_bin().display().to_string();
         self.runner
-            .run(&["ssh", target.as_str(), "test", "-x", bin.as_str()])
+            .run(&[
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=10",
+                target.as_str(),
+                "test",
+                "-x",
+                bin.as_str(),
+            ])
             .success()
     }
 
@@ -478,7 +497,16 @@ impl SshBuildRunner {
     /// semantics as the free probe: unknown, never zero.
     pub fn probe_total_ram_bytes(&self) -> Option<u64> {
         let target = self.ssh_target();
-        let out = self.runner.run(&["ssh", target.as_str(), "free", "-b"]);
+        let out = self.runner.run(&[
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            target.as_str(),
+            "free",
+            "-b",
+        ]);
         if !out.success() {
             return None;
         }

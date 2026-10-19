@@ -13,15 +13,22 @@ pub(crate) fn resolve_default_builder_url() -> Result<String, String> {
 }
 
 /// Median duration over the last 20 converged proofs for (node, action)
-/// in a proof-log text, with the sample count. Malformed lines are
-/// skipped (a corrupt log line must not poison placement). No history
-/// is (None, 0): unexplored, never instant.
-pub(crate) fn proof_median_ms(log_text: &str, node: &str, action: &str) -> (Option<u64>, usize) {
+/// in a proof-log text, with the sample count. `names` holds every
+/// identity the runner is known by (registry node_id and SSH alias: old
+/// proofs record the alias). Malformed lines are skipped (a corrupt log
+/// line must not poison placement). No history is (None, 0): unexplored,
+/// never instant.
+pub(crate) fn proof_median_ms(
+    log_text: &str,
+    names: &[&str],
+    action: &str,
+) -> (Option<u64>, usize) {
     let mut durations: Vec<u64> = log_text
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
         .filter(|record| {
-            record.get("node").and_then(|v| v.as_str()) == Some(node)
+            let node = record.get("node").and_then(|v| v.as_str()).unwrap_or("");
+            names.contains(&node)
                 && record.get("action").and_then(|v| v.as_str()) == Some(action)
                 && record.get("status").and_then(|v| v.as_str()) == Some("converged")
         })
@@ -249,8 +256,11 @@ pub(crate) fn trigger_build(
                 package.clone(),
                 sccache_dir.to_string(),
             );
-            let (median_ms, samples) =
-                proof_median_ms(&log_text, &entry.node_id, action_name);
+            let (median_ms, samples) = proof_median_ms(
+                &log_text,
+                &[entry.node_id.as_str(), entry.ssh_target.as_str()],
+                action_name,
+            );
             snapshots.push(cynic_build::RunnerSnapshot {
                 node_id: entry.node_id.clone(),
                 free_ram_bytes: probe.probe_free_ram_bytes(),
@@ -569,13 +579,13 @@ mod tests {
         ]
         .join("\n");
         assert_eq!(
-            proof_median_ms(&log, "builder", "cargo:check"),
+            proof_median_ms(&log, &["builder", "cynic-builder-ssh"], "cargo:check"),
             (Some(40_000), 3)
         );
     }
 
     #[test]
     fn no_history_is_unexplored_never_zero() {
-        assert_eq!(proof_median_ms("", "builder", "cargo:check"), (None, 0));
+        assert_eq!(proof_median_ms("", &["builder"], "cargo:check"), (None, 0));
     }
 }
