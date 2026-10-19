@@ -18,6 +18,9 @@ pub mod rate_calculator;
 pub use types::{
     ResourceUnit, ResourceTransaction, ResourceLedger, TransactionDirection,
     ResourceMetadata, ResourceType, BuildMetrics, LEDGER_TRANSACTION_SCHEMA,
+    Resource, ResourceId, ResourceClass, Quantity, ResourceOrigin, Timestamp,
+    Provenance, Constraint, ConstraintId, ConstraintType, ResourceSchema,
+    ResourceRegistry,
 };
 pub use ports::{
     ComputeMeter, GpuMeter, StorageMeter, NetworkMeter, EnergyMeter,
