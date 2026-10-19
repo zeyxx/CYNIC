@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 use crate::adapters::local_runtime_federation_queue_store::LocalRuntimeFederationQueueStore;
+use crate::adapters::pqc_workload_signer::PqcWorkloadSigner;
 use crate::adapters::workload_request_signer::WorkloadRequestSigner;
 use crate::domain::runtime_federation::{
     DEFAULT_NODE_PUBLIC_KEY, RuntimeFederationConfig, default_queue_dir,
@@ -46,21 +47,38 @@ impl WebSocketFederationAdapter {
             node_public_key,
             node_identity: node_identity.to_string(),
             signing_key_path: signing_key_path_from_env(),
+            pqc_signing_key_path: pqc_signing_key_path_from_env(),
             queue_dir: default_queue_dir(queue_home),
         })
     }
 
     pub fn new(config: RuntimeFederationConfig) -> Self {
-        let signer = config
-            .signing_key_path
-            .clone()
-            .and_then(|path| match WorkloadRequestSigner::new(path) {
+        let signer = config.signing_key_path.clone().and_then(|path| {
+            match WorkloadRequestSigner::new(path) {
                 Ok(signer) => Some(signer),
                 Err(error) => {
                     tracing::warn!("workload signing key unusable, WS handshake unsigned: {error}");
                     None
                 }
-            });
+            }
+        });
+        // The post-quantum half is opt-in: without a key the handshake stays
+        // classical, and a kernel that has not migrated keeps working.
+        let signer = signer.map(|signer| {
+            let pqc_path = config.pqc_signing_key_path.clone();
+            match pqc_path {
+                None => signer,
+                Some(path) => match PqcWorkloadSigner::new(path) {
+                    Ok(pqc_signer) => signer.with_pqc_signer(pqc_signer),
+                    Err(error) => {
+                        tracing::warn!(
+                            "post-quantum signing key unusable, handshake stays classical: {error}"
+                        );
+                        signer
+                    }
+                },
+            }
+        });
         Self {
             client: Arc::new(WebSocketClient::new(
                 config.kernel_ws_url,
@@ -105,6 +123,12 @@ impl RuntimeFederationPort for WebSocketFederationAdapter {
 
 fn signing_key_path_from_env() -> Option<PathBuf> {
     std::env::var("CYNIC_NODE_SIGNING_KEY_FILE")
+        .ok()
+        .map(PathBuf::from)
+}
+
+fn pqc_signing_key_path_from_env() -> Option<PathBuf> {
+    std::env::var("CYNIC_NODE_PQC_SIGNING_KEY_FILE")
         .ok()
         .map(PathBuf::from)
 }
@@ -177,6 +201,7 @@ mod tests {
             node_public_key: "public-key".to_string(),
             node_identity: "node-a".to_string(),
             signing_key_path: None,
+            pqc_signing_key_path: None,
             queue_dir: std::path::PathBuf::from("/var/lib/cynic/node"),
         });
     }

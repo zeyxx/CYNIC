@@ -67,6 +67,7 @@ pub(crate) mod source_materialization_marker;
 pub(crate) mod source_snapshot_store;
 pub mod ssh_build_proof;
 pub mod ssh_release_basket_signing;
+pub mod pqc_workload_signer;
 pub mod surrealdb;
 pub mod tokio_build_execution;
 pub mod verified_credential_broker;

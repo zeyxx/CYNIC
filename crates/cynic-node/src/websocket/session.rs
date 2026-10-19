@@ -6,6 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, info, warn};
 
+use crate::adapters::workload_request_signer::apply_signature_headers;
 use crate::websocket::{NodeMessage, WebSocketClient, WsReader, WsWriter};
 
 /// Request path of the kernel WS URL ("ws://host:port/events/ws" -> "/events/ws").
@@ -102,10 +103,7 @@ impl WebSocketClient {
                 .to_string();
             let path = handshake_path(&self.kernel_url);
             let signature = signer.sign_request(&timestamp, "GET", &path, &[])?;
-            builder = builder
-                .header("X-Cynic-Public-Key", signature.public_key_hex)
-                .header("X-Cynic-Signature", signature.signature_hex)
-                .header("X-Cynic-Timestamp", signature.timestamp_secs);
+            builder = apply_signature_headers(builder, &signature);
         }
         builder
             .body(())

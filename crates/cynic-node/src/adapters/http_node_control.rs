@@ -5,7 +5,7 @@ use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::adapters::workload_request_signer::WorkloadRequestSigner;
+use crate::adapters::workload_request_signer::{WorkloadRequestSigner, apply_signature_headers};
 use crate::ports::{
     agent_workload_delivery_port::AgentWorkloadDeliveryPort,
     node_control_plane_port::{NodeDesiredStatePullPort, NodeStatusPublishPort},
@@ -115,19 +115,15 @@ impl HttpNodeControlAdapter {
             .map_err(|_| "system clock precedes unix epoch".to_string())?
             .as_secs()
             .to_string();
-        let signature = self.signer.sign_request(
-            &timestamp,
-            method.as_str(),
-            path,
-            &body,
-        )?;
-        let mut request = self
-            .client
-            .request(method, format!("{}{}", self.base_url, path))
-            .header("X-Cynic-Public-Key", signature.public_key_hex)
-            .header("X-Cynic-Signature", signature.signature_hex)
-            .header("X-Cynic-Timestamp", signature.timestamp_secs)
-            .header(reqwest::header::CONTENT_TYPE, "application/json");
+        let signature = self
+            .signer
+            .sign_request(&timestamp, method.as_str(), path, &body)?;
+        let mut request = apply_signature_headers(
+            self.client
+                .request(method, format!("{}{}", self.base_url, path)),
+            &signature,
+        )
+        .header(reqwest::header::CONTENT_TYPE, "application/json");
         if let Some(token) = enrollment_token {
             request = request.header("X-Cynic-Enrollment-Token", token);
         }
