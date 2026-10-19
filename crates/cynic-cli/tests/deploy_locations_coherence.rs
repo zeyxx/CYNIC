@@ -2,8 +2,8 @@
 //!
 //! The deploy locations registry (`infra/deploy-locations.json`) is the single
 //! source of truth for WHERE the cynic binary lives on each fleet machine.
-//! This test locks the properties that made the previous registry
-//! (`infra/binary-locations.json`) wrong:
+//! This test locks the properties that made the previous binary-locations
+//! registry wrong:
 //!
 //! 1. every declared machine resolves to a deployable path;
 //! 2. no machine-local absolute path is hardcoded (SEC-001) — paths use the

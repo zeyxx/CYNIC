@@ -1,8 +1,8 @@
 //! Deploy location registry — typed binding for `infra/deploy-locations.json`.
 //!
 //! Single Source of Truth for WHERE the cynic binary lives on each fleet
-//! machine and HOW it is deployed there. The file replaced
-//! `infra/binary-locations.json`, which declared one path, one sha256 and one
+//! machine and HOW it is deployed there. The file replaced the previous
+//! binary-locations registry, which declared one path, one sha256 and one
 //! status per machine while every machine actually carried TWO binaries in
 //! different profiles — and whose declared sha256 matched no live binary
 //! anywhere (measured 2026-10-19).
