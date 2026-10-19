@@ -12,7 +12,8 @@ pub(crate) fn execute_bridge_bundle(args: &[String]) -> Result<ExitCode, String>
     let output_dir = flag_value(args, "--output-dir")
         .ok_or_else(|| "bridge-bundle requires --output-dir <path>".to_string())?;
     emit_json(
-        &bridge::write_bridge_bundle(output_dir).map_err(|error| error.to_string())?,
+        &bridge::bundle::write_privilege_membrane_bundle(output_dir)
+            .map_err(|error| error.to_string())?,
         false,
     )
 }

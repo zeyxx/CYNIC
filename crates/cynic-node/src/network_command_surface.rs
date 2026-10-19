@@ -2,9 +2,11 @@ use cynic_host::command_surface::{
     HostCommandInvocation, HostCommandSurface, argv_command as host_argv_command,
     expectation as host_expectation, install_dir_command as host_install_dir_command,
     install_file_command as host_install_file_command,
-    package_presence_command as host_package_presence_command, render_invocation,
+    package_presence_command as host_package_presence_command,
     shell_command as host_shell_command,
 };
+#[cfg(test)]
+use cynic_host::command_surface::render_invocation;
 use cynic_host::install_contract::InstallPathPolicy;
 
 // Network plans use the host command contract directly. The node owns only
@@ -63,6 +65,7 @@ pub(crate) fn install_file_command(
     from_host_command(host_install_file_command(role, source, target, policy))
 }
 
+#[cfg(test)]
 pub(crate) fn render_command(command: &NetworkCommandSurface) -> String {
     render_invocation(&command.invocation)
 }

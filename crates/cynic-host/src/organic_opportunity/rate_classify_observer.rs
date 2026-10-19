@@ -12,6 +12,7 @@ use cynic_protocol::organic_opportunity::{
 use cynic_protocol::rate_classify::{
     RateTrend, WindowedCount, Thresholds,
 };
+use cynic_protocol::rate_classify::{RateTrend, WindowedCount, Thresholds};
 
 use super::port::{OrganicOpportunityObserver, SourceObservationStatus};
 

@@ -23,7 +23,7 @@ use crate::runtime_harness::{
 pub struct NetworkActuationPolicyDocument {
     pub schema: &'static str,
     pub status: &'static str,
-    pub helper_path: String,
+    pub executor_path: String,
     pub sudoers_subject: &'static str,
     pub max_timeout_seconds: u64,
     pub allowed_profiles: BTreeMap<String, NetworkActuationAllowedProfile>,
@@ -40,7 +40,7 @@ pub struct NetworkActuationAllowedProfile {
 /// policy. Provider and distro discovery stays in adapters.
 #[derive(Debug, Clone)]
 pub struct NetworkActuationRuntime {
-    pub helper_path: String,
+    pub executor_path: String,
     pub sudoers_subject: &'static str,
     pub max_timeout_seconds: u64,
     pub service_manager_bin: String,
@@ -411,7 +411,7 @@ pub fn build_network_actuation_policy<'a>(
     NetworkActuationPolicyDocument {
         schema: "cynic.network_actuator.policy.v1",
         status: "planned",
-        helper_path: runtime.helper_path.clone(),
+        executor_path: runtime.executor_path.clone(),
         sudoers_subject: runtime.sudoers_subject,
         max_timeout_seconds: runtime.max_timeout_seconds,
         allowed_profiles: profiles,
@@ -731,7 +731,7 @@ mod tests {
         let policy = NetworkActuationPolicyDocument {
             schema: "cynic.network_actuator.policy.v1",
             status: "planned",
-            helper_path: "/portable/libexec/cynic-host-exec".to_string(),
+            executor_path: "/portable/bin/cynic".to_string(),
             sudoers_subject: "cynic",
             max_timeout_seconds: 60,
             allowed_profiles: BTreeMap::from([(
@@ -756,7 +756,7 @@ mod tests {
     #[test]
     fn builder_uses_injected_capability_paths() {
         let runtime = NetworkActuationRuntime {
-            helper_path: "/portable/libexec/cynic-host-exec".to_string(),
+            executor_path: "/portable/bin/cynic".to_string(),
             sudoers_subject: "cynic",
             max_timeout_seconds: 60,
             service_manager_bin: "/portable/bin/systemctl".to_string(),
@@ -777,7 +777,7 @@ mod tests {
     #[test]
     fn command_builder_keeps_observed_topology_as_argv_data() {
         let runtime = NetworkActuationRuntime {
-            helper_path: "/portable/libexec/cynic-host-exec".to_string(),
+            executor_path: "/portable/bin/cynic".to_string(),
             sudoers_subject: "cynic",
             max_timeout_seconds: 60,
             service_manager_bin: "/portable/bin/systemctl".to_string(),
@@ -809,7 +809,7 @@ mod tests {
     #[test]
     fn direct_management_link_preserves_default_route_and_uses_injected_adapter() {
         let runtime = NetworkActuationRuntime {
-            helper_path: "/portable/libexec/cynic-host-exec".to_string(),
+            executor_path: "/portable/bin/cynic".to_string(),
             sudoers_subject: "cynic",
             max_timeout_seconds: 60,
             service_manager_bin: "/portable/bin/systemctl".to_string(),

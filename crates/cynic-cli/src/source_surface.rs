@@ -1,6 +1,7 @@
 //! Source layer management surface (Cortex, Forgejo, GitHub, worktrees & releases).
 
 use clap::Subcommand;
+use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
@@ -74,9 +75,9 @@ pub(crate) enum SourceCommand {
         #[command(subcommand)]
         command: PrCommand,
     },
-    /// Deploy built release binaries atomically to /var/lib/cynic/releases/<version>.
+    /// Deploy built release binaries atomically to <state>/releases/<version>.
     Deploy {
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long, default_value = ".")]
         root: String,

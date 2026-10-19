@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
+use cynic_types::paths::CynicPaths;
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use crate::domain::disk::probe::{
@@ -297,10 +298,10 @@ fn observe_known_caches(state_root: &Path) -> Vec<DiskCacheEntry> {
     let skipped = excluded_dirs_for_cwd("disk_scan");
 
     // 1. Legacy /tmp/cynic-* targets (pre-SSOT build root; now usually test
-    // litter) plus the SSOT cargo target root (A1: $CYNIC_STATE_ROOT or
-    // /var/lib/cynic, build-targets/<profile>). Both are observed; only the
-    // legacy path is ever proposed for cleanup (probe.rs) — the live build
-    // cache is never an automatic reclaim candidate.
+    // litter) plus the SSOT cargo target root (A1: $CYNIC_STATE_ROOT or the
+    // canonical state root, build-targets/<profile>). Both are observed; only
+    // the legacy path is ever proposed for cleanup (probe.rs) — the live
+    // build cache is never an automatic reclaim candidate.
     let mut tmp_cynic_size = 0u64;
     if let Ok(read_dir) = fs::read_dir("/tmp") {
         for entry in read_dir.flatten() {
@@ -323,6 +324,9 @@ fn observe_known_caches(state_root: &Path) -> Vec<DiskCacheEntry> {
     // The root is injected by the adapter (`$CYNIC_STATE_ROOT`, then the
     // documented convention) instead of being re-read from the environment
     // here, so a relocated state tree is observed as given.
+    let state_root = std::env::var("CYNIC_STATE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| CynicPaths::state_dir());
     let profile = std::env::var("CYNIC_CARGO_TARGET_PROFILE")
         .ok()
         .filter(|profile| !profile.trim().is_empty())
@@ -438,6 +442,7 @@ fn observe_large_files(state_root: &Path) -> Vec<DiskFileEntry> {
         .into_iter()
         .map(Path::to_path_buf)
         .collect::<Vec<_>>();
+    let mut search_paths = vec![PathBuf::from("/tmp"), CynicPaths::state_dir()];
     if let Ok(principal_home) = std::env::var("CYNIC_PRINCIPAL_HOME") {
         search_paths.push(PathBuf::from(principal_home));
     }

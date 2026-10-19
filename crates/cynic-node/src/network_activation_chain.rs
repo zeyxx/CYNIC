@@ -323,12 +323,12 @@ fn host_substrate_active(context: &cynic_host::runtime_context::HostRuntimeConte
 #[cfg(test)]
 mod tests {
     use super::build_activation_chain_report_with_runtime;
-    use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+    use cynic_types::paths::CynicPaths;
 
     #[test]
     fn activation_chain_report_has_stable_schema_and_stage_order() {
         let report = build_activation_chain_report_with_runtime(
-            DEFAULT_REGISTRY_PATH,
+            &CynicPaths::registry_path().display().to_string(),
             "test-host",
             None,
             false,

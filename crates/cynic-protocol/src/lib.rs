@@ -60,6 +60,7 @@ pub mod fleet_discovery;
 pub mod fleet_heartbeat;
 pub mod framework;
 pub mod freshness;
+pub mod gasdf;
 pub mod hardening;
 pub mod health_signal;
 pub mod host_substrate;
@@ -122,5 +123,6 @@ pub mod window_journal;
 pub mod workload_identity;
 
 pub mod exports;
+pub mod retention;
 pub mod resource_budget;
 pub use exports::*;

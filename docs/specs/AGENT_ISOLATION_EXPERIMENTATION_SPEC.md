@@ -35,8 +35,8 @@ The workstation (Cortex) is not the durable host for agent sessions. A dedicated
 | Build sandbox wiring | `crates/cynic-node/src/adapters/tokio_build_execution.rs` + `usecases/build_scheduler/prepare.rs` | `BuildSandboxMode::Bwrap` is actually consumed; `resolve_sandbox_mode` decides per build |
 | LXC bounded executor | `crates/cynic-lxc/src/{decision,execution}.rs` | `admit`/`execute` via `pct exec`, argv allowlist (no shell), `--apply` required for mutation, breakglass fail-closed, timeout + read-back, tests |
 | LXC clone/disk adapters | `crates/cynic-proxmox/src/adapters/proxmox_{clone,disk_extension}.rs` | `LxcCloneOutcome`, `ProxmoxSshDiskExtensionAdapter` |
-| Agent bus (coordination plane) | `crates/cynic-agent-bus/` | `Task`, `Claim`+`ClaimStore`, `Ledger`, `IdentityProvider`, `AgentExecutor`, `CoordinatorReasoner` ports |
-| Agent bus projections | `crates/cynic-agent-bus-server/`, `crates/cynic-agent-bus-coordinator/` | axum REST (`/health`,`/tasks`); `Coordinator` fleet topology, span of control, stagnation |
+| Agent bus (coordination plane) | ~~`crates/cynic-agent-bus/`~~ RETIRED | Deleted as zombie crates (`a08d6350`); coordination lives in `cynic-workload`/`pool`/`lifecycle` + protocol claims |
+| ~~Agent bus projections~~ (deleted with the family, see above) | — | No surface; do not reference as existing |
 | CLI projection | `crates/cynic-cli/src/agent_host_surface.rs` | `cynic agent host plan|observe`, reuses `ProxmoxControlAdapter` |
 
 ### 2.2 Missing or incomplete (the real gaps this spec closes)
@@ -49,7 +49,7 @@ The workstation (Cortex) is not the durable host for agent sessions. A dedicated
 | **Build sandbox is off by default** | The mechanism exists (`cynic-sandbox/src/cargo.rs` + `tokio_build_execution.rs`), but `resolve_sandbox_mode` defaults to `BuildSandboxMode::Off` (`usecases/build_scheduler/prepare.rs:175`). No policy forces an ephemeral sandbox for a candidate PR build. The mechanism is real; the *policy* is absent. |
 | **`cynic-host` guest code** | `crates/cynic-host/src/agent_host/` (1223 LOC) is Proxmox-specific but lives in the L1 monolith (82 813 LOC src, god-object ceiling 25k). |
 | **Unconsumed sandbox capability** | `cynic-sandbox/src/netns.rs` and `rapl.rs` are ports with `Null*` implementations only. No consumer. Either implement or prune — do not keep as passive debt (`pruning-policy::no_footprint_justification`). |
-| **Agent-bus family is not wired** | `cynic-agent-bus-coordinator` has no consumer; `cynic-agent-bus-server` is only consumed by the coordinator. No MCP/CLI/registry surface exposes the coordination plane. Its `Claim` duplicates `cynic-protocol::agent_coordination::Claim` (the latter carries lease + fencing token). |
+| **Agent-bus family (resolved by deletion)** | Removed in `a08d6350`. The wiring/duplication debate is moot — the copy is gone. Residual: confirm no dangling references outside this spec. |
 | **Ephemeral LXC has no consumer** | `cynic-proxmox::adapters::proxmox_clone` (`LxcCloneOutcome`) exists but nothing provisions or destroys an ephemeral LXC. This is exactly the missing link for ephemeral placement. |
 
 ## 3. Agent-host degradation (three typed postures)
@@ -142,8 +142,7 @@ No new crate is created. Every move targets a crate that already owns the respon
 
 Consolidation candidates (not extraction — fusion, per `pruning-policy::deduplication_before_new_abstraction`):
 
-- **Agent-bus `Claim`** (`cynic-agent-bus/src/types.rs`) duplicates `cynic-protocol::agent_coordination::Claim`. The protocol one is canonical: it carries `lease_id` + `fencing_token` + monotonic `consumed`. The bus copy should be repointed to the protocol type, or the bus's in-memory store retired in favour of the canonical coordination store. This is a `responsibility_has_two_owners` violation and the reason `CANONICAL_CRATE_MAP` already proposes a single consolidated `cynic-agent-coordination` crate (R7).
-- **Agent-bus family wiring** — `cynic-agent-bus-coordinator` has no consumer. Either wire it to a real surface (MCP/CLI) or mark it explicitly orphaned and fuse. Do not leave an unwired coordination plane as passive debt.
+- **Agent-bus `Claim`/wiring (RESOLVED by deletion `a08d6350`)** — the family is gone, so the duplication and wiring debates are moot. Do not revive. Residual: grep the tree for dangling references.
 - **`cynic-sandbox::{netns,rapl}`** — ports with only `Null*` implementations. Implement or prune; no consumer today.
 
 Constraints:
@@ -159,7 +158,7 @@ Constraints:
 3. **`cynic-host`** — remove the moved module, repoint consumers, confirm no net growth.
 4. **`cynic-node`** — make the candidate-build sandbox policy explicit: a candidate PR build must not silently take `BuildSandboxMode::Off`. The executor and argv constructor already exist (`tokio_build_execution.rs`, `cynic-sandbox::cargo`); this step is policy, not new machinery.
 5. **`cynic-lxc` / `cynic-proxmox`** — orchestrate ephemeral LXC provision→observe→teardown using the existing `proxmox_clone` + `cynic-lxc` executor. Add the teardown obligation and read-back, not a new executor.
-6. **`cynic-agent-bus`** — resolve the `Claim` duplication (repoint to `cynic-protocol::agent_coordination::Claim` or retire the bus store) and decide the coordinator's fate (wire or fuse). Fusion, not a new crate.
+6. ~~**`cynic-agent-bus`**~~ — DONE via deletion (`a08d6350`); verify no dangling references tree-wide.
 7. **`cynic-cli`** — thin projections: `cynic agent host posture`, `cynic builder placement`, `cynic agent host experiment plan|receipt`. No policy duplicated in the CLI.
 8. **Conformance** — hypervisor loss, VM loss, Builder loss, unknown reachability, ephemeral teardown read-back, placement switch without receipt (must be refused), candidate build with sandbox `Off` (must be refused).
 

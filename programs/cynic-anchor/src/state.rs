@@ -14,8 +14,7 @@ pub struct PohRecordAccount {
     pub _reserved: [u8; 7],
 }
 
-unsafe impl Zeroable for PohRecordAccount {}
-unsafe impl Pod for PohRecordAccount {}
+// Zeroable/Pod are auto-implemented by #[account(zero_copy)] in Anchor 1.2+.
 
 #[account(zero_copy)]
 #[derive(Debug, PartialEq, Eq)]
@@ -28,11 +27,8 @@ pub struct FutarchyMarketAccount {
     pub status: u8,   // 0 = Open, 1 = Resolved, 2 = Executed, 3 = Canceled
     pub decision: u8, // 0 = Undecided, 1 = Pass, 2 = Fail
     pub bump: u8,
-    pub _reserved: [u8; 5],
+    pub _reserved: [u8; 9],
 }
-
-unsafe impl Zeroable for FutarchyMarketAccount {}
-unsafe impl Pod for FutarchyMarketAccount {}
 
 #[account(zero_copy)]
 #[derive(Debug, PartialEq, Eq)]
@@ -44,9 +40,6 @@ pub struct IgnisVaultAccount {
     pub bump: u8,
     pub _reserved: [u8; 7],
 }
-
-unsafe impl Zeroable for IgnisVaultAccount {}
-unsafe impl Pod for IgnisVaultAccount {}
 
 #[cfg(test)]
 mod tests {
@@ -79,7 +72,7 @@ mod tests {
             status: 0,
             decision: 0,
             bump: 255,
-            _reserved: [0u8; 5],
+            _reserved: [0u8; 9],
         };
         let m_bytes = bytemuck::bytes_of(&market);
         let m_deserialized: &FutarchyMarketAccount = bytemuck::from_bytes(m_bytes);

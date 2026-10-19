@@ -8,6 +8,7 @@ use cynic_eval::convergence::{
 use cynic_protocol::{FrameworkSpec, framework_spec};
 
 use cynic_build::BuildConformanceEvidence;
+use cynic_types::paths::CynicPaths;
 use crate::repo_access::current_repo_access_status;
 use crate::runtime_harness::RuntimeHarnessContext;
 use crate::runtime_layout::current_runtime_layout;
@@ -93,7 +94,9 @@ pub fn observe_vertical_evidence(
         Some(proof) if proof.status == "failed" => ("blocked", proof.blockers.clone()),
         Some(proof) => ("unknown", proof.blockers.clone()),
         None => {
-            if std::path::Path::new("/var/lib/cynic/reports/build-proof.json").exists()
+            if CynicPaths::state_dir()
+                .join("reports/build-proof.json")
+                .exists()
                 || std::path::Path::new("/tmp/cynic-build-proof.json").exists()
             {
                 ("complete", Vec::new())

@@ -16,10 +16,10 @@ use crate::domain::local_runtime::{
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
+use cynic_types::paths::CynicPaths;
 
 const SUPERVISOR_SURFACE: &str = "docker";
 const ODS_DIR_ENV: &str = "CYNIC_ODS_DIR";
-const ODS_DIR_DEFAULT: &str = "/var/lib/cynic/ods";
 
 /// Root of the ODS compose deployment this supervisor drives.
 ///
@@ -30,7 +30,7 @@ const ODS_DIR_DEFAULT: &str = "/var/lib/cynic/ods";
 fn ods_dir() -> std::path::PathBuf {
     std::env::var(ODS_DIR_ENV)
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from(ODS_DIR_DEFAULT))
+        .unwrap_or_else(|_| CynicPaths::state_dir().join("ods"))
 }
 
 #[derive(Debug)]

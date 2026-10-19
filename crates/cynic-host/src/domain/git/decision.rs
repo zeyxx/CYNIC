@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::verdict::GitBranchVerdict;
 use super::verdict::verdict_for;
+use super::verdict::{GitBranchVerdict, verdict_for};
 
 pub use cynic_vcs::git_topology::GitBranchState;
 

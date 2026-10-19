@@ -4,7 +4,7 @@ use clap::Subcommand;
 use std::path::Path;
 use std::process::ExitCode;
 
-use cynic_vcs::pull_request::evaluate_pr_admission;
+use cynic_vcs::pull_request::{evaluate_pr_admission, evaluate_pr_close};
 use cynic_vcs_forgejo::forgejo_pr_port_from_registry;
 use crate::cli_json::emit_pretty_json;
 
@@ -36,6 +36,15 @@ pub(crate) enum PrCommand {
         number: u64,
         #[arg(long, default_value = "merge")]
         style: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Close an open pull request without merging.
+    Close {
+        #[arg(long)]
+        number: u64,
+        #[arg(long, default_value_t = false)]
+        delete_branch: bool,
         #[arg(long)]
         json: bool,
     },
@@ -143,6 +152,46 @@ pub(crate) fn execute_pr(root: &Path, command: PrCommand) -> ExitCode {
                         eprintln!("blocked: merge failed: {e}");
                         ExitCode::FAILURE
                     }
+                }
+            }
+        }
+        PrCommand::Close {
+            number,
+            delete_branch,
+            json,
+        } => {
+            let prs = match port.list("open") {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("blocked: cannot observe PRs before close: {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let pr = match prs.iter().find(|p| p.number == number) {
+                Some(p) => p,
+                None => {
+                    eprintln!("blocked: PR #{number} not found among open PRs");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            if let Err(blocker) = evaluate_pr_close(pr) {
+                eprintln!("blocked: PR #{number} failed close admission: {blocker}");
+                return ExitCode::FAILURE;
+            }
+
+            match port.close(number, delete_branch) {
+                Ok(proof) => {
+                    if json {
+                        emit_pretty_json(&proof)
+                    } else {
+                        println!("{}", proof.message);
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(e) => {
+                    eprintln!("blocked: close failed: {e}");
+                    ExitCode::FAILURE
                 }
             }
         }

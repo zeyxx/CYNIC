@@ -9,12 +9,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use crate::agent_surface::types::{
-    AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA, AGENT_IDENTIFY_REPORT_SCHEMA,
-    AGENT_RELEASE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA, AgentClaimReport, AgentClaimSummary,
-    AgentEventsReport, AgentIdentifyReport, AgentReleaseReport, AgentStatusReport,
+    AgentClaimReport, AgentClaimSummary, AgentEventsReport, AgentIdentifyReport,
+    AgentReleaseReport, AgentStatusReport, AGENT_CLAIM_REPORT_SCHEMA, AGENT_EVENTS_REPORT_SCHEMA,
+    AGENT_IDENTIFY_REPORT_SCHEMA, AGENT_RELEASE_REPORT_SCHEMA, AGENT_STATUS_REPORT_SCHEMA,
 };
 
-use cynic_protocol::agent_coordination::{ClaimScope, predicates as coord_predicates};
+use cynic_protocol::agent_coordination::{predicates as coord_predicates, ClaimScope};
 
 /// Resolve the kernel REST base URL.
 ///
@@ -579,7 +579,6 @@ fn civil_from_days(z: i64) -> (i64, u64, u64) {
     let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
-
 
 /// The kernel guards PEER surfaces with credentials. Node-local arbitration —
 /// claim, release, status on this node — is not a peer surface, so an auth
@@ -1537,7 +1536,8 @@ mod tests {
         let mut doc = live_doc(now);
         let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "", now).unwrap_err();
         assert!(err.contains("no active local claim"), "unexpected: {err}");
-        let err = refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
+        let err =
+            refresh_claim_entry(&mut doc, "rival", "a/b.rs", "claim_test_1", now).unwrap_err();
         assert!(err.contains("held by tester"), "unexpected: {err}");
     }
 
@@ -1569,4 +1569,56 @@ mod tests {
         // 1791936000 == 2026-10-14T00:00:00Z == 20740 days since epoch.
         assert_eq!(civil_from_days(1791936000 / 86400), (2026, 10, 14));
     }
+}
+
+/// Fail-closed mutation gate: every path must be covered by an ACTIVE
+/// claim held by this agent, decided by the same `scopes_overlap`
+/// predicate as claim admission — never by a local copy of the rule.
+/// Covered = exact or ancestor scope; anything else is uncovered and
+/// the caller must claim before mutating. Read-only: never writes.
+pub(crate) fn execute_scope(
+    agent_id: &str,
+    paths: &[String],
+) -> Result<serde_json::Value, String> {
+    let doc = load_claims_doc()?;
+    let now_s = now_unix_s();
+    let claims = doc
+        .get("claims")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut covered: Vec<String> = Vec::new();
+    let mut uncovered: Vec<String> = Vec::new();
+    for path in paths {
+        let wanted = ClaimScope::File { path: path.clone() };
+        let held = claims.iter().any(|claim| {
+            claim.get("agent_id").and_then(|v| v.as_str()) == Some(agent_id)
+                && local_claim_active(claim, now_s)
+                && {
+                    let kind = claim
+                        .get("scope")
+                        .and_then(|s| s.get("kind"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("file");
+                    let target = claim
+                        .get("scope")
+                        .and_then(|s| s.get("path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    coord_predicates::scopes_overlap(&local_scope_of(kind, target), &wanted)
+                }
+        });
+        if held {
+            covered.push(path.clone());
+        } else {
+            uncovered.push(path.clone());
+        }
+    }
+    Ok(serde_json::json!({
+        "schema": "cynic.cli.agent_scope_report.v1",
+        "status": if uncovered.is_empty() { "covered" } else { "uncovered" },
+        "agent_id": agent_id,
+        "covered": covered,
+        "uncovered": uncovered,
+    }))
 }

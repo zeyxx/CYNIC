@@ -3,7 +3,7 @@
 //! ## Lookup order
 //! 1. `CYNIC_INFERENCE_CONFIG` env var (absolute path override)
 //! 2. `$XDG_CONFIG_HOME/cynic/inference.toml` (user/principal SSOT, default `~/.config/cynic`)
-//! 3. `/etc/cynic/inference.toml` (system-wide fallback)
+//! 3. `<config>/inference.toml` (system-wide fallback)
 //!
 //! Principal user config takes precedence over the system file, allowing
 //! the operator to maintain their own multi-backend routing without
@@ -134,7 +134,7 @@ fn load_inference_config_from_path(
 /// Determine the config path using the priority chain:
 /// 1. `CYNIC_INFERENCE_CONFIG` env var
 /// 2. `$XDG_CONFIG_HOME/cynic/inference.toml` (user principal SSOT)
-/// 3. `/etc/cynic/inference.toml` (system fallback)
+/// 3. `<config>/inference.toml` (system fallback)
 pub(crate) fn resolve_config_path() -> PathBuf {
     resolve_config_path_inner(
         std::env::var("CYNIC_INFERENCE_CONFIG").ok(),

@@ -14,7 +14,7 @@ use crate::adapters::local_build_artefact::{LocalBuildArtefactAdapter, DEFAULT_C
 use crate::domain::branch_graph::probe::{
     enrich_with_parents, parse_git_for_each_ref, parse_git_log_graph,
 };
-use crate::domain::build_artefact::port::BuildArtefactObservationPort;
+use crate::domain::build_artefact::RetentionPlanner;
 use crate::domain::build_discovery::probe::parse_cargo_metadata;
 use crate::domain::queue::probe::build_queue_plan;
 use crate::process_observation::capture_command;
@@ -81,14 +81,19 @@ impl LocalQueueAdapter {
                 // contract, never by accident.
                 unknowns.extend(report.residual_unknowns.iter().cloned());
                 local.plan_gc(&report)
+        let gc_plan = match LocalBuildArtefactAdapter::observe_shallow() {
+            Ok(obs) => {
+                let policy =
+                    cynic_protocol::retention::default_build_artefact_policy();
+                LocalBuildArtefactAdapter.plan(&obs, &policy)
             }
             Err(e) => {
                 unknowns.push(format!("build_artefact_gc_fallback:{e}"));
-                cynic_build::build_artefact::BuildArtefactGcPlan {
-                    schema: cynic_build::build_artefact::BUILD_ARTEFACT_GC_PLAN_SCHEMA.to_string(),
+                cynic_protocol::retention::RetentionPlan {
+                    schema: cynic_protocol::retention::RETENTION_PLAN_SCHEMA.to_string(),
                     items: vec![],
                     total_reclaimable_bytes: 0,
-                    total_reclaimable_human: "0B".to_string(),
+                    policy_version: "BuildArtefact".to_string(),
                 }
             }
         };
@@ -103,7 +108,7 @@ impl crate::domain::queue::port::QueuePlanningPort for LocalQueueAdapter {
         &self,
         branch_graph: &BranchGraph,
         discovery: &BuildDiscoveryReport,
-        gc_plan: &cynic_build::build_artefact::BuildArtefactGcPlan,
+        gc_plan: &cynic_protocol::retention::RetentionPlan,
         now: u64,
     ) -> QueuePlan {
         build_queue_plan(branch_graph, discovery, gc_plan, now)

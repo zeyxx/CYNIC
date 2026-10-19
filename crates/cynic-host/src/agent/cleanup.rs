@@ -8,6 +8,7 @@
 use crate::adapters::local_build_artefact::DEFAULT_CHECKOUTS_BASE;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
 use cynic_protocol::cleanup::*;
+use cynic_types::paths::CynicPaths;
 
 pub struct CleanupAgent<R: ArgvRunner> {
     runner: R,
@@ -59,12 +60,14 @@ impl<R: ArgvRunner> CleanupAgent<R> {
         let disk_used_percent = ((used as f64 / total as f64) * 100.0) as u8;
 
         let du_path = format!("{}/*", self.checkouts_base);
+        let checkouts_glob = format!("{}/*", CynicPaths::state_dir().join("checkouts").display());
         let du_output = self.runner.run(&[
             "ssh",
             cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET,
             "du",
             "-sh",
             du_path.as_str(),
+            checkouts_glob.as_str(),
         ]);
         let mut items = Vec::new();
         for line in du_output.stdout.lines() {
