@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
 
+use cynic_types::paths::CynicPaths;
+
 pub const NETWORK_SYNC_REPORT_SCHEMA: &str = "cynic.network.sync_report.v1";
 
 /// The generated Synapse hosts file placement when no override is supplied.
@@ -260,6 +262,10 @@ pub fn execute_network_sync_with_target(
         for record in &dns_records {
             hosts_content.push_str(&format!("{}\t{}\n", record.ip, record.hostnames.join(" ")));
         }
+        let dns_dir = CynicPaths::system_config_dir().join("dns");
+        let _ = std::fs::create_dir_all(&dns_dir);
+        let hosts_path = dns_dir.join(cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME);
+        if let Err(e) = std::fs::write(hosts_path, &hosts_content) {
         let hosts_path = dns_target.hosts_path();
         if let Err(e) = std::fs::create_dir_all(&dns_target.dns_dir) {
             blockers.push(format!("create_dns_dir_failed:{}:{e}", dns_target.dns_dir));

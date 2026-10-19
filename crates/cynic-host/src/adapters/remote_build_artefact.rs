@@ -19,6 +19,7 @@ use crate::domain::build_artefact::{
 };
 use crate::domain::disk::probe::{parse_df_filesystems, parse_lsblk_disks};
 use cynic_lifecycle::ArgvRunner;
+use cynic_protocol::disk::bytes_to_human;
 use cynic_protocol::retention::PressureSignal;
 use cynic_types::paths::CynicPaths;
 
@@ -77,6 +78,8 @@ impl<R: ArgvRunner> RemoteBuildArtefactAdapter<R> {
     }
 }
 
+impl<R: ArgvRunner> BuildArtefactObservationPort for RemoteBuildArtefactAdapter<R> {
+    fn observe_build_artefacts(&self) -> Result<BuildArtefactReport, String> {
 impl<R: ArgvRunner> RetentionObserver for RemoteBuildArtefactAdapter<R> {
     fn observe(&self) -> Result<RetentionObservation, RetentionError> {
         let checkouts_dir = CynicPaths::state_dir()

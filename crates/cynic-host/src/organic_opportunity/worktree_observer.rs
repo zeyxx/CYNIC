@@ -272,6 +272,8 @@ mod tests {
         );
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::Plumbing);
+        // Scope names the SSOT declaration that must be repaired, not a
+        // worktree_layout path (no such file exists; see cd48bfc1).
         // Scope tracks the path SSOT (infra/workspace-paths.json), not the
         // retired infra/worktree_layout name.
         assert_eq!(opps[0].scope, "infra/workspace-paths.json");

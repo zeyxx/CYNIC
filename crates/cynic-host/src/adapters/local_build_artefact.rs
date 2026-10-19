@@ -1,3 +1,9 @@
+//! Local build artefact observation — binds `BuildArtefactObservationPort` to the
+//! host's own checkouts tree under the canonical state directory (no SSH). It
+//! reads `/proc`-less substrate via `capture_command` (lsblk/df/du/git) and
+//! reuses the pure `parse_checkout_list` / `parse_df_pressure` / `build_gc_plan`
+//! parsers shared with the remote adapter so the two never diverge.
+
 //! Local build artefact observation — binds `RetentionObserver` to the
 //! host's own `/var/lib/cynic/checkouts` tree (no SSH). It reads `/proc`-less
 //! substrate via `capture_command` (lsblk/df/du/git) and reuses the pure

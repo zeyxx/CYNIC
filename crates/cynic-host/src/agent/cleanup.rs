@@ -183,6 +183,7 @@ mod tests {
                 (vec!["ssh".to_string(), cynic_protocol::fleet_target::BUILD_RUNNER_SSH_TARGET.to_string(), "df".to_string(), "-B1".to_string(), "/".to_string()],
                  cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
+                     stdout: "Filesystem 1B-blocks Used Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0 42949672960 42949672960 0 100% /".to_string(),
                      stdout: "Filesystem                        1B-blocks         Used    Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   42949672960   42949672960     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,

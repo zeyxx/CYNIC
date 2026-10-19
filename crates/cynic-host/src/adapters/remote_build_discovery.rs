@@ -96,6 +96,7 @@ mod tests {
 
     #[test]
     fn observes_via_ssh_runner() {
+        let meta_json = r#"{"packages":[{"name":"cynic-host","edition":"2024","targets":[{"name":"cynic-host","kind":["lib"]}]}],"workspace_members":["cynic-host 0.1.0 (path+file:///tmp/cynic-host)"],"target_directory":"/tmp/target","version":1}"#;
         let meta_json = r#"{"packages":[{"name":"cynic-host","edition":"2024","manifest_path":"/tmp/cynic-host/Cargo.toml","targets":[{"name":"cynic-host","kind":["lib"]}]}],"workspace_members":["cynic-host 0.1.0 (path+file:///tmp/cynic-host)"],"target_directory":"/tmp/target","version":1}"#;
         let runner = MapArgvRunner {
             responses: vec![

@@ -94,7 +94,7 @@ pub enum NodeCommand {
     NodeIdentity {
         #[arg(long)]
         node_id: String,
-        #[arg(long, default_value = "/var/lib/cynic/identity/node-signing.key")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().join("identity/node-signing.key").display().to_string())]
         signing_key_path: String,
         #[arg(long)]
         apply: bool,
@@ -131,7 +131,7 @@ pub enum NodeCommand {
     RegistryObservation {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long)]
         output: Option<String>,
@@ -165,9 +165,9 @@ pub enum NodeCommand {
         request: String,
         #[arg(long)]
         result_file: Option<String>,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long, default_value = "http://127.0.0.1:3030")]
         kernel_endpoint: String,
@@ -184,9 +184,9 @@ pub enum NodeCommand {
     AgentWorkspaceLifecycle {
         #[arg(long)]
         workload_id: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long, default_value = "http://127.0.0.1:3030")]
         kernel_endpoint: String,
@@ -205,7 +205,7 @@ pub enum NodeCommand {
     AgentSchedulerStep {
         #[arg(long)]
         observation: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         json: bool,
@@ -236,7 +236,7 @@ pub enum NodeCommand {
     AgentWorkloadStatus {
         #[arg(long)]
         workload_id: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         json: bool,
@@ -245,7 +245,7 @@ pub enum NodeCommand {
     AgentWorkloadTransition {
         #[arg(long)]
         request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         apply: bool,
@@ -273,7 +273,7 @@ pub enum NodeCommand {
     // === Storage ===
     /// Observe or reconcile one node-local storage service with a bounded restart budget.
     StorageReconcile {
-        #[arg(long, default_value = "/var/lib/cynic/storage-lifecycle")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().join("storage-lifecycle").display().to_string())]
         state_dir: String,
         #[arg(long, default_value_t = 30)]
         warmup_seconds: u64,
@@ -301,9 +301,9 @@ pub enum NodeCommand {
     SourceMaterialize {
         #[arg(long)]
         request: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
-        #[arg(long, default_value = "/var/lib/cynic/source/snapshots")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().join("source/snapshots").display().to_string())]
         snapshot_root: String,
         #[arg(long)]
         snapshot_base_url: Option<String>,
@@ -324,9 +324,9 @@ pub enum NodeCommand {
         source: String,
         #[arg(long)]
         revision: String,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
         #[arg(long)]
         agent_id: String,

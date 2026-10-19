@@ -154,6 +154,13 @@ impl AuditRule for RuntimePathLiteralRule {
             if file.relative_path == "crates/cynic-types/src/paths.rs" {
                 continue;
             }
+            // The canonical path module is the axiom, not a claim: it names
+            // each owned root exactly once so every other file can reference
+            // it instead of restating it. Flagging it would demand the roots
+            // be named nowhere, which is the opposite of single-source-of-truth.
+            if file.relative_path == "crates/cynic-types/src/paths.rs" {
+                continue;
+            }
 
             let mut cfg_test_depth: Option<i32> = None;
             let mut depth: i32 = 0;
