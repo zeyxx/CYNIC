@@ -121,7 +121,29 @@ jobs:
 
           if [ "${hard_gate_failed}" -eq 1 ] || [ -n "${failed_suites}" ]; then
             echo "Aggregate verdict: FAIL"
+            verdict="FAIL"
+          else
+            echo "Aggregate verdict: PASS — every executed test suite succeeded."
+            verdict="PASS"
+          fi
+
+          # Gate receipt: machine-readable proof of what ran and what it said.
+          # Audits the audit — a green job without this file is suspect.
+          printf '{"gate":"layer-0-4","verdict":"%s","sha":"%s","run_id":"%s","ts":"%s","gates":{"validate_json":"%s","check_compile":"%s","core_types":"%s","knowledge":"%s","inference":"%s","canonical_paths":"%s"}}\n' \
+            "${verdict}" "${GITHUB_SHA}" "${GITHUB_RUN_ID}" "$(date -u +%FT%TZ)" \
+            "${JSON_VALIDATION_OUTCOME}" "${COMPILE_OUTCOME}" "${CORE_TYPES_OUTCOME}" \
+            "${KNOWLEDGE_OUTCOME}" "${INFERENCE_OUTCOME}" "${CANONICAL_PATHS_OUTCOME}" \
+            > gate-receipt.json
+          cat gate-receipt.json
+
+          if [ "${verdict}" = "FAIL" ]; then
             exit 1
           fi
 
-          echo "Aggregate verdict: PASS — every executed test suite succeeded."
+      - name: Upload Gate Receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-receipt-${{ github.run_id }}
+          path: gate-receipt.json
+          retention-days: 90
