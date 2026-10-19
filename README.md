@@ -96,6 +96,55 @@ cynic audit secret --json
 cynic audit crate --json
 ```
 
+### What These Produce
+
+Every surface above emits machine-readable JSON, and every one of them is
+read-only. This is the actual output of the two audits, on this workspace:
+
+```json
+{
+  "schema": "cynic.host.secret_lint_observation.v1",
+  "files_scanned": 2790,
+  "findings": []
+}
+```
+
+```json
+{
+  "schema": "cynic.cli.crate_audit.v1",
+  "status": "ok",
+  "rule": "core crates must keep executable boundary tests, bounded entrypoints, and explicit visibility into source hotspots",
+  "crate_count": 46,
+  "ok_count": 46,
+  "blocked_count": 0
+}
+```
+
+`status: "ok"` is not a claim — it is the exit status of a check that ran.
+A surface that could not run reports `unknown`, never `ok`.
+
+### The Full Surface
+
+The CLI exposes 24 top-level arms. The audit pair above is the verification
+subset; the rest are the runtime surfaces:
+
+| Arm | What it does |
+|---|---|
+| `cynic audit` | Architectural invariants, secret scan, contract verification |
+| `cynic build` | Build submission, proof recording, runner dispatch |
+| `cynic agent` | Claim/release scopes, coordination, governance observation |
+| `cynic source` | Source sync — observe, reconcile, apply across layers |
+| `cynic node` | Node identity, enrollment certificates, lifecycle activation |
+| `cynic host` | Local substrate operations, capability-gated mutation |
+| `cynic network` | Mesh planning, peer consensus, registry audit, SOC audit |
+| `cynic inference` | Local inference plane, vault, model store, Hub access |
+| `cynic storage` | SurrealDB status, queries, capability and credential sync |
+| `cynic doctor` | Read-only diagnosis of local LLM, network, sovereign Git |
+| `cynic court` | Constitutional court — audit policy alignment across surfaces |
+| `cynic judge` | Judge extracted patches against `origin/main` before adding |
+
+Full list: `cynic --help`, or `cynic commands`.
+
 ---
 
 ## Workspace Map
