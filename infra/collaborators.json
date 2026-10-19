@@ -47,6 +47,19 @@
         "gasdf"
       ],
       "notes": "Human operator: constituent + maintainer, owns CYNIC and the GASdf product repo. Core by doctrine (external-project-governance §4), not by inference. Relay-107 operator, 2026-10-18 ingress closure approvals."
+    },
+    {
+      "collaborator_id": "sollama58",
+      "display_name": "GCRtrd",
+      "github_handle": "sollama58",
+      "trust_level": "observed",
+      "projects": [
+        "trenchscanner",
+        "cultscreener",
+        "tokensage",
+        "holddex"
+      ],
+      "notes": "Upstream author of the GCRtrd cult stack (TrenchScanner, cultscreener, TokenSage; holddex read-only). X: @gcrtrd. Starts at 'observed' per doctrine — trust from evidence, not reputation. Added 2026-10-19."
     }
   ],
   "trust_levels": [
