@@ -21,18 +21,85 @@ use crate::domain::disk::{
 use crate::process_observation::capture_command;
 use crate::scan_exclusions::excluded_dirs_for_cwd;
 
+/// Documented production state root — the default behind every
+/// [`LocalDiskAdapterRooted::with_state_root`] override.
+pub const DEFAULT_STATE_ROOT: &str = "/var/lib/cynic";
+
+/// Resolve the persistent state root once, at adapter construction.
+///
+/// Authority order: `$CYNIC_STATE_ROOT`, then [`DEFAULT_STATE_ROOT`].
+/// Resolved at construction rather than per observation so an
+/// injected root is never silently overridden by the process environment.
+pub(crate) fn resolve_state_root() -> PathBuf {
+    std::env::var("CYNIC_STATE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(DEFAULT_STATE_ROOT))
+}
+
+/// Local disk observation adapter.
+///
+/// The unit form resolves the state root from the process environment on each
+/// observation — the historical behaviour, kept so existing callers (the
+/// `cynic runtime disk` CLI surface) are unchanged. Use
+/// [`LocalDiskAdapterRooted`] to carry the root explicitly.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LocalDiskAdapter;
 
 impl DiskObservationPort for LocalDiskAdapter {
+    fn observe_disk(&self) -> Result<DiskReport, String> {
+        LocalDiskAdapterRooted::new().observe_disk()
+    }
+
+    fn plan_cleanup(&self, report: &DiskReport) -> DiskCleanupPlan {
+        build_cleanup_plan(report)
+    }
+}
+
+/// [`LocalDiskAdapter`] with an explicitly resolved state root.
+///
+/// Same observation and cleanup path; the difference is where the SSOT
+/// build-target root and the large-file search path come from.
+/// [`LocalDiskAdapterRooted::new`] resolves the root once
+/// (`$CYNIC_STATE_ROOT`, then the documented `/var/lib/cynic` convention);
+/// [`LocalDiskAdapterRooted::with_state_root`] injects an explicit root, so a
+/// relocated or sandboxed run observes the tree it was given instead of the
+/// one the ambient environment names.
+#[derive(Debug, Clone)]
+pub struct LocalDiskAdapterRooted {
+    state_root: PathBuf,
+}
+
+impl LocalDiskAdapterRooted {
+    /// Build with the default resolution, evaluated once at construction.
+    pub fn new() -> Self {
+        Self {
+            state_root: resolve_state_root(),
+        }
+    }
+
+    /// Build with an explicit state root.
+    pub fn with_state_root(state_root: impl Into<PathBuf>) -> Self {
+        Self {
+            state_root: state_root.into(),
+        }
+    }
+}
+
+impl Default for LocalDiskAdapterRooted {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DiskObservationPort for LocalDiskAdapterRooted {
     fn observe_disk(&self) -> Result<DiskReport, String> {
         let timestamp = DateTime::<Utc>::from(SystemTime::now())
             .format("%Y-%m-%dT%H:%M:%SZ")
             .to_string();
 
         let filesystems = observe_filesystems()?;
-        let known_caches = observe_known_caches();
-        let large_files = observe_large_files();
+        let known_caches = observe_known_caches(&self.state_root);
+        let large_files = observe_large_files(&self.state_root);
         let physical_disks = observe_physical_disks();
 
         Ok(DiskReport {
@@ -81,6 +148,25 @@ mod tests {
             captured.len()
         );
     }
+
+    /// The injected root must scope the SSOT target entry: the entry path is
+    /// built by joining the injected root, so a root leaking back to the
+    /// production convention would show up here as the wrong prefix.
+    #[test]
+    fn override_state_root_scopes_ssot_targets_entry() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let caches = observe_known_caches(tmp.path());
+        let ssot = caches
+            .iter()
+            .find(|e| e.label == "ssot-build-targets")
+            .expect("ssot entry present");
+        let expected_prefix = tmp.path().display().to_string();
+        assert!(
+            ssot.path.starts_with(&expected_prefix),
+            "SSOT entry not scoped to the injected root: {}",
+            ssot.path
+        );
+    }
 }
 
 impl DiskCleanupExecutionPort for LocalDiskAdapter {
@@ -120,6 +206,15 @@ impl DiskCleanupExecutionPort for LocalDiskAdapter {
             total_reclaimed_bytes,
             total_reclaimed_human: bytes_to_human(total_reclaimed_bytes),
         }
+    }
+}
+
+impl DiskCleanupExecutionPort for LocalDiskAdapterRooted {
+    fn execute_cleanup(&self, plan: &DiskCleanupPlan) -> DiskCleanupResult {
+        // Cleanup targets are the legacy `/tmp/cynic-*` trees, the journal and
+        // the rotated syslogs — none of them derive from the state root, so the
+        // rooted adapter shares the unit adapter's execution path.
+        LocalDiskAdapter.execute_cleanup(plan)
     }
 }
 
@@ -194,7 +289,7 @@ fn get_dir_size(path: &Path, skipped: &BTreeSet<String>) -> u64 {
     total_size
 }
 
-fn observe_known_caches() -> Vec<DiskCacheEntry> {
+fn observe_known_caches(state_root: &Path) -> Vec<DiskCacheEntry> {
     let mut entries = Vec::new();
     let home = std::env::var("HOME").map(PathBuf::from).ok();
     // Registry-declared skip set, discovered from the current worktree or the
@@ -226,6 +321,9 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     });
 
     // 1b. SSOT cargo target root — the cache that actually matters since A1.
+    // The root is injected by the adapter (`$CYNIC_STATE_ROOT`, then the
+    // documented convention) instead of being re-read from the environment
+    // here, so a relocated state tree is observed as given.
     let state_root = std::env::var("CYNIC_STATE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|_| CynicPaths::state_dir());
@@ -333,11 +431,17 @@ fn observe_physical_disks() -> Vec<PhysicalDisk> {
     parse_lsblk_disks(&stdout)
 }
 
-fn observe_large_files() -> Vec<DiskFileEntry> {
+fn observe_large_files(state_root: &Path) -> Vec<DiskFileEntry> {
     let mut large_files = Vec::new();
     // Same registry skip set as the cache walkers: dependency trees must not
     // contribute hundred-megabyte blobs (uv/hf caches) to "user data".
     let skipped = excluded_dirs_for_cwd("disk_scan");
+    // `/tmp` is scratch, not a placement; the state tree is injected so a
+    // relocated root is searched as given instead of the convention.
+    let mut search_paths = vec![Path::new("/tmp"), state_root]
+        .into_iter()
+        .map(Path::to_path_buf)
+        .collect::<Vec<_>>();
     let mut search_paths = vec![PathBuf::from("/tmp"), CynicPaths::state_dir()];
     if let Ok(principal_home) = std::env::var("CYNIC_PRINCIPAL_HOME") {
         search_paths.push(PathBuf::from(principal_home));

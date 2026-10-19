@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use cynic_knowledge::{
-    AuthorityTier, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph, SearchHit,
+    AuthorityTier, KnowledgeEdge, KnowledgeEdgeKind, KnowledgeGraph,
     expand_hits_with_graph, sync_workspace_corpus,
 };
 

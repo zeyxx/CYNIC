@@ -206,6 +206,11 @@ const KNOWN: &[&str] = &[
     // installed CLI (/usr/local/bin/cynic) as evidence. Reading a file to
     // prove what is installed is observation, not placement.
     "crates/cynic-host/src/host_bootstrap_evidence.rs",
+    // Guest-VM convention, not a host placement: the cloud-init user-data
+    // template writes /etc/cynic/lab-node.json and creates /etc/cynic +
+    // /var/lib/cynic inside a fresh lab guest OS. The guest has no
+    // registry to consult; these paths are the guest contract, while the
+    // host-side lab root is injected (LabRoot). Deliberate, not hidden.
     // Assumed lab placement, same payment direction as CHECKOUTS_BASE:
     // the lab bundle builds VM disk/seed paths under /var/lib/cynic/lab
     // with format!. Paying it means injecting the resolved lab root;
@@ -235,6 +240,13 @@ const KNOWN: &[&str] = &[
     // resolve_runtime_paths fallback already recorded above — one
     // authority, two sides.
     "crates/cynic-host/src/runtime_authority.rs",
+    // Identity comparison, not a placement: the execution boundary
+    // classifier checks whether the current executable IS the installed
+    // binary (/usr/local/bin/cynic) to tell installed_runtime apart from
+    // dev_worktree. Same observation family as host_bootstrap_evidence —
+    // proving what runs, placing nothing. (Injecting the expected exe
+    // path through the layout is the future payment, same as the CLI
+    // probe above.)
     // Read-only proof input again: the execution context reports the
     // installed CLI status as evidence. Note the neighbours already take
     // the injected layout (config_dir, state_dir...) — only the CLI probe

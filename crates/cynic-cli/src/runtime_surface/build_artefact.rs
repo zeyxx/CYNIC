@@ -28,6 +28,9 @@ pub(crate) fn execute_build_artefact_status(json: bool) -> ExitCode {
 }
 
 pub(crate) fn execute_build_artefact(json: bool, apply: bool) -> ExitCode {
+    let adapter = LocalBuildArtefactAdapter::default();
+    let report = match adapter.observe_build_artefacts() {
+        Ok(r) => r,
     let adapter = LocalBuildArtefactAdapter;
     let obs = match adapter.observe() {
         Ok(o) => o,
