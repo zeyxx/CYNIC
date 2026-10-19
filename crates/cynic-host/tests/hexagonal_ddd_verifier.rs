@@ -169,7 +169,6 @@ const ORPHAN_PORT_BASELINE: &[&str] = &[
     // all (not even as a parameter type), and 7 more are referenced but never
     // implemented. The five are recorded here; the seven are recorded because a
     // port used as a bound is still a boundary with no adapter.
-    "BackendCatalogPort",
     "BuildWorkloadObservationPort",
     "CredentialRotationAuthorityPort",
     "NodeControlStorePort",

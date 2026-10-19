@@ -16,6 +16,7 @@ use crate::ports::{
 use crate::profiles::HostProfile;
 use crate::registry::HostProfileResolution;
 use crate::runtime_context::observe_host_runtime_context_with_observer;
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HostBootstrapEvidenceReport {
@@ -67,7 +68,8 @@ pub fn observe_host_bootstrap_evidence_with_observer(
         build_bootstrap_chain_report_with_observer(profile, resolution.clone(), observed)?;
     let filesystem_policy = profile.desired_filesystem();
     let bridge = bridge_status();
-    let installed_cli_sha256 = file_sha256("/usr/local/bin/cynic");
+    let installed_cli_sha256 =
+        file_sha256(&CynicPaths::binary_dir().join("cynic").display().to_string());
     let managed_paths = filesystem_policy.managed_paths;
     let existing_paths = managed_paths
         .iter()
@@ -133,11 +135,12 @@ pub fn observe_host_bootstrap_evidence_with_observer(
         ),
     });
     stages.push(HostBootstrapStageEvidence {
-        stage: "h4_privilege_helpers_ready",
+        stage: "h4_privilege_membrane_ready",
         status: host_context.host_substrate.privilege.status,
         detail: format!(
-            "helper_dir_present={} sudoers_projection_present={} denial_proof_ready={}",
-            host_context.host_substrate.privilege.helper_dir_present,
+            "executor_present={} membrane_present={} sudoers_projection_present={} denial_proof_ready={}",
+            host_context.host_substrate.privilege.executor_present,
+            host_context.host_substrate.privilege.membrane_present,
             host_context
                 .host_substrate
                 .privilege
@@ -259,7 +262,7 @@ fn stage_index(stage: &str) -> Option<usize> {
         "h1_principal_materialized" => 1,
         "h2_filesystem_projected" => 2,
         "h3_packages_ready" => 3,
-        "h4_privilege_helpers_ready" => 4,
+        "h4_privilege_membrane_ready" => 4,
         "h5_services_projected" => 5,
         "h6_host_actionable" => 6,
         _ => return None,
@@ -302,7 +305,8 @@ mod tests {
             _policy: &crate::domain::privilege::PrivilegePolicy,
         ) -> PrivilegeObservedState {
             PrivilegeObservedState {
-                helper_dir_present: true,
+                executor_present: true,
+                membrane_present: true,
                 sudoers_projection_present: true,
                 denial_proof_ready: true,
             }
@@ -373,7 +377,8 @@ mod tests {
             _policy: &crate::domain::privilege::PrivilegePolicy,
         ) -> PrivilegeObservedState {
             PrivilegeObservedState {
-                helper_dir_present: false,
+                executor_present: false,
+                membrane_present: false,
                 sudoers_projection_present: false,
                 denial_proof_ready: false,
             }
@@ -425,7 +430,7 @@ mod tests {
             canonical_role: None,
             profile_applied: "network-node",
             match_source: "node_name",
-            host_bootstrap_target_stage: Some("h4_privilege_helpers_ready".to_string()),
+            host_bootstrap_target_stage: Some("h4_privilege_membrane_ready".to_string()),
             host_bootstrap_required_domains: vec!["privilege".to_string()],
             registry_path: Some("infra/registry.json".to_string()),
         };

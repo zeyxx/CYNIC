@@ -1069,9 +1069,9 @@
     {
       "name": "cynic_operational_benchmark",
       "kind": "read_only",
-      "ssot": "infra/operational-benchmarks.json",
+      "ssot": "contracts/foundation.json",
       "cli_equivalent": "cynic runtime inference-benchmark --json",
-      "description": "Execute CYNIC native operational benchmarks against a target model profile endpoint using infra/operational-benchmarks.json datasets."
+      "description": "Execute CYNIC native operational benchmarks against a target model profile endpoint."
     }
   ],
   "tier_policy": {

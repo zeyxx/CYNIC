@@ -51,7 +51,7 @@ pub fn compute_exchange_rates(samples: &[RateSample]) -> ExchangeRateTable {
             .push(sample);
     }
 
-    for (resource_type, group) in groups {
+    for (_resource_type, group) in groups {
         if group.is_empty() {
             continue;
         }

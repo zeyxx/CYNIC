@@ -10,7 +10,7 @@ mod execution;
 mod incident_authority;
 mod types;
 
-pub use bundle::{bundle, install_plan, status};
+pub use bundle::{bundle, incident_authority_config, install_plan, status};
 pub use decision::{admit, admit_at};
 pub use execution::{execute, execute_with_incident_authority};
 pub use incident_authority::{

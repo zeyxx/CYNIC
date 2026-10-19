@@ -41,6 +41,8 @@ struct BackendView {
     max_tokens: u32,
     /// Whether an api_key is present (value redacted — never emitted).
     has_api_key: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    probe_status: Option<String>,
 }
 
 /// Top-level JSON output shape.
@@ -56,25 +58,64 @@ struct InferenceConfigView {
     sovereign_count: usize,
 }
 
-pub(crate) fn execute_inference(json: bool) -> ExitCode {
+pub(crate) fn execute_inference(probe: bool, json: bool) -> ExitCode {
     match load_inference_config() {
         Ok(loaded) => {
             let sovereign_count = loaded.backends.iter().filter(|b| b.sovereign).count();
-            let backends: Vec<BackendView> = loaded
-                .backends
-                .iter()
-                .map(|b| BackendView {
-                    name: b.name.clone(),
-                    sovereign: b.sovereign,
-                    base_url: b.base_url.clone(),
-                    model: b.model.clone(),
-                    backend_type: format!("{:?}", b.backend_type).to_lowercase(),
-                    context_size: b.context_size,
-                    timeout_secs: b.timeout_secs,
-                    max_tokens: b.max_tokens,
-                    has_api_key: b.api_key.is_some(),
+            let backends: Vec<BackendView> = if probe {
+                tokio::task::block_in_place(|| {
+                    let client = reqwest::blocking::Client::builder()
+                        .timeout(std::time::Duration::from_millis(1500))
+                        .build()
+                        .ok();
+
+                    loaded
+                        .backends
+                        .iter()
+                        .map(|b| {
+                            let probe_status = client.as_ref().map(|c| {
+                                let models_url =
+                                    format!("{}/models", b.base_url.trim_end_matches('/'));
+                                match c.get(&models_url).send() {
+                                    Ok(resp) if resp.status().is_success() => "ONLINE".to_string(),
+                                    Ok(resp) => format!("HTTP_{}", resp.status().as_u16()),
+                                    Err(_) => "UNREACHABLE".to_string(),
+                                }
+                            });
+
+                            BackendView {
+                                name: b.name.clone(),
+                                sovereign: b.sovereign,
+                                base_url: b.base_url.clone(),
+                                model: b.model.clone(),
+                                backend_type: format!("{:?}", b.backend_type).to_lowercase(),
+                                context_size: b.context_size,
+                                timeout_secs: b.timeout_secs,
+                                max_tokens: b.max_tokens,
+                                has_api_key: b.api_key.is_some(),
+                                probe_status,
+                            }
+                        })
+                        .collect()
                 })
-                .collect();
+            } else {
+                loaded
+                    .backends
+                    .iter()
+                    .map(|b| BackendView {
+                        name: b.name.clone(),
+                        sovereign: b.sovereign,
+                        base_url: b.base_url.clone(),
+                        model: b.model.clone(),
+                        backend_type: format!("{:?}", b.backend_type).to_lowercase(),
+                        context_size: b.context_size,
+                        timeout_secs: b.timeout_secs,
+                        max_tokens: b.max_tokens,
+                        has_api_key: b.api_key.is_some(),
+                        probe_status: None,
+                    })
+                    .collect()
+            };
 
             let view = InferenceConfigView {
                 schema: "cynic.inference_config.v1",
@@ -97,20 +138,39 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                     println!("  Config Path: {}", path);
                 }
                 println!();
-                println!(
-                    "{:<24} {:<10} {:<10} {:<30} {}",
-                    "NAME", "SOVEREIGN", "TYPE", "MODEL", "BASE URL"
-                );
-                println!("{}", "-".repeat(90));
-                for b in &view.backends {
+                if probe {
+                    println!(
+                        "{:<24} {:<10} {:<10} {:<24} {:<14} {}",
+                        "NAME", "SOVEREIGN", "TYPE", "MODEL", "STATUS", "BASE URL"
+                    );
+                    println!("{}", "-".repeat(105));
+                    for b in &view.backends {
+                        println!(
+                            "{:<24} {:<10} {:<10} {:<24} {:<14} {}",
+                            b.name,
+                            if b.sovereign { "yes" } else { "no" },
+                            b.backend_type,
+                            b.model,
+                            b.probe_status.as_deref().unwrap_or("-"),
+                            b.base_url
+                        );
+                    }
+                } else {
                     println!(
                         "{:<24} {:<10} {:<10} {:<30} {}",
-                        b.name,
-                        if b.sovereign { "yes" } else { "no" },
-                        b.backend_type,
-                        b.model,
-                        b.base_url
+                        "NAME", "SOVEREIGN", "TYPE", "MODEL", "BASE URL"
                     );
+                    println!("{}", "-".repeat(90));
+                    for b in &view.backends {
+                        println!(
+                            "{:<24} {:<10} {:<10} {:<30} {}",
+                            b.name,
+                            if b.sovereign { "yes" } else { "no" },
+                            b.backend_type,
+                            b.model,
+                            b.base_url
+                        );
+                    }
                 }
                 ExitCode::SUCCESS
             }
@@ -122,7 +182,7 @@ pub(crate) fn execute_inference(json: bool) -> ExitCode {
                 config_path: Some(path.to_string_lossy().to_string()),
                 status: "not_found",
                 message: Some(format!(
-                    "No inference config found. Copy infra/inference.toml.example to {}",
+                    "No inference config found. Copy infra/ai/inference.toml.example to {}",
                     path.display()
                 )),
                 backends: vec![],

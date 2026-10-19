@@ -130,7 +130,7 @@ cargo test -p cynic-askesis
 
 ## Philosophy
 
-See [`CLAUDE.md`](../CLAUDE.md) — Askesis embodies the **SOVEREIGNTY** axiom:
+See [`AGENTS.md`](../../AGENTS.md) — Askesis embodies the **SOVEREIGNTY** axiom:
 > Preserves agency and freedom? Does the system augment human judgment without replacing it?
 
 Askesis does not automate decision-making. It structures observation, surfaces patterns, and invites reflection—leaving *choice* with the human.
@@ -138,4 +138,4 @@ Askesis does not automate decision-making. It structures observation, surfaces p
 ---
 
 **Architecture Ref:** [`cynic-askesis/src/lib.rs`](./src/lib.rs)  
-**Philosophy Ref:** [`docs/identity/CYNIC-PERENNIAL-EPISTEMOLOGY.md`](../docs/identity/CYNIC-PERENNIAL-EPISTEMOLOGY.md)
+**Philosophy Ref:** [`docs/foundation/CONSTITUTION.md`](../../docs/foundation/CONSTITUTION.md)

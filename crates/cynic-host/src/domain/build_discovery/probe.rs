@@ -296,19 +296,19 @@ mod tests {
 
     const SAMPLE: &str = r#"{
         "packages": [
-            {"name":"cynic-host","edition":"2024","targets":[
+            {"name":"cynic-host","edition":"2024","manifest_path":"/tmp/cynic-host/Cargo.toml","targets":[
                 {"name":"cynic-host","kind":["lib"]},
                 {"name":"mybin","kind":["bin"]}
             ]},
-            {"name":"cynic-protocol","edition":"2024","targets":[
+            {"name":"cynic-protocol","edition":"2024","manifest_path":"/tmp/cynic-protocol/Cargo.toml","targets":[
                 {"name":"cynic-protocol","kind":["lib"]},
                 {"name":"build","kind":["custom-build"]}
             ]},
-            {"name":"foo","edition":"2021","targets":[
+            {"name":"foo","edition":"2021","manifest_path":"/tmp/foo/Cargo.toml","targets":[
                 {"name":"foo-test","kind":["test"]}
             ]}
         ],
-        "workspace_members":["cynic-host 0.1.0 (path+file:///tmp)","cynic-protocol 0.1.0 (path+file:///tmp)"],
+        "workspace_members":["cynic-host 0.1.0 (path+file:///tmp/cynic-host)","cynic-protocol 0.1.0 (path+file:///tmp/cynic-protocol)"],
         "target_directory":"/tmp/target",
         "version":1
     }"#;

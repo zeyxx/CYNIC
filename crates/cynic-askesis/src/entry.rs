@@ -1,9 +1,13 @@
 //! Askesis entry types and content-addressing hashing.
+//!
+//! Uses the unified digest law from `cynic_protocol::digest` (SHA-256).
 
 use serde::{Deserialize, Serialize};
 
+use cynic_protocol::digest::digest_bytes;
+
 pub const ASKESIS_ENTRY_SCHEMA: &str = "cynic.askesis_entry.v1";
-pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+pub const GENESIS_HASH: &str = "genesis";
 
 /// Askesis entry kind — what category of proof this entry records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -84,6 +88,8 @@ impl AskesisEntry {
     }
 
     /// Compute content-addressed hash (SHA-256 of canonical fields).
+    ///
+    /// Uses the unified digest law (`digest_bytes`).
     pub fn compute_hash(&self) -> String {
         let canonical = serde_json::json!({
             "schema": self.schema,
@@ -95,7 +101,7 @@ impl AskesisEntry {
             "evidence": self.evidence,
         });
         let bytes = canonical.to_string();
-        sha256_hex(&bytes)
+        digest_bytes(bytes.as_bytes())
     }
 
     /// Verify entry integrity: recompute and compare.
@@ -104,13 +110,4 @@ impl AskesisEntry {
     }
 }
 
-pub(crate) fn sha256_hex(input: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    hasher
-        .finalize()
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect()
-}
+

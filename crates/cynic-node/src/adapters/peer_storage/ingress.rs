@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use cynic_consensus::peer::{LedgerTransaction, TransactionReceipt};
+use cynic_types::paths::CynicPaths;
 
 use super::genesis::bootstrap_genesis_from_registry;
 use super::manager::PeerStorageManager;
@@ -112,7 +113,12 @@ pub fn execute_peer_command(command: &crate::peer_commands::PeerCommands) -> Exi
             dir,
             registry,
             json: _,
-        } => match peer_status(dir, registry.as_deref()) {
+        } => {
+            let canonical_registry = CynicPaths::registry_path();
+            let registry_path = registry
+                .as_deref()
+                .or_else(|| canonical_registry.to_str());
+            match peer_status(dir, registry_path) {
             Ok(report) => {
                 println!(
                     "{}",
@@ -123,6 +129,7 @@ pub fn execute_peer_command(command: &crate::peer_commands::PeerCommands) -> Exi
             Err(e) => {
                 eprintln!("peer status failed: {e}");
                 ExitCode::FAILURE
+            }
             }
         },
         crate::peer_commands::PeerCommands::Inspect {

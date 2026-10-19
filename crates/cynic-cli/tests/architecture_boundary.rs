@@ -99,54 +99,54 @@ fn cli_exposes_framework_bootstrap_as_canonical_surface() {
 }
 
 #[test]
-fn cli_exposes_runtime_harness_without_owning_the_model() {
+fn cli_delegates_runtime_harness_catalog_to_cynic_host() {
     let root = crate_root();
-    let runtime_surface =
-        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
-    let host_checks = fs::read_to_string(root.join("src/runtime_surface/host_checks.rs"))
-        .expect("read runtime_surface/host_checks.rs");
+    let audit_surface =
+        fs::read_to_string(root.join("src/audit_surface.rs")).expect("read audit_surface.rs");
+    let host_checks = fs::read_to_string(root.join("src/audit_surface/host_checks.rs"))
+        .expect("read audit_surface/host_checks.rs");
     assert!(
         host_checks.contains("cynic_host::runtime_harness::runtime_harness_catalog"),
         "runtime harness catalog must be owned by cynic-host, not cynic-cli"
     );
     assert!(
-        runtime_surface.contains("RuntimeCommand::Harness"),
-        "CLI manifest must expose the canonical runtime harness surface"
+        audit_surface.contains("AuditCommand::Harness"),
+        "CLI manifest must expose the canonical audit harness surface"
     );
 }
 
 #[test]
 fn cli_delegates_host_conformance_to_cynic_host() {
     let root = crate_root();
-    let runtime_surface =
-        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
-    let host_checks = fs::read_to_string(root.join("src/runtime_surface/host_checks.rs"))
-        .expect("read runtime_surface/host_checks.rs");
+    let audit_surface =
+        fs::read_to_string(root.join("src/audit_surface.rs")).expect("read audit_surface.rs");
+    let host_checks = fs::read_to_string(root.join("src/audit_surface/host_checks.rs"))
+        .expect("read audit_surface/host_checks.rs");
     assert!(
         host_checks.contains("cynic_host::conformance::observe_host_conformance"),
         "host conformance must be owned by cynic-host, not cynic-cli"
     );
     assert!(
-        runtime_surface.contains("RuntimeCommand::Conformance"),
-        "CLI manifest must expose the canonical runtime conformance surface"
+        audit_surface.contains("AuditCommand::Conformance"),
+        "CLI manifest must expose the canonical audit conformance surface"
     );
 }
 
 #[test]
 fn cli_delegates_runtime_metrics_to_cynic_host() {
     let root = crate_root();
-    let runtime_surface =
-        fs::read_to_string(root.join("src/runtime_surface.rs")).expect("read runtime_surface.rs");
-    let host_checks = fs::read_to_string(root.join("src/runtime_surface/host_checks.rs"))
-        .expect("read runtime_surface/host_checks.rs");
+    let audit_surface =
+        fs::read_to_string(root.join("src/audit_surface.rs")).expect("read audit_surface.rs");
+    let host_checks = fs::read_to_string(root.join("src/audit_surface/host_checks.rs"))
+        .expect("read audit_surface/host_checks.rs");
     assert!(
         host_checks
             .contains("cynic_host::runtime_metrics::host_runtime_metrics_with_external_proof"),
         "runtime metrics must be computed by cynic-host, not cynic-cli"
     );
     assert!(
-        runtime_surface.contains("RuntimeCommand::Metrics"),
-        "CLI manifest must expose the canonical runtime metrics surface"
+        audit_surface.contains("AuditCommand::Metrics"),
+        "CLI manifest must expose the canonical audit metrics surface"
     );
 }
 

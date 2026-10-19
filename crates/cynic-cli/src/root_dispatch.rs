@@ -37,6 +37,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Inference { command } => {
             crate::inference_surface::execute_inference_command(command)
         }
+        Command::Hub { command } => crate::hub_surface::execute_hub_command(command),
         Command::Dependency { command } => {
             crate::dependency_surface::execute_dependency_command(command)
         }
@@ -98,9 +99,12 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
                 ExitCode::FAILURE
             }),
         Command::Source { command } => crate::source_surface::execute_source(command),
+        Command::Storage { command } => crate::storage_surface::execute_storage(command),
         Command::Git { command } => crate::git_surface::execute_git(command),
+        Command::Host { command } => crate::host_surface::execute_host(command),
         Command::Judge { command } => crate::mask::execute_judge(command),
         Command::Mask { command } => crate::mask::execute_mask(command),
+        Command::Know { command } => crate::knowledge_surface::execute_know_command(command).await,
         Command::Queue { json, apply } => crate::queue_surface::execute_queue(json, apply),
         Command::Forensics { command } => crate::forensics_surface::execute_forensics(command),
         Command::Discovery { command } => crate::discovery_surface::execute_discovery(command),
@@ -108,6 +112,8 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Privilege { command } => {
             crate::privilege_surface::execute_privilege_command(command)
         }
+        Command::Mcp { command } => crate::mcp_surface::dispatch(command).await,
+        Command::Daemon { command } => crate::daemon_surface::dispatch(command).await,
         Command::Version { json } => {
             crate::version_surface::execute_version(json);
             ExitCode::SUCCESS

@@ -117,7 +117,7 @@ impl<R: VcsRunner> SourceWorktreeObserver<R> {
                         "opp:worktree_anomaly:{}",
                         &entry.evidence_digest[..16.min(entry.evidence_digest.len())]
                     ),
-                    scope: "infra/worktree_layout".to_string(),
+                    scope: "infra/workspace-paths.json".to_string(),
                     sources: vec![OpportunitySource {
                         kind: OpportunitySourceKind::SourceWorktree,
                         ref_id: entry.evidence_digest.clone(),
@@ -272,6 +272,8 @@ mod tests {
         );
         assert_eq!(opps.len(), 1);
         assert_eq!(opps[0].class, OpportunityClass::Plumbing);
-        assert_eq!(opps[0].scope, "infra/worktree_layout");
+        // Scope tracks the path SSOT (infra/workspace-paths.json), not the
+        // retired infra/worktree_layout name.
+        assert_eq!(opps[0].scope, "infra/workspace-paths.json");
     }
 }

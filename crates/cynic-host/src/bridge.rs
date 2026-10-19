@@ -1,4 +1,3 @@
-use crate::bounded_helper::{BoundedHelperInstallRuntime, BoundedHelperProjection};
 use crate::command_surface::{
     HostCommandSurface, install_dir_command, install_file_command, validate_sudoers_command,
 };
@@ -9,6 +8,7 @@ use crate::process_observation::capture_argv;
 use crate::runtime_layout::current_runtime_layout;
 use cynic_protocol::{ExecutionAuthorization, PolicyAuthority};
 use std::borrow::Cow;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 pub mod admitted;
@@ -26,98 +26,47 @@ pub use admitted::{
     PrivilegeBridgeExecutionReport, PrivilegeBridgeOperationReport, PrivilegeBridgeOperationResult,
     privilege_bridge_apply, privilege_bridge_plan,
 };
-use bundle::{BridgeBundleContext, write_bridge_bundle_with_context};
 use installer::bridge_install_report_from_commands;
-use status::bridge_status_for_projection;
+use status::bridge_membrane_status;
 pub use types::{
-    HostExecBridgeBundleManifest, HostExecBridgeInstallReport, HostExecBridgeRootlessSmokeReport,
-    HostExecBridgeStatus, PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState,
+    HostExecBridgeInstallReport, HostExecBridgeRootlessSmokeReport, HostExecBridgeStatus,
+    PrivilegeBridgeInstallSpec, PrivilegeBridgeObservedState, PrivilegeMembraneBundleManifest,
 };
 
-const HOST_EXEC_HELPER_FILENAME: &str = "cynic-host-exec";
-const HOST_EXEC_SUDOERS_FILENAME: &str = "cynic-host-exec.sudoers";
-const HOST_EXEC_SUDOERS_SUBJECT: &str = "cynic";
-
-pub fn write_bridge_bundle(
-    output_dir: impl AsRef<Path>,
-) -> Result<HostExecBridgeBundleManifest, Box<dyn std::error::Error>> {
-    let helper_source = helper_binary_source()?;
-    write_bridge_bundle_from_binary(output_dir, helper_source)
-}
-
-pub fn write_bridge_bundle_from_binary(
-    output_dir: impl AsRef<Path>,
-    helper_source: impl AsRef<Path>,
-) -> Result<HostExecBridgeBundleManifest, Box<dyn std::error::Error>> {
-    write_bridge_bundle_with_context(
-        output_dir,
-        helper_source.as_ref(),
-        bridge_bundle_context(helper_projection(), helper_install_runtime()),
-        None,
-    )
-}
-
-fn write_bridge_bundle_with_runtime(
-    output_dir: impl AsRef<Path>,
-    helper_source: &Path,
-    projection: BoundedHelperProjection,
-    helper_runtime: BoundedHelperInstallRuntime,
-    prepare_directories: Option<Vec<HostCommandSurface>>,
-) -> Result<HostExecBridgeBundleManifest, Box<dyn std::error::Error>> {
-    write_bridge_bundle_with_context(
-        output_dir,
-        helper_source,
-        bridge_bundle_context(projection, helper_runtime),
-        prepare_directories,
-    )
-}
-
-pub fn bridge_install_report(
-    bundle_dir: impl AsRef<Path>,
-    apply: bool,
-) -> PrivilegeBridgeExecutionReport {
-    let spec = privilege_bridge_install_spec(bundle_dir, "local-host");
-    privilege_bridge_apply(
-        &spec,
-        ExecutionAuthorization::new(
-            "bridge-install-compatibility",
-            PolicyAuthority::HumanAdmin,
-            apply,
-            crate::execution::privilege_bridge_preconditions(),
-        ),
-        &crate::adapters::local_command_runner::LocalHostCommandRunner,
-        &crate::adapters::local_observation::LocalHostObservationAdapter,
-    )
-}
+const PRIVILEGE_MEMBRANE_FILENAME: &str = "privilege.sudoers";
+const PRIVILEGE_SUBJECT: &str = "cynic";
 
 pub fn privilege_bridge_install_spec(
     bundle_dir: impl AsRef<Path>,
     target: impl Into<String>,
 ) -> PrivilegeBridgeInstallSpec {
     let bundle_dir = bundle_dir.as_ref();
-    let runtime = helper_install_runtime();
-    let projection = helper_projection();
+    let layout = current_runtime_layout();
+    let executor = layout.privilege_executor_path();
+    let membrane_source = bundle_dir
+        .join(PRIVILEGE_MEMBRANE_FILENAME)
+        .display()
+        .to_string();
+    let membrane_target = layout.privilege_sudoers_path();
+    let expected_membrane = fs::read_to_string(&membrane_source).unwrap_or_default();
     PrivilegeBridgeInstallSpec {
         target: target.into(),
-        bundle_complete: bundle_complete(bundle_dir),
-        subject: projection.subject.clone(),
+        bundle_complete: membrane_bundle_complete(bundle_dir),
+        subject: PRIVILEGE_SUBJECT.to_string(),
         authority_user: "root".to_string(),
         authority_group: "root".to_string(),
         provider: "sudoers".to_string(),
-        helper_source: bundle_dir
-            .join(HOST_EXEC_HELPER_FILENAME)
-            .display()
-            .to_string(),
-        helper_target: runtime.helper_target,
-        helper_mode: MODE_0755.unix,
-        projection_source: bundle_dir
-            .join(HOST_EXEC_SUDOERS_FILENAME)
-            .display()
-            .to_string(),
-        projection_target: runtime.sudoers_target,
-        projection_mode: MODE_0440.unix,
-        expected_projection: projection.sudoers_projection(),
-        proof_invocation: vec![projection.helper_path, "principal-prepare".to_string()],
+        executor: executor.clone(),
+        membrane_source,
+        membrane_target,
+        membrane_mode: MODE_0440.unix,
+        expected_membrane,
+        proof_invocation: vec![
+            executor,
+            "privilege".to_string(),
+            "exec".to_string(),
+            "principal-prepare".to_string(),
+        ],
     }
 }
 
@@ -127,45 +76,28 @@ pub fn bridge_rootless_smoke(
 ) -> Result<HostExecBridgeRootlessSmokeReport, Box<dyn std::error::Error>> {
     let sandbox_root = sandbox_root.as_ref();
     let bundle_dir = sandbox_root.join("bundle");
-    let helper_runtime = BoundedHelperInstallRuntime {
-        helper_target: sandbox_root
-            .join("libexec")
-            .join(HOST_EXEC_HELPER_FILENAME)
-            .display()
-            .to_string(),
-        sudoers_target: sandbox_root
-            .join("sudoers.d")
-            .join("cynic-host-exec")
-            .display()
-            .to_string(),
-        helper_dir: sandbox_root.join("libexec").display().to_string(),
-        sudoers_dir: sandbox_root.join("sudoers.d").display().to_string(),
-    };
-    let projection = helper_projection_for_paths(
-        helper_runtime.helper_target.clone(),
-        helper_runtime.sudoers_target.clone(),
-    );
+    let membrane_target = sandbox_root
+        .join("sudoers.d")
+        .join("cynic")
+        .display()
+        .to_string();
+    // The executor is basket-managed: in the sandbox the running test
+    // binary stands in for it (present + executable, which is the whole
+    // contract the bridge holds on the executor).
+    let executor = std::env::current_exe()?.display().to_string();
     let owner_policy = current_user_owned_policy(MODE_0755);
     let sudoers_policy = current_user_owned_policy(MODE_0440);
-    let prepare_directories =
-        prepare_directory_commands_for_runtime(&helper_runtime, owner_policy.clone());
-    let helper_source = helper_binary_source()?;
-    let bundle_manifest = write_bridge_bundle_with_runtime(
-        &bundle_dir,
-        &helper_source,
-        projection.clone(),
-        helper_runtime.clone(),
-        Some(prepare_directories),
-    )?;
-    let install_commands = install_commands_for_runtime(
-        &helper_runtime,
+    let bundle_manifest = bundle::write_privilege_membrane_bundle(&bundle_dir)
+        .map_err(|error| format!("membrane bundle: {error}"))?;
+    let install_commands = membrane_install_commands_for_runtime(
         &bundle_dir.to_string_lossy(),
+        &membrane_target,
         owner_policy,
         sudoers_policy,
     );
     let install_report =
         bridge_install_report_from_commands(&bundle_dir, apply, true, install_commands, false);
-    let status_report = bridge_status_for_projection(&projection);
+    let status_report = bridge_membrane_status(&executor, &membrane_target, PRIVILEGE_SUBJECT);
     let status = if install_report.status == "completed" && status_report.status == "active" {
         "completed"
     } else if install_report.status == "blocked" {
@@ -187,42 +119,54 @@ pub fn bridge_rootless_smoke(
 }
 
 pub fn bridge_status() -> HostExecBridgeStatus {
-    bridge_status_for_projection(&helper_projection())
+    let layout = current_runtime_layout();
+    bridge_membrane_status(
+        &layout.privilege_executor_path(),
+        &layout.privilege_sudoers_path(),
+        PRIVILEGE_SUBJECT,
+    )
 }
 
-pub fn bridge_status_via_helper() -> Result<HostExecBridgeStatus, String> {
+/// Prove the privilege membrane end to end: run `principal-prepare`
+/// through `sudo -n` and the admitted `privilege exec` argv, then report
+/// local bridge status. The capability is convergent: re-running it on a
+/// prepared principal is a no-op, so the probe is safe. Observation itself
+/// needs no privilege; this proves the sudo+admit chain works.
+pub fn bridge_status_via_membrane() -> Result<HostExecBridgeStatus, String> {
     let layout = current_runtime_layout();
     let argv = vec![
         layout.sudo_bin(),
         "-n".to_string(),
-        host_exec_helper_path(),
-        "bridge-status".to_string(),
+        layout.privilege_executor_path(),
+        "privilege".to_string(),
+        "exec".to_string(),
+        "principal-prepare".to_string(),
     ];
     let output = capture_argv(&argv)?;
     if !output.success {
         return Err(output.stderr);
     }
-    let helper_status: serde_json::Value =
+    let membrane_probe: serde_json::Value =
         serde_json::from_str(&output.stdout).map_err(|error| error.to_string())?;
-    if helper_status
+    if membrane_probe
         .get("status")
         .and_then(serde_json::Value::as_str)
-        != Some("active")
+        != Some("executed")
     {
-        return Err("bounded helper did not report an active bridge".to_string());
+        return Err("privilege membrane did not execute principal-prepare".to_string());
     }
     let mut report = bridge_status();
     report.status = "active".to_string();
-    report.checks.sudoers_rule_matches = true;
+    report.checks.membrane_admits_executor = true;
     report
         .missing
-        .retain(|check| check != "sudoers_rule_matches");
+        .retain(|check| check != "membrane_admits_executor");
     Ok(report)
 }
 
-pub(crate) fn install_commands_for_runtime(
-    helper_runtime: &BoundedHelperInstallRuntime,
+pub(crate) fn membrane_install_commands_for_runtime(
     bundle_dir: &str,
+    membrane_target: &str,
     directory_policy: InstallPathPolicy,
     sudoers_policy: InstallPathPolicy,
 ) -> Vec<HostCommandSurface> {
@@ -232,173 +176,41 @@ pub(crate) fn install_commands_for_runtime(
     // `/etc/sudoers.d/`: an unparseable file there can break `sudo` entirely,
     // including the ability to fix it. This is the same invariant
     // `pve_helper_install_commands` enforces.
-    let staged_sudoers = format!("{bundle_dir}/{HOST_EXEC_SUDOERS_FILENAME}");
-    prepare_directory_commands_for_runtime(helper_runtime, directory_policy)
+    // The executor is basket-managed and never installed here: only the
+    // staged membrane file moves.
+    let staged_membrane = format!("{bundle_dir}/{PRIVILEGE_MEMBRANE_FILENAME}");
+    prepare_directory_commands_for_membrane(membrane_target, directory_policy)
         .into_iter()
         .chain([
-            install_file_command(
-                "install_helper",
-                format!("{bundle_dir}/{HOST_EXEC_HELPER_FILENAME}"),
-                helper_runtime.helper_target.clone(),
-                current_user_owned_policy(MODE_0755),
-            ),
-            validate_sudoers_command("validate_sudoers", staged_sudoers.clone()),
+            validate_sudoers_command("validate_sudoers", staged_membrane.clone()),
             install_file_command(
                 "install_sudoers",
-                staged_sudoers,
-                helper_runtime.sudoers_target.clone(),
+                staged_membrane,
+                membrane_target.to_string(),
                 sudoers_policy,
             ),
         ])
         .collect()
 }
 
-fn prepare_directory_commands_for_runtime(
-    helper_runtime: &BoundedHelperInstallRuntime,
+fn prepare_directory_commands_for_membrane(
+    membrane_target: &str,
     directory_policy: InstallPathPolicy,
 ) -> Vec<HostCommandSurface> {
-    vec![
-        install_dir_command(
-            "prepare_directory",
-            Path::new(&helper_runtime.helper_target)
-                .parent()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| helper_runtime.helper_dir.clone()),
-            directory_policy.clone(),
-        ),
-        install_dir_command(
-            "prepare_directory",
-            Path::new(&helper_runtime.sudoers_target)
-                .parent()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| helper_runtime.sudoers_dir.clone()),
-            directory_policy,
-        ),
-    ]
+    vec![install_dir_command(
+        "prepare_directory",
+        Path::new(membrane_target)
+            .parent()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| current_runtime_layout().sudoers_dir),
+        directory_policy,
+    )]
 }
 
-fn helper_binary_source() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let source = std::env::current_exe()?;
-    resolve_helper_binary_source(
-        &source,
-        Path::new(&current_runtime_layout().host_exec_helper_path()),
-    )
-}
-
-fn resolve_helper_binary_source(
-    current_executable: &Path,
-    installed_seed: &Path,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let mut candidates = vec![current_executable.to_path_buf()];
-    if !current_executable.ends_with(HOST_EXEC_HELPER_FILENAME) {
-        candidates.push(current_executable.with_file_name(HOST_EXEC_HELPER_FILENAME));
-        if let Some(parent) = current_executable.parent().and_then(Path::parent) {
-            candidates.push(parent.join(HOST_EXEC_HELPER_FILENAME));
-        }
-    }
-    // The runtime seed is independently governed and intentionally excluded
-    // from mutable baskets. It is the only valid fallback when a CLI is
-    // present without its sibling helper, the n-1 condition this bridge
-    // exists to repair.
-    candidates.push(installed_seed.to_path_buf());
-
-    candidates
-        .into_iter()
-        .find(|candidate| valid_helper_binary(candidate))
-        .ok_or_else(|| {
-            format!(
-                "unable to resolve executable cynic-host-exec from current executable {} or runtime seed {}",
-                current_executable.display(),
-                installed_seed.display()
-            )
-            .into()
-        })
-}
-
-fn valid_helper_binary(path: &Path) -> bool {
-    std::fs::symlink_metadata(path)
-        .ok()
-        .is_some_and(|metadata| {
-            metadata.file_type().is_file()
-                && !metadata.file_type().is_symlink()
-                && std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0
-        })
-}
-
-fn bundle_complete(path: impl AsRef<Path>) -> bool {
+fn membrane_bundle_complete(path: impl AsRef<Path>) -> bool {
     let path = path.as_ref();
-    let required = [
-        "manifest.json",
-        HOST_EXEC_HELPER_FILENAME,
-        HOST_EXEC_SUDOERS_FILENAME,
-    ];
+    let required = ["manifest.json", PRIVILEGE_MEMBRANE_FILENAME];
     path.exists() && required.iter().all(|name| path.join(name).exists())
-}
-
-fn bridge_bundle_context(
-    projection: BoundedHelperProjection,
-    helper_runtime: BoundedHelperInstallRuntime,
-) -> BridgeBundleContext {
-    BridgeBundleContext {
-        helper_filename: HOST_EXEC_HELPER_FILENAME,
-        sudoers_filename: HOST_EXEC_SUDOERS_FILENAME,
-        helper_runtime,
-        projection,
-    }
-}
-
-fn host_exec_helper_path() -> String {
-    current_runtime_layout().host_exec_helper_path()
-}
-
-fn host_exec_sudoers_path() -> String {
-    current_runtime_layout().host_exec_sudoers_path()
-}
-
-fn helper_projection() -> BoundedHelperProjection {
-    helper_projection_for_paths(host_exec_helper_path(), host_exec_sudoers_path())
-}
-
-fn helper_projection_for_paths(
-    helper_path: impl Into<String>,
-    sudoers_path: impl Into<String>,
-) -> BoundedHelperProjection {
-    let helper_path = helper_path.into();
-    BoundedHelperProjection::new(
-        HOST_EXEC_SUDOERS_SUBJECT,
-        helper_path.clone(),
-        sudoers_path,
-        "Allows the cynic service user to invoke only bounded host-exec subprofiles.",
-    )
-    .with_allowed_invocations(vec![
-        vec![helper_path.clone(), "bridge-status".to_string()],
-        vec![helper_path.clone(), "principal-prepare".to_string()],
-        vec![
-            helper_path.clone(),
-            "hardware-baseline-enroll".to_string(),
-            "--apply".to_string(),
-        ],
-        vec![
-            helper_path.clone(),
-            "service-reconcile".to_string(),
-            "--apply".to_string(),
-        ],
-        vec![
-            helper_path.clone(),
-            "network-baseline".to_string(),
-            "observe".to_string(),
-        ],
-        vec![helper_path.clone(), "network-actuate".to_string()],
-    ])
-}
-
-fn helper_install_runtime() -> BoundedHelperInstallRuntime {
-    BoundedHelperInstallRuntime {
-        helper_target: host_exec_helper_path(),
-        sudoers_target: host_exec_sudoers_path(),
-        helper_dir: current_runtime_layout().helper_dir,
-        sudoers_dir: current_runtime_layout().sudoers_dir,
-    }
 }
 
 fn current_user_owned_policy(mode: InstallMode) -> InstallPathPolicy {
@@ -417,7 +229,7 @@ fn observed_user() -> String {
         .filter(|output| output.success && !output.stdout.is_empty())
         .map(|output| output.stdout)
         .or_else(|| std::env::var("USER").ok())
-        .unwrap_or_else(|| HOST_EXEC_SUDOERS_SUBJECT.to_string())
+        .unwrap_or_else(|| PRIVILEGE_SUBJECT.to_string())
 }
 
 fn observed_group() -> String {

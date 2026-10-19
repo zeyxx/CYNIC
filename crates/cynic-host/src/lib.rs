@@ -2,12 +2,10 @@ pub mod adapters;
 pub mod domain;
 pub mod agent;
 pub mod agent_access;
-pub mod agent_host;
 pub mod agent_matrix;
 pub mod agent_runtime;
 pub mod bootstrap_chain;
 pub mod bootstrap_host_plan;
-pub mod bounded_helper;
 pub mod bridge;
 pub mod build_evidence;
 pub mod build_runner_harness;
@@ -117,6 +115,9 @@ pub mod tunnel_supervisor;
 pub mod usecases;
 pub mod vertical_conformance;
 pub mod wireguard_readback;
+
+#[cfg(test)]
+pub(crate) mod test_support;
 
 pub fn sha256_digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};

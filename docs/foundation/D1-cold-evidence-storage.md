@@ -30,7 +30,7 @@ lignées de skills — preuves **immuables, content-addressed, à vie**.
 
 | Critère | A : table SurrealDB SCHEMAFULL | B : journal JSONL signé Ed25519 |
 |---|---|---|
-| Intégrité/vérifiabilité | Hash chaîné en colonnes ; vérif = requête SQL. Mais la vérification dépend du serveur vivant. | Chaînage SHA3-512 + signature par ligne ; vérifiable offline (`jq`, script Rust, n'importe quel outil), y compris post-mortem. |
+| Intégrité/vérifiabilité | Hash chaîné en colonnes ; vérif = requête SQL. Mais la vérification dépend du serveur vivant. | Chaînage SHA-256 + signature par ligne ; vérifiable offline (`jq`, script Rust, n'importe quel outil), y compris post-mortem. |
 | Survie crash serveur DB | Nulle : DB inaccessible ⇒ preuves illisibles (état mesuré aujourd'hui). | Totale : fichier plat ; rsync/tar suffisent ; aucune reconstruction. |
 | Réplication multi-nœuds | Dump SurrealDB + import, version-matched, transactionnel. | rsync/scp de fichiers signés = exactement la contrainte projet (« réplication = copie de fichiers signés »). Fusion multi-nœuds triviale : ordre total par (node_id, seq). |
 | Requêtabilité | SQL riche — mais les vraies lectures de preuve froide sont ponctuelles : audit, reprise après incident, drift entre deux snapshots (API pure existante). | Scan séquentiel. À ~100-500 seals/jour (~10-50 Mo/an), un scan complet < quelques s ; index side-car reconstruisible à volonté car dérivé. |
@@ -87,7 +87,7 @@ les structures requêtables sont des projections dérivées et reconstructibles.
 
 1. `/var/lib/cynic/evidence/evidence-*.journal` — domicile **autoritaire** des preuves
    froides : JSONL, 1 ligne = 1 événement signé Ed25519 (clé kernel existante), haché
-   chaîné (SHA3-512, même loi que PoH), append-only physique.
+   chaîné (SHA-256, même loi que PoH), append-only physique.
 2. Projection requêtable **reconstructible** : table SurrealDB `evidence_projection`
    SCHEMAFULL remplie par replay du journal (idempotent par event_id). Elle sert les
    requêtes chaudes ; elle n'est jamais autorité ; sa corruption se répare par replay.

@@ -8,8 +8,8 @@ pub mod pve_helper;
 pub mod transport_caps;
 
 pub use capability_catalog::{
-    CapabilityLoadError, CapabilityView, DEFAULT_CATALOG_PATH, DEFAULT_INSTALLED_PATH,
-    catalog_path_from_env, installed_path_from_env,
+    CapabilityLoadError, CapabilityView, DEFAULT_CATALOG_PATH, catalog_path_from_env,
+    installed_path_from_env,
 };
 pub use pve_helper::{
     DEFAULT_POLICY_PATH, PVE_HELPER_BUNDLE_MANIFEST_SCHEMA, PVE_HELPER_POLICY_SCHEMA,

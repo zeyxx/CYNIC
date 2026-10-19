@@ -8,8 +8,8 @@ use sha2::{Digest, Sha256};
 
 use crate::adapters::registry::LocalRegistryAdapter;
 use crate::dns_contract::{
-    SERVICE_DNS_HOSTS_FILENAME, dns_bundle_config_filename, dns_bundle_service_filename,
-    dns_target_paths, observe_dns_provider_status,
+    COMPAT_DNS_HOSTS_FILENAME, SERVICE_DNS_HOSTS_FILENAME, dns_bundle_config_filename,
+    dns_bundle_service_filename, dns_target_paths, observe_dns_provider_status,
 };
 use crate::ports::network_interfaces_port::RegistryTopologyPort;
 
@@ -73,6 +73,10 @@ pub(crate) fn resolve_dns_activation_spec(
         (
             SERVICE_DNS_HOSTS_FILENAME.to_string(),
             targets.hosts.clone(),
+        ),
+        (
+            COMPAT_DNS_HOSTS_FILENAME.to_string(),
+            targets.compat_hosts.clone(),
         ),
         (config_name, targets.corefile.clone()),
         (service_name, targets.service.clone()),
