@@ -27,6 +27,7 @@ Authority: contracts/foundation.json §docs
    - `session-report-knowledge-canon.md` — Epistemic distillation and knowledge base.
    - `CI_EVOLUTION.md` — CI suite survivability, the five adoption metrics, and the branch-protection step.
    - `NETWORK_ENROLLMENT.md` — Mandatory network enrollment gate: status machine, per-plane probes, registry record. No IP/route/peer/workload before enrollment.
+   - `POOL_ELIGIBILITY.md` — Build pool eligibility: declared pool labels + proven toolchain. A node may not take a build job unless both bricks pass.
 
 ---
 
