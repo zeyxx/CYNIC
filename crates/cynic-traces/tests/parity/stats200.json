@@ -1,1 +1,2002 @@
-{"20260602_133837_a79cb3": {"edges": 0, "human": 1, "reasoning": 0, "states": 0, "tools": 0, "turns": 1}, "20260602_134032_aa5a08": {"edges": 0, "human": 1, "reasoning": 0, "states": 0, "tools": 0, "turns": 1}, "20260602_134221_ceb8e6": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260602_134636_039590": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260603_125043_28e1d6": {"edges": 349, "human": 9, "reasoning": 71, "states": 0, "tools": 180, "turns": 170}, "20260603_134919_733bb9": {"edges": 320, "human": 1, "reasoning": 68, "states": 0, "tools": 168, "turns": 153}, "20260603_235559_2e2a76": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_001432_a5f2fa": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_001946_5360c1": {"edges": 48, "human": 2, "reasoning": 5, "states": 0, "tools": 28, "turns": 21}, "20260604_010621_f9e3d2": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_011651_009ef9": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_012721_4762c9": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_013751_3b9e5a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_014822_6bd45a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_015852_2dc6c8": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_020922_732c5d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_021952_647625": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_025022_a04b29": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_030052_3a2f5d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_031122_50805d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_032152_552bda": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_033452_5a5d6e": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_034523_89e6f1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_035553_ea460f": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_040623_b1ba01": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_041653_d68b74": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_042723_4496bc": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_043333_319b36": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_043753_54b6ad": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_044039_d3b185": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_044646_5bfb43": {"edges": 15, "human": 2, "reasoning": 2, "states": 0, "tools": 8, "turns": 8}, "20260604_044717_044aeb": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_045747_65f719": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_050818_573222": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_051848_62fef4": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_052918_cd164a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_053948_0b7c1b": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_055018_702225": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_060048_271876": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_061118_52b7d5": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_062149_6e650b": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_063219_ff65f4": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_064250_a53b2e": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_073400_f810d5": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_074430_7cb6ac": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_075501_64cd83": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_080531_e057bd": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_080646_c9ca6d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_081638_5e9f8c": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_082636_4aab2a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_083709_180e7b": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_084739_215096": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_085809_4660d3": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_090840_da41d3": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_091033_28f526": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_091105_330d8d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_092135_0b9d04": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_093205_8283b5": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_093304_3a2c41": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_093336_66f105": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_094406_4f1fa1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_095436_5a7bc2": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_095517_d20249": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_095549_6fa7a4": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_100621_36d6a1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_101719_02b8bd": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_102734_b5b3b2": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_102849_8a879a": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_102921_84631e": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_103951_5e70a3": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_104113_5c1163": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260604_104113_ae0964": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260604_104113_db191b": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260604_105057_a51d9c": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_110137_eecf2d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_111202_ec576a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_112232_c3e0ef": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_113302_2ff73e": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_113430_bcc631": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_113501_1a93b1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_113546_bc068f": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_114531_30e809": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_115602_416efd": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_115658_ff2259": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_115729_79af9a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_124200_80767c": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_125230_63912d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_130300_3359d1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_131330_6d7709": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_132400_f39958": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_133430_9ec9c6": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_134500_5eddcf": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_135530_3a6d22": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_135650_38fdb7": {"edges": 1, "human": 1, "reasoning": 1, "states": 0, "tools": 0, "turns": 2}, "20260604_135650_b24c2f": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_135650_b98da9": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_140600_54d8ab": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_141631_ac6b9a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_141720_698de4": {"edges": 11, "human": 1, "reasoning": 2, "states": 0, "tools": 6, "turns": 6}, "20260604_141751_5321d9": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_142821_5b4057": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_143851_844921": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_144334_ccbeab": {"edges": 159, "human": 2, "reasoning": 26, "states": 0, "tools": 88, "turns": 72}, "20260604_144921_cda9b1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_145951_f6e195": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_150057_99803f": {"edges": 14, "human": 1, "reasoning": 2, "states": 0, "tools": 8, "turns": 7}, "20260604_150129_453a3f": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_151200_8382d9": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_152009_ec673e": {"edges": 206, "human": 14, "reasoning": 49, "states": 0, "tools": 96, "turns": 111}, "20260604_152230_a53aaf": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_153300_9225ff": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_154330_0ea6bf": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_155400_eb2434": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_160430_59e0b6": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_161500_a3268e": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_162113_7c7df0": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_162530_e3a836": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_163600_4f7045": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_164126_392063": {"edges": 219, "human": 11, "reasoning": 55, "states": 0, "tools": 102, "turns": 118}, "20260604_164155_73b6d1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_164155_9b5366": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_164630_51930b": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_165701_fbacd0": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_165842_6edbb2": {"edges": 189, "human": 10, "reasoning": 50, "states": 0, "tools": 86, "turns": 104}, "20260604_170731_ca6acf": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_171045_7b1c74": {"edges": 66, "human": 2, "reasoning": 16, "states": 0, "tools": 32, "turns": 35}, "20260604_171801_25c9dd": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_172121_2aa208": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_172831_e6217b": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_173057_6d0a5e": {"edges": 140, "human": 10, "reasoning": 34, "states": 0, "tools": 64, "turns": 77}, "20260604_173901_a45c4a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_174931_8c9e77": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_175114_ddd926": {"edges": 23, "human": 1, "reasoning": 5, "states": 0, "tools": 12, "turns": 12}, "20260604_182124_0f863a": {"edges": 177, "human": 6, "reasoning": 43, "states": 0, "tools": 86, "turns": 92}, "20260604_182631_28f725": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_183701_eb56ec": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_190032_2f88c2": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_190600_ec8c6b": {"edges": 5, "human": 1, "reasoning": 2, "states": 0, "tools": 2, "turns": 4}, "20260604_191409_78cc7b": {"edges": 150, "human": 11, "reasoning": 40, "states": 0, "tools": 66, "turns": 85}, "20260604_214033_c2632f": {"edges": 56, "human": 8, "reasoning": 16, "states": 0, "tools": 22, "turns": 35}, "20260604_222139_bce6da": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260604_223523_8744a7": {"edges": 577, "human": 4, "reasoning": 143, "states": 0, "tools": 286, "turns": 292}, "20260604_230920_f608a3": {"edges": 586, "human": 5, "reasoning": 146, "states": 0, "tools": 290, "turns": 297}, "20260604_233256_90c3a8": {"edges": 540, "human": 6, "reasoning": 135, "states": 0, "tools": 266, "turns": 275}, "20260605_064434_8f6baf": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_064557_750582": {"edges": 505, "human": 6, "reasoning": 128, "states": 0, "tools": 248, "turns": 258}, "20260605_064833_e7b1c1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_065504_ec90dc": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_070534_e985d8": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_071604_072703": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_071901_cb2ce3": {"edges": 501, "human": 8, "reasoning": 128, "states": 0, "tools": 244, "turns": 258}, "20260605_073534_ad2ad0": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_074604_98a468": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_075634_2e0f6d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_080715_af73db": {"edges": 499, "human": 9, "reasoning": 127, "states": 0, "tools": 242, "turns": 258}, "20260605_082906_fd1cdf": {"edges": 475, "human": 11, "reasoning": 122, "states": 0, "tools": 228, "turns": 248}, "20260605_090646_aa0eb8": {"edges": 477, "human": 12, "reasoning": 123, "states": 0, "tools": 228, "turns": 250}, "20260605_122527_f0e911": {"edges": 485, "human": 14, "reasoning": 126, "states": 0, "tools": 230, "turns": 256}, "20260605_124411_b2f2f1": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_125440_cb46ea": {"edges": 40, "human": 1, "reasoning": 10, "states": 0, "tools": 20, "turns": 21}, "20260605_125856_401c39": {"edges": 98, "human": 1, "reasoning": 23, "states": 0, "tools": 50, "turns": 49}, "20260605_130921_a382a1": {"edges": 101, "human": 1, "reasoning": 26, "states": 0, "tools": 50, "turns": 52}, "20260605_131850_790591": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_132920_5f463e": {"edges": 65, "human": 1, "reasoning": 17, "states": 0, "tools": 32, "turns": 34}, "20260605_133749_796b5f": {"edges": 27, "human": 1, "reasoning": 6, "states": 0, "tools": 14, "turns": 14}, "20260605_134220_a36f14": {"edges": 53, "human": 1, "reasoning": 14, "states": 0, "tools": 26, "turns": 28}, "20260605_134730_e867be": {"edges": 129, "human": 1, "reasoning": 33, "states": 0, "tools": 64, "turns": 66}, "20260605_135653_6802b9": {"edges": 69, "human": 1, "reasoning": 18, "states": 0, "tools": 34, "turns": 36}, "20260605_140334_5550ff": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_141404_8588e4": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_142151_0652f1": {"edges": 466, "human": 14, "reasoning": 121, "states": 0, "tools": 220, "turns": 247}, "20260605_142434_ad8ec7": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_143504_257bda": {"edges": 87, "human": 2, "reasoning": 23, "states": 0, "tools": 42, "turns": 46}, "20260605_144234_18e33a": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_145305_4c245f": {"edges": 85, "human": 1, "reasoning": 22, "states": 0, "tools": 42, "turns": 44}, "20260605_150108_affce9": {"edges": 25, "human": 1, "reasoning": 7, "states": 0, "tools": 12, "turns": 14}, "20260605_150341_9d698e": {"edges": 17, "human": 1, "reasoning": 5, "states": 0, "tools": 8, "turns": 10}, "20260605_150617_d73af7": {"edges": 54, "human": 2, "reasoning": 14, "states": 0, "tools": 26, "turns": 29}, "20260605_151150_d1c884": {"edges": 19, "human": 1, "reasoning": 4, "states": 0, "tools": 10, "turns": 10}, "20260605_151409_43d58e": {"edges": 31, "human": 1, "reasoning": 7, "states": 0, "tools": 16, "turns": 16}, "20260605_151717_4e4047": {"edges": 44, "human": 1, "reasoning": 11, "states": 0, "tools": 22, "turns": 23}, "20260605_152112_5733d1": {"edges": 28, "human": 1, "reasoning": 7, "states": 0, "tools": 14, "turns": 15}, "20260605_152412_67e06c": {"edges": 110, "human": 1, "reasoning": 23, "states": 0, "tools": 58, "turns": 53}, "20260605_153423_eb67f0": {"edges": 35, "human": 1, "reasoning": 8, "states": 0, "tools": 18, "turns": 18}, "20260605_153815_4056f8": {"edges": 41, "human": 1, "reasoning": 11, "states": 0, "tools": 20, "turns": 22}, "20260605_154144_f9d0a6": {"edges": 52, "human": 1, "reasoning": 13, "states": 0, "tools": 26, "turns": 27}, "20260605_154622_c489a0": {"edges": 37, "human": 1, "reasoning": 10, "states": 0, "tools": 18, "turns": 20}, "20260605_154918_a0bca7": {"edges": 67, "human": 1, "reasoning": 16, "states": 0, "tools": 34, "turns": 34}, "20260605_155413_c42b55": {"edges": 41, "human": 1, "reasoning": 11, "states": 0, "tools": 20, "turns": 22}, "20260605_155905_86437e": {"edges": 39, "human": 1, "reasoning": 9, "states": 0, "tools": 20, "turns": 20}, "20260605_160241_794f28": {"edges": 61, "human": 1, "reasoning": 16, "states": 0, "tools": 30, "turns": 32}, "20260605_160729_a447e7": {"edges": 41, "human": 1, "reasoning": 11, "states": 0, "tools": 20, "turns": 22}, "20260605_161126_1cd09b": {"edges": 37, "human": 1, "reasoning": 7, "states": 0, "tools": 20, "turns": 18}, "20260605_161541_9c8010": {"edges": 32, "human": 1, "reasoning": 8, "states": 0, "tools": 16, "turns": 17}, "20260605_161951_ca67b4": {"edges": 23, "human": 1, "reasoning": 5, "states": 0, "tools": 12, "turns": 12}, "20260605_162230_208ddc": {"edges": 40, "human": 1, "reasoning": 10, "states": 0, "tools": 20, "turns": 21}, "20260605_162712_a13262": {"edges": 37, "human": 1, "reasoning": 10, "states": 0, "tools": 18, "turns": 20}, "20260605_163028_2e1274": {"edges": 32, "human": 1, "reasoning": 8, "states": 0, "tools": 16, "turns": 17}, "20260605_163324_7fc54d": {"edges": 0, "human": 0, "reasoning": 0, "states": 0, "tools": 0, "turns": 0}, "20260605_164613_61230f": {"edges": 465, "human": 16, "reasoning": 122, "states": 0, "tools": 218, "turns": 248}}
+{
+  "20260602_133837_a79cb3": {
+    "corrections": 1,
+    "edges": 0,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 1
+  },
+  "20260602_134032_aa5a08": {
+    "corrections": 1,
+    "edges": 0,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 1
+  },
+  "20260602_134221_ceb8e6": {
+    "corrections": 1,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260602_134636_039590": {
+    "corrections": 1,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260603_125043_28e1d6": {
+    "corrections": 3,
+    "edges": 349,
+    "human": 9,
+    "native_edges": 180,
+    "reasoning": 71,
+    "states": 0,
+    "tools": 180,
+    "turns": 170
+  },
+  "20260603_134919_733bb9": {
+    "corrections": 1,
+    "edges": 320,
+    "human": 1,
+    "native_edges": 168,
+    "reasoning": 68,
+    "states": 0,
+    "tools": 168,
+    "turns": 153
+  },
+  "20260603_235559_2e2a76": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_001432_a5f2fa": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_001946_5360c1": {
+    "corrections": 1,
+    "edges": 48,
+    "human": 2,
+    "native_edges": 28,
+    "reasoning": 5,
+    "states": 0,
+    "tools": 28,
+    "turns": 21
+  },
+  "20260604_010621_f9e3d2": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_011651_009ef9": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_012721_4762c9": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_013751_3b9e5a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_014822_6bd45a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_015852_2dc6c8": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_020922_732c5d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_021952_647625": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_025022_a04b29": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_030052_3a2f5d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_031122_50805d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_032152_552bda": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_033452_5a5d6e": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_034523_89e6f1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_035553_ea460f": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_040623_b1ba01": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_041653_d68b74": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_042723_4496bc": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_043333_319b36": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_043753_54b6ad": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_044039_d3b185": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_044646_5bfb43": {
+    "corrections": 1,
+    "edges": 15,
+    "human": 2,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 8
+  },
+  "20260604_044717_044aeb": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_045747_65f719": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_050818_573222": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_051848_62fef4": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_052918_cd164a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_053948_0b7c1b": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_055018_702225": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_060048_271876": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_061118_52b7d5": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_062149_6e650b": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_063219_ff65f4": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_064250_a53b2e": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_073400_f810d5": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_074430_7cb6ac": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_075501_64cd83": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_080531_e057bd": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_080646_c9ca6d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_081638_5e9f8c": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_082636_4aab2a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_083709_180e7b": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_084739_215096": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_085809_4660d3": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_090840_da41d3": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_091033_28f526": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_091105_330d8d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_092135_0b9d04": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_093205_8283b5": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_093304_3a2c41": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_093336_66f105": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_094406_4f1fa1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_095436_5a7bc2": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_095517_d20249": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_095549_6fa7a4": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_100621_36d6a1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_101719_02b8bd": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_102734_b5b3b2": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_102849_8a879a": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_102921_84631e": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_103951_5e70a3": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_104113_5c1163": {
+    "corrections": 0,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260604_104113_ae0964": {
+    "corrections": 0,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260604_104113_db191b": {
+    "corrections": 0,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260604_105057_a51d9c": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_110137_eecf2d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_111202_ec576a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_112232_c3e0ef": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_113302_2ff73e": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_113430_bcc631": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_113501_1a93b1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_113546_bc068f": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_114531_30e809": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_115602_416efd": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_115658_ff2259": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_115729_79af9a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_124200_80767c": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_125230_63912d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_130300_3359d1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_131330_6d7709": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_132400_f39958": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_133430_9ec9c6": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_134500_5eddcf": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_135530_3a6d22": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_135650_38fdb7": {
+    "corrections": 0,
+    "edges": 1,
+    "human": 1,
+    "native_edges": 0,
+    "reasoning": 1,
+    "states": 0,
+    "tools": 0,
+    "turns": 2
+  },
+  "20260604_135650_b24c2f": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_135650_b98da9": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_140600_54d8ab": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_141631_ac6b9a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_141720_698de4": {
+    "corrections": 0,
+    "edges": 11,
+    "human": 1,
+    "native_edges": 6,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 6,
+    "turns": 6
+  },
+  "20260604_141751_5321d9": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_142821_5b4057": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_143851_844921": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_144334_ccbeab": {
+    "corrections": 1,
+    "edges": 159,
+    "human": 2,
+    "native_edges": 88,
+    "reasoning": 26,
+    "states": 0,
+    "tools": 88,
+    "turns": 72
+  },
+  "20260604_144921_cda9b1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_145951_f6e195": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_150057_99803f": {
+    "corrections": 0,
+    "edges": 14,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 8,
+    "turns": 7
+  },
+  "20260604_150129_453a3f": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_151200_8382d9": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_152009_ec673e": {
+    "corrections": 5,
+    "edges": 206,
+    "human": 14,
+    "native_edges": 96,
+    "reasoning": 49,
+    "states": 0,
+    "tools": 96,
+    "turns": 111
+  },
+  "20260604_152230_a53aaf": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_153300_9225ff": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_154330_0ea6bf": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_155400_eb2434": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_160430_59e0b6": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_161500_a3268e": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_162113_7c7df0": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_162530_e3a836": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_163600_4f7045": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_164126_392063": {
+    "corrections": 4,
+    "edges": 219,
+    "human": 11,
+    "native_edges": 102,
+    "reasoning": 55,
+    "states": 0,
+    "tools": 102,
+    "turns": 118
+  },
+  "20260604_164155_73b6d1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_164155_9b5366": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_164630_51930b": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_165701_fbacd0": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_165842_6edbb2": {
+    "corrections": 3,
+    "edges": 189,
+    "human": 10,
+    "native_edges": 86,
+    "reasoning": 50,
+    "states": 0,
+    "tools": 86,
+    "turns": 104
+  },
+  "20260604_170731_ca6acf": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_171045_7b1c74": {
+    "corrections": 1,
+    "edges": 66,
+    "human": 2,
+    "native_edges": 32,
+    "reasoning": 16,
+    "states": 0,
+    "tools": 32,
+    "turns": 35
+  },
+  "20260604_171801_25c9dd": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_172121_2aa208": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_172831_e6217b": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_173057_6d0a5e": {
+    "corrections": 5,
+    "edges": 140,
+    "human": 10,
+    "native_edges": 64,
+    "reasoning": 34,
+    "states": 0,
+    "tools": 64,
+    "turns": 77
+  },
+  "20260604_173901_a45c4a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_174931_8c9e77": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_175114_ddd926": {
+    "corrections": 0,
+    "edges": 23,
+    "human": 1,
+    "native_edges": 12,
+    "reasoning": 5,
+    "states": 0,
+    "tools": 12,
+    "turns": 12
+  },
+  "20260604_182124_0f863a": {
+    "corrections": 4,
+    "edges": 177,
+    "human": 6,
+    "native_edges": 86,
+    "reasoning": 43,
+    "states": 0,
+    "tools": 86,
+    "turns": 92
+  },
+  "20260604_182631_28f725": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_183701_eb56ec": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_190032_2f88c2": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_190600_ec8c6b": {
+    "corrections": 0,
+    "edges": 5,
+    "human": 1,
+    "native_edges": 2,
+    "reasoning": 2,
+    "states": 0,
+    "tools": 2,
+    "turns": 4
+  },
+  "20260604_191409_78cc7b": {
+    "corrections": 3,
+    "edges": 150,
+    "human": 11,
+    "native_edges": 66,
+    "reasoning": 40,
+    "states": 0,
+    "tools": 66,
+    "turns": 85
+  },
+  "20260604_214033_c2632f": {
+    "corrections": 1,
+    "edges": 56,
+    "human": 8,
+    "native_edges": 22,
+    "reasoning": 16,
+    "states": 0,
+    "tools": 22,
+    "turns": 35
+  },
+  "20260604_222139_bce6da": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260604_223523_8744a7": {
+    "corrections": 1,
+    "edges": 577,
+    "human": 4,
+    "native_edges": 286,
+    "reasoning": 143,
+    "states": 0,
+    "tools": 286,
+    "turns": 292
+  },
+  "20260604_230920_f608a3": {
+    "corrections": 3,
+    "edges": 586,
+    "human": 5,
+    "native_edges": 290,
+    "reasoning": 146,
+    "states": 0,
+    "tools": 290,
+    "turns": 297
+  },
+  "20260604_233256_90c3a8": {
+    "corrections": 3,
+    "edges": 540,
+    "human": 6,
+    "native_edges": 266,
+    "reasoning": 135,
+    "states": 0,
+    "tools": 266,
+    "turns": 275
+  },
+  "20260605_064434_8f6baf": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_064557_750582": {
+    "corrections": 3,
+    "edges": 505,
+    "human": 6,
+    "native_edges": 248,
+    "reasoning": 128,
+    "states": 0,
+    "tools": 248,
+    "turns": 258
+  },
+  "20260605_064833_e7b1c1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_065504_ec90dc": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_070534_e985d8": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_071604_072703": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_071901_cb2ce3": {
+    "corrections": 3,
+    "edges": 501,
+    "human": 8,
+    "native_edges": 244,
+    "reasoning": 128,
+    "states": 0,
+    "tools": 244,
+    "turns": 258
+  },
+  "20260605_073534_ad2ad0": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_074604_98a468": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_075634_2e0f6d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_080715_af73db": {
+    "corrections": 4,
+    "edges": 499,
+    "human": 9,
+    "native_edges": 242,
+    "reasoning": 127,
+    "states": 0,
+    "tools": 242,
+    "turns": 258
+  },
+  "20260605_082906_fd1cdf": {
+    "corrections": 5,
+    "edges": 475,
+    "human": 11,
+    "native_edges": 228,
+    "reasoning": 122,
+    "states": 0,
+    "tools": 228,
+    "turns": 248
+  },
+  "20260605_090646_aa0eb8": {
+    "corrections": 6,
+    "edges": 477,
+    "human": 12,
+    "native_edges": 228,
+    "reasoning": 123,
+    "states": 0,
+    "tools": 228,
+    "turns": 250
+  },
+  "20260605_122527_f0e911": {
+    "corrections": 6,
+    "edges": 485,
+    "human": 14,
+    "native_edges": 230,
+    "reasoning": 126,
+    "states": 0,
+    "tools": 230,
+    "turns": 256
+  },
+  "20260605_124411_b2f2f1": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_125440_cb46ea": {
+    "corrections": 0,
+    "edges": 40,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 10,
+    "states": 0,
+    "tools": 20,
+    "turns": 21
+  },
+  "20260605_125856_401c39": {
+    "corrections": 0,
+    "edges": 98,
+    "human": 1,
+    "native_edges": 50,
+    "reasoning": 23,
+    "states": 0,
+    "tools": 50,
+    "turns": 49
+  },
+  "20260605_130921_a382a1": {
+    "corrections": 0,
+    "edges": 101,
+    "human": 1,
+    "native_edges": 50,
+    "reasoning": 26,
+    "states": 0,
+    "tools": 50,
+    "turns": 52
+  },
+  "20260605_131850_790591": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_132920_5f463e": {
+    "corrections": 0,
+    "edges": 65,
+    "human": 1,
+    "native_edges": 32,
+    "reasoning": 17,
+    "states": 0,
+    "tools": 32,
+    "turns": 34
+  },
+  "20260605_133749_796b5f": {
+    "corrections": 0,
+    "edges": 27,
+    "human": 1,
+    "native_edges": 14,
+    "reasoning": 6,
+    "states": 0,
+    "tools": 14,
+    "turns": 14
+  },
+  "20260605_134220_a36f14": {
+    "corrections": 0,
+    "edges": 53,
+    "human": 1,
+    "native_edges": 26,
+    "reasoning": 14,
+    "states": 0,
+    "tools": 26,
+    "turns": 28
+  },
+  "20260605_134730_e867be": {
+    "corrections": 0,
+    "edges": 129,
+    "human": 1,
+    "native_edges": 64,
+    "reasoning": 33,
+    "states": 0,
+    "tools": 64,
+    "turns": 66
+  },
+  "20260605_135653_6802b9": {
+    "corrections": 0,
+    "edges": 69,
+    "human": 1,
+    "native_edges": 34,
+    "reasoning": 18,
+    "states": 0,
+    "tools": 34,
+    "turns": 36
+  },
+  "20260605_140334_5550ff": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_141404_8588e4": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_142151_0652f1": {
+    "corrections": 5,
+    "edges": 466,
+    "human": 14,
+    "native_edges": 220,
+    "reasoning": 121,
+    "states": 0,
+    "tools": 220,
+    "turns": 247
+  },
+  "20260605_142434_ad8ec7": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_143504_257bda": {
+    "corrections": 0,
+    "edges": 87,
+    "human": 2,
+    "native_edges": 42,
+    "reasoning": 23,
+    "states": 0,
+    "tools": 42,
+    "turns": 46
+  },
+  "20260605_144234_18e33a": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_145305_4c245f": {
+    "corrections": 0,
+    "edges": 85,
+    "human": 1,
+    "native_edges": 42,
+    "reasoning": 22,
+    "states": 0,
+    "tools": 42,
+    "turns": 44
+  },
+  "20260605_150108_affce9": {
+    "corrections": 0,
+    "edges": 25,
+    "human": 1,
+    "native_edges": 12,
+    "reasoning": 7,
+    "states": 0,
+    "tools": 12,
+    "turns": 14
+  },
+  "20260605_150341_9d698e": {
+    "corrections": 0,
+    "edges": 17,
+    "human": 1,
+    "native_edges": 8,
+    "reasoning": 5,
+    "states": 0,
+    "tools": 8,
+    "turns": 10
+  },
+  "20260605_150617_d73af7": {
+    "corrections": 0,
+    "edges": 54,
+    "human": 2,
+    "native_edges": 26,
+    "reasoning": 14,
+    "states": 0,
+    "tools": 26,
+    "turns": 29
+  },
+  "20260605_151150_d1c884": {
+    "corrections": 0,
+    "edges": 19,
+    "human": 1,
+    "native_edges": 10,
+    "reasoning": 4,
+    "states": 0,
+    "tools": 10,
+    "turns": 10
+  },
+  "20260605_151409_43d58e": {
+    "corrections": 0,
+    "edges": 31,
+    "human": 1,
+    "native_edges": 16,
+    "reasoning": 7,
+    "states": 0,
+    "tools": 16,
+    "turns": 16
+  },
+  "20260605_151717_4e4047": {
+    "corrections": 0,
+    "edges": 44,
+    "human": 1,
+    "native_edges": 22,
+    "reasoning": 11,
+    "states": 0,
+    "tools": 22,
+    "turns": 23
+  },
+  "20260605_152112_5733d1": {
+    "corrections": 0,
+    "edges": 28,
+    "human": 1,
+    "native_edges": 14,
+    "reasoning": 7,
+    "states": 0,
+    "tools": 14,
+    "turns": 15
+  },
+  "20260605_152412_67e06c": {
+    "corrections": 0,
+    "edges": 110,
+    "human": 1,
+    "native_edges": 58,
+    "reasoning": 23,
+    "states": 0,
+    "tools": 58,
+    "turns": 53
+  },
+  "20260605_153423_eb67f0": {
+    "corrections": 0,
+    "edges": 35,
+    "human": 1,
+    "native_edges": 18,
+    "reasoning": 8,
+    "states": 0,
+    "tools": 18,
+    "turns": 18
+  },
+  "20260605_153815_4056f8": {
+    "corrections": 0,
+    "edges": 41,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 11,
+    "states": 0,
+    "tools": 20,
+    "turns": 22
+  },
+  "20260605_154144_f9d0a6": {
+    "corrections": 0,
+    "edges": 52,
+    "human": 1,
+    "native_edges": 26,
+    "reasoning": 13,
+    "states": 0,
+    "tools": 26,
+    "turns": 27
+  },
+  "20260605_154622_c489a0": {
+    "corrections": 0,
+    "edges": 37,
+    "human": 1,
+    "native_edges": 18,
+    "reasoning": 10,
+    "states": 0,
+    "tools": 18,
+    "turns": 20
+  },
+  "20260605_154918_a0bca7": {
+    "corrections": 0,
+    "edges": 67,
+    "human": 1,
+    "native_edges": 34,
+    "reasoning": 16,
+    "states": 0,
+    "tools": 34,
+    "turns": 34
+  },
+  "20260605_155413_c42b55": {
+    "corrections": 0,
+    "edges": 41,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 11,
+    "states": 0,
+    "tools": 20,
+    "turns": 22
+  },
+  "20260605_155905_86437e": {
+    "corrections": 0,
+    "edges": 39,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 9,
+    "states": 0,
+    "tools": 20,
+    "turns": 20
+  },
+  "20260605_160241_794f28": {
+    "corrections": 0,
+    "edges": 61,
+    "human": 1,
+    "native_edges": 30,
+    "reasoning": 16,
+    "states": 0,
+    "tools": 30,
+    "turns": 32
+  },
+  "20260605_160729_a447e7": {
+    "corrections": 0,
+    "edges": 41,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 11,
+    "states": 0,
+    "tools": 20,
+    "turns": 22
+  },
+  "20260605_161126_1cd09b": {
+    "corrections": 0,
+    "edges": 37,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 7,
+    "states": 0,
+    "tools": 20,
+    "turns": 18
+  },
+  "20260605_161541_9c8010": {
+    "corrections": 0,
+    "edges": 32,
+    "human": 1,
+    "native_edges": 16,
+    "reasoning": 8,
+    "states": 0,
+    "tools": 16,
+    "turns": 17
+  },
+  "20260605_161951_ca67b4": {
+    "corrections": 0,
+    "edges": 23,
+    "human": 1,
+    "native_edges": 12,
+    "reasoning": 5,
+    "states": 0,
+    "tools": 12,
+    "turns": 12
+  },
+  "20260605_162230_208ddc": {
+    "corrections": 0,
+    "edges": 40,
+    "human": 1,
+    "native_edges": 20,
+    "reasoning": 10,
+    "states": 0,
+    "tools": 20,
+    "turns": 21
+  },
+  "20260605_162712_a13262": {
+    "corrections": 0,
+    "edges": 37,
+    "human": 1,
+    "native_edges": 18,
+    "reasoning": 10,
+    "states": 0,
+    "tools": 18,
+    "turns": 20
+  },
+  "20260605_163028_2e1274": {
+    "corrections": 0,
+    "edges": 32,
+    "human": 1,
+    "native_edges": 16,
+    "reasoning": 8,
+    "states": 0,
+    "tools": 16,
+    "turns": 17
+  },
+  "20260605_163324_7fc54d": {
+    "corrections": 0,
+    "edges": 0,
+    "human": 0,
+    "native_edges": 0,
+    "reasoning": 0,
+    "states": 0,
+    "tools": 0,
+    "turns": 0
+  },
+  "20260605_164613_61230f": {
+    "corrections": 6,
+    "edges": 465,
+    "human": 16,
+    "native_edges": 218,
+    "reasoning": 122,
+    "states": 0,
+    "tools": 218,
+    "turns": 248
+  }
+}

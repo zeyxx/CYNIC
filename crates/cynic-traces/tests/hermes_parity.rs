@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use cynic_traces::adapters::hermes::HermesNormalizer;
 use cynic_traces::ports::NormalizerPort;
 
-const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union.sqlite";
+const SOURCE: &str = "/var/lib/cynic/vault/corpus/captures/hermes_union_20261019.sqlite";
 
 fn source_path() -> String {
     std::env::var("CYNIC_TRACES_SOURCE").unwrap_or_else(|_| SOURCE.into())
