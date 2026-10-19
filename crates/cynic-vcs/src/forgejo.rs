@@ -1,4 +1,4 @@
-use cynic_network::{NetworkPathEvidence, NETWORK_PATH_EVIDENCE_SCHEMA};
+use cynic_network::NetworkPathEvidence;
 use cynic_protocol::SecurityEvidenceState as ForgejoEvidenceState;
 use serde::{Deserialize, Serialize};
 
@@ -266,6 +266,7 @@ fn mutation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cynic_network::NETWORK_PATH_EVIDENCE_SCHEMA;
 
     fn desired() -> ForgejoDesiredState {
         ForgejoDesiredState {

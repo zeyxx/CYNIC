@@ -13,11 +13,11 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub use cynic_knowledge::{load_vector_cache, save_vector_cache, VectorCacheRecord};
 use cynic_knowledge::{
-    ChunkEmbedder, ChunkVector, DocumentChunk, sync_workspace_corpus, top_k_dense,
-    vectorize_chunks_cached,
+    sync_workspace_corpus, top_k_dense, vectorize_chunks_cached, ChunkEmbedder, ChunkVector,
+    DocumentChunk,
 };
-pub use cynic_knowledge::{VectorCacheRecord, load_vector_cache, save_vector_cache};
 
 pub const FIXTURE_SCHEMA_V1: &str = "cynic.retrieval_gain_labels.v1";
 pub const REPORT_SCHEMA_V1: &str = "cynic.neural_hybrid_gain.v1";
@@ -92,11 +92,17 @@ impl BenchConfig {
     /// Cache file scoped by model AND text pipeline: any pipeline change
     /// lands in a fresh file instead of silently reusing stale vectors.
     pub fn vector_cache_filename(&self) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(self.pipeline.tag().as_bytes());
-        let hash = hex::encode(hasher.finalize());
-        format!("target/eval_vectors_{}_{:.8}.json", self.model, hash)
+        vector_cache_filename_for(&self.model, &self.pipeline.tag())
     }
+}
+
+/// Shared cache filename so benches and the `know ask` surface reuse one
+/// engine-bound vector cache instead of re-embedding the corpus each.
+pub fn vector_cache_filename_for(model: &str, pipeline_tag: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(pipeline_tag.as_bytes());
+    let hash = hex::encode(hasher.finalize());
+    format!("target/eval_vectors_{model}_{hash:.8}.json")
 }
 
 /// `&dyn ChunkEmbedder` adapter that renders the text pipeline around a

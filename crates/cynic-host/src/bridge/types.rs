@@ -13,13 +13,11 @@ pub struct PrivilegeBridgeInstallSpec {
     pub authority_user: String,
     pub authority_group: String,
     pub provider: String,
-    pub helper_source: String,
-    pub helper_target: String,
-    pub helper_mode: u32,
-    pub projection_source: String,
-    pub projection_target: String,
-    pub projection_mode: u32,
-    pub expected_projection: String,
+    pub executor: String,
+    pub membrane_source: String,
+    pub membrane_target: String,
+    pub membrane_mode: u32,
+    pub expected_membrane: String,
     pub proof_invocation: Vec<String>,
 }
 
@@ -27,32 +25,15 @@ pub struct PrivilegeBridgeInstallSpec {
 pub struct PrivilegeBridgeObservedState {
     pub subject_present: bool,
     pub provider_available: bool,
-    pub helper_present: bool,
-    pub helper_executable: bool,
-    pub helper_mode_matches: bool,
-    pub helper_authority_owned: bool,
-    pub projection_present: bool,
-    pub projection_mode_matches: bool,
-    pub projection_authority_owned: bool,
-    pub projection_valid: bool,
+    pub executor_present: bool,
+    pub executor_executable: bool,
+    pub membrane_present: bool,
+    pub membrane_mode_matches: bool,
+    pub membrane_authority_owned: bool,
+    pub membrane_valid: bool,
     pub invocation_policy_bounded: bool,
-    pub bounded_helper_noninteractive: bool,
+    pub membrane_probe_executed: bool,
     pub unrestricted_shell_denied: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct HostExecBridgeBundleManifest {
-    pub(crate) schema: &'static str,
-    pub(crate) mutates: bool,
-    pub(crate) helper_source: String,
-    pub(crate) helper_target: String,
-    pub(crate) sudoers_target: String,
-    pub(crate) sudoers_rule: String,
-    pub(crate) prepare_directories: Vec<HostCommandSurface>,
-    pub(crate) required_modes: BTreeMap<&'static str, String>,
-    pub(crate) activation_checks: Vec<HostCommandSurface>,
-    pub(crate) bundle_dir: String,
-    pub(crate) bundle_files: BTreeMap<&'static str, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,7 +56,7 @@ pub struct HostExecBridgeRootlessSmokeReport {
     pub(crate) mutates: bool,
     pub(crate) requested_apply: bool,
     pub(crate) sandbox_root: String,
-    pub(crate) bundle_manifest: HostExecBridgeBundleManifest,
+    pub(crate) bundle_manifest: PrivilegeMembraneBundleManifest,
     pub(crate) install_report: HostExecBridgeInstallReport,
     pub(crate) status_report: HostExecBridgeStatus,
 }
@@ -93,24 +74,39 @@ pub(crate) struct HostExecBridgeCommandExecution {
 pub struct HostExecBridgeStatus {
     pub(crate) schema: String,
     pub status: String,
-    pub(crate) helper_path: String,
-    pub(crate) sudoers_target: String,
-    pub(crate) sudoers_rule: String,
-    pub(crate) helper_sha256: Option<String>,
-    pub(crate) sudoers_sha256: Option<String>,
+    pub(crate) executor: String,
+    pub(crate) membrane_target: String,
+    pub(crate) admitted_prefix: String,
+    pub(crate) executor_sha256: Option<String>,
+    pub(crate) membrane_sha256: Option<String>,
     pub(crate) checks: HostExecBridgeChecks,
     pub(crate) missing: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct HostExecBridgeChecks {
-    pub(crate) helper_exists: bool,
-    pub(crate) helper_mode_0755: bool,
-    pub(crate) helper_executable: bool,
-    pub(crate) sudoers_exists: bool,
-    pub(crate) sudoers_mode_0440: bool,
-    pub(crate) sudoers_rule_matches: bool,
-    pub(crate) sudoers_no_unbounded_helper: bool,
-    pub(crate) sudoers_no_shell: bool,
-    pub(crate) sudoers_no_raw_sudo: bool,
+    pub(crate) executor_exists: bool,
+    pub(crate) executor_executable: bool,
+    pub(crate) membrane_exists: bool,
+    pub(crate) membrane_mode_0440: bool,
+    pub(crate) membrane_admits_executor: bool,
+    pub(crate) membrane_no_unbounded_executor: bool,
+    pub(crate) membrane_no_shell: bool,
+    pub(crate) membrane_no_raw_sudo: bool,
+}
+
+/// Manifest of the staged privilege membrane: the catalog-derived sudoers
+/// file the single `cynic` binary is admitted through. No helper binary is
+/// staged: the executor is the deployed release binary itself.
+#[derive(Debug, Clone, Serialize)]
+pub struct PrivilegeMembraneBundleManifest {
+    pub(crate) schema: &'static str,
+    pub(crate) mutates: bool,
+    pub(crate) binary: String,
+    pub(crate) subject: String,
+    pub(crate) sudoers_target: String,
+    pub(crate) capability_ids: Vec<String>,
+    pub(crate) rule_count: usize,
+    pub(crate) bundle_dir: String,
+    pub(crate) bundle_files: BTreeMap<&'static str, String>,
 }

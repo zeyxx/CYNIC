@@ -11,11 +11,11 @@
   "ratified_at_commit": "6886e0fbc028ab079c1e19cde33e48be51004d77",
   "measured": {
     "note": "Observation at ratification. Regenerated only by deliberate act.",
-    "identities": 41,
-    "edges": 116,
+    "identities": 39,
+    "edges": 113,
     "by_crate": {
       "cynic-host": 13,
-      "cynic-inference": 7,
+      "cynic-inference": 5,
       "cynic-intel": 2,
       "cynic-intel-soc": 3,
       "cynic-node": 13,
@@ -107,17 +107,7 @@
     {
       "identity": "cynic-inference|application -> ods_discovery",
       "count": 2,
-      "evidence": "crates/cynic-inference/src/application/peer_attach.rs:27"
-    },
-    {
-      "identity": "cynic-inference|domain -> math",
-      "count": 1,
-      "evidence": "crates/cynic-inference/src/domain/matrix_sweep/empirical_store.rs:17"
-    },
-    {
-      "identity": "cynic-inference|ports -> infra",
-      "count": 2,
-      "evidence": "crates/cynic-inference/src/ports/model_registry_port.rs:4"
+      "evidence": "crates/cynic-inference/src/application/model_sync_pipeline.rs:6"
     },
     {
       "identity": "cynic-inference|ports -> ods_discovery",

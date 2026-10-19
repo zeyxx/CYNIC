@@ -67,6 +67,7 @@ impl<B: EmbeddingPort> SyncEmbeddingBridge<B> {
     /// fanout keeps a single shared queue (chunking starves endpoints);
     /// `report` fires per completed sublot from the workers.
     fn embed_batch_reported(
+    pub fn embed_batch_reported(
         &self,
         texts: &[&str],
         report: &(dyn Fn(usize, usize) + Sync),

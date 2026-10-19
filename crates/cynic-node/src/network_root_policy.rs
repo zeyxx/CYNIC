@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::domain::node_observation::{NodeRuntimeAction, NodeRuntimeRemediation};
 use crate::network_actuator_contract::{
-    NETWORK_ACTUATOR_HELPER_CONTRACT, helper_path, sudoers_path, sudoers_rule,
+    NETWORK_ACTUATOR_MEMBRANE_CONTRACT, executor_path, membrane_admission, membrane_path,
 };
 use crate::network_command_surface::{NetworkCommandSurface, shell_command};
 use crate::observe::NodeObservation;
@@ -14,9 +14,9 @@ mod verification;
 
 #[derive(Debug, Clone)]
 struct NetworkRootPolicyContext {
-    helper_path: String,
-    sudoers_target: String,
-    sudoers_rule: String,
+    executor: String,
+    membrane_target: String,
+    membrane_admission: String,
     forbidden_patterns: Vec<String>,
 }
 
@@ -24,9 +24,9 @@ impl NetworkRootPolicyContext {
     fn from_current_runtime() -> Self {
         let runtime_layout = current_runtime_layout();
         Self {
-            helper_path: helper_path(),
-            sudoers_target: sudoers_path(),
-            sudoers_rule: sudoers_rule(),
+            executor: executor_path(),
+            membrane_target: membrane_path(),
+            membrane_admission: membrane_admission(),
             forbidden_patterns: runtime_layout.forbidden_raw_invocation_patterns(),
         }
     }
@@ -37,9 +37,9 @@ pub struct NetworkRootPolicy {
     pub(crate) schema: &'static str,
     pub(crate) generated_at: String,
     pub(crate) principal: &'static str,
-    pub(crate) helper_path: String,
-    pub(crate) sudoers_target: String,
-    pub(crate) sudoers_rule: String,
+    pub(crate) executor: String,
+    pub(crate) membrane_target: String,
+    pub(crate) membrane_admission: String,
     pub(crate) actuator_contract: &'static str,
     pub(crate) allowed_profiles: Vec<AllowedProfile>,
     pub(crate) forbidden_invocation_patterns: Vec<ForbiddenInvocationPattern>,
@@ -99,17 +99,17 @@ fn build_root_policy_with_context(
         schema: "cynic.network_root_policy.v1",
         generated_at: Utc::now().to_rfc3339(),
         principal: "cynic",
-        helper_path: context.helper_path.clone(),
-        sudoers_target: context.sudoers_target,
-        sudoers_rule: context.sudoers_rule,
-        actuator_contract: NETWORK_ACTUATOR_HELPER_CONTRACT,
-        allowed_profiles: allowed_profiles(observation, &context.helper_path),
+        executor: context.executor.clone(),
+        membrane_target: context.membrane_target,
+        membrane_admission: context.membrane_admission,
+        actuator_contract: NETWORK_ACTUATOR_MEMBRANE_CONTRACT,
+        allowed_profiles: allowed_profiles(observation, &context.executor),
         forbidden_invocation_patterns: context
             .forbidden_patterns
             .into_iter()
             .map(|pattern| ForbiddenInvocationPattern {
                 pattern,
-                reason: "raw privileged invocation remains outside the bounded helper contract",
+                reason: "raw privileged invocation remains outside the privilege membrane",
             })
             .collect(),
         execution_requirements: vec![
@@ -151,33 +151,33 @@ fn build_root_policy_with_context(
         ],
         denial_contract: vec![
             DenialRequirement {
-                rule: "commands outside sudoers_rule fail non-interactively",
-                expected: "sudo -n rejects non-helper privileged commands for the cynic user",
+                rule: "commands outside the membrane admission fail non-interactively",
+                expected: "sudo -n rejects privileged commands outside the membrane for the cynic user",
             },
             DenialRequirement {
-                rule: "raw ip/wg/nmcli invocations are never present in sudoers",
-                expected: "sudoers projection exposes only the bounded helper path",
+                rule: "raw ip/wg/nmcli invocations are never present in the membrane",
+                expected: "the membrane admits only the cynic executor path",
             },
             DenialRequirement {
-                rule: "shell execution through the helper is forbidden",
-                expected: "policy and helper reject shell-style escalation paths",
+                rule: "shell execution outside the membrane is forbidden",
+                expected: "policy and membrane reject shell-style escalation paths",
             },
         ],
     }
 }
 
-fn allowed_profiles(observation: &NodeObservation, helper: &str) -> Vec<AllowedProfile> {
+fn allowed_profiles(observation: &NodeObservation, executor: &str) -> Vec<AllowedProfile> {
     observation
         .remediation
         .iter()
         .filter(|remediation| remediation.requires_root)
-        .filter_map(|remediation| remediation_to_profile(remediation, helper))
+        .filter_map(|remediation| remediation_to_profile(remediation, executor))
         .collect()
 }
 
 fn remediation_to_profile(
     remediation: &NodeRuntimeRemediation,
-    helper: &str,
+    executor: &str,
 ) -> Option<AllowedProfile> {
     match remediation.action {
         NodeRuntimeAction::ActivateSynapseRoute => Some(AllowedProfile {
@@ -185,11 +185,12 @@ fn remediation_to_profile(
             purpose: "restore canonical Synapse route on this node",
             action: remediation.action.clone(),
             argv_prefix: vec![
-                helper.to_string(),
-                "apply".to_string(),
-                "--profile".to_string(),
-                "synapse-route".to_string(),
-                "--apply".to_string(),
+                executor.to_string(),
+                "privilege".to_string(),
+                "exec".to_string(),
+                "network-actuate".to_string(),
+                "--param".to_string(),
+                "profile=synapse-route".to_string(),
             ],
             mutates_host: remediation.mutates_host,
             requires_root: remediation.requires_root,
@@ -199,11 +200,12 @@ fn remediation_to_profile(
             purpose: "activate canonical WireGuard mesh on this node",
             action: remediation.action.clone(),
             argv_prefix: vec![
-                helper.to_string(),
-                "apply".to_string(),
-                "--profile".to_string(),
-                "wireguard-mesh".to_string(),
-                "--apply".to_string(),
+                executor.to_string(),
+                "privilege".to_string(),
+                "exec".to_string(),
+                "network-actuate".to_string(),
+                "--param".to_string(),
+                "profile=wireguard-mesh".to_string(),
             ],
             mutates_host: remediation.mutates_host,
             requires_root: remediation.requires_root,
@@ -213,11 +215,12 @@ fn remediation_to_profile(
             purpose: "restore temporary provider fallback route for resurrection only",
             action: remediation.action.clone(),
             argv_prefix: vec![
-                helper.to_string(),
-                "apply".to_string(),
-                "--profile".to_string(),
-                "provider-fallback-route".to_string(),
-                "--apply".to_string(),
+                executor.to_string(),
+                "privilege".to_string(),
+                "exec".to_string(),
+                "network-actuate".to_string(),
+                "--param".to_string(),
+                "profile=provider-fallback-route".to_string(),
             ],
             mutates_host: remediation.mutates_host,
             requires_root: remediation.requires_root,
@@ -251,9 +254,9 @@ mod tests {
         let policy = build_root_policy_with_context(
             &observation,
             NetworkRootPolicyContext {
-                helper_path: "/portable/bin/cynic-network-actuator".to_string(),
-                sudoers_target: "/portable/etc/sudoers.d/cynic-network-actuator".to_string(),
-                sudoers_rule: "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
+                executor: "/portable/bin/cynic".to_string(),
+                membrane_target: "/portable/etc/sudoers.d/cynic".to_string(),
+                membrane_admission: "/portable/bin/cynic privilege exec network-actuate"
                     .to_string(),
                 forbidden_patterns: vec![
                     "/portable/bin/ip".to_string(),
@@ -264,8 +267,8 @@ mod tests {
 
         assert_eq!(policy.schema, "cynic.network_root_policy.v1");
         assert_eq!(
-            policy.sudoers_rule,
-            "cynic ALL=(root) NOPASSWD: /portable/bin/cynic-network-actuator"
+            policy.membrane_admission,
+            "/portable/bin/cynic privilege exec network-actuate"
         );
         assert_eq!(policy.allowed_profiles.len(), 2);
         assert!(

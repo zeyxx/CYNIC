@@ -1,0 +1,16 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-tui"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Generic fullscreen dashboard kit: domains project data onto Dashboard, the kit renders tables and text panels with refresh"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+
+[lints]
+workspace = true

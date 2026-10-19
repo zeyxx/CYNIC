@@ -55,6 +55,7 @@ fn test_continuous_convex_calibration_vs_rrf() {
     );
 
     let backend = EmbeddingBackend::from_env().expect("CYNIC_EMBED_URL must be set");
+    let engine = backend.base_urls().join(",");
     let bridge = SyncEmbeddingBridge::probe(backend, "CYNIC continuous fusion calibration")
         .expect("embedding probe must succeed");
 
@@ -105,6 +106,8 @@ fn test_continuous_convex_calibration_vs_rrf() {
     let vector_cache_path = root.join(config.vector_cache_filename());
     let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag())
         .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag()));
+    let mut vector_cache = load_vector_cache(&vector_cache_path, &model, &pipeline.tag(), &engine)
+        .unwrap_or_else(|| VectorCacheRecord::new(&model, &pipeline.tag(), &engine));
 
     let templated = TemplatedEmbedder::new(&bridge, &pipeline, config.embed_lot, &|done, total| {
         if done % 320 == 0 || done == total {

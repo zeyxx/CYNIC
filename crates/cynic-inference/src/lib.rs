@@ -83,7 +83,7 @@ pub use domain::token_entropy::{
 pub use infra::backend_health;
 pub use infra::backend_health::*;
 pub use infra::domain_task_queue::{
-    DEFAULT_DOMAIN_TASKS_PATH, DomainTaskQueue, DomainTaskQueueError,
+    DomainTaskQueue, DomainTaskQueueError, default_domain_tasks_path,
 };
 pub use infra::gguf_meta::{
     GgufMeta, default_supported_arches_for_llama_b9444, preflight_gguf_for_engine,

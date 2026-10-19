@@ -16,6 +16,7 @@ use std::path::Path;
 use cynic_secrets::{
     OsCredentialStoreSecretProvider, SecretProviderKind, SecretProviderPort, SecretReference,
 };
+use cynic_types::paths::CynicPaths;
 use cynic_vcs::find_ssot_in_registry;
 use cynic_vcs::pull_request::PrPort;
 
@@ -82,7 +83,12 @@ pub fn forgejo_pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, Str
     let token_env = ssot["token_env"].as_str().unwrap_or("FORGEJO_TOKEN");
     let token_file = ssot["token_file"]
         .as_str()
-        .unwrap_or("/etc/cynic/secrets/forgejo-token");
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            CynicPaths::secret_path("forgejo-token")
+                .display()
+                .to_string()
+        });
 
     // Keyring id mirrors the principal file name (forgejo-token), same
     // convention as the headscale migration: file and keyring address the
@@ -91,7 +97,7 @@ pub fn forgejo_pr_port_from_registry(root: &Path) -> Result<Box<dyn PrPort>, Str
     let keyring = OsCredentialStoreSecretProvider::default();
     let token = resolve_vcs_token(
         token_env,
-        token_file,
+        &token_file,
         keyring_id,
         |name| std::env::var(name).ok(),
         |path| std::fs::read_to_string(path).ok(),

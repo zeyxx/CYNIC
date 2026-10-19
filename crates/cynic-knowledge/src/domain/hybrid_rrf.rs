@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::domain::chunk::DocumentChunk;
 use crate::domain::scorer::{
-    SearchHit, evaluate_altitude_multiplier, evaluate_contract_floor,
-    evaluate_deprecation_multiplier,
+    evaluate_altitude_multiplier, evaluate_contract_floor, evaluate_deprecation_multiplier,
+    SearchHit,
 };
 
 pub const DEFAULT_RRF_K: f64 = 60.0;

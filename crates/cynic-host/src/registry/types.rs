@@ -53,6 +53,21 @@ pub struct RegistryNode {
     pub services: Vec<RegistryNodeService>,
     #[serde(default)]
     pub network_links: Vec<RegistryNetworkLink>,
+    #[serde(default)]
+    pub source_workspace_layout: Option<RegistrySourceWorkspaceLayout>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrySourceWorkspaceLayout {
+    #[serde(default)]
+    pub repositories: Vec<RegistrySourceRepository>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrySourceRepository {
+    pub id: Option<String>,
+    pub relative_path: Option<String>,
+    pub transport_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

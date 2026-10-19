@@ -41,4 +41,14 @@ pub trait AgentWorkloadStorePort: Send + Sync {
         older_than_ms: u64,
         now_ms: u64,
     ) -> Result<Option<String>, AgentWorkloadStoreError>;
+
+    /// Append a read-only JSON evidence sidecar inside the workload directory
+    /// (e.g. the settlement proof body). Never mutates revisions; fails closed
+    /// on unknown workloads or unsafe file names.
+    fn append_evidence(
+        &self,
+        workload_id: &str,
+        file_name: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), AgentWorkloadStoreError>;
 }

@@ -2,6 +2,7 @@ use std::net::TcpListener;
 use std::os::unix::fs::MetadataExt;
 
 use cynic_lifecycle::{ArgvOutput, MapArgvRunner};
+use cynic_types::paths::CynicPaths;
 
 use super::{apply_runtime_binding, observe_runtime_binding, plan_runtime_binding};
 use crate::framework_bootstrap::runtime_binding::types::RuntimeBindingSpec;
@@ -51,7 +52,10 @@ fn explicit_apply_preserves_other_environment_and_requires_socket_read_back() {
     .expect("unit");
     std::fs::write(
         &spec.environment_path,
-        "CYNIC_STATE_ROOT=/var/lib/cynic\nCYNIC_REST_ADDR=127.0.0.1:1\n",
+        format!(
+            "CYNIC_STATE_ROOT={}\nCYNIC_REST_ADDR=127.0.0.1:1\n",
+            CynicPaths::state_dir().display()
+        ),
     )
     .expect("env");
     let runner = MapArgvRunner {
@@ -75,6 +79,9 @@ fn explicit_apply_preserves_other_environment_and_requires_socket_read_back() {
     assert_eq!(report.status, "converged");
     assert_eq!(report.after.endpoint_reachable, Some(true));
     let environment = std::fs::read_to_string(&spec.environment_path).expect("environment");
-    assert!(environment.contains("CYNIC_STATE_ROOT=/var/lib/cynic"));
+    assert!(environment.contains(&format!(
+        "CYNIC_STATE_ROOT={}",
+        CynicPaths::state_dir().display()
+    )));
     assert!(environment.contains(&format!("CYNIC_REST_ADDR=127.0.0.1:{port}")));
 }

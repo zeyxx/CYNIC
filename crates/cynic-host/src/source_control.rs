@@ -18,7 +18,6 @@ use cynic_vcs::{
     SourceChangeAdmission, SourceChangeProposal, SourceMatterClass,
     SourceSnapshot, admit_source_change,
 };
-use serde::Serialize;
 
 use crate::execution::stderr_with_spawn_error;
 use crate::repo_access::current_repo_access_status;

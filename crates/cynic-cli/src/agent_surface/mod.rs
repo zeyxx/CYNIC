@@ -7,6 +7,7 @@
 //!   - cynic agent release    — release an active claim
 //!   - cynic agent status     — query active claims
 //!   - cynic agent heartbeat  — refresh the TTL of a live local claim
+//!   - cynic agent scope      — fail-closed mutation gate over active claims
 //!   - cynic agent events     — read back the append-only claim event log
 //!   - cynic agent intent seal|verify — seal or verify transmission records
 
@@ -18,10 +19,10 @@ use crate::cli_json::emit_pretty_json;
 
 use self::coordination::{
     execute_claim, execute_events, execute_heartbeat, execute_identify, execute_register,
-    execute_release, execute_status, resolve_builder_endpoint, resolve_git_remote,
+    execute_release, execute_scope, execute_status, resolve_builder_endpoint, resolve_git_remote,
     resolve_kernel_base,
 };
-use self::intent::{IntentCommand, execute_intent};
+use self::intent::{execute_intent, IntentCommand};
 
 pub mod coordination;
 pub mod intent;
@@ -166,6 +167,19 @@ pub(crate) enum AgentCommand {
         /// Maximum events returned (tail of the log, chronological order)
         #[arg(long, default_value = "50")]
         limit: usize,
+        /// Print JSON output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fail-closed mutation gate: refuse paths not covered by an active
+    /// claim held by this agent (pre-commit hook and CI call this).
+    Scope {
+        /// Agent ID holding the claims
+        #[arg(long, env = "CYNIC_AGENT_ID")]
+        agent_id: String,
+        /// Paths that are about to be mutated
+        #[arg(long)]
+        paths: Vec<String>,
         /// Print JSON output
         #[arg(long)]
         json: bool,
@@ -337,6 +351,26 @@ pub(crate) fn execute_agent(command: AgentCommand) -> ExitCode {
             }
             Err(error) => {
                 eprintln!("agent events failed: {}", error);
+                ExitCode::FAILURE
+            }
+        },
+        AgentCommand::Scope {
+            agent_id,
+            paths,
+            json: _,
+        } => match execute_scope(&agent_id, &paths) {
+            Ok(report) => {
+                let covered =
+                    report.get("status").and_then(|v| v.as_str()).unwrap_or("") == "covered";
+                emit_pretty_json(&report);
+                if covered {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::FAILURE
+                }
+            }
+            Err(error) => {
+                eprintln!("agent scope failed: {}", error);
                 ExitCode::FAILURE
             }
         },

@@ -2,9 +2,6 @@
 //!
 //! Canonical owner: `cynic-intel` (SoC foundation §481).
 
-use crate::rules::classify_source_tier;
-use crate::rules::is_permanent_source;
-use crate::soc::check_all;
 use crate::soc::{ForensicsSnapshot, SocThresholds};
 use crate::types::Alert;
 

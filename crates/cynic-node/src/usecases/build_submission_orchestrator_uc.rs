@@ -335,6 +335,7 @@ mod tests {
             request_id: "test-request-001".to_string(),
             requested_by: "test-agent".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: cynic_build::BuildSourceReference {
                 schema: cynic_build::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -343,7 +344,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["build_grant_read_back".to_string()],

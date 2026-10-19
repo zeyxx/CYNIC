@@ -5,29 +5,26 @@
 //! This prevents duplicate operations at the provider API level — if the
 //! same key was already used, the provider returns the prior result.
 //!
-//! Canonical hashing is SHA3-512 per foundation.json, with the `sha3-512:`
-//! prefix.
-
-use sha3::{Digest, Sha3_512};
+//! Canonical hashing is SHA-256 per foundation.json (T13 flip), with the
+//! `sha256:` prefix.
 
 use cynic_protocol::domain_ops::DomainOperation;
 
 /// Generate a deterministic idempotency key for a domain operation.
 ///
-/// The key is `sha3-512:<hex>` where the hash input is:
+/// The key is `sha256:<hex>` where the hash input is:
 ///   domain || \x00 || operation || \x00 || content
 ///
 /// This is pure and deterministic: the same inputs always produce the same
 /// key, enabling safe retries without duplicate side effects.
 pub fn generate_idempotency_key(domain: &str, operation: DomainOperation, content: &str) -> String {
-    let mut hasher = Sha3_512::new();
-    hasher.update(domain.as_bytes());
-    hasher.update(b"\x00");
-    hasher.update(operation_as_str(operation).as_bytes());
-    hasher.update(b"\x00");
-    hasher.update(content.as_bytes());
-    let result = hasher.finalize();
-    format!("sha3-512:{}", hex::encode(result))
+    let mut input = Vec::new();
+    input.extend_from_slice(domain.as_bytes());
+    input.push(0x00);
+    input.extend_from_slice(operation_as_str(operation).as_bytes());
+    input.push(0x00);
+    input.extend_from_slice(content.as_bytes());
+    cynic_protocol::digest::digest_bytes(&input)
 }
 
 /// Pure string representation of a DomainOperation for key generation.
@@ -85,17 +82,17 @@ mod tests {
     }
 
     #[test]
-    fn key_uses_sha3_512_prefix() {
+    fn key_uses_sha256_prefix() {
         let key = generate_idempotency_key("example.com", DomainOperation::Register, "content");
-        assert!(key.starts_with("sha3-512:"));
-        let hex_part = &key["sha3-512:".len()..];
-        assert_eq!(hex_part.len(), 128); // SHA3-512 = 512 bits = 64 bytes = 128 hex chars
+        assert!(key.starts_with("sha256:"));
+        let hex_part = &key["sha256:".len()..];
+        assert_eq!(hex_part.len(), 64); // SHA-256 = 256 bits = 32 bytes = 64 hex chars
     }
 
     #[test]
     fn empty_content_still_produces_valid_key() {
         let key = generate_idempotency_key("example.com", DomainOperation::VerifyEdge, "");
-        assert!(key.starts_with("sha3-512:"));
-        assert_eq!(key["sha3-512:".len()..].len(), 128);
+        assert!(key.starts_with("sha256:"));
+        assert_eq!(key["sha256:".len()..].len(), 64);
     }
 }

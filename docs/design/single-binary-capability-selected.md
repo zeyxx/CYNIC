@@ -279,19 +279,21 @@ service to the operator CLI: a kernel panic would kill the operator surface.
 basket with this reason. The kernel is the one binary that must run before and
 independently of the operator.
 
-### 5.2 `cynic-topology` — RESOLVED: stays a separate binary
+### 5.2 `cynic-topology` — SUPERSEDED: absorbed into `cynic` behind `topology_write`
 
-**Measured.** The binary's own module doc (`bin/cynic-topology.rs:10-16`)
-states the reason: *"A `--write` flag on the audit surface would make the
-reader of the topology document capable of mutating it … a reader that can
-also write cannot be trusted to only read."*
+**Reversal of the earlier keep-separate decision.** The compile-time feature
+gate was proven twice on the builder: the default `cynic` binary rejects
+`--write` (clap: unexpected argument), the feature-enabled binary exposes
+`cynic audit topology --write --apply`, and the read path carries no
+`fs::write`. The boundary the separate binary protected is now a
+compile-time property, so the second writer was a divergence risk, not a
+membrane: the standalone `[[bin]]` is deleted, the basket entry with it,
+and regeneration runs through the feature-gated surface only.
 
-Folding it into `cynic topology --write` would put both paths in one binary,
-which does **not** preserve the boundary. The separation must be at the binary
-level, not the subcommand level.
-
-**Decision:** keep `cynic-topology` as a justified exception, with the
-read/write separation as the recorded reason.
+*Historical note (superseded): the deleted binary's module doc argued a
+`--write` flag on the audit surface would make the reader capable of
+mutating it. The compile-time feature answers that objection: the default
+binary has no write path at all, not a hidden one.*
 
 ### 5.3 Bootstrap circularity — CONFIRMED REAL, needs a decision
 
