@@ -494,8 +494,13 @@ mod tests {
             labels: labels(&["cynic/build"]),
             required_tools: vec![],
         };
-        let report =
-            evaluate_pool_eligibility("n1", &declaration, &labels(&["cynic/build", "rogue"]), &[]);
+        let report = evaluate_pool_eligibility(
+            "n1",
+            &declaration,
+            &enrolled(),
+            &labels(&["cynic/build", "rogue"]),
+            &[],
+        );
         assert!(!report.eligible);
         assert_eq!(report.undeclared_labels, vec!["rogue".to_string()]);
     }
