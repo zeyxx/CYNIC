@@ -20,7 +20,6 @@ from cynic_data.canonical.adapters.normalizers.claude_code import ClaudeCodeNorm
 from cynic_data.canonical.adapters.normalizers.codex import CodexNormalizer
 from cynic_data.canonical.adapters.normalizers.hermes import HermesNormalizer
 from cynic_data.canonical.adapters.normalizers.omp import OmpNormalizer
-from cynic_data.canonical.adapters.normalizers.windows_gemini import WindowsGeminiNormalizer
 from cynic_data.canonical.domain.conservation import Fate, parse_fate
 
 # Adapters that must expose a contract, with a callable that builds them.
@@ -31,12 +30,13 @@ CONTRACTED = {
 
 # Adapters that still lack a contract. This list may only shrink; α6 is the
 # promotion mechanism, so a new harness lands here until its vertical is done.
+# Retirements also shrink it (windows_gemini retired T6, capsule in
+# docs/specs/harness-windows-gemini.md).
 UNCONTRACTED = {
     "omp": lambda: OmpNormalizer("/home/user/.omp/agent/sessions"),
     "antigravity": lambda: AntigravityNormalizer(
         "/var/lib/cynic/vault/archive/linux_sessions_2026/gemini_antigravity/conversations"
     ),
-    "windows_gemini": lambda: WindowsGeminiNormalizer("/home/user/.gemini"),
     "claude_code": lambda: ClaudeCodeNormalizer("/home/user/.claude/projects"),
     "codex": lambda: CodexNormalizer("/home/user/.codex/sessions"),
 }
