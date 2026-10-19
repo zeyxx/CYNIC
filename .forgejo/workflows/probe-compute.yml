@@ -1,0 +1,27 @@
+name: Capacity Probe (compute-01)
+
+on:
+  workflow_dispatch:
+
+env:
+  CYNIC_ALLOW_LOCAL_DEV_BUILD: "1"
+  RUSTFLAGS: "-C debuginfo=0"
+
+jobs:
+  probe:
+    name: Build capacity probe
+    runs-on: [cynic/compute-01]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Ensure toolchain
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.95.0
+          fi
+          [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+          rustc --version && cargo --version && hostname
+      - name: Prove build capacity
+        run: cargo test -p cynic-types
