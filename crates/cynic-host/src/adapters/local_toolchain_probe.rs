@@ -4,7 +4,7 @@
 //! cannot be resolved in `PATH` (or reports a version below the declared
 //! minimum) is absent, whatever the registry claims.
 
-use crate::domain::pool_eligibility::ToolObservation;
+use crate::domain::pool_eligibility::{ToolKind, ToolObservation};
 use cynic_lifecycle::ArgvRunner;
 
 /// Probe the local host for the given tool names.
@@ -55,12 +55,45 @@ impl<R: ArgvRunner> LocalToolchainProbe<R> {
             present: path.is_some(),
             path,
             version,
+            kind: ToolKind::Binary,
         }
     }
 
-    /// Probe every tool in `names`.
-    pub fn probe_tools(&self, names: &[String]) -> Vec<ToolObservation> {
-        names.iter().map(|name| self.probe_tool(name)).collect()
+    /// Probe a pkg-config module (e.g. `openssl` for the `libssl-dev` headers).
+    ///
+    /// System libraries have no executable: they are proven by pkg-config
+    /// reporting the module and its version.
+    pub fn probe_pkg_config(&self, module: &str) -> ToolObservation {
+        let argv = ["pkg-config", "--modversion", module];
+        let out = self.runner.run(&argv);
+        let version = if out.success() {
+            let value = out.stdout.trim().to_string();
+            if value.is_empty() {
+                None
+            } else {
+                Some(value)
+            }
+        } else {
+            None
+        };
+        ToolObservation {
+            name: module.to_string(),
+            present: version.is_some(),
+            path: None,
+            version,
+            kind: ToolKind::PkgConfig,
+        }
+    }
+
+    /// Probe every tool in `names`, honouring each requirement's kind.
+    pub fn probe_tools(&self, requirements: &[(String, ToolKind)]) -> Vec<ToolObservation> {
+        requirements
+            .iter()
+            .map(|(name, kind)| match kind {
+                ToolKind::Binary => self.probe_tool(name),
+                ToolKind::PkgConfig => self.probe_pkg_config(name),
+            })
+            .collect()
     }
 }
 
