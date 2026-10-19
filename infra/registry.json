@@ -735,30 +735,47 @@
           {
             "name": "git",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "cargo",
             "min_version": "1.95.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "rustc",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "node",
             "min_version": "22.0.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "python3",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "pkg-config",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "openssl",
+            "min_version": null,
+            "required": true,
+            "kind": "pkg_config"
           }
         ],
-        "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3."
+        "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
       }
     },
     {
@@ -1066,35 +1083,53 @@
           {
             "name": "git",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "cargo",
             "min_version": "1.95.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "rustc",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "node",
             "min_version": "22.0.0",
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "cc",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
           },
           {
             "name": "python3",
             "min_version": null,
-            "required": true
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "pkg-config",
+            "min_version": null,
+            "required": true,
+            "kind": "binary"
+          },
+          {
+            "name": "openssl",
+            "min_version": null,
+            "required": true,
+            "kind": "pkg_config"
           }
         ],
-        "note": "Toolchain complete 2026-10-19: rustc/cargo 1.95.0, node v22.23.3, cc 14.2.0 (build-essential), python3. Capacity probe run #27 green: 12+8+0 tests passed, 416G free, 16 cores."
+        "note": "Toolchain complete 2026-10-19: rustc/cargo 1.95.0, node v22.23.3, cc 14.2.0 (build-essential), python3. Capacity probe run #27 green: 12+8+0 tests passed, 416G free, 16 cores. Toolchain proof includes pkg-config modules (openssl / libssl-dev): openssl-sys needs the dev headers to build."
       }
     }
   ],
