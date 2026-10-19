@@ -49,6 +49,29 @@
       ]
     },
     {
+      "slug": "tokensage",
+      "repo": "sollama58/TokenSage",
+      "url": "https://github.com/sollama58/TokenSage",
+      "sha": "22a697a6c5404bbea070ecd55277724a135c2b51",
+      "observed_at": "2026-10-19",
+      "purpose": "Token meaning API for pump.fun CAs (name, ticker, image, X content, categories, flags, confidence, evidence). REST: /v1/tokens/{ca}, /v1/meta, /admin/v1/* (17 paths, openapi 3.1). License MIT with Commons Clause (no selling or paid-product use without permission).",
+      "data_demanded": [
+        "Token meaning read per CA (name, ticker, image, description, X content, categories, flags, confidence, evidence) — /v1/tokens/{ca}",
+        "Batch jobs with signed webhook callbacks — /v1/jobs/{job_id}",
+        "quarantine_note: Commons Clause restricts paid-product use; read-only observation until license clarified"
+      ]
+    },
+    {
+      "slug": "kora",
+      "repo": "solana-foundation/kora",
+      "url": "https://github.com/solana-foundation/kora",
+      "tag": "v2.0.5",
+      "sha": "cebb90463d787a210fefb71197e8d6a3dffada41",
+      "observed_at": "2026-10-16",
+      "purpose": "Signing infra referent (operate-only, no fork, no PR planned). Backfilled into pins 2026-10-19 to satisfy external_registry_coherence (registry referenced repo/tag/sha inline).",
+      "data_demanded": []
+    },
+    {
       "slug": "gasdf",
       "repo": "zeyxx/GASdf",
       "url": "https://github.com/zeyxx/GASdf",
