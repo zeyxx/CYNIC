@@ -56,7 +56,9 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   ef91f1af non-vacuous (preuve ne compile pas sans store),
   f3767cff known-vacuous (E7 : durcissement transactionnel sans
   fault-injection — revue seule).
-- Python (4 gardes) : à rejouer (pytest via venv ci-dessous).
+- Python (4 gardes, re-ancrées fallback pre-move) : 9f76aa88, eb3c43b6
+  (5 failed), 311058ac (4 failed), 7c64d2e2 (7 failed) — toutes
+  non-vacuous. Full run : OK 6 + 1 known-vacuous.
 
 ### T6 — Retrait des normaliseurs Python, un par un [ ]
 - Un `HITL` par harness (windows, codex, cursor, vscode, kiro, gemini,
