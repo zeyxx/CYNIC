@@ -303,7 +303,10 @@ pub fn validate_agent_host_desired(desired: &AgentHostDesired) -> Vec<String> {
 }
 
 /// Validates an agent sandbox allocation contract.
-pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) -> Vec<String> {
+pub fn validate_agent_sandbox_allocation(
+    allocation: &AgentSandboxAllocation,
+    shared_root: Option<String>,
+) -> Vec<String> {
     let mut violations = Vec::new();
 
     if allocation.schema != AGENT_SANDBOX_ALLOCATION_SCHEMA {
@@ -370,7 +373,7 @@ pub fn validate_agent_sandbox_allocation(allocation: &AgentSandboxAllocation) ->
             break;
         }
     }
-    if let Ok(shared_root) = std::env::var("CYNIC_WORKSPACE_ROOT") {
+    if let Some(shared_root) = shared_root {
         if !shared_root.is_empty() && (git_dir.starts_with(&shared_root) || workspace.starts_with(&shared_root)) {
             violations.push("blocked_shared_git_admin".to_string());
         }
@@ -625,7 +628,7 @@ mod tests {
     #[test]
     fn valid_sandbox_allocation_passes_validation() {
         let alloc = valid_allocation();
-        assert!(validate_agent_sandbox_allocation(&alloc).is_empty());
+        assert!(validate_agent_sandbox_allocation(&alloc, None).is_empty());
     }
 
     #[test]
@@ -650,13 +653,10 @@ mod tests {
 
     #[test]
     fn rejects_shared_git_admin_path() {
-        // Use the static shared-checkout marker, not $CYNIC_WORKSPACE_ROOT:
-        // the env var is unset outside the author's machine, which made
-        // this test pass in exactly one environment.
         let mut alloc = valid_allocation();
         alloc.private_workspace_path =
-            "/var/lib/cynic/source/repositories/CYNIC/worktree-1".to_string();
-        let violations = validate_agent_sandbox_allocation(&alloc);
+            "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/worktree-1".to_string();
+        let violations = validate_agent_sandbox_allocation(&alloc, Some("/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC".to_string()));
         assert!(violations.contains(&"blocked_shared_git_admin".to_string()));
     }
 
@@ -664,14 +664,14 @@ mod tests {
     fn rejects_main_and_master_branches() {
         let mut alloc = valid_allocation();
         alloc.target_branch = "main".to_string();
-        let violations = validate_agent_sandbox_allocation(&alloc);
+        let violations = validate_agent_sandbox_allocation(&alloc, None);
         assert!(
             violations
                 .contains(&"agent_sandbox_target_branch_forbidden_protected_branch".to_string())
         );
 
         alloc.target_branch = "master".to_string();
-        let violations = validate_agent_sandbox_allocation(&alloc);
+        let violations = validate_agent_sandbox_allocation(&alloc, None);
         assert!(
             violations
                 .contains(&"agent_sandbox_target_branch_forbidden_protected_branch".to_string())
@@ -682,7 +682,7 @@ mod tests {
     fn rejects_invalid_forgejo_base_sha() {
         let mut alloc = valid_allocation();
         alloc.forgejo_base_sha = "short_sha".to_string();
-        let violations = validate_agent_sandbox_allocation(&alloc);
+        let violations = validate_agent_sandbox_allocation(&alloc, None);
         assert!(violations.contains(&"agent_sandbox_forgejo_base_sha_invalid".to_string()));
     }
 
@@ -694,7 +694,7 @@ mod tests {
             target: "/etc".to_string(),
             read_only: false,
         });
-        let violations = validate_agent_sandbox_allocation(&alloc);
+        let violations = validate_agent_sandbox_allocation(&alloc, None);
         assert!(violations.contains(&"blocked_excessive_rw_mount".to_string()));
     }
 

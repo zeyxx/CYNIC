@@ -73,7 +73,7 @@ pub fn build_bwrap_argv(
     allocation: &AgentSandboxAllocation,
     command: &[&str],
 ) -> Result<Vec<String>, String> {
-    let violations = validate_agent_sandbox_allocation(allocation);
+    let violations = validate_agent_sandbox_allocation(allocation, std::env::var("CYNIC_WORKSPACE_ROOT").ok());
     if !violations.is_empty() {
         return Err(format!(
             "invalid_sandbox_allocation: {}",

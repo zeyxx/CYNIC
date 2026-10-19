@@ -83,7 +83,7 @@ pub(crate) fn execute_task(command: TaskCommand) -> ExitCode {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .unwrap();
+        .expect("failed to build tokio runtime");
 
     match command {
         TaskCommand::Push {

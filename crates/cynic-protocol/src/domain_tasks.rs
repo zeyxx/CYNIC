@@ -97,6 +97,7 @@ impl DomainTask {
         title: impl Into<String>,
         payload: serde_json::Value,
         created_by_agent: impl Into<String>,
+        created_at_unix_s: u64,
     ) -> Self {
         Self {
             schema: DOMAIN_TASK_SCHEMA.to_string(),
@@ -106,10 +107,7 @@ impl DomainTask {
             title: title.into(),
             payload,
             created_by_agent: created_by_agent.into(),
-            created_at_unix_s: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
+            created_at_unix_s,
             timeout_secs: 300,
             status: DomainTaskStatus::Pending,
             claimed_by_agent: None,

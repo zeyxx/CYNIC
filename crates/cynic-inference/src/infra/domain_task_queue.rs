@@ -176,7 +176,7 @@ impl DomainTaskQueue {
             .map(|d| d.as_secs())
             .unwrap_or(0);
         let id = format!("task_{:?}_{}_{}", domain, now, seq).to_lowercase();
-        let task = DomainTask::new(id, domain, priority, title, payload, created_by);
+        let task = DomainTask::new(id, domain, priority, title, payload, created_by, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
         let mut guard = self.tasks.write().await;
         self.append_record(&task)?;
         guard.insert(task.id.clone(), task.clone());

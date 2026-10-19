@@ -90,7 +90,7 @@ fn resolve_transport() -> Option<Box<dyn NotificationTransportPort>> {
 
     match transports.len() {
         0 => None,
-        1 => Some(transports.pop().unwrap()),
+        1 => Some(transports.pop().expect("transports has exactly one element")),
         _ => Some(Box::new(MultiChannelNotificationTransport::new(transports))),
     }
 }

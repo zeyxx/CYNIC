@@ -114,8 +114,9 @@ impl EnergyLedger {
         action: &str,
         max_budget: EnergyDimensions,
         ttl_seconds: u64,
+        now_unix_s: u64,
     ) -> &EnergyAllocation {
-        let now = now_unix_s();
+        let now = now_unix_s;
         let allocation = EnergyAllocation {
             schema: ENERGY_ALLOCATION_SCHEMA.to_string(),
             allocation_id: format!("alloc:{}:{}:{}", agent_id, action, now),
@@ -135,6 +136,7 @@ impl EnergyLedger {
         allocation_id: &str,
         consumed: EnergyDimensions,
         evidence_refs: Vec<String>,
+        now_unix_s: u64,
     ) -> Result<EnergyProof, String> {
         let allocation = self
             .allocations
@@ -147,7 +149,7 @@ impl EnergyLedger {
             schema: ENERGY_CONSUMPTION_SCHEMA.to_string(),
             allocation_id: allocation_id.to_string(),
             consumed: consumed.clone(),
-            consumed_at_unix_s: now_unix_s(),
+            consumed_at_unix_s: now_unix_s,
         };
 
         let within_budget = consumed.estimated_joules <= allocation.max_budget.estimated_joules
@@ -207,8 +209,8 @@ impl EnergyLedger {
     }
 
     /// Check if an allocation is still valid (not expired).
-    pub fn is_valid(&self, allocation_id: &str) -> bool {
-        let now = now_unix_s();
+    pub fn is_valid(&self, allocation_id: &str, now_unix_s: u64) -> bool {
+        let now = now_unix_s;
         self.allocations
             .iter()
             .find(|a| a.allocation_id == allocation_id)
@@ -231,13 +233,6 @@ fn sub_opt(a: Option<u64>, b: Option<u64>) -> Option<u64> {
         (Some(x), None) => Some(x),
         (Some(x), Some(y)) => Some(x.saturating_sub(y)),
     }
-}
-
-fn now_unix_s() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }
 
 /// Estimate energy for common operations.
@@ -303,7 +298,7 @@ mod tests {
             disk_bytes: None,
             estimated_joules: 500.0,
         };
-        let alloc = ledger.allocate("test_agent", "test_action", budget, 3600);
+        let alloc = ledger.allocate("test_agent", "test_action", budget, 3600, 0);
         let alloc_id = alloc.allocation_id.clone();
 
         let consumed = EnergyDimensions {
@@ -314,7 +309,7 @@ mod tests {
             estimated_joules: 250.0,
         };
         let proof = ledger
-            .record(&alloc_id, consumed, vec!["evidence1".to_string()])
+            .record(&alloc_id, consumed, vec!["evidence1".to_string()], 0)
             .unwrap();
         assert!(proof.within_budget);
         assert_eq!(proof.efficiency, 0.5);
@@ -328,7 +323,7 @@ mod tests {
             estimated_joules: 100.0,
             ..Default::default()
         };
-        let alloc = ledger.allocate("agent", "action", budget, 3600);
+        let alloc = ledger.allocate("agent", "action", budget, 3600, 0);
         let alloc_id = alloc.allocation_id.clone();
 
         let consumed = EnergyDimensions {
@@ -336,7 +331,7 @@ mod tests {
             estimated_joules: 200.0,
             ..Default::default()
         };
-        let proof = ledger.record(&alloc_id, consumed, vec![]).unwrap();
+        let proof = ledger.record(&alloc_id, consumed, vec![], 0).unwrap();
         assert!(!proof.within_budget);
     }
 
@@ -348,7 +343,7 @@ mod tests {
             estimated_joules: 1000.0,
             ..Default::default()
         };
-        let alloc = ledger.allocate("agent", "action", budget, 3600);
+        let alloc = ledger.allocate("agent", "action", budget, 3600, 0);
         let alloc_id = alloc.allocation_id.clone();
 
         let consumed = EnergyDimensions {
@@ -356,7 +351,7 @@ mod tests {
             estimated_joules: 300.0,
             ..Default::default()
         };
-        ledger.record(&alloc_id, consumed, vec![]).unwrap();
+        ledger.record(&alloc_id, consumed, vec![], 0).unwrap();
 
         let remaining = ledger.remaining_budget(&alloc_id).unwrap();
         assert_eq!(remaining.wall_time_ms, 7000);
@@ -367,9 +362,9 @@ mod tests {
     fn allocation_expires() {
         let mut ledger = EnergyLedger::new();
         let budget = EnergyDimensions::default();
-        let alloc = ledger.allocate("agent", "action", budget, 1); // 1 second TTL
+        let alloc = ledger.allocate("agent", "action", budget, 1, 0); // 1 second TTL
         let alloc_id = alloc.allocation_id.clone();
-        assert!(ledger.is_valid(&alloc_id));
+        assert!(ledger.is_valid(&alloc_id, 0));
     }
 
     #[test]
