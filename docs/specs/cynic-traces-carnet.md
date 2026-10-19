@@ -73,6 +73,12 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   FIELD_FATE complet, 4 racines sources, réparations `_load_chat`).
   Données intactes (34 sessions silver + 69k fichiers vault). Perte
   assumée : ingestion restante impossible sans vertical Rust (T7).
+- `cursor, vscode, kiro, amp, qwen, droid, opencode` : SANS OBJET —
+  prouvé 2026-10-19 : zéro session silver, zéro normaliseur/capture/runner/test,
+  seules mentions = bruit (modèle `Qwen3.6` dans hermes_contract, variable
+  `cursor` sqlite, docs). Rien à retirer, rien à capsuler.
+- Restent : `codex` (195 sessions), `omp` (~90), `claude_code` (106),
+  `antigravity` (500, vertical partiel).
 
 ### T7 — Modèle graphe + projection géodésique [ ]
 - Gated derrière T1–T6 (loi de Gall). Implémente R1–R6 du delta géodésique
