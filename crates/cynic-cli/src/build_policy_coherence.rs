@@ -277,6 +277,7 @@ fn the_registry_names_its_own_coherence_test() {
     let declared = policy["coherence_contract"]["test"]
         .as_str()
         .expect("coherence_contract must name its test");
+    let path = repo_root().join(declared);
     let path_buf = repo_root().join(declared);
     assert!(
         path_buf.is_file(),

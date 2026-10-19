@@ -9,7 +9,7 @@ use clap::Subcommand;
 use cynic_forensics::{ForensicObservationPort, LocalForensicAdapter, parse_boot_table_line};
 
 #[derive(Subcommand)]
-pub(crate) enum ForensicsCommand {
+pub enum ForensicsCommand {
     /// Collect forensic evidence from the current boot.
     Evidence {
         #[arg(long)]
