@@ -21,10 +21,38 @@ pub(crate) fn submit_build(
     wait: bool,
     json: bool,
 ) -> Result<(), String> {
+    if let Some(warning) = package_scope_warning(action, package) {
+        eprintln!("warning: {warning}");
+    }
     let proof =
         cynic_build::submit_workload(commit, package, action, requested_by, builder_url, wait)?;
+    if wait {
+        // Terminal envelope only: an acceptance proof is not a result and must
+        // never land in the proof log. Persist the waited terminal state so
+        // `build proofs list --commit` reads submit results like trigger ones.
+        match crate::build_proof_log::default_proof_log_path() {
+            Ok(log_path) => {
+                let rendered = serde_json::to_string(&proof).unwrap_or_default();
+                if let Err(error) = crate::build_proof_log::append_proof(&log_path, &rendered) {
+                    eprintln!("warning: proof retained in stdout only: {error}");
+                }
+            }
+            Err(error) => eprintln!("warning: proof retained in stdout only: {error}"),
+        }
+    }
     cynic_build::render_workload_proof(&proof, json)?;
     Ok(())
+}
+
+/// Pure predicate: `--package` currently reaches the builder payload but no
+/// downstream composition reads it, so every action runs workspace-wide.
+/// Returns the operator warning, or `None` when there is nothing to warn.
+pub(crate) fn package_scope_warning(action: &str, package: Option<&str>) -> Option<String> {
+    package.map(|pkg| {
+        format!(
+            "--package {pkg} is currently ignored: action `{action}` runs workspace-wide on the builder"
+        )
+    })
 }
 
 pub(crate) fn trigger_build(
@@ -345,4 +373,24 @@ pub(crate) fn run_build(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_warns_for_every_action_while_payload_is_dropped() {
+        for action in ["check", "build", "build-release", "test"] {
+            let warning =
+                package_scope_warning(action, Some("cynic-cli")).expect("must warn");
+            assert!(warning.contains("cynic-cli"), "{action}: {warning}");
+            assert!(warning.contains("ignored"), "{action}: {warning}");
+        }
+    }
+
+    #[test]
+    fn no_package_means_no_warning() {
+        assert_eq!(package_scope_warning("check", None), None);
+    }
 }
