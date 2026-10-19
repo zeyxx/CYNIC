@@ -29,10 +29,11 @@ pub const POOL_ELIGIBILITY_SCHEMA: &str = "cynic.pool.eligibility.v1";
 /// A build toolchain is not only executables: `libssl-dev` is a set of
 /// headers, visible only through `pkg-config`. Probing only `PATH` would
 /// report a present system library as missing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolKind {
     /// An executable resolvable in `PATH` (e.g. `cargo`).
+    #[default]
     Binary,
     /// A pkg-config module (e.g. `openssl` for the `libssl-dev` headers).
     PkgConfig,
