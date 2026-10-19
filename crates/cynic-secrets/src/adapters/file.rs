@@ -5,7 +5,7 @@
 //! Encrypted secret files live under a principal-owned directory
 //! (`${CYNIC_PRINCIPAL_HOME}/.config/cynic/secrets` for interactive use, or
 //! any directory passed to [`EncryptedFileSecretProvider::new`] — daemons pass
-//! `/etc/cynic/secrets`).
+//! the system secrets directory, [`CynicPaths::secrets_dir`]).
 //!
 //! ## On-disk format (production-grade)
 //!
@@ -40,6 +40,7 @@ use aes_gcm::{
     Aes256Gcm, Key, Nonce,
     aead::{Aead, KeyInit, Payload},
 };
+use cynic_types::paths::CynicPaths;
 
 use crate::{
     SecretEntry, SecretError, SecretProviderKind, SecretProviderPort, SecretReference,
@@ -63,7 +64,11 @@ const BODY_OFFSET: usize = MAGIC.len() + NONCE_LEN + DATA_KEY_LEN + TAG_LEN + NO
 /// 1. `CYNIC_PRINCIPAL_SEED` environment variable.
 /// 2. `${CYNIC_PRINCIPAL_SEED_FILE}` when set.
 /// 3. `${CYNIC_PRINCIPAL_HOME:-$HOME}/.config/cynic/principal-seed`.
-/// 4. `/etc/cynic/principal-seed` (system principal — daemons have no `$HOME`).
+/// 4. the system principal seed (daemons have no `$HOME`).
+///
+/// The system location is [`CynicPaths::system_config_dir`] joined with
+/// `principal-seed`, never a restated literal: this file must not hold a
+/// second copy of the placement truth.
 ///
 /// Returns `None` when no seed exists. Callers MUST treat that as an error for
 /// any cryptographic operation: an absent seed must never silently degrade to
@@ -84,7 +89,7 @@ fn resolve_principal_seed() -> Option<Vec<u8>> {
     if let Ok(home) = std::env::var("CYNIC_PRINCIPAL_HOME").or_else(|_| std::env::var("HOME")) {
         candidates.push(PathBuf::from(home).join(".config/cynic/principal-seed"));
     }
-    candidates.push(PathBuf::from("/etc/cynic/principal-seed"));
+    candidates.push(CynicPaths::system_config_dir().join("principal-seed"));
 
     for path in candidates {
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -126,12 +131,13 @@ pub struct EncryptedFileSecretProvider {
 
 impl Default for EncryptedFileSecretProvider {
     fn default() -> Self {
-        // Principal-owned store. A system principal (anything under `/etc/cynic`)
-        // is preferred when present: daemons run as root with no user session and
-        // must read/write the same store as the operator CLI.
-        if Path::new("/etc/cynic").exists() {
+        // Principal-owned store. A system principal (anything under the system
+        // config directory) is preferred when present: daemons run as root
+        // with no user session and must read/write the same store as the
+        // operator CLI.
+        if CynicPaths::system_config_dir().exists() {
             return Self {
-                base_dir: PathBuf::from("/etc/cynic/secrets"),
+                base_dir: CynicPaths::secrets_dir(),
                 legacy_dir: None,
             };
         }
@@ -146,7 +152,8 @@ impl Default for EncryptedFileSecretProvider {
 }
 
 impl EncryptedFileSecretProvider {
-    /// Provider rooted at an explicit directory (daemons: `/etc/cynic/secrets`).
+    /// Provider rooted at an explicit directory (daemons: the system secrets
+    /// directory, [`CynicPaths::secrets_dir`]).
     pub fn new(base_dir: impl Into<PathBuf>) -> Self {
         Self {
             base_dir: base_dir.into(),
@@ -177,11 +184,13 @@ impl EncryptedFileSecretProvider {
     /// Encrypt `value` under a fresh random data key sealed by the KEK.
     fn seal(&self, value: &str) -> Result<Vec<u8>, SecretError> {
         let seed = resolve_principal_seed().ok_or_else(|| {
-            SecretError::Backend(
+            SecretError::Backend(format!(
                 "principal seed missing: set CYNIC_PRINCIPAL_SEED, CYNIC_PRINCIPAL_SEED_FILE, \
-                 ~/.config/cynic/principal-seed or /etc/cynic/principal-seed"
-                    .into(),
-            )
+                 ~/.config/cynic/principal-seed or {}",
+                CynicPaths::system_config_dir()
+                    .join("principal-seed")
+                    .display()
+            ))
         })?;
         let kek = derive_kek(&seed);
 

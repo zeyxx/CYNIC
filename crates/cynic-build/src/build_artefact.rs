@@ -1,7 +1,7 @@
 //! Build artefact observation — 4-layer substrate for builder checkouts.
 //!
 //! Physical: raw disk device (via disk::PhysicalDisk, reused)
-//! Volume:   mount /var/lib/cynic (disk::DiskFilesystem)
+//! Volume:   mount <state> (disk::DiskFilesystem)
 //! Usage:    checkouts + target/ consumption (CheckoutEntry)
 //! Pressure: disk full / root-owned target (DiskPressure)
 //!

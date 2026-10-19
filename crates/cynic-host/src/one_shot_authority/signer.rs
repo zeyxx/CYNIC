@@ -12,6 +12,110 @@ use cynic_protocol::OneShotCapability;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
+/// Load a raw 32-byte ed25519 seed from `seed_path`.
+///
+/// Accepted encodings (fleet key-material authority for operator-held keys):
+///  - 64 lowercase hex chars (fleet identity convention, optional newline),
+///  - 32 raw bytes,
+///  - PEM-armored OpenSSH `openssh-key-v1` blob (`ssh-keygen -t ed25519`),
+///  - the base64-decoded OpenSSH blob itself.
+///
+/// Returns the seed bytes; never logs or prints key material.
+pub fn load_ed25519_seed(seed_path: &Path) -> Result<[u8; 32], String> {
+    let bytes = std::fs::read(seed_path).map_err(|e| format!("failed to read seed key: {e}"))?;
+    let text = String::from_utf8_lossy(&bytes);
+    let trimmed = text.trim();
+    // Fleet hex convention first (also matches node identity files).
+    if trimmed.len() == 64 {
+        if let Ok(decoded) = hex::decode(trimmed) {
+            if let Ok(seed) = decoded.try_into() {
+                return Ok(seed);
+            }
+        }
+    }
+    // Raw 32-byte seed.
+    if bytes.len() == 32 {
+        return bytes[..32]
+            .try_into()
+            .map_err(|_| "seed must be 32 bytes".to_string());
+    }
+    // PEM armor?
+    let blob: Vec<u8> = if trimmed.starts_with("-----BEGIN") {
+        let body: String = trimmed
+            .lines()
+            .filter(|line| !line.starts_with("-----"))
+            .collect();
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &body)
+            .map_err(|e| format!("failed to decode PEM armor: {e}"))?
+    } else {
+        bytes
+    };
+    // PKCS#8 (DER SEQUENCE) vs OpenSSH (magic string) dispatch.
+    if blob.first() == Some(&0x30) {
+        parse_pkcs8_ed25519_seed(&blob).map(|key| key.to_bytes())
+    } else {
+        parse_openssh_ed25519_seed(&blob).map(|key| key.to_bytes())
+    }
+}
+
+/// Extract the 32-byte seed from an unencrypted PKCS#8 Ed25519 DER blob
+/// (`-----BEGIN PRIVATE KEY-----`, as produced by `openssl pkcs8 -topk8
+/// -nocrypt` or `ssh-keygen -m PKCS8`). Strict shape, fail closed:
+/// SEQUENCE { INTEGER 0, SEQUENCE { OID 1.3.101.112 }, OCTET STRING {
+/// OCTET STRING { seed } } }. Short-form lengths only.
+fn parse_pkcs8_ed25519_seed(bytes: &[u8]) -> Result<SigningKey, String> {
+    let mut cursor = bytes;
+    let expect_tag = |cursor: &mut &[u8], tag: u8, what: &str| -> Result<(), String> {
+        let actual = read_bytes(cursor, 1).map_err(|_| format!("pkcs8 truncated at {what}"))?;
+        if actual[0] != tag {
+            return Err(format!("pkcs8 unexpected tag at {what}"));
+        }
+        Ok(())
+    };
+    let expect_len = |cursor: &mut &[u8], want: usize, what: &str| -> Result<(), String> {
+        let raw = read_bytes(cursor, 1).map_err(|_| format!("pkcs8 truncated len at {what}"))?;
+        if raw[0] >= 0x80 {
+            return Err(format!("pkcs8 long-form length refused at {what}"));
+        }
+        if raw[0] as usize != want {
+            return Err(format!("pkcs8 unexpected length at {what}"));
+        }
+        Ok(())
+    };
+    expect_tag(&mut cursor, 0x30, "outer sequence")?;
+    let outer_len =
+        read_bytes(&mut cursor, 1).map_err(|_| "pkcs8 truncated outer len".to_string())?;
+    if outer_len[0] >= 0x80 || outer_len[0] as usize != cursor.len() {
+        return Err("pkcs8 outer length mismatch".to_string());
+    }
+    expect_tag(&mut cursor, 0x02, "version integer")?;
+    expect_len(&mut cursor, 1, "version len")?;
+    let version = read_bytes(&mut cursor, 1).map_err(|_| "pkcs8 truncated version".to_string())?;
+    if version[0] != 0 {
+        return Err("pkcs8 unsupported version".to_string());
+    }
+    expect_tag(&mut cursor, 0x30, "algorithm sequence")?;
+    expect_len(&mut cursor, 5, "algorithm len")?;
+    expect_tag(&mut cursor, 0x06, "algorithm oid")?;
+    expect_len(&mut cursor, 3, "oid len")?;
+    let oid = read_bytes(&mut cursor, 3).map_err(|_| "pkcs8 truncated oid".to_string())?;
+    if oid != [0x2b, 0x65, 0x70] {
+        return Err("pkcs8 only Ed25519 (1.3.101.112) is supported".to_string());
+    }
+    expect_tag(&mut cursor, 0x04, "outer octet string")?;
+    expect_len(&mut cursor, 34, "outer octet len")?;
+    expect_tag(&mut cursor, 0x04, "inner octet string")?;
+    expect_len(&mut cursor, 32, "seed len")?;
+    let seed = read_bytes(&mut cursor, 32).map_err(|_| "pkcs8 truncated seed".to_string())?;
+    if !cursor.is_empty() {
+        return Err("pkcs8 trailing bytes refused".to_string());
+    }
+    let arr: [u8; 32] = seed
+        .try_into()
+        .map_err(|_| "pkcs8 seed is not 32 bytes".to_string())?;
+    Ok(SigningKey::from_bytes(&arr))
+}
+
 /// Port: produces a detached ed25519 hex signature over a canonical
 /// `OneShotCapability` signing payload.
 pub trait CapabilitySigningPort {
@@ -79,28 +183,47 @@ fn parse_openssh_ed25519_seed(bytes: &[u8]) -> Result<SigningKey, String> {
     // skip ciphername (4-byte len + data), kdf (same), kdfoptions (same)
     for _ in 0..3 {
         let len = read_u32(&mut cursor)?;
-        cursor = read_bytes(&mut cursor, len)?;
+        read_bytes(&mut cursor, len)?;
     }
     let _num_keys = read_u32(&mut cursor)?;
     // skip public key blob
     let pub_len = read_u32(&mut cursor)?;
-    cursor = read_bytes(&mut cursor, pub_len)?;
+    read_bytes(&mut cursor, pub_len)?;
     // private key section
     let priv_len = read_u32(&mut cursor)?;
     let priv_section = read_bytes(&mut cursor, priv_len)?;
     let mut priv_cursor = priv_section;
     // skip check1, check2 (4 bytes each)
-    priv_cursor = &priv_cursor[8..];
-    // skip private pubkey
-    let _pub_len = read_u32(&mut priv_cursor)?;
-    priv_cursor = read_bytes(&mut priv_cursor, _pub_len)?;
-    // ed25519 private key = 64 bytes (seed+public), seed = first 32
-    if priv_cursor.len() < 64 {
-        return Err("private key section too short".to_string());
+    if priv_cursor.len() < 8 {
+        return Err("private key section too short for checks".to_string());
     }
-    let seed: [u8; 32] = priv_cursor[..32]
+    priv_cursor = &priv_cursor[8..];
+    // key type string: only ssh-ed25519 is supported (fail closed otherwise)
+    let type_len = read_u32(&mut priv_cursor)?;
+    let key_type = read_bytes(&mut priv_cursor, type_len)?;
+    if key_type != b"ssh-ed25519" {
+        return Err("unsupported private key type (only ssh-ed25519)".to_string());
+    }
+    // public key string: 32 bytes (recorded, not trusted for identity)
+    let pub_len = read_u32(&mut priv_cursor)?;
+    let stored_public = read_bytes(&mut priv_cursor, pub_len)?;
+    if stored_public.len() != 32 {
+        return Err("ed25519 public key string is not 32 bytes".to_string());
+    }
+    // private string: 64 bytes (32B seed + 32B public)
+    let seed_len = read_u32(&mut priv_cursor)?;
+    let private_blob = read_bytes(&mut priv_cursor, seed_len)?;
+    if private_blob.len() != 64 {
+        return Err("ed25519 private string is not 64 bytes".to_string());
+    }
+    let seed: [u8; 32] = private_blob[..32]
         .try_into()
-        .map_err(|_| "private key section too short".to_string())?;
+        .map_err(|_| "ed25519 private string is not 64 bytes".to_string())?;
+    // Cross-check: stored public must match the seed-derived public key.
+    let derived = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
+    if derived != private_blob[32..] {
+        return Err("seed and public halves of private string disagree".to_string());
+    }
     Ok(SigningKey::from_bytes(&seed))
 }
 
@@ -209,6 +332,48 @@ mod tests {
         assert_eq!(consumed.capability_id, "bootstrap-test-1");
         let _ = std::fs::remove_dir_all(&root);
         let _ = std::fs::remove_file(&pubkey_path);
+    }
+
+    #[test]
+    fn seed_loader_accepts_hex_and_raw_and_rejects_garbage() {
+        let dir = std::env::temp_dir().join("test_seed_loader");
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let seed = [7_u8; 32];
+        let hex_path = dir.join("seed.hex");
+        std::fs::write(&hex_path, format!("{}\n", hex::encode(seed))).expect("write hex");
+        assert_eq!(load_ed25519_seed(&hex_path).expect("load hex"), seed);
+        let raw_path = dir.join("seed.raw");
+        std::fs::write(&raw_path, seed).expect("write raw");
+        assert_eq!(load_ed25519_seed(&raw_path).expect("load raw"), seed);
+        let bad_path = dir.join("seed.bad");
+        std::fs::write(&bad_path, "not-a-key").expect("write bad");
+        assert!(load_ed25519_seed(&bad_path).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn seed_loader_accepts_pkcs8_pem_and_rejects_wrong_oid() {
+        // Dummy-only vector, built in-test: PKCS#8 wrapping seed [9u8; 32].
+        let seed = [9_u8; 32];
+        let mut der = vec![
+            0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22,
+            0x04, 0x20,
+        ];
+        der.extend_from_slice(&seed);
+        let pem = format!(
+            "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &der)
+        );
+        let dir = std::env::temp_dir().join("test_seed_pkcs8");
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let key_path = dir.join("seed.pkcs8");
+        std::fs::write(&key_path, &pem).expect("write pkcs8");
+        assert_eq!(load_ed25519_seed(&key_path).expect("load pkcs8"), seed);
+        let _ = std::fs::remove_dir_all(&dir);
+        // Same envelope with a non-Ed25519 OID must fail closed.
+        let mut bad = der.clone();
+        bad[11] = 0x71;
+        assert!(parse_pkcs8_ed25519_seed(&bad).is_err());
     }
 
     #[test]

@@ -1,12 +1,12 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+use cynic_types::paths::CynicPaths;
+
 use crate::repo_access::current_project_root;
 use crate::runtime_authority::RuntimeProjectionClass;
 
 const ALLOW_LOCAL_DEV_BUILD_ENV: &str = "CYNIC_ALLOW_LOCAL_DEV_BUILD";
-
-pub const DEFAULT_REGISTRY_PATH: &str = "/etc/cynic/registry.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeRegistryMode {
@@ -122,7 +122,7 @@ pub fn resolve_runtime_registry(
         }
     }
 
-    let installed_registry = PathBuf::from(DEFAULT_REGISTRY_PATH);
+    let installed_registry = CynicPaths::registry_path();
     if installed_registry.is_file() {
         return Ok(resolved(
             installed_registry,
@@ -142,10 +142,12 @@ pub fn resolve_runtime_registry(
         }
     }
 
-    Err(
-        "registry path required: set CYNIC_REGISTRY/CYNIC_REGISTRY_PATH, install /etc/cynic/registry.json, or set CYNIC_ALLOW_LOCAL_DEV_BUILD=1 when resolving from a workspace"
-            .to_string(),
-    )
+    Err(format!(
+        "registry path required: set CYNIC_REGISTRY/CYNIC_REGISTRY_PATH, install {}, or set CYNIC_ALLOW_LOCAL_DEV_BUILD=1 when resolving from a workspace",
+        CynicPaths::system_config_dir()
+            .join("registry.json")
+            .display()
+    ))
 }
 
 fn allow_local_dev_build() -> bool {

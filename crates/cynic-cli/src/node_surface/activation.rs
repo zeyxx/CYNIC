@@ -7,14 +7,21 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use clap::Subcommand;
 use serde::Serialize;
+
+use cynic_types::paths::CynicPaths;
 
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
 use cynic_host::node_activation::NodeActivationPort;
 use cynic_host::node_identity_workflow::NodeIdentityWorkflow;
 
-pub(crate) const DEFAULT_REGISTRY_PATH: &str = "/etc/cynic/registry.json";
+fn default_key_path() -> PathBuf {
+    CynicPaths::system_config_dir().join("node-identity.key")
+}
+
+fn default_cert_path() -> PathBuf {
+    CynicPaths::system_config_dir().join("node-identity.cert")
+}
 
 #[derive(Serialize)]
 struct IdentityInitReport {
@@ -47,14 +54,6 @@ struct CertVerifyReport {
     verified: bool,
     is_currently_valid: bool,
     status: &'static str,
-}
-
-fn default_key_path() -> PathBuf {
-    PathBuf::from("/etc/cynic/node-identity.key")
-}
-
-fn default_cert_path() -> PathBuf {
-    PathBuf::from("/etc/cynic/node-identity.cert")
 }
 
 fn current_unix_s() -> u64 {
@@ -307,65 +306,5 @@ pub(crate) fn execute_host_audit(json: bool, max_commits: usize) -> ExitCode {
     match crate::node_host_audit::build_node_host_audit(max_commits) {
         Ok(report) => crate::emit_json(&report, false),
         Err(error) => crate::fail(error),
-    }
-}
-
-/// Node certificate arms: inspect a local enrollment certificate, or verify
-/// one against a kernel authority key.
-#[derive(Subcommand)]
-pub enum NodeCertCommand {
-    /// Inspect a local Node Enrollment Certificate.
-    Inspect {
-        #[arg(long)]
-        cert_path: Option<String>,
-        #[arg(long)]
-        json: bool,
-    },
-    /// Cryptographically verify a Node Enrollment Certificate against a Kernel authority public key.
-    Verify {
-        #[arg(long)]
-        kernel_pubkey_hex: String,
-        #[arg(long)]
-        cert_path: Option<String>,
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-/// Node CSR arms: create a self-signed Certificate Signing Request.
-#[derive(Subcommand)]
-pub enum NodeCsrCommand {
-    /// Create a self-signed Certificate Signing Request (CSR) for node enrollment.
-    Create {
-        #[arg(long)]
-        node_id: String,
-        #[arg(long)]
-        role: String,
-        #[arg(long)]
-        key_path: Option<String>,
-        #[arg(long)]
-        json: bool,
-    },
-}
-
-pub(crate) fn execute_node_cert(command: NodeCertCommand) -> ExitCode {
-    match command {
-        NodeCertCommand::Inspect { cert_path, json } => execute_cert_inspect(cert_path, json),
-        NodeCertCommand::Verify {
-            kernel_pubkey_hex,
-            cert_path,
-            json,
-        } => execute_cert_verify(kernel_pubkey_hex, cert_path, json),
-    }
-}
-
-pub(crate) fn execute_node_csr(command: NodeCsrCommand) -> ExitCode {
-    match command {
-        NodeCsrCommand::Create {
-            node_id,
-            role,
-            key_path,
-            json,
-        } => execute_csr_create(node_id, role, key_path, json),
     }
 }

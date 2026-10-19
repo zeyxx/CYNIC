@@ -35,13 +35,6 @@ pub enum NodeHostCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Audit host commits, divergence, and node health state.
-    Audit {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 80)]
-        max_commits: usize,
-    },
 }
 
 pub fn execute_node_host(command: NodeHostCommand) -> ExitCode {
@@ -50,8 +43,5 @@ pub fn execute_node_host(command: NodeHostCommand) -> ExitCode {
         NodeHostCommand::Memory { json } => execute_memory(json),
         NodeHostCommand::Disk { command } => execute_disk_command(command),
         NodeHostCommand::Capacity { json } => execute_capacity(json),
-        NodeHostCommand::Audit { json, max_commits } => {
-            super::activation::execute_host_audit(json, max_commits)
-        }
     }
 }

@@ -3,10 +3,10 @@ use clap::{Parser, Subcommand};
 use crate::agent_surface::AgentCommand;
 use crate::audit_surface::AuditCommand;
 use crate::build_surface::BuildCommand;
-use crate::coordination_surface::CoordinationCommand;
 use crate::federation_surface::FederationCommand;
 use crate::forensics_surface::ForensicsCommand;
 use crate::git_surface::GitCommand;
+use crate::host_surface::HostCommand;
 use crate::mask::{JudgeCommand, MaskCommand};
 use crate::network_surface::NetworkCommand;
 use crate::node_surface::NodeCommand;
@@ -106,6 +106,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: GitCommand,
     },
+    /// Local substrate operations (staging + capability-gated mutation).
+    Host {
+        #[command(subcommand)]
+        command: HostCommand,
+    },
     /// Judge extracted patches (diff vs origin/main) — data-centric gate before adding.
     Judge {
         #[command(subcommand)]
@@ -143,11 +148,6 @@ pub(crate) enum Command {
     Audit {
         #[command(subcommand)]
         command: AuditCommand,
-    },
-    /// Fire-and-forget agent coordination log.
-    Coordination {
-        #[command(subcommand)]
-        command: CoordinationCommand,
     },
     /// HumanAdmin governance observer surfaces.
     Agent {

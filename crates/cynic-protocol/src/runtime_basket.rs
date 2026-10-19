@@ -14,11 +14,14 @@ pub struct RuntimeBasketDesiredState {
     pub artifacts: Vec<RuntimeBasketArtifact>,
 }
 
+/// The runtime seed is a role, not a binary: the trust root is exercised
+/// through a declared basket binary (`executor`) via an admitted capability,
+/// and is rotated only by ceremony, never by release.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuntimeSeedDeclaration {
     pub id: String,
-    pub binary: String,
-    pub install_path: String,
+    pub executor: String,
+    pub capability: String,
     pub contract_revision: u64,
     pub signature_namespace: String,
     pub runtime_basket_member: bool,
@@ -62,11 +65,12 @@ pub fn validate_runtime_basket(basket: &RuntimeBasketDesiredState) -> Vec<String
     }
     if basket.runtime_seed.runtime_basket_member
         || basket.runtime_seed.contract_revision == 0
-        || !valid_component(&basket.runtime_seed.binary)
-        || !valid_install_path(
-            &basket.runtime_seed.install_path,
-            &basket.runtime_seed.binary,
-        )
+        || !valid_component(&basket.runtime_seed.executor)
+        || !valid_component(&basket.runtime_seed.capability)
+        || !basket
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.binary == basket.runtime_seed.executor)
     {
         blockers.push("runtime_basket_seed_boundary_invalid".to_string());
     }
@@ -83,7 +87,6 @@ pub fn validate_runtime_basket(basket: &RuntimeBasketDesiredState) -> Vec<String
             || artifact.roles.is_empty()
             || artifact.roles.iter().any(|role| !valid_component(role))
             || !valid_install_path(&artifact.install_path, &artifact.binary)
-            || artifact.binary == basket.runtime_seed.binary
         {
             blockers.push(format!("runtime_basket_artifact_invalid:{}", artifact.id));
         }
@@ -125,7 +128,7 @@ mod tests {
 
         assert!(names.contains(&"cynic-mcp".to_string()));
         assert!(names.contains(&"cynic-lxc-exec-bridge".to_string()));
-        assert!(!names.contains(&basket.runtime_seed.binary));
+        assert!(names.contains(&basket.runtime_seed.executor));
     }
 
     #[test]
@@ -137,5 +140,24 @@ mod tests {
             validate_runtime_basket(&basket)
                 .contains(&"runtime_basket_seed_boundary_invalid".to_string())
         );
+    }
+
+    #[test]
+    fn seed_executor_must_be_a_declared_basket_binary() {
+        let mut basket = runtime_basket_desired_state().expect("valid canonical runtime basket");
+        basket.runtime_seed.executor = "phantom-executor".to_string();
+
+        assert!(
+            validate_runtime_basket(&basket)
+                .contains(&"runtime_basket_seed_boundary_invalid".to_string())
+        );
+    }
+
+    #[test]
+    fn seed_capability_must_be_a_named_admission() {
+        let basket = runtime_basket_desired_state().expect("valid canonical runtime basket");
+
+        assert_eq!(basket.runtime_seed.executor, "cynic");
+        assert!(!basket.runtime_seed.capability.is_empty());
     }
 }

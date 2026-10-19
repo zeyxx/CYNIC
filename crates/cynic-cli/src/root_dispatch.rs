@@ -85,9 +85,6 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
             model,
             no_tui,
         }),
-        Command::Coordination { command } => {
-            crate::coordination_surface::execute_coordination(command)
-        }
         Command::Agent { command } => execute_agent(command),
         Command::Models { command } => execute_operator_models(command),
         Command::Doctor { json } => execute_operator_doctor(json),
@@ -104,6 +101,7 @@ pub(crate) async fn execute_root_command(command: Command) -> ExitCode {
         Command::Source { command } => crate::source_surface::execute_source(command),
         Command::Storage { command } => crate::storage_surface::execute_storage(command),
         Command::Git { command } => crate::git_surface::execute_git(command),
+        Command::Host { command } => crate::host_surface::execute_host(command),
         Command::Judge { command } => crate::mask::execute_judge(command),
         Command::Mask { command } => crate::mask::execute_mask(command),
         Command::Know { command } => crate::knowledge_surface::execute_know_command(command).await,

@@ -55,6 +55,7 @@ fn probe_and_evaluate_with_executor(
         min_build: entry.min_build,
         desired_build: entry.desired_build,
         min_capability: entry.min_capability.clone(),
+        commit: entry.commit.clone(),
         notes: entry.notes.clone(),
     });
 
@@ -275,6 +276,14 @@ fn evaluate_status(id: &str, version: Option<&str>, pin: Option<&PinEntry>) -> S
         };
     }
 
+    if let Some(want) = &pin.commit {
+        return match version {
+            Some(value) if value.contains(want.as_str()) => "ok".into(),
+            Some(_) => "stale".into(),
+            None => "unknown".into(),
+        };
+    }
+
     if let Some(min_build) = pin.min_build {
         let Some(value) = version else {
             return "unknown".into();
@@ -364,7 +373,7 @@ fn read_version(
     if output.spawn_error.is_some() {
         return None;
     }
-    match spec.version_from {
+    let version = match spec.version_from {
         VersionFrom::HelpPresence => {
             let stdout = output.stdout.as_str();
             if stdout.contains("inference-start") {
@@ -399,7 +408,20 @@ fn read_version(
                     .next()
                     .map(|line| line.trim().to_string())
             }),
+    };
+    // Commit-pinned native binaries (llama-server --version reports
+    // "unknown"): the installer writes `<binary>.commit` next to the
+    // binary; the pinned commit travels inside the version string.
+    if spec.id == "llama.cpp" {
+        if let Ok(raw) = std::fs::read_to_string(format!("{path}.commit")) {
+            let commit = raw.trim().to_string();
+            if !commit.is_empty() {
+                let base = version.unwrap_or_else(|| "unknown".to_string());
+                return Some(format!("{base} commit:{commit}"));
+            }
+        }
     }
+    version
 }
 
 #[cfg(test)]

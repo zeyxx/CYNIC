@@ -20,14 +20,22 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
+use cynic_types::paths::CynicPaths;
 use cynic_vcs::forgejo_token::{
     ForgejoTokenAuthState, ForgejoTokenMetadata, ForgejoTokenObservation,
     ForgejoTokenProvisionReport, ForgejoTokenSpec, FORGEJO_TOKEN_OBSERVATION_SCHEMA,
     FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA, FORGEJO_TOKEN_SPEC_SCHEMA,
 };
 
-pub const FORGEJO_TOKEN_DIRECTORY: &str = "/etc/cynic/secrets";
-pub const FORGEJO_TOKEN_PATH: &str = "/etc/cynic/secrets/forgejo-token";
+/// Canonical Forgejo token directory (secrets authority).
+pub fn forgejo_token_directory() -> PathBuf {
+    CynicPaths::secrets_dir()
+}
+
+/// Canonical Forgejo token path (secrets authority).
+pub fn forgejo_token_path() -> PathBuf {
+    CynicPaths::secret_path("forgejo-token")
+}
 
 /// The injected port the domain drives. Two adapters implement it:
 /// - [`LocalForgejoTokenApiAdapter`] — runs `forgejo` CLI locally or via SSH-local Exec.
@@ -57,7 +65,7 @@ pub trait ForgejoTokenApiPort: Send + Sync + std::fmt::Debug {
 
 /// Read-only file-stat observation. Never returns the token bytes.
 pub fn observe_forgejo_token(spec: &ForgejoTokenSpec) -> ForgejoTokenObservation {
-    if spec.target_path != FORGEJO_TOKEN_PATH {
+    if spec.target_path != forgejo_token_path().display().to_string() {
         return ForgejoTokenObservation {
             schema: FORGEJO_TOKEN_OBSERVATION_SCHEMA.to_string(),
             principal: spec.principal.clone(),
@@ -76,7 +84,7 @@ pub fn observe_forgejo_token(spec: &ForgejoTokenSpec) -> ForgejoTokenObservation
     let metadata = std::fs::symlink_metadata(&target);
 
     let mut unknowns = Vec::new();
-    if spec.target_path != FORGEJO_TOKEN_PATH {
+    if spec.target_path != forgejo_token_path().display().to_string() {
         unknowns.push("forgejo_token_target_path_noncanonical".to_string());
     }
 
@@ -283,7 +291,7 @@ impl DefaultForgejoTokenSpec {
                 "write:organization".to_string(),
                 "write:repository".to_string(),
             ],
-            target_path: FORGEJO_TOKEN_PATH.to_string(),
+            target_path: forgejo_token_path().display().to_string(),
             mode: 0o640,
             expiry_seconds: None,
         }
@@ -323,7 +331,7 @@ pub fn provision_forgejo_token(
     spec: &ForgejoTokenSpec,
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
-    if spec.target_path != FORGEJO_TOKEN_PATH {
+    if spec.target_path != forgejo_token_path().display().to_string() {
         return ForgejoTokenProvisionReport {
             schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
             status: "blocked".to_string(),
@@ -400,7 +408,7 @@ pub fn rotate_forgejo_token(
     spec: &ForgejoTokenSpec,
     port: &dyn ForgejoTokenApiPort,
 ) -> ForgejoTokenProvisionReport {
-    if spec.target_path != FORGEJO_TOKEN_PATH {
+    if spec.target_path != forgejo_token_path().display().to_string() {
         return ForgejoTokenProvisionReport {
             schema: FORGEJO_TOKEN_PROVISION_REPORT_SCHEMA.to_string(),
             status: "blocked".to_string(),
@@ -576,11 +584,11 @@ fn forgejo_token_revoke(principal: &str, sha1: &str) -> Result<(), String> {
 }
 
 fn forgejo_api_validate_token(token_path: &str, api_base: &str) -> Result<bool, String> {
-    if token_path != FORGEJO_TOKEN_PATH {
+    if token_path != forgejo_token_path().display().to_string() {
         return Err("token API probe requires the canonical token path".to_string());
     }
     let mut token =
-        std::fs::read_to_string(FORGEJO_TOKEN_PATH).map_err(|e| format!("read token file: {e}"))?;
+        std::fs::read_to_string(forgejo_token_path()).map_err(|e| format!("read token file: {e}"))?;
     let token_value = token.trim().to_string();
     token.zeroize();
     let client = http_client()?;
@@ -735,9 +743,10 @@ fn format_api_url(api_base: &str, path: &str) -> String {
 }
 
 fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), String> {
-    if target != FORGEJO_TOKEN_PATH {
+    if target != forgejo_token_path().display().to_string() {
         return Err(format!(
-            "secret target must be canonical path {FORGEJO_TOKEN_PATH}"
+            "secret target must be canonical path {}",
+            forgejo_token_path().display()
         ));
     }
     let path = PathBuf::from(target);
@@ -749,7 +758,7 @@ fn write_protected_secret(target: &str, token: &str, mode: u32) -> Result<(), St
     if parent
         .canonicalize()
         .map_err(|e| format!("secret directory canonicalization failed: {e}"))?
-        != PathBuf::from(FORGEJO_TOKEN_DIRECTORY)
+        != forgejo_token_directory()
     {
         return Err("secret directory must not resolve through a symlink".to_string());
     }
@@ -839,7 +848,7 @@ mod tests {
         }
 
         let spec = ForgejoTokenSpec {
-            target_path: FORGEJO_TOKEN_PATH.to_string(),
+            target_path: forgejo_token_path().display().to_string(),
             ..ForgejoTokenSpec::default()
         };
         let report = provision_forgejo_token(&spec, &StubPort);
@@ -955,7 +964,7 @@ mod tests {
         }
 
         let spec = ForgejoTokenSpec {
-            target_path: FORGEJO_TOKEN_PATH.to_string(),
+            target_path: forgejo_token_path().display().to_string(),
             ..ForgejoTokenSpec::default()
         };
         let report = rotate_forgejo_token(&spec, &InvalidIdentityPort);

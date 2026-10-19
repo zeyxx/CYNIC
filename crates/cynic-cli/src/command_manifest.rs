@@ -123,6 +123,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit conformance [--profile <name>] [--node <name>] [--registry <path>] [--json]",
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
+                    "cynic audit external [--json] [--registry <path>]",
                 ],
             },
             CommandDomain {
@@ -186,6 +187,15 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 ],
             },
             CommandDomain {
+                name: "host",
+                commands: vec![
+                    "cynic host <bridge|membrane|transport|ssh|bootstrap|runner|capability|principal|seed|storage|hardware|service|network|request> <verb> [flags] [--apply]",
+                    "cynic host bridge <bundle|plan|install|status> [--bundle-dir <dir>] [--apply]",
+                    "cynic host service reconcile --node <node> --registry <path> <unit> --apply",
+                    "cynic host network <baseline|actuate> --profile <name> --target <node> --registry <path> [--apply]",
+                ],
+            },
+            CommandDomain {
                 name: "agent",
                 commands: vec![
                     "cynic agent identify --agent-id <id> [--agent-kind <kind>] [--registry <path>] [--kernel-base <url>] [--json]",
@@ -203,9 +213,12 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic node activate --node-id <id> [--yes] [--json]",
                     "cynic node identity init --key-path <path> [--json]",
                     "cynic node identity node --node-id <id> [--signing-key-path <path>] [--apply] [--json]",
-                    "cynic node csr create --node-id <id> --role <role> --key-path <path> [--json]",
-                    "cynic node cert inspect --cert-path <path> [--json]",
-                    "cynic node cert verify --kernel-pubkey-hex <hex> --cert-path <path> [--json]",
+                    "cynic node csr create --node-id <id> --role <role> [--key-path <path>] [--json]",
+                    "cynic node cert inspect [--cert-path <path>] [--json]",
+                    "cynic node cert verify --kernel-pubkey-hex <hex> [--cert-path <path>] [--json]",
+                    "cynic node cert issue --csr-path <csr.json> --authority-key-path <key> --authority-id <name> [--ttl-seconds <n>] --out <cert.json> --yes [--json]",
+                    "cynic node fleet report [--registry <path>] [--log <path>] [--out <fleet.html>] [--json]",
+                    "cynic node fleet live [--registry <path>] [--log <path>]",
                     "cynic node host audit [--json] [--max-commits <n>]",
                     "cynic node host cpu [--json]",
                     "cynic node host memory [--json]",
@@ -328,6 +341,13 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                 name: "know",
                 commands: vec![
                     "cynic know ask <question> [--limit <n>] [--commits <n>] [--prompt-only] [--endpoint <url>] [--model <name>] [--json]",
+                ],
+            },
+            CommandDomain {
+                name: "coordination",
+                commands: vec![
+                    "cynic coordination append --agent <id> --kind <kind> --body <text> [--ref <anchor>] [--log <path>] [--json]",
+                    "cynic coordination read [--kind <kind>] [--limit <n>] [--log <path>] [--json]",
                 ],
             },
         ],

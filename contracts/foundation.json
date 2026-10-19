@@ -8,7 +8,7 @@
       "Runtime truth is proved by executable code, OS services, registry placement, and runtime read-back.",
       "Dead documentation, deleted organs, and historical Python gates cannot define current authority.",
       "Solana is a piece of engineering: study its solutions and patterns for anything useful to CYNIC.",
-      "Canonical internal integrity hashing is SHA3-512 (prefix sha3-512:). SHA-256 remains mandated only where an external contract requires it (on-chain program payloads, third-party APIs); BLAKE3 is permitted for high-throughput non-canonical caches. Every digest string carries its algorithm prefix; unprefixed digests are invalid."
+      "Canonical internal integrity hashing is SHA-256 (prefix sha256:) for Solana 32-byte alignment. SHA3-512 (prefix sha3-512:) remains parseable as legacy for previously stored digests but is no longer produced; BLAKE3 is permitted for high-throughput non-canonical caches. Every digest string carries its algorithm prefix; unprefixed digests are invalid."
     ],
     "authority_order": [
       "observed runtime state",

@@ -38,7 +38,7 @@ pub(crate) enum DiscoveryCommand {
         json: bool,
         /// Registry file path. Omit to use the resolved runtime registry:
         /// explicit, then `CYNIC_REGISTRY`, then the installed
-        /// `/etc/cynic/registry.json`, then the repository copy. The previous
+        /// registry, then the repository copy. The previous
         /// hardcoded default pinned this command to a repository-relative path,
         /// so on a deployed node it read a file that is not there.
         #[arg(long)]

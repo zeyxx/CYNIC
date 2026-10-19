@@ -4,8 +4,6 @@
 
 use std::process::ExitCode;
 
-use clap::Subcommand;
-
 pub(crate) fn execute_consensus_status(
     expected_epoch: u64,
     expected_commit: &str,
@@ -47,31 +45,4 @@ pub(crate) fn execute_consensus_status(
         serde_json::to_string_pretty(&consensus).unwrap_or_default()
     );
     ExitCode::SUCCESS
-}
-
-/// Fleet consensus arms: evaluate epoch consensus and clock skew.
-#[derive(Subcommand)]
-pub enum NodeConsensusCommand {
-    /// Evaluate fleet epoch consensus and clock skew across cluster nodes.
-    Status {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 1)]
-        expected_epoch: u64,
-        #[arg(long, default_value = "HEAD")]
-        expected_commit: String,
-        #[arg(long, default_value_t = 5000)]
-        max_skew_ms: u64,
-    },
-}
-
-pub(crate) fn execute_node_consensus(command: NodeConsensusCommand) -> ExitCode {
-    match command {
-        NodeConsensusCommand::Status {
-            json: _,
-            expected_epoch,
-            expected_commit,
-            max_skew_ms,
-        } => execute_consensus_status(expected_epoch, &expected_commit, max_skew_ms),
-    }
 }
