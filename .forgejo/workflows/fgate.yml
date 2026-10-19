@@ -89,6 +89,7 @@ jobs:
               for tool in (node.get("pool") or {}).get("required_tools") or []:
                   name = tool.get("name")
                   if name and tool.get("required", True):
+<<<<<<< HEAD
                       required[name] = (
                           tool.get("min_version"),
                           tool.get("kind", "binary"),
@@ -118,6 +119,12 @@ jobs:
                       if have < want:
                           missing.append(f"{name}({version} < {minimum})")
                   continue
+=======
+                      required[name] = tool.get("min_version")
+
+          missing = []
+          for name, minimum in sorted(required.items()):
+>>>>>>> origin/agent/hermes/gate-eligibility-fix
               if shutil.which(name) is None:
                   missing.append(name)
                   continue
