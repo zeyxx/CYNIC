@@ -174,9 +174,49 @@ fn signed_handshake_request_carries_verifiable_workload_signature() {
         .expect("signature length");
     VerifyingKey::from_bytes(&public_key_bytes)
         .expect("public key")
-        .verify(
-            &payload,
-            &Signature::from_bytes(&signature_bytes),
-        )
+        .verify(&payload, &Signature::from_bytes(&signature_bytes))
         .expect("workload signature verifies");
+}
+
+#[test]
+fn a_signed_handshake_carries_the_public_key_in_both_header_names() {
+    // The kernel resolves the signer from X-Node-Public-Key, but its REST
+    // middleware reads X-Cynic-Public-Key and rejects the request before the
+    // WebSocket handler runs. Both layers must see the same key.
+    let dir = tempdir().expect("tempdir");
+    let signer = test_signer(dir.path());
+    let queue_dir = dir.path().join("queue");
+    let client = WebSocketClient::new(
+        "ws://127.0.0.1:3030/events/ws".to_string(),
+        "api-key".to_string(),
+        Some(signer),
+        "node-public-key".to_string(),
+        "node-a".to_string(),
+        Arc::new(LocalRuntimeFederationQueueStore::new(queue_dir)),
+    );
+    let request = client.build_request().expect("build request");
+    let headers = request.headers();
+
+    let cynic_key = headers["x-cynic-public-key"].to_str().expect("cynic key");
+    let node_key = headers["x-node-public-key"].to_str().expect("node key");
+    assert_eq!(
+        cynic_key, node_key,
+        "both kernel layers must resolve the same signer"
+    );
+    // The signed key is the one that signs, not the configured placeholder.
+    assert_ne!(cynic_key, "node-public-key");
+}
+
+#[test]
+fn handshake_path_drops_the_query_string() {
+    // The kernel signs the URI path only. A query in the URL would make
+    // every signed request unverifiable.
+    assert_eq!(
+        handshake_path("ws://127.0.0.1:3030/events/ws?token=abc"),
+        "/events/ws"
+    );
+    assert_eq!(
+        handshake_path("ws://127.0.0.1:3030/events/ws#frag"),
+        "/events/ws"
+    );
 }
