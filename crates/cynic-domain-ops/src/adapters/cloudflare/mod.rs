@@ -4,7 +4,11 @@
 //! Cloudflare API v4) and `EdgeProbePort` (NS queries via Cloudflare
 //! DNS-over-HTTPS, HTTP edge verification with IP pinning).
 
-use cynic_domain_ops::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+use crate::{CloudflareDnsPort, EdgeProbePort, SecretProvider as SecretProviderPort};
+
+pub mod error;
+
+pub use error::CloudflareError;
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;

@@ -9,11 +9,13 @@
 //! Phase C: `/capabilities` endpoint in `cynic-kernel`.
 
 pub mod event;
+pub mod host;
 pub mod node;
 pub mod port;
 pub mod types;
 
 pub use event::DiscoveryEvent;
+pub use host::*;
 pub use node::{FleetCapabilities, NodeCapabilities};
 pub use port::{DiscoveryObservationPort, NodeDiscoveryObservationPort};
 pub use types::{

@@ -5,8 +5,8 @@ use crate::domain::model_store::ModelStoreReport;
 use crate::infra::model_layout::ModelLayout;
 use crate::ports::local_runtime_port::LocalRuntimeError;
 use crate::ports::model_store_port::ModelStorePort;
-use cynic_huggingface::HfCliAdapter;
-use cynic_huggingface::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
+use crate::hf::HfCliAdapter;
+use crate::hf::{HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort};
 
 #[derive(Debug)]
 pub struct ModelStoreService {

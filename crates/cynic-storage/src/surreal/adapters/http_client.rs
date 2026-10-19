@@ -5,11 +5,11 @@
 use reqwest::blocking::Client;
 use std::time::Duration;
 
-use crate::domain::memory::EpistemicFactRecord;
-use crate::domain::query::SurrealQuery;
-use crate::domain::response::{SurrealQueryResult, parse_and_validate_results};
-use crate::domain::session::AgentSessionRecord;
-use crate::ports::{SurrealHealthReport, SurrealStoragePort};
+use crate::surreal::domain::memory::EpistemicFactRecord;
+use crate::surreal::domain::query::SurrealQuery;
+use crate::surreal::domain::response::{SurrealQueryResult, parse_and_validate_results};
+use crate::surreal::domain::session::AgentSessionRecord;
+use crate::surreal::ports::{SurrealHealthReport, SurrealStoragePort};
 
 /// Connection configuration for SurrealDB.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

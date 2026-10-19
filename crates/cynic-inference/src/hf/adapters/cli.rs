@@ -2,9 +2,9 @@
 
 use std::process::Command;
 
-use crate::domain::job::{HfJobInfo, HfJobKind, HfJobSpec, HfScheduledJobRequest};
-use crate::domain::paths::HfLocalPaths;
-use crate::port::{
+use crate::hf::domain::job::{HfJobInfo, HfJobKind, HfJobSpec, HfScheduledJobRequest};
+use crate::hf::domain::paths::HfLocalPaths;
+use crate::hf::port::{
     HfCliStatus, HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfJobLogsReport,
     HfJobReport, HfSearchRequest, HfUploadReport, HfUploadRequest,
 };

@@ -7,6 +7,7 @@
 //! 2. **Projections are Disposable**: Embedded state views (SurrealKV / SQLite) are derived caches.
 //! 3. **Zero External Daemon SPOF** (`INV-03`): Storage operates strictly in-process.
 
+pub mod surreal;
 pub mod book;
 pub mod client_policy;
 pub mod controller;
@@ -37,6 +38,7 @@ pub use types::{
 };
 pub use vector::SimdVectorAdapter;
 pub use wal::WalFsAdapter;
+pub use surreal::*;
 pub use client_policy::*;
 pub use controller::*;
 pub use credential_sync::*;

@@ -163,7 +163,7 @@ fn execute_events(endpoint: &str, _node: Option<&str>) -> ExitCode {
 fn execute_discover(kind: &str, target: Option<&str>, json: bool) -> ExitCode {
     match kind {
         "local" => {
-            let adapter = cynic_discovery_host::LocalBuildDiscoveryAdapter;
+            let adapter = cynic_discovery::LocalBuildDiscoveryAdapter;
             match adapter.observe() {
                 Ok(report) => {
                     if json {

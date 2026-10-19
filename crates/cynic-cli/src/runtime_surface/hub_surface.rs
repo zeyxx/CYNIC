@@ -5,7 +5,7 @@
 
 use std::process::ExitCode;
 
-use cynic_huggingface::{
+use cynic_inference::{
     HfCliAdapter, HfHubError, HfHubPort, HfJobKind, HfJobSpec, HfRepoType, HfScheduledJobRequest,
     HfUploadRequest,
 };

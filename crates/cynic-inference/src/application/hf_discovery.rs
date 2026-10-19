@@ -9,8 +9,8 @@ use crate::domain::hf_catalog::{
     short_alias_from_repo,
 };
 use crate::infra::model_layout::ModelLayout;
-use cynic_huggingface::HfCliAdapter;
-use cynic_huggingface::{
+use crate::hf::HfCliAdapter;
+use crate::hf::{
     HfDownloadReport, HfDownloadRequest, HfHubError, HfHubPort, HfModelHit, HfSearchReport,
     HfSearchRequest,
 };

@@ -6,12 +6,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::endpoint::HfEndpointSpec;
-use crate::domain::job::{HfJobInfo, HfJobSpec, HfScheduledJobRequest};
-use crate::domain::paths::HfLocalPaths;
-use crate::domain::repository::HfRepoType;
-use crate::domain::space::HfSpaceSpec;
-use crate::domain::webhook::HfWebhookSpec;
+use crate::hf::domain::endpoint::HfEndpointSpec;
+use crate::hf::domain::job::{HfJobInfo, HfJobSpec, HfScheduledJobRequest};
+use crate::hf::domain::paths::HfLocalPaths;
+use crate::hf::domain::repository::HfRepoType;
+use crate::hf::domain::space::HfSpaceSpec;
+use crate::hf::domain::webhook::HfWebhookSpec;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HfHubError {

@@ -596,9 +596,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
             ),
             RuntimeStorageCommand::Ping { json: _, endpoint } => {
                 let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
-                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_surreal::SurrealHttpClient::new(config);
-                match cynic_surreal::SurrealStoragePort::check_health(&client) {
+                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_storage::SurrealHttpClient::new(config);
+                match cynic_storage::SurrealStoragePort::check_health(&client) {
                     Ok(report) => emit_json(&report, !report.healthy),
                     Err(e) => fail(e),
                 }
@@ -609,9 +609,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 endpoint,
             } => {
                 let ep = endpoint.unwrap_or_else(|| "http://10.10.10.103:8000".to_string());
-                let config = cynic_surreal::SurrealConfig::new(ep, "cynic", "runtime", "root");
-                let client = cynic_surreal::SurrealHttpClient::new(config);
-                match cynic_surreal::SurrealStoragePort::execute_sql(&client, &sql) {
+                let config = cynic_storage::SurrealConfig::new(ep, "cynic", "runtime", "root");
+                let client = cynic_storage::SurrealHttpClient::new(config);
+                match cynic_storage::SurrealStoragePort::execute_sql(&client, &sql) {
                     Ok(results) => emit_json(&results, false),
                     Err(e) => fail(e),
                 }

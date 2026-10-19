@@ -35,7 +35,7 @@
     "cynic-build": {
       "consumers": [
         "cynic-cli",
-        "cynic-discovery-host",
+        "cynic-discovery",
         "cynic-host",
         "cynic-lifecycle",
         "cynic-node"
@@ -74,17 +74,12 @@
         "cynic-build",
         "cynic-consensus",
         "cynic-discovery",
-        "cynic-discovery-host",
-        "cynic-domain-cloudflare",
         "cynic-domain-ops",
-        "cynic-domain-porkbun",
         "cynic-eval",
         "cynic-forensics",
         "cynic-host",
-        "cynic-huggingface",
         "cynic-inference",
         "cynic-intel",
-        "cynic-intel-futarchy",
         "cynic-intel-soc",
         "cynic-kernel",
         "cynic-knowledge",
@@ -99,7 +94,6 @@
         "cynic-sandbox",
         "cynic-secrets",
         "cynic-storage",
-        "cynic-surreal",
         "cynic-types",
         "cynic-vcs",
         "cynic-vcs-providers",
@@ -133,10 +127,11 @@
     },
     "cynic-discovery": {
       "consumers": [
-        "cynic-cli",
-        "cynic-discovery-host"
+        "cynic-cli"
       ],
       "depends_on": [
+        "cynic-build",
+        "cynic-host",
         "cynic-protocol"
       ],
       "dev_depends_on": [],
@@ -145,40 +140,9 @@
       "layer": "L2",
       "loc": 413
     },
-    "cynic-discovery-host": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-build",
-        "cynic-discovery",
-        "cynic-host"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L1",
-      "loc": 242
-    },
-    "cynic-domain-cloudflare": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-domain-ops",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 620
-    },
     "cynic-domain-ops": {
       "consumers": [
-        "cynic-cli",
-        "cynic-domain-cloudflare",
-        "cynic-domain-porkbun"
+        "cynic-cli"
       ],
       "depends_on": [
         "cynic-askesis",
@@ -190,21 +154,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 3031
-    },
-    "cynic-domain-porkbun": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-domain-ops",
-        "cynic-protocol",
-        "cynic-secrets"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 497
     },
     "cynic-eval": {
       "consumers": [
@@ -259,7 +208,7 @@
     "cynic-host": {
       "consumers": [
         "cynic-cli",
-        "cynic-discovery-host",
+        "cynic-discovery",
         "cynic-mcp",
         "cynic-node",
         "cynic-proxmox"
@@ -294,18 +243,6 @@
       "layer": "L1",
       "loc": 90023
     },
-    "cynic-huggingface": {
-      "consumers": [
-        "cynic-cli",
-        "cynic-inference"
-      ],
-      "depends_on": [],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 1697
-    },
     "cynic-inference": {
       "consumers": [
         "cynic-cli",
@@ -315,7 +252,6 @@
       "depends_on": [
         "cynic-eval",
         "cynic-finance",
-        "cynic-huggingface",
         "cynic-knowledge",
         "cynic-network",
         "cynic-protocol",
@@ -332,7 +268,6 @@
       "consumers": [
         "cynic-cli",
         "cynic-host",
-        "cynic-intel-futarchy",
         "cynic-market",
         "cynic-zeroclaw-solana"
       ],
@@ -346,20 +281,6 @@
       "kind": "library",
       "layer": "L2",
       "loc": 10739
-    },
-    "cynic-intel-futarchy": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
-        "cynic-intel",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 252
     },
     "cynic-intel-soc": {
       "consumers": [
@@ -582,15 +503,12 @@
         "cynic-cli",
         "cynic-consensus",
         "cynic-discovery",
-        "cynic-domain-cloudflare",
         "cynic-domain-ops",
-        "cynic-domain-porkbun",
         "cynic-eval",
         "cynic-finance",
         "cynic-host",
         "cynic-inference",
         "cynic-intel",
-        "cynic-intel-futarchy",
         "cynic-intel-soc",
         "cynic-kernel",
         "cynic-lifecycle",
@@ -607,7 +525,6 @@
         "cynic-secrets",
         "cynic-solana-pay",
         "cynic-storage",
-        "cynic-surreal",
         "cynic-vcs",
         "cynic-workload",
         "cynic-zeroclaw-solana"
@@ -676,7 +593,6 @@
       "consumers": [
         "cynic-cli",
         "cynic-domain-ops",
-        "cynic-domain-porkbun",
         "cynic-eval",
         "cynic-host",
         "cynic-inference",
@@ -685,7 +601,7 @@
         "cynic-network",
         "cynic-node",
         "cynic-proxmox",
-        "cynic-surreal",
+        "cynic-storage",
         "cynic-vcs-providers"
       ],
       "depends_on": [
@@ -723,19 +639,6 @@
       "depends_on": [
         "cynic-consensus",
         "cynic-finance",
-        "cynic-protocol"
-      ],
-      "dev_depends_on": [],
-      "justified": true,
-      "kind": "library",
-      "layer": "L2",
-      "loc": 4818
-    },
-    "cynic-surreal": {
-      "consumers": [
-        "cynic-cli"
-      ],
-      "depends_on": [
         "cynic-protocol",
         "cynic-secrets"
       ],
@@ -743,7 +646,7 @@
       "justified": true,
       "kind": "library",
       "layer": "L2",
-      "loc": 542
+      "loc": 4818
     },
     "cynic-types": {
       "consumers": [
@@ -843,7 +746,6 @@
   },
   "extraction_order": [
     "cynic-forensics",
-    "cynic-huggingface",
     "cynic-pool",
     "cynic-types",
     "cynic-knowledge",
@@ -862,10 +764,6 @@
     "cynic-domain-ops",
     "cynic-intel",
     "cynic-network",
-    "cynic-surreal",
-    "cynic-domain-cloudflare",
-    "cynic-domain-porkbun",
-    "cynic-intel-futarchy",
     "cynic-intel-soc",
     "cynic-market",
     "cynic-pkg",
@@ -881,7 +779,6 @@
     "cynic-lifecycle",
     "cynic-sandbox",
     "cynic-host",
-    "cynic-discovery-host",
     "cynic-mcp",
     "cynic-proxmox",
     "cynic-node",

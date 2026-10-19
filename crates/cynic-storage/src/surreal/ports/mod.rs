@@ -1,7 +1,7 @@
 //! Ports: Abstract interfaces for SurrealDB interactions.
 
-use crate::domain::memory::EpistemicFactRecord;
-use crate::domain::session::AgentSessionRecord;
+use crate::surreal::domain::memory::EpistemicFactRecord;
+use crate::surreal::domain::session::AgentSessionRecord;
 
 /// Structured report of SurrealDB health and connectivity.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

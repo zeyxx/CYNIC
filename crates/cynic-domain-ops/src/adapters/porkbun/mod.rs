@@ -1,6 +1,12 @@
 //! Porkbun API adapter — implements `RegistrarPort`.
 
-use cynic_domain_ops::{RegistrarPort, SecretProvider};
+use crate::{RegistrarPort, SecretProvider};
+
+pub mod error;
+pub mod secret;
+
+pub use error::PorkbunError;
+pub use secret::EnvSecretProvider;
 use cynic_protocol::domain_ops::*;
 use cynic_protocol::secret_reference::SecretReference;
 use reqwest::blocking::Client;

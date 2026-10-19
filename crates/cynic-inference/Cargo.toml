@@ -16,7 +16,6 @@ cynic-knowledge = { path = "../cynic-knowledge" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-types = { path = "../cynic-types" }
 cynic-eval = { path = "../cynic-eval" }
-cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-pool = { path = "../cynic-pool" }
 cynic-workload = { path = "../cynic-workload" }
 cynic-consensus = { path = "../cynic-consensus" }

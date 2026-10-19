@@ -31,7 +31,6 @@ cynic-kernel = { path = "../cynic-kernel" }
 cynic-audit-engine = { path = "../cynic-audit-engine" }
 cynic-inference = { path = "../cynic-inference" }
 # Hub provider contract, consumed directly (never via inference re-exports).
-cynic-huggingface = { path = "../cynic-huggingface" }
 cynic-node = { path = "../cynic-node" }
 cynic-fleet = { path = "../cynic-fleet" }
 cynic-tui = { path = "../cynic-tui" }
@@ -58,9 +57,7 @@ cynic-intel = { path = "../cynic-intel" }
 cynic-intel-futarchy = { path = "../cynic-intel-futarchy" }
 cynic-intel-soc = { path = "../cynic-intel-soc" }
 cynic-discovery = { path = "../cynic-discovery" }
-cynic-discovery-host = { path = "../cynic-discovery-host" }
 cynic-zeroclaw-solana = { path = "../cynic-zeroclaw-solana" }
-cynic-surreal = { path = "../cynic-surreal" }
 cynic-sandbox = { path = "../cynic-sandbox" }
 cynic-knowledge = { path = "../cynic-knowledge" }
 tokio = { version = "1", features = ["full"] }

@@ -23,7 +23,7 @@ pub use cynic_host::fleet_discovery::FleetDiscoveryAdapter;
 
 // ── Re-exports from cynic-discovery (pure types) ─────────────────────────────
 
-pub use cynic_discovery::{
+pub use crate::{
     Capability, DISCOVERY_CAPABILITIES_SCHEMA, DISCOVERY_EVENT_SCHEMA, DISCOVERY_NODE_SCHEMA,
     DiscoveryEvent, DiscoveryObservationPort, FleetCapabilities, NodeCapabilities, NodeRole,
 };
