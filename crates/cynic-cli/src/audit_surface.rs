@@ -3,9 +3,38 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
-use crate::{crate_audit, emit_json, fail, node_host_audit};
+use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
 
 pub(crate) mod host_checks;
+
+#[derive(Subcommand)]
+pub(crate) enum AuditNodeCommand {
+    /// Audit node/host integration and commit ledger bounds.
+    Host {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_t = 80)]
+        max_commits: usize,
+    },
+}
+
+pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
+    match command {
+        AuditNodeCommand::Host { json, max_commits } => {
+            match node_host_audit::build_node_host_audit(*max_commits) {
+                Ok(report) => {
+                    if *json {
+                        emit_json(&report, false)
+                    } else {
+                        println!("Node host audit: ok");
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(error) => fail(error),
+            }
+        }
+    }
+}
 
 #[derive(Subcommand)]
 pub(crate) enum AuditCommand {
@@ -14,17 +43,30 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Audit workspace crate topology, layer rules (L0-L4), cycles, and declared edges.
+    ///
+    /// With the `topology_write` feature compiled in, `--write --apply` regenerates
+    /// the derived half of the topology SSOT. The default binary carries no write
+    /// path at all: the flags do not exist unless the feature is enabled.
+    Topology {
+        #[arg(long)]
+        json: bool,
+        #[cfg(feature = "topology_write")]
+        #[arg(long)]
+        write: bool,
+        #[cfg(feature = "topology_write")]
+        #[arg(long)]
+        apply: bool,
+    },
     /// Scan repository for leaked credentials, tokens, or private keys.
     Secret {
         #[arg(long)]
         json: bool,
     },
-    /// Audit node-host integration and commit ledger bounds.
-    NodeHost {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 80)]
-        max_commits: usize,
+    /// Audit node/host integration and commit ledger bounds (nested arm).
+    Node {
+        #[command(subcommand)]
+        command: AuditNodeCommand,
     },
     /// Audit declared filesystem paths against the observed working tree.
     Paths {
@@ -59,7 +101,7 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         observed: Option<String>,
     },
-    /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
+    /// Run all dynamic audits (crates, secrets, node host) and emit unified verdict.
     All {
         #[arg(long)]
         json: bool,
@@ -82,6 +124,13 @@ pub(crate) enum AuditCommand {
         json: bool,
         #[arg(long)]
         kind: Option<String>,
+    },
+    /// Read-back of the external (non-CYNIC) project registry (infra/external-projects.json).
+    External {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
     },
 }
 
@@ -119,19 +168,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
-        AuditCommand::NodeHost { json, max_commits } => {
-            match node_host_audit::build_node_host_audit(*max_commits) {
-                Ok(report) => {
-                    if *json {
-                        emit_json(&report, false)
-                    } else {
-                        println!("Node host audit: ok");
-                        ExitCode::SUCCESS
-                    }
-                }
-                Err(error) => fail(error),
-            }
-        }
+        AuditCommand::Node { command } => execute_audit_node(command),
         AuditCommand::Branch { base, json } => {
             if !json {
                 return ExitCode::FAILURE;
@@ -151,8 +188,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
             // Projection only. The rule set, the extraction, and the existence
             // observation belong to cynic-audit-engine, which MCP and the
             // workspace audit already consume. A surface projects; it does not own.
-            let report =
-                cynic_audit_engine::run_path_audit(&crate::rust_source::workspace_root());
+            let report = cynic_audit_engine::run_path_audit(&crate::rust_source::workspace_root());
             let blocked = report.summary.status == "blocked";
             if *json {
                 emit_json(&report, blocked)
@@ -170,6 +206,17 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
+        #[cfg(feature = "topology_write")]
+        AuditCommand::Topology { json, write, apply } => {
+            // Compile-time gated writer: the flag pair does not exist in the
+            // default binary, so a reader build cannot write even by accident.
+            if *write {
+                return crate::topology_write::execute(*json, *apply);
+            }
+            execute_topology_read(*json)
+        }
+        #[cfg(not(feature = "topology_write"))]
+        AuditCommand::Topology { json } => execute_topology_read(*json),
         AuditCommand::Persistence {
             json,
             registry,
@@ -278,6 +325,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         AuditCommand::Harness { json, kind } => {
             host_checks::execute_harness(*json, kind.as_deref())
         }
+        AuditCommand::External { json, registry } => {
+            external_audit::execute(*json, registry.as_deref())
+        }
     }
 }
 
@@ -304,4 +354,88 @@ fn host_was_observed(root: &Path) -> bool {
         && std::env::var("CYNIC_AUDIT_UNIT_DIRS")
             .map(|value| !value.trim().is_empty())
             .unwrap_or(false)
+}
+
+/// Read-only topology audit: ARCH-004/ARCH-005 violations plus SSOT freshness.
+///
+/// The committed SSOT must match what the manifests and policy keys render. No
+/// file is written here; regeneration lives behind the `topology_write` feature
+/// in `topology_write::execute`.
+fn execute_topology_read(json: bool) -> ExitCode {
+    let root = crate::rust_source::workspace_root();
+    let engine = cynic_audit_engine::run_workspace_audit(&root);
+    let topology_violations: Vec<_> = engine
+        .violations
+        .into_iter()
+        .filter(|v| v.code.starts_with("ARCH-004") || v.code.starts_with("ARCH-005"))
+        .collect();
+
+    let committed_result = cynic_audit_engine::topology_generate::committed(&root);
+    let rendered_result = cynic_audit_engine::topology_generate::render_text(&root);
+    let render_error = committed_result
+        .as_ref()
+        .err()
+        .or(rendered_result.as_ref().err())
+        .map(|e| e.to_string());
+    let committed_text = committed_result.ok();
+    let rendered_text = rendered_result.ok();
+    // Freshness is a semantic comparison. A byte mismatch with an empty
+    // structural diff (e.g. a trailing newline) is not a stale SSOT.
+    let freshness_diff = match (committed_text.as_ref(), rendered_text.as_ref()) {
+        (Some(committed), Some(rendered)) => {
+            cynic_audit_engine::topology_generate::diff_paths(committed, rendered)
+                .unwrap_or_default()
+        }
+        _ => Vec::new(),
+    };
+    // Retain an explicit failure when rendering or committing could not be read.
+    let render_failed = committed_text.is_none() || rendered_text.is_none();
+    let is_fresh = !render_failed && freshness_diff.is_empty();
+
+    let blocked = !topology_violations.is_empty() || !is_fresh || render_failed;
+
+    if json {
+        let payload = serde_json::json!({
+            "schema": "cynic.cli.audit_topology.v1",
+            "status": if blocked { "blocked" } else { "ok" },
+            "violations_count": topology_violations.len(),
+            "violations": topology_violations,
+            "ssot_fresh": is_fresh,
+            "freshness_diff_count": freshness_diff.len(),
+            "freshness_diff": freshness_diff,
+            "render_error": render_error,
+        });
+        emit_json(&payload, blocked)
+    } else {
+        println!("=== CYNIC Workspace Topology Audit (ARCH-004 / ARCH-005) ===");
+        if !topology_violations.is_empty() {
+            println!(
+                "Status: BLOCKED ({} violations found)",
+                topology_violations.len()
+            );
+            for v in &topology_violations {
+                println!("\n  [{}] {}", v.code, v.message);
+                if let Some(ref rem) = v.remediation {
+                    println!("    Remediation: {}", rem);
+                }
+            }
+        } else if !is_fresh {
+            println!(
+                "Status: BLOCKED (SSOT stale, {} differences)",
+                freshness_diff.len()
+            );
+            for diff in freshness_diff.iter().take(10) {
+                println!("  {}", diff);
+            }
+        } else {
+            println!(
+                "Status: OK (Zero architectural boundary violations, all layers and edges coherent; SSOT fresh)"
+            );
+        }
+        if blocked {
+            ExitCode::FAILURE
+        } else {
+            ExitCode::SUCCESS
+        }
+    }
 }

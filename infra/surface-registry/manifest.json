@@ -10,6 +10,10 @@
    "path": "fragments/host_bootstrap.json"
   },
   {
+   "id": "host",
+   "path": "fragments/host.json"
+  },
+  {
    "id": "bootstrap_host_exec_bridge",
    "path": "fragments/bootstrap_host_exec_bridge.json"
   },
@@ -144,6 +148,14 @@
   {
    "id": "court_surface",
    "path": "fragments/court_surface.json"
+  },
+  {
+   "id": "node_compute_provision",
+   "path": "fragments/node_compute_provision.json"
+  },
+  {
+   "id": "audit_external",
+   "path": "fragments/audit_external.json"
   }
  ],
  "retired": [
@@ -154,7 +166,7 @@
   },
   {
    "id": "audit_node_host_boundary",
-   "reason": "merged into cynic node host-audit (refactor cli a2c32405)",
+   "reason": "merged into cynic node host audit (refactor cli a2c32405)",
    "path": "fragments/audit_node_host_boundary.json"
   },
   {

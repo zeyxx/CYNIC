@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 use serde::Deserialize;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -30,9 +30,9 @@ pub(crate) struct RuntimeArtifactProposal {
     kind: &'static str,
     owner: &'static str,
     build_targets: Vec<&'static str>,
-    publish_path: &'static str,
+    publish_path: String,
     primary_runtime_role: &'static str,
-    rationale_sources: Vec<&'static str>,
+    rationale_sources: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,8 +165,17 @@ impl BinaryAttestation {
             expected_publish_path: self.expected_publish_path.clone(),
             path_matches_expected: self.path_matches_expected,
             evidence_sources: vec![
-                format!("{DEFAULT_REGISTRY_PATH}:lifecycle.kernel_release.runtime_artifacts"),
-                "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml".to_string(),
+                format!(
+                    "{}:lifecycle.kernel_release.runtime_artifacts",
+                    CynicPaths::registry_path().display()
+                ),
+                format!(
+                    "infra/os/systemd/installed/cynic-node.service:ExecStart={} control --config {}",
+                    CynicPaths::binary_dir().join("cynic-node").display(),
+                    CynicPaths::system_config_dir()
+                        .join("node-control.toml")
+                        .display()
+                ),
                 "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
                 "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
             ],
@@ -181,12 +190,21 @@ fn proposed_runtime_artifact() -> RuntimeArtifactProposal {
         kind: "rust_binary",
         owner: "cynic-node",
         build_targets: vec!["crates/cynic-node"],
-        publish_path: "/usr/local/bin/cynic-node",
+        publish_path: CynicPaths::binary_dir()
+            .join("cynic-node")
+            .display()
+            .to_string(),
         primary_runtime_role: "all_runtime_nodes",
         rationale_sources: vec![
-            "infra/systemd/installed/cynic-node.service:ExecStart=/usr/local/bin/cynic-node control --config /etc/cynic/node-control.toml",
-            "contracts/foundation.json:constitutional.runtime_authority_order",
-            "Cargo.toml:workspace.members includes crates/cynic-node",
+            format!(
+                "infra/os/systemd/installed/cynic-node.service:ExecStart={} control --config {}",
+                CynicPaths::binary_dir().join("cynic-node").display(),
+                CynicPaths::system_config_dir()
+                    .join("node-control.toml")
+                    .display()
+            ),
+            "contracts/foundation.json:constitutional.runtime_authority_order".to_string(),
+            "Cargo.toml:workspace.members includes crates/cynic-node".to_string(),
         ],
     }
 }

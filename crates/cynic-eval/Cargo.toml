@@ -8,10 +8,20 @@ description = "CYNIC evaluation domain — evidence envelopes, dog scoring, judg
 publish = false
 
 [dependencies]
+cynic-knowledge = { path = "../cynic-knowledge" }
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-secrets = { path = "../cynic-secrets" }
+cynic-types = { path = "../cynic-types" }
+cynic-workload = { path = "../cynic-workload" }
+futures-util.workspace = true
+reqwest.workspace = true
+tokio = { version = "1", features = ["process", "rt", "macros", "sync", "time"] }
+async-trait.workspace = true
+thiserror = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2.workspace = true
 hex = "0.4"
 
 [dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

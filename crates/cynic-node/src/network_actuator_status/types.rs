@@ -11,10 +11,10 @@ pub struct NetworkActuatorActivationStatus {
     pub(crate) generated_at: String,
     pub(crate) status: &'static str,
     pub(crate) host_profile: &'static str,
-    pub(crate) helper_path: String,
+    pub(crate) executor: String,
     pub(crate) policy_path: String,
-    pub(crate) sudoers_target: String,
-    pub(crate) sudoers_rule: String,
+    pub(crate) membrane_target: String,
+    pub(crate) membrane_admission: String,
     pub(crate) bundle_dir: String,
     pub(crate) bundle_complete: bool,
     pub(crate) bundle_evidence_source: &'static str,
@@ -33,17 +33,16 @@ pub struct NetworkActuatorActivationStatus {
 
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct NetworkActuatorChecks {
-    pub(crate) helper_exists: bool,
-    pub(crate) helper_mode_0755: bool,
-    pub(crate) helper_executable: bool,
+    pub(crate) executor_exists: bool,
+    pub(crate) executor_executable: bool,
     pub(crate) policy_exists: bool,
     pub(crate) policy_mode_0644: bool,
-    pub(crate) sudoers_exists: bool,
-    pub(crate) sudoers_mode_0440: bool,
-    pub(crate) sudoers_rule_matches: bool,
-    pub(crate) sudoers_no_raw_ip: bool,
-    pub(crate) sudoers_no_raw_wg: bool,
-    pub(crate) sudoers_no_shell: bool,
+    pub(crate) membrane_exists: bool,
+    pub(crate) membrane_mode_0440: bool,
+    pub(crate) membrane_admits_network_actuate: bool,
+    pub(crate) membrane_no_raw_ip: bool,
+    pub(crate) membrane_no_raw_wg: bool,
+    pub(crate) membrane_no_shell: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

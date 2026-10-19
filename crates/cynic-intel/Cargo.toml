@@ -21,7 +21,6 @@ tracing.workspace = true
 cynic-protocol = { path = "../cynic-protocol" }
 cynic-solana-pay = { path = "../cynic-solana-pay" }
 cynic-secrets = { path = "../cynic-secrets" }
-cynic-inference = { path = "../cynic-inference" }
 regex = "1"
 
 # Async test harness only: the crate's own surfaces stay runtime-agnostic behind

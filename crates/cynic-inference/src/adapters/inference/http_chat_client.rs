@@ -117,6 +117,7 @@ struct ChoiceLogprobs {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct ContentLogprob {
     #[serde(default)]
     logprob: f64,
@@ -337,7 +338,9 @@ fn synthesize_chunks(s: &str) -> Vec<StreamChunk> {
 }
 
 impl HttpOpenAiChatClient {
-    fn token_entropy_from_choice(choice: Option<&Choice>) -> (
+    fn token_entropy_from_choice(
+        choice: Option<&Choice>,
+    ) -> (
         Vec<crate::domain::token_entropy::TokenEntropySnapshot>,
         Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
     ) {
@@ -345,7 +348,9 @@ impl HttpOpenAiChatClient {
             TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_probabilities,
         };
         let mut snapshots = Vec::new();
-        let Some(choice) = choice else { return (snapshots, None); };
+        let Some(choice) = choice else {
+            return (snapshots, None);
+        };
         let Some(logprobs) = choice.logprobs.as_ref() else {
             return (snapshots, None);
         };
@@ -355,27 +360,30 @@ impl HttpOpenAiChatClient {
                 // real distribution. Skip to avoid fabricating certainty.
                 continue;
             } else {
-                entry.top_logprobs.iter().map(|t| t.logprob).collect::<Vec<_>>()
+                entry
+                    .top_logprobs
+                    .iter()
+                    .map(|t| t.logprob)
+                    .collect::<Vec<_>>()
             };
             let max = candidates.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             let sum: f64 = candidates.iter().map(|v| (v - max).exp()).sum();
             if !max.is_finite() || sum <= 0.0 || !sum.is_finite() {
                 continue;
             }
-            let probabilities: Vec<f64> = candidates
-                .iter()
-                .map(|v| (v - max).exp() / sum)
-                .collect();
-            if let Ok(snapshot) =
-                token_entropy_from_probabilities(&probabilities, token_index)
-            {
+            let probabilities: Vec<f64> =
+                candidates.iter().map(|v| (v - max).exp() / sum).collect();
+            if let Ok(snapshot) = token_entropy_from_probabilities(&probabilities, token_index) {
                 snapshots.push(snapshot);
             }
         }
         let assessment = if snapshots.is_empty() {
             None
         } else {
-            Some(assess_token_uncertainty(&snapshots, TokenUncertaintyParams::default()))
+            Some(assess_token_uncertainty(
+                &snapshots,
+                TokenUncertaintyParams::default(),
+            ))
         };
         (snapshots, assessment)
     }

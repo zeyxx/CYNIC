@@ -1,6 +1,6 @@
 use chrono::Utc;
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
 use cynic_host::runtime_layout::current_runtime_layout;
+use cynic_types::paths::CynicPaths;
 use serde::Serialize;
 
 use crate::domain::node_observation::{
@@ -164,7 +164,7 @@ fn command_preview_with_context(
                     "provider-fallback-hosts".to_string(),
                     "--json".to_string(),
                     "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
+                    CynicPaths::registry_path().display().to_string(),
                     "--output-dir".to_string(),
                     context.provider_fallback_bundle_dir.clone(),
                 ],
@@ -179,7 +179,7 @@ fn command_preview_with_context(
                     "dns".to_string(),
                     "status".to_string(),
                     "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
+                    CynicPaths::registry_path().display().to_string(),
                     "--resolve-dns".to_string(),
                 ],
             ),
@@ -191,7 +191,7 @@ fn command_preview_with_context(
                     "dns".to_string(),
                     "bundle".to_string(),
                     "--registry".to_string(),
-                    DEFAULT_REGISTRY_PATH.to_string(),
+                    CynicPaths::registry_path().display().to_string(),
                     "--output-dir".to_string(),
                     context.dns_bundle_dir.clone(),
                 ],

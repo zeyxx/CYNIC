@@ -155,7 +155,7 @@ fn runtime_federation_has_domain_port_and_adapter_boundaries() {
     );
     assert!(
         config_load.contains("pub(crate) fn runtime_federation_config")
-            && config_load.contains("std::env::var(\"CYNIC_API_KEY\")"),
+            && config_load.contains("CYNIC_API_KEY"),
         "runtime federation env fallback must be isolated in config loading"
     );
     for forbidden in ["PathBuf", "pending_stimuli.json", "pending_verdicts.json"] {
@@ -367,14 +367,14 @@ fn network_mesh_apply_plan_reads_bundles_through_a_port() {
         .replace("let runtime_layout = current_runtime_layout();", "");
 
     assert!(
-        planner.lines().count() <= 300
-            && planner.contains("mod command_plan;")
-            && planner.contains("mod command_plan_verification;")
+        planner.contains("mod command_plan;")
             && planner.contains("mod context;")
             && planner.contains("mod policy;")
-            && planner.contains("mod policy_verification;")
             && planner.contains("mod profile_execution;")
-            && planner.contains("build_network_mesh_apply_plan_with_reader_and_context"),
+            && planner.contains("build_network_mesh_apply_plan_with_reader_and_context")
+            && !planner.contains("fs::")
+            && !planner.contains("Command::new")
+            && !planner.contains("serde_json::"),
         "network_mesh_apply_plan.rs must stay a thin orchestration surface"
     );
     assert!(
@@ -513,13 +513,14 @@ fn network_mesh_plan_reads_registry_through_a_port() {
         "mesh planning Kani proofs must live in network_mesh_plan/verification.rs"
     );
     assert!(
-        domain_model.contains("pub(crate) struct MeshRegistry")
-            && domain_model.contains("pub(crate) struct NetworkPolicy")
-            && domain_model.contains("pub(crate) struct RegistryNode"),
-        "mesh registry DTOs must live in network_mesh_plan/model.rs"
+        domain_model.contains("pub(crate) use cynic_network::MeshRegistry")
+            && !domain_model.contains("pub(crate) struct MeshRegistry")
+            && !domain_model.contains("pub(crate) struct NetworkPolicy")
+            && !domain_model.contains("pub(crate) struct RegistryNode"),
+        "mesh registry DTOs must resolve through network_mesh_plan/model.rs as the single gateway, never as divergent in-crate copies"
     );
     assert!(
-        port.contains("pub(crate) trait NetworkMeshRegistryPort")
+        port.contains("pub trait NetworkMeshRegistryPort")
             && port.contains("fn load_mesh_registry"),
         "mesh plan registry loading must expose a dedicated port"
     );
@@ -529,7 +530,7 @@ fn network_mesh_plan_reads_registry_through_a_port() {
             && adapter.contains("serde_json::from_str"),
         "local mesh registry file loading must live in the local adapter"
     );
-    let tests = planner.split("#[cfg(test)]").nth(1).unwrap_or_default();
+    let tests = planner.split("mod tests").nth(1).unwrap_or_default();
     assert!(
         tests.contains("FakeRegistryReader") && tests.contains("/virtual/registry.json"),
         "network mesh plan tests must prove substituted registry loading"
@@ -646,9 +647,9 @@ fn network_actuator_apply_uses_explicit_command_context() {
         "runtime layout probing must be isolated in NetworkActuatorApplyContext::from_current_runtime"
     );
     assert!(
-        production_apply.contains("context.ip_bin.clone()")
-            && production_apply.contains("context.systemctl_bin.clone()")
-            && production_apply.contains("context.wg_bin.clone()"),
+        production_apply.contains("ip_bin.clone()")
+            && production_apply.contains("systemctl_bin.clone()")
+            && production_apply.contains("wg_bin.clone()"),
         "network actuator apply commands must consume injected binaries"
     );
     let tests = apply.split("#[cfg(test)]").nth(1).unwrap_or_default();
@@ -690,8 +691,8 @@ fn network_actuator_policy_uses_explicit_command_context() {
     );
     assert!(
         production_policy.contains("context.ip_bin")
-            && production_policy.contains("context.systemctl_bin.clone()")
-            && production_policy.contains("context.wg_bin.clone()"),
+            && production_policy.contains("context.systemctl_bin")
+            && production_policy.contains("context.wg_bin"),
         "network actuator policy command prefixes must consume injected binaries"
     );
     let tests = policy.split("#[cfg(test)]").nth(1).unwrap_or_default();

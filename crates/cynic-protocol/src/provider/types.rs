@@ -6,6 +6,7 @@ pub const PROVIDER_CONTROL_DESIRED_STATE_SCHEMA: &str = "cynic.provider_control.
 pub const NODE_SUBSTRATE_OBSERVATION_SCHEMA: &str = "cynic.node_substrate.observation.v1";
 pub const NODE_SUBSTRATE_DECISION_SCHEMA: &str = "cynic.node_substrate.decision.v1";
 pub const NODE_SUBSTRATE_PROVISIONING_SCHEMA: &str = "cynic.node_substrate.provisioning.v1";
+pub const LXC_PROVISIONING_SCHEMA: &str = "cynic.provider.lxc_provisioning.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,6 +94,39 @@ pub struct NodeSubstrateProvisioningSpec {
     pub runtime_seed_ref: String,
     pub runtime_seed_digest: String,
     pub network_profile_ref: String,
+    /// Concrete Proxmox LXC container parameters. Present when the substrate
+    /// is a container rather than a content-addressed QEMU VM. When Some, the
+    /// LXC branch of `validate_node_substrate_provisioning` applies and the
+    /// content-addressed fields are not required.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lxc: Option<LxcProvisioningSpec>,
+}
+
+/// Concrete Proxmox LXC container provisioning parameters.
+/// Pure contract: zero I/O, validated by `validate_lxc_provisioning_spec`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LxcProvisioningSpec {
+    pub schema: String,
+    pub hostname: String,
+    /// Storage volume id of the container template, e.g.
+    /// "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst".
+    pub template_volid: String,
+    pub storage_pool: String,
+    pub disk_gib: u32,
+    pub cores: u32,
+    pub memory_mib: u32,
+    pub swap_mib: u32,
+    pub bridge: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ip_cidr: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gateway: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nameserver: Option<String>,
+    pub unprivileged: bool,
+    pub onboot: bool,
+    #[serde(default)]
+    pub features: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

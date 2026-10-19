@@ -178,7 +178,7 @@ pub fn runtime_execution_layers(registry_path: &str) -> Vec<RuntimeExecutionLaye
             dry_run: Some(vec![
                 "surreal".to_string(),
                 "validate".to_string(),
-                "infra/surreal_init.surql".to_string(),
+                "infra/surrealdb/schema.surql".to_string(),
             ]),
             apply: None,
             exit_gate: vec!["storage_schema_valid", "storage_service_observed"],

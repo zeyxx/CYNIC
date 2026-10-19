@@ -1,0 +1,23 @@
+{
+  "schema": "cynic.gasdf.plans.v1",
+  "status": "example",
+  "note": "Example only. Real plans are published by each application (B2B client). GASdf validates membership only; pricing authority is the application. Empty template for new apps.",
+  "plans": [
+    {
+      "app_id": "trenchscanner",
+      "plan_id": "pro-monthly",
+      "name": "Pro monthly",
+      "price_asdf_base_units": 100000000,
+      "duration_seconds": 2592000,
+      "enabled": true
+    },
+    {
+      "app_id": "cultscreener",
+      "plan_id": "pro-monthly",
+      "name": "Pro monthly",
+      "price_asdf_base_units": 100000000,
+      "duration_seconds": 2592000,
+      "enabled": true
+    }
+  ]
+}

@@ -151,24 +151,22 @@ fn preflight_blockers(
 
 fn observed_proofs(observed: &PrivilegeBridgeObservedState, target: &str) -> Vec<RequiredProof> {
     let checks = [
-        ("helper_present", observed.helper_present),
-        ("helper_executable", observed.helper_executable),
-        ("helper_mode_matches", observed.helper_mode_matches),
-        ("helper_authority_owned", observed.helper_authority_owned),
-        ("projection_present", observed.projection_present),
-        ("projection_mode_matches", observed.projection_mode_matches),
+        ("executor_present", observed.executor_present),
+        ("executor_executable", observed.executor_executable),
+        ("membrane_present", observed.membrane_present),
+        ("membrane_mode_matches", observed.membrane_mode_matches),
         (
-            "projection_authority_owned",
-            observed.projection_authority_owned,
+            "membrane_authority_owned",
+            observed.membrane_authority_owned,
         ),
-        ("projection_valid", observed.projection_valid),
+        ("membrane_valid", observed.membrane_valid),
         (
             "invocation_policy_bounded",
             observed.invocation_policy_bounded,
         ),
         (
-            "bounded_helper_noninteractive_and_shell_denied",
-            observed.bounded_helper_noninteractive && observed.unrestricted_shell_denied,
+            "membrane_probe_executed_and_shell_denied",
+            observed.membrane_probe_executed && observed.unrestricted_shell_denied,
         ),
     ];
     checks

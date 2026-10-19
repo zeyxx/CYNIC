@@ -1,6 +1,6 @@
 //! Notification Outbox Use Case (Slice C2).
 //!
-//! Defined in `infra/AGENT_FLEET_HOSTING_DESIGN.md` §Telegram : notification, jamais contrôle.
+//! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` §Telegram : notification, jamais contrôle.
 //! Outbox durable, redaction/classification, retry idempotent et receipt de livraison.
 
 use cynic_protocol::{

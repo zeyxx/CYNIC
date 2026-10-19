@@ -11,7 +11,7 @@ use crate::runtime_surface::report::types::{
 };
 
 pub(crate) fn build_runtime_report(
-    default_runtime_report_path: &'static str,
+    default_runtime_report_path: &std::path::Path,
 ) -> Result<RuntimeReport, String> {
     let harness = cynic_host::runtime_harness::runtime_harness_catalog(None)?;
     let phases = harness
@@ -97,7 +97,7 @@ pub(crate) fn build_runtime_report(
         inference,
         sovereign_git,
         persistence: RuntimeReportPersistence {
-            default_path: default_runtime_report_path,
+            default_path: default_runtime_report_path.display().to_string(),
             written_path: None,
             mutates_filesystem: false,
         },
@@ -109,7 +109,7 @@ pub(crate) fn build_runtime_report(
             "inference config reports must never emit API key values",
             "sovereign git health is runtime authority infrastructure, not an external integration",
             "promotion requires phase-local proof plus residual unknowns made explicit by metrics",
-            "persistent runtime reports belong under /var/lib/cynic/reports, not under a user home",
+            "persistent runtime reports belong under the installed state reports dir, not under a user home",
         ],
     })
 }

@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use cynic_types::paths::CynicPaths;
 
 use super::{
     discover_source_binary, discover_source_binary_from_path, install_output_indicates_same_file,
@@ -54,16 +56,17 @@ fn standalone_cli_source_discovered_from_env_override() {
 
 #[test]
 fn install_output_detects_same_file() {
+    let cli = CynicPaths::binary_dir().join("cynic").display().to_string();
     assert!(install_output_indicates_same_file(
         "",
-        "install: '/usr/local/bin/cynic' et '/usr/local/bin/cynic' identifient le même fichier"
+        &format!("install: '{cli}' et '{cli}' identifient le même fichier")
     ));
     assert!(install_output_indicates_same_file(
         "",
-        "install: '/usr/local/bin/cynic' et '/usr/local/bin/cynic' identifient le meme fichier"
+        &format!("install: '{cli}' et '{cli}' identifient le meme fichier")
     ));
     assert!(install_output_indicates_same_file(
-        "install: '/usr/local/bin/cynic' and '/usr/local/bin/cynic' are the same file",
+        &format!("install: '{cli}' and '{cli}' are the same file"),
         ""
     ));
     assert!(!install_output_indicates_same_file(
@@ -106,7 +109,9 @@ fn standalone_cli_source_is_discovered_from_workspace_layout() {
 
 #[test]
 fn system_targets_remain_system_mode() {
-    assert!(!is_user_local_target(Path::new("/usr/local/bin/cynic")));
+    assert!(!is_user_local_target(
+        &CynicPaths::binary_dir().join("cynic")
+    ));
     assert!(!is_user_local_target(Path::new("/usr/bin/cynic")));
     assert!(!is_user_local_target(Path::new("/sbin/reboot")));
 }
@@ -121,7 +126,7 @@ fn default_install_target_is_system_wide_by_default() {
 
     assert_eq!(
         super::default_cli_install_target(),
-        PathBuf::from("/usr/local/bin/cynic")
+        CynicPaths::binary_dir().join("cynic")
     );
 
     if let Some(value) = previous {

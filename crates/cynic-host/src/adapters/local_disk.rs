@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
+use cynic_types::paths::CynicPaths;
 
 use crate::domain::disk::port::{DiskCleanupExecutionPort, DiskObservationPort};
 use crate::domain::disk::probe::{
@@ -202,10 +203,10 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     let skipped = excluded_dirs_for_cwd("disk_scan");
 
     // 1. Legacy /tmp/cynic-* targets (pre-SSOT build root; now usually test
-    // litter) plus the SSOT cargo target root (A1: $CYNIC_STATE_ROOT or
-    // /var/lib/cynic, build-targets/<profile>). Both are observed; only the
-    // legacy path is ever proposed for cleanup (probe.rs) — the live build
-    // cache is never an automatic reclaim candidate.
+    // litter) plus the SSOT cargo target root (A1: $CYNIC_STATE_ROOT or the
+    // canonical state root, build-targets/<profile>). Both are observed; only
+    // the legacy path is ever proposed for cleanup (probe.rs) — the live
+    // build cache is never an automatic reclaim candidate.
     let mut tmp_cynic_size = 0u64;
     if let Ok(read_dir) = fs::read_dir("/tmp") {
         for entry in read_dir.flatten() {
@@ -227,7 +228,7 @@ fn observe_known_caches() -> Vec<DiskCacheEntry> {
     // 1b. SSOT cargo target root — the cache that actually matters since A1.
     let state_root = std::env::var("CYNIC_STATE_ROOT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/var/lib/cynic"));
+        .unwrap_or_else(|_| CynicPaths::state_dir());
     let profile = std::env::var("CYNIC_CARGO_TARGET_PROFILE")
         .ok()
         .filter(|profile| !profile.trim().is_empty())
@@ -337,10 +338,7 @@ fn observe_large_files() -> Vec<DiskFileEntry> {
     // Same registry skip set as the cache walkers: dependency trees must not
     // contribute hundred-megabyte blobs (uv/hf caches) to "user data".
     let skipped = excluded_dirs_for_cwd("disk_scan");
-    let mut search_paths = vec![Path::new("/tmp"), Path::new("/var/lib/cynic")]
-        .into_iter()
-        .map(Path::to_path_buf)
-        .collect::<Vec<_>>();
+    let mut search_paths = vec![PathBuf::from("/tmp"), CynicPaths::state_dir()];
     if let Ok(principal_home) = std::env::var("CYNIC_PRINCIPAL_HOME") {
         search_paths.push(PathBuf::from(principal_home));
     }

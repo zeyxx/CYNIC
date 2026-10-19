@@ -7,9 +7,12 @@ publish = false
 
 [dev-dependencies]
 walkdir.workspace = true
+futures.workspace = true
+tokio.workspace = true
 
 [dependencies]
 cynic-protocol = { path = "../cynic-protocol" }
+cynic-types = { path = "../cynic-types" }
 cynic-lifecycle = { path = "../cynic-lifecycle" }
 cynic-secrets = { path = "../cynic-secrets" }
 cynic-host = { path = "../cynic-host" }
@@ -17,6 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 hex.workspace = true
+thiserror.workspace = true
 toml.workspace = true
 # `rustls` is required, not optional: proxmox_control calls
 # reqwest::Certificate::from_pem and add_root_certificate, both gated behind
@@ -24,7 +28,6 @@ toml.workspace = true
 # enables TLS (feature unification); compiled alone, cynic-proxmox must ask
 # for it explicitly.
 reqwest = { workspace = true, features = ["rustls"] }
-tokio.workspace = true
 ed25519-dalek.workspace = true
 
 [lints]

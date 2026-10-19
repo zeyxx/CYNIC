@@ -1,0 +1,16 @@
+[package]
+# Artefact discovery is frozen: every binary is declared below.
+autobins = false
+name = "cynic-fleet"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+publish = false
+description = "Fleet projection: node grants and coordination activity assembled as pure data, rendered as HTML"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

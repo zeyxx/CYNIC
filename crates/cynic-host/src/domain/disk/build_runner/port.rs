@@ -26,4 +26,18 @@ pub trait BuildCacheMutationPort {
         &self,
         desired: &BuildCacheDesiredState,
     ) -> Result<String, String>;
+
+    /// Remove retention-eligible ephemeral paths (evidence checkouts,
+    /// terminal workload workspaces) the pure decision named.
+    ///
+    /// Same fail-closed contract as the non-canonical removal: every path is
+    /// re-verified at removal time (boundary, strict name pattern, and for
+    /// workspaces a fresh terminal read-back against the store — the
+    /// observation may be stale), and absence is proven by read-back.
+    /// Returns evidence naming what was removed.
+    fn reclaim_ephemeral_paths(
+        &self,
+        desired: &BuildCacheDesiredState,
+        paths: &[String],
+    ) -> Result<String, String>;
 }

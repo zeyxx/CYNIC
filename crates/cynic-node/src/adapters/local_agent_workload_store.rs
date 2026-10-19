@@ -194,6 +194,69 @@ impl AgentWorkloadStorePort for LocalAgentWorkloadStore {
         }
         Ok(read_back)
     }
+
+    fn archive_terminal(
+        &self,
+        workload_id: &str,
+        older_than_ms: u64,
+        now_ms: u64,
+    ) -> Result<Option<String>, AgentWorkloadStoreError> {
+        let root = self.workload_root(workload_id)?;
+        let latest = match read_latest(&root)? {
+            Some(record) => record,
+            None => return Ok(None),
+        };
+        if !latest.record.state.terminal() {
+            return Ok(None);
+        }
+        let age = now_ms.saturating_sub(latest.committed_at_ms);
+        if age < older_than_ms {
+            return Ok(None);
+        }
+        let archive_root = self.root.join("archive");
+        fs::create_dir_all(&archive_root)
+            .map_err(|_| error("workload_store_archive_create_failed"))?;
+        reject_non_directory(&archive_root)?;
+        let destination = archive_root.join(workload_id);
+        if destination.exists() {
+            return Err(error("workload_store_archive_already_exists"));
+        }
+        fs::rename(&root, &destination).map_err(|_| error("workload_store_archive_move_failed"))?;
+        if root.exists() {
+            return Err(error("workload_store_archive_read_back_failed"));
+        }
+        Ok(Some(destination.to_string_lossy().into_owned()))
+    }
+
+    fn append_evidence(
+        &self,
+        workload_id: &str,
+        file_name: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), AgentWorkloadStoreError> {
+        validate_evidence_name(file_name)?;
+        let root = self.workload_root(workload_id)?;
+        match fs::symlink_metadata(&root) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                return Err(error("workload_store_root_rejected"));
+            }
+            Ok(_) => {}
+            Err(_) => return Err(error("workload_evidence_unknown_workload")),
+        }
+        let bytes =
+            serde_json::to_vec_pretty(body).map_err(|_| error("workload_store_encode_failed"))?;
+        let path = root.join(file_name);
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o640);
+        let mut file = options
+            .open(&path)
+            .map_err(|_| error("workload_evidence_write_failed"))?;
+        file.write_all(&bytes)
+            .map_err(|_| error("workload_evidence_write_failed"))?;
+        Ok(())
+    }
 }
 
 fn read_latest(root: &Path) -> Result<Option<DurableAgentWorkloadRecord>, AgentWorkloadStoreError> {
@@ -300,6 +363,16 @@ fn validate_id(value: &str) -> Result<(), AgentWorkloadStoreError> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
     {
+        return Err(error("workload_store_identifier_invalid"));
+    }
+    Ok(())
+}
+
+/// Evidence sidecar names are flat files inside the workload directory:
+/// same charset as ids, plus an explicit ban on `.` and `..`.
+fn validate_evidence_name(file_name: &str) -> Result<(), AgentWorkloadStoreError> {
+    validate_id(file_name)?;
+    if file_name == "." || file_name == ".." || !file_name.ends_with(".json") {
         return Err(error("workload_store_identifier_invalid"));
     }
     Ok(())

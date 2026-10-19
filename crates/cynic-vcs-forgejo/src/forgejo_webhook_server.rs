@@ -341,6 +341,7 @@ fn respond_json(stream: &mut TcpStream, result: &WebhookTriggerResult) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hmac::KeyInit;
 
     fn valid_sha() -> String {
         "a".repeat(40)
@@ -379,6 +380,8 @@ mod tests {
 
     #[test]
     fn hmac_signature_verifies_and_rejects() {
+        use hmac::KeyInit;
+
         let secret = "test-secret";
         let body = br#"{"after":"abc"}"#;
         let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();

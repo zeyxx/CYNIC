@@ -1,6 +1,6 @@
 //! Fleet-wide build artefact observer.
 //!
-//! Mirrors `fleet_disk_observer` but for `BuildArtefactReport`. Iterates
+//! Mirrors `fleet_disk_observer` but for `RetentionObservation`. Iterates
 //! declared nodes from `infra/registry.json`:
 //!   - local node  → `LocalBuildArtefactAdapter` (no SSH)
 //!   - remote node → `RemoteBuildArtefactAdapter` (SSH via `ArgvRunner`)
@@ -11,13 +11,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use chrono::{DateTime, Utc};
 
 use cynic_build::build_artefact::{
-    BUILD_ARTEFACT_REPORT_SCHEMA, BuildArtefactReport, FLEET_BUILD_ARTEFACT_SCHEMA,
-    FleetBuildArtefactNode, FleetBuildArtefactReport,
+    FLEET_BUILD_ARTEFACT_SCHEMA, FleetBuildArtefactNode, FleetBuildArtefactReport,
 };
 
 use crate::adapters::local_build_artefact::LocalBuildArtefactAdapter;
 use crate::adapters::remote_build_artefact::RemoteBuildArtefactAdapter;
-use crate::domain::build_artefact::port::BuildArtefactObservationPort;
+use crate::domain::build_artefact::RetentionObserver;
 use crate::fleet_discovery::FleetDiscoveryAdapter;
 use crate::runtime_layout::observed_hostname;
 use cynic_lifecycle::{ArgvRunner, LocalArgvRunner};
@@ -59,29 +58,17 @@ impl<R: ArgvRunner> FleetBuildArtefactObserver<R> {
         self.ssh_target_template.replace("{ip}", ip)
     }
 
-    fn local_report() -> BuildArtefactReport {
-        match LocalBuildArtefactAdapter.observe_build_artefacts() {
-            Ok(r) => r,
-            Err(e) => BuildArtefactReport {
-                schema: BUILD_ARTEFACT_REPORT_SCHEMA.to_string(),
+    fn local_observation() -> cynic_protocol::retention::RetentionObservation {
+        match LocalBuildArtefactAdapter.observe() {
+            Ok(o) => o,
+            Err(e) => cynic_protocol::retention::RetentionObservation {
+                schema: cynic_protocol::retention::RETENTION_OBSERVATION_SCHEMA.to_string(),
                 timestamp: DateTime::<Utc>::from(SystemTime::now())
                     .format("%Y-%m-%dT%H:%M:%SZ")
                     .to_string(),
-                physical_disks: vec![],
-                filesystems: vec![],
-                checkouts: vec![],
-                total_checkout_bytes: 0,
-                total_checkout_human: "0B".to_string(),
-                target_bytes: 0,
-                target_human: "0B".to_string(),
-                pressure: cynic_build::build_artefact::DiskPressure {
-                    avail_bytes: 0,
-                    avail_human: "0B".to_string(),
-                    use_pct: 0,
-                    is_pressured: false,
-                    root_owned_target_count: 0,
-                },
-                residual_unknowns: vec![format!("local_observe_failed:{e}")],
+                items: vec![],
+                total_reclaimable_bytes: 0,
+                pressure: None,
             },
         }
     }
@@ -101,25 +88,25 @@ impl<R: ArgvRunner> FleetBuildArtefactObserver<R> {
         for declared in &discovery.nodes {
             let is_local = hostname == declared.node_id || hostname == declared.ip;
             let node = if is_local {
-                let report = Self::local_report();
+                let obs = Self::local_observation();
                 observed_nodes += 1;
                 FleetBuildArtefactNode::Observed {
                     node_id: declared.node_id.clone(),
                     role: declared.role.clone(),
                     ip: declared.ip.clone(),
-                    report,
+                    report: obs,
                 }
             } else {
                 let target = self.ssh_target_for(&declared.ip);
                 match RemoteBuildArtefactAdapter::new(self.runner.clone(), target) {
-                    Ok(adapter) => match adapter.observe_build_artefacts() {
-                        Ok(report) => {
+                    Ok(adapter) => match adapter.observe() {
+                        Ok(obs) => {
                             observed_nodes += 1;
                             FleetBuildArtefactNode::Observed {
                                 node_id: declared.node_id.clone(),
                                 role: declared.role.clone(),
                                 ip: declared.ip.clone(),
-                                report,
+                                report: obs,
                             }
                         }
                         Err(e) => {
@@ -128,7 +115,7 @@ impl<R: ArgvRunner> FleetBuildArtefactObserver<R> {
                                 node_id: declared.node_id.clone(),
                                 role: declared.role.clone(),
                                 ip: declared.ip.clone(),
-                                error: e,
+                                error: e.to_string(),
                             }
                         }
                     },

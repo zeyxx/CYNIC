@@ -1,4 +1,5 @@
 //! cynic-mcp binary: thin facade. All logic lives in the library.
+
 use rmcp::ServiceExt;
 
 #[tokio::main]
