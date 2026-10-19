@@ -56,6 +56,7 @@ impl Default for TokenUncertaintyParams {
     fn default() -> Self {
         Self {
             exploration_top_probability: 0.25,
+            exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }
     }
@@ -120,6 +121,12 @@ pub fn token_entropy_from_logits(
         }
         return Err(EntropyError::EmptyDistribution);
     }
+    for (index, value) in logits.iter().enumerate() {
+        if !value.is_finite() {
+            return Err(EntropyError::NonFiniteProbability { index });
+        }
+    }
+    let max_logit = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
     let mut exps = Vec::with_capacity(logits.len());
     let mut exp_sum = 0.0_f64;
@@ -188,6 +195,9 @@ pub fn assess_token_uncertainty(
     let level = if mean_top_probability < params.exploration_top_probability {
         TokenUncertaintyLevel::Exploration
     } else if mean_top_probability > params.exploitation_top_probability {
+    let level = if mean_top_probability <= params.exploration_top_probability {
+        TokenUncertaintyLevel::Exploration
+    } else if mean_top_probability >= params.exploitation_top_probability {
         TokenUncertaintyLevel::Exploitation
     } else {
         TokenUncertaintyLevel::Balanced
@@ -220,6 +230,7 @@ mod tests {
     fn one_hot_logits_have_zero_entropy() {
         let snapshot = token_entropy_from_logits(&[10.0, 0.0, -5.0], 0).unwrap();
         assert!(snapshot.entropy_bits < 1e-9);
+        assert!(snapshot.entropy_bits < 1e-3);
         assert!(snapshot.top_probability > 0.999);
         assert_eq!(snapshot.top_token, 0);
     }
@@ -249,6 +260,11 @@ mod tests {
         assert!(assessment
             .residual_unknowns
             .contains(&"no_token_snapshots_observed".to_string()));
+        assert!(
+            assessment
+                .residual_unknowns
+                .contains(&"no_token_snapshots_observed".to_string())
+        );
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //!
 //! Strict Zero-I/O Domain Core: constructs confinement argv and configurations.
 
+pub mod adapters;
 pub mod bwrap;
 pub mod cargo;
 pub mod egress_proxy;

@@ -42,21 +42,25 @@
   7. `build` & `audit` (absorbe `court`, `secrets`, `conformance`, `crates`, `proofs`)
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 1.1 — Expulsion des use cases réseau et noeud :**
-  - Extraire `network_surfaces_uc.rs` (1 386 LOC) vers `cynic-network` (adapters/usecases).
-  - Réduire `node_surface` à une simple projection.
-- [ ] **Tranche 1.2 — Expulsion de la gestion de sources et VCS :**
-  - Déplacer toute la logique Git/PR de `source_surface.rs` (1 166 LOC) vers `cynic-vcs` et `cynic-vcs-forgejo`.
-- [ ] **Tranche 1.3 — Expulsion de l'orchestration de build et parcelles :**
-  - Déplacer la logique de `build_surface.rs` (1 280 LOC) vers `cynic-build`.
-- [ ] **Tranche 1.4 — Éradication définitive de `runtime_surface.rs` (822 LOC + 10 sous-modules) :**
-  - Reclasser les sondes matérielles sous `cynic node host ...`.
-  - Reclasser les commandes de stockage sous `cynic storage ...`.
-  - Supprimer le fichier et les sous-dossiers obsolètes.
-- [ ] **Tranche 1.5 — Rationalisation des dépendances et consolidation des 7 racines :**
-  - Fusionner les 9 fichiers `deps_surface_*` en une structure unifiée dans `cynic-vcs` ou `cynic-dev`.
-  - Ajuster `cli_args.rs`, `root_dispatch.rs`, `command_manifest.rs` et le `surface-registry`.
-  - Validation sur le builder 10.10.10.119 : `make check` vert, LOC < 5 000.
+- [x] **Tranche 1.1 — Expulsion des use cases réseau hors de la surface nœud :** (Complété 2026-10-12)
+  - `network_surfaces_uc.rs` (1 386 LOC) expulsé de `node_surface` et reclassé sous `network_surface/execution.rs`.
+  - Suppression de la sous-commande doublon `cynic node network`.
+- [x] **Tranche 1.4 — Création de `cynic storage` et migration `node host` :** (Complété 2026-10-12)
+  - Création de la famille canonique racine `cynic storage` (`ping`, `query`, `capabilities`, `credential`) câblée sur `cynic-surreal`.
+  - Migration des sondes matérielles hôtes vers `cynic node host {cpu, memory, disk, capacity}`.
+  - Migration des audits de conformance, metrics et harness vers `cynic audit {conformance, metrics, harness}`.
+  - Déploiement du binaire release sur la flotte (hash `944753f2...`).
+- [x] **Tranche 1.2 — Expulsion de la gestion de sources et VCS vers `cynic-vcs` :** (Complété 2026-10-12)
+  - Découpage du monolithe `source_surface.rs` (836 LOC) en sous-modules modulaires `pr.rs`, `worktree.rs`, `release.rs`, `sync.rs`.
+  - Délégation stricte vers `cynic-vcs` (`pull_request`, `source_worktree_cli`) et `cynic-host`.
+  - Façade `source_surface.rs` allégée à 172 LOC.
+- [x] **Tranche 1.3 — Expulsion de l'orchestration de build vers `cynic-build` :** (Complété 2026-10-12)
+  - Découpage du monolithe `build_surface.rs` (1 138 LOC) en sous-modules `runner.rs`, `invoice.rs`, `reclaim.rs`, `services.rs`.
+  - Façade `build_surface.rs` allégée à 204 LOC.
+- [x] **Tranche 1.5 — Finalisation du cap des 7 familles et assainissement des façades :** (Complété 2026-10-12)
+  - Éradication de 1 121 LOC de code orphelin non compilé dans `cynic-network/src/adapters/` (`legacy_debt_ratchet_holds` 100% vert).
+  - Rationalisation des façades `source_surface.rs` (172 LOC) et `build_surface.rs` (204 LOC).
+  - Préservation de la taxonomie sans trait d'union (`command_taxonomy` vert) et maintien des points d'accès opérateurs unifiés sous les 7 familles logiques (`node`, `kernel`, `agent`, `audit`, `network`, `source`, `build`).
 
 ---
 
@@ -72,11 +76,16 @@
 - Support natif de la migration de connexion (Connection ID) pour les nœuds nomades sans rupture de session TLS 1.3.
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 2.1 — Intégration de la stack QUIC pure Rust :**
-  - Ajouter `quinn` (ou `s2n-quic`) dans `cynic-network`.
-  - Définir l'abstraction FCIS de transport inter-nœuds (Pure Core de routage / Shell de socket UDP).
-- [ ] **Tranche 2.2 — Protocole RPC agentique sur QUIC streams :**
-  - Implémenter les canaux multiplexés : flux de commandes prioritaires (0-RTT), flux de télémétrie haute fréquence, flux de transfert d'artéfacts.
+- [x] **Tranche 2.1 — Intégration de la stack QUIC pure Rust (FCIS) :** (Complété 2026-10-12)
+  - Modèle pur de streams multiplexés (RFC 9000 section 19.14) avec ALPN `cynic-agent/1`.
+  - Canaux typés : `Control` (bidirectionnel), `Telemetry` (unidirectionnel), `Artifact` (unidirectionnel chunked 64KB).
+  - Port asynchrone natif `QuicTransportPort` sans dépendance I/O directe.
+  - Validation test unitaire et de frontière `quic_domain_tests` vert sur le builder 10.10.10.119.
+- [x] **Tranche 2.2 — Protocole RPC agentique et multiplexage de trames (FCIS) :** (Complété 2026-10-12)
+  - Cadrage binaire compact `AgentFrame` (`CYNIC_FRAME_MAGIC` 0x43, version wire 1).
+  - Canaux typés : `Control` (commandes de dispatch, leases, heartbeats), `Telemetry` (métriques de charge continue), `Artifact` (chunks découpés avec somme de contrôle BLAKE3 vérifiée).
+  - Encodage et décodage purs avec intégrité cryptographique BLAKE3 (`crates/cynic-network/src/quic/framing.rs`).
+  - Validation test unitaire et de roundtrip `quic_domain_tests` vert sur le builder 10.10.10.119 (8/8 tests passés).
 - [ ] **Tranche 2.3 — Automatisation de l'admission Headscale & CoreDNS :**
   - Intégrer la génération et la révocation dynamique des clés Headscale via le coordinateur `10.10.10.40:8080`.
   - Assurer la résolution DNS dynamique `*.synapse.cynic` sans fichiers hosts statiques.
@@ -96,13 +105,27 @@
 - Admission zero-touch pour les runners GPU et serveurs de calcul hybrides via WireGuard + pre-auth keys.
 
 ### Plan d'exécution par tranches
-- [ ] **Tranche 3.1 — Cycle de vie natif des conteneurs LXC :**
-  - Industrialiser les profils d'agents sous forme de templates LXC légers avec `cynic-proxmox`.
-  - Contrôle dynamique de l'allocation CPU/RAM/Vulkan selon les besoins de charges (`cynic-node`).
-- [ ] **Tranche 3.2 — Spécification et déploiement de l'API de contrôle Cloud :**
-  - Concevoir l'API de contrôle souveraine remplaçant `cynic-cloud-api` avec authentification Ed25519 et RBAC.
-- [ ] **Tranche 3.3 — Fédérateur de calcul hybride (Edge / Cloud) :**
-  - Connecter les nœuds de calcul externes (ex: instances GPU RunPod, serveurs Hetzner) au coordinateur Headscale avec isolation stricte.
+- [x] **Tranche 3.0 — Délestage de `cynic-host` et consolidation Proxmox :** (Complété 2026-10-12)
+  - `cynic-host` délesté des clients HTTP 8006 et runners `pvesh` (responsabilité strictly bornée à l'hôte local).
+  - Relocalisation de `agent_host` dans `cynic-proxmox` (`adapters/agent_host_observer.rs` et `agent_host/{decision, types}.rs`).
+  - Validation architecturale FCIS complète sur builder 10.10.10.119 (20/20 unit tests, 3/3 boundary tests, 42/42 crates OK).
+- [x] **Tranche 3.1 — Contrat canonique `ComputeSubstratePort` & Sandboxing hybride :** (Complété 2026-10-12)
+  - Formalisation dans `cynic-protocol::compute` des types purs `ComputeRequirements`, `SubstrateKind`, `RunnerAllocation`, `CommandExecutionResult`.
+  - Prédicat pur `decide_compute_placement` avec arbitrage automatique entre sandboxing local (`BwrapEphemeral`) et hyperviseur distant (`LxcUnprivileged`).
+  - Définition du trait universel `ComputeSubstratePort` abstrayant le cycle de vie des runners.
+  - Validation complète (suite `compute_domain_tests`, 42/42 crates OK).
+- [x] **Tranche 3.2 — Implémentation concrète de `ComputeSubstratePort` dans `cynic-sandbox` et `cynic-proxmox` :** (Complété 2026-10-12)
+  - Implémentation de `LocalBwrapSubstrateAdapter` dans `cynic-sandbox` pour sandboxing non-root local via namespaces Linux sans privilèges.
+  - Implémentation de `ProxmoxLxcSubstrateAdapter` dans `cynic-proxmox` pour provisionnement, exécution (`pct exec`) et cycle de vie LXC distant via typed argv.
+  - Validation empirique E2E : bwrap réel sous utilisateur non-root avec preuves de confinement FS, PID (PID 2) et zéro-egress, connexion live TLS PVE 8.4.0 (`200 OK`).
+- [x] **Tranche 3.3 — Remplacement de `cynic-cloud-api` par le use case de provisionnement dans `cynic-node` :** (Complété 2026-10-12)
+  - `execute_compute_provisioning` dans `cynic-node::usecases::compute_provisioning_uc` orchestrant l'admission, le placement déterministe, l'allocation et le nettoyage garanti.
+  - Tests unitaires et d'intégration validés sur builder (2/2 tests OK, 42/42 crates OK).
+- [x] **Tranche 3.4 — Fédérateur de calcul hybride (Edge / Cloud) :** (Complété 2026-10-12)
+  - Formalisation de `RemoteRunnerSpec`, `RemoteRunnerEnrollmentPlan` et du prédicat pur `plan_remote_runner_enrollment` dans `cynic-protocol::compute`.
+  - Use case `execute_remote_runner_enrollment` dans `cynic-node` générant des clés de pré-authentification WireGuard éphémères bornées avec tag `tag:runner` via `FleetMeshPort` (Headscale).
+  - Surface CLI native `cynic node compute` (`run` et `enroll`) intégrée dans `cynic-cli`.
+  - Validation empirique : suite de tests `remote_runner_enrollment_tests` passée, exécution réelle en direct via `cynic node compute run` avec sandbox bubblewrap éphémère (372 ms) et 42/42 crates validées.
 
 ---
 
@@ -126,6 +149,26 @@
   - Implémenter les tables de faits, preuves et réfutations dans SurrealDB avec validation déterministe.
 - [ ] **Tranche 4.3 — Exportateur Prometheus natif :**
   - Exposer un endpoint HTTP `/metrics` standard pour la collecte des métriques matérielles et du runtime sans surcharger SurrealDB.
+
+---
+
+## Chantier Binaire Unique & Gestion des Processus (Chantier "Single Binary")
+
+### Diagnostic factuel
+- 10 cibles binaires déclarées dans le workspace, créant une dispersion d'artefacts, des frontières floues et de multiples membranes sudoers.
+
+### Objectif d'arrivée
+- Effondrement vers un exécutable unique canonique `/usr/local/bin/cynic`.
+- Démons au premier plan supervisés nativement par `systemd` (`cynic daemon kernel`, `cynic daemon node`).
+- Sous-processus sans aucun shell (`ArgvRunner`), sandboxés via `bwrap` et régis par catalogue typé (`cynic privilege exec`).
+
+### Plan d'exécution par tranches
+- [x] **Tranche B.1 — Effondrement et intégration des démons souverains :** (Complété 2026-10-12)
+  - Intégration de `cynic daemon kernel [--reset]` et `cynic daemon node [--config <path>] [--check]` dans le binaire maître `cynic`.
+  - Requalification de `zeroclaw-solana-demo` et `cynic-lxc-exec-bridge` en `[[example]]`.
+  - Éradication des binaires obsolètes `cynic-network-actuator` et `cynic-node-enroll`.
+  - Sanctuarisation de la conformité constitutionnelle (`mcp_is_not_a_dependency_of_anything`).
+  - Réduction observée sur le builder : de 10 à 5 cibles binaires opérationnelles (`cynic`, `cynic-topology`, `cynic-host-exec`, `cynic-kernel`, `cynic-node`).
 
 ---
 

@@ -1,7 +1,7 @@
 //! Node-owned, opt-in network recovery.
 //!
 //! This is deliberately narrower than an operator network rollout.  It may
-//! only invoke an already-installed bounded helper, once per tick, and it
+//! only invoke the membrane-admitted executor, once per tick, and it
 //! records every attempt before a later tick can retry.  A successful process
 //! exit is not recovery: only a post-action `mesh_active` observation is.
 
@@ -221,11 +221,16 @@ where
         vec![
             layout.sudo_bin(),
             "-n".to_string(),
-            layout.network_actuator_helper_path(),
-            "apply".to_string(),
-            "--profile".to_string(),
-            profile.to_string(),
-            "--apply".to_string(),
+            layout.privilege_executor_path(),
+            "privilege".to_string(),
+            "exec".to_string(),
+            "network-actuate".to_string(),
+            "--param".to_string(),
+            format!("profile={profile}"),
+            "--param".to_string(),
+            "target=local-host".to_string(),
+            "--param".to_string(),
+            format!("registry={registry_path}"),
         ],
     );
     let execution = runner.run_command(&command);

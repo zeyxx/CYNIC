@@ -1,0 +1,51 @@
+{
+  "$cynic": "command-registry",
+  "$schema": "cynic.command_registry.v1",
+  "purpose": "Single source of truth for canonical build-action argv. Before this file existed the same argv literals lived in three code tables (composition, reverse read-back, recipe) with no authority, so a command change required touching N sites with no proof they agreed. Every production site is a reader of this registry: the argv a builder executes for an action is declared exactly once here. The retired make:* spellings are absent by decision (they name Makefile targets that do not exist); legacy argv still reverse-resolves to them for old-evidence read-back, but nothing composes them.",
+  "authority_order": [
+    "contracts/foundation.json",
+    "infra/command-registry.json"
+  ],
+  "version": 1,
+  "commands": {
+    "cargo:check": {
+      "argv": ["cargo", "check"],
+      "profile": "debug"
+    },
+    "cargo:build": {
+      "argv": ["cargo", "build"],
+      "profile": "debug"
+    },
+    "cargo:build-release": {
+      "argv": ["cargo", "build", "--release"],
+      "profile": "release"
+    },
+    "cargo:test": {
+      "argv": ["cargo", "test"],
+      "profile": "debug"
+    },
+    "cargo:clippy": {
+      "argv": ["cargo", "clippy", "--workspace", "--all-targets"],
+      "profile": "debug",
+      "note": "Named but unwired: no gate composes it yet."
+    },
+    "cargo:fmt-check": {
+      "argv": ["cargo", "fmt", "--all", "--check"],
+      "profile": "debug",
+      "note": "Named but unwired: no gate composes it yet."
+    },
+    "cargo:run": {
+      "argv": null,
+      "profile": "debug",
+      "note": "Admitted by policy but unwired: no gate composes it yet."
+    },
+    "audit:crate": {
+      "argv": ["cargo", "run", "-q", "-p", "cynic-cli", "--", "audit", "crate"],
+      "profile": "debug"
+    },
+    "audit:all": {
+      "argv": ["cargo", "run", "-q", "-p", "cynic-cli", "--", "audit", "all"],
+      "profile": "debug"
+    }
+  }
+}

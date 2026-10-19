@@ -1,21 +1,22 @@
 //! Pure WAL (Write-Ahead Log) models and hash-chain verification for CynicPeer.
 //!
 //! Enforces the immutable Single Source of Truth (SSOT).
-//! Each entry is cryptographically linked:
-//!   entry_hash = SHA256(canonical_json(tx) + prev_hash + sequence + timestamp)
+//! Each entry is cryptographically linked via the unified hash-chain
+//! primitive (`cynic_protocol::hash_chain`):
+//!   entry_hash = SHA-256(prev_hash + sequence + timestamp + canonical_json(tx))
 //!
 //! Pure, zero I/O, deterministic.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+
+use cynic_protocol::hash_chain::{ChainLink, HashChain};
 
 use super::engine::{TransactionReceipt, TransitionError, apply_transaction};
 use super::state::PeerState;
 use super::transactions::LedgerTransaction;
 
 pub const WAL_ENTRY_SCHEMA: &str = "cynic.peer.wal_entry.v1";
-pub const GENESIS_PREV_HASH: &str =
-    "0000000000000000000000000000000000000000000000000000000000000000";
+pub const GENESIS_PREV_HASH: &str = "genesis";
 
 /// A single immutable entry sealed into the WAL hash-chain.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +27,24 @@ pub struct WalEntry {
     pub prev_hash: String,
     pub entry_hash: String,
     pub tx: LedgerTransaction,
+}
+
+impl ChainLink for WalEntry {
+    fn chain_input(&self) -> Vec<u8> {
+        let tx_canonical = serde_json::to_string(&self.tx).unwrap_or_default();
+        let mut out = Vec::new();
+        out.extend_from_slice(self.prev_hash.as_bytes());
+        out.extend_from_slice(&self.sequence.to_le_bytes());
+        out.extend_from_slice(&self.timestamp_unix_s.to_le_bytes());
+        out.extend_from_slice(tx_canonical.as_bytes());
+        out
+    }
+    fn entry_hash(&self) -> &str {
+        &self.entry_hash
+    }
+    fn prev_hash(&self) -> &str {
+        &self.prev_hash
+    }
 }
 
 impl WalEntry {
@@ -49,17 +68,14 @@ impl WalEntry {
         if self.prev_hash != expected_prev_hash {
             return false;
         }
-        let expected_hash = calculate_entry_hash(
-            &self.prev_hash,
-            self.sequence,
-            self.timestamp_unix_s,
-            &self.tx,
-        );
+        let expected_hash = HashChain::seal(self);
         self.entry_hash == expected_hash
     }
 }
 
 /// Calculate the deterministic SHA-256 hash of a WAL entry.
+///
+/// Uses the unified hash-chain primitive with the canonical digest law.
 pub fn calculate_entry_hash(
     prev_hash: &str,
     sequence: u64,
@@ -67,12 +83,12 @@ pub fn calculate_entry_hash(
     tx: &LedgerTransaction,
 ) -> String {
     let tx_canonical = serde_json::to_string(tx).unwrap_or_default();
-    let mut hasher = Sha256::new();
-    hasher.update(prev_hash.as_bytes());
-    hasher.update(sequence.to_le_bytes());
-    hasher.update(timestamp_unix_s.to_le_bytes());
-    hasher.update(tx_canonical.as_bytes());
-    hex::encode(hasher.finalize())
+    let mut input = Vec::new();
+    input.extend_from_slice(prev_hash.as_bytes());
+    input.extend_from_slice(&sequence.to_le_bytes());
+    input.extend_from_slice(&timestamp_unix_s.to_le_bytes());
+    input.extend_from_slice(tx_canonical.as_bytes());
+    cynic_protocol::digest::digest_bytes(&input)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,14 +150,16 @@ impl std::fmt::Display for WalChainError {
 impl std::error::Error for WalChainError {}
 
 /// Pure verification of an entire slice of WAL entries from genesis or checkpoint.
+///
+/// Uses the unified [`HashChain::verify`] primitive for chain integrity,
+/// plus an additional sequence-gap check.
 pub fn verify_wal_chain(entries: &[WalEntry], start_prev_hash: &str) -> Result<(), WalChainError> {
-    let mut current_prev_hash = start_prev_hash.to_string();
+    // Check sequence continuity first
     let mut expected_seq = if let Some(first) = entries.first() {
         first.sequence
     } else {
         return Ok(());
     };
-
     for entry in entries {
         if entry.sequence != expected_seq {
             return Err(WalChainError::SequenceGap {
@@ -149,31 +167,36 @@ pub fn verify_wal_chain(entries: &[WalEntry], start_prev_hash: &str) -> Result<(
                 got: entry.sequence,
             });
         }
-        if entry.prev_hash != current_prev_hash {
-            return Err(WalChainError::BrokenHashChain {
-                sequence: entry.sequence,
-                expected_prev_hash: current_prev_hash,
-                got_prev_hash: entry.prev_hash.clone(),
-            });
-        }
-        let computed_hash = calculate_entry_hash(
-            &entry.prev_hash,
-            entry.sequence,
-            entry.timestamp_unix_s,
-            &entry.tx,
-        );
-        if entry.entry_hash != computed_hash {
-            return Err(WalChainError::CorruptedEntryHash {
-                sequence: entry.sequence,
-                expected_hash: computed_hash,
-                got_hash: entry.entry_hash.clone(),
-            });
-        }
-        current_prev_hash = entry.entry_hash.clone();
         expected_seq += 1;
     }
 
-    Ok(())
+    // Use the unified hash-chain primitive for cryptographic verification
+    HashChain::verify(start_prev_hash, entries).map_err(|e| match e {
+        cynic_protocol::hash_chain::ChainError::BrokenChain {
+            expected_prev,
+            got_prev,
+        } => WalChainError::BrokenHashChain {
+            sequence: entries
+                .iter()
+                .find(|e| e.prev_hash == got_prev)
+                .map(|e| e.sequence)
+                .unwrap_or(0),
+            expected_prev_hash: expected_prev,
+            got_prev_hash: got_prev,
+        },
+        cynic_protocol::hash_chain::ChainError::CorruptedEntry {
+            expected_hash,
+            got_hash,
+        } => WalChainError::CorruptedEntryHash {
+            sequence: entries
+                .iter()
+                .find(|e| e.entry_hash == got_hash)
+                .map(|e| e.sequence)
+                .unwrap_or(0),
+            expected_hash,
+            got_hash,
+        },
+    })
 }
 
 /// Pure replay of WAL entries to deterministically reconstruct the PeerState.
@@ -282,5 +305,51 @@ mod tests {
             Err(WalChainError::BrokenHashChain { .. }) => {}
             other => panic!("expected BrokenHashChain, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn entry_hash_uses_sha256_prefix() {
+        let now = 1000;
+        let admin = CitizenAccount::new_admin("cit_admin", "Operator", "pub", now);
+        let tx1 = LedgerTransaction::new(
+            "tx_01",
+            1,
+            now,
+            "cit_admin",
+            0,
+            LedgerTransactionPayload::CitizenRegistered { citizen: admin },
+        );
+        let entry = WalEntry::seal(GENESIS_PREV_HASH, tx1);
+        assert!(
+            entry.entry_hash.starts_with("sha256:"),
+            "expected sha256: prefix, got: {}",
+            &entry.entry_hash[..20]
+        );
+        assert_eq!(entry.entry_hash.len(), "sha256:".len() + 64);
+    }
+
+    #[test]
+    fn old_sha3_512_genesis_entry_fails_verification() {
+        // Pin the intentional clean break: an entry sealed with the old
+        // SHA3-512 algorithm and old genesis (64-zero prev_hash) must NOT
+        // verify under the unified SHA-256 hash chain.
+        let now = 1000;
+        let admin = CitizenAccount::new_admin("cit_admin", "Operator", "pub", now);
+        let tx1 = LedgerTransaction::new(
+            "tx_01",
+            1,
+            now,
+            "cit_admin",
+            0,
+            LedgerTransactionPayload::CitizenRegistered { citizen: admin },
+        );
+        let mut entry = WalEntry::seal(GENESIS_PREV_HASH, tx1);
+        // Simulate old format: prev_hash = 128 zeros, hash = SHA3-512 (unprefixed)
+        entry.prev_hash = "0".repeat(128);
+        entry.entry_hash = "0".repeat(128);
+        assert!(
+            !entry.verify_integrity(GENESIS_PREV_HASH),
+            "old SHA3-512 entry must fail verification under SHA-256"
+        );
     }
 }

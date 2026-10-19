@@ -1,6 +1,6 @@
 //! `cynic secret` — sovereign runtime secret posture, observation, and bounded installation.
 //!
-//! Conforms to `docs/secrets.md` and foundation invariants:
+//! Conforms to `contracts/foundation.json` and foundation invariants:
 //! - Secrets are never printed in cleartext, logs, or reports.
 //! - Resolution order: ProcessEnvironment -> PrincipalOwnedFile -> OsCredentialStore.
 //! - Read-only observation with machine-readable JSON support.

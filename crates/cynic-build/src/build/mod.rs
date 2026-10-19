@@ -384,20 +384,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn make_check_expands_to_the_exact_nested_gate_actions() {
+    fn native_check_is_self_admitting() {
         assert_eq!(
-            canonical_build_actions("make:check").expect("known gate"),
-            vec!["make:check", "cargo:check", "cargo:run", "cargo:test"]
+            canonical_build_actions("cargo:check").expect("known gate"),
+            vec!["cargo:check"]
         );
         assert!(canonical_build_actions("bash -c make check").is_err());
     }
 
     #[test]
-    fn release_build_expands_to_its_exact_make_and_cargo_actions() {
-        assert_eq!(
-            canonical_build_actions("make:build-release").expect("release build"),
-            vec!["make:build-release", "cargo:build"]
-        );
+    fn retired_make_spellings_are_refused() {
+        assert!(canonical_build_actions("make:check").is_err());
+        assert!(canonical_build_actions("make:build-release").is_err());
     }
 
     #[test]

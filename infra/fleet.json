@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "schema": "cynic.fleet.v1",
+  "purpose": "Ephemeral fleet registry: template versions, vmid/IP pools, static reservations. Leases (dynamic) live in the runtime lease file, reconciled against observed PVE state.",
+  "templates": [
+    {
+      "name": "agent-runner-v1",
+      "vmid": 113,
+      "status": "current",
+      "created_from": 111,
+      "created_at": "2026-10-18",
+      "hygiene": "clean: no secrets, no history, single cynic key, no host keys (first-boot regen)",
+      "first_boot_unit": "agent-runner-first-boot.service"
+    }
+  ],
+  "ephemeral_pool": {
+    "vmid_min": 120,
+    "vmid_max": 199,
+    "ipv4_ranges": ["10.10.10.120-10.10.10.199"],
+    "note": "vhosts below 120 are hand-allocated history (101-119); never auto-allocate below 120"
+  },
+  "static_reservations": {
+    "note": "Never sweep, never allocate. Templates, infrastructure, siblings.",
+    "vmids": [101, 102, 103, 104, 105, 106, 107, 113],
+    "ipv4": ["10.10.10.1", "10.10.10.40", "10.10.10.101", "10.10.10.102", "10.10.10.103", "10.10.10.104", "10.10.10.106", "10.10.10.119", "10.10.10.127"]
+  }
+}

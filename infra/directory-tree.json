@@ -23,6 +23,7 @@
           "infra/runtime-authority.json": "Operational authority map: surfaces, installed state paths, service projections, canonical capabilities.",
           "infra/directory-tree.json": "THIS FILE — canonical filesystem arborescence. SSOT for all paths.",
           "infra/agent-source-protocol.json": "Source governance: remotes, commit convention, branch policy, PR flow, worktree isolation.",
+          "infra/command-registry.json": "SSOT for canonical build-action argv. Every composition site reads it; a command change is a data PR with proof.",
           "infra/storage-taxonomy.json": "Data classification K1-K8 with storage homes and retention stories.",
           "infra/surface-registry/": "Surface registry: which crate owns which CLI surface, commands, entrypoints, evidence schemas.",
           "contracts/": "Constitutional and evolutive policy contracts.",
@@ -68,14 +69,16 @@
         "owner": "cynic:cynic",
         "mode": "0755",
         "key_paths": {
-          "runtime/": "Installed runtime binaries and current symlink.",
-          "runtime/current/": "Symlink to current runtime version.",
-          "runtime/current/bin/cynic": "Current cynic binary.",
-          "runtime/current/.cynic-runtime-release.json": "Runtime release marker.",
+          "current/": "Symlink to current release version (blue-green switch target). Observed 2026-10-15: points at releases/v0.8.0.",
+          "bin/": "Operator entry points, symlinks into current/ (e.g. bin/cynic-node -> /var/lib/cynic/current/cynic-node). The running daemon exe resolves here.",
+          "releases/": "Versioned release artifacts. releases/<version>/ holds the deployed binaries.",
+          "runtime/": "RETIRED layout (pre-v0.8 bootstrap/sha deploy system). runtime/current points at a stale release-h6; nothing current reads it. Do not revive; removal pending operator purge.",
           "runtime/evidence/": "Runtime evidence: release-*.json.",
           "source/": "Source checkout and workspaces for agent workloads.",
           "source/repositories/CYNIC": "CYNIC repository checkout (canonical working tree for builds).",
+          "source/repositories/external/": "External OSS checkouts used by CYNIC (read-only, pinned by infra/external-pins.json). Never in git; one dir per slug.",
           "source/snapshots/": "Source snapshots.",
+          "source/snapshots/external/": "Frozen snapshots of external pins for capture freeze.",
           "source/workspaces/": "Isolated agent workspaces.",
           "identity/": "Machine identity and credential material.",
           "identity/node-signing.key": "Node signing key.",
@@ -113,6 +116,7 @@
           ".local/bin/": "User-local binaries (hf, sccache, etc.).",
           ".local/share/cynic/": "User-local share directory.",
           ".local/share/cynic/src/": "Source directory.",
+          ".local/share/cynic/src/external/": "Dev fallback for external OSS checkouts (CYNIC_STATE_ROOT dev).",
           ".local/share/cynic/bootstrap/": "Bootstrap scripts.",
           ".local/share/cynic/bootstrap/hf-cli-install.sh": "HF CLI install script.",
           ".rustup/": "Rustup installation.",
@@ -136,7 +140,10 @@
           "repo/": "Repository (alternate).",
           "peer/": "Peer state.",
           "storage-lifecycle/": "Storage lifecycle.",
-          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}."
+          "worktrees/": "Worktrees for agents. Pattern: /var/lib/cynic/worktrees/agent_{name}_{scope}-{id}.",
+          "projects/": "Adopted external-project local state. Pattern: /var/lib/cynic/projects/<slug>/. Declared in infra/external-project-registry.json; never hardcoded elsewhere.",
+          "projects/<slug>/evidence/": "Append-only pull results and ledger slices for one adopted project.",
+          "projects/<slug>/state/": "Rebuildable snapshots (health, counters) for one adopted project."
         }
       }
     },
@@ -155,6 +162,27 @@
         "owner": "cynic:cynic",
         "mode": "0755"
       }
+    },
+    "runtime_install": {
+      "description": "Installed release binaries and current symlink root.",
+      "tree": {
+        "root": "/opt/cynic",
+        "owner": "root:cynic",
+        "mode": "0755",
+        "key_paths": {
+          "current/": "Symlink to current active release.",
+          "current/cynic": "Active CYNIC binary.",
+          "releases/": "Versioned releases directory."
+        }
+      }
+    },
+    "system_binaries": {
+      "description": "Standard host system binaries for cynic services.",
+      "tree": {
+        "root": "/usr/local/bin/cynic",
+        "owner": "root:root",
+        "mode": "0755"
+      }
     }
   },
   "operator_user": {
@@ -165,6 +193,8 @@
       "mode": "0755",
       "key_paths": {
         "worktrees/": "Worktree management.",
+        "external/": "External (non-CYNIC) project clones. Pattern: ${HOME}/.cynic/external/<project-slug>. One canonical clone per slug; read-only by default. See infra/external-projects.json.",
+        "projects/": "(reserved) derived artifacts for external projects; never source.",
         "organs/hermes/x/": "Hermes organ data (historical)."
       }
     },
@@ -211,6 +241,8 @@
       "runtime_state.reports.*": "K4 — distilled_analytics (derived)",
       "runtime_state.archive.*": "K4/K5 — distilled_analytics/artifacts",
       "runtime_state.vault.*": "K5 — artifacts_blobs",
+      "runtime_state.source/repositories/external.*": "K5 — artifacts_blobs (pinned third-party source, immutable at pin)",
+      "runtime_state.source/snapshots/external.*": "K5 — artifacts_blobs (frozen external snapshot)",
       "logs.*": "K3 — raw_telemetry",
       "operator_user.*": "K8-lite — non-secret identity (architect profiles)"
     }

@@ -5,12 +5,14 @@
 //! logic — only serialization boundaries for CLI/MCP reports.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub(crate) const AGENT_CLAIM_REPORT_SCHEMA: &str = "cynic.cli.agent_claim_report.v1";
 pub(crate) const AGENT_RELEASE_REPORT_SCHEMA: &str = "cynic.cli.agent_release_report.v1";
 pub(crate) const AGENT_STATUS_REPORT_SCHEMA: &str = "cynic.cli.agent_status_report.v1";
 pub(crate) const AGENT_IDENTIFY_REPORT_SCHEMA: &str = "cynic.cli.agent_identify_report.v1";
+pub(crate) const AGENT_EVENTS_REPORT_SCHEMA: &str = "cynic.cli.agent_events_report.v1";
 
 /// Report emitted after a successful claim.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +73,17 @@ pub(crate) struct AgentIdentifyReport {
     pub agent_kind: String,
     pub credential_kind: String,
     pub attested_at_unix_ms: u64,
+}
+
+/// Report emitted when reading back the append-only claim event log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct AgentEventsReport {
+    pub schema: &'static str,
+    pub status: &'static str,
+    pub agent_id: String,
+    pub target: String,
+    pub total_events: usize,
+    pub events: Vec<Value>,
 }
 
 // ── Agent SoC Audit Types ───────────────────────────────────────────────────

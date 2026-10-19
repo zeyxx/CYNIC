@@ -42,6 +42,7 @@ pub enum TraceStatus {
 
 impl ChatTrace {
     pub const SCHEMA: &'static str = "cynic.trace.chat_turn.v1";
+    pub const LEDGER_ENV_KEY: &str = "CYNIC_TRACE_LEDGER";
 
     #[allow(clippy::too_many_arguments)]
     pub fn new(

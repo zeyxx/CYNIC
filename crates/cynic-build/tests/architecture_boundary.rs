@@ -19,10 +19,16 @@ fn build_never_depends_on_high_layer_crates() {
         "cynic-mcp",
     ];
     for dep in &forbidden {
+        // Exact token match, not substring: `cynic-node-protocol`
+        // (same-layer L2, declared in infra/crate-topology.json) must not
+        // trip the `cynic-node` ban, while `cynic-node` in any TOML form
+        // (`dep =`, `[dependencies.dep]`, `"dep"`) still fails.
+        let found = content
+            .split(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+            .any(|token| token == *dep);
         assert!(
-            !content.contains(dep),
-            "Architecture Violation: cynic-build must NEVER depend on higher layer crate `{}`",
-            dep
+            !found,
+            "Architecture Violation: cynic-build must NEVER depend on higher layer crate `{dep}`",
         );
     }
 }

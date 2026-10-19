@@ -1,6 +1,6 @@
 //! Canonical contracts for agent hosting outside Cortex (Slice C0.2).
 //!
-//! Defined in `infra/AGENT_FLEET_HOSTING_DESIGN.md` and `.hermes/plans/2026-09-01-agent-host-proxmox-sandbox-first.md`.
+//! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` and `docs/specs/2026-10-12-ROADMAP-REFACTOR-CHANTIERS.md`.
 //! Pure types and predicates without I/O.
 
 use serde::{Deserialize, Serialize};
@@ -650,9 +650,12 @@ mod tests {
 
     #[test]
     fn rejects_shared_git_admin_path() {
+        // Use the static shared-checkout marker, not $CYNIC_WORKSPACE_ROOT:
+        // the env var is unset outside the author's machine, which made
+        // this test pass in exactly one environment.
         let mut alloc = valid_allocation();
         alloc.private_workspace_path =
-            "/home/user/Bureau/SOLANA/asdf-forge/zeyxx/CYNIC/worktree-1".to_string();
+            "/var/lib/cynic/source/repositories/CYNIC/worktree-1".to_string();
         let violations = validate_agent_sandbox_allocation(&alloc);
         assert!(violations.contains(&"blocked_shared_git_admin".to_string()));
     }

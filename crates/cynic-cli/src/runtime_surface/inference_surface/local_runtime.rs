@@ -1,9 +1,9 @@
 use std::fs;
 use std::{env, io::Read, process::ExitCode};
 
+use cynic_eval::bench::forge_profile_from_benchmark_report;
 use cynic_inference::{
     LocalRuntimeServiceAny, ModelStoreService, RuntimePlanner, consolidate_vault,
-    forge_profile_from_benchmark_report,
 };
 
 use super::emit_json;
@@ -308,8 +308,8 @@ pub(crate) fn execute_inference_discover(json: bool, apply: bool, open_webui: bo
         cynic_inference::progress::progress("attach", "probe peers only (no mutation)");
     }
 
-    let report = rt.block_on(cynic_inference::peer_attach(
-        cynic_inference::PeerAttachOptions {
+    let report = rt.block_on(cynic_node::peer_attach::peer_attach(
+        cynic_node::peer_attach::PeerAttachOptions {
             apply,
             open_webui,
             node_id: "local-node".into(),
@@ -473,7 +473,14 @@ pub(crate) fn execute_inference_forge(
     json: bool,
     yes: bool,
 ) -> ExitCode {
-    match forge_profile_from_benchmark_report(report_path, source_note) {
+    let profiles_dir = match LocalRuntimeServiceAny::from_env().list_inventory() {
+        Ok(inventory) => std::path::PathBuf::from(inventory.profiles_dir),
+        Err(error) => {
+            eprintln!("inference forge error: vault inventory unavailable: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match forge_profile_from_benchmark_report(report_path, source_note, &profiles_dir) {
         Ok(report) => {
             let body = serde_json::json!({
                 "report": report,

@@ -74,7 +74,7 @@ fn exclusion_sets(root: &Path, scanner: &str) -> (BTreeSet<String>, BTreeSet<Str
     )
 }
 
-/// Match any path component, so `crates/x/target/` is skipped, not just a top-level
+/// Match any path component, so nested `target/` directories are skipped, not just a top-level
 /// `target/`. The previous `relative.starts_with(d)` compared whole components
 /// against one-element prefixes and missed every nested build directory.
 fn is_excluded(relative: &Path, dirs: &BTreeSet<String>, extensions: &BTreeSet<String>) -> bool {

@@ -2,21 +2,19 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 use cynic_host::harness_progression::{HarnessProgressionVerdict, RuntimeHarnessKind};
-use cynic_host::registry::DEFAULT_REGISTRY_PATH;
+use cynic_types::paths::CynicPaths;
 
 use crate::{emit_json, fail};
 use crate::host_profile_selection::ProfileArgs;
 
+pub(crate) mod hub_surface;
+
 mod agent_matrix;
-mod capacity;
 mod compat_aliases;
-mod cpu;
-mod disk;
 mod execution_context;
 mod forgejo_token_cli;
-mod host_checks;
+use crate::audit_surface::host_checks;
 pub(crate) mod inference_surface;
-mod memory;
 mod network;
 mod operator_models;
 
@@ -26,7 +24,6 @@ mod network_preflight;
 mod paths;
 mod persistence;
 mod queue;
-mod registry_observation;
 mod report;
 mod resolver_plan;
 mod storage_topology;
@@ -281,12 +278,12 @@ pub(crate) enum RuntimeDiskCommand {
         /// Reconcile only the registry-declared build-runner cache profile.
         #[arg(long)]
         build_runner: bool,
-        #[arg(long, default_value = DEFAULT_REGISTRY_PATH)]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         /// Build-runner node id; defaults to the observed hostname.
         #[arg(long)]
         node: Option<String>,
-        #[arg(long, default_value = "/var/lib/cynic")]
+        #[arg(long, default_value_t = CynicPaths::state_dir().display().to_string())]
         state_root: String,
     },
 }
@@ -393,6 +390,20 @@ pub(crate) enum RuntimeAgentCommand {
 pub(crate) enum RuntimeBuildCommand {
     /// 4-layer build artefact observation and GC (checkouts pressure).
     Artefact {
+        #[command(subcommand)]
+        command: RuntimeBuildArtefactCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeBuildArtefactCommand {
+    /// Show observation (default).
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan and execute GC via the retention trio.
+    Gc {
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -411,7 +422,7 @@ pub(crate) enum RuntimeForgejoCommand {
         /// Apply mutation (create/rotate). Required for write operations.
         #[arg(long)]
         yes: bool,
-        /// Override the canonical token secret path (default /etc/cynic/secrets/forgejo-token).
+        /// Override the canonical token secret path (default <system-config>/secrets/forgejo-token).
         #[arg(long)]
         token_path: Option<String>,
     },
@@ -494,7 +505,13 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                     apply,
                 },
         } => {
-            registry_observation::execute_registry_observation(json, registry, &observation, apply)
+            // Compat alias: canonical home is `network registry observe`.
+            crate::network_surface::registry::execute_registry_observe(
+                json,
+                registry,
+                &observation,
+                apply,
+            )
         }
         RuntimeCommand::Validate {
             json,
@@ -546,7 +563,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         }
         RuntimeCommand::Storage { command } => match command {
             RuntimeStorageCommand::Capabilities { json, url } => {
-                host_checks::execute_storage_capabilities(json, url.as_deref())
+                crate::storage_surface::execute_storage(
+                    crate::storage_surface::StorageCommand::Capabilities { json, url },
+                )
             }
             RuntimeStorageCommand::Credential { json, endpoint } => {
                 match execute_storage_credential_sync(json, endpoint.as_deref()) {
@@ -623,9 +642,9 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
         RuntimeCommand::Agent {
             command: RuntimeAgentCommand::Matrix { json },
         } => agent_matrix::execute_agent_matrix(json),
-        RuntimeCommand::Capacity { json } => capacity::execute_capacity(json),
-        RuntimeCommand::Memory { json } => memory::execute_memory(json),
-        RuntimeCommand::Cpu { json } => cpu::execute_cpu(json),
+        RuntimeCommand::Capacity { json } => crate::node_surface::host::execute_capacity(json),
+        RuntimeCommand::Memory { json } => crate::node_surface::host::execute_memory(json),
+        RuntimeCommand::Cpu { json } => crate::node_surface::host::execute_cpu(json),
         RuntimeCommand::Forgejo {
             command:
                 RuntimeForgejoCommand::Token {
@@ -636,8 +655,17 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 },
         } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path.clone()),
         RuntimeCommand::Build {
-            command: RuntimeBuildCommand::Artefact { json, apply },
+            command:
+                RuntimeBuildCommand::Artefact {
+                    command: RuntimeBuildArtefactCommand::Gc { json, apply },
+                },
         } => build_artefact::execute_build_artefact(json, apply),
+        RuntimeCommand::Build {
+            command:
+                RuntimeBuildCommand::Artefact {
+                    command: RuntimeBuildArtefactCommand::Status { json },
+                },
+        } => build_artefact::execute_build_artefact_status(json),
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
         // Disk and Network are pre-dispatched in compat_aliases: that module
         // already owned their handlers, and moving them here would have split

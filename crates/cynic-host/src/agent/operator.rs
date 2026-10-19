@@ -45,7 +45,14 @@ impl<R: ArgvRunner> OperatorAgent<R> {
             current_branch: branch.stdout.trim().to_string(),
             git_status: status.stdout,
             recent_commits: log.stdout.lines().map(|l| l.to_string()).collect(),
-            available_commands: vec![],
+            // Real commands only: the cynic dev phantom authority was
+            // eradicated (e10cca75) — this list was emptied but never
+            // refilled, leaving observe() promising commands it has none of.
+            available_commands: vec![
+                "cynic agent status".to_string(),
+                "cynic build submit".to_string(),
+                "cynic source release".to_string(),
+            ],
             active_claims: Vec::new(),
         }
     }
@@ -82,7 +89,10 @@ impl<R: ArgvRunner> OperatorAgentPort for OperatorAgent<R> {
         Some(OperatorAction {
             schema: "cynic.operator_action.v1".to_string(),
             command: self.cynic_bin.clone(),
-            args: vec!["dev".to_string(), "check".to_string()],
+            // Read-only default: the previous ["dev", "check"] was phantom
+            // authority (no such subcommand). A proposer must not default
+            // to a command that does not exist.
+            args: vec!["agent".to_string(), "status".to_string()],
             rationale: response.output,
             confidence: 0.8,
             requires_approval: false,

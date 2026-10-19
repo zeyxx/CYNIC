@@ -3,9 +3,9 @@
 //! logic lives in `cynic_protocol::window_journal` and is never duplicated.
 //!
 //! Path authority follows the established store chain (state_store pattern):
-//! `CYNIC_WINDOW_JOURNAL` env override → `/var/lib/cynic/lifecycle/`
-//! → principal-home fallback via passwd lookup → temp dir (last resort,
-//! flagged as a residual unknown by callers reading the path).
+//! `CYNIC_WINDOW_JOURNAL` env override → the state directory's `lifecycle/`
+//! subdir → principal-home fallback via passwd lookup → temp dir (last
+//! resort, flagged as a residual unknown by callers reading the path).
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -14,8 +14,13 @@ use std::path::{Path, PathBuf};
 use cynic_protocol::window_journal::{
     WindowJournalRecord, WindowJournalState, journal_is_coherent, open_reservations, replay,
 };
+use cynic_types::paths::CynicPaths;
 
-pub const DEFAULT_WINDOW_JOURNAL_PATH: &str = "/var/lib/cynic/lifecycle/window-journal.jsonl";
+/// Default journal path: `lifecycle/window-journal.jsonl` under the canonical
+/// state directory.
+pub fn default_window_journal_path() -> PathBuf {
+    CynicPaths::state_dir().join("lifecycle/window-journal.jsonl")
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum WindowJournalError {
@@ -43,9 +48,9 @@ impl FsWindowJournal {
         if let Ok(override_path) = std::env::var("CYNIC_WINDOW_JOURNAL") {
             return PathBuf::from(override_path);
         }
-        let canonical = Path::new(DEFAULT_WINDOW_JOURNAL_PATH);
+        let canonical = default_window_journal_path();
         if canonical.exists() || canonical.parent().map(|p| p.exists()).unwrap_or(false) {
-            return canonical.to_path_buf();
+            return canonical;
         }
         // Principal-home fallback (same chain as state_store).
         let home = std::env::var("CYNIC_PRINCIPAL_HOME")

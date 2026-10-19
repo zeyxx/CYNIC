@@ -80,7 +80,7 @@ impl ArtefactContractRule {
         }
         found.insert(
             doc.get("runtime_seed")?
-                .get("binary")?
+                .get("executor")?
                 .as_str()?
                 .to_string(),
         );
@@ -123,7 +123,7 @@ impl AuditRule for ArtefactContractRule {
                 span: None,
                 remediation: Some(format!(
                     "Restore {BASKET_PATH} as valid JSON with `artifacts`, `tooling`, \
-                     and `runtime_seed.binary` keys."
+                     and `runtime_seed.executor` keys."
                 )),
             });
             return violations;

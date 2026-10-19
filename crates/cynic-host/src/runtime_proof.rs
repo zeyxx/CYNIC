@@ -27,8 +27,9 @@ pub fn host_identity_runtime_proof(observed: &HostObservationReports) -> Runtime
             id: "privilege".to_string(),
             status: surface_status(&observed.privilege.status).to_string(),
             detail: format!(
-                "helper_dir_present={} sudoers_projection_present={} denial_proof_ready={}",
-                observed.privilege.helper_dir_present,
+                "executor_present={} membrane_present={} sudoers_projection_present={} denial_proof_ready={}",
+                observed.privilege.executor_present,
+                observed.privilege.membrane_present,
                 observed.privilege.sudoers_projection_present,
                 observed.privilege.denial_proof_ready
             ),
@@ -243,7 +244,8 @@ mod tests {
                     "privilege boundary is present, denial proof is satisfied, and the surface is observable"
                         .to_string(),
                 next_command: None,
-                helper_dir_present: true,
+                executor_present: true,
+                membrane_present: true,
                 sudoers_projection_present: true,
                 denial_proof_ready: true,
                 evidences: Vec::new(),

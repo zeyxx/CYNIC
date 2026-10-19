@@ -8,7 +8,9 @@ mod agent_workspace_layout;
 mod model;
 mod projections;
 
-pub use agent_workspace_layout::RegistryAgentWorkspaceLayoutAdapter;
+pub use agent_workspace_layout::{
+    RegistryAgentWorkspaceLayoutAdapter, compute_layout_digest, recompute_layout_digest,
+};
 
 use model::Registry;
 use projections::{

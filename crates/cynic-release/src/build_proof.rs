@@ -114,6 +114,58 @@ impl BuildProofObservation {
     }
 }
 
+/// Reduce proof-log records to the builder's verdict on one commit.
+///
+/// The MOST RECENT proof for the commit is authoritative: a commit that was
+/// blocked and later fixed must be releasable, and one that converged and was
+/// then re-triggered into failure must not be. Reading the newest record is
+/// what makes a fix actually count.
+///
+/// Pure: operates on records the caller already read; never touches the log
+/// itself. The I/O boundary (default path, read, parse) belongs to the
+/// caller's adapter, keeping this decision unit-testable without fixtures.
+pub fn reduce_newest_proof(
+    proofs: &[serde_json::Value],
+    skipped_lines: usize,
+) -> BuildProofObservation {
+    if proofs.is_empty() {
+        // A log with unparseable lines and no matching proof is Unreadable:
+        // the absence may be an artefact of the corruption, not a real absence.
+        if skipped_lines > 0 {
+            return BuildProofObservation::Unreadable { skipped_lines };
+        }
+        return BuildProofObservation::NeverTested;
+    }
+
+    // Newest last, per the reader's contract.
+    let newest = proofs.last().expect("non-empty checked above");
+    let node = newest
+        .get("node")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let status = newest
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    match status {
+        "converged" => BuildProofObservation::Converged { node },
+        "blocked" => BuildProofObservation::Blocked {
+            node,
+            reason: newest
+                .get("verdict_reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or("no reason recorded")
+                .to_string(),
+        },
+        // A status this build does not know how to interpret is not a pass.
+        other => BuildProofObservation::UnknownStatus {
+            node,
+            status: other.to_string(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,6 +226,65 @@ mod tests {
     }
 
     #[test]
+    fn reduce_reads_the_newest_proof_and_ignores_older_ones() {
+        let older_blocked = serde_json::json!({ "node": "runner-a", "status": "blocked", "verdict_reason": "broken" });
+        let newer_converged = serde_json::json!({ "node": "runner-b", "status": "converged" });
+        let observation = reduce_newest_proof(&[older_blocked, newer_converged], 0);
+        assert_eq!(
+            observation,
+            BuildProofObservation::Converged {
+                node: "runner-b".into()
+            }
+        );
+        assert!(observation.permits_promotion());
+    }
+
+    #[test]
+    fn reduce_a_blocked_newest_proof_carries_its_reason() {
+        let older_converged = serde_json::json!({ "node": "runner-a", "status": "converged" });
+        let newer_blocked = serde_json::json!({ "node": "runner-b", "status": "blocked", "verdict_reason": "error[E0432]" });
+        let observation = reduce_newest_proof(&[older_converged, newer_blocked], 0);
+        assert_eq!(
+            observation,
+            BuildProofObservation::Blocked {
+                node: "runner-b".into(),
+                reason: "error[E0432]".into(),
+            }
+        );
+        assert!(!observation.permits_promotion());
+    }
+
+    #[test]
+    fn reduce_an_unknown_status_is_not_a_pass() {
+        let proof = serde_json::json!({ "node": "runner-a", "status": "some_future_status" });
+        let observation = reduce_newest_proof(&[proof], 0);
+        assert_eq!(
+            observation,
+            BuildProofObservation::UnknownStatus {
+                node: "runner-a".into(),
+                status: "some_future_status".into(),
+            }
+        );
+        assert!(!observation.permits_promotion());
+    }
+
+    #[test]
+    fn reduce_no_proofs_and_no_skips_is_never_tested() {
+        assert_eq!(
+            reduce_newest_proof(&[], 0),
+            BuildProofObservation::NeverTested
+        );
+    }
+
+    #[test]
+    fn reduce_no_proofs_with_skips_is_unreadable() {
+        assert_eq!(
+            reduce_newest_proof(&[], 3),
+            BuildProofObservation::Unreadable { skipped_lines: 3 }
+        );
+    }
+
+    #[test]
     fn a_gate_record_round_trips_through_json() {
         let observation = BuildProofObservation::Converged {
             node: "cynic-builder-ssh".into(),
@@ -186,8 +297,8 @@ mod tests {
 
     #[test]
     fn a_missing_proof_blocks_a_release_that_would_otherwise_be_eligible() {
-        use crate::evaluator::evaluate_release_candidate;
         use crate::contracts::ReleaseGatesContract;
+        use crate::evaluator::evaluate_release_candidate;
         use crate::types::ReleaseCandidate;
 
         // The scenario the gate exists for: everything else is fine, and the
@@ -227,6 +338,9 @@ mod tests {
         }
         .to_gate_record(1_700_000_000);
         let verdict = evaluate_release_candidate(&candidate, &contract, &[proof], None);
-        assert!(verdict.is_eligible(), "a converged proof permits the release");
+        assert!(
+            verdict.is_eligible(),
+            "a converged proof permits the release"
+        );
     }
 }

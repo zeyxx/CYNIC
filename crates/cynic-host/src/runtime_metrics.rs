@@ -579,7 +579,7 @@ fn bootstrap_stage_index(stage: &str) -> Option<usize> {
         "h1_principal_materialized" => 1,
         "h2_filesystem_projected" => 2,
         "h3_packages_ready" => 3,
-        "h4_privilege_helpers_ready" => 4,
+        "h4_privilege_membrane_ready" => 4,
         "h5_services_projected" => 5,
         "h6_host_actionable" => 6,
         "none" => 0,
@@ -630,7 +630,8 @@ mod tests {
             _policy: &crate::domain::privilege::PrivilegePolicy,
         ) -> PrivilegeObservedState {
             PrivilegeObservedState {
-                helper_dir_present: true,
+                executor_present: true,
+                membrane_present: true,
                 sudoers_projection_present: true,
                 denial_proof_ready: true,
             }
@@ -714,6 +715,24 @@ mod tests {
 
     #[test]
     fn metrics_keep_unknown_separate_from_zero() {
+        // The distribution authority is DECLARED here, not assumed: the family
+        // policy injects provenance from the environment (fail-closed default
+        // Unresolved), so a ready observer only reaches h5 with an explicit
+        // authority. Without these three variables the honest score is 50, not
+        // 66 — asserting 66 unconditionally was the Aug-20 miscalculation.
+        let _env_lock = crate::test_support::env_lock();
+        let _kind = crate::test_support::EnvOverride::set(
+            "CYNIC_PACKAGE_PROVENANCE_KIND",
+            "repository",
+        );
+        let _source = crate::test_support::EnvOverride::set(
+            "CYNIC_PACKAGE_REPOSITORY_SOURCE_ID",
+            "conformance-fixture",
+        );
+        let _key = crate::test_support::EnvOverride::set(
+            "CYNIC_PACKAGE_REPOSITORY_KEY_FINGERPRINT",
+            "fixture",
+        );
         let report = observe_host_conformance_with_observer(
             HostProfile::NetworkNode,
             Some(test_resolution()),
@@ -724,14 +743,18 @@ mod tests {
         let metrics = host_runtime_metrics_with_now(&report, None, now_unix_ms(), 60_000);
 
         assert_eq!(metrics.schema, HOST_RUNTIME_METRICS_SCHEMA);
-        // Not 100: the package domain is Blocked by design because the profile
-        // policy declares unresolved_distribution_authority(), so a fully
-        // "ready" observer still cannot make every host contract pass. Asserting
-        // 100 here would demand that an unselected distribution authority be
+        // Not 100: the sovereign git service stays blocked in this fixture (no
+        // forgejo endpoint declared), so a fully "ready" observer still cannot
+        // make every host contract pass. The package domain reaches Active
+        // here ONLY because this test declares a repository authority above —
+        // and the identity proof embeds the package evidence, so the declared
+        // authority also satisfies host_identity_observed. Under the
+        // fail-closed default both stay Blocked and the honest score is 50.
+        // Asserting 100 here would demand that an undeclared git plane be
         // reported as conformant.
         assert_eq!(
             metric(&metrics, "host_conformance_percent").percent,
-            Some(66),
+            Some(83),
             "checks: {:?}",
             report
                 .gates
@@ -746,7 +769,7 @@ mod tests {
         assert_eq!(
             metric(&metrics, "host_conformance_percent").status,
             "below_target",
-            "66% is under the 95% target and must be reported as such, not as within_target"
+            "83% is under the 95% target and must be reported as such, not as within_target"
         );
         assert!(metrics.known_coverage_percent < 100);
         assert!(metrics.residual_unknown_percent > 0);

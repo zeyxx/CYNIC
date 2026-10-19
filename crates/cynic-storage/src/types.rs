@@ -20,37 +20,37 @@ impl SequenceNumber {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PoHTick(pub u64);
 
-/// Fixed-size SHA3-512 cryptographic digest (64 raw bytes).
+/// Fixed-size SHA-256 cryptographic digest (32 raw bytes, Solana-aligned).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Hash512(pub [u8; 64]);
+pub struct Hash256(pub [u8; 32]);
 
-impl Hash512 {
-    pub const GENESIS: Self = Self([0u8; 64]);
+impl Hash256 {
+    pub const GENESIS: Self = Self([0u8; 32]);
 
     /// Canonical prefixed hex representation per Foundation §11.
     pub fn to_prefixed_hex(&self) -> String {
-        format!("sha3-512:{}", hex::encode(self.0))
+        format!("sha256:{}", hex::encode(self.0))
     }
 
     /// Parse from a canonical prefixed hex string.
     pub fn from_prefixed_hex(s: &str) -> Result<Self, String> {
         let hex_str = s
-            .strip_prefix("sha3-512:")
-            .ok_or_else(|| format!("missing sha3-512: prefix in '{s}'"))?;
+            .strip_prefix("sha256:")
+            .ok_or_else(|| format!("missing sha256: prefix in '{s}'"))?;
         let bytes = hex::decode(hex_str).map_err(|e| format!("invalid hex: {e}"))?;
-        if bytes.len() != 64 {
+        if bytes.len() != 32 {
             return Err(format!(
-                "expected 64 bytes for SHA3-512, got {}",
+                "expected 32 bytes for SHA-256, got {}",
                 bytes.len()
             ));
         }
-        let mut arr = [0u8; 64];
+        let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes);
         Ok(Self(arr))
     }
 }
 
-impl Serialize for Hash512 {
+impl Serialize for Hash256 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -59,7 +59,7 @@ impl Serialize for Hash512 {
     }
 }
 
-impl<'de> Deserialize<'de> for Hash512 {
+impl<'de> Deserialize<'de> for Hash256 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -77,7 +77,7 @@ pub struct CausalWitness {
     #[serde(with = "hex")]
     pub signature: [u8; 64],
     pub mandate_id: Option<String>,
-    pub proof_anchor: Option<Hash512>,
+    pub proof_anchor: Option<Hash256>,
 }
 
 /// Fully decoded entry read from the append-only WAL.
@@ -85,9 +85,9 @@ pub struct CausalWitness {
 pub struct WalEntry {
     pub sequence: SequenceNumber,
     pub poh_tick: PoHTick,
-    pub previous_hash: Hash512,
-    pub commit_hash: Hash512,
-    pub entry_hash: Hash512,
+    pub previous_hash: Hash256,
+    pub commit_hash: Hash256,
+    pub entry_hash: Hash256,
     pub schema: String,
     pub payload: Bytes,
     pub witness: CausalWitness,
@@ -105,7 +105,7 @@ pub struct WalAppendInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WalReceipt {
     pub sequence: SequenceNumber,
-    pub entry_hash: Hash512,
+    pub entry_hash: Hash256,
     pub poh_tick: PoHTick,
 }
 
@@ -113,7 +113,7 @@ pub struct WalReceipt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrityReport {
     pub verified_up_to_seq: SequenceNumber,
-    pub root_hash: Hash512,
+    pub root_hash: Hash256,
     pub total_entries: u64,
     pub is_valid: bool,
 }
@@ -138,7 +138,7 @@ pub struct MetadataTensor {
     /// Invariant base manifold schema identifier
     pub schema_uri: String,
     /// Cryptographic causal anchor
-    pub causal_anchor: Hash512,
+    pub causal_anchor: Hash256,
     /// Continuous scalar degrees of freedom (energy, probability, duration, market score)
     pub continuous_axes: BTreeMap<String, f64>,
     /// Discrete structural degrees of freedom (spatial scope, agent phase, tenant, role)
@@ -148,7 +148,7 @@ pub struct MetadataTensor {
 }
 
 impl MetadataTensor {
-    pub fn new(schema_uri: impl Into<String>, causal_anchor: Hash512) -> Self {
+    pub fn new(schema_uri: impl Into<String>, causal_anchor: Hash256) -> Self {
         Self {
             schema_uri: schema_uri.into(),
             causal_anchor,
@@ -167,7 +167,7 @@ pub type AxisToken = u16;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompactMetadataTensor {
     pub schema_token: AxisToken,
-    pub causal_anchor: Hash512,
+    pub causal_anchor: Hash256,
     pub continuous_keys: smallvec::SmallVec<[AxisToken; 8]>,
     pub continuous_vals: smallvec::SmallVec<[f64; 8]>,
     pub discrete_keys: smallvec::SmallVec<[AxisToken; 6]>,
@@ -176,7 +176,7 @@ pub struct CompactMetadataTensor {
 }
 
 impl CompactMetadataTensor {
-    pub fn new(schema_token: AxisToken, causal_anchor: Hash512) -> Self {
+    pub fn new(schema_token: AxisToken, causal_anchor: Hash256) -> Self {
         Self {
             schema_token,
             causal_anchor,
@@ -202,7 +202,7 @@ impl CompactMetadataTensor {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageCheckpoint {
     pub sequence: SequenceNumber,
-    pub root_hash: Hash512,
+    pub root_hash: Hash256,
     pub created_at_unix_ms: u64,
 }
 

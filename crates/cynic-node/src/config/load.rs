@@ -57,7 +57,11 @@ pub(crate) fn load_watchdog(path: &str) -> Result<WatchdogConfig, String> {
     Ok(cfg)
 }
 
-pub(crate) fn load_node_control(path: &str) -> Result<NodeControlConfig, String> {
+/// Narrow loader for the `control` entry mode: parses only `[node_control]`
+/// (with env expansion + validation). Widened to `pub` so the daemon binary
+/// can start without parsing the supervision sections ([kernel]/[dog]/
+/// [process]) that control never reads.
+pub fn load_node_control(path: &str) -> Result<NodeControlConfig, String> {
     let raw =
         std::fs::read_to_string(path).map_err(|e| format!("cannot read config {path}: {e}"))?;
     let mut cfg: NodeControlRuntimeConfig =
