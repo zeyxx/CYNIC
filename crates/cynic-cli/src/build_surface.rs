@@ -264,13 +264,16 @@ pub(crate) enum BuildCommand {
         /// Path to the deploy policy (cynic.deploy_policy.v1).
         #[arg(long, default_value = "infra/deploy-policy.json")]
         policy: String,
+        /// Path to the deploy locations registry (cynic.deploy_locations.v1).
+        #[arg(long, default_value = "infra/deploy-locations.json")]
+        locations: String,
         /// Comma-separated machines to include (default: all known).
         #[arg(long)]
         machines: Option<String>,
         /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
-        },
+    },
         /// Issue a repo-scoped Actions runner registration token via Forgejo API.
         RunnerToken {
             /// Emit machine-readable JSON.
@@ -290,6 +293,7 @@ pub(crate) enum BuildCommand {
 fn render_deploy_plan(
     commit: &str,
     policy_path: &str,
+    locations_path: &str,
     machines_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
@@ -313,22 +317,44 @@ fn render_deploy_plan(
                 .collect()
         })
         .unwrap_or_default();
-    let locations_text = std::fs::read_to_string("infra/binary-locations.json")
-        .map_err(|e| format!("read binary locations: {e}"))?;
-    let locations: serde_json::Value = serde_json::from_str(&locations_text)
-        .map_err(|e| format!("parse binary locations: {e}"))?;
-    let mut known: Vec<String> = locations
-        .get("machines")
-        .and_then(|v| v.as_array())
-        .map(|ms| {
-            ms.iter()
-                .filter_map(|m| m.get("hostname")?.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default();
+    let locations_text = std::fs::read_to_string(locations_path)
+        .map_err(|e| format!("read deploy locations {locations_path}: {e}"))?;
+    let locations: cynic_release::DeployLocationsContract =
+        cynic_release::DeployLocationsContract::parse(&locations_text)
+            .map_err(|e| format!("parse deploy locations: {e}"))?;
+    if locations.schema != cynic_release::DEPLOY_LOCATIONS_SCHEMA {
+        return Err(format!(
+            "deploy locations schema mismatch: expected {}, got {}",
+            cynic_release::DEPLOY_LOCATIONS_SCHEMA,
+            locations.schema
+        ));
+    }
+    let mut known = locations.hostnames();
     if let Some(filter) = machines_filter {
         let wanted: Vec<String> = filter.split(',').map(|s| s.trim().to_string()).collect();
         known.retain(|m| wanted.contains(m));
+    }
+    // Every planned machine must resolve to a deployable target with its
+    // read-back surfaces — a plan that names a machine the registry cannot
+    // place is a plan that fails at the worst moment. The path resolution
+    // uses the machine's own roots, so a workstation path never inherits a
+    // node's state root.
+    let state_root = cynic_types::paths::CynicPaths::state_dir();
+    let home = std::env::var("HOME").ok();
+    for machine in &known {
+        let target = cynic_release::decide_deploy_target(&locations, machine).map_err(
+            |refusal| {
+                format!("deploy target refused for {}: {}", refusal.machine, refusal.reason)
+            },
+        )?;
+        cynic_release::resolve_deploy_path(
+            &target.deploy_path,
+            Some(state_root.to_string_lossy().as_ref()),
+            home.as_deref(),
+        )
+        .map_err(|refusal| {
+            format!("deploy path refused for {}: {}", refusal.machine, refusal.reason)
+        })?;
     }
     // Couche A: eligibility verified manually via the release verdict.
     let verdict = cynic_release::ReleaseEligibilityVerdict::Eligible {
@@ -347,16 +373,31 @@ fn render_deploy_plan(
     } else {
         println!("deploy plan for {commit} (eligibility assumed-manual):");
         for step in &plan.steps {
+            let target = cynic_release::decide_deploy_target(&locations, &step.machine)
+                .ok()
+                .and_then(|machine| {
+                    cynic_release::resolve_deploy_path(
+                        &machine.deploy_path,
+                        Some(state_root.to_string_lossy().as_ref()),
+                        home.as_deref(),
+                    )
+                    .ok()
+                    .map(|path| {
+                        format!(
+                            "{} ({:?}, {})",
+                            path, machine.layout, machine.principal
+                        )
+                    })
+                })
+                .unwrap_or_else(|| "unresolved".to_string());
             println!(
-                "  {}. {} (gates: {})",
+                "  {}. {} -> {target} (gates: {})",
                 step.order + 1,
                 step.machine,
                 step.gate_names.join(", ")
             );
         }
-        println!(
-            "(read-only — verify the release verdict, then execute manually)"
-        );
+        println!("(read-only — verify the release verdict, then execute manually)");
     }
     Ok(())
 }
@@ -609,9 +650,10 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
         BuildCommand::Deploy {
             commit,
             policy,
+            locations,
             machines,
             json,
-        } => render_deploy_plan(&commit, &policy, machines.as_deref(), json),
+        } => render_deploy_plan(&commit, &policy, &locations, machines.as_deref(), json),
         BuildCommand::Runs { json } => {
             let code = execute_runs(Path::new("."), json);
             match code {

@@ -1570,12 +1570,6 @@
       "severity": "warning"
     },
     {
-      "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/binary-locations.json",
-      "count": 2,
-      "rule": "SEC-001",
-      "severity": "warning"
-    },
-    {
       "identity": "SEC-001-ABSOLUTE-PATH|Machine-local path pattern detected in infra/workspace-paths.json",
       "count": 1,
       "rule": "SEC-001",
