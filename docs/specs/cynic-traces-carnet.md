@@ -46,8 +46,19 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   surchargeables par env, `write()` transactionnel, frontière
   documentée dans `lib.rs`.
 
-### T5 — Guards ré-ancrés + non-vacuité en CI [ ]
-- Nouveaux ancres post-déménagement ; `check_nonvacuity` sur le pipeline Rust.
+### T5 — Guards ré-ancrés + non-vacuité en CI [>]
+- Harnais généralisé (`apps/cynic-data/check_nonvacuity.py`) : une table,
+  deux jambes. Python ré-ancré (fallback `infra/data_system/src/` pour
+  les SHAs d'avant le déménagement), Rust : premier FIX, pas genèse (E8).
+- `make audit.nonvacuity` ajouté ; le run refuse un arbre sale, restaure
+  en finally, traite la suppression des fichiers-genèse.
+- Preuves : 44a109c0 non-vacuous (parité échoue sans adapters),
+  ef91f1af non-vacuous (preuve ne compile pas sans store),
+  f3767cff known-vacuous (E7 : durcissement transactionnel sans
+  fault-injection — revue seule).
+- Python (4 gardes, re-ancrées fallback pre-move) : 9f76aa88, eb3c43b6
+  (5 failed), 311058ac (4 failed), 7c64d2e2 (7 failed) — toutes
+  non-vacuous. Full run : OK 6 + 1 known-vacuous.
 
 ### T6 — Retrait des normaliseurs Python, un par un [ ]
 - Un `HITL` par harness (windows, codex, cursor, vscode, kiro, gemini,
@@ -69,3 +80,9 @@ Conventions : `[x]` prouvé (lien preuve), `[>]` en cours, `[ ]` à venir.
   nouvelles deps). Leçon : régénérer le lockfile AVANT le trigger builder.
 - **E4 (ouvert)** : `verify_conservation.py` pointe un CANON absent —
   résolu par T4, pas avant.
+- **E7 (T5)** : un durcissement sans différence observable sur le chemin
+  de succès (write transactionnel) n'est pas gardable sans injection de
+  faute — documenté known-vacuous, pas caché.
+- **E8 (T5)** : un commit-genèse n'est pas un garde. La non-vacuité
+  commence au premier FIX : prouvé en tentant T2 (0 tests lib restants,
+  boundary passif) puis en retirant la ligne.
