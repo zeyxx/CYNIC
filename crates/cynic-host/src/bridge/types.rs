@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::command_surface::HostCommandSurface;
 use crate::execution::HostExecutionPlan;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

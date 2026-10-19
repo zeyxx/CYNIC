@@ -103,7 +103,7 @@ mod tests {
 }
 
 use crate::deploy::{
-    DeployKind, DeployMutationPolicy, DeployPort, DeployRequest, DeployResult, DeployOutput,
+    DeployKind, DeployPort, DeployRequest, DeployResult, DeployOutput,
 };
 
 /// Run a command string by splitting on whitespace (mirrors the external build
