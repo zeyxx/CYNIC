@@ -361,10 +361,10 @@ impl BuildRunnerPort for SshBuildRunner {
             "RUST_MIN_STACK=8589934592".to_string(),
             "CARGO_BUILD_JOBS=1".to_string(),
             "CARGO_INCREMENTAL=0".to_string(),
-            format!(
-                "CARGO_TARGET_DIR={}",
-                default_shared_target_dir().display()
-            ),
+            // Per-checkout target dir: isolation between parallel builds.
+            // Cross-commit economy comes from sccache (content-keyed), not
+            // from a shared mutable target that parallel builds corrupt.
+            format!("CARGO_TARGET_DIR={dir}/target"),
         ];
         if let Some(dir) = self.sccache_dir.as_deref() {
             argv.push(format!("RUSTC_WRAPPER={}", default_sccache_bin().display()));
@@ -462,6 +462,21 @@ impl SshBuildRunner {
             return None;
         }
         cynic_protocol::capacity::parse_free_available_bytes(&out.stdout)
+    }
+
+    /// True when the runner carries the pinned sccache wrapper binary.
+    /// Absence is a fact (fall back to unwrapped), never an error.
+    pub fn probe_sccache_available(&self) -> bool {
+        let target = self.ssh_target();
+        self.runner
+            .run(&[
+                "ssh",
+                target.as_str(),
+                "test",
+                "-x",
+                DEFAULT_SCCACHE_BIN,
+            ])
+            .success()
     }
 }
 
@@ -729,7 +744,7 @@ mod tests {
             .expect("cargo argv logged")
             .join(" ");
         assert!(cargo.contains("cargo check"));
-        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/shared-target"));
+        assert!(cargo.contains("CARGO_TARGET_DIR=/var/lib/cynic/checkouts/cynic-bbbbbbbbbbbb/target"));
         assert!(cargo.contains("--manifest-path"));
         assert!(cargo.contains("--package cynic-host"));
         assert!(cargo.contains("--offline"));

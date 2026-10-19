@@ -96,7 +96,7 @@ pub(crate) fn trigger_build(
         "online" => NetworkMode::Online,
         other => return Err(format!("invalid network mode: {other}")),
     };
-    let runner = cynic_node::cli_factory::ssh_build_runner(
+    let mut runner = cynic_node::cli_factory::ssh_build_runner(
         host,
         user.to_string(),
         checkout_base.to_string(),
@@ -110,6 +110,23 @@ pub(crate) fn trigger_build(
     let health = runner.observe_runner();
     if !health.reachable {
         return Err(format!("build runner unreachable: {}", health.node_id));
+    }
+    // sccache auto-enable: the wrapper is content-keyed (hits byte-identical
+    // across SHAs), so a runner that carries the binary gets it by default.
+    // Absence falls back to unwrapped, explicitly, never silently.
+    if runner.sccache_dir.is_none() {
+        if runner.probe_sccache_available() {
+            runner.sccache_dir = Some(
+                cynic_node::ports::build_runner_adapter::default_sccache_dir()
+                    .display()
+                    .to_string(),
+            );
+        } else {
+            eprintln!(
+                "warning: runner {} has no sccache wrapper, building unwrapped",
+                health.node_id
+            );
+        }
     }
     // Compute-awareness pre-flight (infra/compute-policy.json): refuse a
     // dispatch the runner cannot hold instead of discovering it mid-build.
