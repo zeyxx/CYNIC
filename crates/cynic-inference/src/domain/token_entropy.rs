@@ -57,6 +57,7 @@ impl Default for TokenUncertaintyParams {
         Self {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             exploration_top_probability: 0.6,
 =======
             exploration_top_probability: 0.25,
@@ -64,6 +65,9 @@ impl Default for TokenUncertaintyParams {
 =======
             exploration_top_probability: 0.25,
 >>>>>>> origin/agent/hermes/shannon-integration
+=======
+            exploration_top_probability: 0.25,
+>>>>>>> origin/agent/hermes/shannon-wiring-main
             exploration_top_probability: 0.5,
             exploitation_top_probability: 0.75,
         }

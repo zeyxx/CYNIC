@@ -76,8 +76,11 @@ pub use domain::token_entropy::{
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel, TokenUncertaintyParams,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> origin/agent/hermes/shannon-integration
+=======
+>>>>>>> origin/agent/hermes/shannon-wiring-main
     assess_token_uncertainty, token_entropy_from_logits,
     TokenEntropySnapshot, TokenUncertaintyAssessment, TokenUncertaintyLevel,
     TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_logits,
