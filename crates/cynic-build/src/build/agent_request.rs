@@ -34,6 +34,8 @@ pub struct BuildAgentRequest {
     pub request_id: String,
     pub requested_by: String,
     pub source_commit: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     pub source: BuildSourceReference,
     pub action: String,
     pub desired_role: String,
@@ -91,10 +93,7 @@ fn assess(
     if request.source.revision != request.source_commit {
         blockers.push("build_source_revision_mismatch".to_string());
     }
-    if !matches!(
-        request.action.as_str(),
-        "make:check" | "make:build" | "make:build-release"
-    ) {
+    if !cynic_protocol::argv_allow::is_canonical_build_action(&request.action) {
         blockers.push("build_agent_request_action_not_allowed".to_string());
     }
     if request.desired_role != "build_runner" {
@@ -110,7 +109,7 @@ fn assess(
         request.action.as_str(),
         request.release_publication.as_ref(),
     ) {
-        ("make:build-release", Some(intent)) => {
+        ("cargo:build-release", Some(intent)) => {
             blockers.extend(validate_release_publication_intent(intent));
             for proof in [
                 "release_binary_artifact_read_back",
@@ -121,7 +120,7 @@ fn assess(
                 }
             }
         }
-        ("make:build-release", None) => {
+        ("cargo:build-release", None) => {
             blockers.push("build_release_publication_intent_missing".to_string());
         }
         (_, Some(_)) => blockers.push("build_release_publication_intent_unexpected".to_string()),
@@ -271,6 +270,7 @@ mod tests {
             request_id: "validate-abc".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: BuildSourceReference {
                 schema: BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -279,7 +279,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".to_string(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized,
             proof_requirements: vec![
@@ -318,17 +318,73 @@ mod tests {
         );
     }
 
+    /// Task P fix round 1: `cynic build submit --action build` maps to
+    /// `cargo:build`, but the composition gate only admitted the make:*
+    /// operator intents, so every cargo submit was rejected with
+    /// `build_agent_request_action_not_allowed` (observed 400 on the
+    /// canary). The gate must admit the direct cargo actions.
+    #[test]
+    fn cargo_build_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:build".to_string();
+        let admission = admit_build_agent_request(&request);
+        assert_eq!(admission.status, "admitted");
+        assert!(
+            !admission
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
+    #[test]
+    fn cargo_check_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:check".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn cargo_test_action_is_admitted() {
+        let mut request = request(true);
+        request.action = "cargo:test".to_string();
+        assert_eq!(admit_build_agent_request(&request).status, "admitted");
+    }
+
+    #[test]
+    fn cargo_build_release_action_without_intent_is_blocked() {
+        let mut request = request(true);
+        request.action = "cargo:build-release".to_string();
+        let admission = admit_build_agent_request(&request);
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"build_release_publication_intent_missing".to_string())
+        );
+    }
+
+    #[test]
+    fn non_canonical_action_is_still_blocked() {
+        let mut request = request(true);
+        request.action = "cargo:deploy".to_string();
+        assert!(
+            admit_build_agent_request(&request)
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
     #[test]
     fn canonical_artifact_build_is_admissible() {
         let mut request = request(true);
-        request.action = "make:build".to_string();
+        request.action = "cargo:build".to_string();
         assert_eq!(admit_build_agent_request(&request).status, "admitted");
     }
 
     #[test]
     fn canonical_release_build_is_admissible() {
         let mut request = request(true);
-        request.action = "make:build-release".to_string();
+        request.action = "cargo:build-release".to_string();
         request.proof_requirements = vec![
             "release_binary_artifact_read_back".to_string(),
             "signed_release_basket_read_back".to_string(),
@@ -401,9 +457,23 @@ mod tests {
     }
 
     #[test]
+    fn retired_make_spelling_is_refused_at_admission() {
+        let mut request = request(true);
+        request.action = "make:build".to_string();
+        let admission = admit_build_agent_request(&request);
+
+        assert_eq!(admission.status, "blocked");
+        assert!(
+            admission
+                .blockers
+                .contains(&"build_agent_request_action_not_allowed".to_string())
+        );
+    }
+
+    #[test]
     fn release_build_without_publication_intent_is_blocked() {
         let mut request = request(true);
-        request.action = "make:build-release".to_string();
+        request.action = "cargo:build-release".to_string();
         let admission = admit_build_agent_request(&request);
 
         assert_eq!(admission.status, "blocked");

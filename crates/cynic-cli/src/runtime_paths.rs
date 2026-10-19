@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use cynic_host::runtime_authority::{RuntimeProjectionClass, default_runtime_authority_paths};
+use cynic_types::paths::CynicPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RuntimeMode {
@@ -49,11 +50,9 @@ pub(crate) struct RuntimePaths {
     pub(crate) dns_corefile_path: PathBuf,
     pub(crate) dns_service_path: PathBuf,
     pub(crate) resolved_dropin_path: PathBuf,
-    pub(crate) host_exec_helper_path: PathBuf,
-    pub(crate) host_exec_sudoers_path: PathBuf,
-    pub(crate) network_actuator_helper_path: PathBuf,
+    pub(crate) privilege_executor_path: PathBuf,
+    pub(crate) privilege_sudoers_path: PathBuf,
     pub(crate) network_actuator_policy_path: PathBuf,
-    pub(crate) network_actuator_sudoers_path: PathBuf,
     pub(crate) mode: RuntimeMode,
     pub(crate) projection_class: RuntimeProjectionClass,
 }
@@ -122,14 +121,12 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             dns_corefile_path: effective_dns_corefile_path(context),
             dns_service_path: effective_dns_service_path(context),
             resolved_dropin_path: effective_resolved_dropin_path(context),
-            host_exec_helper_path: effective_host_exec_helper_path(context),
-            host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-            network_actuator_helper_path: effective_network_actuator_helper_path(context),
+            privilege_executor_path: effective_privilege_executor_path(),
+            privilege_sudoers_path: effective_privilege_sudoers_path(context),
             network_actuator_policy_path: effective_network_actuator_policy_path(
                 context,
                 &config_root,
             ),
-            network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::ExplicitFlag,
             projection_class: RuntimeMode::ExplicitFlag.projection_class(),
         };
@@ -152,14 +149,12 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             dns_corefile_path: effective_dns_corefile_path(context),
             dns_service_path: effective_dns_service_path(context),
             resolved_dropin_path: effective_resolved_dropin_path(context),
-            host_exec_helper_path: effective_host_exec_helper_path(context),
-            host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-            network_actuator_helper_path: effective_network_actuator_helper_path(context),
+            privilege_executor_path: effective_privilege_executor_path(),
+            privilege_sudoers_path: effective_privilege_sudoers_path(context),
             network_actuator_policy_path: effective_network_actuator_policy_path(
                 context,
                 &config_root,
             ),
-            network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::Environment,
             projection_class: RuntimeMode::Environment.projection_class(),
         };
@@ -181,14 +176,12 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
                 dns_corefile_path: effective_dns_corefile_path(context),
                 dns_service_path: effective_dns_service_path(context),
                 resolved_dropin_path: effective_resolved_dropin_path(context),
-                host_exec_helper_path: effective_host_exec_helper_path(context),
-                host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-                network_actuator_helper_path: effective_network_actuator_helper_path(context),
+                privilege_executor_path: effective_privilege_executor_path(),
+                privilege_sudoers_path: effective_privilege_sudoers_path(context),
                 network_actuator_policy_path: effective_network_actuator_policy_path(
                     context,
                     &config_root,
                 ),
-                network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
                 mode: RuntimeMode::Installed,
                 projection_class: RuntimeMode::Installed.projection_class(),
             };
@@ -210,14 +203,12 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             dns_corefile_path: effective_dns_corefile_path(context),
             dns_service_path: effective_dns_service_path(context),
             resolved_dropin_path: effective_resolved_dropin_path(context),
-            host_exec_helper_path: effective_host_exec_helper_path(context),
-            host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-            network_actuator_helper_path: effective_network_actuator_helper_path(context),
+            privilege_executor_path: effective_privilege_executor_path(),
+            privilege_sudoers_path: effective_privilege_sudoers_path(context),
             network_actuator_policy_path: effective_network_actuator_policy_path(
                 context,
                 &config_root,
             ),
-            network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::DevWorktree,
             projection_class: RuntimeMode::DevWorktree.projection_class(),
         };
@@ -238,14 +229,12 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
             dns_corefile_path: effective_dns_corefile_path(context),
             dns_service_path: effective_dns_service_path(context),
             resolved_dropin_path: effective_resolved_dropin_path(context),
-            host_exec_helper_path: effective_host_exec_helper_path(context),
-            host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-            network_actuator_helper_path: effective_network_actuator_helper_path(context),
+            privilege_executor_path: effective_privilege_executor_path(),
+            privilege_sudoers_path: effective_privilege_sudoers_path(context),
             network_actuator_policy_path: effective_network_actuator_policy_path(
                 context,
                 &config_root,
             ),
-            network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
             mode: RuntimeMode::DevWorktree,
             projection_class: RuntimeMode::DevWorktree.projection_class(),
         };
@@ -255,7 +244,7 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         .env_config_root
         .clone()
         .or_else(|| context.installed_config_root.clone())
-        .unwrap_or_else(|| PathBuf::from("/etc/cynic"));
+        .unwrap_or_else(CynicPaths::system_config_dir);
     RuntimePaths {
         registry_path: config_root.join("registry.json"),
         config_root: config_root.clone(),
@@ -269,11 +258,9 @@ pub(crate) fn resolve_runtime_paths(context: &RuntimeContext) -> RuntimePaths {
         dns_corefile_path: effective_dns_corefile_path(context),
         dns_service_path: effective_dns_service_path(context),
         resolved_dropin_path: effective_resolved_dropin_path(context),
-        host_exec_helper_path: effective_host_exec_helper_path(context),
-        host_exec_sudoers_path: effective_host_exec_sudoers_path(context),
-        network_actuator_helper_path: effective_network_actuator_helper_path(context),
+        privilege_executor_path: effective_privilege_executor_path(),
+        privilege_sudoers_path: effective_privilege_sudoers_path(context),
         network_actuator_policy_path: effective_network_actuator_policy_path(context, &config_root),
-        network_actuator_sudoers_path: effective_network_actuator_sudoers_path(context),
         mode: RuntimeMode::UnresolvedFallback,
         projection_class: RuntimeMode::UnresolvedFallback.projection_class(),
     }
@@ -371,16 +358,14 @@ fn effective_resolved_dropin_path(context: &RuntimeContext) -> PathBuf {
         .unwrap_or(authority.resolved_dropin_path)
 }
 
-fn effective_host_exec_helper_path(context: &RuntimeContext) -> PathBuf {
-    effective_libexec_root(context).join("cynic-host-exec")
+fn effective_privilege_executor_path() -> PathBuf {
+    env::var("CYNIC_BIN")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/usr/local/bin/cynic"))
 }
 
-fn effective_host_exec_sudoers_path(context: &RuntimeContext) -> PathBuf {
-    effective_sudoers_dir(context).join("cynic-host-exec")
-}
-
-fn effective_network_actuator_helper_path(context: &RuntimeContext) -> PathBuf {
-    effective_libexec_root(context).join("cynic-network-actuator")
+fn effective_privilege_sudoers_path(context: &RuntimeContext) -> PathBuf {
+    effective_sudoers_dir(context).join("cynic")
 }
 
 fn effective_network_actuator_policy_path(
@@ -390,26 +375,24 @@ fn effective_network_actuator_policy_path(
     config_root.join("network-actuator.policy.json")
 }
 
-fn effective_network_actuator_sudoers_path(context: &RuntimeContext) -> PathBuf {
-    effective_sudoers_dir(context).join("cynic-network-actuator")
-}
-
 fn infer_config_root(path: &Path, installed_config_root: Option<&Path>) -> PathBuf {
     if path.file_name().and_then(|value| value.to_str()) == Some("registry.json")
         && path.parent().is_some()
     {
-        let parent = path.parent().unwrap_or_else(|| Path::new("/etc/cynic"));
+        let parent = path
+            .parent()
+            .unwrap_or_else(|| Path::new(CynicPaths::DEFAULT_SYSTEM_ROOT));
         if parent.ends_with("infra") {
             return installed_config_root
                 .map(Path::to_path_buf)
-                .unwrap_or_else(|| PathBuf::from("/etc/cynic"));
+                .unwrap_or_else(CynicPaths::system_config_dir);
         }
         return parent.to_path_buf();
     }
 
     installed_config_root
         .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("/etc/cynic"))
+        .unwrap_or_else(CynicPaths::system_config_dir)
 }
 
 fn find_registry_from(origin: Option<&Path>) -> Option<PathBuf> {
@@ -464,7 +447,10 @@ mod tests {
         );
         assert_eq!(
             resolved.dns_hosts_path,
-            PathBuf::from(format!("/etc/coredns/{}", cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME))
+            PathBuf::from(format!(
+                "/etc/coredns/{}",
+                cynic_network::dns::SERVICE_DNS_HOSTS_FILENAME
+            ))
         );
     }
 
@@ -521,8 +507,8 @@ mod tests {
         assert_eq!(resolved.registry_path, explicit);
         assert_eq!(resolved.libexec_root, PathBuf::from("/usr/local/libexec"));
         assert_eq!(
-            resolved.host_exec_helper_path,
-            PathBuf::from("/usr/local/libexec/cynic-host-exec")
+            resolved.privilege_executor_path,
+            PathBuf::from("/usr/local/bin/cynic")
         );
     }
 
@@ -559,9 +545,20 @@ mod tests {
         assert_eq!(resolved.sudoers_dir, PathBuf::from("/etc/sudoers.d"));
         assert!(
             resolved.dns_service_path
-                == PathBuf::from(format!("/etc/systemd/system/coredns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
+                == PathBuf::from(format!(
+                    "/etc/systemd/system/{}",
+                    SERVICE_DNS_SERVICE_FILENAME
+                ))
                 || resolved.dns_service_path
-                    == PathBuf::from(format!("/etc/systemd/system/cynic-dns-{}.service", SERVICE_DNS_SERVICE_FILENAME))
+                    == PathBuf::from(format!(
+                        "/etc/systemd/system/coredns-{}",
+                        SERVICE_DNS_SERVICE_FILENAME
+                    ))
+                || resolved.dns_service_path
+                    == PathBuf::from(format!(
+                        "/etc/systemd/system/cynic-dns-{}",
+                        SERVICE_DNS_SERVICE_FILENAME
+                    ))
         );
     }
 
@@ -592,8 +589,8 @@ mod tests {
             root.join("resolved/cynic.conf")
         );
         assert_eq!(
-            resolved.network_actuator_sudoers_path,
-            PathBuf::from("/etc/sudoers.d/cynic-network-actuator")
+            resolved.privilege_sudoers_path,
+            PathBuf::from("/etc/sudoers.d/cynic")
         );
     }
 

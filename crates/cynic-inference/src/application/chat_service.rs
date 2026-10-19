@@ -4,10 +4,10 @@
 //! kernel domain storage.
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use crate::application::chat_support::now_ms;
 use crate::domain::chat_session::{
     ChatEvent, ChatMessage, StreamChunk, ToolSpec, messages_from_events,
 };
@@ -32,6 +32,15 @@ pub struct CompletionOutcome {
     pub tool_calls: Vec<ToolCallRequest>,
     /// Progressive chunks when stream=true (may be empty if non-stream).
     pub stream_chunks: Vec<StreamChunk>,
+    /// Token-level uncertainty snapshots extracted from provider logprobs.
+    ///
+    /// `None`-equivalent empty means the provider did not expose logprobs or
+    /// the resolver could not build a support. Unknown is data, never zero.
+    #[serde(default)]
+    pub token_entropy_snapshots: Vec<crate::domain::token_entropy::TokenEntropySnapshot>,
+    /// Sequence-level assessment derived from `token_entropy_snapshots`.
+    #[serde(default)]
+    pub token_uncertainty: Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -322,7 +331,14 @@ impl ChatService {
                 message: ready.message,
                 blocked_reason: ready.blocked_reason,
             };
-            self.record_trace(&report.session_id, TraceStatus::Blocked, 0, prompt_chars, 0, started_ms);
+            self.record_trace(
+                &report.session_id,
+                TraceStatus::Blocked,
+                0,
+                prompt_chars,
+                0,
+                started_ms,
+            );
             return report;
         }
 
@@ -411,7 +427,10 @@ impl ChatService {
             break;
         }
 
-        let content_chars = final_content.as_ref().map(|c| c.chars().count()).unwrap_or(0);
+        let content_chars = final_content
+            .as_ref()
+            .map(|c| c.chars().count())
+            .unwrap_or(0);
         let report = ChatTurnReport {
             schema: "cynic.chat.turn.v1",
             status: "ok".into(),
@@ -485,13 +504,6 @@ fn messages_with_runtime_context(
     messages
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
 #[cfg(test)]
 mod context_tests {
     use super::messages_with_runtime_context;
@@ -545,181 +557,13 @@ mod context_tests {
     }
 }
 
-// ── Mock client + tools for tests and offline CLI ───────────────────────────
-
-/// Scripted mock: first call may return tool_calls; subsequent returns content.
-/// When stream=true, content is split into progressive chunks.
-#[derive(Debug)]
-pub struct MockChatClient {
-    pub tool_on_first: Option<ToolCallRequest>,
-    pub final_content: String,
-    calls: std::sync::Mutex<u32>,
-}
-
-impl MockChatClient {
-    pub fn plain(content: impl Into<String>) -> Self {
-        Self {
-            tool_on_first: None,
-            final_content: content.into(),
-            calls: std::sync::Mutex::new(0),
-        }
-    }
-
-    pub fn with_tool(tool: ToolCallRequest, final_content: impl Into<String>) -> Self {
-        Self {
-            tool_on_first: Some(tool),
-            final_content: final_content.into(),
-            calls: std::sync::Mutex::new(0),
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl ChatCompletionClient for MockChatClient {
-    async fn complete(
-        &self,
-        messages: &[ChatMessage],
-        _tools: &[ToolSpec],
-        stream: bool,
-    ) -> Result<CompletionOutcome, ChatServiceError> {
-        let mut n = self
-            .calls
-            .lock()
-            .map_err(|e| ChatServiceError::Protocol(e.to_string()))?;
-        *n += 1;
-        let last_user = messages
-            .iter()
-            .rev()
-            .find(|m| m.role == "user")
-            .map(|m| m.content.as_str())
-            .unwrap_or("");
-        let last_role = messages.last().map(|m| m.role.as_str()).unwrap_or("");
-        // Scripted single-shot tool (unit tests): only on first complete.
-        if *n == 1
-            && let Some(tc) = &self.tool_on_first
-        {
-            return Ok(CompletionOutcome {
-                content: None,
-                tool_calls: vec![tc.clone()],
-                stream_chunks: vec![],
-            });
-        }
-        // Interactive mock: tool keyword only when the latest message is the user turn
-        // (avoids infinite tool loops after tool_result is appended).
-        if last_role == "user"
-            && last_user.to_lowercase().contains("tool")
-            && self.tool_on_first.is_none()
-        {
-            return Ok(CompletionOutcome {
-                content: None,
-                tool_calls: vec![ToolCallRequest {
-                    id: format!("call_{n}"),
-                    name: "echo".into(),
-                    arguments_json: format!(
-                        r#"{{"text":{}}}"#,
-                        serde_json::to_string(last_user).unwrap_or_else(|_| "\"ok\"".into())
-                    ),
-                }],
-                stream_chunks: vec![],
-            });
-        }
-        // Interactive TUI uses placeholder "(mock ready)" so each turn echoes last user text.
-        // Scripted unit tests set a concrete final_content string and keep it.
-        let content = if self.final_content == "(mock ready)" || self.final_content.is_empty() {
-            format!("(mock) {last_user}")
-        } else {
-            self.final_content.clone()
-        };
-        let stream_chunks = if stream {
-            chunk_string(&content)
-        } else {
-            vec![]
-        };
-        Ok(CompletionOutcome {
-            content: Some(content),
-            tool_calls: vec![],
-            stream_chunks,
-        })
-    }
-}
-
-fn chunk_string(s: &str) -> Vec<StreamChunk> {
-    let mut chunks = Vec::new();
-    let chars: Vec<char> = s.chars().collect();
-    let step = (chars.len() / 3).max(1);
-    let mut i = 0;
-    let mut index = 0u32;
-    while i < chars.len() {
-        let end = (i + step).min(chars.len());
-        let part: String = chars[i..end].iter().collect();
-        let done = end >= chars.len();
-        chunks.push(StreamChunk {
-            index,
-            content_delta: Some(part),
-            tool_call_delta: None,
-            done,
-        });
-        index += 1;
-        i = end;
-    }
-    if chunks.is_empty() {
-        chunks.push(StreamChunk {
-            index: 0,
-            content_delta: Some(String::new()),
-            tool_call_delta: None,
-            done: true,
-        });
-    }
-    chunks
-}
-
-/// Built-in tools: `echo` and `get_time` only (safe default allowlist).
-#[derive(Debug, Default)]
-pub struct BuiltinToolInvoker;
-
-impl ToolInvoker for BuiltinToolInvoker {
-    fn invoke(&self, name: &str, arguments_json: &str) -> Result<String, ChatServiceError> {
-        match name {
-            "echo" => {
-                let v: serde_json::Value =
-                    serde_json::from_str(arguments_json).unwrap_or_else(|_| serde_json::json!({}));
-                let text = v
-                    .get("text")
-                    .and_then(|x| x.as_str())
-                    .unwrap_or(arguments_json);
-                Ok(text.to_string())
-            }
-            "get_time" => Ok(format!("unix_ms={}", now_ms())),
-            other => Err(ChatServiceError::Tool(format!(
-                "tool not allowlisted: {other}"
-            ))),
-        }
-    }
-}
-
-pub fn default_tool_specs() -> Vec<ToolSpec> {
-    vec![
-        ToolSpec {
-            name: "echo".into(),
-            description: "Echo back text".into(),
-            parameters: serde_json::json!({
-                "type": "object",
-                "properties": { "text": { "type": "string" } },
-                "required": ["text"]
-            }),
-        },
-        ToolSpec {
-            name: "get_time".into(),
-            description: "Return current unix milliseconds".into(),
-            parameters: serde_json::json!({ "type": "object", "properties": {} }),
-        },
-    ]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::adapters::local::session_store::FsChatSessionStore;
+    use crate::application::chat_support::{
+        BuiltinToolInvoker, MockChatClient, default_tool_specs,
+    };
     use crate::domain::chat_session::ChatEventKind;
     use tempfile::tempdir;
 
@@ -817,7 +661,12 @@ mod tests {
             client,
             tools,
             vec![],
-            ChatServiceConfig::new(Some("mock://local".into()), Some("mock-model".into()), 2, true),
+            ChatServiceConfig::new(
+                Some("mock://local".into()),
+                Some("mock-model".into()),
+                2,
+                true,
+            ),
         )
         .with_tracer(sink.clone());
         let report = svc.turn(Some("s-trace"), "hello", false).await;
@@ -849,7 +698,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resume_appends_to_existing_session() {        let dir = tempdir().unwrap();
+    async fn resume_appends_to_existing_session() {
+        let dir = tempdir().unwrap();
         let store = Arc::new(FsChatSessionStore::new(dir.path()).unwrap());
         let client = Arc::new(MockChatClient::plain("second"));
         let tools = Arc::new(BuiltinToolInvoker);

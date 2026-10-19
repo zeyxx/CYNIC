@@ -86,6 +86,8 @@ use cynic_protocol::{
             plan_digest: "sha256:plan".to_string(),
             mandate_binding: None,
             input: None,
+            source_commit: None,
+            branch: None,
             action: AgentBoundedAction {
                 argv: vec!["cynic".to_string()],
                 working_directory: None,

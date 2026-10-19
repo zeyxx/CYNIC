@@ -1,7 +1,7 @@
 //! Cold-evidence journal contract (D1 decision, storage-layering L0).
 //!
 //! The journal is the AUTHORITATIVE home of cold evidence: one JSONL line
-//! per sealed event, hash-chained with the canonical SHA3-512 digest law,
+//! per sealed event, hash-chained with the canonical SHA-256 digest law,
 //! signed by the node's kernel identity. Projections (SurrealDB tables,
 //! side-car indexes) are derived and reconstructible by replay — never
 //! authority.
@@ -22,7 +22,7 @@ pub const EVIDENCE_EVENT_ENTRY_SEALED: &str = "evidence.entry.sealed";
 
 /// One sealed cold-evidence event.
 ///
-/// `payload_digest` is a prefixed canonical digest (`sha3-512:`) over the
+/// `payload_digest` is a prefixed canonical digest (`sha256:`) over the
 /// evidence content that lives elsewhere (PatternModel file, report file).
 /// The journal carries proof OF the evidence, not the evidence itself —
 /// keeping lines small and verification cheap.
@@ -37,7 +37,7 @@ pub struct EvidenceJournalEntry {
     pub event_type: String,
     /// Content digest of the referenced evidence (prefixed, canonical law).
     pub payload_digest: String,
-    /// SHA3-512 chained digest: canonical(payload_digest|prev_hash|sequence).
+    /// SHA-256 chained digest: canonical(payload_digest|prev_hash|sequence).
     pub entry_hash: String,
     /// Previous entry's hash ("genesis" for the first line of a segment
     /// that explicitly continues nothing; segments carry prev across rolls).
@@ -79,7 +79,7 @@ impl SerializeBytes for (&str, &str, u64, i64) {
 }
 
 /// Compute the canonical chained hash for an entry given its predecessor's
-/// hash. Uses the constitutional internal digest (SHA3-512, prefixed).
+/// hash. Uses the constitutional internal digest (SHA-256, prefixed).
 pub fn compute_entry_hash(
     payload_digest: &str,
     prev_hash: &str,
@@ -159,7 +159,7 @@ mod tests {
     use super::*;
 
     fn make_entry(seq: u64, prev: &str, ts: i64) -> EvidenceJournalEntry {
-        let payload = format!("sha3-512:{seq:04}");
+        let payload = format!("sha256:{seq:04}");
         let hash = compute_entry_hash(&payload, prev, seq, ts);
         EvidenceJournalEntry {
             schema: EVIDENCE_JOURNAL_SCHEMA.to_string(),
@@ -213,7 +213,9 @@ mod tests {
     #[test]
     fn non_canonical_entry_hash_is_rejected() {
         let mut e = make_entry(1, "genesis", 1000);
-        e.entry_hash = format!("sha256:{}", "ab".repeat(32)); // legacy algo not allowed as chain hash
+        // SHA3-512 is the legacy algorithm (pre-T13); it must NOT be
+        // accepted as a canonical chain hash.
+        e.entry_hash = format!("sha3-512:{}", "ab".repeat(64));
         let violations = validate_evidence_chain(&[e]);
         assert!(violations.contains(&"evidence_journal_entry_hash_not_canonical"));
     }

@@ -12,6 +12,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
+use crate::adapters::local::model_readiness;
 use crate::adapters::local::vault_inventory::FsLocalModelInventory;
 use crate::domain::local_runtime::{
     LocalModelProfile, LocalRuntimeMutationReport, LocalRuntimeState, LocalRuntimeStatus,
@@ -20,6 +21,7 @@ use crate::infra::principal_paths::PrincipalPaths;
 use crate::ports::local_runtime_port::{
     LocalInferenceRuntimePort, LocalModelInventoryPort, LocalRuntimeError,
 };
+use cynic_types::paths::CynicPaths;
 
 const SUPERVISOR_SURFACE: &str = "process";
 
@@ -55,6 +57,26 @@ impl ProcessLocalRuntime {
 
     fn pid_path(&self, alias: &str) -> PathBuf {
         self.state_dir.join(format!("{alias}.pid"))
+    }
+
+    /// Rendezvous file other consumers read without supervisor internals:
+    /// `{state_root}/supervised-inference-endpoint` holding two lines,
+    /// the alias then the `/v1` base URL. The single-engine policy (one
+    /// local engine at a time) keeps this unambiguous.
+    fn rendezvous_path() -> PathBuf {
+        cynic_types::CynicPaths::state_dir().join("supervised-inference-endpoint")
+    }
+
+    fn publish_rendezvous(alias: &str, endpoint: &str) {
+        let _ = fs::write(Self::rendezvous_path(), format!("{alias}\n{endpoint}\n"));
+    }
+
+    fn clear_rendezvous(alias: &str) {
+        let path = Self::rendezvous_path();
+        let current = fs::read_to_string(&path).unwrap_or_default();
+        if current.lines().next() == Some(alias) {
+            let _ = fs::remove_file(&path);
+        }
     }
 
     fn log_path(&self, alias: &str) -> PathBuf {
@@ -193,7 +215,7 @@ impl ProcessLocalRuntime {
         let principal = PrincipalPaths::resolve();
         for key_path in [
             principal.config_dir.join("llama-api-key"),
-            PathBuf::from("/etc/cynic/llama-api-key"),
+            CynicPaths::secret_path("llama-api-key"),
         ] {
             if key_path.is_file() {
                 argv.push("--api-key-file".into());
@@ -203,80 +225,6 @@ impl ProcessLocalRuntime {
         }
         let _ = profile;
         Ok((bin, argv))
-    }
-
-    fn expected_model_ids(profile: &LocalModelProfile) -> Vec<String> {
-        let mut ids = Vec::new();
-        ids.push(profile.alias.clone());
-
-        let model_path = Path::new(&profile.model_path);
-        if let Some(name) = model_path.file_name().and_then(|p| p.to_str()) {
-            let stem = Path::new(name)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or(name);
-            ids.push(name.to_string());
-            ids.push(stem.to_string());
-        }
-
-        ids.into_iter()
-            .map(|s| s.to_lowercase())
-            .collect::<std::collections::HashSet<_>>() // dedupe + stable dedupe later
-            .into_iter()
-            .collect()
-    }
-
-    fn parse_model_ids(body: &str) -> Vec<String> {
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
-            return Vec::new();
-        };
-
-        let mut ids = Vec::new();
-        if let Some(models) = v.get("data").and_then(|d| d.as_array()) {
-            for m in models {
-                if let Some(id) = m
-                    .get("id")
-                    .and_then(|x| x.as_str())
-                    .filter(|x| !x.is_empty())
-                {
-                    ids.push(id.to_string());
-                }
-            }
-        }
-
-        if let Some(models) = v.get("models").and_then(|d| d.as_array()) {
-            for m in models {
-                let Some(id) = m
-                    .get("id")
-                    .or_else(|| m.get("name"))
-                    .and_then(|x| x.as_str())
-                    .filter(|x| !x.is_empty())
-                else {
-                    continue;
-                };
-                ids.push(id.to_string());
-            }
-        }
-
-        ids.sort();
-        ids.dedup();
-        ids
-    }
-
-    fn model_matches_target(loaded: &[String], expected: &[String]) -> bool {
-        if loaded.is_empty() || expected.is_empty() {
-            return false;
-        }
-        let loaded_lc: Vec<String> = loaded.iter().map(|s| s.to_lowercase()).collect();
-        for e in expected {
-            let e_lc = e.to_lowercase();
-            for l in &loaded_lc {
-                if l == &e_lc || l.contains(&e_lc) || e_lc.contains(l) {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     fn fetch_models_for_wait(url: &str) -> (String, Vec<String>) {
@@ -313,20 +261,14 @@ impl ProcessLocalRuntime {
             .trim()
             .to_string();
 
-        let ids = Self::parse_model_ids(&body);
+        let ids = model_readiness::parse_model_ids(&body);
         (code, ids)
     }
 
-    fn estimate_model_ready_timeout(profile: &LocalModelProfile) -> Duration {
-        let size_gb = profile.size_bytes.unwrap_or(0) as f64 / (1024.0 * 1024.0 * 1024.0);
-        let extra = (size_gb * 45.0).round() as u64;
-        let timeout_secs = 180u64 + extra;
-        Duration::from_secs(timeout_secs.min(1200))
-    }
     fn wait_http_ready(&self, alias: &str, profile: &LocalModelProfile, timeout: Duration) -> bool {
         let url = format!("http://{}:{}/v1/models", profile.host, profile.port);
         let start = std::time::Instant::now();
-        let expected = Self::expected_model_ids(profile);
+        let expected = model_readiness::expected_model_ids(profile);
         let mut last_seen = Vec::<String>::new();
         let mut wait = crate::progress::WaitProgress::new(
             format!(
@@ -372,7 +314,7 @@ impl ProcessLocalRuntime {
 
             let code_ok = matches!(code.as_str(), "200" | "401");
             if code_ok {
-                if Self::model_matches_target(&models, &expected) {
+                if model_readiness::model_matches_target(&models, &expected) {
                     wait.done(true);
                     return true;
                 }
@@ -462,6 +404,28 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         crate::progress::progress("plan", "probe hardware + materialize runtime env");
         let planner = crate::application::runtime_planner::RuntimePlanner::from_env();
         let plan = planner.plan_for_alias(alias)?;
+
+        // Preflight Memory Admission Guard: prevent kernel OOM by validating
+        // Weights + KV Cache + Activations + 20% Safety Margin against observed physical available RAM.
+        let footprint = crate::domain::memory_admission::MemoryFootprintEstimate::estimate(
+            plan.model_size_bytes.unwrap_or(1_600 * 1024 * 1024),
+            plan.ctx_size,
+            4,
+            cynic_protocol::KvQuantization::Fp16,
+        );
+        let verdict = crate::domain::memory_admission::evaluate_memory_admission(
+            plan.hardware.available_ram_bytes,
+            &footprint,
+            512 * 1024 * 1024,
+        );
+        if !verdict.admitted {
+            let reason = verdict
+                .reason
+                .unwrap_or_else(|| "insufficient memory".into());
+            crate::progress::progress("memory_guard", format!("REJECTED: {reason}"));
+            return Err(LocalRuntimeError::Rejected(reason));
+        }
+
         let materialize = planner.materialize(&plan)?;
         crate::progress::progress("plan", format!("env={}", materialize.runtime_env));
 
@@ -472,12 +436,14 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
                 if let Some(pid) = self.read_pid(&other) {
                     Self::kill_pid(pid);
                     let _ = fs::remove_file(self.pid_path(&other));
+                    Self::clear_rendezvous(&other);
                 }
             }
         }
         if let Some(pid) = self.read_pid(alias) {
             Self::kill_pid(pid);
             let _ = fs::remove_file(self.pid_path(alias));
+            Self::clear_rendezvous(alias);
         }
 
         let (bin, argv) = Self::build_argv(&profile)?;
@@ -512,7 +478,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
         // detach: drop child without wait — process stays
         std::mem::drop(child);
 
-        let ready_timeout = Self::estimate_model_ready_timeout(&profile);
+        let ready_timeout = model_readiness::estimate_model_ready_timeout(&profile);
         let ready = if wait_for_ready {
             crate::progress::progress(
                 "load",
@@ -536,8 +502,12 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             let _ = fs::remove_file(self.pid_path(alias));
         }
         let st = if ok {
+            if let Some(endpoint) = st.endpoint.clone() {
+                Self::publish_rendezvous(alias, &endpoint);
+            }
             st
         } else {
+            Self::clear_rendezvous(alias);
             LocalRuntimeStatus::inactive(format!(
                 "process start failed or model not ready (log {log_hint})"
             ))
@@ -597,6 +567,7 @@ impl LocalInferenceRuntimePort for ProcessLocalRuntime {
             Self::kill_pid(pid);
         }
         let _ = fs::remove_file(self.pid_path(&alias));
+        Self::clear_rendezvous(&alias);
         Ok(LocalRuntimeMutationReport {
             schema: LocalRuntimeMutationReport::SCHEMA,
             surface: SUPERVISOR_SURFACE,

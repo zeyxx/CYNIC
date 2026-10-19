@@ -2,13 +2,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::types::{SSH_TRUST_STORE_SCHEMA, SshTrustAnchor, SshTrustStore};
+use cynic_types::paths::CynicPaths;
 
-pub const DEFAULT_SSH_TRUST_STORE_PATH: &str = "/etc/cynic/trust/ssh-hosts.json";
-
+/// Default trust store: `trust/ssh-hosts.json` under the canonical system
+/// config directory, unless `CYNIC_SSH_TRUST_STORE` overrides it.
 pub fn default_ssh_trust_store_path() -> PathBuf {
     std::env::var_os("CYNIC_SSH_TRUST_STORE")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_SSH_TRUST_STORE_PATH))
+        .unwrap_or_else(|| CynicPaths::system_config_dir().join("trust/ssh-hosts.json"))
 }
 
 pub fn load_ssh_trust_store(path: &Path) -> Result<SshTrustStore, String> {

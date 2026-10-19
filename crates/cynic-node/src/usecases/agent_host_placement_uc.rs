@@ -3,8 +3,8 @@
 //! Orchestrates Proxmox preflight observation, desired state resolution,
 //! and pure VM reconciliation planning for cynic-agent-host.
 
-use cynic_host::agent_host::{AgentHostObservationPort, AgentHostVmPlan, plan_agent_host_vm};
 use cynic_protocol::AgentHostDesired;
+use cynic_proxmox::agent_host::{AgentHostObservationPort, AgentHostVmPlan, plan_agent_host_vm};
 use serde::{Deserialize, Serialize};
 
 pub const AGENT_HOST_PLACEMENT_REPORT_SCHEMA: &str = "cynic.node.agent_host_placement_report.v1";
@@ -41,7 +41,7 @@ pub fn execute_agent_host_placement(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cynic_host::agent_host::AgentHostPreflightReport;
+    use cynic_proxmox::agent_host::AgentHostPreflightReport;
 
     struct MockObserver {
         preflight: AgentHostPreflightReport,
@@ -60,7 +60,7 @@ mod tests {
     fn placement_use_case_returns_planned_report() {
         let desired = AgentHostDesired::default();
         let preflight = AgentHostPreflightReport {
-            schema: cynic_host::agent_host::AGENT_HOST_PREFLIGHT_REPORT_SCHEMA.to_string(),
+            schema: cynic_proxmox::agent_host::AGENT_HOST_PREFLIGHT_REPORT_SCHEMA.to_string(),
             hypervisor_reachable: true,
             hypervisor_version: Some("pve-manager/8.4.0".to_string()),
             available_memory_bytes: 14 * 1024 * 1024 * 1024,

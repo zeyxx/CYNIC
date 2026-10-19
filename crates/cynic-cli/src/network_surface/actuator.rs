@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use crate::node_surface::network_surfaces_uc::NetworkCommands;
+use crate::network_surface::execution::NetworkCommands;
 
 use crate::network_surface::{NetworkActuatorCommand, NetworkCommand};
 use crate::registry_path;
@@ -12,7 +12,7 @@ pub(crate) fn try_execute_actuator(command: NetworkCommand) -> Result<ExitCode, 
 
     let exit = match command {
         NetworkActuatorCommand::Status { registry } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ActuatorStatus {
+            crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorStatus {
                 json: true,
                 registry: registry_path(registry),
             })
@@ -20,14 +20,14 @@ pub(crate) fn try_execute_actuator(command: NetworkCommand) -> Result<ExitCode, 
         NetworkActuatorCommand::Bundle {
             registry,
             output_dir,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ActuatorBundle {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorBundle {
             registry: registry_path(registry),
             output_dir,
         }),
         NetworkActuatorCommand::Plan {
             registry,
             bundle_dir,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::ActuatorPlan {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::ActuatorPlan {
             registry: registry_path(registry),
             bundle_dir,
         }),
@@ -35,7 +35,7 @@ pub(crate) fn try_execute_actuator(command: NetworkCommand) -> Result<ExitCode, 
             registry,
             profile,
             apply,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::Apply {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::Apply {
             registry: registry_path(registry),
             profile,
             apply,

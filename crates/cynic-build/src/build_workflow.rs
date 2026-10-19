@@ -194,7 +194,7 @@ impl<'a> BuildWorkflow<'a> {
 mod tests {
     use super::*;
     use crate::build::{
-        BUILD_RECIPE_SCHEMA, BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
+        BUILD_RUNNER_OBSERVATION_SCHEMA, BuildRecipe, BuildRunnerObservation,
     };
     use cynic_protocol::{LeaseGuard, LeaseVerification, SecurityEvidenceState};
     use cynic_protocol::vcs::SourceSnapshot;
@@ -245,27 +245,12 @@ mod tests {
     }
 
     fn valid_recipe() -> BuildRecipe {
-        BuildRecipe {
-            schema: BUILD_RECIPE_SCHEMA.to_string(),
-            action: "make:check".to_string(),
-            target_profile: "debug".to_string(),
-            allowed_actions: vec![
-                "make:check".to_string(),
-                "cargo:check".to_string(),
-                "cargo:run".to_string(),
-                "cargo:test".to_string(),
-            ],
-            rust_min_stack: 536_870_912,
-            cargo_incremental: false,
-            memory_limit_bytes: Some(4_294_967_296),
-            target_crates: vec!["cynic-protocol".to_string()],
-            excluded_crates: vec![],
-            toolchain_override: None,
-            env_overrides: vec![],
-            max_parallel_jobs: 1,
-            timeout_secs: 600,
-            evidence_refs: vec![],
-        }
+        // Derive from the canonical constructor: a literal fixture goes stale
+        // on each recipe addition. Only exercised fields are overridden.
+        let mut recipe =
+            crate::build::build_recipe("audit:crate").expect("audit:crate is a canonical recipe");
+        recipe.target_crates = vec!["cynic-protocol".to_string()];
+        recipe
     }
 
     #[test]

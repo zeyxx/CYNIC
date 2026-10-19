@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use crate::node_surface::network_surfaces_uc::NetworkCommands;
+use crate::network_surface::execution::NetworkCommands;
 
 use crate::network_surface::NetworkCommand;
 use crate::registry_path;
@@ -59,7 +59,7 @@ pub(crate) fn try_execute_dns(
             corefile_path,
             service_path,
             resolved_dropin_path,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsActivationStatus {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsActivationStatus {
             json: true,
             registry: registry_path(registry),
             hosts_path: hosts_path
@@ -75,19 +75,19 @@ pub(crate) fn try_execute_dns(
         NetworkDnsCommand::Bundle {
             registry,
             output_dir,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsBundle {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsBundle {
             json: true,
             registry: registry_path(registry),
             output_dir,
         }),
         NetworkDnsCommand::Plan { .. } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsPlan { json: true })
+            crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsPlan { json: true })
         }
         NetworkDnsCommand::Activate {
             registry,
             bundle_dir,
             yes,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(&NetworkCommands::DnsActivate {
+        } => crate::network_surface::execution::execute_network_command(&NetworkCommands::DnsActivate {
             json: true,
             registry: registry_path(registry),
             bundle_dir,

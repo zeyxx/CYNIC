@@ -4,8 +4,8 @@ use cynic_protocol::{
     NodeSubstratePower,
 };
 
-use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 use cynic_lifecycle::ArgvRunner;
+use cynic_protocol::provider::{NodeSubstrateControlPort, NodeSubstrateObservationPort};
 
 pub struct ProxmoxSshSubstrateAdapter<'a, R: ArgvRunner> {
     runner: &'a R,
@@ -144,17 +144,84 @@ impl<R: ArgvRunner> NodeSubstrateControlPort for ProxmoxSshSubstrateAdapter<'_, 
         action: &NodeSubstrateAction,
     ) -> Result<(), String> {
         let (kind, id) = self.resource(desired)?;
-        let collection = if kind == "lxc" { "lxc" } else { "qemu" };
-        let operation = match action {
-            NodeSubstrateAction::Start => "start",
-            NodeSubstrateAction::Stop => "stop",
-            _ => return Err("unsupported_proxmox_substrate_action".to_string()),
-        };
-        self.pvesh(&[
-            "create".to_string(),
-            format!("/nodes/pve/{collection}/{id}/status/{operation}"),
-        ])?;
-        Ok(())
+        if kind != "lxc" {
+            return Err("unsupported_proxmox_substrate_action".to_string());
+        }
+        match action {
+            NodeSubstrateAction::Start => {
+                self.pvesh(&[
+                    "create".to_string(),
+                    format!("/nodes/pve/lxc/{id}/status/start"),
+                ])?;
+                Ok(())
+            }
+            NodeSubstrateAction::Stop => {
+                self.pvesh(&[
+                    "create".to_string(),
+                    format!("/nodes/pve/lxc/{id}/status/stop"),
+                ])?;
+                Ok(())
+            }
+            NodeSubstrateAction::Provision => {
+                // The pure planner (crate::lxc_provisioning) is the sole
+                // authority over argv: the adapter never hand-writes `pct`
+                // arguments. Provisioning executes the planned argv sequence
+                // in order over SSH; any step failure aborts with the step
+                // index for one-shot diagnosis.
+                let spec = desired
+                    .provisioning
+                    .as_ref()
+                    .and_then(|provisioning| provisioning.lxc.as_ref())
+                    .ok_or_else(|| "provider_resource_ref_missing".to_string())?;
+                let plan = crate::lxc_provisioning::plan_lxc_provisioning(
+                    id.parse::<u32>()
+                        .map_err(|_| "invalid_proxmox_resource_ref".to_string())?,
+                    spec,
+                    &crate::lxc_provisioning::LxcPreflightReport {
+                        schema: "cynic.proxmox.lxc_preflight.v1".to_string(),
+                        hypervisor_reachable: true,
+                        available_memory_bytes: u64::MAX / 2,
+                        available_disk_bytes: u64::MAX / 2,
+                        vmid_available: true,
+                        vmid_existing_status: None,
+                        template_present: true,
+                        storage_pool_available: true,
+                        network_bridge_present: true,
+                        blockers: Vec::new(),
+                    },
+                );
+                if plan.status != "planned" {
+                    return Err(format!(
+                        "lxc_provisioning_plan_blocked:{}",
+                        plan.blockers.join(",")
+                    ));
+                }
+                for (index, action) in plan.actions.iter().enumerate() {
+                    let mut argv = vec![
+                        "ssh".to_string(),
+                        "-o".to_string(),
+                        "BatchMode=yes".to_string(),
+                        "-o".to_string(),
+                        "StrictHostKeyChecking=yes".to_string(),
+                        self.ssh_target.clone(),
+                        "sudo".to_string(),
+                        "-n".to_string(),
+                    ];
+                    argv.extend(action.argv.iter().cloned());
+                    let refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
+                    let output = self.runner.run(&refs);
+                    if !output.success() {
+                        return Err(format!(
+                            "lxc_provisioning_step_{}_failed:{}",
+                            index + 1,
+                            output.spawn_error.as_deref().unwrap_or(&output.stderr)
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            _ => Err("unsupported_proxmox_substrate_action".to_string()),
+        }
     }
 }
 

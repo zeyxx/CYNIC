@@ -93,7 +93,7 @@ pub(crate) fn execute_deploy(
         "collecting release binaries from {}",
         target_release_dir.display()
     );
-    let binary_names = ["cynic", "cynic-node", "cynic-node-enroll"];
+    let binary_names = ["cynic", "cynic-node"];
     let mut binaries = Vec::new();
 
     for name in binary_names {

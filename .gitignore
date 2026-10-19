@@ -3,6 +3,8 @@
 /target-*/
 crates/*/target/
 crates/*/target-*/
+programs/*/target/
+programs/*/target-*/
 /verify_cargo/target/
 rustc-ice-*.txt
 *.pdb
@@ -38,7 +40,7 @@ rustc-ice-*.txt
 
 # Dependency and language caches
 /node_modules/
-package-lock.json
+/package-lock.json
 .venv/
 # Data-side Python venv (infra/data_system tooling). Untracked 1.3G tree whose
 # site-packages tripped `cynic audit secret` with a third-party
@@ -73,7 +75,14 @@ cynic-demo-output-*.txt
 cynic-demo.html
 
 # Generated evidence datasets, dumps, and experiment runs
-/evidence/datasets/
-/evidence/experiments/
+/evidence/
+/references/
+/data_system/
+/scripts/
+/.agent-claims.json
 *.jsonl
-!evidence/inference_traces.jsonl
+*.tmp
+*.pptx
+*.docx
+*.xlsx
+*.pdf

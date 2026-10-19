@@ -1,7 +1,9 @@
 use std::process::ExitCode;
 
 use clap::Subcommand;
-use crate::node_surface::network_surfaces_uc::NetworkCommands;
+use cynic_types::paths::CynicPaths;
+pub mod execution;
+pub use execution::NetworkCommands;
 
 use crate::registry_path;
 use crate::runtime_paths::{RuntimeContext, resolve_runtime_paths};
@@ -12,6 +14,7 @@ mod dns;
 mod domain;
 mod mesh;
 mod provider_fallback;
+pub(crate) mod registry;
 
 /// The service probe specs declared in `infra/registry.json`.
 ///
@@ -64,6 +67,28 @@ pub(crate) fn declared_service_probe_specs()
 }
 
 #[derive(Subcommand)]
+pub(crate) enum NetworkShadowCommand {
+    /// Drift between declared mesh and independently observed state.
+    Proof {
+        #[arg(long)]
+        registry: Option<String>,
+        #[arg(long)]
+        resolve_dns: bool,
+        #[arg(long)]
+        observe_runtime: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NetworkActuationCommand {
+    /// Host-owned actuation observation projection (mesh actuate wire arm).
+    Observation {
+        #[arg(long)]
+        registry: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 pub(crate) enum NetworkCommand {
     Chain {
         #[arg(long)]
@@ -89,22 +114,19 @@ pub(crate) enum NetworkCommand {
         #[arg(long)]
         check_provider_connectivity: bool,
     },
-    /// Shadow proof: drift between declared mesh and independently observed
+    /// Shadow arms: drift between declared mesh and independently observed
     /// state. Fails when drift is detected — the honest counterpart of proof.
-    ShadowProof {
-        #[arg(long)]
-        registry: Option<String>,
-        #[arg(long)]
-        resolve_dns: bool,
-        #[arg(long)]
-        observe_runtime: bool,
+    Shadow {
+        #[command(subcommand)]
+        command: NetworkShadowCommand,
     },
     /// Host-owned network actuation observation projection. This is the wire
     /// contract consumed by `mesh target actuate` (observer_bin argv) — the
-    /// name is load-bearing, do not rename.
-    ActuationObservation {
-        #[arg(long)]
-        registry: Option<String>,
+    /// full argv `network actuation observation` is load-bearing: rename the
+    /// arm only together with every `observation_argv` producer.
+    Actuation {
+        #[command(subcommand)]
+        command: NetworkActuationCommand,
     },
     Evidence {
         #[arg(long)]
@@ -175,7 +197,7 @@ pub(crate) enum NetworkCommand {
     Sync {
         #[arg(long)]
         json: bool,
-        #[arg(long, default_value = "/etc/cynic/registry.json")]
+        #[arg(long, default_value_t = CynicPaths::registry_path().display().to_string())]
         registry: String,
         #[arg(long, default_value = "cynic-host-cortex")]
         node_id: String,
@@ -195,6 +217,12 @@ pub(crate) enum NetworkCommand {
     Reconcile {
         #[command(subcommand)]
         command: NetworkReconcileCommand,
+    },
+    /// Synchronize the runtime registry copy from a declared registry file
+    /// Declared keys replaced wholesale; the observed section is preserved.
+    Registry {
+        #[command(subcommand)]
+        command: registry::NetworkRegistryCommand,
     },
     /// Declarative Zero-Trust nftables firewall policy and audit
     Firewall {
@@ -450,6 +478,7 @@ pub(crate) fn execute_network(command: NetworkCommand) -> ExitCode {
         .or_else(|cmd| mesh::try_execute_mesh(cmd, &runtime))
         .or_else(|cmd| provider_fallback::try_execute_provider_fallback(cmd, &runtime))
         .or_else(|cmd| domain::try_execute_domain(cmd, &runtime))
+        .or_else(|cmd| registry::try_execute_registry(cmd, &runtime))
         .map_or_else(
             |cmd| match actuator::try_execute_actuator(cmd) {
                 Ok(code) => return code,
@@ -473,7 +502,7 @@ fn execute_network_security(command: NetworkSecurityCommand) -> ExitCode {
             max_handshake_age_secs,
             registry,
         } => {
-            crate::node_surface::network_surfaces_uc::execute_network_command(&crate::node_surface::network_surfaces_uc::NetworkCommands::SecurityAudit {
+            crate::network_surface::execution::execute_network_command(&crate::network_surface::execution::NetworkCommands::SecurityAudit {
                 json: true,
                 max_handshake_age_secs,
                 registry: registry_path(registry),
@@ -489,8 +518,8 @@ fn execute_network_reconcile(command: NetworkReconcileCommand) -> ExitCode {
             registry,
             timeout_ms,
             apply,
-        } => crate::node_surface::network_surfaces_uc::execute_network_command(
-            &crate::node_surface::network_surfaces_uc::NetworkCommands::ReconcileObserved {
+        } => crate::network_surface::execution::execute_network_command(
+            &crate::network_surface::execution::NetworkCommands::ReconcileObserved {
                 json: true,
                 registry: registry_path(registry),
                 timeout_ms,

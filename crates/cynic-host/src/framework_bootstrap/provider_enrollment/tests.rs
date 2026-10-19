@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use cynic_types::paths::CynicPaths;
+
 use super::*;
 use crate::runtime_secret_install::RuntimeSecretInstallSpec;
 
@@ -10,18 +12,20 @@ fn spec() -> ProviderControlEnrollmentSpec {
             provider: "proxmox".to_string(),
             endpoint: "https://pve.internal:8006".to_string(),
             token_identity: "cynic@pve!runtime".to_string(),
-            credential_ref: "/etc/cynic/secrets/proxmox-token".to_string(),
+            credential_ref: CynicPaths::secret_path("proxmox-token")
+                .display()
+                .to_string(),
             ca_ref: None,
             credential_lease_metadata_ref: None,
             credential_authority_public_key_ref: None,
         },
         token_secret_source: PathBuf::from("/run/cynic-enrollment/proxmox-token"),
         ca_source: None,
-        config_target: PathBuf::from("/etc/cynic/proxmox-control.toml"),
-        ca_target: PathBuf::from("/etc/cynic/proxmox-ca.pem"),
+        config_target: CynicPaths::system_config_dir().join("proxmox-control.toml"),
+        ca_target: CynicPaths::system_config_dir().join("proxmox-ca.pem"),
         secret: RuntimeSecretInstallSpec {
             identity_id: "provider-control:proxmox".to_string(),
-            target: PathBuf::from("/etc/cynic/secrets/proxmox-token"),
+            target: CynicPaths::secret_path("proxmox-token"),
             owner_id: 0,
             group_id: Some(990),
             mode: 0o640,
@@ -35,7 +39,10 @@ fn observation() -> ProviderControlEnrollmentObservation {
     ProviderControlEnrollmentObservation {
         schema: "cynic.provider_control.enrollment_observation.v1",
         provider: "proxmox".to_string(),
-        config_path: "/etc/cynic/proxmox-control.toml".to_string(),
+        config_path: CynicPaths::system_config_dir()
+            .join("proxmox-control.toml")
+            .display()
+            .to_string(),
         config_present: false,
         config_regular_file: None,
         config_mode: None,

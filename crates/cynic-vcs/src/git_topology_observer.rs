@@ -345,6 +345,45 @@ fn read_claim_scope(root: &Path) -> (Option<String>, Option<String>) {
     (None, None)
 }
 
+/// Observe the SHA of the commit currently checked out, or None when git
+/// cannot answer.
+///
+/// None is not an error to swallow: it means no commit can be looked up, so
+/// no proof can exist for it, and the release gate treats that as
+/// NeverTested.
+pub fn observe_head_sha(root: &Path) -> Option<String> {
+    let sha = run_git(root, &["rev-parse", "HEAD"])?;
+    let trimmed = sha.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Count the dirty files in a worktree (`git status --short`).
+///
+/// Used by the worktree convergence surface to project per-worktree dirtiness
+/// into the pure snapshot. Unparseable output counts as zero: the inventory
+/// observation already carries the authoritative entry state, and a missing
+/// count must not fabricate one.
+pub fn count_dirty_files(root: &Path) -> usize {
+    let output = Command::new("git")
+        .args(["-C", &root.to_string_lossy(), "status", "--short"])
+        .output()
+        .ok();
+    output
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).to_string())
+            } else {
+                None
+            }
+        })
+        .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count())
+        .unwrap_or(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

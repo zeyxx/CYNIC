@@ -7,6 +7,8 @@
 
 use std::path::PathBuf;
 
+use cynic_types::paths::CynicPaths;
+
 #[derive(Debug, Clone)]
 pub enum Credential {
     /// SSH key file — sets GIT_SSH_COMMAND
@@ -20,7 +22,8 @@ pub trait CredentialResolver: Send + Sync {
     fn resolve(&self, credential_ref: &str) -> Result<Credential, String>;
 }
 
-/// Default resolver — reads from /etc/cynic/secrets/.
+/// Default resolver — reads from the canonical secrets directory
+/// (`CynicPaths::secrets_dir`).
 pub struct SecretFileResolver {
     pub secrets_dir: PathBuf,
 }
@@ -31,7 +34,7 @@ impl SecretFileResolver {
     }
 
     pub fn default_path() -> PathBuf {
-        PathBuf::from("/etc/cynic/secrets")
+        CynicPaths::secrets_dir()
     }
 
     /// Frictionless secret enrollment.

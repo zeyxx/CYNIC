@@ -24,6 +24,7 @@ pub struct HttpOpenAiChatClient {
     default_max_tokens: Option<u32>,
     default_temperature: Option<f32>,
     default_top_p: Option<f32>,
+    request_top_logprobs: Option<u32>,
 }
 
 impl HttpOpenAiChatClient {
@@ -57,6 +58,7 @@ impl HttpOpenAiChatClient {
             default_max_tokens: None,
             default_temperature: None,
             default_top_p: None,
+            request_top_logprobs: None,
         })
     }
 
@@ -72,6 +74,12 @@ impl HttpOpenAiChatClient {
         self
     }
 
+    /// Request provider logprobs/top_logprobs to derive token-level entropy.
+    pub fn with_top_logprobs(mut self, n: Option<u32>) -> Self {
+        self.request_top_logprobs = n;
+        self
+    }
+
     fn url(&self) -> String {
         format!("{}/chat/completions", self.base_url)
     }
@@ -83,6 +91,10 @@ struct RequestBody {
     messages: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    logprobs: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_logprobs: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,10 +110,32 @@ struct ResponseBody {
     choices: Vec<Choice>,
 }
 
+#[derive(Deserialize, Default)]
+struct ChoiceLogprobs {
+    #[serde(default)]
+    content: Vec<ContentLogprob>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct ContentLogprob {
+    #[serde(default)]
+    logprob: f64,
+    #[serde(default)]
+    top_logprobs: Vec<TopLogprob>,
+}
+
+#[derive(Deserialize)]
+struct TopLogprob {
+    #[serde(default)]
+    logprob: f64,
+}
 #[derive(Deserialize)]
 struct Choice {
     #[serde(default)]
     message: Option<ChoiceMessage>,
+    #[serde(default)]
+    logprobs: Option<ChoiceLogprobs>,
 }
 
 #[derive(Deserialize)]
@@ -185,6 +219,8 @@ impl ChatCompletionClient for HttpOpenAiChatClient {
             model: self.model.clone(),
             messages: msgs,
             tools: tool_defs,
+            logprobs: self.request_top_logprobs.map(|_| true),
+            top_logprobs: self.request_top_logprobs,
             max_tokens: self.default_max_tokens,
             temperature: self.default_temperature,
             top_p: self.default_top_p,
@@ -259,10 +295,14 @@ impl ChatCompletionClient for HttpOpenAiChatClient {
             vec![]
         };
 
+        let (token_entropy_snapshots, token_uncertainty) =
+            Self::token_entropy_from_choice(parsed.choices.first());
         Ok(CompletionOutcome {
             content,
             tool_calls,
             stream_chunks,
+            token_entropy_snapshots,
+            token_uncertainty,
         })
     }
 }
@@ -295,6 +335,58 @@ fn synthesize_chunks(s: &str) -> Vec<StreamChunk> {
         i = end;
     }
     chunks
+}
+
+impl HttpOpenAiChatClient {
+    fn token_entropy_from_choice(
+        choice: Option<&Choice>,
+    ) -> (
+        Vec<crate::domain::token_entropy::TokenEntropySnapshot>,
+        Option<crate::domain::token_entropy::TokenUncertaintyAssessment>,
+    ) {
+        use crate::domain::token_entropy::{
+            TokenUncertaintyParams, assess_token_uncertainty, token_entropy_from_probabilities,
+        };
+        let mut snapshots = Vec::new();
+        let Some(choice) = choice else {
+            return (snapshots, None);
+        };
+        let Some(logprobs) = choice.logprobs.as_ref() else {
+            return (snapshots, None);
+        };
+        for (token_index, entry) in logprobs.content.iter().enumerate() {
+            let candidates = if entry.top_logprobs.is_empty() {
+                // Only the selected token is available: not enough to estimate a
+                // real distribution. Skip to avoid fabricating certainty.
+                continue;
+            } else {
+                entry
+                    .top_logprobs
+                    .iter()
+                    .map(|t| t.logprob)
+                    .collect::<Vec<_>>()
+            };
+            let max = candidates.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let sum: f64 = candidates.iter().map(|v| (v - max).exp()).sum();
+            if !max.is_finite() || sum <= 0.0 || !sum.is_finite() {
+                continue;
+            }
+            let probabilities: Vec<f64> =
+                candidates.iter().map(|v| (v - max).exp() / sum).collect();
+            if let Ok(snapshot) = token_entropy_from_probabilities(&probabilities, token_index) {
+                snapshots.push(snapshot);
+            }
+        }
+        let assessment = if snapshots.is_empty() {
+            None
+        } else {
+            Some(assess_token_uncertainty(
+                &snapshots,
+                TokenUncertaintyParams::default(),
+            ))
+        };
+        (snapshots, assessment)
+    }
 }
 
 #[cfg(test)]

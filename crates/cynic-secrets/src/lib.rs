@@ -61,8 +61,8 @@ pub fn env_var_present(id: &str, var: &str) -> bool {
 }
 
 /// Universal resolution helper — resolves a secret through the full composite
-/// hierarchy: `ProcessEnvironment` -> `PrincipalOwnedFile` (~/.config/cynic/secrets
-/// and /etc/cynic/secrets) -> `OsCredentialStore`.
+/// hierarchy: `ProcessEnvironment` -> `PrincipalOwnedFile` (user store, then
+/// system store) -> `OsCredentialStore`.
 ///
 /// Use this everywhere secret material is needed without coupling to a specific storage backend.
 pub fn resolve_secret(id: &str, env_var_name: &str) -> Option<String> {

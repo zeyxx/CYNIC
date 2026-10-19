@@ -58,30 +58,7 @@ fn tracked_paths() -> Vec<String> {
 /// segment. Implemented here rather than pulled in as a dependency: a new crate
 /// dependency needs its own admission, and the semantics needed are three cases.
 fn glob_matches(pattern: &str, path: &str) -> bool {
-    fn segments(pattern: &str) -> Vec<&str> {
-        pattern.split('/').collect()
-    }
-
-    let (p, v): (Vec<&str>, Vec<&str>) = (segments(pattern), segments(path));
-    if p.first() == Some(&"**") {
-        for skip in 0..=v.len() {
-            if glob_matches(&p[1..].join("/"), &v[skip..].join("/")) {
-                return true;
-            }
-        }
-        return false;
-    }
-    if p.is_empty() {
-        return v.is_empty();
-    }
-    if v.is_empty() {
-        return false;
-    }
-    if p[0] == "*" || p[0] == v[0] {
-        return glob_matches(&p[1..].join("/"), &v[1..].join("/"));
-    }
-    // A bare `**` tail also matches zero segments.
-    p.len() > 1 && p[1] == "**" && (p[0] == v[0] || p[0] == "*")
+    cynic_vcs::publication::glob_matches(pattern, path)
 }
 
 fn rules() -> Vec<Value> {

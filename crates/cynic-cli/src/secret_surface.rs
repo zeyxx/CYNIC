@@ -1,6 +1,6 @@
 //! `cynic secret` — sovereign runtime secret posture, observation, and bounded installation.
 //!
-//! Conforms to `docs/secrets.md` and foundation invariants:
+//! Conforms to `contracts/foundation.json` and foundation invariants:
 //! - Secrets are never printed in cleartext, logs, or reports.
 //! - Resolution order: ProcessEnvironment -> PrincipalOwnedFile -> OsCredentialStore.
 //! - Read-only observation with machine-readable JSON support.
@@ -317,6 +317,9 @@ fn map_filename(id: &str) -> &str {
         "cloudflare" => "cloudflare-api-token",
         "porkbun" => "porkbun-api-key",
         "forgejo" => "forgejo-token",
+        "headscale_key" | "headscale" => "headscale-api-key",
+        "telegram_bot" => "telegram-bot-token",
+        "telegram_chat" => "telegram-chat-id",
         "huggingface" => "hf-token",
         "openai" => "openai-api-key",
         "anthropic" => "anthropic-api-key",

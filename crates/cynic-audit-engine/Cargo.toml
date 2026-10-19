@@ -6,12 +6,9 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
-# Moved from cynic-host together with the engine it drives. It referenced
-# nothing from cynic-host, so leaving it there would have meant the substrate
-# depending on its own auditor in order to build a binary.
-[[bin]]
-name = "cynic-topology"
-path = "src/bin/cynic-topology.rs"
+# The topology writer binary was absorbed into `cynic audit topology
+# --write --apply` behind the `topology_write` feature; the read/write
+# boundary is now compile-time, proven by building with and without it.
 
 [dependencies]
 # Measured, by compiling: the module reached cynic_protocol 11 times and one

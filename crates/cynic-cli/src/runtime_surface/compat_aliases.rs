@@ -6,33 +6,13 @@ pub(crate) fn try_execute_compat_alias(
     command: RuntimeCommand,
 ) -> Result<ExitCode, RuntimeCommand> {
     match command {
-        RuntimeCommand::Memory { json } => Ok(super::memory::execute_memory(json)),
-        RuntimeCommand::Cpu { json } => Ok(super::cpu::execute_cpu(json)),
-        RuntimeCommand::Disk { command } => Ok(execute_disk(command)),
+        RuntimeCommand::Memory { json } => Ok(crate::node_surface::host::execute_memory(json)),
+        RuntimeCommand::Cpu { json } => Ok(crate::node_surface::host::execute_cpu(json)),
+        RuntimeCommand::Disk { command } => {
+            Ok(crate::node_surface::host::execute_disk_command(command))
+        }
         RuntimeCommand::Network { command } => Ok(execute_network(command)),
         other => Err(other),
-    }
-}
-
-fn execute_disk(command: crate::runtime_surface::RuntimeDiskCommand) -> ExitCode {
-    use crate::runtime_surface::RuntimeDiskCommand;
-    match command {
-        RuntimeDiskCommand::Status { json } => super::disk::execute_disk(json),
-        RuntimeDiskCommand::Clean {
-            json,
-            apply,
-            build_runner,
-            registry,
-            node,
-            state_root,
-        } => super::disk::execute_disk_clean(
-            json,
-            apply,
-            build_runner,
-            &registry,
-            node.as_deref(),
-            &state_root,
-        ),
     }
 }
 

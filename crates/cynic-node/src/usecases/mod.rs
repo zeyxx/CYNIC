@@ -1,4 +1,5 @@
 pub mod agent_host_placement_uc;
+pub mod compute_provisioning_uc;
 pub mod agent_scheduler_step_uc;
 pub mod agent_source_change_uc;
 pub mod agent_workload_delivery_uc;
@@ -37,6 +38,7 @@ pub mod node_network_recovery_uc;
 pub mod notification_outbox_uc;
 pub mod observe_node_uc;
 pub mod release_webhook;
+pub mod remote_runner_enrollment_uc;
 pub mod runtime_artifact_deployment_uc;
 pub mod source_admission_uc;
 pub mod source_materialization_uc;

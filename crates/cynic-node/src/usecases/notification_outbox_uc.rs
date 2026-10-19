@@ -1,6 +1,6 @@
 //! Notification Outbox Use Case (Slice C2).
 //!
-//! Defined in `infra/AGENT_FLEET_HOSTING_DESIGN.md` §Telegram : notification, jamais contrôle.
+//! Defined in `docs/design/AGENT_FLEET_HOSTING_DESIGN.md` §Telegram : notification, jamais contrôle.
 //! Outbox durable, redaction/classification, retry idempotent et receipt de livraison.
 
 use cynic_protocol::{
@@ -255,16 +255,28 @@ impl NotificationTransportPort for HttpTelegramNotificationTransport {
 #[derive(Debug, Default, Clone)]
 pub struct DesktopNotificationTransport {
     binary_path: Option<String>,
+    urgency: Option<String>,
 }
 
 impl DesktopNotificationTransport {
     pub fn new() -> Self {
-        Self { binary_path: None }
+        Self {
+            binary_path: None,
+            urgency: None,
+        }
     }
 
     pub fn with_binary_path(path: impl Into<String>) -> Self {
         Self {
             binary_path: Some(path.into()),
+            urgency: None,
+        }
+    }
+
+    pub fn with_urgency(urgency: impl Into<String>) -> Self {
+        Self {
+            binary_path: None,
+            urgency: Some(urgency.into()),
         }
     }
 }
@@ -276,10 +288,21 @@ impl NotificationTransportPort for DesktopNotificationTransport {
             .as_deref()
             .unwrap_or("/usr/bin/notify-send");
 
+        let env_urgency = std::env::var("CYNIC_NOTIFY_URGENCY").ok();
+        let bypass_dnd = std::env::var("CYNIC_NOTIFY_BYPASS_DND")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
+
+        let urgency = self
+            .urgency
+            .as_deref()
+            .or(env_urgency.as_deref())
+            .unwrap_or_else(|| if bypass_dnd { "critical" } else { "normal" });
+
         let title = format!("[CYNIC ALERT] {:?}", entry.referenced_event.kind);
         let output = std::process::Command::new(bin)
             .arg("-u")
-            .arg("critical")
+            .arg(urgency)
             .arg("-a")
             .arg("CYNIC Runtime")
             .arg(&title)

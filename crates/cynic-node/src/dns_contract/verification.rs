@@ -3,7 +3,7 @@ use super::{
     SERVICE_DNS_COREFILE_FILENAME, SERVICE_DNS_HOSTS_FILENAME, SERVICE_DNS_MANIFEST_FILENAME,
     SERVICE_DNS_README_FILENAME, SERVICE_DNS_RESOLVED_DROPIN_FILENAME,
     SERVICE_DNS_SERVICE_FILENAME, approved_dns_sources, dns_activation_readme_with_context,
-    dns_bundle_files, dns_forbidden_patterns, dns_provider_policy_surface_for_zone,
+    dns_forbidden_patterns, dns_provider_policy_surface_for_zone,
     dns_required_modes, dns_systemd_unit_with_context, forbidden_dns_sources,
     supported_dns_adapters, unadapted_dns_candidates,
 };
@@ -43,7 +43,7 @@ fn context() -> DnsRuntimeContext {
 
 #[kani::proof]
 fn proof_dns_bundle_files_shape_is_stable() {
-    let files = dns_bundle_files();
+    let files = cynic_network::canonical_dns_bundle_files();
 
     assert_eq!(files.len(), 6);
     assert_eq!(files[0], SERVICE_DNS_COREFILE_FILENAME);

@@ -526,6 +526,18 @@ mod tests {
     }
 
     #[test]
+    fn mesh_service_wire_format_carries_plane() {
+        let service = NetworkMeshService {
+            name: "probe".to_string(),
+            port: Some(1),
+            protocol: "tcp".to_string(),
+            plane: Some("service".to_string()),
+        };
+        let value = serde_json::to_value(&service).expect("serialize mesh service");
+        assert_eq!(value["plane"], serde_json::json!("service"));
+    }
+
+    #[test]
     fn tailscale_is_refused_as_a_runtime_dependency() {
         let err = admit_mesh_provider("tailscale").expect_err("SaaS must not be admitted");
         assert!(err.contains("not operator-owned"), "{err}");
