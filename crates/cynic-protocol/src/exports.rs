@@ -95,5 +95,6 @@ pub use crate::tasks::*;
 pub use crate::temporal::*;
 pub use crate::transport_security::*;
 pub use crate::vcs::*;
+pub use crate::vocabulary::*;
 pub use crate::workload_identity::*;
 pub use crate::workload_signature::*;

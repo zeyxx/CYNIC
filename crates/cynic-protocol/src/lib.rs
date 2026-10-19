@@ -121,6 +121,7 @@ pub mod tasks;
 pub mod temporal;
 pub mod transport_security;
 pub mod vcs;
+pub mod vocabulary;
 pub mod window_journal;
 pub mod workload_identity;
 pub mod workload_signature;
