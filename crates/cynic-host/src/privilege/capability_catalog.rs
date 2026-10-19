@@ -99,13 +99,25 @@ impl CapabilityView {
     }
 }
 
-/// Resolve the catalog path, honouring the environment override used by the
-/// installer and the tests. Never guesses: an unset variable yields the
-/// repository-relative default.
+/// Resolve the catalog path.
+///
+/// Precedence: explicit env override, repo-relative default (developer
+/// checkouts), then the machine-wide `/etc/cynic/catalog.json` installed on
+/// hosts that run the privilege surface without a repo (e.g. the hypervisor).
+/// Fails closed only when the chosen file cannot be read.
 pub fn catalog_path_from_env() -> PathBuf {
-    std::env::var_os("CYNIC_CAPABILITY_CATALOG")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_CATALOG_PATH))
+    if let Some(explicit) = std::env::var_os("CYNIC_CAPABILITY_CATALOG") {
+        return PathBuf::from(explicit);
+    }
+    let repo_default = PathBuf::from(DEFAULT_CATALOG_PATH);
+    if repo_default.is_file() {
+        return repo_default;
+    }
+    let machine_default = PathBuf::from("/etc/cynic/catalog.json");
+    if machine_default.is_file() {
+        return machine_default;
+    }
+    repo_default
 }
 
 /// Resolve the installed-set path.

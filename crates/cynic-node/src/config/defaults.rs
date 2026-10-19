@@ -122,6 +122,14 @@ pub(super) fn default_stop_timeout_secs() -> u64 {
     10
 }
 
+pub(super) fn default_sccache_cache_dir() -> std::path::PathBuf {
+    std::path::PathBuf::from("/var/lib/cynic/sccache-cache")
+}
+
+pub(super) fn default_sccache_binary() -> String {
+    "sccache".to_string()
+}
+
 pub(super) fn default_watchdog_interval_secs() -> u64 {
     30
 }

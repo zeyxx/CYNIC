@@ -201,9 +201,9 @@ mod tests {
             .expect("guest bootstrap bundle");
 
         assert_eq!(report.status, "written");
-        assert!(out.join("host-exec-bundle/cynic-host-exec").is_file());
+        assert!(out.join("privilege-bundle/manifest.json").is_file());
         assert!(
-            out.join("host-exec-bundle/cynic-host-exec.sudoers")
+            out.join("privilege-bundle/privilege.sudoers")
                 .is_file()
         );
         assert!(out.join("install.sh").is_file());

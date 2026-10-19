@@ -84,6 +84,11 @@ Status: design for review. No code.
    PATH-dependent selection, documented as an operator note in
    `docs/specs/dns-dual-zone-bundle.md` (run DNS commands with the
    system PATH).
+   PATH-dependent selection (proven: the bundle emits CoreDNS config when
+   `dnsmasq` is not visible on the caller's `PATH`, even where dnsmasq is
+   installed). Rule: run DNS bundle/activate commands with the system
+   PATH (include `/usr/sbin`); bundle tests asserting provider-specific
+   files must sanitize `PATH` first.
 
 ## Acceptance
 

@@ -99,27 +99,33 @@ impl ArgvObservation {
     }
 }
 
-/// Canonical build-gate actions: `make:*` operator intents expand to the exact
-/// nested cargo gates the builder may execute. Pure mapping owned by the argv
-/// admission domain so build scheduling and source release share one source.
+/// Canonical build-gate actions: native `cargo:*` intents plus the audit
+/// actions. The retired `make:*` spellings are refused: they name Makefile
+/// targets that do not exist, so no argv they admit can execute. Pure
+/// mapping owned by the argv admission domain so build scheduling and
+/// source release share one source.
 pub fn canonical_build_actions(requested_action: &str) -> Result<Vec<String>, String> {
     match requested_action {
-        "make:check" => Ok(["make:check", "cargo:check", "cargo:run", "cargo:test"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build" => Ok(["make:build", "cargo:build"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
-        "make:build-release" => Ok(["make:build-release", "cargo:build"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()),
+        "cargo:check" => Ok(vec!["cargo:check".to_string()]),
+        "cargo:build" => Ok(vec!["cargo:build".to_string()]),
+        "cargo:build-release" => Ok(vec!["cargo:build-release".to_string()]),
+        "cargo:test" => Ok(vec!["cargo:test".to_string()]),
+        "cargo:run" => Ok(vec!["cargo:run".to_string()]),
+        "audit:crate" => Ok(vec!["audit:crate".to_string()]),
+        "audit:all" => Ok(vec!["audit:all".to_string()]),
         _ => Err(format!(
             "unsupported canonical build action: {requested_action}"
         )),
     }
+}
+
+/// True when `requested_action` is admitted by the canonical build-action
+/// policy above. Single source of truth for action admission: build
+/// scheduling, request composition, and release admission all consult this
+/// predicate, so a policy addition cannot be silently refused downstream
+/// (Task P missed the composition gate when adding the cargo actions).
+pub fn is_canonical_build_action(requested_action: &str) -> bool {
+    canonical_build_actions(requested_action).is_ok()
 }
 
 #[cfg(test)]
@@ -177,5 +183,70 @@ mod tests {
         assert_eq!(obs.schema, ARGV_OBSERVATION_SCHEMA);
         assert_eq!(obs.verdict, "would_deny");
         assert_eq!(obs.argv, vec!["rm", "-rf", "/x"]);
+    }
+
+    /// Task P: direct cargo actions are self-admitting (no make: wrapper).
+    #[test]
+    fn cargo_build_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build"),
+            Ok(vec!["cargo:build".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_build_release_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:build-release"),
+            Ok(vec!["cargo:build-release".to_string()])
+        );
+    }
+
+    #[test]
+    fn cargo_test_is_self_admitting() {
+        assert_eq!(
+            canonical_build_actions("cargo:test"),
+            Ok(vec!["cargo:test".to_string()])
+        );
+    }
+
+    #[test]
+    fn retired_make_spellings_are_refused() {
+        // `make:*` names Makefile targets that do not exist (the workspace
+        // has zero `^build` targets), so the actions they admit can never
+        // execute. Submit maps to the native `cargo:*` spellings; direct
+        // requests with the retired spellings are refused at admission.
+        for action in ["make:check", "make:build", "make:build-release"] {
+            assert!(
+                canonical_build_actions(action).is_err(),
+                "{action} must be refused"
+            );
+            assert!(
+                !is_canonical_build_action(action),
+                "{action} is not admitted by policy"
+            );
+        }
+    }
+
+    #[test]
+    fn admission_predicate_mirrors_policy_exactly() {
+        for action in [
+            "cargo:check",
+            "cargo:build",
+            "cargo:build-release",
+            "cargo:test",
+            "cargo:run",
+        ] {
+            assert!(
+                is_canonical_build_action(action),
+                "{action} is admitted by policy"
+            );
+        }
+        for action in ["cargo:deploy", "make:deploy", "bash -c make check", ""] {
+            assert!(
+                !is_canonical_build_action(action),
+                "{action} is not admitted by policy"
+            );
+        }
     }
 }

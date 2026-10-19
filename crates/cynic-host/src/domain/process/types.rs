@@ -180,6 +180,8 @@ mod tests {
         let status = classify_crashloop("cynic-node", &events, 60, CrashLoopParams::default());
         assert_eq!(status.level, ProcessHealth::CrashLoopBackoff);
         // Default window is 300s, so now=60 keeps every fixture event: 5, not 4.
+        // All 5 events sit inside the 300s window ([0, 60]): count events,
+        // not intervals.
         assert_eq!(status.restarts_in_window, 5);
         assert!(status.reason.is_some());
     }

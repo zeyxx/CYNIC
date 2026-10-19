@@ -390,6 +390,20 @@ pub(crate) enum RuntimeAgentCommand {
 pub(crate) enum RuntimeBuildCommand {
     /// 4-layer build artefact observation and GC (checkouts pressure).
     Artefact {
+        #[command(subcommand)]
+        command: RuntimeBuildArtefactCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum RuntimeBuildArtefactCommand {
+    /// Show observation (default).
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Plan and execute GC via the retention trio.
+    Gc {
         #[arg(long)]
         json: bool,
         #[arg(long)]
@@ -641,8 +655,17 @@ pub(crate) fn execute_runtime(command: RuntimeCommand) -> ExitCode {
                 },
         } => forgejo_token_cli::execute_forgejo_token(mode, json, yes, token_path.clone()),
         RuntimeCommand::Build {
-            command: RuntimeBuildCommand::Artefact { json, apply },
+            command:
+                RuntimeBuildCommand::Artefact {
+                    command: RuntimeBuildArtefactCommand::Gc { json, apply },
+                },
         } => build_artefact::execute_build_artefact(json, apply),
+        RuntimeCommand::Build {
+            command:
+                RuntimeBuildCommand::Artefact {
+                    command: RuntimeBuildArtefactCommand::Status { json },
+                },
+        } => build_artefact::execute_build_artefact_status(json),
         RuntimeCommand::Queue { json, apply } => queue::execute_queue(json, apply),
         // Disk and Network are pre-dispatched in compat_aliases: that module
         // already owned their handlers, and moving them here would have split

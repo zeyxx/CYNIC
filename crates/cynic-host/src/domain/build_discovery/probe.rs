@@ -296,15 +296,15 @@ mod tests {
 
     const SAMPLE: &str = r#"{
         "packages": [
-            {"name":"cynic-host","edition":"2024","targets":[
+            {"name":"cynic-host","edition":"2024","manifest_path":"/tmp/cynic-host/Cargo.toml","targets":[
                 {"name":"cynic-host","kind":["lib"]},
                 {"name":"mybin","kind":["bin"]}
             ]},
-            {"name":"cynic-protocol","edition":"2024","targets":[
+            {"name":"cynic-protocol","edition":"2024","manifest_path":"/tmp/cynic-protocol/Cargo.toml","targets":[
                 {"name":"cynic-protocol","kind":["lib"]},
                 {"name":"build","kind":["custom-build"]}
             ]},
-            {"name":"foo","edition":"2021","targets":[
+            {"name":"foo","edition":"2021","manifest_path":"/tmp/foo/Cargo.toml","targets":[
                 {"name":"foo-test","kind":["test"]}
             ]}
         ],

@@ -152,6 +152,10 @@
   {
    "id": "node_compute_provision",
    "path": "fragments/node_compute_provision.json"
+  },
+  {
+   "id": "audit_external",
+   "path": "fragments/audit_external.json"
   }
  ],
  "retired": [
@@ -162,7 +166,7 @@
   },
   {
    "id": "audit_node_host_boundary",
-   "reason": "merged into cynic node host-audit (refactor cli a2c32405)",
+   "reason": "merged into cynic node host audit (refactor cli a2c32405)",
    "path": "fragments/audit_node_host_boundary.json"
   },
   {

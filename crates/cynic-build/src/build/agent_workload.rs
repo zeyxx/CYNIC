@@ -190,7 +190,7 @@ pub fn compose_build_agent_workload(
     let policy_digest = digest_json(&serde_json::json!({
         "id": "build.repository_validation",
         "version": "v2",
-        "actions": ["make:check", "make:build", "make:build-release"],
+        "actions": ["cargo:check", "cargo:build", "cargo:build-release"],
         "authority": "runtime_principal",
     }))
     .map_err(|_| vec!["build_agent_workload_policy_digest_failed".to_string()])?;
@@ -222,6 +222,8 @@ pub fn compose_build_agent_workload(
         idempotency_key: format!("build-request-{short}"),
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
+        source_commit: Some(request.source_commit.clone()),
+        branch: request.branch.clone(),
         input: Some(AgentWorkloadInput {
             schema: AGENT_WORKLOAD_INPUT_SCHEMA.to_string(),
             kind: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
@@ -363,6 +365,7 @@ mod tests {
             request_id: "validate-abc".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -371,7 +374,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "audit:crate".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -386,7 +389,19 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(envelope.action.argv, vec!["make", "check"]);
+        assert_eq!(
+            envelope.action.argv,
+            vec![
+                "cargo",
+                "run",
+                "-q",
+                "-p",
+                "cynic-cli",
+                "--",
+                "audit",
+                "crate"
+            ]
+        );
         assert_eq!(envelope.delegation.node_id, "cynic-builder");
         assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
         assert_eq!(
@@ -408,6 +423,7 @@ mod tests {
             request_id: "validate-abc".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -416,7 +432,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -449,6 +465,7 @@ mod tests {
             request_id: "validate-snapshot".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -457,7 +474,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: Some(snapshot.clone()),
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["source_snapshot_digest_read_back".to_string()],
@@ -505,6 +522,7 @@ mod tests {
             request_id: "validate-tamper".to_string(),
             requested_by: "codex-session-1".to_string(),
             source_commit: "a".repeat(40),
+            branch: None,
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -513,7 +531,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:check".to_string(),
+            action: "cargo:check".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec!["canonical_gate_report".to_string()],
@@ -527,10 +545,81 @@ mod tests {
         )
         .unwrap();
         envelope.input.as_mut().unwrap().payload["action"] =
-            serde_json::Value::String("make:build-release".to_string());
+            serde_json::Value::String("cargo:build-release".to_string());
 
         assert!(!cynic_workload::admit_agent_workload(&envelope).admitted());
         assert!(build_agent_request_from_workload(&envelope).is_err());
+    }
+
+    #[test]
+    fn compose_fills_source_commit_and_branch_from_request() {
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "validate-branch".to_string(),
+            requested_by: "codex-session-1".to_string(),
+            source_commit: "a".repeat(40),
+            branch: Some("feature/scheduler-truths".to_string()),
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
+            },
+            action: "cargo:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
+            evidence_refs: vec!["forgejo:refs/heads/feature/scheduler-truths@aaaaaaaa".to_string()],
+        };
+
+        let envelope = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            "/var/lib/cynic/source/workspaces/build-test",
+        )
+        .unwrap();
+
+        assert_eq!(envelope.source_commit, Some(request.source_commit.clone()));
+        assert_eq!(envelope.branch, Some("feature/scheduler-truths".to_string()));
+    }
+
+    #[test]
+    fn legacy_none_source_commit_and_branch_still_verify() {
+        let request = BuildAgentRequest {
+            schema: BUILD_AGENT_REQUEST_SCHEMA.to_string(),
+            request_id: "validate-legacy".to_string(),
+            requested_by: "codex-session-1".to_string(),
+            source_commit: "a".repeat(40),
+            branch: None,
+            source: crate::BuildSourceReference {
+                schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
+                repository_id: "cynic".to_string(),
+                transport_uri: "ssh://forgejo@forgejo.service.cynic:22/owner/CYNIC.git".into(),
+                revision: "a".repeat(40),
+                authority_ref: "infra/repo-remotes.json:forgejo".into(),
+                snapshot: None,
+            },
+            action: "cargo:check".to_string(),
+            desired_role: "build_runner".to_string(),
+            mutation_authorized: true,
+            proof_requirements: vec!["canonical_gate_report".to_string()],
+            release_publication: None,
+            evidence_refs: vec!["forgejo:refs/heads/change@aaaaaaaa".to_string()],
+        };
+
+        let envelope = compose_build_agent_workload(
+            &request,
+            "cynic-builder",
+            "/var/lib/cynic/source/workspaces/build-test",
+        )
+        .unwrap();
+
+        assert_eq!(envelope.source_commit, Some(request.source_commit.clone()));
+        assert_eq!(envelope.branch, None);
+        assert!(cynic_workload::admit_agent_workload(&envelope).admitted());
     }
 
     #[test]
@@ -540,6 +629,7 @@ mod tests {
             request_id: "release-abc".to_string(),
             requested_by: "release-controller".to_string(),
             source_commit: "b".repeat(40),
+            branch: None,
             source: crate::BuildSourceReference {
                 schema: crate::BUILD_SOURCE_REFERENCE_SCHEMA.to_string(),
                 repository_id: "cynic".to_string(),
@@ -548,7 +638,7 @@ mod tests {
                 authority_ref: "infra/repo-remotes.json:forgejo".into(),
                 snapshot: None,
             },
-            action: "make:build-release".to_string(),
+            action: "cargo:build-release".to_string(),
             desired_role: "build_runner".to_string(),
             mutation_authorized: true,
             proof_requirements: vec![
@@ -570,7 +660,7 @@ mod tests {
         )
         .expect("release workload");
 
-        assert_eq!(envelope.action.argv, vec!["make", "build-release"]);
+        assert_eq!(envelope.action.argv, vec!["cargo", "build", "--release"]);
         assert_eq!(envelope.delegation.budget.actions, 2);
         assert_eq!(
             build_agent_request_from_workload(&envelope).unwrap(),

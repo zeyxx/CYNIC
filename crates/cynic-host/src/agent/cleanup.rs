@@ -169,6 +169,7 @@ mod tests {
                  cynic_lifecycle::ArgvOutput {
                      exit_code: Some(0),
                      stdout: "Filesystem 1B-blocks Used Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0 42949672960 42949672960 0 100% /".to_string(),
+                     stdout: "Filesystem                        1B-blocks         Used    Available Use% Mounted on\n/dev/mapper/pve-vm--105--disk--0   42949672960   42949672960     0 100% /".to_string(),
                      stderr: String::new(),
                      spawn_error: None,
                  }),

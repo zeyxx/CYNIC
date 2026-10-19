@@ -286,40 +286,59 @@ pub fn validate_build_workload_grant(
 pub fn canonical_build_action_from_argv(argv: &[String]) -> Option<&'static str> {
     match argv {
         [program, target] if program == "make" && target == "check" => Some("make:check"),
+        // Native audit argv resolves to the canonical name, not the alias:
+        // the action says what runs, `make:check` survives only as input.
+        [program, run, _q, _p, _cli, _dd, audit, crate_]
+            if program == "cargo"
+                && run == "run"
+                && audit == "audit"
+                && crate_ == "crate" =>
+        {
+            Some("audit:crate")
+        }
+        [program, run, _q, _p, _cli, _dd, audit, all_]
+            if program == "cargo" && run == "run" && audit == "audit" && all_ == "all" =>
+        {
+            Some("audit:all")
+        }
+        [program, tool, _ws, _targets]
+            if program == "cargo" && tool == "clippy" =>
+        {
+            Some("cargo:clippy")
+        }
+        [program, tool, _all, _check]
+            if program == "cargo" && tool == "fmt" =>
+        {
+            Some("cargo:fmt-check")
+        }
         [program, target] if program == "make" && target == "build" => Some("make:build"),
         [program, target] if program == "make" && target == "build-release" => {
             Some("make:build-release")
         }
         [program, target, ..] if program == "cargo" && target == "check" => Some("cargo:check"),
+        [program, target] if program == "cargo" && target == "build" => Some("cargo:build"),
         [program, target, release]
             if program == "cargo" && target == "build" && release == "--release" =>
         {
-            Some("cargo:build")
+            Some("cargo:build-release")
         }
+        [program, target, ..] if program == "cargo" && target == "test" => Some("cargo:test"),
         _ => None,
     }
 }
 
 /// Translate a canonical build action into its argv representation.
 ///
-/// Inverse of [`canonical_build_action_from_argv`] for the 5 actions that have
-/// a deterministic argv form. Returns `None` for actions admitted by policy
-/// (`cargo:run`, `cargo:test`, `make:build-host-exec`) that have no canonical
-/// argv — this asymmetry is the bounded-action gap measured in the build
-/// workflow audit: policy admits verbs the executor cannot construct.
+/// Single reader of `infra/command-registry.json` (via
+/// `cynic_protocol::command_registry`): the argv a builder executes for an
+/// action is data, declared exactly once in the registry. Inverse of
+/// [`canonical_build_action_from_argv`] for the actions the registry
+/// composes. Returns `None` for actions the registry does not compose
+/// (unwired `cargo:run`, retired `make:*`, unknown actions) — this asymmetry
+/// is the bounded-action gap measured in the build workflow audit: policy
+/// admits verbs the executor cannot construct.
 pub fn canonical_argv_from_build_action(action: &str) -> Option<Vec<String>> {
-    match action {
-        "make:check" => Some(vec!["make".to_string(), "check".to_string()]),
-        "make:build" => Some(vec!["make".to_string(), "build".to_string()]),
-        "make:build-release" => Some(vec!["make".to_string(), "build-release".to_string()]),
-        "cargo:check" => Some(vec!["cargo".to_string(), "check".to_string()]),
-        "cargo:build" => Some(vec![
-            "cargo".to_string(),
-            "build".to_string(),
-            "--release".to_string(),
-        ]),
-        _ => None,
-    }
+    cynic_protocol::command_registry::registry_argv(action)
 }
 
 fn is_commit_id(value: &str) -> bool {
@@ -377,38 +396,94 @@ mod action_tests {
     /// Invariant: every action the forward translator produces must round-trip
     /// through the reverse translator. If this fails, policy can admit a verb
     /// whose argv cannot be constructed — the bounded-action gap.
+    /// The forward set is the registry's composed set: this test locks
+    /// composition to `infra/command-registry.json`, so a registry edit
+    /// without a matching reverse reader fails here, not in production.
     #[test]
     fn every_translatable_argv_roundtrips_through_its_action() {
-        let actions = [
-            "make:check",
-            "make:build",
-            "make:build-release",
-            "cargo:check",
-            "cargo:build",
-        ];
-        for action in actions {
+        let actions = cynic_protocol::command_registry::registry_composed_actions()
+            .expect("registry parses");
+        assert!(
+            !actions.is_empty(),
+            "registry must compose at least one action"
+        );
+        for action in &actions {
             let argv = canonical_argv_from_build_action(action)
                 .unwrap_or_else(|| panic!("action {action} must be translatable"));
             let roundtripped = canonical_build_action_from_argv(&argv);
             assert_eq!(
                 roundtripped,
-                Some(action),
+                Some(action.as_str()),
                 "argv for {action} did not round-trip: got {roundtripped:?}"
             );
         }
     }
-
     /// Invariant: actions admitted by policy that have no canonical argv must
     /// return `None`. These are the known gaps; this test pins them so that
     /// adding a translation does not silently leave the gap.
     #[test]
     fn untranslatable_admitted_actions_return_none() {
-        for action in ["cargo:run", "cargo:test", "make:build-host-exec"] {
+        for action in ["cargo:run", "make:build-host-exec"] {
             assert_eq!(
                 canonical_argv_from_build_action(action),
                 None,
                 "action {action} is admitted by policy but has no argv"
             );
         }
+    }
+
+    /// Task P: cargo build (debug) is a distinct canonical action from
+    /// cargo build --release. The old mapping collapsed both into
+    /// "cargo:build" (release), making debug builds impossible to express.
+    #[test]
+    fn cargo_build_without_release_maps_to_cargo_build() {
+        assert_eq!(
+            canonical_build_action_from_argv(&["cargo".to_string(), "build".to_string()]),
+            Some("cargo:build")
+        );
+    }
+
+    #[test]
+    fn cargo_build_release_maps_to_cargo_build_release() {
+        assert_eq!(
+            canonical_build_action_from_argv(&[
+                "cargo".to_string(),
+                "build".to_string(),
+                "--release".to_string()
+            ]),
+            Some("cargo:build-release")
+        );
+    }
+
+    #[test]
+    fn cargo_test_maps_to_cargo_test() {
+        assert_eq!(
+            canonical_build_action_from_argv(&["cargo".to_string(), "test".to_string()]),
+            Some("cargo:test")
+        );
+    }
+
+    #[test]
+    fn cargo_build_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:build").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "build"]);
+        assert_eq!(canonical_build_action_from_argv(&argv), Some("cargo:build"));
+    }
+
+    #[test]
+    fn cargo_build_release_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:build-release").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "build", "--release"]);
+        assert_eq!(
+            canonical_build_action_from_argv(&argv),
+            Some("cargo:build-release")
+        );
+    }
+
+    #[test]
+    fn cargo_test_argv_roundtrips() {
+        let argv = canonical_argv_from_build_action("cargo:test").expect("translatable");
+        assert_eq!(argv, vec!["cargo", "test"]);
+        assert_eq!(canonical_build_action_from_argv(&argv), Some("cargo:test"));
     }
 }

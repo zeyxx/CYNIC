@@ -50,7 +50,7 @@ fn execute_with_runner(
         .and_then(|value| value.get(&profile))
         .cloned();
     let policy_allows = allowed.is_some();
-    let observation_output = runner.run(&[node_bin, "network", "actuation-observation", "--json"]);
+    let observation_output = runner.run(&[node_bin, "network", "actuation", "observation", "--json"]);
     let mut observation = if observation_output.success() {
         serde_json::from_str::<crate::network_actuation::NetworkActuationObservation>(
             observation_output.stdout.trim(),
@@ -167,7 +167,8 @@ fn execute_with_runner(
                     observation_argv: vec![
                         node_bin.to_string(),
                         "network".to_string(),
-                        "actuation-observation".to_string(),
+                        "actuation".to_string(),
+                        "observation".to_string(),
                         "--json".to_string(),
                     ],
                 },

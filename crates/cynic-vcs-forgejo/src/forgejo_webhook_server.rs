@@ -341,6 +341,7 @@ fn respond_json(stream: &mut TcpStream, result: &WebhookTriggerResult) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hmac::KeyInit;
 
     fn valid_sha() -> String {
         "a".repeat(40)

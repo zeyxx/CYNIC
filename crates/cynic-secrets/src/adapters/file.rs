@@ -449,7 +449,7 @@ mod tests {
     /// Point every seed source at a fresh file holding `seed`, so the test never
     /// depends on the host's real principal seed.
     fn seed_via_file(guard: &MutexGuard<'_, ()>, seed: &str) -> PathBuf {
-        let _ = guard;
+        let _guard = guard;
         let path = std::env::temp_dir().join(format!("cynic-seed-{}", seed.len()));
         std::fs::write(&path, seed).expect("write seed");
         unsafe {
@@ -542,6 +542,6 @@ mod tests {
                 "a missing principal seed must fail closed, never derive a key"
             );
         }
-        let _ = guard;
+        let _guard = guard;
     }
 }

@@ -66,6 +66,8 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
         idempotency_key: "validate-commit-a".to_string(),
         plan_digest: plan_digest.clone(),
         mandate_binding: None,
+        source_commit: None,
+        branch: None,
         input: None,
         action,
         delegation: AgentDelegationEnvelope {
@@ -120,7 +122,7 @@ pub(super) fn test_envelope() -> AgentWorkloadEnvelope {
             explicit_apply: true,
             satisfied_preconditions: vec!["source_commit_observed".to_string()],
         },
-        resource_budget: None,
+        resource_budget: Some(cynic_protocol::resource_budget::ResourceBudget::default()),
     }
 }
 

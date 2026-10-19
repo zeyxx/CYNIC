@@ -435,7 +435,10 @@ impl ProxmoxControlAdapter {
         if upid.is_empty()
             || upid.len() > 512
             || !upid.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b':' | b'-' | b'_' | b'.')
+                // Real UPIDs carry the task owner (`user@realm` or
+                // `user@realm!token`), so `@` and `!` are legitimate.
+                byte.is_ascii_alphanumeric()
+                    || matches!(byte, b':' | b'-' | b'_' | b'.' | b'@' | b'!')
             })
         {
             return Err("invalid Proxmox task id".to_string());
@@ -564,6 +567,140 @@ impl ProxmoxControlAdapter {
         }))
     }
 
+    /// Clone a versioned template guest. Same receipt shape as
+    /// `provision_lxc`, plus `cloned_from` and `ttl_hours`. The template
+    /// must have passed `template_hygiene_blockers` — callers refuse on any
+    /// blocker before attempting HTTP.
+    pub async fn clone_lxc(
+        &self,
+        node: &str,
+        template_vmid: u32,
+        vmid: u32,
+        hostname: &str,
+        ttl_hours: u32,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", &vmid.to_string())?;
+        validate_provider_component("vmid", &template_vmid.to_string())?;
+        let ttl = validate_clone_ttl_hours(ttl_hours)?;
+        let form = build_clone_form(template_vmid, vmid, hostname, node);
+        let form_refs: Vec<(&str, String)> = form;
+        let payload = self
+            .post_form_json(
+                &format!("/api2/json/nodes/{node}/lxc/{template_vmid}/clone"),
+                &form_refs,
+            )
+            .await?;
+        let upid = payload["data"]
+            .as_str()
+            .ok_or_else(|| "Proxmox lxc clone response omitted data.upid".to_string())?;
+        self.wait_for_task(node, upid, timeout).await?;
+        Ok(json!({
+            "status": "completed",
+            "provider": "proxmox_lxc_clone",
+            "node": node,
+            "vmid": vmid,
+            "cloned_from": template_vmid,
+            "ttl_hours": ttl,
+            "upid": upid,
+        }))
+    }
+
+    /// Convert a stopped, hygiene-clean builder into a versioned template:
+    /// stop (polled), `POST .../template`, then config read-back proving
+    /// `template: 1`. Fails closed at every step; the caller must have
+    /// passed `template_hygiene_blockers` first.
+    pub async fn convert_template(
+        &self,
+        node: &str,
+        builder_vmid: u32,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", &builder_vmid.to_string())?;
+        let stop_payload = self
+            .post_form_json(
+                &format!("/api2/json/nodes/{node}/lxc/{builder_vmid}/status/stop"),
+                &[],
+            )
+            .await?;
+        let stop_upid = stop_payload["data"]
+            .as_str()
+            .ok_or_else(|| "Proxmox lxc stop response omitted data.upid".to_string())?;
+        self.wait_for_task(node, stop_upid, timeout).await?;
+        self.post_form_json(
+            &format!("/api2/json/nodes/{node}/lxc/{builder_vmid}/template"),
+            &[],
+        )
+        .await?;
+        let config = self.lxc_config(node, &builder_vmid.to_string()).await?;
+        if config["data"]["template"] != 1 {
+            return Err("proxmox_template_unverified:config_missing_template_flag".to_string());
+        }
+        Ok(json!({
+            "status": "completed",
+            "provider": "proxmox_lxc_template",
+            "node": node,
+            "vmid": builder_vmid,
+            "template": 1,
+        }))
+    }
+
+    /// List LXC guests on a node: `GET /nodes/{node}/lxc`. Returns the raw
+    /// envelope (`data` = array of `{vmid, name, status, template?}`).
+    pub async fn list_lxc(&self, node: &str) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        self.get_json(&format!("/api2/json/nodes/{node}/lxc")).await
+    }
+
+    /// Destroy a guest: stop (polled), `DELETE`, then verify absence via
+    /// config read-back (HTTP 500/absence = gone). Refusing to destroy a
+    /// template is the caller's job (sweep planner skips them).
+    pub async fn destroy_lxc(
+        &self,
+        node: &str,
+        vmid: u32,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        validate_provider_component("node", node)?;
+        validate_provider_component("vmid", &vmid.to_string())?;
+        match self
+            .post_form_json(
+                &format!("/api2/json/nodes/{node}/lxc/{vmid}/status/stop"),
+                &[],
+            )
+            .await
+        {
+            Ok(stop_payload) => {
+                if let Some(upid) = stop_payload["data"].as_str() {
+                    self.wait_for_task(node, upid, timeout).await?;
+                }
+            }
+            // A stopped guest is already in the desired state; anything
+            // else aborts the destroy.
+            Err(error) if error.contains("not running") => {}
+            Err(error) => return Err(error),
+        }
+        let delete_payload = self
+            .delete_json(&format!("/api2/json/nodes/{node}/lxc/{vmid}"))
+            .await?;
+        // Destroy is asynchronous when PVE returns a UPID task; wait for it
+        // before verifying absence, otherwise the read-back races the task.
+        if let Some(upid) = delete_payload["data"].as_str() {
+            self.wait_for_task(node, upid, timeout).await?;
+        }
+        match self.lxc_config(node, &vmid.to_string()).await {
+            Ok(_) => Err("proxmox_destroy_unverified:guest_still_present".to_string()),
+            Err(_) => Ok(json!({
+                "status": "completed",
+                "provider": "proxmox_lxc_destroy",
+                "node": node,
+                "vmid": vmid,
+            })),
+        }
+    }
+
     /// Poll a Proxmox UPID task until it stops. Returns Ok on `exitstatus`
     /// `OK`, Err on any other exit status, unknown status shape, or timeout.
     async fn wait_for_task(&self, node: &str, upid: &str, timeout: Duration) -> Result<(), String> {
@@ -665,6 +802,17 @@ impl ProxmoxControlAdapter {
         response_json(response, path).await
     }
 
+    async fn delete_json(&self, path: &str) -> Result<Value, String> {
+        let response = self
+            .client
+            .delete(format!("{}{}", self.base_url, path))
+            .header("Authorization", self.auth_header())
+            .send()
+            .await
+            .map_err(|error| format!("Proxmox API DELETE {path} failed: {error}"))?;
+        response_json(response, path).await
+    }
+
     async fn post_form_json(&self, path: &str, form: &[(&str, String)]) -> Result<Value, String> {
         let response = self
             .client
@@ -707,6 +855,53 @@ impl ProxmoxControlAdapter {
     ) -> Result<(), String> {
         Err("proxmox_credential_revocation_requires_rotation_authority".to_string())
     }
+}
+
+/// Pure builder for `POST /nodes/{node}/lxc/{template}/clone` form params.
+/// Zero I/O; unit-tested.
+pub fn build_clone_form(
+    _template_vmid: u32,
+    new_vmid: u32,
+    hostname: &str,
+    node: &str,
+) -> Vec<(&'static str, String)> {
+    vec![
+        ("newid", new_vmid.to_string()),
+        ("hostname", hostname.to_string()),
+        ("target", node.to_string()),
+    ]
+}
+
+/// Pure hygiene gate for template conversion: given the file paths observed
+/// on the builder, return named blockers. Empty means clean. The build key
+/// (`/home/cynic/.ssh/authorized_keys`) is the only permitted key file.
+pub fn template_hygiene_blockers(files: &[&str]) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if files.iter().any(|f| f.starts_with("/etc/cynic/secrets")) {
+        blockers.push("secrets_present:remove_before_template".to_string());
+    }
+    if files
+        .iter()
+        .any(|f| f.contains("authorized_keys") && *f != "/home/cynic/.ssh/authorized_keys")
+    {
+        blockers.push("extra_authorized_keys:only_build_key_permitted".to_string());
+    }
+    if files.iter().any(|f| f.contains(".bash_history") || f.contains(".zsh_history")) {
+        blockers.push("shell_history_present:clear_before_template".to_string());
+    }
+    blockers
+}
+
+/// Clone TTL in hours: must be positive and bounded (ephemeral by design,
+/// max 24 h without an explicit logged extension).
+pub fn validate_clone_ttl_hours(ttl: u32) -> Result<u32, String> {
+    if ttl == 0 {
+        return Err("clone_ttl_zero:ephemeral_requires_ttl".to_string());
+    }
+    if ttl > 24 {
+        return Err("clone_ttl_unbounded:max_24h".to_string());
+    }
+    Ok(ttl)
 }
 
 fn resolve_credential(path: &std::path::Path) -> Result<String, String> {
@@ -980,5 +1175,41 @@ mod tests {
             dev.unwrap_or_default(),
             "dev fallback must not equal production path"
         );
+    }
+
+    #[test]
+    fn clone_form_carries_target_identity() {
+        let form = super::build_clone_form(108, 111, "agent-111", "pve");
+        let get = |k: &str| {
+            form.iter()
+                .find(|(key, _)| *key == k)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(get("newid"), "111");
+        assert_eq!(get("hostname"), "agent-111");
+        assert_eq!(get("target"), "pve");
+    }
+
+    #[test]
+    fn hygiene_gate_blocks_secrets_and_extra_keys() {
+        let dirty = super::template_hygiene_blockers(&[
+            "/etc/cynic/secrets/gasdf/relay/mainnet.env",
+            "/root/.ssh/authorized_keys",
+            "/home/cynic/.ssh/authorized_keys",
+            "/root/.bash_history",
+        ]);
+        assert!(dirty.iter().any(|b| b.contains("secrets_present")));
+        assert!(dirty.iter().any(|b| b.contains("extra_authorized_keys")));
+        assert!(dirty.iter().any(|b| b.contains("shell_history_present")));
+        let clean = super::template_hygiene_blockers(&["/home/cynic/.ssh/authorized_keys"]);
+        assert!(clean.is_empty(), "clean builder must pass: {clean:?}");
+    }
+
+    #[test]
+    fn clone_ttl_must_be_positive_and_bounded() {
+        assert!(super::validate_clone_ttl_hours(0).is_err());
+        assert!(super::validate_clone_ttl_hours(25).is_err());
+        assert_eq!(super::validate_clone_ttl_hours(4).unwrap(), 4);
     }
 }

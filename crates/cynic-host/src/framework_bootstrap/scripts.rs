@@ -192,6 +192,7 @@ test -f "$NODE_CONTROL_CONFIG_TARGET"
 test -f "$NODE_SERVICE_TARGET"
 grep -F "ExecStart=$NODE_TARGET control --config $NODE_CONTROL_CONFIG_TARGET" "$NODE_SERVICE_TARGET" >/dev/null
 "$NODE_TARGET" registry-observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
+"$CLI_TARGET" node registry observation --json --registry "$REGISTRY_TARGET" > "$EVIDENCE_DIR/node-registry-observation.json"
 "$NODE_TARGET" control --config "$NODE_CONTROL_CONFIG_TARGET" --check > "$EVIDENCE_DIR/node-control-config-check.json"
 "#
     } else {

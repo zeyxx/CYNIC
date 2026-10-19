@@ -3,9 +3,38 @@ use std::process::ExitCode;
 
 use clap::Subcommand;
 
-use crate::{crate_audit, emit_json, fail, node_host_audit};
+use crate::{crate_audit, emit_json, external_audit, fail, node_host_audit};
 
 pub(crate) mod host_checks;
+
+#[derive(Subcommand)]
+pub(crate) enum AuditNodeCommand {
+    /// Audit node/host integration and commit ledger bounds.
+    Host {
+        #[arg(long)]
+        json: bool,
+        #[arg(long, default_value_t = 80)]
+        max_commits: usize,
+    },
+}
+
+pub(crate) fn execute_audit_node(command: &AuditNodeCommand) -> ExitCode {
+    match command {
+        AuditNodeCommand::Host { json, max_commits } => {
+            match node_host_audit::build_node_host_audit(*max_commits) {
+                Ok(report) => {
+                    if *json {
+                        emit_json(&report, false)
+                    } else {
+                        println!("Node host audit: ok");
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(error) => fail(error),
+            }
+        }
+    }
+}
 
 #[derive(Subcommand)]
 pub(crate) enum AuditCommand {
@@ -34,12 +63,10 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Audit node-host integration and commit ledger bounds.
-    NodeHost {
-        #[arg(long)]
-        json: bool,
-        #[arg(long, default_value_t = 80)]
-        max_commits: usize,
+    /// Audit node/host integration and commit ledger bounds (nested arm).
+    Node {
+        #[command(subcommand)]
+        command: AuditNodeCommand,
     },
     /// Audit declared filesystem paths against the observed working tree.
     Paths {
@@ -74,7 +101,7 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         observed: Option<String>,
     },
-    /// Run all dynamic audits (crates, secrets, node-host) and emit unified verdict.
+    /// Run all dynamic audits (crates, secrets, node host) and emit unified verdict.
     All {
         #[arg(long)]
         json: bool,
@@ -97,6 +124,13 @@ pub(crate) enum AuditCommand {
         json: bool,
         #[arg(long)]
         kind: Option<String>,
+    },
+    /// Read-back of the external (non-CYNIC) project registry (infra/external-projects.json).
+    External {
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        registry: Option<String>,
     },
 }
 
@@ -134,19 +168,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 }
             }
         }
-        AuditCommand::NodeHost { json, max_commits } => {
-            match node_host_audit::build_node_host_audit(*max_commits) {
-                Ok(report) => {
-                    if *json {
-                        emit_json(&report, false)
-                    } else {
-                        println!("Node host audit: ok");
-                        ExitCode::SUCCESS
-                    }
-                }
-                Err(error) => fail(error),
-            }
-        }
+        AuditCommand::Node { command } => execute_audit_node(command),
         AuditCommand::Branch { base, json } => {
             if !json {
                 return ExitCode::FAILURE;
@@ -302,6 +324,9 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
         }
         AuditCommand::Harness { json, kind } => {
             host_checks::execute_harness(*json, kind.as_deref())
+        }
+        AuditCommand::External { json, registry } => {
+            external_audit::execute(*json, registry.as_deref())
         }
     }
 }

@@ -210,6 +210,28 @@ pub enum NodeCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Compose a scheduler observation from live host capacity plus the
+    /// given budgets and lifecycle files. No decision, only evidence.
+    AgentSchedulerObserve {
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        scheduler_epoch: u64,
+        #[arg(long)]
+        step_id: String,
+        /// JSON file: {"limit": AgentBudget, "reserved": AgentBudget}.
+        #[arg(long)]
+        budgets: String,
+        /// JSON file: AgentWorkspaceLifecyclePlan.
+        #[arg(long)]
+        lifecycle: String,
+        /// Where to write the observation JSON. The load policy is read
+        /// from "<output>.load-policy.json".
+        #[arg(long)]
+        output: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Read one append-only node-local workload record.
     AgentWorkloadStatus {
         #[arg(long)]
@@ -368,6 +390,9 @@ pub async fn execute_node(command: NodeCommand) -> ExitCode {
         }
         NodeCommand::AgentSchedulerStep { observation, state_root, json: _ } => {
             agent::execute_agent_scheduler_step(&observation, &state_root)
+        }
+        NodeCommand::AgentSchedulerObserve { node_id, scheduler_epoch, step_id, budgets, lifecycle, output, json: _ } => {
+            agent::execute_agent_scheduler_observe(&node_id, scheduler_epoch, &step_id, &budgets, &lifecycle, &output)
         }
         NodeCommand::AgentWorkloadStatus { workload_id, state_root, json: _ } => {
             agent::execute_agent_workload_status(&workload_id, &state_root)

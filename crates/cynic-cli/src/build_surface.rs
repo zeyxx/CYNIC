@@ -3,20 +3,27 @@
 use clap::Subcommand;
 use cynic_types::paths::CynicPaths;
 
+mod archive;
+mod artifact;
 mod invoice;
 mod reclaim;
 mod runner;
 mod services;
 
 pub(crate) use invoice::BuildProofsCommand;
+pub(crate) use artifact::BuildArtifactCommand;
 pub(crate) use services::{BuildCredentialsCommand, BuildWebhookCommand, BuildWorkloadCommand};
 
 use invoice::{invoice_for_commit, list_proofs};
 use reclaim::{reclaim_build_cache_local, reclaim_build_cache_remote};
-use runner::{prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build};
+use runner::{
+    list_runners, prove_build, resolve_default_builder_url, run_build, submit_build, trigger_build,
+};
 use services::{provision_credentials, serve_webhook};
 
 use crate::workload_observation::{execute_list_workloads, execute_observe_workload};
+use archive::{ArchiveReport, archive_terminal_workloads};
+use artifact::{publish_artifact, pull_artifact, release_artifact};
 
 /// CLI arguments for the build surface.
 #[derive(Subcommand, Debug)]
@@ -56,7 +63,9 @@ pub(crate) enum BuildCommand {
         /// Optional single package scope. None = workspace.
         #[arg(long)]
         package: Option<String>,
-        /// Action to execute: check, test, build, build-release.
+        /// Action to execute: check (compiles), audit (crate audit), audit-all,
+        /// build, build-release, test. Names what runs; unknown verbs are refused.
+        /// Note: --package is currently ignored by every action (warned).
         #[arg(long, default_value = "check")]
         action: String,
         /// Agent or requester identifier.
@@ -84,6 +93,11 @@ pub(crate) enum BuildCommand {
         /// runner SSH target is resolved from the fleet registry.
         #[arg(long)]
         host: Option<String>,
+        /// Named runner (node id, name, or alias) from the fleet registry,
+        /// e.g. a compat builder. Ignored when --host is set; otherwise the
+        /// default `build_runner` role is used.
+        #[arg(long)]
+        runner: Option<String>,
         /// Path to the fleet registry JSON used for runner resolution.
         #[arg(long, default_value = "infra/registry.json")]
         registry: String,
@@ -117,6 +131,11 @@ pub(crate) enum BuildCommand {
     Proofs {
         #[command(subcommand)]
         command: BuildProofsCommand,
+    },
+    /// Publish or pull runtime artifacts with fail-closed digest verification.
+    Artifact {
+        #[command(subcommand)]
+        command: BuildArtifactCommand,
     },
     /// Aggregate pipeline proofs for one commit into a metabolic invoice.
     Invoice {
@@ -184,6 +203,30 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         target: Option<String>,
     },
+    /// List build runners declared in the fleet registry (read-only).
+    Runners {
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Path to the fleet registry JSON used for runner resolution.
+        #[arg(long, default_value = "infra/registry.json")]
+        registry: String,
+    },
+    /// Archive terminal workload records (dry-run + --apply).
+    Store {
+        /// Node state root.
+        #[arg(long, default_value = "/var/lib/cynic")]
+        state_root: String,
+        /// Minimum age in ms for a terminal record to be eligible.
+        #[arg(long, default_value_t = 86_400_000)]
+        older_than_ms: u64,
+        /// Execute the archive. Without this flag the surface only reports.
+        #[arg(long)]
+        apply: bool,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Reclaim the builder's reproducible build caches, per the policy declared
     /// in `infra/registry.json` (target_profile=debug, preserve release).
     Reclaim {
@@ -209,6 +252,34 @@ pub(crate) enum BuildCommand {
         #[arg(long)]
         json: bool,
     },
+}
+
+/// Render the archive report (JSON or text).
+fn render_archive_report(report: &ArchiveReport, json: bool) {
+    if json {
+        let text = serde_json::to_string_pretty(report)
+            .unwrap_or_else(|e| format!("{{\"error\": \"serialize: {e}\"}}"));
+        println!("{text}");
+    } else {
+        println!(
+            "archive — eligible={} applied={} mode={}",
+            report.eligible_count,
+            report.archived.len(),
+            if report.apply { "apply" } else { "dry-run" }
+        );
+        for e in &report.eligible {
+            println!("  eligible: {} (age {} ms)", e.workload_id, e.age_ms);
+        }
+        for a in &report.archived {
+            println!(
+                "  archived: {} -> {} (source absent: {})",
+                a.workload_id, a.archive_path, a.source_absent
+            );
+        }
+        if !report.apply {
+            println!("(dry-run — pass --apply to execute)");
+        }
+    }
 }
 
 /// Execute the build CLI command.
@@ -260,6 +331,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             commit,
             phase,
             host,
+            runner,
             registry,
             user,
             network_mode,
@@ -273,6 +345,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             &commit,
             &phase,
             host.as_deref(),
+            runner.as_deref(),
             &registry,
             &user,
             &network_mode,
@@ -296,6 +369,32 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 proof_log,
                 json,
             } => list_proofs(commit.as_deref(), limit, proof_log.as_deref(), json),
+        },
+        BuildCommand::Artifact { command } => match command {
+            BuildArtifactCommand::Publish {
+                artifact,
+                remote_path,
+                source_commit,
+                publisher,
+                output,
+                json,
+            } => publish_artifact(&artifact, &remote_path, &source_commit, &publisher, &output, json),
+            BuildArtifactCommand::Pull {
+                manifest,
+                url,
+                output,
+                token_file,
+                json,
+            } => pull_artifact(&manifest, &url, &output, &token_file, json),
+            BuildArtifactCommand::Release {
+                artifact,
+                manifest,
+                repo,
+                tag,
+                api_base,
+                token_file,
+                json,
+            } => release_artifact(&artifact, &manifest, &repo, &tag, &api_base, &token_file, json),
         },
         BuildCommand::Workload { command } => match command {
             BuildWorkloadCommand::Observe {
@@ -340,6 +439,7 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
                 _ => Err("build discover failed".to_string()),
             }
         }
+        BuildCommand::Runners { json, registry } => list_runners(&registry, json),
         BuildCommand::Proof {
             commit,
             package,
@@ -349,6 +449,20 @@ pub(crate) fn execute_build(command: BuildCommand) -> Result<(), String> {
             user,
             json,
         } => prove_build(&commit, package, &phase, filter, &host, &user, json),
+        BuildCommand::Store {
+            state_root,
+            older_than_ms,
+            apply,
+            json,
+        } => {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            let report = archive_terminal_workloads(&state_root, older_than_ms, now_ms, apply)?;
+            render_archive_report(&report, json);
+            Ok(())
+        }
         BuildCommand::Reclaim {
             node,
             registry,
