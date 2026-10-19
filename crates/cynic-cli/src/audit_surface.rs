@@ -153,8 +153,117 @@ pub(crate) enum AuditCommand {
         #[arg(long)]
         evidence_dir: Option<String>,
     },
+    /// Verify a machine-readable gate receipt artifact (audit the audit).
+    GateReceipt {
+        #[arg(long, default_value = "gate-receipt.json")]
+        path: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
+#[derive(serde::Serialize)]
+pub(crate) struct GateReceiptReport {
+    pub schema: &'static str,
+    pub path: String,
+    pub valid: bool,
+    pub verdict: Option<String>,
+    pub sha: Option<String>,
+    pub run_id: Option<String>,
+    pub gates: Option<serde_json::Value>,
+    pub errors: Vec<String>,
+}
+
+pub(crate) fn execute_gate_receipt(path: &str, json: bool) -> ExitCode {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(r) => r,
+        Err(e) => {
+            let report = GateReceiptReport {
+                schema: "cynic.audit.gate_receipt.v1",
+                path: path.to_string(),
+                valid: false,
+                verdict: None,
+                sha: None,
+                run_id: None,
+                gates: None,
+                errors: vec![format!("unreadable: {e}")],
+            };
+            if json {
+                crate::cli_json::emit_pretty_json(&report);
+            } else {
+                eprintln!("blocked: {}", report.errors.join("; "));
+            }
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let value: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(e) => {
+            let report = GateReceiptReport {
+                schema: "cynic.audit.gate_receipt.v1",
+                path: path.to_string(),
+                valid: false,
+                verdict: None,
+                sha: None,
+                run_id: None,
+                gates: None,
+                errors: vec![format!("invalid json: {e}")],
+            };
+            if json {
+                crate::cli_json::emit_pretty_json(&report);
+            } else {
+                eprintln!("blocked: {}", report.errors.join("; "));
+            }
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let mut errors = Vec::new();
+    for key in ["gate", "verdict", "sha", "run_id", "ts", "gates"] {
+        if value.get(key).is_none() {
+            errors.push(format!("missing field: {key}"));
+        }
+    }
+    let verdict = value.get("verdict").and_then(|v| v.as_str()).map(str::to_string);
+    let sha = value.get("sha").and_then(|v| v.as_str()).map(str::to_string);
+    let run_id = value.get("run_id").and_then(|v| v.as_str()).map(str::to_string);
+    let gates = value.get("gates").cloned();
+
+    if let Some(v) = &verdict {
+        if v != "PASS" && v != "FAIL" {
+            errors.push(format!("invalid verdict: {v}"));
+        }
+    }
+
+    let valid = errors.is_empty();
+    let report = GateReceiptReport {
+        schema: "cynic.audit.gate_receipt.v1",
+        path: path.to_string(),
+        valid,
+        verdict,
+        sha,
+        run_id,
+        gates,
+        errors: errors.clone(),
+    };
+
+    if json {
+        crate::cli_json::emit_pretty_json(&report);
+    } else if valid {
+        println!("gate-receipt: valid (verdict={})", report.verdict.clone().unwrap_or_default());
+    } else {
+        eprintln!("blocked: {}", report.errors.join("; "));
+    }
+
+    if valid && report.verdict.as_deref() == Some("PASS") {
+        ExitCode::SUCCESS
+    } else if valid {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::FAILURE
+    }
+}
 pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
     match command {
         AuditCommand::Crate { json } => {
@@ -371,6 +480,7 @@ pub(crate) fn execute_audit(command: &AuditCommand) -> ExitCode {
                 external_audit::execute(*json, registry.as_deref())
             }
         }
+        AuditCommand::GateReceipt { path, json } => execute_gate_receipt(path, *json),
     }
 }
 

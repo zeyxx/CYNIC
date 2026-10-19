@@ -6,6 +6,8 @@ use serde::Serialize;
 use std::path::Path;
 use std::process::ExitCode;
 
+mod divergence;
+mod mirrors;
 mod pr;
 mod release;
 mod release_deployment_cli;
@@ -18,8 +20,22 @@ pub(crate) use pr::PrCommand;
 use release::execute_release;
 use release_deployment_cli::execute_deploy;
 use sync::{execute_publish, execute_status, execute_sync};
+use crate::audit_surface::execute_gate_receipt;
+use mirrors::execute_mirrors;
 use worktree::execute_worktree;
 use worktree_allocation::execute_allocate_worktree;
+use divergence::execute_divergence;
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum SourceReceiptCommand {
+    /// Verify a machine-readable gate receipt artifact.
+    Verify {
+        #[arg(long, default_value = "gate-receipt.json")]
+        path: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum SourceCommand {
@@ -90,6 +106,23 @@ pub(crate) enum SourceCommand {
         #[arg(long)]
         restart_unit: Vec<String>,
     },
+    /// Compare Forgejo main vs GitHub main SHAs (read-only).
+    Divergence {
+        #[arg(long, default_value = ".")]
+        root: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List Forgejo push mirrors with last sync + errors (read-only).
+    Mirrors {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Verify a gate receipt artifact (read-only).
+    Receipt {
+        #[command(subcommand)]
+        command: SourceReceiptCommand,
+    },
     /// Plan the public projection of the private tree from contracts/publication.json.
     Publish {
         #[arg(long, default_value = ".")]
@@ -156,6 +189,11 @@ pub(crate) fn execute_source(command: SourceCommand) -> ExitCode {
             &restart_unit,
         ),
         SourceCommand::Publish { root, json } => execute_publish(Path::new(&root), json),
+        SourceCommand::Divergence { root, json } => execute_divergence(Path::new(&root), json),
+        SourceCommand::Mirrors { json } => execute_mirrors(Path::new("."), json),
+        SourceCommand::Receipt { command } => match command {
+            SourceReceiptCommand::Verify { path, json } => execute_gate_receipt(&path, json),
+        },
     }
 }
 

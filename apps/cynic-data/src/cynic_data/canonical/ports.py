@@ -17,8 +17,7 @@ class NormalizerPort(Protocol):
 
     The adapter, not the caller, decides what a session is:
       * Hermes     — a SQLite database; a session is a ``messages.session_id`` value
-      * Codex      — a directory of rollout JSONL files; a session is one file
-      * ClaudeCode — a directory tree of session JSONL files; a session is one file
+      (Codex, ClaudeCode retired T6, capsules in ``docs/specs/harness-*.md``.)
 
     The application layer never supplies session ids: where sessions live and what
     identifies one is harness knowledge that belongs to the adapter. Only the

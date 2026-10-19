@@ -124,6 +124,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic audit metrics [--profile <name>] [--node <name>] [--registry <path>] [--proof <path>] [--json]",
                     "cynic audit harness [--kind <name>] [--json]",
                     "cynic audit external [--json] [--registry <path>]",
+                    "cynic audit gate-receipt [--path <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -243,6 +244,9 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic source release [--root <path>] [--dry-run] [--apply] [--json]",
                     "cynic source sync [--root <path>] [--apply] [--json]",
                     "cynic source worktree [--root <path>] [--workspace-store <path>] [--apply] [--json]",
+                    "cynic source divergence [--root <path>] [--json]",
+                    "cynic source mirrors [--json]",
+                    "cynic source receipt verify [--path <path>] [--json]",
                 ],
             },
             CommandDomain {
@@ -298,7 +302,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
             },
             CommandDomain {
                 name: "federation",
-                commands: vec!["cynic federation status [--json]"],
+                commands: vec!["cynic federation status [--json]", "cynic federation enroll status [--json]"],
             },
             CommandDomain {
                 name: "mask",
@@ -321,6 +325,7 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build run --json",
                     "cynic build submit --json",
                     "cynic build trigger --commit <sha> [--phase check|build] [--package <pkg>] [--json]",
+                    "cynic build pool eligibility [--node <id>] [--observed-labels a,b] [--json]",
                     "cynic build proofs list [--commit <sha>] [--limit N] [--json]",
                     "cynic build invoice --json",
                     "cynic build proof --json",
@@ -330,6 +335,8 @@ pub(crate) fn commands_manifest() -> CommandsManifest {
                     "cynic build credentials provision --json",
                     "cynic build discover --json [--kind local|remote] [--target <ssh-target>]",
                     "cynic build reclaim --json",
+                    "cynic build runner-token [--json]",
+                    "cynic build runs [--json]",
                 ],
             },
             CommandDomain {
