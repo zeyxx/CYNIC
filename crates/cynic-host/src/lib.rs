@@ -37,6 +37,7 @@ pub mod fleet_memory_observer;
 pub mod fleet_network_observer;
 pub mod forgejo_control;
 pub mod framework_bootstrap;
+pub mod gc_surfaces;
 pub mod git_topology_observer;
 pub mod hardware_baseline;
 pub mod hardware_baseline_apply;

@@ -1,0 +1,85 @@
+{
+  "schema": "cynic.infra.gc_surfaces.v1",
+  "status": "normative",
+  "purpose": "Dynamic registry of garbage-collection surfaces agents actually use. Exists because the space_gc observer hardcoded repo target patterns while the 2026-10-19 operator disk audit measured 63G in /tmp/cynic-*, 25G in hermes scratch dirs, 20G in ~/.cache tool caches, 11.7G in kairos backups, and 6G in logs — none covered by any collector. Scanners read this file; an absent registry degrades to the compiled fallback, never to scanning everything.",
+  "authority_order": [
+    "observed runtime state",
+    "contracts/foundation.json",
+    "infra/runtime-authority.json",
+    "infra/directory-tree.json",
+    "infra/registry.json",
+    "workspace Cargo.toml",
+    "canonical Rust crates"
+  ],
+  "surfaces": [
+    {
+      "id": "tmp_scratch",
+      "kind": "tmp_scratch",
+      "roots": ["/tmp"],
+      "patterns": ["cynic-*", "verify-*", "sub-*"],
+      "max_age_secs": 172800,
+      "owner": "host",
+      "claim_gate": false,
+      "preserve": [],
+      "measured": "/tmp total 63G on 2026-10-19: cynic-workspaces 6.1G, cynic-wt-clone2-target 4.8G, cynic-task* 3.3G"
+    },
+    {
+      "id": "hermes_scratch",
+      "kind": "tmp_scratch",
+      "roots": ["/var/tmp/hermesroot/cache/scratch", "{HOME}/.hermes/cache/scratch"],
+      "patterns": ["cynic-traces-*", "pytest-of-*", "tmp*"],
+      "max_age_secs": 172800,
+      "owner": "host",
+      "claim_gate": false,
+      "preserve": [],
+      "measured": "/var/tmp/hermesroot/cache/scratch 17.5G (830 dirs), ~/.hermes/cache/scratch 7.4G (3x cynic-traces-t4 2G)"
+    },
+    {
+      "id": "agent_cache",
+      "kind": "agent_cache",
+      "roots": ["{HOME}/.cache", "{HOME}/.hermes/cache", "/var/tmp/hermesroot/cache/uv"],
+      "patterns": ["huggingface", "solana", "uv", "pip", "pnpm", "yarn", "playwright", "puppeteer", "node-gyp"],
+      "max_age_secs": 2592000,
+      "owner": "host",
+      "claim_gate": false,
+      "preserve": ["endpoint_model_metadata.json", "model_catalog.json"],
+      "measured": "~/.cache 20.6G (huggingface 6G, solana 3.2G, uv 3G), uv caches pruneable via cache prune not rm"
+    },
+    {
+      "id": "agent_backups",
+      "kind": "agent_cache",
+      "roots": ["{HOME}/.kairos/backups", "{HOME}/.hermes/backups", "{HOME}/.codex/packages"],
+      "patterns": ["*"],
+      "max_age_secs": 2592000,
+      "owner": "operator",
+      "claim_gate": true,
+      "preserve": ["latest"],
+      "measured": ".kairos/backups 11.7G, .codex/packages 8.6G, .hermes/backups 2.3G — operator retention decision required"
+    },
+    {
+      "id": "log_bundle",
+      "kind": "log_bundle",
+      "roots": ["/var/log", "{HOME}/.codex", "{HOME}/.hermes/logs"],
+      "patterns": ["kern.log.*", "ufw.log.*", "auth.log.*", "logs_*.sqlite*", "*.log"],
+      "max_age_secs": 1209600,
+      "owner": "host",
+      "claim_gate": false,
+      "preserve": ["active"],
+      "measured": "/var/log 4G (kern.log.1 603M), journal 2G, .codex/logs_2.sqlite 121M — mine before evict"
+    },
+    {
+      "id": "runtime_state",
+      "kind": "build_cache",
+      "roots": ["/var/lib/prometheus/metrics2", "/var/lib/cynic/staging"],
+      "patterns": ["*"],
+      "max_age_secs": 1209600,
+      "owner": "node",
+      "claim_gate": true,
+      "preserve": [],
+      "measured": "prometheus metrics2 5.1G — downsample retention, not blind rm"
+    }
+  ],
+  "fallback": {
+    "why": "A collector may run outside the repository root where infra/ is absent. The compiled fallback covers tmp_scratch + log_bundle only, so a missing registry degrades to today's safest subset instead of collecting operator backups."
+  }
+}
