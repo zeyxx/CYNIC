@@ -431,7 +431,30 @@
         "peer_numeric_drift_vs_compute_01": 0.002476,
         "observed_at": "2026-10-18"
       },
-      "note": "Cortex-overflow Forgejo runner registered 2026-10-19 (labels cynic/cortex-overflow), RAM-gated (on>=6G avail, off<4G). Currently OFF (3G avail)."
+      "note": "Cortex-overflow Forgejo runner registered 2026-10-19 (labels cynic/cortex-overflow), RAM-gated (on>=6G avail, off<4G). Currently OFF (3G avail).",
+      "pool": {
+        "labels": [
+          "cynic/cortex-overflow"
+        ],
+        "required_tools": [
+          {
+            "name": "git",
+            "min_version": null,
+            "required": true
+          },
+          {
+            "name": "cargo",
+            "min_version": null,
+            "required": true
+          },
+          {
+            "name": "rustc",
+            "min_version": null,
+            "required": true
+          }
+        ],
+        "note": "Overflow runner, RAM-gated (on >= 6G free, off < 4G). Cargo present but the host is RAM-loaded: it must not take a gate job."
+      }
     },
     {
       "id": "local-kernel",
@@ -702,7 +725,41 @@
         "enrolled_by": "forgejo-runner builder-119",
         "review_after": "2026-11-19"
       },
-      "note": "Forgejo runner builder-119 active, labels cynic/build,cynic/linux. 7+ gate runs (flakes under shared load, no content cause)."
+      "note": "Forgejo runner builder-119 active, labels cynic/build,cynic/linux. 7+ gate runs (flakes under shared load, no content cause).",
+      "pool": {
+        "labels": [
+          "cynic/build",
+          "cynic/linux"
+        ],
+        "required_tools": [
+          {
+            "name": "git",
+            "min_version": null,
+            "required": true
+          },
+          {
+            "name": "cargo",
+            "min_version": "1.95.0",
+            "required": true
+          },
+          {
+            "name": "rustc",
+            "min_version": null,
+            "required": true
+          },
+          {
+            "name": "node",
+            "min_version": "22.0.0",
+            "required": true
+          },
+          {
+            "name": "python3",
+            "min_version": null,
+            "required": true
+          }
+        ],
+        "note": "Builder-119 verified toolchain 2026-10-19: git, cargo 1.95.0, rustc, node v22.23.3, python3."
+      }
     },
     {
       "id": "cynic-lxc-embedding",
@@ -993,11 +1050,29 @@
       "energy_profile": {
         "class": "always_on"
       },
-      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet.",
+      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet. | 2026-10-19: runner labels reduced to cynic/compute-01 after it took a cynic/build job and failed the checkout (no node in PATH). NAT via cortex persisted in NetworkManager.",
       "enrollment": {
         "date": "2026-10-19",
         "enrolled_by": "hermes+cortex-nat",
         "review_after": "2026-11-19"
+      },
+      "pool": {
+        "labels": [
+          "cynic/compute-01"
+        ],
+        "required_tools": [
+          {
+            "name": "git",
+            "min_version": null,
+            "required": true
+          },
+          {
+            "name": "python3",
+            "min_version": null,
+            "required": true
+          }
+        ],
+        "note": "Capacity probe only: no cargo/rustc/node yet, so it must not serve cynic/build. Probed 2026-10-19: git+python3 present, cargo/rustc/node missing."
       }
     }
   ],
