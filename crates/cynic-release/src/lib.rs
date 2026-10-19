@@ -9,6 +9,7 @@
 pub mod adapters;
 pub mod build_proof;
 pub mod contracts;
+pub mod deploy;
 pub mod error;
 pub mod evaluator;
 pub mod ports;
@@ -17,6 +18,7 @@ pub mod types;
 pub use adapters::*;
 pub use build_proof::*;
 pub use contracts::*;
+pub use deploy::*;
 pub use error::*;
 pub use evaluator::*;
 pub use ports::*;
