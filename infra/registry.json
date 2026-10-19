@@ -430,7 +430,8 @@
         "measured_embed_throughput_texts_per_s": 120.3,
         "peer_numeric_drift_vs_compute_01": 0.002476,
         "observed_at": "2026-10-18"
-      }
+      },
+      "note": "Cortex-overflow Forgejo runner registered 2026-10-19 (labels cynic/cortex-overflow), RAM-gated (on>=6G avail, off<4G). Currently OFF (3G avail)."
     },
     {
       "id": "local-kernel",
@@ -550,7 +551,7 @@
       "name": "cynic-builder",
       "role": "build_runner",
       "host_family": "linux.ubuntu.systemd",
-      "status": "candidate",
+      "status": "observed",
       "deploy_target": true,
       "proxmox_id": "lxc/105",
       "boot_persistence": true,
@@ -695,7 +696,13 @@
           "Paths are durable under /opt; PATH wired via /usr/local/bin symlinks and /etc/profile.d/cynic-toolchains.sh.",
           "Provisioning is formalized here (SSOT) so future agents discover available toolchains without probing."
         ]
-      }
+      },
+      "enrollment": {
+        "date": "2026-10-19",
+        "enrolled_by": "forgejo-runner builder-119",
+        "review_after": "2026-11-19"
+      },
+      "note": "Forgejo runner builder-119 active, labels cynic/build,cynic/linux. 7+ gate runs (flakes under shared load, no content cause)."
     },
     {
       "id": "cynic-lxc-embedding",
@@ -941,19 +948,18 @@
       ],
       "role": "embedding_runner",
       "host_family": "linux.debian.systemd",
-      "status": "observed",
+      "status": "candidate",
       "deploy_target": true,
       "boot_persistence": true,
       "transports": {
         "ssh": {
-          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
-          "trust": "ssh_trust_anchor",
-          "principal": "titouan"
+          "target": "titouan@192.168.0.25",
+          "trust": "lan_password"
         }
       },
       "network": {
         "lan": "192.168.0.25",
-        "service": "192.168.0.25"
+        "service_via_nat": "10.10.10.0/24 via 192.168.0.11 (cortex)"
       },
       "observed_hardware": {
         "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
@@ -986,86 +992,13 @@
       ],
       "energy_profile": {
         "class": "always_on"
+      },
+      "note": "wifi-only, no RJ45. NAT via cortex (persisted NM routes). Forgejo runner compute-01 registered 2026-10-19, labels cynic/build,cynic/linux. Never picked a job yet.",
+      "enrollment": {
+        "date": "2026-10-19",
+        "enrolled_by": "hermes+cortex-nat",
+        "review_after": "2026-11-19"
       }
-    },
-    {
-      "id": "cynic-compute-01",
-      "name": "cynic-compute-01",
-      "aliases": [
-        "compute-01",
-        "trixie-apu"
-      ],
-      "role": "embedding_runner",
-      "host_family": "linux.debian.systemd",
-      "status": "observed",
-      "deploy_target": true,
-      "boot_persistence": true,
-      "transports": {
-        "ssh": {
-          "target": "cynic-compute-01.mgmt.cynic.home.arpa",
-          "trust": "ssh_trust_anchor",
-          "principal": "titouan"
-        }
-      },
-      "network": {
-        "lan": "192.168.0.25",
-        "service": "192.168.0.25"
-      },
-      "observed_hardware": {
-        "cpu": "AMD Ryzen 7 5700U with Radeon Graphics, 8 cores, 16 threads",
-        "operating_system": "Debian GNU/Linux 13 (trixie)",
-        "ram": "16 GB",
-        "gpu": "AMD Radeon Lucienne (Vulkan capable)"
-      },
-      "services": [
-        {
-          "name": "embedding-server",
-          "artifact": "llama-server",
-          "scheme": "http",
-          "endpoint_host": "192.168.0.25",
-          "port": 8080,
-          "network_plane": "lan",
-          "unit": "cynic-embedding-node.service",
-          "supervisor": {
-            "provider": "systemd-user"
-          },
-          "health": {
-            "kind": "http",
-            "url": "http://192.168.0.25:8080/health"
-          },
-          "model": "embeddinggemma-2-Q8_0.gguf",
-          "flags": "--embeddings -c 8192 --batch-size 2048 --ubatch-size 2048 -t 12 -ngl 99 -fa on --parallel 4",
-          "slot_law": "runner enforces n_ctx/--parallel tokens per input; -c 8192 --parallel 4 gives 2048-token slots",
-          "bench_endpoint": "http://192.168.0.25:8080/v1#slots=4",
-          "observed_ram": "15369 MB total, ~14139 MB available (measured 2026-10-15)"
-        }
-      ],
-      "energy_profile": {
-        "class": "always_on"
-      },
-      "observed_gpu_stack": {
-        "gpu": "AMD Lucienne APU",
-        "kernel": "6.12.111+deb13-amd64",
-        "mesa_vulkan_drivers": "26.1.6-1~bpo13+1",
-        "measured_embed_throughput_texts_per_s": 20.4,
-        "vulkan_compute_confirmed": true,
-        "note": "llama-server CPU ~20% under embed load on 2026-10-17; inference on GPU",
-        "observed_at": "2026-10-18 rebooted",
-        "peer_numeric_drift_vs_cortex": 0.001112
-      },
-      "maintenance_log": [
-        {
-          "date": "2026-10-18",
-          "action": "Mesa 25.0.7 -> 26.1.6 via trixie-backports + service restart",
-          "peer_numeric_drift_after": 0.002476,
-          "outcome": "drift unchanged bit-identical; drift is architectural (Vega vs Lucienne), not driver"
-        },
-        {
-          "date": "2026-10-18",
-          "action": "operator repowered laptop; 3-engine drift remeasured",
-          "outcome": "compute01/cortex 0.001112 (was 0.002476), compute01/lxc 0.002479, cortex/lxc 0.002476; drift is state-dependent, range 1-2.5e-3"
-        }
-      ]
     }
   ],
   "fleet_desired": {
